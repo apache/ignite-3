@@ -18,8 +18,11 @@ package org.apache.ignite.raft.jraft.option;
 
 import java.util.List;
 import java.util.concurrent.ExecutorService;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.raft.server.RaftGroupEventsListener;
+import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.raft.jraft.JRaftServiceFactory;
 import org.apache.ignite.raft.jraft.StateMachine;
 import org.apache.ignite.raft.jraft.conf.Configuration;
@@ -234,7 +237,10 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
     private StripedDisruptor<LogManagerImpl.StableClosureEvent> logManagerDisruptor;
 
     /** A hybrid clock */
-    private HybridClock clock = new HybridClock();
+    private HybridClock clock = new HybridClockImpl();
+
+    /** A container for safe time. */
+    private PendingComparableValuesTracker<HybridTimestamp> safeTimeTracker;
 
     /**
      * Amount of Disruptors that will handle the RAFT server.
@@ -597,6 +603,14 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
         this.clock = clock;
     }
 
+    public PendingComparableValuesTracker<HybridTimestamp> getSafeTimeTracker() {
+        return safeTimeTracker;
+    }
+
+    public void setSafeTimeTracker(PendingComparableValuesTracker<HybridTimestamp> safeTimeTracker) {
+        this.safeTimeTracker = safeTimeTracker;
+    }
+
     @Override
     public NodeOptions copy() {
         final NodeOptions nodeOptions = new NodeOptions();
@@ -633,6 +647,7 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
         nodeOptions.setRpcConnectTimeoutMs(this.getRpcConnectTimeoutMs());
         nodeOptions.setElectionTimeoutStrategy(this.getElectionTimeoutStrategy());
         nodeOptions.setClock(this.getClock());
+        nodeOptions.setSafeTimeTracker(this.getSafeTimeTracker());
 
         return nodeOptions;
     }

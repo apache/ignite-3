@@ -21,6 +21,7 @@ import static org.mockito.Mockito.mock;
 
 import java.util.concurrent.Flow.Publisher;
 import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -34,7 +35,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
  */
 @ExtendWith(MockitoExtension.class)
 public class ItInternalTableReadOnlyScanTest extends ItAbstractInternalTableScanTest {
-    private static final HybridClock CLOCK = new HybridClock();
+    private static final HybridClock CLOCK = new HybridClockImpl();
 
     /** {@inheritDoc} */
     @Override

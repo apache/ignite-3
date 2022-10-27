@@ -29,6 +29,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -42,6 +43,7 @@ import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.NodeStoppingException;
@@ -56,6 +58,7 @@ import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupServiceImpl;
 import org.apache.ignite.raft.jraft.util.Utils;
+import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
 /**
@@ -105,16 +108,37 @@ public class Loza implements IgniteComponent {
      * The constructor.
      *
      * @param clusterNetSvc Cluster network service.
+     * @param raftConfiguration Raft configuration.
      * @param dataPath      Data path.
      * @param clock         A hybrid logical clock.
      */
     public Loza(ClusterService clusterNetSvc, RaftConfiguration raftConfiguration, Path dataPath, HybridClock clock) {
+        this(clusterNetSvc, raftConfiguration, dataPath, clock, null);
+    }
+
+    /**
+     * The constructor.
+     *
+     * @param clusterNetSvc     Cluster network service.
+     * @param raftConfiguration Raft configuration.
+     * @param dataPath          Data path.
+     * @param clock             A hybrid logical clock.
+     * @param safeTimeTracker   Safe time tracker.
+     */
+    public Loza(
+            ClusterService clusterNetSvc,
+            RaftConfiguration raftConfiguration,
+            Path dataPath,
+            HybridClock clock,
+            @Nullable PendingComparableValuesTracker<HybridTimestamp> safeTimeTracker
+    ) {
         this.clusterNetSvc = clusterNetSvc;
         this.raftConfiguration = raftConfiguration;
 
         NodeOptions options = new NodeOptions();
 
         options.setClock(clock);
+        options.setSafeTimeTracker(safeTimeTracker);
 
         this.raftServer = new JraftServerImpl(clusterNetSvc, dataPath, options);
 

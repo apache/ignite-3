@@ -15,24 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.hlc;
+package org.apache.ignite.internal.replicator.message;
+
+import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * A Hybrid Logical Clock.
+ * Request that initiates safe time synchronization.
  */
-public interface HybridClock {
-    /**
-     * Creates a timestamp for new event.
-     *
-     * @return The hybrid timestamp.
-     */
-    HybridTimestamp now();
-
-    /**
-     * Creates a timestamp for a received event.
-     *
-     * @param requestTime Timestamp from request.
-     * @return The hybrid timestamp.
-     */
-    HybridTimestamp update(HybridTimestamp requestTime);
+@Transferable(ReplicaMessageGroup.SAFE_TIME_SYNC_REQUEST)
+public interface ReplicaSafeTimeSyncRequest extends ReplicaRequest {
 }

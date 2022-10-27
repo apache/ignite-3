@@ -32,6 +32,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BooleanSupplier;
 import java.util.function.Function;
 import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.replicator.ReplicaService;
@@ -106,7 +107,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
     @Override
     public void beforeFollowerStop(RaftGroupService service) throws Exception {
         // TODO: https://issues.apache.org/jira/browse/IGNITE-17817 Use Replica layer with new transaction protocol.
-        TxManagerImpl txManager = new TxManagerImpl(null, new HeapLockManager(), new HybridClock());
+        TxManagerImpl txManager = new TxManagerImpl(null, new HeapLockManager(), new HybridClockImpl());
 
         managers.add(txManager);
 
@@ -133,7 +134,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
     @Override
     public void afterFollowerStop(RaftGroupService service) throws Exception {
         // TODO: https://issues.apache.org/jira/browse/IGNITE-17817 Use Replica layer with new transaction protocol.
-        TxManagerImpl txManager = new TxManagerImpl(null, new HeapLockManager(), new HybridClock());
+        TxManagerImpl txManager = new TxManagerImpl(null, new HeapLockManager(), new HybridClockImpl());
 
         managers.add(txManager);
 
@@ -166,7 +167,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
     @Override
     public void afterSnapshot(RaftGroupService service) throws Exception {
         // TODO: https://issues.apache.org/jira/browse/IGNITE-17817 Use Replica layer with new transaction protocol.
-        TxManager txManager = new TxManagerImpl(null, new HeapLockManager(), new HybridClock());
+        TxManager txManager = new TxManagerImpl(null, new HeapLockManager(), new HybridClockImpl());
 
         managers.add(txManager);
 
@@ -228,7 +229,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                 .map(Map.Entry::getKey)
                 .findAny()
                 .orElseGet(() -> {
-                    TxManagerImpl txManager = new TxManagerImpl(null, new HeapLockManager(), new HybridClock());
+                    TxManagerImpl txManager = new TxManagerImpl(null, new HeapLockManager(), new HybridClockImpl());
 
                     txManager.start(); // Init listener.
 

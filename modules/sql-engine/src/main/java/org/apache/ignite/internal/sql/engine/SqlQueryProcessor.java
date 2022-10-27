@@ -43,7 +43,7 @@ import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.calcite.util.Pair;
-import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.index.event.IndexEvent;
@@ -390,7 +390,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                 })
                 .thenCompose(sqlNode -> {
                     final boolean rwOp = dataModificationOp(sqlNode);
-                    final HybridTimestamp txTime = outerTx != null ? outerTx.readTimestamp() : rwOp ? null : new HybridClock().now();
+                    final HybridTimestamp txTime = outerTx != null ? outerTx.readTimestamp() : rwOp ? null : new HybridClockImpl().now();
 
                     BaseQueryContext ctx = BaseQueryContext.builder()
                             .frameworkConfig(

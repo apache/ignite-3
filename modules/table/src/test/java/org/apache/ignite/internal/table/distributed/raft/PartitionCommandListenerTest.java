@@ -39,6 +39,7 @@ import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -93,7 +94,7 @@ public class PartitionCommandListenerTest {
     );
 
     /** Hybrid clock. */
-    private static final HybridClock CLOCK = new HybridClock();
+    private static final HybridClock CLOCK = new HybridClockImpl();
 
     /** Table command listener. */
     private PartitionListener commandListener;
@@ -130,7 +131,7 @@ public class PartitionCommandListenerTest {
         commandListener = new PartitionListener(
                 mvPartitionStorage,
                 new TestConcurrentHashMapTxStateStorage(),
-                new TxManagerImpl(replicaService, new HeapLockManager(), new HybridClock()),
+                new TxManagerImpl(replicaService, new HeapLockManager(), new HybridClockImpl()),
                 () -> Map.of(pkStorage.id(), pkStorage)
         );
     }
