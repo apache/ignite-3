@@ -23,6 +23,7 @@ using System.Threading.Tasks;
 using Ignite.Table;
 using Internal.Proto;
 using NUnit.Framework;
+using NUnit.Framework.Internal;
 
 /// <summary>
 /// Tests partition awareness.
@@ -269,17 +270,25 @@ public class PartitionAwarenessTests
     }
 
     [Test]
-    public async Task TestCustomColocationKey()
+    public async Task TestCompositeKey()
     {
         using var client = await GetClient();
         var view = (await client.Tables.GetTableAsync(FakeServer.CompositeKeyTableName))!.GetRecordView<CompositeKey>();
 
-        // TODO
-        await Task.Delay(1);
+        await view.UpsertAsync(null, new CompositeKey("1", Guid.Empty)); // Warm up.
+
+        await Test("1", Guid.Empty, _server1);
+        await Test("1", Guid.Parse("b0000000-0000-0000-0000-000000000000"), _server2);
+
+        await Test("a", Guid.Empty, _server2);
+        await Test("a", Guid.Parse("b0000000-0000-0000-0000-000000000000"), _server1);
+
+        async Task Test(string idStr, Guid idGuid, FakeServer node) =>
+            await AssertOpOnNode(() => view.UpsertAsync(null, new CompositeKey(idStr, idGuid)), ClientOp.TupleUpsert, node);
     }
 
     [Test]
-    public async Task TestCompositeKey()
+    public async Task TestCustomColocationKey()
     {
         // TODO
         await Task.Delay(1);
