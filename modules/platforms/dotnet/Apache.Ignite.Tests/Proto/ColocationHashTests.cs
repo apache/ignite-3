@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Tests.Proto;
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
@@ -75,7 +76,9 @@ public class ColocationHashTests : IgniteTestsBase
         BigInteger.Zero,
         BigInteger.MinusOne,
         (BigInteger)int.MaxValue,
-        (BigInteger)int.MinValue
+        (BigInteger)int.MinValue,
+        new BitArray(1, false),
+        new BitArray(17, true),
 
         // TODO
         // (BigInteger)ulong.MaxValue,

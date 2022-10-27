@@ -398,13 +398,14 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             try
             {
                 value.CopyTo(arr, 0);
+                var resBytes = arr.AsSpan()[..size];
 
                 if (_hashedColumnsPredicate?.IsHashedColumnIndex(_elementIndex) == true)
                 {
-                    _hash = HashUtils.Hash32(arr, _hash);
+                    _hash = HashUtils.Hash32(resBytes, _hash);
                 }
 
-                PutBytes(arr.AsSpan()[..size]);
+                PutBytes(resBytes);
 
                 OnWrite();
             }
