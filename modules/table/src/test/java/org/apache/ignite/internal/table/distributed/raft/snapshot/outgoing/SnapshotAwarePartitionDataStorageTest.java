@@ -106,12 +106,12 @@ class SnapshotAwarePartitionDataStorageTest {
     void delegatesLastAppliedIndexGetter() {
         when(partitionStorage.lastAppliedIndex()).thenReturn(42L);
 
-        assertThat(testedStorage.lastAppliedIndex(), is(42L));
+        assertThat(testedStorage.mvPartitionStorageLastAppliedIndex(), is(42L));
     }
 
     @Test
     void delegatesLastAppliedIndexSetter() {
-        testedStorage.lastAppliedIndex(42L);
+        testedStorage.mvPartitionStorageLastAppliedIndex(42L);
 
         verify(partitionStorage).lastAppliedIndex(42L);
     }

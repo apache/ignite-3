@@ -108,7 +108,6 @@ public class PartitionListener implements RaftGroupListener {
         this.primaryIndex = primaryIndex;
     }
 
-    /** {@inheritDoc} */
     @Override
     public void onRead(Iterator<CommandClosure<ReadCommand>> iterator) {
         iterator.forEachRemaining((CommandClosure<? extends ReadCommand> clo) -> {
@@ -118,7 +117,6 @@ public class PartitionListener implements RaftGroupListener {
         });
     }
 
-    /** {@inheritDoc} */
     @Override
     public void onWrite(Iterator<CommandClosure<WriteCommand>> iterator) {
         iterator.forEachRemaining((CommandClosure<? extends WriteCommand> clo) -> {
@@ -126,9 +124,12 @@ public class PartitionListener implements RaftGroupListener {
 
             long commandIndex = clo.index();
 
-            long storageAppliedIndex = storage.lastAppliedIndex();
+            long storageAppliedIndex = Math.min(
+                    storage.mvPartitionStorageLastAppliedIndex(),
+                    storage.txStatePartitionStorageLastAppliedIndex()
+            );
 
-            assert storageAppliedIndex < commandIndex
+            assert commandIndex > storageAppliedIndex
                     : "Pending write command has a higher index than already processed commands [commandIndex=" + commandIndex
                     + ", storageAppliedIndex=" + storageAppliedIndex + ']';
 
@@ -191,7 +192,7 @@ public class PartitionListener implements RaftGroupListener {
                 txsRemovedKeys.computeIfAbsent(txId, entry -> new HashSet<>()).remove(row.keySlice());
             }
 
-            storage.lastAppliedIndex(commandIndex);
+            storage.mvPartitionStorageLastAppliedIndex(commandIndex);
 
             return null;
         });
@@ -242,7 +243,7 @@ public class PartitionListener implements RaftGroupListener {
                     }
                 }
             }
-            storage.lastAppliedIndex(commandIndex);
+            storage.mvPartitionStorageLastAppliedIndex(commandIndex);
 
             return null;
         });
@@ -315,7 +316,7 @@ public class PartitionListener implements RaftGroupListener {
             if (cmd.commit()) {
                 pendingRowIds.forEach(rowId -> storage.commitWrite(rowId, cmd.commitTimestamp()));
             } else {
-                pendingRowIds.forEach(rowId -> storage.abortWrite(rowId));
+                pendingRowIds.forEach(storage::abortWrite);
             }
 
             if (cmd.commit()) {
@@ -335,25 +336,22 @@ public class PartitionListener implements RaftGroupListener {
             // TODO: IGNITE-17638 TestOnly code, let's consider using Txn state map instead of states.
             txManager.changeState(txId, null, cmd.commit() ? COMMITED : ABORTED);
 
-            storage.lastAppliedIndex(commandIndex);
+            storage.mvPartitionStorageLastAppliedIndex(commandIndex);
 
             return null;
         });
     }
 
-    /** {@inheritDoc} */
     @Override
     public void onSnapshotSave(Path path, Consumer<Throwable> doneClo) {
         storage.flush();
     }
 
-    /** {@inheritDoc} */
     @Override
     public boolean onSnapshotLoad(Path path) {
         return true;
     }
 
-    /** {@inheritDoc} */
     @Override
     public void onShutdown() {
         // TODO: IGNITE-17958 - probably, we should not close the storage here as PartitionListener did not create the storage.

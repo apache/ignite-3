@@ -59,6 +59,7 @@ import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
+import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.test.TestConcurrentHashMapTxStateStorage;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.network.ClusterService;
@@ -102,6 +103,9 @@ public class PartitionCommandListenerTest {
     /** Partition storage. */
     private MvPartitionStorage mvPartitionStorage = new TestMvPartitionStorage(PARTITION_ID);
 
+    /** Transaction meta storage. */
+    private TxStateStorage txStateStorage = new TestConcurrentHashMapTxStateStorage();
+
     /**
      * Initializes a table listener before tests.
      */
@@ -114,7 +118,7 @@ public class PartitionCommandListenerTest {
         ReplicaService replicaService = Mockito.mock(ReplicaService.class, RETURNS_DEEP_STUBS);
 
         commandListener = new PartitionListener(
-                new TestPartitionDataStorage(mvPartitionStorage),
+                new TestPartitionDataStorage(mvPartitionStorage, txStateStorage),
                 new TestConcurrentHashMapTxStateStorage(),
                 new TxManagerImpl(replicaService, new HeapLockManager(), new HybridClock()),
                 primaryIndex

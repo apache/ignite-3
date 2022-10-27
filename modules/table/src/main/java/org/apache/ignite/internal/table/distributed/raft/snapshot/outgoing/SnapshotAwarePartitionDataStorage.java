@@ -29,6 +29,7 @@ import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.TxIdMismatchException;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionKey;
+import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -38,6 +39,7 @@ import org.jetbrains.annotations.TestOnly;
  */
 public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
     private final MvPartitionStorage partitionStorage;
+    private final TxStateStorage txStateStorage;
     private final PartitionsSnapshots partitionsSnapshots;
     private final PartitionKey partitionKey;
 
@@ -46,10 +48,12 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
      */
     public SnapshotAwarePartitionDataStorage(
             MvPartitionStorage partitionStorage,
+            TxStateStorage txStateStorage,
             PartitionsSnapshots partitionsSnapshots,
             PartitionKey partitionKey
     ) {
         this.partitionStorage = partitionStorage;
+        this.txStateStorage = txStateStorage;
         this.partitionsSnapshots = partitionsSnapshots;
         this.partitionKey = partitionKey;
     }
@@ -72,13 +76,18 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
     }
 
     @Override
-    public long lastAppliedIndex() {
+    public long mvPartitionStorageLastAppliedIndex() {
         return partitionStorage.lastAppliedIndex();
     }
 
     @Override
-    public void lastAppliedIndex(long lastAppliedIndex) throws StorageException {
+    public void mvPartitionStorageLastAppliedIndex(long lastAppliedIndex) throws StorageException {
         partitionStorage.lastAppliedIndex(lastAppliedIndex);
+    }
+
+    @Override
+    public long txStatePartitionStorageLastAppliedIndex() {
+        return txStateStorage.lastAppliedIndex();
     }
 
     @Override

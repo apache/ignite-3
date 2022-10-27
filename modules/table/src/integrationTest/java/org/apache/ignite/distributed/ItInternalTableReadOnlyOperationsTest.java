@@ -50,6 +50,7 @@ import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.tx.TransactionException;
 import org.junit.jupiter.api.BeforeEach;
@@ -81,7 +82,11 @@ public class ItInternalTableReadOnlyOperationsTest extends IgniteAbstractTest {
 
     /** Mock partition storage. */
     @Mock
-    private MvPartitionStorage mockStorage;
+    private MvPartitionStorage mockPartitionStorage;
+
+    /** Mock transaction meta storage. */
+    @Mock
+    private TxStateStorage mockTxStateStorage;
 
     /** Transaction mock. */
     @Mock
@@ -95,7 +100,7 @@ public class ItInternalTableReadOnlyOperationsTest extends IgniteAbstractTest {
      */
     @BeforeEach
     public void setUp(TestInfo testInfo) {
-        internalTbl = new DummyInternalTableImpl(Mockito.mock(ReplicaService.class), mockStorage);
+        internalTbl = new DummyInternalTableImpl(Mockito.mock(ReplicaService.class), mockPartitionStorage, mockTxStateStorage);
 
         mockStorage(List.of(ROW_1, ROW_2));
 
@@ -210,7 +215,7 @@ public class ItInternalTableReadOnlyOperationsTest extends IgniteAbstractTest {
         // TODO: IGNITE-17859 After index integration get and getAll methods should be used instead of scan.
         AtomicInteger cursorTouchCnt = new AtomicInteger(0);
 
-        lenient().when(mockStorage.scan(any(HybridTimestamp.class))).thenAnswer(invocation -> {
+        lenient().when(mockPartitionStorage.scan(any(HybridTimestamp.class))).thenAnswer(invocation -> {
             var cursor = mock(PartitionTimestampCursor.class);
 
             lenient().when(cursor.hasNext()).thenAnswer(hnInvocation -> cursorTouchCnt.get() < submittedItems.size());
