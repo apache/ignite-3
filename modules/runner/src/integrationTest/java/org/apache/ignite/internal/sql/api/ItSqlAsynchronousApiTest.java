@@ -329,13 +329,21 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
 
         rs.closeAsync();
 
+        outerTx = igniteTx().begin();
+
+        rs = ses.executeAsync(outerTx, "SELECT VAL0 FROM TEST ORDER BY VAL0").get();
+
+        assertEquals(2 * ROW_COUNT, StreamSupport.stream(rs.currentPage().spliterator(), false).count());
+
+        rs.closeAsync();
+
         outerTx.commit();
 
         checkDml(2 * ROW_COUNT, ses, "UPDATE TEST SET VAL0 = VAL0 + ?", 1);
 
         checkDml(2 * ROW_COUNT, ses, "DELETE FROM TEST WHERE VAL0 >= 0");
 
-        assertEquals(ROW_COUNT + 1 + 1 + 1 + 1, txManagerInternal.finished() - txPrevCnt);
+        assertEquals(ROW_COUNT + 1 + 1 + 1 + 1 + 1, txManagerInternal.finished() - txPrevCnt);
 
         var states = (Map<UUID, TxState>) IgniteTestUtils.getFieldValue(txManagerInternal, TxManagerImpl.class, "states");
 

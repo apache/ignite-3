@@ -31,6 +31,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import org.apache.calcite.plan.RelOptUtil;
+import org.apache.calcite.plan.RelTraitDef;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.runtime.CalciteContextException;
@@ -47,6 +48,7 @@ import org.apache.ignite.internal.sql.api.ResultSetMetadataImpl;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlSqlToCommandConverter;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.schema.SchemaUpdateListener;
+import org.apache.ignite.internal.sql.engine.trait.DistributionTraitDef;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.storage.DataStorageManager;
@@ -151,6 +153,15 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
                 return prepareDdl(sqlNode, planningContext);
             }
 
+            boolean distributed = false;
+
+            for (RelTraitDef<?> trait : ctx.config().getTraitDefs()) {
+                if (trait instanceof DistributionTraitDef) {
+                    distributed = true;
+                    break;
+                }
+            }
+
             switch (sqlNode.getKind()) {
                 case SELECT:
                 case ORDER_BY:
@@ -159,7 +170,7 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
                 case UNION:
                 case EXCEPT:
                 case INTERSECT:
-                    return prepareQuery(sqlNode, planningContext);
+                    return prepareQuery(sqlNode, planningContext, distributed);
 
                 case INSERT:
                 case DELETE:
@@ -214,8 +225,8 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
         return !(sqlNode instanceof SqlNodeList);
     }
 
-    private CompletableFuture<QueryPlan> prepareQuery(SqlNode sqlNode, PlanningContext ctx) {
-        var key = new CacheKey(ctx.schemaName(), sqlNode.toString());
+    private CompletableFuture<QueryPlan> prepareQuery(SqlNode sqlNode, PlanningContext ctx, boolean distributed) {
+        var key = new CacheKey(ctx.schemaName(), sqlNode.toString(), distributed);
 
         var planFut = cache.computeIfAbsent(key, k -> CompletableFuture.supplyAsync(() -> {
             IgnitePlanner planner = ctx.planner();
