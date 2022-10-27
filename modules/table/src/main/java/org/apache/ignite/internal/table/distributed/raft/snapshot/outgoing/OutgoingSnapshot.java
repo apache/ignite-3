@@ -155,7 +155,7 @@ public class OutgoingSnapshot {
      * @param request Data request.
      */
     CompletableFuture<SnapshotMvDataResponse> handleSnapshotMvDataRequest(SnapshotMvDataRequest request) {
-        assert !isFinishedMvData() : "MV data sending has already been finished";
+        assert !finishedMvData() : "MV data sending has already been finished";
 
         long totalBatchSize = 0;
         List<SnapshotMvDataResponse.ResponseEntry> batch = new ArrayList<>();
@@ -168,7 +168,7 @@ public class OutgoingSnapshot {
 
                 // As out-of-order rows are added under the same lock that we hold, and we always send OOO data first,
                 // exhausting the partition means that no MV data to send is left, we are finished with it.
-                if (isFinishedMvData() || batchIsFull(request, totalBatchSize)) {
+                if (finishedMvData() || batchIsFull(request, totalBatchSize)) {
                     break;
                 }
             }
@@ -176,7 +176,7 @@ public class OutgoingSnapshot {
 
         SnapshotMvDataResponse response = MESSAGES_FACTORY.snapshotMvDataResponse()
                 .rows(batch)
-                .finish(isFinishedMvData())
+                .finish(finishedMvData())
                 .build();
 
         return CompletableFuture.completedFuture(response);
@@ -217,7 +217,7 @@ public class OutgoingSnapshot {
 
     private long tryProcessRowFromPartition(List<SnapshotMvDataResponse.ResponseEntry> batch, long totalBatchSize,
             SnapshotMvDataRequest request) {
-        if (batchIsFull(request, totalBatchSize) || isFinishedMvData()) {
+        if (batchIsFull(request, totalBatchSize) || finishedMvData()) {
             return totalBatchSize;
         }
 
@@ -229,7 +229,7 @@ public class OutgoingSnapshot {
             lastRowId = partition.closestRowId(lastRowId.increment());
         }
 
-        if (!isFinishedMvData()) {
+        if (!finishedMvData()) {
             if (!rowIdsToSkip.remove(lastRowId)) {
                 SnapshotMvDataResponse.ResponseEntry rowEntry = rowEntry(lastRowId);
 
@@ -332,7 +332,7 @@ public class OutgoingSnapshot {
      *
      * @return {@code true} if finished.
      */
-    public boolean isFinishedMvData() {
+    private boolean finishedMvData() {
         return lastRowId == null;
     }
 
@@ -361,7 +361,7 @@ public class OutgoingSnapshot {
         if (!startedToReadMvPartition) {
             return false;
         }
-        if (isFinishedMvData()) {
+        if (finishedMvData()) {
             return true;
         }
 

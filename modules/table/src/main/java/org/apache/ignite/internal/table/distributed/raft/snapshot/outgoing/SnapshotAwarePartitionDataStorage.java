@@ -116,10 +116,6 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
 
         for (OutgoingSnapshot snapshot : partitionSnapshots.ongoingSnapshots()) {
             try (AutoLockup ignored = snapshot.acquireMvLock()) {
-                if (snapshot.isFinishedMvData()) {
-                    continue;
-                }
-
                 if (snapshot.alreadyPassed(rowId)) {
                     continue;
                 }

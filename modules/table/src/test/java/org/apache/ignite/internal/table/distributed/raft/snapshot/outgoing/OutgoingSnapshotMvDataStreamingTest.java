@@ -286,15 +286,6 @@ class OutgoingSnapshotMvDataStreamingTest {
     }
 
     @Test
-    void snapshotThatSentAllDataIsFinished() throws Exception {
-        configureStorageToBeEmpty();
-
-        getMvDataResponse(Long.MAX_VALUE);
-
-        assertTrue(snapshot.isFinishedMvData());
-    }
-
-    @Test
     void mvDataHandlingRespectsBatchSizeHintForMessagesFromPartition() throws Exception {
         ReadResult version1 = ReadResult.createFromCommitted(new ByteBufferRow(new byte[]{1}), clock.now());
         ReadResult version2 = ReadResult.createFromCommitted(new ByteBufferRow(new byte[]{2}), clock.now());

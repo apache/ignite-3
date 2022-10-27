@@ -178,7 +178,6 @@ class SnapshotAwarePartitionDataStorageTest {
     void writingNotYetPassedRowIdForFirstTimeEnqueuesItOnSnapshotOutOfOrder(MvWriteAction writeAction) {
         when(partitionSnapshots.ongoingSnapshots()).thenReturn(List.of(snapshot));
 
-        doReturn(false).when(snapshot).isFinishedMvData();
         doReturn(false).when(snapshot).alreadyPassed(any());
         doReturn(true).when(snapshot).addRowIdToSkip(any());
 
@@ -192,7 +191,6 @@ class SnapshotAwarePartitionDataStorageTest {
     void writingNotYetPassedRowIdForNotFirstTimeSkipsOutOfOrderSending(MvWriteAction writeAction) {
         when(partitionSnapshots.ongoingSnapshots()).thenReturn(List.of(snapshot));
 
-        doReturn(false).when(snapshot).isFinishedMvData();
         doReturn(false).when(snapshot).alreadyPassed(any());
         doReturn(false).when(snapshot).addRowIdToSkip(any());
 
@@ -206,20 +204,7 @@ class SnapshotAwarePartitionDataStorageTest {
     void writingAlreadyPassedRowIdSkipsOutOfOrderSending(MvWriteAction writeAction) {
         when(partitionSnapshots.ongoingSnapshots()).thenReturn(List.of(snapshot));
 
-        doReturn(false).when(snapshot).isFinishedMvData();
         doReturn(true).when(snapshot).alreadyPassed(any());
-
-        writeAction.executeOn(testedStorage, rowId);
-
-        verify(snapshot, never()).enqueueForSending(any());
-    }
-
-    @ParameterizedTest
-    @EnumSource(MvWriteAction.class)
-    void writingOverFinishedSnapshotSkipsSendingOutOfOrder(MvWriteAction writeAction) {
-        when(partitionSnapshots.ongoingSnapshots()).thenReturn(List.of(snapshot));
-
-        doReturn(true).when(snapshot).isFinishedMvData();
 
         writeAction.executeOn(testedStorage, rowId);
 
@@ -239,7 +224,6 @@ class SnapshotAwarePartitionDataStorageTest {
     }
 
     private void configureSnapshotToLetEnqueueOutOfOrderMvRow(OutgoingSnapshot snapshotToConfigure) {
-        doReturn(false).when(snapshotToConfigure).isFinishedMvData();
         doReturn(false).when(snapshotToConfigure).alreadyPassed(any());
         doReturn(true).when(snapshotToConfigure).addRowIdToSkip(any());
     }
