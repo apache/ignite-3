@@ -768,12 +768,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                             replicaGrpId,
                                                             newPartAssignment,
                                                             new PartitionListener(
-                                                                    partitionDataStorage(
-                                                                            mvPartitionStorage,
-                                                                            txStatePartitionStorage,
-                                                                            internalTbl,
-                                                                            partId
-                                                                    ),
+                                                                    partitionDataStorage(mvPartitionStorage, internalTbl, partId),
                                                                     txStatePartitionStorage,
                                                                     txManager,
                                                                     table.indexStorageAdapters(partId)
@@ -1739,7 +1734,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             );
 
                             RaftGroupListener raftGrpLsnr = new PartitionListener(
-                                    partitionDataStorage(mvPartitionStorage, txStatePartitionStorage, internalTable, partId),
+                                    partitionDataStorage(mvPartitionStorage, internalTable, partId),
                                     txStatePartitionStorage,
                                     txManager,
                                     tbl.indexStorageAdapters(partId)
@@ -1971,18 +1966,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         return getMetadataLocallyOnly ? property : ConfigurationUtil.directProxy(property);
     }
 
-    private PartitionDataStorage partitionDataStorage(
-            MvPartitionStorage partitionStorage,
-            TxStateStorage txStateStorage,
-            InternalTable internalTbl,
-            int partId
-    ) {
-        return new SnapshotAwarePartitionDataStorage(
-                partitionStorage,
-                txStateStorage,
-                outgoingSnapshotsManager,
-                partitionKey(internalTbl, partId)
-        );
+    private PartitionDataStorage partitionDataStorage(MvPartitionStorage partitionStorage, InternalTable internalTbl, int partId) {
+        return new SnapshotAwarePartitionDataStorage(partitionStorage, outgoingSnapshotsManager, partitionKey(internalTbl, partId));
     }
 
     private PartitionKey partitionKey(InternalTable internalTbl, int partId) {

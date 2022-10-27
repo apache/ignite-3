@@ -30,7 +30,6 @@ import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.TxIdMismatchException;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
-import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -39,13 +38,10 @@ import org.jetbrains.annotations.Nullable;
 public class TestPartitionDataStorage implements PartitionDataStorage {
     private final MvPartitionStorage partitionStorage;
 
-    private final TxStateStorage txStateStorage;
-
     private final Lock partitionSnapshotsLock = new ReentrantLock();
 
-    public TestPartitionDataStorage(MvPartitionStorage partitionStorage, TxStateStorage txStateStorage) {
+    public TestPartitionDataStorage(MvPartitionStorage partitionStorage) {
         this.partitionStorage = partitionStorage;
-        this.txStateStorage = txStateStorage;
     }
 
     @Override
@@ -66,18 +62,13 @@ public class TestPartitionDataStorage implements PartitionDataStorage {
     }
 
     @Override
-    public long mvPartitionStorageLastAppliedIndex() {
+    public long lastAppliedIndex() {
         return partitionStorage.lastAppliedIndex();
     }
 
     @Override
-    public void mvPartitionStorageLastAppliedIndex(long lastAppliedIndex) throws StorageException {
+    public void lastAppliedIndex(long lastAppliedIndex) throws StorageException {
         partitionStorage.lastAppliedIndex(lastAppliedIndex);
-    }
-
-    @Override
-    public long txStatePartitionStorageLastAppliedIndex() {
-        return txStateStorage.lastAppliedIndex();
     }
 
     @Override

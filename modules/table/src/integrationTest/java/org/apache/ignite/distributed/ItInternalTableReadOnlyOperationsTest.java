@@ -50,7 +50,6 @@ import org.apache.ignite.internal.table.distributed.replication.request.ReadOnly
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.tx.TransactionException;
 import org.junit.jupiter.api.BeforeEach;
@@ -81,11 +80,7 @@ public class ItInternalTableReadOnlyOperationsTest extends IgniteAbstractTest {
 
     /** Mock partition storage. */
     @Mock
-    private MvPartitionStorage mockPartitionStorage;
-
-    /** Mock transaction meta storage. */
-    @Mock
-    private TxStateStorage mockTxStateStorage;
+    private MvPartitionStorage mockStorage;
 
     /** Transaction mock. */
     @Mock
@@ -102,7 +97,7 @@ public class ItInternalTableReadOnlyOperationsTest extends IgniteAbstractTest {
      */
     @BeforeEach
     public void setUp(TestInfo testInfo) {
-        internalTbl = new DummyInternalTableImpl(replicaService, mockPartitionStorage, mockTxStateStorage);
+        internalTbl = new DummyInternalTableImpl(replicaService, mockStorage);
 
         lenient().when(readOnlyTx.isReadOnly()).thenReturn(true);
         lenient().when(readOnlyTx.readTimestamp()).thenReturn(CLOCK.now());

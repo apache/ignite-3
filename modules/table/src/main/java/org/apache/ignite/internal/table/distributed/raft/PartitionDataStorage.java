@@ -27,7 +27,6 @@ import org.apache.ignite.internal.storage.MvPartitionStorage.WriteClosure;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.TxIdMismatchException;
-import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -42,7 +41,7 @@ import org.jetbrains.annotations.TestOnly;
  * {@link RowId#compareTo} comparison order.
  *
  * @see org.apache.ignite.internal.storage.MvPartitionStorage
- * @see TxStateStorage
+ * @see org.apache.ignite.internal.tx.storage.state.TxStateStorage
  */
 public interface PartitionDataStorage extends AutoCloseable {
     /**
@@ -67,7 +66,7 @@ public interface PartitionDataStorage extends AutoCloseable {
     /**
      * Flushes current state of the data or <i>the state from the nearest future</i> to the storage. It means that the future can be
      * completed when the underlying storage {@link org.apache.ignite.internal.storage.MvPartitionStorage#persistedIndex()} is higher
-     * than {@link #mvPartitionStorageLastAppliedIndex()} at the moment of the method's call. This feature
+     * than {@link #lastAppliedIndex()} at the moment of the method's call. This feature
      * allows implementing a batch flush for several partitions at once.
      *
      * @return Future that's completed when flushing of the data is completed.
@@ -76,25 +75,18 @@ public interface PartitionDataStorage extends AutoCloseable {
     CompletableFuture<Void> flush();
 
     /**
-     * Index of the highest write command applied to the {@link MvPartitionStorage}. {@code 0} if index is unknown.
+     * Index of the highest write command applied to the storage. {@code 0} if index is unknown.
      *
      * @see MvPartitionStorage#lastAppliedIndex()
      */
-    long mvPartitionStorageLastAppliedIndex();
+    long lastAppliedIndex();
 
     /**
-     * Sets the last applied index value to the {@link MvPartitionStorage}.
+     * Sets the last applied index value.
      *
      * @see MvPartitionStorage#lastAppliedIndex(long)
      */
-    void mvPartitionStorageLastAppliedIndex(long lastAppliedIndex) throws StorageException;
-
-    /**
-     * Index of the highest write command applied to the {@link TxStateStorage}. {@code 0} if index is unknown.
-     *
-     * @see TxStateStorage#lastAppliedIndex()
-     */
-    long txStatePartitionStorageLastAppliedIndex();
+    void lastAppliedIndex(long lastAppliedIndex) throws StorageException;
 
     /**
      * Creates (or replaces) an uncommitted (aka pending) version, assigned to the given transaction id.

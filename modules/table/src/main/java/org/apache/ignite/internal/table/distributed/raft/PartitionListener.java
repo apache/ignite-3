@@ -160,7 +160,7 @@ public class PartitionListener implements RaftGroupListener {
 
             addToIndexes(row, rowId);
 
-            storage.mvPartitionStorageLastAppliedIndex(commandIndex);
+            storage.lastAppliedIndex(commandIndex);
 
             return null;
         });
@@ -190,7 +190,7 @@ public class PartitionListener implements RaftGroupListener {
                     addToIndexes(row, rowId);
                 }
             }
-            storage.mvPartitionStorageLastAppliedIndex(commandIndex);
+            storage.lastAppliedIndex(commandIndex);
 
             return null;
         });
@@ -267,7 +267,7 @@ public class PartitionListener implements RaftGroupListener {
             // TODO: IGNITE-17638 TestOnly code, let's consider using Txn state map instead of states.
             txManager.changeState(txId, null, cmd.commit() ? COMMITED : ABORTED);
 
-            storage.mvPartitionStorageLastAppliedIndex(commandIndex);
+            storage.lastAppliedIndex(commandIndex);
 
             return null;
         });

@@ -413,12 +413,14 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 CompletableFuture<Void> partitionReadyFuture = raftServers.get(node).prepareRaftGroup(
                         grpId,
                         partNodes,
-                        () -> new PartitionListener(
-                                new org.apache.ignite.distributed.TestPartitionDataStorage(testMpPartStorage, txSateStorage),
-                                txSateStorage,
-                                txManagers.get(node),
-                                () -> Map.of(pkStorage.get().id(), pkStorage.get())
-                        ),
+                        () -> {
+                            return new PartitionListener(
+                                    new TestPartitionDataStorage(testMpPartStorage),
+                                    txSateStorage,
+                                    txManagers.get(node),
+                                    () -> Map.of(pkStorage.get().id(), pkStorage.get())
+                            );
+                        },
                         RaftGroupOptions.defaults()
                 ).thenAccept(
                         raftSvc -> {

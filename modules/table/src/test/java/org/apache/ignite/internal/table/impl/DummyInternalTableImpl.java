@@ -56,7 +56,6 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
-import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.tx.storage.state.test.TestConcurrentHashMapTxStateStorage;
 import org.apache.ignite.internal.util.Lazy;
@@ -94,7 +93,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      * @param replicaSvc Replica service.
      */
     public DummyInternalTableImpl(ReplicaService replicaSvc) {
-        this(replicaSvc, new TestMvPartitionStorage(0), new TestConcurrentHashMapTxStateStorage());
+        this(replicaSvc, new TestMvPartitionStorage(0));
     }
 
     /**
@@ -106,7 +105,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      *                        by itself.
      */
     public DummyInternalTableImpl(ReplicaService replicaSvc, TxManager txManager, boolean crossTableUsage) {
-        this(replicaSvc, new TestMvPartitionStorage(0), new TestConcurrentHashMapTxStateStorage(), txManager, crossTableUsage);
+        this(replicaSvc, new TestMvPartitionStorage(0), txManager, crossTableUsage);
     }
 
     /**
@@ -115,8 +114,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      * @param replicaSvc Replica service.
      * @param mvPartStorage Multi version partition storage.
      */
-    public DummyInternalTableImpl(ReplicaService replicaSvc, MvPartitionStorage mvPartStorage, TxStateStorage txStateStorage) {
-        this(replicaSvc, mvPartStorage, txStateStorage, null, false);
+    public DummyInternalTableImpl(ReplicaService replicaSvc, MvPartitionStorage mvPartStorage) {
+        this(replicaSvc, mvPartStorage, null, false);
     }
 
     /**
@@ -124,7 +123,6 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      *
      * @param replicaSvc Replica service.
      * @param mvPartStorage Multi version partition storage.
-     * @param txStateStorage Transaction state storage.
      * @param txManager Transaction manager, if {@code null}, then default one will be created.
      * @param crossTableUsage If this dummy table is going to be used in cross-table tests, it won't mock the calls of ReplicaService
      *                        by itself.
@@ -132,7 +130,6 @@ public class DummyInternalTableImpl extends InternalTableImpl {
     public DummyInternalTableImpl(
             ReplicaService replicaSvc,
             MvPartitionStorage mvPartStorage,
-            TxStateStorage txStateStorage,
             @Nullable TxManager txManager,
             boolean crossTableUsage
     ) {
@@ -247,7 +244,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         );
 
         partitionListener = new PartitionListener(
-                new TestPartitionDataStorage(mvPartStorage, txStateStorage),
+                new TestPartitionDataStorage(mvPartStorage),
                 new TestConcurrentHashMapTxStateStorage(),
                 this.txManager,
                 () -> Map.of(pkStorage.get().id(), pkStorage.get())

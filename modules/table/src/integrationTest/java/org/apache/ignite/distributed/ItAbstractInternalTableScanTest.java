@@ -78,11 +78,7 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
 
     /** Mock partition storage. */
     @Mock
-    private MvPartitionStorage mockPartitionStorageStorage;
-
-    /** Mock transaction meta storage. */
-    @Mock
-    private TxStateStorage mockTxStateStorage;
+    private MvPartitionStorage mockStorage;
 
     /** Internal table to test. */
     protected InternalTable internalTbl;
@@ -94,7 +90,7 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
      */
     @BeforeEach
     public void setUp(TestInfo testInfo) {
-        internalTbl = new DummyInternalTableImpl(Mockito.mock(ReplicaService.class), mockPartitionStorageStorage, mockTxStateStorage);
+        internalTbl = new DummyInternalTableImpl(Mockito.mock(ReplicaService.class), mockStorage);
     }
 
     /**
@@ -175,7 +171,7 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
 
         AtomicReference<Throwable> gotException = new AtomicReference<>();
 
-        when(mockPartitionStorageStorage.scan(any(HybridTimestamp.class))).thenAnswer(invocation -> {
+        when(mockStorage.scan(any(HybridTimestamp.class))).thenAnswer(invocation -> {
             var cursor = mock(PartitionTimestampCursor.class);
 
             when(cursor.hasNext()).thenAnswer(hnInvocation -> true);
@@ -233,7 +229,7 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
 
         AtomicReference<Throwable> gotException = new AtomicReference<>();
 
-        when(mockPartitionStorageStorage.scan(any(HybridTimestamp.class))).thenThrow(new StorageException("Some storage exception"));
+        when(mockStorage.scan(any(HybridTimestamp.class))).thenThrow(new StorageException("Some storage exception"));
 
         scan(0, null).subscribe(new Subscriber<>() {
 
@@ -382,7 +378,7 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
 
         List<BinaryRow> retrievedItems = Collections.synchronizedList(new ArrayList<>());
 
-        when(mockPartitionStorageStorage.scan(any(HybridTimestamp.class))).thenAnswer(invocation -> {
+        when(mockStorage.scan(any(HybridTimestamp.class))).thenAnswer(invocation -> {
             var cursor = mock(PartitionTimestampCursor.class);
 
             when(cursor.hasNext()).thenAnswer(hnInvocation -> cursorTouchCnt.get() < submittedItems.size());
@@ -450,7 +446,7 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
         // and avoids the race between closing the cursor and stopping the node.
         CountDownLatch subscriberFinishedLatch = new CountDownLatch(1);
 
-        lenient().when(mockPartitionStorageStorage.scan(any(HybridTimestamp.class))).thenAnswer(invocation -> {
+        lenient().when(mockStorage.scan(any(HybridTimestamp.class))).thenAnswer(invocation -> {
             var cursor = mock(PartitionTimestampCursor.class);
 
             doAnswer(
