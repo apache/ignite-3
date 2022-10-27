@@ -369,6 +369,16 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 null
         );
 
+        Map<ClusterNode, Function<Peer, Boolean>> isLocalPeerCheckerList = cluster.stream().collect(Collectors.toMap(
+                node -> node.topologyService().localMember(),
+                node -> {
+                        TopologyService ts = node.topologyService();
+
+                        Function<Peer, Boolean> f = peer -> ts.getByAddress(peer.address()).equals(ts.localMember());
+
+                        return f;
+                }
+        ));
 
         Int2ObjectOpenHashMap<RaftGroupService> clients = new Int2ObjectOpenHashMap<>();
 
@@ -430,7 +440,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                                                 txSateStorage,
                                                 topologyServices.get(node),
                                                 placementDriver,
-                                                peer -> true
+                                                isLocalPeerCheckerList.get(node)
                                         )
                                 );
                             } catch (NodeStoppingException e) {

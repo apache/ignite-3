@@ -1773,8 +1773,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                     partId
                             );
 
-                            RaftGroupService raftGroupService = tbl.internalTable().partitionRaftGroupService(partId);
-
                             replicaMgr.startReplica(replicaGrpId,
                                     new PartitionReplicaListener(
                                             mvPartitionStorage,

@@ -47,6 +47,7 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
@@ -105,7 +106,7 @@ public class IncomingSnapshotCopierTest {
             new Column[]{new Column("value", NativeTypes.stringOf(256), false)}
     );
 
-    private static final HybridClock HYBRID_CLOCK = new HybridClock();
+    private static final HybridClock HYBRID_CLOCK = new HybridClockImpl();
 
     private static final TableMessagesFactory TABLE_MSG_FACTORY = new TableMessagesFactory();
 
