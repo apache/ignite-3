@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Internal.Proto.BinaryTuple
 {
     using System.Diagnostics;
+    using NodaTime;
 
     /// <summary>
     /// Common binary tuple constants and utils.
@@ -38,6 +39,16 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// Flag that indicates null map presence.
         /// </summary>
         public const int NullmapFlag = 0b100;
+
+        /// <summary>
+        /// Default value for Date elements (Jan 1st 1 BC).
+        /// </summary>
+        public static readonly LocalDate DefaultDate = new(year: 0, month: 1, day: 1);
+
+        /// <summary>
+        /// Default value for DateTime elements (Jan 1st 1 BC, 00:00:00).
+        /// </summary>
+        public static readonly LocalDateTime DefaultDateTime = new(year: 0, month: 1, day: 1, hour: 0, minute: 0);
 
         /// <summary>
         /// Calculates flags for a given size of variable-length area.

@@ -479,7 +479,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                 _hash = HashUtils.Hash32(value, _hash);
             }
 
-            if (value != default)
+            if (value != BinaryTupleCommon.DefaultDate)
             {
                 PutDate(value);
             }
@@ -517,7 +517,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                 _hash = HashUtils.Hash32(value, _hash);
             }
 
-            if (value != default)
+            if (value != BinaryTupleCommon.DefaultDateTime)
             {
                 PutDate(value.Date);
                 PutTime(value.TimeOfDay);
