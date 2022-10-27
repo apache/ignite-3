@@ -27,6 +27,7 @@ import it.unimi.dsi.fastutil.longs.LongArrayList;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
@@ -176,7 +177,7 @@ public class SessionImpl implements Session {
             );
 
             result.whenComplete((rs, th) -> {
-                if (IgniteExceptionUtils.getIgniteErrorCode(th) == SESSION_NOT_FOUND_ERR) {
+                if (Objects.equals(IgniteExceptionUtils.getIgniteErrorCode(th), SESSION_NOT_FOUND_ERR)) {
                     closeInternal();
                 }
             });

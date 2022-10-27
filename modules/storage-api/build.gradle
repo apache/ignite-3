@@ -32,7 +32,6 @@ dependencies {
     testAnnotationProcessor project(":ignite-configuration-annotation-processor")
     testImplementation project(':ignite-core')
     testImplementation project(':ignite-configuration')
-    testImplementation project(':ignite-index')
     testImplementation project(':ignite-schema')
     testImplementation(testFixtures(project(':ignite-schema')))
     testImplementation(testFixtures(project(':ignite-core')))
