@@ -193,14 +193,6 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         Set<RowId> ids = new HashSet<>();
 
-        //TODO: IGNITE-17859 Temporary solution for recovery purposes
-        // until the implementation of the primary index is done.
-        mvDataStorage.forEach((rowId, binaryRow) -> {
-            if (ids.add(rowId)) {
-                primaryIndex.put(binaryRow.keySlice(), rowId);
-            }
-        });
-
         cursors = new ConcurrentSkipListMap<>((o1, o2) -> {
             if (o1 == o2) {
                 return 0;
