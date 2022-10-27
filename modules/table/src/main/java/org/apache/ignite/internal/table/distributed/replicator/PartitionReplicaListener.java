@@ -1645,8 +1645,10 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     /**
-     * @param tmstmp
-     * @return
+     * Method to convert from {@link HybridTimestamp} object to NetworkMessage-based {@link HybridTimestampMessage} object.
+     *
+     * @param tmstmp {@link HybridTimestamp} object to convert to {@link HybridTimestampMessage}.
+     * @return {@link HybridTimestampMessage} object obtained from {@link HybridTimestamp}.
      */
     private HybridTimestampMessage hybridTimestamp(HybridTimestamp tmstmp) {
         return msgFactory.hybridTimestampMessage()
