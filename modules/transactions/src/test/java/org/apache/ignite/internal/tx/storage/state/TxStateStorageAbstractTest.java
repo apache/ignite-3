@@ -255,7 +255,7 @@ public abstract class TxStateStorageAbstractTest {
     }
 
     private TxMeta randomTxMeta(int enlistedPartsCount, UUID txId) {
-        return new TxMeta(null, generateEnlistedPartitions(enlistedPartsCount), generateTimestamp(txId));
+        return new TxMeta(TxState.COMMITED, generateEnlistedPartitions(enlistedPartsCount), generateTimestamp(txId));
     }
 
     private static void assertTxMetaEquals(TxMeta txMeta0, TxMeta txMeta1) {
