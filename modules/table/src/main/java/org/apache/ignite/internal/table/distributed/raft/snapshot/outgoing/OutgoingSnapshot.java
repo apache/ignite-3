@@ -97,11 +97,6 @@ public class OutgoingSnapshot {
 
     private boolean startedToReadMvPartition = false;
 
-    /**
-     * This becomes {@code true} as soon as we exhaust both the MV partition and out-of-order MV queue.
-     */
-    private boolean finishedMvData = false;
-
     private Cursor<IgniteBiTuple<UUID, TxMeta>> txDataCursor;
 
     /**
@@ -160,7 +155,7 @@ public class OutgoingSnapshot {
      * @param request Data request.
      */
     CompletableFuture<SnapshotMvDataResponse> handleSnapshotMvDataRequest(SnapshotMvDataRequest request) {
-        assert !finishedMvData : "MV data sending has already been finished";
+        assert !isFinishedMvData() : "MV data sending has already been finished";
 
         long totalBatchSize = 0;
         List<SnapshotMvDataResponse.ResponseEntry> batch = new ArrayList<>();
@@ -171,11 +166,9 @@ public class OutgoingSnapshot {
 
                 totalBatchSize = tryProcessRowFromPartition(batch, totalBatchSize, request);
 
-                if (exhaustedPartition() && outOfOrderMvData.isEmpty()) {
-                    finishedMvData = true;
-                }
-
-                if (finishedMvData || batchIsFull(request, totalBatchSize)) {
+                // As out-of-order rows are added under the same lock that we hold, and we always send OOO data first,
+                // exhausting the partition means that no MV data to send is left, we are finished with it.
+                if (isFinishedMvData() || batchIsFull(request, totalBatchSize)) {
                     break;
                 }
             }
@@ -183,7 +176,7 @@ public class OutgoingSnapshot {
 
         SnapshotMvDataResponse response = MESSAGES_FACTORY.snapshotMvDataResponse()
                 .rows(batch)
-                .finish(finishedMvData)
+                .finish(isFinishedMvData())
                 .build();
 
         return CompletableFuture.completedFuture(response);
@@ -224,7 +217,7 @@ public class OutgoingSnapshot {
 
     private long tryProcessRowFromPartition(List<SnapshotMvDataResponse.ResponseEntry> batch, long totalBatchSize,
             SnapshotMvDataRequest request) {
-        if (batchIsFull(request, totalBatchSize) || exhaustedPartition()) {
+        if (batchIsFull(request, totalBatchSize) || isFinishedMvData()) {
             return totalBatchSize;
         }
 
@@ -236,7 +229,7 @@ public class OutgoingSnapshot {
             lastRowId = partition.closestRowId(lastRowId.increment());
         }
 
-        if (!exhaustedPartition()) {
+        if (!isFinishedMvData()) {
             if (!rowIdsToSkip.remove(lastRowId)) {
                 SnapshotMvDataResponse.ResponseEntry rowEntry = rowEntry(lastRowId);
 
@@ -247,10 +240,6 @@ public class OutgoingSnapshot {
         }
 
         return totalBatchSize;
-    }
-
-    private boolean exhaustedPartition() {
-        return lastRowId == null;
     }
 
     private boolean batchIsFull(SnapshotMvDataRequest request, long totalBatchSize) {
@@ -344,7 +333,7 @@ public class OutgoingSnapshot {
      * @return {@code true} if finished.
      */
     public boolean isFinishedMvData() {
-        return finishedMvData;
+        return lastRowId == null;
     }
 
     /**
@@ -372,7 +361,7 @@ public class OutgoingSnapshot {
         if (!startedToReadMvPartition) {
             return false;
         }
-        if (exhaustedPartition()) {
+        if (isFinishedMvData()) {
             return true;
         }
 

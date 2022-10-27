@@ -249,28 +249,6 @@ class OutgoingSnapshotMvDataStreamingTest {
     }
 
     @Test
-    void sendsOutOfOrderRowsWhichAppearWhenScanning() throws Exception {
-        ReadResult version1 = ReadResult.createFromCommitted(new ByteBufferRow(new byte[]{1}), clock.now());
-        ReadResult version2 = ReadResult.createFromCommitted(new ByteBufferRow(new byte[]{2}), clock.now());
-
-        when(partitionAccess.rowVersions(rowIdOutOfOrder)).thenReturn(List.of(version2));
-
-        when(partitionAccess.closestRowId(lowestRowId)).thenReturn(rowId1);
-        when(partitionAccess.rowVersions(rowId1)).thenReturn(List.of(version1));
-        when(partitionAccess.closestRowId(rowId2)).then(invocation -> {
-            snapshot.enqueueForSending(rowIdOutOfOrder);
-            return null;
-        });
-
-        SnapshotMvDataResponse response = getMvDataResponse(Long.MAX_VALUE);
-
-        assertThat(response.rows(), hasSize(2));
-
-        assertThat(response.rows().get(0).rowId(), is(rowId1.uuid()));
-        assertThat(response.rows().get(1).rowId(), is(rowIdOutOfOrder.uuid()));
-    }
-
-    @Test
     void sendsTombstonesWithNullBuffers() throws Exception {
         ReadResult version = ReadResult.createFromCommitted(null, clock.now());
 
