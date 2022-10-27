@@ -24,7 +24,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -38,7 +37,6 @@ import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.client.proto.ClientDataType;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
-import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
@@ -292,7 +290,7 @@ public class PlatformTestNodeRunner {
     private static class ColocationHashJob implements ComputeJob<Integer> {
         @Override
         public Integer execute(JobExecutionContext context, Object... args) {
-            var columnCount = (int)args[0];
+            var columnCount = (int) args[0];
             var buf = (byte[]) args[1];
             var columns = new Column[columnCount];
             var tuple = Tuple.create(columnCount);
