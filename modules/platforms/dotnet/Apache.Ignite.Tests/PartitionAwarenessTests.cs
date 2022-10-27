@@ -26,10 +26,6 @@ using NUnit.Framework;
 
 /// <summary>
 /// Tests partition awareness.
-/// <para />
-/// TODO IGNITE-17969:
-/// * testCustomColocationKey
-/// * testCompositeKey.
 /// </summary>
 public class PartitionAwarenessTests
 {
