@@ -100,15 +100,13 @@ public class TestMvTableStorage implements MvTableStorage {
     }
 
     @Override
-    public CompletableFuture<Void> destroyPartition(int partitionId) throws StorageException {
+    public void destroyPartition(int partitionId) throws StorageException {
         Integer boxedPartitionId = partitionId;
 
         partitions.remove(boxedPartitionId);
 
         sortedIndicesById.values().forEach(indices -> indices.storageByPartitionId.remove(boxedPartitionId));
         hashIndicesById.values().forEach(indices -> indices.storageByPartitionId.remove(boxedPartitionId));
-
-        return CompletableFuture.completedFuture(null);
     }
 
     @Override
