@@ -34,6 +34,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -71,6 +72,7 @@ import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.tx.storage.state.test.TestConcurrentHashMapTxStateStorage;
 import org.apache.ignite.internal.util.Lazy;
+import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
@@ -101,7 +103,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     private static final ReplicationGroupId grpId = new TablePartitionId(tblId, partId);
 
     /** Hybrid clock. */
-    private static final HybridClock clock = new HybridClock();
+    private static final HybridClock clock = new HybridClockImpl();
 
     /** The storage stores transaction states. */
     private static final TestConcurrentHashMapTxStateStorage txStateStorage = new TestConcurrentHashMapTxStateStorage();
@@ -186,6 +188,9 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
             return CompletableFuture.completedFuture(txMeta);
         });
 
+        PendingComparableValuesTracker safeTimeClock = mock(PendingComparableValuesTracker.class);
+        when(safeTimeClock.waitFor(any())).thenReturn(CompletableFuture.completedFuture(null));
+
         UUID indexId = UUID.randomUUID();
 
         BinaryTupleSchema pkSchema = BinaryTupleSchema.create(new Element[]{
@@ -214,9 +219,11 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 () -> Map.of(pkLocker.id(), pkLocker),
                 pkStorage,
                 clock,
+                safeTimeClock,
                 txStateStorage,
                 topologySrv,
-                placementDriver
+                placementDriver,
+                peer -> true
         );
 
         marshallerFactory = new ReflectionMarshallerFactory();

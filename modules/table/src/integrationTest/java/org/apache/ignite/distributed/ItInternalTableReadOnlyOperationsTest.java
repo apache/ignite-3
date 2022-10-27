@@ -35,6 +35,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
@@ -71,7 +72,7 @@ public class ItInternalTableReadOnlyOperationsTest extends IgniteAbstractTest {
             new Column[]{new Column("value", NativeTypes.INT64, false)}
     );
 
-    private static final HybridClock CLOCK = new HybridClock();
+    private static final HybridClock CLOCK = new HybridClockImpl();
 
     private static final Row ROW_1 = createKeyValueRow(1, 1001);
 

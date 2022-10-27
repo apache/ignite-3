@@ -37,6 +37,7 @@ import java.util.function.Supplier;
 import org.apache.ignite.internal.lock.AutoLockup;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommand;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
@@ -129,6 +130,8 @@ public class PartitionListener implements RaftGroupListener {
                     handleFinishTxCommand((FinishTxCommand) command, commandIndex);
                 } else if (command instanceof TxCleanupCommand) {
                     handleTxCleanupCommand((TxCleanupCommand) command, commandIndex);
+                } else if (command instanceof SafeTimeSyncCommand) {
+                    handleSafeTimeSyncCommand((SafeTimeSyncCommand) command);
                 } else {
                     assert false : "Command was not found [cmd=" + command + ']';
                 }
@@ -274,6 +277,16 @@ public class PartitionListener implements RaftGroupListener {
         });
     }
 
+    /**
+     * Handler for the {@link SafeTimeSyncCommand}.
+     *
+     * @param cmd Command.
+     */
+    private void handleSafeTimeSyncCommand(SafeTimeSyncCommand cmd) {
+        // No-op.
+    }
+
+    /** {@inheritDoc} */
     @Override
     public void onSnapshotSave(Path path, Consumer<Throwable> doneClo) {
         CompletableFuture.allOf(storage.flush(), txStateStorage.flush())

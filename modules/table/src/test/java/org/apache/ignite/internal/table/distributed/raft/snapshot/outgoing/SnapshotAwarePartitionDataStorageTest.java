@@ -32,7 +32,7 @@ import static org.mockito.Mockito.when;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lock.AutoLockup;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -142,7 +142,7 @@ class SnapshotAwarePartitionDataStorageTest {
 
     @Test
     void delegatesCommitWrite() {
-        HybridTimestamp commitTs = new HybridClock().now();
+        HybridTimestamp commitTs = new HybridClockImpl().now();
 
         testedStorage.commitWrite(rowId, commitTs);
 
@@ -268,7 +268,7 @@ class SnapshotAwarePartitionDataStorageTest {
         COMMIT_WRITE {
             @Override
             void executeOn(SnapshotAwarePartitionDataStorage storage, RowId rowId) {
-                storage.commitWrite(rowId, new HybridClock().now());
+                storage.commitWrite(rowId, new HybridClockImpl().now());
             }
         };
 
