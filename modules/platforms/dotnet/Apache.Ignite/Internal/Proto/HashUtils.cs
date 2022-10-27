@@ -139,7 +139,7 @@ internal static class HashUtils // TODO: Unchecked everywhere?
     /// <returns>Resulting hash.</returns>
     public static int Hash32(LocalTime data, int seed)
     {
-        // TODO: This depends on precision!
+        // TODO IGNITE-17992 Account for column precision.
         return Hash32((long)data.NanosecondOfSecond, Hash32((long)data.Second, Hash32((long)data.Minute, Hash32((long)data.Hour, seed))));
     }
 
