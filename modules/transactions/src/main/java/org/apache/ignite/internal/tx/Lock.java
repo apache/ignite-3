@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.tx;
 
 import java.util.UUID;
+import org.apache.ignite.internal.tostring.S;
 
 /** Lock. */
 public class Lock {
@@ -69,5 +70,10 @@ public class Lock {
      */
     public UUID txId() {
         return txId;
+    }
+
+    @Override
+    public String toString() {
+        return S.toString(this);
     }
 }
