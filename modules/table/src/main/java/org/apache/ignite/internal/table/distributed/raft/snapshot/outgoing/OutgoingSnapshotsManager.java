@@ -158,23 +158,17 @@ public class OutgoingSnapshotsManager implements PartitionsSnapshots, IgniteComp
             return;
         }
 
+        //TODO: IGNITE-17935 - Analyze exceptions?
         CompletableFuture
                 .supplyAsync(() -> handleSnapshotRequestMessage(networkMessage, outgoingSnapshot), executor)
-                .thenAcceptAsync(responseFuture -> {
-                    if (responseFuture != null) {
-                        //TODO: IGNITE-17935 - whenComplete()? handle()? Should we analyze the first exception at all?
-                        responseFuture.whenCompleteAsync(
-                                (response, throwable) -> respond(response, throwable, sender, correlationId),
-                                executor
-                        );
+                .whenCompleteAsync((response, throwable) -> {
+                    if (response != null) {
+                        respond(response, throwable, sender, correlationId);
                     }
                 }, executor);
     }
 
-    private static @Nullable CompletableFuture<? extends NetworkMessage> handleSnapshotRequestMessage(
-            NetworkMessage networkMessage,
-            OutgoingSnapshot outgoingSnapshot
-    ) {
+    private static @Nullable NetworkMessage handleSnapshotRequestMessage(NetworkMessage networkMessage, OutgoingSnapshot outgoingSnapshot) {
         switch (networkMessage.messageType()) {
             case TableMessageGroup.SNAPSHOT_META_REQUEST:
                 return outgoingSnapshot.handleSnapshotMetaRequest((SnapshotMetaRequest) networkMessage);

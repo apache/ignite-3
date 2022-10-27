@@ -26,7 +26,6 @@ import java.util.List;
 import java.util.Queue;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.locks.ReentrantLock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lock.AutoLockup;
@@ -151,7 +150,7 @@ public class OutgoingSnapshot {
      *
      * @param metaRequest Meta request.
      */
-    CompletableFuture<SnapshotMetaResponse> handleSnapshotMetaRequest(SnapshotMetaRequest metaRequest) {
+    SnapshotMetaResponse handleSnapshotMetaRequest(SnapshotMetaRequest metaRequest) {
         //TODO https://issues.apache.org/jira/browse/IGNITE-17935
         return null;
     }
@@ -161,7 +160,7 @@ public class OutgoingSnapshot {
      *
      * @param request Data request.
      */
-    CompletableFuture<SnapshotMvDataResponse> handleSnapshotMvDataRequest(SnapshotMvDataRequest request) {
+    SnapshotMvDataResponse handleSnapshotMvDataRequest(SnapshotMvDataRequest request) {
         assert !finishedMvData() : "MV data sending has already been finished";
 
         long totalBatchSize = 0;
@@ -181,12 +180,10 @@ public class OutgoingSnapshot {
             }
         }
 
-        SnapshotMvDataResponse response = MESSAGES_FACTORY.snapshotMvDataResponse()
+        return MESSAGES_FACTORY.snapshotMvDataResponse()
                 .rows(batch)
                 .finish(finishedMvData())
                 .build();
-
-        return CompletableFuture.completedFuture(response);
     }
 
     private long fillWithOutOfOrderRows(
@@ -292,7 +289,7 @@ public class OutgoingSnapshot {
      *
      * @param request Data request.
      */
-    CompletableFuture<SnapshotTxDataResponse> handleSnapshotTxDataRequest(SnapshotTxDataRequest request) {
+    SnapshotTxDataResponse handleSnapshotTxDataRequest(SnapshotTxDataRequest request) {
         List<IgniteBiTuple<UUID, TxMeta>> rows = new ArrayList<>();
 
         while (!finishedTxData && rows.size() < request.maxTransactionsInBatch()) {
@@ -304,9 +301,7 @@ public class OutgoingSnapshot {
             }
         }
 
-        SnapshotTxDataResponse response = buildTxDataResponse(rows, finishedTxData);
-
-        return CompletableFuture.completedFuture(response);
+        return buildTxDataResponse(rows, finishedTxData);
     }
 
     private static SnapshotTxDataResponse buildTxDataResponse(List<IgniteBiTuple<UUID, TxMeta>> rows, boolean finished) {

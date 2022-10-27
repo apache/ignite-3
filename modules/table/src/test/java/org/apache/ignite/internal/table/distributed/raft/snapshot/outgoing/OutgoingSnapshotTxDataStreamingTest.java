@@ -30,9 +30,6 @@ import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.lock.AutoLockup;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
@@ -81,7 +78,7 @@ class OutgoingSnapshotTxDataStreamingTest {
     }
 
     @Test
-    void sendsTxDataFromStorage() throws Exception {
+    void sendsTxDataFromStorage() {
         configureStorageToHaveExactly(txId1, meta1, txId2, meta2);
 
         SnapshotTxDataResponse response = getTxDataResponse(Integer.MAX_VALUE);
@@ -113,12 +110,12 @@ class OutgoingSnapshotTxDataStreamingTest {
         }
     }
 
-    private SnapshotTxDataResponse getTxDataResponse(int maxTxsInBatch) throws InterruptedException, ExecutionException, TimeoutException {
+    private SnapshotTxDataResponse getTxDataResponse(int maxTxsInBatch) {
         SnapshotTxDataRequest request = messagesFactory.snapshotTxDataRequest()
                 .maxTransactionsInBatch(maxTxsInBatch)
                 .build();
 
-        return snapshot.handleSnapshotTxDataRequest(request).get(1, TimeUnit.SECONDS);
+        return snapshot.handleSnapshotTxDataRequest(request);
     }
 
     private void configureStorageToBeEmpty() {
@@ -128,7 +125,7 @@ class OutgoingSnapshotTxDataStreamingTest {
     }
 
     @Test
-    void finalTxDataChunkHasFinishTrue() throws Exception {
+    void finalTxDataChunkHasFinishTrue() {
         configureStorageToBeEmpty();
 
         SnapshotTxDataResponse response = getTxDataResponse(Integer.MAX_VALUE);
@@ -137,7 +134,7 @@ class OutgoingSnapshotTxDataStreamingTest {
     }
 
     @Test
-    void txDataHandlingRespectsBatchSizeHintForMessagesFromPartition() throws Exception {
+    void txDataHandlingRespectsBatchSizeHintForMessagesFromPartition() {
         configureStorageToHaveExactly(txId1, meta1, txId2, meta2);
 
         SnapshotTxDataResponse response = getTxDataResponse(1);
@@ -146,7 +143,7 @@ class OutgoingSnapshotTxDataStreamingTest {
     }
 
     @Test
-    void txDataResponseThatIsNotLastHasFinishFalse() throws Exception {
+    void txDataResponseThatIsNotLastHasFinishFalse() {
         configureStorageToHaveExactly(txId1, meta1, txId2, meta2);
 
         SnapshotTxDataResponse response = getTxDataResponse(1);
