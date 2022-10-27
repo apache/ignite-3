@@ -91,6 +91,7 @@ public class TestTxStateStorage implements TxStateStorage {
         List<IgniteBiTuple<UUID, TxMeta>> copy = storage.entrySet().stream()
                 .map(e -> new IgniteBiTuple<>(e.getKey(), e.getValue()))
                 .collect(toList());
+
         return Cursor.fromIterator(copy.iterator());
     }
 
