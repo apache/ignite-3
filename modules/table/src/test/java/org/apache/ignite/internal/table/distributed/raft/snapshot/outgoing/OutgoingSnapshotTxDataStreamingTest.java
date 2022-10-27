@@ -40,6 +40,7 @@ import org.apache.ignite.internal.table.distributed.raft.snapshot.message.Snapsh
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
+import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.junit.jupiter.api.BeforeEach;
@@ -52,6 +53,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class OutgoingSnapshotTxDataStreamingTest {
     @Mock
     private PartitionAccess partitionAccess;
+
+    @Mock
+    private TxStateStorage txStateStorage;
 
     private OutgoingSnapshot snapshot;
 
@@ -72,7 +76,9 @@ class OutgoingSnapshotTxDataStreamingTest {
 
     @BeforeEach
     void createTestInstance() {
-        lenient().when(partitionAccess.key()).thenReturn(partitionKey);
+        lenient().when(partitionAccess.partitionKey()).thenReturn(partitionKey);
+
+        lenient().when(partitionAccess.txStatePartitionStorage()).thenReturn(txStateStorage);
 
         snapshot = new OutgoingSnapshot(UUID.randomUUID(), partitionAccess);
     }
@@ -97,7 +103,7 @@ class OutgoingSnapshotTxDataStreamingTest {
     }
 
     private void configureStorageToHaveExactly(UUID txId1, TxMeta meta1, UUID txId2, TxMeta meta2) {
-        when(partitionAccess.scanTxData()).thenReturn(Cursor.fromIterator(
+        when(txStateStorage.scan()).thenReturn(Cursor.fromIterator(
                 List.of(new IgniteBiTuple<>(txId1, meta1), new IgniteBiTuple<>(txId2, meta2)).iterator())
         );
 
@@ -119,7 +125,7 @@ class OutgoingSnapshotTxDataStreamingTest {
     }
 
     private void configureStorageToBeEmpty() {
-        when(partitionAccess.scanTxData()).thenReturn(Cursor.fromIterator(emptyIterator()));
+        when(txStateStorage.scan()).thenReturn(Cursor.fromIterator(emptyIterator()));
 
         freezeSnapshotScope();
     }
@@ -155,7 +161,7 @@ class OutgoingSnapshotTxDataStreamingTest {
     void closesCursorWhenTxDataIsExhaustedInPartition() throws Exception {
         Cursor<IgniteBiTuple<UUID, TxMeta>> cursor = spy(Cursor.fromIterator(emptyIterator()));
 
-        when(partitionAccess.scanTxData()).thenReturn(cursor);
+        when(txStateStorage.scan()).thenReturn(cursor);
         freezeSnapshotScope();
 
         getTxDataResponse(Integer.MAX_VALUE);

@@ -100,6 +100,11 @@ public interface TxStateStorage extends AutoCloseable {
     long lastAppliedIndex();
 
     /**
+     * Sets the last applied index value.
+     */
+    void lastAppliedIndex(long lastAppliedIndex);
+
+    /**
      * {@link #lastAppliedIndex()} value consistent with the data, already persisted on the storage.
      */
     long persistedIndex();

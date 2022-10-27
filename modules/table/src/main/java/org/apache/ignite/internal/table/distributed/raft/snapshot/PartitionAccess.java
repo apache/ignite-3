@@ -17,15 +17,9 @@
 
 package org.apache.ignite.internal.table.distributed.raft.snapshot;
 
-import java.util.List;
-import java.util.UUID;
-import org.apache.ignite.internal.storage.ReadResult;
-import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
-import org.apache.ignite.internal.tx.TxMeta;
-import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.lang.IgniteBiTuple;
-import org.jetbrains.annotations.Nullable;
+import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 
 /**
  * Small abstractions for partition storages that includes only methods, mandatory for the snapshot storage.
@@ -33,42 +27,30 @@ import org.jetbrains.annotations.Nullable;
 public interface PartitionAccess {
     /**
      * Returns the key that uniquely identifies the corresponding partition.
-     *
-     * @return Partition key.
      */
-    PartitionKey key();
+    PartitionKey partitionKey();
 
     /**
-     * Returns persisted RAFT index for the partition.
+     * Returns the multi-versioned partition storage.
      */
-    long persistedIndex();
+    MvPartitionStorage mvPartitionStorage();
 
     /**
-     * Returns a row id, existing in the storage, that's greater or equal than the lower bound. {@code null} if not found.
-     *
-     * @param lowerBound Lower bound.
-     * @throws StorageException If failed to read data from the storage.
+     * Returns transaction state storage for the partition.
      */
-    @Nullable
-    RowId closestRowId(RowId lowerBound);
+    TxStateStorage txStatePartitionStorage();
 
     /**
-     * Returns all versions of a row identified with the given {@link RowId}.
-     * The returned versions are in newest-to-oldest order.
+     * Destroys and recreates the multi-versioned partition storage.
      *
-     * @param rowId Id of the row.
-     * @return All versions of the row.
+     * @throws StorageException If an error has occurred during the partition destruction.
      */
-    List<ReadResult> rowVersions(RowId rowId);
+    MvPartitionStorage reCreateMvPartitionStorage() throws StorageException;
 
     /**
-     * Create a cursor to scan all TX data in the storage.
+     * Destroys and recreates the multi-versioned partition storage.
      *
-     * <p>The cursor yields exactly TX data that was existing in the storage at the moment when the method was called.
-     *
-     * <p>The cursor yields data ordered by transaction ID interpreted as an unsigned 128 bit integer.
-     *
-     * @return Cursor.
+     * @throws StorageException If an error has occurred during transaction state storage for the partition destruction.
      */
-    Cursor<IgniteBiTuple<UUID, TxMeta>> scanTxData();
+    TxStateStorage reCreateTxStatePartitionStorage() throws StorageException;
 }

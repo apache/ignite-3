@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing;
 
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.util.IgniteUtils.closeQuietly;
 
 import java.nio.ByteBuffer;
@@ -109,7 +110,7 @@ public class OutgoingSnapshot {
         this.id = id;
         this.partition = partition;
 
-        lastRowId = RowId.lowestRowId(partition.key().partitionId());
+        lastRowId = RowId.lowestRowId(partition.partitionKey().partitionId());
     }
 
     /**
@@ -125,7 +126,7 @@ public class OutgoingSnapshot {
      * @return Partition key.
      */
     public PartitionKey partitionKey() {
-        return partition.key();
+        return partition.partitionKey();
     }
 
     /**
@@ -136,7 +137,7 @@ public class OutgoingSnapshot {
     void freezeScope() {
         throwIfMvLockNotAcquired();
 
-        txDataCursor = partition.scanTxData();
+        txDataCursor = partition.txStatePartitionStorage().scan();
     }
 
     private void throwIfMvLockNotAcquired() {
@@ -226,11 +227,11 @@ public class OutgoingSnapshot {
         }
 
         if (!startedToReadMvPartition) {
-            lastRowId = partition.closestRowId(lastRowId);
+            lastRowId = partition.mvPartitionStorage().closestRowId(lastRowId);
 
             startedToReadMvPartition = true;
         } else {
-            lastRowId = partition.closestRowId(lastRowId.increment());
+            lastRowId = partition.mvPartitionStorage().closestRowId(lastRowId.increment());
         }
 
         if (!finishedMvData()) {
@@ -251,7 +252,7 @@ public class OutgoingSnapshot {
     }
 
     private SnapshotMvDataResponse.ResponseEntry rowEntry(RowId rowId) {
-        List<ReadResult> rowVersionsN2O = partition.rowVersions(rowId);
+        List<ReadResult> rowVersionsN2O = partition.mvPartitionStorage().scanVersions(rowId).stream().collect(toList());
 
         List<ByteBuffer> buffers = new ArrayList<>(rowVersionsN2O.size());
         List<HybridTimestamp> commitTimestamps = new ArrayList<>(rowVersionsN2O.size());

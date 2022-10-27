@@ -17,10 +17,7 @@
 
 package org.apache.ignite.internal.tx.storage.state.test;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
-
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.internal.configuration.storage.StorageException;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
@@ -34,49 +31,46 @@ import org.jetbrains.annotations.Nullable;
 public class TestTxStateTableStorage implements TxStateTableStorage {
     private final Map<Integer, TxStateStorage> storages = new ConcurrentHashMap<>();
 
-    /** {@inheritDoc} */
     @Override public TxStateStorage getOrCreateTxStateStorage(int partitionId) throws StorageException {
         return storages.computeIfAbsent(partitionId, k -> new TestTxStateStorage());
     }
 
-    /** {@inheritDoc} */
-    @Override public @Nullable TxStateStorage getTxStateStorage(int partitionId) {
+    @Override
+    public @Nullable TxStateStorage getTxStateStorage(int partitionId) {
         return storages.get(partitionId);
     }
 
-    /** {@inheritDoc} */
-    @Override public CompletableFuture<Void> destroyTxStateStorage(int partitionId) throws StorageException {
-        TxStateStorage storage = storages.replace(partitionId, null);
+    @Override
+    public void destroyTxStateStorage(int partitionId) throws StorageException {
+        TxStateStorage storage = storages.remove(partitionId);
 
         if (storage != null) {
             storage.destroy();
         }
-
-        return completedFuture(null);
     }
 
-    /** {@inheritDoc} */
-    @Override public TableConfiguration configuration() {
+    @Override
+    public TableConfiguration configuration() {
         return null;
     }
 
-    /** {@inheritDoc} */
-    @Override public void start() throws StorageException {
+    @Override
+    public void start() throws StorageException {
         // No-op.
     }
 
-    /** {@inheritDoc} */
-    @Override public void stop() throws StorageException {
+    @Override
+    public void stop() throws StorageException {
         // No-op.
     }
 
-    /** {@inheritDoc} */
-    @Override public void destroy() throws StorageException {
+    @Override
+    public void destroy() throws StorageException {
         storages.clear();
     }
 
-    /** {@inheritDoc} */
-    @Override public void close() throws Exception {
+    @Override
+    public void close() throws Exception {
         stop();
     }
 }

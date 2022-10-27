@@ -40,19 +40,18 @@ public class TestTxStateStorage implements TxStateStorage {
     /** Storage. */
     private final ConcurrentSkipListMap<UUID, TxMeta> storage = new ConcurrentSkipListMap<>(new UnsignedUuidComparator());
 
-    /** {@inheritDoc} */
+    private volatile long lastAppliedIndex;
+
     @Override
     public TxMeta get(UUID txId) {
         return storage.get(txId);
     }
 
-    /** {@inheritDoc} */
     @Override
     public void put(UUID txId, TxMeta txMeta) {
         storage.put(txId, txMeta);
     }
 
-    /** {@inheritDoc} */
     @Override
     public boolean compareAndSet(UUID txId, TxState txStateExpected, @NotNull TxMeta txMeta, long commandIndex) {
         while (true) {
@@ -79,13 +78,11 @@ public class TestTxStateStorage implements TxStateStorage {
         }
     }
 
-    /** {@inheritDoc} */
     @Override
     public void remove(UUID txId) {
         storage.remove(txId);
     }
 
-    /** {@inheritDoc} */
     @Override
     public Cursor<IgniteBiTuple<UUID, TxMeta>> scan() {
         List<IgniteBiTuple<UUID, TxMeta>> copy = storage.entrySet().stream()
@@ -95,7 +92,6 @@ public class TestTxStateStorage implements TxStateStorage {
         return Cursor.fromIterator(copy.iterator());
     }
 
-    /** {@inheritDoc} */
     @Override
     public void destroy() {
         try {
@@ -107,25 +103,26 @@ public class TestTxStateStorage implements TxStateStorage {
         }
     }
 
-    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> flush() {
         return completedFuture(null);
     }
 
-    /** {@inheritDoc} */
     @Override
     public long lastAppliedIndex() {
-        return 0;
+        return lastAppliedIndex;
     }
 
-    /** {@inheritDoc} */
+    @Override
+    public void lastAppliedIndex(long lastAppliedIndex) {
+        this.lastAppliedIndex = lastAppliedIndex;
+    }
+
     @Override
     public long persistedIndex() {
-        return 0;
+        return lastAppliedIndex;
     }
 
-    /** {@inheritDoc} */
     @Override
     public void close() throws Exception {
         // No-op.

@@ -50,7 +50,7 @@ public class OutgoingSnapshotReader extends SnapshotReader {
         //TODO https://issues.apache.org/jira/browse/IGNITE-17935
         // This meta is wrong, we need a right one.
         snapshotMeta = new RaftMessagesFactory().snapshotMeta()
-                .lastIncludedIndex(snapshotStorage.partition().persistedIndex())
+                .lastIncludedIndex(snapshotStorage.partition().mvPartitionStorage().persistedIndex())
                 .lastIncludedTerm(snapshotStorage.startupSnapshotMeta().lastIncludedTerm())
                 .peersList(snapshotStorage.startupSnapshotMeta().peersList())
                 .learnersList(snapshotStorage.startupSnapshotMeta().learnersList())
