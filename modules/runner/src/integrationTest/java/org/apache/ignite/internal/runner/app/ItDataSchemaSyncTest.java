@@ -43,6 +43,7 @@ import org.apache.ignite.sql.Session;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -50,6 +51,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * There is a test of table schema synchronization.
  */
 @ExtendWith(WorkDirectoryExtension.class)
+@Disabled
 public class ItDataSchemaSyncTest extends IgniteAbstractTest {
     /**
      * Table name.
