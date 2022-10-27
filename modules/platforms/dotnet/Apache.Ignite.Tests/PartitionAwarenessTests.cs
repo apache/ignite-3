@@ -268,6 +268,20 @@ public class PartitionAwarenessTests
         await AssertOpOnNode(() => kvView.RemoveAllAsync(null, pairs), ClientOp.TupleDeleteAllExact, expectedNode);
     }
 
+    [Test]
+    public async Task TestCustomColocationKey()
+    {
+        // TODO
+        await Task.Delay(1);
+    }
+
+    [Test]
+    public async Task TestCompositeKey()
+    {
+        // TODO
+        await Task.Delay(1);
+    }
+
     private static async Task AssertOpOnNode(
         Func<Task> action,
         ClientOp op,

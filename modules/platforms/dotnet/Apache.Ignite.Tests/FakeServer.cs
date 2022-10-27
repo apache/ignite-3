@@ -42,6 +42,16 @@ namespace Apache.Ignite.Tests
 
         public const string ExistingTableName = "tbl1";
 
+        public const string CompositeKeyTableName = "tbl2";
+
+        public const string CustomColocationKeyTableName = "tbl3";
+
+        private static readonly Guid ExistingTableId = Guid.NewGuid();
+
+        private static readonly Guid CompositeKeyTableId = Guid.NewGuid();
+
+        private static readonly Guid CustomColocationKeyTableId = Guid.NewGuid();
+
         private readonly Socket _listener;
 
         private readonly CancellationTokenSource _cts = new();
@@ -274,6 +284,72 @@ namespace Apache.Ignite.Tests
             Send(handler, requestId, arrayBufferWriter);
         }
 
+        private void GetSchemas(MessagePackReader reader, Socket handler, long requestId)
+        {
+            var tableId = reader.ReadGuid();
+
+            using var arrayBufferWriter = new PooledArrayBufferWriter();
+            var writer = new MessagePackWriter(arrayBufferWriter);
+            writer.WriteMapHeader(1);
+            writer.Write(1); // Version.
+
+            if (tableId == ExistingTableId)
+            {
+                writer.WriteArrayHeader(1); // Columns.
+                writer.WriteArrayHeader(6); // Column props.
+                writer.Write("ID");
+                writer.Write((int)ClientDataType.Int32);
+                writer.Write(true); // Key.
+                writer.Write(false); // Nullable.
+                writer.Write(true); // Colocation.
+                writer.Write(0); // Scale.
+            }
+            else if (tableId == CompositeKeyTableId)
+            {
+                writer.WriteArrayHeader(2); // Columns.
+
+                writer.WriteArrayHeader(6); // Column props.
+                writer.Write("IdStr");
+                writer.Write((int)ClientDataType.String);
+                writer.Write(true); // Key.
+                writer.Write(false); // Nullable.
+                writer.Write(true); // Colocation.
+                writer.Write(0); // Scale.
+
+                writer.WriteArrayHeader(6); // Column props.
+                writer.Write("IdGuid");
+                writer.Write((int)ClientDataType.Uuid);
+                writer.Write(true); // Key.
+                writer.Write(false); // Nullable.
+                writer.Write(true); // Colocation.
+                writer.Write(0); // Scale.
+            }
+            else if (tableId == CustomColocationKeyTableId)
+            {
+                writer.WriteArrayHeader(2); // Columns.
+
+                writer.WriteArrayHeader(6); // Column props.
+                writer.Write("IdStr");
+                writer.Write((int)ClientDataType.String);
+                writer.Write(true); // Key.
+                writer.Write(false); // Nullable.
+                writer.Write(true); // Colocation.
+                writer.Write(0); // Scale.
+
+                writer.WriteArrayHeader(6); // Column props.
+                writer.Write("IdGuid");
+                writer.Write((int)ClientDataType.Uuid);
+                writer.Write(true); // Key.
+                writer.Write(false); // Nullable.
+                writer.Write(false); // Colocation.
+                writer.Write(0); // Scale.
+            }
+
+            writer.Flush();
+
+            Send(handler, requestId, arrayBufferWriter);
+        }
+
         private void ListenLoop()
         {
             int requestCount = 0;
@@ -339,11 +415,19 @@ namespace Apache.Ignite.Tests
                         {
                             var tableName = reader.ReadString();
 
-                            if (tableName == ExistingTableName)
+                            var tableId = tableName switch
+                            {
+                                ExistingTableName => ExistingTableId,
+                                CompositeKeyTableName => CompositeKeyTableId,
+                                CustomColocationKeyTableName => CustomColocationKeyTableId,
+                                _ => default
+                            };
+
+                            if (tableId != default)
                             {
                                 using var arrayBufferWriter = new PooledArrayBufferWriter();
                                 var writer = new MessagePackWriter(arrayBufferWriter);
-                                writer.Write(Guid.Empty);
+                                writer.Write(tableId);
                                 writer.Flush();
 
                                 Send(handler, requestId, arrayBufferWriter);
@@ -355,25 +439,8 @@ namespace Apache.Ignite.Tests
                         }
 
                         case ClientOp.SchemasGet:
-                        {
-                            using var arrayBufferWriter = new PooledArrayBufferWriter();
-                            var writer = new MessagePackWriter(arrayBufferWriter);
-                            writer.WriteMapHeader(1);
-                            writer.Write(1); // Version.
-                            writer.WriteArrayHeader(1); // Columns.
-                            writer.WriteArrayHeader(6); // Column props.
-                            writer.Write("ID");
-                            writer.Write((int)ClientDataType.Int32);
-                            writer.Write(true); // Key.
-                            writer.Write(false); // Nullable.
-                            writer.Write(true); // Colocation.
-                            writer.Write(0); // Scale.
-
-                            writer.Flush();
-
-                            Send(handler, requestId, arrayBufferWriter);
+                            GetSchemas(reader, handler, requestId);
                             continue;
-                        }
 
                         case ClientOp.PartitionAssignmentGet:
                         {
