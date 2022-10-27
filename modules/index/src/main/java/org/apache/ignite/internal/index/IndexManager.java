@@ -383,7 +383,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
                 index.descriptor().columns().toArray(STRING_EMPTY_ARRAY)
         );
 
-        return tableManager.tableAsync(tableId)
+        return tableManager.tableAsync(causalityToken, tableId)
                 .thenAccept(table -> {
                     if (index instanceof HashIndex) {
                         table.registerHashIndex(tableIndexView.id(), tableIndexView.uniq(), tableRowConverter::convert);
