@@ -47,7 +47,7 @@ public class OutgoingSnapshotReader extends SnapshotReader {
     public OutgoingSnapshotReader(PartitionSnapshotStorage snapshotStorage) {
         this.snapshotStorage = snapshotStorage;
 
-        //TODO https://issues.apache.org/jira/browse/IGNITE-17262
+        //TODO https://issues.apache.org/jira/browse/IGNITE-17935
         // This meta is wrong, we need a right one.
         snapshotMeta = new RaftMessagesFactory().snapshotMeta()
                 .lastIncludedIndex(snapshotStorage.partition().persistedIndex())
@@ -56,7 +56,11 @@ public class OutgoingSnapshotReader extends SnapshotReader {
                 .learnersList(snapshotStorage.startupSnapshotMeta().learnersList())
                 .build();
 
-        OutgoingSnapshot outgoingSnapshot = new OutgoingSnapshot();
+        OutgoingSnapshot outgoingSnapshot = new OutgoingSnapshot(
+                id,
+                snapshotStorage.partition(),
+                snapshotStorage.outgoingSnapshotsManager()
+        );
 
         snapshotStorage.outgoingSnapshotsManager().registerOutgoingSnapshot(id, outgoingSnapshot);
     }
@@ -75,7 +79,7 @@ public class OutgoingSnapshotReader extends SnapshotReader {
 
     @Override
     public void close() throws IOException {
-        snapshotStorage.outgoingSnapshotsManager().finishOutgoingSnapshot(id);
+        snapshotStorage.outgoingSnapshotsManager().unregisterOutgoingSnapshot(id);
     }
 
     @Override

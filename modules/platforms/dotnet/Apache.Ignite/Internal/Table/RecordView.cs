@@ -112,9 +112,10 @@ namespace Apache.Ignite.Internal.Table
             var tx = transaction.ToInternal();
 
             using var writer = ProtoCommon.GetMessageWriter();
-            _ser.WriteMultiple(writer, tx, schema, iterator, keyOnly: true);
+            var colocationHash = _ser.WriteMultiple(writer, tx, schema, iterator, keyOnly: true);
+            var preferredNode = await GetPreferredNode(colocationHash, transaction).ConfigureAwait(false);
 
-            using var resBuf = await DoOutInOpAsync(ClientOp.TupleGetAll, tx, writer).ConfigureAwait(false);
+            using var resBuf = await DoOutInOpAsync(ClientOp.TupleGetAll, tx, writer, preferredNode).ConfigureAwait(false);
             var resSchema = await _table.ReadSchemaAsync(resBuf).ConfigureAwait(false);
 
             // TODO: Read value parts only (IGNITE-16022).
@@ -145,9 +146,10 @@ namespace Apache.Ignite.Internal.Table
             var tx = transaction.ToInternal();
 
             using var writer = ProtoCommon.GetMessageWriter();
-            _ser.WriteMultiple(writer, tx, schema, iterator);
+            var colocationHash = _ser.WriteMultiple(writer, tx, schema, iterator);
+            var preferredNode = await GetPreferredNode(colocationHash, transaction).ConfigureAwait(false);
 
-            using var resBuf = await DoOutInOpAsync(ClientOp.TupleUpsertAll, tx, writer).ConfigureAwait(false);
+            using var resBuf = await DoOutInOpAsync(ClientOp.TupleUpsertAll, tx, writer, preferredNode).ConfigureAwait(false);
         }
 
         /// <inheritdoc/>
@@ -186,9 +188,10 @@ namespace Apache.Ignite.Internal.Table
             var tx = transaction.ToInternal();
 
             using var writer = ProtoCommon.GetMessageWriter();
-            _ser.WriteMultiple(writer, tx, schema, iterator);
+            var colocationHash = _ser.WriteMultiple(writer, tx, schema, iterator);
+            var preferredNode = await GetPreferredNode(colocationHash, transaction).ConfigureAwait(false);
 
-            using var resBuf = await DoOutInOpAsync(ClientOp.TupleInsertAll, tx, writer).ConfigureAwait(false);
+            using var resBuf = await DoOutInOpAsync(ClientOp.TupleInsertAll, tx, writer, preferredNode).ConfigureAwait(false);
             var resSchema = await _table.ReadSchemaAsync(resBuf).ConfigureAwait(false);
 
             // TODO: Read value parts only (IGNITE-16022).
@@ -220,9 +223,10 @@ namespace Apache.Ignite.Internal.Table
             var tx = transaction.ToInternal();
 
             using var writer = ProtoCommon.GetMessageWriter();
-            _ser.WriteTwo(writer, tx, schema, record, newRecord);
+            var colocationHash = _ser.WriteTwo(writer, tx, schema, record, newRecord);
+            var preferredNode = await GetPreferredNode(colocationHash, transaction).ConfigureAwait(false);
 
-            using var resBuf = await DoOutInOpAsync(ClientOp.TupleReplaceExact, tx, writer).ConfigureAwait(false);
+            using var resBuf = await DoOutInOpAsync(ClientOp.TupleReplaceExact, tx, writer, preferredNode).ConfigureAwait(false);
             return resBuf.GetReader().ReadBoolean();
         }
 
@@ -327,10 +331,11 @@ namespace Apache.Ignite.Internal.Table
             var tx = transaction.ToInternal();
 
             using var writer = ProtoCommon.GetMessageWriter();
-            _ser.WriteMultiple(writer, tx, schema, iterator, keyOnly: !exact);
+            var colocationHash = _ser.WriteMultiple(writer, tx, schema, iterator, keyOnly: !exact);
+            var preferredNode = await GetPreferredNode(colocationHash, transaction).ConfigureAwait(false);
 
             var clientOp = exact ? ClientOp.TupleDeleteAllExact : ClientOp.TupleDeleteAll;
-            using var resBuf = await DoOutInOpAsync(clientOp, tx, writer).ConfigureAwait(false);
+            using var resBuf = await DoOutInOpAsync(clientOp, tx, writer, preferredNode).ConfigureAwait(false);
             var resSchema = await _table.ReadSchemaAsync(resBuf).ConfigureAwait(false);
 
             // TODO: Read value parts only (IGNITE-16022).
@@ -359,13 +364,26 @@ namespace Apache.Ignite.Internal.Table
             return resBuf.GetReader().ReadBoolean();
         }
 
+        private async ValueTask<PreferredNode> GetPreferredNode(int colocationHash, ITransaction? transaction)
+        {
+            if (transaction != null)
+            {
+                return default;
+            }
+
+            var assignment = await _table.GetPartitionAssignmentAsync().ConfigureAwait(false);
+            var partition = Math.Abs(colocationHash % assignment.Length);
+            var nodeId = assignment[partition];
+
+            return PreferredNode.FromId(nodeId);
+        }
+
         private async Task<PooledBuffer> DoOutInOpAsync(
             ClientOp clientOp,
             Transaction? tx,
-            PooledArrayBufferWriter? request = null)
-        {
-            return await _table.Socket.DoOutInOpAsync(clientOp, tx, request).ConfigureAwait(false);
-        }
+            PooledArrayBufferWriter? request = null,
+            PreferredNode preferredNode = default) =>
+            await _table.Socket.DoOutInOpAsync(clientOp, tx, request, preferredNode).ConfigureAwait(false);
 
         private async Task<PooledBuffer> DoRecordOutOpAsync(
             ClientOp op,
@@ -377,9 +395,10 @@ namespace Apache.Ignite.Internal.Table
             var tx = transaction.ToInternal();
 
             using var writer = ProtoCommon.GetMessageWriter();
-            _ser.Write(writer, tx, schema, record, keyOnly);
+            var colocationHash = _ser.Write(writer, tx, schema, record, keyOnly);
+            var preferredNode = await GetPreferredNode(colocationHash, transaction).ConfigureAwait(false);
 
-            return await DoOutInOpAsync(op, tx, writer).ConfigureAwait(false);
+            return await DoOutInOpAsync(op, tx, writer, preferredNode).ConfigureAwait(false);
         }
     }
 }

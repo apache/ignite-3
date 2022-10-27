@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed.command;
 
-import org.apache.ignite.hlc.HybridTimestamp;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
@@ -27,18 +27,12 @@ import java.io.Serializable;
 /**
  * Interface to represent {@link HybridTimestamp} as a {@link NetworkMessage}.
  */
-@Transferable(value = TableMessageGroup.Commands.HYBRID_TIMESTAMP)
+@Transferable(TableMessageGroup.Commands.HYBRID_TIMESTAMP)
 public interface HybridTimestampMessage extends NetworkMessage, Serializable {
-    /**
-     *
-     * @return
-     */
+    /** */
     long physical();
 
-    /**
-     *
-     * @return
-     */
+    /** */
     int logical();
 
     default HybridTimestamp asHybridTimestamp() {

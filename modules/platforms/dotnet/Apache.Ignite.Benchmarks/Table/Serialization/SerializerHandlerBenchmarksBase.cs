@@ -46,14 +46,14 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
 
         internal static readonly Schema Schema = new(1, 1, new[]
         {
-            new Column(nameof(Car.Id), ClientDataType.Uuid, Nullable: false, IsKey: true, SchemaIndex: 0, Scale: 0),
-            new Column(nameof(Car.BodyType), ClientDataType.String, Nullable: false, IsKey: false, SchemaIndex: 1, Scale: 0),
-            new Column(nameof(Car.Seats), ClientDataType.Int32, Nullable: false, IsKey: false, SchemaIndex: 2, Scale: 0)
+            new Column(nameof(Car.Id), ClientDataType.Uuid, IsNullable: false, IsColocation: true, IsKey: true, SchemaIndex: 0, Scale: 0),
+            new Column(nameof(Car.BodyType), ClientDataType.String, IsNullable: false, IsColocation: false, IsKey: false, SchemaIndex: 1, Scale: 0),
+            new Column(nameof(Car.Seats), ClientDataType.Int32, IsNullable: false, IsColocation: false, IsKey: false, SchemaIndex: 2, Scale: 0)
         });
 
         internal static readonly byte[] SerializedData = GetSerializedData();
 
-        internal static readonly ObjectSerializerHandler<Car> ObjectSerializerHandler = new();
+        internal static readonly IRecordSerializerHandler<Car> ObjectSerializerHandler = new ObjectSerializerHandler<Car>();
 
         protected Consumer Consumer { get; } = new();
 

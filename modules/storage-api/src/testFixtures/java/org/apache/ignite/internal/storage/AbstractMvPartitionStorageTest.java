@@ -41,8 +41,8 @@ import java.util.NoSuchElementException;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
-import org.apache.ignite.hlc.HybridClock;
-import org.apache.ignite.hlc.HybridTimestamp;
+import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.util.Cursor;
@@ -1269,30 +1269,34 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
 
     @ParameterizedTest
     @EnumSource(ScanTimestampProvider.class)
-    public void scanDoesNotSeeTombstonesWhenTombstoneIsNotCommitted(ScanTimestampProvider tsProvider) throws Exception {
-        testScanDoesNotSeeTombstones(tsProvider, false);
+    public void scanSeesTombstonesWhenTombstoneIsNotCommitted(ScanTimestampProvider tsProvider) throws Exception {
+        RowId rowId = insert(binaryRow, txId);
+        HybridTimestamp commitTs = clock.now();
+        commitWrite(rowId, commitTs);
+
+        addWrite(rowId, null, newTransactionId());
+
+        try (PartitionTimestampCursor cursor = scan(tsProvider.scanTimestamp(clock))) {
+            assertTrue(cursor.hasNext());
+
+            ReadResult next = cursor.next();
+            assertNull(next.binaryRow());
+            assertEquals(commitTs, next.newestCommitTimestamp());
+
+            assertFalse(cursor.hasNext());
+        }
     }
 
     @ParameterizedTest
     @EnumSource(ScanTimestampProvider.class)
     public void scanDoesNotSeeTombstonesWhenTombstoneIsCommitted(ScanTimestampProvider tsProvider) throws Exception {
-        testScanDoesNotSeeTombstones(tsProvider, true);
-    }
-
-    private void testScanDoesNotSeeTombstones(ScanTimestampProvider scantsProvider, boolean commitRemoval) throws Exception {
         RowId rowId = insert(binaryRow, txId);
         commitWrite(rowId, clock.now());
 
         addWrite(rowId, null, newTransactionId());
-        if (commitRemoval) {
-            commitWrite(rowId, clock.now());
-        }
+        commitWrite(rowId, clock.now());
 
-        assertScanSeesNothing(scantsProvider);
-    }
-
-    private void assertScanSeesNothing(ScanTimestampProvider scanTsProvider) throws Exception {
-        try (PartitionTimestampCursor cursor = scan(scanTsProvider.scanTimestamp(clock))) {
+        try (PartitionTimestampCursor cursor = scan(tsProvider.scanTimestamp(clock))) {
             assertFalse(cursor.hasNext());
         }
     }

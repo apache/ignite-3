@@ -15,32 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.hlc;
+namespace Apache.Ignite.Internal.Proto.BinaryTuple;
 
-import static org.apache.ignite.hlc.HybridTimestamp.max;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-
-import org.junit.jupiter.api.Test;
-
-/**
- * Tests of a hybrid timestamp implementation.
- * {@link HybridTimestamp}
- */
-class HybridTimestampTest {
-    @Test
-    public void testComparison() {
-        assertEquals(new HybridTimestamp(10, 5),
-                max(new HybridTimestamp(10, 5), new HybridTimestamp(5, 7))
-        );
-
-        assertEquals(new HybridTimestamp(20, 10),
-                max(new HybridTimestamp(10, 100), new HybridTimestamp(20, 10))
-        );
-
-        assertEquals(new HybridTimestamp(20, 10),
-                max(new HybridTimestamp(20, 10))
-        );
-
-        assertEquals(null, max());
-    }
+/// <summary>
+/// Provides a value indicating whether the column at specified index should be included in the hash.
+/// </summary>
+internal interface IHashedColumnIndexProvider
+{
+    /// <summary>
+    /// Gets a value indicating whether the value of a column at specified index should be hashed.
+    /// </summary>
+    /// <param name="index">Column index.</param>
+    /// <returns>True when hashed column; false otherwise.</returns>
+    bool IsHashedColumnIndex(int index);
 }
