@@ -31,6 +31,7 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.lock.AutoLockup;
@@ -81,7 +82,7 @@ public class PartitionListener implements RaftGroupListener {
     /**
      * The constructor.
      *
-     * @param store  The storage.
+     * @param store The storage.
      * @param txStateStorage Transaction state storage.
      * @param txManager Transaction manager.
      */
@@ -113,16 +114,11 @@ public class PartitionListener implements RaftGroupListener {
 
             long commandIndex = clo.index();
 
-            // TODO: IGNITE-17983 вот тут думаю неадо по другому сделать
+            long storagesAppliedIndex = Math.min(storage.lastAppliedIndex(), txStateStorage.lastAppliedIndex());
 
-            long storageAppliedIndex = Math.min(
-                    storage.lastAppliedIndex(),
-                    txStateStorage.lastAppliedIndex()
-            );
-
-            assert commandIndex > storageAppliedIndex
-                    : "Pending write command has a higher index than already processed commands [commandIndex=" + commandIndex
-                    + ", storageAppliedIndex=" + storageAppliedIndex + ']';
+            assert commandIndex > storagesAppliedIndex :
+                    "Write command must have an index greater than that of storages [commandIndex=" + commandIndex
+                            + ", storagesAppliedIndex=" + storagesAppliedIndex + "]";
 
             try (AutoLockup ignoredPartitionSnapshotsReadLockup = storage.acquirePartitionSnapshotsReadLock()) {
                 if (command instanceof UpdateCommand) {
@@ -147,6 +143,7 @@ public class PartitionListener implements RaftGroupListener {
      * Handler for the {@link UpdateCommand}.
      *
      * @param cmd Command.
+     * @param commandIndex Index of the RAFT command.
      */
     private void handleUpdateCommand(UpdateCommand cmd, long commandIndex) {
         storage.runConsistently(() -> {
@@ -172,6 +169,7 @@ public class PartitionListener implements RaftGroupListener {
      * Handler for the {@link UpdateAllCommand}.
      *
      * @param cmd Command.
+     * @param commandIndex Index of the RAFT command.
      */
     private void handleUpdateAllCommand(UpdateAllCommand cmd, long commandIndex) {
         storage.runConsistently(() -> {
@@ -192,6 +190,7 @@ public class PartitionListener implements RaftGroupListener {
                     addToIndexes(row, rowId);
                 }
             }
+
             storage.lastAppliedIndex(commandIndex);
 
             return null;
@@ -201,7 +200,7 @@ public class PartitionListener implements RaftGroupListener {
     /**
      * Handler for the {@link FinishTxCommand}.
      *
-     * @param cmd          Command.
+     * @param cmd Command.
      * @param commandIndex Index of the RAFT command.
      * @throws IgniteInternalException if an exception occurred during a transaction state change.
      */
@@ -246,11 +245,11 @@ public class PartitionListener implements RaftGroupListener {
         }
     }
 
-
     /**
      * Handler for the {@link TxCleanupCommand}.
      *
      * @param cmd Command.
+     * @param commandIndex Index of the RAFT command.
      */
     private void handleTxCleanupCommand(TxCleanupCommand cmd, long commandIndex) {
         storage.runConsistently(() -> {
@@ -277,7 +276,8 @@ public class PartitionListener implements RaftGroupListener {
 
     @Override
     public void onSnapshotSave(Path path, Consumer<Throwable> doneClo) {
-        storage.flush();
+        CompletableFuture.allOf(storage.flush(), txStateStorage.flush())
+                .whenComplete((unused, throwable) -> doneClo.accept(throwable));
     }
 
     @Override
