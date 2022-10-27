@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.storage.rocksdb;
 
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.CoreMatchers.is;
@@ -27,7 +26,6 @@ import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.nio.file.Path;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -108,12 +106,10 @@ public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
 
         partitionStorage1.runConsistently(() -> partitionStorage1.addWrite(rowId1, testData, txId, UUID.randomUUID(), 0));
 
-        CompletableFuture<Void> destroyFuture = tableStorage.destroyPartition(PARTITION_ID_0);
+        tableStorage.destroyPartition(PARTITION_ID_0);
 
         // Partition destruction doesn't enforce flush.
         ((RocksDbTableStorage) tableStorage).awaitFlush(true);
-
-        assertThat(destroyFuture, willCompleteSuccessfully());
 
         assertThat(tableStorage.getMvPartition(PARTITION_ID_0), is(nullValue()));
         assertThat(tableStorage.getOrCreateMvPartition(PARTITION_ID_0).read(rowId0, HybridTimestamp.MAX_VALUE).binaryRow(),
