@@ -17,14 +17,14 @@
 
 package org.apache.ignite.internal.index;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasItems;
 import static org.hamcrest.Matchers.notNullValue;
-import static org.hamcrest.Matchers.sameInstance;
 
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.index.event.IndexEvent;
@@ -50,43 +50,62 @@ public class ItIndexManagerTest extends AbstractBasicIntegrationTest {
     @Test
     public void eventsAreFiredWhenIndexesCreatedAndDropped() {
         Ignite ignite = CLUSTER_NODES.get(0);
+        IndexManager indexManager = ((IgniteImpl) ignite).indexManager();
+
+        CompletableFuture<IndexEventParameters> pkCreatedFuture = registerListener(indexManager, IndexEvent.CREATE);
 
         sql("CREATE TABLE tname (c1 INT PRIMARY KEY, c2 INT, c3 INT)");
 
         TableImpl table = (TableImpl) ignite.tables().table("tname");
 
-        IndexManager indexManager = ((IgniteImpl) ignite).indexManager();
+        {
+            Index<?> index = await(pkCreatedFuture).index();
 
-        AtomicReference<IndexEventParameters> createEventParamHolder = new AtomicReference<>();
-        AtomicReference<IndexEventParameters> dropEventParamHolder = new AtomicReference<>();
+            assertThat(index, notNullValue());
+            assertThat(index.tableId(), equalTo(table.tableId()));
+            assertThat(index.descriptor().columns(), hasItems("C1"));
+            assertThat(index.name(), equalTo("TNAME_PK"));
+            assertThat(index.name(), equalTo(index.descriptor().name()));
+        }
 
-        indexManager.listen(IndexEvent.CREATE, (param, th) -> {
-            createEventParamHolder.set(param);
-
-            return CompletableFuture.completedFuture(true);
-        });
-        indexManager.listen(IndexEvent.DROP, (param, th) -> {
-            dropEventParamHolder.set(param);
-
-            return CompletableFuture.completedFuture(true);
-        });
+        CompletableFuture<IndexEventParameters> indexCreatedFuture = registerListener(indexManager, IndexEvent.CREATE);
 
         indexManager.createIndexAsync("PUBLIC", "INAME", "TNAME", true, tableIndexChange ->
                 tableIndexChange.convert(HashIndexChange.class).changeColumnNames("C3", "C2")).join();
 
-        Index<?> index = createEventParamHolder.get().index();
+        UUID createdIndexId;
+        {
+            Index<?> index = await(indexCreatedFuture).index();
+            createdIndexId = index.id();
 
-        assertThat(index, notNullValue());
-        assertThat(index.tableId(), equalTo(table.tableId()));
-        assertThat(index.descriptor().columns(), hasItems("C3", "C2"));
-        assertThat(index.name(), equalTo("INAME"));
-        assertThat(index.name(), equalTo(index.descriptor().name()));
-        assertThat(createEventParamHolder.get(), notNullValue());
-        assertThat(index, sameInstance(createEventParamHolder.get().index()));
+            assertThat(index, notNullValue());
+            assertThat(index.tableId(), equalTo(table.tableId()));
+            assertThat(index.descriptor().columns(), hasItems("C3", "C2"));
+            assertThat(index.name(), equalTo("INAME"));
+            assertThat(index.name(), equalTo(index.descriptor().name()));
+        }
+
+        CompletableFuture<IndexEventParameters> indexDroppedFuture = registerListener(indexManager, IndexEvent.DROP);
 
         indexManager.dropIndexAsync("PUBLIC", "INAME", true).join();
 
-        assertThat(dropEventParamHolder.get(), notNullValue());
-        assertThat(index.id(), sameInstance(dropEventParamHolder.get().indexId()));
+        {
+            IndexEventParameters params = await(indexDroppedFuture);
+
+            assertThat(params, notNullValue());
+            assertThat(params.indexId(), equalTo(createdIndexId));
+        }
+    }
+
+    private CompletableFuture<IndexEventParameters> registerListener(IndexManager indexManager, IndexEvent event) {
+        CompletableFuture<IndexEventParameters> paramFuture = new CompletableFuture<>();
+
+        indexManager.listen(event, (param, th) -> {
+            paramFuture.complete(param);
+
+            return CompletableFuture.completedFuture(true);
+        });
+
+        return paramFuture;
     }
 }

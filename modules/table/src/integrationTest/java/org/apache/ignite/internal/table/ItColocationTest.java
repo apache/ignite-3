@@ -391,7 +391,7 @@ public class ItColocationTest {
 
         schemaRegistry = new DummySchemaManagerImpl(schema);
 
-        tbl = new TableImpl(INT_TABLE, schemaRegistry);
+        tbl = new TableImpl(INT_TABLE, schemaRegistry, new HeapLockManager());
 
         marshaller = new TupleMarshallerImpl(schemaRegistry);
     }

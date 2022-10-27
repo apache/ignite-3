@@ -47,6 +47,7 @@ import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.marshaller.RecordMarshallerTest;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
+import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.table.KeyValueView;
@@ -116,7 +117,7 @@ public class InteropOperationsTest {
 
         Mockito.when(clusterService.messagingService()).thenReturn(Mockito.mock(MessagingService.class, RETURNS_DEEP_STUBS));
 
-        TABLE = new TableImpl(INT_TABLE, schemaRegistry);
+        TABLE = new TableImpl(INT_TABLE, schemaRegistry, new HeapLockManager());
         KV_BIN_VIEW =  new KeyValueBinaryViewImpl(INT_TABLE, schemaRegistry);
 
         KV_VIEW = new KeyValueViewImpl<Long, Value>(INT_TABLE, schemaRegistry,
