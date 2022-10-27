@@ -35,6 +35,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.lock.AutoLockup;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
@@ -181,7 +182,9 @@ class OutgoingSnapshotMvDataStreamingTest {
 
     @Test
     void rowsWithIdsToSkipAreIgnored() throws Exception {
-        snapshot.addRowIdToSkip(rowId1);
+        try (AutoLockup ignored = snapshot.acquireMvLock()) {
+            snapshot.addRowIdToSkip(rowId1);
+        }
 
         when(partitionAccess.closestRowId(lowestRowId)).thenReturn(rowId1);
         when(partitionAccess.closestRowId(rowId2)).thenReturn(null);
@@ -204,7 +207,9 @@ class OutgoingSnapshotMvDataStreamingTest {
 
         when(partitionAccess.rowVersions(rowIdOutOfOrder)).thenReturn(List.of(version2, version1));
 
-        snapshot.enqueueForSending(rowIdOutOfOrder);
+        try (AutoLockup ignored = snapshot.acquireMvLock()) {
+            snapshot.enqueueForSending(rowIdOutOfOrder);
+        }
 
         configureStorageToBeEmpty();
 
@@ -236,7 +241,9 @@ class OutgoingSnapshotMvDataStreamingTest {
 
         when(partitionAccess.rowVersions(rowIdOutOfOrder)).thenReturn(List.of(version1));
 
-        snapshot.enqueueForSending(rowIdOutOfOrder);
+        try (AutoLockup ignored = snapshot.acquireMvLock()) {
+            snapshot.enqueueForSending(rowIdOutOfOrder);
+        }
 
         configureStorageToHaveExactlyOneRowWith(List.of(version2));
 
@@ -307,7 +314,9 @@ class OutgoingSnapshotMvDataStreamingTest {
 
         when(partitionAccess.rowVersions(rowIdOutOfOrder)).thenReturn(List.of(version1));
 
-        snapshot.enqueueForSending(rowIdOutOfOrder);
+        try (AutoLockup ignored = snapshot.acquireMvLock()) {
+            snapshot.enqueueForSending(rowIdOutOfOrder);
+        }
 
         lenient().when(partitionAccess.closestRowId(lowestRowId)).thenReturn(rowId1);
         lenient().when(partitionAccess.rowVersions(rowId1)).thenReturn(List.of(version2));
@@ -351,7 +360,9 @@ class OutgoingSnapshotMvDataStreamingTest {
 
         when(partitionAccess.rowVersions(rowIdOutOfOrder)).thenReturn(List.of(version));
 
-        snapshot.enqueueForSending(rowIdOutOfOrder);
+        try (AutoLockup ignored = snapshot.acquireMvLock()) {
+            snapshot.enqueueForSending(rowIdOutOfOrder);
+        }
 
         configureStorageToBeEmpty();
 
@@ -364,7 +375,9 @@ class OutgoingSnapshotMvDataStreamingTest {
 
     @Test
     void whenNotStartedThenEvenLowestRowIdIsNotPassed() {
-        assertFalse(snapshot.alreadyPassed(lowestRowId));
+        try (AutoLockup ignored = snapshot.acquireMvLock()) {
+            assertFalse(snapshot.alreadyPassed(lowestRowId));
+        }
     }
 
     @Test
@@ -378,7 +391,9 @@ class OutgoingSnapshotMvDataStreamingTest {
 
         getMvDataResponse(1);
 
-        assertTrue(snapshot.alreadyPassed(rowId1));
+        try (AutoLockup ignored = snapshot.acquireMvLock()) {
+            assertTrue(snapshot.alreadyPassed(rowId1));
+        }
     }
 
     @Test
@@ -392,7 +407,9 @@ class OutgoingSnapshotMvDataStreamingTest {
 
         getMvDataResponse(1);
 
-        assertFalse(snapshot.alreadyPassed(rowId2));
+        try (AutoLockup ignored = snapshot.acquireMvLock()) {
+            assertFalse(snapshot.alreadyPassed(rowId2));
+        }
     }
 
     @Test
@@ -403,7 +420,9 @@ class OutgoingSnapshotMvDataStreamingTest {
 
         getMvDataResponse(Long.MAX_VALUE);
 
-        //noinspection ConstantConditions
-        assertTrue(snapshot.alreadyPassed(rowId3.increment().increment().increment()));
+        try (AutoLockup ignored = snapshot.acquireMvLock()) {
+            //noinspection ConstantConditions
+            assertTrue(snapshot.alreadyPassed(rowId3.increment().increment().increment()));
+        }
     }
 }

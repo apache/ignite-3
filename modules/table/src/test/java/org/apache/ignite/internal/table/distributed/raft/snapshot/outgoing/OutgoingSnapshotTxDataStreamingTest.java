@@ -34,6 +34,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.lock.AutoLockup;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionAccess;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionKey;
@@ -103,7 +104,13 @@ class OutgoingSnapshotTxDataStreamingTest {
                 List.of(new IgniteBiTuple<>(txId1, meta1), new IgniteBiTuple<>(txId2, meta2)).iterator())
         );
 
-        snapshot.freezeScope();
+        freezeSnapshotScope();
+    }
+
+    private void freezeSnapshotScope() {
+        try (AutoLockup ignored = snapshot.acquireMvLock()) {
+            snapshot.freezeScope();
+        }
     }
 
     private SnapshotTxDataResponse getTxDataResponse(int maxTxsInBatch) throws InterruptedException, ExecutionException, TimeoutException {
@@ -117,7 +124,7 @@ class OutgoingSnapshotTxDataStreamingTest {
     private void configureStorageToBeEmpty() {
         when(partitionAccess.scanTxData()).thenReturn(Cursor.fromIterator(emptyIterator()));
 
-        snapshot.freezeScope();
+        freezeSnapshotScope();
     }
 
     @Test
@@ -152,7 +159,7 @@ class OutgoingSnapshotTxDataStreamingTest {
         Cursor<IgniteBiTuple<UUID, TxMeta>> cursor = spy(Cursor.fromIterator(emptyIterator()));
 
         when(partitionAccess.scanTxData()).thenReturn(cursor);
-        snapshot.freezeScope();
+        freezeSnapshotScope();
 
         getTxDataResponse(Integer.MAX_VALUE);
 

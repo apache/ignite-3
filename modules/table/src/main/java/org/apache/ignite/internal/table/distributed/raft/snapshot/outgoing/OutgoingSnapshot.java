@@ -27,7 +27,6 @@ import java.util.Queue;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lock.AutoLockup;
@@ -65,7 +64,7 @@ public class OutgoingSnapshot {
      * Lock that is used for mutual exclusion of MV snapshot reading (by this class) and threads that write MV data to the same
      * partition (currently, via {@link SnapshotAwarePartitionDataStorage}).
      */
-    private final Lock mvOperationsLock = new ReentrantLock();
+    private final ReentrantLock mvOperationsLock = new ReentrantLock();
 
     private final ReusableLockLockup mvOperationsLockup = ReusableLockLockup.forLock(mvOperationsLock);
 
@@ -136,7 +135,15 @@ public class OutgoingSnapshot {
      * <p>Must be called under snapshot lock.
      */
     void freezeScope() {
+        throwIfMvLockNotAcquired();
+
         txDataCursor = partition.scanTxData();
+    }
+
+    private void throwIfMvLockNotAcquired() {
+        if (!mvOperationsLock.isLocked()) {
+            throw new IllegalStateException("MV operations lock must be acquired!");
+        }
     }
 
     /**
@@ -345,6 +352,8 @@ public class OutgoingSnapshot {
      * @return {@code true} if the given RowId was added as it was not yet in the collection of IDs to skip.
      */
     public boolean addRowIdToSkip(RowId rowId) {
+        throwIfMvLockNotAcquired();
+
         return rowIdsToSkip.add(rowId);
     }
 
@@ -358,6 +367,8 @@ public class OutgoingSnapshot {
      * @return {@code true} if the given RowId is already passed by the snapshot in normal rows sending order.
      */
     public boolean alreadyPassed(RowId rowId) {
+        throwIfMvLockNotAcquired();
+
         if (!startedToReadMvPartition) {
             return false;
         }
@@ -376,6 +387,8 @@ public class OutgoingSnapshot {
      * @param rowId {@link RowId} of the row.
      */
     public void enqueueForSending(RowId rowId) {
+        throwIfMvLockNotAcquired();
+
         outOfOrderMvData.add(rowEntry(rowId));
     }
 
