@@ -48,6 +48,7 @@ import org.apache.ignite.internal.configuration.notifications.ConfigurationStora
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.configuration.testframework.InjectRevisionListenerHolder;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.raft.Loza;
@@ -505,7 +506,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 msm,
                 schemaManager,
                 view -> new LocalLogStorageFactory(),
-                null,
+                new HybridClockImpl(),
                 mock(OutgoingSnapshotsManager.class)
         );
 

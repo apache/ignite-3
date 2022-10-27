@@ -15,24 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.hlc;
+package org.apache.ignite.internal.replicator.command;
+
+import org.apache.ignite.raft.client.WriteCommand;
 
 /**
- * A Hybrid Logical Clock.
+ * Write command to synchronize safe time periodically.
  */
-public interface HybridClock {
-    /**
-     * Creates a timestamp for new event.
-     *
-     * @return The hybrid timestamp.
-     */
-    HybridTimestamp now();
-
-    /**
-     * Creates a timestamp for a received event.
-     *
-     * @param requestTime Timestamp from request.
-     * @return The hybrid timestamp.
-     */
-    HybridTimestamp update(HybridTimestamp requestTime);
+public class SafeTimeSyncCommand implements WriteCommand {
 }
