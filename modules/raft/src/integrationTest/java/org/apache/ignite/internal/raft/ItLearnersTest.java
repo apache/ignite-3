@@ -64,6 +64,7 @@ import org.apache.ignite.raft.client.WriteCommand;
 import org.apache.ignite.raft.client.service.CommandClosure;
 import org.apache.ignite.raft.client.service.RaftGroupListener;
 import org.apache.ignite.raft.client.service.RaftGroupService;
+import org.apache.ignite.raft.messages.TestRaftMessagesFactory;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -81,6 +82,12 @@ public class ItLearnersTest extends IgniteAbstractTest {
             return "test";
         }
     };
+
+    static final TestRaftMessagesFactory MESSAGES_FACTORY = new TestRaftMessagesFactory();
+
+    static TestWriteCommand createWriteCommand(String value) {
+        return MESSAGES_FACTORY.testWriteCommand().value(value).build();
+    }
 
     private static final List<NetworkAddress> ADDRS = List.of(
             new NetworkAddress("localhost", 5000),
@@ -179,8 +186,8 @@ public class ItLearnersTest extends IgniteAbstractTest {
 
         // Test writing data.
         CompletableFuture<?> writeFuture = services.get(0)
-                .thenCompose(s -> s.run(TestWriteCommand.create("foo")).thenApply(v -> s))
-                .thenCompose(s -> s.run(TestWriteCommand.create("bar")));
+                .thenCompose(s -> s.run(createWriteCommand("foo")).thenApply(v -> s))
+                .thenCompose(s -> s.run(createWriteCommand("bar")));
 
         assertThat(writeFuture, willCompleteSuccessfully());
 
@@ -243,7 +250,7 @@ public class ItLearnersTest extends IgniteAbstractTest {
 
         nodes.set(0, null).close();
 
-        assertThat(services.get(1).thenCompose(s -> s.run(TestWriteCommand.create("foo"))), willThrow(TimeoutException.class));
+        assertThat(services.get(1).thenCompose(s -> s.run(createWriteCommand("foo"))), willThrow(TimeoutException.class));
     }
 
     /**
