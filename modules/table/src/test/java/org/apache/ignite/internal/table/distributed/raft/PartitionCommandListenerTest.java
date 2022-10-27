@@ -26,6 +26,7 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -61,6 +62,8 @@ import org.apache.ignite.internal.table.distributed.command.TxCleanupCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateAllCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
+import org.apache.ignite.internal.testframework.WorkDirectory;
+import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
@@ -74,11 +77,13 @@ import org.apache.ignite.raft.client.service.CommandClosure;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mockito;
 
 /**
  * Tests for the table command listener.
  */
+@ExtendWith(WorkDirectoryExtension.class)
 public class PartitionCommandListenerTest {
     /** Key count. */
     public static final int KEY_COUNT = 100;
@@ -116,6 +121,10 @@ public class PartitionCommandListenerTest {
 
     /** Partition storage. */
     private final MvPartitionStorage mvPartitionStorage = new TestMvPartitionStorage(PARTITION_ID);
+
+    /** Work directory. */
+    @WorkDirectory
+    private Path workDir;
 
     /**
      * Initializes a table listener before tests.
@@ -204,6 +213,42 @@ public class PartitionCommandListenerTest {
         deleteAll();
 
         readAndCheck(false);
+    }
+
+    /**
+     * The test checks that {@link PartitionListener#onSnapshotSave(Path, Consumer)} propagates
+     * the maximal last applied index among storages to all storages.
+     */
+    @Test
+    public void testOnSnapshotSavePropagateLastAppliedIndex() {
+        ReplicaService replicaService = mock(ReplicaService.class, RETURNS_DEEP_STUBS);
+
+        TestConcurrentHashMapTxStateStorage txStateStorage = new TestConcurrentHashMapTxStateStorage();
+
+        TestPartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(mvPartitionStorage);
+
+        PartitionListener testCommandListener = new PartitionListener(
+                partitionDataStorage,
+                txStateStorage,
+                new TxManagerImpl(replicaService, new HeapLockManager(), new HybridClock()),
+                () -> Map.of(pkStorage.id(), pkStorage)
+        );
+
+        txStateStorage.lastAppliedIndex(3L);
+
+        partitionDataStorage.lastAppliedIndex(5L);
+
+        AtomicLong counter = new AtomicLong(0);
+
+        testCommandListener.onSnapshotSave(workDir, (throwable) -> {
+            counter.incrementAndGet();
+        });
+
+        assertEquals(1L, counter.get());
+
+        assertEquals(5L, partitionDataStorage.lastAppliedIndex());
+
+        assertEquals(5L, txStateStorage.lastAppliedIndex());
     }
 
     /**

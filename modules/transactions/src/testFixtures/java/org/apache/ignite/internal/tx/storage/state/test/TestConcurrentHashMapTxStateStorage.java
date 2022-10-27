@@ -57,6 +57,8 @@ public class TestConcurrentHashMapTxStateStorage implements TxStateStorage {
             if (old == null && txStateExpected == null) {
                 TxMeta oldMeta = storage.putIfAbsent(txId, txMeta);
                 if (oldMeta == null) {
+                    lastAppliedIndex = commandIndex;
+
                     return true;
                 } else {
                     return false;
@@ -64,6 +66,8 @@ public class TestConcurrentHashMapTxStateStorage implements TxStateStorage {
             } else if (old != null) {
                 if (old.txState() == txStateExpected) {
                     if (storage.replace(txId, old, txMeta)) {
+                        lastAppliedIndex = commandIndex;
+
                         return true;
                     }
                 } else {

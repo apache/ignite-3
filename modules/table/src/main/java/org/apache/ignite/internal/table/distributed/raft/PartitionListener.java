@@ -31,6 +31,7 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.lock.AutoLockup;
@@ -275,7 +276,17 @@ public class PartitionListener implements RaftGroupListener {
     /** {@inheritDoc} */
     @Override
     public void onSnapshotSave(Path path, Consumer<Throwable> doneClo) {
-        storage.flush();
+        long maxLastAppliedIndex = Math.max(storage.lastAppliedIndex(), txStateStorage.lastAppliedIndex());
+
+        storage.lastAppliedIndex(maxLastAppliedIndex);
+
+        txStateStorage.lastAppliedIndex(maxLastAppliedIndex);
+
+        CompletableFuture<Void> storageFut = storage.flush();
+
+        CompletableFuture<Void> txStateStorageFut = txStateStorage.flush();
+
+        CompletableFuture.allOf(storageFut, txStateStorageFut).whenComplete((unused, throwable) -> doneClo.accept(throwable));
     }
 
     /** {@inheritDoc} */

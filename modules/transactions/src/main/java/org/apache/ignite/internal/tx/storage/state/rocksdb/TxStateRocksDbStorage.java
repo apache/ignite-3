@@ -205,6 +205,8 @@ public class TxStateRocksDbStorage implements TxStateStorage {
 
             db.write(writeOptions, writeBatch);
 
+            lastAppliedIndex = commandIndex;
+
             return result;
         } catch (RocksDBException e) {
             throw new IgniteInternalException(
@@ -310,6 +312,8 @@ public class TxStateRocksDbStorage implements TxStateStorage {
 
         try {
             db.put(lastAppliedIndexKey, longToBytes(lastAppliedIndex));
+
+            this.lastAppliedIndex = lastAppliedIndex;
         } catch (RocksDBException e) {
             throw new IgniteInternalException(
                     TX_STATE_STORAGE_ERR,
