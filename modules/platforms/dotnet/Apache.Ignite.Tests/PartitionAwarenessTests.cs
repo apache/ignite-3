@@ -290,8 +290,16 @@ public class PartitionAwarenessTests
     [Test]
     public async Task TestCustomColocationKey()
     {
-        // TODO
-        await Task.Delay(1);
+        using var client = await GetClient();
+        var view = (await client.Tables.GetTableAsync(FakeServer.CustomColocationKeyTableName))!.GetRecordView<CompositeKey>();
+
+        await view.UpsertAsync(null, new CompositeKey("1", Guid.Empty)); // Warm up.
+
+        await Test("1", Guid.NewGuid(), _server1);
+        await Test("a", Guid.NewGuid(), _server2);
+
+        async Task Test(string idStr, Guid idGuid, FakeServer node) =>
+            await AssertOpOnNode(() => view.UpsertAsync(null, new CompositeKey(idStr, idGuid)), ClientOp.TupleUpsert, node);
     }
 
     private static async Task AssertOpOnNode(
