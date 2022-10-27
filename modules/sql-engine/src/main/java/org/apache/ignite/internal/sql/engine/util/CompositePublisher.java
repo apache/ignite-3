@@ -32,10 +32,13 @@ import org.jetbrains.annotations.Nullable;
  * Composite publisher.
  */
 public class CompositePublisher<T> implements Flow.Publisher<T> {
+    /** List of registered publishers. */
     private final Collection<? extends Publisher<T>> publishers;
 
+    /** Flag indicating the state of the subscription. */
     private final AtomicBoolean subscribed = new AtomicBoolean();
 
+    /** Items comparator. */
     private final Comparator<T> comp;
 
     public CompositePublisher(Collection<? extends Publisher<T>> publishers, @Nullable Comparator<T> comp) {
@@ -43,6 +46,7 @@ public class CompositePublisher<T> implements Flow.Publisher<T> {
         this.comp = comp;
     }
 
+    /** {@inheritDoc} */
     @Override
     public void subscribe(Subscriber<? super T> delegate) {
         if (!subscribed.compareAndSet(false, true)) {
@@ -67,46 +71,74 @@ public class CompositePublisher<T> implements Flow.Publisher<T> {
      * Composite subscription strategy template.
      */
     protected abstract static class AbstractCompositeSubscriptionStrategy<T> implements Subscription {
-        protected final List<Subscription> subscriptions = new ArrayList<>();
+        /** List of subscriptions. */
+        final List<Subscription> subscriptions = new ArrayList<>();
 
-        protected final Subscriber<? super T> delegate;
+        /** Delegated subscriber. */
+        final Subscriber<? super T> delegate;
 
         AbstractCompositeSubscriptionStrategy(Subscriber<? super T> delegate) {
             this.delegate = delegate;
         }
 
+        /**
+         * Add new subscription.
+         *
+         * @param subscription Subscription.
+         */
         void addSubscription(Subscription subscription) {
             subscriptions.add(subscription);
         }
 
+        /**
+         * Create a new subscriber proxy to receive data from the subscription.
+         *
+         * @param subscriberId Subscriber ID.
+         * @return Subscriber proxy.
+         */
         public Subscriber<T> subscriberProxy(int subscriberId) {
             return new PlainSubscriberProxy(subscriberId);
         }
 
-        public abstract void onSubscriptionComplete(int subscriberId);
+        /**
+         * Called when one of the subscriptions is completed.
+         *
+         * @param subscribeId Subscription ID.
+         */
+        public abstract void onSubscriptionComplete(int subscribeId);
 
+        /**
+         * Called when the subscriber receives a new item.
+         *
+         * @param subscriberId Subscriber ID.
+         * @param item Item.
+         */
         public abstract void onReceive(int subscriberId, T item);
 
         /**
          * Plain subscriber.
          */
         protected class PlainSubscriberProxy implements Subscriber<T> {
+            /** Subscriber ID. */
             protected final int id;
 
-            public PlainSubscriberProxy(int id) {
+            PlainSubscriberProxy(int id) {
                 this.id = id;
             }
 
+            /** {@inheritDoc} */
             @Override
             public void onSubscribe(Subscription subscription) {
                 addSubscription(subscription);
             }
 
+            /** {@inheritDoc} */
             @Override
             public void onNext(T item) {
                 onReceive(id, item);
             }
 
+            /** {@inheritDoc} */
             @Override
             public void onError(Throwable throwable) {
                 cancel();
@@ -114,6 +146,7 @@ public class CompositePublisher<T> implements Flow.Publisher<T> {
                 delegate.onError(throwable);
             }
 
+            /** {@inheritDoc} */
             @Override
             public void onComplete() {
                 onSubscriptionComplete(id);
@@ -123,16 +156,22 @@ public class CompositePublisher<T> implements Flow.Publisher<T> {
 
     /**
      * Sequential subscription strategy.
+     * <br>
+     * Sequentially receives data from each registered subscription
+     * until the total number of requested items has been received.
      */
     public static class SequentialSubscriptionStrategy<T> extends AbstractCompositeSubscriptionStrategy<T> {
+        /** Current subscription index. */
         int subscriptionIdx = 0;
 
+        /** Total number of remaining items. */
         private long remaining;
 
-        public SequentialSubscriptionStrategy(Subscriber<? super T> delegate) {
+        SequentialSubscriptionStrategy(Subscriber<? super T> delegate) {
             super(delegate);
         }
 
+        /** {@inheritDoc} */
         @Override
         public void onReceive(int subscriberId, T item) {
             --remaining;
@@ -140,8 +179,9 @@ public class CompositePublisher<T> implements Flow.Publisher<T> {
             delegate.onNext(item);
         }
 
+        /** {@inheritDoc} */
         @Override
-        public void onSubscriptionComplete(int subscriberId) {
+        public void onSubscriptionComplete(int subscribeId) {
             if (++subscriptionIdx == subscriptions.size()) {
                 delegate.onComplete();
 
@@ -153,6 +193,7 @@ public class CompositePublisher<T> implements Flow.Publisher<T> {
             }
         }
 
+        /** {@inheritDoc} */
         @Override
         public void request(long n) {
             remaining = n;
@@ -160,11 +201,13 @@ public class CompositePublisher<T> implements Flow.Publisher<T> {
             requestInternal();
         }
 
+        /** {@inheritDoc} */
         @Override
         public void cancel() {
             activeSubscription().cancel();
         }
 
+        /** Request data from a subscription. */
         private void requestInternal() {
             activeSubscription().request(remaining);
         }

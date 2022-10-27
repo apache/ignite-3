@@ -43,18 +43,22 @@ public class MergeSortSubscriptionStrategy<T> extends AbstractCompositeSubscript
     /** Internal ordered buffer. */
     private final PriorityBlockingQueue<T> inBuf;
 
+    /** List of subscribers. */
     private final List<MergeSortStrategySubscriber> subscribers = new ArrayList<>();
 
+    /** Identifiers of completed subscriptions. */
     private final ConcurrentHashSet<Integer> finished = new ConcurrentHashSet<>();
 
+    /** Number of completed subscriptions. */
     private final AtomicInteger finishedCnt = new AtomicInteger();
 
+    /** Composite subscription completed flag. */
     private final AtomicBoolean completed = new AtomicBoolean();
 
-    /** Count of remaining items. */
+    /** Number of remaining items. */
     private long remain = 0;
 
-    /** Count of requested items. */
+    /** Number of requested items. */
     private long requested = 0;
 
     /** The IDs of the subscribers we are waiting for. */
@@ -74,11 +78,6 @@ public class MergeSortSubscriptionStrategy<T> extends AbstractCompositeSubscript
 
         this.comp = comp;
         this.inBuf = new PriorityBlockingQueue<>(1, comp);
-    }
-
-    @Override
-    public void onReceive(int subscriberId, T item) {
-        inBuf.offer(item);
     }
 
     /** {@inheritDoc} */
@@ -104,9 +103,15 @@ public class MergeSortSubscriptionStrategy<T> extends AbstractCompositeSubscript
             }
         }
 
-        List<Integer> subsIds = IntStream.rangeClosed(0, subscriptions.size() - 1).boxed().collect(Collectors.toList());
+        List<Integer> subsIds = IntStream.range(0, subscriptions.size()).boxed().collect(Collectors.toList());
 
         requestInternal(subsIds, n);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void onReceive(int subscriberId, T item) {
+        inBuf.offer(item);
     }
 
     /** {@inheritDoc} */
@@ -119,19 +124,21 @@ public class MergeSortSubscriptionStrategy<T> extends AbstractCompositeSubscript
         }
     }
 
-    // Synchronized is needed because "request" can be executed in parallel with "onComplete".
-    // For example (supplier has only one item left):
-    //      user-thread: request(1)
-    //  supplier-thread: subscriber -> onNext() -> return result to user
-    //
-    //  supplier-thread: onComplete -\
-    //                                |-------> can be executed in parallel
-    //      user-thread: request(1) -/
-    //
+    /** {@inheritDoc} */
     @Override
-    public synchronized void onSubscriptionComplete(int subscriberId) {
-        if (finished.add(subscriberId) && finishedCnt.incrementAndGet() == subscriptions.size() && (remain > 0 || inBuf.isEmpty())) {
-            waitResponse.remove(subscriberId);
+    public synchronized void onSubscriptionComplete(int subscribeId) {
+        /*
+         * Synchronized is needed because "request" can be executed in parallel with "onComplete".
+         * For example (supplier has only one item left):
+         *      user-thread: request(1)
+         *  supplier-thread: subscriber -> onNext() -> return result to user
+         *
+         *  supplier-thread: onComplete -\
+         *                                |-------> can be executed in parallel
+         *      user-thread: request(1) -/
+         */
+        if (finished.add(subscribeId) && finishedCnt.incrementAndGet() == subscriptions.size() && (remain > 0 || inBuf.isEmpty())) {
+            waitResponse.remove(subscribeId);
 
             if (completed.compareAndSet(false, true)) {
                 pushQueue(remain, null, null);
@@ -141,22 +148,57 @@ public class MergeSortSubscriptionStrategy<T> extends AbstractCompositeSubscript
             return;
         }
 
-        onRequestCompleted(subscriberId);
+        onRequestCompleted(subscribeId);
     }
 
-    private long estimateSubscriptionRequestAmount(long total) {
+    /**
+     * Called when single subscription request is completed.
+     *
+     * @param subscriberId Subscriber ID.
+     */
+    private void onRequestCompleted(int subscriberId) {
+        if (waitResponse.remove(subscriberId) && waitResponseCnt.decrementAndGet() == 0) {
+            requestNext();
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Subscriber<T> subscriberProxy(int subscriberId) {
+        MergeSortStrategySubscriber subscriber = new MergeSortStrategySubscriber(subscriberId);
+
+        subscribers.add(subscriber);
+
+        return subscriber;
+    }
+
+    /**
+     * Estimate amount of data for each of the registered subscriptions.
+     *
+     * @param total Total number of requested items.
+     * @return Estimated amount of data for each of the registered subscriptions.
+     */
+    private long estimateSingleSubscriptionRequestAmount(long total) {
         return Math.max(1, total / (subscriptions.size() - finished.size()));
     }
 
-    private long pushQueue(long remain, @Nullable Comparator<T> comp, @Nullable T minBound) {
+    /**
+     * Push the available internal data to the delegated subscriber.
+     *
+     * @param cnt Maximum number of items to push.
+     * @param comp Items comparator.
+     * @param minBound Minimum bound up to which we can return data.
+     * @return Number of remaining items.
+     */
+    private long pushQueue(long cnt, @Nullable Comparator<T> comp, @Nullable T minBound) {
         boolean done = false;
         T r;
 
-        while (remain > 0 && (r = inBuf.peek()) != null) {
+        while (cnt > 0 && (r = inBuf.peek()) != null) {
             int cmpRes = comp == null ? 0 : comp.compare(minBound, r);
 
             if (cmpRes < 0) {
-                return remain;
+                return cnt;
             }
 
             boolean same = comp != null && cmpRes == 0;
@@ -172,7 +214,7 @@ public class MergeSortSubscriptionStrategy<T> extends AbstractCompositeSubscript
 
                 delegate.onNext(r);
 
-                --remain;
+                --cnt;
             }
 
             if (done && !same) {
@@ -184,23 +226,7 @@ public class MergeSortSubscriptionStrategy<T> extends AbstractCompositeSubscript
             delegate.onComplete();
         }
 
-        return remain;
-    }
-
-    private void onRequestCompleted(int subscriberId) {
-        if (waitResponse.remove(subscriberId) && waitResponseCnt.decrementAndGet() == 0) {
-            requestNext();
-        }
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public Subscriber<T> subscriberProxy(int subscriberId) {
-        MergeSortStrategySubscriber subscriber = new MergeSortStrategySubscriber(subscriberId);
-
-        subscribers.add(subscriber);
-
-        return subscriber;
+        return cnt;
     }
 
     private synchronized void requestNext() {
@@ -220,7 +246,7 @@ public class MergeSortSubscriptionStrategy<T> extends AbstractCompositeSubscript
     }
 
     private void requestInternal(List<Integer> subsIds, long cnt) {
-        long dataAmount = estimateSubscriptionRequestAmount(cnt);
+        long dataAmount = estimateSingleSubscriptionRequestAmount(cnt);
 
         for (Integer id : subsIds) {
             if (finished.contains(id)) {
@@ -237,7 +263,10 @@ public class MergeSortSubscriptionStrategy<T> extends AbstractCompositeSubscript
         for (Integer id : waitResponse) {
             MergeSortStrategySubscriber subscriber = subscribers.get(id);
 
-            subscriber.remainingCnt.set(dataAmount);
+            long val = subscriber.remainCntr.compareAndExchange(0, dataAmount);
+
+            assert val == 0 : "request busy subscription [id=" + id + ", remain=" + val + ']';
+
             subscriptions.get(id).request(dataAmount);
         }
     }
@@ -280,38 +309,29 @@ public class MergeSortSubscriptionStrategy<T> extends AbstractCompositeSubscript
      * Merge sort subscription strategy subscriber.
      */
     public class MergeSortStrategySubscriber extends AbstractCompositeSubscriptionStrategy<T>.PlainSubscriberProxy {
-        private final AtomicLong remainingCnt = new AtomicLong();
+        /** The counter of the remaining number of elements. */
+        private final AtomicLong remainCntr = new AtomicLong();
 
-        private final AtomicBoolean completed = new AtomicBoolean();
-
+        /** Last received item. */
         private volatile T lastItem;
 
         MergeSortStrategySubscriber(int id) {
             super(id);
         }
 
+        /** {@inheritDoc} */
         @Override
         public void onNext(T item) {
             lastItem = item;
 
             onReceive(id, item);
 
-            long val = remainingCnt.decrementAndGet();
+            long val = remainCntr.decrementAndGet();
 
             if (val <= 0) {
-                assert val == 0 : "remain=" + val
-                        + ", id=" + id
-                        + ", item=" + item
-                        + ", threadId=" + Thread.currentThread().getName();
+                assert val == 0 : "remain=" + val + ", id=" + id + ", item=" + item;
 
                 onRequestCompleted(id);
-            }
-        }
-
-        @Override
-        public void onComplete() {
-            if (completed.compareAndSet(false, true)) {
-                onSubscriptionComplete(id);
             }
         }
     }

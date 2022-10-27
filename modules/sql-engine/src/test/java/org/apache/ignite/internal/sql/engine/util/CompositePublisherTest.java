@@ -173,23 +173,11 @@ public class CompositePublisherTest {
     private static class TestPublisher<T> implements Publisher<T> {
         private final T[] data;
         private final Queue<CompletableFuture<?>> futs = new LinkedList<>();
-        private final AtomicBoolean completed = new AtomicBoolean();
+        private final AtomicBoolean publicationComplete = new AtomicBoolean();
         private Subscriber<? super T> subscriber;
 
         TestPublisher(T[] data) {
             this.data = data;
-        }
-
-        void waitSuppliersTermination() {
-            CompletableFuture<?> fut;
-
-            while ((fut = futs.poll()) != null) {
-                try {
-                    fut.get();
-                } catch (InterruptedException | ExecutionException e) {
-                    throw new RuntimeException("Supplier future completed with an error,", e);
-                }
-            }
         }
 
         @Override
@@ -212,7 +200,7 @@ public class CompositePublisherTest {
                         subscriber.onNext(data[n0]);
                     }
 
-                    if (endIdx >= data.length && completed.compareAndSet(false, true)) {
+                    if (endIdx >= data.length && publicationComplete.compareAndSet(false, true)) {
                         subscriber.onComplete();
                     }
 
@@ -225,6 +213,18 @@ public class CompositePublisherTest {
             @Override
             public void cancel() {
                 subscriber.onError(new RuntimeException("cancelled"));
+            }
+        }
+
+        void waitSuppliersTermination() {
+            CompletableFuture<?> fut;
+
+            while ((fut = futs.poll()) != null) {
+                try {
+                    fut.get();
+                } catch (InterruptedException | ExecutionException e) {
+                    throw new RuntimeException("Supplier future completed with an error,", e);
+                }
             }
         }
     }
