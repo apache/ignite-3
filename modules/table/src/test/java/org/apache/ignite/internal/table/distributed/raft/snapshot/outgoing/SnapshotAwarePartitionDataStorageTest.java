@@ -175,7 +175,7 @@ class SnapshotAwarePartitionDataStorageTest {
 
     @ParameterizedTest
     @EnumSource(MvWriteAction.class)
-    void writingNotYetPassedRowIdForFirstTimeEnqueuesItOnSnapshotOutOfOrder(MvWriteAction writeAction) {
+    void notYetPassedRowIsEnqueued(MvWriteAction writeAction) {
         when(partitionSnapshots.ongoingSnapshots()).thenReturn(List.of(snapshot));
 
         doReturn(false).when(snapshot).alreadyPassed(any());
@@ -188,7 +188,7 @@ class SnapshotAwarePartitionDataStorageTest {
 
     @ParameterizedTest
     @EnumSource(MvWriteAction.class)
-    void writingNotYetPassedRowIdForNotFirstTimeSkipsOutOfOrderSending(MvWriteAction writeAction) {
+    void notYetPassedRowNotEnqueuedSecondTime(MvWriteAction writeAction) {
         when(partitionSnapshots.ongoingSnapshots()).thenReturn(List.of(snapshot));
 
         doReturn(false).when(snapshot).alreadyPassed(any());
@@ -201,7 +201,7 @@ class SnapshotAwarePartitionDataStorageTest {
 
     @ParameterizedTest
     @EnumSource(MvWriteAction.class)
-    void writingAlreadyPassedRowIdSkipsOutOfOrderSending(MvWriteAction writeAction) {
+    void alreadyPassedRowNotEnqueued(MvWriteAction writeAction) {
         when(partitionSnapshots.ongoingSnapshots()).thenReturn(List.of(snapshot));
 
         doReturn(true).when(snapshot).alreadyPassed(any());
