@@ -17,16 +17,20 @@
 
 package org.apache.ignite.internal.cli.commands.node;
 
+import static org.apache.ignite.internal.cli.commands.OptionsConstants.NODE_NAME_DESC;
+import static org.apache.ignite.internal.cli.commands.OptionsConstants.NODE_NAME_OPTION;
+import static org.apache.ignite.internal.cli.commands.OptionsConstants.NODE_NAME_OPTION_SHORT;
+import static org.apache.ignite.internal.cli.commands.OptionsConstants.NODE_URL_DESC;
+import static org.apache.ignite.internal.cli.commands.OptionsConstants.NODE_URL_OPTION;
+import static org.apache.ignite.internal.cli.commands.OptionsConstants.URL_OPTION_SHORT;
+
 import jakarta.inject.Inject;
+import java.net.URL;
 import org.apache.ignite.internal.cli.NodeNameRegistry;
 import org.apache.ignite.internal.cli.core.converters.UrlConverter;
 import org.apache.ignite.internal.cli.deprecated.IgniteCliException;
 import picocli.CommandLine.ArgGroup;
 import picocli.CommandLine.Option;
-
-import java.net.URL;
-
-import static org.apache.ignite.internal.cli.commands.OptionsConstants.*;
 
 /**
  * Mixin class for node URL option.
@@ -54,12 +58,17 @@ public class NodeUrlMixin {
         private String nodeName;
     }
 
+    /**
+     * Returns node URL.
+     *
+     * @return Node URL
+     */
     public String getNodeUrl() {
         if (options.nodeUrl != null) {
             return options.nodeUrl.toString();
         } else {
             String nodeUrl = nodeNameRegistry.getNodeUrl(options.nodeName);
-            if(nodeUrl != null) {
+            if (nodeUrl != null) {
                 return nodeUrl;
             } else {
                 throw new IgniteCliException("Node " + options.nodeName + " not found. Use URL.");

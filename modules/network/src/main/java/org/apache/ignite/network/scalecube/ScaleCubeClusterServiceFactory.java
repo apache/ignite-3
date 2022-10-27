@@ -17,12 +17,13 @@
 
 package org.apache.ignite.network.scalecube;
 
+import static io.scalecube.cluster.membership.MembershipEvent.createAdded;
+
 import io.scalecube.cluster.ClusterConfig;
 import io.scalecube.cluster.ClusterImpl;
 import io.scalecube.cluster.ClusterMessageHandler;
 import io.scalecube.cluster.membership.MembershipEvent;
 import io.scalecube.net.Address;
-
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -30,15 +31,13 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
-
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
-import org.apache.ignite.internal.network.configuration.RestConfiguration;
-import org.apache.ignite.network.NodeMetadata;
 import org.apache.ignite.internal.network.configuration.ClusterMembershipView;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.configuration.NetworkView;
+import org.apache.ignite.internal.network.configuration.RestConfiguration;
 import org.apache.ignite.internal.network.configuration.ScaleCubeView;
 import org.apache.ignite.internal.network.netty.ConnectionManager;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorFactory;
@@ -55,6 +54,7 @@ import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NodeFinder;
 import org.apache.ignite.network.NodeFinderFactory;
+import org.apache.ignite.network.NodeMetadata;
 
 /**
  * Cluster service factory that uses ScaleCube for messaging and topology services.
@@ -152,7 +152,7 @@ public class ScaleCubeClusterServiceFactory {
 
                 // emit an artificial event as if the local member has joined the topology (ScaleCube doesn't do that)
                 NodeMetadata nodeMetadata = new NodeMetadata(restConfiguration.port().value());
-                var localMembershipEvent = MembershipEvent.createAdded(cluster.member(), nodeMetadata.toByteBuffer(), System.currentTimeMillis());
+                var localMembershipEvent = createAdded(cluster.member(), nodeMetadata.toByteBuffer(), System.currentTimeMillis());
 
                 topologyService.onMembershipEvent(localMembershipEvent);
             }

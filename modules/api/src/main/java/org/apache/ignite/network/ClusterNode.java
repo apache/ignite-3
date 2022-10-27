@@ -50,6 +50,13 @@ public class ClusterNode implements Serializable {
         this.nodeMetadata = nodeMetadata;
     }
 
+    /**
+     * Constructor.
+     *
+     * @param id      Local id that changes between restarts.
+     * @param name    Unique name of a member in a cluster.
+     * @param address Node address.
+     */
     public ClusterNode(String id, String name, NetworkAddress address) {
         this.id = id;
         this.name = name;

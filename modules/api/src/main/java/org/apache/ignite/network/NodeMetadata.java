@@ -35,7 +35,9 @@ public class NodeMetadata {
     }
 
     /**
+     * Deserializes {@link NodeMetadata} from {@link ByteBuffer}.
      *
+     * @return {@link NodeMetadata}
      */
     public static NodeMetadata fromByteBuffer(ByteBuffer metadata) {
         int version = metadata.getInt(0);
@@ -48,7 +50,9 @@ public class NodeMetadata {
     }
 
     /**
+     * Serializes {@link NodeMetadata} to {@link ByteBuffer}.
      *
+     * @return {@link ByteBuffer}
      */
     public ByteBuffer toByteBuffer() {
         ByteBuffer buffer = ByteBuffer.allocate(8);

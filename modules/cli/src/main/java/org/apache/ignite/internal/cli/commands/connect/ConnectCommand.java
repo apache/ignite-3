@@ -45,6 +45,7 @@ public class ConnectCommand extends BaseCommand implements Runnable {
     @Parameters(description = NODE_URL_DESC, descriptionKey = CLUSTER_URL_KEY, converter = UrlConverter.class)
     private URL nodeUrl;
 
+    /** Node name option. */
     @Option(names = {NODE_NAME_OPTION_SHORT, NODE_NAME_OPTION}, description = NODE_NAME_DESC)
     private String nodeName;
 

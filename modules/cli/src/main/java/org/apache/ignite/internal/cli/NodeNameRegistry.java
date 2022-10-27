@@ -1,25 +1,49 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.apache.ignite.internal.cli;
 
 import jakarta.inject.Singleton;
 import java.util.ArrayList;
 import java.util.List;
-import org.apache.ignite.internal.cli.call.cluster.topology.PhysicalTopologyCall;
-import org.apache.ignite.internal.cli.core.call.UrlCallInput;
-import org.apache.ignite.rest.client.model.ClusterNode;
-
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.cli.call.cluster.topology.PhysicalTopologyCall;
+import org.apache.ignite.internal.cli.core.call.UrlCallInput;
+import org.apache.ignite.rest.client.model.ClusterNode;
 
+/**
+ * Registry to get a node URL by a node name.
+ */
 @Singleton
 public class NodeNameRegistry {
     private final Map<String, String> nodeNameToNodeUrl = new ConcurrentHashMap<>();
     private volatile ScheduledExecutorService executor;
 
-    public void pullUpdatesFrom(String nodeUrl) {
+    /**
+     * Start pulling updates from a node.
+     *
+     * @param nodeUrl Node URL.
+     */
+    public void startPullingUpdates(String nodeUrl) {
         if (executor != null) {
             synchronized (NodeNameRegistry.class) {
                 if (executor != null) {
@@ -31,6 +55,9 @@ public class NodeNameRegistry {
         }
     }
 
+    /**
+     * Stops pulling updates.
+     */
     public void stopPullingUpdates() {
         executor.shutdown();
         executor = null;
