@@ -752,9 +752,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                     }
 
                                     return CompletableFuture.supplyAsync(
-                                                    () -> getOrCreateTxStatePartitionStorage(internalTbl.txStateStorage(), partId),
-                                                    ioExecutor
-                                            )
+                                            () -> getOrCreateTxStatePartitionStorage(internalTbl.txStateStorage(), partId),
+                                            ioExecutor
+                                    )
                                             .thenComposeAsync(txStatePartitionStorage -> {
                                                 RaftGroupOptions groupOptions = groupOptionsForPartition(
                                                         internalTbl.storage(),
@@ -809,8 +809,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             if (replicaMgr.shouldHaveReplicationGroupLocally(nodes)) {
                                 return CompletableFuture.supplyAsync(
                                         () -> getOrCreateMvPartition(internalTbl.storage(), partId),
-                                                ioExecutor
-                                        )
+                                        ioExecutor
+                                )
                                         .thenCombine(
                                                 CompletableFuture.supplyAsync(
                                                         () -> getOrCreateTxStatePartitionStorage(internalTbl.txStateStorage(), partId),
