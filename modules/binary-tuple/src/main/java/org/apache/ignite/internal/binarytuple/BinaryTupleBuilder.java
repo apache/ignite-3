@@ -824,7 +824,7 @@ public class BinaryTupleBuilder {
 
     /** Put element bytes to the buffer extending it if needed. */
     private void putElement(ByteBuffer bytes, int offset, int length) {
-        assert bytes.limit() <= (offset + length);
+        assert bytes.limit() >= (offset + length);
         ensure(length);
         buffer.put(bytes.asReadOnlyBuffer().position(offset).limit(offset + length));
     }
