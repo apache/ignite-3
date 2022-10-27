@@ -55,7 +55,7 @@ import org.apache.ignite.internal.configuration.notifications.ConfigurationStora
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.configuration.testframework.InjectRevisionListenerHolder;
-import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.raft.Loza;
@@ -146,6 +146,9 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     /** Meta storage manager. */
     @Mock
     MetaStorageManager msm;
+
+    @Mock
+    HybridClock clock;
 
     /**
      * Revision listener holder. It uses for the test configurations:
@@ -260,10 +263,13 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 schemaManager,
                 dataStorageManager,
                 tm,
-                () -> dataStorageModules.collectSchemasFields(List.of(
-                        RocksDbDataStorageConfigurationSchema.class,
-                        TestDataStorageConfigurationSchema.class
-                ))
+                () -> dataStorageModules.collectSchemasFields(
+                        List.of(
+                                RocksDbDataStorageConfigurationSchema.class,
+                                TestDataStorageConfigurationSchema.class
+                        )
+                ),
+                clock
         );
 
         queryProc.start();
@@ -770,7 +776,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 msm,
                 schemaManager,
                 view -> new LocalLogStorageFactory(),
-                new HybridClockImpl()
+                clock
         );
 
         tableManager.start();
