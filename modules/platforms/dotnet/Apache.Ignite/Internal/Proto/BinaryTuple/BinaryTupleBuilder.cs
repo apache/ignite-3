@@ -398,6 +398,13 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             try
             {
                 value.CopyTo(arr, 0);
+
+                // Trim zero bytes.
+                while (size > 0 && arr[size - 1] == 0)
+                {
+                    size--;
+                }
+
                 var resBytes = arr.AsSpan()[..size];
 
                 if (_hashedColumnsPredicate?.IsHashedColumnIndex(_elementIndex) == true)
