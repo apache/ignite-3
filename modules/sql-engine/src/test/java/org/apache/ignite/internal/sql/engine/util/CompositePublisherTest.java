@@ -21,12 +21,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
-import java.util.LinkedList;
 import java.util.List;
-import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
@@ -36,6 +33,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -45,55 +43,80 @@ import org.junit.jupiter.api.Test;
  */
 public class CompositePublisherTest {
     @Test
-    public void testEnoughData() throws InterruptedException {
-        doTestPublisher(1, 2, 2, true, false);
+    public void testEnoughData() throws Throwable {
+        doPublishSubscribe(1, 2, 2, true, false, true);
+        doPublishSubscribe(1, 2, 2, true, false, false);
 
-        doTestPublisher(50, 357, 7, true, false);
-        doTestPublisher(50, 357, 7, false, false);
+        doPublishSubscribe(50, 357, 7, true, false, true);
+        doPublishSubscribe(50, 357, 7, true, false, false);
+
+        doPublishSubscribe(50, 357, 7, false, false, true);
     }
 
     @Test
-    public void testNotEnoughData() throws InterruptedException {
-        doTestPublisher(1, 0, 2, true, false);
+    public void testNotEnoughData() throws Throwable {
+        doPublishSubscribe(1, 0, 2, true, false, true);
+        doPublishSubscribe(1, 0, 2, true, false, false);
 
-        doTestPublisher(100, 70, 7, true, false);
-        doTestPublisher(100, 70, 7, false, false);
+        doPublishSubscribe(100, 70, 7, true, false, true);
+        doPublishSubscribe(100, 70, 7, true, false, false);
+
+        doPublishSubscribe(100, 70, 7, false, false, true);
     }
 
     @Test
-    public void testMultipleRequest() throws InterruptedException {
-        doTestPublisher(100, 70, 7, true, true);
-        doTestPublisher(100, 70, 7, false, true);
+    public void testMultipleRequest() throws Throwable {
+        doPublishSubscribe(100, 70, 7, true, true, true);
+        doPublishSubscribe(100, 70, 7, true, true, false);
+
+        doPublishSubscribe(100, 70, 7, false, true, true);
     }
 
     @Test
-    public void testExactEnoughData() throws InterruptedException {
-        doTestPublisher(30, 30, 3, true, false);
-        doTestPublisher(30, 30, 3, false, false);
+    public void testExactEnoughData() throws Throwable {
+        doPublishSubscribe(30, 30, 3, true, false, true);
+        doPublishSubscribe(30, 30, 3, true, false, false);
+
+        doPublishSubscribe(30, 30, 3, false, false, true);
     }
 
-    private void doTestPublisher(int requestCnt, int totalCnt, int threadCnt, boolean random, boolean split) throws InterruptedException {
-        int dataCnt = totalCnt / threadCnt;
-        Integer[][] data = new Integer[threadCnt][dataCnt];
-        int[] expData = new int[totalCnt];
+    /**
+     * Test composite publishing-subscribing.
+     *
+     * @param cnt Number of requested items.
+     * @param total Total number of available items.
+     * @param pubCnt Number of publishers.
+     * @param rnd {@code True} to generate random data, otherwise sequential range will be generated.
+     * @param split Indicates that we will divide the requested amount into small sub-requests.
+     * @param sort {@code True} to test merge sort strategy, otherwise all requests will be sent sequentially in single threaded mode.
+     * @throws InterruptedException If failed.
+     */
+    private static void doPublishSubscribe(int cnt, int total, int pubCnt, boolean rnd, boolean split, boolean sort) throws Throwable {
+        int dataCnt = total / pubCnt;
+        Integer[][] data = new Integer[pubCnt][dataCnt];
+        int[] expData = new int[total];
         int k = 0;
 
-        for (int i = 0; i < threadCnt; i++) {
+        for (int i = 0; i < pubCnt; i++) {
             for (int j = 0; j < dataCnt; j++) {
-                data[i][j] = random ? ThreadLocalRandom.current().nextInt(totalCnt) : k;
+                data[i][j] = rnd ? ThreadLocalRandom.current().nextInt(total) : k;
 
                 expData[k++] = data[i][j];
             }
 
-            Arrays.sort(data[i]);
+            if (sort) {
+                Arrays.sort(data[i]);
+            }
         }
 
-        Arrays.sort(expData);
+        if (sort) {
+            Arrays.sort(expData);
+        }
 
         List<TestPublisher<Integer>> publishers = new ArrayList<>();
 
-        for (int i = 0; i < threadCnt; i++) {
-            TestPublisher<Integer> pub = new TestPublisher<>(data[i]);
+        for (int i = 0; i < pubCnt; i++) {
+            TestPublisher<Integer> pub = new TestPublisher<>(data[i], sort);
 
             publishers.add(pub);
         }
@@ -101,7 +124,7 @@ public class CompositePublisherTest {
         AtomicReference<Subscription> subscriptionRef = new AtomicReference<>();
         SubscriberListener<Integer> lsnr = new SubscriberListener<>();
 
-        new CompositePublisher<>(publishers, Comparator.comparingInt(v -> v)).subscribe(new Subscriber<>() {
+        new CompositePublisher<>(publishers, sort ? Comparator.comparingInt(v -> v) : null).subscribe(new Subscriber<>() {
                 @Override
                 public void onSubscribe(Subscription subscription) {
                     subscriptionRef.set(subscription);
@@ -114,7 +137,7 @@ public class CompositePublisherTest {
 
                 @Override
                 public void onError(Throwable t) {
-                    t.printStackTrace();
+                    assert false;
                 }
 
                 @Override
@@ -124,22 +147,26 @@ public class CompositePublisherTest {
         });
 
         if (!split) {
-            checkSubscriptionRequest(subscriptionRef.get(), new InputParameters(expData, requestCnt), lsnr);
+            checkSubscriptionRequest(subscriptionRef.get(), new InputParameters(expData, cnt), lsnr);
         } else {
             InputParameters params = new InputParameters(expData, 1);
 
-            for (int off = 0; off < Math.min(requestCnt, totalCnt); off++) {
+            for (int off = 0; off < Math.min(cnt, total); off++) {
                 checkSubscriptionRequest(subscriptionRef.get(), params.offset(off), lsnr);
             }
         }
 
-        // after test
+        // Check errors.
         for (TestPublisher<Integer> pub : publishers) {
-            pub.waitSuppliersTermination();
+            Throwable err = pub.errRef.get();
+
+            if (err != null) {
+                throw err;
+            }
         }
     }
 
-    private void checkSubscriptionRequest(Subscription subscription, InputParameters params, SubscriberListener<Integer> lsnr)
+    private static void checkSubscriptionRequest(Subscription subscription, InputParameters params, SubscriberListener<Integer> lsnr)
             throws InterruptedException {
         lsnr.reset(params.requested);
 
@@ -154,13 +181,12 @@ public class CompositePublisherTest {
         Assertions.assertEquals(expReceived, lsnr.res.size());
         Assertions.assertEquals(expReceived, lsnr.receivedCnt.get());
 
+        // Ensures that onComplete has (not) been called.
         int expCnt = params.offset + params.requested >= params.total ? 1 : 0;
         IgniteTestUtils.waitForCondition(() -> lsnr.onCompleteCntr.get() == expCnt, 10_000);
-
         Assertions.assertEquals(expCnt, lsnr.onCompleteCntr.get());
 
         int[] resArr = new int[expReceived];
-
         int k = 0;
 
         for (Integer n : lsnr.res) {
@@ -172,63 +198,68 @@ public class CompositePublisherTest {
 
     private static class TestPublisher<T> implements Publisher<T> {
         private final T[] data;
-        private final Queue<CompletableFuture<?>> futs = new LinkedList<>();
         private final AtomicBoolean publicationComplete = new AtomicBoolean();
-        private Subscriber<? super T> subscriber;
+        private final AtomicReference<Throwable> errRef = new AtomicReference<>();
+        private final boolean async;
 
-        TestPublisher(T[] data) {
+        TestPublisher(T[] data, boolean async) {
             this.data = data;
+            this.async = async;
         }
 
         @Override
         public void subscribe(Subscriber<? super T> subscriber) {
-            this.subscriber = subscriber;
+            subscriber.onSubscribe(new Subscription() {
+                private final AtomicInteger idx = new AtomicInteger(0);
 
-            subscriber.onSubscribe(new TestSubscription());
-        }
+                @SuppressWarnings("NumericCastThatLosesPrecision")
+                @Override
+                public void request(long n) {
+                    Supplier<Long> dataSupplier = () -> {
+                        int startIdx = idx.getAndAdd((int) n);
+                        int endIdx = Math.min(startIdx + (int) n, data.length);
 
-        class TestSubscription implements Subscription {
-            AtomicInteger idx = new AtomicInteger(0);
+                        for (int n0 = startIdx; n0 < endIdx; n0++) {
+                            subscriber.onNext(data[n0]);
+                        }
 
-            @Override
-            public void request(long n) {
-                CompletableFuture<Long> fut = CompletableFuture.supplyAsync(() -> {
-                    int startIdx = idx.getAndAdd((int) n);
-                    int endIdx = Math.min(startIdx + (int) n, data.length);
+                        if (endIdx >= data.length && publicationComplete.compareAndSet(false, true)) {
+                            subscriber.onComplete();
+                        }
 
-                    for (int n0 = startIdx; n0 < endIdx; n0++) {
-                        subscriber.onNext(data[n0]);
+                        return n;
+                    };
+
+                    if (!async) {
+                        try {
+                            dataSupplier.get();
+                        } catch (Throwable t) {
+                            handleError(t);
+                        }
+
+                        return;
                     }
 
-                    if (endIdx >= data.length && publicationComplete.compareAndSet(false, true)) {
-                        subscriber.onComplete();
-                    }
-
-                    return n;
-                }).whenComplete((res, err) -> {
-                    if (err != null)
-                        err.printStackTrace();
-                });
-
-                futs.add(fut);
-            }
-
-            @Override
-            public void cancel() {
-                subscriber.onError(new RuntimeException("cancelled"));
-            }
-        }
-
-        void waitSuppliersTermination() {
-            CompletableFuture<?> fut;
-
-            while ((fut = futs.poll()) != null) {
-                try {
-                    fut.get();
-                } catch (InterruptedException | ExecutionException e) {
-                    throw new RuntimeException("Supplier future completed with an error,", e);
+                    CompletableFuture.supplyAsync(dataSupplier)
+                            .whenComplete((res, err) -> {
+                                if (err != null) {
+                                    handleError(err);
+                                }
+                            });
                 }
-            }
+
+                @Override
+                public void cancel() {
+                    throw new UnsupportedOperationException();
+                }
+            });
+        }
+
+        @SuppressWarnings("CallToPrintStackTrace")
+        private void handleError(Throwable err) {
+            err.printStackTrace();
+
+            errRef.compareAndSet(null, err);
         }
     }
 
@@ -252,11 +283,11 @@ public class CompositePublisherTest {
     }
 
     private static class SubscriberListener<T> {
-        AtomicInteger receivedCnt = new AtomicInteger();
-        AtomicInteger onCompleteCntr = new AtomicInteger();
-        Collection<T> res = new LinkedBlockingQueue<>();
+        final AtomicInteger receivedCnt = new AtomicInteger();
+        final AtomicInteger onCompleteCntr = new AtomicInteger();
+        final Collection<T> res = new LinkedBlockingQueue<>();
+        final AtomicReference<Integer> requestedCnt = new AtomicReference<>();
         volatile CountDownLatch waitLatch = new CountDownLatch(1);
-        AtomicReference<Integer> requestedCnt = new AtomicReference<>();
 
         void reset(int requested) {
             receivedCnt.set(0);

@@ -319,16 +319,6 @@ public class CompositePublisher<T> implements Flow.Publisher<T> {
         /** {@inheritDoc} */
         @Override
         public synchronized void onSubscriptionComplete(int subscribeId) {
-            /*
-             * Synchronized is needed because "request" can be executed in parallel with "onComplete".
-             * For example (supplier has only one item left):
-             *      user-thread: request(1)
-             *  supplier-thread: subscriber -> onNext() -> return result to user
-             *
-             *  supplier-thread: onComplete -\
-             *                                |-------> can be executed in parallel
-             *      user-thread: request(1) -/
-             */
             if (finished.add(subscribeId) && finishedCnt.incrementAndGet() == subscribers.size()) {
                 // It could be a completely dummy request (no data),in which case
                 // the wait-set must be also updated.
