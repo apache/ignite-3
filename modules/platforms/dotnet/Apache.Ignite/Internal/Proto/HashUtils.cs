@@ -146,10 +146,7 @@ internal static class HashUtils // TODO: Unchecked everywhere?
     /// <param name="data">Input data.</param>
     /// <param name="seed">Current hash.</param>
     /// <returns>Resulting hash.</returns>
-    public static int Hash32(LocalDateTime data, int seed)
-    {
-        throw new NotImplementedException();
-    }
+    public static int Hash32(LocalDateTime data, int seed) => Hash32(data.TimeOfDay, Hash32(data.Date, seed));
 
     private static int Hash32Internal(ulong data, ulong seed, byte byteCount)
     {
