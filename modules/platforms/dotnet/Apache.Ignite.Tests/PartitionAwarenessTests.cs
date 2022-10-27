@@ -271,6 +271,9 @@ public class PartitionAwarenessTests
     [Test]
     public async Task TestCustomColocationKey()
     {
+        using var client = await GetClient();
+        var view = (await client.Tables.GetTableAsync(FakeServer.CompositeKeyTableName))!.GetRecordView<CompositeKey>();
+
         // TODO
         await Task.Delay(1);
     }
@@ -328,4 +331,6 @@ public class PartitionAwarenessTests
         // Any server can be primary due to round-robin balancing in ClientFailoverSocket.
         return _server1.ClientOps.Count > 0 ? (_server1, _server2) : (_server2, _server1);
     }
+
+    private record CompositeKey(string IdStr, Guid IdGuid);
 }
