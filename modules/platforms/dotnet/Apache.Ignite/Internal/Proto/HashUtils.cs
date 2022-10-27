@@ -137,8 +137,11 @@ internal static class HashUtils // TODO: Unchecked everywhere?
     /// <param name="data">Input data.</param>
     /// <param name="seed">Current hash.</param>
     /// <returns>Resulting hash.</returns>
-    public static int Hash32(LocalTime data, int seed) =>
-        Hash32((long)data.NanosecondOfSecond, Hash32((long)data.Second, Hash32((long)data.Minute, Hash32((long)data.Hour, seed))));
+    public static int Hash32(LocalTime data, int seed)
+    {
+        // TODO: This depends on precision!
+        return Hash32((long)data.NanosecondOfSecond, Hash32((long)data.Second, Hash32((long)data.Minute, Hash32((long)data.Hour, seed))));
+    }
 
     /// <summary>
     /// Generates 32-bit hash.
