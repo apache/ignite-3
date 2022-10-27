@@ -389,15 +389,14 @@ public class SqlQueryProcessor implements QueryProcessor {
                     return nodes.get(0);
                 })
                 .thenCompose(sqlNode -> {
-                    final boolean rwTx = dataModificationOp(sqlNode);
-                    final HybridTimestamp txTime = outerTx != null && !outerTx.isReadOnly() ? null :
-                            (outerTx != null ? outerTx.readTimestamp() : null);
+                    final boolean rwOp = dataModificationOp(sqlNode);
+                    final HybridTimestamp txTime = outerTx != null ? outerTx.readTimestamp() : rwOp ? null : new HybridClock().now();
 
                     BaseQueryContext ctx = BaseQueryContext.builder()
                             .frameworkConfig(
                                     Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
                                             .defaultSchema(schema)
-                                            .traitDefs(rwTx || (outerTx != null && !outerTx.isReadOnly()) ? Commons.LOCAL_TRAITS_SET :
+                                            .traitDefs(rwOp || (outerTx != null && !outerTx.isReadOnly()) ? Commons.LOCAL_TRAITS_SET :
                                                     Commons.DISTRIBUTED_TRAITS_SET)
                                             .build()
                             )
@@ -405,8 +404,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                             .cancel(queryCancel)
                             .parameters(params)
                             .transaction(outerTx)
-                            .transactionTime(rwTx || (outerTx != null && !outerTx.isReadOnly()) ? null :
-                                    (txTime != null ? txTime : new HybridClock().now()))
+                            .transactionTime(txTime)
                             .plannerTimeout(PLANNER_TIMEOUT)
                             .build();
 
@@ -417,7 +415,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
                                 // Transactional DDL is not supported as well as RO transactions, hence
                                 // only DML requiring RW transaction is covered
-                                boolean implicitTxRequired = outerTx == null && rwTx;
+                                boolean implicitTxRequired = outerTx == null && rwOp;
 
                                 InternalTransaction implicitTx = implicitTxRequired ? txManager.begin() : null;
 

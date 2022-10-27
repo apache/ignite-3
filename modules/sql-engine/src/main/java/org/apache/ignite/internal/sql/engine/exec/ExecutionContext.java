@@ -221,7 +221,7 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
     }
 
     /**
-     * Get local node ID.
+     * Get local node.
      */
     public ClusterNode localNode() {
         return localNode;
