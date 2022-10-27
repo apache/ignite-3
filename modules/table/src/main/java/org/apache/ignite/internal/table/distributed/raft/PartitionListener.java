@@ -113,9 +113,11 @@ public class PartitionListener implements RaftGroupListener {
 
             long commandIndex = clo.index();
 
+            // TODO: IGNITE-17983 вот тут думаю неадо по другому сделать
+
             long storageAppliedIndex = Math.min(
-                    storage.mvPartitionStorageLastAppliedIndex(),
-                    storage.txStatePartitionStorageLastAppliedIndex()
+                    storage.lastAppliedIndex(),
+                    txStateStorage.lastAppliedIndex()
             );
 
             assert commandIndex > storageAppliedIndex
