@@ -115,6 +115,8 @@ public class PartitionListener implements RaftGroupListener {
 
             long commandIndex = clo.index();
 
+            // We choose the minimum applied index, since we choose it (the minimum one) on local recovery so as not to lose the data for
+            // one of the storages.
             long storagesAppliedIndex = Math.min(storage.lastAppliedIndex(), txStateStorage.lastAppliedIndex());
 
             assert commandIndex > storagesAppliedIndex :

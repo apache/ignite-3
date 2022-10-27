@@ -248,7 +248,8 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 () -> dataStorageModules.collectSchemasFields(List.of(
                         RocksDbDataStorageConfigurationSchema.class,
                         TestDataStorageConfigurationSchema.class
-                ))
+                )),
+                new HybridClockImpl()
         );
 
         queryProc.start();

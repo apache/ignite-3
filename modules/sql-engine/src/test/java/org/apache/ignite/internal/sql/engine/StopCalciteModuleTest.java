@@ -47,6 +47,7 @@ import java.util.function.Function;
 import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -216,7 +217,8 @@ public class StopCalciteModuleTest {
                 schemaManager,
                 dataStorageManager,
                 txManager,
-                Map::of
+                Map::of,
+                new HybridClockImpl()
         );
 
         when(tbl.tableId()).thenReturn(UUID.randomUUID());
