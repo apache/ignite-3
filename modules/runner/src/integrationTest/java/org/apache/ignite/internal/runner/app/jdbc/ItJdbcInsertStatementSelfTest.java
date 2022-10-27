@@ -206,7 +206,7 @@ public class ItJdbcInsertStatementSelfTest extends ItJdbcAbstractStatementSelfTe
 
         assertTrue(resultSet.next());
 
-        assertEquals(3, resultSet.getInt(1));
+        assertEquals(1, resultSet.getInt(1));
 
         doCheck();
     }
