@@ -85,6 +85,7 @@ import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.service.RaftGroupService;
+import org.apache.ignite.raft.jraft.util.ByteString;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -571,7 +572,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                                         .physical(commitTimestamp.getPhysical())
                                         .build()
                         )
-                        .replicationGroupIds(aggregatedGroupIds.stream()
+                        .tablePartitionIds(aggregatedGroupIds.stream()
                                 .map(rgId -> msgFactory.tablePartitionIdMessage()
                                         .tableId(((TablePartitionId)rgId).getTableId())
                                         .partitionId(((TablePartitionId)rgId).getPartId())
@@ -724,7 +725,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 }
 
                 return allOf(deleteLockFuts).thenCompose(ignore -> {
-                    Map<UUID, ByteBuffer> rowIdsToDelete = new HashMap<>();
+                    Map<UUID, ByteString> rowIdsToDelete = new HashMap<>();
                     Collection<BinaryRow> result = new ArrayList<>();
 
                     int futNum = 0;
@@ -742,7 +743,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     CompletableFuture raftFut = rowIdsToDelete.isEmpty() ? CompletableFuture.completedFuture(null)
                             : applyCmdWithExceptionHandling(
                                     msgFactory.updateAllCommand()
-                                            .replicationGroupId(msgFactory.tablePartitionIdMessage()
+                                            .tablePartitionId(msgFactory.tablePartitionIdMessage()
                                                     .tableId(committedPartitionId.getTableId())
                                                     .partitionId(committedPartitionId.getPartId())
                                                     .build())
@@ -764,7 +765,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 }
 
                 return allOf(deleteExactLockFuts).thenCompose(ignore -> {
-                    Map<UUID, ByteBuffer> rowIdsToDelete = new HashMap<>();
+                    Map<UUID, ByteString> rowIdsToDelete = new HashMap<>();
                     Collection<BinaryRow> result = new ArrayList<>();
 
                     int futNum = 0;
@@ -782,7 +783,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     CompletableFuture raftFut = rowIdsToDelete.isEmpty() ? CompletableFuture.completedFuture(null)
                             : applyCmdWithExceptionHandling(
                                     msgFactory.updateAllCommand()
-                                            .replicationGroupId(msgFactory.tablePartitionIdMessage()
+                                            .tablePartitionId(msgFactory.tablePartitionIdMessage()
                                                     .tableId(committedPartitionId.getTableId())
                                                     .partitionId(committedPartitionId.getPartId())
                                                     .build())
@@ -804,7 +805,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                 return allOf(insertLockFuts).thenCompose(ignore -> {
                     Collection<BinaryRow> result = new ArrayList<>();
-                    Map<UUID, ByteBuffer> rowsToInsert = new HashMap<>();
+                    Map<UUID, ByteString> rowsToInsert = new HashMap<>();
                     Set<ByteBuffer> uniqueKeys = new HashSet<>();
 
                     int futNum = 0;
@@ -819,7 +820,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                             if (!uniqueKeys.contains(keyToCheck)) {
                                 uniqueKeys.add(keyToCheck);
 
-                                rowsToInsert.put(Timestamp.nextVersion().toUuid(), row.byteBuffer());
+                                rowsToInsert.put(Timestamp.nextVersion().toUuid(), new ByteString(row.byteBuffer()));
                             } else {
                                 result.add(row);
                             }
@@ -829,7 +830,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     CompletableFuture raftFut = rowsToInsert.isEmpty() ? CompletableFuture.completedFuture(null)
                             : applyCmdWithExceptionHandling(
                                     msgFactory.updateAllCommand()
-                                            .replicationGroupId(msgFactory.tablePartitionIdMessage()
+                                            .tablePartitionId(msgFactory.tablePartitionIdMessage()
                                                     .tableId(committedPartitionId.getTableId())
                                                     .partitionId(committedPartitionId.getPartId())
                                                     .build())
@@ -850,7 +851,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 }
 
                 return allOf(upsertLockFuts).thenCompose(ignore -> {
-                    Map<UUID, ByteBuffer> rowsToUpdate = new HashMap<>();
+                    Map<UUID, ByteString> rowsToUpdate = new HashMap<>();
 
                     int futNum = 0;
 
@@ -858,16 +859,17 @@ public class PartitionReplicaListener implements ReplicaListener {
                         RowId lockedRow = upsertLockFuts[futNum++].join();
 
                         if (lockedRow != null) {
-                            rowsToUpdate.put(new UUID(lockedRow.mostSignificantBits(), lockedRow.leastSignificantBits()), row.byteBuffer());
+                            rowsToUpdate.put(new UUID(lockedRow.mostSignificantBits(), lockedRow.leastSignificantBits()),
+                                    new ByteString(row.byteBuffer()));
                         } else {
-                            rowsToUpdate.put(Timestamp.nextVersion().toUuid(), row.byteBuffer());
+                            rowsToUpdate.put(Timestamp.nextVersion().toUuid(), new ByteString(row.byteBuffer()));
                         }
                     }
 
                     CompletableFuture raftFut = rowsToUpdate.isEmpty() ? CompletableFuture.completedFuture(null)
                             : applyCmdWithExceptionHandling(
                                     msgFactory.updateAllCommand()
-                                            .replicationGroupId(msgFactory.tablePartitionIdMessage()
+                                            .tablePartitionId(msgFactory.tablePartitionIdMessage()
                                                     .tableId(committedPartitionId.getTableId())
                                                     .partitionId(committedPartitionId.getPartId())
                                                     .build())
@@ -946,7 +948,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     CompletableFuture raftFut = removed ? applyCmdWithExceptionHandling(
                             msgFactory.updateCommand()
-                                    .commitReplicationGroupId(msgFactory.tablePartitionIdMessage()
+                                    .tablePartitionId(msgFactory.tablePartitionIdMessage()
                                             .tableId(commitPartitionId.getTableId())
                                             .partitionId(commitPartitionId.getPartId())
                                             .build())
@@ -967,7 +969,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     CompletableFuture raftFut = lockedRowId != null ? applyCmdWithExceptionHandling(
                             msgFactory.updateCommand()
-                                    .commitReplicationGroupId(msgFactory.tablePartitionIdMessage()
+                                    .tablePartitionId(msgFactory.tablePartitionIdMessage()
                                             .tableId(commitPartitionId.getTableId())
                                             .partitionId(commitPartitionId.getPartId())
                                             .build())
@@ -987,7 +989,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     CompletableFuture raftFut = removed ? applyCmdWithExceptionHandling(
                             msgFactory.updateCommand()
-                                    .commitReplicationGroupId(msgFactory.tablePartitionIdMessage()
+                                    .tablePartitionId(msgFactory.tablePartitionIdMessage()
                                             .tableId(commitPartitionId.getTableId())
                                             .partitionId(commitPartitionId.getPartId())
                                             .build())
@@ -1008,12 +1010,12 @@ public class PartitionReplicaListener implements ReplicaListener {
                     CompletableFuture raftFut =
                             lockedRowId == null ? applyCmdWithExceptionHandling(
                                     msgFactory.updateCommand()
-                                            .commitReplicationGroupId(msgFactory.tablePartitionIdMessage()
+                                            .tablePartitionId(msgFactory.tablePartitionIdMessage()
                                                     .tableId(commitPartitionId.getTableId())
                                                     .partitionId(commitPartitionId.getPartId())
                                                     .build())
                                             .rowUuid(Timestamp.nextVersion().toUuid())
-                                            .rowBuffer(searchRow.byteBuffer())
+                                            .rowBuffer(new ByteString(searchRow.byteBuffer()))
                                             .txId(txId)
                                             .build()) :
                                     CompletableFuture.completedFuture(null);
@@ -1030,12 +1032,12 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     CompletableFuture raftFut = applyCmdWithExceptionHandling(
                                     msgFactory.updateCommand()
-                                            .commitReplicationGroupId(msgFactory.tablePartitionIdMessage()
+                                            .tablePartitionId(msgFactory.tablePartitionIdMessage()
                                                     .tableId(commitPartitionId.getTableId())
                                                     .partitionId(commitPartitionId.getPartId())
                                                     .build())
                                             .rowUuid(rowUuid)
-                                            .rowBuffer(searchRow.byteBuffer())
+                                            .rowBuffer(new ByteString(searchRow.byteBuffer()))
                                             .txId(txId)
                                             .build());
 
@@ -1063,14 +1065,14 @@ public class PartitionReplicaListener implements ReplicaListener {
                                             CompletableFuture raftFut =
                                                     applyCmdWithExceptionHandling(
                                                             msgFactory.updateCommand()
-                                                                    .commitReplicationGroupId(msgFactory.tablePartitionIdMessage()
+                                                                    .tablePartitionId(msgFactory.tablePartitionIdMessage()
                                                                             .tableId(commitPartitionId.getTableId())
                                                                             .partitionId(commitPartitionId.getPartId())
                                                                             .build())
                                                                     .rowUuid(new UUID(
                                                                             locRowId.mostSignificantBits(),
                                                                             locRowId.leastSignificantBits()))
-                                                                    .rowBuffer(searchRow.byteBuffer())
+                                                                    .rowBuffer(new ByteString(searchRow.byteBuffer()))
                                                                     .txId(txId)
                                                                     .build()
                                                     );
@@ -1111,7 +1113,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                                     CompletableFuture raftFut = lockedRow == null ? CompletableFuture.completedFuture(null) :
                                             applyCmdWithExceptionHandling(
                                                     msgFactory.updateCommand()
-                                                            .commitReplicationGroupId(
+                                                            .tablePartitionId(
                                                                     msgFactory.tablePartitionIdMessage()
                                                                             .tableId(commitPartitionId.getTableId())
                                                                             .partitionId(commitPartitionId.getPartId())
@@ -1119,7 +1121,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                                                             )
                                                             .rowUuid(new UUID(lockedRowId.mostSignificantBits(),
                                                                     lockedRowId.leastSignificantBits()))
-                                                            .rowBuffer(searchRow.byteBuffer())
+                                                            .rowBuffer(new ByteString(searchRow.byteBuffer()))
                                                             .txId(txId)
                                                             .build());
 
@@ -1136,13 +1138,13 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     CompletableFuture raftFut = replaced ? applyCmdWithExceptionHandling(
                             msgFactory.updateCommand()
-                                    .commitReplicationGroupId(msgFactory.tablePartitionIdMessage()
+                                    .tablePartitionId(msgFactory.tablePartitionIdMessage()
                                             .tableId(commitPartitionId.getTableId())
                                             .partitionId(commitPartitionId.getPartId())
                                             .build())
                                     .rowUuid(new UUID(lockedRowId.mostSignificantBits(),
                                             lockedRowId.leastSignificantBits()))
-                                    .rowBuffer(searchRow.byteBuffer())
+                                    .rowBuffer(new ByteString(searchRow.byteBuffer()))
                                     .txId(txId)
                                     .build()) :
                             CompletableFuture.completedFuture(null);
@@ -1359,13 +1361,13 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     CompletableFuture raftFut = replaced ? applyCmdWithExceptionHandling(
                             msgFactory.updateCommand()
-                                    .commitReplicationGroupId(msgFactory.tablePartitionIdMessage()
+                                    .tablePartitionId(msgFactory.tablePartitionIdMessage()
                                             .tableId(commitPartitionId.getTableId())
                                             .partitionId(commitPartitionId.getPartId())
                                             .build())
                                     .rowUuid(new UUID(lockedRowId.mostSignificantBits(),
                                             lockedRowId.leastSignificantBits()))
-                                    .rowBuffer(searchRow.byteBuffer())
+                                    .rowBuffer(new ByteString(searchRow.byteBuffer()))
                                     .txId(txId)
                                     .build()) :
                             CompletableFuture.completedFuture(null);

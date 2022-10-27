@@ -35,7 +35,6 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import java.nio.ByteBuffer;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -84,6 +83,7 @@ import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.service.RaftGroupService;
+import org.apache.ignite.raft.jraft.util.ByteString;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -181,13 +181,13 @@ public class ItColocationTest {
             RaftGroupService r = groupRafts.get(request.groupId());
 
             if (request instanceof ReadWriteMultiRowReplicaRequest) {
-                Map<UUID, ByteBuffer> rows = ((ReadWriteMultiRowReplicaRequest) request).binaryRows()
+                Map<UUID, ByteString> rows = ((ReadWriteMultiRowReplicaRequest) request).binaryRows()
                         .stream()
                         .collect(toMap(
-                                row -> Timestamp.nextVersion().toUuid(), row -> row.byteBuffer()));
+                                row -> Timestamp.nextVersion().toUuid(), row -> new ByteString(row.byteBuffer())));
 
                 return r.run(MSG_FACTORY.updateAllCommand()
-                                .replicationGroupId(MSG_FACTORY.tablePartitionIdMessage()
+                                .tablePartitionId(MSG_FACTORY.tablePartitionIdMessage()
                                         .tableId(commitPartId.getTableId())
                                         .partitionId(commitPartId.getPartId())
                                         .build()
@@ -199,14 +199,14 @@ public class ItColocationTest {
                 assertThat(request, is(instanceOf(ReadWriteSingleRowReplicaRequest.class)));
 
                 return r.run(MSG_FACTORY.updateCommand()
-                        .commitReplicationGroupId(
+                        .tablePartitionId(
                                 MSG_FACTORY.tablePartitionIdMessage()
                                         .tableId(commitPartId.getTableId())
                                         .partitionId(commitPartId.getPartId())
                                         .build()
                         )
                         .rowUuid(Timestamp.nextVersion().toUuid())
-                        .rowBuffer(((ReadWriteSingleRowReplicaRequest) request).binaryRow().byteBuffer())
+                        .rowBuffer(new ByteString(((ReadWriteSingleRowReplicaRequest) request).binaryRow().byteBuffer()))
                         .txId(UUID.randomUUID())
                         .build());
             }
@@ -380,8 +380,8 @@ public class ItColocationTest {
             UpdateAllCommand cmd = (UpdateAllCommand) CollectionUtils.first(set);
             assertEquals(partsMap.get(p), cmd.rowsToUpdate().size(), () -> "part=" + p + ", set=" + set);
 
-            cmd.rowsToUpdate().values().forEach(byteBUf -> {
-                Row r = new Row(schema, new ByteBufferRow(byteBUf));
+            cmd.rowsToUpdate().values().forEach(byteStr -> {
+                Row r = new Row(schema, new ByteBufferRow(byteStr.toByteArray()));
 
                 assertEquals(INT_TABLE.partition(r), p);
             });

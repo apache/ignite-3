@@ -43,7 +43,6 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
-import org.apache.ignite.internal.table.distributed.command.*;
 import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
 import org.apache.ignite.internal.table.distributed.command.TxCleanupCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateAllCommand;
@@ -59,6 +58,7 @@ import org.apache.ignite.raft.client.ReadCommand;
 import org.apache.ignite.raft.client.WriteCommand;
 import org.apache.ignite.raft.client.service.CommandClosure;
 import org.apache.ignite.raft.client.service.RaftGroupListener;
+import org.apache.ignite.raft.jraft.util.ByteString;
 import org.jetbrains.annotations.TestOnly;
 
 /**
@@ -166,13 +166,12 @@ public class PartitionListener implements RaftGroupListener {
      */
     private void handleUpdateCommand(UpdateCommand cmd, long commandIndex) {
         storage.runConsistently(() -> {
-            ByteBuffer rowBuf = cmd.rowBuffer();
-            BinaryRow row = rowBuf != null ? new ByteBufferRow(rowBuf) : null;
+            BinaryRow row = cmd.rowBuffer() != null ? new ByteBufferRow(cmd.rowBuffer().toByteArray()) : null;
             UUID rowUuid = cmd.rowUuid();
             RowId rowId = new RowId(partitionId, rowUuid.getMostSignificantBits(), rowUuid.getLeastSignificantBits());
             UUID txId = cmd.txId();
-            UUID commitTblId = cmd.commitReplicationGroupId().tableId();
-            int commitPartId = cmd.commitReplicationGroupId().partitionId();
+            UUID commitTblId = cmd.tablePartitionId().tableId();
+            int commitPartId = cmd.tablePartitionId().partitionId();
 
             storage.addWrite(rowId, row, txId, commitTblId, commitPartId);
 
@@ -215,16 +214,16 @@ public class PartitionListener implements RaftGroupListener {
     private void handleUpdateAllCommand(UpdateAllCommand cmd, long commandIndex) {
         storage.runConsistently(() -> {
             UUID txId = cmd.txId();
-            Map<UUID, ByteBuffer> rowsToUpdate = cmd.rowsToUpdate();
-            UUID commitTblId = cmd.replicationGroupId().tableId();
-            int commitPartId = cmd.replicationGroupId().partitionId();
+            Map<UUID, ByteString> rowsToUpdate = cmd.rowsToUpdate();
+            UUID commitTblId = cmd.tablePartitionId().tableId();
+            int commitPartId = cmd.tablePartitionId().partitionId();
 
             if (!CollectionUtils.nullOrEmpty(rowsToUpdate)) {
-                for (Map.Entry<UUID, ByteBuffer> entry : rowsToUpdate.entrySet()) {
+                for (Map.Entry<UUID, ByteString> entry : rowsToUpdate.entrySet()) {
                     UUID rowIdUuid = entry.getKey();
                     RowId rowId = new RowId(partitionId, rowIdUuid.getMostSignificantBits(), rowIdUuid.getLeastSignificantBits());
-                    ByteBuffer rowBuf = entry.getValue();
-                    BinaryRow row = rowBuf != null ? new ByteBufferRow(rowBuf) : null;
+                    ByteString rowStr = entry.getValue();
+                    BinaryRow row = rowStr != null ? new ByteBufferRow(rowStr.toByteArray()) : null;
                     // TODO: IGNITE-17759 Need pass appropriate commitTableId and commitPartitionId.
                     storage.addWrite(rowId, row, txId, commitTblId, commitPartId);
 
@@ -274,7 +273,7 @@ public class PartitionListener implements RaftGroupListener {
 
         TxMeta txMetaToSet = new TxMeta(
                 stateToSet,
-                cmd.replicationGroupIds()
+                cmd.tablePartitionIds()
                         .stream()
                         .map(tpIdMsg -> (ReplicationGroupId) tpIdMsg.asTablePartitionId())
                         .collect(Collectors.toList()),
