@@ -151,39 +151,6 @@ internal static class HashUtils // TODO: Unchecked everywhere?
         throw new NotImplementedException();
     }
 
-    /// <summary>
-    /// Generates 32-bit hash.
-    /// </summary>
-    /// <param name="data">Input data.</param>
-    /// <param name="seed">Current hash.</param>
-    /// <returns>Resulting hash.</returns>
-    public static int Hash32(Instant data, int seed)
-    {
-        throw new NotImplementedException();
-    }
-
-    /// <summary>
-    /// Generates 32-bit hash.
-    /// </summary>
-    /// <param name="data">Input data.</param>
-    /// <param name="seed">Current hash.</param>
-    /// <returns>Resulting hash.</returns>
-    public static int Hash32(Duration data, int seed)
-    {
-        throw new NotImplementedException();
-    }
-
-    /// <summary>
-    /// Generates 32-bit hash.
-    /// </summary>
-    /// <param name="data">Input data.</param>
-    /// <param name="seed">Current hash.</param>
-    /// <returns>Resulting hash.</returns>
-    public static int Hash32(Period data, int seed)
-    {
-        throw new NotImplementedException();
-    }
-
     private static int Hash32Internal(ulong data, ulong seed, byte byteCount)
     {
         var hash64 = Hash64Internal(data, seed, byteCount);

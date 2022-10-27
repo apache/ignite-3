@@ -532,14 +532,23 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// <param name="value">Value.</param>
         public void AppendTimestamp(Instant value)
         {
-            if (_hashedColumnsPredicate?.IsHashedColumnIndex(_elementIndex) == true)
-            {
-                _hash = HashUtils.Hash32(value, _hash);
-            }
-
             if (value != default)
             {
-                PutTimestamp(value);
+                var (seconds, nanos) = PutTimestamp(value);
+
+                if (_hashedColumnsPredicate?.IsHashedColumnIndex(_elementIndex) == true)
+                {
+                    _hash = HashUtils.Hash32(seconds, _hash);
+                    _hash = HashUtils.Hash32((long)nanos, _hash);
+                }
+            }
+            else
+            {
+                if (_hashedColumnsPredicate?.IsHashedColumnIndex(_elementIndex) == true)
+                {
+                    _hash = HashUtils.Hash32(0L, _hash);
+                    _hash = HashUtils.Hash32(0L, _hash);
+                }
             }
 
             OnWrite();
@@ -553,7 +562,8 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         {
             if (_hashedColumnsPredicate?.IsHashedColumnIndex(_elementIndex) == true)
             {
-                _hash = HashUtils.Hash32(value, _hash);
+                // Colocation keys can't include Duration.
+                throw new NotSupportedException("Duration hashing is not supported.");
             }
 
             if (value != default)
@@ -572,7 +582,8 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         {
             if (_hashedColumnsPredicate?.IsHashedColumnIndex(_elementIndex) == true)
             {
-                _hash = HashUtils.Hash32(value, _hash);
+                // Colocation keys can't include Period.
+                throw new NotSupportedException("Period hashing is not supported.");
             }
 
             if (value != Period.Zero)
@@ -921,7 +932,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             _buffer.Advance(actualBytes);
         }
 
-        private void PutTimestamp(Instant value)
+        private (long Seconds, int Nanos) PutTimestamp(Instant value)
         {
             // Logic taken from
             // https://github.com/nodatime/nodatime.serialization/blob/main/src/NodaTime.Serialization.Protobuf/NodaExtensions.cs#L69
@@ -937,6 +948,8 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             {
                 PutInt(nanos);
             }
+
+            return (seconds, nanos);
         }
 
         private void PutDuration(Duration value)
