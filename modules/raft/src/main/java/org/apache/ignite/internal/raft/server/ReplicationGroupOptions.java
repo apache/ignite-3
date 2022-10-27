@@ -15,24 +15,34 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.hlc;
+package org.apache.ignite.internal.raft.server;
+
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 
 /**
- * A Hybrid Logical Clock.
+ * Options that are specific for replication group.
  */
-public interface HybridClock {
-    /**
-     * Creates a timestamp for new event.
-     *
-     * @return The hybrid timestamp.
-     */
-    HybridTimestamp now();
+public class ReplicationGroupOptions {
+    /** Safe time. */
+    private PendingComparableValuesTracker<HybridTimestamp> safeTime;
 
     /**
-     * Creates a timestamp for a received event.
-     *
-     * @param requestTime Timestamp from request.
-     * @return The hybrid timestamp.
+     * Safe time.
      */
-    HybridTimestamp update(HybridTimestamp requestTime);
+    public PendingComparableValuesTracker<HybridTimestamp> safeTime() {
+        return safeTime;
+    }
+
+    /**
+     * Set the safe time clock.
+     *
+     * @param safeTime Safe time.
+     * @return This, for chaining.
+     */
+    public ReplicationGroupOptions safeTime(PendingComparableValuesTracker<HybridTimestamp> safeTime) {
+        this.safeTime = safeTime;
+
+        return this;
+    }
 }

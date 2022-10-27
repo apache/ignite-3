@@ -32,6 +32,7 @@ import java.util.function.Consumer;
 import org.apache.calcite.DataContext;
 import org.apache.calcite.linq4j.QueryProvider;
 import org.apache.calcite.schema.SchemaPlus;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactory;
@@ -45,6 +46,7 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -74,7 +76,7 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
 
     private final Map<String, Object> params;
 
-    private final String locNodeId;
+    private final ClusterNode localNode;
 
     private final String originatingNodeId;
 
@@ -111,7 +113,7 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
             BaseQueryContext qctx,
             QueryTaskExecutor executor,
             UUID qryId,
-            String locNodeId,
+            ClusterNode localNode,
             String originatingNodeId,
             FragmentDescription fragmentDesc,
             RowHandler<RowT> handler,
@@ -126,7 +128,7 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
         this.fragmentDesc = fragmentDesc;
         this.handler = handler;
         this.params = params;
-        this.locNodeId = locNodeId;
+        this.localNode = localNode;
         this.originatingNodeId = originatingNodeId;
         this.tx = tx;
 
@@ -219,10 +221,10 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
     }
 
     /**
-     * Get local node ID.
+     * Get local node.
      */
-    public String localNodeId() {
-        return locNodeId;
+    public ClusterNode localNode() {
+        return localNode;
     }
 
     /** {@inheritDoc} */
@@ -346,6 +348,11 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
     /** Transaction for current context. */
     public InternalTransaction transaction() {
         return tx;
+    }
+
+    /** Read only transaction time. */
+    public HybridTimestamp transactionTime() {
+        return qctx.transactionTime();
     }
 
     /**

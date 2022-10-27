@@ -47,6 +47,7 @@ import java.util.function.Function;
 import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -70,6 +71,7 @@ import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.event.TableEvent;
 import org.apache.ignite.internal.table.event.TableEventParameters;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.lang.IgniteException;
@@ -125,6 +127,9 @@ public class StopCalciteModuleTest {
 
     @Mock
     InternalTable tbl;
+
+    @Mock
+    HybridClock clock;
 
     SchemaRegistry schemaReg;
 
@@ -215,11 +220,13 @@ public class StopCalciteModuleTest {
                 schemaManager,
                 dataStorageManager,
                 txManager,
-                Map::of
+                Map::of,
+                clock
         );
 
         when(tbl.tableId()).thenReturn(UUID.randomUUID());
 
+        when(txManager.begin()).thenReturn(mock(InternalTransaction.class));
         when(tbl.storage()).thenReturn(mock(MvTableStorage.class));
         when(tbl.storage().configuration()).thenReturn(mock(TableConfiguration.class));
         when(tbl.storage().configuration().partitions()).thenReturn(mock(ConfigurationValue.class));

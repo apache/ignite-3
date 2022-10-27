@@ -32,6 +32,7 @@ import java.util.function.Function;
 import javax.naming.OperationNotSupportedException;
 import org.apache.ignite.distributed.TestPartitionDataStorage;
 import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
@@ -59,6 +60,7 @@ import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.tx.storage.state.test.TestConcurrentHashMapTxStateStorage;
 import org.apache.ignite.internal.util.Lazy;
+import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
@@ -140,11 +142,11 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 1,
                 NetworkAddress::toString,
                 addr -> Mockito.mock(ClusterNode.class),
-                txManager == null ? new TxManagerImpl(replicaSvc, new HeapLockManager(), new HybridClock()) : txManager,
+                txManager == null ? new TxManagerImpl(replicaSvc, new HeapLockManager(), new HybridClockImpl()) : txManager,
                 mock(MvTableStorage.class),
                 mock(TxStateTableStorage.class),
                 replicaSvc,
-                new HybridClock()
+                new HybridClockImpl()
         );
         RaftGroupService svc = partitionMap.get(0);
 
@@ -228,6 +230,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
         IndexLocker pkLocker = new HashIndexLocker(indexId, true, this.txManager.lockManager(), row2tuple);
 
+        HybridClock clock = new HybridClockImpl();
+
         replicaListener = new PartitionReplicaListener(
                 mvPartStorage,
                 partitionMap.get(0),
@@ -237,10 +241,12 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 tableId,
                 () -> Map.of(pkLocker.id(), pkLocker),
                 pkStorage,
-                new HybridClock(),
+                clock,
+                new PendingComparableValuesTracker<>(clock.now()),
                 null,
                 null,
-                null
+                null,
+                peer -> true
         );
 
         partitionListener = new PartitionListener(
