@@ -32,6 +32,6 @@ public class UnsignedUuidComparator implements Comparator<UUID> {
             return highHalvesComparisonResult;
         }
 
-        return Long.compare(o1.getLeastSignificantBits(), o2.getLeastSignificantBits());
+        return Long.compareUnsigned(o1.getLeastSignificantBits(), o2.getLeastSignificantBits());
     }
 }
