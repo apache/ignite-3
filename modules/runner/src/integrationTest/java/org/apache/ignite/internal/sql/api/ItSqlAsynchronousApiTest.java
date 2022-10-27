@@ -322,14 +322,6 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
 
         rs.closeAsync();
 
-        outerTx = igniteTx().readOnly().begin();
-
-        rs = ses.executeAsync(outerTx, "SELECT VAL0 FROM TEST ORDER BY VAL0").get();
-
-        assertEquals(2 * ROW_COUNT, StreamSupport.stream(rs.currentPage().spliterator(), false).count());
-
-        rs.closeAsync();
-
         outerTx = igniteTx().begin();
 
         rs = ses.executeAsync(outerTx, "SELECT VAL0 FROM TEST ORDER BY VAL0").get();
@@ -349,6 +341,51 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         var states = (Map<UUID, TxState>) IgniteTestUtils.getFieldValue(txManagerInternal, TxManagerImpl.class, "states");
 
         assertEquals(txManagerInternal.finished(), states.size());
+    }
+
+    /** Check correctness of rw and ro transactions. */
+    @Test
+    public void checkMixedTransactions() throws Exception {
+        IgniteSql sql = igniteSql();
+
+        if (sql instanceof ClientSql) {
+            return;
+        }
+
+        sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
+
+        Session ses = sql.createSession();
+
+        for (int i = 0; i < ROW_COUNT; ++i) {
+            sql("INSERT INTO TEST VALUES (?, ?)", i, i);
+        }
+
+        checkTx(ses, true, false, true);
+        checkTx(ses, true, false, false);
+        checkTx(ses, true, true, true);
+        checkTx(ses, true, true, false);
+        checkTx(ses, false, true, true);
+        checkTx(ses, false, true, false);
+        checkTx(ses, false, false, true);
+        checkTx(ses, false, false, false);
+    }
+
+    private void checkTx(Session ses, boolean readOnly, boolean commit, boolean explicit) throws Exception {
+        Transaction outerTx = explicit ? (readOnly ? igniteTx().readOnly().begin() : igniteTx().begin()) : null;
+
+        AsyncResultSet rs = ses.executeAsync(outerTx, "SELECT VAL0 FROM TEST ORDER BY VAL0").get();
+
+        assertEquals(ROW_COUNT, StreamSupport.stream(rs.currentPage().spliterator(), false).count());
+
+        rs.closeAsync();
+
+        if (outerTx != null) {
+            if (commit) {
+                outerTx.commit();
+            } else {
+                outerTx.rollback();
+            }
+        }
     }
 
     @Test

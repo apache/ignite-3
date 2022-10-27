@@ -67,12 +67,6 @@ public class AsyncResultSetImpl implements AsyncResultSet {
         this.curPage = page;
         this.pageSize = pageSize;
         this.closeRun = closeRun;
-
-        assert cur.queryType() == SqlQueryType.QUERY
-                || ((cur.queryType() == SqlQueryType.DML || cur.queryType() == SqlQueryType.DDL || cur.queryType() == SqlQueryType.EXPLAIN)
-                && curPage.items().size() == 1
-                && curPage.items().get(0).size() == 1
-                && !curPage.hasMore()) : "Invalid query result: [type=" + cur.queryType() + "res=" + curPage + ']';
     }
 
     /** {@inheritDoc} */
