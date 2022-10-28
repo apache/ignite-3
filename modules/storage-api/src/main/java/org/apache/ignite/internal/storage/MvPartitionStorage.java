@@ -28,7 +28,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Multi-versioned partition storage. Maps RowId to a structures called "Version Chains". Each version chain is logically a stack of
  * elements with the following structure:
- * <pre><code>[timestamp | transaction state (txId + commitTableId + commitPartitionId), row data]</code></pre>
+ * <pre>{@code [timestamp | transaction state (txId + commitTableId + commitPartitionId), row data]}</pre>
  *
  * <p>Only the chain's head can contain a transaction state, every other element must have a timestamp. Presence of transaction state
  * indicates that the row is not yet committed.
@@ -193,7 +193,7 @@ public interface MvPartitionStorage extends AutoCloseable {
      *
      * @return Rows count.
      * @throws StorageException If failed to obtain size.
-     * @deprecated It's not yet defined what a "count" is. This value is not easily defined for multiversioned storages.
+     * @deprecated It's not yet defined what a "count" is. This value is not easily defined for multi-versioned storages.
      *      TODO IGNITE-16769 Implement correct PartitionStorage rows count calculation.
      */
     @Deprecated

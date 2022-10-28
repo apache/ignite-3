@@ -70,12 +70,26 @@ class OutgoingSnapshotsManagerTest {
 
     @Test
     void unregistersSnapshot() {
+        UUID snapshotId = startSnapshot();
+
+        manager.finishOutgoingSnapshot(snapshotId);
+    }
+
+    private UUID startSnapshot() {
         UUID snapshotId = UUID.randomUUID();
         OutgoingSnapshot snapshot = mock(OutgoingSnapshot.class);
         doReturn(partitionKey).when(snapshot).partitionKey();
 
         manager.startOutgoingSnapshot(snapshotId, snapshot);
+        return snapshotId;
+    }
 
-        manager.finishOutgoingSnapshot(snapshotId);
+    @Test
+    void removesPartitionsCollection() {
+        startSnapshot();
+
+        manager.removeSnapshots(partitionKey);
+
+        assertThat(manager.partitionSnapshots(partitionKey).ongoingSnapshots(), is(empty()));
     }
 }

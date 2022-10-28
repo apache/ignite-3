@@ -18,18 +18,25 @@
 package org.apache.ignite.internal.table.distributed.raft.snapshot;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.concurrent.Executor;
+import org.apache.ignite.internal.raft.server.impl.JraftNodeAccess;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateStorage;
 import org.apache.ignite.network.TopologyService;
+import org.apache.ignite.raft.jraft.conf.Configuration;
+import org.apache.ignite.raft.jraft.conf.ConfigurationEntry;
+import org.apache.ignite.raft.jraft.entity.LogId;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
+import org.apache.ignite.raft.jraft.storage.LogManager;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -49,13 +56,20 @@ public class PartitionSnapshotStorageFactoryTest {
         mvPartitionStorage.lastAppliedIndex(10L);
         txStateStorage.lastAppliedIndex(5L);
 
+        LogManager logManager = mock(LogManager.class);
+        when(logManager.getConfiguration(anyLong())).thenReturn(new ConfigurationEntry(
+                new LogId(1, 1), new Configuration(List.of(), List.of()), null
+        ));
+
+        JraftNodeAccess nodeAccess = mock(JraftNodeAccess.class);
+        doReturn(logManager).when(nodeAccess).logManager();
+
         PartitionSnapshotStorageFactory partitionSnapshotStorageFactory = new PartitionSnapshotStorageFactory(
                 mock(TopologyService.class),
                 mock(OutgoingSnapshotsManager.class),
                 partitionAccess,
-                List.of(),
-                List.of(),
-                mock(Executor.class)
+                mock(Executor.class),
+                nodeAccess
         );
 
         PartitionSnapshotStorage snapshotStorage = partitionSnapshotStorageFactory.createSnapshotStorage("", mock(RaftOptions.class));
@@ -69,9 +83,8 @@ public class PartitionSnapshotStorageFactoryTest {
                 mock(TopologyService.class),
                 mock(OutgoingSnapshotsManager.class),
                 partitionAccess,
-                List.of(),
-                List.of(),
-                mock(Executor.class)
+                mock(Executor.class),
+                nodeAccess
         );
 
         snapshotStorage = partitionSnapshotStorageFactory.createSnapshotStorage("", mock(RaftOptions.class));

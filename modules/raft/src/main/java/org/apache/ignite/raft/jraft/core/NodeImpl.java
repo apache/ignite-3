@@ -564,6 +564,11 @@ public class NodeImpl implements Node, RaftServerService {
         return clock.update(timestamp);
     }
 
+    // TODO: IGNITE-18011 - remove this when a better way to obtain snapshot meta is available
+    public LogManager logManager() {
+        return logManager;
+    }
+
     private boolean initSnapshotStorage() {
         if (StringUtils.isEmpty(this.options.getSnapshotUri())) {
             LOG.warn("Do not set snapshot uri, ignore initSnapshotStorage.");

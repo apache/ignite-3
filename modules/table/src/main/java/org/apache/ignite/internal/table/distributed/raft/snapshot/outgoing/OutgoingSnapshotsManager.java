@@ -50,7 +50,7 @@ import org.apache.ignite.network.NetworkMessage;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Outgoing snapshots manager. Manages a collection of all ougoing snapshots, currently present on the Ignite node.
+ * Outgoing snapshots manager. Manages a collection of all outgoing snapshots, currently present on the Ignite node.
  */
 public class OutgoingSnapshotsManager implements PartitionsSnapshots, IgniteComponent {
     /**
@@ -67,7 +67,6 @@ public class OutgoingSnapshotsManager implements PartitionsSnapshots, IgniteComp
      * Map with outgoing snapshots.
      */
     private final Map<UUID, OutgoingSnapshot> snapshots = new ConcurrentHashMap<>();
-    // TODO: IGNITE-17935 - remove partition from this map when partition is closed/destroyed
     private final Map<PartitionKey, PartitionSnapshotsImpl> snapshotsByPartition = new ConcurrentHashMap<>();
 
     private volatile ExecutorService executor;
@@ -99,12 +98,14 @@ public class OutgoingSnapshotsManager implements PartitionsSnapshots, IgniteComp
 
     @Override
     public void stop() throws Exception {
+        // At this moment, all RAFT groups should already be stopped, so all snapshots are already closed and finished.
+
         IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
     }
 
     /**
      * Starts an outgoing snapshot and registers it in the manager. This is the point where snapshot is 'taken',
-     * that is, the immutable scope of the snapshot (what MV data and what TX data belongs to it) is cut.
+     * that is, the immutable scope of the snapshot (what MV data and what TX data belongs to it) is established.
      *
      * @param snapshotId       Snapshot id.
      * @param outgoingSnapshot Outgoing snapshot.
@@ -128,7 +129,8 @@ public class OutgoingSnapshotsManager implements PartitionsSnapshots, IgniteComp
      *
      * @param snapshotId Snapshot id.
      */
-    void finishOutgoingSnapshot(UUID snapshotId) {
+    @Override
+    public void finishOutgoingSnapshot(UUID snapshotId) {
         OutgoingSnapshot removedSnapshot = snapshots.remove(snapshotId);
 
         if (removedSnapshot != null) {
@@ -158,7 +160,6 @@ public class OutgoingSnapshotsManager implements PartitionsSnapshots, IgniteComp
             return;
         }
 
-        //TODO: IGNITE-17935 - Analyze exceptions?
         CompletableFuture
                 .supplyAsync(() -> handleSnapshotRequestMessage(networkMessage, outgoingSnapshot), executor)
                 .whenCompleteAsync((response, throwable) -> {
@@ -184,20 +185,32 @@ public class OutgoingSnapshotsManager implements PartitionsSnapshots, IgniteComp
         }
     }
 
-    private CompletableFuture<Void> respond(
+    private void respond(
             NetworkMessage response,
             Throwable throwable,
             NetworkAddress sender,
             Long correlationId
     ) {
-        //TODO https://issues.apache.org/jira/browse/IGNITE-17935
-        // Handle offline sender and stopped manager.
-        return messagingService.respond(sender, response, correlationId);
+        if (throwable != null) {
+            LOG.warn("Something went wrong while handling a request", throwable);
+            return;
+        }
+
+        try {
+            messagingService.respond(sender, response, correlationId);
+        } catch (RuntimeException e) {
+            LOG.warn("Could not send a response with correlationId=" + correlationId, e);
+        }
     }
 
     @Override
     public PartitionSnapshots partitionSnapshots(PartitionKey partitionKey) {
         return getPartitionSnapshots(partitionKey);
+    }
+
+    @Override
+    public void removeSnapshots(PartitionKey partitionKey) {
+        snapshotsByPartition.remove(partitionKey);
     }
 
     private static class PartitionSnapshotsImpl implements PartitionSnapshots {
@@ -210,8 +223,11 @@ public class OutgoingSnapshotsManager implements PartitionsSnapshots, IgniteComp
             lock.writeLock().lock();
 
             try {
+                // Cut consistent view of TX data and take snapshot metadata.
                 snapshot.freezeScope();
 
+                // Install the snapshot in the collection of snapshots on this partition, effectively establishing
+                // a consistent view over MV data.
                 snapshots.add(snapshot);
             } finally {
                 lock.writeLock().unlock();

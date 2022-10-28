@@ -18,11 +18,16 @@
 package org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.Executor;
+import org.apache.ignite.internal.lock.AutoLockup;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionAccess;
@@ -31,8 +36,12 @@ import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionSnaps
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateStorage;
 import org.apache.ignite.network.TopologyService;
+import org.apache.ignite.raft.jraft.conf.Configuration;
+import org.apache.ignite.raft.jraft.conf.ConfigurationEntry;
+import org.apache.ignite.raft.jraft.entity.LogId;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
+import org.apache.ignite.raft.jraft.storage.LogManager;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -50,24 +59,41 @@ public class OutgoingSnapshotReaderTest {
         when(partitionAccess.txStatePartitionStorage()).thenReturn(txStateStorage);
         when(partitionAccess.partitionKey()).thenReturn(new PartitionKey(UUID.randomUUID(), 0));
 
+        OutgoingSnapshotsManager outgoingSnapshotsManager = mock(OutgoingSnapshotsManager.class);
+        doAnswer(invocation -> {
+            OutgoingSnapshot snapshot = invocation.getArgument(1);
+            try (AutoLockup ignored = snapshot.acquireMvLock()) {
+                snapshot.freezeScope();
+            }
+            return null;
+        }).when(outgoingSnapshotsManager).startOutgoingSnapshot(any(), any());
+
+        LogManager logManager = mock(LogManager.class);
+        when(logManager.getConfiguration(anyLong())).thenReturn(new ConfigurationEntry(
+                new LogId(1, 1),
+                new Configuration(List.of(), List.of()),
+                null
+        ));
+
         PartitionSnapshotStorage snapshotStorage = new PartitionSnapshotStorage(
                 mock(TopologyService.class),
-                mock(OutgoingSnapshotsManager.class),
+                outgoingSnapshotsManager,
                 "",
                 mock(RaftOptions.class),
                 partitionAccess,
                 mock(SnapshotMeta.class),
-                mock(Executor.class)
+                mock(Executor.class),
+                logManager
         );
 
         mvPartitionStorage.lastAppliedIndex(10L);
         txStateStorage.lastAppliedIndex(5L);
 
-        assertEquals(10L, new OutgoingSnapshotReader(snapshotStorage).load().lastIncludedIndex());
+        assertEquals(10L, new OutgoingSnapshotReader(snapshotStorage, logManager).load().lastIncludedIndex());
 
         mvPartitionStorage.lastAppliedIndex(1L);
         txStateStorage.lastAppliedIndex(2L);
 
-        assertEquals(2L, new OutgoingSnapshotReader(snapshotStorage).load().lastIncludedIndex());
+        assertEquals(2L, new OutgoingSnapshotReader(snapshotStorage, logManager).load().lastIncludedIndex());
     }
 }

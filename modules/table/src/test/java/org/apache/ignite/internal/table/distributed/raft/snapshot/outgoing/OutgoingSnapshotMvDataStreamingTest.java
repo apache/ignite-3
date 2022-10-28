@@ -22,6 +22,7 @@ import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -44,6 +45,8 @@ import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionKey;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMvDataRequest;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMvDataResponse;
 import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.raft.jraft.storage.LogManager;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -57,6 +60,9 @@ class OutgoingSnapshotMvDataStreamingTest {
 
     @Mock
     private MvPartitionStorage mvPartitionStorage;
+
+    @Mock
+    private LogManager logManager;
 
     private OutgoingSnapshot snapshot;
 
@@ -78,11 +84,11 @@ class OutgoingSnapshotMvDataStreamingTest {
 
     @BeforeEach
     void createTestInstance() {
-        lenient().when(partitionAccess.partitionKey()).thenReturn(partitionKey);
+        when(partitionAccess.partitionKey()).thenReturn(partitionKey);
 
         lenient().when(partitionAccess.mvPartitionStorage()).thenReturn(mvPartitionStorage);
 
-        snapshot = new OutgoingSnapshot(UUID.randomUUID(), partitionAccess);
+        snapshot = new OutgoingSnapshot(UUID.randomUUID(), partitionAccess, logManager);
     }
 
     @BeforeEach
@@ -94,11 +100,6 @@ class OutgoingSnapshotMvDataStreamingTest {
         }
 
         rowIdOutOfOrder = id;
-    }
-
-    @Test
-    void returnsKeyFromStorage() {
-        assertThat(snapshot.partitionKey(), is(partitionKey));
     }
 
     @Test
@@ -138,6 +139,15 @@ class OutgoingSnapshotMvDataStreamingTest {
     }
 
     private SnapshotMvDataResponse getMvDataResponse(long batchSizeHint) {
+        SnapshotMvDataResponse response = getNullableMvDataResponse(batchSizeHint);
+
+        assertThat(response, is(notNullValue()));
+
+        return response;
+    }
+
+    @Nullable
+    private SnapshotMvDataResponse getNullableMvDataResponse(long batchSizeHint) {
         SnapshotMvDataRequest request = messagesFactory.snapshotMvDataRequest()
                 .batchSizeHint(batchSizeHint)
                 .build();
@@ -429,5 +439,12 @@ class OutgoingSnapshotMvDataStreamingTest {
             //noinspection ConstantConditions
             assertTrue(snapshot.alreadyPassed(rowId3.increment().increment().increment()));
         }
+    }
+
+    @Test
+    void throwsSnapshotClosedExceptionWhenClosed() {
+        snapshot.close();
+
+        assertThat(getNullableMvDataResponse(Long.MAX_VALUE), is(nullValue()));
     }
 }

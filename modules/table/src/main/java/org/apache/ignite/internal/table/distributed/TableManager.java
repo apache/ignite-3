@@ -91,6 +91,7 @@ import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.server.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.ReplicationGroupOptions;
+import org.apache.ignite.internal.raft.server.impl.JraftNodeAccess;
 import org.apache.ignite.internal.raft.storage.impl.LogStorageFactoryCreator;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
@@ -157,7 +158,6 @@ import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.service.RaftGroupListener;
 import org.apache.ignite.raft.client.service.RaftGroupService;
-import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.storage.impl.VolatileRaftMetaStorage;
 import org.apache.ignite.raft.jraft.util.Utils;
 import org.apache.ignite.raft.jraft.util.concurrent.ConcurrentHashSet;
@@ -761,12 +761,15 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                             ioExecutor
                                     )
                                             .thenComposeAsync(txStatePartitionStorage -> {
+                                                JraftNodeAccess nodeAccess = new JraftNodeAccess();
+
                                                 RaftGroupOptions groupOptions = groupOptionsForPartition(
                                                         internalTbl.storage(),
                                                         internalTbl.txStateStorage(),
                                                         partitionKey(internalTbl, partId),
                                                         newPartAssignment,
-                                                        safeTime
+                                                        safeTime,
+                                                        nodeAccess
                                                 );
 
                                                 try {
@@ -789,6 +792,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                                     this::calculateAssignments,
                                                                     rebalanceScheduler
                                                             ),
+                                                            nodeAccess,
                                                             groupOptions
                                                     );
 
@@ -910,7 +914,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             TxStateTableStorage txStateTableStorage,
             PartitionKey partitionKey,
             Set<ClusterNode> peers,
-            PendingComparableValuesTracker<HybridTimestamp> safeTime
+            PendingComparableValuesTracker<HybridTimestamp> safeTime,
+            JraftNodeAccess nodeAccess
     ) {
         RaftGroupOptions raftGroupOptions;
 
@@ -928,9 +933,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 //TODO IGNITE-17302 Use miniumum from mv storage and tx state storage.
                 outgoingSnapshotsManager,
                 new PartitionAccessImpl(partitionKey, mvTableStorage, txStateTableStorage),
-                peers.stream().map(n -> new Peer(n.address())).map(PeerId::fromPeer).map(Object::toString).collect(Collectors.toList()),
-                List.of(),
-                incomingSnapshotsExecutor
+                incomingSnapshotsExecutor,
+                nodeAccess
         ));
 
         raftGroupOptions.replicationGroupOptions(new ReplicationGroupOptions().safeTime(safeTime));
@@ -1752,12 +1756,15 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                     partId
                             );
 
+                            JraftNodeAccess nodeAccess = new JraftNodeAccess();
+
                             RaftGroupOptions groupOptions = groupOptionsForPartition(
                                     internalTable.storage(),
                                     internalTable.txStateStorage(),
                                     partitionKey(internalTable, partId),
                                     assignments,
-                                    safeTime
+                                    safeTime,
+                                    nodeAccess
                             );
 
                             RaftGroupListener raftGrpLsnr = new PartitionListener(
@@ -1783,6 +1790,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                     assignments,
                                     raftGrpLsnr,
                                     raftGrpEvtsLsnr,
+                                    nodeAccess,
                                     groupOptions
                             );
                         }

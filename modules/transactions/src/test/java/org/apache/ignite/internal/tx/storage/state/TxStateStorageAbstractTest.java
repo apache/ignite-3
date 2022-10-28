@@ -246,6 +246,29 @@ public abstract class TxStateStorageAbstractTest {
         }
     }
 
+    @Test
+    void lastAppliedIndexGetterIsConsistentWithSetter() throws Exception {
+        try (TxStateTableStorage tableStorage = createStorage()) {
+            TxStateStorage partitionStorage = tableStorage.getOrCreateTxStateStorage(0);
+
+            partitionStorage.lastAppliedIndex(10);
+
+            assertThat(partitionStorage.lastAppliedIndex(), is(10L));
+        }
+    }
+
+    @Test
+    void compareAndSetMakesVisibleLastAppliedIndexChange() throws Exception {
+        try (TxStateTableStorage tableStorage = createStorage()) {
+            TxStateStorage partitionStorage = tableStorage.getOrCreateTxStateStorage(0);
+
+            UUID txId = UUID.randomUUID();
+            partitionStorage.compareAndSet(txId, null, randomTxMeta(1, txId), 10);
+
+            assertThat(partitionStorage.lastAppliedIndex(), is(10L));
+        }
+    }
+
     private IgniteBiTuple<UUID, TxMeta> putRandomTxMetaWithCommandIndex(TxStateStorage storage, int enlistedPartsCount, long commandIndex) {
         UUID txId = UUID.randomUUID();
         TxMeta txMeta = randomTxMeta(enlistedPartsCount, txId);

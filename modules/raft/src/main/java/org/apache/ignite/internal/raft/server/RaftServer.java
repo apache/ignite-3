@@ -20,6 +20,7 @@ package org.apache.ignite.internal.raft.server;
 import java.util.List;
 import java.util.Set;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.raft.server.impl.JraftNodeAccess;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.raft.client.Peer;
@@ -63,6 +64,7 @@ public interface RaftServer extends IgniteComponent {
      * @param peers Peers configuration.
      * @param learners Learners configuration.
      * @param groupOptions Options to apply to the group.
+     * @param nodeAccess Node access (used to get an instance of LogManager when a Node is started).
      * @return {@code True} if a group was successfully started, {@code False} when the group with given name is already exists.
      */
     boolean startRaftGroup(
@@ -71,6 +73,7 @@ public interface RaftServer extends IgniteComponent {
             RaftGroupListener lsnr,
             List<Peer> peers,
             List<Peer> learners,
+            JraftNodeAccess nodeAccess,
             RaftGroupOptions groupOptions
     );
 

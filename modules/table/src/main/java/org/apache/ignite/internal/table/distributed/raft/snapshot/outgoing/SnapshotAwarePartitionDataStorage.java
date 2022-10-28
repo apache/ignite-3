@@ -61,9 +61,13 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
 
     @Override
     public AutoLockup acquirePartitionSnapshotsReadLock() {
-        PartitionSnapshots partitionSnapshots = partitionsSnapshots.partitionSnapshots(partitionKey);
+        PartitionSnapshots partitionSnapshots = getPartitionSnapshots();
 
         return partitionSnapshots.acquireReadLock();
+    }
+
+    private PartitionSnapshots getPartitionSnapshots() {
+        return partitionsSnapshots.partitionSnapshots(partitionKey);
     }
 
     @Override
@@ -104,7 +108,7 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
     }
 
     private void handleSnapshotInterference(RowId rowId) {
-        PartitionSnapshots partitionSnapshots = partitionsSnapshots.partitionSnapshots(partitionKey);
+        PartitionSnapshots partitionSnapshots = getPartitionSnapshots();
 
         for (OutgoingSnapshot snapshot : partitionSnapshots.ongoingSnapshots()) {
             try (AutoLockup ignored = snapshot.acquireMvLock()) {
@@ -123,9 +127,19 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
 
     @Override
     public void close() throws Exception {
-        // TODO: IGNITE-17935 - terminate all snapshots of this partition considering correct locking to do it consistently
+        cleanupSnapshots();
 
         partitionStorage.close();
+    }
+
+    private void cleanupSnapshots() {
+        PartitionSnapshots partitionSnapshots = getPartitionSnapshots();
+
+        try (AutoLockup ignored = partitionSnapshots.acquireReadLock()) {
+            partitionSnapshots.ongoingSnapshots().forEach(snapshot -> partitionsSnapshots.finishOutgoingSnapshot(snapshot.id()));
+
+            partitionsSnapshots.removeSnapshots(partitionKey);
+        }
     }
 
     @Override

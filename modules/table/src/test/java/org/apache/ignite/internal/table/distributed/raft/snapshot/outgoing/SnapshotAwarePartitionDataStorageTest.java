@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing;
 
+import static java.util.Collections.singletonList;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.sameInstance;
@@ -215,7 +216,7 @@ class SnapshotAwarePartitionDataStorageTest {
         verify(snapshot).enqueueForSending(rowId);
     }
 
-    private void configureSnapshotToLetEnqueueOutOfOrderMvRow(OutgoingSnapshot snapshotToConfigure) {
+    private static void configureSnapshotToLetEnqueueOutOfOrderMvRow(OutgoingSnapshot snapshotToConfigure) {
         doReturn(false).when(snapshotToConfigure).alreadyPassed(any());
         doReturn(true).when(snapshotToConfigure).addRowIdToSkip(any());
     }
@@ -234,6 +235,24 @@ class SnapshotAwarePartitionDataStorageTest {
 
         verify(snapshot).enqueueForSending(rowId);
         verify(snapshot2).enqueueForSending(rowId);
+    }
+
+    @Test
+    void finishesSnapshotsOnStop() throws Exception {
+        when(partitionSnapshots.ongoingSnapshots()).thenReturn(singletonList(snapshot));
+
+        testedStorage.close();
+
+        verify(partitionsSnapshots).finishOutgoingSnapshot(snapshot.id());
+    }
+
+    @Test
+    void removesSnapshotsCollectionOnStop() throws Exception {
+        when(partitionSnapshots.ongoingSnapshots()).thenReturn(singletonList(snapshot));
+
+        testedStorage.close();
+
+        verify(partitionsSnapshots).removeSnapshots(partitionKey);
     }
 
     private enum MvWriteAction {

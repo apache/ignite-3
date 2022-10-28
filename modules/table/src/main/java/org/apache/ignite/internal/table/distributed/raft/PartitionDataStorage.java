@@ -40,7 +40,7 @@ import org.jetbrains.annotations.TestOnly;
  * <p>Each MvPartitionStorage instance represents exactly one partition. All RowIds within a partition are sorted consistently with the
  * {@link RowId#compareTo} comparison order.
  *
- * @see org.apache.ignite.internal.storage.MvPartitionStorage
+ * @see MvPartitionStorage
  */
 public interface PartitionDataStorage extends AutoCloseable {
     /**
@@ -64,7 +64,7 @@ public interface PartitionDataStorage extends AutoCloseable {
 
     /**
      * Flushes current state of the data or <i>the state from the nearest future</i> to the storage. It means that the future can be
-     * completed when the underlying storage {@link org.apache.ignite.internal.storage.MvPartitionStorage#persistedIndex()} is higher
+     * completed when the underlying storage {@link MvPartitionStorage#persistedIndex()} is higher
      * than {@link #lastAppliedIndex()} at the moment of the method's call. This feature
      * allows implementing a batch flush for several partitions at once.
      *
