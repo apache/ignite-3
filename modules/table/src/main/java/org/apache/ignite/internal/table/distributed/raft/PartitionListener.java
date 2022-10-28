@@ -121,7 +121,9 @@ public class PartitionListener implements RaftGroupListener {
 
             assert commandIndex > storagesAppliedIndex :
                     "Write command must have an index greater than that of storages [commandIndex=" + commandIndex
-                            + ", storagesAppliedIndex=" + storagesAppliedIndex + "]";
+                            + ", storagesAppliedIndex=" + storagesAppliedIndex
+                            + ", mvAppliedIndex=" + storage.lastAppliedIndex()
+                            + ", txStateAppliedIndex=" + txStateStorage.lastAppliedIndex() + "]";
 
             try (AutoLockup ignoredPartitionSnapshotsReadLockup = storage.acquirePartitionSnapshotsReadLock()) {
                 if (command instanceof UpdateCommand) {
@@ -137,6 +139,7 @@ public class PartitionListener implements RaftGroupListener {
                 } else {
                     assert false : "Command was not found [cmd=" + command + ']';
                 }
+
                 clo.result(null);
             } catch (IgniteInternalException e) {
                 clo.result(e);
@@ -151,6 +154,11 @@ public class PartitionListener implements RaftGroupListener {
      * @param commandIndex Index of the RAFT command.
      */
     private void handleUpdateCommand(UpdateCommand cmd, long commandIndex) {
+        // Skips the write command because the storage has already executed it.
+        if (commandIndex <= storage.lastAppliedIndex()) {
+            return;
+        }
+
         storage.runConsistently(() -> {
             BinaryRow row = cmd.getRow();
             RowId rowId = cmd.getRowId();
@@ -177,6 +185,11 @@ public class PartitionListener implements RaftGroupListener {
      * @param commandIndex Index of the RAFT command.
      */
     private void handleUpdateAllCommand(UpdateAllCommand cmd, long commandIndex) {
+        // Skips the write command because the storage has already executed it.
+        if (commandIndex <= storage.lastAppliedIndex()) {
+            return;
+        }
+
         storage.runConsistently(() -> {
             UUID txId = cmd.txId();
             Map<RowId, BinaryRow> rowsToUpdate = cmd.getRowsToUpdate();
@@ -195,6 +208,7 @@ public class PartitionListener implements RaftGroupListener {
                     addToIndexes(row, rowId);
                 }
             }
+
             storage.lastAppliedIndex(commandIndex);
 
             return null;
@@ -204,11 +218,16 @@ public class PartitionListener implements RaftGroupListener {
     /**
      * Handler for the {@link FinishTxCommand}.
      *
-     * @param cmd          Command.
+     * @param cmd Command.
      * @param commandIndex Index of the RAFT command.
      * @throws IgniteInternalException if an exception occurred during a transaction state change.
      */
     private void handleFinishTxCommand(FinishTxCommand cmd, long commandIndex) throws IgniteInternalException {
+        // Skips the write command because the storage has already executed it.
+        if (commandIndex <= txStateStorage.lastAppliedIndex()) {
+            return;
+        }
+
         UUID txId = cmd.txId();
 
         TxState stateToSet = cmd.commit() ? TxState.COMMITED : TxState.ABORTED;
@@ -257,6 +276,11 @@ public class PartitionListener implements RaftGroupListener {
      * @param commandIndex Index of the RAFT command.
      */
     private void handleTxCleanupCommand(TxCleanupCommand cmd, long commandIndex) {
+        // Skips the write command because the storage has already executed it.
+        if (commandIndex <= storage.lastAppliedIndex()) {
+            return;
+        }
+
         storage.runConsistently(() -> {
             UUID txId = cmd.txId();
 
