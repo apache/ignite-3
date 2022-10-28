@@ -26,7 +26,7 @@ import static org.mockito.Mockito.when;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
@@ -77,17 +77,17 @@ public class TxLocalTest extends TxAbstractTest {
             }
         ).when(replicaSvc).invoke(any(), any());
 
-        txManager = new TxManagerImpl(replicaSvc, lockManager, new HybridClock());
+        txManager = new TxManagerImpl(replicaSvc, lockManager, new HybridClockImpl());
 
         igniteTransactions = new IgniteTransactionsImpl(txManager);
 
         DummyInternalTableImpl table = new DummyInternalTableImpl(replicaSvc, txManager, true);
 
-        accounts = new TableImpl(table, new DummySchemaManagerImpl(ACCOUNTS_SCHEMA));
+        accounts = new TableImpl(table, new DummySchemaManagerImpl(ACCOUNTS_SCHEMA), lockManager);
 
         DummyInternalTableImpl table2 = new DummyInternalTableImpl(replicaSvc, txManager, true);
 
-        customers = new TableImpl(table2, new DummySchemaManagerImpl(CUSTOMERS_SCHEMA));
+        customers = new TableImpl(table2, new DummySchemaManagerImpl(CUSTOMERS_SCHEMA), lockManager);
 
         when(clusterService.messagingService()).thenReturn(mock(MessagingService.class, RETURNS_DEEP_STUBS));
 

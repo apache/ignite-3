@@ -34,7 +34,7 @@ import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManag
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
@@ -91,7 +91,7 @@ public class ItDistributedConfigurationStorageTest {
                     new StaticNodeFinder(List.of(addr))
             );
 
-            raftManager = new Loza(clusterService, raftConfiguration, workDir, new HybridClock());
+            raftManager = new Loza(clusterService, raftConfiguration, workDir, new HybridClockImpl());
 
             cmgManager = new ClusterManagementGroupManager(
                     vaultManager,

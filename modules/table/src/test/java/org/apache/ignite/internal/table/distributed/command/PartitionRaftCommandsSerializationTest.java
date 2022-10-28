@@ -34,6 +34,9 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
@@ -175,7 +178,7 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
 
     @Test
     public void testTxCleanupCommand() throws Exception {
-        HybridClock clock = new HybridClock();
+        HybridClock clock = new HybridClockImpl();
 
         TxCleanupCommand cmd = msgFactory.txCleanupCommand()
                 .txId(UUID.randomUUID())
@@ -192,7 +195,7 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
 
     @Test
     public void testFinishTxCommand() throws Exception {
-        HybridClock clock = new HybridClock();
+        HybridClock clock = new HybridClockImpl();
         ArrayList<TablePartitionIdMessage> grps = new ArrayList<>(10);
 
         for (int i = 0; i < 10; i++) {

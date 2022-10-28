@@ -130,7 +130,7 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
     }
 
     @Override
-    public CompletableFuture<Void> destroyPartition(int partitionId) throws StorageException {
+    public void destroyPartition(int partitionId) throws StorageException {
         assert started : "Storage has not started yet";
 
         MvPartitionStorage partition = getMvPartition(partitionId);
@@ -141,9 +141,6 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
             // TODO: IGNITE-17197 Actually destroy the partition.
             //partition.destroy();
         }
-
-        // TODO: IGNITE-17197 Convert this to true async code.
-        return CompletableFuture.completedFuture(null);
     }
 
     @Override

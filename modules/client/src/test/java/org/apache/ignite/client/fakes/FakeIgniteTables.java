@@ -32,6 +32,7 @@ import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.table.Table;
@@ -229,7 +230,8 @@ public class FakeIgniteTables implements IgniteTables, IgniteTablesInternal {
 
         return new TableImpl(
                 new FakeInternalTable(name, id),
-                new FakeSchemaRegistry(history)
+                new FakeSchemaRegistry(history),
+                new HeapLockManager()
         );
     }
 

@@ -44,7 +44,7 @@ import org.jetbrains.annotations.Nullable;
 public class TestMvPartitionStorage implements MvPartitionStorage {
     private final ConcurrentNavigableMap<RowId, VersionChain> map = new ConcurrentSkipListMap<>();
 
-    private long lastAppliedIndex = 0;
+    private volatile long lastAppliedIndex;
 
     private final int partitionId;
 
@@ -106,8 +106,6 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     /** {@inheritDoc} */
     @Override
     public void lastAppliedIndex(long lastAppliedIndex) throws StorageException {
-        assert lastAppliedIndex > this.lastAppliedIndex : "current=" + this.lastAppliedIndex + ", new=" + lastAppliedIndex;
-
         this.lastAppliedIndex = lastAppliedIndex;
     }
 
@@ -410,5 +408,10 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     @Override
     public void close() throws Exception {
         // No-op.
+    }
+
+    /** Removes all entries from this storage. */
+    public void clear() {
+        map.clear();
     }
 }
