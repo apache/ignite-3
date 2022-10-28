@@ -22,11 +22,8 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
-import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
-import static org.apache.ignite.lang.ErrorGroups.Replicator.CURSOR_CLOSE_ERR;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -405,7 +402,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return Result future.
      */
     private CompletableFuture processReadOnlySingleEntryAction(ReadOnlySingleRowReplicaRequest request, Boolean isPrimary) {
-        BinaryRow searchKey = request.binaryRow();
+        BinaryRow searchRow = request.binaryRow();
         HybridTimestamp readTimestamp = request.readTimestamp();
 
         if (request.requestType() != RequestType.RO_GET) {
@@ -415,53 +412,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         CompletableFuture<Void> safeReadFuture = isPrimary ? completedFuture(null) : safeTime.waitFor(request.readTimestamp());
 
-        return safeReadFuture.thenCompose(unused -> {
-            //TODO: IGNITE-17868 Integrate indexes into rowIds resolution along with proper lock management on search rows.
-            try (PartitionTimestampCursor scan = mvDataStorage.scan(readTimestamp)) {
-                while (scan.hasNext()) {
-                    ReadResult readResult = scan.next();
-                    HybridTimestamp newestCommitTimestamp = readResult.newestCommitTimestamp();
-
-                    if (readResult.binaryRow() == null) {
-                        if (newestCommitTimestamp == null) {
-                            throw new AssertionError("Unexpected null value of the newest committed timestamp.");
-                        }
-
-                        BinaryRow candidate = scan.committed(newestCommitTimestamp);
-                        if (candidate == null) {
-                            throw new AssertionError("Unexpected null value of the candidate binary row.");
-                        }
-
-                        if (candidate.keySlice().equals(searchKey)) {
-                            return resolveReadResult(
-                                    readResult,
-                                    readTimestamp,
-                                    () -> candidate
-                            );
-                        }
-                    } else if (readResult.binaryRow().keySlice().equals(searchKey)) {
-                        BinaryRow candidate = newestCommitTimestamp == null ? null : scan.committed(newestCommitTimestamp);
-
-                        return resolveReadResult(
-                                readResult,
-                                readTimestamp,
-                                () -> candidate
-                        );
-                    }
-                }
-            } catch (Exception e) {
-                return failedFuture(
-                        withCause(
-                                ReplicationException::new,
-                                CURSOR_CLOSE_ERR,
-                                "Failed to close cursor.",
-                                e
-                        )
-                );
-            }
-
-            return CompletableFuture.completedFuture(null);
-        });
+        return safeReadFuture.thenCompose(unused -> resolveRowByPk(searchRow, readTimestamp));
     }
 
     /**
@@ -472,8 +423,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return Result future.
      */
     private CompletableFuture<Object> processReadOnlyMultiEntryAction(ReadOnlyMultiRowReplicaRequest request, Boolean isPrimary) {
-        Collection<ByteBuffer> keyRows = request.binaryRows().stream().map(br -> br.keySlice()).collect(
-                Collectors.toList());
+        Collection<BinaryRow> searchRows = request.binaryRows();
         HybridTimestamp readTimestamp = request.readTimestamp();
 
         if (request.requestType() != RequestType.RO_GET_ALL) {
@@ -484,56 +434,12 @@ public class PartitionReplicaListener implements ReplicaListener {
         CompletableFuture<Void> safeReadFuture = isPrimary ? completedFuture(null) : safeTime.waitFor(request.readTimestamp());
 
         return safeReadFuture.thenCompose(unused -> {
-            ArrayList<CompletableFuture<BinaryRow>> resolutionFuts = new ArrayList<>(keyRows.size());
+            ArrayList<CompletableFuture<BinaryRow>> resolutionFuts = new ArrayList<>(searchRows.size());
 
-            //TODO: IGNITE-17868 Integrate indexes into rowIds resolution along with proper lock management on search rows.
-            try (PartitionTimestampCursor scan = mvDataStorage.scan(readTimestamp)) {
-                while (scan.hasNext()) {
-                    ReadResult readResult = scan.next();
-                    HybridTimestamp newestCommitTimestamp = readResult.newestCommitTimestamp();
+            for (BinaryRow searchRow : searchRows) {
+                CompletableFuture<BinaryRow> fut = resolveRowByPk(searchRow, readTimestamp);
 
-                    for (ByteBuffer searchKey : keyRows) {
-                        if (readResult.binaryRow() == null) {
-                            if (newestCommitTimestamp == null) {
-                                throw new AssertionError("Unexpected null value of the newest committed timestamp.");
-                            }
-
-                            BinaryRow candidate = scan.committed(newestCommitTimestamp);
-                            if (candidate == null) {
-                                throw new AssertionError("Unexpected null value of the candidate binary row.");
-                            }
-
-                            if (candidate.keySlice().equals(searchKey)) {
-                                resolutionFuts.add(
-                                        resolveReadResult(
-                                                readResult,
-                                                readTimestamp,
-                                                () -> candidate
-                                        )
-                                );
-                            }
-                        } else if (readResult.binaryRow().keySlice().equals(searchKey)) {
-                            BinaryRow candidate = newestCommitTimestamp == null ? null : scan.committed(newestCommitTimestamp);
-
-                            resolutionFuts.add(
-                                    resolveReadResult(
-                                            readResult,
-                                            readTimestamp,
-                                            () -> candidate
-                                    )
-                            );
-                        }
-                    }
-                }
-            } catch (Exception e) {
-                return failedFuture(
-                        withCause(
-                                ReplicationException::new,
-                                CURSOR_CLOSE_ERR,
-                                "Failed to close cursor.",
-                                e
-                        )
-                );
+                resolutionFuts.add(fut);
             }
 
             return allOf(resolutionFuts.toArray(new CompletableFuture[0])).thenApply(unused1 -> {
@@ -786,6 +692,42 @@ public class PartitionReplicaListener implements ReplicaListener {
                                 format("Unable to close cursor [tableId={}]", tableId), e);
                     }
                 });
+    }
+
+    /**
+     * Finds the row and its identifier by given pk search row.
+     *
+     * @param searchKey A bytes representing a primary key.
+     * @param ts A timestamp regarding which we need to resolve the given row.
+     * @return Result of the given action.
+     */
+    private CompletableFuture<BinaryRow> resolveRowByPk(BinaryRow searchKey, HybridTimestamp ts) {
+        try (Cursor<RowId> cursor = pkIndexStorage.get().get(searchKey)) {
+            for (RowId rowId : cursor) {
+                ReadResult readResult = mvDataStorage.read(rowId, ts);
+
+                return resolveReadResult(readResult, ts, () -> {
+                    HybridTimestamp newestCommitTimestamp = readResult.newestCommitTimestamp();
+
+                    if (newestCommitTimestamp == null) {
+                        return null;
+                    }
+
+                    ReadResult committedReadResult = mvDataStorage.read(rowId, newestCommitTimestamp);
+
+                    assert !committedReadResult.isWriteIntent() :
+                            "The result is not committed [rowId=" + rowId + ", timestamp="
+                                    + newestCommitTimestamp + ']';
+
+                    return committedReadResult.binaryRow();
+                });
+            }
+
+            return completedFuture(null);
+        } catch (Exception e) {
+            throw new IgniteInternalException(Replicator.REPLICA_COMMON_ERR,
+                    format("Unable to close cursor [tableId={}]", tableId), e);
+        }
     }
 
     /**
@@ -1442,7 +1384,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                 if (retrievedResultTxId == null || txId.equals(retrievedResultTxId)) {
                     // Same transaction - return retrieved value. It may be both writeIntent or regular value.
-                    return CompletableFuture.completedFuture(readResult.binaryRow());
+                    return completedFuture(readResult.binaryRow());
                 } else {
                     // Should never happen, currently, locks prevent reading another transaction intents during RW requests.
                     throw new AssertionError("Mismatched transaction id, expectedTxId={" + txId + "},"
@@ -1450,7 +1392,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 }
             } else {
                 if (!readResult.isWriteIntent()) {
-                    return CompletableFuture.completedFuture(readResult.binaryRow());
+                    return completedFuture(readResult.binaryRow());
                 }
 
                 CompletableFuture<BinaryRow> writeIntentResolutionFut = resolveWriteIntentAsync(
