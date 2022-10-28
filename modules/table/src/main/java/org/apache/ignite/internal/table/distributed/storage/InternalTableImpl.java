@@ -828,6 +828,8 @@ public class InternalTableImpl implements InternalTable {
                     ReadOnlyScanRetrieveBatchReplicaRequest request = tableMessagesFactory.readOnlyScanRetrieveBatchReplicaRequest()
                             .groupId(partGroupId)
                             .readTimestamp(readTimestamp)
+                            // TODO: IGNITE-17666 Close cursor tx finish.
+                            .transactionId(UUID.randomUUID())
                             .scanId(scanId)
                             .batchSize(batchSize)
                             .indexToUse(indexId)
@@ -835,7 +837,6 @@ public class InternalTableImpl implements InternalTable {
                             .upperBound(upperBound)
                             .flags(flags)
                             .columnsToInclude(columnsToInclude)
-                            .readTimestamp(readTimestamp)
                             .build();
 
                     return replicaSvc.invoke(recipientNode, request);
@@ -1001,25 +1002,6 @@ public class InternalTableImpl implements InternalTable {
         int partId = row.colocationHash() % partitions;
 
         return (partId < 0) ? -partId : partId;
-    }
-
-    /**
-     * Ensures partition id is valid.
-     *
-     * @param partId Partition.
-     * @throws IllegalArgumentException If partition id is invalid.
-     */
-    private void ensureValidPartition(int partId) {
-        if (partId < 0 || partId >= partitions) {
-            throw new IllegalArgumentException(
-                    IgniteStringFormatter.format(
-                            "Invalid partition [partition={}, minValue={}, maxValue={}].",
-                            partId,
-                            0,
-                            partitions - 1
-                    )
-            );
-        }
     }
 
     /**
