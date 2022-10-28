@@ -148,6 +148,7 @@ public class PartitionListener implements RaftGroupListener {
      * Handler for the {@link UpdateCommand}.
      *
      * @param cmd Command.
+     * @param commandIndex Index of the RAFT command.
      */
     private void handleUpdateCommand(UpdateCommand cmd, long commandIndex) {
         storage.runConsistently(() -> {
@@ -173,6 +174,7 @@ public class PartitionListener implements RaftGroupListener {
      * Handler for the {@link UpdateAllCommand}.
      *
      * @param cmd Command.
+     * @param commandIndex Index of the RAFT command.
      */
     private void handleUpdateAllCommand(UpdateAllCommand cmd, long commandIndex) {
         storage.runConsistently(() -> {
@@ -252,6 +254,7 @@ public class PartitionListener implements RaftGroupListener {
      * Handler for the {@link TxCleanupCommand}.
      *
      * @param cmd Command.
+     * @param commandIndex Index of the RAFT command.
      */
     private void handleTxCleanupCommand(TxCleanupCommand cmd, long commandIndex) {
         storage.runConsistently(() -> {
