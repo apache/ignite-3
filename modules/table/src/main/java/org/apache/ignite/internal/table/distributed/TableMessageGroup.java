@@ -19,6 +19,7 @@ package org.apache.ignite.internal.table.distributed;
 
 import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
 import org.apache.ignite.internal.table.distributed.command.HybridTimestampMessage;
+import org.apache.ignite.internal.table.distributed.command.TablePartitionIdMessage;
 import org.apache.ignite.internal.table.distributed.command.TxCleanupCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateAllCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
@@ -135,21 +136,22 @@ public interface TableMessageGroup {
      * Message types for Table module RAFT commands.
      */
     public interface Commands {
-        /** Message type for {@link FinishTxCommand} */
+        /** Message type for {@link FinishTxCommand}. */
         short FINISH_TX = 40;
 
-        /** Message type for {@link TxCleanupCommand} */
+        /** Message type for {@link TxCleanupCommand}. */
         short TX_CLEANUP = 41;
 
-        /** Message type for {@link UpdateAllCommand} */
+        /** Message type for {@link UpdateAllCommand}. */
         short UPDATE_ALL = 42;
 
-        /** Message type for {@link UpdateCommand} */
+        /** Message type for {@link UpdateCommand}. */
         short UPDATE = 43;
 
-        /** Message type for {@link HybridTimestampMessage} */
+        /** Message type for {@link HybridTimestampMessage}. */
         short HYBRID_TIMESTAMP = 60;
 
+        /** Message type for {@link TablePartitionIdMessage}. */
         short TABLE_PARTITION_ID = 61;
     }
 }

@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.table.distributed.command;
 
 import java.util.Map;
-
 import java.util.UUID;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.network.annotations.Marshallable;

@@ -82,7 +82,7 @@ public class PartitionListener implements RaftGroupListener {
     /** Dummy primary index. */
     private final ConcurrentHashMap<ByteBuffer, RowId> primaryIndex;
 
-    /** Partition ID */
+    /** Partition ID. */
     private int partitionId;
 
     /** Keys that were inserted by a transaction. */
