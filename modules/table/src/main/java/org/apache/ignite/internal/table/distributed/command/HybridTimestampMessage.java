@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.table.distributed.command;
 
 import java.io.Serializable;
-
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.network.NetworkMessage;
