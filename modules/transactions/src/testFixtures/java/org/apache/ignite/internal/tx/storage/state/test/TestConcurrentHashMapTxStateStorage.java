@@ -28,7 +28,7 @@ import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.IgniteBiTuple;
-import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Test implementation of {@link TxStateStorage} based on {@link ConcurrentHashMap}.
@@ -50,33 +50,32 @@ public class TestConcurrentHashMapTxStateStorage implements TxStateStorage {
     }
 
     @Override
-    public boolean compareAndSet(UUID txId, TxState txStateExpected, @NotNull TxMeta txMeta, long commandIndex) {
-        while (true) {
-            TxMeta old = storage.get(txId);
+    public boolean compareAndSet(UUID txId, @Nullable TxState txStateExpected, TxMeta txMeta, long commandIndex) {
+        TxMeta old = storage.get(txId);
 
-            if (old == null && txStateExpected == null) {
-                TxMeta oldMeta = storage.putIfAbsent(txId, txMeta);
-                if (oldMeta == null) {
-                    lastAppliedIndex = commandIndex;
+        boolean result;
 
-                    return true;
-                } else {
-                    return false;
-                }
-            } else if (old != null) {
+        if (old == null && txStateExpected == null) {
+            TxMeta oldMeta = storage.putIfAbsent(txId, txMeta);
+
+            result = oldMeta == null;
+        } else {
+            if (old != null) {
                 if (old.txState() == txStateExpected) {
-                    if (storage.replace(txId, old, txMeta)) {
-                        lastAppliedIndex = commandIndex;
-
-                        return true;
-                    }
+                    result = storage.replace(txId, old, txMeta);
                 } else {
                     return old.txState() == txMeta.txState() && (
                             (old.commitTimestamp() == null && txMeta.commitTimestamp() == null)
                                     || old.commitTimestamp().equals(txMeta.commitTimestamp()));
                 }
+            } else {
+                result = false;
             }
         }
+
+        lastAppliedIndex = commandIndex;
+
+        return result;
     }
 
     @Override

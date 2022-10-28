@@ -26,6 +26,7 @@ import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.ErrorGroups.Transactions;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalException;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Storage for transaction meta, {@link TxMeta}.
@@ -63,7 +64,7 @@ public interface TxStateStorage extends AutoCloseable {
      * @throws IgniteInternalException with {@link Transactions#TX_STATE_STORAGE_ERR} error code in case when
      *                                 the operation has failed.
      */
-    boolean compareAndSet(UUID txId, TxState txStateExpected, TxMeta txMeta, long commandIndex);
+    boolean compareAndSet(UUID txId, @Nullable TxState txStateExpected, TxMeta txMeta, long commandIndex);
 
     /**
      * Remove the tx meta from the storage.

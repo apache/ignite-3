@@ -42,6 +42,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -83,7 +84,7 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
     /** Internal table to test. */
     protected InternalTable internalTbl;
 
-    private final HybridClock clock = new HybridClock();
+    private final HybridClock clock = new HybridClockImpl();
 
     /**
      * Prepare test environment using DummyInternalTableImpl and Mocked storage.

@@ -41,6 +41,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import org.apache.ignite.distributed.TestPartitionDataStorage;
 import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -99,7 +100,7 @@ public class PartitionCommandListenerTest {
     );
 
     /** Hybrid clock. */
-    private static final HybridClock CLOCK = new HybridClock();
+    private static final HybridClock CLOCK = new HybridClockImpl();
 
     /** Table command listener. */
     private PartitionListener commandListener;
@@ -140,7 +141,7 @@ public class PartitionCommandListenerTest {
         commandListener = new PartitionListener(
                 new TestPartitionDataStorage(mvPartitionStorage),
                 new TestConcurrentHashMapTxStateStorage(),
-                new TxManagerImpl(replicaService, new HeapLockManager(), new HybridClock()),
+                new TxManagerImpl(replicaService, new HeapLockManager(), new HybridClockImpl()),
                 () -> Map.of(pkStorage.id(), pkStorage)
         );
     }
@@ -230,7 +231,7 @@ public class PartitionCommandListenerTest {
         PartitionListener testCommandListener = new PartitionListener(
                 partitionDataStorage,
                 txStateStorage,
-                new TxManagerImpl(replicaService, new HeapLockManager(), new HybridClock()),
+                new TxManagerImpl(replicaService, new HeapLockManager(), new HybridClockImpl()),
                 () -> Map.of(pkStorage.id(), pkStorage)
         );
 
@@ -240,15 +241,25 @@ public class PartitionCommandListenerTest {
 
         AtomicLong counter = new AtomicLong(0);
 
-        testCommandListener.onSnapshotSave(workDir, (throwable) -> {
-            counter.incrementAndGet();
-        });
+        testCommandListener.onSnapshotSave(workDir, (throwable) -> counter.incrementAndGet());
 
         assertEquals(1L, counter.get());
 
         assertEquals(5L, partitionDataStorage.lastAppliedIndex());
 
         assertEquals(5L, txStateStorage.lastAppliedIndex());
+
+        txStateStorage.lastAppliedIndex(10L);
+
+        partitionDataStorage.lastAppliedIndex(7L);
+
+        testCommandListener.onSnapshotSave(workDir, (throwable) -> counter.incrementAndGet());
+
+        assertEquals(2L, counter.get());
+
+        assertEquals(10L, partitionDataStorage.lastAppliedIndex());
+
+        assertEquals(10L, txStateStorage.lastAppliedIndex());
     }
 
     /**

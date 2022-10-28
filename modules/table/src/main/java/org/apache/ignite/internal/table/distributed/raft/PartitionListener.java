@@ -37,6 +37,7 @@ import java.util.function.Supplier;
 import org.apache.ignite.internal.lock.AutoLockup;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommand;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
@@ -98,7 +99,6 @@ public class PartitionListener implements RaftGroupListener {
         this.indexes = indexes;
     }
 
-    /** {@inheritDoc} */
     @Override
     public void onRead(Iterator<CommandClosure<ReadCommand>> iterator) {
         iterator.forEachRemaining((CommandClosure<? extends ReadCommand> clo) -> {
@@ -108,7 +108,6 @@ public class PartitionListener implements RaftGroupListener {
         });
     }
 
-    /** {@inheritDoc} */
     @Override
     public void onWrite(Iterator<CommandClosure<WriteCommand>> iterator) {
         iterator.forEachRemaining((CommandClosure<? extends WriteCommand> clo) -> {
@@ -116,11 +115,13 @@ public class PartitionListener implements RaftGroupListener {
 
             long commandIndex = clo.index();
 
-            long storageAppliedIndex = storage.lastAppliedIndex();
+            // We choose the minimum applied index, since we choose it (the minimum one) on local recovery so as not to lose the data for
+            // one of the storages.
+            long storagesAppliedIndex = Math.min(storage.lastAppliedIndex(), txStateStorage.lastAppliedIndex());
 
-            assert storageAppliedIndex < commandIndex
-                    : "Pending write command has a higher index than already processed commands [commandIndex=" + commandIndex
-                    + ", storageAppliedIndex=" + storageAppliedIndex + ']';
+            assert commandIndex > storagesAppliedIndex :
+                    "Write command must have an index greater than that of storages [commandIndex=" + commandIndex
+                            + ", storagesAppliedIndex=" + storagesAppliedIndex + "]";
 
             try (AutoLockup ignoredPartitionSnapshotsReadLockup = storage.acquirePartitionSnapshotsReadLock()) {
                 if (command instanceof UpdateCommand) {
@@ -131,6 +132,8 @@ public class PartitionListener implements RaftGroupListener {
                     handleFinishTxCommand((FinishTxCommand) command, commandIndex);
                 } else if (command instanceof TxCleanupCommand) {
                     handleTxCleanupCommand((TxCleanupCommand) command, commandIndex);
+                } else if (command instanceof SafeTimeSyncCommand) {
+                    handleSafeTimeSyncCommand((SafeTimeSyncCommand) command);
                 } else {
                     assert false : "Command was not found [cmd=" + command + ']';
                 }
@@ -145,6 +148,7 @@ public class PartitionListener implements RaftGroupListener {
      * Handler for the {@link UpdateCommand}.
      *
      * @param cmd Command.
+     * @param commandIndex Index of the RAFT command.
      */
     private void handleUpdateCommand(UpdateCommand cmd, long commandIndex) {
         storage.runConsistently(() -> {
@@ -170,6 +174,7 @@ public class PartitionListener implements RaftGroupListener {
      * Handler for the {@link UpdateAllCommand}.
      *
      * @param cmd Command.
+     * @param commandIndex Index of the RAFT command.
      */
     private void handleUpdateAllCommand(UpdateAllCommand cmd, long commandIndex) {
         storage.runConsistently(() -> {
@@ -249,6 +254,7 @@ public class PartitionListener implements RaftGroupListener {
      * Handler for the {@link TxCleanupCommand}.
      *
      * @param cmd Command.
+     * @param commandIndex Index of the RAFT command.
      */
     private void handleTxCleanupCommand(TxCleanupCommand cmd, long commandIndex) {
         storage.runConsistently(() -> {
@@ -273,7 +279,15 @@ public class PartitionListener implements RaftGroupListener {
         });
     }
 
-    /** {@inheritDoc} */
+    /**
+     * Handler for the {@link SafeTimeSyncCommand}.
+     *
+     * @param cmd Command.
+     */
+    private void handleSafeTimeSyncCommand(SafeTimeSyncCommand cmd) {
+        // No-op.
+    }
+
     @Override
     public void onSnapshotSave(Path path, Consumer<Throwable> doneClo) {
         // The max index here is required for local recovery and a possible scenario
@@ -289,20 +303,15 @@ public class PartitionListener implements RaftGroupListener {
 
         txStateStorage.lastAppliedIndex(maxLastAppliedIndex);
 
-        CompletableFuture<Void> storageFut = storage.flush();
-
-        CompletableFuture<Void> txStateStorageFut = txStateStorage.flush();
-
-        CompletableFuture.allOf(storageFut, txStateStorageFut).whenComplete((unused, throwable) -> doneClo.accept(throwable));
+        CompletableFuture.allOf(storage.flush(), txStateStorage.flush())
+                .whenComplete((unused, throwable) -> doneClo.accept(throwable));
     }
 
-    /** {@inheritDoc} */
     @Override
     public boolean onSnapshotLoad(Path path) {
         return true;
     }
 
-    /** {@inheritDoc} */
     @Override
     public void onShutdown() {
         // TODO: IGNITE-17958 - probably, we should not close the storage here as PartitionListener did not create the storage.
