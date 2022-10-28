@@ -40,6 +40,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.ignite.configuration.ConfigurationChangeException;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -91,7 +92,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
     private final MessageService msgSrvc;
 
-    private final String locNodeId;
+    private final ClusterNode localNode;
 
     private final SqlSchemaManager sqlSchemaManager;
 
@@ -138,7 +139,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             DataStorageManager dataStorageManager
     ) {
         return new ExecutionServiceImpl<>(
-                topSrvc.localMember().id(),
+                topSrvc.localMember(),
                 msgSrvc,
                 new MappingServiceImpl(topSrvc),
                 sqlSchemaManager,
@@ -154,7 +155,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
      * Constructor. TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     ExecutionServiceImpl(
-            String localNodeId,
+            ClusterNode localNode,
             MessageService msgSrvc,
             MappingService mappingSrvc,
             SqlSchemaManager sqlSchemaManager,
@@ -164,7 +165,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             ExchangeService exchangeSrvc,
             ImplementorFactory<RowT> implementorFactory
     ) {
-        this.locNodeId = localNodeId;
+        this.localNode = localNode;
         this.handler = handler;
         this.msgSrvc = msgSrvc;
         this.mappingSrvc = mappingSrvc;
@@ -201,7 +202,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         return queryManager.execute(plan);
     }
 
-    private BaseQueryContext createQueryContext(UUID queryId, @Nullable String schema, Object[] params) {
+    private BaseQueryContext createQueryContext(UUID queryId, @Nullable String schema, Object[] params, HybridTimestamp txTime) {
         return BaseQueryContext.builder()
                 .queryId(queryId)
                 .parameters(params)
@@ -211,6 +212,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                                 .build()
                 )
                 .logger(LOG)
+                .transactionTime(txTime)
                 .build();
     }
 
@@ -291,7 +293,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         assert nodeId != null && msg != null;
 
         DistributedQueryManager queryManager = queryManagerMap.computeIfAbsent(msg.queryId(), key -> {
-            BaseQueryContext ctx = createQueryContext(key, msg.schema(), msg.parameters());
+            BaseQueryContext ctx = createQueryContext(key, msg.schema(), msg.parameters(), msg.txTime());
 
             return new DistributedQueryManager(ctx);
         });
@@ -382,15 +384,15 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
         private volatile Long rootFragmentId = null;
 
-        private @Nullable InternalTransaction transaction;
+        private @Nullable InternalTransaction tx;
 
         private DistributedQueryManager(
                 BaseQueryContext ctx,
-                @Nullable InternalTransaction transaction
+                @Nullable InternalTransaction tx
         ) {
             this(ctx);
 
-            this.transaction = transaction;
+            this.tx = tx;
         }
 
         private DistributedQueryManager(BaseQueryContext ctx) {
@@ -419,6 +421,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     .root(fragment.serialized())
                     .fragmentDescription(desc)
                     .parameters(ctx.parameters())
+                    .txTime(ctx.transactionTime())
                     .build();
 
             var fut = new CompletableFuture<Void>();
@@ -520,12 +523,12 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     ctx,
                     taskExecutor,
                     ctx.queryId(),
-                    locNodeId,
+                    localNode,
                     initiatorNodeId,
                     desc,
                     handler,
                     Commons.parametersMap(ctx.parameters()),
-                    transaction
+                    tx
             );
         }
 
@@ -558,7 +561,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
         private AsyncCursor<List<Object>> execute(MultiStepPlan plan) {
             taskExecutor.execute(() -> {
-                plan.init(mappingSrvc, new MappingQueryContext(locNodeId));
+                plan.init(mappingSrvc, new MappingQueryContext(localNode.id()));
 
                 List<Fragment> fragments = plan.fragments();
 

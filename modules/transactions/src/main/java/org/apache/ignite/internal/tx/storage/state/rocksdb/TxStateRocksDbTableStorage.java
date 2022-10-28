@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.tx.storage.state.rocksdb;
 
 import static java.util.Collections.reverse;
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.rocksdb.ReadTier.PERSISTED_TIER;
 
@@ -33,8 +32,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 import java.util.function.IntSupplier;
 import org.apache.ignite.internal.configuration.storage.StorageException;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.rocksdb.flush.RocksDbFlusher;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.tostring.S;
@@ -56,9 +53,6 @@ import org.rocksdb.WriteOptions;
  * RocksDb implementation of {@link TxStateTableStorage}.
  */
 public class TxStateRocksDbTableStorage implements TxStateTableStorage {
-    /** Logger. */
-    private static final IgniteLogger LOG = Loggers.forClass(TxStateRocksDbTableStorage.class);
-
     static {
         RocksDB.loadLibrary();
     }
@@ -144,8 +138,8 @@ public class TxStateRocksDbTableStorage implements TxStateTableStorage {
         }
     }
 
-    /** {@inheritDoc} */
-    @Override public TxStateStorage getOrCreateTxStateStorage(int partitionId) throws StorageException {
+    @Override
+    public TxStateStorage getOrCreateTxStateStorage(int partitionId) throws StorageException {
         checkPartitionId(partitionId);
 
         TxStateRocksDbStorage storage = storages.get(partitionId);
@@ -166,40 +160,36 @@ public class TxStateRocksDbTableStorage implements TxStateTableStorage {
         return storage;
     }
 
-    /** {@inheritDoc} */
-    @Override public @Nullable TxStateStorage getTxStateStorage(int partitionId) {
+    @Override
+    public @Nullable TxStateStorage getTxStateStorage(int partitionId) {
         return storages.get(partitionId);
     }
 
-    /** {@inheritDoc} */
-    @Override public CompletableFuture<Void> destroyTxStateStorage(int partitionId) throws StorageException {
+    @Override
+    public void destroyTxStateStorage(int partitionId) throws StorageException {
         checkPartitionId(partitionId);
 
         TxStateStorage storage = storages.getAndSet(partitionId, null);
 
-        if (storage == null) {
-            return completedFuture(null);
-        }
+        if (storage != null) {
+            storage.destroy();
 
-        storage.destroy();
-
-        return awaitFlush(false).whenComplete((v, e) -> {
             try {
                 storage.close();
-            } catch (Exception ex) {
-                LOG.error("Couldn't close the transaction state storage of partition "
+            } catch (Exception e) {
+                throw new StorageException("Couldn't close the transaction state storage of partition "
                         + partitionId + ", table " + tableCfg.value().name());
             }
-        });
+        }
     }
 
-    /** {@inheritDoc} */
-    @Override public TableConfiguration configuration() {
+    @Override
+    public TableConfiguration configuration() {
         return tableCfg;
     }
 
-    /** {@inheritDoc} */
-    @Override public void start() throws StorageException {
+    @Override
+    public void start() throws StorageException {
         try {
             flusher = new RocksDbFlusher(
                 busyLock,
@@ -239,8 +229,8 @@ public class TxStateRocksDbTableStorage implements TxStateTableStorage {
         }
     }
 
-    /** {@inheritDoc} */
-    @Override public void stop() throws StorageException {
+    @Override
+    public void stop() throws StorageException {
         if (!stopGuard.compareAndSet(false, true)) {
             return;
         }
@@ -271,8 +261,8 @@ public class TxStateRocksDbTableStorage implements TxStateTableStorage {
         }
     }
 
-    /** {@inheritDoc} */
-    @Override public void destroy() throws StorageException {
+    @Override
+    public void destroy() throws StorageException {
         try (Options options = new Options()) {
             close();
 
@@ -305,8 +295,8 @@ public class TxStateRocksDbTableStorage implements TxStateTableStorage {
         }
     }
 
-    /** {@inheritDoc} */
-    @Override public void close() throws Exception {
+    @Override
+    public void close() throws Exception {
         stop();
     }
 

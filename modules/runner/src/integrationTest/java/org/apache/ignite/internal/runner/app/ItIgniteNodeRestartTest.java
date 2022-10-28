@@ -63,6 +63,7 @@ import org.apache.ignite.internal.configuration.storage.LocalConfigurationStorag
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -229,7 +230,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 nettyBootstrapFactory
         );
 
-        HybridClock hybridClock = new HybridClock();
+        HybridClock hybridClock = new HybridClockImpl();
 
         var raftMgr = new Loza(clusterSvc, raftConfiguration, dir, hybridClock);
 

@@ -26,12 +26,11 @@ import org.apache.ignite.internal.tostring.S;
  */
 public class PartitionKey {
     private final UUID tableId;
+
     private final int partitionId;
 
     /**
      * Returns ID of the table.
-     *
-     * @return ID of the table.
      */
     public UUID tableId() {
         return tableId;
@@ -39,8 +38,6 @@ public class PartitionKey {
 
     /**
      * Returns partition ID.
-     *
-     * @return Partition ID.
      */
     public int partitionId() {
         return partitionId;

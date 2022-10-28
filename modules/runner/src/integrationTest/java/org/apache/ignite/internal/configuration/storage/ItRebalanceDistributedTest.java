@@ -45,6 +45,7 @@ import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -462,15 +463,15 @@ public class ItRebalanceDistributedTest {
 
             lockManager = new HeapLockManager();
 
-            raftManager = new Loza(clusterService, raftConfiguration, dir, new HybridClock());
+            raftManager = new Loza(clusterService, raftConfiguration, dir, new HybridClockImpl());
 
             replicaManager = new ReplicaManager(
                     clusterService,
-                    new HybridClock(),
+                    new HybridClockImpl(),
                     Set.of(TableMessageGroup.class, TxMessageGroup.class)
             );
 
-            HybridClock hybridClock = new HybridClock();
+            HybridClock hybridClock = new HybridClockImpl();
 
             ReplicaService replicaSvc = new ReplicaService(
                     clusterService.messagingService(),
@@ -557,7 +558,7 @@ public class ItRebalanceDistributedTest {
                     metaStorageManager,
                     schemaManager,
                     view -> new LocalLogStorageFactory(),
-                    new HybridClock(),
+                    new HybridClockImpl(),
                     new OutgoingSnapshotsManager(clusterService.messagingService())
             );
         }

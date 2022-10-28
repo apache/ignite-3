@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.future;
 
-import static java.util.concurrent.atomic.AtomicReferenceFieldUpdater.newUpdater;
-
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.VarHandle;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.concurrent.CancellationException;
@@ -28,8 +28,6 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 import org.jetbrains.annotations.Nullable;
@@ -39,7 +37,7 @@ import org.jetbrains.annotations.Nullable;
  * and {@link #thenComposeToCompletable(Function)}) are invoked in the same order in which they were registered.
  *
  * <p>For completion methods ({@link #complete(Object)} and {@link #completeExceptionally(Throwable)} it is guaranteed that,
- * upon returning, the caller will see the completion values (for example, using {@link #getNow(Object)}, UNLESS the
+ * upon returning, the caller will see the completion values (for example, using {@link #getNow(Object)}), UNLESS the
  * completion method is interrupted.
  *
  * <p>Callbacks are invoked asynchronously relative to completion. This means that completer may exit the completion method
@@ -49,20 +47,38 @@ import org.jetbrains.annotations.Nullable;
  * @see CompletableFuture
  */
 public class OrderingFuture<T> {
-    @SuppressWarnings("rawtypes")
-    private static final AtomicReferenceFieldUpdater<OrderingFuture, State> STATE = newUpdater(OrderingFuture.class, State.class, "state");
+    /** Integer representation of {@code false}. */
+    private static final int INT_FALSE = 0;
+
+    /** Integer representation of {@code true}. */
+    private static final int INT_TRUE = 1;
+
+    private static final VarHandle STATE;
+
+    private static final VarHandle COMPLETION_STARTED;
+
+    static {
+        try {
+            STATE = MethodHandles.lookup().findVarHandle(OrderingFuture.class, "state", State.class);
+            COMPLETION_STARTED = MethodHandles.lookup().findVarHandle(OrderingFuture.class, "completionStarted", int.class);
+        } catch (ReflectiveOperationException e) {
+            throw new ExceptionInInitializerError(e);
+        }
+    }
 
     /**
      * Stores all the state of this future: whether it is completed, normal completion result (if any), cause
      * of exceptional completion (if any), dependents. The State class and all of its components are immutable.
      * We change the state using compare-and-set approach, next state is built from previous one.
      */
+    @SuppressWarnings({"unused", "FieldMayBeFinal"})
     private volatile State<T> state = State.empty();
 
     /**
      * Used to make sure that at most one thread executes completion code.
      */
-    private final AtomicBoolean completionStarted = new AtomicBoolean(false);
+    @SuppressWarnings({"unused", "FieldMayBeFinal"})
+    private volatile int completionStarted = INT_FALSE;
 
     /**
      * Used by {@link #get(long, TimeUnit)} to wait for the moment when completion values are available.
@@ -76,7 +92,7 @@ public class OrderingFuture<T> {
     }
 
     /**
-     * Creates a future that is alredy completed with the given value.
+     * Creates a future that is already completed with the given value.
      *
      * @param result Value with which the future is completed.
      * @param <T> Payload type.
@@ -89,7 +105,7 @@ public class OrderingFuture<T> {
     }
 
     /**
-     * Creates a future that is alredy completed exceptionally (i.e. failed) with the given exception.
+     * Creates a future that is already completed exceptionally (i.e. failed) with the given exception.
      *
      * @param ex Exception with which the future is failed.
      * @param <T> Payload type.
@@ -144,7 +160,7 @@ public class OrderingFuture<T> {
     private void completeInternal(@Nullable T result, @Nullable Throwable ex) {
         assert ex == null || result == null;
 
-        if (!completionStarted.compareAndSet(false, true)) {
+        if (!COMPLETION_STARTED.compareAndSet(this, INT_FALSE, INT_TRUE)) {
             // Someone has already started the completion. We must leave as the following code can produce duplicate
             // notifications of dependents if executed by more than one thread.
 
@@ -198,7 +214,7 @@ public class OrderingFuture<T> {
 
             State<T> newState = prevState.switchToCompleted();
 
-            // We produce side-effects inside the retry loop, but it's ok as the queue can only grow, the queue
+            // We produce side effects inside the retry loop, but it's ok as the queue can only grow, the queue
             // state we see is always a prefix of a queue changed by a competitor (we only compete with operations
             // that enqueue elements to the queue as competition with other completers is ruled out with AtomicBoolean)
             // and we track what dependents have already been notified by us.
@@ -429,8 +445,9 @@ public class OrderingFuture<T> {
          *
          * @param result Normal completion result ({@code null} if completed exceptionally, but might be {@code null} for normal completion.
          * @param ex     Exceptional completion cause ({@code null} if completed normally).
+         * @param context Notification context used to cache CompletionException, if needed.
          */
-        void onCompletion(T result, Throwable ex);
+        void onCompletion(@Nullable T result, @Nullable Throwable ex, NotificationContext context);
     }
 
     private static class WhenComplete<T> implements DependentAction<T> {
@@ -441,12 +458,12 @@ public class OrderingFuture<T> {
         }
 
         @Override
-        public void onCompletion(T result, Throwable ex) {
+        public void onCompletion(@Nullable T result, @Nullable Throwable ex, NotificationContext context) {
             acceptQuietly(action, result, ex);
         }
     }
 
-    private static class ThenComposeToCompletable<T, U> implements DependentAction<T> {
+    private static class ThenComposeToCompletable<T, U> implements DependentAction<T>, BiConsumer<U, Throwable> {
         private final CompletableFuture<U> resultFuture;
         private final Function<? super T, ? extends CompletableFuture<U>> mapper;
 
@@ -456,19 +473,26 @@ public class OrderingFuture<T> {
         }
 
         @Override
-        public void onCompletion(T result, Throwable ex) {
+        public void onCompletion(@Nullable T result, @Nullable Throwable ex, NotificationContext context) {
             if (ex != null) {
-                resultFuture.completeExceptionally(wrapWithCompletionException(ex));
+                resultFuture.completeExceptionally(context.completionExceptionCaching(ex));
                 return;
             }
 
             try {
                 CompletableFuture<U> mapResult = mapper.apply(result);
 
-                mapResult.whenComplete((mapRes, mapEx) -> completeCompletableFuture(resultFuture, mapRes, mapEx));
+                // Reusing this object as a BiConsumer instead of writing lambda to spare one allocation (might be
+                // important if there is a huge amount of dependents).
+                mapResult.whenComplete(this);
             } catch (Throwable e) {
                 resultFuture.completeExceptionally(e);
             }
+        }
+
+        @Override
+        public void accept(U mapRes, Throwable mapEx) {
+            completeCompletableFuture(resultFuture, mapRes, mapEx);
         }
     }
 
@@ -515,26 +539,30 @@ public class OrderingFuture<T> {
 
     private static class ListNode<T> {
         private final DependentAction<T> dependent;
-        private final ListNode<T> next;
 
-        private ListNode(DependentAction<T> dependent, ListNode<T> next) {
+        @Nullable
+        private final ListNode<T> prev;
+
+        private ListNode(DependentAction<T> dependent, @Nullable ListNode<T> prev) {
             this.dependent = dependent;
-            this.next = next;
+            this.prev = prev;
         }
 
-        public void notifyHeadToTail(T result, Throwable exception, ListNode<T> lastNotifiedNode) {
+        public void notifyHeadToTail(@Nullable T result, @Nullable Throwable exception, ListNode<T> lastNotifiedNode) {
             Deque<ListNode<T>> stack = new ArrayDeque<>();
 
-            for (ListNode<T> node = this; node != null && node != lastNotifiedNode; node = node.next) {
+            for (ListNode<T> node = this; node != null && node != lastNotifiedNode; node = node.prev) {
                 stack.addFirst(node);
             }
+
+            NotificationContext context = new NotificationContext();
 
             // Notify those dependents that are not notified yet.
             while (!stack.isEmpty()) {
                 ListNode<T> node = stack.removeFirst();
 
                 try {
-                    node.dependent.onCompletion(result, exception);
+                    node.dependent.onCompletion(result, exception, context);
                 } catch (Exception e) {
                     // ignore
                 }
@@ -558,5 +586,32 @@ public class OrderingFuture<T> {
          * are invoked immediately instead of being enqueued.
          */
         COMPLETED
+    }
+
+    /**
+     * Context of notification which happens during completion. Currently only used to cache {@link CompletionException}
+     * making sure it is instantiated lazily.
+     */
+    private static class NotificationContext {
+        @Nullable
+        private CompletionException completionException;
+
+        /**
+         * Wraps the completion cause with a {@link CompletionException} (or just leaves it as is if the completion
+         * cause is a CompletionException itself.
+         *
+         * <p>This method caches the exception, so if this method is called more than once, the exception is still
+         * created once.
+         *
+         * @param cause Exception with which this future is being completed.
+         * @return CompletionException.
+         */
+        CompletionException completionExceptionCaching(Throwable cause) {
+            if (completionException == null) {
+                completionException = wrapWithCompletionException(cause);
+            }
+
+            return completionException;
+        }
     }
 }
