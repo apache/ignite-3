@@ -25,4 +25,10 @@ import org.apache.ignite.network.annotations.Transferable;
  */
 @Transferable(TableMessageGroup.SNAPSHOT_TX_DATA_REQUEST)
 public interface SnapshotTxDataRequest extends SnapshotRequestMessage {
+    /**
+     * Returns maximum number of transactions that should be sent in response.
+     *
+     * @return Maximum number of transactions that should be sent in response.
+     */
+    int maxTransactionsInBatch();
 }

@@ -33,7 +33,7 @@ import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
 /**
- * {@link MvPartitionStorage} decorator that adds snapshot awareness. This means that writes coordinate with ongoing
+ * {@link PartitionDataStorage} that adds snapshot awareness. This means that MV writes coordinate with ongoing
  * snapshots to make sure that the writes do not interfere with the snapshots.
  */
 public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
@@ -84,36 +84,30 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
     @Override
     public @Nullable BinaryRow addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, UUID commitTableId,
             int commitPartitionId) throws TxIdMismatchException, StorageException {
-        sendRowOutOfOrderToInterferingSnapshots(rowId);
+        handleSnapshotInterference(rowId);
 
         return partitionStorage.addWrite(rowId, row, txId, commitTableId, commitPartitionId);
     }
 
     @Override
     public @Nullable BinaryRow abortWrite(RowId rowId) throws StorageException {
-        sendRowOutOfOrderToInterferingSnapshots(rowId);
+        handleSnapshotInterference(rowId);
 
         return partitionStorage.abortWrite(rowId);
     }
 
     @Override
     public void commitWrite(RowId rowId, HybridTimestamp timestamp) throws StorageException {
-        sendRowOutOfOrderToInterferingSnapshots(rowId);
+        handleSnapshotInterference(rowId);
 
         partitionStorage.commitWrite(rowId, timestamp);
     }
 
-    private void sendRowOutOfOrderToInterferingSnapshots(RowId rowId) {
+    private void handleSnapshotInterference(RowId rowId) {
         PartitionSnapshots partitionSnapshots = partitionsSnapshots.partitionSnapshots(partitionKey);
 
         for (OutgoingSnapshot snapshot : partitionSnapshots.ongoingSnapshots()) {
-            snapshot.acquireLock();
-
-            try {
-                if (snapshot.isFinished()) {
-                    continue;
-                }
-
+            try (AutoLockup ignored = snapshot.acquireMvLock()) {
                 if (snapshot.alreadyPassed(rowId)) {
                     continue;
                 }
@@ -123,8 +117,6 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
                 }
 
                 snapshot.enqueueForSending(rowId);
-            } finally {
-                snapshot.releaseLock();
             }
         }
     }
@@ -138,7 +130,7 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
 
     @Override
     @TestOnly
-    public MvPartitionStorage getMvStorage() {
+    public MvPartitionStorage getStorage() {
         return partitionStorage;
     }
 }

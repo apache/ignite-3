@@ -82,7 +82,7 @@ import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
-import org.apache.ignite.internal.tx.storage.state.test.TestConcurrentHashMapTxStateStorage;
+import org.apache.ignite.internal.tx.storage.state.test.TestTxStateStorage;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
@@ -401,7 +401,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
             for (ClusterNode node : partNodes) {
                 var testMpPartStorage = new TestMvPartitionStorage(0);
-                var txSateStorage = new TestConcurrentHashMapTxStateStorage();
+                var txStateStorage = new TestTxStateStorage();
                 var placementDriver = new PlacementDriver(replicaServices.get(node));
 
                 for (int part = 0; part < assignment.size(); part++) {
@@ -435,7 +435,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                         () -> {
                             return new PartitionListener(
                                     new TestPartitionDataStorage(testMpPartStorage),
-                                    txSateStorage,
+                                    new TestTxStateStorage(),
                                     txManagers.get(node),
                                     () -> Map.of(pkStorage.get().id(), pkStorage.get())
                             );
@@ -460,7 +460,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                                                 pkStorage,
                                                 clocks.get(node),
                                                 safeTime,
-                                                txSateStorage,
+                                                txStateStorage,
                                                 topologyServices.get(node),
                                                 placementDriver,
                                                 isLocalPeerCheckerList.get(node)
