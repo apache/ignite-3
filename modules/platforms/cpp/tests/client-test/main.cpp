@@ -21,8 +21,29 @@
 
 #include <gtest/gtest.h>
 
+#if defined(__APPLE__)
+#include <csignal>
+#endif
 #include <chrono>
 #include <thread>
+
+namespace {
+/** Shutdown handler that cleans up resources. */
+std::function<void(int)> shutdown_handler;
+
+/**
+ * Receives OS signal and handles it.
+ *
+ * @param signum Signal value.
+ */
+void signal_handler(int signum) {
+    shutdown_handler(signum);
+
+    signal(signum, SIG_DFL);
+
+    kill(getpid(), signum);
+}
+}
 
 /**
  * Run prior to any other tests.
@@ -40,9 +61,21 @@ void before_all() {
 }
 
 int main(int argc, char **argv) {
+    // Install signal handlers to clean up resources on early exit.
+    signal(SIGABRT, signal_handler);
+    signal(SIGINT, signal_handler);
+
+    ignite::IgniteRunner runner;
+
+    shutdown_handler = [&](int signal) {
+        std::cout << "Caught signal " << signal << " during tests" << std::endl;
+
+        runner.stop();
+    };
+
     int res = 0;
     before_all();
-    ignite::IgniteRunner runner;
+
     try {
         runner.start(false);
 

@@ -1,19 +1,19 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+* Licensed to the Apache Software Foundation (ASF) under one or more
+* contributor license agreements. See the NOTICE file distributed with
+* this work for additional information regarding copyright ownership.
+* The ASF licenses this file to You under the Apache License, Version 2.0
+* (the "License"); you may not use this file except in compliance with
+* the License. You may obtain a copy of the License at
+*
+*      http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
 
 #pragma once
 
@@ -26,6 +26,9 @@
 #include <string>
 #include <vector>
 
+#if defined(__APPLE__)
+#include <csignal>
+#endif
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -33,9 +36,9 @@
 namespace ignite::detail {
 
 /**
- * Implementation of CmdProcess for Windows.
+ * Implementation of CmdProcess for UNIX and UNIX-like systems.
  */
-class LinuxProcess : public ignite::CmdProcess {
+class UnixProcess : public ignite::CmdProcess {
 public:
     /**
      * Constructor.
@@ -44,7 +47,7 @@ public:
      * @param args Arguments.
      * @param workDir Working directory.
      */
-    LinuxProcess(std::string command, std::vector<std::string> args, std::string workDir)
+    UnixProcess(std::string command, std::vector<std::string> args, std::string workDir)
         : m_running(false)
         , m_command(std::move(command))
         , m_args(std::move(args))
@@ -53,7 +56,7 @@ public:
     /**
      * Destructor.
      */
-    ~LinuxProcess() override { kill(); }
+    ~UnixProcess() override { kill(); }
 
     /**
      * Start process.
@@ -100,16 +103,6 @@ public:
     }
 
     /**
-     * Kill the process.
-     */
-    void kill() final {
-        if (!m_running)
-            return;
-
-        ::kill(-m_pid, SIGTERM);
-    }
-
-    /**
      * Join process.
      *
      * @param timeout Timeout.
@@ -119,7 +112,14 @@ public:
         ::waitpid(m_pid, nullptr, 0);
     }
 
-private:
+    void kill() final {
+        if (!m_running)
+            return;
+
+        ::kill(-m_pid, SIGTERM);
+    }
+
+protected:
     /** Running flag. */
     bool m_running;
 

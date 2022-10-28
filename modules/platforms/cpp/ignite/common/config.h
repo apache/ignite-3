@@ -51,10 +51,12 @@
 #endif
 
 /**
- * Macro IGNITE_SWITCH_WIN_OTHER that uses first option on Windows and second on any other OS.
+ * Macro IGNITE_OS_SWITCH that uses first option on Windows, second on Linux and third on MacOS.
  */
-#ifdef WIN32
-# define IGNITE_SWITCH_WIN_OTHER(x, y) x
-#else
-# define IGNITE_SWITCH_WIN_OTHER(x, y) y
+#if defined(_WIN32)
+# define IGNITE_OS_SWITCH(win, lin, mac) win
+#elif defined(__linux__)
+# define IGNITE_OS_SWITCH(win, lin, mac) lin
+#elif defined(__APPLE__)
+# define IGNITE_OS_SWITCH(win, lin, mac) mac
 #endif
