@@ -65,10 +65,10 @@ public class PartitionListener implements RaftGroupListener {
     /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(PartitionListener.class);
 
-    /** Versioned partition storage. */
+    /** Partition storage with access to MV data of a partition. */
     private final PartitionDataStorage storage;
 
-    /** Transaction state storage. */
+    /** Storage of transaction metadata. */
     private final TxStateStorage txStateStorage;
 
     /** Transaction manager. */
@@ -82,17 +82,16 @@ public class PartitionListener implements RaftGroupListener {
     /**
      * The constructor.
      *
-     * @param store  The storage.
-     * @param txStateStorage Transaction state storage.
+     * @param partitionDataStorage  The storage.
      * @param txManager Transaction manager.
      */
     public PartitionListener(
-            PartitionDataStorage store,
+            PartitionDataStorage partitionDataStorage,
             TxStateStorage txStateStorage,
             TxManager txManager,
             Supplier<Map<UUID, TableSchemaAwareIndexStorage>> indexes
     ) {
-        this.storage = store;
+        this.storage = partitionDataStorage;
         this.txStateStorage = txStateStorage;
         this.txManager = txManager;
         this.indexes = indexes;
@@ -322,6 +321,6 @@ public class PartitionListener implements RaftGroupListener {
      */
     @TestOnly
     public MvPartitionStorage getMvStorage() {
-        return storage.getMvStorage();
+        return storage.getStorage();
     }
 }

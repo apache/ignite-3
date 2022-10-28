@@ -65,7 +65,7 @@ import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
-import org.apache.ignite.internal.tx.storage.state.test.TestConcurrentHashMapTxStateStorage;
+import org.apache.ignite.internal.tx.storage.state.test.TestTxStateStorage;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
@@ -131,7 +131,7 @@ public class PartitionCommandListenerTest {
 
         commandListener = new PartitionListener(
                 new TestPartitionDataStorage(mvPartitionStorage),
-                new TestConcurrentHashMapTxStateStorage(),
+                new TestTxStateStorage(),
                 new TxManagerImpl(replicaService, new HeapLockManager(), new HybridClockImpl()),
                 () -> Map.of(pkStorage.id(), pkStorage)
         );
@@ -215,7 +215,7 @@ public class PartitionCommandListenerTest {
      * @return Closure iterator.
      */
     private <T extends Command> Iterator<CommandClosure<T>> batchIterator(Consumer<CommandClosure<T>> func) {
-        return new Iterator<CommandClosure<T>>() {
+        return new Iterator<>() {
             boolean moved;
 
             @Override

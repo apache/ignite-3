@@ -15,26 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing;
+package org.apache.ignite.internal.tx.storage.state.test;
 
-import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import org.apache.ignite.internal.tx.storage.state.TxStateStorageAbstractTest;
+import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 
 /**
- * Registry of {@link OutgoingSnapshot}s.
+ * Tx storage test for test implementation based on {@link ConcurrentHashMap}.
  */
-public interface OutgoingSnapshotRegistry {
-    /**
-     * Register a snapshot with the registry.
-     *
-     * @param snapshotId ID of the snapshot.
-     * @param outgoingSnapshot Snapshot itself.
-     */
-    void registerOutgoingSnapshot(UUID snapshotId, OutgoingSnapshot outgoingSnapshot);
-
-    /**
-     * Unregisters a snapshot with the given ID.
-     *
-     * @param snapshotId Snapshot ID.
-     */
-    void unregisterOutgoingSnapshot(UUID snapshotId);
+public class TestTxStateStorageTest extends TxStateStorageAbstractTest {
+    /** {@inheritDoc} */
+    @Override protected TxStateTableStorage createStorage() {
+        return new TestTxStateTableStorage();
+    }
 }

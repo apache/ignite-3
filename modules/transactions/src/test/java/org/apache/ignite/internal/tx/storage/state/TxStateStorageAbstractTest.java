@@ -18,6 +18,9 @@
 package org.apache.ignite.internal.tx.storage.state;
 
 import static java.util.stream.Collectors.toList;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -198,12 +201,61 @@ public abstract class TxStateStorageAbstractTest {
         }
     }
 
+    @Test
+    public void scansInOrderDefinedByTxIds() throws Exception {
+        try (TxStateTableStorage tableStorage = createStorage()) {
+            TxStateStorage partitionStorage = tableStorage.getOrCreateTxStateStorage(0);
+
+            for (int i = 0; i < 100; i++) {
+                putRandomTxMetaWithCommandIndex(partitionStorage, i, i);
+            }
+
+            try (Cursor<IgniteBiTuple<UUID, TxMeta>> scanCursor = partitionStorage.scan()) {
+                List<UUID> txIds = new ArrayList<>();
+
+                while (scanCursor.hasNext()) {
+                    IgniteBiTuple<UUID, TxMeta> txData = scanCursor.next();
+
+                    txIds.add(txData.getKey());
+                }
+
+                assertThat(txIds, equalTo(txIds.stream().sorted(new UnsignedUuidComparator()).collect(toList())));
+            }
+        }
+    }
+
+    @Test
+    public void scanOnlySeesDataExistingAtTheMomentOfCreation() throws Exception {
+        try (TxStateTableStorage tableStorage = createStorage()) {
+            TxStateStorage partitionStorage = tableStorage.getOrCreateTxStateStorage(0);
+
+            UUID existingBeforeScan = new UUID(2, 0);
+            partitionStorage.put(existingBeforeScan, randomTxMeta(1, existingBeforeScan));
+
+            try (Cursor<IgniteBiTuple<UUID, TxMeta>> cursor = partitionStorage.scan()) {
+                UUID prependedDuringScan = new UUID(1, 0);
+                partitionStorage.put(prependedDuringScan, randomTxMeta(1, prependedDuringScan));
+                UUID appendedDuringScan = new UUID(3, 0);
+                partitionStorage.put(appendedDuringScan, randomTxMeta(1, appendedDuringScan));
+
+                List<UUID> txIdsReturnedByScan = cursor.stream()
+                        .map(IgniteBiTuple::getKey)
+                        .collect(toList());
+                assertThat(txIdsReturnedByScan, is(List.of(existingBeforeScan)));
+            }
+        }
+    }
+
     private IgniteBiTuple<UUID, TxMeta> putRandomTxMetaWithCommandIndex(TxStateStorage storage, int enlistedPartsCount, long commandIndex) {
         UUID txId = UUID.randomUUID();
-        TxMeta txMeta = new TxMeta(null, generateEnlistedPartitions(enlistedPartsCount), generateTimestamp(txId));
+        TxMeta txMeta = randomTxMeta(enlistedPartsCount, txId);
         storage.compareAndSet(txId, null, txMeta, commandIndex);
 
         return new IgniteBiTuple<>(txId, txMeta);
+    }
+
+    private TxMeta randomTxMeta(int enlistedPartsCount, UUID txId) {
+        return new TxMeta(TxState.COMMITED, generateEnlistedPartitions(enlistedPartsCount), generateTimestamp(txId));
     }
 
     private static void assertTxMetaEquals(TxMeta txMeta0, TxMeta txMeta1) {

@@ -166,11 +166,10 @@ class SnapshotAwarePartitionDataStorageTest {
     }
 
     @ParameterizedTest
-    @EnumSource(WriteAction.class)
-    void writingNotYetPassedRowIdForFirstTimeSendsEnqueuesItOnSnapshotOutOfOrder(WriteAction writeAction) {
+    @EnumSource(MvWriteAction.class)
+    void notYetPassedRowIsEnqueued(MvWriteAction writeAction) {
         when(partitionSnapshots.ongoingSnapshots()).thenReturn(List.of(snapshot));
 
-        doReturn(false).when(snapshot).isFinished();
         doReturn(false).when(snapshot).alreadyPassed(any());
         doReturn(true).when(snapshot).addRowIdToSkip(any());
 
@@ -180,11 +179,10 @@ class SnapshotAwarePartitionDataStorageTest {
     }
 
     @ParameterizedTest
-    @EnumSource(WriteAction.class)
-    void writingNotYetPassedRowIdForNotFirstTimeTimeSkipsOutOfOrderSending(WriteAction writeAction) {
+    @EnumSource(MvWriteAction.class)
+    void notYetPassedRowNotEnqueuedSecondTime(MvWriteAction writeAction) {
         when(partitionSnapshots.ongoingSnapshots()).thenReturn(List.of(snapshot));
 
-        doReturn(false).when(snapshot).isFinished();
         doReturn(false).when(snapshot).alreadyPassed(any());
         doReturn(false).when(snapshot).addRowIdToSkip(any());
 
@@ -194,11 +192,10 @@ class SnapshotAwarePartitionDataStorageTest {
     }
 
     @ParameterizedTest
-    @EnumSource(WriteAction.class)
-    void writingAlreadyPassedRowIdSkipsOutOfOrderSending(WriteAction writeAction) {
+    @EnumSource(MvWriteAction.class)
+    void alreadyPassedRowNotEnqueued(MvWriteAction writeAction) {
         when(partitionSnapshots.ongoingSnapshots()).thenReturn(List.of(snapshot));
 
-        doReturn(false).when(snapshot).isFinished();
         doReturn(true).when(snapshot).alreadyPassed(any());
 
         writeAction.executeOn(testedStorage, rowId);
@@ -207,44 +204,31 @@ class SnapshotAwarePartitionDataStorageTest {
     }
 
     @ParameterizedTest
-    @EnumSource(WriteAction.class)
-    void writingOverFinishedSnapshotSkipsSendingOutOfOrder(WriteAction writeAction) {
+    @EnumSource(MvWriteAction.class)
+    void sendsVersionsInOldestToNewestOrder(MvWriteAction writeAction) {
         when(partitionSnapshots.ongoingSnapshots()).thenReturn(List.of(snapshot));
 
-        doReturn(true).when(snapshot).isFinished();
-
-        writeAction.executeOn(testedStorage, rowId);
-
-        verify(snapshot, never()).enqueueForSending(any());
-    }
-
-    @ParameterizedTest
-    @EnumSource(WriteAction.class)
-    void sendsVersionsInOldestToNewestOrder(WriteAction writeAction) {
-        when(partitionSnapshots.ongoingSnapshots()).thenReturn(List.of(snapshot));
-
-        configureSnapshotToLetSendOutOfOrderRow(snapshot);
+        configureSnapshotToLetEnqueueOutOfOrderMvRow(snapshot);
 
         writeAction.executeOn(testedStorage, rowId);
 
         verify(snapshot).enqueueForSending(rowId);
     }
 
-    private void configureSnapshotToLetSendOutOfOrderRow(OutgoingSnapshot snapshotToConfigure) {
-        doReturn(false).when(snapshotToConfigure).isFinished();
+    private void configureSnapshotToLetEnqueueOutOfOrderMvRow(OutgoingSnapshot snapshotToConfigure) {
         doReturn(false).when(snapshotToConfigure).alreadyPassed(any());
         doReturn(true).when(snapshotToConfigure).addRowIdToSkip(any());
     }
 
     @ParameterizedTest
-    @EnumSource(WriteAction.class)
-    void interceptsWritesOnMultipleSnapshots(WriteAction writeAction) {
+    @EnumSource(MvWriteAction.class)
+    void interceptsWritesToMvStorageOnMultipleSnapshots(MvWriteAction writeAction) {
         OutgoingSnapshot snapshot2 = mock(OutgoingSnapshot.class);
 
         when(partitionSnapshots.ongoingSnapshots()).thenReturn(List.of(snapshot, snapshot2));
 
-        configureSnapshotToLetSendOutOfOrderRow(snapshot);
-        configureSnapshotToLetSendOutOfOrderRow(snapshot2);
+        configureSnapshotToLetEnqueueOutOfOrderMvRow(snapshot);
+        configureSnapshotToLetEnqueueOutOfOrderMvRow(snapshot2);
 
         writeAction.executeOn(testedStorage, rowId);
 
@@ -252,7 +236,7 @@ class SnapshotAwarePartitionDataStorageTest {
         verify(snapshot2).enqueueForSending(rowId);
     }
 
-    private enum WriteAction {
+    private enum MvWriteAction {
         ADD_WRITE {
             @Override
             void executeOn(SnapshotAwarePartitionDataStorage storage, RowId rowId) {
