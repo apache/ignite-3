@@ -120,7 +120,6 @@ public class PartitionListener implements RaftGroupListener {
 
             assert commandIndex > storagesAppliedIndex :
                     "Write command must have an index greater than that of storages [commandIndex=" + commandIndex
-                            + ", storagesAppliedIndex=" + storagesAppliedIndex
                             + ", mvAppliedIndex=" + storage.lastAppliedIndex()
                             + ", txStateAppliedIndex=" + txStateStorage.lastAppliedIndex() + "]";
 
