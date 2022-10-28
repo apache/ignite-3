@@ -56,7 +56,7 @@ public class PartitionSnapshotStorageFactory implements SnapshotStorageFactory {
     /** List of learners. */
     private final List<String> learners;
 
-    /** RAFT log index read from {@link MvPartitionStorage#persistedIndex()} during factory instantiation. */
+    /** RAFT log index. */
     private final long persistedRaftIndex;
 
     /** Incoming snapshots executor. */
@@ -89,7 +89,12 @@ public class PartitionSnapshotStorageFactory implements SnapshotStorageFactory {
         this.learners = learners;
         this.incomingSnapshotsExecutor = incomingSnapshotsExecutor;
 
-        persistedRaftIndex = partition.mvPartitionStorage().persistedIndex();
+        // We must choose the minimum applied index for local recovery so that we don't skip the raft commands for the storage with the
+        // lowest applied index and thus no data loss occurs.
+        persistedRaftIndex = Math.min(
+                partition.mvPartitionStorage().persistedIndex(),
+                partition.txStatePartitionStorage().persistedIndex()
+        );
     }
 
     @Override

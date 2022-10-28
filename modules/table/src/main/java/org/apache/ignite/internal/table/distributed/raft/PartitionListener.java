@@ -98,7 +98,6 @@ public class PartitionListener implements RaftGroupListener {
         this.indexes = indexes;
     }
 
-    /** {@inheritDoc} */
     @Override
     public void onRead(Iterator<CommandClosure<ReadCommand>> iterator) {
         iterator.forEachRemaining((CommandClosure<? extends ReadCommand> clo) -> {
@@ -108,7 +107,6 @@ public class PartitionListener implements RaftGroupListener {
         });
     }
 
-    /** {@inheritDoc} */
     @Override
     public void onWrite(Iterator<CommandClosure<WriteCommand>> iterator) {
         iterator.forEachRemaining((CommandClosure<? extends WriteCommand> clo) -> {
@@ -116,11 +114,13 @@ public class PartitionListener implements RaftGroupListener {
 
             long commandIndex = clo.index();
 
-            long storageAppliedIndex = storage.lastAppliedIndex();
+            // We choose the minimum applied index, since we choose it (the minimum one) on local recovery so as not to lose the data for
+            // one of the storages.
+            long storagesAppliedIndex = Math.min(storage.lastAppliedIndex(), txStateStorage.lastAppliedIndex());
 
-            assert storageAppliedIndex < commandIndex
-                    : "Pending write command has a higher index than already processed commands [commandIndex=" + commandIndex
-                    + ", storageAppliedIndex=" + storageAppliedIndex + ']';
+            assert commandIndex > storagesAppliedIndex :
+                    "Write command must have an index greater than that of storages [commandIndex=" + commandIndex
+                            + ", storagesAppliedIndex=" + storagesAppliedIndex + "]";
 
             try (AutoLockup ignoredPartitionSnapshotsReadLockup = storage.acquirePartitionSnapshotsReadLock()) {
                 if (command instanceof UpdateCommand) {
@@ -273,7 +273,6 @@ public class PartitionListener implements RaftGroupListener {
         });
     }
 
-    /** {@inheritDoc} */
     @Override
     public void onSnapshotSave(Path path, Consumer<Throwable> doneClo) {
         // We need to take the max index here because otherwise there is a scenario on a node restart when a node will install
@@ -291,20 +290,15 @@ public class PartitionListener implements RaftGroupListener {
 
         txStateStorage.lastAppliedIndex(maxLastAppliedIndex);
 
-        CompletableFuture<Void> storageFut = storage.flush();
-
-        CompletableFuture<Void> txStateStorageFut = txStateStorage.flush();
-
-        CompletableFuture.allOf(storageFut, txStateStorageFut).whenComplete((unused, throwable) -> doneClo.accept(throwable));
+        CompletableFuture.allOf(storage.flush(), txStateStorage.flush())
+                .whenComplete((unused, throwable) -> doneClo.accept(throwable));
     }
 
-    /** {@inheritDoc} */
     @Override
     public boolean onSnapshotLoad(Path path) {
         return true;
     }
 
-    /** {@inheritDoc} */
     @Override
     public void onShutdown() {
         // TODO: IGNITE-17958 - probably, we should not close the storage here as PartitionListener did not create the storage.
