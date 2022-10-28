@@ -627,19 +627,6 @@ public class IgniteUtils {
     }
 
     /**
-     * Closes an {@link AutoCloseable} ignoring any exception it throws.
-     *
-     * @param closeable The AutoCloseable to close.
-     */
-    public static void closeQuietly(AutoCloseable closeable) {
-        try {
-            closeable.close();
-        } catch (Exception ignored) {
-            // No-op.
-        }
-    }
-
-    /**
      * Short date format pattern for log messages in "quiet" mode. Only time is included since we don't expect "quiet" mode to be used for
      * longer runs.
      */

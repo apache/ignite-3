@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing;
 
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.util.IgniteUtils.closeQuietly;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -31,6 +30,8 @@ import java.util.concurrent.locks.ReentrantLock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lock.AutoLockup;
 import org.apache.ignite.internal.lock.ReusableLockLockup;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
@@ -54,6 +55,8 @@ import org.apache.ignite.raft.jraft.util.concurrent.ConcurrentHashSet;
  * <p>The snapshot has a lock over MV data needed for interaction with {@link SnapshotAwarePartitionDataStorage}.
  */
 public class OutgoingSnapshot {
+    private static final IgniteLogger LOG = Loggers.forClass(OutgoingSnapshot.class);
+
     private static final TableMessagesFactory MESSAGES_FACTORY = new TableMessagesFactory();
 
     private final UUID id;
@@ -298,11 +301,19 @@ public class OutgoingSnapshot {
                 rows.add(txDataCursor.next());
             } else {
                 finishedTxData = true;
-                closeQuietly(txDataCursor);
+                closeLoggingProblems(txDataCursor);
             }
         }
 
         return buildTxDataResponse(rows, finishedTxData);
+    }
+
+    private static void closeLoggingProblems(Cursor<?> cursor) {
+        try {
+            cursor.close();
+        } catch (Exception e) {
+            LOG.error("Problem while closing a cursor", e);
+        }
     }
 
     private static SnapshotTxDataResponse buildTxDataResponse(List<IgniteBiTuple<UUID, TxMeta>> rows, boolean finished) {
@@ -395,7 +406,7 @@ public class OutgoingSnapshot {
         Cursor<IgniteBiTuple<UUID, TxMeta>> txCursor = txDataCursor;
 
         if (txCursor != null) {
-            closeQuietly(txCursor);
+            closeLoggingProblems(txCursor);
         }
     }
 }
