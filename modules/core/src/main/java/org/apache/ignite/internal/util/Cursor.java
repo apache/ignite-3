@@ -65,6 +65,17 @@ public interface Cursor<T> extends Iterator<T>, Iterable<T>, AutoCloseable {
     }
 
     /**
+     * Creates an iterable based cursor.
+     *
+     * @param iterable Iterable.
+     * @param <T> Type of elements.
+     * @return Cursor.
+     */
+    static <T> Cursor<T> fromIterable(Iterable<? extends T> iterable) {
+        return fromIterator(iterable.iterator());
+    }
+
+    /**
      * Returns a sequential Stream over the elements covered by this cursor.
      *
      * @return Sequential Stream over the elements covered by this cursor.

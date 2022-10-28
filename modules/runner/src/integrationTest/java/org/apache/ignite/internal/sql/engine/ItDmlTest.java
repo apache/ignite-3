@@ -70,6 +70,34 @@ public class ItDmlTest extends AbstractBasicIntegrationTest {
     }
 
     @Test
+    public void pkConstraintConsistencyTest() {
+        sql("CREATE TABLE my (id INT PRIMARY KEY, val INT)");
+        sql("INSERT INTO my VALUES (?, ?)", 0, 1);
+        assertQuery("SELECT val FROM my WHERE id = 0")
+                .returns(1)
+                .check();
+
+        {
+            SqlException ex = assertThrows(SqlException.class, () -> sql("INSERT INTO my VALUES (?, ?)", 0, 2));
+
+            assertEquals(ex.code(), Sql.DUPLICATE_KEYS_ERR);
+        }
+
+        sql("DELETE FROM my WHERE id=?", 0);
+
+        sql("INSERT INTO my VALUES (?, ?)", 0, 2);
+        assertQuery("SELECT val FROM my WHERE id = 0")
+                .returns(2)
+                .check();
+
+        {
+            SqlException ex = assertThrows(SqlException.class, () -> sql("INSERT INTO my VALUES (?, ?)", 0, 3));
+
+            assertEquals(ex.code(), Sql.DUPLICATE_KEYS_ERR);
+        }
+    }
+
+    @Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-16529")
     public void mergeOpChangePrimaryKey() {
         clearAndPopulateMergeTable1();

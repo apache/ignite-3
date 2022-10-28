@@ -38,4 +38,7 @@ public class ReplicaMessageGroup {
 
     /** Message type for {@link TimestampAwareReplicaResponse}. */
     public static final short TIMESTAMP_AWARE_REPLICA_RESPONSE = 5;
+
+    /** Message type for {@link ReplicaSafeTimeSyncRequest}. */
+    public static final short SAFE_TIME_SYNC_REQUEST = 6;
 }

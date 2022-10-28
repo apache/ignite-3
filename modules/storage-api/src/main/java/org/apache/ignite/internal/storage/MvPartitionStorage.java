@@ -170,7 +170,8 @@ public interface MvPartitionStorage extends AutoCloseable {
     Cursor<ReadResult> scanVersions(RowId rowId) throws StorageException;
 
     /**
-     * Scans the partition and returns a cursor of values at the given timestamp.
+     * Scans the partition and returns a cursor of values at the given timestamp. This cursor filters out committed tombstones, but not
+     * tombstones in the write-intent state.
      *
      * @param timestamp Timestamp. Can't be {@code null}.
      * @return Cursor.

@@ -36,7 +36,7 @@
     <option name="FOR_BRACE_FORCE" value="3" />
     <option name="DO_NOT_FORMAT">
       <list>
-        <fileSet type="globPattern" pattern="modules/raft/**" />
+        <fileSet type="globPattern" pattern="modules/raft/src/main/java/org/apache/ignite/raft/jraft/**" />
       </list>
     </option>
     <AndroidXmlCodeStyleSettings>

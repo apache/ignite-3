@@ -42,6 +42,7 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
+import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.lang.UnexpectedNullValueException;
 import org.apache.ignite.network.ClusterService;
@@ -712,6 +713,6 @@ public class KeyValueViewOperationsSimpleSchemaTest {
 
         Mockito.when(clusterService.messagingService()).thenReturn(Mockito.mock(MessagingService.class, RETURNS_DEEP_STUBS));
 
-        return new TableImpl(table, new DummySchemaManagerImpl(schema));
+        return new TableImpl(table, new DummySchemaManagerImpl(schema), new HeapLockManager());
     }
 }
