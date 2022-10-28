@@ -24,6 +24,7 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -793,7 +794,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 }
 
                 return allOf(rowIdLockFuts).thenCompose(ignore -> {
-                    Map<RowId, ByteString> rowIdsToDelete = new HashMap<>();
+                    Map<UUID, ByteString> rowIdsToDelete = new HashMap<>();
                     Collection<BinaryRow> result = new ArrayList<>();
 
                     int futNum = 0;
@@ -802,7 +803,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                         RowId lockedRowId = rowIdLockFuts[futNum++].join();
 
                         if (lockedRowId != null) {
-                            rowIdsToDelete.put(lockedRowId, row);
+                            rowIdsToDelete.put(lockedRowId.uuid(), new ByteString(row.byteBuffer()));
                         } else {
                             result.add(row);
                         }
@@ -811,19 +812,16 @@ public class PartitionReplicaListener implements ReplicaListener {
                     if (rowIdsToDelete.isEmpty()) {
                         return completedFuture(result);
                     }
-//                    CompletableFuture<Object> raftFut = rowIdsToDelete.isEmpty() ? CompletableFuture.completedFuture(null)
-//                            : applyCmdWithExceptionHandling(
-//                                    msgFactory.updateAllCommand()
-//                                            .tablePartitionId(msgFactory.tablePartitionIdMessage()
-//                                                    .tableId(committedPartitionId.getTableId())
-//                                                    .partitionId(committedPartitionId.getPartId())
-//                                                    .build())
-//                                            .rowsToUpdate(rowIdsToDelete)
-//                                            .txId(txId)
-//                                            .build()
-//                    );
 
-                    return applyCmdWithExceptionHandling(new UpdateAllCommand(committedPartitionId, rowIdsToDelete, txId))
+                    return applyCmdWithExceptionHandling(
+                            msgFactory.updateAllCommand()
+                                    .tablePartitionId(msgFactory.tablePartitionIdMessage()
+                                            .tableId(committedPartitionId.getTableId())
+                                            .partitionId(committedPartitionId.getPartId())
+                                            .build())
+                                    .rowsToUpdate(rowIdsToDelete)
+                                    .txId(txId)
+                                    .build())
                             .thenApply(ignored -> result);
                 });
             }
@@ -852,24 +850,22 @@ public class PartitionReplicaListener implements ReplicaListener {
                         RowId lockedRowId = deleteExactLockFuts[futNum++].join();
 
                         if (lockedRowId != null) {
-                            rowIdsToDelete.put(new UUID(lockedRowId.mostSignificantBits(), lockedRowId.leastSignificantBits()), null);
+                            rowIdsToDelete.put(lockedRowId.uuid(), null);
                         } else {
                             result.add(row);
                         }
                     }
 
                     CompletableFuture raftFut = rowIdsToDelete.isEmpty() ? completedFuture(null)
-                            : applyCmdWithExceptionHandling(new UpdateAllCommand(committedPartitionId, rowIdsToDelete, txId));
-//                    CompletableFuture<Object> raftFut = rowIdsToDelete.isEmpty() ? CompletableFuture.completedFuture(null)
-//                            : applyCmdWithExceptionHandling(
-//                                    msgFactory.updateAllCommand()
-//                                            .tablePartitionId(msgFactory.tablePartitionIdMessage()
-//                                                    .tableId(committedPartitionId.getTableId())
-//                                                    .partitionId(committedPartitionId.getPartId())
-//                                                    .build())
-//                                            .rowsToUpdate(rowIdsToDelete)
-//                                            .txId(txId)
-//                                            .build());
+                            : applyCmdWithExceptionHandling(
+                                    msgFactory.updateAllCommand()
+                                            .tablePartitionId(msgFactory.tablePartitionIdMessage()
+                                                    .tableId(committedPartitionId.getTableId())
+                                                    .partitionId(committedPartitionId.getPartId())
+                                                    .build())
+                                            .rowsToUpdate(rowIdsToDelete)
+                                            .txId(txId)
+                                            .build());
 
                     return raftFut.thenApply(ignored -> result);
                 });
@@ -886,7 +882,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                 return allOf(pkReadLockFuts).thenCompose(ignore -> {
                     Collection<BinaryRow> result = new ArrayList<>();
-                    Map<UUID, ByteString> rowsToInsert = new HashMap<>();
+                    Map<RowId, BinaryRow> rowsToInsert = new HashMap<>();
                     Set<ByteBuffer> uniqueKeys = new HashSet<>();
 
                     int futNum = 0;
@@ -901,7 +897,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                             if (!uniqueKeys.contains(keyToCheck)) {
                                 uniqueKeys.add(keyToCheck);
 
-                                rowsToInsert.put(Timestamp.nextVersion().toUuid(), new ByteString(row.byteBuffer()));
+                                rowsToInsert.put(Timestamp.nextVersion().toUuid(), row);
                             } else {
                                 result.add(row);
                             }
