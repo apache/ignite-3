@@ -26,7 +26,6 @@ import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
-import org.apache.ignite.raft.jraft.storage.SnapshotStorage;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotWriter;
 
@@ -98,7 +97,7 @@ public class PartitionSnapshotStorageFactory implements SnapshotStorageFactory {
     }
 
     @Override
-    public SnapshotStorage createSnapshotStorage(String uri, RaftOptions raftOptions) {
+    public PartitionSnapshotStorage createSnapshotStorage(String uri, RaftOptions raftOptions) {
         SnapshotMeta snapshotMeta = new RaftMessagesFactory().snapshotMeta()
                 .lastIncludedIndex(persistedRaftIndex)
                 // According to the code of org.apache.ignite.raft.jraft.core.NodeImpl.bootstrap, it's "dangerous" to init term with a value
