@@ -1841,7 +1841,8 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
         // New read-only transaction.
         Transaction readOnlyTx2 = igniteTransactions.readOnly().begin();
-        assertNull(accounts.recordView().get(readOnlyTx2, makeKey(1)).doubleValue("balance"));
+        Tuple row = accounts.recordView().get(readOnlyTx2, makeKey(1));
+        assertNull(row);
     }
 
     @Test
@@ -1873,7 +1874,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         tx.commit();
 
         Collection<Tuple> retrievedKeys2 = accounts.recordView().getAll(readOnlyTx, List.of(makeKey(1), makeKey(2)));
-        validateBalance(retrievedKeys2, 100., 300.);
+        validateBalance(retrievedKeys2, 100., 200.);
 
         Transaction readOnlyTx2 = igniteTransactions.readOnly().begin();
         Collection<Tuple> retrievedKeys3 = accounts.recordView().getAll(readOnlyTx2, List.of(makeKey(1), makeKey(2)));
