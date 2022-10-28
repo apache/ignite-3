@@ -27,7 +27,7 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
-import org.apache.ignite.internal.tx.storage.state.test.TestConcurrentHashMapTxStateStorage;
+import org.apache.ignite.internal.tx.storage.state.test.TestTxStateStorage;
 import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.junit.jupiter.api.Test;
@@ -39,7 +39,7 @@ public class PartitionSnapshotStorageFactoryTest {
     @Test
     void testForChoosingMinimumAppliedIndexForMeta() {
         MvPartitionStorage mvPartitionStorage = new TestMvPartitionStorage(0);
-        TxStateStorage txStateStorage = new TestConcurrentHashMapTxStateStorage();
+        TxStateStorage txStateStorage = new TestTxStateStorage();
 
         PartitionAccess partitionAccess = mock(PartitionAccess.class);
 

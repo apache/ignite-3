@@ -138,7 +138,7 @@ public class PartitionCommandListenerTest {
     private final MvPartitionStorage mvPartitionStorage = spy(new TestMvPartitionStorage(PARTITION_ID));
 
     /** Transaction meta storage. */
-    private final TxStateStorage txStateStorage = spy(new TestConcurrentHashMapTxStateStorage());
+    private final TxStateStorage txStateStorage = spy(new TestTxStateStorage());
 
     /** Work directory. */
     @WorkDirectory
@@ -242,8 +242,6 @@ public class PartitionCommandListenerTest {
     @Test
     public void testOnSnapshotSavePropagateLastAppliedIndex() {
         ReplicaService replicaService = mock(ReplicaService.class, RETURNS_DEEP_STUBS);
-
-        TestConcurrentHashMapTxStateStorage txStateStorage = new TestConcurrentHashMapTxStateStorage();
 
         TestPartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(mvPartitionStorage);
 

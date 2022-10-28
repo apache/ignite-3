@@ -29,7 +29,7 @@ import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionAcces
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionKey;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionSnapshotStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
-import org.apache.ignite.internal.tx.storage.state.test.TestConcurrentHashMapTxStateStorage;
+import org.apache.ignite.internal.tx.storage.state.test.TestTxStateStorage;
 import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
@@ -42,7 +42,7 @@ public class OutgoingSnapshotReaderTest {
     @Test
     void testForChoosingMaximumAppliedIndexForMeta() {
         MvPartitionStorage mvPartitionStorage = new TestMvPartitionStorage(0);
-        TxStateStorage txStateStorage = new TestConcurrentHashMapTxStateStorage();
+        TxStateStorage txStateStorage = new TestTxStateStorage();
 
         PartitionAccess partitionAccess = mock(PartitionAccess.class);
 
