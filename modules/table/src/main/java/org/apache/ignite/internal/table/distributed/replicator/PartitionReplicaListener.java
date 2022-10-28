@@ -766,7 +766,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 }
 
                 return allOf(rowIdLockFuts).thenCompose(ignore -> {
-                    Map<RowId, BinaryRow> rowIdsToDelete = new HashMap<>();
+                    Collection<RowId> rowIdsToDelete = new ArrayList<>();
                     Collection<BinaryRow> result = new ArrayList<>();
 
                     int futNum = 0;
@@ -775,7 +775,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                         RowId lockedRowId = rowIdLockFuts[futNum++].join();
 
                         if (lockedRowId != null) {
-                            rowIdsToDelete.put(lockedRowId, row);
+                            rowIdsToDelete.add(lockedRowId);
                         } else {
                             result.add(row);
                         }
