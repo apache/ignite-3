@@ -821,6 +821,8 @@ public class InternalTableImpl implements InternalTable {
     ) {
         validatePartitionIndex(partId);
 
+        UUID txId = UUID.randomUUID();
+
         return new PartitionScanPublisher(
                 (scanId, batchSize) -> {
                     ReplicationGroupId partGroupId = partitionMap.get(partId).groupId();
@@ -829,7 +831,7 @@ public class InternalTableImpl implements InternalTable {
                             .groupId(partGroupId)
                             .readTimestamp(readTimestamp)
                             // TODO: IGNITE-17666 Close cursor tx finish.
-                            .transactionId(UUID.randomUUID())
+                            .transactionId(txId)
                             .scanId(scanId)
                             .batchSize(batchSize)
                             .indexToUse(indexId)

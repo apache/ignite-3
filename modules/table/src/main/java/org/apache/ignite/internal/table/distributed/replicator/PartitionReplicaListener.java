@@ -118,6 +118,9 @@ public class PartitionReplicaListener implements ReplicaListener {
     /** Primary key index. */
     public final Lazy<TableSchemaAwareIndexStorage> pkIndexStorage;
 
+    /** Secondary indices. */
+    private final Supplier<Map<UUID, TableSchemaAwareIndexStorage>> secondaryIndexStorages;
+
     /** Table id. */
     private final UUID tableId;
 
@@ -134,11 +137,10 @@ public class PartitionReplicaListener implements ReplicaListener {
     private final LockManager lockManager;
 
     /**
-     * Cursors map. The key of the map is internal Ignite uuid which consists of a transaction id ({@link UUID}) and a cursor id
-     * ({@link Long}).
+     * Cursors map. The key of the map is internal Ignite uuid which consists of a transaction id ({@link UUID}) and a cursor id ({@link
+     * Long}).
      */
     private final ConcurrentNavigableMap<IgniteUuid, Cursor<?>> cursors;
-
 
     /** Tx state storage. */
     private final TxStateStorage txStateStorage;
@@ -167,7 +169,6 @@ public class PartitionReplicaListener implements ReplicaListener {
      * Function for checking that the given peer is local.
      */
     private final Function<Peer, Boolean> isLocalPeerChecker;
-    private final Supplier<Map<UUID, TableSchemaAwareIndexStorage>> secondaryIndexStorages;
 
     /**
      * The constructor.
@@ -178,6 +179,9 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param lockManager Lock manager.
      * @param partId Partition id.
      * @param tableId Table id.
+     * @param indexesLockers Index lock helper objects.
+     * @param pkIndexStorage Pk index storage.
+     * @param secondaryIndexStorages Secondary index storages.
      * @param hybridClock Hybrid clock.
      * @param safeTime Safe time clock.
      * @param txStateStorage Transaction state storage.
@@ -634,8 +638,10 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param indexStorage Index storage.
      * @return Opreation future.
      */
-    private CompletableFuture<List<BinaryRow>> scanSortedIndex(ReadOnlyScanRetrieveBatchReplicaRequest request,
-            SortedIndexStorage indexStorage) {
+    private CompletableFuture<List<BinaryRow>> scanSortedIndex(
+            ReadOnlyScanRetrieveBatchReplicaRequest request,
+            SortedIndexStorage indexStorage
+    ) {
         UUID txId = request.transactionId();
         int batchCount = request.batchSize();
         HybridTimestamp timestamp = request.readTimestamp();
@@ -658,13 +664,18 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         final ArrayList<BinaryRow> result = new ArrayList<>(batchCount);
 
-        return continueReadOnlyIndexScan(cursor, timestamp, batchCount, result);
+        return continueReadOnlyIndexScan(cursor, timestamp, batchCount, result)
+                .thenCompose(ignore -> CompletableFuture.completedFuture(result));
     }
 
-    CompletableFuture<List<BinaryRow>> continueReadOnlyIndexScan(Cursor<IndexRow> cursor, HybridTimestamp timestamp, int batchSize,
-            List<BinaryRow> result) {
-        if (result.size() == batchSize || !cursor.hasNext()) {
-            return CompletableFuture.completedFuture(result);
+    CompletableFuture<Void> continueReadOnlyIndexScan(
+            Cursor<IndexRow> cursor,
+            HybridTimestamp timestamp,
+            int batchSize,
+            List<BinaryRow> result
+    ) {
+        if (result.size() >= batchSize || !cursor.hasNext()) {
+            return CompletableFuture.completedFuture(null);
         }
 
         IndexRow indexRow = cursor.next();
