@@ -138,15 +138,9 @@ public class OutgoingSnapshot {
      * <p>Must be called under snapshot lock.
      */
     void freezeScope() {
-        throwIfMvLockNotAcquired();
+        assert mvOperationsLock.isLocked() : "MV operations lock must be acquired!";
 
         txDataCursor = partition.txStatePartitionStorage().scan();
-    }
-
-    private void throwIfMvLockNotAcquired() {
-        if (!mvOperationsLock.isLocked()) {
-            throw new IllegalStateException("MV operations lock must be acquired!");
-        }
     }
 
     /**
@@ -359,7 +353,7 @@ public class OutgoingSnapshot {
      * @return {@code true} if the given RowId was added as it was not yet in the collection of IDs to skip.
      */
     public boolean addRowIdToSkip(RowId rowId) {
-        throwIfMvLockNotAcquired();
+        assert mvOperationsLock.isLocked() : "MV operations lock must be acquired!";
 
         return rowIdsToSkip.add(rowId);
     }
@@ -374,7 +368,7 @@ public class OutgoingSnapshot {
      * @return {@code true} if the given RowId is already passed by the snapshot in normal rows sending order.
      */
     public boolean alreadyPassed(RowId rowId) {
-        throwIfMvLockNotAcquired();
+        assert mvOperationsLock.isLocked() : "MV operations lock must be acquired!";
 
         if (!startedToReadMvPartition) {
             return false;
@@ -394,7 +388,7 @@ public class OutgoingSnapshot {
      * @param rowId {@link RowId} of the row.
      */
     public void enqueueForSending(RowId rowId) {
-        throwIfMvLockNotAcquired();
+        assert mvOperationsLock.isLocked() : "MV operations lock must be acquired!";
 
         outOfOrderMvData.add(rowEntry(rowId));
     }
