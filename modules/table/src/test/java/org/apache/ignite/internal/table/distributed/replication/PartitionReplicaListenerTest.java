@@ -26,6 +26,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.nio.ByteBuffer;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
@@ -149,6 +150,9 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     /** Primary index. */
     private static Lazy<TableSchemaAwareIndexStorage> pkStorage;
 
+    /** Secondary index storages. */
+    private static Map<UUID, TableSchemaAwareIndexStorage> secondaryIndexStorages;
+
     private static IndexLocker pkLocker;
 
     /** If true the local replica is considered leader, false otherwise. */
@@ -228,6 +232,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 tblId,
                 () -> Map.of(pkLocker.id(), pkLocker),
                 pkStorage,
+                () -> secondaryIndexStorages,
                 clock,
                 safeTimeClock,
                 txStateStorage,
@@ -425,7 +430,12 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         TestSortedIndexStorage indexStorage = new TestSortedIndexStorage(new SortedIndexDescriptor(indexId, List.of(
                 new SortedIndexColumnDescriptor("intVal", NativeTypes.INT32, false, true)
         )));
-        secondaryIndexMap.put(indexId, indexStorage);
+
+        secondaryIndexStorages.put(indexId, new TableSchemaAwareIndexStorage(
+                indexId,
+                indexStorage,
+                row -> null
+        ));
 
         IntStream.range(1, 6).forEach(i -> {
             RowId rowId = new RowId(partId);

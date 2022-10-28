@@ -379,17 +379,15 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         LOG.trace("Creating local index: name={}, id={}, tableId={}, token={}",
                 tableIndexView.name(), tableIndexView.id(), tableId, causalityToken);
 
-        TableImpl tbl = tableManager.latestTables().get(tableId);
-
-        Index<?> index = newIndex(tbl, tableIndexView);
-
-        TableRowToIndexKeyConverter tableRowConverter = new TableRowToIndexKeyConverter(
-                schemaManager.schemaRegistry(tableId),
-                index.descriptor().columns().toArray(STRING_EMPTY_ARRAY)
-        );
-
         return tableManager.tableAsync(tableId)
                 .thenAccept(table -> {
+                    Index<?> index = newIndex(table, tableIndexView);
+
+                    TableRowToIndexKeyConverter tableRowConverter = new TableRowToIndexKeyConverter(
+                            schemaManager.schemaRegistry(tableId),
+                            index.descriptor().columns().toArray(STRING_EMPTY_ARRAY)
+                    );
+
                     if (index instanceof HashIndex) {
                         table.registerHashIndex(tableIndexView.id(), tableIndexView.uniq(), tableRowConverter::convert);
 
@@ -501,7 +499,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
             var rowConverter = new BinaryConverter(descriptor, tupleSchema, false);
 
             return new VersionedConverter(descriptor.version(),
-                    row -> new BinaryTuple(tupleSchema, rowConverter.toTuple(row)));
+                    row -> rowConverter.toTuple(row));
         }
 
         private int[] resolveColumnIndexes(SchemaDescriptor descriptor) {

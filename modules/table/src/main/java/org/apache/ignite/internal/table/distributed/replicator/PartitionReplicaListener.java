@@ -1482,7 +1482,6 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return Resolved binary row.
      */
     private BinaryRow resolveReadResult(ReadResult readResult, HybridTimestamp timestamp, Supplier<BinaryRow> lastCommitted) {
-
         return resolveReadResult(readResult, null, timestamp, lastCommitted);
     }
 

@@ -73,6 +73,7 @@ import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IndexNotFoundException;
@@ -125,20 +126,16 @@ public class IndexManagerTest {
 
         tablesConfig = confRegistry.getConfiguration(TablesConfiguration.KEY);
 
-        TableManager tblManager = Mockito.mock(TableManager.class);
+        TableManager tableManagerMock = Mockito.mock(TableManager.class);
         Map<UUID, TableImpl> tables = Mockito.mock(Map.class);
 
-//        when(tableManagerMock.tableAsync(any(UUID.class)))
-//                .thenReturn(CompletableFuture.completedFuture(mock(TableImpl.class)));
-
-        Mockito.doReturn(tables).when(tblManager).latestTables();
-        Mockito.doAnswer(inv -> {
+        when(tableManagerMock.tableAsync(any(UUID.class))).thenAnswer(inv -> {
             InternalTable tbl = Mockito.mock(InternalTable.class);
             Mockito.doReturn(inv.getArgument(0)).when(tbl).tableId();
-            return new TableImpl(tbl);
-        }).when(tables).get(Mockito.any(UUID.class));
+            return CompletableFuture.completedFuture(new TableImpl(tbl, new HeapLockManager(), () -> List.of()));
+        });
 
-        indexManager = new IndexManager(tablesConfig, tblManager);
+        indexManager = new IndexManager(tablesConfig, mock(SchemaManager.class), tableManagerMock);
         indexManager.start();
 
         tablesConfig.tables().change(tableChange -> tableChange.create("tName", chg -> {
