@@ -389,7 +389,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     return rows;
                 });
             } else {
-                return CompletableFuture.completedFuture(rows);
+                return completedFuture(rows);
             }
         });
     }
@@ -1158,7 +1158,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             locks[idx++] = locker.locksForInsert(txId, tableRow, rowId);
         }
 
-        return CompletableFuture.allOf(locks);
+        return allOf(locks);
     }
 
     private CompletableFuture<?> takeRemoveLockOnIndexes(BinaryRow tableRow, RowId rowId, UUID txId) {
@@ -1175,7 +1175,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             locks[idx++] = locker.locksForRemove(txId, tableRow, rowId);
         }
 
-        return CompletableFuture.allOf(locks);
+        return allOf(locks);
     }
 
     /**
@@ -1314,7 +1314,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                                 if (expectedTerm.equals(currentTerm)) {
                                     return completedFuture(null);
                                 } else {
-                                    return CompletableFuture.failedFuture(new PrimaryReplicaMissException(expectedTerm, currentTerm));
+                                    return failedFuture(new PrimaryReplicaMissException(expectedTerm, currentTerm));
                                 }
                             }
                     );
