@@ -89,7 +89,7 @@ public class TestTxStateStorage implements TxStateStorage {
                 .map(e -> new IgniteBiTuple<>(e.getKey(), e.getValue()))
                 .collect(toList());
 
-        return Cursor.fromIterator(copy.iterator());
+        return Cursor.fromIterable(copy);
     }
 
     @Override
@@ -99,7 +99,7 @@ public class TestTxStateStorage implements TxStateStorage {
 
             storage.clear();
         } catch (Exception e) {
-            throw new StorageException("Failed to destroy the transaction state storage");
+            throw new StorageException("Failed to destroy the transaction state storage", e);
         }
     }
 
