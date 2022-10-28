@@ -84,26 +84,26 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
     @Override
     public @Nullable BinaryRow addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, UUID commitTableId,
             int commitPartitionId) throws TxIdMismatchException, StorageException {
-        sendMvRowOutOfOrderToInterferingSnapshots(rowId);
+        handleSnapshotInterference(rowId);
 
         return partitionStorage.addWrite(rowId, row, txId, commitTableId, commitPartitionId);
     }
 
     @Override
     public @Nullable BinaryRow abortWrite(RowId rowId) throws StorageException {
-        sendMvRowOutOfOrderToInterferingSnapshots(rowId);
+        handleSnapshotInterference(rowId);
 
         return partitionStorage.abortWrite(rowId);
     }
 
     @Override
     public void commitWrite(RowId rowId, HybridTimestamp timestamp) throws StorageException {
-        sendMvRowOutOfOrderToInterferingSnapshots(rowId);
+        handleSnapshotInterference(rowId);
 
         partitionStorage.commitWrite(rowId, timestamp);
     }
 
-    private void sendMvRowOutOfOrderToInterferingSnapshots(RowId rowId) {
+    private void handleSnapshotInterference(RowId rowId) {
         PartitionSnapshots partitionSnapshots = partitionsSnapshots.partitionSnapshots(partitionKey);
 
         for (OutgoingSnapshot snapshot : partitionSnapshots.ongoingSnapshots()) {
