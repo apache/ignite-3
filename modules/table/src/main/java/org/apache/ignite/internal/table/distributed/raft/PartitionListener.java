@@ -33,6 +33,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.lock.AutoLockup;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -191,17 +192,10 @@ public class PartitionListener implements RaftGroupListener {
             int commitPartId = cmd.tablePartitionId().partitionId();
 
             if (!nullOrEmpty(rowsToUpdate)) {
-                for (Map.Entry<RowId, BinaryRow> entry : rowsToUpdate.entrySet()) {
-                    RowId rowId = entry.getKey();
-                    BinaryRow row = entry.getValue();
-
-            if (!CollectionUtils.nullOrEmpty(rowsToUpdate)) {
                 for (Map.Entry<UUID, ByteString> entry : rowsToUpdate.entrySet()) {
-                    UUID rowIdUuid = entry.getKey();
-                    RowId rowId = new RowId(partitionId, rowIdUuid.getMostSignificantBits(), rowIdUuid.getLeastSignificantBits());
-                    ByteString rowStr = entry.getValue();
-                    BinaryRow row = rowStr != null ? new ByteBufferRow(rowStr.toByteArray()) : null;
-                    // TODO: IGNITE-17759 Need pass appropriate commitTableId and commitPartitionId.
+                    RowId rowId = new RowId(partitionId, entry.getKey());
+                    BinaryRow row = new ByteBufferRow(entry.getValue().toByteArray());
+
                     storage.addWrite(rowId, row, txId, commitTblId, commitPartId);
 
                     txsPendingRowIds.computeIfAbsent(txId, entry0 -> new HashSet<>()).add(rowId);
