@@ -26,7 +26,6 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.calcite.runtime.CalciteContextException;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -47,7 +46,6 @@ public class ItDataTypesTest extends AbstractBasicIntegrationTest {
 
     /** Tests correctness with unicode. */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18005")
     public void testUnicodeStrings() {
         sql("CREATE TABLE string_table(key int primary key, val varchar)");
 

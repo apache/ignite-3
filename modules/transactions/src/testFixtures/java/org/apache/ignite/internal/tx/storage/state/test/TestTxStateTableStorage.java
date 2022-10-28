@@ -26,13 +26,13 @@ import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Table tx state storage for {@link TestConcurrentHashMapTxStateStorage}.
+ * Table tx state storage for {@link TestTxStateStorage}.
  */
-public class TestConcurrentHashMapTxStateTableStorage implements TxStateTableStorage {
+public class TestTxStateTableStorage implements TxStateTableStorage {
     private final Map<Integer, TxStateStorage> storages = new ConcurrentHashMap<>();
 
     @Override public TxStateStorage getOrCreateTxStateStorage(int partitionId) throws StorageException {
-        return storages.computeIfAbsent(partitionId, k -> new TestConcurrentHashMapTxStateStorage());
+        return storages.computeIfAbsent(partitionId, k -> new TestTxStateStorage());
     }
 
     @Override

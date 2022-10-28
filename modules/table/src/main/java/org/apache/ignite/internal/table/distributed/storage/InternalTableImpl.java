@@ -560,7 +560,7 @@ public class InternalTableImpl implements InternalTable {
                     .groupId(partGroupId)
                     .binaryRows(partToRows.getValue())
                     .requestType(RequestType.RO_GET_ALL)
-                    .readTimestamp(clock.now())
+                    .readTimestamp(readTimestamp)
                     .build()
             );
 
@@ -835,7 +835,7 @@ public class InternalTableImpl implements InternalTable {
                             .upperBound(upperBound)
                             .flags(flags)
                             .columnsToInclude(columnsToInclude)
-                            .readTimestamp(clock.now())
+                            .readTimestamp(readTimestamp)
                             .build();
 
                     return replicaSvc.invoke(recipientNode, request);

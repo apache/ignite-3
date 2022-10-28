@@ -15,18 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.tx.storage.state.test;
+package org.apache.ignite.internal.tx.storage.state;
 
-import java.util.concurrent.ConcurrentHashMap;
-import org.apache.ignite.internal.tx.storage.state.TxStateStorageAbstractTest;
-import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
+import java.util.Comparator;
+import java.util.UUID;
 
 /**
- * Tx storage test for test implementation based on {@link ConcurrentHashMap}.
+ * {@link Comparator} for {@link UUID} instances that orders them interpreting them as unsigned 128-bit integers.
  */
-public class TestConcurrentHashMapTxStateStorageTest extends TxStateStorageAbstractTest {
-    /** {@inheritDoc} */
-    @Override protected TxStateTableStorage createStorage() {
-        return new TestConcurrentHashMapTxStateTableStorage();
+public class UnsignedUuidComparator implements Comparator<UUID> {
+    @Override
+    public int compare(UUID o1, UUID o2) {
+        int highHalvesComparisonResult = Long.compareUnsigned(o1.getMostSignificantBits(), o2.getMostSignificantBits());
+
+        if (highHalvesComparisonResult != 0) {
+            return highHalvesComparisonResult;
+        }
+
+        return Long.compareUnsigned(o1.getLeastSignificantBits(), o2.getLeastSignificantBits());
     }
 }

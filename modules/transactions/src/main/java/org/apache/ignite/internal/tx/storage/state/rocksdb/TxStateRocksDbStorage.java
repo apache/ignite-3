@@ -44,6 +44,7 @@ import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalException;
+import org.jetbrains.annotations.Nullable;
 import org.rocksdb.ReadOptions;
 import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
@@ -165,7 +166,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
     }
 
     @Override
-    public boolean compareAndSet(UUID txId, TxState txStateExpected, TxMeta txMeta, long commandIndex) {
+    public boolean compareAndSet(UUID txId, @Nullable TxState txStateExpected, TxMeta txMeta, long commandIndex) {
         requireNonNull(txMeta);
 
         if (!busyLock.enterBusy()) {
@@ -204,6 +205,8 @@ public class TxStateRocksDbStorage implements TxStateStorage {
             writeBatch.put(lastAppliedIndexKey, longToBytes(commandIndex));
 
             db.write(writeOptions, writeBatch);
+
+            lastAppliedIndex = commandIndex;
 
             return result;
         } catch (RocksDBException e) {
@@ -310,6 +313,8 @@ public class TxStateRocksDbStorage implements TxStateStorage {
 
         try {
             db.put(lastAppliedIndexKey, longToBytes(lastAppliedIndex));
+
+            this.lastAppliedIndex = lastAppliedIndex;
         } catch (RocksDBException e) {
             throw new IgniteInternalException(
                     TX_STATE_STORAGE_ERR,
