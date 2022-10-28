@@ -47,7 +47,7 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
@@ -111,7 +111,7 @@ public class ItLearnersTest extends IgniteAbstractTest {
 
             Path raftDir = workDir.resolve(clusterService.localConfiguration().getName());
 
-            loza = new Loza(clusterService, raftConfiguration, raftDir, new HybridClock());
+            loza = new Loza(clusterService, raftConfiguration, raftDir, new HybridClockImpl());
         }
 
         ClusterNode localMember() {

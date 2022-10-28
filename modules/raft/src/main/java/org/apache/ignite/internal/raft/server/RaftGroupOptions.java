@@ -37,6 +37,9 @@ public class RaftGroupOptions {
     /** Raft meta storage factory. */
     private RaftMetaStorageFactory raftMetaStorageFactory;
 
+    /** Options that are specific for replication group. */
+    private ReplicationGroupOptions replicationGroupOptions;
+
     /**
      * Returns default options as defined by classic Raft (so stores are persistent).
      *
@@ -123,6 +126,22 @@ public class RaftGroupOptions {
      */
     public RaftGroupOptions raftMetaStorageFactory(RaftMetaStorageFactory raftMetaStorageFactory) {
         this.raftMetaStorageFactory = raftMetaStorageFactory;
+
+        return this;
+    }
+
+    /**
+     * Replication group options.
+     */
+    public ReplicationGroupOptions replicationGroupOptions() {
+        return replicationGroupOptions;
+    }
+
+    /**
+     * Set the replication group options.
+     */
+    public RaftGroupOptions replicationGroupOptions(ReplicationGroupOptions replicationGroupOptions) {
+        this.replicationGroupOptions = replicationGroupOptions;
 
         return this;
     }

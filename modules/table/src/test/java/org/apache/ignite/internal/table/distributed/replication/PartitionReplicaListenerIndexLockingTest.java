@@ -34,6 +34,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryConverter;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -72,6 +73,7 @@ import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.storage.state.test.TestConcurrentHashMapTxStateStorage;
 import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.Pair;
+import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.TopologyService;
@@ -91,7 +93,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
     private static final UUID HASH_INDEX_ID = new UUID(0L, 2L);
     private static final UUID SORTED_INDEX_ID = new UUID(0L, 3L);
     private static final UUID TRANSACTION_ID = Timestamp.nextVersion().toUuid();
-    private static final HybridClock CLOCK = new HybridClock();
+    private static final HybridClock CLOCK = new HybridClockImpl();
     private static final LockManager LOCK_MANAGER = new HeapLockManager();
     private static final TablePartitionId PARTITION_ID = new TablePartitionId(TABLE_ID, PART_ID);
     private static final TableMessagesFactory TABLE_MESSAGES_FACTORY = new TableMessagesFactory();
@@ -170,9 +172,11 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                 ),
                 pkStorage,
                 CLOCK,
+                new PendingComparableValuesTracker<>(CLOCK.now()),
                 new TestConcurrentHashMapTxStateStorage(),
                 mock(TopologyService.class),
-                mock(PlacementDriver.class)
+                mock(PlacementDriver.class),
+                peer -> true
         );
 
         kvMarshaller = new ReflectionMarshallerFactory().create(schemaDescriptor, Integer.class, Integer.class);
