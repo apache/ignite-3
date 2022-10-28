@@ -214,8 +214,6 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         this.replicationGroupId = new TablePartitionId(tableId, partId);
 
-        Set<RowId> ids = new HashSet<>();
-
         cursors = new ConcurrentSkipListMap<>((o1, o2) -> {
             if (o1 == o2) {
                 return 0;
