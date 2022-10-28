@@ -82,7 +82,7 @@ import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
-import org.apache.ignite.internal.tx.storage.state.test.TestConcurrentHashMapTxStateTableStorage;
+import org.apache.ignite.internal.tx.storage.state.test.TestTxStateTableStorage;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.network.ClusterNode;
@@ -229,7 +229,7 @@ public class ItColocationTest {
                 address -> clusterNode,
                 txManager,
                 Mockito.mock(MvTableStorage.class),
-                new TestConcurrentHashMapTxStateTableStorage(),
+                new TestTxStateTableStorage(),
                 replicaService,
                 Mockito.mock(HybridClock.class)
         );

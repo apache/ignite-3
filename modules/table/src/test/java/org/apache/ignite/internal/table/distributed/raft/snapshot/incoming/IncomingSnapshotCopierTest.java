@@ -76,8 +76,8 @@ import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
-import org.apache.ignite.internal.tx.storage.state.test.TestConcurrentHashMapTxStateStorage;
-import org.apache.ignite.internal.tx.storage.state.test.TestConcurrentHashMapTxStateTableStorage;
+import org.apache.ignite.internal.tx.storage.state.test.TestTxStateStorage;
+import org.apache.ignite.internal.tx.storage.state.test.TestTxStateTableStorage;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.TopologyService;
@@ -125,7 +125,7 @@ public class IncomingSnapshotCopierTest {
     @Test
     void test() throws Exception {
         MvPartitionStorage outgoingMvPartitionStorage = new TestMvPartitionStorage(TEST_PARTITION);
-        TxStateStorage outgoingTxStatePartitionStorage = new TestConcurrentHashMapTxStateStorage();
+        TxStateStorage outgoingTxStatePartitionStorage = new TestTxStateStorage();
 
         long expLastAppliedIndex = 100500L;
 
@@ -138,7 +138,7 @@ public class IncomingSnapshotCopierTest {
         UUID snapshotId = UUID.randomUUID();
 
         MvTableStorage incomingMvTableStorage = spy(new TestMvTableStorage(tablesConfig.tables().get("foo"), tablesConfig));
-        TxStateTableStorage incomingTxStateTableStorage = spy(new TestConcurrentHashMapTxStateTableStorage());
+        TxStateTableStorage incomingTxStateTableStorage = spy(new TestTxStateTableStorage());
 
         incomingMvTableStorage.getOrCreateMvPartition(TEST_PARTITION);
         incomingTxStateTableStorage.getOrCreateTxStateStorage(TEST_PARTITION);

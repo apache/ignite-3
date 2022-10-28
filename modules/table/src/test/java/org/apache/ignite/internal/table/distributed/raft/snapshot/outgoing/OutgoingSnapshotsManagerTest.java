@@ -65,7 +65,7 @@ class OutgoingSnapshotsManagerTest {
         OutgoingSnapshot snapshot = mock(OutgoingSnapshot.class);
         doReturn(partitionKey).when(snapshot).partitionKey();
 
-        manager.registerOutgoingSnapshot(UUID.randomUUID(), snapshot);
+        manager.startOutgoingSnapshot(UUID.randomUUID(), snapshot);
     }
 
     @Test
@@ -74,8 +74,8 @@ class OutgoingSnapshotsManagerTest {
         OutgoingSnapshot snapshot = mock(OutgoingSnapshot.class);
         doReturn(partitionKey).when(snapshot).partitionKey();
 
-        manager.registerOutgoingSnapshot(snapshotId, snapshot);
+        manager.startOutgoingSnapshot(snapshotId, snapshot);
 
-        manager.unregisterOutgoingSnapshot(snapshotId);
+        manager.finishOutgoingSnapshot(snapshotId);
     }
 }

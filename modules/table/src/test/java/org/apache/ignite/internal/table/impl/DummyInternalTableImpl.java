@@ -58,7 +58,7 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
-import org.apache.ignite.internal.tx.storage.state.test.TestConcurrentHashMapTxStateStorage;
+import org.apache.ignite.internal.tx.storage.state.test.TestTxStateStorage;
 import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.lang.IgniteBiTuple;
@@ -251,7 +251,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
         partitionListener = new PartitionListener(
                 new TestPartitionDataStorage(mvPartStorage),
-                new TestConcurrentHashMapTxStateStorage(),
+                new TestTxStateStorage(),
                 this.txManager,
                 () -> Map.of(pkStorage.get().id(), pkStorage.get()),
                 0

@@ -31,7 +31,7 @@ import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
 /**
- * Provides access to both MV (multi-version) data and transactions data of a partition.
+ * Provides access to MV (multi-version) data of a partition.
  *
  * <p>Methods writing to MV storage ({@link #addWrite(RowId, BinaryRow, UUID, UUID, int)}, {@link #abortWrite(RowId)}
  * and {@link #commitWrite(RowId, HybridTimestamp)}) and TX data storage MUST be invoked under a lock acquired using
@@ -41,7 +41,6 @@ import org.jetbrains.annotations.TestOnly;
  * {@link RowId#compareTo} comparison order.
  *
  * @see org.apache.ignite.internal.storage.MvPartitionStorage
- * @see org.apache.ignite.internal.tx.storage.state.TxStateStorage
  */
 public interface PartitionDataStorage extends AutoCloseable {
     /**
@@ -141,5 +140,5 @@ public interface PartitionDataStorage extends AutoCloseable {
      * @return Underlying {@link MvPartitionStorage}.
      */
     @TestOnly
-    MvPartitionStorage getMvStorage();
+    MvPartitionStorage getStorage();
 }
