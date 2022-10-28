@@ -331,7 +331,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param isPrimary Whether the given replica is primary.
      * @return Result future.
      */
-    private CompletableFuture<ArrayList<BinaryRow>> processReadOnlyScanRetrieveBatchAction(
+    private CompletableFuture<List<BinaryRow>> processReadOnlyScanRetrieveBatchAction(
             ReadOnlyScanRetrieveBatchReplicaRequest request,
             Boolean isPrimary
     ) {
@@ -364,7 +364,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param count Amount of entries which sill be extracted.
      * @return Result future.
      */
-    private CompletableFuture<ArrayList<BinaryRow>> retrieveExactEntriesUntilCursorEmpty(
+    private CompletableFuture<List<BinaryRow>> retrieveExactEntriesUntilCursorEmpty(
             HybridTimestamp readTimestamp,
             IgniteUuid cursorId,
             int count
@@ -549,7 +549,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param request Scan retrieve batch request operation.
      * @return Listener response.
      */
-    private CompletableFuture<ArrayList<BinaryRow>> processScanRetrieveBatchAction(ReadWriteScanRetrieveBatchReplicaRequest request) {
+    private CompletableFuture<List<BinaryRow>> processScanRetrieveBatchAction(ReadWriteScanRetrieveBatchReplicaRequest request) {
         if (request.indexToUse() != null) {
             TableSchemaAwareIndexStorage indexStorage = secondaryIndexStorages.get().get(request.indexToUse());
 
@@ -587,7 +587,8 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param indexStorage Index storage.
      * @return Opreation future.
      */
-    private CompletableFuture<Object> scanSortedIndex(ReadWriteScanRetrieveBatchReplicaRequest request, SortedIndexStorage indexStorage) {
+    private CompletableFuture<List<BinaryRow>> scanSortedIndex(ReadWriteScanRetrieveBatchReplicaRequest request,
+            SortedIndexStorage indexStorage) {
         UUID txId = request.transactionId();
         int batchCount = request.batchSize();
 
@@ -633,7 +634,8 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param indexStorage Index storage.
      * @return Opreation future.
      */
-    private CompletableFuture<Object> scanSortedIndex(ReadOnlyScanRetrieveBatchReplicaRequest request, SortedIndexStorage indexStorage) {
+    private CompletableFuture<List<BinaryRow>> scanSortedIndex(ReadOnlyScanRetrieveBatchReplicaRequest request,
+            SortedIndexStorage indexStorage) {
         UUID txId = request.transactionId();
         int batchCount = request.batchSize();
         HybridTimestamp timestamp = request.readTimestamp();
@@ -656,32 +658,39 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         final ArrayList<BinaryRow> result = new ArrayList<>(batchCount);
 
-        while (result.size() < batchCount && cursor.hasNext()) {
-            IndexRow indexRow = cursor.next();
+        return continueReadOnlyIndexScan(cursor, timestamp, batchCount, result);
+    }
 
-            RowId rowId = indexRow.rowId();
+    CompletableFuture<List<BinaryRow>> continueReadOnlyIndexScan(Cursor<IndexRow> cursor, HybridTimestamp timestamp, int batchSize,
+            List<BinaryRow> result) {
+        if (result.size() == batchSize || !cursor.hasNext()) {
+            return CompletableFuture.completedFuture(result);
+        }
 
-            ReadResult readResult = mvDataStorage.read(rowId, HybridTimestamp.MAX_VALUE);
-            BinaryRow resolvedReadResult = resolveReadResult(readResult, timestamp, () -> {
-                if (readResult.newestCommitTimestamp() == null) {
-                    return null;
-                }
+        IndexRow indexRow = cursor.next();
 
-                ReadResult committedReadResult = mvDataStorage.read(rowId, readResult.newestCommitTimestamp());
+        RowId rowId = indexRow.rowId();
 
-                assert !committedReadResult.isWriteIntent() :
-                        "The result is not committed [rowId=" + rowId + ", timestamp="
-                                + readResult.newestCommitTimestamp() + ']';
+        ReadResult readResult = mvDataStorage.read(rowId, HybridTimestamp.MAX_VALUE);
 
-                return committedReadResult.binaryRow();
-            });
+        return resolveReadResult(readResult, timestamp, () -> {
+            if (readResult.newestCommitTimestamp() == null) {
+                return null;
+            }
 
+            ReadResult committedReadResult = mvDataStorage.read(rowId, readResult.newestCommitTimestamp());
+
+            assert !committedReadResult.isWriteIntent() :
+                    "The result is not committed [rowId=" + rowId + ", timestamp="
+                            + readResult.newestCommitTimestamp() + ']';
+
+            return committedReadResult.binaryRow();
+        }).thenCompose(resolvedReadResult -> {
             if (resolvedReadResult != null) {
                 result.add(resolvedReadResult);
             }
-        }
-
-        return CompletableFuture.completedFuture(result);
+            return continueReadOnlyIndexScan(cursor, timestamp, batchSize, result);
+        });
     }
 
     /**
@@ -1529,7 +1538,8 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param lastCommitted Action to get the latest committed row.
      * @return Future to resolved binary row.
      */
-    private CompletableFuture<BinaryRow> resolveReadResult(ReadResult readResult, HybridTimestamp timestamp, Supplier<BinaryRow> lastCommitted) {
+    private CompletableFuture<BinaryRow> resolveReadResult(ReadResult readResult, HybridTimestamp timestamp,
+            Supplier<BinaryRow> lastCommitted) {
         return resolveReadResult(readResult, null, timestamp, lastCommitted);
     }
 
