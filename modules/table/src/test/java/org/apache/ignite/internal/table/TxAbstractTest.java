@@ -1821,7 +1821,6 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         assertEquals(300., accounts.recordView().get(readOnlyTx2, makeKey(1)).doubleValue("balance"));
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17968")
     @Test
     public void testReadOnlyGetWriteIntentResolutionRemove() {
         accounts.recordView().upsert(null, makeValue(1, 100.));
@@ -1856,7 +1855,6 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         validateBalance(retrievedKeys, 100., 200.);
     }
 
-    // TODO: IGNITE-17968 Remove after fix.
     @Test
     public void testReadOnlyPendingWriteIntentSkipped() {
         accounts.recordView().upsert(null, makeValue(1, 100.));
@@ -1881,7 +1879,6 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         validateBalance(retrievedKeys3, 100., 300.);
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17968")
     @Test
     public void testReadOnlyPendingWriteIntentSkippedCombined() {
         accounts.recordView().upsert(null, makeValue(1, 100.));
