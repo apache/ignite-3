@@ -32,6 +32,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lock.AutoLockup;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
@@ -68,7 +69,7 @@ class OutgoingSnapshotMvDataStreamingTest {
 
     private RowId rowIdOutOfOrder;
 
-    private final HybridClock clock = new HybridClock();
+    private final HybridClock clock = new HybridClockImpl();
 
     private final UUID transactionId = UUID.randomUUID();
     private final UUID commitTableId = UUID.randomUUID();

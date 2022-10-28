@@ -31,6 +31,7 @@ import static org.mockito.Mockito.when;
 import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lock.AutoLockup;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionAccess;
@@ -64,7 +65,7 @@ class OutgoingSnapshotTxDataStreamingTest {
     private final UUID txId1 = new UUID(0, 1);
     private final UUID txId2 = new UUID(0, 2);
 
-    private final HybridClock clock = new HybridClock();
+    private final HybridClock clock = new HybridClockImpl();
 
     private final TablePartitionId partition1Id = new TablePartitionId(UUID.randomUUID(), 1);
     private final TablePartitionId partition2Id = new TablePartitionId(UUID.randomUUID(), 2);

@@ -38,10 +38,13 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.calcite.schema.SchemaPlus;
+import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.calcite.util.Pair;
+import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.index.event.IndexEvent;
 import org.apache.ignite.internal.index.event.IndexEventParameters;
@@ -61,7 +64,6 @@ import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutorImpl;
 import org.apache.ignite.internal.sql.engine.message.MessageServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl;
-import org.apache.ignite.internal.sql.engine.prepare.QueryPlan.Type;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHolder;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManagerImpl;
@@ -139,6 +141,8 @@ public class SqlQueryProcessor implements QueryProcessor {
     /** Transaction manager. */
     private final TxManager txManager;
 
+    private HybridClock clock;
+
     /** Constructor. */
     public SqlQueryProcessor(
             Consumer<Function<Long, CompletableFuture<?>>> registry,
@@ -148,7 +152,8 @@ public class SqlQueryProcessor implements QueryProcessor {
             SchemaManager schemaManager,
             DataStorageManager dataStorageManager,
             TxManager txManager,
-            Supplier<Map<String, Map<String, Class<?>>>> dataStorageFieldsSupplier
+            Supplier<Map<String, Map<String, Class<?>>>> dataStorageFieldsSupplier,
+            HybridClock clock
     ) {
         this.registry = registry;
         this.clusterSrvc = clusterSrvc;
@@ -158,6 +163,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         this.dataStorageManager = dataStorageManager;
         this.txManager = txManager;
         this.dataStorageFieldsSupplier = dataStorageFieldsSupplier;
+        this.clock = clock;
     }
 
     /** {@inheritDoc} */
@@ -185,7 +191,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         ));
 
         var exchangeService = registerService(new ExchangeServiceImpl(
-                nodeName,
+                clusterSrvc.topologyService().localMember(),
                 taskExecutor,
                 mailboxRegistry,
                 msgSrvc
@@ -387,17 +393,22 @@ public class SqlQueryProcessor implements QueryProcessor {
                     return nodes.get(0);
                 })
                 .thenCompose(sqlNode -> {
+                    final boolean rwOp = dataModificationOp(sqlNode);
+                    final HybridTimestamp txTime = outerTx != null ? outerTx.readTimestamp() : rwOp ? null : clock.now();
+
                     BaseQueryContext ctx = BaseQueryContext.builder()
                             .frameworkConfig(
                                     Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
                                             .defaultSchema(schema)
-                                            .traitDefs(Commons.LOCAL_TRAITS_SET)
+                                            .traitDefs(rwOp || (outerTx != null && !outerTx.isReadOnly()) ? Commons.LOCAL_TRAITS_SET :
+                                                    Commons.DISTRIBUTED_TRAITS_SET)
                                             .build()
                             )
                             .logger(LOG)
                             .cancel(queryCancel)
                             .parameters(params)
                             .transaction(outerTx)
+                            .transactionTime(txTime)
                             .plannerTimeout(PLANNER_TIMEOUT)
                             .build();
 
@@ -406,9 +417,8 @@ public class SqlQueryProcessor implements QueryProcessor {
                                 context.maybeUnwrap(QueryValidator.class)
                                         .ifPresent(queryValidator -> queryValidator.validatePlan(plan));
 
-                                // Transactional DDL is not supported as well as RO transactions, hence
-                                // only DML requiring RW transaction is covered
-                                boolean implicitTxRequired = (plan.type() == Type.DML || plan.type() == Type.QUERY) && outerTx == null;
+                                boolean implicitTxRequired = outerTx == null && rwOp;
+
                                 InternalTransaction implicitTx = implicitTxRequired ? txManager.begin() : null;
 
                                 BaseQueryContext enrichedContext =
@@ -469,16 +479,22 @@ public class SqlQueryProcessor implements QueryProcessor {
         CompletableFuture<Void> start = new CompletableFuture<>();
 
         for (SqlNode sqlNode : nodes) {
+            boolean needStartTx = SqlKind.DML.contains(sqlNode.getKind()) || SqlKind.QUERY.contains(sqlNode.getKind());
+            // Only rw transactions for now.
+            InternalTransaction implicitTx = needStartTx ? txManager.begin() : null;
+
             final BaseQueryContext ctx = BaseQueryContext.builder()
                     .cancel(new QueryCancel())
                     .frameworkConfig(
                             Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
+                                    .traitDefs(needStartTx ? Commons.LOCAL_TRAITS_SET : Commons.DISTRIBUTED_TRAITS_SET)
                                     .defaultSchema(schema)
                                     .build()
                     )
                     .logger(LOG)
                     .parameters(params)
                     .plannerTimeout(PLANNER_TIMEOUT)
+                    .transaction(implicitTx)
                     .build();
 
             // TODO https://issues.apache.org/jira/browse/IGNITE-17746 Fix query execution flow.
@@ -490,7 +506,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                         return new AsyncSqlCursorImpl<>(
                                 SqlQueryType.mapPlanTypeToSqlType(plan.type()),
                                 plan.metadata(),
-                                null,
+                                implicitTx,
                                 executionSrvc.executePlan(plan, ctx)
                         );
                     });
@@ -619,5 +635,10 @@ public class SqlQueryProcessor implements QueryProcessor {
                     )
                     .thenApply(v -> false);
         }
+    }
+
+    /** Returns {@code true} if this is data modification operation. */
+    private static boolean dataModificationOp(SqlNode sqlNode) {
+        return SqlKind.DML.contains(sqlNode.getKind());
     }
 }
