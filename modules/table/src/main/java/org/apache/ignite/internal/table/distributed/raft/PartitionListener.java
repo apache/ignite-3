@@ -276,11 +276,9 @@ public class PartitionListener implements RaftGroupListener {
     /** {@inheritDoc} */
     @Override
     public void onSnapshotSave(Path path, Consumer<Throwable> doneClo) {
-        // We need to take the max index here because otherwise there is a scenario on a node restart when a node will install
-        // snapshot instead of starting even if all data is presented. This might happen because a raft log is truncated up
-        // to the maximal index among storages after a snapshot is done in raft,
-        // and because we take minimal applied index among storages for the local recovery. In case of a cluster restart,
-        // it is possible that cluster even can't start, if we won't take max index.
+        // The max index here is required for local recovery and a possible scenario
+        // of false node failure when we actually have all required data. This might happen because we use the minimal index
+        // among storages on a node restart.
         long maxLastAppliedIndex = Math.max(storage.lastAppliedIndex(), txStateStorage.lastAppliedIndex());
 
         storage.runConsistently(() -> {
