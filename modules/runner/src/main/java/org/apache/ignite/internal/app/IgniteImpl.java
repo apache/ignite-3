@@ -40,6 +40,7 @@ import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.rest.ClusterManagementRestFactory;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
+import org.apache.ignite.internal.component.RestAddressReporter;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.compute.ComputeComponent;
 import org.apache.ignite.internal.compute.ComputeComponentImpl;
@@ -235,6 +236,8 @@ public class IgniteImpl implements Ignite {
 
     private final OutgoingSnapshotsManager outgoingSnapshotsManager;
 
+    private final RestAddressReporter restAddressReporter;
+
     /**
      * The Constructor.
      *
@@ -346,6 +349,8 @@ public class IgniteImpl implements Ignite {
         metricManager.configure(clusterCfgMgr.configurationRegistry().getConfiguration(MetricConfiguration.KEY));
 
         restComponent = createRestComponent(name);
+
+        restAddressReporter = new RestAddressReporter(workDir);
 
         baselineMgr = new BaselineManager(
                 clusterCfgMgr,
@@ -522,6 +527,8 @@ public class IgniteImpl implements Ignite {
 
             clusterSvc.updateMetadata(new NodeMetadata(restComponent.host(), restComponent.port()));
 
+            restAddressReporter.writeReport(restAddress());
+
             LOG.info("Components started, joining the cluster");
 
             return cmgMgr.joinFuture()
@@ -614,6 +621,7 @@ public class IgniteImpl implements Ignite {
      */
     public void stop() {
         lifecycleManager.stopNode();
+        restAddressReporter.removeReport();
     }
 
     /** {@inheritDoc} */

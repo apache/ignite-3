@@ -33,12 +33,21 @@ if [ -z ${IGNITE_HOME+x} ]; then IGNITE_HOME=$(pwd); fi
 cd ${IGNITE_HOME} || exit
 
 start() {
+  echo "Starting Ignite 3..."
+
   CMD="${JAVA_CMD_WITH_ARGS} ${APPLICATION_ARGS}"
   $CMD >>/dev/null 2>&1 </dev/null & echo $! >${IGNITE_HOME}/pid
+
+  rest_address_file=${WORK_DIR}/rest-address
+  while [ ! -f "$rest_address_file" ]; do sleep 0.5; done
+    rest_address=$(cat "$rest_address_file")
+
+  echo "${NODE_NAME} has started successfully. You can connect to it with ignite3 cli by using this address: http://$rest_address"
 }
 
 stop() {
   kill -9 "$(cat ${IGNITE_HOME}/pid)"
+  rm ${IGNITE_WORK_DIR}/rest-address
 }
 
 case $1 in

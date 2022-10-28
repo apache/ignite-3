@@ -1,0 +1,91 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.ignite.internal.component;
+
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.is;
+
+import java.io.File;
+import java.io.IOException;
+import java.net.URISyntaxException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgnitionManager;
+import org.apache.ignite.app.IgniteRunner;
+import org.apache.ignite.internal.runner.app.IgniteRunnerTest;
+import org.apache.ignite.internal.testframework.WorkDirectory;
+import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+
+/**
+ * Test that after Ignite is started there is a file with REST server address in working directory.
+ */
+@ExtendWith(WorkDirectoryExtension.class)
+public class ItRestAddressReportTest {
+    private static final String NODE_NAME = "node";
+
+    @WorkDirectory
+    private Path workDir;
+
+    private static int cutPort(String retAddress) {
+        return Integer.parseInt(retAddress.split(":")[1]);
+    }
+
+    @Test
+    @DisplayName("Should report rest port to the file after RestComponent started")
+    void restPortReportedToFile() throws URISyntaxException, IOException {
+        // Given configuration with rest port configured rest.port=10333, rest.portRange=10
+        Path configPath = Path.of(IgniteRunnerTest.class.getResource("/ignite-config-rest-port-not-default.json").toURI());
+
+        // When start node
+        CompletableFuture<Ignite> ign = IgniteRunner.start(
+                "--config-path", configPath.toAbsolutePath().toString(),
+                "--work-dir", workDir.resolve(NODE_NAME).toAbsolutePath().toString(),
+                "--node-name", NODE_NAME
+        );
+        // And init cluster
+        IgnitionManager.init(NODE_NAME, List.of(NODE_NAME), "cluster");
+
+        // Then node is started
+        assertThat(ign, willCompleteSuccessfully());
+
+        // And there is a file in work dir with the rest address
+        File reportFile = workDir.resolve(NODE_NAME).resolve("rest-address").toFile();
+        assertThat(reportFile.exists(), is(true));
+
+        // And the file contains valid rest server network address
+        String retAddress = Files.readString(workDir.resolve(NODE_NAME).resolve("rest-address"));
+        assertThat(retAddress, containsString("localhost:"));
+        // And port is in configured range
+        int port = cutPort(retAddress);
+        assertThat(port >= 10333 && port < 10333 + 10, is(true));
+
+        // When stop node
+        IgnitionManager.stop(NODE_NAME);
+
+        // Then the file is removed
+        assertThat(reportFile.exists(), is(false));
+    }
+}
