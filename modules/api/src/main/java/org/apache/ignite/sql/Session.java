@@ -54,7 +54,7 @@ public interface Session extends AutoCloseable {
         Objects.requireNonNull(query);
 
         try {
-            return new ResultSetImpl(executeAsync(transaction, query, arguments).join());
+            return new SyncResultSetAdapter(executeAsync(transaction, query, arguments).join());
         } catch (CompletionException e) {
             throw IgniteException.wrap(e);
         }
@@ -72,7 +72,7 @@ public interface Session extends AutoCloseable {
         Objects.requireNonNull(statement);
 
         try {
-            return new ResultSetImpl(executeAsync(transaction, statement, arguments).join());
+            return new SyncResultSetAdapter(executeAsync(transaction, statement, arguments).join());
         } catch (CompletionException e) {
             throw IgniteException.wrap(e);
         }
