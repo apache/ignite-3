@@ -5,6 +5,11 @@
         <option name="INDENT_SIZE" value="2" />
         <option name="CONTINUATION_INDENT_SIZE" value="4" />
         <option name="TAB_SIZE" value="2" />
+        <option name="USE_TAB_CHARACTER" value="false" />
+        <option name="SMART_TABS" value="false" />
+        <option name="LABEL_INDENT_SIZE" value="0" />
+        <option name="LABEL_INDENT_ABSOLUTE" value="false" />
+        <option name="USE_RELATIVE_INDENTS" value="false" />
       </value>
     </option>
     <option name="RIGHT_MARGIN" value="140" />
@@ -29,6 +34,11 @@
     <option name="DOWHILE_BRACE_FORCE" value="3" />
     <option name="WHILE_BRACE_FORCE" value="3" />
     <option name="FOR_BRACE_FORCE" value="3" />
+    <option name="DO_NOT_FORMAT">
+      <list>
+        <fileSet type="globPattern" pattern="modules/raft/src/main/java/org/apache/ignite/raft/jraft/**" />
+      </list>
+    </option>
     <AndroidXmlCodeStyleSettings>
       <option name="USE_CUSTOM_SETTINGS" value="true" />
       <option name="LAYOUT_SETTINGS">
@@ -223,8 +233,10 @@
       </indentOptions>
     </codeStyleSettings>
     <codeStyleSettings language="Python">
+      <option name="KEEP_BLANK_LINES_IN_CODE" value="1" />
       <option name="RIGHT_MARGIN" value="80" />
       <option name="ALIGN_MULTILINE_PARAMETERS" value="false" />
+      <option name="PARENT_SETTINGS_INSTALLED" value="true" />
       <indentOptions>
         <option name="INDENT_SIZE" value="2" />
         <option name="CONTINUATION_INDENT_SIZE" value="4" />
