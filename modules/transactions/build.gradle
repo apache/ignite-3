@@ -38,6 +38,7 @@ dependencies {
     testImplementation(testFixtures(project(':ignite-core')))
     testImplementation libs.mockito.junit
     testImplementation libs.mockito.core
+    testImplementation libs.hamcrest.core
 
     testFixturesImplementation project(':ignite-configuration')
     testFixturesImplementation project(':ignite-core')

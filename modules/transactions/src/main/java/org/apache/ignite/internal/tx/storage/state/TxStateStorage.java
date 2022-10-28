@@ -78,6 +78,10 @@ public interface TxStateStorage extends AutoCloseable {
     /**
      * Create a cursor to scan all data in the storage.
      *
+     * <p>The cursor yields exactly the data that was existing in the storage at the moment when the method was called.
+     *
+     * <p>The cursor yields data ordered by transaction ID interpreted as an unsigned 128 bit integer.
+     *
      * @return Cursor.
      */
     Cursor<IgniteBiTuple<UUID, TxMeta>> scan();

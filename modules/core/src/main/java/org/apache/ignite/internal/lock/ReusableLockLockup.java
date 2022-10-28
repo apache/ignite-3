@@ -38,6 +38,7 @@ public class ReusableLockLockup implements AutoLockup {
      *
      * @return The lockup for the locked underlying lock.
      */
+    @SuppressWarnings("LockAcquiredButNotSafelyReleased")
     public AutoLockup acquireLock() {
         lock.lock();
 

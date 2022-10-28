@@ -62,13 +62,9 @@ public class OutgoingSnapshotReader extends SnapshotReader {
                 .learnersList(snapshotStorage.startupSnapshotMeta().learnersList())
                 .build();
 
-        OutgoingSnapshot outgoingSnapshot = new OutgoingSnapshot(
-                id,
-                snapshotStorage.partition(),
-                snapshotStorage.outgoingSnapshotsManager()
-        );
+        OutgoingSnapshot outgoingSnapshot = new OutgoingSnapshot(id, snapshotStorage.partition());
 
-        snapshotStorage.outgoingSnapshotsManager().registerOutgoingSnapshot(id, outgoingSnapshot);
+        snapshotStorage.outgoingSnapshotsManager().startOutgoingSnapshot(id, outgoingSnapshot);
     }
 
     @Override
@@ -85,7 +81,7 @@ public class OutgoingSnapshotReader extends SnapshotReader {
 
     @Override
     public void close() throws IOException {
-        snapshotStorage.outgoingSnapshotsManager().unregisterOutgoingSnapshot(id);
+        snapshotStorage.outgoingSnapshotsManager().finishOutgoingSnapshot(id);
     }
 
     @Override
