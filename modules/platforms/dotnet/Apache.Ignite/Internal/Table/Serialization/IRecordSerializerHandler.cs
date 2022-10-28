@@ -17,7 +17,10 @@
 
 namespace Apache.Ignite.Internal.Table.Serialization
 {
+    using System;
     using MessagePack;
+    using Proto;
+    using Proto.BinaryTuple;
 
     /// <summary>
     /// Serializer handler.
@@ -50,6 +53,44 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// <param name="schema">Schema.</param>
         /// <param name="record">Record.</param>
         /// <param name="keyOnly">Key only mode.</param>
-        void Write(ref MessagePackWriter writer, Schema schema, T record, bool keyOnly = false);
+        /// <param name="computeHash">Whether to compute key hash while writing the tuple.</param>
+        /// <returns>Key hash when <paramref name="computeHash"/> is <c>true</c>; 0 otherwise.</returns>
+        int Write(ref MessagePackWriter writer, Schema schema, T record, bool keyOnly = false, bool computeHash = false)
+        {
+            var columns = schema.Columns;
+            var count = keyOnly ? schema.KeyColumnCount : columns.Count;
+            var noValueSet = writer.WriteBitSet(count);
+
+            var tupleBuilder = new BinaryTupleBuilder(count, hashedColumnsPredicate: computeHash ? schema : null);
+
+            try
+            {
+                Write(ref tupleBuilder, record, schema, count, noValueSet);
+
+                var binaryTupleMemory = tupleBuilder.Build();
+                writer.Write(binaryTupleMemory.Span);
+
+                return tupleBuilder.Hash;
+            }
+            finally
+            {
+                tupleBuilder.Dispose();
+            }
+        }
+
+        /// <summary>
+        /// Writes a record.
+        /// </summary>
+        /// <param name="tupleBuilder">Tuple builder.</param>
+        /// <param name="record">Record.</param>
+        /// <param name="schema">Schema.</param>
+        /// <param name="columnCount">Column count.</param>
+        /// <param name="noValueSet">No-value set.</param>
+        void Write(
+            ref BinaryTupleBuilder tupleBuilder,
+            T record,
+            Schema schema,
+            int columnCount,
+            Span<byte> noValueSet);
     }
 }

@@ -63,7 +63,7 @@ public interface MvTableStorage {
      * @throws IllegalArgumentException If Partition ID is out of bounds.
      * @throws StorageException If an error has occurred during the partition destruction.
      */
-    CompletableFuture<Void> destroyPartition(int partitionId) throws StorageException;
+    void destroyPartition(int partitionId) throws StorageException;
 
     /**
      * Returns an already created Index (either Sorted or Hash) with the given name or creates a new one if it does not exist.

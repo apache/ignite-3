@@ -53,6 +53,7 @@ import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.LocalConfigurationStorage;
 import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -285,7 +286,7 @@ public class IgniteImpl implements Ignite {
                 nodeCfgMgr.configurationRegistry().getConfiguration(ComputeConfiguration.KEY)
         );
 
-        clock = new HybridClock();
+        clock = new HybridClockImpl();
 
         raftMgr = new Loza(
                 clusterSvc,
@@ -388,7 +389,7 @@ public class IgniteImpl implements Ignite {
                 outgoingSnapshotsManager
         );
 
-        indexManager = new IndexManager(tablesConfiguration, distributedTblMgr);
+        indexManager = new IndexManager(tablesConfiguration, schemaManager, distributedTblMgr);
 
         qryEngine = new SqlQueryProcessor(
                 registry,
@@ -398,7 +399,8 @@ public class IgniteImpl implements Ignite {
                 schemaManager,
                 dataStorageMgr,
                 txManager,
-                () -> dataStorageModules.collectSchemasFields(modules.distributed().polymorphicSchemaExtensions())
+                () -> dataStorageModules.collectSchemasFields(modules.distributed().polymorphicSchemaExtensions()),
+                clock
         );
 
         sql = new IgniteSqlImpl(qryEngine);

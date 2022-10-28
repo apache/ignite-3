@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed.raft.snapshot;
 
+import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.incoming.IncomingSnapshotCopier;
@@ -58,6 +59,9 @@ public class PartitionSnapshotStorage implements SnapshotStorage {
     /** Snapshot meta, constructed from the storage data and raft group configuration. */
     private final SnapshotMeta snapshotMeta;
 
+    /** Incoming snapshots executor. */
+    private final Executor incomingSnapshotsExecutor;
+
     /** Snapshot throttle instance. */
     @Nullable
     private SnapshotThrottle snapshotThrottle;
@@ -74,6 +78,7 @@ public class PartitionSnapshotStorage implements SnapshotStorage {
      * @param raftOptions RAFT options.
      * @param partition Partition.
      * @param snapshotMeta Snapshot meta.
+     * @param incomingSnapshotsExecutor Incoming snapshots executor.
      */
     public PartitionSnapshotStorage(
             TopologyService topologyService,
@@ -81,7 +86,8 @@ public class PartitionSnapshotStorage implements SnapshotStorage {
             String snapshotUri,
             RaftOptions raftOptions,
             PartitionAccess partition,
-            SnapshotMeta snapshotMeta
+            SnapshotMeta snapshotMeta,
+            Executor incomingSnapshotsExecutor
     ) {
         this.topologyService = topologyService;
         this.outgoingSnapshotsManager = outgoingSnapshotsManager;
@@ -89,6 +95,7 @@ public class PartitionSnapshotStorage implements SnapshotStorage {
         this.raftOptions = raftOptions;
         this.partition = partition;
         this.snapshotMeta = snapshotMeta;
+        this.incomingSnapshotsExecutor = incomingSnapshotsExecutor;
     }
 
     /**
@@ -136,37 +143,39 @@ public class PartitionSnapshotStorage implements SnapshotStorage {
     /**
      * Returns a snapshot throttle instance.
      */
-    public SnapshotThrottle snapshotThrottle() {
+    public @Nullable SnapshotThrottle snapshotThrottle() {
         return snapshotThrottle;
     }
 
-    /** {@inheritDoc} */
+    /**
+     * Returns the incoming snapshots executor.
+     */
+    public Executor getIncomingSnapshotsExecutor() {
+        return incomingSnapshotsExecutor;
+    }
+
     @Override
     public boolean init(Void opts) {
         // No-op.
         return true;
     }
 
-    /** {@inheritDoc} */
     @Override
     public void shutdown() {
         // No-op.
     }
 
-    /** {@inheritDoc} */
     @Override
     public boolean setFilterBeforeCopyRemote() {
         // Option is not supported.
         return false;
     }
 
-    /** {@inheritDoc} */
     @Override
     public SnapshotWriter create() {
         return new PartitionSnapshotWriter(this);
     }
 
-    /** {@inheritDoc} */
     @Override
     public SnapshotReader open() {
         if (startupSnapshotOpened.compareAndSet(false, true)) {
@@ -176,13 +185,11 @@ public class PartitionSnapshotStorage implements SnapshotStorage {
         return new OutgoingSnapshotReader(this);
     }
 
-    /** {@inheritDoc} */
     @Override
     public SnapshotReader copyFrom(String uri, SnapshotCopierOptions opts) {
         throw new UnsupportedOperationException("Synchronous snapshot copy is not supported.");
     }
 
-    /** {@inheritDoc} */
     @Override
     public SnapshotCopier startToCopyFrom(String uri, SnapshotCopierOptions opts) {
         SnapshotUri snapshotUri = SnapshotUri.fromStringUri(uri);
@@ -194,7 +201,6 @@ public class PartitionSnapshotStorage implements SnapshotStorage {
         return copier;
     }
 
-    /** {@inheritDoc} */
     @Override
     public void setSnapshotThrottle(SnapshotThrottle snapshotThrottle) {
         this.snapshotThrottle = snapshotThrottle;

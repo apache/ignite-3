@@ -29,8 +29,10 @@ import org.apache.ignite.internal.configuration.ConfigurationModule;
 import org.apache.ignite.internal.schema.configuration.defaultvalue.ConstantValueDefaultConfigurationSchema;
 import org.apache.ignite.internal.schema.configuration.defaultvalue.FunctionCallDefaultConfigurationSchema;
 import org.apache.ignite.internal.schema.configuration.defaultvalue.NullValueDefaultConfigurationSchema;
+import org.apache.ignite.internal.schema.configuration.index.HashIndexConfigurationSchema;
 import org.apache.ignite.internal.schema.configuration.index.IndexValidator;
 import org.apache.ignite.internal.schema.configuration.index.IndexValidatorImpl;
+import org.apache.ignite.internal.schema.configuration.index.SortedIndexConfigurationSchema;
 import org.apache.ignite.internal.schema.configuration.storage.KnownDataStorage;
 import org.apache.ignite.internal.schema.configuration.storage.KnownDataStorageValidator;
 import org.apache.ignite.internal.schema.configuration.storage.UnknownDataStorageConfigurationSchema;
@@ -68,7 +70,9 @@ public class SchemaDistributedConfigurationModule implements ConfigurationModule
                 UnknownDataStorageConfigurationSchema.class,
                 ConstantValueDefaultConfigurationSchema.class,
                 FunctionCallDefaultConfigurationSchema.class,
-                NullValueDefaultConfigurationSchema.class
+                NullValueDefaultConfigurationSchema.class,
+                HashIndexConfigurationSchema.class,
+                SortedIndexConfigurationSchema.class
         );
     }
 }

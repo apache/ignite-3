@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Internal.Table.Serialization;
 
+using System;
 using Ignite.Table;
 using MessagePack;
 using Proto;
@@ -30,7 +31,7 @@ internal class TuplePairSerializerHandler : IRecordSerializerHandler<KvPair<IIgn
     /// <summary>
     /// Singleton instance.
     /// </summary>
-    public static readonly TuplePairSerializerHandler Instance = new();
+    public static readonly IRecordSerializerHandler<KvPair<IIgniteTuple, IIgniteTuple>> Instance = new TuplePairSerializerHandler();
 
     /// <summary>
     /// Initializes a new instance of the <see cref="TuplePairSerializerHandler"/> class.
@@ -77,38 +78,27 @@ internal class TuplePairSerializerHandler : IRecordSerializerHandler<KvPair<IIgn
     }
 
     /// <inheritdoc/>
-    public void Write(ref MessagePackWriter writer, Schema schema, KvPair<IIgniteTuple, IIgniteTuple> record, bool keyOnly = false)
+    public void Write(
+        ref BinaryTupleBuilder tupleBuilder,
+        KvPair<IIgniteTuple, IIgniteTuple> record,
+        Schema schema,
+        int columnCount,
+        Span<byte> noValueSet)
     {
-        var columns = schema.Columns;
-        var count = keyOnly ? schema.KeyColumnCount : columns.Count;
-        var noValueSet = writer.WriteBitSet(count);
-
-        var tupleBuilder = new BinaryTupleBuilder(count);
-
-        try
+        for (var index = 0; index < columnCount; index++)
         {
-            for (var index = 0; index < count; index++)
+            var col = schema.Columns[index];
+            var rec = index < schema.KeyColumnCount ? record.Key : record.Val;
+            var colIdx = rec.GetOrdinal(col.Name);
+
+            if (colIdx >= 0)
             {
-                var col = columns[index];
-                var rec = index < schema.KeyColumnCount ? record.Key : record.Val;
-                var colIdx = rec.GetOrdinal(col.Name);
-
-                if (colIdx >= 0)
-                {
-                    tupleBuilder.AppendObject(rec[colIdx], col.Type, col.Scale);
-                }
-                else
-                {
-                    tupleBuilder.AppendNoValue(noValueSet);
-                }
+                tupleBuilder.AppendObject(rec[colIdx], col.Type, col.Scale);
             }
-
-            var binaryTupleMemory = tupleBuilder.Build();
-            writer.Write(binaryTupleMemory.Span);
-        }
-        finally
-        {
-            tupleBuilder.Dispose();
+            else
+            {
+                tupleBuilder.AppendNoValue(noValueSet);
+            }
         }
     }
 }

@@ -47,7 +47,7 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
@@ -56,9 +56,8 @@ import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
-import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.StaticNodeFinder;
-import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.raft.TestWriteCommand;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.ReadCommand;
 import org.apache.ignite.raft.client.WriteCommand;
@@ -84,30 +83,22 @@ public class ItLearnersTest extends IgniteAbstractTest {
         }
     };
 
+    private static final TestRaftMessagesFactory MESSAGES_FACTORY = new TestRaftMessagesFactory();
+
+    private static TestWriteCommand createWriteCommand(String value) {
+        return MESSAGES_FACTORY.testWriteCommand().value(value).build();
+    }
+
     private static final List<NetworkAddress> ADDRS = List.of(
             new NetworkAddress("localhost", 5000),
             new NetworkAddress("localhost", 5001),
             new NetworkAddress("localhost", 5002)
     );
 
-    private static final TestRaftMessagesFactory MESSAGES_FACTORY = new TestRaftMessagesFactory();
-
     @InjectConfiguration
     private static RaftConfiguration raftConfiguration;
 
     private final List<RaftNode> nodes = new ArrayList<>(ADDRS.size());
-
-    /**
-     * Test WriteCommand.
-     */
-    @Transferable(10)
-    public interface TestWriteCommand extends NetworkMessage, WriteCommand {
-        String value();
-
-        static TestWriteCommand create(String value) {
-            return MESSAGES_FACTORY.testWriteCommand().value(value).build();
-        }
-    }
 
     /** Mock Raft node. */
     private class RaftNode implements AutoCloseable {
@@ -120,7 +111,7 @@ public class ItLearnersTest extends IgniteAbstractTest {
 
             Path raftDir = workDir.resolve(clusterService.localConfiguration().getName());
 
-            loza = new Loza(clusterService, raftConfiguration, raftDir, new HybridClock());
+            loza = new Loza(clusterService, raftConfiguration, raftDir, new HybridClockImpl());
         }
 
         ClusterNode localMember() {
@@ -195,8 +186,8 @@ public class ItLearnersTest extends IgniteAbstractTest {
 
         // Test writing data.
         CompletableFuture<?> writeFuture = services.get(0)
-                .thenCompose(s -> s.run(TestWriteCommand.create("foo")).thenApply(v -> s))
-                .thenCompose(s -> s.run(TestWriteCommand.create("bar")));
+                .thenCompose(s -> s.run(createWriteCommand("foo")).thenApply(v -> s))
+                .thenCompose(s -> s.run(createWriteCommand("bar")));
 
         assertThat(writeFuture, willCompleteSuccessfully());
 
@@ -259,7 +250,7 @@ public class ItLearnersTest extends IgniteAbstractTest {
 
         nodes.set(0, null).close();
 
-        assertThat(services.get(1).thenCompose(s -> s.run(TestWriteCommand.create("foo"))), willThrow(TimeoutException.class));
+        assertThat(services.get(1).thenCompose(s -> s.run(createWriteCommand("foo"))), willThrow(TimeoutException.class));
     }
 
     /**

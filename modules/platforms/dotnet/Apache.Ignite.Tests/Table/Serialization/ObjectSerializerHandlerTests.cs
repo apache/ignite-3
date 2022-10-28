@@ -34,8 +34,8 @@ namespace Apache.Ignite.Tests.Table.Serialization
     {
         private static readonly Schema Schema = new(1, 1, new[]
         {
-            new Column("Key", ClientDataType.Int64, false, true, 0, 0),
-            new Column("Val", ClientDataType.String, false, false, 1, 0)
+            new Column("Key", ClientDataType.Int64, IsNullable: false, IsColocation: true, IsKey: true, SchemaIndex: 0, Scale: 0),
+            new Column("Val", ClientDataType.String, IsNullable: false, IsColocation: false, IsKey: false, SchemaIndex: 1, Scale: 0)
         });
 
         [Test]
@@ -118,7 +118,7 @@ namespace Apache.Ignite.Tests.Table.Serialization
 
         private static byte[] Write<T>(T obj, bool keyOnly = false)
         {
-            var handler = new ObjectSerializerHandler<T>();
+            IRecordSerializerHandler<T> handler = new ObjectSerializerHandler<T>();
 
             using var pooledWriter = new PooledArrayBufferWriter();
             var writer = pooledWriter.GetMessageWriter();

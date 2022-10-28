@@ -18,14 +18,18 @@
 package org.apache.ignite.internal.index;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.util.ArrayUtils.STRING_EMPTY_ARRAY;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.internal.index.event.IndexEvent;
@@ -34,9 +38,18 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.manager.Producer;
+import org.apache.ignite.internal.schema.BinaryConverter;
+import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.schema.BinaryTupleSchema;
+import org.apache.ignite.internal.schema.Column;
+import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.SchemaManager;
+import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
+import org.apache.ignite.internal.schema.configuration.index.HashIndexChange;
 import org.apache.ignite.internal.schema.configuration.index.HashIndexView;
 import org.apache.ignite.internal.schema.configuration.index.IndexColumnView;
 import org.apache.ignite.internal.schema.configuration.index.SortedIndexView;
@@ -45,6 +58,7 @@ import org.apache.ignite.internal.schema.configuration.index.TableIndexConfigura
 import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
+import org.apache.ignite.internal.table.event.TableEvent;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.StringUtils;
 import org.apache.ignite.lang.ErrorGroups;
@@ -66,24 +80,29 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
     /** Common tables and indexes configuration. */
     private final TablesConfiguration tablesCfg;
 
+    /** Schema manager. */
+    private final SchemaManager schemaManager;
+
+    /** Table manager. */
+    private final TableManager tableManager;
+
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
     /** Prevents double stopping of the component. */
     private final AtomicBoolean stopGuard = new AtomicBoolean();
 
-    /** Table manager. */
-    private final TableManager tblManager;
-
     /**
      * Constructor.
      *
      * @param tablesCfg Tables and indexes configuration.
-     * @param tblManager Table manager.
+     * @param schemaManager Schema manager.
+     * @param tableManager Table manager.
      */
-    public IndexManager(TablesConfiguration tablesCfg, TableManager tblManager) {
+    public IndexManager(TablesConfiguration tablesCfg, SchemaManager schemaManager, TableManager tableManager) {
         this.tablesCfg = Objects.requireNonNull(tablesCfg, "tablesCfg");
-        this.tblManager = tblManager;
+        this.schemaManager = Objects.requireNonNull(schemaManager, "schemaManager");
+        this.tableManager = tableManager;
     }
 
     /** {@inheritDoc} */
@@ -92,6 +111,24 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         LOG.debug("Index manager is about to start");
 
         tablesCfg.indexes().listenElements(new ConfigurationListener());
+        tableManager.listen(TableEvent.CREATE, (param, ex) -> {
+            if (ex != null) {
+                return CompletableFuture.completedFuture(false);
+            }
+
+            List<String> pkColumns = Arrays.stream(param.table().schemaView().schema().keyColumns().columns())
+                    .map(Column::name)
+                    .collect(Collectors.toList());
+
+            String pkName = param.tableName() + "_PK";
+
+            createIndexAsync("PUBLIC", pkName, param.tableName(), false,
+                    change -> change.changeUniq(true).convert(HashIndexChange.class)
+                            .changeColumnNames(pkColumns.toArray(STRING_EMPTY_ARRAY))
+            );
+
+            return CompletableFuture.completedFuture(false);
+        });
 
         LOG.info("Index manager started");
     }
@@ -130,7 +167,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
             Consumer<TableIndexChange> indexChange
     ) {
         if (!busyLock.enterBusy()) {
-            return CompletableFuture.failedFuture(new NodeStoppingException());
+            return failedFuture(new NodeStoppingException());
         }
 
         LOG.debug("Going to create index [schema={}, table={}, index={}]", schemaName, tableName, indexName);
@@ -167,7 +204,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
                 indexListChange.create(indexName, chg);
             }).whenComplete((index, th) -> {
                 if (th != null) {
-                    LOG.info("Unable to create index [schema={}, table={}, index={}]",
+                    LOG.debug("Unable to create index [schema={}, table={}, index={}]",
                             th, schemaName, tableName, indexName);
 
                     if (!failIfExists && idxExist.get()) {
@@ -291,13 +328,19 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
             return failedFuture(new NodeStoppingException());
         }
 
-        try {
-            fireEvent(IndexEvent.DROP, new IndexEventParameters(evt.storageRevision(), idxId), null);
-        } finally {
-            busyLock.leaveBusy();
-        }
-
-        return CompletableFuture.completedFuture(null);
+        return tableManager.tableAsync(evt.oldValue().tableId())
+                .thenAccept(table -> {
+                    if (table != null) { // in case of DROP TABLE the table will be removed first
+                        table.unregisterIndex(idxId);
+                    }
+                })
+                .thenRun(() -> {
+                    try {
+                        fireEvent(IndexEvent.DROP, new IndexEventParameters(evt.storageRevision(), idxId), null);
+                    } finally {
+                        busyLock.leaveBusy();
+                    }
+                });
     }
 
     /**
@@ -336,13 +379,31 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         LOG.trace("Creating local index: name={}, id={}, tableId={}, token={}",
                 tableIndexView.name(), tableIndexView.id(), tableId, causalityToken);
 
-        TableImpl tbl = tblManager.latestTables().get(tableId);
+        TableImpl tbl = tableManager.latestTables().get(tableId);
 
         Index<?> index = newIndex(tbl, tableIndexView);
 
-        fireEvent(IndexEvent.CREATE, new IndexEventParameters(causalityToken, index), null);
+        TableRowToIndexKeyConverter tableRowConverter = new TableRowToIndexKeyConverter(
+                schemaManager.schemaRegistry(tableId),
+                index.descriptor().columns().toArray(STRING_EMPTY_ARRAY)
+        );
 
-        return CompletableFuture.completedFuture(null);
+        return tableManager.tableAsync(tableId)
+                .thenAccept(table -> {
+                    if (index instanceof HashIndex) {
+                        table.registerHashIndex(tableIndexView.id(), tableIndexView.uniq(), tableRowConverter::convert);
+
+                        if (tableIndexView.uniq()) {
+                            table.pkId(index.id());
+                        }
+                    } else if (index instanceof SortedIndex) {
+                        table.registerSortedIndex(tableIndexView.id(), tableRowConverter::convert);
+                    } else {
+                        throw new AssertionError("Unknown index type [type=" + index.getClass() + ']');
+                    }
+
+                    fireEvent(IndexEvent.CREATE, new IndexEventParameters(causalityToken, index), null);
+                });
     }
 
     private Index<?> newIndex(TableImpl table, TableIndexView indexView) {
@@ -387,6 +448,95 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
                 indexedColumns,
                 collations
         );
+    }
+
+    /**
+     * This class encapsulates the logic of conversion from table row to a particular index key.
+     */
+    private static class TableRowToIndexKeyConverter {
+        private final SchemaRegistry registry;
+        private final String[] indexedColumns;
+        private final Object mutex = new Object();
+
+        private volatile VersionedConverter converter = new VersionedConverter(-1,
+                t -> null);
+
+        TableRowToIndexKeyConverter(SchemaRegistry registry, String[] indexedColumns) {
+            this.registry = registry;
+            this.indexedColumns = indexedColumns;
+        }
+
+        public BinaryTuple convert(BinaryRow tableRow) {
+            VersionedConverter converter = this.converter;
+
+            if (converter.version != tableRow.schemaVersion()) {
+                synchronized (mutex) {
+                    if (converter.version != tableRow.schemaVersion()) {
+                        converter = createConverter(tableRow.schemaVersion());
+
+                        this.converter = converter;
+                    }
+                }
+            }
+
+            return converter.convert(tableRow);
+        }
+
+        /** Creates converter for given version of the schema. */
+        private VersionedConverter createConverter(int schemaVersion) {
+            SchemaDescriptor descriptor = registry.schema();
+
+            if (descriptor.version() < schemaVersion) {
+                registry.waitLatestSchema();
+            }
+
+            if (descriptor.version() != schemaVersion) {
+                descriptor = registry.schema(schemaVersion);
+            }
+
+            int[] indexedColumns = resolveColumnIndexes(descriptor);
+
+            BinaryTupleSchema tupleSchema = BinaryTupleSchema.createSchema(descriptor, indexedColumns);
+
+            var rowConverter = new BinaryConverter(descriptor, tupleSchema, false);
+
+            return new VersionedConverter(descriptor.version(),
+                    row -> new BinaryTuple(tupleSchema, rowConverter.toTuple(row)));
+        }
+
+        private int[] resolveColumnIndexes(SchemaDescriptor descriptor) {
+            int[] result = new int[indexedColumns.length];
+
+            for (int i = 0; i < indexedColumns.length; i++) {
+                Column column = descriptor.column(indexedColumns[i]);
+
+                assert column != null : indexedColumns[i];
+
+                result[i] = column.schemaIndex();
+            }
+
+            return result;
+        }
+
+        /**
+         * Convenient wrapper which glues together a function which actually converts one row to another,
+         * and a version of the schema the function was build upon.
+         */
+        private static class VersionedConverter {
+            private final int version;
+            private final Function<BinaryRow, BinaryTuple> delegate;
+
+            private VersionedConverter(int version,
+                    Function<BinaryRow, BinaryTuple> delegate) {
+                this.version = version;
+                this.delegate = delegate;
+            }
+
+            /** Converts the given row to tuple. */
+            public BinaryTuple convert(BinaryRow binaryRow) {
+                return delegate.apply(binaryRow);
+            }
+        }
     }
 
     private class ConfigurationListener implements ConfigurationNamedListListener<TableIndexView> {

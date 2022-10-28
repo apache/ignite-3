@@ -17,11 +17,9 @@
 
 package org.apache.ignite.internal.table.distributed.raft.snapshot;
 
-import java.util.List;
-import org.apache.ignite.internal.storage.ReadResult;
-import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
-import org.jetbrains.annotations.Nullable;
+import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 
 /**
  * Small abstractions for partition storages that includes only methods, mandatory for the snapshot storage.
@@ -29,31 +27,30 @@ import org.jetbrains.annotations.Nullable;
 public interface PartitionAccess {
     /**
      * Returns the key that uniquely identifies the corresponding partition.
-     *
-     * @return Partition key.
      */
-    PartitionKey key();
+    PartitionKey partitionKey();
 
     /**
-     * Returns persisted RAFT index for the partition.
+     * Returns the multi-versioned partition storage.
      */
-    long persistedIndex();
+    MvPartitionStorage mvPartitionStorage();
 
     /**
-     * Returns a row id, existing in the storage, that's greater or equal than the lower bound. {@code null} if not found.
-     *
-     * @param lowerBound Lower bound.
-     * @throws StorageException If failed to read data from the storage.
+     * Returns transaction state storage for the partition.
      */
-    @Nullable
-    RowId closestRowId(RowId lowerBound);
+    TxStateStorage txStatePartitionStorage();
 
     /**
-     * Returns all versions of a row identified with the given {@link RowId}.
-     * The returned versions are in newest-to-oldest order.
+     * Destroys and recreates the multi-versioned partition storage.
      *
-     * @param rowId Id of the row.
-     * @return All versions of the row.
+     * @throws StorageException If an error has occurred during the partition destruction.
      */
-    List<ReadResult> rowVersions(RowId rowId);
+    MvPartitionStorage reCreateMvPartitionStorage() throws StorageException;
+
+    /**
+     * Destroys and recreates the multi-versioned partition storage.
+     *
+     * @throws StorageException If an error has occurred during transaction state storage for the partition destruction.
+     */
+    TxStateStorage reCreateTxStatePartitionStorage() throws StorageException;
 }

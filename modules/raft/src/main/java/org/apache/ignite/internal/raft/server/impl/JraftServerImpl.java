@@ -414,6 +414,10 @@ public class JraftServerImpl implements RaftServer {
 
             nodeOptions.setRpcClient(client);
 
+            if (groupOptions.replicationGroupOptions() != null) {
+                nodeOptions.setSafeTimeTracker(groupOptions.replicationGroupOptions().safeTime());
+            }
+
             NetworkAddress addr = service.topologyService().localMember().address();
 
             var peerId = new PeerId(addr.host(), addr.port(), 0, ElectionPriority.DISABLED);

@@ -17,15 +17,32 @@
 
 package org.apache.ignite.internal.table;
 
+import static java.util.concurrent.CompletableFuture.allOf;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
+import java.util.function.Supplier;
+import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
+import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.marshaller.MarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.marshaller.reflection.KvMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
+import org.apache.ignite.internal.table.distributed.HashIndexLocker;
+import org.apache.ignite.internal.table.distributed.IndexLocker;
+import org.apache.ignite.internal.table.distributed.SortedIndexLocker;
+import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
+import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.KeyValueView;
@@ -34,6 +51,7 @@ import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Table view implementation for binary objects.
@@ -42,27 +60,47 @@ public class TableImpl implements Table {
     /** Internal table. */
     private final InternalTable tbl;
 
+    private final LockManager lockManager;
+
+    // private final Supplier<List<UUID>> activeIndexIds;
+
     /** Schema registry. Should be set either in constructor or via {@link #schemaView(SchemaRegistry)} before start of using the table. */
     private volatile SchemaRegistry schemaReg;
+
+    private final CompletableFuture<UUID> pkId = new CompletableFuture<>();
+
+    private final Map<UUID, CompletableFuture<?>> indexesToWait = new ConcurrentHashMap<>();
+
+    private final Map<UUID, IndexStorageAdapterFactory> indexStorageAdapterFactories = new ConcurrentHashMap<>();
+    private final Map<UUID, IndexLockerFactory> indexLockerFactories = new ConcurrentHashMap<>();
 
     /**
      * Constructor.
      *
      * @param tbl       The table.
+     * @param lockManager Lock manager.
+     * @param activeIndexIds Supplier of index ids which considered active on the moment of invocation.
      */
-    public TableImpl(InternalTable tbl) {
+    public TableImpl(InternalTable tbl, LockManager lockManager, Supplier<List<UUID>> activeIndexIds) {
         this.tbl = tbl;
+        this.lockManager = lockManager;
+        // this.activeIndexIds = activeIndexIds;
     }
 
     /**
      * Constructor.
      *
-     * @param tbl       The table.
+     * @param tbl The table.
      * @param schemaReg Table schema registry.
+     * @param lockManager Lock manager.
      */
-    public TableImpl(InternalTable tbl, SchemaRegistry schemaReg) {
+    @TestOnly
+    public TableImpl(InternalTable tbl, SchemaRegistry schemaReg, LockManager lockManager) {
         this.tbl = tbl;
         this.schemaReg = schemaReg;
+        this.lockManager = lockManager;
+
+        // activeIndexIds = List::of;
     }
 
     /**
@@ -72,6 +110,20 @@ public class TableImpl implements Table {
      */
     public @NotNull UUID tableId() {
         return tbl.tableId();
+    }
+
+    /**
+     * Provides current table with notion of a primary index.
+     *
+     * @param pkId An identifier of a primary index.
+     */
+    public void pkId(UUID pkId) {
+        this.pkId.complete(Objects.requireNonNull(pkId, "pkId"));
+    }
+
+    /** Returns an identifier of a primary index. */
+    public UUID pkId() {
+        return pkId.join();
     }
 
     /** Returns an internal table instance this view represents. */
@@ -177,5 +229,157 @@ public class TableImpl implements Table {
      */
     public ClusterNode leaderAssignment(int partition) {
         return tbl.leaderAssignment(partition);
+    }
+
+    /** Returns a supplier of index storage wrapper factories for given partition. */
+    public Supplier<Map<UUID, TableSchemaAwareIndexStorage>> indexStorageAdapters(int partId) {
+        return () -> {
+            awaitIndexes();
+
+            List<IndexStorageAdapterFactory> factories = new ArrayList<>(indexStorageAdapterFactories.values());
+
+            Map<UUID, TableSchemaAwareIndexStorage> adapters = new HashMap<>();
+
+            for (IndexStorageAdapterFactory factory : factories) {
+                TableSchemaAwareIndexStorage storage = factory.create(partId);
+                adapters.put(storage.id(), storage);
+            }
+
+            return adapters;
+        };
+    }
+
+    /** Returns a supplier of index locker factories for given partition. */
+    public Supplier<Map<UUID, IndexLocker>> indexesLockers(int partId) {
+        return () -> {
+            awaitIndexes();
+
+            List<IndexLockerFactory> factories = new ArrayList<>(indexLockerFactories.values());
+
+            Map<UUID, IndexLocker> lockers = new HashMap<>(factories.size());
+
+            for (IndexLockerFactory factory : factories) {
+                IndexLocker locker = factory.create(partId);
+                lockers.put(locker.id(), locker);
+            }
+
+            return lockers;
+        };
+    }
+
+    /**
+     * Register the index with given id in a table.
+     *
+     * @param indexId An index id os the index to register.
+     * @param unique A flag indicating whether the given index unique or not.
+     * @param searchRowResolver Function which converts given table row to an index key.
+     */
+    public void registerHashIndex(UUID indexId, boolean unique, Function<BinaryRow, BinaryTuple> searchRowResolver) {
+        indexLockerFactories.put(
+                indexId,
+                partitionId -> new HashIndexLocker(
+                        indexId,
+                        unique,
+                        lockManager,
+                        searchRowResolver
+                )
+        );
+        indexStorageAdapterFactories.put(
+                indexId,
+                partitionId -> new TableSchemaAwareIndexStorage(
+                        indexId,
+                        tbl.storage().getOrCreateHashIndex(partitionId, indexId),
+                        searchRowResolver
+                )
+        );
+
+        CompletableFuture<?> indexFuture = indexesToWait.remove(indexId);
+
+        if (indexFuture != null) {
+            indexFuture.complete(null);
+        }
+    }
+
+    /**
+     * Register the index with given id in a table.
+     *
+     * @param indexId An index id os the index to register.
+     * @param searchRowResolver Function which converts given table row to an index key.
+     */
+    public void registerSortedIndex(UUID indexId, Function<BinaryRow, BinaryTuple> searchRowResolver) {
+        indexLockerFactories.put(
+                indexId,
+                partitionId -> new SortedIndexLocker(
+                        indexId,
+                        lockManager,
+                        tbl.storage().getOrCreateSortedIndex(partitionId, indexId),
+                        searchRowResolver
+                )
+        );
+        indexStorageAdapterFactories.put(
+                indexId,
+                partitionId -> new TableSchemaAwareIndexStorage(
+                        indexId,
+                        tbl.storage().getOrCreateSortedIndex(partitionId, indexId),
+                        searchRowResolver
+                )
+        );
+
+        CompletableFuture<?> indexFuture = indexesToWait.remove(indexId);
+
+        if (indexFuture != null) {
+            indexFuture.complete(null);
+        }
+    }
+
+    /**
+     * Unregister given index from table.
+     *
+     * @param indexId An index id to unregister.
+     */
+    public void unregisterIndex(UUID indexId) {
+        indexLockerFactories.remove(indexId);
+        indexStorageAdapterFactories.remove(indexId);
+    }
+
+    private void awaitIndexes() {
+        // TODO: replace with actual call to ids supplier
+        List<UUID> indexIds = List.of(pkId()); // activeIndexIds.get();
+
+        List<CompletableFuture<?>> toWait = new ArrayList<>();
+
+        for (UUID indexId : indexIds) {
+            if (indexLockerFactories.containsKey(indexId) && indexStorageAdapterFactories.containsKey(indexId)) {
+                continue;
+            }
+
+            CompletableFuture<?> indexFuture = indexesToWait.computeIfAbsent(indexId, k -> new CompletableFuture<>());
+
+            // there is no synchronization between modification of index*Factories collections
+            // and indexesToWait collection, thus we may run into situation, when index was
+            // registered in the between of index existence check and registering a wait future.
+            // This second check aimed to resolve this race
+            if (indexLockerFactories.containsKey(indexId) && indexStorageAdapterFactories.containsKey(indexId)) {
+                indexesToWait.remove(indexId);
+
+                continue;
+            }
+
+            toWait.add(indexFuture);
+        }
+
+        allOf(toWait.toArray(CompletableFuture[]::new)).join();
+    }
+
+    @FunctionalInterface
+    private interface IndexLockerFactory {
+        /** Creates the index decorator for given partition. */
+        IndexLocker create(int partitionId);
+    }
+
+    @FunctionalInterface
+    private interface IndexStorageAdapterFactory {
+        /** Creates the index decorator for given partition. */
+        TableSchemaAwareIndexStorage create(int partitionId);
     }
 }

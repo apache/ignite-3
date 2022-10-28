@@ -27,6 +27,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -48,6 +51,7 @@ import org.apache.ignite.internal.configuration.tree.ConverterToMapVisitor;
 import org.apache.ignite.internal.configuration.tree.TraversableTreeNode;
 import org.apache.ignite.internal.index.event.IndexEvent;
 import org.apache.ignite.internal.index.event.IndexEventParameters;
+import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableChange;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableConfigurationSchema;
 import org.apache.ignite.internal.schema.configuration.TableChange;
@@ -123,6 +127,9 @@ public class IndexManagerTest {
 
         TableManager tblManager = Mockito.mock(TableManager.class);
         Map<UUID, TableImpl> tables = Mockito.mock(Map.class);
+
+//        when(tableManagerMock.tableAsync(any(UUID.class)))
+//                .thenReturn(CompletableFuture.completedFuture(mock(TableImpl.class)));
 
         Mockito.doReturn(tables).when(tblManager).latestTables();
         Mockito.doAnswer(inv -> {
