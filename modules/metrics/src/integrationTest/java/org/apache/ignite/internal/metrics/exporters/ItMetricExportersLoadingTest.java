@@ -33,7 +33,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 /**
  * Integration test for metrics' exporters loading.
  */
-@ExtendWith({ConfigurationExtension.class})
+@ExtendWith(ConfigurationExtension.class)
 public class ItMetricExportersLoadingTest {
     @InjectConfiguration(
             value = "mock.exporters = {"
@@ -48,7 +48,7 @@ public class ItMetricExportersLoadingTest {
     private MetricConfiguration metricConfiguration;
 
     @Test
-    public void test() throws Exception {
+    public void testExportersLoading() throws Exception {
         MetricManager metricManager = new MetricManager();
 
         metricManager.configure(metricConfiguration);
