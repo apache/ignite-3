@@ -65,6 +65,7 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -110,6 +111,7 @@ import org.apache.ignite.raft.jraft.RaftMessagesSerializationRegistryInitializer
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
+import org.apache.ignite.tx.TransactionException;
 import org.intellij.lang.annotations.Language;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -318,6 +320,8 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 new OutgoingSnapshotsManager(clusterSvc.messagingService())
         );
 
+        var indexManager = new IndexManager(tblCfg, schemaManager, tableManager);
+
         // Preparing the result map.
 
         partialNode.add(vault);
@@ -353,7 +357,8 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 clusterCfgMgr,
                 dataStorageManager,
                 schemaManager,
-                tableManager
+                tableManager,
+                indexManager
         );
 
         for (IgniteComponent component : otherComponents) {
