@@ -548,7 +548,7 @@ public class InternalTableImpl implements InternalTable {
                     .groupId(partGroupId)
                     .binaryRows(partToRows.getValue())
                     .requestType(RequestType.RO_GET_ALL)
-                    .readTimestamp(clock.now())
+                    .readTimestamp(readTimestamp)
                     .build()
             );
 
@@ -841,7 +841,7 @@ public class InternalTableImpl implements InternalTable {
                             .transactionId(UUID.randomUUID())
                             .scanId(scanId)
                             .batchSize(batchSize)
-                            .readTimestamp(clock.now())
+                            .readTimestamp(readTimestamp)
                             .build();
 
                     return replicaSvc.invoke(recipientNode, request);

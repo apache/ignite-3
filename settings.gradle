@@ -113,3 +113,22 @@ project(":ignite-replicator").projectDir = file('modules/replicator')
 project(":packaging-cli").projectDir = file('packaging/cli')
 project(":packaging-db").projectDir = file('packaging/db')
 project(":packaging").projectDir = file('packaging')
+
+ext.isCiServer = System.getenv().containsKey("IGNITE_CI")
+
+buildCache {
+    local {
+        enabled = !isCiServer
+        push = !isCiServer
+    }
+    remote(HttpBuildCache) {
+        enabled = isCiServer
+        push = isCiServer
+        url = System.getenv()["GRADLE_BUILD_CACHE_URI"] + "/cache/"
+        allowInsecureProtocol = true
+        credentials {
+            username = System.getenv()["GRADLE_BUILD_CACHE_USERNAME"]
+            password = System.getenv()["GRADLE_BUILD_CACHE_PASSWORD"]
+        }
+    }
+}
