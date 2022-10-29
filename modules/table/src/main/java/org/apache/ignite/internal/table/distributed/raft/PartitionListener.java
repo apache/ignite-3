@@ -31,6 +31,7 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.lock.AutoLockup;
@@ -97,7 +98,6 @@ public class PartitionListener implements RaftGroupListener {
         this.indexes = indexes;
     }
 
-    /** {@inheritDoc} */
     @Override
     public void onRead(Iterator<CommandClosure<ReadCommand>> iterator) {
         iterator.forEachRemaining((CommandClosure<? extends ReadCommand> clo) -> {
@@ -107,7 +107,6 @@ public class PartitionListener implements RaftGroupListener {
         });
     }
 
-    /** {@inheritDoc} */
     @Override
     public void onWrite(Iterator<CommandClosure<WriteCommand>> iterator) {
         iterator.forEachRemaining((CommandClosure<? extends WriteCommand> clo) -> {
@@ -115,11 +114,14 @@ public class PartitionListener implements RaftGroupListener {
 
             long commandIndex = clo.index();
 
-            long storageAppliedIndex = storage.lastAppliedIndex();
+            // We choose the minimum applied index, since we choose it (the minimum one) on local recovery so as not to lose the data for
+            // one of the storages.
+            long storagesAppliedIndex = Math.min(storage.lastAppliedIndex(), txStateStorage.lastAppliedIndex());
 
-            assert storageAppliedIndex < commandIndex
-                    : "Pending write command has a higher index than already processed commands [commandIndex=" + commandIndex
-                    + ", storageAppliedIndex=" + storageAppliedIndex + ']';
+            assert commandIndex > storagesAppliedIndex :
+                    "Write command must have an index greater than that of storages [commandIndex=" + commandIndex
+                            + ", mvAppliedIndex=" + storage.lastAppliedIndex()
+                            + ", txStateAppliedIndex=" + txStateStorage.lastAppliedIndex() + "]";
 
             try (AutoLockup ignoredPartitionSnapshotsReadLockup = storage.acquirePartitionSnapshotsReadLock()) {
                 if (command instanceof UpdateCommand) {
@@ -135,6 +137,7 @@ public class PartitionListener implements RaftGroupListener {
                 } else {
                     assert false : "Command was not found [cmd=" + command + ']';
                 }
+
                 clo.result(null);
             } catch (IgniteInternalException e) {
                 clo.result(e);
@@ -146,8 +149,14 @@ public class PartitionListener implements RaftGroupListener {
      * Handler for the {@link UpdateCommand}.
      *
      * @param cmd Command.
+     * @param commandIndex Index of the RAFT command.
      */
     private void handleUpdateCommand(UpdateCommand cmd, long commandIndex) {
+        // Skips the write command because the storage has already executed it.
+        if (commandIndex <= storage.lastAppliedIndex()) {
+            return;
+        }
+
         storage.runConsistently(() -> {
             BinaryRow row = cmd.getRow();
             RowId rowId = cmd.getRowId();
@@ -171,8 +180,14 @@ public class PartitionListener implements RaftGroupListener {
      * Handler for the {@link UpdateAllCommand}.
      *
      * @param cmd Command.
+     * @param commandIndex Index of the RAFT command.
      */
     private void handleUpdateAllCommand(UpdateAllCommand cmd, long commandIndex) {
+        // Skips the write command because the storage has already executed it.
+        if (commandIndex <= storage.lastAppliedIndex()) {
+            return;
+        }
+
         storage.runConsistently(() -> {
             UUID txId = cmd.txId();
             Map<RowId, BinaryRow> rowsToUpdate = cmd.getRowsToUpdate();
@@ -191,6 +206,7 @@ public class PartitionListener implements RaftGroupListener {
                     addToIndexes(row, rowId);
                 }
             }
+
             storage.lastAppliedIndex(commandIndex);
 
             return null;
@@ -200,11 +216,16 @@ public class PartitionListener implements RaftGroupListener {
     /**
      * Handler for the {@link FinishTxCommand}.
      *
-     * @param cmd          Command.
+     * @param cmd Command.
      * @param commandIndex Index of the RAFT command.
      * @throws IgniteInternalException if an exception occurred during a transaction state change.
      */
     private void handleFinishTxCommand(FinishTxCommand cmd, long commandIndex) throws IgniteInternalException {
+        // Skips the write command because the storage has already executed it.
+        if (commandIndex <= txStateStorage.lastAppliedIndex()) {
+            return;
+        }
+
         UUID txId = cmd.txId();
 
         TxState stateToSet = cmd.commit() ? TxState.COMMITED : TxState.ABORTED;
@@ -250,8 +271,14 @@ public class PartitionListener implements RaftGroupListener {
      * Handler for the {@link TxCleanupCommand}.
      *
      * @param cmd Command.
+     * @param commandIndex Index of the RAFT command.
      */
     private void handleTxCleanupCommand(TxCleanupCommand cmd, long commandIndex) {
+        // Skips the write command because the storage has already executed it.
+        if (commandIndex <= storage.lastAppliedIndex()) {
+            return;
+        }
+
         storage.runConsistently(() -> {
             UUID txId = cmd.txId();
 
@@ -283,19 +310,39 @@ public class PartitionListener implements RaftGroupListener {
         // No-op.
     }
 
-    /** {@inheritDoc} */
     @Override
     public void onSnapshotSave(Path path, Consumer<Throwable> doneClo) {
-        storage.flush();
+        // The max index here is required for local recovery and a possible scenario
+        // of false node failure when we actually have all required data. This might happen because we use the minimal index
+        // among storages on a node restart.
+        // Let's consider a more detailed example:
+        //      1) We don't propagate the maximal lastAppliedIndex among storages, and onSnapshotSave finishes, it leads to the raft log
+        //         truncation until the maximal lastAppliedIndex.
+        //      2) Unexpected cluster restart happens.
+        //      3) Local recovery of a node is started, where we request data from the minimal lastAppliedIndex among storages, because
+        //         some data for some node might not have been flushed before unexpected cluster restart.
+        //      4) When we try to restore data starting from the minimal lastAppliedIndex, we come to the situation
+        //         that a raft node doesn't have such data, because the truncation until the maximal lastAppliedIndex from 1) has happened.
+        //      5) Node cannot finish local recovery.
+        long maxLastAppliedIndex = Math.max(storage.lastAppliedIndex(), txStateStorage.lastAppliedIndex());
+
+        storage.runConsistently(() -> {
+            storage.lastAppliedIndex(maxLastAppliedIndex);
+
+            return null;
+        });
+
+        txStateStorage.lastAppliedIndex(maxLastAppliedIndex);
+
+        CompletableFuture.allOf(storage.flush(), txStateStorage.flush())
+                .whenComplete((unused, throwable) -> doneClo.accept(throwable));
     }
 
-    /** {@inheritDoc} */
     @Override
     public boolean onSnapshotLoad(Path path) {
         return true;
     }
 
-    /** {@inheritDoc} */
     @Override
     public void onShutdown() {
         // TODO: IGNITE-17958 - probably, we should not close the storage here as PartitionListener did not create the storage.
