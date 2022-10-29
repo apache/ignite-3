@@ -18,7 +18,9 @@
 #pragma once
 
 #include "ignite/common/bytes_view.h"
+#include "ignite/common/bytes.h"
 #include "ignite/common/uuid.h"
+#include "ignite/protocol/bitset_span.h"
 #include "ignite/protocol/extension_types.h"
 #include "ignite/protocol/buffer_adapter.h"
 
@@ -98,7 +100,9 @@ public:
      */
     void write(uuid value) {
         std::byte data[16];
-        // TODO: pack value to data
+        bytes::store<endian::LITTLE, std::int64_t>(&data[0], value.getMostSignificantBits());
+        bytes::store<endian::LITTLE, std::int64_t>(&data[8], value.getLeastSignificantBits());
+
         msgpack_pack_ext_with_body(m_packer.get(), &data, 16, std::int8_t(extension_type::UUID));
     }
 
@@ -125,6 +129,15 @@ public:
      * Write empty map.
      */
     void write_map_empty() { msgpack_pack_map(m_packer.get(), 0); }
+
+    /**
+     * Write bitset.
+     *
+     * @param data Bitset to write.
+     */
+    void write_bitset(bytes_view data) {
+        msgpack_pack_ext_with_body(m_packer.get(), data.data(), data.size(), std::int8_t(extension_type::BITMASK));
+    }
 
 private:
     /**

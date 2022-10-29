@@ -161,9 +161,19 @@ T bit_ceil(T value) noexcept {
     // "Possible implementation" section here:
     // https://en.cppreference.com/w/cpp/numeric/bit_ceil
     // But do we really need this complication in our code? We can use somewhat relaxed
-    // rules as comapred to the standard library.
+    // rules as compared to the standard library.
     return value <= 1u ? 1u : T(1u) << bit_width(T(value - 1u));
 #endif
+}
+
+/**
+ * Get a number of bytes needed to store a specified number of bits of information.
+ *
+ * @param bits_num Number of bits to store.
+ * @return Required bytes number.
+ */
+[[nodiscard]] inline std::size_t bytes_for_bits(std::size_t bits_num) {
+    return bits_num ? ((bits_num - 1) / CHAR_BIT) + 1 : 0;
 }
 
 } // namespace ignite

@@ -196,10 +196,7 @@ public:
     [[nodiscard]] uint32_t read_array_size() const {
         check_data_in_stream();
 
-        if (m_current_val.data.type != MSGPACK_OBJECT_ARRAY)
-            throw ignite_error("The value in stream is not an Array");
-
-        return m_current_val.data.via.array.size;
+        return unpack_array_size(m_current_val.data);
     }
 
     /**

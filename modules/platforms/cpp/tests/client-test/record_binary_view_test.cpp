@@ -65,10 +65,10 @@ protected:
      * @param val Value.
      * @return Ignite tuple instance.
      */
-    static ignite_tuple get_tuple(int64_t id, std::string_view val) {
+    static ignite_tuple get_tuple(int64_t id, std::string val) {
         return {
             {KEY_COLUMN, id},
-            {VAL_COLUMN, val}
+            {VAL_COLUMN, std::move(val)}
         };
     }
 

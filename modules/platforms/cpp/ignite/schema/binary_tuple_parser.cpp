@@ -106,7 +106,7 @@ binary_tuple_parser::binary_tuple_parser(IntT num_elements, bytes_view data)
 
     // Fix tuple size if needed.
     const std::byte *tuple_end = value_base + bytes::ltoh(le_end_offset);
-    const std::byte *given_end = &(*binary_tuple.end());
+    const std::byte *given_end = binary_tuple.data() + binary_tuple.size();
     if (given_end > tuple_end) {
         binary_tuple.remove_suffix(given_end - tuple_end);
     } else if (given_end < tuple_end) {

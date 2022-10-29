@@ -16,12 +16,14 @@
  */
 
 #include "ignite/client/detail/table/table_impl.h"
+
+#include "ignite/protocol/bitset_span.h"
+#include "ignite/protocol/reader.h"
+#include "ignite/protocol/writer.h"
 #include "ignite/schema/binary_tuple_builder.h"
 #include "ignite/schema/binary_tuple_parser.h"
+#include "ignite/common/bits.h"
 #include "ignite/common/ignite_error.h"
-
-#include <ignite/protocol/reader.h>
-#include <ignite/protocol/writer.h>
 
 namespace ignite::detail {
 
@@ -170,9 +172,11 @@ void transactions_not_implemented(transaction* tx) {
  * @param sch Schema.
  * @param tuple Tuple.
  * @param key_only Should only key fields be serialized.
+ * @param no_value No value bitset.
  * @return Serialized binary tuple.
  */
-std::vector<std::byte> pack_tuple(const schema& sch, const ignite_tuple& tuple, bool key_only) {
+std::vector<std::byte> pack_tuple(const schema& sch, const ignite_tuple& tuple, bool key_only,
+        protocol::bitset_span& no_value) {
     auto count = std::int32_t(key_only ? sch.key_column_count : sch.columns.size());
     binary_tuple_builder builder{count};
 
@@ -189,15 +193,16 @@ std::vector<std::byte> pack_tuple(const schema& sch, const ignite_tuple& tuple, 
     }
 
     builder.layout();
-    // TODO: Re-factor to optimize this
     for (std::int32_t i = 0; i < count; ++i) {
         const auto& col = sch.columns[i];
         auto col_idx = tuple.column_ordinal(col.name);
 
         if (col_idx >= 0)
             append_column(builder, col.type, col_idx, tuple);
-        else
+        else {
             builder.append(std::nullopt);
+            no_value.set(std::size_t(i));
+        }
     }
 
     return builder.build();
@@ -213,7 +218,15 @@ std::vector<std::byte> pack_tuple(const schema& sch, const ignite_tuple& tuple, 
  * @param key_only Should only key fields be written or not.
  */
 void write_tuple(protocol::writer& writer, const schema& sch, const ignite_tuple& tuple, bool key_only) {
-    auto tuple_data = pack_tuple(sch, tuple, key_only);
+    const std::size_t count = key_only ? sch.key_column_count : sch.columns.size();
+    const std::size_t bytes_num = bytes_for_bits(count);
+
+    auto no_value_bytes = reinterpret_cast<std::byte*>(alloca(bytes_num));
+    protocol::bitset_span no_value(no_value_bytes, bytes_num);
+
+    auto tuple_data = pack_tuple(sch, tuple, key_only, no_value);
+
+    writer.write_bitset(no_value.data());
     writer.write_binary(tuple_data);
 }
 
@@ -230,18 +243,18 @@ std::optional<ignite_tuple> read_tuple(protocol::reader& reader, const schema* s
     auto tuple_data = reader.read_binary();
 
     auto columns_cnt = std::int32_t(sch->columns.size());
-    ignite_tuple res(columns_cnt);
+    ignite_tuple_builder res(columns_cnt);
     binary_tuple_parser parser(columns_cnt - sch->key_column_count, tuple_data);
 
     for (std::int32_t i = 0; i < columns_cnt; ++i) {
         auto& column = sch->columns[i];
         if (i < sch->key_column_count) {
-            res.set(column.name, key.get(column.name));
+            res.add(column.name, key.get(column.name));
         } else {
-            res.set(column.name, read_next_column(parser, column.type));
+            res.add(column.name, read_next_column(parser, column.type));
         }
     }
-    return std::move(res);
+    return std::move(res).build();
 }
 
 void table_impl::get_latest_schema_async(ignite_callback<std::shared_ptr<schema>> callback) {
@@ -268,7 +281,7 @@ void table_impl::load_schema_async(ignite_callback<std::shared_ptr<schema>> call
 
     auto table = shared_from_this();
     auto reader_func = [table](protocol::reader &reader) mutable -> std::shared_ptr<schema> {
-        auto schema_cnt = reader.read_array_size();
+        auto schema_cnt = reader.read_map_size();
         if (!schema_cnt)
             throw ignite_error("Schema not found");
 
@@ -288,17 +301,16 @@ void table_impl::load_schema_async(ignite_callback<std::shared_ptr<schema>> call
 void table_impl::get_async(transaction *tx, const ignite_tuple& key, ignite_callback<std::optional<ignite_tuple>> callback) {
     transactions_not_implemented(tx);
 
-    // TODO: eliminate copying of key for most cases
     with_latest_schema_async<std::optional<ignite_tuple>>(std::move(callback),
-        [this, key = ignite_tuple(key)] (const schema& sch, auto callback) mutable {
-        auto writer_func = [this, &key, &sch] (protocol::writer &writer) {
+        [this, key = std::make_shared<ignite_tuple>(key)] (const schema& sch, auto callback) mutable {
+        auto writer_func = [this, key, &sch] (protocol::writer &writer) {
             write_table_operation_header(writer, m_id, sch);
-            write_tuple(writer, sch, key, true);
+            write_tuple(writer, sch, *key, true);
         };
 
-        auto reader_func = [self = shared_from_this(), &key] (protocol::reader &reader) -> std::optional<ignite_tuple> {
+        auto reader_func = [self = shared_from_this(), key] (protocol::reader &reader) -> std::optional<ignite_tuple> {
             std::shared_ptr<schema> sch = self->get_schema(reader);
-            return read_tuple(reader, sch.get(), key);
+            return read_tuple(reader, sch.get(), *key);
         };
 
         m_connection->perform_request<std::optional<ignite_tuple>>(
