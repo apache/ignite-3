@@ -121,3 +121,29 @@ TEST_F(record_binary_view_test, upsert_get_async) {
     EXPECT_EQ(val_tuple.get<std::string>("val"), res_tuple->get<std::string>("val"));
 }
 
+TEST_F(record_binary_view_test, upsert_all_get_all) {
+    static constexpr std::size_t records_num = 10;
+
+    std::vector<ignite_tuple> keys;
+    std::vector<ignite_tuple> records;
+
+    keys.reserve(records_num);
+    records.reserve(records_num);
+
+    for (std::int64_t i = 0; i < std::int64_t(records_num); ++i) {
+        keys.emplace_back(get_tuple(i));
+        records.emplace_back(get_tuple(i, "Val" + std::to_string(i)));
+    }
+
+    tuple_view.upsert_all(nullptr, records);
+    auto res = tuple_view.get_all(nullptr, keys);
+
+    EXPECT_EQ(res.size(), records_num);
+
+    for (std::int64_t i = 0; i < std::int64_t(records_num); ++i) {
+        ASSERT_TRUE(res[i].has_value());
+        EXPECT_EQ(records[i].column_count(), res[i]->column_count());
+        EXPECT_EQ(records[i].get<int64_t>("key"), res[i]->get<int64_t>("key"));
+        EXPECT_EQ(records[i].get<std::string>("val"), res[i]->get<std::string>("val"));
+    }
+}

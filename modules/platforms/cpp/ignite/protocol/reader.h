@@ -123,6 +123,13 @@ public:
     [[nodiscard]] std::int64_t read_int64() { return read_object<int64_t>(); }
 
     /**
+     * Read bool.
+     *
+     * @return Value.
+     */
+    [[nodiscard]] bool read_bool() { return read_object<bool>(); }
+
+    /**
      * Read string.
      *
      * @return String value.

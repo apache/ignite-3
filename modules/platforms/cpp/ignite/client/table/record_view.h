@@ -25,6 +25,7 @@
 
 #include <memory>
 #include <utility>
+#include <vector>
 #include <type_traits>
 
 namespace ignite {
@@ -77,9 +78,10 @@ public:
      * Gets a record by key asynchronously.
      *
      * @param tx Optional transaction. If nullptr implicit transaction for this
-     *  single operation is used.
+     *   single operation is used.
      * @param key Key.
-     * @param callback Callback.
+     * @param callback Callback which is called on success with value if it
+     *   exists and @c std::nullopt otherwise
      */
     IGNITE_API void get_async(transaction* tx, const value_type& key, ignite_callback<std::optional<value_type>> callback);
 
@@ -87,13 +89,45 @@ public:
      * Gets a record by key.
      *
      * @param tx Optional transaction. If nullptr implicit transaction for this
-     *  single operation is used.
+     *   single operation is used.
      * @param key Key.
-     * @param callback Callback.
+     * @return Value if exists and @c std::nullopt otherwise.
      */
     IGNITE_API std::optional<value_type> get(transaction* tx, const value_type& key) {
-        return sync<std::optional<value_type>>([this, &tx, &key] (auto callback) {
+        return sync<std::optional<value_type>>([this, tx, &key] (auto callback) {
             get_async(tx, key, std::move(callback));
+        });
+    }
+
+    /**
+     * Gets multiple records by keys asynchronously.
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *   single operation is used.
+     * @param keys Keys.
+     * @param callback Callback that called on operation completion. Called with
+     *   resulting records with all columns filled from the table. The order of
+     *   elements is guaranteed to be the same as the order of keys. If a record
+     *   does not exist, the resulting element of the corresponding order is
+     *   @c std::nullopt.
+     */
+    IGNITE_API void get_all_async(transaction* tx, std::vector<value_type> keys,
+        ignite_callback<std::vector<std::optional<value_type>>> callback);
+
+    /**
+     * Gets multiple records by keys.
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *   single operation is used.
+     * @param keys Keys.
+     * @return Resulting records with all columns filled from the table.
+     *   The order of elements is guaranteed to be the same as the order of
+     *   keys. If a record does not exist, the resulting element of the
+     *   corresponding order is @c std::nullopt.
+     */
+    IGNITE_API std::vector<std::optional<value_type>> get_all(transaction* tx, std::vector<value_type> keys) {
+        return sync<std::vector<std::optional<value_type>>>([this, tx, keys = std::move(keys)] (auto callback) mutable {
+            get_all_async(tx, std::move(keys), std::move(callback));
         });
     }
 
@@ -115,8 +149,31 @@ public:
      * @param record A record to insert into the table. The record cannot be @c nullptr.
      */
     IGNITE_API void upsert(transaction* tx, const value_type& record) {
-        sync<void>([this, &tx, &record] (auto callback) {
+        sync<void>([this, tx, &record] (auto callback) {
             upsert_async(tx, record, std::move(callback));
+        });
+    }
+
+    /**
+     * Inserts multiple records into the table asynchronously, replacing existing ones.
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *   single operation is used.
+     * @param records Records to upsert.
+     * @param callback Callback that called on operation completion.
+     */
+    IGNITE_API void upsert_all_async(transaction* tx, std::vector<value_type> records, ignite_callback<void> callback);
+
+    /**
+     * Inserts multiple records into the table, replacing existing ones.
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *   single operation is used.
+     * @param records Records to upsert.
+     */
+    IGNITE_API void upsert_all(transaction* tx, std::vector<value_type> records) {
+        sync<void>([this, tx, records = std::move(records)] (auto callback) mutable {
+            upsert_all_async(tx, std::move(records), std::move(callback));
         });
     }
 

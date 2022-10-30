@@ -37,6 +37,12 @@ enum class client_operation {
 
     /** Get tuple. */
     TUPLE_GET = 12,
+
+    /** Upsert all tuples. */
+    TUPLE_UPSERT_ALL = 13,
+
+    /** Get all tuples. */
+    TUPLE_GET_ALL = 14,
 };
 
 /**
