@@ -16,9 +16,10 @@
  */
 
 #include "ignite_runner_suite.h"
+#include "tests/test-common/test_utils.h"
 
-#include <ignite/client/ignite_client.h>
-#include <ignite/client/ignite_client_configuration.h>
+#include "ignite/client/ignite_client.h"
+#include "ignite/client/ignite_client_configuration.h"
 
 #include <gtest/gtest.h>
 
@@ -26,19 +27,6 @@
 #include <chrono>
 
 using namespace ignite;
-
-template <typename T>
-bool check_and_set_operation_error(std::promise<void> &operation, const ignite_result<T> &res) {
-    if (res.has_error()) {
-        operation.set_exception(std::make_exception_ptr(res.error()));
-        return false;
-    }
-    if (!res.has_value()) {
-        operation.set_exception(std::make_exception_ptr(ignite_error("There is no value in client result")));
-        return false;
-    }
-    return true;
-}
 
 /**
  * Test suite.

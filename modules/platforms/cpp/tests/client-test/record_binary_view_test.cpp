@@ -16,29 +16,16 @@
  */
 
 #include "ignite_runner_suite.h"
+#include "tests/test-common/test_utils.h"
 
-#include <ignite/client/ignite_client.h>
-#include <ignite/client/ignite_client_configuration.h>
+#include "ignite/client/ignite_client.h"
+#include "ignite/client/ignite_client_configuration.h"
 
 #include <gtest/gtest.h>
 
-#include <algorithm>
 #include <chrono>
 
 using namespace ignite;
-
-template <typename T>
-bool check_and_set_operation_error(std::promise<void> &operation, const ignite_result<T> &res) {
-    if (res.has_error()) {
-        operation.set_exception(std::make_exception_ptr(res.error()));
-        return false;
-    }
-    if (!res.has_value()) {
-        operation.set_exception(std::make_exception_ptr(ignite_error("There is no value in client result")));
-        return false;
-    }
-    return true;
-}
 
 /**
  * Test suite.
@@ -100,14 +87,37 @@ protected:
 };
 
 TEST_F(record_binary_view_test, upsert_get) {
-    tuple_view.upsert(nullptr, get_tuple(1, "foo"));
-
     auto key_tuple = get_tuple(1);
+    auto val_tuple = get_tuple(1, "foo");
+
+    tuple_view.upsert(nullptr, val_tuple);
     auto res_tuple = tuple_view.get(nullptr, key_tuple);
 
     ASSERT_TRUE(res_tuple.has_value());
     EXPECT_EQ(2, res_tuple->column_count());
     EXPECT_EQ(1L, res_tuple->get<int64_t>("key"));
     EXPECT_EQ("foo", res_tuple->get<std::string>("val"));
+}
+
+TEST_F(record_binary_view_test, upsert_get_async) {
+    auto key_tuple = get_tuple(1);
+    auto val_tuple = get_tuple(1, "foo");
+
+    auto all_done = std::make_shared<std::promise<std::optional<ignite_tuple>>>();
+
+    tuple_view.upsert_async(nullptr, val_tuple, [&] (ignite_result<void> &&res) {
+        if (!check_and_set_operation_error(*all_done, res))
+            return;
+
+        tuple_view.get_async(nullptr, key_tuple, [&] (auto res) {
+            result_set_promise(*all_done, std::move(res));
+        });
+    });
+
+    auto res_tuple = all_done->get_future().get();
+    ASSERT_TRUE(res_tuple.has_value());
+    EXPECT_EQ(val_tuple.column_count(), res_tuple->column_count());
+    EXPECT_EQ(val_tuple.get<int64_t>("key"), res_tuple->get<int64_t>("key"));
+    EXPECT_EQ(val_tuple.get<std::string>("val"), res_tuple->get<std::string>("val"));
 }
 
