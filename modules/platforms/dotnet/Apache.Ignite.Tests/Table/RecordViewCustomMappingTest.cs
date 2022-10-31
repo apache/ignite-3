@@ -119,7 +119,7 @@ public class RecordViewCustomMappingTest : IgniteTestsBase
         [Column("key")]
         public long Id { get; set; }
 
-        [Column("val")]
+        [Column("VAL")]
         public string Name { get; set; } = null!;
     }
 
