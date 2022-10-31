@@ -624,7 +624,7 @@ void table_impl::remove_async(transaction *tx, const ignite_tuple &key, ignite_c
     });
 }
 
-void table_impl::delete_all_async(transaction *tx, std::vector<ignite_tuple> keys,
+void table_impl::remove_all_async(transaction *tx, std::vector<ignite_tuple> keys,
     ignite_callback<std::vector<ignite_tuple>> callback)
 {
     transactions_not_implemented(tx);

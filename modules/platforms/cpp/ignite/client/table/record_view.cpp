@@ -117,13 +117,13 @@ void record_view<ignite_tuple>::remove_async(transaction *tx, const ignite_tuple
     m_impl->remove_async(tx, key, std::move(callback));
 }
 
-void record_view<ignite_tuple>::delete_all_async(transaction *tx, std::vector<value_type> keys,
+void record_view<ignite_tuple>::remove_all_async(transaction *tx, std::vector<value_type> keys,
     ignite_callback<std::vector<value_type>> callback)
 {
     if (keys.empty())
         throw ignite_error("At least one key should be supplied");
 
-    m_impl->delete_all_async(tx, std::move(keys), std::move(callback));
+    m_impl->remove_all_async(tx, std::move(keys), std::move(callback));
 }
 
 } // namespace ignite

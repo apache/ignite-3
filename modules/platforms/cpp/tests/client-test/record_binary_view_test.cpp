@@ -51,7 +51,7 @@ protected:
         for (int i = -100; i < 100; ++i)
             work_range.emplace_back(get_tuple(i));
 
-        tuple_view.delete_all(nullptr, work_range);
+        tuple_view.remove_all(nullptr, work_range);
     }
 
     /**
@@ -745,9 +745,9 @@ TEST_F(record_binary_view_test, remove_empty_throws) {
     }, ignite_error);
 }
 
-TEST_F(record_binary_view_test, delete_all_nonexisting_keys_return_all) {
+TEST_F(record_binary_view_test, remove_all_nonexisting_keys_return_all) {
     std::vector<ignite_tuple> non_existing = { get_tuple(1), get_tuple(2) };
-    auto res = tuple_view.delete_all(nullptr, non_existing);
+    auto res = tuple_view.remove_all(nullptr, non_existing);
 
     EXPECT_EQ(res.size(), 2);
 
@@ -759,16 +759,16 @@ TEST_F(record_binary_view_test, delete_all_nonexisting_keys_return_all) {
     EXPECT_EQ(1, res[1].get<int64_t>("key"));
 }
 
-TEST_F(record_binary_view_test, delete_all_only_existing) {
+TEST_F(record_binary_view_test, remove_all_only_existing) {
     std::vector<ignite_tuple> to_insert = { get_tuple(1, "foo"), get_tuple(2, "bar") };
     tuple_view.upsert_all(nullptr, to_insert);
 
-    auto res = tuple_view.delete_all(nullptr, {get_tuple(1), get_tuple(2)});
+    auto res = tuple_view.remove_all(nullptr, {get_tuple(1), get_tuple(2)});
 
     EXPECT_TRUE(res.empty());
 }
 
-TEST_F(record_binary_view_test, delete_all_overlapped) {
+TEST_F(record_binary_view_test, remove_all_overlapped) {
     static constexpr std::size_t records_num = 10;
 
     std::vector<ignite_tuple> to_insert;
@@ -778,11 +778,11 @@ TEST_F(record_binary_view_test, delete_all_overlapped) {
 
     tuple_view.upsert_all(nullptr, to_insert);
 
-    std::vector<ignite_tuple> to_delete;
+    std::vector<ignite_tuple> to_remove;
     for (std::int64_t i = 9; i < 13; ++i)
-        to_delete.emplace_back(get_tuple(i));
+        to_remove.emplace_back(get_tuple(i));
 
-    auto res = tuple_view.delete_all(nullptr, to_delete);
+    auto res = tuple_view.remove_all(nullptr, to_remove);
 
     EXPECT_EQ(res.size(), 2);
 
@@ -794,11 +794,11 @@ TEST_F(record_binary_view_test, delete_all_overlapped) {
     EXPECT_EQ(11, res[1].get<int64_t>("key"));
 }
 
-TEST_F(record_binary_view_test, delete_all_empty_keyset_throws) {
+TEST_F(record_binary_view_test, remove_all_empty_keyset_throws) {
     EXPECT_THROW({
         try {
             std::vector<ignite_tuple> empty;
-            tuple_view.delete_all(nullptr, empty);
+            tuple_view.remove_all(nullptr, empty);
         } catch (const ignite_error& e) {
             EXPECT_STREQ("At least one key should be supplied", e.what());
             throw;

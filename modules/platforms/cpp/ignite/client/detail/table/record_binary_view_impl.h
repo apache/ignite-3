@@ -217,9 +217,9 @@ public:
      * @param callback Callback that called on operation completion. Called with
      *   records from @c keys that did not exist.
      */
-    void delete_all_async(transaction* tx, std::vector<ignite_tuple> keys,
+    void remove_all_async(transaction* tx, std::vector<ignite_tuple> keys,
         ignite_callback<std::vector<ignite_tuple>> callback) {
-        m_table->delete_all_async(tx, std::move(keys), std::move(callback));
+        m_table->remove_all_async(tx, std::move(keys), std::move(callback));
     }
 
 private:

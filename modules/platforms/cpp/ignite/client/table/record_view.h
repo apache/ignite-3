@@ -377,7 +377,7 @@ public:
      * @param callback Callback that called on operation completion. Called with
      *   records from @c keys that did not exist.
      */
-    IGNITE_API void delete_all_async(transaction* tx, std::vector<value_type> keys,
+    IGNITE_API void remove_all_async(transaction* tx, std::vector<value_type> keys,
         ignite_callback<std::vector<value_type>> callback);
 
     /**
@@ -389,9 +389,9 @@ public:
      * @param keys Record keys to delete.
      * @return Records from @c keys that did not exist.
      */
-    IGNITE_API std::vector<value_type> delete_all(transaction* tx, std::vector<value_type> keys) {
+    IGNITE_API std::vector<value_type> remove_all(transaction* tx, std::vector<value_type> keys) {
         return sync<std::vector<value_type>>([this, tx, keys = std::move(keys)] (auto callback) mutable {
-            delete_all_async(tx, std::move(keys), std::move(callback));
+            remove_all_async(tx, std::move(keys), std::move(callback));
         });
     }
 
