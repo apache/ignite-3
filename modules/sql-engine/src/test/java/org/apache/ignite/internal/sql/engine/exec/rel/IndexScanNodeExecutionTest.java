@@ -24,9 +24,12 @@ import static org.hamcrest.core.IsEqual.equalTo;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscription;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.IntStream;
 import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.RelFieldCollation;
@@ -52,6 +55,7 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.hamcrest.Matchers;
@@ -74,16 +78,7 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
                 EMPTY
         );
 
-        Object[][] tableData = {
-                // 1st partition
-                {1L, null, 1, "Roman"},
-                {3L, 3, 1, "Taras"},
-                {6L, 2, 1, "Andrey"},
-                // 2nd partition
-                {2L, 4, 2, "Igor"},
-                {4L, 2, null, "Alexey"},
-                {5L, 4, 1, "Ivan"},
-        };
+        Object[][] tableData = generateBatch(2, Commons.IN_BUFFER_SIZE * 2, true);
 
         Object[][] expected = Arrays.stream(tableData).map(Object[]::clone).toArray(Object[][]::new);
 
@@ -141,14 +136,7 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
                 EMPTY
         );
 
-        Object[][] tableData = {
-                {1L, null, 1, "Roman"},
-                {2L, 4, 2, "Igor"},
-                {3L, 3, 1, "Taras"},
-                {4L, 2, null, "Alexey"},
-                {5L, 4, 2, "Ivan"},
-                {6L, 2, 1, "Andrey"}
-        };
+        Object[][] tableData = generateBatch(2, Commons.IN_BUFFER_SIZE * 2, false);
 
         // Validate data.
         validateHashIndexScan(
@@ -182,6 +170,40 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
                         new Object[]{2, "Brutus"},
                         EMPTY
                 ), ClassCastException.class);
+    }
+
+    private Object[][] generateBatch(int partCnt, int partSize, boolean sorted) {
+        Set<Long> uniqueNumbers = new HashSet<>();
+
+        while (uniqueNumbers.size() < partCnt * partSize) {
+            uniqueNumbers.add(ThreadLocalRandom.current().nextLong());
+        }
+
+        List<Long> uniqueNumList = new ArrayList<>(uniqueNumbers);
+
+        Object[][] data = new Object[partCnt * partSize][4];
+
+        for (int p = 0; p < partCnt; p++) {
+            if (sorted) {
+                uniqueNumList.subList(p * partSize, (p + 1) * partSize).sort(Comparator.comparingLong(v -> v));
+            }
+
+            for (int j = 0; j < partSize; j++) {
+                int cur = p * partSize + j;
+
+                data[cur] = new Object[4];
+
+                int bound1 = ThreadLocalRandom.current().nextInt(3);
+                int bound2 = ThreadLocalRandom.current().nextInt(3);
+
+                data[cur][0] = uniqueNumList.get(cur);
+                data[cur][1] = bound1 == 0 ? null : bound1;
+                data[cur][2] = bound2 == 0 ? null : bound2;;
+                data[cur][3] = "something-" + cur;
+            }
+        }
+
+        return data;
     }
 
     private void validateHashIndexScan(Object[][] tableData, @Nullable Object[] key, Object[][] expRes) {
@@ -363,13 +385,25 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
     private static Publisher<BinaryTuple> dummyPublisher(BinaryTuple[] rows) {
         return s -> {
             s.onSubscribe(new Subscription() {
+                int off = 0;
+                boolean completed = false;
+
                 @Override
                 public void request(long n) {
-                    for (int i = 0; i < rows.length; ++i) {
+                    int start = off;
+                    int end = Math.min(start + (int) n, rows.length);
+
+                    off = end;
+
+                    for (int i = start; i < end; i++) {
                         s.onNext(rows[i]);
                     }
 
-                    s.onComplete();
+                    if (off >= rows.length && !completed) {
+                        completed = true;
+
+                        s.onComplete();
+                    }
                 }
 
                 @Override

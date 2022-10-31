@@ -212,15 +212,27 @@ public class CompositePublisher<T> implements Flow.Publisher<T> {
         /** {@inheritDoc} */
         @Override
         public void cancel() {
-            activeSubscription().cancel();
+            Subscription subscription = activeSubscription();
+
+            if (subscription != null) {
+                subscription.cancel();
+            }
         }
 
         /** Request data from a subscription. */
         private void requestInternal() {
-            activeSubscription().request(remaining);
+            Subscription subscription = activeSubscription();
+
+            if (subscription != null) {
+                subscription.request(remaining);
+            }
         }
 
-        private Subscription activeSubscription() {
+        private @Nullable Subscription activeSubscription() {
+            if (subscriptionIdx >= subscriptions.size()) {
+                return null;
+            }
+
             return subscriptions.get(subscriptionIdx);
         }
     }
@@ -284,13 +296,16 @@ public class CompositePublisher<T> implements Flow.Publisher<T> {
                 requested = n;
             }
 
-            // Perhaps we can return something from internal buffer?
-            if (!inBuf.isEmpty()) {
-                if (finished.size() == subscriptions.size()) { // all possible data has been received?
+            if (finished.size() == subscriptions.size()) {
+                if (!inBuf.isEmpty()) {
                     pushData(n);
-                } else { // Someone still alive.
-                    processReceivedData();
                 }
+
+                return;
+            }
+
+            if (!inBuf.isEmpty()) {
+                processReceivedData();
 
                 return;
             }
