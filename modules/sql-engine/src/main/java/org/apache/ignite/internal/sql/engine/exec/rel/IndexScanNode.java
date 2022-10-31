@@ -44,6 +44,7 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.schema.InternalIgniteTable;
 import org.apache.ignite.internal.sql.engine.util.CompositePublisher;
+import org.apache.ignite.internal.sql.engine.util.SortingCompositePublisher;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.Nullable;
 
@@ -267,7 +268,11 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
                 partPublishers.add(partPublisher(p, cond));
             }
 
-            new CompositePublisher<>(partPublishers, comp).subscribe(new SubscriberImpl());
+            Flow.Publisher<BinaryTuple> publisher = comp != null
+                    ? new SortingCompositePublisher<>(partPublishers, comp)
+                    : new CompositePublisher<>(partPublishers);
+
+            publisher.subscribe(new SubscriberImpl());
         } else {
             waiting = NOT_WAITING;
         }

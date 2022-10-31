@@ -124,7 +124,11 @@ public class CompositePublisherTest {
         AtomicReference<Subscription> subscriptionRef = new AtomicReference<>();
         SubscriberListener<Integer> lsnr = new SubscriberListener<>();
 
-        new CompositePublisher<>(publishers, sort ? Comparator.comparingInt(v -> v) : null).subscribe(new Subscriber<>() {
+        Publisher<Integer> publisher = sort
+                ? new SortingCompositePublisher<>(publishers, Comparator.comparingInt(v -> v))
+                : new CompositePublisher<>(publishers);
+
+        publisher.subscribe(new Subscriber<>() {
                 @Override
                 public void onSubscribe(Subscription subscription) {
                     subscriptionRef.set(subscription);
