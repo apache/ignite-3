@@ -28,6 +28,6 @@ CMD="java \
 --add-opens java.base/jdk.internal.misc=ALL-UNNAMED \
 -Dio.netty.tryReflectionSetAccessible=true \
 -Djava.util.logging.config.file=$CONFIG_PATH/ignite.java.util.logging.properties \
--classpath $LIBS_PATH/ignite-runner.jar:$LIBS_PATH/* org.apache.ignite.app.IgniteCliRunner"
+-classpath $LIBS_PATH/ignite-runner.jar:$LIBS_PATH/* org.apache.ignite.app.IgniteRunner"
 
 exec $CMD "$@"

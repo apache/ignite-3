@@ -95,6 +95,8 @@ public class TableScanNode<RowT> extends AbstractNode<RowT> {
 
         assert !nullOrEmpty(parts);
 
+        assert context().transaction() != null || context().transactionTime() != null : "Transaction not initialized.";
+
         this.physTable = schemaTable.table();
         this.schemaTable = schemaTable;
         this.parts = parts;
@@ -188,8 +190,10 @@ public class TableScanNode<RowT> extends AbstractNode<RowT> {
             }
         }
 
-        if (waiting == 0 || activeSubscription == null) {
-            requestNextBatch();
+        if (requested > 0) {
+            if (waiting == 0 || activeSubscription == null) {
+                requestNextBatch();
+            }
         }
 
         if (requested > 0 && waiting == NOT_WAITING) {
@@ -216,15 +220,17 @@ public class TableScanNode<RowT> extends AbstractNode<RowT> {
         if (subscription != null) {
             subscription.request(waiting);
         } else if (curPartIdx < parts.length) {
-            physTable.scan(parts[curPartIdx++], context().transaction()).subscribe(new SubscriberImpl());
+            if (context().transactionTime() != null) {
+                physTable.scan(parts[curPartIdx++], context().transactionTime(), context().localNode()).subscribe(new SubscriberImpl());
+            } else {
+                physTable.scan(parts[curPartIdx++], context().transaction()).subscribe(new SubscriberImpl());
+            }
         } else {
             waiting = NOT_WAITING;
         }
     }
 
     private class SubscriberImpl implements Flow.Subscriber<BinaryRow> {
-        private int received = 0; // HB guarded here.
-
         /** {@inheritDoc} */
         @Override
         public void onSubscribe(Subscription subscription) {
@@ -241,9 +247,7 @@ public class TableScanNode<RowT> extends AbstractNode<RowT> {
 
             inBuff.add(row);
 
-            if (++received == inBufSize) {
-                received = 0;
-
+            if (inBuff.size() == inBufSize) {
                 context().execute(() -> {
                     waiting = 0;
                     push();

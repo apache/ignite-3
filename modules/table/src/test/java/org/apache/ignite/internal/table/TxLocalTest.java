@@ -19,6 +19,7 @@ package org.apache.ignite.internal.table;
 
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -26,10 +27,12 @@ import static org.mockito.Mockito.when;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
+import org.apache.ignite.internal.table.distributed.replicator.PlacementDriver;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.tx.LockManager;
@@ -37,6 +40,7 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
+import org.apache.ignite.internal.tx.message.TxStateReplicaRequest;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.table.Table;
@@ -63,8 +67,9 @@ public class TxLocalTest extends TxAbstractTest {
         lockManager = new HeapLockManager();
 
         ReplicaService replicaSvc = mock(ReplicaService.class, RETURNS_DEEP_STUBS);
+        PlacementDriver placementDriver = mock(PlacementDriver.class, RETURNS_DEEP_STUBS);
 
-        Map<String, DummyInternalTableImpl> tables = new HashMap<>();
+        Map<ReplicationGroupId, DummyInternalTableImpl> tables = new HashMap<>();
 
         lenient().doAnswer(
             invocationOnMock -> {
@@ -76,17 +81,24 @@ public class TxLocalTest extends TxAbstractTest {
             }
         ).when(replicaSvc).invoke(any(), any());
 
-        txManager = new TxManagerImpl(replicaSvc, lockManager, new HybridClock());
+        doAnswer(invocationOnMock -> {
+            TxStateReplicaRequest request = invocationOnMock.getArgument(1);
+
+            return CompletableFuture.completedFuture(
+                    tables.get(request.groupId()).txStateStorage().getTxStateStorage(0).get(request.txId()));
+        }).when(placementDriver).sendMetaRequest(any(), any());
+
+        txManager = new TxManagerImpl(replicaSvc, lockManager, new HybridClockImpl());
 
         igniteTransactions = new IgniteTransactionsImpl(txManager);
 
-        DummyInternalTableImpl table = new DummyInternalTableImpl(replicaSvc, txManager, true);
+        DummyInternalTableImpl table = new DummyInternalTableImpl(replicaSvc, txManager, true, placementDriver);
 
-        accounts = new TableImpl(table, new DummySchemaManagerImpl(ACCOUNTS_SCHEMA));
+        accounts = new TableImpl(table, new DummySchemaManagerImpl(ACCOUNTS_SCHEMA), lockManager);
 
-        DummyInternalTableImpl table2 = new DummyInternalTableImpl(replicaSvc, txManager, true);
+        DummyInternalTableImpl table2 = new DummyInternalTableImpl(replicaSvc, txManager, true, placementDriver);
 
-        customers = new TableImpl(table2, new DummySchemaManagerImpl(CUSTOMERS_SCHEMA));
+        customers = new TableImpl(table2, new DummySchemaManagerImpl(CUSTOMERS_SCHEMA), lockManager);
 
         when(clusterService.messagingService()).thenReturn(mock(MessagingService.class, RETURNS_DEEP_STUBS));
 
@@ -111,7 +123,7 @@ public class TxLocalTest extends TxAbstractTest {
     }
 
     @Override
-    protected boolean assertPartitionsSame(Table table, int partId) {
+    protected boolean assertPartitionsSame(TableImpl table, int partId) {
         return true;
     }
 }

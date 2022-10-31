@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Internal.Table
 {
     using System.Collections.Generic;
+    using Proto.BinaryTuple;
 
     /// <summary>
     /// Schema.
@@ -25,14 +26,17 @@ namespace Apache.Ignite.Internal.Table
     /// <param name="Version">Version.</param>
     /// <param name="KeyColumnCount">Key column count.</param>
     /// <param name="Columns">Columns in schema order.</param>
-    internal record Schema(
+    internal sealed record Schema(
         int Version,
         int KeyColumnCount,
-        IReadOnlyList<Column> Columns)
+        IReadOnlyList<Column> Columns) : IHashedColumnIndexProvider
     {
         /// <summary>
         /// Gets the value column count.
         /// </summary>
         public int ValueColumnCount => Columns.Count - KeyColumnCount;
+
+        /// <inheritdoc/>
+        public bool IsHashedColumnIndex(int index) => index < KeyColumnCount && Columns[index].IsColocation;
     }
 }

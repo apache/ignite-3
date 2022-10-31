@@ -393,6 +393,7 @@ public class ItTablesApiTest extends IgniteAbstractTest {
      *
      * @throws Exception If failed.
      */
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18003")
     @Test
     public void testCreateDropTable() throws Exception {
         clusterNodes.forEach(ign -> assertNull(ign.tables().table(TABLE_NAME)));
@@ -543,13 +544,16 @@ public class ItTablesApiTest extends IgniteAbstractTest {
     private void addColumnInternal(Ignite node, String tableName, ColumnDefinition colDefinition) {
         await(((TableManager) node.tables()).alterTableAsync(
                 tableName,
-                chng -> chng.changeColumns(cols -> {
-                    try {
-                        cols.create(colDefinition.name(), colChg -> convert(colDefinition, colChg));
-                    } catch (IllegalArgumentException e) {
-                        throw new ColumnAlreadyExistsException(colDefinition.name());
-                    }
-                })));
+                chng -> {
+                    chng.changeColumns(cols -> {
+                        try {
+                            cols.create(colDefinition.name(), colChg -> convert(colDefinition, colChg));
+                        } catch (IllegalArgumentException e) {
+                            throw new ColumnAlreadyExistsException(colDefinition.name());
+                        }
+                    });
+                    return true;
+                }));
     }
 
     /**

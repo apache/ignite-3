@@ -20,7 +20,7 @@ package org.apache.ignite.internal.storage.pagememory.mv;
 import static java.util.stream.Collectors.joining;
 
 import java.util.stream.IntStream;
-import org.apache.ignite.hlc.HybridTimestamp;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.AbstractMvPartitionStorageTest;

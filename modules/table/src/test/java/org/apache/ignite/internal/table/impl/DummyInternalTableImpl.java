@@ -23,31 +23,44 @@ import static org.mockito.Mockito.mock;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import java.io.Serializable;
-import java.nio.ByteBuffer;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Function;
 import javax.naming.OperationNotSupportedException;
-import org.apache.ignite.hlc.HybridClock;
+import org.apache.ignite.distributed.TestPartitionDataStorage;
+import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
+import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.schema.BinaryTupleSchema;
+import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
+import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
-import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
+import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
+import org.apache.ignite.internal.table.distributed.HashIndexLocker;
+import org.apache.ignite.internal.table.distributed.IndexLocker;
+import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
+import org.apache.ignite.internal.table.distributed.replicator.PlacementDriver;
+import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
-import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
-import org.apache.ignite.internal.tx.storage.state.test.TestConcurrentHashMapTxStateStorage;
+import org.apache.ignite.internal.tx.storage.state.test.TestTxStateTableStorage;
+import org.apache.ignite.internal.util.Lazy;
+import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
@@ -68,11 +81,13 @@ import org.mockito.Mockito;
 public class DummyInternalTableImpl extends InternalTableImpl {
     public static final NetworkAddress ADDR = new NetworkAddress("127.0.0.1", 2004);
 
+    private static final ReplicationGroupId crossTableGroupId = new TablePartitionId(UUID.randomUUID(), 0);
+
     private PartitionListener partitionListener;
 
     private ReplicaListener replicaListener;
 
-    private String groupId;
+    private ReplicationGroupId groupId;
 
     /**
      * Creates a new local table.
@@ -90,9 +105,15 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      * @param txManager Transaction manager.
      * @param crossTableUsage If this dummy table is going to be used in cross-table tests, it won't mock the calls of ReplicaService
      *                        by itself.
+     * @param placementDriver Placement driver.
      */
-    public DummyInternalTableImpl(ReplicaService replicaSvc, TxManager txManager, boolean crossTableUsage) {
-        this(replicaSvc, new TestMvPartitionStorage(0), txManager, crossTableUsage);
+    public DummyInternalTableImpl(
+            ReplicaService replicaSvc,
+            TxManager txManager,
+            boolean crossTableUsage,
+            PlacementDriver placementDriver
+    ) {
+        this(replicaSvc, new TestMvPartitionStorage(0), txManager, crossTableUsage, placementDriver);
     }
 
     /**
@@ -102,7 +123,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      * @param mvPartStorage Multi version partition storage.
      */
     public DummyInternalTableImpl(ReplicaService replicaSvc, MvPartitionStorage mvPartStorage) {
-        this(replicaSvc, mvPartStorage, null, false);
+        this(replicaSvc, mvPartStorage, null, false, null);
     }
 
     /**
@@ -113,12 +134,14 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      * @param txManager Transaction manager, if {@code null}, then default one will be created.
      * @param crossTableUsage If this dummy table is going to be used in cross-table tests, it won't mock the calls of ReplicaService
      *                        by itself.
+     * @param placementDriver Placement driver.
      */
     public DummyInternalTableImpl(
             ReplicaService replicaSvc,
             MvPartitionStorage mvPartStorage,
             @Nullable TxManager txManager,
-            boolean crossTableUsage
+            boolean crossTableUsage,
+            PlacementDriver placementDriver
     ) {
         super(
                 "test",
@@ -127,15 +150,15 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 1,
                 NetworkAddress::toString,
                 addr -> Mockito.mock(ClusterNode.class),
-                txManager == null ? new TxManagerImpl(replicaSvc, new HeapLockManager(), new HybridClock()) : txManager,
+                txManager == null ? new TxManagerImpl(replicaSvc, new HeapLockManager(), new HybridClockImpl()) : txManager,
                 mock(MvTableStorage.class),
-                mock(TxStateTableStorage.class),
+                new TestTxStateTableStorage(),
                 replicaSvc,
-                mock(HybridClock.class)
+                new HybridClockImpl()
         );
         RaftGroupService svc = partitionMap.get(0);
 
-        groupId = crossTableUsage ? "testGrp-" + UUID.randomUUID() : "testGrp";
+        groupId = crossTableUsage ? new TablePartitionId(tableId(), 0) : crossTableGroupId;
 
         lenient().doReturn(groupId).when(svc).groupId();
         Peer leaderPeer = new Peer(ADDR);
@@ -198,7 +221,24 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 }
         ).when(svc).run(any());
 
-        var primaryIndex = new ConcurrentHashMap<ByteBuffer, RowId>();
+        UUID tableId = tableId();
+        UUID indexId = UUID.randomUUID();
+
+        BinaryTupleSchema pkSchema = BinaryTupleSchema.create(new Element[]{
+                new Element(NativeTypes.BYTES, false)
+        });
+
+        Function<BinaryRow, BinaryTuple> row2tuple = tableRow -> new BinaryTuple(pkSchema, ((BinaryRow) tableRow).keySlice());
+
+        Lazy<TableSchemaAwareIndexStorage> pkStorage = new Lazy<>(() -> new TableSchemaAwareIndexStorage(
+                indexId,
+                new TestHashIndexStorage(null),
+                row2tuple
+        ));
+
+        IndexLocker pkLocker = new HashIndexLocker(indexId, true, this.txManager.lockManager(), row2tuple);
+
+        HybridClock clock = new HybridClockImpl();
 
         replicaListener = new PartitionReplicaListener(
                 mvPartStorage,
@@ -206,17 +246,22 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 this.txManager,
                 this.txManager.lockManager(),
                 0,
-                groupId,
-                tableId(),
-                primaryIndex,
-                new HybridClock()
+                tableId,
+                () -> Map.of(pkLocker.id(), pkLocker),
+                pkStorage,
+                clock,
+                new PendingComparableValuesTracker<>(clock.now()),
+                txStateStorage().getOrCreateTxStateStorage(0),
+                null,
+                placementDriver,
+                peer -> true
         );
 
         partitionListener = new PartitionListener(
-                mvPartStorage,
-                new TestConcurrentHashMapTxStateStorage(),
+                new TestPartitionDataStorage(mvPartStorage),
+                txStateStorage().getOrCreateTxStateStorage(0),
                 this.txManager,
-                primaryIndex
+                () -> Map.of(pkStorage.get().id(), pkStorage.get())
         );
     }
 
@@ -229,18 +274,12 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         return replicaListener;
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public @NotNull UUID tableId() {
-        return UUID.randomUUID();
-    }
-
     /**
      * Group id of single partition of this table.
      *
      * @return Group id.
      */
-    public String groupId() {
+    public ReplicationGroupId groupId() {
         return groupId;
     }
 
@@ -266,5 +305,11 @@ public class DummyInternalTableImpl extends InternalTableImpl {
     @Override
     public int partition(BinaryRowEx keyRow) {
         return 0;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<ClusterNode> evaluateReadOnlyRecipientNode(int partId) {
+        return CompletableFuture.completedFuture(mock(ClusterNode.class));
     }
 }

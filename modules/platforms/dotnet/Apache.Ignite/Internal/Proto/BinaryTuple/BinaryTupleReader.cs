@@ -160,7 +160,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         public string GetString(int index) => Seek(index) switch
         {
             { IsEmpty: true } => string.Empty,
-            var s => BinaryTupleCommon.StringEncoding.GetString(s)
+            var s => ProtoCommon.StringEncoding.GetString(s)
         };
 
         /// <summary>

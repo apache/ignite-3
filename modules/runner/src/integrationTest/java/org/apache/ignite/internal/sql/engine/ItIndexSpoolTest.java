@@ -17,23 +17,24 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static org.apache.ignite.internal.sql.engine.util.Commons.IN_BUFFER_SIZE;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.jupiter.params.ParameterizedTest.ARGUMENTS_PLACEHOLDER;
 
 import java.util.List;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.table.Table;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Index spool test.
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-17612")
 public class ItIndexSpoolTest extends AbstractBasicIntegrationTest {
     private static final IgniteLogger LOG = Loggers.forClass(AbstractBasicIntegrationTest.class);
 
@@ -55,13 +56,25 @@ public class ItIndexSpoolTest extends AbstractBasicIntegrationTest {
         }
     }
 
+    private static Stream<Arguments> rowsWithPartitionsArgs() {
+        return Stream.of(
+                Arguments.of(1, 1),
+                Arguments.of(10, 1),
+                Arguments.of(IN_BUFFER_SIZE, 1),
+                Arguments.of(IN_BUFFER_SIZE + 1, 1),
+                Arguments.of(2000, 1),
+                Arguments.of(IN_BUFFER_SIZE, 2),
+                Arguments.of(IN_BUFFER_SIZE + 1, 2));
+    }
+
     /**
      * Test.
      */
-    @ParameterizedTest(name = "tableSize=" + ARGUMENTS_PLACEHOLDER)
-    @ValueSource(ints = {1, 10, 512, 513, 2000})
-    public void test(int rows) {
-        prepareDataSet(rows);
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17959")
+    @ParameterizedTest(name = "tableSize={0}, partitions={1}")
+    @MethodSource("rowsWithPartitionsArgs")
+    public void test(int rows, int partitions) {
+        prepareDataSet(rows, partitions);
 
         var res = sql("SELECT /*+ DISABLE_RULE('NestedLoopJoinConverter', 'MergeJoinConverter') */"
                         + "T0.val, T1.val FROM TEST0 as T0 "
@@ -73,7 +86,7 @@ public class ItIndexSpoolTest extends AbstractBasicIntegrationTest {
         res.forEach(r -> assertThat(r.get(0), is(r.get(1))));
     }
 
-    private void prepareDataSet(int rowsCount) {
+    private void prepareDataSet(int rowsCount, int parts) {
         Object[][] dataRows = new Object[rowsCount][];
 
         for (int i = 0; i < rowsCount; i++) {
@@ -81,7 +94,7 @@ public class ItIndexSpoolTest extends AbstractBasicIntegrationTest {
         }
 
         for (String name : List.of("TEST0", "TEST1")) {
-            sql("CREATE TABLE " + name + "(id INT PRIMARY KEY, jid INT, val VARCHAR) WITH replicas=2,partitions=10");
+            sql(String.format("CREATE TABLE " + name + "(id INT PRIMARY KEY, jid INT, val VARCHAR) WITH replicas=2,partitions=%d", parts));
 
             // TODO: https://issues.apache.org/jira/browse/IGNITE-17304 uncomment this
             // sql("CREATE INDEX " + name + "_jid_idx ON " + name + "(jid)");

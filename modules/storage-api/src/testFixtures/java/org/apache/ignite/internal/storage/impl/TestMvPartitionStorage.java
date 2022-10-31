@@ -18,16 +18,14 @@
 package org.apache.ignite.internal.storage.impl;
 
 import java.util.Iterator;
-import java.util.Map.Entry;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
-import java.util.function.BiConsumer;
 import java.util.stream.Stream;
-import org.apache.ignite.hlc.HybridTimestamp;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
@@ -44,7 +42,7 @@ import org.jetbrains.annotations.Nullable;
 public class TestMvPartitionStorage implements MvPartitionStorage {
     private final ConcurrentNavigableMap<RowId, VersionChain> map = new ConcurrentSkipListMap<>();
 
-    private long lastAppliedIndex = 0;
+    private volatile long lastAppliedIndex;
 
     private final int partitionId;
 
@@ -106,8 +104,6 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     /** {@inheritDoc} */
     @Override
     public void lastAppliedIndex(long lastAppliedIndex) throws StorageException {
-        assert lastAppliedIndex > this.lastAppliedIndex : "current=" + this.lastAppliedIndex + ", new=" + lastAppliedIndex;
-
         this.lastAppliedIndex = lastAppliedIndex;
     }
 
@@ -351,7 +347,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
                     VersionChain chain = iterator.next();
                     ReadResult readResult = read(chain, timestamp, null);
 
-                    if (!readResult.isEmpty()) {
+                    if (!readResult.isEmpty() || readResult.isWriteIntent()) {
                         currentChain = chain;
                         currentReadResult = readResult;
 
@@ -390,25 +386,12 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
     /** {@inheritDoc} */
     @Override
-    public void forEach(BiConsumer<RowId, BinaryRow> consumer) {
-        for (Entry<RowId, VersionChain> entry : map.entrySet()) {
-            RowId rowId = entry.getKey();
-
-            VersionChain versionChain = entry.getValue();
-
-            for (VersionChain cur = versionChain; cur != null; cur = cur.next) {
-                if (cur.row == null) {
-                    continue;
-                }
-
-                consumer.accept(rowId, cur.row);
-            }
-        }
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public void close() throws Exception {
         // No-op.
+    }
+
+    /** Removes all entries from this storage. */
+    public void clear() {
+        map.clear();
     }
 }

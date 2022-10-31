@@ -17,13 +17,13 @@
 
 package org.apache.ignite.internal.tx;
 
-import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.hlc.HybridTimestamp;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
@@ -34,11 +34,20 @@ import org.jetbrains.annotations.TestOnly;
  */
 public interface TxManager extends IgniteComponent {
     /**
-     * Starts a transaction coordinated by a local node.
+     * Starts a read-write transaction coordinated by a local node.
      *
      * @return The transaction.
      */
     InternalTransaction begin();
+
+    /**
+     * Starts either read-write or read-only transaction, depending on {@code readOnly} parameter value.
+     *
+     * @param readOnly {@code true} in order to start a read-only transaction, {@code false} in order to start read-write one.
+     *      Calling begin with readOnly {@code false} is an equivalent of TxManager#begin().
+     * @return The started transaction.
+     */
+    InternalTransaction begin(boolean readOnly);
 
     /**
      * Returns a transaction state.
@@ -63,34 +72,6 @@ public interface TxManager extends IgniteComponent {
     boolean changeState(UUID txId, @Nullable TxState before, TxState after);
 
     /**
-     * Acqures a write lock.
-     *
-     * @param lockId Table ID.
-     * @param keyData The key data.
-     * @param txId Transaction id.
-     * @return The future.
-     * @throws LockException When a lock can't be taken due to possible deadlock.
-     *
-     * @deprecated @see LockManager#acquire(java.util.UUID, org.apache.ignite.internal.tx.LockKey, org.apache.ignite.internal.tx.LockMode)
-     */
-    @Deprecated
-    public CompletableFuture<Lock> writeLock(UUID lockId, ByteBuffer keyData, UUID txId);
-
-    /**
-     * Acqures a read lock.
-     *
-     * @param lockId Lock id.
-     * @param keyData The key data.
-     * @param txId Transaction id.
-     * @return The future.
-     * @throws LockException When a lock can't be taken due to possible deadlock.
-     *
-     * @deprecated @see LockManager#acquire(java.util.UUID, org.apache.ignite.internal.tx.LockKey, org.apache.ignite.internal.tx.LockMode)
-     */
-    @Deprecated
-    public CompletableFuture<Lock> readLock(UUID lockId, ByteBuffer keyData, UUID txId);
-
-    /**
      * Returns lock manager.
      *
      * @return Lock manager for the given transactions manager.
@@ -102,6 +83,7 @@ public interface TxManager extends IgniteComponent {
     /**
      * Finishes a dependant transactions.
      *
+     * @param commitPartition Partition to store a transaction state.
      * @param recipientNode Recipient node.
      * @param term Raft term.
      * @param commit {@code True} if a commit requested.
@@ -109,10 +91,11 @@ public interface TxManager extends IgniteComponent {
      * @param txId Transaction id.
      */
     CompletableFuture<Void> finish(
+            ReplicationGroupId commitPartition,
             ClusterNode recipientNode,
             Long term,
             boolean commit,
-            Map<ClusterNode, List<IgniteBiTuple<String, Long>>> groups,
+            Map<ClusterNode, List<IgniteBiTuple<ReplicationGroupId, Long>>> groups,
             UUID txId
     );
 
@@ -128,7 +111,7 @@ public interface TxManager extends IgniteComponent {
      */
     CompletableFuture<Void> cleanup(
             ClusterNode recipientNode,
-            List<IgniteBiTuple<String, Long>> replicationGroupIds,
+            List<IgniteBiTuple<ReplicationGroupId, Long>> replicationGroupIds,
             UUID txId,
             boolean commit,
             HybridTimestamp commitTimestamp

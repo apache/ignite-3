@@ -68,7 +68,8 @@ import java.util.function.BiPredicate;
 import java.util.function.BooleanSupplier;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
-import org.apache.ignite.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.server.RaftGroupEventsListener;
@@ -3779,7 +3780,7 @@ public class ItNodeTest {
         for (PeerId peer : peers) {
             RaftOptions opts = new RaftOptions();
             opts.setElectionHeartbeatFactor(4); // Election timeout divisor.
-            HybridClock clock = new HybridClock();
+            HybridClock clock = new HybridClockImpl();
             assertTrue(cluster.start(peer.getEndpoint(), false, 300, false, null, opts, clock));
         }
 
@@ -3816,11 +3817,11 @@ public class ItNodeTest {
 
                     if (msg.entriesList() == null && msg.data() == null) {
                         heartbeatRequest.set(true);
-                        assertTrue(msg.timestamp() != null);
                     } else {
                         appendEntriesRequest.set(true);
-                        assertTrue(msg.timestamp() == null);
                     }
+
+                    assertTrue(msg.timestamp() != null);
                 } else if (msgs[0] instanceof AppendEntriesResponseImpl) {
                     AppendEntriesResponseImpl msg = (AppendEntriesResponseImpl) msgs[0];
                     if (msg.timestamp() == null) {

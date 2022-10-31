@@ -19,7 +19,7 @@ package org.apache.ignite.raft.jraft.rpc;
 
 import java.util.Collection;
 import java.util.List;
-import org.apache.ignite.hlc.HybridTimestamp;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.network.annotations.Marshallable;
 import org.apache.ignite.network.annotations.Transferable;
 import org.apache.ignite.raft.jraft.RaftMessageGroup;
@@ -88,7 +88,6 @@ public final class RpcRequests {
 
         long term();
 
-        @Marshallable
         RaftOutter.SnapshotMeta meta();
 
         String uri();

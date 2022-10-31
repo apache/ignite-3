@@ -18,17 +18,20 @@
 package org.apache.ignite.internal.runner.app;
 
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.internal.app.IgniteImpl;
@@ -38,8 +41,9 @@ import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.Session;
-import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -97,7 +101,7 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
      * Starts a cluster before every test started.
      */
     @BeforeEach
-    void beforeEach() throws Exception {
+    void beforeEach() {
         List<CompletableFuture<Ignite>> futures = nodesBootstrapCfg.entrySet().stream()
                 .map(e -> IgnitionManager.start(e.getKey(), e.getValue(), workDir.resolve(e.getKey())))
                 .collect(toList());
@@ -123,6 +127,106 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
                 .collect(toList());
 
         IgniteUtils.closeAll(closeables);
+    }
+
+    /**
+     * Test correctness of schema updates on lagged node.
+     */
+    @Test
+    public void checkSchemasCorrectUpdate() throws Exception {
+        Ignite ignite0 = clusterNodes.get(0);
+        IgniteImpl ignite1 = (IgniteImpl) clusterNodes.get(1);
+        IgniteImpl ignite2 = (IgniteImpl) clusterNodes.get(2);
+
+        createTable(ignite0, TABLE_NAME);
+
+        TableImpl table = (TableImpl) ignite0.tables().table(TABLE_NAME);
+
+        assertEquals(1, table.schemaView().schema().version());
+
+        WatchListenerInhibitor listenerInhibitor = WatchListenerInhibitor.metastorageEventsInhibitor(ignite1);
+
+        listenerInhibitor.startInhibit();
+
+        alterTable(ignite0, TABLE_NAME);
+
+        table = (TableImpl) ignite2.tables().table(TABLE_NAME);
+
+        TableImpl table0 = table;
+        assertTrue(waitForCondition(() -> table0.schemaView().schema().version() == 2, 5_000));
+
+        table = (TableImpl) ignite1.tables().table(TABLE_NAME);
+
+        assertEquals(1, table.schemaView().schema().version());
+
+        String nodeToStop = ignite1.name();
+
+        IgnitionManager.stop(nodeToStop);
+
+        listenerInhibitor.stopWithoutResend();
+
+        CompletableFuture<Ignite> ignite1Fut = nodesBootstrapCfg.entrySet().stream()
+                .filter(k -> k.getKey().equals(nodeToStop))
+                .map(e -> IgnitionManager.start(e.getKey(), e.getValue(), workDir.resolve(e.getKey())))
+                .findFirst().get();
+
+        ignite1 = (IgniteImpl) ignite1Fut.get();
+
+        table = (TableImpl) ignite1.tables().table(TABLE_NAME);
+
+        TableImpl table1 = table;
+        assertTrue(waitForCondition(() -> table1.schemaView().schema().version() == 2, 5_000));
+    }
+
+    /**
+     * Test correctness of schemes recovery after node restart.
+     */
+    @Test
+    public void checkSchemasCorrectlyRestore() throws Exception {
+        Ignite ignite1 = clusterNodes.get(1);
+
+        sql(ignite1, "CREATE TABLE " + TABLE_NAME + "(key BIGINT PRIMARY KEY, valint1 INT, valint2 INT)");
+
+        for (int i = 0; i < 10; ++i) {
+            sql(ignite1, String.format("INSERT INTO " + TABLE_NAME + " VALUES(%d, %d, %d)", i, i, 2 * i));
+        }
+
+        sql(ignite1, "ALTER TABLE " + TABLE_NAME + " DROP COLUMN valint1");
+
+        sql(ignite1, "ALTER TABLE " + TABLE_NAME + " ADD COLUMN valint3 INT");
+
+        sql(ignite1, "ALTER TABLE " + TABLE_NAME + " ADD COLUMN valint4 INT");
+
+        String nodeToStop = ignite1.name();
+
+        IgnitionManager.stop(nodeToStop);
+
+        CompletableFuture<Ignite> ignite1Fut = nodesBootstrapCfg.entrySet().stream()
+                .filter(k -> k.getKey().equals(nodeToStop))
+                .map(e -> IgnitionManager.start(e.getKey(), e.getValue(), workDir.resolve(e.getKey())))
+                .findFirst().get();
+
+        ignite1 = ignite1Fut.get();
+
+        Session ses = ignite1.sql().createSession();
+
+        ResultSet res = ses.execute(null, "SELECT valint2 FROM tbl1");
+
+        for (int i = 0; i < 10; ++i) {
+            assertNotNull(res.next().iterator().next());
+        }
+
+        for (int i = 10; i < 20; ++i) {
+            sql(ignite1, String.format("INSERT INTO " + TABLE_NAME + " VALUES(%d, %d, %d, %d)", i, i, i, i));
+        }
+
+        sql(ignite1, "ALTER TABLE " + TABLE_NAME + " DROP COLUMN valint3");
+
+        sql(ignite1, "ALTER TABLE " + TABLE_NAME + " ADD COLUMN valint5 INT");
+
+        res = ses.execute(null, "SELECT sum(valint4) FROM tbl1");
+
+        assertEquals(res.next().iterator().next(), 10L * (10 + 19) / 2);
     }
 
     /**
@@ -154,7 +258,7 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
 
         listenerInhibitor.startInhibit();
 
-        sql(ignite0, "ALTER TABLE " + TABLE_NAME + " ADD COLUMN valstr2 VARCHAR NOT NULL DEFAULT 'default'");
+        alterTable(ignite0, TABLE_NAME);
 
         for (Ignite node : clusterNodes) {
             if (node == ignite1) {
@@ -163,67 +267,25 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
 
             TableImpl tableOnNode = (TableImpl) node.tables().table(TABLE_NAME);
 
-            IgniteTestUtils.waitForCondition(() -> tableOnNode.schemaView().lastSchemaVersion() == 2, 10_000);
+            waitForCondition(() -> tableOnNode.schemaView().lastSchemaVersion() == 2, 10_000);
         }
 
-        TableImpl table1 = (TableImpl) ignite1.tables().table(TABLE_NAME);
+        CompletableFuture<?> insertFut = IgniteTestUtils.runAsync(() -> {
+                    for (int i = 10; i < 20; i++) {
+                        table.recordView().insert(
+                                null,
+                                Tuple.create()
+                                        .set("key", (long) i)
+                                        .set("valInt", i)
+                                        .set("valStr", "str_" + i)
+                                        .set("valStr2", "str2_" + i)
+                        );
+                    }
+                }
+        );
 
-        for (int i = 10; i < 20; i++) {
-            table.recordView().insert(
-                    null,
-                    Tuple.create()
-                            .set("key", (long) i)
-                            .set("valInt", i)
-                            .set("valStr", "str_" + i)
-                            .set("valStr2", "str2_" + i)
-            );
-        }
-
-        CompletableFuture<?> insertFut = IgniteTestUtils.runAsync(() ->
-                table1.recordView().insert(
-                        null,
-                        Tuple.create()
-                                .set("key", 0L)
-                                .set("valInt", 0)
-                                .set("valStr", "str_" + 0)
-                                .set("valStr2", "str2_" + 0)
-                ));
-
-        CompletableFuture<?> getFut = IgniteTestUtils.runAsync(() -> {
-            table1.recordView().get(null, Tuple.create().set("key", 10L));
-        });
-
-        CompletableFuture<?> checkDefaultFut = IgniteTestUtils.runAsync(() -> {
-            assertEquals("default",
-                    table1.recordView().get(null, Tuple.create().set("key", 0L))
-                            .value("valStr2"));
-        });
-
-        assertEquals(1, table1.schemaView().lastSchemaVersion());
-
-        assertFalse(getFut.isDone());
-        assertFalse(insertFut.isDone());
-        assertFalse(checkDefaultFut.isDone());
-
-        listenerInhibitor.stopInhibit();
-
-        getFut.get(10, TimeUnit.SECONDS);
-        insertFut.get(10, TimeUnit.SECONDS);
-        checkDefaultFut.get(10, TimeUnit.SECONDS);
-
-        for (Ignite node : clusterNodes) {
-            Table tableOnNode = node.tables().table(TABLE_NAME);
-
-            for (int i = 0; i < 20; i++) {
-                Tuple row = tableOnNode.recordView().get(null, Tuple.create().set("key", (long) i));
-
-                assertNotNull(row);
-
-                assertEquals(i, row.intValue("valInt"));
-                assertEquals("str_" + i, row.value("valStr"));
-                assertEquals(i < 10 ? "default" : ("str2_" + i), row.value("valStr2"));
-            }
-        }
+        IgniteException ex = assertThrows(IgniteException.class, () -> await(insertFut));
+        assertThat(ex.getMessage(), containsString("Replication is timed out"));
     }
 
     /**
@@ -234,6 +296,10 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
      */
     protected void createTable(Ignite node, String tableName) {
         sql(node, "CREATE TABLE " + tableName + "(key BIGINT PRIMARY KEY, valint INT, valstr VARCHAR)");
+    }
+
+    protected void alterTable(Ignite node, String tableName) {
+        sql(node, "ALTER TABLE " + tableName + " ADD COLUMN valstr2 VARCHAR NOT NULL DEFAULT 'default'");
     }
 
     protected void sql(Ignite node, String query, Object... args) {

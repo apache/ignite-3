@@ -22,10 +22,12 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Supplier;
-import org.apache.ignite.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterLocalConfiguration;
@@ -63,14 +65,14 @@ public class LozaTest extends IgniteAbstractTest {
         Mockito.doReturn(mock(MessagingService.class)).when(clusterNetSvc).messagingService();
         Mockito.doReturn(mock(TopologyService.class)).when(clusterNetSvc).topologyService();
 
-        Loza loza = new Loza(clusterNetSvc, mock(RaftConfiguration.class), workDir, new HybridClock());
+        Loza loza = new Loza(clusterNetSvc, mock(RaftConfiguration.class), workDir, new HybridClockImpl());
 
         loza.start();
 
         loza.beforeNodeStop();
         loza.stop();
 
-        String raftGroupId = "test_raft_group";
+        TestReplicationGroupId raftGroupId = new TestReplicationGroupId("test_raft_group");
 
         List<ClusterNode> nodes = List.of(
                 new ClusterNode(UUID.randomUUID().toString(), UUID.randomUUID().toString(), NetworkAddress.from("127.0.0.1:123")));
@@ -90,5 +92,38 @@ public class LozaTest extends IgniteAbstractTest {
                 NodeStoppingException.class,
                 () -> loza.prepareRaftGroup(raftGroupId, nodes, lsnrSupplier, defaults())
         );
+    }
+
+    /**
+     * Test replication group id.
+     */
+    private static class TestReplicationGroupId implements ReplicationGroupId {
+        private final String name;
+
+        public TestReplicationGroupId(String name) {
+            this.name = name;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            TestReplicationGroupId that = (TestReplicationGroupId) o;
+            return Objects.equals(name, that.name);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(name);
+        }
+
+        @Override
+        public String toString() {
+            return name;
+        }
     }
 }

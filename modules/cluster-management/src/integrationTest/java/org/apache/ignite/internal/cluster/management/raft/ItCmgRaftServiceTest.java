@@ -19,6 +19,7 @@ package org.apache.ignite.internal.cluster.management.raft;
 
 import static org.apache.ignite.internal.cluster.management.ClusterState.clusterState;
 import static org.apache.ignite.internal.cluster.management.ClusterTag.clusterTag;
+import static org.apache.ignite.internal.cluster.management.CmgGroupId.INSTANCE;
 import static org.apache.ignite.internal.raft.server.RaftGroupOptions.defaults;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -38,7 +39,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
-import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.ClusterTag;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
@@ -46,6 +46,7 @@ import org.apache.ignite.internal.cluster.management.raft.commands.JoinReadyComm
 import org.apache.ignite.internal.cluster.management.raft.commands.JoinRequestCommand;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
@@ -72,8 +73,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith(WorkDirectoryExtension.class)
 @ExtendWith(ConfigurationExtension.class)
 public class ItCmgRaftServiceTest {
-    private static final String TEST_GROUP = "test_group";
-
     @InjectConfiguration
     private static RaftConfiguration raftConfiguration;
 
@@ -90,7 +89,7 @@ public class ItCmgRaftServiceTest {
 
         Node(TestInfo testInfo, NetworkAddress addr, NodeFinder nodeFinder, Path workDir) {
             this.clusterService = clusterService(testInfo, addr.port(), nodeFinder);
-            this.raftManager = new Loza(clusterService, raftConfiguration, workDir, new HybridClock());
+            this.raftManager = new Loza(clusterService, raftConfiguration, workDir, new HybridClockImpl());
         }
 
         void start() {
@@ -105,7 +104,7 @@ public class ItCmgRaftServiceTest {
                 raftStorage.start();
 
                 CompletableFuture<RaftGroupService> raftService = raftManager.prepareRaftGroup(
-                        TEST_GROUP,
+                        INSTANCE,
                         List.copyOf(clusterService.topologyService().allMembers()),
                         () -> new CmgRaftGroupListener(raftStorage),
                         defaults()
@@ -121,7 +120,7 @@ public class ItCmgRaftServiceTest {
 
         void beforeNodeStop() {
             try {
-                raftManager.stopRaftGroup(TEST_GROUP);
+                raftManager.stopRaftGroup(INSTANCE);
             } catch (NodeStoppingException e) {
                 throw new RuntimeException(e);
             }

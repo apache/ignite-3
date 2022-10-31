@@ -38,13 +38,14 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
-import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -58,6 +59,7 @@ import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.rest.configuration.RestConfiguration;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableConfiguration;
@@ -83,6 +85,7 @@ import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbSt
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
+import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.tx.LockManager;
@@ -175,7 +178,10 @@ public class ItRebalanceDistributedTest {
         assertEquals(1, nodes.get(0).clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY)
                 .tables().get("TBL1").replicas().value());
 
-        await(nodes.get(0).tableManager.alterTableAsync("TBL1", ch -> ch.changeReplicas(2)));
+        await(nodes.get(0).tableManager.alterTableAsync("TBL1", ch -> {
+            ch.changeReplicas(2);
+            return true;
+        }));
 
         waitPartitionAssignmentsSyncedToExpected(0, 2);
 
@@ -200,8 +206,15 @@ public class ItRebalanceDistributedTest {
         assertEquals(1, nodes.get(0).clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY).tables()
                 .get("TBL1").replicas().value());
 
-        await(nodes.get(0).tableManager.alterTableAsync("TBL1", ch -> ch.changeReplicas(2)));
-        await(nodes.get(0).tableManager.alterTableAsync("TBL1", ch -> ch.changeReplicas(3)));
+        await(nodes.get(0).tableManager.alterTableAsync("TBL1", ch -> {
+            ch.changeReplicas(2);
+            return true;
+        }));
+
+        await(nodes.get(0).tableManager.alterTableAsync("TBL1", ch -> {
+            ch.changeReplicas(3);
+            return true;
+        }));
 
         waitPartitionAssignmentsSyncedToExpected(0, 3);
 
@@ -226,9 +239,20 @@ public class ItRebalanceDistributedTest {
         assertEquals(1, nodes.get(0).clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY).tables()
                 .get("TBL1").replicas().value());
 
-        await(nodes.get(0).tableManager.alterTableAsync("TBL1", ch -> ch.changeReplicas(2)));
-        await(nodes.get(0).tableManager.alterTableAsync("TBL1", ch -> ch.changeReplicas(3)));
-        await(nodes.get(0).tableManager.alterTableAsync("TBL1", ch -> ch.changeReplicas(2)));
+        await(nodes.get(0).tableManager.alterTableAsync("TBL1", ch -> {
+            ch.changeReplicas(2);
+            return true;
+        }));
+
+        await(nodes.get(0).tableManager.alterTableAsync("TBL1", ch -> {
+            ch.changeReplicas(3);
+            return true;
+        }));
+
+        await(nodes.get(0).tableManager.alterTableAsync("TBL1", ch -> {
+            ch.changeReplicas(2);
+            return true;
+        }));
 
         waitPartitionAssignmentsSyncedToExpected(0, 2);
 
@@ -264,8 +288,8 @@ public class ItRebalanceDistributedTest {
 
         var countDownLatch = new CountDownLatch(1);
 
-        String raftGroupNodeName = leaderNode.raftManager.server().startedGroups()
-                .stream().filter(grp -> grp.contains("part")).findFirst().get();
+        ReplicationGroupId raftGroupNodeName = leaderNode.raftManager.server().startedGroups()
+                .stream().filter(grp -> grp.toString().contains("part")).findFirst().get();
 
         ((JraftServerImpl) leaderNode.raftManager.server()).blockMessages(
                 raftGroupNodeName, (msg, node) -> {
@@ -277,7 +301,10 @@ public class ItRebalanceDistributedTest {
                     return false;
                 });
 
-        await(nodes.get(0).tableManager.alterTableAsync("TBL1", ch -> ch.changeReplicas(3)));
+        await(nodes.get(0).tableManager.alterTableAsync("TBL1", ch -> {
+            ch.changeReplicas(3);
+            return true;
+        }));
 
         countDownLatch.await();
 
@@ -308,17 +335,21 @@ public class ItRebalanceDistributedTest {
         assertEquals(1, nodes.get(0).clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY)
                 .tables().get("TBL1").replicas().value());
 
-        await(nodes.get(0).tableManager.alterTableAsync("TBL1", ch -> ch.changeReplicas(1)));
+        await(nodes.get(0).tableManager.alterTableAsync("TBL1", ch -> {
+            ch.changeReplicas(1);
+            return true;
+        }));
 
         waitPartitionAssignmentsSyncedToExpected(0, 1);
 
         JraftServerImpl raftServer = (JraftServerImpl) nodes.stream()
-                .filter(n -> n.raftManager.startedGroups().stream().anyMatch(grp -> grp.contains("_part_"))).findFirst()
+                .filter(n -> n.raftManager.startedGroups().stream().anyMatch(grp -> grp.toString().contains("_part_"))).findFirst()
                 .get().raftManager.server();
 
         AtomicInteger counter = new AtomicInteger(0);
 
-        String partGrpId = raftServer.startedGroups().stream().filter(grp -> grp.contains("_part_")).findFirst().get();
+        ReplicationGroupId partGrpId = raftServer.startedGroups().stream().filter(grp -> grp.toString().contains("_part_")).findFirst()
+                .get();
 
         raftServer.blockMessages(partGrpId, (msg, node) -> {
             if (msg instanceof RpcRequests.PingRequest) {
@@ -331,7 +362,10 @@ public class ItRebalanceDistributedTest {
             return false;
         });
 
-        await(nodes.get(0).tableManager.alterTableAsync("TBL1", ch -> ch.changeReplicas(3)));
+        await(nodes.get(0).tableManager.alterTableAsync("TBL1", ch -> {
+            ch.changeReplicas(3);
+            return true;
+        }));
 
         waitPartitionAssignmentsSyncedToExpected(0, 3);
 
@@ -429,15 +463,15 @@ public class ItRebalanceDistributedTest {
 
             lockManager = new HeapLockManager();
 
-            raftManager = new Loza(clusterService, raftConfiguration, dir, new HybridClock());
+            raftManager = new Loza(clusterService, raftConfiguration, dir, new HybridClockImpl());
 
             replicaManager = new ReplicaManager(
                     clusterService,
-                    new HybridClock(),
+                    new HybridClockImpl(),
                     Set.of(TableMessageGroup.class, TxMessageGroup.class)
             );
 
-            HybridClock hybridClock = new HybridClock();
+            HybridClock hybridClock = new HybridClockImpl();
 
             ReplicaService replicaSvc = new ReplicaService(
                     clusterService.messagingService(),
@@ -506,7 +540,7 @@ public class ItRebalanceDistributedTest {
                     metaStorageManager,
                     clusterService);
 
-            schemaManager = new SchemaManager(registry, tablesCfg);
+            schemaManager = new SchemaManager(registry, tablesCfg, metaStorageManager);
 
             tableManager = new TableManager(
                     name,
@@ -524,7 +558,8 @@ public class ItRebalanceDistributedTest {
                     metaStorageManager,
                     schemaManager,
                     view -> new LocalLogStorageFactory(),
-                    new HybridClock()
+                    new HybridClockImpl(),
+                    new OutgoingSnapshotsManager(clusterService.messagingService())
             );
         }
 

@@ -408,7 +408,7 @@ public final class IgniteTestUtils {
             try {
                 task.run();
             } catch (Throwable e) {
-                throw new Exception(e);
+                sneakyThrow(e);
             }
 
             return null;

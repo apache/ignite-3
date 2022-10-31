@@ -25,7 +25,8 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.BitSet;
 import java.util.UUID;
-import org.apache.ignite.internal.schema.NativeTypeSpec;
+import org.apache.ignite.internal.schema.DecimalNativeType;
+import org.apache.ignite.internal.schema.NativeType;
 
 /**
  * Colocation hash utilities.
@@ -43,15 +44,15 @@ public class ColocationUtils {
      *
      * @param calc Hash calculator.
      * @param v Value to update hash.
-     * @param typeSpec Value type.
+     * @param type Value type.
      */
-    public static void append(HashCalculator calc, Object v, NativeTypeSpec typeSpec) {
+    public static void append(HashCalculator calc, Object v, NativeType type) {
         if (v == null) {
             calc.appendNull();
             return;
         }
 
-        switch (typeSpec) {
+        switch (type.spec()) {
             case INT8:
                 calc.appendByte((byte) v);
                 return;
@@ -77,7 +78,7 @@ public class ColocationUtils {
                 return;
 
             case DECIMAL:
-                calc.appendDecimal((BigDecimal) v);
+                calc.appendDecimal((BigDecimal) v, ((DecimalNativeType) type).scale());
                 return;
 
             case UUID:
@@ -117,7 +118,7 @@ public class ColocationUtils {
                 return;
 
             default:
-                throw new IllegalStateException("Unexpected type: " + typeSpec);
+                throw new IllegalStateException("Unexpected type: " + type.spec());
         }
     }
 }

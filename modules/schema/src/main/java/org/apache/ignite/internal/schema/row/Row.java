@@ -823,7 +823,7 @@ public class Row implements BinaryRowEx, SchemaAware, InternalTuple {
             HashCalculator hashCalc = new HashCalculator();
 
             for (Column c : schema().colocationColumns()) {
-                ColocationUtils.append(hashCalc, value(c.schemaIndex()), c.type().spec());
+                ColocationUtils.append(hashCalc, value(c.schemaIndex()), c.type());
             }
 
             colocationHash = h0 = hashCalc.hash();

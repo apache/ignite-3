@@ -38,6 +38,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.ServiceLoader;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.TimeoutException;
@@ -48,7 +49,6 @@ import java.util.function.IntFunction;
 import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
-import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
@@ -63,6 +63,9 @@ import org.apache.ignite.internal.configuration.storage.DistributedConfiguration
 import org.apache.ignite.internal.configuration.storage.LocalConfigurationStorage;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -73,7 +76,9 @@ import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
 import org.apache.ignite.internal.recovery.ConfigurationCatchUpListener;
 import org.apache.ignite.internal.recovery.RecoveryCompletionFutureFactory;
+import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.replicator.message.ReplicaMessagesSerializationRegistryInitializer;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.DataStorageManager;
@@ -81,11 +86,14 @@ import org.apache.ignite.internal.storage.DataStorageModule;
 import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
+import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.internal.table.distributed.TableMessagesSerializationRegistryInitializer;
+import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
+import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.message.TxMessagesSerializationRegistryInitializer;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
@@ -115,7 +123,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * These tests check node restart scenarios.
  */
 @WithSystemProperty(key = CONFIGURATION_CATCH_UP_DIFFERENCE_PROPERTY, value = "0")
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-17302")
 @ExtendWith(ConfigurationExtension.class)
 public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     /** Default node port. */
@@ -217,6 +224,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
         RaftMessagesSerializationRegistryInitializer.registerFactories(serializationRegistry);
         TxMessagesSerializationRegistryInitializer.registerFactories(serializationRegistry);
         TableMessagesSerializationRegistryInitializer.registerFactories(serializationRegistry);
+        ReplicaMessagesSerializationRegistryInitializer.registerFactories(serializationRegistry);
 
         var clusterLocalConfiguration = new ClusterLocalConfiguration(name, serializationRegistry);
 
@@ -228,11 +236,21 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 nettyBootstrapFactory
         );
 
-        HybridClock hybridClock = new HybridClock();
+        HybridClock hybridClock = new HybridClockImpl();
 
         var raftMgr = new Loza(clusterSvc, raftConfiguration, dir, hybridClock);
 
-        var txManager = new TxManagerImpl(null, new HeapLockManager(), hybridClock);
+        ReplicaManager replicaMgr = new ReplicaManager(
+                clusterSvc,
+                hybridClock,
+                Set.of(TableMessageGroup.class, TxMessageGroup.class)
+        );
+
+        var replicaService = new ReplicaService(clusterSvc.messagingService(), hybridClock);
+
+        var lockManager = new HeapLockManager();
+
+        var txManager = new TxManagerImpl(replicaService, lockManager, hybridClock);
 
         var cmgManager = new ClusterManagementGroupManager(
                 vault,
@@ -278,20 +296,16 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         TablesConfiguration tblCfg = clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY);
 
-        SchemaManager schemaManager = new SchemaManager(registry, tblCfg);
-
-        ReplicaService replicaSvc = new ReplicaService(
-                clusterSvc.messagingService(),
-                null);
+        SchemaManager schemaManager = new SchemaManager(registry, tblCfg, metaStorageMgr);
 
         TableManager tableManager = new TableManager(
                 name,
                 registry,
                 tblCfg,
                 raftMgr,
-                null,
-                null,
-                replicaSvc,
+                replicaMgr,
+                lockManager,
+                replicaService,
                 mock(BaselineManager.class),
                 clusterSvc.topologyService(),
                 txManager,
@@ -300,8 +314,11 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 metaStorageMgr,
                 schemaManager,
                 view -> new LocalLogStorageFactory(),
-                null
+                hybridClock,
+                new OutgoingSnapshotsManager(clusterSvc.messagingService())
         );
+
+        var indexManager = new IndexManager(tblCfg, schemaManager, tableManager);
 
         // Preparing the result map.
 
@@ -332,12 +349,14 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 clusterSvc,
                 raftMgr,
                 cmgManager,
+                replicaMgr,
                 txManager,
                 metaStorageMgr,
                 clusterCfgMgr,
                 dataStorageManager,
                 schemaManager,
-                tableManager
+                tableManager,
+                indexManager
         );
 
         for (IgniteComponent component : otherComponents) {
@@ -665,6 +684,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * Restarts the node which stores some data.
      */
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17986")
     public void nodeWithDataTest(TestInfo testInfo) {
         Ignite ignite = startNode(testInfo, 0);
 
@@ -683,6 +703,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * @param testInfo Test information object.
      */
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17986")
     public void testTwoNodesRestartDirect(TestInfo testInfo) {
         twoNodesRestart(testInfo, true);
     }
@@ -774,6 +795,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * @param testInfo Test info.
      */
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17976")
     public void testOneNodeRestartWithGap(TestInfo testInfo) throws NodeStoppingException {
         Ignite ignite = startNode(testInfo, 0);
 
@@ -809,6 +831,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * @param testInfo Test info.
      */
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17986 ")
     public void testRecoveryOnOneNode(TestInfo testInfo) throws NodeStoppingException {
         Ignite ignite = startNode(testInfo, 0);
 
@@ -835,6 +858,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * @param testInfo Test info.
      */
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17986")
     public void testRestartDiffConfig(TestInfo testInfo) throws NodeStoppingException {
         Ignite ignite0 = startNode(testInfo, 0);
         Ignite ignite1 = startNode(testInfo, 1);

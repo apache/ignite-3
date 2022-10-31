@@ -28,6 +28,7 @@ import static org.apache.ignite.internal.metastorage.client.ItMetaStorageService
 import static org.apache.ignite.internal.metastorage.client.Operations.ops;
 import static org.apache.ignite.internal.metastorage.client.Operations.put;
 import static org.apache.ignite.internal.metastorage.client.Operations.remove;
+import static org.apache.ignite.internal.metastorage.common.MetastorageGroupId.INSTANCE;
 import static org.apache.ignite.internal.raft.server.RaftGroupOptions.defaults;
 import static org.apache.ignite.raft.jraft.test.TestUtils.waitForTopology;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.findLocalAddresses;
@@ -123,8 +124,6 @@ public class ItMetaStorageServiceTest {
 
     /** Nodes. */
     private static final int NODES = 2;
-
-    private static final String METASTORAGE_RAFT_GROUP_NAME = "METASTORAGE_RAFT_GROUP";
 
     /** Factory. */
     private static final RaftMessagesFactory FACTORY = new RaftMessagesFactory();
@@ -250,7 +249,7 @@ public class ItMetaStorageServiceTest {
      */
     @AfterEach
     public void afterTest() throws Exception {
-        metaStorageRaftSrv.stopRaftGroup(METASTORAGE_RAFT_GROUP_NAME);
+        metaStorageRaftSrv.stopRaftGroup(INSTANCE);
         metaStorageRaftSrv.stop();
         metaStorageRaftGrpSvc.shutdown();
 
@@ -912,7 +911,7 @@ public class ItMetaStorageServiceTest {
         List<Peer> peers = List.of(new Peer(cluster.get(0).topologyService().localMember().address()));
 
         RaftGroupService metaStorageRaftGrpSvc = RaftGroupServiceImpl.start(
-                METASTORAGE_RAFT_GROUP_NAME,
+                INSTANCE,
                 cluster.get(1),
                 FACTORY,
                 10_000,
@@ -1065,10 +1064,10 @@ public class ItMetaStorageServiceTest {
 
         metaStorageRaftSrv.start();
 
-        metaStorageRaftSrv.startRaftGroup(METASTORAGE_RAFT_GROUP_NAME, new MetaStorageListener(mockStorage), peers, defaults());
+        metaStorageRaftSrv.startRaftGroup(INSTANCE, new MetaStorageListener(mockStorage), peers, defaults());
 
         metaStorageRaftGrpSvc = RaftGroupServiceImpl.start(
-                METASTORAGE_RAFT_GROUP_NAME,
+                INSTANCE,
                 cluster.get(1),
                 FACTORY,
                 10_000,

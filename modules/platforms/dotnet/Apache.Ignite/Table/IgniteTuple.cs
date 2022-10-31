@@ -19,6 +19,7 @@ namespace Apache.Ignite.Table
 {
     using System;
     using System.Collections.Generic;
+    using System.Diagnostics.CodeAnalysis;
     using System.Text;
 
     /// <summary>
@@ -27,6 +28,7 @@ namespace Apache.Ignite.Table
     public sealed class IgniteTuple : IIgniteTuple, IEquatable<IgniteTuple>
     {
         /** Key-value pairs. */
+        [SuppressMessage("Microsoft.Design", "CA1002:DoNotExposeGenericLists", Justification = "Private.")]
         private readonly List<(string Key, object? Value)> _pairs;
 
         /** Column index map. */

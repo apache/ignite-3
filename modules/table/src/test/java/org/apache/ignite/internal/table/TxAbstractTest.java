@@ -90,7 +90,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     );
 
     /** Table ID test value. */
-    public static final UUID tableId2 = java.util.UUID.randomUUID();
+    public static final UUID tableId2 = UUID.randomUUID();
 
     protected static SchemaDescriptor CUSTOMERS_SCHEMA = new SchemaDescriptor(
             1,
@@ -99,10 +99,10 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     );
 
     /** Accounts table id -> balance. */
-    protected Table accounts;
+    protected TableImpl accounts;
 
     /** Customers table id -> name. */
-    protected Table customers;
+    protected TableImpl customers;
 
     protected static final double BALANCE_1 = 500;
 
@@ -1730,7 +1730,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
      * @param partId Partition id.
      * @return {@code True} if a replicas are the same.
      */
-    protected abstract boolean assertPartitionsSame(Table table, int partId);
+    protected abstract boolean assertPartitionsSame(TableImpl table, int partId);
 
     /**
      * Validates balances.
@@ -1787,5 +1787,97 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
             return fut1.thenCompose(val1 -> fut2.thenCompose(val2 ->
                     completedFuture(Tuple.create().set("balance1", val1).set("balance2", val2))));
         });
+    }
+
+
+    @Test
+    public void testReadOnlyGet() {
+        accounts.recordView().upsert(null, makeValue(1, 100.));
+
+        Transaction readOnlyTx = igniteTransactions.readOnly().begin();
+        assertEquals(100., accounts.recordView().get(readOnlyTx, makeKey(1)).doubleValue("balance"));
+    }
+
+    @Test
+    public void testReadOnlyGetWriteIntentResolutionUpdate() {
+        accounts.recordView().upsert(null, makeValue(1, 100.));
+
+        // Pending tx
+        Transaction tx = igniteTransactions.begin();
+        accounts.recordView().upsert(tx, makeValue(1, 300.));
+
+        // Update
+        Transaction readOnlyTx = igniteTransactions.readOnly().begin();
+        assertEquals(100., accounts.recordView().get(readOnlyTx, makeKey(1)).doubleValue("balance"));
+
+        // Commit pending tx.
+        tx.commit();
+
+        // Same read-only transaction.
+        assertEquals(100., accounts.recordView().get(readOnlyTx, makeKey(1)).doubleValue("balance"));
+
+        // New read-only transaction.
+        Transaction readOnlyTx2 = igniteTransactions.readOnly().begin();
+        assertEquals(300., accounts.recordView().get(readOnlyTx2, makeKey(1)).doubleValue("balance"));
+    }
+
+    @Test
+    public void testReadOnlyGetWriteIntentResolutionRemove() {
+        accounts.recordView().upsert(null, makeValue(1, 100.));
+
+        // Pending tx
+        Transaction tx = igniteTransactions.begin();
+        accounts.recordView().delete(tx, makeKey(1));
+
+        // Remove.
+        Transaction readOnlyTx = igniteTransactions.readOnly().begin();
+        assertEquals(100., accounts.recordView().get(readOnlyTx, makeKey(1)).doubleValue("balance"));
+
+        // Commit pending tx.
+        tx.commit();
+
+        // Same read-only transaction.
+        assertEquals(100., accounts.recordView().get(readOnlyTx, makeKey(1)).doubleValue("balance"));
+
+        // New read-only transaction.
+        Transaction readOnlyTx2 = igniteTransactions.readOnly().begin();
+        Tuple row = accounts.recordView().get(readOnlyTx2, makeKey(1));
+        assertNull(row);
+    }
+
+    @Test
+    public void testReadOnlyGetAll() {
+        accounts.recordView().upsert(null, makeValue(1, 100.));
+        accounts.recordView().upsert(null, makeValue(2, 200.));
+        accounts.recordView().upsert(null, makeValue(3, 300.));
+
+        Transaction readOnlyTx = igniteTransactions.readOnly().begin();
+        Collection<Tuple> retrievedKeys = accounts.recordView().getAll(readOnlyTx, List.of(makeKey(1), makeKey(2)));
+        validateBalance(retrievedKeys, 100., 200.);
+    }
+
+    @Test
+    public void testReadOnlyPendingWriteIntentSkippedCombined() {
+        accounts.recordView().upsert(null, makeValue(1, 100.));
+        accounts.recordView().upsert(null, makeValue(2, 200.));
+
+        // Pending tx
+        Transaction tx = igniteTransactions.begin();
+        accounts.recordView().delete(tx, makeKey(1));
+        accounts.recordView().upsert(tx, makeValue(2, 300.));
+
+        Transaction readOnlyTx = igniteTransactions.readOnly().begin();
+        Collection<Tuple> retrievedKeys = accounts.recordView().getAll(readOnlyTx, List.of(makeKey(1), makeKey(2)));
+        validateBalance(retrievedKeys, 100., 200.);
+
+        // Commit pending tx.
+        tx.commit();
+
+        Collection<Tuple> retrievedKeys2 = accounts.recordView().getAll(readOnlyTx, List.of(makeKey(1), makeKey(2)));
+        validateBalance(retrievedKeys2, 100., 200.);
+
+        Transaction readOnlyTx2 = igniteTransactions.readOnly().begin();
+        Collection<Tuple> retrievedKeys3 = accounts.recordView().getAll(readOnlyTx2, List.of(makeKey(1), makeKey(2)));
+        validateBalance(retrievedKeys3, 300.);
     }
 }

@@ -35,7 +35,6 @@ import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
@@ -48,6 +47,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -72,6 +72,7 @@ import org.apache.ignite.internal.configuration.notifications.ConfigurationStora
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.configuration.testframework.InjectRevisionListenerHolder;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -82,11 +83,9 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaUtils;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableChange;
-import org.apache.ignite.internal.schema.configuration.ExtendedTableView;
 import org.apache.ignite.internal.schema.configuration.TableChange;
 import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
-import org.apache.ignite.internal.schema.marshaller.schema.SchemaSerializerImpl;
 import org.apache.ignite.internal.schema.testutils.SchemaConfigurationConverter;
 import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
 import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
@@ -98,12 +97,15 @@ import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageChange;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
 import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
+import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.event.TableEvent;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.util.ByteUtils;
+import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
@@ -282,6 +284,8 @@ public class TableManagerTest extends IgniteAbstractTest {
                 SchemaBuilders.column("val", ColumnType.INT64).asNullable(true).build()
         ).withPrimaryKey("key").build();
 
+        mockMetastore();
+
         tblsCfg.tables().change(tablesChange -> {
             tablesChange.create(scmTbl.name(), tableChange -> {
                 (SchemaConfigurationConverter.convert(scmTbl, tableChange))
@@ -298,17 +302,7 @@ public class TableManagerTest extends IgniteAbstractTest {
                     assignment.add(new HashSet<>(Collections.singleton(node)));
                 }
 
-                extConfCh.changeAssignments(ByteUtils.toBytes(assignment))
-                        .changeSchemas(schemasCh -> schemasCh.create(
-                                String.valueOf(1),
-                                schemaCh -> {
-                                    SchemaDescriptor schemaDesc = SchemaUtils.prepareSchemaDescriptor(
-                                            ((ExtendedTableView) tableChange).schemas().size(),
-                                            tableChange);
-
-                                    schemaCh.changeSchema(SchemaSerializerImpl.INSTANCE.serialize(schemaDesc));
-                                }
-                        ));
+                extConfCh.changeAssignments(ByteUtils.toBytes(assignment)).changeSchemaId(1);
             });
         }).join();
 
@@ -383,15 +377,18 @@ public class TableManagerTest extends IgniteAbstractTest {
                         .changeReplicas(REPLICAS)
                         .changePartitions(PARTITIONS);
 
-        final Consumer<TableChange> addColumnChange = (TableChange change) ->
-                change.changeColumns(cols -> {
-                    int colIdx = change.columns().namedListKeys().stream().mapToInt(Integer::parseInt).max().getAsInt() + 1;
+        final Function<TableChange, Boolean> addColumnChange = (TableChange change) -> {
+            change.changeColumns(cols -> {
+                int colIdx = change.columns().namedListKeys().stream().mapToInt(Integer::parseInt).max().getAsInt() + 1;
 
-                    cols.create(String.valueOf(colIdx),
-                            colChg -> SchemaConfigurationConverter.convert(SchemaBuilders.column("name", ColumnType.string()).build(),
-                                    colChg));
+                cols.create(String.valueOf(colIdx),
+                        colChg -> SchemaConfigurationConverter.convert(SchemaBuilders.column("name", ColumnType.string()).build(),
+                                colChg));
 
-                });
+            });
+
+            return true;
+        };
 
         TableManager igniteTables = tableManager;
 
@@ -441,14 +438,14 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         mockManagersAndCreateTable(scmTbl, tblManagerFut);
 
-        verify(rm, times(PARTITIONS)).startRaftGroupService(anyString(), any());
+        verify(rm, times(PARTITIONS)).startRaftGroupService(any(), any());
 
         TableManager tableManager = tblManagerFut.join();
 
         tableManager.stop();
 
-        verify(rm, times(PARTITIONS)).stopRaftGroup(anyString());
-        verify(replicaMgr, times(PARTITIONS)).stopReplica(anyString());
+        verify(rm, times(PARTITIONS)).stopRaftGroup(any());
+        verify(replicaMgr, times(PARTITIONS)).stopReplica(any());
     }
 
     /**
@@ -510,6 +507,8 @@ public class TableManagerTest extends IgniteAbstractTest {
                 .withPrimaryKey("key")
                 .build();
 
+        when(msm.put(any(), any())).thenReturn(completedFuture(null));
+
         Table table = mockManagersAndCreateTable(scmTbl, tblManagerFut);
 
         assertNotNull(table);
@@ -536,6 +535,15 @@ public class TableManagerTest extends IgniteAbstractTest {
             CompletableFuture<TableManager> tblManagerFut
     ) throws Exception {
         return mockManagersAndCreateTableWithDelay(tableDefinition, tblManagerFut, null);
+    }
+
+    /** Dummy metastore activity mock. */
+    private void mockMetastore() throws Exception {
+        Cursor cursorMocked = mock(Cursor.class);
+        Iterator itMock = mock(Iterator.class);
+        when(itMock.hasNext()).thenReturn(false);
+        when(msm.prefix(any())).thenReturn(cursorMocked);
+        when(cursorMocked.iterator()).thenReturn(itMock);
     }
 
     /**
@@ -607,6 +615,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         CountDownLatch createTblLatch = new CountDownLatch(1);
 
         tableManager.listen(TableEvent.CREATE, (parameters, exception) -> {
+            parameters.table().pkId(UUID.randomUUID());
             createTblLatch.countDown();
 
             return completedFuture(true);
@@ -617,6 +626,8 @@ public class TableManagerTest extends IgniteAbstractTest {
                         .changeReplicas(REPLICAS)
                         .changePartitions(PARTITIONS)
         );
+
+        mockMetastore();
 
         assertTrue(createTblLatch.await(10, TimeUnit.SECONDS));
 
@@ -655,7 +666,7 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         ScheduledExecutorService executor = new ScheduledThreadPoolExecutor(20, new NamedThreadFactory(Loza.CLIENT_POOL_NAME, LOG));
 
-        String groupId = "test";
+        TablePartitionId groupId = new TablePartitionId(UUID.randomUUID(), 0);
 
         List<String> shrunkPeers = peersToIds(nodes.subList(0, 1));
 
@@ -669,7 +680,7 @@ public class TableManagerTest extends IgniteAbstractTest {
                 eq(factory.changePeersAsyncRequest()
                         .newPeersList(shrunkPeers)
                         .term(1L)
-                        .groupId(groupId).build()), anyLong()))
+                        .groupId(groupId.toString()).build()), anyLong()))
                 .then(invocation -> {
                     if (firstInvocationOfChangePeersAsync.get() == 0) {
                         firstInvocationOfChangePeersAsync.set(System.currentTimeMillis());
@@ -710,7 +721,7 @@ public class TableManagerTest extends IgniteAbstractTest {
                 eq(factory.changePeersAsyncRequest()
                         .newPeersList(shrunkPeers)
                         .term(1L)
-                        .groupId(groupId).build()), anyLong()))
+                        .groupId(groupId.toString()).build()), anyLong()))
                 .then(invocation -> {
                     if (secondInvocationOfChangePeersAsync.get() == 0) {
                         secondInvocationOfChangePeersAsync.set(System.currentTimeMillis());
@@ -758,9 +769,10 @@ public class TableManagerTest extends IgniteAbstractTest {
                 dsm = createDataStorageManager(configRegistry, workDir, rocksDbEngineConfig),
                 workDir,
                 msm,
-                sm = new SchemaManager(revisionUpdater, tblsCfg),
+                sm = new SchemaManager(revisionUpdater, tblsCfg, msm),
                 budgetView -> new LocalLogStorageFactory(),
-                null
+                new HybridClockImpl(),
+                new OutgoingSnapshotsManager(messagingService)
         );
 
         sm.start();

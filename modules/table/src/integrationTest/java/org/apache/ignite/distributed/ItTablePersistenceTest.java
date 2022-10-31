@@ -31,8 +31,9 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BooleanSupplier;
 import java.util.function.Function;
-import org.apache.ignite.hlc.HybridClock;
-import org.apache.ignite.hlc.HybridTimestamp;
+import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.ByteBufferRow;
@@ -52,7 +53,7 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
-import org.apache.ignite.internal.tx.storage.state.test.TestConcurrentHashMapTxStateStorage;
+import org.apache.ignite.internal.tx.storage.state.test.TestTxStateStorage;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
@@ -106,7 +107,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
     @Override
     public void beforeFollowerStop(RaftGroupService service) throws Exception {
         // TODO: https://issues.apache.org/jira/browse/IGNITE-17817 Use Replica layer with new transaction protocol.
-        TxManagerImpl txManager = new TxManagerImpl(null, new HeapLockManager(), new HybridClock());
+        TxManagerImpl txManager = new TxManagerImpl(null, new HeapLockManager(), new HybridClockImpl());
 
         managers.add(txManager);
 
@@ -133,7 +134,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
     @Override
     public void afterFollowerStop(RaftGroupService service) throws Exception {
         // TODO: https://issues.apache.org/jira/browse/IGNITE-17817 Use Replica layer with new transaction protocol.
-        TxManagerImpl txManager = new TxManagerImpl(null, new HeapLockManager(), new HybridClock());
+        TxManagerImpl txManager = new TxManagerImpl(null, new HeapLockManager(), new HybridClockImpl());
 
         managers.add(txManager);
 
@@ -166,7 +167,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
     @Override
     public void afterSnapshot(RaftGroupService service) throws Exception {
         // TODO: https://issues.apache.org/jira/browse/IGNITE-17817 Use Replica layer with new transaction protocol.
-        TxManager txManager = new TxManagerImpl(null, new HeapLockManager(), new HybridClock());
+        TxManager txManager = new TxManagerImpl(null, new HeapLockManager(), new HybridClockImpl());
 
         managers.add(txManager);
 
@@ -196,8 +197,8 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
     /** {@inheritDoc} */
     @Override
     public BooleanSupplier snapshotCheckClosure(JraftServerImpl restarted, boolean interactedAfterSnapshot) {
-        MvPartitionStorage storage = getListener(restarted, raftGroupId()).getStorage();
-        Map<ByteBuffer, RowId> primaryIndex = getListener(restarted, raftGroupId()).getPk();
+        MvPartitionStorage storage = getListener(restarted, raftGroupId()).getMvStorage();
+        Map<ByteBuffer, RowId> primaryIndex = null; // getListener(restarted, raftGroupId()).getPk();
 
         Row key = interactedAfterSnapshot ? SECOND_KEY : FIRST_KEY;
         Row value = interactedAfterSnapshot ? SECOND_VALUE : FIRST_VALUE;
@@ -228,17 +229,18 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                 .map(Map.Entry::getKey)
                 .findAny()
                 .orElseGet(() -> {
-                    TxManagerImpl txManager = new TxManagerImpl(null, new HeapLockManager(), new HybridClock());
+                    TxManagerImpl txManager = new TxManagerImpl(null, new HeapLockManager(), new HybridClockImpl());
 
                     txManager.start(); // Init listener.
 
                     var testMpPartStorage = new TestMvPartitionStorage(0);
 
                     PartitionListener listener = new PartitionListener(
-                            testMpPartStorage,
-                            new TestConcurrentHashMapTxStateStorage(),
+                            new TestPartitionDataStorage(testMpPartStorage),
+                            new TestTxStateStorage(),
                             txManager,
-                            new ConcurrentHashMap<>());
+                            Map::of
+                    );
 
                     paths.put(listener, workDir);
 
@@ -248,8 +250,8 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
 
     /** {@inheritDoc} */
     @Override
-    public String raftGroupId() {
-        return "partitions";
+    public TestReplicationGroupId raftGroupId() {
+        return new TestReplicationGroupId("partitions");
     }
 
     /**

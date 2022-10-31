@@ -27,6 +27,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -48,6 +51,7 @@ import org.apache.ignite.internal.configuration.tree.ConverterToMapVisitor;
 import org.apache.ignite.internal.configuration.tree.TraversableTreeNode;
 import org.apache.ignite.internal.index.event.IndexEvent;
 import org.apache.ignite.internal.index.event.IndexEventParameters;
+import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableChange;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableConfigurationSchema;
 import org.apache.ignite.internal.schema.configuration.TableChange;
@@ -65,6 +69,8 @@ import org.apache.ignite.internal.schema.configuration.index.SortedIndexChange;
 import org.apache.ignite.internal.schema.configuration.index.SortedIndexConfigurationSchema;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexConfiguration;
 import org.apache.ignite.internal.schema.configuration.storage.UnknownDataStorageConfigurationSchema;
+import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -117,7 +123,12 @@ public class IndexManagerTest {
 
         tablesConfig = confRegistry.getConfiguration(TablesConfiguration.KEY);
 
-        indexManager = new IndexManager(tablesConfig);
+        TableManager tableManagerMock = mock(TableManager.class);
+
+        when(tableManagerMock.tableAsync(any(UUID.class)))
+                .thenReturn(CompletableFuture.completedFuture(mock(TableImpl.class)));
+
+        indexManager = new IndexManager(tablesConfig, mock(SchemaManager.class), tableManagerMock);
         indexManager.start();
 
         tablesConfig.tables().change(tableChange -> tableChange.create("tName", chg -> {
@@ -127,7 +138,7 @@ public class IndexManagerTest {
 
             chg.changePrimaryKey(pk -> pk.changeColumns("c1").changeColocationColumns("c1"));
 
-            ((ExtendedTableChange) chg).changeAssignments((byte) 1);
+            ((ExtendedTableChange) chg).changeAssignments((byte) 1).changeSchemaId(1);
         })).get();
     }
 

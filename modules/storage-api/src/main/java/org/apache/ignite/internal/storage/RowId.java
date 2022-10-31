@@ -23,15 +23,15 @@ import org.apache.ignite.internal.tx.Timestamp;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Class that represents row id in primary index of the table. Contains a timestamp-based UUID and a partition id.
+ * Class that represents row ID in primary index of the table. Contains a timestamp-based UUID and a partition ID.
  *
  * @see MvPartitionStorage
  */
 public final class RowId implements Serializable, Comparable<RowId> {
-    /** Partition id. Short type reduces payload when transferring an object over network. */
+    /** Partition ID. Short type reduces payload when transferring an object over network. */
     private final short partitionId;
 
-    /** Unique id. */
+    /** Unique ID. */
     private final UUID uuid;
 
     public static RowId lowestRowId(int partitionId) {
@@ -39,9 +39,9 @@ public final class RowId implements Serializable, Comparable<RowId> {
     }
 
     /**
-     * Create a row id with the UUID value based on {@link Timestamp}.
+     * Create a row ID with the UUID value based on {@link Timestamp}.
      *
-     * @param partitionId Partition id.
+     * @param partitionId Partition ID.
      */
     public RowId(int partitionId) {
         this(partitionId, Timestamp.nextVersion().toUuid());
@@ -50,7 +50,7 @@ public final class RowId implements Serializable, Comparable<RowId> {
     /**
      * Constructor.
      *
-     * @param partitionId Partition id.
+     * @param partitionId Partition ID.
      * @param mostSignificantBits UUID's most significant bits.
      * @param leastSignificantBits UUID's least significant bits.
      */
@@ -58,30 +58,43 @@ public final class RowId implements Serializable, Comparable<RowId> {
         this(partitionId, new UUID(mostSignificantBits, leastSignificantBits));
     }
 
-    private RowId(int partitionId, UUID uuid) {
+    /**
+     * Constructor.
+     *
+     * @param partitionId Partition ID.
+     * @param uuid UUID.
+     */
+    public RowId(int partitionId, UUID uuid) {
         this.partitionId = (short) partitionId;
         this.uuid = uuid;
     }
 
     /**
-     * Returns a partition id for current row id.
+     * Returns a partition ID for current row ID.
      */
     public int partitionId() {
         return partitionId & 0xFFFF;
     }
 
     /**
-     * Returns the most significant 64 bits of row id's UUID.
+     * Returns the most significant 64 bits of row ID's UUID.
      */
     public long mostSignificantBits() {
         return uuid.getMostSignificantBits();
     }
 
     /**
-     * Returns the least significant 64 bits of row id's UUID.
+     * Returns the least significant 64 bits of row ID's UUID.
      */
     public long leastSignificantBits() {
         return uuid.getLeastSignificantBits();
+    }
+
+    /**
+     * Returns the UUID equivalent of {@link #mostSignificantBits()} and {@link #leastSignificantBits()}.
+     */
+    public UUID uuid() {
+        return uuid;
     }
 
     @Override
@@ -122,7 +135,7 @@ public final class RowId implements Serializable, Comparable<RowId> {
     }
 
     /**
-     * Returns the next row id withing a single partition, or {@code null} if current row id already has maximal possible value.
+     * Returns the next row ID withing a single partition, or {@code null} if current row ID already has maximal possible value.
      */
     public @Nullable RowId increment() {
         long lsb = uuid.getLeastSignificantBits() + 1;

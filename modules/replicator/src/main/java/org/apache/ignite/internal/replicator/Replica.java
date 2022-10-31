@@ -27,7 +27,7 @@ import org.apache.ignite.lang.IgniteStringFormatter;
  */
 public class Replica {
     /** Replica group identity, this id is the same as the considered partition's id. */
-    private final String replicaGrpId;
+    private final ReplicationGroupId replicaGrpId;
 
     /** Replica listener. */
     private final ReplicaListener listener;
@@ -39,7 +39,7 @@ public class Replica {
      * @param listener Replica listener.
      */
     public Replica(
-            String replicaGrpId,
+            ReplicationGroupId replicaGrpId,
             ReplicaListener listener
     ) {
         this.replicaGrpId = replicaGrpId;
@@ -59,6 +59,14 @@ public class Replica {
                 replicaGrpId);
 
         return listener.invoke(request);
+    }
 
+    /**
+     * Replica group identity, this id is the same as the considered partition's id.
+     *
+     * @return Group id.
+     */
+    public ReplicationGroupId groupId() {
+        return replicaGrpId;
     }
 }

@@ -18,22 +18,18 @@
 package org.apache.ignite.internal.tx.impl;
 
 import static java.util.concurrent.CompletableFuture.allOf;
-import static java.util.concurrent.CompletableFuture.failedFuture;
 
-import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import org.apache.ignite.hlc.HybridClock;
-import org.apache.ignite.hlc.HybridTimestamp;
+import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.tx.Lock;
-import org.apache.ignite.internal.tx.LockKey;
 import org.apache.ignite.internal.tx.LockManager;
-import org.apache.ignite.internal.tx.LockMode;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
@@ -41,7 +37,6 @@ import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.TestOnly;
 
 /**
@@ -82,11 +77,15 @@ public class TxManagerImpl implements TxManager {
     /** {@inheritDoc} */
     @Override
     public InternalTransaction begin() {
+        return begin(false);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public InternalTransaction begin(boolean readOnly) {
         UUID txId = Timestamp.nextVersion().toUuid();
 
-        states.put(txId, TxState.PENDING);
-
-        return new TransactionImpl(this, txId);
+        return readOnly ? new ReadOnlyTransactionImpl(this, txId, clock.now()) : new ReadWriteTransactionImpl(this, txId);
     }
 
     /** {@inheritDoc} */
@@ -99,7 +98,7 @@ public class TxManagerImpl implements TxManager {
     @Override
     public boolean changeState(UUID txId, TxState before, TxState after) {
         return states.compute(txId, (k, v) -> {
-            if (v == null || v == before) {
+            if (v == before) {
                 return after;
             } else {
                 return v;
@@ -109,43 +108,12 @@ public class TxManagerImpl implements TxManager {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Lock> writeLock(UUID lockId, ByteBuffer keyData, UUID txId) {
-        // TODO IGNITE-15933 process tx messages in strips to avoid races. But locks can be acquired from any thread !
-        TxState state = state(txId);
-
-        if (state != null && state != TxState.PENDING) {
-            return failedFuture(new TransactionException(
-                    "The operation is attempted for completed transaction"));
-        }
-
-        // Should rollback tx on lock error.
-        LockKey lockKey = new LockKey(lockId, keyData);
-
-        return lockManager.acquire(txId, lockKey, LockMode.X);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<Lock> readLock(UUID lockId, ByteBuffer keyData, UUID txId) {
-        TxState state = state(txId);
-
-        if (state != null && state != TxState.PENDING) {
-            return failedFuture(new TransactionException(
-                    "The operation is attempted for completed transaction"));
-        }
-
-        LockKey lockKey = new LockKey(lockId, keyData);
-
-        return lockManager.acquire(txId, lockKey, LockMode.S);
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public CompletableFuture<Void> finish(
+            ReplicationGroupId commitPartition,
             ClusterNode recipientNode,
             Long term,
             boolean commit,
-            Map<ClusterNode, List<IgniteBiTuple<String, Long>>> groups,
+            Map<ClusterNode, List<IgniteBiTuple<ReplicationGroupId, Long>>> groups,
             UUID txId
     ) {
         assert groups != null && !groups.isEmpty();
@@ -154,7 +122,7 @@ public class TxManagerImpl implements TxManager {
 
         TxFinishReplicaRequest req = FACTORY.txFinishReplicaRequest()
                 .txId(txId)
-                .groupId(groups.values().iterator().next().get(0).get1())
+                .groupId(commitPartition)
                 .groups(groups)
                 .commit(commit)
                 .commitTimestamp(commitTimestamp)
@@ -163,14 +131,14 @@ public class TxManagerImpl implements TxManager {
 
         return replicaService.invoke(recipientNode, req)
                 // TODO: IGNITE-17638 TestOnly code, let's consider using Txn state map instead of states.
-                .thenRun(() -> changeState(txId, TxState.PENDING, commit ? TxState.COMMITED : TxState.ABORTED));
+                .thenRun(() -> changeState(txId, null, commit ? TxState.COMMITED : TxState.ABORTED));
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> cleanup(
             ClusterNode recipientNode,
-            List<IgniteBiTuple<String, Long>> replicationGroupIds,
+            List<IgniteBiTuple<ReplicationGroupId, Long>> replicationGroupIds,
             UUID txId,
             boolean commit,
             HybridTimestamp commitTimestamp

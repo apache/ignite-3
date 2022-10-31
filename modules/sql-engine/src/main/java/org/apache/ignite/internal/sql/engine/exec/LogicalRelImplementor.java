@@ -188,7 +188,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
 
         IgniteDistribution distr = rel.distribution();
         Destination<RowT> dest = distr.destination(ctx, affSrvc, ctx.group(rel.sourceId()));
-        String localNodeId = ctx.localNodeId();
+        String localNodeId = ctx.localNode().id();
 
         FilterNode<RowT> node = new FilterNode<>(ctx, rel.getRowType(), r -> Objects.equals(localNodeId, first(dest.targets(r))));
 
@@ -303,7 +303,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
 
         IgniteIndex idx = tbl.getIndex(rel.indexName());
         ColocationGroup group = ctx.group(rel.sourceId());
-        int[] parts = group.partitions(ctx.localNodeId());
+        int[] parts = group.partitions(ctx.localNode().id());
 
         return new IndexScanNode<>(ctx, rowType, idx, tbl, parts, ranges, filters, prj, requiredColumns.toBitSet());
     }
@@ -328,7 +328,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
 
         ColocationGroup group = ctx.group(rel.sourceId());
 
-        if (!group.nodeIds().contains(ctx.localNodeId())) {
+        if (!group.nodeIds().contains(ctx.localNode().id())) {
             return new ScanNode<>(ctx, rowType, Collections.emptyList());
         }
 
@@ -336,7 +336,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
                 ctx,
                 rowType,
                 tbl,
-                group.partitions(ctx.localNodeId()),
+                group.partitions(ctx.localNode().id()),
                 filters,
                 prj,
                 requiredColumns

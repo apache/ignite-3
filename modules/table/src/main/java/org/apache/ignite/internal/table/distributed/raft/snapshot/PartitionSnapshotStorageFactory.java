@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table.distributed.raft.snapshot;
 
 import java.util.List;
+import java.util.concurrent.Executor;
 import org.apache.ignite.internal.raft.storage.SnapshotStorageFactory;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
@@ -25,13 +26,12 @@ import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
-import org.apache.ignite.raft.jraft.storage.SnapshotStorage;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotWriter;
 
 /**
  * Snapshot storage factory for {@link MvPartitionStorage}. Utilizes the fact that every partition already stores its latest applied index
- * and thus can inself be used as its own snapshot.
+ * and thus can itself be used as its own snapshot.
  *
  * <p/>Uses {@link MvPartitionStorage#persistedIndex()} and configuration, passed into constructor, to create a {@link SnapshotMeta} object
  * in {@link SnapshotReader#load()}.
@@ -55,8 +55,11 @@ public class PartitionSnapshotStorageFactory implements SnapshotStorageFactory {
     /** List of learners. */
     private final List<String> learners;
 
-    /** RAFT log index read from {@link PartitionAccess#persistedIndex()} during factory instantiation. */
+    /** RAFT log index. */
     private final long persistedRaftIndex;
+
+    /** Incoming snapshots executor. */
+    private final Executor incomingSnapshotsExecutor;
 
     /**
      * Constructor.
@@ -66,6 +69,7 @@ public class PartitionSnapshotStorageFactory implements SnapshotStorageFactory {
      * @param partition MV partition storage.
      * @param peers List of raft group peers to be used in snapshot meta.
      * @param learners List of raft group learners to be used in snapshot meta.
+     * @param incomingSnapshotsExecutor Incoming snapshots executor.
      * @see SnapshotMeta
      */
     @SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType")
@@ -74,20 +78,26 @@ public class PartitionSnapshotStorageFactory implements SnapshotStorageFactory {
             OutgoingSnapshotsManager outgoingSnapshotsManager,
             PartitionAccess partition,
             List<String> peers,
-            List<String> learners
+            List<String> learners,
+            Executor incomingSnapshotsExecutor
     ) {
         this.topologyService = topologyService;
         this.outgoingSnapshotsManager = outgoingSnapshotsManager;
         this.partition = partition;
         this.peers = peers;
         this.learners = learners;
+        this.incomingSnapshotsExecutor = incomingSnapshotsExecutor;
 
-        persistedRaftIndex = partition.persistedIndex();
+        // We must choose the minimum applied index for local recovery so that we don't skip the raft commands for the storage with the
+        // lowest applied index and thus no data loss occurs.
+        persistedRaftIndex = Math.min(
+                partition.mvPartitionStorage().persistedIndex(),
+                partition.txStatePartitionStorage().persistedIndex()
+        );
     }
 
-    /** {@inheritDoc} */
     @Override
-    public SnapshotStorage createSnapshotStorage(String uri, RaftOptions raftOptions) {
+    public PartitionSnapshotStorage createSnapshotStorage(String uri, RaftOptions raftOptions) {
         SnapshotMeta snapshotMeta = new RaftMessagesFactory().snapshotMeta()
                 .lastIncludedIndex(persistedRaftIndex)
                 // According to the code of org.apache.ignite.raft.jraft.core.NodeImpl.bootstrap, it's "dangerous" to init term with a value
@@ -103,7 +113,8 @@ public class PartitionSnapshotStorageFactory implements SnapshotStorageFactory {
                 uri,
                 raftOptions,
                 partition,
-                snapshotMeta
+                snapshotMeta,
+                incomingSnapshotsExecutor
         );
     }
 }

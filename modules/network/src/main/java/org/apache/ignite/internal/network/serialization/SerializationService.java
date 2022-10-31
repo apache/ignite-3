@@ -51,6 +51,13 @@ public class SerializationService {
     }
 
     /**
+     * Returns underlying serialization registry.
+     */
+    public MessageSerializationRegistry serializationRegistry() {
+        return messageRegistry;
+    }
+
+    /**
      * Creates a message serializer.
      *
      * @see MessageSerializationRegistry#createSerializer(short, short)

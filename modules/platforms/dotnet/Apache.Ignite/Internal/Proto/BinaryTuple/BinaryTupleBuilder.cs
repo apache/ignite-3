@@ -43,6 +43,9 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /** Starting position of variable-length values. */
         private readonly int _valueBase;
 
+        /** Colocation column index provider. When not null, used to compute colocation hash on the fly. */
+        private readonly IHashedColumnIndexProvider? _hashedColumnsPredicate;
+
         /** Buffer for tuple content. */
         private readonly PooledArrayBufferWriter _buffer;
 
@@ -52,17 +55,28 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /** Current element. */
         private int _elementIndex;
 
+        /** Current element. */
+        private int _hash;
+
         /// <summary>
         /// Initializes a new instance of the <see cref="BinaryTupleBuilder"/> struct.
         /// </summary>
         /// <param name="numElements">Capacity.</param>
         /// <param name="allowNulls">Whether nulls are allowed.</param>
         /// <param name="totalValueSize">Total value size, -1 when unknown.</param>
-        public BinaryTupleBuilder(int numElements, bool allowNulls = true, int totalValueSize = -1)
+        /// <param name="hashedColumnsPredicate">A predicate that returns true for colocation column indexes.
+        /// Pass null when colocation hash is not needed.</param>
+        public BinaryTupleBuilder(
+            int numElements,
+            bool allowNulls = true,
+            int totalValueSize = -1,
+            IHashedColumnIndexProvider? hashedColumnsPredicate = null)
         {
             Debug.Assert(numElements >= 0, "numElements >= 0");
 
             _numElements = numElements;
+            _hashedColumnsPredicate = hashedColumnsPredicate;
+            _hash = 0;
             _buffer = new();
             _elementIndex = 0;
             _hasNullValues = false;
@@ -96,6 +110,11 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         public int ElementIndex => _elementIndex;
 
         /// <summary>
+        /// Gets the hash from column values according to specified <see cref="IHashedColumnIndexProvider"/>.
+        /// </summary>
+        public int Hash => _hash;
+
+        /// <summary>
         /// Appends a null value.
         /// </summary>
         public void AppendNull()
@@ -103,6 +122,11 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             if (!HasNullMap)
             {
                 throw new InvalidOperationException("Appending a NULL value in binary tuple builder with disabled NULLs");
+            }
+
+            if (ShouldHash())
+            {
+                _hash = HashUtils.Hash32((sbyte)0, _hash);
             }
 
             _hasNullValues = true;
@@ -120,6 +144,11 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// </summary>
         public void AppendDefault()
         {
+            if (ShouldHash())
+            {
+                _hash = HashUtils.Hash32((sbyte)0, _hash);
+            }
+
             OnWrite();
         }
 
@@ -129,6 +158,11 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// <param name="value">Value.</param>
         public void AppendByte(sbyte value)
         {
+            if (ShouldHash())
+            {
+                _hash = HashUtils.Hash32(value, _hash);
+            }
+
             if (value != 0)
             {
                 PutByte(value);
@@ -143,15 +177,24 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// <param name="value">Value.</param>
         public void AppendShort(short value)
         {
-            if (value >= sbyte.MinValue && value <= sbyte.MaxValue)
+            if (ShouldHash())
             {
-                AppendByte((sbyte)value);
+                _hash = HashUtils.Hash32(value, _hash);
             }
-            else
+
+            if (value != 0)
             {
-                PutShort(value);
-                OnWrite();
+                if (value >= sbyte.MinValue && value <= sbyte.MaxValue)
+                {
+                    PutByte((sbyte)value);
+                }
+                else
+                {
+                    PutShort(value);
+                }
             }
+
+            OnWrite();
         }
 
         /// <summary>
@@ -160,19 +203,25 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// <param name="value">Value.</param>
         public void AppendInt(int value)
         {
-            if (value >= sbyte.MinValue && value <= sbyte.MaxValue)
+            if (ShouldHash())
             {
-                AppendByte((sbyte)value);
-                return;
+                _hash = HashUtils.Hash32(value, _hash);
             }
 
-            if (value >= short.MinValue && value <= short.MaxValue)
+            if (value != 0)
             {
-                PutShort((short)value);
-            }
-            else
-            {
-                PutInt(value);
+                if (value >= sbyte.MinValue && value <= sbyte.MaxValue)
+                {
+                    PutByte((sbyte)value);
+                }
+                else if (value >= short.MinValue && value <= short.MaxValue)
+                {
+                    PutShort((short)value);
+                }
+                else
+                {
+                    PutInt(value);
+                }
             }
 
             OnWrite();
@@ -184,19 +233,29 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// <param name="value">Value.</param>
         public void AppendLong(long value)
         {
-            if (value >= short.MinValue && value <= short.MaxValue)
+            if (ShouldHash())
             {
-                AppendShort((short)value);
-                return;
+                _hash = HashUtils.Hash32(value, _hash);
             }
 
-            if (value >= int.MinValue && value <= int.MaxValue)
+            if (value != 0)
             {
-                PutInt((int)value);
-            }
-            else
-            {
-                PutLong(value);
+                if (value >= sbyte.MinValue && value <= sbyte.MaxValue)
+                {
+                    PutByte((sbyte)value);
+                }
+                else if (value >= short.MinValue && value <= short.MaxValue)
+                {
+                    PutShort((short)value);
+                }
+                else if (value >= int.MinValue && value <= int.MaxValue)
+                {
+                    PutInt((int)value);
+                }
+                else
+                {
+                    PutLong(value);
+                }
             }
 
             OnWrite();
@@ -208,6 +267,11 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// <param name="value">Value.</param>
         public void AppendFloat(float value)
         {
+            if (ShouldHash())
+            {
+                _hash = HashUtils.Hash32(value, _hash);
+            }
+
             if (value != 0.0F)
             {
                 PutFloat(value);
@@ -222,14 +286,24 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// <param name="value">Value.</param>
         public void AppendDouble(double value)
         {
-            // ReSharper disable once CompareOfFloatsByEqualityOperator
-            if (value == (float)value)
+            if (ShouldHash())
             {
-                AppendFloat((float)value);
-                return;
+                _hash = HashUtils.Hash32(value, _hash);
             }
 
-            PutDouble(value);
+            if (value != 0.0d)
+            {
+                // ReSharper disable once CompareOfFloatsByEqualityOperator
+                if (value == (float)value)
+                {
+                    PutFloat((float)value);
+                }
+                else
+                {
+                    PutDouble(value);
+                }
+            }
+
             OnWrite();
         }
 
@@ -266,6 +340,11 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// <param name="value">Value.</param>
         public void AppendBytes(Span<byte> value)
         {
+            if (ShouldHash())
+            {
+                _hash = HashUtils.Hash32(value, _hash);
+            }
+
             PutBytes(value);
             OnWrite();
         }
@@ -284,7 +363,22 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         {
             if (value != default)
             {
-                UuidSerializer.Write(value, GetSpan(16));
+                var span = GetSpan(16);
+                UuidSerializer.Write(value, span);
+
+                if (ShouldHash())
+                {
+                    _hash = HashUtils.Hash32(BinaryPrimitives.ReadInt64LittleEndian(span[..8]), _hash);
+                    _hash = HashUtils.Hash32(BinaryPrimitives.ReadInt64LittleEndian(span[8..]), _hash);
+                }
+            }
+            else
+            {
+                if (ShouldHash())
+                {
+                    _hash = HashUtils.Hash32(0L, _hash);
+                    _hash = HashUtils.Hash32(0L, _hash);
+                }
             }
 
             OnWrite();
@@ -302,7 +396,21 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             try
             {
                 value.CopyTo(arr, 0);
-                PutBytes(arr.AsSpan()[..size]);
+
+                // Trim zero bytes.
+                while (size > 0 && arr[size - 1] == 0)
+                {
+                    size--;
+                }
+
+                var resBytes = arr.AsSpan()[..size];
+
+                if (ShouldHash())
+                {
+                    _hash = HashUtils.Hash32(resBytes, _hash);
+                }
+
+                PutBytes(resBytes);
 
                 OnWrite();
             }
@@ -325,6 +433,13 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
 
                 PutDecimal(scale, unscaledValue, valueScale);
             }
+            else
+            {
+                if (ShouldHash())
+                {
+                    _hash = HashUtils.Hash32(stackalloc byte[1] { 0 }, _hash);
+                }
+            }
 
             OnWrite();
         }
@@ -341,8 +456,20 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                 var destination = GetSpan(size);
                 var success = value.TryWriteBytes(destination, out int written, isBigEndian: true);
 
+                if (ShouldHash())
+                {
+                    _hash = HashUtils.Hash32(destination[..written], _hash);
+                }
+
                 Debug.Assert(success, "success");
                 Debug.Assert(written == size, "written == size");
+            }
+            else
+            {
+                if (ShouldHash())
+                {
+                    _hash = HashUtils.Hash32(stackalloc byte[1] { 0 }, _hash);
+                }
             }
 
             OnWrite();
@@ -354,7 +481,12 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// <param name="value">Value.</param>
         public void AppendDate(LocalDate value)
         {
-            if (value != default)
+            if (ShouldHash())
+            {
+                _hash = HashUtils.Hash32(value, _hash);
+            }
+
+            if (value != BinaryTupleCommon.DefaultDate)
             {
                 PutDate(value);
             }
@@ -368,6 +500,11 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// <param name="value">Value.</param>
         public void AppendTime(LocalTime value)
         {
+            if (ShouldHash())
+            {
+                _hash = HashUtils.Hash32(value, _hash);
+            }
+
             if (value != default)
             {
                 PutTime(value);
@@ -382,7 +519,12 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// <param name="value">Value.</param>
         public void AppendDateTime(LocalDateTime value)
         {
-            if (value != default)
+            if (ShouldHash())
+            {
+                _hash = HashUtils.Hash32(value, _hash);
+            }
+
+            if (value != BinaryTupleCommon.DefaultDateTime)
             {
                 PutDate(value.Date);
                 PutTime(value.TimeOfDay);
@@ -399,7 +541,21 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         {
             if (value != default)
             {
-                PutTimestamp(value);
+                var (seconds, nanos) = PutTimestamp(value);
+
+                if (ShouldHash())
+                {
+                    _hash = HashUtils.Hash32(seconds, _hash);
+                    _hash = HashUtils.Hash32((long)nanos, _hash);
+                }
+            }
+            else
+            {
+                if (ShouldHash())
+                {
+                    _hash = HashUtils.Hash32(0L, _hash);
+                    _hash = HashUtils.Hash32(0L, _hash);
+                }
             }
 
             OnWrite();
@@ -411,6 +567,12 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// <param name="value">Value.</param>
         public void AppendDuration(Duration value)
         {
+            if (ShouldHash())
+            {
+                // Colocation keys can't include Duration.
+                throw new NotSupportedException("Duration hashing is not supported.");
+            }
+
             if (value != default)
             {
                 PutDuration(value);
@@ -425,6 +587,12 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// <param name="value">Value.</param>
         public void AppendPeriod(Period value)
         {
+            if (ShouldHash())
+            {
+                // Colocation keys can't include Period.
+                throw new NotSupportedException("Period hashing is not supported.");
+            }
+
             if (value != Period.Zero)
             {
                 PutPeriod(value);
@@ -578,10 +746,9 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                     break;
 
                 case decimal dec:
-                    var (unscaled, scale) = DeconstructDecimal(dec);
+                    var scale = GetDecimalScale(dec);
                     AppendTypeAndScale(ClientDataType.Decimal, scale);
-                    PutDecimal(scale, unscaled, scale);
-                    OnWrite();
+                    AppendDecimal(dec, scale);
                     break;
 
                 case BigInteger bigInt:
@@ -716,6 +883,14 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             return (sign < 0 ? -unscaled : unscaled, scale);
         }
 
+        private static int GetDecimalScale(decimal value)
+        {
+            Span<int> bits = stackalloc int[4];
+            decimal.GetBits(value, bits);
+
+            return (bits[3] & 0x00FF0000) >> 16;
+        }
+
         private void PutDecimal(int scale, BigInteger unscaledValue, int valueScale)
         {
             if (scale > valueScale)
@@ -730,6 +905,11 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             var size = unscaledValue.GetByteCount();
             var destination = GetSpan(size);
             var success = unscaledValue.TryWriteBytes(destination, out int written, isBigEndian: true);
+
+            if (ShouldHash())
+            {
+                _hash = HashUtils.Hash32(destination[..written], _hash);
+            }
 
             Debug.Assert(success, "success");
             Debug.Assert(written == size, "written == size");
@@ -753,18 +933,28 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         {
             if (value.Length == 0)
             {
+                if (ShouldHash())
+                {
+                    _hash = HashUtils.Hash32(Span<byte>.Empty, _hash);
+                }
+
                 return;
             }
 
-            var maxByteCount = BinaryTupleCommon.StringEncoding.GetMaxByteCount(value.Length);
+            var maxByteCount = ProtoCommon.StringEncoding.GetMaxByteCount(value.Length);
             var span = _buffer.GetSpan(maxByteCount);
 
-            var actualBytes = BinaryTupleCommon.StringEncoding.GetBytes(value, span);
+            var actualBytes = ProtoCommon.StringEncoding.GetBytes(value, span);
+
+            if (ShouldHash())
+            {
+                _hash = HashUtils.Hash32(span[..actualBytes], _hash);
+            }
 
             _buffer.Advance(actualBytes);
         }
 
-        private void PutTimestamp(Instant value)
+        private (long Seconds, int Nanos) PutTimestamp(Instant value)
         {
             // Logic taken from
             // https://github.com/nodatime/nodatime.serialization/blob/main/src/NodaTime.Serialization.Protobuf/NodaExtensions.cs#L69
@@ -780,6 +970,8 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             {
                 PutInt(nanos);
             }
+
+            return (seconds, nanos);
         }
 
         private void PutDuration(Duration value)
@@ -923,5 +1115,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
 
             return span;
         }
+
+        private bool ShouldHash() => _hashedColumnsPredicate?.IsHashedColumnIndex(_elementIndex) == true;
     }
 }

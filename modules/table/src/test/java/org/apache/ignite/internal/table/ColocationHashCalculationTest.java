@@ -27,6 +27,7 @@ import java.util.stream.IntStream;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.schema.Column;
+import org.apache.ignite.internal.schema.DecimalNativeType;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
@@ -133,7 +134,8 @@ public class ColocationHashCalculationTest {
     private int colocationHash(Row r) {
         HashCalculator hashCalc = new HashCalculator();
         for (Column c : r.schema().colocationColumns()) {
-            hashCalc.append(r.value(c.schemaIndex()));
+            var scale = c.type() instanceof DecimalNativeType ? ((DecimalNativeType) c.type()).scale() : 0;
+            hashCalc.append(r.value(c.schemaIndex()), scale);
         }
 
         return hashCalc.hash();

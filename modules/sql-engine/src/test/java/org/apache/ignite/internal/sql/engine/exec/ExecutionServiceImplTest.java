@@ -81,6 +81,8 @@ import org.apache.ignite.internal.testframework.IgniteTestUtils.RunnableX;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NetworkMessage;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -342,7 +344,7 @@ public class ExecutionServiceImplTest {
         var mailboxRegistry = new MailboxRegistryImpl();
 
         var exchangeService = new ExchangeServiceImpl(
-                nodeId,
+                new ClusterNode(nodeId, "fake-test-node", NetworkAddress.from("127.0.0.1:1111")),
                 taskExecutor,
                 mailboxRegistry,
                 messageService
@@ -353,7 +355,7 @@ public class ExecutionServiceImplTest {
         when(schemaManagerMock.tableById(any(), anyInt())).thenReturn(table);
 
         var executionService = new ExecutionServiceImpl<>(
-                nodeId,
+                new ClusterNode(nodeId, "fake-test-node", NetworkAddress.from("127.0.0.1:1111")),
                 messageService,
                 (single, filter) -> single ? List.of(nodeIds.get(ThreadLocalRandom.current().nextInt(nodeIds.size()))) : nodeIds,
                 schemaManagerMock,

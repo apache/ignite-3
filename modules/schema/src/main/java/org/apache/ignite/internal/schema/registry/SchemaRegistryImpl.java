@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
@@ -48,7 +49,7 @@ public class SchemaRegistryImpl implements SchemaRegistry {
     private volatile int lastVer;
 
     /** Schema store. */
-    private final Function<Integer, SchemaDescriptor> history;
+    private final Function<Integer, CompletableFuture<SchemaDescriptor>> history;
 
     /** The method to provide the latest schema version on cluster. */
     private final IntSupplier latestVersionStore;
@@ -61,7 +62,7 @@ public class SchemaRegistryImpl implements SchemaRegistry {
      * @param initialSchema      Initial schema.
      */
     public SchemaRegistryImpl(
-            Function<Integer, SchemaDescriptor> history,
+            Function<Integer, CompletableFuture<SchemaDescriptor>> history,
             IntSupplier latestVersionStore,
             SchemaDescriptor initialSchema
     ) {
@@ -86,7 +87,11 @@ public class SchemaRegistryImpl implements SchemaRegistry {
             return desc;
         }
 
-        desc = history.apply(ver);
+        CompletableFuture<SchemaDescriptor> descFut = history.apply(ver);
+
+        if (descFut != null) {
+            desc = descFut.join();
+        }
 
         if (desc != null) {
             schemaCache.putIfAbsent(ver, desc);
