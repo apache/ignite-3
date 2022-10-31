@@ -478,13 +478,15 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
                     b.AppendDate(val);
                     b.AppendDate(LocalDate.MaxIsoValue);
                     b.AppendDate(LocalDate.MinIsoValue);
+                    b.AppendDate(new LocalDate(1, 1, 1));
                 },
-                4);
+                5);
 
             Assert.AreEqual(default(LocalDate), reader.GetDate(0));
             Assert.AreEqual(val, reader.GetDate(1));
             Assert.AreEqual(LocalDate.MaxIsoValue, reader.GetDate(2));
             Assert.AreEqual(LocalDate.MinIsoValue, reader.GetDate(3));
+            Assert.AreEqual(new LocalDate(1, 1, 1), reader.GetDate(4));
         }
 
         [Test]
