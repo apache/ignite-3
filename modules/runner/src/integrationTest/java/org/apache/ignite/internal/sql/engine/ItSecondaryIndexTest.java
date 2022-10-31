@@ -34,7 +34,6 @@ import org.junit.jupiter.api.Test;
 /**
  * Basic index tests.
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-17304")
 public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
     private static final String PK_IDX = "PK_IDX";
 
@@ -82,7 +81,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
         });
 
         sql("CREATE TABLE unwrap_pk(f1 VARCHAR, f2 BIGINT, f3 BIGINT, f4 BIGINT, primary key(f2, f1))");
-        sql("CREATE INDEX" + PK_IDX + " ON unwrap_pk(f2, f1)");
+        sql("CREATE INDEX " + PK_IDX + " ON unwrap_pk(f2, f1)");
 
         insertData("UNWRAP_PK", List.of("F1", "F2", "F3", "F4"), new Object[][]{
                 {"Petr", 1L, 2L, 3L},
