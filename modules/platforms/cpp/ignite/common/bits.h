@@ -20,6 +20,7 @@
 #include "config.h"
 
 #include <type_traits>
+#include <climits>
 
 #if defined(__cpp_lib_bitops) && __cpp_lib_bitops >= 201907L
 # define IGNITE_STD_BITOPS 1

@@ -205,7 +205,7 @@ private:
             res.push_back(char(std::toupper(c)));
         }
 
-        return std::move(res);
+        return res;
     }
 
     /** Pairs of column names and values. */
@@ -239,7 +239,7 @@ public:
     template<typename T>
     void add(std::string_view name, T&& value) {
         m_pairs.emplace_back(name, std::forward<T>(value));
-        m_indices.emplace(std::move(ignite_tuple::parse_name(name)), m_pairs.size() - 1);
+        m_indices.emplace(ignite_tuple::parse_name(name), m_pairs.size() - 1);
     }
 
     /**

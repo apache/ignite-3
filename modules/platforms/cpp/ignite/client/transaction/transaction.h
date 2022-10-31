@@ -33,7 +33,7 @@ public:
     /**
      * Commits the transaction.
      */
-    void commit() {
+    IGNITE_API void commit() {
         return sync<void>([this] (auto callback) {
             commit_async(std::move(callback));
         });
@@ -42,14 +42,15 @@ public:
     /**
      * Commits the transaction asynchronously.
      */
-    void commit_async(ignite_callback<void> on_complete) {
+    IGNITE_API void commit_async(ignite_callback<void> on_complete) {
+        (void) on_complete;
         throw ignite_error("Transactions are not yet supported");
     }
 
     /**
      * Rollbacks the transaction.
      */
-    void rollback() {
+    IGNITE_API void rollback() {
         return sync<void>([this] (auto callback) {
             rollback_async(std::move(callback));
         });
@@ -58,7 +59,8 @@ public:
     /**
      * Rollbacks the transaction asynchronously.
      */
-    void rollback_async(ignite_callback<void> on_complete) {
+    IGNITE_API void rollback_async(ignite_callback<void> on_complete) {
+        (void) on_complete;
         throw ignite_error("Transactions are not yet supported");
     }
 

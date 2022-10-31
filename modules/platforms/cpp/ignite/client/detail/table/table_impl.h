@@ -320,7 +320,7 @@ private:
         if (schema_version)
             sch = get_schema(schema_version.value());
 
-        return std::move(sch);
+        return sch;
     }
 
     /** Table name. */

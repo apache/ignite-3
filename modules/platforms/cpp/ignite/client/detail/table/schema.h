@@ -73,7 +73,7 @@ struct column {
         res.nullable = protocol::unpack_object<bool>(arr.ptr[3]);
         res.scale = protocol::unpack_object<std::int32_t>(arr.ptr[5]);
 
-        return std::move(res);
+        return res;
     }
 };
 

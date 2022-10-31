@@ -329,7 +329,7 @@ std::vector<std::optional<ignite_tuple>> read_tuples_opt(protocol::reader& reade
             res.emplace_back(read_tuple(reader, sch, key_only));
     }
 
-    return std::move(res);
+    return res;
 }
 
 /**
@@ -352,7 +352,7 @@ std::vector<ignite_tuple> read_tuples(protocol::reader& reader, const schema* sc
     for (std::int32_t i = 0; i < count; ++i)
         res.emplace_back(read_tuple(reader, sch, key_only));
 
-    return std::move(res);
+    return res;
 }
 
 void table_impl::get_latest_schema_async(ignite_callback<std::shared_ptr<schema>> callback) {
@@ -389,7 +389,7 @@ void table_impl::load_schema_async(ignite_callback<std::shared_ptr<schema>> call
             table->add_schema(last);
         });
 
-        return std::move(last);
+        return last;
     };
 
     m_connection->perform_request<std::shared_ptr<schema>>(
@@ -411,7 +411,7 @@ void table_impl::get_async(transaction *tx, const ignite_tuple& key, ignite_call
             if (!sch)
                 return std::nullopt;
 
-            return std::move(read_tuple(reader, sch.get(), *key));
+            return read_tuple(reader, sch.get(), *key);
         };
 
         self->m_connection->perform_request<std::optional<ignite_tuple>>(
@@ -488,7 +488,7 @@ void table_impl::get_and_upsert_async(transaction *tx, const ignite_tuple &recor
             if (!sch)
                 return std::nullopt;
 
-            return std::move(read_tuple(reader, sch.get(), *record));
+            return read_tuple(reader, sch.get(), *record);
         };
 
         self->m_connection->perform_request<std::optional<ignite_tuple>>(
@@ -597,7 +597,7 @@ void table_impl::get_and_replace_async(transaction *tx, const ignite_tuple &reco
             if (!sch)
                 return std::nullopt;
 
-            return std::move(read_tuple(reader, sch.get(), *record));
+            return read_tuple(reader, sch.get(), *record);
         };
 
         self->m_connection->perform_request<std::optional<ignite_tuple>>(
@@ -660,7 +660,7 @@ void table_impl::get_and_remove_async(transaction *tx, const ignite_tuple &key,
             if (!sch)
                 return std::nullopt;
 
-            return std::move(read_tuple(reader, sch.get(), *record));
+            return read_tuple(reader, sch.get(), *record);
         };
 
         self->m_connection->perform_request<std::optional<ignite_tuple>>(
