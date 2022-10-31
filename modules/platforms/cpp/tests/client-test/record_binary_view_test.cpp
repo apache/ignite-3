@@ -406,6 +406,18 @@ TEST_F(record_binary_view_test, insert_empty_tuple_throws) {
     }, ignite_error);
 }
 
+TEST_F(record_binary_view_test, insert_all_empty_throws) {
+    EXPECT_THROW({
+        try {
+            std::vector<ignite_tuple> empty;
+            tuple_view.insert_all(nullptr, empty);
+        } catch (const ignite_error& e) {
+            EXPECT_STREQ("At least one record should be supplied", e.what());
+            throw;
+        }
+    }, ignite_error);
+}
+
 TEST_F(record_binary_view_test, delete_all_nonexisting_keys_return_all) {
     std::vector<ignite_tuple> non_existing = { get_tuple(1), get_tuple(2) };
     auto res = tuple_view.delete_all(nullptr, non_existing);

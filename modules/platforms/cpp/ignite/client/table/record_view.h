@@ -230,6 +230,32 @@ public:
     }
 
     /**
+     * Inserts multiple records into the table asynchronously, skipping existing ones.
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *   single operation is used.
+     * @param records Records to upsert.
+     * @param callback Callback that called on operation completion. Called with
+     *   skipped records.
+     */
+    IGNITE_API void insert_all_async(transaction* tx, std::vector<value_type> records,
+        ignite_callback<std::vector<value_type>> callback);
+
+    /**
+     * Inserts multiple records into the table, skipping existing ones.
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *   single operation is used.
+     * @param records Records to upsert.
+     * @return Skipped records.
+     */
+    IGNITE_API std::vector<value_type> insert_all(transaction* tx, std::vector<value_type> records) {
+        return sync<std::vector<value_type>>([this, tx, records = std::move(records)] (auto callback) mutable {
+            insert_all_async(tx, std::move(records), std::move(callback));
+        });
+    }
+
+    /**
      * Deletes multiple records from the table asynchronously. If one or more
      * keys do not exist, other records are still deleted
      *

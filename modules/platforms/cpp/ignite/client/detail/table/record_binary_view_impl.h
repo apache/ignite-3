@@ -133,6 +133,21 @@ public:
     }
 
     /**
+     * Inserts multiple records into the table asynchronously, skipping existing ones.
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *   single operation is used.
+     * @param records Records to upsert.
+     * @param callback Callback that called on operation completion. Called with
+     *   skipped records.
+     */
+    void insert_all_async(transaction* tx, std::vector<ignite_tuple> records,
+        ignite_callback<std::vector<ignite_tuple>> callback)
+    {
+        m_table->insert_all_async(tx, std::move(records), std::move(callback));
+    }
+
+    /**
      * Deletes multiple records from the table asynchronously. If one or more
      * keys do not exist, other records are still deleted
      *

@@ -515,6 +515,29 @@ void table_impl::insert_async(transaction *tx, const ignite_tuple &record, ignit
     });
 }
 
+void table_impl::insert_all_async(transaction *tx, std::vector<ignite_tuple> records,
+    ignite_callback<std::vector<ignite_tuple>> callback)
+{
+    transactions_not_implemented(tx);
+
+    auto shared_records = std::make_shared<std::vector<ignite_tuple>>(std::move(records));
+    with_latest_schema_async<std::vector<ignite_tuple>>(std::move(callback),
+        [self = shared_from_this(), records = shared_records] (const schema& sch, auto callback) mutable {
+        auto writer_func = [self, records, &sch] (protocol::writer &writer) {
+            write_table_operation_header(writer, self->m_id, sch);
+            write_tuples(writer, sch, *records, false);
+        };
+
+        auto reader_func = [self, records] (protocol::reader &reader) -> std::vector<ignite_tuple> {
+            std::shared_ptr<schema> sch = self->get_schema(reader);
+            return read_tuples(reader, sch.get(), false);
+        };
+
+        self->m_connection->perform_request<std::vector<ignite_tuple>>(
+            client_operation::TUPLE_INSERT_ALL, writer_func, std::move(reader_func), std::move(callback));
+    });
+}
+
 void table_impl::delete_all_async(transaction *tx, std::vector<ignite_tuple> keys,
     ignite_callback<std::vector<ignite_tuple>> callback)
 {
