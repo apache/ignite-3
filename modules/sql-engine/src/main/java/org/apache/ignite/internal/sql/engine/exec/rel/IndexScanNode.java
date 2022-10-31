@@ -74,6 +74,8 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
     /** Participating columns. */
     private final @Nullable BitSet requiredColumns;
 
+    private final @Nullable RangeIterable<RowT> rangeConditions;
+
     private final @Nullable Comparator<BinaryTuple> comp;
 
     private @Nullable Iterator<RangeCondition<RowT>> rangeConditionIterator;
@@ -121,6 +123,7 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
         this.filters = filters;
         this.rowTransformer = rowTransformer;
         this.requiredColumns = requiredColumns;
+        this.rangeConditions = rangeConditions;
 
         Comparator<RowT> rowCmp = schemaIndex.type() == Type.SORTED ? ctx.expressionFactory().comparator(collation) : null;
 
@@ -165,7 +168,10 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
         requested = 0;
         waiting = 0;
         rangeConditionsProcessed = false;
-        rangeConditionIterator = null;
+
+        if (rangeConditions != null) {
+            rangeConditionIterator = rangeConditions.iterator();
+        }
 
         if (activeSubscription != null) {
             activeSubscription.cancel();
