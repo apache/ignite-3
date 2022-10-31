@@ -208,6 +208,20 @@ public:
     }
 
     /**
+     * Deletes a record only if all existing columns have the same values as
+     * the specified record asynchronously.
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *   single operation is used.
+     * @param record A record with all columns set.
+     * @param callback Callback that called on operation completion. Called with
+     *   a value indicating whether a record with the specified key was deleted.
+     */
+    void remove_exact_async(transaction* tx, const ignite_tuple &record, ignite_callback<bool> callback) {
+        m_table->remove_exact_async(tx, record, std::move(callback));
+    }
+
+    /**
      * Deletes multiple records from the table asynchronously. If one or more
      * keys do not exist, other records are still deleted
      *

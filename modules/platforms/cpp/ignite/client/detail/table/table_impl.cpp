@@ -624,6 +624,25 @@ void table_impl::remove_async(transaction *tx, const ignite_tuple &key, ignite_c
     });
 }
 
+void table_impl::remove_exact_async(transaction *tx, const ignite_tuple &record, ignite_callback<bool> callback) {
+    transactions_not_implemented(tx);
+
+    with_latest_schema_async<bool>(std::move(callback),
+        [self = shared_from_this(), record = ignite_tuple(record)] (const schema& sch, auto callback) mutable {
+        auto writer_func = [self, &record, &sch] (protocol::writer &writer) {
+            write_table_operation_header(writer, self->m_id, sch);
+            write_tuple(writer, sch, record, false);
+        };
+
+        auto reader_func = [] (protocol::reader &reader) -> bool {
+            return reader.read_bool();
+        };
+
+        self->m_connection->perform_request<bool>(
+            client_operation::TUPLE_DELETE_EXACT, writer_func, std::move(reader_func), std::move(callback));
+    });
+}
+
 void table_impl::remove_all_async(transaction *tx, std::vector<ignite_tuple> keys,
     ignite_callback<std::vector<ignite_tuple>> callback)
 {

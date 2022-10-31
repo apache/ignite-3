@@ -358,12 +358,40 @@ public:
      *
      * @param tx Optional transaction. If nullptr implicit transaction for this
      *   single operation is used.
-     * @param key A record with key columns set..
+     * @param key A record with key columns set.
      * @return A value indicating whether a record with the specified key was deleted.
      */
     IGNITE_API bool remove(transaction* tx, const value_type& record) {
         return sync<bool>([this, tx, &record] (auto callback) {
             remove_async(tx, record, std::move(callback));
+        });
+    }
+
+    /**
+     * Deletes a record only if all existing columns have the same values as
+     * the specified record asynchronously.
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *   single operation is used.
+     * @param record A record with all columns set.
+     * @param callback Callback that called on operation completion. Called with
+     *   a value indicating whether a record with the specified key was deleted.
+     */
+    IGNITE_API void remove_exact_async(transaction* tx, const value_type &record, ignite_callback<bool> callback);
+
+    /**
+     * Deletes a record only if all existing columns have the same values as
+     * the specified record.
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *   single operation is used.
+     * @param record A record with all columns set.
+     * @return A value indicating whether a record with the specified key was
+     *   deleted.
+     */
+    IGNITE_API bool remove_exact(transaction* tx, const value_type& record) {
+        return sync<bool>([this, tx, &record] (auto callback) {
+            remove_exact_async(tx, record, std::move(callback));
         });
     }
 

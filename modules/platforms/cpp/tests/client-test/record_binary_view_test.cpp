@@ -745,6 +745,17 @@ TEST_F(record_binary_view_test, remove_empty_throws) {
     }, ignite_error);
 }
 
+TEST_F(record_binary_view_test, remove_exact_empty_throws) {
+    EXPECT_THROW({
+        try {
+            tuple_view.remove_exact(nullptr, ignite_tuple{});
+        } catch (const ignite_error& e) {
+            EXPECT_STREQ("Tuple can not be empty", e.what());
+            throw;
+        }
+    }, ignite_error);
+}
+
 TEST_F(record_binary_view_test, remove_all_nonexisting_keys_return_all) {
     std::vector<ignite_tuple> non_existing = { get_tuple(1), get_tuple(2) };
     auto res = tuple_view.remove_all(nullptr, non_existing);
