@@ -31,7 +31,7 @@ ADD_OPENS_JAVA_OPTS="--add-opens java.base/java.lang=ALL-UNNAMED \
 
 # used by rpm, deb, zip and docker distributions
 export COMMON_JAVA_OPTS="
-    ${ADD_OPENS_JAVA_OPTS} \
+    $ADD_OPENS_JAVA_OPTS \
     -Dio.netty.tryReflectionSetAccessible=true \
     -Dfile.encoding=UTF-8 \
     -XX:+HeapDumpOnOutOfMemoryError \
@@ -44,13 +44,13 @@ export LOGGING_JAVA_OPTS="
 
 export CLASSPATH="-classpath @INSTALL_DIR@/lib/@APP_JAR@:@INSTALL_DIR@/lib/* @MAIN_CLASS@"
 
-export JAVA_CMD_WITH_ARGS="${JAVACMD} \
-  ${COMMON_JAVA_OPTS} \
-  ${LOGGING_JAVA_OPTS} \
-  ${CLASSPATH} \
-  ${IGNITE3_EXTRA_JVM_ARGS}"
+export JAVA_CMD_WITH_ARGS="$JAVACMD \
+  $COMMON_JAVA_OPTS \
+  $LOGGING_JAVA_OPTS \
+  $CLASSPATH \
+  $IGNITE3_EXTRA_JVM_ARGS"
 
 export APPLICATION_ARGS="\
-  --config-path ${CONFIG_FILE} \
-  --work-dir ${WORK_DIR} \
-  --node-name ${NODE_NAME}"
+  --config-path $CONFIG_FILE \
+  --work-dir $WORK_DIR \
+  --node-name $NODE_NAME"
