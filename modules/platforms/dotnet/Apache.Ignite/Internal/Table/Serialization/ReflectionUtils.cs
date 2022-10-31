@@ -80,8 +80,26 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 ? fieldInfo
                 : null;
 
-            static IReadOnlyDictionary<string, FieldInfo> GetFieldsByName(Type type) =>
-                type.GetAllFields().ToDictionary(f => f.GetColumnName(), StringComparer.OrdinalIgnoreCase);
+            static IReadOnlyDictionary<string, FieldInfo> GetFieldsByName(Type type)
+            {
+                var res = new Dictionary<string, FieldInfo>(StringComparer.OrdinalIgnoreCase);
+
+                foreach (var field in type.GetAllFields())
+                {
+                    var columnName = field.GetColumnName();
+
+                    if (res.TryGetValue(columnName, out var existingField))
+                    {
+                        throw new IgniteClientException(
+                            ErrorGroups.Client.Configuration,
+                            $"Column '{columnName}' maps to more than one field of type {type}: {field} and {existingField}");
+                    }
+
+                    res.Add(columnName, field);
+                }
+
+                return res;
+            }
         }
 
         /// <summary>

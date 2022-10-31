@@ -16,6 +16,7 @@
  */
 
 // ReSharper disable NotAccessedPositionalProperty.Local
+// ReSharper disable UnusedMember.Local
 namespace Apache.Ignite.Tests.Table;
 
 using System.ComponentModel.DataAnnotations.Schema;
@@ -33,8 +34,7 @@ public class RecordViewCustomMappingTest : IgniteTestsBase
     private const string Val = "val1";
 
     // TODO: classes, structs, records
-    // TODO: Fields and properties
-    // TODO: Properties without fields?
+    // TODO: Duplicate column names
     [SetUp]
     public async Task SetUp()
     {
@@ -51,16 +51,56 @@ public class RecordViewCustomMappingTest : IgniteTestsBase
     [Test]
     public async Task TestPropertyMapping()
     {
-        // TODO
-        await Task.Delay(1);
+        var res = await Table.GetRecordView<PropertyMapping>().GetAsync(null, new PropertyMapping(Key));
+        Assert.AreEqual(Val, res.Value.Name);
     }
 
     [Test]
     public async Task TestComputedPropertyMapping()
     {
-        // TODO
-        await Task.Delay(1);
+        var res = await Table.GetRecordView<ComputedPropertyMapping>().GetAsync(null, new ComputedPropertyMapping { Key = Key });
+        Assert.AreEqual(Val, res.Value.Val);
+    }
+
+    [Test]
+    public void TestDuplicateColumnNameMappingThrowsException()
+    {
+        var ex = Assert.ThrowsAsync<IgniteClientException>(async () =>
+            await Table.GetRecordView<FieldMappingDuplicate>().GetAsync(null, new FieldMappingDuplicate(Key)));
+
+        Assert.AreEqual(ErrorGroups.Client.Configuration, ex!.Code);
+
+        Assert.AreEqual(
+            "Column 'Val' maps to more than one field of type " +
+            "Apache.Ignite.Tests.Table.RecordViewCustomMappingTest+FieldMappingDuplicate: " +
+            "System.String <Name2>k__BackingField and " +
+            "System.String <Name>k__BackingField",
+            ex.Message);
     }
 
     private record FieldMapping([field: Column("Key")] long Id, [field: Column("Val")] string? Name = null);
+
+    private record PropertyMapping([property: Column("Key")] long Id, [property: Column("Val")] string? Name = null);
+
+    // ReSharper disable MemberHidesStaticFromOuterClass
+    private record ComputedPropertyMapping
+    {
+        public long Id { get; set; }
+
+        public string? Name { get; set; }
+
+        public long Key
+        {
+            get => Id;
+            set => Id = value;
+        }
+
+        public string? Val
+        {
+            get => Name;
+            set => Name = value;
+        }
+    }
+
+    private record FieldMappingDuplicate(long Key, [field: Column("Val")] string? Name = null, [field: Column("Val")] string? Name2 = null);
 }
