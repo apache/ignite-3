@@ -24,6 +24,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
     using System.Linq;
     using System.Linq.Expressions;
     using System.Reflection;
+    using System.Runtime.CompilerServices;
     using System.Runtime.Serialization;
 
     /// <summary>
@@ -117,18 +118,26 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// <summary>
         /// Gets cleaned up member name without compiler-generated prefixes and suffixes.
         /// </summary>
-        /// <param name="memberInfo">Member.</param>
+        /// <param name="fieldInfo">Member.</param>
         /// <returns>Clean name.</returns>
-        public static string GetColumnName(this MemberInfo memberInfo)
+        public static string GetColumnName(this FieldInfo fieldInfo)
         {
-            // TODO: Support attributes on properties, not only fields.
-            if (memberInfo.GetCustomAttribute<ColumnAttribute>() is { } columnAttribute &&
-                columnAttribute.Name != null)
+            if (fieldInfo.GetCustomAttribute<ColumnAttribute>() is { Name: { } columnAttributeName })
             {
-                return columnAttribute.Name;
+                return columnAttributeName;
             }
 
-            return memberInfo.GetCleanName();
+            var cleanName = fieldInfo.GetCleanName();
+
+            if (fieldInfo.IsDefined(typeof(CompilerGeneratedAttribute), inherit: true) &&
+                fieldInfo.DeclaringType?.GetProperty(cleanName) is { } property &&
+                property.GetCustomAttribute<ColumnAttribute>() is { Name: { } columnAttributeName2 })
+            {
+                // This is a compiler-generated backing field for an automatic property - get the attribute from the property.
+                return columnAttributeName2;
+            }
+
+            return cleanName;
         }
 
         /// <summary>
