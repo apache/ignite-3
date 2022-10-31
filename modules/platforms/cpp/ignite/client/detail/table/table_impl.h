@@ -236,6 +236,18 @@ public:
     void remove_exact_async(transaction* tx, const ignite_tuple &record, ignite_callback<bool> callback);
 
     /**
+     * Gets and deletes a record with the specified key asynchronously.
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *   single operation is used.
+     * @param key A record with key columns set.
+     * @param callback Callback that called on operation completion. Called with
+     *   a deleted record or @c std::nullopt if it did not exist.
+     */
+    void get_and_remove_async(transaction* tx, const ignite_tuple &key,
+        ignite_callback<std::optional<ignite_tuple>> callback);
+
+    /**
      * Deletes multiple records from the table asynchronously. If one or more
      * keys do not exist, other records are still deleted
      *

@@ -396,6 +396,32 @@ public:
     }
 
     /**
+     * Gets and deletes a record with the specified key asynchronously.
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *   single operation is used.
+     * @param key A record with key columns set.
+     * @param callback Callback that called on operation completion. Called with
+     *   a deleted record or @c std::nullopt if it did not exist.
+     */
+    IGNITE_API void get_and_remove_async(transaction* tx, const value_type &key,
+        ignite_callback<std::optional<value_type>> callback);
+
+    /**
+     * Gets and deletes a record with the specified key.
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *   single operation is used.
+     * @param key A record with key columns set.
+     * @return A deleted record or @c std::nullopt if it did not exist.
+     */
+    IGNITE_API std::optional<value_type> get_and_remove(transaction* tx, const value_type& key) {
+        return sync<std::optional<value_type>>([this, tx, &key] (auto callback) {
+            get_and_remove_async(tx, key, std::move(callback));
+        });
+    }
+
+    /**
      * Deletes multiple records from the table asynchronously. If one or more
      * keys do not exist, other records are still deleted
      *
