@@ -406,6 +406,77 @@ TEST_F(record_binary_view_test, insert_empty_tuple_throws) {
     }, ignite_error);
 }
 
+TEST_F(record_binary_view_test, insert_all_new) {
+    static constexpr std::size_t records_num = 10;
+
+    std::vector<ignite_tuple> keys;
+    std::vector<ignite_tuple> records;
+    for (std::int64_t i = 1; i < 1 + std::int64_t(records_num); ++i) {
+        keys.emplace_back(get_tuple(i));
+        records.emplace_back(get_tuple(i, "Val" + std::to_string(i)));
+    }
+
+    auto insert_res = tuple_view.insert_all(nullptr, records);
+
+    ASSERT_TRUE(insert_res.empty());
+
+    auto tuples_res = tuple_view.get_all(nullptr, keys);
+
+    EXPECT_EQ(tuples_res.size(), 10);
+    ASSERT_TRUE(std::all_of(tuples_res.begin(), tuples_res.end(), [] (const auto& elem) { return elem.has_value(); }));
+}
+
+TEST_F(record_binary_view_test, insert_all_overlapped) {
+    auto res = tuple_view.insert_all(nullptr, {get_tuple(1, "foo"), get_tuple(2, "bar")});
+
+    ASSERT_TRUE(res.empty());
+
+    res = tuple_view.insert_all(nullptr, {get_tuple(2, "baz"), get_tuple(3, "bar")});
+
+    EXPECT_EQ(res.size(), 1);
+    EXPECT_EQ(2, res.front().column_count());
+    EXPECT_EQ(2, res.front().get<int64_t>("key"));
+    EXPECT_EQ("baz", res.front().get<std::string>("val"));
+
+    auto tuple2 = tuple_view.get(nullptr, get_tuple(2));
+
+    ASSERT_TRUE(tuple2.has_value());
+    EXPECT_EQ(2, tuple2->column_count());
+    EXPECT_EQ(2, tuple2->get<int64_t>("key"));
+    EXPECT_EQ("bar", tuple2->get<std::string>("val"));
+}
+
+TEST_F(record_binary_view_test, insert_all_overlapped_async) {
+    auto all_done = std::make_shared<std::promise<std::optional<ignite_tuple>>>();
+
+    tuple_view.insert_all_async(nullptr, {get_tuple(1, "foo"), get_tuple(2, "bar")}, [&] (auto res) {
+        if (!check_and_set_operation_error(*all_done, res))
+            return;
+
+        if (!res.value().empty())
+            all_done->set_exception(std::make_exception_ptr(ignite_error("Expected empty return on first insertion")));
+
+        tuple_view.insert_all_async(nullptr, {get_tuple(1, "foo"), get_tuple(2, "baz"), get_tuple(3, "bar")}, [&] (auto res) {
+            if (!check_and_set_operation_error(*all_done, res))
+                return;
+
+            if (res.value().size() != 2)
+                all_done->set_exception(std::make_exception_ptr(
+                    ignite_error("Expected 2 on second insertion but got " + std::to_string(res.value().size()))));
+
+            tuple_view.get_async(nullptr, get_tuple(2), [&] (auto res) {
+                result_set_promise(*all_done, std::move(res));
+            });
+        });
+    });
+
+    auto res_tuple = all_done->get_future().get();
+    ASSERT_TRUE(res_tuple.has_value());
+    EXPECT_EQ(2, res_tuple->column_count());
+    EXPECT_EQ(2, res_tuple->get<int64_t>("key"));
+    EXPECT_EQ("bar", res_tuple->get<std::string>("val"));
+}
+
 TEST_F(record_binary_view_test, insert_all_empty_throws) {
     EXPECT_THROW({
         try {
