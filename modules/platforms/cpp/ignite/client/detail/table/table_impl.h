@@ -149,6 +149,19 @@ public:
      */
     void insert_async(transaction* tx, const ignite_tuple& record, ignite_callback<bool> callback);
 
+    /**
+     * Deletes multiple records from the table asynchronously. If one or more
+     * keys do not exist, other records are still deleted
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *   single operation is used.
+     * @param keys Record keys to delete.
+     * @param callback Callback that called on operation completion. Called with
+     *   records from @c keys that did not exist.
+     */
+    void delete_all_async(transaction* tx, std::vector<ignite_tuple> keys,
+        ignite_callback<std::vector<ignite_tuple>> callback);
+
 private:
     /**
      * Load latest schema from server asynchronously.

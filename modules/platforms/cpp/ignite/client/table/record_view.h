@@ -178,7 +178,7 @@ public:
     }
 
     /**
-     * Inserts a record into the table if it does not exist.
+     * Inserts a record into the table if it does not exist asynchronously.
      *
      * @param tx Optional transaction. If nullptr implicit transaction for this
      *   single operation is used.
@@ -202,6 +202,34 @@ public:
     IGNITE_API bool insert(transaction* tx, const value_type& record) {
         return sync<bool>([this, tx, &record] (auto callback) {
             insert_async(tx, record, std::move(callback));
+        });
+    }
+
+    /**
+     * Deletes multiple records from the table asynchronously. If one or more
+     * keys do not exist, other records are still deleted
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *   single operation is used.
+     * @param keys Record keys to delete.
+     * @param callback Callback that called on operation completion. Called with
+     *   records from @c keys that did not exist.
+     */
+    IGNITE_API void delete_all_async(transaction* tx, std::vector<value_type> keys,
+        ignite_callback<std::vector<value_type>> callback);
+
+    /**
+     * Deletes multiple records from the table asynchronously. If one or more
+     * keys do not exist, other records are still deleted
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *   single operation is used.
+     * @param keys Record keys to delete.
+     * @return Records from @c keys that did not exist.
+     */
+    IGNITE_API std::vector<value_type> delete_all(transaction* tx, std::vector<value_type> keys) {
+        return sync<std::vector<value_type>>([this, tx, keys = std::move(keys)] (auto callback) mutable {
+            delete_all_async(tx, std::move(keys), std::move(callback));
         });
     }
 

@@ -56,4 +56,10 @@ void record_view<ignite_tuple>::insert_async(transaction *tx, const ignite_tuple
     m_impl->insert_async(tx, record, std::move(callback));
 }
 
+void record_view<ignite_tuple>::delete_all_async(transaction *tx, std::vector<value_type> keys,
+    ignite_callback<std::vector<value_type>> callback)
+{
+    m_impl->delete_all_async(tx, std::move(keys), std::move(callback));
+}
+
 } // namespace ignite

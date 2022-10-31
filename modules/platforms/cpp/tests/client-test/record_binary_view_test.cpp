@@ -45,6 +45,15 @@ protected:
         tuple_view = table->record_binary_view();
     }
 
+    void TearDown() override {
+        std::vector<ignite_tuple> work_range;
+        work_range.reserve(200);
+        for (int i = -100; i < 100; ++i)
+            work_range.emplace_back(get_tuple(i));
+
+        tuple_view.delete_all(nullptr, work_range);
+    }
+
     /**
      * Get tuple for specified column values.
      *
