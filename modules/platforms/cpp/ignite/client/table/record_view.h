@@ -314,6 +314,35 @@ public:
     }
 
     /**
+     * Asynchronously replaces a record with the same key columns if it exists
+     * returning previous record value.
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *   single operation is used.
+     * @param record A record to insert.
+     * @param callback Callback. Called with a previous value for the given key,
+     *   or @c std::nullopt if it did not exist.
+     */
+    IGNITE_API void get_and_replace_async(transaction* tx, const value_type& record,
+        ignite_callback<std::optional<value_type>> callback);
+
+    /**
+     * Replaces a record with the same key columns if it exists returning
+     * previous record value.
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *   single operation is used.
+     * @param record A record to insert.
+     * @param callback A previous value for the given key, or @c std::nullopt if
+     *   it did not exist.
+     */
+    IGNITE_API std::optional<value_type> get_and_replace(transaction* tx, const value_type& record) {
+        return sync<std::optional<value_type>>([this, tx, &record] (auto callback) {
+            get_and_replace_async(tx, record, std::move(callback));
+        });
+    }
+
+    /**
      * Deletes multiple records from the table asynchronously. If one or more
      * keys do not exist, other records are still deleted
      *

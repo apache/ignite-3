@@ -200,6 +200,19 @@ public:
         ignite_callback<bool> callback);
 
     /**
+     * Asynchronously replaces a record with the same key columns if it exists
+     * returning previous record value.
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *   single operation is used.
+     * @param record A record to insert.
+     * @param callback Callback. Called with a previous value for the given key,
+     *   or @c std::nullopt if it did not exist.
+     */
+    void get_and_replace_async(transaction* tx, const ignite_tuple& record,
+        ignite_callback<std::optional<ignite_tuple>> callback);
+
+    /**
      * Deletes multiple records from the table asynchronously. If one or more
      * keys do not exist, other records are still deleted
      *
