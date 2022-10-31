@@ -649,6 +649,61 @@ TEST_F(record_binary_view_test, replace_exact_empty_throws) {
     }, ignite_error);
 }
 
+TEST_F(record_binary_view_test, get_and_replace_nonexisting) {
+    auto val_tuple = get_tuple(42, "foo");
+    auto res = tuple_view.get_and_replace(nullptr, val_tuple);
+
+    ASSERT_FALSE(res.has_value());
+
+    auto res_tuple = tuple_view.get(nullptr, get_tuple(42));
+    ASSERT_FALSE(res_tuple.has_value());
+}
+
+TEST_F(record_binary_view_test, get_and_replace_existing) {
+    auto val_tuple1 = get_tuple(42, "foo");
+    auto res = tuple_view.insert(nullptr, val_tuple1);
+    ASSERT_TRUE(res);
+
+    auto val_tuple2 = get_tuple(42, "bar");
+    auto res_tuple = tuple_view.get_and_replace(nullptr, val_tuple2);
+
+    ASSERT_TRUE(res_tuple.has_value());
+    EXPECT_EQ(2, res_tuple->column_count());
+    EXPECT_EQ(42, res_tuple->get<int64_t>("key"));
+    EXPECT_EQ("foo", res_tuple->get<std::string>("val"));
+
+    res_tuple = tuple_view.get(nullptr, get_tuple(42));
+    ASSERT_TRUE(res_tuple.has_value());
+    EXPECT_EQ(2, res_tuple->column_count());
+    EXPECT_EQ(42, res_tuple->get<int64_t>("key"));
+    EXPECT_EQ("bar", res_tuple->get<std::string>("val"));
+}
+
+TEST_F(record_binary_view_test, get_and_replace_existing_async) {
+    auto val_tuple1 = get_tuple(42, "foo");
+    auto val_tuple2 = get_tuple(42, "bar");
+
+    auto all_done = std::make_shared<std::promise<std::optional<ignite_tuple>>>();
+
+    tuple_view.insert_async(nullptr, val_tuple1, [&] (ignite_result<bool> &&res) {
+        if (!check_and_set_operation_error(*all_done, res))
+            return;
+
+        if (!res.value())
+            all_done->set_exception(std::make_exception_ptr(ignite_error("Expected true on insertion")));
+
+        tuple_view.get_and_replace_async(nullptr, val_tuple2, [&] (auto res) {
+            result_set_promise(*all_done, std::move(res));
+        });
+    });
+
+    auto res_tuple = all_done->get_future().get();
+    ASSERT_TRUE(res_tuple.has_value());
+    EXPECT_EQ(val_tuple1.column_count(), res_tuple->column_count());
+    EXPECT_EQ(val_tuple1.get<int64_t>("key"), res_tuple->get<int64_t>("key"));
+    EXPECT_EQ(val_tuple1.get<std::string>("val"), res_tuple->get<std::string>("val"));
+}
+
 TEST_F(record_binary_view_test, get_and_replace_empty_throws) {
     EXPECT_THROW({
         try {

@@ -601,7 +601,7 @@ void table_impl::get_and_replace_async(transaction *tx, const ignite_tuple &reco
         };
 
         self->m_connection->perform_request<std::optional<ignite_tuple>>(
-            client_operation::TUPLE_REPLACE, writer_func, std::move(reader_func), std::move(callback));
+            client_operation::TUPLE_GET_AND_REPLACE, writer_func, std::move(reader_func), std::move(callback));
     });
 }
 
