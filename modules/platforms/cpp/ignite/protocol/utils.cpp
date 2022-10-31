@@ -35,7 +35,6 @@ T unpack_int(const msgpack_object &object) {
 
     auto i64_val = unpack_object<std::int64_t>(object);
 
-    // TODO: maybe disable these checks on non-debug builds
     if (i64_val > std::int64_t(std::numeric_limits<T>::max()))
         throw ignite_error("The number in stream is too large to fit in type: " + std::to_string(i64_val));
 

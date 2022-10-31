@@ -65,7 +65,7 @@ void claim_column(binary_tuple_builder& builder, ignite_type typ, std::int32_t i
             builder.claim(SizeT(tuple.get<const std::vector<std::byte>&>(index).size()));
             break;
         default:
-            // TODO: Support other types
+            // TODO: IGNITE-18035 Support other types
             throw ignite_error("Type with id " + std::to_string(int(typ)) + " is not yet supported");
     }
 }
@@ -111,7 +111,7 @@ void append_column(binary_tuple_builder& builder, ignite_type typ, std::int32_t 
             builder.append(typ, tuple.get<const std::vector<std::byte>&>(index));
             break;
         default:
-            // TODO: Support other types
+            // TODO: IGNITE-18035 Support other types
             throw ignite_error("Type with id " + std::to_string(int(typ)) + " is not yet supported");
     }
 }
@@ -150,7 +150,7 @@ std::any read_next_column(binary_tuple_parser& parser, ignite_type typ) {
         case ignite_type::BINARY:
             return std::vector<std::byte>(val);
         default:
-            // TODO: Support other types
+            // TODO: IGNITE-18035 Support other types
             throw ignite_error("Type with id " + std::to_string(int(typ)) + " is not yet supported");
     }
 }
