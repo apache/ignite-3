@@ -78,11 +78,10 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
                 EMPTY
         );
 
-        Object[][] tableData = generateBatch(2, Commons.IN_BUFFER_SIZE * 2, true);
+        Comparator<Object[]> comp = Comparator.comparingLong(v -> (long) ((Object[]) v)[0]);
 
-        Object[][] expected = Arrays.stream(tableData).map(Object[]::clone).toArray(Object[][]::new);
-
-        Arrays.sort(expected, Comparator.comparingLong(v -> (long) ((Object[]) v)[0]));
+        Object[][] tableData = generateIndexData(2, Commons.IN_BUFFER_SIZE * 2, true);
+        Object[][] expected = Arrays.stream(tableData).map(Object[]::clone).sorted(comp).toArray(Object[][]::new);
 
         // Validate sort order.
         validateSortedIndexScan(
@@ -121,10 +120,8 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
                         tableData,
                         new Object[]{2, "Brutus"},
                         new Object[]{3.9, 0},
-                        // TODO: sort data, once IndexScanNode will support merging.
                         EMPTY
                 ), ClassCastException.class);
-
     }
 
     @Test
@@ -136,7 +133,7 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
                 EMPTY
         );
 
-        Object[][] tableData = generateBatch(2, Commons.IN_BUFFER_SIZE * 2, false);
+        Object[][] tableData = generateIndexData(2, Commons.IN_BUFFER_SIZE * 2, false);
 
         // Validate data.
         validateHashIndexScan(
@@ -172,7 +169,7 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
                 ), ClassCastException.class);
     }
 
-    private Object[][] generateBatch(int partCnt, int partSize, boolean sorted) {
+    private Object[][] generateIndexData(int partCnt, int partSize, boolean sorted) {
         Set<Long> uniqueNumbers = new HashSet<>();
 
         while (uniqueNumbers.size() < partCnt * partSize) {
