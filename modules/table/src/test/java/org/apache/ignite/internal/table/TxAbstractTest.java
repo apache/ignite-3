@@ -1821,7 +1821,6 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         assertEquals(300., accounts.recordView().get(readOnlyTx2, makeKey(1)).doubleValue("balance"));
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17968")
     @Test
     public void testReadOnlyGetWriteIntentResolutionRemove() {
         accounts.recordView().upsert(null, makeValue(1, 100.));
@@ -1842,7 +1841,8 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
         // New read-only transaction.
         Transaction readOnlyTx2 = igniteTransactions.readOnly().begin();
-        assertNull(accounts.recordView().get(readOnlyTx2, makeKey(1)).doubleValue("balance"));
+        Tuple row = accounts.recordView().get(readOnlyTx2, makeKey(1));
+        assertNull(row);
     }
 
     @Test
@@ -1856,32 +1856,6 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         validateBalance(retrievedKeys, 100., 200.);
     }
 
-    // TODO: IGNITE-17968 Remove after fix.
-    @Test
-    public void testReadOnlyPendingWriteIntentSkipped() {
-        accounts.recordView().upsert(null, makeValue(1, 100.));
-        accounts.recordView().upsert(null, makeValue(2, 200.));
-
-        // Pending tx
-        Transaction tx = igniteTransactions.begin();
-        accounts.recordView().upsert(tx, makeValue(2, 300.));
-
-        Transaction readOnlyTx = igniteTransactions.readOnly().begin();
-        Collection<Tuple> retrievedKeys = accounts.recordView().getAll(readOnlyTx, List.of(makeKey(1), makeKey(2)));
-        validateBalance(retrievedKeys, 100., 200.);
-
-        // Commit pending tx.
-        tx.commit();
-
-        Collection<Tuple> retrievedKeys2 = accounts.recordView().getAll(readOnlyTx, List.of(makeKey(1), makeKey(2)));
-        validateBalance(retrievedKeys2, 100., 200.);
-
-        Transaction readOnlyTx2 = igniteTransactions.readOnly().begin();
-        Collection<Tuple> retrievedKeys3 = accounts.recordView().getAll(readOnlyTx2, List.of(makeKey(1), makeKey(2)));
-        validateBalance(retrievedKeys3, 100., 300.);
-    }
-
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17968")
     @Test
     public void testReadOnlyPendingWriteIntentSkippedCombined() {
         accounts.recordView().upsert(null, makeValue(1, 100.));
@@ -1900,7 +1874,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         tx.commit();
 
         Collection<Tuple> retrievedKeys2 = accounts.recordView().getAll(readOnlyTx, List.of(makeKey(1), makeKey(2)));
-        validateBalance(retrievedKeys2, 100., 300.);
+        validateBalance(retrievedKeys2, 100., 200.);
 
         Transaction readOnlyTx2 = igniteTransactions.readOnly().begin();
         Collection<Tuple> retrievedKeys3 = accounts.recordView().getAll(readOnlyTx2, List.of(makeKey(1), makeKey(2)));
