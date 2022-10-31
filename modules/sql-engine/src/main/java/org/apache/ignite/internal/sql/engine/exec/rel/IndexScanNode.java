@@ -76,7 +76,7 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
 
     private final @Nullable Comparator<BinaryTuple> comp;
 
-    private Iterator<RangeCondition<RowT>> rangeConditionIterator;
+    private @Nullable Iterator<RangeCondition<RowT>> rangeConditionIterator;
 
     private int requested;
 
@@ -124,7 +124,7 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
 
         Comparator<RowT> rowCmp = schemaIndex.type() == Type.SORTED ? ctx.expressionFactory().comparator(collation) : null;
 
-        comp = rowCmp ==  null ? null : (o1, o2) -> rowCmp.compare(convert(o1), convert(o2));
+        comp = rowCmp == null ? null : (o1, o2) -> rowCmp.compare(convert(o1), convert(o2));
 
         rangeConditionIterator = rangeConditions == null ? null : rangeConditions.iterator();
 
