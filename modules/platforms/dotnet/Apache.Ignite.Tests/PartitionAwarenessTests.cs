@@ -26,10 +26,6 @@ using NUnit.Framework;
 
 /// <summary>
 /// Tests partition awareness.
-/// <para />
-/// TODO IGNITE-17969:
-/// * testCustomColocationKey
-/// * testCompositeKey.
 /// </summary>
 public class PartitionAwarenessTests
 {
@@ -272,6 +268,41 @@ public class PartitionAwarenessTests
         await AssertOpOnNode(() => kvView.RemoveAllAsync(null, pairs), ClientOp.TupleDeleteAllExact, expectedNode);
     }
 
+    [Test]
+    public async Task TestCompositeKey()
+    {
+        using var client = await GetClient();
+        var view = (await client.Tables.GetTableAsync(FakeServer.CompositeKeyTableName))!.GetRecordView<CompositeKey>();
+
+        await view.UpsertAsync(null, new CompositeKey("1", Guid.Empty)); // Warm up.
+
+        await Test("1", Guid.Empty, _server1);
+        await Test("1", Guid.Parse("b0000000-0000-0000-0000-000000000000"), _server2);
+
+        await Test("a", Guid.Empty, _server2);
+        await Test("a", Guid.Parse("b0000000-0000-0000-0000-000000000000"), _server1);
+
+        async Task Test(string idStr, Guid idGuid, FakeServer node) =>
+            await AssertOpOnNode(() => view.UpsertAsync(null, new CompositeKey(idStr, idGuid)), ClientOp.TupleUpsert, node);
+    }
+
+    [Test]
+    public async Task TestCustomColocationKey()
+    {
+        using var client = await GetClient();
+        var view = (await client.Tables.GetTableAsync(FakeServer.CustomColocationKeyTableName))!.GetRecordView<CompositeKey>();
+
+        // Warm up.
+        await view.UpsertAsync(null, new CompositeKey("1", Guid.Empty));
+
+        // Both columns are part of key, but only string column is colocation key, so random Guid does not affect the hash.
+        await Test("1", Guid.NewGuid(), _server2);
+        await Test("a", Guid.NewGuid(), _server1);
+
+        async Task Test(string idStr, Guid idGuid, FakeServer node) =>
+            await AssertOpOnNode(() => view.UpsertAsync(null, new CompositeKey(idStr, idGuid)), ClientOp.TupleUpsert, node);
+    }
+
     private static async Task AssertOpOnNode(
         Func<Task> action,
         ClientOp op,
@@ -318,4 +349,7 @@ public class PartitionAwarenessTests
         // Any server can be primary due to round-robin balancing in ClientFailoverSocket.
         return _server1.ClientOps.Count > 0 ? (_server1, _server2) : (_server2, _server1);
     }
+
+    // ReSharper disable NotAccessedPositionalProperty.Local
+    private record CompositeKey(string IdStr, Guid IdGuid);
 }

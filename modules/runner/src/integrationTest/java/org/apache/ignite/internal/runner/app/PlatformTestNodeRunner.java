@@ -22,6 +22,8 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -31,6 +33,17 @@ import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
+import org.apache.ignite.internal.client.proto.ClientDataType;
+import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.Column;
+import org.apache.ignite.internal.schema.NativeTypes;
+import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.SchemaRegistry;
+import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
+import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
+import org.apache.ignite.internal.schema.registry.SchemaRegistryException;
+import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.testutils.SchemaConfigurationConverter;
 import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
 import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
@@ -38,6 +51,7 @@ import org.apache.ignite.internal.schema.testutils.definition.TableDefinition;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.sql.Session;
+import org.apache.ignite.table.Tuple;
 
 /**
  * Helper class for non-Java platform tests (.NET, C++, Python, ...). Starts nodes, populates tables and data for tests.
@@ -266,6 +280,165 @@ public class PlatformTestNodeRunner {
         @Override
         public String execute(JobExecutionContext context, Object... args) {
             throw new RuntimeException("Test exception: " + args[0]);
+        }
+    }
+
+    /**
+     * Compute job that computes row colocation hash.
+     */
+    @SuppressWarnings({"unused"}) // Used by platform tests.
+    private static class ColocationHashJob implements ComputeJob<Integer> {
+        @Override
+        public Integer execute(JobExecutionContext context, Object... args) {
+            var columnCount = (int) args[0];
+            var buf = (byte[]) args[1];
+            var columns = new Column[columnCount];
+            var tuple = Tuple.create(columnCount);
+            var reader = new BinaryTupleReader(columnCount * 3, buf);
+
+            for (int i = 0; i < columnCount; i++) {
+                var type = reader.intValue(i * 3);
+                var scale = reader.intValue(i * 3 + 1);
+                var valIdx = i * 3 + 2;
+
+                String colName = "col" + i;
+
+                switch (type) {
+                    case ClientDataType.INT8:
+                        columns[i] = new Column(i, colName, NativeTypes.INT8, false);
+                        tuple.set(colName, reader.byteValue(valIdx));
+                        break;
+
+                    case ClientDataType.INT16:
+                        columns[i] = new Column(i, colName, NativeTypes.INT16, false);
+                        tuple.set(colName, reader.shortValue(valIdx));
+                        break;
+
+                    case ClientDataType.INT32:
+                        columns[i] = new Column(i, colName, NativeTypes.INT32, false);
+                        tuple.set(colName, reader.intValue(valIdx));
+                        break;
+
+                    case ClientDataType.INT64:
+                        columns[i] = new Column(i, colName, NativeTypes.INT64, false);
+                        tuple.set(colName, reader.longValue(valIdx));
+                        break;
+
+                    case ClientDataType.FLOAT:
+                        columns[i] = new Column(i, colName, NativeTypes.FLOAT, false);
+                        tuple.set(colName, reader.floatValue(valIdx));
+                        break;
+
+                    case ClientDataType.DOUBLE:
+                        columns[i] = new Column(i, colName, NativeTypes.DOUBLE, false);
+                        tuple.set(colName, reader.doubleValue(valIdx));
+                        break;
+
+                    case ClientDataType.DECIMAL:
+                        columns[i] = new Column(i, colName, NativeTypes.decimalOf(100, scale), false);
+                        tuple.set(colName, reader.decimalValue(valIdx, scale));
+                        break;
+
+                    case ClientDataType.STRING:
+                        columns[i] = new Column(i, colName, NativeTypes.STRING, false);
+                        tuple.set(colName, reader.stringValue(valIdx));
+                        break;
+
+                    case ClientDataType.UUID:
+                        columns[i] = new Column(i, colName, NativeTypes.UUID, false);
+                        tuple.set(colName, reader.uuidValue(valIdx));
+                        break;
+
+                    case ClientDataType.NUMBER:
+                        columns[i] = new Column(i, colName, NativeTypes.numberOf(255), false);
+                        tuple.set(colName, reader.numberValue(valIdx));
+                        break;
+
+                    case ClientDataType.BITMASK:
+                        columns[i] = new Column(i, colName, NativeTypes.bitmaskOf(32), false);
+                        tuple.set(colName, reader.bitmaskValue(valIdx));
+                        break;
+
+                    case ClientDataType.DATE:
+                        columns[i] = new Column(i, colName, NativeTypes.DATE, false);
+                        tuple.set(colName, reader.dateValue(valIdx));
+                        break;
+
+                    case ClientDataType.TIME:
+                        columns[i] = new Column(i, colName, NativeTypes.time(9), false);
+                        tuple.set(colName, reader.timeValue(valIdx));
+                        break;
+
+                    case ClientDataType.DATETIME:
+                        columns[i] = new Column(i, colName, NativeTypes.datetime(9), false);
+                        tuple.set(colName, reader.dateTimeValue(valIdx));
+                        break;
+
+                    case ClientDataType.TIMESTAMP:
+                        columns[i] = new Column(i, colName, NativeTypes.timestamp(), false);
+                        tuple.set(colName, reader.timestampValue(valIdx));
+                        break;
+
+                    default:
+                        throw new IllegalArgumentException("Unsupported type: " + type);
+                }
+            }
+
+            var colocationColumns = Arrays.stream(columns).map(Column::name).toArray(String[]::new);
+            var schema = new SchemaDescriptor(1, columns, colocationColumns, new Column[0]);
+
+            var marsh = new TupleMarshallerImpl(new TestSchemaRegistry(schema));
+
+            try {
+                Row row = marsh.marshal(tuple);
+
+                return row.colocationHash();
+            } catch (TupleMarshallerException e) {
+                throw new RuntimeException(e);
+            }
+        }
+    }
+
+    private static class TestSchemaRegistry implements SchemaRegistry {
+        private final SchemaDescriptor schema;
+
+        private TestSchemaRegistry(SchemaDescriptor schema) {
+            this.schema = schema;
+        }
+
+        @Override
+        public SchemaDescriptor schema() {
+            return schema;
+        }
+
+        @Override
+        public SchemaDescriptor schema(int ver) throws SchemaRegistryException {
+            return schema;
+        }
+
+        @Override
+        public SchemaDescriptor waitLatestSchema() {
+            return schema;
+        }
+
+        @Override
+        public int lastSchemaVersion() {
+            return 0;
+        }
+
+        @Override
+        public Row resolve(BinaryRow row, SchemaDescriptor desc) {
+            return null;
+        }
+
+        @Override
+        public Row resolve(BinaryRow row) {
+            return null;
+        }
+
+        @Override
+        public Collection<Row> resolve(Collection<BinaryRow> rows) {
+            return null;
         }
     }
 }
