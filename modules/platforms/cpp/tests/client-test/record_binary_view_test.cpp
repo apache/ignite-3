@@ -121,7 +121,7 @@ TEST_F(record_binary_view_test, upsert_get_async) {
     EXPECT_EQ(val_tuple.get<std::string>("val"), res_tuple->get<std::string>("val"));
 }
 
-TEST_F(record_binary_view_test, get_all_empty) {
+TEST_F(record_binary_view_test, get_all_empty_keyset) {
     EXPECT_THROW({
         try {
             std::vector<ignite_tuple> empty;
@@ -131,6 +131,14 @@ TEST_F(record_binary_view_test, get_all_empty) {
             throw;
         }
     }, ignite_error);
+}
+
+TEST_F(record_binary_view_test, get_all_empty_resultset) {
+    std::vector<ignite_tuple> some;
+    some.push_back(get_tuple(-42));
+    auto res = tuple_view.get_all(nullptr, some);
+
+    ASSERT_TRUE(res.empty());
 }
 
 TEST_F(record_binary_view_test, upsert_all_empty) {
