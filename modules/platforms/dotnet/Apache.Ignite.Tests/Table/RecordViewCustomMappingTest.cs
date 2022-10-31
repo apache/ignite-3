@@ -15,18 +15,52 @@
  * limitations under the License.
  */
 
+// ReSharper disable NotAccessedPositionalProperty.Local
 namespace Apache.Ignite.Tests.Table;
 
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Threading.Tasks;
 using Ignite.Table;
+using NUnit.Framework;
 
 /// <summary>
 /// Tests custom user type mapping behavior in <see cref="IRecordView{T}"/>.
 /// </summary>
-public class RecordViewCustomMappingTest
+public class RecordViewCustomMappingTest : IgniteTestsBase
 {
+    private const long Key = 1;
+
+    private const string Val = "val1";
+
     // TODO: classes, structs, records
     // TODO: Fields and properties
     // TODO: Properties without fields?
-    public record PocoCustomColumnMapping([property: Column("Key")] long Id, [property: Column("Val")] string? Name);
+    [SetUp]
+    public async Task SetUp()
+    {
+        await Table.RecordBinaryView.UpsertAsync(null, GetTuple(Key, Val));
+    }
+
+    [Test]
+    public async Task TestFieldMapping()
+    {
+        var res = await Table.GetRecordView<FieldMapping>().GetAsync(null, new FieldMapping(Key));
+        Assert.AreEqual(Val, res.Value.Name);
+    }
+
+    [Test]
+    public async Task TestPropertyMapping()
+    {
+        // TODO
+        await Task.Delay(1);
+    }
+
+    [Test]
+    public async Task TestComputedPropertyMapping()
+    {
+        // TODO
+        await Task.Delay(1);
+    }
+
+    private record FieldMapping([field: Column("Key")] long Id, [field: Column("Val")] string? Name = null);
 }
