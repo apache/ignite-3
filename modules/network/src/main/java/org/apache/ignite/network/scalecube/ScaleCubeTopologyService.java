@@ -41,7 +41,8 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
     /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(ScaleCubeTopologyService.class);
 
-    private static final NodeMetadataCodec METADATA_CODEC = new NodeMetadataCodec();
+    /** Metadata codec. */
+    private static final NodeMetadataCodec METADATA_CODEC = NodeMetadataCodec.INSTANCE;
 
     /**
      * Inner representation of a ScaleCube cluster.

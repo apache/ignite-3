@@ -29,6 +29,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+/** Tests for ignite node commands with a provided node name. */
 public class NodeNameTest extends CliCommandTestNotInitializedIntegrationBase {
 
     @Inject
@@ -47,7 +48,7 @@ public class NodeNameTest extends CliCommandTestNotInitializedIntegrationBase {
     }
 
     @Test
-    @DisplayName("Should connect to node with given url")
+    @DisplayName("Should connect to node with provided node name")
     void connectWithGivenNodeName() {
         // When connect with given url
         execute("connect", "--node-name", nodeName);

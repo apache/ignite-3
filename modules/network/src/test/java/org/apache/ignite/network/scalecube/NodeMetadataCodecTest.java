@@ -15,28 +15,39 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.network;
+package org.apache.ignite.network.scalecube;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 import java.nio.ByteBuffer;
+import org.apache.ignite.network.NodeMetadata;
 import org.junit.jupiter.api.Test;
 
-class NodeMetadataTest {
+class NodeMetadataCodecTest {
+
+    private static final NodeMetadataCodec METADATA_CODEC = NodeMetadataCodec.INSTANCE;
 
     @Test
-    void testToByteBufferAndFromByteBuffer() {
+    void byteBufferAndFromByteBuffer() {
         NodeMetadata metadata = new NodeMetadata(10000);
-        ByteBuffer buffer = metadata.toByteBuffer();
-        NodeMetadata fromByteBuffer = NodeMetadata.fromByteBuffer(buffer);
+        ByteBuffer buffer = METADATA_CODEC.serialize(metadata);
+        NodeMetadata fromByteBuffer = METADATA_CODEC.deserialize(buffer);
         assertEquals(metadata, fromByteBuffer);
     }
 
     @Test
-    void testFromByteBufferWithWrongContent() {
+    void fromByteBufferWithWrongContent() {
         ByteBuffer buffer = ByteBuffer.allocate(8);
-        NodeMetadata fromByteBuffer = NodeMetadata.fromByteBuffer(buffer);
+        NodeMetadata fromByteBuffer = METADATA_CODEC.deserialize(buffer);
         assertNull(fromByteBuffer);
+    }
+
+    @Test
+    void fromByteBufferWithWrongVersionOfCodec() {
+        NodeMetadata metadata = new NodeMetadata(10000);
+        ByteBuffer buffer = new NodeMetadataCodec(-1).serialize(metadata);
+        NodeMetadata fromByteBuffer = METADATA_CODEC.deserialize(buffer);
+        assertEquals(metadata, fromByteBuffer);
     }
 }

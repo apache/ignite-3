@@ -41,7 +41,8 @@ public class DynamicCompleterFactory {
     public DynamicCompleterFactory(
             NodeConfigShowCall nodeConfigShowCall,
             ClusterConfigShowCall clusterConfigShowCall,
-            NodeUrlProvider urlProvider, NodeNameRegistry nodeNameRegistry) {
+            NodeUrlProvider urlProvider,
+            NodeNameRegistry nodeNameRegistry) {
 
         this.nodeConfigShowCall = nodeConfigShowCall;
         this.clusterConfigShowCall = clusterConfigShowCall;

@@ -65,8 +65,4 @@ public class Session {
     public void setJdbcUrl(String jdbcUrl) {
         this.jdbcUrl = jdbcUrl;
     }
-
-    public void onConnect() {
-
-    }
 }
