@@ -149,3 +149,44 @@ TEST_F(record_binary_view_test, upsert_all_get_all) {
     EXPECT_EQ(10, res[1]->get<int64_t>("key"));
     EXPECT_EQ("Val10", res[1]->get<std::string>("val"));
 }
+
+TEST_F(record_binary_view_test, upsert_all_get_all_async) {
+    static constexpr std::size_t records_num = 10;
+
+    std::vector<ignite_tuple> records;
+    records.reserve(records_num);
+    for (std::int64_t i = 1; i < 1 + std::int64_t(records_num); ++i)
+        records.emplace_back(get_tuple(i, "Val" + std::to_string(i)));
+
+    std::vector<ignite_tuple> keys;
+    for (std::int64_t i = 9; i < 13; ++i)
+        keys.emplace_back(get_tuple(i));
+
+    auto all_done = std::make_shared<std::promise<std::vector<std::optional<ignite_tuple>>>>();
+
+    tuple_view.upsert_all_async(nullptr, records, [&] (ignite_result<void> &&res) {
+        if (!check_and_set_operation_error(*all_done, res))
+            return;
+
+        // TODO: Key order should be preserved by the server (IGNITE-16004).
+        tuple_view.get_all_async(nullptr, keys, [&] (auto res) {
+            result_set_promise(*all_done, std::move(res));
+        });
+    });
+
+    auto res = all_done->get_future().get();
+
+    EXPECT_EQ(res.size(), 2);
+
+    ASSERT_TRUE(res[0].has_value());
+    EXPECT_EQ(2, res[0]->column_count());
+    EXPECT_EQ(9, res[0]->get<int64_t>("key"));
+    EXPECT_EQ("Val9", res[0]->get<std::string>("val"));
+
+    ASSERT_TRUE(res[1].has_value());
+    EXPECT_EQ(2, res[1]->column_count());
+    EXPECT_EQ(10, res[1]->get<int64_t>("key"));
+    EXPECT_EQ("Val10", res[1]->get<std::string>("val"));
+}
+
+
