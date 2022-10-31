@@ -17,15 +17,25 @@
 
 package org.apache.ignite.internal.table.distributed.raft;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.io.Serializable;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -43,6 +53,7 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommand;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
@@ -53,33 +64,41 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.MvPartitionStorage.WriteClosure;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
+import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
 import org.apache.ignite.internal.table.distributed.command.TxCleanupCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateAllCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
+import org.apache.ignite.internal.testframework.WorkDirectory;
+import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.tx.Timestamp;
+import org.apache.ignite.internal.tx.TxMeta;
+import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
-import org.apache.ignite.internal.tx.storage.state.test.TestConcurrentHashMapTxStateStorage;
+import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
+import org.apache.ignite.internal.tx.storage.state.test.TestTxStateStorage;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.WriteCommand;
 import org.apache.ignite.raft.client.service.CommandClosure;
-import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 
 /**
  * Tests for the table command listener.
  */
+@ExtendWith(WorkDirectoryExtension.class)
 public class PartitionCommandListenerTest {
     /** Key count. */
     public static final int KEY_COUNT = 100;
@@ -116,22 +135,31 @@ public class PartitionCommandListenerTest {
     );
 
     /** Partition storage. */
-    private final MvPartitionStorage mvPartitionStorage = new TestMvPartitionStorage(PARTITION_ID);
+    private final MvPartitionStorage mvPartitionStorage = spy(new TestMvPartitionStorage(PARTITION_ID));
+
+    /** Transaction meta storage. */
+    private final TxStateStorage txStateStorage = spy(new TestTxStateStorage());
+
+    /** Work directory. */
+    @WorkDirectory
+    private Path workDir;
 
     /**
      * Initializes a table listener before tests.
      */
     @BeforeEach
     public void before() {
-        ClusterService clusterService = Mockito.mock(ClusterService.class, RETURNS_DEEP_STUBS);
         NetworkAddress addr = new NetworkAddress("127.0.0.1", 5003);
-        Mockito.when(clusterService.topologyService().localMember().address()).thenReturn(addr);
 
-        ReplicaService replicaService = Mockito.mock(ReplicaService.class, RETURNS_DEEP_STUBS);
+        ClusterService clusterService = mock(ClusterService.class, RETURNS_DEEP_STUBS);
+
+        when(clusterService.topologyService().localMember().address()).thenReturn(addr);
+
+        ReplicaService replicaService = mock(ReplicaService.class, RETURNS_DEEP_STUBS);
 
         commandListener = new PartitionListener(
                 new TestPartitionDataStorage(mvPartitionStorage),
-                new TestConcurrentHashMapTxStateStorage(),
+                txStateStorage,
                 new TxManagerImpl(replicaService, new HeapLockManager(), new HybridClockImpl()),
                 () -> Map.of(pkStorage.id(), pkStorage)
         );
@@ -208,6 +236,108 @@ public class PartitionCommandListenerTest {
     }
 
     /**
+     * The test checks that {@link PartitionListener#onSnapshotSave(Path, Consumer)} propagates
+     * the maximal last applied index among storages to all storages.
+     */
+    @Test
+    public void testOnSnapshotSavePropagateLastAppliedIndex() {
+        ReplicaService replicaService = mock(ReplicaService.class, RETURNS_DEEP_STUBS);
+
+        TestPartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(mvPartitionStorage);
+
+        PartitionListener testCommandListener = new PartitionListener(
+                partitionDataStorage,
+                txStateStorage,
+                new TxManagerImpl(replicaService, new HeapLockManager(), new HybridClockImpl()),
+                () -> Map.of(pkStorage.id(), pkStorage)
+        );
+
+        txStateStorage.lastAppliedIndex(3L);
+
+        partitionDataStorage.lastAppliedIndex(5L);
+
+        AtomicLong counter = new AtomicLong(0);
+
+        testCommandListener.onSnapshotSave(workDir, (throwable) -> counter.incrementAndGet());
+
+        assertEquals(1L, counter.get());
+
+        assertEquals(5L, partitionDataStorage.lastAppliedIndex());
+
+        assertEquals(5L, txStateStorage.lastAppliedIndex());
+
+        txStateStorage.lastAppliedIndex(10L);
+
+        partitionDataStorage.lastAppliedIndex(7L);
+
+        testCommandListener.onSnapshotSave(workDir, (throwable) -> counter.incrementAndGet());
+
+        assertEquals(2L, counter.get());
+
+        assertEquals(10L, partitionDataStorage.lastAppliedIndex());
+
+        assertEquals(10L, txStateStorage.lastAppliedIndex());
+    }
+
+    @Test
+    void testSkipWriteCommandByAppliedIndex() {
+        mvPartitionStorage.lastAppliedIndex(10L);
+
+        ArgumentCaptor<Throwable> commandClosureResultCaptor = ArgumentCaptor.forClass(Throwable.class);
+
+        // Checks for MvPartitionStorage.
+        commandListener.onWrite(List.of(
+                writeCommandCommandClosure(3, mock(UpdateCommand.class), commandClosureResultCaptor),
+                writeCommandCommandClosure(10, mock(UpdateCommand.class), commandClosureResultCaptor),
+                writeCommandCommandClosure(4, mock(TxCleanupCommand.class), commandClosureResultCaptor),
+                writeCommandCommandClosure(5, mock(SafeTimeSyncCommand.class), commandClosureResultCaptor)
+        ).iterator());
+
+        verify(mvPartitionStorage, never()).runConsistently(any(WriteClosure.class));
+        verify(mvPartitionStorage, times(1)).lastAppliedIndex(anyLong());
+
+        assertThat(commandClosureResultCaptor.getAllValues(), containsInAnyOrder(new Throwable[]{null, null, null, null}));
+
+        // Checks for TxStateStorage.
+        mvPartitionStorage.lastAppliedIndex(1L);
+        txStateStorage.lastAppliedIndex(10L);
+
+        commandClosureResultCaptor = ArgumentCaptor.forClass(Throwable.class);
+
+        commandListener.onWrite(List.of(
+                writeCommandCommandClosure(2, mock(FinishTxCommand.class), commandClosureResultCaptor),
+                writeCommandCommandClosure(10, mock(FinishTxCommand.class), commandClosureResultCaptor)
+        ).iterator());
+
+        verify(txStateStorage, never()).compareAndSet(any(UUID.class), any(TxState.class), any(TxMeta.class), anyLong());
+        verify(txStateStorage, times(1)).lastAppliedIndex(anyLong());
+
+        assertThat(commandClosureResultCaptor.getAllValues(), containsInAnyOrder(new Throwable[]{null, null}));
+    }
+
+    /**
+     * Crate a command closure.
+     *
+     * @param index Index of the RAFT command.
+     * @param writeCommand Write command.
+     * @param resultClosureCaptor Captor for {@link CommandClosure#result(Serializable)}
+     */
+    private static CommandClosure<WriteCommand> writeCommandCommandClosure(
+            long index,
+            WriteCommand writeCommand,
+            ArgumentCaptor<Throwable> resultClosureCaptor
+    ) {
+        CommandClosure<WriteCommand> commandClosure = mock(CommandClosure.class);
+
+        when(commandClosure.index()).thenReturn(index);
+        when(commandClosure.command()).thenReturn(writeCommand);
+
+        doNothing().when(commandClosure).result(resultClosureCaptor.capture());
+
+        return commandClosure;
+    }
+
+    /**
      * Prepares a closure iterator for a specific batch operation.
      *
      * @param func The function prepare a closure for the operation.
@@ -215,7 +345,7 @@ public class PartitionCommandListenerTest {
      * @return Closure iterator.
      */
     private <T extends Command> Iterator<CommandClosure<T>> batchIterator(Consumer<CommandClosure<T>> func) {
-        return new Iterator<CommandClosure<T>>() {
+        return new Iterator<>() {
             boolean moved;
 
             @Override
@@ -451,7 +581,6 @@ public class PartitionCommandListenerTest {
      *
      * @return Row.
      */
-    @NotNull
     private Row getTestKey(int key) {
         RowAssembler rowBuilder = new RowAssembler(SCHEMA, 0, 0);
 
@@ -465,7 +594,6 @@ public class PartitionCommandListenerTest {
      *
      * @return Row.
      */
-    @NotNull
     private Row getTestRow(int key, int val) {
         RowAssembler rowBuilder = new RowAssembler(SCHEMA, 0, 0);
 

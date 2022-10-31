@@ -18,24 +18,27 @@
 package org.apache.ignite.internal.tx.storage.state.test;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.stream.Collectors.toList;
 
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentSkipListMap;
 import org.apache.ignite.internal.configuration.storage.StorageException;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
+import org.apache.ignite.internal.tx.storage.state.UnsignedUuidComparator;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.IgniteBiTuple;
-import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Test implementation of {@link TxStateStorage} based on {@link ConcurrentHashMap}.
+ * Test implementation of {@link TxStateStorage} based on {@link ConcurrentSkipListMap}.
  */
-public class TestConcurrentHashMapTxStateStorage implements TxStateStorage {
+public class TestTxStateStorage implements TxStateStorage {
     /** Storage. */
-    private final ConcurrentHashMap<UUID, TxMeta> storage = new ConcurrentHashMap<>();
+    private final ConcurrentSkipListMap<UUID, TxMeta> storage = new ConcurrentSkipListMap<>(new UnsignedUuidComparator());
 
     private volatile long lastAppliedIndex;
 
@@ -50,29 +53,32 @@ public class TestConcurrentHashMapTxStateStorage implements TxStateStorage {
     }
 
     @Override
-    public boolean compareAndSet(UUID txId, TxState txStateExpected, @NotNull TxMeta txMeta, long commandIndex) {
-        while (true) {
-            TxMeta old = storage.get(txId);
+    public boolean compareAndSet(UUID txId, @Nullable TxState txStateExpected, TxMeta txMeta, long commandIndex) {
+        TxMeta old = storage.get(txId);
 
-            if (old == null && txStateExpected == null) {
-                TxMeta oldMeta = storage.putIfAbsent(txId, txMeta);
-                if (oldMeta == null) {
-                    return true;
-                } else {
-                    return false;
-                }
-            } else if (old != null) {
+        boolean result;
+
+        if (old == null && txStateExpected == null) {
+            TxMeta oldMeta = storage.putIfAbsent(txId, txMeta);
+
+            result = oldMeta == null;
+        } else {
+            if (old != null) {
                 if (old.txState() == txStateExpected) {
-                    if (storage.replace(txId, old, txMeta)) {
-                        return true;
-                    }
+                    result = storage.replace(txId, old, txMeta);
                 } else {
                     return old.txState() == txMeta.txState() && (
                             (old.commitTimestamp() == null && txMeta.commitTimestamp() == null)
                                     || old.commitTimestamp().equals(txMeta.commitTimestamp()));
                 }
+            } else {
+                result = false;
             }
         }
+
+        lastAppliedIndex = commandIndex;
+
+        return result;
     }
 
     @Override
@@ -82,7 +88,11 @@ public class TestConcurrentHashMapTxStateStorage implements TxStateStorage {
 
     @Override
     public Cursor<IgniteBiTuple<UUID, TxMeta>> scan() {
-        return Cursor.fromIterator(storage.entrySet().stream().map(e -> new IgniteBiTuple<>(e.getKey(), e.getValue())).iterator());
+        List<IgniteBiTuple<UUID, TxMeta>> copy = storage.entrySet().stream()
+                .map(e -> new IgniteBiTuple<>(e.getKey(), e.getValue()))
+                .collect(toList());
+
+        return Cursor.fromIterable(copy);
     }
 
     @Override
@@ -92,7 +102,7 @@ public class TestConcurrentHashMapTxStateStorage implements TxStateStorage {
 
             storage.clear();
         } catch (Exception e) {
-            throw new StorageException("Failed to destroy the transaction state storage");
+            throw new StorageException("Failed to destroy the transaction state storage", e);
         }
     }
 
