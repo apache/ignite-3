@@ -35,13 +35,25 @@ void record_view<ignite_tuple>::upsert_async(transaction *tx, const ignite_tuple
 void record_view<ignite_tuple>::get_all_async(transaction *tx, std::vector<value_type> keys,
         ignite_callback<std::vector<std::optional<value_type>>> callback)
 {
+    if (keys.empty())
+        throw ignite_error("At least one key should be supplied");
+
     m_impl->get_all_async(tx, std::move(keys), std::move(callback));
 }
 
 void record_view<ignite_tuple>::upsert_all_async(transaction *tx, std::vector<value_type> records,
     ignite_callback<void> callback)
 {
+    if (records.empty())
+        throw ignite_error("At least one record should be supplied");
+
     m_impl->upsert_all_async(tx, std::move(records), std::move(callback));
+}
+
+void record_view<ignite_tuple>::insert_async(transaction *tx, const ignite_tuple &record,
+    ignite_callback<bool> callback)
+{
+    m_impl->insert_async(tx, record, std::move(callback));
 }
 
 } // namespace ignite

@@ -43,6 +43,9 @@ enum class client_operation {
 
     /** Get all tuples. */
     TUPLE_GET_ALL = 15,
+
+    /** Insert tuple. */
+    TUPLE_INSERT = 18,
 };
 
 /**

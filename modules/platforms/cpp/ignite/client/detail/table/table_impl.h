@@ -136,6 +136,19 @@ public:
      */
     void upsert_all_async(transaction* tx, std::vector<ignite_tuple> records, ignite_callback<void> callback);
 
+    /**
+     * Inserts a record into the table if it does not exist.
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *   single operation is used.
+     * @param record A record to insert into the table. The record cannot be
+     *   @c nullptr.
+     * @param callback Callback. Called with a value indicating whether the
+     *   record was inserted. Equals @c false if a record with the same key
+     *   already exists.
+     */
+    void insert_async(transaction* tx, const ignite_tuple& record, ignite_callback<bool> callback);
+
 private:
     /**
      * Load latest schema from server asynchronously.

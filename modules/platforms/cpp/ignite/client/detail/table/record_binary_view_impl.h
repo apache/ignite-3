@@ -102,6 +102,21 @@ public:
         m_table->upsert_all_async(tx, std::move(records), std::move(callback));
     }
 
+    /**
+     * Inserts a record into the table if it does not exist.
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *   single operation is used.
+     * @param record A record to insert into the table. The record cannot be
+     *   @c nullptr.
+     * @param callback Callback. Called with a value indicating whether the
+     *   record was inserted. Equals @c false if a record with the same key
+     *   already exists.
+     */
+    void insert_async(transaction* tx, const ignite_tuple& record, ignite_callback<bool> callback) {
+        m_table->insert_async(tx, record, std::move(callback));
+    }
+
 private:
     /** Table. */
     std::shared_ptr<table_impl> m_table;

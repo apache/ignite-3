@@ -121,6 +121,30 @@ TEST_F(record_binary_view_test, upsert_get_async) {
     EXPECT_EQ(val_tuple.get<std::string>("val"), res_tuple->get<std::string>("val"));
 }
 
+TEST_F(record_binary_view_test, get_all_empty) {
+    EXPECT_THROW({
+        try {
+            std::vector<ignite_tuple> empty;
+            tuple_view.get_all(nullptr, empty);
+        } catch (const ignite_error& e) {
+            EXPECT_STREQ("At least one key should be supplied", e.what());
+            throw;
+        }
+    }, ignite_error);
+}
+
+TEST_F(record_binary_view_test, upsert_all_empty) {
+    EXPECT_THROW({
+        try {
+            std::vector<ignite_tuple> empty;
+            tuple_view.upsert_all(nullptr, empty);
+        } catch (const ignite_error& e) {
+            EXPECT_STREQ("At least one record should be supplied", e.what());
+            throw;
+        }
+    }, ignite_error);
+}
+
 TEST_F(record_binary_view_test, upsert_all_get_all) {
     static constexpr std::size_t records_num = 10;
 

@@ -177,6 +177,34 @@ public:
         });
     }
 
+    /**
+     * Inserts a record into the table if it does not exist.
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *   single operation is used.
+     * @param record A record to insert into the table. The record cannot be
+     *   @c nullptr.
+     * @param callback Callback. Called with a value indicating whether the
+     *   record was inserted. Equals @c false if a record with the same key
+     *   already exists.
+     */
+    IGNITE_API void insert_async(transaction* tx, const value_type& record, ignite_callback<bool> callback);
+
+    /**
+     * Inserts a record into the table if does not exist or replaces the existed
+     * one.
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *   single operation is used.
+     * @param record A record to insert into the table. The record cannot be
+     *   @c nullptr.
+     */
+    IGNITE_API bool insert(transaction* tx, const value_type& record) {
+        return sync<bool>([this, tx, &record] (auto callback) {
+            insert_async(tx, record, std::move(callback));
+        });
+    }
+
 private:
     /**
      * Constructor
