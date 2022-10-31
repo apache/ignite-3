@@ -41,6 +41,8 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
     /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(ScaleCubeTopologyService.class);
 
+    private static final NodeMetadataCodec METADATA_CODEC = new NodeMetadataCodec();
+
     /**
      * Inner representation of a ScaleCube cluster.
      */
@@ -67,8 +69,8 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
      * @param event Membership event.
      */
     void onMembershipEvent(MembershipEvent event) {
-        NodeMetadata nodeMetadata = NodeMetadata.fromByteBuffer(event.newMetadata());
-        ClusterNode member = fromMember(event.member(), nodeMetadata);
+        NodeMetadata metadata = METADATA_CODEC.deserialize(event.newMetadata());
+        ClusterNode member = fromMember(event.member(), metadata);
 
         if (event.isAdded()) {
             members.put(member.address(), member);

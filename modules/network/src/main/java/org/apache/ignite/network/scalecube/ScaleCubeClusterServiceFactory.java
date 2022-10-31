@@ -138,7 +138,9 @@ public class ScaleCubeClusterServiceFactory {
                                 topologyService.onMembershipEvent(event);
                             }
                         })
-                        .config(opts -> opts.memberAlias(consistentId).metadata(new NodeMetadata(restConfiguration.port().value())))
+                        .config(opts -> opts.memberAlias(consistentId)
+                                .metadataCodec(new NodeMetadataCodec())
+                                .metadata(new NodeMetadata(restConfiguration.port().value())))
                         .transport(opts -> opts.transportFactory(transportConfig -> transport))
                         .membership(opts -> opts.seedMembers(parseAddresses(finder.findNodes())));
 
