@@ -115,7 +115,8 @@ namespace Apache.Ignite.Internal.Table.Serialization
         public static string GetCleanName(this MemberInfo memberInfo) => CleanFieldName(memberInfo.Name);
 
         /// <summary>
-        /// Gets cleaned up member name without compiler-generated prefixes and suffixes.
+        /// Gets column name for the specified field: uses <see cref="ColumnAttribute"/> when available,
+        /// falls back to cleaned up field name otherwise.
         /// </summary>
         /// <param name="fieldInfo">Member.</param>
         /// <returns>Clean name.</returns>
