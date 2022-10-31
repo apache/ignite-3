@@ -734,6 +734,25 @@ TEST_F(record_binary_view_test, remove_existing) {
     ASSERT_FALSE(res_tuple.has_value());
 }
 
+TEST_F(record_binary_view_test, remove_existing_async) {
+    auto all_done = std::make_shared<std::promise<bool>>();
+
+    tuple_view.insert_async(nullptr, get_tuple(42, "foo"), [&] (ignite_result<bool> &&res) {
+        if (!check_and_set_operation_error(*all_done, res))
+            return;
+
+        if (!res.value())
+            all_done->set_exception(std::make_exception_ptr(ignite_error("Expected true on insertion")));
+
+        tuple_view.remove_async(nullptr, get_tuple(42), [&] (auto res) {
+            result_set_promise(*all_done, std::move(res));
+        });
+    });
+
+    auto res_tuple = all_done->get_future().get();
+    ASSERT_TRUE(res_tuple);
+}
+
 TEST_F(record_binary_view_test, remove_empty_throws) {
     EXPECT_THROW({
         try {
@@ -743,6 +762,60 @@ TEST_F(record_binary_view_test, remove_empty_throws) {
             throw;
         }
     }, ignite_error);
+}
+
+TEST_F(record_binary_view_test, remove_exact_nonexisting) {
+    auto res = tuple_view.remove_exact(nullptr, get_tuple(1, "foo"));
+    ASSERT_FALSE(res);
+}
+
+TEST_F(record_binary_view_test, remove_exact_existing) {
+    auto res = tuple_view.insert(nullptr, get_tuple(1, "foo"));
+    ASSERT_TRUE(res);
+
+    res = tuple_view.remove_exact(nullptr, get_tuple(1));
+    ASSERT_FALSE(res);
+
+    res = tuple_view.remove_exact(nullptr, get_tuple(1, "bar"));
+    ASSERT_FALSE(res);
+
+    res = tuple_view.remove_exact(nullptr, get_tuple(1, "foo"));
+    ASSERT_TRUE(res);
+
+    auto res_tuple = tuple_view.get(nullptr, get_tuple(1));
+    ASSERT_FALSE(res_tuple.has_value());
+}
+
+TEST_F(record_binary_view_test, remove_exact_existing_async) {
+    auto val_tuple = get_tuple(42, "foo");
+
+    auto all_done = std::make_shared<std::promise<bool>>();
+
+    auto res = tuple_view.insert(nullptr, val_tuple);
+    ASSERT_TRUE(res);
+
+    tuple_view.remove_exact_async(nullptr, get_tuple(42), [&] (auto res) {
+        if (!check_and_set_operation_error(*all_done, res))
+            return;
+
+        if (res.value())
+            all_done->set_exception(std::make_exception_ptr(ignite_error("Expected false on first remove")));
+
+        tuple_view.remove_exact_async(nullptr, get_tuple(42, "bar"), [&] (auto res) {
+            if (!check_and_set_operation_error(*all_done, res))
+                return;
+
+            if (res.value())
+                all_done->set_exception(std::make_exception_ptr(ignite_error("Expected false on second remove")));
+
+            tuple_view.remove_exact_async(nullptr, val_tuple, [&] (auto res) {
+                result_set_promise(*all_done, std::move(res));
+            });
+        });
+    });
+
+    auto res_tuple = all_done->get_future().get();
+    ASSERT_TRUE(res_tuple);
 }
 
 TEST_F(record_binary_view_test, remove_exact_empty_throws) {
