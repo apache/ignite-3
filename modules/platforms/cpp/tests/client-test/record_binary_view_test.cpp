@@ -274,6 +274,71 @@ TEST_F(record_binary_view_test, upsert_all_get_all_async) {
     EXPECT_EQ("Val10", res[1]->get<std::string>("val"));
 }
 
+TEST_F(record_binary_view_test, get_and_upsert_new_record) {
+    auto val_tuple = get_tuple(42, "foo");
+    auto res_tuple = tuple_view.get_and_upsert(nullptr, val_tuple);
+
+    ASSERT_FALSE(res_tuple.has_value());
+}
+
+TEST_F(record_binary_view_test, get_and_upsert_existing_record) {
+    auto val_tuple1 = get_tuple(42, "foo");
+    auto res_tuple = tuple_view.get_and_upsert(nullptr, val_tuple1);
+
+    ASSERT_FALSE(res_tuple.has_value());
+
+    auto val_tuple2 = get_tuple(42, "bar");
+    res_tuple = tuple_view.get_and_upsert(nullptr, val_tuple2);
+
+    ASSERT_TRUE(res_tuple.has_value());
+    EXPECT_EQ(2, res_tuple->column_count());
+    EXPECT_EQ(42, res_tuple->get<int64_t>("key"));
+    EXPECT_EQ("foo", res_tuple->get<std::string>("val"));
+
+    res_tuple = tuple_view.get(nullptr, get_tuple(42));
+
+    ASSERT_TRUE(res_tuple.has_value());
+    EXPECT_EQ(2, res_tuple->column_count());
+    EXPECT_EQ(42, res_tuple->get<int64_t>("key"));
+    EXPECT_EQ("bar", res_tuple->get<std::string>("val"));
+}
+
+TEST_F(record_binary_view_test, get_and_upsert_existing_record_async) {
+    auto val_tuple1 = get_tuple(42, "foo");
+    auto val_tuple2 = get_tuple(42, "bar");
+
+    auto first = std::make_shared<std::promise<std::optional<ignite_tuple>>>();
+
+    tuple_view.get_and_upsert_async(nullptr, val_tuple1, [&] (auto res) {
+        if (!check_and_set_operation_error(*first, res))
+            return;
+
+        if (res.value().has_value())
+            first->set_exception(std::make_exception_ptr(ignite_error("Expected nullopt on first insertion")));
+
+        tuple_view.get_and_upsert_async(nullptr, val_tuple2, [&] (auto res) {
+            result_set_promise(*first, std::move(res));
+        });
+    });
+
+    auto res_tuple = first->get_future().get();
+    ASSERT_TRUE(res_tuple.has_value());
+    EXPECT_EQ(val_tuple1.column_count(), res_tuple->column_count());
+    EXPECT_EQ(val_tuple1.get<int64_t>("key"), res_tuple->get<int64_t>("key"));
+    EXPECT_EQ(val_tuple1.get<std::string>("val"), res_tuple->get<std::string>("val"));
+
+    auto second = std::make_shared<std::promise<std::optional<ignite_tuple>>>();
+    tuple_view.get_async(nullptr, get_tuple(42), [&] (auto res) {
+        result_set_promise(*second, std::move(res));
+    });
+
+    res_tuple = second->get_future().get();
+    ASSERT_TRUE(res_tuple.has_value());
+    EXPECT_EQ(val_tuple2.column_count(), res_tuple->column_count());
+    EXPECT_EQ(val_tuple2.get<int64_t>("key"), res_tuple->get<int64_t>("key"));
+    EXPECT_EQ(val_tuple2.get<std::string>("val"), res_tuple->get<std::string>("val"));
+}
+
 TEST_F(record_binary_view_test, insert_new_record) {
     auto val_tuple = get_tuple(42, "foo");
     auto res = tuple_view.insert(nullptr, val_tuple);

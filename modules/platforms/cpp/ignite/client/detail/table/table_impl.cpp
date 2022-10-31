@@ -477,18 +477,18 @@ void table_impl::get_and_upsert_async(transaction *tx, const ignite_tuple &recor
     transactions_not_implemented(tx);
 
     with_latest_schema_async<std::optional<ignite_tuple>>(std::move(callback),
-        [self = shared_from_this(), record = ignite_tuple(record)] (const schema& sch, auto callback) mutable {
-        auto writer_func = [self, &record, &sch] (protocol::writer &writer) {
+        [self = shared_from_this(), record = std::make_shared<ignite_tuple>(record)] (const schema& sch, auto callback) {
+        auto writer_func = [self, record, &sch] (protocol::writer &writer) {
             write_table_operation_header(writer, self->m_id, sch);
-            write_tuple(writer, sch, record, true);
+            write_tuple(writer, sch, *record, false);
         };
 
-        auto reader_func = [self] (protocol::reader &reader) -> std::optional<ignite_tuple> {
+        auto reader_func = [self, record] (protocol::reader &reader) -> std::optional<ignite_tuple> {
             std::shared_ptr<schema> sch = self->get_schema(reader);
             if (!sch)
                 return std::nullopt;
 
-            return std::move(read_tuple(reader, sch.get(), false));
+            return std::move(read_tuple(reader, sch.get(), *record));
         };
 
         self->m_connection->perform_request<std::optional<ignite_tuple>>(
