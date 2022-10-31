@@ -48,7 +48,7 @@ public class ItMetricExportersLoadingTest {
     private MetricConfiguration metricConfiguration;
 
     @Test
-    public void testExportersLoading() throws Exception {
+    public void test() throws Exception {
         MetricManager metricManager = new MetricManager();
 
         metricManager.configure(metricConfiguration);
