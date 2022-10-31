@@ -63,6 +63,7 @@ import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
 import org.apache.ignite.internal.storage.index.impl.TestSortedIndexStorage;
 import org.apache.ignite.internal.table.distributed.HashIndexLocker;
 import org.apache.ignite.internal.table.distributed.IndexLocker;
+import org.apache.ignite.internal.table.distributed.SortedIndexLocker;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
@@ -150,17 +151,15 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     /** Primary index. */
     private static Lazy<TableSchemaAwareIndexStorage> pkStorage;
 
-    /** Secondary index storages. */
-    private static Map<UUID, TableSchemaAwareIndexStorage> secondaryIndexStorages;
-
-    private static IndexLocker pkLocker;
-
     /** If true the local replica is considered leader, false otherwise. */
     private static boolean localLeader;
 
     /** The state is used to resolve write intent. */
     private static TxState txState;
+
     private static BinaryTupleSchema sortedIndexBinarySchema;
+
+    private static TestSortedIndexStorage sortedIndexStorage;
 
     @BeforeAll
     private static void beforeAll() {
@@ -205,7 +204,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         PendingComparableValuesTracker safeTimeClock = mock(PendingComparableValuesTracker.class);
         when(safeTimeClock.waitFor(any())).thenReturn(CompletableFuture.completedFuture(null));
 
-        UUID indexId = UUID.randomUUID();
+        UUID pkIndexId = UUID.randomUUID();
+        UUID sortedIndexId = UUID.randomUUID();
 
         BinaryTupleSchema pkSchema = BinaryTupleSchema.create(new Element[]{
                 new Element(NativeTypes.BYTES, false)
@@ -214,14 +214,19 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         Function<BinaryRow, BinaryTuple> row2tuple = tableRow -> new BinaryTuple(pkSchema, ((BinaryRow) tableRow).keySlice());
 
         pkStorage = new Lazy<>(() -> new TableSchemaAwareIndexStorage(
-                indexId,
+                pkIndexId,
                 new TestHashIndexStorage(null),
                 row2tuple
         ));
 
+        sortedIndexStorage = new TestSortedIndexStorage(new SortedIndexDescriptor(sortedIndexId, List.of(
+                new SortedIndexColumnDescriptor("intVal", NativeTypes.INT32, false, true)
+        )));
+
         LockManager lockManager = new HeapLockManager();
 
-        pkLocker = new HashIndexLocker(indexId, true, lockManager, row2tuple);
+        IndexLocker pkLocker = new HashIndexLocker(pkIndexId, true, lockManager, row2tuple);
+        IndexLocker sortedIndexLocker = new SortedIndexLocker(pkIndexId, lockManager, sortedIndexStorage, row2tuple);
 
         partitionReplicaListener = new PartitionReplicaListener(
                 testMvPartitionStorage,
@@ -230,9 +235,13 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 lockManager,
                 partId,
                 tblId,
-                () -> Map.of(pkLocker.id(), pkLocker),
+                () -> Map.of(pkLocker.id(), pkLocker, sortedIndexId, sortedIndexLocker),
                 pkStorage,
-                () -> secondaryIndexStorages,
+                () -> Map.of(sortedIndexId, new TableSchemaAwareIndexStorage(
+                        sortedIndexId,
+                        sortedIndexStorage,
+                        row -> null
+                )),
                 clock,
                 safeTimeClock,
                 txStateStorage,
@@ -423,19 +432,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
     @Test
     public void test() {
-        UUID indexId = UUID.randomUUID();
-
         UUID txId = Timestamp.nextVersion().toUuid();
-
-        TestSortedIndexStorage indexStorage = new TestSortedIndexStorage(new SortedIndexDescriptor(indexId, List.of(
-                new SortedIndexColumnDescriptor("intVal", NativeTypes.INT32, false, true)
-        )));
-
-        secondaryIndexStorages.put(indexId, new TableSchemaAwareIndexStorage(
-                indexId,
-                indexStorage,
-                row -> null
-        ));
+        UUID sortedIndexId = sortedIndexStorage.indexDescriptor().id();
 
         IntStream.range(1, 6).forEach(i -> {
             RowId rowId = new RowId(partId);
@@ -445,20 +443,20 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
             BinaryRow storeRow = binaryRow(key(nextBinaryKey()), testValue);
 
             testMvPartitionStorage.addWrite(rowId, storeRow, txId, tblId, partId);
-            indexStorage.put(new IndexRowImpl(indexedValue, rowId));
+            sortedIndexStorage.put(new IndexRowImpl(indexedValue, rowId));
             testMvPartitionStorage.commitWrite(rowId, clock.now());
         });
 
         UUID scanTxId = Timestamp.nextVersion().toUuid();
 
         // Request first batch
-        CompletableFuture fut = partitionReplicaListener.invoke(TABLE_MESSAGES_FACTORY.readWriteScanRetrieveBatchReplicaRequest()
+        CompletableFuture<?> fut = partitionReplicaListener.invoke(TABLE_MESSAGES_FACTORY.readWriteScanRetrieveBatchReplicaRequest()
                 .groupId(grpId)
                 .transactionId(scanTxId)
                 .timestamp(clock.now())
                 .term(1L)
                 .scanId(1L)
-                .indexToUse(indexId)
+                .indexToUse(sortedIndexId)
                 .batchSize(3)
                 .build());
 
@@ -474,7 +472,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 .timestamp(clock.now())
                 .term(1L)
                 .scanId(1L)
-                .indexToUse(indexId)
+                .indexToUse(sortedIndexId)
                 .batchSize(3)
                 .build());
 
@@ -490,7 +488,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 .timestamp(clock.now())
                 .term(1L)
                 .scanId(2L)
-                .indexToUse(indexId)
+                .indexToUse(sortedIndexId)
                 .lowerBound(sortedIndexValue(new TestValue(2, "val" + 2)))
                 .upperBound(sortedIndexValue(new TestValue(4, "val" + 4)))
                 .flags(SortedIndexStorage.LESS_OR_EQUAL)
@@ -509,7 +507,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 .timestamp(clock.now())
                 .term(1L)
                 .scanId(2L)
-                .indexToUse(indexId)
+                .indexToUse(sortedIndexId)
                 .lowerBound(sortedIndexValue(new TestValue(5, "val" + 2)))
                 .batchSize(5)
                 .build());

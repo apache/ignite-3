@@ -344,7 +344,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         if (request.indexToUse() != null) {
             TableSchemaAwareIndexStorage indexStorage = secondaryIndexStorages.get().get(request.indexToUse());
 
-            if (indexStorage != null || indexStorage.storage() instanceof SortedIndexStorage) {
+            if (indexStorage != null && indexStorage.storage() instanceof SortedIndexStorage) {
                 return scanSortedIndex(request, (SortedIndexStorage) indexStorage);
             }
         }
@@ -557,7 +557,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         if (request.indexToUse() != null) {
             TableSchemaAwareIndexStorage indexStorage = secondaryIndexStorages.get().get(request.indexToUse());
 
-            if (indexStorage != null || indexStorage.storage() instanceof SortedIndexStorage) {
+            if (indexStorage != null && indexStorage.storage() instanceof SortedIndexStorage) {
                 return scanSortedIndex(request, (SortedIndexStorage) indexStorage.storage());
             }
         }
