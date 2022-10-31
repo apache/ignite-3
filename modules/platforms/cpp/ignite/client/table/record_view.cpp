@@ -69,7 +69,7 @@ void record_view<ignite_tuple>::delete_all_async(transaction *tx, std::vector<va
     ignite_callback<std::vector<value_type>> callback)
 {
     if (keys.empty())
-        throw ignite_error("At least one record should be supplied");
+        throw ignite_error("At least one key should be supplied");
 
     m_impl->delete_all_async(tx, std::move(keys), std::move(callback));
 }

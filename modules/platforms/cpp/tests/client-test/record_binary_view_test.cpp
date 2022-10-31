@@ -174,7 +174,7 @@ TEST_F(record_binary_view_test, get_empty_tuple_throws) {
     }, ignite_error);
 }
 
-TEST_F(record_binary_view_test, get_all_empty_keyset) {
+TEST_F(record_binary_view_test, get_all_empty_keyset_throws) {
     EXPECT_THROW({
         try {
             std::vector<ignite_tuple> empty;
@@ -194,7 +194,7 @@ TEST_F(record_binary_view_test, get_all_empty_resultset) {
     ASSERT_TRUE(res.empty());
 }
 
-TEST_F(record_binary_view_test, upsert_all_empty) {
+TEST_F(record_binary_view_test, upsert_all_empty_throws) {
     EXPECT_THROW({
         try {
             std::vector<ignite_tuple> empty;
@@ -336,6 +336,67 @@ TEST_F(record_binary_view_test, insert_empty_tuple_throws) {
             tuple_view.insert(nullptr, ignite_tuple());
         } catch (const ignite_error& e) {
             EXPECT_STREQ("Tuple can not be empty", e.what());
+            throw;
+        }
+    }, ignite_error);
+}
+
+TEST_F(record_binary_view_test, delete_all_nonexisting_keys_return_all) {
+    std::vector<ignite_tuple> non_existing = { get_tuple(1), get_tuple(2) };
+    auto res = tuple_view.delete_all(nullptr, non_existing);
+
+    EXPECT_EQ(res.size(), 2);
+
+    // TODO: Key order should be preserved by the server (IGNITE-16004).
+    EXPECT_EQ(1, res[0].column_count());
+    EXPECT_EQ(2, res[0].get<int64_t>("key"));
+
+    EXPECT_EQ(1, res[1].column_count());
+    EXPECT_EQ(1, res[1].get<int64_t>("key"));
+}
+
+TEST_F(record_binary_view_test, delete_all_only_existing) {
+    std::vector<ignite_tuple> to_insert = { get_tuple(1, "foo"), get_tuple(2, "bar") };
+    tuple_view.upsert_all(nullptr, to_insert);
+
+    auto res = tuple_view.delete_all(nullptr, {get_tuple(1), get_tuple(2)});
+
+    EXPECT_TRUE(res.empty());
+}
+
+TEST_F(record_binary_view_test, delete_all_overlapped) {
+    static constexpr std::size_t records_num = 10;
+
+    std::vector<ignite_tuple> to_insert;
+    to_insert.reserve(records_num);
+    for (std::int64_t i = 1; i < 1 + std::int64_t(records_num); ++i)
+        to_insert.emplace_back(get_tuple(i, "Val" + std::to_string(i)));
+
+    tuple_view.upsert_all(nullptr, to_insert);
+
+    std::vector<ignite_tuple> to_delete;
+    for (std::int64_t i = 9; i < 13; ++i)
+        to_delete.emplace_back(get_tuple(i));
+
+    auto res = tuple_view.delete_all(nullptr, to_delete);
+
+    EXPECT_EQ(res.size(), 2);
+
+    // TODO: Key order should be preserved by the server (IGNITE-16004).
+    EXPECT_EQ(1, res[0].column_count());
+    EXPECT_EQ(12, res[0].get<int64_t>("key"));
+
+    EXPECT_EQ(1, res[1].column_count());
+    EXPECT_EQ(11, res[1].get<int64_t>("key"));
+}
+
+TEST_F(record_binary_view_test, delete_all_empty_keyset_throws) {
+    EXPECT_THROW({
+        try {
+            std::vector<ignite_tuple> empty;
+            tuple_view.delete_all(nullptr, empty);
+        } catch (const ignite_error& e) {
+            EXPECT_STREQ("At least one key should be supplied", e.what());
             throw;
         }
     }, ignite_error);
