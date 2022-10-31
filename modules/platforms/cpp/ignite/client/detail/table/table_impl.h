@@ -213,6 +213,17 @@ public:
         ignite_callback<std::optional<ignite_tuple>> callback);
 
     /**
+     * Deletes a record with the specified key asynchronously.
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *   single operation is used.
+     * @param key A record with key columns set..
+     * @param callback Callback that called on operation completion. Called with
+     *   a value indicating whether a record with the specified key was deleted.
+     */
+    void remove_async(transaction* tx, const ignite_tuple &key, ignite_callback<bool> callback);
+
+    /**
      * Deletes multiple records from the table asynchronously. If one or more
      * keys do not exist, other records are still deleted
      *

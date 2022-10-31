@@ -336,9 +336,34 @@ public:
      * @param callback A previous value for the given key, or @c std::nullopt if
      *   it did not exist.
      */
-    IGNITE_API std::optional<value_type> get_and_replace(transaction* tx, const value_type& record) {
+    [[nodiscard]] IGNITE_API std::optional<value_type> get_and_replace(transaction* tx, const value_type& record) {
         return sync<std::optional<value_type>>([this, tx, &record] (auto callback) {
             get_and_replace_async(tx, record, std::move(callback));
+        });
+    }
+
+    /**
+     * Deletes a record with the specified key asynchronously.
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *   single operation is used.
+     * @param key A record with key columns set..
+     * @param callback Callback that called on operation completion. Called with
+     *   a value indicating whether a record with the specified key was deleted.
+     */
+    IGNITE_API void remove_async(transaction* tx, const value_type &key, ignite_callback<bool> callback);
+
+    /**
+     * Deletes a record with the specified key.
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *   single operation is used.
+     * @param key A record with key columns set..
+     * @return A value indicating whether a record with the specified key was deleted.
+     */
+    IGNITE_API bool remove(transaction* tx, const value_type& record) {
+        return sync<bool>([this, tx, &record] (auto callback) {
+            remove_async(tx, record, std::move(callback));
         });
     }
 

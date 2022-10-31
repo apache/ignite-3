@@ -62,6 +62,9 @@ enum class client_operation {
     /** Get and replace tuple. */
     TUPLE_GET_AND_REPLACE = 26,
 
+    /** Delete tuple. */
+    TUPLE_DELETE = 28,
+
     /** Delete all tuples. */
     TUPLE_DELETE_ALL = 29,
 };
