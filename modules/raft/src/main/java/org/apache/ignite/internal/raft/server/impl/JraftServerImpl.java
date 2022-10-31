@@ -341,7 +341,7 @@ public class JraftServerImpl implements RaftServer {
             List<Peer> peers,
             RaftGroupOptions groupOptions
     ) {
-        return startRaftGroup(groupId, RaftGroupEventsListener.noopLsnr, lsnr, peers, List.of(), new JraftNodeAccess(), groupOptions);
+        return startRaftGroup(groupId, RaftGroupEventsListener.noopLsnr, lsnr, peers, List.of(), groupOptions);
     }
 
     /** {@inheritDoc} */
@@ -352,7 +352,6 @@ public class JraftServerImpl implements RaftServer {
             RaftGroupListener lsnr,
             List<Peer> peers,
             List<Peer> learners,
-            JraftNodeAccess nodeAccess,
             RaftGroupOptions groupOptions
     ) {
         String grpId = replicaGrpId.toString();
@@ -426,9 +425,6 @@ public class JraftServerImpl implements RaftServer {
             var server = new RaftGroupService(grpId, peerId, nodeOptions, rpcServer, nodeManager);
 
             server.start();
-
-            // TODO: IGNITE-18011 - remove this when a better way to obtain snapshot meta is available
-            nodeAccess.node(server.getRaftNode());
 
             groups.put(replicaGrpId, server);
 

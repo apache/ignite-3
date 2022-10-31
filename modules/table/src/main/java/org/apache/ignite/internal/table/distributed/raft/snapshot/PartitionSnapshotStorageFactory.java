@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.table.distributed.raft.snapshot;
 
 import java.util.concurrent.Executor;
-import org.apache.ignite.internal.raft.server.impl.JraftNodeAccess;
 import org.apache.ignite.internal.raft.storage.SnapshotStorageFactory;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
@@ -27,6 +26,7 @@ import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
+import org.apache.ignite.raft.jraft.storage.LogManager;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotWriter;
 
@@ -59,8 +59,6 @@ public class PartitionSnapshotStorageFactory implements SnapshotStorageFactory {
     /** Incoming snapshots executor. */
     private final Executor incomingSnapshotsExecutor;
 
-    private final JraftNodeAccess nodeAccess;
-
     /**
      * Constructor.
      *
@@ -68,7 +66,6 @@ public class PartitionSnapshotStorageFactory implements SnapshotStorageFactory {
      * @param outgoingSnapshotsManager Snapshot manager.
      * @param partition MV partition storage.
      * @param incomingSnapshotsExecutor Incoming snapshots executor.
-     * @param nodeAccess Node access (used to get an instance of LogManager when a Node is started).
      * @see SnapshotMeta
      */
     @SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType")
@@ -76,14 +73,12 @@ public class PartitionSnapshotStorageFactory implements SnapshotStorageFactory {
             TopologyService topologyService,
             OutgoingSnapshotsManager outgoingSnapshotsManager,
             PartitionAccess partition,
-            Executor incomingSnapshotsExecutor,
-            JraftNodeAccess nodeAccess
+            Executor incomingSnapshotsExecutor
     ) {
         this.topologyService = topologyService;
         this.outgoingSnapshotsManager = outgoingSnapshotsManager;
         this.partition = partition;
         this.incomingSnapshotsExecutor = incomingSnapshotsExecutor;
-        this.nodeAccess = nodeAccess;
 
         // We must choose the minimum applied index for local recovery so that we don't skip the raft commands for the storage with the
         // lowest applied index and thus no data loss occurs.
@@ -94,8 +89,8 @@ public class PartitionSnapshotStorageFactory implements SnapshotStorageFactory {
     }
 
     @Override
-    public PartitionSnapshotStorage createSnapshotStorage(String uri, RaftOptions raftOptions) {
-        SnapshotMeta startupSnapshotMeta = SnapshotMetaUtils.snapshotMetaAt(lastIncludedRaftIndex, nodeAccess.logManager());
+    public PartitionSnapshotStorage createSnapshotStorage(String uri, RaftOptions raftOptions, LogManager logManager) {
+        SnapshotMeta startupSnapshotMeta = SnapshotMetaUtils.snapshotMetaAt(lastIncludedRaftIndex, logManager);
 
         return new PartitionSnapshotStorage(
                 topologyService,
@@ -105,7 +100,7 @@ public class PartitionSnapshotStorageFactory implements SnapshotStorageFactory {
                 partition,
                 startupSnapshotMeta,
                 incomingSnapshotsExecutor,
-                nodeAccess.logManager()
+                logManager
         );
     }
 }

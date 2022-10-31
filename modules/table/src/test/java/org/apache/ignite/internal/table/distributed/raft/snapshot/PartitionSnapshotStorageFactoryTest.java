@@ -19,13 +19,11 @@ package org.apache.ignite.internal.table.distributed.raft.snapshot;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.concurrent.Executor;
-import org.apache.ignite.internal.raft.server.impl.JraftNodeAccess;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
@@ -61,18 +59,16 @@ public class PartitionSnapshotStorageFactoryTest {
                 new LogId(1, 1), new Configuration(List.of(), List.of()), null
         ));
 
-        JraftNodeAccess nodeAccess = mock(JraftNodeAccess.class);
-        doReturn(logManager).when(nodeAccess).logManager();
-
         PartitionSnapshotStorageFactory partitionSnapshotStorageFactory = new PartitionSnapshotStorageFactory(
                 mock(TopologyService.class),
                 mock(OutgoingSnapshotsManager.class),
                 partitionAccess,
-                mock(Executor.class),
-                nodeAccess
+                mock(Executor.class)
         );
 
-        PartitionSnapshotStorage snapshotStorage = partitionSnapshotStorageFactory.createSnapshotStorage("", mock(RaftOptions.class));
+        PartitionSnapshotStorage snapshotStorage = partitionSnapshotStorageFactory.createSnapshotStorage(
+                "", mock(RaftOptions.class), logManager
+        );
 
         assertEquals(5L, snapshotStorage.startupSnapshotMeta().lastIncludedIndex());
 
@@ -83,11 +79,10 @@ public class PartitionSnapshotStorageFactoryTest {
                 mock(TopologyService.class),
                 mock(OutgoingSnapshotsManager.class),
                 partitionAccess,
-                mock(Executor.class),
-                nodeAccess
+                mock(Executor.class)
         );
 
-        snapshotStorage = partitionSnapshotStorageFactory.createSnapshotStorage("", mock(RaftOptions.class));
+        snapshotStorage = partitionSnapshotStorageFactory.createSnapshotStorage("", mock(RaftOptions.class), logManager);
 
         assertEquals(1L, snapshotStorage.startupSnapshotMeta().lastIncludedIndex());
     }

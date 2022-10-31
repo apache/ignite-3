@@ -40,7 +40,6 @@ import org.apache.ignite.internal.raft.configuration.VolatileRaftConfiguration;
 import org.apache.ignite.internal.raft.server.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.RaftServer;
-import org.apache.ignite.internal.raft.server.impl.JraftNodeAccess;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -262,7 +261,6 @@ public class Loza implements IgniteComponent {
                     learners,
                     lsnrSupplier.get(),
                     eventsLsnrSupplier.get(),
-                    new JraftNodeAccess(),
                     groupOptions
             );
         }
@@ -285,7 +283,6 @@ public class Loza implements IgniteComponent {
             Collection<ClusterNode> nodes,
             RaftGroupListener lsnr,
             RaftGroupEventsListener eventsLsnr,
-            JraftNodeAccess nodeAccess,
             RaftGroupOptions groupOptions
     ) throws NodeStoppingException {
         if (!busyLock.enterBusy()) {
@@ -293,7 +290,7 @@ public class Loza implements IgniteComponent {
         }
 
         try {
-            startRaftGroupNodeInternal(grpId, nodesToPeers(nodes), List.of(), lsnr, eventsLsnr, nodeAccess, groupOptions);
+            startRaftGroupNodeInternal(grpId, nodesToPeers(nodes), List.of(), lsnr, eventsLsnr, groupOptions);
         } finally {
             busyLock.leaveBusy();
         }
@@ -328,7 +325,6 @@ public class Loza implements IgniteComponent {
             List<Peer> learners,
             RaftGroupListener lsnr,
             RaftGroupEventsListener raftGrpEvtsLsnr,
-            JraftNodeAccess nodeAccess,
             RaftGroupOptions groupOptions
     ) {
         assert !peers.isEmpty();
@@ -337,7 +333,7 @@ public class Loza implements IgniteComponent {
             LOG.info("Start new raft node for group={} with initial peers={}", grpId, peers);
         }
 
-        boolean started = raftServer.startRaftGroup(grpId, raftGrpEvtsLsnr, lsnr, peers, learners, nodeAccess, groupOptions);
+        boolean started = raftServer.startRaftGroup(grpId, raftGrpEvtsLsnr, lsnr, peers, learners, groupOptions);
 
         if (!started) {
             throw new IgniteInternalException(IgniteStringFormatter.format(

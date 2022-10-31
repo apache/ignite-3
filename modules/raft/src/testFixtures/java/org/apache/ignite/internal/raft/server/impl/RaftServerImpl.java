@@ -200,7 +200,6 @@ public class RaftServerImpl implements RaftServer {
             RaftGroupListener lsnr,
             List<Peer> peers,
             List<Peer> learners,
-            JraftNodeAccess nodeAccess,
             RaftGroupOptions groupOptions
     ) {
         return startRaftGroup(groupId, lsnr, peers, groupOptions);
