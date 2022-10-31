@@ -38,6 +38,7 @@ import java.io.Serializable;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -91,7 +92,6 @@ import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.WriteCommand;
 import org.apache.ignite.raft.client.service.CommandClosure;
 import org.apache.ignite.raft.jraft.util.ByteString;
-import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -255,7 +255,8 @@ public class PartitionCommandListenerTest {
                 partitionDataStorage,
                 txStateStorage,
                 new TxManagerImpl(replicaService, new HeapLockManager(), new HybridClockImpl()),
-                () -> Map.of(pkStorage.id(), pkStorage)
+                () -> Map.of(pkStorage.id(), pkStorage),
+                PARTITION_ID
         );
 
         txStateStorage.lastAppliedIndex(3L);
@@ -408,18 +409,35 @@ public class PartitionCommandListenerTest {
      * Inserts all rows.
      */
     private void insertAll() {
-        HashMap<RowId, BinaryRow> rows = new HashMap<>(KEY_COUNT);
+        HashMap<UUID, ByteString> rows = new HashMap<>(KEY_COUNT);
         UUID txId = Timestamp.nextVersion().toUuid();
         var commitPartId = new TablePartitionId(txId, PARTITION_ID);
 
         for (int i = 0; i < KEY_COUNT; i++) {
             Row row = getTestRow(i, i);
 
-            rows.put(new RowId(PARTITION_ID), row);
+            rows.put(Timestamp.nextVersion().toUuid(), new ByteString(row.byteBuffer()));
         }
 
-        invokeBatchedCommand(new UpdateAllCommand(commitPartId, rows, txId));
-        invokeBatchedCommand(new TxCleanupCommand(txId, true, CLOCK.now()));
+        HybridTimestamp commitTimestamp = CLOCK.now();
+
+        invokeBatchedCommand(msgFactory.updateAllCommand()
+                .tablePartitionId(
+                        msgFactory.tablePartitionIdMessage()
+                                .tableId(commitPartId.getTableId())
+                                .partitionId(commitPartId.getPartId())
+                                .build())
+                .rowsToUpdate(rows)
+                .txId(txId)
+                .build());
+        invokeBatchedCommand(msgFactory.txCleanupCommand()
+                .txId(txId)
+                .commit(true)
+                .commitTimestamp(msgFactory.hybridTimestampMessage()
+                        .physical(commitTimestamp.getPhysical())
+                        .logical(commitTimestamp.getLogical())
+                        .build())
+                .build());
     }
 
     /**
@@ -430,16 +448,33 @@ public class PartitionCommandListenerTest {
     private void updateAll(Function<Integer, Integer> keyValueMapper) {
         UUID txId = Timestamp.nextVersion().toUuid();
         var commitPartId = new TablePartitionId(txId, PARTITION_ID);
-        HashMap<RowId, BinaryRow> rows = new HashMap<>(KEY_COUNT);
+        HashMap<UUID, ByteString> rows = new HashMap<>(KEY_COUNT);
 
         for (int i = 0; i < KEY_COUNT; i++) {
             Row row = getTestRow(i, keyValueMapper.apply(i));
 
-            rows.put(readRow(row), row);
+            rows.put(readRow(row).uuid(), new ByteString(row.byteBuffer()));
         }
 
-        invokeBatchedCommand(new UpdateAllCommand(commitPartId, rows, txId));
-        invokeBatchedCommand(new TxCleanupCommand(txId, true, CLOCK.now()));
+        HybridTimestamp commitTimestamp = CLOCK.now();
+
+        invokeBatchedCommand(msgFactory.updateAllCommand()
+                .tablePartitionId(
+                        msgFactory.tablePartitionIdMessage()
+                                .tableId(commitPartId.getTableId())
+                                .partitionId(commitPartId.getPartId())
+                                .build())
+                .rowsToUpdate(rows)
+                .txId(txId)
+                .build());
+        invokeBatchedCommand(msgFactory.txCleanupCommand()
+                .txId(txId)
+                .commit(true)
+                .commitTimestamp(msgFactory.hybridTimestampMessage()
+                        .physical(commitTimestamp.getPhysical())
+                        .logical(commitTimestamp.getLogical())
+                        .build())
+                .build());
     }
 
     /**
@@ -448,16 +483,33 @@ public class PartitionCommandListenerTest {
     private void deleteAll() {
         UUID txId = Timestamp.nextVersion().toUuid();
         var commitPartId = new TablePartitionId(txId, PARTITION_ID);
-        Set<RowId> keyRows = new HashSet<>(KEY_COUNT);
+        Map<UUID, ByteString> keyRows = new HashMap<>(KEY_COUNT);
 
         for (int i = 0; i < KEY_COUNT; i++) {
             Row row = getTestRow(i, i);
 
-            keyRows.add(readRow(row));
+            keyRows.put(readRow(row).uuid(), null);
         }
 
-        invokeBatchedCommand(new UpdateAllCommand(commitPartId, keyRows, txId));
-        invokeBatchedCommand(new TxCleanupCommand(txId, true, CLOCK.now()));
+        HybridTimestamp commitTimestamp = CLOCK.now();
+
+        invokeBatchedCommand(msgFactory.updateAllCommand()
+                .tablePartitionId(
+                        msgFactory.tablePartitionIdMessage()
+                                .tableId(commitPartId.getTableId())
+                                .partitionId(commitPartId.getPartId())
+                                .build())
+                .rowsToUpdate(keyRows)
+                .txId(txId)
+                .build());
+        invokeBatchedCommand(msgFactory.txCleanupCommand()
+                .txId(txId)
+                .commit(true)
+                .commitTimestamp(msgFactory.hybridTimestampMessage()
+                        .physical(commitTimestamp.getPhysical())
+                        .logical(commitTimestamp.getLogical())
+                        .build())
+                .build());
     }
 
     /**
@@ -472,7 +524,6 @@ public class PartitionCommandListenerTest {
             UUID txId = Timestamp.nextVersion().toUuid();
             Row row = getTestRow(i, keyValueMapper.apply(i));
             RowId rowId = readRow(row);
-            var commitPartId = new TablePartitionId(txId, PARTITION_ID);
 
             assertNotNull(rowId);
 
@@ -497,7 +548,16 @@ public class PartitionCommandListenerTest {
             }).when(clo).result(any());
         }));
 
-        txIds.forEach(txId -> invokeBatchedCommand(new TxCleanupCommand(txId, true, CLOCK.now())));
+        HybridTimestamp commitTimestamp = CLOCK.now();
+
+        txIds.forEach(txId -> invokeBatchedCommand(msgFactory.txCleanupCommand()
+                .txId(txId)
+                .commit(true)
+                .commitTimestamp(msgFactory.hybridTimestampMessage()
+                        .physical(commitTimestamp.getPhysical())
+                        .logical(commitTimestamp.getLogical())
+                        .build())
+                .build()));
     }
 
     /**
@@ -510,7 +570,6 @@ public class PartitionCommandListenerTest {
             UUID txId = Timestamp.nextVersion().toUuid();
             Row row = getTestRow(i, i);
             RowId rowId = readRow(row);
-            var commitPartId = new TablePartitionId(txId, PARTITION_ID);
 
             assertNotNull(rowId);
 
@@ -534,7 +593,16 @@ public class PartitionCommandListenerTest {
             }).when(clo).result(any());
         }));
 
-        txIds.forEach(txId -> invokeBatchedCommand(new TxCleanupCommand(txId, true, CLOCK.now())));
+        HybridTimestamp commitTimestamp = CLOCK.now();
+
+        txIds.forEach(txId -> invokeBatchedCommand(msgFactory.txCleanupCommand()
+                .txId(txId)
+                .commit(true)
+                .commitTimestamp(msgFactory.hybridTimestampMessage()
+                        .physical(commitTimestamp.getPhysical())
+                        .logical(commitTimestamp.getLogical())
+                        .build())
+                .build()));
     }
 
     /**
@@ -602,7 +670,19 @@ public class PartitionCommandListenerTest {
             }).when(clo).result(any());
         }));
 
-        txIds.forEach(txId -> invokeBatchedCommand(new TxCleanupCommand(txId, true, CLOCK.now())));
+        HybridTimestamp now = CLOCK.now();
+
+
+
+        txIds.forEach(txId -> invokeBatchedCommand(
+                msgFactory.txCleanupCommand()
+                        .txId(txId)
+                        .commit(true)
+                        .commitTimestamp(msgFactory.hybridTimestampMessage()
+                                .physical(now.getPhysical())
+                                .logical(now.getLogical())
+                                .build())
+                        .build()));
     }
 
     /**
