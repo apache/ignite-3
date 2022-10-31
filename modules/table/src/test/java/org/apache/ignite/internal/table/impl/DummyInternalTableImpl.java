@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.impl;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
@@ -162,7 +163,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         lenient().doReturn(groupId).when(svc).groupId();
         Peer leaderPeer = new Peer(UUID.randomUUID().toString());
         lenient().doReturn(leaderPeer).when(svc).leader();
-        lenient().doReturn(CompletableFuture.completedFuture(new IgniteBiTuple<>(leaderPeer, 1L))).when(svc).refreshAndGetLeaderWithTerm();
+        lenient().doReturn(completedFuture(new IgniteBiTuple<>(leaderPeer, 1L))).when(svc).refreshAndGetLeaderWithTerm();
 
         if (!crossTableUsage) {
             // Delegate replica requests directly to replica listener.
@@ -229,11 +230,11 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
         Function<BinaryRow, BinaryTuple> row2tuple = tableRow -> new BinaryTuple(pkSchema, ((BinaryRow) tableRow).keySlice());
 
-        Lazy<TableSchemaAwareIndexStorage> pkStorage = new Lazy<>(() -> new TableSchemaAwareIndexStorage(
+        TableSchemaAwareIndexStorage pkStorage = new TableSchemaAwareIndexStorage(
                 indexId,
                 new TestHashIndexStorage(null),
                 row2tuple
-        ));
+        );
 
         IndexLocker pkLocker = new HashIndexLocker(indexId, true, this.txManager.lockManager(), row2tuple);
 
@@ -247,9 +248,9 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 Runnable::run,
                 0,
                 tableId,
-                () -> Map.of(pkLocker.id(), pkLocker),
-                pkStorage,
-                () -> Map.of(),
+                () -> Map.of(indexId, pkLocker),
+                new Lazy<>(() -> pkStorage),
+                Map::of,
                 clock,
                 new PendingComparableValuesTracker<>(clock.now()),
                 txStateStorage().getOrCreateTxStateStorage(0),
@@ -262,7 +263,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 new TestPartitionDataStorage(mvPartStorage),
                 txStateStorage().getOrCreateTxStateStorage(0),
                 this.txManager,
-                () -> Map.of(pkStorage.get().id(), pkStorage.get())
+                () -> Map.of(indexId, pkStorage)
         );
     }
 
@@ -311,6 +312,6 @@ public class DummyInternalTableImpl extends InternalTableImpl {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<ClusterNode> evaluateReadOnlyRecipientNode(int partId) {
-        return CompletableFuture.completedFuture(mock(ClusterNode.class));
+        return completedFuture(mock(ClusterNode.class));
     }
 }

@@ -329,14 +329,15 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         }
 
         return tableManager.tableAsync(evt.storageRevision(), evt.oldValue().tableId())
-                .thenAccept(table -> {
-                    if (table != null) { // in case of DROP TABLE the table will be removed first
-                        table.unregisterIndex(idxId);
-                    }
-                })
-                .thenRun(() -> {
+                .handle((table, err) -> {
                     try {
+                        if (table != null) { // in case of DROP TABLE the table will be removed first
+                            table.unregisterIndex(idxId);
+                        }
+
                         fireEvent(IndexEvent.DROP, new IndexEventParameters(evt.storageRevision(), idxId), null);
+
+                        return null;
                     } finally {
                         busyLock.leaveBusy();
                     }

@@ -368,7 +368,7 @@ public class Loza implements IgniteComponent {
                 RPC_TIMEOUT,
                 peers,
                 learners,
-                true,
+                false,
                 DELAY,
                 executor
         );

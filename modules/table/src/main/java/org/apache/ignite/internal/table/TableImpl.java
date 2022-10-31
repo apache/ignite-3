@@ -20,10 +20,13 @@ package org.apache.ignite.internal.table;
 import static java.util.concurrent.CompletableFuture.allOf;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -62,14 +65,14 @@ public class TableImpl implements Table {
 
     private final LockManager lockManager;
 
-    // private final Supplier<List<UUID>> activeIndexIds;
-
     /** Schema registry. Should be set either in constructor or via {@link #schemaView(SchemaRegistry)} before start of using the table. */
     private volatile SchemaRegistry schemaReg;
 
     private final CompletableFuture<UUID> pkId = new CompletableFuture<>();
 
-    private final Map<UUID, CompletableFuture<?>> indexesToWait = new ConcurrentHashMap<>();
+    private final Set<CompletableFuture<?>> operationsInProgress = Collections.synchronizedSet(
+            Collections.newSetFromMap(new IdentityHashMap<>())
+    );
 
     private final Map<UUID, IndexStorageAdapterFactory> indexStorageAdapterFactories = new ConcurrentHashMap<>();
     private final Map<UUID, IndexLockerFactory> indexLockerFactories = new ConcurrentHashMap<>();
@@ -84,7 +87,6 @@ public class TableImpl implements Table {
     public TableImpl(InternalTable tbl, LockManager lockManager, Supplier<CompletableFuture<List<UUID>>> activeIndexIds) {
         this.tbl = tbl;
         this.lockManager = lockManager;
-        // this.activeIndexIds = activeIndexIds;
     }
 
     /**
@@ -122,8 +124,8 @@ public class TableImpl implements Table {
     }
 
     /** Returns an identifier of a primary index. */
-    public UUID pkId() {
-        return pkId.join();
+    public CompletableFuture<UUID> pkId() {
+        return pkId;
     }
 
     /** Returns an internal table instance this view represents. */
@@ -234,8 +236,6 @@ public class TableImpl implements Table {
     /** Returns a supplier of index storage wrapper factories for given partition. */
     public Supplier<Map<UUID, TableSchemaAwareIndexStorage>> indexStorageAdapters(int partId) {
         return () -> {
-            awaitIndexes();
-
             List<IndexStorageAdapterFactory> factories = new ArrayList<>(indexStorageAdapterFactories.values());
 
             Map<UUID, TableSchemaAwareIndexStorage> adapters = new HashMap<>();
@@ -252,8 +252,6 @@ public class TableImpl implements Table {
     /** Returns a supplier of index locker factories for given partition. */
     public Supplier<Map<UUID, IndexLocker>> indexesLockers(int partId) {
         return () -> {
-            awaitIndexes();
-
             List<IndexLockerFactory> factories = new ArrayList<>(indexLockerFactories.values());
 
             Map<UUID, IndexLocker> lockers = new HashMap<>(factories.size());
@@ -284,6 +282,7 @@ public class TableImpl implements Table {
                         searchRowResolver
                 )
         );
+
         indexStorageAdapterFactories.put(
                 indexId,
                 partitionId -> new TableSchemaAwareIndexStorage(
@@ -292,12 +291,6 @@ public class TableImpl implements Table {
                         searchRowResolver
                 )
         );
-
-        CompletableFuture<?> indexFuture = indexesToWait.remove(indexId);
-
-        if (indexFuture != null) {
-            indexFuture.complete(null);
-        }
     }
 
     /**
@@ -324,12 +317,26 @@ public class TableImpl implements Table {
                         searchRowResolver
                 )
         );
+    }
 
-        CompletableFuture<?> indexFuture = indexesToWait.remove(indexId);
+    /**
+     * Register a future representing an operation of changing table-related structures, like starting another raft server.
+     *
+     * @param op Operation the table should be aware of.
+     */
+    public void registerOperation(CompletableFuture<?> op) {
+        op.whenComplete((r, e) -> operationsInProgress.remove(op));
 
-        if (indexFuture != null) {
-            indexFuture.complete(null);
-        }
+        operationsInProgress.add(op);
+    }
+
+    /**
+     * Awaiting all registered operations.
+     *
+     * <p>The call to this method will block until all operations registered prior to the call have completed.
+     */
+    public void awaitOperationsInProgress() {
+        allOf(operationsInProgress.toArray(new CompletableFuture[0])).join();
     }
 
     /**
@@ -340,35 +347,6 @@ public class TableImpl implements Table {
     public void unregisterIndex(UUID indexId) {
         indexLockerFactories.remove(indexId);
         indexStorageAdapterFactories.remove(indexId);
-    }
-
-    private void awaitIndexes() {
-        // TODO: replace with actual call to ids supplier
-        List<UUID> indexIds = List.of(pkId()); // activeIndexIds.get();
-
-        List<CompletableFuture<?>> toWait = new ArrayList<>();
-
-        for (UUID indexId : indexIds) {
-            if (indexLockerFactories.containsKey(indexId) && indexStorageAdapterFactories.containsKey(indexId)) {
-                continue;
-            }
-
-            CompletableFuture<?> indexFuture = indexesToWait.computeIfAbsent(indexId, k -> new CompletableFuture<>());
-
-            // there is no synchronization between modification of index*Factories collections
-            // and indexesToWait collection, thus we may run into situation, when index was
-            // registered in the between of index existence check and registering a wait future.
-            // This second check aimed to resolve this race
-            if (indexLockerFactories.containsKey(indexId) && indexStorageAdapterFactories.containsKey(indexId)) {
-                indexesToWait.remove(indexId);
-
-                continue;
-            }
-
-            toWait.add(indexFuture);
-        }
-
-        allOf(toWait.toArray(CompletableFuture[]::new)).join();
     }
 
     @FunctionalInterface

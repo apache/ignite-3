@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed.replication;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -152,7 +153,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     private static PartitionReplicaListener partitionReplicaListener;
 
     /** Primary index. */
-    private static Lazy<TableSchemaAwareIndexStorage> pkStorage;
+    private static TableSchemaAwareIndexStorage pkStorage;
 
     /** If true the local replica is considered leader, false otherwise. */
     private static boolean localLeader;
@@ -172,10 +173,10 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     private static void beforeAll() {
         when(mockRaftClient.refreshAndGetLeaderWithTerm()).thenAnswer(invocationOnMock -> {
             if (!localLeader) {
-                return CompletableFuture.completedFuture(new IgniteBiTuple<>(new Peer(anotherNode.name()), 1L));
+                return completedFuture(new IgniteBiTuple<>(new Peer(anotherNode.name()), 1L));
             }
 
-            return CompletableFuture.completedFuture(new IgniteBiTuple<>(new Peer(localNode.name()), 1L));
+            return completedFuture(new IgniteBiTuple<>(new Peer(localNode.name()), 1L));
         });
 
         when(topologySrv.getByConsistentId(any())).thenAnswer(invocationOnMock -> {
@@ -205,11 +206,11 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
                 txMeta = new TxMeta(TxState.ABORTED, Collections.singletonList(grpId), txFixedTimestamp);
             }
-            return CompletableFuture.completedFuture(txMeta);
+            return completedFuture(txMeta);
         });
 
         PendingComparableValuesTracker safeTimeClock = mock(PendingComparableValuesTracker.class);
-        when(safeTimeClock.waitFor(any())).thenReturn(CompletableFuture.completedFuture(null));
+        when(safeTimeClock.waitFor(any())).thenReturn(completedFuture(null));
 
         UUID pkIndexId = UUID.randomUUID();
         UUID sortedIndexId = UUID.randomUUID();
@@ -219,13 +220,13 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 new Element(NativeTypes.BYTES, false)
         });
 
-        Function<BinaryRow, BinaryTuple> row2tuple = tableRow -> new BinaryTuple(pkSchema, ((BinaryRow) tableRow).keySlice());
+        Function<BinaryRow, BinaryTuple> row2tuple = tableRow -> new BinaryTuple(pkSchema, tableRow.keySlice());
 
-        pkStorage = new Lazy<>(() -> new TableSchemaAwareIndexStorage(
+        pkStorage = new TableSchemaAwareIndexStorage(
                 pkIndexId,
                 new TestHashIndexStorage(null),
                 row2tuple
-        ));
+        );
 
         sortedIndexStorage = new TableSchemaAwareIndexStorage(
                 sortedIndexId,
@@ -258,7 +259,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 partId,
                 tblId,
                 () -> Map.of(pkLocker.id(), pkLocker, sortedIndexId, sortedIndexLocker, hashIndexId, hashIndexLocker),
-                pkStorage,
+                new Lazy<>(() -> pkStorage),
                 () -> Map.of(sortedIndexId, sortedIndexStorage, hashIndexId, hashIndexStorage),
                 clock,
                 safeTimeClock,
@@ -287,7 +288,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     private void beforeTest() {
         localLeader = true;
         txState = null;
-        ((TestHashIndexStorage) pkStorage.get().storage()).destroy();
+        ((TestHashIndexStorage) pkStorage.storage()).destroy();
         ((TestHashIndexStorage) hashIndexStorage.storage()).destroy();
         ((TestSortedIndexStorage) sortedIndexStorage.storage()).destroy();
     }
@@ -366,7 +367,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         BinaryRow testBinaryRow = binaryRow(key(testBinaryKey), new TestValue(1, "v1"));
         var rowId = new RowId(partId);
 
-        pkStorage.get().put(testBinaryKey, rowId);
+        pkStorage.put(testBinaryKey, rowId);
         testMvPartitionStorage.addWrite(rowId, testBinaryRow, txId, tblId, partId);
         testMvPartitionStorage.commitWrite(rowId, clock.now());
 
@@ -390,7 +391,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         var rowId = new RowId(partId);
         txState = TxState.COMMITED;
 
-        pkStorage.get().put(testBinaryKey, rowId);
+        pkStorage.put(testBinaryKey, rowId);
         testMvPartitionStorage.addWrite(rowId, testBinaryRow, txId, tblId, partId);
 
         CompletableFuture fut = partitionReplicaListener.invoke(TABLE_MESSAGES_FACTORY.readOnlySingleRowReplicaRequest()
@@ -412,7 +413,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         BinaryRow testBinaryRow = binaryRow(key(testBinaryKey), new TestValue(1, "v1"));
         var rowId = new RowId(partId);
 
-        pkStorage.get().put(testBinaryKey, rowId);
+        pkStorage.put(testBinaryKey, rowId);
         testMvPartitionStorage.addWrite(rowId, testBinaryRow, txId, tblId, partId);
 
         CompletableFuture fut = partitionReplicaListener.invoke(TABLE_MESSAGES_FACTORY.readOnlySingleRowReplicaRequest()
@@ -435,7 +436,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         var rowId = new RowId(partId);
         txState = TxState.ABORTED;
 
-        pkStorage.get().put(testBinaryKey, rowId);
+        pkStorage.put(testBinaryKey, rowId);
         testMvPartitionStorage.addWrite(rowId, testBinaryRow, txId, tblId, partId);
 
         CompletableFuture fut = partitionReplicaListener.invoke(TABLE_MESSAGES_FACTORY.readOnlySingleRowReplicaRequest()

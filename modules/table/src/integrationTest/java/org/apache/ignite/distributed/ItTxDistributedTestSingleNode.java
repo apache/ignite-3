@@ -418,25 +418,25 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 Function<BinaryRow, BinaryTuple> row2tuple =
                         tableRow -> new BinaryTuple(pkSchema, tableRow.keySlice());
 
-                Lazy<TableSchemaAwareIndexStorage> pkStorage = new Lazy<>(() -> new TableSchemaAwareIndexStorage(
-                        indexId,
-                        new TestHashIndexStorage(null),
-                        row2tuple
-                ));
+                Lazy<TableSchemaAwareIndexStorage> pkStorage = new Lazy<>(() ->
+                        new TableSchemaAwareIndexStorage(
+                                indexId,
+                                new TestHashIndexStorage(null),
+                                row2tuple
+                        )
+                );
 
                 IndexLocker pkLocker = new HashIndexLocker(indexId, true, txManagers.get(node).lockManager(), row2tuple);
 
                 CompletableFuture<Void> partitionReadyFuture = raftServers.get(node).prepareRaftGroup(
                         grpId,
                         partNodes.stream().map(ClusterNode::name).collect(toList()),
-                        () -> {
-                            return new PartitionListener(
-                                    new TestPartitionDataStorage(testMpPartStorage),
-                                    new TestTxStateStorage(),
-                                    txManagers.get(node),
-                                    () -> Map.of(pkStorage.get().id(), pkStorage.get())
-                            );
-                        },
+                        () -> new PartitionListener(
+                                new TestPartitionDataStorage(testMpPartStorage),
+                                new TestTxStateStorage(),
+                                txManagers.get(node),
+                                () -> Map.of(indexId, pkStorage.get())
+                        ),
                         RaftGroupOptions.defaults()
                 ).thenAccept(
                         raftSvc -> {

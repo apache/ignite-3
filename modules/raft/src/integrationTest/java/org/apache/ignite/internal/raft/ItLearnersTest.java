@@ -205,7 +205,8 @@ public class ItLearnersTest extends IgniteAbstractTest {
         List<RaftNode> learners = nodes.subList(1, nodes.size());
 
         CompletableFuture<RaftGroupService> service1 =
-                startRaftGroup(follower, new TestRaftGroupListener(), List.of(follower), List.of());
+                startRaftGroup(follower, new TestRaftGroupListener(), List.of(follower), List.of())
+                        .thenCompose(service -> service.refreshLeader().thenApply(ignored -> service));
 
         assertThat(service1.thenApply(RaftGroupService::leader), willBe(follower.asPeer()));
         assertThat(service1.thenApply(RaftGroupService::learners), willBe(empty()));
@@ -216,7 +217,8 @@ public class ItLearnersTest extends IgniteAbstractTest {
         assertThat(addLearners, willCompleteSuccessfully());
 
         CompletableFuture<RaftGroupService> service2 =
-                startRaftGroup(nodes.get(1), new TestRaftGroupListener(), List.of(follower), learners);
+                startRaftGroup(nodes.get(1), new TestRaftGroupListener(), List.of(follower), learners)
+                        .thenCompose(service -> service.refreshLeader().thenApply(ignored -> service));
 
         // Check that learners and peers have been set correctly.
         Stream.of(service1, service2).forEach(service -> {
@@ -294,7 +296,7 @@ public class ItLearnersTest extends IgniteAbstractTest {
 
             return future.thenApply(s -> {
                 // Decrease the default timeout to make tests faster.
-                s.timeout(100);
+                s.timeout(1000);
 
                 return s;
             });

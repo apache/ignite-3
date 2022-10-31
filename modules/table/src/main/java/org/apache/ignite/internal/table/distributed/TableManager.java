@@ -726,89 +726,93 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 PendingComparableValuesTracker<HybridTimestamp> safeTime = new PendingComparableValuesTracker<>(clock.now());
 
                 if (raftMgr.shouldHaveRaftGroupLocally(nodes)) {
-                    startGroupFut = CompletableFuture.supplyAsync(() -> getOrCreateMvPartition(internalTbl.storage(), partId), ioExecutor)
-                            .thenComposeAsync(mvPartitionStorage -> assignmentsLatestFut.thenCompose(assignmentsLatest -> {
-                                boolean hasData = mvPartitionStorage.lastAppliedIndex() > 0;
+                    // raft server will be started after PK index is created
+                    // and node is ready to accept and serve updates
+                    table.registerOperation(
+                            table.pkId().thenApplyAsync(ignored -> getOrCreateMvPartition(internalTbl.storage(), partId), ioExecutor)
+                                    .thenComposeAsync(mvPartitionStorage -> assignmentsLatestFut.thenCompose(assignmentsLatest -> {
+                                        boolean hasData = mvPartitionStorage.lastAppliedIndex() > 0;
 
-                                CompletableFuture<Boolean> fut;
+                                        CompletableFuture<Boolean> fut;
 
-                                if (isInMemory || !hasData) {
-                                    Set<ClusterNode> partAssignments = assignmentsLatest.get(partId);
+                                        if (isInMemory || !hasData) {
+                                            Set<ClusterNode> partAssignments = assignmentsLatest.get(partId);
 
-                                    fut = queryDataNodesCount(tblId, partId, partAssignments).thenApply(dataNodesCount -> {
-                                        boolean fullPartitionRestart = dataNodesCount == 0;
+                                            fut = queryDataNodesCount(tblId, partId, partAssignments).thenApply(dataNodesCount -> {
+                                                boolean fullPartitionRestart = dataNodesCount == 0;
 
-                                        if (fullPartitionRestart) {
-                                            return true;
-                                        }
+                                                if (fullPartitionRestart) {
+                                                    return true;
+                                                }
 
-                                        boolean majorityAvailable = dataNodesCount >= (partAssignments.size() / 2) + 1;
+                                                boolean majorityAvailable = dataNodesCount >= (partAssignments.size() / 2) + 1;
 
-                                        if (majorityAvailable) {
-                                            RebalanceUtil.startPeerRemoval(replicaGrpId, localMember, metaStorageMgr);
+                                                if (majorityAvailable) {
+                                                    RebalanceUtil.startPeerRemoval(replicaGrpId, localMember, metaStorageMgr);
 
-                                            return false;
+                                                    return false;
+                                                } else {
+                                                    // No majority and not a full partition restart - need to restart nodes
+                                                    // with current partition.
+                                                    String msg = "Unable to start partition " + partId + ". Majority not available.";
+
+                                                    throw new IgniteInternalException(msg);
+                                                }
+                                            });
                                         } else {
-                                            // No majority and not a full partition restart - need to restart nodes
-                                            // with current partition.
-                                            String msg = "Unable to start partition " + partId + ". Majority not available.";
-
-                                            throw new IgniteInternalException(msg);
+                                            fut = completedFuture(true);
                                         }
-                                    });
-                                } else {
-                                    fut = completedFuture(true);
-                                }
 
-                                return fut.thenCompose(startGroup -> {
-                                    if (!startGroup) {
-                                        return completedFuture(null);
-                                    }
+                                        return fut.thenCompose(startGroup -> {
+                                            if (!startGroup) {
+                                                return completedFuture(null);
+                                            }
 
-                                    return CompletableFuture.supplyAsync(
+                                            return CompletableFuture.supplyAsync(
                                                     () -> getOrCreateTxStatePartitionStorage(internalTbl.txStateStorage(), partId),
                                                     ioExecutor
                                             )
-                                            .thenComposeAsync(txStatePartitionStorage -> {
-                                                RaftGroupOptions groupOptions = groupOptionsForPartition(
-                                                        internalTbl.storage(),
-                                                        internalTbl.txStateStorage(),
-                                                        partitionKey(internalTbl, partId),
-                                                        newPartAssignment,
-                                                        safeTime
-                                                );
+                                                    .thenComposeAsync(txStatePartitionStorage -> {
+                                                        RaftGroupOptions groupOptions = groupOptionsForPartition(
+                                                                internalTbl.storage(),
+                                                                internalTbl.txStateStorage(),
+                                                                partitionKey(internalTbl, partId),
+                                                                newPartAssignment,
+                                                                safeTime
+                                                        );
 
-                                                try {
-                                                    raftMgr.startRaftGroupNode(
-                                                            replicaGrpId,
-                                                            newPartAssignmentIds,
-                                                            new PartitionListener(
-                                                                    partitionDataStorage(mvPartitionStorage, internalTbl, partId),
-                                                                    txStatePartitionStorage,
-                                                                    txManager,
-                                                                    table.indexStorageAdapters(partId)
-                                                            ),
-                                                            new RebalanceRaftGroupEventsListener(
-                                                                    metaStorageMgr,
-                                                                    tablesCfg.tables().get(tablesById.get(tblId).name()),
+                                                        try {
+                                                            raftMgr.startRaftGroupNode(
                                                                     replicaGrpId,
-                                                                    partId,
-                                                                    busyLock,
-                                                                    movePartition(
-                                                                            () -> internalTbl.partitionRaftGroupService(partId)),
-                                                                    this::calculateAssignments,
-                                                                    rebalanceScheduler
-                                                            ),
-                                                            groupOptions
-                                                    );
+                                                                    newPartAssignmentIds,
+                                                                    new PartitionListener(
+                                                                            partitionDataStorage(mvPartitionStorage, internalTbl, partId),
+                                                                            txStatePartitionStorage,
+                                                                            txManager,
+                                                                            table.indexStorageAdapters(partId)
+                                                                    ),
+                                                                    new RebalanceRaftGroupEventsListener(
+                                                                            metaStorageMgr,
+                                                                            tablesCfg.tables().get(tablesById.get(tblId).name()),
+                                                                            replicaGrpId,
+                                                                            partId,
+                                                                            busyLock,
+                                                                            movePartition(
+                                                                                    () -> internalTbl.partitionRaftGroupService(partId)),
+                                                                            this::calculateAssignments,
+                                                                            rebalanceScheduler
+                                                                    ),
+                                                                    groupOptions
+                                                            );
 
-                                                    return completedFuture(null);
-                                                } catch (NodeStoppingException ex) {
-                                                    return failedFuture(ex);
-                                                }
-                                            }, ioExecutor);
-                                });
-                            }), ioExecutor);
+                                                            return completedFuture(null);
+                                                        } catch (NodeStoppingException ex) {
+                                                            return failedFuture(ex);
+                                                        }
+                                                    }, ioExecutor);
+                                        });
+                                    }), ioExecutor)
+                    );
                 }
 
                 futures[partId] = startGroupFut
@@ -844,8 +848,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                                         partId,
                                                                         tblId,
                                                                         table.indexesLockers(partId),
-                                                                        new Lazy<>(() -> table.indexStorageAdapters(partId)
-                                                                                .get().get(table.pkId())),
+                                                                        new Lazy<>(() -> table.indexStorageAdapters(partId).get()
+                                                                                .get(table.pkId().join())),
                                                                         () -> table.indexStorageAdapters(partId).get(),
                                                                         clock,
                                                                         safeTime,
@@ -979,6 +983,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     private void cleanUpTablesResources(Map<UUID, TableImpl> tables) {
         for (TableImpl table : tables.values()) {
             try {
+                table.pkId().cancel(false);
+
+                table.awaitOperationsInProgress();
+
                 for (int p = 0; p < table.internalTable().partitions(); p++) {
                     TablePartitionId replicationGroupId = new TablePartitionId(table.tableId(), p);
 
@@ -1147,6 +1155,14 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      */
     private void dropTableLocally(long causalityToken, String name, UUID tblId, List<Set<ClusterNode>> assignment) {
         try {
+            TableImpl table = tablesByIdVv.latest().get(tblId);
+
+            assert table != null : IgniteStringFormatter.format("There is no table with the name specified [name={}, id={}]",
+                    name, tblId);
+
+            table.pkId().cancel(false);
+            table.awaitOperationsInProgress();
+
             int partitions = assignment.size();
 
             for (int p = 0; p < partitions; p++) {
@@ -1168,11 +1184,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 return completedFuture(map);
             }));
-
-            TableImpl table = tablesByIdVv.latest().get(tblId);
-
-            assert table != null : IgniteStringFormatter.format("There is no table with the name specified [name={}, id={}]",
-                name, tblId);
 
             table.internalTable().storage().destroy();
             table.internalTable().txStateStorage().destroy();
@@ -1865,7 +1876,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                             partId,
                                             tblId,
                                             tbl.indexesLockers(partId),
-                                            new Lazy<>(() -> tbl.indexStorageAdapters(partId).get().get(tbl.pkId())),
+                                            new Lazy<>(() -> tbl.indexStorageAdapters(partId).get()
+                                                    .get(tbl.pkId().join())),
                                             () -> tbl.indexStorageAdapters(partId).get(),
                                             clock,
                                             safeTime,

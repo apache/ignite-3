@@ -14,12 +14,12 @@ INSERT INTO integers VALUES (1, 10), (2, 12), (3, 14), (4, 16), (5, NULL), (NULL
 query II
 SELECT * FROM integers WHERE TRUE ORDER BY 1
 ----
-NULL	NULL
 1	10
 2	12
 3	14
 4	16
 5	NULL
+NULL	NULL
 
 # Obsolete filters that can be pruned
 query II

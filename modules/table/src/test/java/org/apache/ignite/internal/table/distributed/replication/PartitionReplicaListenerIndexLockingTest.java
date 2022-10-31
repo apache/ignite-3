@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed.replication;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
@@ -39,15 +40,12 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryConverter;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
-import org.apache.ignite.internal.schema.BinaryTupleSchema;
-import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.KvMarshaller;
 import org.apache.ignite.internal.schema.marshaller.MarshallerException;
 import org.apache.ignite.internal.schema.marshaller.reflection.ReflectionMarshallerFactory;
-import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
@@ -102,23 +100,20 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
 
     private static SchemaDescriptor schemaDescriptor;
     private static KvMarshaller<Integer, Integer> kvMarshaller;
-    private static Lazy<TableSchemaAwareIndexStorage> pkStorage;
+    private static TableSchemaAwareIndexStorage pkStorage;
     private static PartitionReplicaListener partitionReplicaListener;
     private static Function<BinaryRow, BinaryTuple> row2HashKeyConverter;
     private static Function<BinaryRow, BinaryTuple> row2SortKeyConverter;
 
+    @SuppressWarnings("ConstantConditions")
     @BeforeAll
     private static void beforeAll() {
         RaftGroupService mockRaftClient = mock(RaftGroupService.class);
 
         when(mockRaftClient.refreshAndGetLeaderWithTerm())
-                .thenAnswer(invocationOnMock -> CompletableFuture.completedFuture(new IgniteBiTuple<>(null, 1L)));
+                .thenAnswer(invocationOnMock -> completedFuture(new IgniteBiTuple<>(null, 1L)));
         when(mockRaftClient.run(any()))
-                .thenAnswer(invocationOnMock -> CompletableFuture.completedFuture(null));
-
-        BinaryTupleSchema tupleSchema = BinaryTupleSchema.create(new Element[]{
-                new Element(NativeTypes.INT32, false)
-        });
+                .thenAnswer(invocationOnMock -> completedFuture(null));
 
         schemaDescriptor = new SchemaDescriptor(1, new Column[]{
                 new Column("id".toUpperCase(Locale.ROOT), NativeTypes.INT32, false),
@@ -128,12 +123,11 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
 
         row2HashKeyConverter = tableRow -> BinaryConverter.forKey(schemaDescriptor).toTuple(tableRow);
 
-        TableSchemaAwareIndexStorage hashIndexStorage = new TableSchemaAwareIndexStorage(
+        pkStorage = new TableSchemaAwareIndexStorage(
                 PK_INDEX_ID,
                 new TestHashIndexStorage(null),
                 row2HashKeyConverter
         );
-        pkStorage = new Lazy<>(() -> hashIndexStorage);
 
         IndexLocker pkLocker = new HashIndexLocker(PK_INDEX_ID, true, LOCK_MANAGER, row2HashKeyConverter);
         IndexLocker hashIndexLocker = new HashIndexLocker(HASH_INDEX_ID, false, LOCK_MANAGER, row2HashKeyConverter);
@@ -172,10 +166,10 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                         hashIndexLocker.id(), hashIndexLocker,
                         sortedIndexLocker.id(), sortedIndexLocker
                 ),
-                pkStorage,
+                new Lazy<>(() -> pkStorage),
                 () -> Map.of(
                         sortedIndexLocker.id(), sortedIndexStorage,
-                        hashIndexLocker.id(), hashIndexStorage
+                        hashIndexLocker.id(), pkStorage
                 ),
                 CLOCK,
                 new PendingComparableValuesTracker<>(CLOCK.now()),
@@ -190,7 +184,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
 
     @BeforeEach
     private void beforeTest() {
-        ((TestHashIndexStorage) pkStorage.get().storage()).destroy();
+        ((TestHashIndexStorage) pkStorage.storage()).destroy();
         TEST_MV_PARTITION_STORAGE.clear();
 
         locks().forEach(LOCK_MANAGER::release);
@@ -326,14 +320,14 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
         return locks;
     }
 
-    private void insertRows(List<Pair<BinaryRow, RowId>> rows, UUID txId) {
+    private static void insertRows(List<Pair<BinaryRow, RowId>> rows, UUID txId) {
         HybridTimestamp commitTs = CLOCK.now();
 
         for (Pair<BinaryRow, RowId> row : rows) {
             BinaryRow tableRow = row.getFirst();
             RowId rowId = row.getSecond();
 
-            pkStorage.get().put(tableRow, rowId);
+            pkStorage.put(tableRow, rowId);
             TEST_MV_PARTITION_STORAGE.addWrite(rowId, tableRow, txId, TABLE_ID, PART_ID);
             TEST_MV_PARTITION_STORAGE.commitWrite(rowId, commitTs);
         }
@@ -342,22 +336,6 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
     protected static BinaryRow binaryRow(Integer key, Integer value) {
         try {
             return kvMarshaller.marshal(key, value);
-        } catch (MarshallerException e) {
-            throw new IgniteException(e);
-        }
-    }
-
-    protected static Integer key(BinaryRow binaryRow) {
-        try {
-            return kvMarshaller.unmarshalKey(new Row(schemaDescriptor, binaryRow));
-        } catch (MarshallerException e) {
-            throw new IgniteException(e);
-        }
-    }
-
-    protected static Integer value(BinaryRow binaryRow) {
-        try {
-            return kvMarshaller.unmarshalValue(new Row(schemaDescriptor, binaryRow));
         } catch (MarshallerException e) {
             throw new IgniteException(e);
         }
@@ -378,7 +356,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
         private final LockMode expectedLockOnNonUniqueHash;
         private final LockMode expectedLockOnSort;
 
-        public ReadWriteTestArg(
+        ReadWriteTestArg(
                 RequestType type,
                 LockMode expectedLockOnUniqueHash,
                 LockMode expectedLockOnNonUniqueHash,

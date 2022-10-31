@@ -118,7 +118,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     private final int partId;
 
     /** Primary key index. */
-    public final Lazy<TableSchemaAwareIndexStorage> pkIndexStorage;
+    private final Lazy<TableSchemaAwareIndexStorage> pkIndexStorage;
 
     /** Secondary indices. */
     private final Supplier<Map<UUID, TableSchemaAwareIndexStorage>> secondaryIndexStorages;
@@ -1023,13 +1023,15 @@ public class PartitionReplicaListener implements ReplicaListener {
             UUID txId,
             BiFunction<@Nullable RowId, @Nullable BinaryRow, CompletableFuture<T>> action
     ) {
-        IndexLocker pkLocker = indexesLockers.get().get(pkIndexStorage.get().id());
+        TableSchemaAwareIndexStorage pkStorage = pkIndexStorage.get();
+
+        IndexLocker pkLocker = indexesLockers.get().get(pkStorage.id());
 
         assert pkLocker != null;
 
         return pkLocker.locksForLookup(txId, tableRow)
                 .thenCompose(ignored -> {
-                    try (Cursor<RowId> cursor = pkIndexStorage.get().get(tableRow)) {
+                    try (Cursor<RowId> cursor = pkStorage.get(tableRow)) {
                         for (RowId rowId : cursor) {
                             BinaryRow row = resolveReadResult(mvDataStorage.read(rowId, HybridTimestamp.MAX_VALUE), txId);
 

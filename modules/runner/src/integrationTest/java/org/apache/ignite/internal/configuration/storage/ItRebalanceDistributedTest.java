@@ -46,6 +46,7 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -428,6 +429,8 @@ public class ItRebalanceDistributedTest {
 
         private final TableManager tableManager;
 
+        private final IndexManager indexManager;
+
         private final BaselineManager baselineMgr;
 
         private final ConfigurationManager nodeCfgMgr;
@@ -567,6 +570,8 @@ public class ItRebalanceDistributedTest {
                     new HybridClockImpl(),
                     new OutgoingSnapshotsManager(clusterService.messagingService())
             );
+
+            indexManager = new IndexManager(tablesCfg, schemaManager, tableManager);
         }
 
         /**
@@ -586,7 +591,8 @@ public class ItRebalanceDistributedTest {
                     baselineMgr,
                     dataStorageMgr,
                     schemaManager,
-                    tableManager
+                    tableManager,
+                    indexManager
             );
 
             nodeComponents.forEach(IgniteComponent::start);

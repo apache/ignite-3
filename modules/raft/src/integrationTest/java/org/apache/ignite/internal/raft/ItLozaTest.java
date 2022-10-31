@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.raft;
 
 import static org.apache.ignite.internal.raft.server.RaftGroupOptions.defaults;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
@@ -144,14 +145,20 @@ public class ItLozaTest {
 
                 grpSrvcs[i] = startClient(new TestReplicationGroupId(Integer.toString(i)), service.topologyService().localMember(), loza);
 
+                await(grpSrvcs[i].refreshLeader());
+
                 verify(messagingServiceMock, times(3 * (i + 1)))
                         .invoke(any(ClusterNode.class), any(), anyLong());
             }
         } finally {
             for (RaftGroupService srvc : grpSrvcs) {
-                srvc.shutdown();
+                if (srvc != null) {
+                    srvc.shutdown();
 
-                loza.stopRaftGroup(srvc.groupId());
+                    if (loza != null) {
+                        loza.stopRaftGroup(srvc.groupId());
+                    }
+                }
             }
 
             if (loza != null) {
