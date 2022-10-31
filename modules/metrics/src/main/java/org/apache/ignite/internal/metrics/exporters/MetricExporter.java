@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.metrics.exporters;
 
 import org.apache.ignite.internal.metrics.MetricProvider;
+import org.apache.ignite.internal.metrics.MetricSet;
 import org.apache.ignite.internal.metrics.exporters.configuration.ExporterConfiguration;
 import org.apache.ignite.internal.metrics.exporters.configuration.ExporterView;
 
@@ -33,17 +34,12 @@ import org.apache.ignite.internal.metrics.exporters.configuration.ExporterView;
  */
 public interface MetricExporter<CfgT extends ExporterView> {
     /**
-     * Initialize metric exporter with the provider of available metrics.
-     *
-     * @param metricProvider Metrics provider
-     * @param configuration CfgT
-     */
-    void init(MetricProvider metricProvider, CfgT configuration);
-
-    /**
      * Start metrics exporter. Here all needed listeners, schedulers etc. should be started.
+     *
+     * @param metricProvider Provider of metric sources.
+     * @param configuration Exporter configuration view.
      */
-    void start();
+    void start(MetricProvider metricProvider, CfgT configuration);
 
     /**
      * Stop and cleanup work for current exporter must be implemented here.
@@ -60,7 +56,26 @@ public interface MetricExporter<CfgT extends ExporterView> {
     /**
      * Invokes, when exporter's configuration was updated.
      *
-     * @param newValue new configuration.
+     * <p>Be careful: this method will be invoked from the separate configuration events' thread pool.
+     * Appropriate thread-safe logic falls on the shoulders of implementations.
+     *
+     * @param newValue New configuration view.
      */
     void reconfigure(CfgT newValue);
+
+    /**
+     * {@link org.apache.ignite.internal.metrics.MetricManager} invokes this method,
+     * when new metric source was enabled.
+     *
+     * @param metricSet Named metric set.
+     */
+    void addMetricSet(MetricSet metricSet);
+
+    /**
+     * {@link org.apache.ignite.internal.metrics.MetricManager} invokes this method,
+     * when the metric source was disabled.
+     *
+     * @param metricSetName Name of metric set to remove.
+     */
+    void removeMetricSet(String metricSetName);
 }
