@@ -286,6 +286,30 @@ std::optional<ignite_tuple> read_tuple(protocol::reader& reader, const schema* s
 }
 
 /**
+ * Read tuple.
+ *
+ * @param reader Reader.
+ * @param sch Schema.
+ * @return Tuple.
+ */
+std::optional<ignite_tuple> read_tuple(protocol::reader& reader, const schema* sch) {
+    if (!sch)
+        return std::nullopt;
+
+    auto tuple_data = reader.read_binary();
+
+    auto columns_cnt = std::int32_t(sch->columns.size());
+    ignite_tuple_builder res(columns_cnt);
+    binary_tuple_parser parser(columns_cnt, tuple_data);
+
+    for (std::int32_t i = 0; i < columns_cnt; ++i) {
+        auto& column = sch->columns[i];
+        res.add(column.name, read_next_column(parser, column.type));
+    }
+    return std::move(res).build();
+}
+
+/**
  * Read tuples.
  *
  * @param reader Reader.
@@ -293,8 +317,7 @@ std::optional<ignite_tuple> read_tuple(protocol::reader& reader, const schema* s
  * @param keys Key.
  * @return Tuples.
  */
-std::vector<std::optional<ignite_tuple>> read_tuples(protocol::reader& reader, const schema* sch,
-    const std::vector<ignite_tuple>& keys)
+std::vector<std::optional<ignite_tuple>> read_tuples(protocol::reader& reader, const schema* sch)
 {
     if (!sch)
         return {};
@@ -308,7 +331,7 @@ std::vector<std::optional<ignite_tuple>> read_tuples(protocol::reader& reader, c
         if (!exists)
             res.emplace_back(std::nullopt);
         else
-            res.emplace_back(read_tuple(reader, sch, keys[i]));
+            res.emplace_back(read_tuple(reader, sch));
     }
 
     return std::move(res);
@@ -388,9 +411,9 @@ void table_impl::get_all_async(transaction *tx, std::vector<ignite_tuple> keys,
             write_tuples(writer, sch, *keys, true);
         };
 
-        auto reader_func = [self, keys] (protocol::reader &reader) -> std::vector<std::optional<ignite_tuple>> {
+        auto reader_func = [self] (protocol::reader &reader) -> std::vector<std::optional<ignite_tuple>> {
             std::shared_ptr<schema> sch = self->get_schema(reader);
-            return read_tuples(reader, sch.get(), *keys);
+            return read_tuples(reader, sch.get());
         };
 
         self->m_connection->perform_request<std::vector<std::optional<ignite_tuple>>>(

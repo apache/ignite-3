@@ -42,7 +42,7 @@ enum class client_operation {
     TUPLE_UPSERT_ALL = 13,
 
     /** Get all tuples. */
-    TUPLE_GET_ALL = 14,
+    TUPLE_GET_ALL = 15,
 };
 
 /**
