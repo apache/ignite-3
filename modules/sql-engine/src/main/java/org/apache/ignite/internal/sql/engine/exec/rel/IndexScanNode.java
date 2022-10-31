@@ -254,7 +254,7 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
         } else if (!rangeConditionsProcessed) {
             RangeCondition<RowT> cond = null;
 
-            if (rangeConditionIterator == null) {
+            if (rangeConditionIterator == null || !rangeConditionIterator.hasNext()) {
                 rangeConditionsProcessed = true;
             } else {
                 cond = rangeConditionIterator.next();
