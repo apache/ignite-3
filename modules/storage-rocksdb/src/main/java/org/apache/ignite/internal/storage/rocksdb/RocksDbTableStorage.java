@@ -343,6 +343,11 @@ public class RocksDbTableStorage implements MvTableStorage {
     }
 
     @Override
+    public void close() throws StorageException {
+        stop();
+    }
+
+    @Override
     public void destroy() throws StorageException {
         stop();
 

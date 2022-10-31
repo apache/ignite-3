@@ -36,7 +36,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Table storage that contains meta, partitions and SQL indexes.
  */
-public interface MvTableStorage {
+public interface MvTableStorage extends AutoCloseable {
     /**
      * Retrieves or creates a partition for the current table. Not expected to be called concurrently with the same Partition ID.
      *
