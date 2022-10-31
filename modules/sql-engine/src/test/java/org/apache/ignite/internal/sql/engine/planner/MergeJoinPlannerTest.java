@@ -32,11 +32,9 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteSort;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /** MergeJoin planner test. */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-17748")
 public class MergeJoinPlannerTest extends AbstractPlannerTest {
     /** Only MergeJoin encourage. */
     private static final String[] DISABLED_RULES = {
