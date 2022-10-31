@@ -287,12 +287,13 @@ ignite_tuple read_tuple(protocol::reader& reader, const schema* sch, const ignit
  *
  * @param reader Reader.
  * @param sch Schema.
+ * @param key_only Should only key fields be read or not.
  * @return Tuple.
  */
-ignite_tuple read_tuple(protocol::reader& reader, const schema* sch) {
+ignite_tuple read_tuple(protocol::reader& reader, const schema* sch, bool key_only) {
     auto tuple_data = reader.read_binary();
 
-    auto columns_cnt = std::int32_t(sch->columns.size());
+    auto columns_cnt = std::int32_t(key_only ? sch->key_column_count : sch->columns.size());
     ignite_tuple_builder res(columns_cnt);
     binary_tuple_parser parser(columns_cnt, tuple_data);
 
@@ -308,10 +309,10 @@ ignite_tuple read_tuple(protocol::reader& reader, const schema* sch) {
  *
  * @param reader Reader.
  * @param sch Schema.
- * @param keys Key.
+ * @param key_only Should only key fields be read or not.
  * @return Tuples.
  */
-std::vector<std::optional<ignite_tuple>> read_tuples_opt(protocol::reader& reader, const schema* sch)
+std::vector<std::optional<ignite_tuple>> read_tuples_opt(protocol::reader& reader, const schema* sch, bool key_only)
 {
     if (!sch)
         return {};
@@ -325,7 +326,7 @@ std::vector<std::optional<ignite_tuple>> read_tuples_opt(protocol::reader& reade
         if (!exists)
             res.emplace_back(std::nullopt);
         else
-            res.emplace_back(read_tuple(reader, sch));
+            res.emplace_back(read_tuple(reader, sch, key_only));
     }
 
     return std::move(res);
@@ -336,10 +337,10 @@ std::vector<std::optional<ignite_tuple>> read_tuples_opt(protocol::reader& reade
  *
  * @param reader Reader.
  * @param sch Schema.
- * @param keys Key.
+ * @param key_only Should only key fields be read or not.
  * @return Tuples.
  */
-std::vector<ignite_tuple> read_tuples(protocol::reader& reader, const schema* sch)
+std::vector<ignite_tuple> read_tuples(protocol::reader& reader, const schema* sch, bool key_only)
 {
     if (!sch)
         return {};
@@ -349,7 +350,7 @@ std::vector<ignite_tuple> read_tuples(protocol::reader& reader, const schema* sc
     res.reserve(std::size_t(count));
 
     for (std::int32_t i = 0; i < count; ++i)
-        res.emplace_back(read_tuple(reader, sch));
+        res.emplace_back(read_tuple(reader, sch, key_only));
 
     return std::move(res);
 }
@@ -433,7 +434,7 @@ void table_impl::get_all_async(transaction *tx, std::vector<ignite_tuple> keys,
 
         auto reader_func = [self] (protocol::reader &reader) -> std::vector<std::optional<ignite_tuple>> {
             std::shared_ptr<schema> sch = self->get_schema(reader);
-            return read_tuples_opt(reader, sch.get());
+            return read_tuples_opt(reader, sch.get(), false);
         };
 
         self->m_connection->perform_request<std::vector<std::optional<ignite_tuple>>>(
@@ -504,7 +505,7 @@ void table_impl::delete_all_async(transaction *tx, std::vector<ignite_tuple> key
 
         auto reader_func = [self] (protocol::reader &reader) -> std::vector<ignite_tuple> {
             std::shared_ptr<schema> sch = self->get_schema(reader);
-            return read_tuples(reader, sch.get());
+            return read_tuples(reader, sch.get(), true);
         };
 
         self->m_connection->perform_request<std::vector<ignite_tuple>>(
