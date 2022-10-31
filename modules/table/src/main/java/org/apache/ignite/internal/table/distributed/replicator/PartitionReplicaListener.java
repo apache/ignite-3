@@ -27,10 +27,8 @@ import static org.apache.ignite.lang.IgniteStringFormatter.format;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
@@ -213,8 +211,6 @@ public class PartitionReplicaListener implements ReplicaListener {
         this.isLocalPeerChecker = isLocalPeerChecker;
 
         this.replicationGroupId = new TablePartitionId(tableId, partId);
-
-        Set<RowId> ids = new HashSet<>();
 
         cursors = new ConcurrentSkipListMap<>((o1, o2) -> {
             if (o1 == o2) {
