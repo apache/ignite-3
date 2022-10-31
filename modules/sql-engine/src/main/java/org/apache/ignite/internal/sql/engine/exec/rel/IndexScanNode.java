@@ -108,7 +108,10 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
             @Nullable BitSet requiredColumns
     ) {
         super(ctx, rowType);
+
         assert !nullOrEmpty(parts);
+
+        assert context().transaction() != null || context().transactionTime() != null : "Transaction not initialized.";
 
         this.schemaIndex = schemaIndex;
         this.parts = parts;
@@ -206,8 +209,10 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
             }
         }
 
-        if (waiting == 0 || activeSubscription == null) {
-            requestNextBatch();
+        if (requested > 0) {
+            if (waiting == 0 || activeSubscription == null) {
+                requestNextBatch();
+            }
         }
 
         if (requested > 0 && waiting == NOT_WAITING) {
@@ -311,9 +316,6 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
     }
 
     private class SubscriberImpl implements Flow.Subscriber<BinaryTuple> {
-
-        private int received = 0; // HB guarded here.
-
         /** {@inheritDoc} */
         @Override
         public void onSubscribe(Subscription subscription) {
@@ -330,9 +332,7 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
 
             inBuff.add(row);
 
-            if (++received == inBufSize) {
-                received = 0;
-
+            if (inBuff.size() == inBufSize) {
                 context().execute(() -> {
                     waiting = 0;
                     push();
