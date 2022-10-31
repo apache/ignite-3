@@ -17,13 +17,15 @@
 
 package org.apache.ignite.network;
 
+import java.io.Serializable;
 import java.nio.ByteBuffer;
 
 /**
  * Arasdasda.
  */
-public class NodeMetadata {
+public class NodeMetadata implements Serializable {
     private static final int VERSION = 1;
+    private static final long serialVersionUID = 3216463261002854096L;
     private final int restPort;
 
     public NodeMetadata(int restPort) {
