@@ -303,9 +303,22 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
 
         IgniteIndex idx = tbl.getIndex(rel.indexName());
         ColocationGroup group = ctx.group(rel.sourceId());
-        int[] parts = group.partitions(ctx.localNode().id());
 
-        return new IndexScanNode<>(ctx, rowType, idx, tbl, parts, ranges, filters, prj, requiredColumns.toBitSet());
+        if (!group.nodeIds().contains(ctx.localNode().id())) {
+            return new ScanNode<>(ctx, rowType, Collections.emptyList());
+        }
+
+        return new IndexScanNode<>(
+                ctx,
+                rowType,
+                idx,
+                tbl,
+                group.partitions(ctx.localNode().id()),
+                ranges,
+                filters,
+                prj,
+                requiredColumns.toBitSet()
+        );
     }
 
     /** {@inheritDoc} */
