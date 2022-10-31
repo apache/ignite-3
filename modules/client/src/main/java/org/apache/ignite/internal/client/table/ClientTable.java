@@ -181,7 +181,7 @@ public class ClientTable implements Table {
         for (int i = 0; i < colCnt; i++) {
             var propCnt = in.unpackArrayHeader();
 
-            assert propCnt >= 6;
+            assert propCnt >= 7;
 
             var name = in.unpackString();
             var type = in.unpackInt();
@@ -189,11 +189,12 @@ public class ClientTable implements Table {
             var isNullable = in.unpackBoolean();
             var isColocation = in.unpackBoolean();
             var scale = in.unpackInt();
+            var precision = in.unpackInt();
 
             // Skip unknown extra properties, if any.
-            in.skipValues(propCnt - 6);
+            in.skipValues(propCnt - 7);
 
-            var column = new ClientColumn(name, type, isNullable, isKey, isColocation, i, scale);
+            var column = new ClientColumn(name, type, isNullable, isKey, isColocation, i, scale, precision);
             columns[i] = column;
         }
 

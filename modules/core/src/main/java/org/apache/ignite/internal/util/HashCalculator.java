@@ -40,7 +40,7 @@ public class HashCalculator {
      *
      * @param v Value to update hash.
      */
-    public void append(Object v, int scale) {
+    public void append(Object v, int scale, int precision) {
         if (v == null) {
             appendNull();
             return;

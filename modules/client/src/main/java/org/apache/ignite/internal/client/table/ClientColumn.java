@@ -44,6 +44,9 @@ public class ClientColumn {
     /** value scale, if applicable. */
     private final int scale;
 
+    /** value precision, if applicable. */
+    private final int precision;
+
     /**
      * Constructor.
      *
@@ -55,7 +58,7 @@ public class ClientColumn {
      * @param schemaIndex  Index of the column in the schema.
      */
     public ClientColumn(String name, int type, boolean nullable, boolean isKey, boolean isColocation, int schemaIndex) {
-        this(name, type, nullable, isKey, isColocation, schemaIndex, 0);
+        this(name, type, nullable, isKey, isColocation, schemaIndex, 0, 0);
     }
 
     /**
@@ -68,7 +71,14 @@ public class ClientColumn {
      * @param schemaIndex Index of the column in the schema.
      * @param scale       Scale of the column, if applicable.
      */
-    public ClientColumn(String name, int type, boolean nullable, boolean isKey, boolean isColocation, int schemaIndex, int scale) {
+    public ClientColumn(
+            String name,
+            int type,
+            boolean nullable, boolean isKey,
+            boolean isColocation,
+            int schemaIndex,
+            int scale,
+            int precision) {
         assert name != null;
         assert schemaIndex >= 0;
 
@@ -79,6 +89,7 @@ public class ClientColumn {
         this.isColocation = isColocation;
         this.schemaIndex = schemaIndex;
         this.scale = scale;
+        this.precision = precision;
     }
 
     public String name() {
@@ -137,5 +148,14 @@ public class ClientColumn {
      */
     public int scale() {
         return scale;
+    }
+
+    /**
+     * Gets the precision of the column, if applicable.
+     *
+     * @return Precision.
+     */
+    public int precision() {
+        return precision;
     }
 }

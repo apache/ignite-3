@@ -461,7 +461,7 @@ public class ClientTupleSerializer {
 
         for (ClientColumn col : schema.colocationColumns()) {
             Object value = rec.valueOrDefault(col.name(), null);
-            hashCalc.append(value, col.scale());
+            hashCalc.append(value, col.scale(), col.precision());
         }
 
         return hashCalc.hash();
@@ -474,7 +474,7 @@ public class ClientTupleSerializer {
 
         for (ClientColumn col : schema.colocationColumns()) {
             Object value = marsh.value(rec, col.schemaIndex());
-            hashCalc.append(value, col.scale());
+            hashCalc.append(value, col.scale(), col.precision());
         }
 
         return hashCalc.hash();
