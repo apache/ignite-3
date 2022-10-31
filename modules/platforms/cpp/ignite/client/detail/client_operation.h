@@ -71,6 +71,9 @@ enum class client_operation {
     /** Delete exact tuple. */
     TUPLE_DELETE_EXACT = 30,
 
+    /** Delete all exact tuples. */
+    TUPLE_DELETE_ALL_EXACT = 31,
+
     /** Get and delete tuple. */
     TUPLE_GET_AND_DELETE = 32,
 };

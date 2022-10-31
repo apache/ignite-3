@@ -144,4 +144,13 @@ void record_view<ignite_tuple>::remove_all_async(transaction *tx, std::vector<va
     m_impl->remove_all_async(tx, std::move(keys), std::move(callback));
 }
 
+void record_view<ignite_tuple>::remove_all_exact_async(transaction *tx, std::vector<value_type> records,
+    ignite_callback<std::vector<value_type>> callback)
+{
+    if (records.empty())
+        throw ignite_error("At least one record should be supplied");
+
+    m_impl->remove_all_exact_async(tx, std::move(records), std::move(callback));
+}
+
 } // namespace ignite

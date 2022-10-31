@@ -449,6 +449,34 @@ public:
         });
     }
 
+    /**
+     * Deletes multiple exactly matching records asynchronously. If one or more
+     * records do not exist, other records are still deleted.
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *   single operation is used.
+     * @param records Records to delete.
+     * @param callback Callback that called on operation completion. Called with
+     *   records from @c records that did not exist.
+     */
+    IGNITE_API void remove_all_exact_async(transaction* tx, std::vector<value_type> records,
+        ignite_callback<std::vector<value_type>> callback);
+
+    /**
+     * Deletes multiple exactly matching records. If one or more records do not
+     * exist, other records are still deleted.
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *   single operation is used.
+     * @param records Records to delete.
+     * @return Records from @c records that did not exist.
+     */
+    IGNITE_API std::vector<value_type> remove_all_exact(transaction* tx, std::vector<value_type> records) {
+        return sync<std::vector<value_type>>([this, tx, records = std::move(records)] (auto callback) mutable {
+            remove_all_exact_async(tx, std::move(records), std::move(callback));
+        });
+    }
+
 private:
     /**
      * Constructor

@@ -260,6 +260,19 @@ public:
     void remove_all_async(transaction* tx, std::vector<ignite_tuple> keys,
         ignite_callback<std::vector<ignite_tuple>> callback);
 
+    /**
+     * Deletes multiple exactly matching records asynchronously. If one or more
+     * records do not exist, other records are still deleted.
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *   single operation is used.
+     * @param records Records to delete.
+     * @param callback Callback that called on operation completion. Called with
+     *   records from @c records that did not exist.
+     */
+    void remove_all_exact_async(transaction* tx, std::vector<ignite_tuple> records,
+        ignite_callback<std::vector<ignite_tuple>> callback);
+
 private:
     /**
      * Load latest schema from server asynchronously.

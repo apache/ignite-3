@@ -673,12 +673,11 @@ void table_impl::remove_all_async(transaction *tx, std::vector<ignite_tuple> key
 {
     transactions_not_implemented(tx);
 
-    auto shared_keys = std::make_shared<std::vector<ignite_tuple>>(std::move(keys));
     with_latest_schema_async<std::vector<ignite_tuple>>(std::move(callback),
-        [self = shared_from_this(), keys = shared_keys] (const schema& sch, auto callback) mutable {
-        auto writer_func = [self, keys, &sch] (protocol::writer &writer) {
+        [self = shared_from_this(), keys = std::move(keys)] (const schema& sch, auto callback) {
+        auto writer_func = [self, &keys, &sch] (protocol::writer &writer) {
             write_table_operation_header(writer, self->m_id, sch);
-            write_tuples(writer, sch, *keys, true);
+            write_tuples(writer, sch, keys, true);
         };
 
         auto reader_func = [self] (protocol::reader &reader) -> std::vector<ignite_tuple> {
@@ -688,6 +687,28 @@ void table_impl::remove_all_async(transaction *tx, std::vector<ignite_tuple> key
 
         self->m_connection->perform_request<std::vector<ignite_tuple>>(
             client_operation::TUPLE_DELETE_ALL, writer_func, std::move(reader_func), std::move(callback));
+    });
+}
+
+void table_impl::remove_all_exact_async(transaction *tx, std::vector<ignite_tuple> records,
+    ignite_callback<std::vector<ignite_tuple>> callback)
+{
+    transactions_not_implemented(tx);
+
+    with_latest_schema_async<std::vector<ignite_tuple>>(std::move(callback),
+        [self = shared_from_this(), records = std::move(records)] (const schema& sch, auto callback) {
+        auto writer_func = [self, &records, &sch] (protocol::writer &writer) {
+            write_table_operation_header(writer, self->m_id, sch);
+            write_tuples(writer, sch, records, true);
+        };
+
+        auto reader_func = [self] (protocol::reader &reader) -> std::vector<ignite_tuple> {
+            std::shared_ptr<schema> sch = self->get_schema(reader);
+            return read_tuples(reader, sch.get(), true);
+        };
+
+        self->m_connection->perform_request<std::vector<ignite_tuple>>(
+            client_operation::TUPLE_DELETE_ALL_EXACT, writer_func, std::move(reader_func), std::move(callback));
     });
 }
 

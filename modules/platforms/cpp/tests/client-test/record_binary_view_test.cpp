@@ -947,3 +947,15 @@ TEST_F(record_binary_view_test, remove_all_empty_keyset_throws) {
         }
     }, ignite_error);
 }
+
+TEST_F(record_binary_view_test, remove_all_exact_throws) {
+    EXPECT_THROW({
+        try {
+            std::vector<ignite_tuple> empty;
+            tuple_view.remove_all_exact(nullptr, empty);
+        } catch (const ignite_error& e) {
+            EXPECT_STREQ("At least one record should be supplied", e.what());
+            throw;
+        }
+    }, ignite_error);
+}
