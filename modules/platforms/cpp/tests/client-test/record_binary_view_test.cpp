@@ -130,6 +130,28 @@ TEST_F(record_binary_view_test, upsert_get_async) {
     EXPECT_EQ(val_tuple.get<std::string>("val"), res_tuple->get<std::string>("val"));
 }
 
+TEST_F(record_binary_view_test, upsert_overrides_value) {
+    auto key_tuple = get_tuple(1);
+    auto val_tuple = get_tuple(1, "foo");
+
+    tuple_view.upsert(nullptr, val_tuple);
+    auto res_tuple = tuple_view.get(nullptr, key_tuple);
+
+    ASSERT_TRUE(res_tuple.has_value());
+    EXPECT_EQ(2, res_tuple->column_count());
+    EXPECT_EQ(1L, res_tuple->get<int64_t>("key"));
+    EXPECT_EQ("foo", res_tuple->get<std::string>("val"));
+
+    val_tuple.set<std::string>("val", "bar");
+    tuple_view.upsert(nullptr, val_tuple);
+    res_tuple = tuple_view.get(nullptr, key_tuple);
+
+    ASSERT_TRUE(res_tuple.has_value());
+    EXPECT_EQ(2, res_tuple->column_count());
+    EXPECT_EQ(1L, res_tuple->get<int64_t>("key"));
+    EXPECT_EQ("bar", res_tuple->get<std::string>("val"));
+}
+
 TEST_F(record_binary_view_test, get_all_empty_keyset) {
     EXPECT_THROW({
         try {
