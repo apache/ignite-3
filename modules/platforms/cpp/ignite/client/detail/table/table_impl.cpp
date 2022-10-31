@@ -652,7 +652,7 @@ void table_impl::get_and_remove_async(transaction *tx, const ignite_tuple &key,
     [self = shared_from_this(), record = std::make_shared<ignite_tuple>(key)] (const schema& sch, auto callback) mutable {
         auto writer_func = [self, record, &sch] (protocol::writer &writer) {
             write_table_operation_header(writer, self->m_id, sch);
-            write_tuple(writer, sch, *record, false);
+            write_tuple(writer, sch, *record, true);
         };
 
         auto reader_func = [self, record] (protocol::reader &reader) -> std::optional<ignite_tuple> {
