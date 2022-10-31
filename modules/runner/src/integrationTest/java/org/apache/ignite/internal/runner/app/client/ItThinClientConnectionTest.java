@@ -23,6 +23,9 @@ import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.List;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.client.IgniteClient;
@@ -92,19 +95,17 @@ public class ItThinClientConnectionTest extends ItAbstractThinClientTest {
 
         var node = startedNodes.get(0);
 
-        await(((TableManager) node.tables()).createTableAsync(tblDef.name(), tblCh ->
-                SchemaConfigurationConverter.convert(tblDef, tblCh)
-                        .changeReplicas(1)
-                        .changePartitions(10)
-        ));
+        ((TableManager) node.tables()).createTableAsync(tblDef.name(), tblCh ->
+                SchemaConfigurationConverter.convert(tblDef, tblCh).changeReplicas(1).changePartitions(10)
+        ).join();
 
         var table = client().tables().table("TEMP");
         var view = table.recordView();
 
         var tuple = Tuple.create().set("key", 1)
-                .set("time", "12:34:56.123")
-                .set("datetime", "2021-01-01 12:34:56.1234")
-                .set("timestamp", "2021-01-01 12:34:56.12345");
+                .set("time", LocalTime.of(1, 2))
+                .set("datetime", LocalDateTime.of(2022, 1, 2, 3, 4))
+                .set("timestamp", Instant.ofEpochSecond(123));
 
         view.upsert(null, tuple);
     }
