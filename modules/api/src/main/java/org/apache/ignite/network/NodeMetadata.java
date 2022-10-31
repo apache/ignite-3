@@ -98,8 +98,6 @@ public class NodeMetadata {
 
     @Override
     public String toString() {
-        return "NodeMetadata{" +
-                "restPort=" + restPort +
-                '}';
+        return "NodeMetadata{" + "restPort=" + restPort + '}';
     }
 }

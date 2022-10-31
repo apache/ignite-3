@@ -98,7 +98,7 @@ public class DynamicCompleterFactory {
     }
 
     public LazyDynamicCompleter nodeNameCompleter(Set<String> activationPrefixes) {
-        return new LazyDynamicCompleter(() -> new NodeNameDynamicCompleter(activationPrefixes, nodeNameRegistry.getAllNames()));
+        return new LazyDynamicCompleter(() -> new NodeNameDynamicCompleter(activationPrefixes, nodeNameRegistry));
     }
 
 }
