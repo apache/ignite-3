@@ -18,8 +18,15 @@
 namespace Apache.Ignite.Tests.Table;
 
 using System.ComponentModel.DataAnnotations.Schema;
+using Ignite.Table;
 
 /// <summary>
-/// Custom column name mapping test.
+/// Tests custom user type mapping behavior in <see cref="IRecordView{T}"/>.
 /// </summary>
-public record PocoCustomColumnMapping([property: Column("Key")] long Id, [property: Column("Val")] string? Name);
+public class RecordViewCustomMappingTest
+{
+    // TODO: classes, structs, records
+    // TODO: Fields and properties
+    // TODO: Properties without fields?
+    public record PocoCustomColumnMapping([property: Column("Key")] long Id, [property: Column("Val")] string? Name);
+}

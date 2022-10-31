@@ -98,6 +98,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// <returns>Clean name.</returns>
         public static string GetColumnName(this MemberInfo memberInfo)
         {
+            // TODO: Support attributes on properties, not only fields.
             if (memberInfo.GetCustomAttribute<ColumnAttribute>() is { } columnAttribute &&
                 columnAttribute.Name != null)
             {
