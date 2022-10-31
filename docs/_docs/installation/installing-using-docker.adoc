@@ -75,21 +75,3 @@ services:
 
 
 
-== Environment Variables
-
-The following parameters can be passed as environment variables in the docker container:
-
-[cols="1,2,1", options="header"]
-|===
-| Parameter Name |Description |Default
-| `CONFIG_URI` | URL to the Ignite configuration file (can also be relative to the META-INF folder on the class path).
-The downloaded config file is saved to ./ignite-config.xml | N/A
-
-| `OPTION_LIBS` | A list of link:setup#enabling-modules[modules] that will be enabled for the node. | ignite-log4j2, ignite-spring, ignite-indexing
-
-| `JVM_OPTS` | JVM arguments passed to the Ignite instance.| N/A
-
-| `EXTERNAL_LIBS` | A list of URL's to external libraries. Refer to <<Deploying User Libraries>>.| N/A
-
-|===
-

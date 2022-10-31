@@ -31,7 +31,7 @@ include::../includes/prereqs.adoc[]
 tab:Unix[]
 [source,shell]
 ----
-curl -L "https://www.apache.org/dyn/mirrors/mirrors.cgi?action=download&filename=ignite/3.0.0-alpha5/apache-ignite-3.0.0-alpha5.zip" -o apache-ignite-3.0.0-alpha5.zip
+curl -L "https://www.apache.org/dyn/mirrors/mirrors.cgi?action=download&filename=ignite/3.0.0-beta1/apache-ignite-3.0.0-beta1.zip" -o apache-ignite-3.0.0-beta1.zip
 ----
 
 tab:Windows (PowerShell)[]
@@ -54,20 +54,20 @@ include::../includes/ignite-cli-download-windows.adoc[tag=command,indent=0]
 tab:Unix[]
 [source,shell]
 ----
-unzip apache-ignite-3.0.0-alpha5.zip && cd apache-ignite-3.0.0-alpha5
+unzip ignite-3-beta1.zip && cd ignite-3-beta1
 ----
 
 
 tab:Windows (PowerShell)[]
 [source,shell]
 ----
-Expand-Archive apache-ignite-3.0.0-alpha5.zip -DestinationPath . ; cd apache-ignite-3.0.0-alpha5
+Expand-Archive ignite-3-beta1.zip -DestinationPath . ; cd ignite-3-beta1
 ----
 
 tab:Windows (CMD)[]
 [source,shell]
 ----
-tar -xf apache-ignite-3.0.0-alpha5.zip & cd apache-ignite-3.0.0-alpha5
+tar -xf ignite-3-beta1.zip & cd ignite-3-beta1
 ----
 --
 
@@ -78,23 +78,23 @@ tar -xf apache-ignite-3.0.0-alpha5.zip & cd apache-ignite-3.0.0-alpha5
 tab:Unix[]
 [source,shell]
 ----
-echo 'export PATH="'`pwd`':$PATH"' >> ~/.bash_profile && source ~/.bash_profile  && source ignite_completion.sh
+export IGNITE_HOME=$(pwd)
 ----
 
-tab:Windows (PowerShell)[]
-[source,shell]
-----
-$ENV:PATH += ";."
-----
+//tab:Windows (PowerShell)[]
+//[source,shell]
+//----
+//$ENV:PATH += ";."
+//----
 
-tab:Windows (CMD)[]
-[source,text]
-----
-set PATH=%cd%;%PATH%
-----
+//tab:Windows (CMD)[]
+//[source,text]
+//----
+//set PATH=%cd%;%PATH%
+//----
 --
 
-NOTE: On Windows, this latter change is not permanent and only affects the current terminal session. If you want the
-`ignite` command to be available after terminal or system restart, use the `System Properties` dialog to
-permanently update the `PATH` environment variable by adding a full path to the Ignite installation directory.
+//NOTE: On Windows, this latter change is not permanent and only affects the current terminal session. If you want the
+//`ignite` command to be available after terminal or system restart, use the `System Properties` dialog to
+//permanently update the `PATH` environment variable by adding a full path to the Ignite installation directory.
 
