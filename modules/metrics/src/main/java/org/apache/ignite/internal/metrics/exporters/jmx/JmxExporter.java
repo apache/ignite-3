@@ -151,7 +151,7 @@ public class JmxExporter extends BasicMetricExporter<JmxExporterView> {
     }
 
     /**
-     * Unregister MBean by its' name.
+     * Unregister MBean by its name.
      *
      * @param bean MBean name to unregister.
      */
