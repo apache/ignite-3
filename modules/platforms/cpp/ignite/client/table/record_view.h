@@ -234,7 +234,7 @@ public:
      *
      * @param tx Optional transaction. If nullptr implicit transaction for this
      *   single operation is used.
-     * @param records Records to upsert.
+     * @param records Records to insert.
      * @param callback Callback that called on operation completion. Called with
      *   skipped records.
      */
@@ -246,12 +246,40 @@ public:
      *
      * @param tx Optional transaction. If nullptr implicit transaction for this
      *   single operation is used.
-     * @param records Records to upsert.
+     * @param records Records to insert.
      * @return Skipped records.
      */
     IGNITE_API std::vector<value_type> insert_all(transaction* tx, std::vector<value_type> records) {
         return sync<std::vector<value_type>>([this, tx, records = std::move(records)] (auto callback) mutable {
             insert_all_async(tx, std::move(records), std::move(callback));
+        });
+    }
+
+    /**
+     * Asynchronously replaces a record with the same key columns if it exists,
+     * otherwise does nothing.
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *   single operation is used.
+     * @param record A record to insert into the table.
+     * @param callback Callback. Called with a value indicating whether a record
+     *   with the specified key was replaced.
+     */
+    IGNITE_API void replace_async(transaction* tx, const value_type& record, ignite_callback<bool> callback);
+
+    /**
+     * Replaces a record with the same key columns if it exists, otherwise does
+     * nothing.
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *   single operation is used.
+     * @param record A record to insert into the table.
+     * @return A value indicating whether a record with the specified key was
+     *   replaced.
+     */
+    IGNITE_API bool replace(transaction* tx, const value_type& record) {
+        return sync<bool>([this, tx, &record] (auto callback) {
+            replace_async(tx, record, std::move(callback));
         });
     }
 

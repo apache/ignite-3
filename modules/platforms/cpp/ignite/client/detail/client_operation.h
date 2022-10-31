@@ -53,6 +53,9 @@ enum class client_operation {
     /** Insert all tuples. */
     TUPLE_INSERT_ALL = 20,
 
+    /** Replace tuple. */
+    TUPLE_REPLACE = 22,
+
     /** Delete all tuples. */
     TUPLE_DELETE_ALL = 29,
 };

@@ -174,6 +174,18 @@ public:
         ignite_callback<std::vector<ignite_tuple>> callback);
 
     /**
+     * Asynchronously replaces a record with the same key columns if it exists,
+     * otherwise does nothing.
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *   single operation is used.
+     * @param record A record to insert into the table.
+     * @param callback Callback. Called with a value indicating whether a record
+     *   with the specified key was replaced.
+     */
+    void replace_async(transaction* tx, const ignite_tuple& record, ignite_callback<bool> callback);
+
+    /**
      * Deletes multiple records from the table asynchronously. If one or more
      * keys do not exist, other records are still deleted
      *
