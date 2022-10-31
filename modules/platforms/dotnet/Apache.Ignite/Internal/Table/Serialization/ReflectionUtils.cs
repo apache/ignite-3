@@ -20,6 +20,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
     using System;
     using System.Collections.Concurrent;
     using System.Collections.Generic;
+    using System.ComponentModel.DataAnnotations.Schema;
     using System.Linq;
     using System.Linq.Expressions;
     using System.Reflection;
@@ -41,7 +42,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// </summary>
         public static readonly MethodInfo GetTypeFromHandleMethod = GetMethodInfo(() => Type.GetTypeFromHandle(default));
 
-        private static readonly ConcurrentDictionary<Type, IReadOnlyDictionary<string, FieldInfo>> FieldsByNameCache = new();
+        private static readonly ConcurrentDictionary<Type, IReadOnlyDictionary<string, FieldInfo>> FieldsByColumnNameCache = new();
 
         /// <summary>
         /// Gets all fields from the type, including non-public and inherited.
@@ -67,21 +68,20 @@ namespace Apache.Ignite.Internal.Table.Serialization
         }
 
         /// <summary>
-        /// Gets the field by name ignoring case.
+        /// Gets the field by column name. Ignores case, handles <see cref="ColumnAttribute"/>.
         /// </summary>
         /// <param name="type">Type.</param>
         /// <param name="name">Field name.</param>
         /// <returns>Field info, or null when no matching fields exist.</returns>
-        public static FieldInfo? GetFieldIgnoreCase(this Type type, string name)
+        public static FieldInfo? GetFieldByColumnName(this Type type, string name)
         {
-            // TODO: use System.ComponentModel.DataAnnotations.Schema.ColumnAttribute for custom names
             // ReSharper disable once HeapView.CanAvoidClosure, ConvertClosureToMethodGroup
-            return FieldsByNameCache.GetOrAdd(type, t => GetFieldsByName(t)).TryGetValue(name, out var fieldInfo)
+            return FieldsByColumnNameCache.GetOrAdd(type, t => GetFieldsByName(t)).TryGetValue(name, out var fieldInfo)
                 ? fieldInfo
                 : null;
 
             static IReadOnlyDictionary<string, FieldInfo> GetFieldsByName(Type type) =>
-                type.GetAllFields().ToDictionary(f => f.GetCleanName(), StringComparer.OrdinalIgnoreCase);
+                type.GetAllFields().ToDictionary(f => f.GetColumnName(), StringComparer.OrdinalIgnoreCase);
         }
 
         /// <summary>
@@ -90,6 +90,22 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// <param name="memberInfo">Member.</param>
         /// <returns>Clean name.</returns>
         public static string GetCleanName(this MemberInfo memberInfo) => CleanFieldName(memberInfo.Name);
+
+        /// <summary>
+        /// Gets cleaned up member name without compiler-generated prefixes and suffixes.
+        /// </summary>
+        /// <param name="memberInfo">Member.</param>
+        /// <returns>Clean name.</returns>
+        public static string GetColumnName(this MemberInfo memberInfo)
+        {
+            if (memberInfo.GetCustomAttribute<ColumnAttribute>() is { } columnAttribute &&
+                columnAttribute.Name != null)
+            {
+                return columnAttribute.Name;
+            }
+
+            return memberInfo.GetCleanName();
+        }
 
         /// <summary>
         /// Cleans the field name and removes compiler-generated prefixes and suffixes.
