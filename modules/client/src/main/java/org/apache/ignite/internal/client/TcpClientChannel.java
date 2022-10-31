@@ -424,6 +424,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             var clusterNodeName = unpacker.unpackString();
             var addr = sock.remoteAddress();
             var clusterNode = new ClusterNode(clusterNodeId, clusterNodeName, new NetworkAddress(addr.getHostName(), addr.getPort()));
+            var clusterId = unpacker.unpackUuid();
 
             var featuresLen = unpacker.unpackBinaryHeader();
             unpacker.skipValues(featuresLen);
@@ -431,7 +432,8 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             var extensionsLen = unpacker.unpackMapHeader();
             unpacker.skipValues(extensionsLen);
 
-            protocolCtx = new ProtocolContext(srvVer, ProtocolBitmaskFeature.allFeaturesAsEnumSet(), serverIdleTimeout, clusterNode);
+            protocolCtx = new ProtocolContext(
+                    srvVer, ProtocolBitmaskFeature.allFeaturesAsEnumSet(), serverIdleTimeout, clusterNode, clusterId);
         }
     }
 
