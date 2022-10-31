@@ -135,7 +135,7 @@ picocli-annotation-processor = { module = "info.picocli:picocli-codegen", versio
 
 jansi-core = { module = "org.fusesource.jansi:jansi", version.ref = "jansi" }
 
-jackson-core = { module = "com.fasterxml.jackson.core:jackson-core", version = "jackson" }
+jackson-core = { module = "com.fasterxml.jackson.core:jackson-core", version.ref = "jackson" }
 jackson-databind = { module = "com.fasterxml.jackson.core:jackson-databind", version.ref = "jackson" }
 jackson-annotations = { module = "com.fasterxml.jackson.core:jackson-annotations", version.ref = "jackson" }
 
