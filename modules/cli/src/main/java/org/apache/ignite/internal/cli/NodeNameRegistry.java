@@ -44,13 +44,13 @@ public class NodeNameRegistry {
      * @param nodeUrl Node URL.
      */
     public void startPullingUpdates(String nodeUrl) {
-        if (executor != null) {
+        stopPullingUpdates();
+        if (executor == null) {
             synchronized (NodeNameRegistry.class) {
-                if (executor != null) {
-                    executor.shutdown();
+                if (executor == null) {
+                    executor = Executors.newScheduledThreadPool(1);
+                    executor.scheduleWithFixedDelay(() -> updateNodeNames(nodeUrl), 0, 30, TimeUnit.SECONDS);
                 }
-                executor = Executors.newScheduledThreadPool(1);
-                executor.scheduleWithFixedDelay(() -> updateNodeNames(nodeUrl), 0, 30, TimeUnit.SECONDS);
             }
         }
     }
@@ -59,8 +59,14 @@ public class NodeNameRegistry {
      * Stops pulling updates.
      */
     public void stopPullingUpdates() {
-        executor.shutdown();
-        executor = null;
+        if (executor != null) {
+            synchronized (NodeNameRegistry.class) {
+                if (executor != null) {
+                    executor.shutdown();
+                    executor = null;
+                }
+            }
+        }
     }
 
     public String getNodeUrl(String nodeName) {
@@ -81,6 +87,6 @@ public class NodeNameRegistry {
 
     private static String urlFromClusterNode(ClusterNode node) {
         Objects.requireNonNull(node, "node must not be null");
-        return node.getAddress().getHost() + ":" + node.getMetadata().getRestPort();
+        return "http://" + node.getAddress().getHost() + ":" + node.getMetadata().getRestPort();
     }
 }
