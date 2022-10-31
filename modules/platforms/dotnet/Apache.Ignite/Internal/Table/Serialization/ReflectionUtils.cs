@@ -81,11 +81,11 @@ namespace Apache.Ignite.Internal.Table.Serialization
         public static FieldInfo? GetFieldByColumnName(this Type type, string name)
         {
             // ReSharper disable once HeapView.CanAvoidClosure, ConvertClosureToMethodGroup
-            return FieldsByColumnNameCache.GetOrAdd(type, t => GetFieldsByName(t)).TryGetValue(name, out var fieldInfo)
+            return FieldsByColumnNameCache.GetOrAdd(type, t => GetFieldsByColumnName(t)).TryGetValue(name, out var fieldInfo)
                 ? fieldInfo
                 : null;
 
-            static IReadOnlyDictionary<string, FieldInfo> GetFieldsByName(Type type)
+            static IReadOnlyDictionary<string, FieldInfo> GetFieldsByColumnName(Type type)
             {
                 var res = new Dictionary<string, FieldInfo>(StringComparer.OrdinalIgnoreCase);
 
