@@ -74,6 +74,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// <returns>Field info, or null when no matching fields exist.</returns>
         public static FieldInfo? GetFieldIgnoreCase(this Type type, string name)
         {
+            // TODO: use System.ComponentModel.DataAnnotations.Schema.ColumnAttribute for custom names
             // ReSharper disable once HeapView.CanAvoidClosure, ConvertClosureToMethodGroup
             return FieldsByNameCache.GetOrAdd(type, t => GetFieldsByName(t)).TryGetValue(name, out var fieldInfo)
                 ? fieldInfo
