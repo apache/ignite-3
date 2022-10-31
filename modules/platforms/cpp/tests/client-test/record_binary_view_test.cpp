@@ -948,6 +948,52 @@ TEST_F(record_binary_view_test, remove_all_empty_keyset_throws) {
     }, ignite_error);
 }
 
+TEST_F(record_binary_view_test, remove_all_exact_nonexisting) {
+    auto res = tuple_view.remove_all_exact(nullptr, {get_tuple(1, "foo"), get_tuple(2, "bar")});
+
+    // TODO: Key order should be preserved by the server (IGNITE-16004).
+    ASSERT_EQ(2, res.size());
+}
+
+TEST_F(record_binary_view_test, remove_all_exact_overlapped) {
+    auto res = tuple_view.insert_all(nullptr, {get_tuple(1, "foo"), get_tuple(2, "bar")});
+
+    ASSERT_TRUE(res.empty());
+
+    res = tuple_view.remove_all_exact(nullptr, {get_tuple(1, "baz"), get_tuple(2, "bar")});
+
+    EXPECT_EQ(res.size(), 1);
+    EXPECT_EQ(2, res.front().column_count());
+    EXPECT_EQ(1, res.front().get<int64_t>("key"));
+    EXPECT_EQ("baz", res.front().get<std::string>("val"));
+
+    auto tuple2 = tuple_view.get(nullptr, get_tuple(2));
+
+    ASSERT_FALSE(tuple2.has_value());
+}
+
+TEST_F(record_binary_view_test, remove_all_exact_overlapped_async) {
+    auto all_done = std::make_shared<std::promise<std::vector<ignite_tuple>>>();
+
+    tuple_view.insert_all_async(nullptr, {get_tuple(1, "foo"), get_tuple(2, "bar")}, [&] (auto res) {
+        if (!check_and_set_operation_error(*all_done, res))
+            return;
+
+        if (!res.value().empty())
+            all_done->set_exception(std::make_exception_ptr(ignite_error("Expected empty return on first insertion")));
+
+        tuple_view.remove_all_exact_async(nullptr, {get_tuple(1, "baz"), get_tuple(2, "bar")}, [&] (auto res) {
+            result_set_promise(*all_done, std::move(res));
+        });
+    });
+
+    auto res_tuple = all_done->get_future().get();
+    EXPECT_EQ(res_tuple.size(), 1);
+    EXPECT_EQ(2, res_tuple.front().column_count());
+    EXPECT_EQ(1, res_tuple.front().get<int64_t>("key"));
+    EXPECT_EQ("baz", res_tuple.front().get<std::string>("val"));
+}
+
 TEST_F(record_binary_view_test, remove_all_exact_throws) {
     EXPECT_THROW({
         try {

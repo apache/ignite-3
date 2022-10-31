@@ -699,12 +699,12 @@ void table_impl::remove_all_exact_async(transaction *tx, std::vector<ignite_tupl
         [self = shared_from_this(), records = std::move(records)] (const schema& sch, auto callback) {
         auto writer_func = [self, &records, &sch] (protocol::writer &writer) {
             write_table_operation_header(writer, self->m_id, sch);
-            write_tuples(writer, sch, records, true);
+            write_tuples(writer, sch, records, false);
         };
 
         auto reader_func = [self] (protocol::reader &reader) -> std::vector<ignite_tuple> {
             std::shared_ptr<schema> sch = self->get_schema(reader);
-            return read_tuples(reader, sch.get(), true);
+            return read_tuples(reader, sch.get(), false);
         };
 
         self->m_connection->perform_request<std::vector<ignite_tuple>>(
