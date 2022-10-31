@@ -715,6 +715,25 @@ TEST_F(record_binary_view_test, get_and_replace_empty_throws) {
     }, ignite_error);
 }
 
+TEST_F(record_binary_view_test, remove_nonexisting) {
+    auto res = tuple_view.remove(nullptr, get_tuple(1));
+    ASSERT_FALSE(res);
+
+    auto res_tuple = tuple_view.get(nullptr, get_tuple(1));
+    ASSERT_FALSE(res_tuple.has_value());
+}
+
+TEST_F(record_binary_view_test, remove_existing) {
+    auto res = tuple_view.insert(nullptr, get_tuple(1, "foo"));
+    ASSERT_TRUE(res);
+
+    res = tuple_view.remove(nullptr, get_tuple(1));
+    ASSERT_TRUE(res);
+
+    auto res_tuple = tuple_view.get(nullptr, get_tuple(1));
+    ASSERT_FALSE(res_tuple.has_value());
+}
+
 TEST_F(record_binary_view_test, remove_empty_throws) {
     EXPECT_THROW({
         try {
