@@ -78,16 +78,6 @@ protected:
         return {{KEY_COLUMN, id}};
     }
 
-    /**
-     * Get tuple for specified column values.
-     *
-     * @param id ID.
-     * @return Ignite tuple instance.
-     */
-    static ignite_tuple get_tuple(std::string_view val) {
-        return {{VAL_COLUMN, val}};
-    }
-
     /** Ignite client. */
     ignite_client m_client;
 

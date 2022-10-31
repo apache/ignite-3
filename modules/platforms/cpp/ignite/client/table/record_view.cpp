@@ -16,7 +16,7 @@
  */
 
 #include "ignite/client/table/record_view.h"
-#include "ignite/client/detail/table/record_binary_view_impl.h"
+#include "ignite/client/detail/table/table_impl.h"
 
 namespace ignite {
 

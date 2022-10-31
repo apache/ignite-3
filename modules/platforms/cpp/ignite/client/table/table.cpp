@@ -17,7 +17,6 @@
 
 #include "ignite/client/table/table.h"
 #include "ignite/client/detail/table/table_impl.h"
-#include "ignite/client/detail/table/record_binary_view_impl.h"
 
 namespace ignite {
 
@@ -26,7 +25,7 @@ const std::string &table::name() const noexcept {
 }
 
 record_view<ignite_tuple> table::record_binary_view() const noexcept {
-    return record_view<ignite_tuple>{std::make_shared<detail::record_binary_view_impl>(m_impl)};
+    return record_view<ignite_tuple>{m_impl};
 }
 
 } // namespace ignite

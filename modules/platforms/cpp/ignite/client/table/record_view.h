@@ -33,7 +33,7 @@ namespace ignite {
 class table;
 
 namespace detail {
-class record_binary_view_impl;
+class table_impl;
 }
 
 /**
@@ -483,11 +483,11 @@ private:
      *
      * @param impl Implementation
      */
-    explicit record_view(std::shared_ptr<detail::record_binary_view_impl> impl)
+    explicit record_view(std::shared_ptr<detail::table_impl> impl)
         : m_impl(std::move(impl)) { }
 
     /** Implementation. */
-    std::shared_ptr<detail::record_binary_view_impl> m_impl;
+    std::shared_ptr<detail::table_impl> m_impl;
 };
 
 } // namespace ignite
