@@ -34,8 +34,11 @@ set(PUBLIC_HEADERS
     ignite_client.h
     ignite_client_configuration.h
     ignite_logger.h
+    table/ignite_tuple.h
+    table/record_view.h
     table/table.h
     table/tables.h
+    transaction/transaction.h
 )
 
 add_library(${TARGET} SHARED ${SOURCES})
