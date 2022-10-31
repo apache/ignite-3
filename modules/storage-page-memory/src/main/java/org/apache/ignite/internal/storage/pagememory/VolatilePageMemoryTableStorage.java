@@ -19,6 +19,8 @@ package org.apache.ignite.internal.storage.pagememory;
 
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
 
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.pagememory.util.PageLockListenerNoOp;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
@@ -137,5 +139,23 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
                     e
             );
         }
+    }
+
+    @Override
+    public CompletableFuture<Void> startRebalanceMvPartition(int partId, Executor executor) {
+        // TODO: IGNITE-18028 Implement
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public CompletableFuture<Void> abortRebalanceMvPartition(int partId, Executor executor) {
+        // TODO: IGNITE-18028 Implement
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public CompletableFuture<Void> finishRebalanceMvPartition(int partId, Executor executor) {
+        // TODO: IGNITE-18028 Implement
+        throw new UnsupportedOperationException();
     }
 }

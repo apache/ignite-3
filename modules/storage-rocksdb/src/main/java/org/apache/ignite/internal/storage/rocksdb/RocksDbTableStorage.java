@@ -34,6 +34,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 import java.util.stream.Collectors;
@@ -558,5 +559,23 @@ public class RocksDbTableStorage implements MvTableStorage {
         ColumnFamilyOptions options = new ColumnFamilyOptions().setComparator(comparator);
 
         return new ColumnFamilyDescriptor(cfName.getBytes(UTF_8), options);
+    }
+
+    @Override
+    public CompletableFuture<Void> startRebalanceMvPartition(int partId, Executor executor) {
+        // TODO: IGNITE-18027 Implement
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public CompletableFuture<Void> abortRebalanceMvPartition(int partId, Executor executor) {
+        // TODO: IGNITE-18027 Implement
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public CompletableFuture<Void> finishRebalanceMvPartition(int partId, Executor executor) {
+        // TODO: IGNITE-18027 Implement
+        throw new UnsupportedOperationException();
     }
 }
