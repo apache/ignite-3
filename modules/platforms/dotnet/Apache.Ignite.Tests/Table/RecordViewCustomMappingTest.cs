@@ -56,10 +56,17 @@ public class RecordViewCustomMappingTest : IgniteTestsBase
     }
 
     [Test]
-    public async Task TestComputedPropertyMapping()
+    public void TestComputedPropertyMappingThrowsException()
     {
-        var res = await Table.GetRecordView<ComputedPropertyMapping>().GetAsync(null, new ComputedPropertyMapping { Key = Key });
-        Assert.AreEqual(Val, res.Value.Val);
+        var ex = Assert.ThrowsAsync<IgniteClientException>(async () =>
+            await Table.GetRecordView<ComputedPropertyMapping>().GetAsync(null, new ComputedPropertyMapping { Id = Key }));
+
+        Assert.AreEqual(ErrorGroups.Client.Configuration, ex!.Code);
+
+        Assert.AreEqual(
+            "Can't map 'Apache.Ignite.Tests.Table.RecordViewCustomMappingTest+ComputedPropertyMapping' to columns" +
+            " 'Int64 KEY, String VAL'. Matching fields not found.",
+            ex.Message);
     }
 
     [Test]
