@@ -56,6 +56,15 @@ void record_view<ignite_tuple>::upsert_all_async(transaction *tx, std::vector<va
     m_impl->upsert_all_async(tx, std::move(records), std::move(callback));
 }
 
+void record_view<ignite_tuple>::get_and_upsert_async(transaction *tx, const ignite_tuple &record,
+    ignite_callback<std::optional<value_type>> callback)
+{
+    if (0 == record.column_count())
+        throw ignite_error("Tuple can not be empty");
+
+    m_impl->get_and_upsert_async(tx, record, std::move(callback));
+}
+
 void record_view<ignite_tuple>::insert_async(transaction *tx, const ignite_tuple &record,
     ignite_callback<bool> callback)
 {

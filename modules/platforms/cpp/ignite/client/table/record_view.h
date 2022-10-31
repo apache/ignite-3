@@ -155,7 +155,8 @@ public:
     }
 
     /**
-     * Inserts multiple records into the table asynchronously, replacing existing ones.
+     * Inserts multiple records into the table asynchronously, replacing
+     * existing.
      *
      * @param tx Optional transaction. If nullptr implicit transaction for this
      *   single operation is used.
@@ -165,7 +166,7 @@ public:
     IGNITE_API void upsert_all_async(transaction* tx, std::vector<value_type> records, ignite_callback<void> callback);
 
     /**
-     * Inserts multiple records into the table, replacing existing ones.
+     * Inserts multiple records into the table, replacing existing.
      *
      * @param tx Optional transaction. If nullptr implicit transaction for this
      *   single operation is used.
@@ -178,12 +179,37 @@ public:
     }
 
     /**
+     * Inserts a record into the table and returns previous record asynchronously.
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *   single operation is used.
+     * @param record A record to upsert.
+     * @param callback Callback. Called with a value which contains replaced
+     *   record or @c std::nullopt if it did not exist.
+     */
+    IGNITE_API void get_and_upsert_async(transaction* tx, const value_type& record,
+        ignite_callback<std::optional<value_type>> callback);
+
+    /**
+     * Inserts a record into the table and returns previous record.
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *   single operation is used.
+     * @param record A record to upsert.
+     * @return A replaced record or @c std::nullopt if it did not exist.
+     */
+    [[nodiscard]] IGNITE_API std::optional<value_type> get_and_upsert(transaction* tx, const value_type& record) {
+        return sync<std::optional<value_type>>([this, tx, &record] (auto callback) {
+            get_and_upsert_async(tx, record, std::move(callback));
+        });
+    }
+
+    /**
      * Inserts a record into the table if it does not exist asynchronously.
      *
      * @param tx Optional transaction. If nullptr implicit transaction for this
      *   single operation is used.
-     * @param record A record to insert into the table. The record cannot be
-     *   @c nullptr.
+     * @param record A record to insert into the table.
      * @param callback Callback. Called with a value indicating whether the
      *   record was inserted. Equals @c false if a record with the same key
      *   already exists.
@@ -191,13 +217,11 @@ public:
     IGNITE_API void insert_async(transaction* tx, const value_type& record, ignite_callback<bool> callback);
 
     /**
-     * Inserts a record into the table if does not exist or replaces the existed
-     * one.
+     * Inserts a record into the table if does not exist.
      *
      * @param tx Optional transaction. If nullptr implicit transaction for this
      *   single operation is used.
-     * @param record A record to insert into the table. The record cannot be
-     *   @c nullptr.
+     * @param record A record to insert into the table.
      */
     IGNITE_API bool insert(transaction* tx, const value_type& record) {
         return sync<bool>([this, tx, &record] (auto callback) {
@@ -219,8 +243,8 @@ public:
         ignite_callback<std::vector<value_type>> callback);
 
     /**
-     * Deletes multiple records from the table asynchronously. If one or more
-     * keys do not exist, other records are still deleted
+     * Deletes multiple records from the table If one or more keys do not exist,
+     * other records are still deleted
      *
      * @param tx Optional transaction. If nullptr implicit transaction for this
      *   single operation is used.

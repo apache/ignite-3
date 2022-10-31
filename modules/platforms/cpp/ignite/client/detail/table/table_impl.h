@@ -137,6 +137,18 @@ public:
     void upsert_all_async(transaction* tx, std::vector<ignite_tuple> records, ignite_callback<void> callback);
 
     /**
+     * Inserts a record into the table and returns previous record asynchronously.
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *   single operation is used.
+     * @param record A record to upsert.
+     * @param callback Callback. Called with a value which contains replaced
+     *   record or @c std::nullopt if it did not exist.
+     */
+    IGNITE_API void get_and_upsert_async(transaction* tx, const ignite_tuple& record,
+        ignite_callback<std::optional<ignite_tuple>> callback);
+
+    /**
      * Inserts a record into the table if it does not exist.
      *
      * @param tx Optional transaction. If nullptr implicit transaction for this
