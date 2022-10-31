@@ -23,12 +23,18 @@ namespace ignite {
 void record_view<ignite_tuple>::get_async(transaction *tx, const ignite_tuple& key,
         ignite_callback<std::optional<value_type>> callback)
 {
+    if (0 == key.column_count())
+        throw ignite_error("Tuple can not be empty");
+
     m_impl->get_async(tx, key, std::move(callback));
 }
 
 void record_view<ignite_tuple>::upsert_async(transaction *tx, const ignite_tuple& record,
         ignite_callback<void> callback)
 {
+    if (0 == record.column_count())
+        throw ignite_error("Tuple can not be empty");
+
     m_impl->upsert_async(tx, record, std::move(callback));
 }
 
@@ -53,12 +59,18 @@ void record_view<ignite_tuple>::upsert_all_async(transaction *tx, std::vector<va
 void record_view<ignite_tuple>::insert_async(transaction *tx, const ignite_tuple &record,
     ignite_callback<bool> callback)
 {
+    if (0 == record.column_count())
+        throw ignite_error("Tuple can not be empty");
+
     m_impl->insert_async(tx, record, std::move(callback));
 }
 
 void record_view<ignite_tuple>::delete_all_async(transaction *tx, std::vector<value_type> keys,
     ignite_callback<std::vector<value_type>> callback)
 {
+    if (keys.empty())
+        throw ignite_error("At least one record should be supplied");
+
     m_impl->delete_all_async(tx, std::move(keys), std::move(callback));
 }
 

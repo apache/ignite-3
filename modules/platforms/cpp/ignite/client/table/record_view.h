@@ -93,7 +93,7 @@ public:
      * @param key Key.
      * @return Value if exists and @c std::nullopt otherwise.
      */
-    IGNITE_API std::optional<value_type> get(transaction* tx, const value_type& key) {
+    [[nodiscard]] IGNITE_API std::optional<value_type> get(transaction* tx, const value_type& key) {
         return sync<std::optional<value_type>>([this, tx, &key] (auto callback) {
             get_async(tx, key, std::move(callback));
         });
@@ -125,7 +125,7 @@ public:
      *   keys. If a record does not exist, the resulting element of the
      *   corresponding order is @c std::nullopt.
      */
-    IGNITE_API std::vector<std::optional<value_type>> get_all(transaction* tx, std::vector<value_type> keys) {
+    [[nodiscard]] IGNITE_API std::vector<std::optional<value_type>> get_all(transaction* tx, std::vector<value_type> keys) {
         return sync<std::vector<std::optional<value_type>>>([this, tx, keys = std::move(keys)] (auto callback) mutable {
             get_all_async(tx, std::move(keys), std::move(callback));
         });

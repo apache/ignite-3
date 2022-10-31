@@ -152,11 +152,33 @@ TEST_F(record_binary_view_test, upsert_overrides_value) {
     EXPECT_EQ("bar", res_tuple->get<std::string>("val"));
 }
 
+TEST_F(record_binary_view_test, upsert_empty_tuple_throws) {
+    EXPECT_THROW({
+        try {
+            tuple_view.upsert(nullptr, ignite_tuple());
+        } catch (const ignite_error& e) {
+            EXPECT_STREQ("Tuple can not be empty", e.what());
+            throw;
+        }
+    }, ignite_error);
+}
+
+TEST_F(record_binary_view_test, get_empty_tuple_throws) {
+    EXPECT_THROW({
+        try {
+            (void) tuple_view.get(nullptr, ignite_tuple());
+        } catch (const ignite_error& e) {
+            EXPECT_STREQ("Tuple can not be empty", e.what());
+            throw;
+        }
+    }, ignite_error);
+}
+
 TEST_F(record_binary_view_test, get_all_empty_keyset) {
     EXPECT_THROW({
         try {
             std::vector<ignite_tuple> empty;
-            tuple_view.get_all(nullptr, empty);
+            (void) tuple_view.get_all(nullptr, empty);
         } catch (const ignite_error& e) {
             EXPECT_STREQ("At least one key should be supplied", e.what());
             throw;
@@ -257,4 +279,64 @@ TEST_F(record_binary_view_test, insert_new_record) {
     auto res = tuple_view.insert(nullptr, val_tuple);
 
     ASSERT_TRUE(res);
+}
+
+TEST_F(record_binary_view_test, insert_existing_record) {
+    auto val_tuple1 = get_tuple(42, "foo");
+    auto res = tuple_view.insert(nullptr, val_tuple1);
+    ASSERT_TRUE(res);
+
+    auto val_tuple2 = get_tuple(42, "bar");
+    res = tuple_view.insert(nullptr, val_tuple2);
+    ASSERT_FALSE(res);
+
+    auto res_tuple = tuple_view.get(nullptr, get_tuple(42));
+    ASSERT_TRUE(res_tuple.has_value());
+    EXPECT_EQ(2, res_tuple->column_count());
+    EXPECT_EQ(42, res_tuple->get<int64_t>("key"));
+    EXPECT_EQ("foo", res_tuple->get<std::string>("val"));
+}
+
+TEST_F(record_binary_view_test, insert_existing_record_async) {
+    auto val_tuple1 = get_tuple(42, "foo");
+    auto val_tuple2 = get_tuple(42, "bar");
+
+    auto all_done = std::make_shared<std::promise<std::optional<ignite_tuple>>>();
+
+    tuple_view.insert_async(nullptr, val_tuple1, [&] (ignite_result<bool> &&res) {
+        if (!check_and_set_operation_error(*all_done, res))
+            return;
+
+        if (!res.value())
+            all_done->set_exception(std::make_exception_ptr(ignite_error("Expected true on first insertion")));
+
+        tuple_view.insert_async(nullptr, val_tuple2, [&] (ignite_result<bool> &&res) {
+            if (!check_and_set_operation_error(*all_done, res))
+                return;
+
+            if (res.value())
+                all_done->set_exception(std::make_exception_ptr(ignite_error("Expected false on second insertion")));
+
+            tuple_view.get_async(nullptr, get_tuple(42), [&] (auto res) {
+                result_set_promise(*all_done, std::move(res));
+            });
+        });
+    });
+
+    auto res_tuple = all_done->get_future().get();
+    ASSERT_TRUE(res_tuple.has_value());
+    EXPECT_EQ(val_tuple1.column_count(), res_tuple->column_count());
+    EXPECT_EQ(val_tuple1.get<int64_t>("key"), res_tuple->get<int64_t>("key"));
+    EXPECT_EQ(val_tuple1.get<std::string>("val"), res_tuple->get<std::string>("val"));
+}
+
+TEST_F(record_binary_view_test, insert_empty_tuple_throws) {
+    EXPECT_THROW({
+        try {
+            tuple_view.insert(nullptr, ignite_tuple());
+        } catch (const ignite_error& e) {
+            EXPECT_STREQ("Tuple can not be empty", e.what());
+            throw;
+        }
+    }, ignite_error);
 }
