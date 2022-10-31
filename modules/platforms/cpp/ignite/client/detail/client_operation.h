@@ -56,6 +56,9 @@ enum class client_operation {
     /** Replace tuple. */
     TUPLE_REPLACE = 22,
 
+    /** Replace exact tuple. */
+    TUPLE_REPLACE_EXACT = 24,
+
     /** Delete all tuples. */
     TUPLE_DELETE_ALL = 29,
 };

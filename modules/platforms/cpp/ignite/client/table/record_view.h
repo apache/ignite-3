@@ -284,6 +284,36 @@ public:
     }
 
     /**
+     * Asynchronously replaces a record with a new one only if all existing
+     * columns have the same values as the specified @c record.
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *   single operation is used.
+     * @param record Current value of the record to be replaced.
+     * @param new_record A record to replace it with.
+     * @param callback Callback. Called with a value indicating whether a
+     *   specified record was replaced.
+     */
+    IGNITE_API void replace_async(transaction* tx, const value_type& record, const value_type& new_record,
+        ignite_callback<bool> callback);
+
+    /**
+     * Replaces a record with a new one only if all existing columns have
+     * the same values as the specified @c record.
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *   single operation is used.
+     * @param record Current value of the record to be replaced.
+     * @param new_record A record to replace it with.
+     * @return A value indicating whether a specified record was replaced.
+     */
+    IGNITE_API bool replace(transaction* tx, const value_type& record, const value_type& new_record) {
+        return sync<bool>([this, tx, &record, &new_record] (auto callback) {
+            replace_async(tx, record, new_record, std::move(callback));
+        });
+    }
+
+    /**
      * Deletes multiple records from the table asynchronously. If one or more
      * keys do not exist, other records are still deleted
      *

@@ -186,6 +186,20 @@ public:
     void replace_async(transaction* tx, const ignite_tuple& record, ignite_callback<bool> callback);
 
     /**
+     * Asynchronously replaces a record with a new one only if all existing
+     * columns have the same values as the specified @c record.
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *   single operation is used.
+     * @param record Current value of the record to be replaced.
+     * @param new_record A record to replace it with.
+     * @param callback Callback. Called with a value indicating whether a
+     *   specified record was replaced.
+     */
+    void replace_async(transaction* tx, const ignite_tuple& record, const ignite_tuple& new_record,
+        ignite_callback<bool> callback);
+
+    /**
      * Deletes multiple records from the table asynchronously. If one or more
      * keys do not exist, other records are still deleted
      *

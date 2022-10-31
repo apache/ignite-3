@@ -92,6 +92,15 @@ void record_view<ignite_tuple>::replace_async(transaction *tx, const ignite_tupl
     m_impl->replace_async(tx, record, std::move(callback));
 }
 
+void record_view<ignite_tuple>::replace_async(transaction *tx, const ignite_tuple &record,
+    const ignite_tuple &new_record, ignite_callback<bool> callback)
+{
+    if (0 == record.column_count() || 0 == new_record.column_count())
+        throw ignite_error("Tuple can not be empty");
+
+    m_impl->replace_async(tx, record, new_record, std::move(callback));
+}
+
 void record_view<ignite_tuple>::delete_all_async(transaction *tx, std::vector<value_type> keys,
     ignite_callback<std::vector<value_type>> callback)
 {
