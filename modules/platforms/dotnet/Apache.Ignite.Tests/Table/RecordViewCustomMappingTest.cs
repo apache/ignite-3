@@ -17,6 +17,8 @@
 
 // ReSharper disable NotAccessedPositionalProperty.Local
 // ReSharper disable UnusedMember.Local
+// ReSharper disable UnusedAutoPropertyAccessor.Local
+// ReSharper disable AutoPropertyCanBeMadeGetOnly.Local
 namespace Apache.Ignite.Tests.Table;
 
 using System.ComponentModel.DataAnnotations.Schema;
@@ -33,8 +35,6 @@ public class RecordViewCustomMappingTest : IgniteTestsBase
 
     private const string Val = "val1";
 
-    // TODO: classes, structs, records
-    // TODO: Duplicate column names
     [SetUp]
     public async Task SetUp()
     {
@@ -49,9 +49,30 @@ public class RecordViewCustomMappingTest : IgniteTestsBase
     }
 
     [Test]
-    public async Task TestPropertyMapping()
+    public async Task TestRecordPropertyMapping()
     {
         var res = await Table.GetRecordView<PropertyMapping>().GetAsync(null, new PropertyMapping(Key));
+        Assert.AreEqual(Val, res.Value.Name);
+    }
+
+    [Test]
+    public async Task TestClassPropertyMapping()
+    {
+        var res = await Table.GetRecordView<ClassPropertyMapping>().GetAsync(null, new ClassPropertyMapping { Id = Key });
+        Assert.AreEqual(Val, res.Value.Name);
+    }
+
+    [Test]
+    public async Task TestStructFieldMapping()
+    {
+        var res = await Table.GetRecordView<StructFieldMapping>().GetAsync(null, new StructFieldMapping(Key));
+        Assert.AreEqual(Val, res.Value.Name);
+    }
+
+    [Test]
+    public async Task TestStructPropertyMapping()
+    {
+        var res = await Table.GetRecordView<StructPropertyMapping>().GetAsync(null, new StructPropertyMapping(Key));
         Assert.AreEqual(Val, res.Value.Name);
     }
 
@@ -85,9 +106,22 @@ public class RecordViewCustomMappingTest : IgniteTestsBase
             ex.Message);
     }
 
+    private record struct StructFieldMapping([field: Column("Key")] long Id, [field: Column("Val")] string? Name = null);
+
+    private record struct StructPropertyMapping([property: Column("KEY")] long Id, [property: Column("VAL")] string? Name = null);
+
     private record FieldMapping([field: Column("Key")] long Id, [field: Column("Val")] string? Name = null);
 
     private record PropertyMapping([property: Column("Key")] long Id, [property: Column("Val")] string? Name = null);
+
+    private class ClassPropertyMapping
+    {
+        [Column("key")]
+        public long Id { get; set; }
+
+        [Column("val")]
+        public string Name { get; set; } = null!;
+    }
 
     // ReSharper disable MemberHidesStaticFromOuterClass
     private record ComputedPropertyMapping
