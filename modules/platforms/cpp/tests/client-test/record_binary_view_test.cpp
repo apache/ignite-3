@@ -221,4 +221,9 @@ TEST_F(record_binary_view_test, upsert_all_get_all_async) {
     EXPECT_EQ("Val10", res[1]->get<std::string>("val"));
 }
 
+TEST_F(record_binary_view_test, insert_new_record) {
+    auto val_tuple = get_tuple(42, "foo");
+    auto res = tuple_view.insert(nullptr, val_tuple);
 
+    ASSERT_TRUE(res);
+}

@@ -465,7 +465,7 @@ void table_impl::insert_async(transaction *tx, const ignite_tuple &record, ignit
         };
 
         self->m_connection->perform_request<bool>(
-            client_operation::TUPLE_UPSERT, writer_func, std::move(reader_func), std::move(callback));
+            client_operation::TUPLE_INSERT, writer_func, std::move(reader_func), std::move(callback));
     });
 }
 
