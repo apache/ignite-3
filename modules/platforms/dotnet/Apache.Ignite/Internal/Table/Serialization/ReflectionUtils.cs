@@ -51,6 +51,11 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// <returns>Fields.</returns>
         public static IEnumerable<FieldInfo> GetAllFields(this Type type)
         {
+            if (type.IsPrimitive)
+            {
+                yield break;
+            }
+
             const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public |
                                        BindingFlags.NonPublic | BindingFlags.DeclaredOnly;
 
