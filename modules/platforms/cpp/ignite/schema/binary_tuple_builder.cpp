@@ -269,14 +269,30 @@ void binary_tuple_builder::put_double(double value) {
 
 void binary_tuple_builder::put_number(bytes_view bytes) {
     big_integer value = binary_tuple_parser::get_number(bytes);
+    put_number(value);
+}
 
+void binary_tuple_builder::put_number(const ignite::big_integer &value) {
     SizeT size = gauge_number(value);
-    assert(size <= bytes.size());
     assert(element_index < element_count);
     assert(next_value + size <= value_base + value_area_size);
 
     if (size != 0) {
         value.store_bytes(next_value);
+        next_value += size;
+    }
+
+    append_entry();
+}
+
+void binary_tuple_builder::put_number(const ignite::big_decimal &value) {
+    SizeT size = gauge_number(value);
+    assert(element_index < element_count);
+    assert(next_value + size <= value_base + value_area_size);
+
+    if (size != 0) {
+        bytes::store<endian::LITTLE>(next_value, value.get_scale());
+        value.get_unscaled_value().store_bytes(next_value + 4 /* size of scale */);
         next_value += size;
     }
 
@@ -305,9 +321,11 @@ void binary_tuple_builder::put_uuid(uuid value) {
 
 void binary_tuple_builder::put_date(bytes_view bytes) {
     auto value = binary_tuple_parser::get_date(bytes);
+    put_date(value);
+}
 
+void binary_tuple_builder::put_date(const ignite_date &value) {
     SizeT size = gauge_date(value);
-    assert(size <= bytes.size());
     assert(element_index < element_count);
     assert(next_value + size <= value_base + value_area_size);
 
@@ -322,9 +340,11 @@ void binary_tuple_builder::put_date(bytes_view bytes) {
 
 void binary_tuple_builder::put_time(bytes_view bytes) {
     auto value = binary_tuple_parser::get_time(bytes);
+    put_time(value);
+}
 
+void binary_tuple_builder::put_time(const ignite_time &value) {
     SizeT size = gauge_time(value);
-    assert(size <= bytes.size());
     assert(element_index < element_count);
     assert(next_value + size <= value_base + value_area_size);
 
@@ -339,9 +359,11 @@ void binary_tuple_builder::put_time(bytes_view bytes) {
 
 void binary_tuple_builder::put_date_time(bytes_view bytes) {
     auto value = binary_tuple_parser::get_date_time(bytes);
+    put_date_time(value);
+}
 
+void binary_tuple_builder::put_date_time(const ignite_date_time &value) {
     SizeT size = gauge_date_time(value);
-    assert(size <= bytes.size());
     assert(element_index < element_count);
     assert(next_value + size <= value_base + value_area_size);
 
@@ -357,9 +379,11 @@ void binary_tuple_builder::put_date_time(bytes_view bytes) {
 
 void binary_tuple_builder::put_timestamp(bytes_view bytes) {
     auto value = binary_tuple_parser::get_timestamp(bytes);
+    put_timestamp(value);
+}
 
+void binary_tuple_builder::put_timestamp(const ignite_timestamp &value) {
     SizeT size = gauge_timestamp(value);
-    assert(size <= bytes.size());
     assert(element_index < element_count);
     assert(next_value + size <= value_base + value_area_size);
 

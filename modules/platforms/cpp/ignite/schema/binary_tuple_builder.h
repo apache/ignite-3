@@ -158,6 +158,62 @@ public:
     /**
      * @brief Assigns a binary value for the next element.
      *
+     * @param value Element value.
+     */
+    void claim_number(const big_integer &value) noexcept { claim(gauge_number(value)); }
+
+    /**
+     * @brief Assigns a binary value for the next element.
+     *
+     * @param value Element value.
+     */
+    void claim_number(const big_decimal &value) noexcept { claim(gauge_number(value)); }
+
+    /**
+     * @brief Assigns a binary value for the next element.
+     *
+     * @param value Element value.
+     */
+    void claim_date(const ignite_date &value) noexcept { claim(gauge_date(value)); }
+
+    /**
+     * @brief Assigns a binary value for the next element.
+     *
+     * @param value Element value.
+     */
+    void claim_time(const ignite_time &value) noexcept { claim(gauge_time(value)); }
+
+    /**
+     * @brief Assigns a binary value for the next element.
+     *
+     * @param value Element value.
+     */
+    void claim_date_time(const ignite_date_time &value) noexcept { claim(gauge_date_time(value)); }
+
+    /**
+     * @brief Assigns a binary value for the next element.
+     *
+     * @param value Element value.
+     */
+    void claim_timestamp(const ignite_timestamp &value) noexcept { claim(gauge_timestamp(value)); }
+
+    /**
+     * @brief Assigns a binary value for the next element.
+     *
+     * @param value Element value.
+     */
+    void claim_string(const std::string &value) noexcept { claim(value.size()); }
+
+    /**
+     * @brief Assigns a binary value for the next element.
+     *
+     * @param value Element value.
+     */
+    void claim_bytes(const bytes_view &value) noexcept { claim(value.size()); }
+
+    /**
+     * @brief Assigns a binary value for the next element.
+     *
      * @param type Element type.
      * @param bytes Binary element value.
      */
@@ -259,6 +315,68 @@ public:
     void append_uuid(uuid value) { put_uuid(value); }
 
     /**
+     * @brief Appends a big integer for the next element.
+     *
+     * @param value Element value.
+     */
+    void append_number(const big_integer &value) { put_number(value); }
+
+    /**
+     * @brief Appends a big decimal for the next element.
+     *
+     * @param value Element value.
+     */
+    void append_number(const big_decimal &value) { put_number(value); }
+
+    /**
+     * @brief Appends a date for the next element.
+     *
+     * @param value Element value.
+     */
+    void append_date(const ignite_date &value) { put_date(value); }
+
+    /**
+     * @brief Appends a time for the next element.
+     *
+     * @param value Element value.
+     */
+    void append_time(const ignite_time &value) { put_time(value); }
+
+    /**
+     * @brief Appends a date time for the next element.
+     *
+     * @param value Element value.
+     */
+    void append_date_time(const ignite_date_time &value) { put_date_time(value); }
+
+    /**
+     * @brief Appends a timestamp for the next element.
+     *
+     * @param value Element value.
+     */
+    void append_timestamp(const ignite_timestamp &value) { put_timestamp(value); }
+
+    /**
+     * @brief Appends a string for the next element.
+     *
+     * @param value Element value.
+     */
+    void append_string(const std::string &value) {
+        ignite::bytes_view bytes {reinterpret_cast<const std::byte *>(value.data()), value.size()};
+
+        put_bytes(bytes);
+    }
+
+    /**
+     * @brief Appends bytes for the next element.
+     *
+     * @param value Element value.
+     */
+    void append_bytes(const bytes_view &value) {
+        put_bytes(value);
+    }
+
+    /**
      * @brief Appends a value for the next element.
      *
      * @param type Element type.
@@ -328,18 +446,21 @@ private:
     /**
      * @brief Checks if a value of a given integer type can be compressed to a smaller integer type.
      *
-     * @tparam T Source integer type.
-     * @tparam U Target integer type.
+     * @tparam SRC Source integer type.
+     * @tparam TGT Target integer type.
      * @param value Source value.
      * @return true If the source value can be compressed.
      * @return false If the source value cannot be compressed.
      */
-    template <typename T, typename U>
-    static bool fits(T value) noexcept {
-        static_assert(std::is_signed_v<T>);
-        static_assert(std::is_signed_v<U>);
-        using V = std::make_unsigned_t<U>;
-        return (std::make_unsigned_t<T>(value) + std::numeric_limits<U>::max() + 1) <= std::numeric_limits<V>::max();
+    template <typename SRC, typename TGT>
+    static bool fits(SRC value) noexcept {
+        static_assert(std::is_signed_v<SRC>);
+        static_assert(std::is_signed_v<TGT>);
+        using U_TGT = std::make_unsigned_t<TGT>;
+
+        // Check if TGT::min <= value <= TGT::max.
+        return std::make_unsigned_t<SRC>(value + std::numeric_limits<TGT>::max() + 1)
+            <= std::numeric_limits<U_TGT>::max();
     }
 
     /**
@@ -431,7 +552,11 @@ private:
      * @return Required size.
      */
     static SizeT gauge_number(const big_decimal &value) noexcept {
-        return SizeT(value.is_zero() ? 0 : value.get_unscaled_value().byte_size());
+        if (value.is_zero()) {
+            return 0;
+        }
+
+        return 4 /* scale */ + value.get_unscaled_value().byte_size();
     }
 
     /**
@@ -638,6 +763,24 @@ private:
      *
      * The written value may differ from the original because of value compression.
      *
+     * @param value Big integer value.
+     */
+    void put_number(const big_integer &value);
+
+    /**
+     * @brief Writes binary value of specified element.
+     *
+     * The written value may differ from the original because of value compression.
+     *
+     * @param value Big decimal value.
+     */
+    void put_number(const big_decimal &value);
+
+    /**
+     * @brief Writes binary value of specified element.
+     *
+     * The written value may differ from the original because of value compression.
+     *
      * @param bytes Binary element value.
      */
     void put_uuid(bytes_view bytes);
@@ -665,9 +808,27 @@ private:
      *
      * The written value may differ from the original because of value compression.
      *
+     * @param value Date value.
+     */
+    void put_date(const ignite_date &value);
+
+    /**
+     * @brief Writes binary value of specified element.
+     *
+     * The written value may differ from the original because of value compression.
+     *
      * @param bytes Binary element value.
      */
     void put_time(bytes_view bytes);
+
+    /**
+     * @brief Writes binary value of specified element.
+     *
+     * The written value may differ from the original because of value compression.
+     *
+     * @param value Time value.
+     */
+    void put_time(const ignite_time &value);
 
     /**
      * @brief Writes binary value of specified element.
@@ -683,9 +844,27 @@ private:
      *
      * The written value may differ from the original because of value compression.
      *
+     * @param value Date time value.
+     */
+    void put_date_time(const ignite_date_time &value);
+
+    /**
+     * @brief Writes binary value of specified element.
+     *
+     * The written value may differ from the original because of value compression.
+     *
      * @param bytes Binary element value.
      */
     void put_timestamp(bytes_view bytes);
+
+    /**
+     * @brief Writes binary value of specified element.
+     *
+     * The written value may differ from the original because of value compression.
+     *
+     * @param value Timestamp value.
+     */
+    void put_timestamp(const ignite_timestamp &value);
 
     /**
      * @brief Adds an entry to the offset table.
