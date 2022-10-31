@@ -79,6 +79,7 @@ import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
 import org.apache.ignite.internal.client.proto.ResponseFlags;
 import org.apache.ignite.internal.client.proto.ServerMessageType;
+import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryCursorHandler;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -128,6 +129,9 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
     /** SQL query cursor handler. */
     private final JdbcQueryCursorHandler jdbcQueryCursorHandler;
 
+    /** Cluster manager. */
+    private final ClusterManagementGroupManager cmgMgr;
+
     /** Context. */
     private ClientContext clientContext;
 
@@ -151,7 +155,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
             ClientConnectorView configuration,
             IgniteCompute compute,
             ClusterService clusterService,
-            IgniteSql sql) {
+            IgniteSql sql,
+            ClusterManagementGroupManager cmgMgr) {
         assert igniteTables != null;
         assert igniteTransactions != null;
         assert processor != null;
@@ -159,6 +164,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
         assert compute != null;
         assert clusterService != null;
         assert sql != null;
+        assert cmgMgr != null;
 
         this.igniteTables = igniteTables;
         this.igniteTransactions = igniteTransactions;
@@ -166,6 +172,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
         this.compute = compute;
         this.clusterService = clusterService;
         this.sql = sql;
+        this.cmgMgr = cmgMgr;
 
         jdbcQueryEventHandler = new JdbcQueryEventHandlerImpl(processor, new JdbcMetadataCatalog(igniteTables), resources);
         jdbcQueryCursorHandler = new JdbcQueryCursorHandlerImpl(resources);
@@ -228,6 +235,10 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
             ClusterNode localMember = clusterService.topologyService().localMember();
             packer.packString(localMember.id());
             packer.packString(localMember.name());
+
+            // TODO Non-blocking wait?
+            UUID clusterId = cmgMgr.clusterState().join().clusterTag().clusterId();
+            packer.packUuid(clusterId);
 
             packer.packBinaryHeader(0); // Features.
             packer.packMapHeader(0); // Extensions.

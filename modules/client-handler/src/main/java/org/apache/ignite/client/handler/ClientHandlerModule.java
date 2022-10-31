@@ -33,6 +33,7 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.client.proto.ClientMessageDecoder;
+import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -64,6 +65,9 @@ public class ClientHandlerModule implements IgniteComponent {
 
     /** Ignite SQL API. */
     private final IgniteSql sql;
+
+    /** Cluster manager. */
+    private final ClusterManagementGroupManager cmgMgr;
 
     /** Netty channel. */
     private volatile Channel channel;
@@ -99,7 +103,8 @@ public class ClientHandlerModule implements IgniteComponent {
             IgniteCompute igniteCompute,
             ClusterService clusterService,
             NettyBootstrapFactory bootstrapFactory,
-            IgniteSql sql) {
+            IgniteSql sql,
+            ClusterManagementGroupManager cmgMgr) {
         assert igniteTables != null;
         assert registry != null;
         assert queryProcessor != null;
@@ -116,6 +121,7 @@ public class ClientHandlerModule implements IgniteComponent {
         this.registry = registry;
         this.bootstrapFactory = bootstrapFactory;
         this.sql = sql;
+        this.cmgMgr = cmgMgr;
     }
 
     /** {@inheritDoc} */
@@ -194,7 +200,8 @@ public class ClientHandlerModule implements IgniteComponent {
                                         configuration,
                                         igniteCompute,
                                         clusterService,
-                                        sql));
+                                        sql,
+                                        cmgMgr));
                     }
                 })
                 .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, configuration.connectTimeout());

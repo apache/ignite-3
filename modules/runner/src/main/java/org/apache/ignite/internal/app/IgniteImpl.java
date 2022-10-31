@@ -407,7 +407,6 @@ public class IgniteImpl implements Ignite {
 
         compute = new IgniteComputeImpl(clusterSvc.topologyService(), distributedTblMgr, computeComponent);
 
-        // TODO IGNITE-17690 cmgMgr.clusterState().join().clusterTag().clusterId()
         clientHandlerModule = new ClientHandlerModule(
                 qryEngine,
                 distributedTblMgr,
@@ -416,7 +415,8 @@ public class IgniteImpl implements Ignite {
                 compute,
                 clusterSvc,
                 nettyBootstrapFactory,
-                sql
+                sql,
+                cmgMgr
         );
     }
 
