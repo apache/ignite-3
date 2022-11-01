@@ -230,7 +230,7 @@ void linux_async_worker_thread::handle_connection_events() {
                continue;
            }
 
-           m_client_pool.handle_nessage_received(client->id(), msg);
+           m_client_pool.handle_message_received(client->id(), msg);
        }
 
        if (current_event.events & EPOLLOUT) {
