@@ -139,7 +139,7 @@ public:
      * @param id Async client ID.
      * @param msg Received message.
      */
-    void handle_nessage_received(uint64_t id, bytes_view msg);
+    void handle_message_received(uint64_t id, bytes_view msg);
 
     /**
      * Handle sent message event.

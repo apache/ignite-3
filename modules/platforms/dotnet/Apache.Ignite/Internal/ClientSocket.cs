@@ -300,6 +300,7 @@ namespace Apache.Ignite.Internal
             var clusterNodeName = reader.ReadString();
             var clusterId = reader.ReadGuid();
 
+            reader.Skip(); // Cluster ID. TODO IGNITE-18046.
             reader.Skip(); // Features.
             reader.Skip(); // Extensions.
 

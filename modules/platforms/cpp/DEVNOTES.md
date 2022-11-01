@@ -17,7 +17,7 @@ mkdir cmake-build-debug
 cd cmake-build-debug
 conan install .. --build=missing -s build_type=Debug
 cmake .. -DENABLE_TESTS=ON
-cmake --build . -j8 
+cmake --build . -j8
 ```
 
 ### For Linux Developers
@@ -27,7 +27,17 @@ mkdir cmake-build-debug
 cd cmake-build-debug
 conan install .. --build=missing -s build_type=Debug -s compiler.libcxx=libstdc++11
 cmake .. -DENABLE_TESTS=ON -DCMAKE_BUILD_TYPE=Debug
-cmake --build . -j8 
+cmake --build . -j8
+```
+
+### For macOS Developers
+Building in debug mode with tests. In this dir:
+```shell
+mkdir cmake-build-debug
+cd cmake-build-debug
+conan install .. --build=missing -s build_type=Debug -s compiler.libcxx=libc++
+cmake .. -DENABLE_TESTS=ON -DCMAKE_BUILD_TYPE=Debug
+cmake --build . -j8
 ```
 
 ### For Windows users
@@ -47,7 +57,17 @@ mkdir cmake-build-release
 cd cmake-build-release
 conan install .. --build=missing -s build_type=Release -s compiler.libcxx=libstdc++11
 cmake .. -DENABLE_TESTS=ON -DCMAKE_BUILD_TYPE=Release
-cmake --build . -j8 
+cmake --build . -j8
+```
+
+### For macOS users
+Building in release mode without tests. In this dir:
+```shell
+mkdir cmake-build-release
+cd cmake-build-release
+conan install .. --build=missing -s build_type=Release -s compiler.libcxx=libc++
+cmake .. -DENABLE_TESTS=ON -DCMAKE_BUILD_TYPE=Release
+cmake --build . -j8
 ```
 
 ## Run Tests

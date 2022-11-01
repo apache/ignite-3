@@ -78,6 +78,9 @@ void node_connection::process_message(bytes_view msg) {
     }
 
     auto reqId = reader.read_int64();
+    auto flags = reader.read_int32();
+    (void) flags; // Flags are unused for now.
+
     auto handler = get_and_remove_handler(reqId);
 
     if (!handler) {
@@ -124,6 +127,7 @@ ignite_result<void> node_connection::process_handshake_rsp(bytes_view msg) {
     (void)reader.read_string_nullable(); // Cluster node ID. Needed for partition-aware compute.
     (void)reader.read_string_nullable(); // Cluster node name. Needed for partition-aware compute.
 
+    reader.skip(); // TODO: IGNITE-18053 Get and verify cluster id on connection
     reader.skip(); // Features.
     reader.skip(); // Extensions.
 

@@ -62,6 +62,7 @@ import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValue
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.configuration.MetricConfiguration;
 import org.apache.ignite.internal.metrics.rest.MetricRestFactory;
+import org.apache.ignite.internal.metrics.sources.JvmMetricSource;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.configuration.NetworkConfigurationSchema;
 import org.apache.ignite.internal.raft.Loza;
@@ -477,6 +478,7 @@ public class IgniteImpl implements Ignite {
      */
     public CompletableFuture<Ignite> start(@Language("HOCON") @Nullable String cfg) {
         try {
+            metricManager.registerSource(new JvmMetricSource());
 
             lifecycleManager.startComponent(longJvmPauseDetector);
 
