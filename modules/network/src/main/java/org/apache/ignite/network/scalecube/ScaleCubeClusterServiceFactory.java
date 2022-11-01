@@ -78,7 +78,6 @@ public class ScaleCubeClusterServiceFactory {
     public ClusterService createClusterService(
             ClusterLocalConfiguration context,
             NetworkConfiguration networkConfiguration,
-            RestConfiguration restConfiguration,
             NettyBootstrapFactory nettyBootstrapFactory
     ) {
         var messageFactory = new NetworkMessagesFactory();
@@ -131,7 +130,6 @@ public class ScaleCubeClusterServiceFactory {
                 );
 
                 NodeFinder finder = NodeFinderFactory.createNodeFinder(configView.nodeFinder());
-                NodeMetadata nodeMetadata = new NodeMetadata(restConfiguration.port().value());
                 cluster = new ClusterImpl(clusterConfig(configView.membership()))
                         .handler(cl -> new ClusterMessageHandler() {
                             /** {@inheritDoc} */
@@ -140,9 +138,7 @@ public class ScaleCubeClusterServiceFactory {
                                 topologyService.onMembershipEvent(event);
                             }
                         })
-                        .config(opts -> opts.memberAlias(consistentId)
-                                .metadataCodec(METADATA_CODEC)
-                                .metadata(nodeMetadata))
+                        .config(opts -> opts.memberAlias(consistentId).metadataCodec(METADATA_CODEC))
                         .transport(opts -> opts.transportFactory(transportConfig -> transport))
                         .membership(opts -> opts.seedMembers(parseAddresses(finder.findNodes())));
 
@@ -155,9 +151,7 @@ public class ScaleCubeClusterServiceFactory {
                 cluster.startAwait();
 
                 // emit an artificial event as if the local member has joined the topology (ScaleCube doesn't do that)
-                var localMembershipEvent = createAdded(cluster.member(),
-                        METADATA_CODEC.serialize(nodeMetadata),
-                        System.currentTimeMillis());
+                var localMembershipEvent = createAdded(cluster.member(), null, System.currentTimeMillis());
 
                 topologyService.onMembershipEvent(localMembershipEvent);
             }

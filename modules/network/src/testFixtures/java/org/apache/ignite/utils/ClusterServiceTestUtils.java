@@ -123,11 +123,10 @@ public class ClusterServiceTestUtils {
         );
 
         NetworkConfiguration networkConfiguration = nodeConfigurationMgr.configurationRegistry().getConfiguration(NetworkConfiguration.KEY);
-        RestConfiguration restConfiguration = nodeConfigurationMgr.configurationRegistry().getConfiguration(RestConfiguration.KEY);
 
         var bootstrapFactory = new NettyBootstrapFactory(networkConfiguration, ctx.getName());
 
-        ClusterService clusterSvc = SERVICE_FACTORY.createClusterService(ctx, networkConfiguration, restConfiguration, bootstrapFactory);
+        ClusterService clusterSvc = SERVICE_FACTORY.createClusterService(ctx, networkConfiguration, bootstrapFactory);
 
         assert nodeFinder instanceof StaticNodeFinder : "Only StaticNodeFinder is supported at the moment";
 

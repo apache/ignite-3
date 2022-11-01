@@ -28,16 +28,29 @@ import org.apache.ignite.network.NodeMetadata;
  */
 @Schema(name = "NodeMetadata")
 public class NodeMetadataDto {
+    private final String restHost;
     private final int restPort;
 
     /**
      * Constructor.
      *
+     * @param restHost
      * @param restPort REST port of a node.
      */
     @JsonCreator
-    public NodeMetadataDto(@JsonProperty("restPort") int restPort) {
+    public NodeMetadataDto(@JsonProperty("restHost") String restHost, @JsonProperty("restPort") int restPort) {
+        this.restHost = restHost;
         this.restPort = restPort;
+    }
+
+    /**
+     * Returns this node's REST host.
+     *
+     * @return REST host.
+     */
+    @JsonGetter("restHost")
+    public String restHost() {
+        return restHost;
     }
 
     /**

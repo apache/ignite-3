@@ -91,7 +91,7 @@ public class ClusterNode implements Serializable {
         return address;
     }
 
-    public NodeMetadata getNodeMetadata() {
+    public NodeMetadata nodeMetadata() {
         return nodeMetadata;
     }
 

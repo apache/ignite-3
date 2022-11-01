@@ -261,7 +261,6 @@ public class IgniteImpl implements Ignite {
         );
 
         NetworkConfiguration networkConfiguration = nodeCfgMgr.configurationRegistry().getConfiguration(NetworkConfiguration.KEY);
-        RestConfiguration restConfiguration = nodeCfgMgr.configurationRegistry().getConfiguration(RestConfiguration.KEY);
         MessageSerializationRegistryImpl serializationRegistry = new MessageSerializationRegistryImpl();
 
         CmgMessagesSerializationRegistryInitializer.registerFactories(serializationRegistry);
@@ -279,7 +278,6 @@ public class IgniteImpl implements Ignite {
         clusterSvc = new ScaleCubeClusterServiceFactory().createClusterService(
                 clusterLocalConfiguration,
                 networkConfiguration,
-                restConfiguration,
                 nettyBootstrapFactory
         );
 
@@ -511,7 +509,7 @@ public class IgniteImpl implements Ignite {
                     cmgMgr
             );
 
-            clusterSvc.updateMetadata(new NodeMetadata(restComponent.port()));
+            clusterSvc.updateMetadata(new NodeMetadata(restComponent.host(), restComponent.port()));
 
             LOG.info("Components started, joining the cluster");
 

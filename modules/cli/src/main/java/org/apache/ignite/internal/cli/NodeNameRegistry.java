@@ -108,6 +108,6 @@ public class NodeNameRegistry {
 
     private static String urlFromClusterNode(ClusterNode node) {
         Objects.requireNonNull(node, "node must not be null");
-        return "http://" + node.getAddress().getHost() + ":" + node.getMetadata().getRestPort();
+        return "http://" + node.getMetadata().getRestHost() + ":" + node.getMetadata().getRestPort();
     }
 }

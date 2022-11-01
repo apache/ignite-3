@@ -30,7 +30,7 @@ class NodeMetadataCodecTest {
 
     @Test
     void byteBufferAndFromByteBuffer() {
-        NodeMetadata metadata = new NodeMetadata(10000);
+        NodeMetadata metadata = new NodeMetadata("localhost",10000);
         ByteBuffer buffer = METADATA_CODEC.serialize(metadata);
         NodeMetadata fromByteBuffer = METADATA_CODEC.deserialize(buffer);
         assertEquals(metadata, fromByteBuffer);
@@ -41,13 +41,5 @@ class NodeMetadataCodecTest {
         ByteBuffer buffer = ByteBuffer.allocate(8);
         NodeMetadata fromByteBuffer = METADATA_CODEC.deserialize(buffer);
         assertNull(fromByteBuffer);
-    }
-
-    @Test
-    void fromByteBufferWithWrongVersionOfCodec() {
-        NodeMetadata metadata = new NodeMetadata(10000);
-        ByteBuffer buffer = new NodeMetadataCodec(-1).serialize(metadata);
-        NodeMetadata fromByteBuffer = METADATA_CODEC.deserialize(buffer);
-        assertEquals(metadata, fromByteBuffer);
     }
 }

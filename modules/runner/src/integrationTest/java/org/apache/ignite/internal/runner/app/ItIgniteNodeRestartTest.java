@@ -227,7 +227,6 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
         var clusterSvc = new TestScaleCubeClusterServiceFactory().createClusterService(
                 clusterLocalConfiguration,
                 networkConfiguration,
-                restConfiguration,
                 nettyBootstrapFactory
         );
 

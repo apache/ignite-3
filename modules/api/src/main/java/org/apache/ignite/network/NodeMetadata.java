@@ -18,20 +18,39 @@
 package org.apache.ignite.network;
 
 import java.io.Serializable;
+import java.util.Objects;
 
 /**
  * Contains metadata of the cluster node.
  */
 public class NodeMetadata implements Serializable {
     private static final long serialVersionUID = 3216463261002854096L;
-    private final int restPort;
 
-    public NodeMetadata(int restPort) {
+    private String restHost;
+    private int restPort;
+
+    public NodeMetadata() {
+    }
+
+    public NodeMetadata(String restHost, int restPort) {
+        this.restHost = restHost;
         this.restPort = restPort;
+    }
+
+    public String restHost() {
+        return restHost;
+    }
+
+    public void setRestHost(String restHost) {
+        this.restHost = restHost;
     }
 
     public int restPort() {
         return restPort;
+    }
+
+    public void setRestPort(int restPort) {
+        this.restPort = restPort;
     }
 
     @Override
@@ -43,16 +62,11 @@ public class NodeMetadata implements Serializable {
             return false;
         }
         NodeMetadata that = (NodeMetadata) o;
-        return restPort == that.restPort;
+        return restPort == that.restPort && Objects.equals(restHost, that.restHost);
     }
 
     @Override
     public int hashCode() {
-        return restPort;
-    }
-
-    @Override
-    public String toString() {
-        return "NodeMetadata{" + "restPort=" + restPort + '}';
+        return Objects.hash(restHost, restPort);
     }
 }

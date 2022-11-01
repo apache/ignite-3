@@ -75,7 +75,7 @@ public class TopologyController implements TopologyApi {
         NetworkAddress addr = node.address();
 
         var addrDto = new NetworkAddressDto(addr.host(), addr.port());
-        var metadata = new NodeMetadataDto(node.getNodeMetadata().restPort());
+        var metadata = new NodeMetadataDto(node.nodeMetadata().restHost(), node.nodeMetadata().restPort());
         return new ClusterNodeDto(node.id(), node.name(), addrDto, metadata);
     }
 }

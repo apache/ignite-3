@@ -17,7 +17,10 @@
 
 package org.apache.ignite.network.scalecube;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.scalecube.cluster.metadata.MetadataCodec;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import org.apache.ignite.network.NodeMetadata;
 
@@ -27,25 +30,12 @@ import org.apache.ignite.network.NodeMetadata;
 public class NodeMetadataCodec implements MetadataCodec {
 
     public static final NodeMetadataCodec INSTANCE = new NodeMetadataCodec();
-
-    /**
-     * Version of the codec.
-     */
-    private int version = 1;
+    private final ObjectMapper mapper = new ObjectMapper();
 
     /**
      * Default constructor.
      */
     private NodeMetadataCodec() {
-    }
-
-    /**
-     * Constructor.
-     *
-     * @param version .
-     */
-    NodeMetadataCodec(int version) {
-        this.version = version;
     }
 
     /**
@@ -57,14 +47,8 @@ public class NodeMetadataCodec implements MetadataCodec {
     @Override
     public NodeMetadata deserialize(ByteBuffer byteBuffer) {
         try {
-            int version = readInt(byteBuffer, 0);
-            if (version == this.version) {
-                int port = readInt(byteBuffer, 4);
-                return new NodeMetadata(port);
-            } else {
-                return null;
-            }
-        } catch (Exception e) {
+            return mapper.readValue(byteBuffer.array(), NodeMetadata.class);
+        } catch (IOException e) {
             return null;
         }
     }
@@ -73,18 +57,14 @@ public class NodeMetadataCodec implements MetadataCodec {
      * Serializes {@link NodeMetadata} to {@link ByteBuffer}.
      *
      * @param o {@link NodeMetadata} to serialize.
-     * @return {@link ByteBuffer}.
+     * @return {@link ByteBuffer} or null of something goes wrong.
      */
     @Override
     public ByteBuffer serialize(Object o) {
-        if (o instanceof NodeMetadata) {
-            NodeMetadata metadata = (NodeMetadata) o;
-            ByteBuffer buffer = ByteBuffer.allocate(8);
-            buffer.putInt(version);
-            buffer.putInt(metadata.restPort());
-            return buffer;
-        } else {
-            return ByteBuffer.wrap(new byte[0]);
+        try {
+            return ByteBuffer.wrap(mapper.writeValueAsBytes(o));
+        } catch (JsonProcessingException e) {
+            return null;
         }
     }
 
