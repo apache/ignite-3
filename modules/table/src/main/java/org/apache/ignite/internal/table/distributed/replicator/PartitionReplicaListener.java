@@ -61,8 +61,8 @@ import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.IndexLocker;
-import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
+import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
 import org.apache.ignite.internal.table.distributed.command.HybridTimestampMessage;
 import org.apache.ignite.internal.table.distributed.command.TxCleanupCommand;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadOnlyMultiRowReplicaRequest;
@@ -907,16 +907,6 @@ public class PartitionReplicaListener implements ReplicaListener {
                     }
 
                     CompletableFuture<RowId>[] insertLockFuts = new CompletableFuture[rowsToInsert.size()];
-//                    CompletableFuture<Object> raftFut = rowsToInsert.isEmpty() ? CompletableFuture.completedFuture(null)
-//                            : applyCmdWithExceptionHandling(
-//                                    msgFactory.updateAllCommand()
-//                                            .tablePartitionId(msgFactory.tablePartitionIdMessage()
-//                                                    .tableId(committedPartitionId.getTableId())
-//                                                    .partitionId(committedPartitionId.getPartId())
-//                                                    .build())
-//                                            .rowsToUpdate(rowsToInsert)
-//                                            .txId(txId)
-//                                            .build());
 
                     int idx = 0;
 
