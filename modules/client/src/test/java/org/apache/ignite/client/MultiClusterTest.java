@@ -95,9 +95,16 @@ public class MultiClusterTest {
             server1.close();
             server1 = new TestServer(10900, 10, 0, new FakeIgnite(), null, "s1", clusterId2);
 
-            // TODO: Generify assertThrowsWithCause
-            IgniteClientConnectionException ex = (IgniteClientConnectionException) assertThrowsWithCause(() -> client.tables().tables(), IgniteClientConnectionException.class, "Cluster ID mismatch");
-            assertEquals(CLUSTER_ID_MISMATCH_ERR, ex.code());
+            IgniteClientConnectionException ex = (IgniteClientConnectionException) assertThrowsWithCause(
+                    () -> client.tables().tables(), IgniteClientConnectionException.class, "Cluster ID mismatch");
+
+            IgniteClientConnectionException cause = (IgniteClientConnectionException)ExceptionUtils.getSuppressedList(ex).stream()
+                    .filter(e -> e.getCause().getMessage().contains("Cluster ID mismatch"))
+                    .findFirst()
+                    .orElseThrow()
+                    .getCause();
+
+            assertEquals(CLUSTER_ID_MISMATCH_ERR, cause.code());
         }
     }
 
