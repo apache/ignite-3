@@ -24,7 +24,6 @@ import java.util.concurrent.Flow;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
-import java.util.concurrent.atomic.AtomicBoolean;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -33,9 +32,6 @@ import org.jetbrains.annotations.Nullable;
 public class CompositePublisher<T> implements Flow.Publisher<T> {
     /** List of registered publishers. */
     private final Collection<? extends Publisher<T>> publishers;
-
-    /** Flag indicating the state of the subscription. */
-    private final AtomicBoolean subscribed = new AtomicBoolean();
 
     /**
      * Constructor.
@@ -53,10 +49,6 @@ public class CompositePublisher<T> implements Flow.Publisher<T> {
     }
 
     void subscribe(Subscriber<? super T> delegate, AbstractCompositeSubscriptionStrategy<T> subscriptionStrategy) {
-        if (!subscribed.compareAndSet(false, true)) {
-            throw new IllegalStateException("Multiple subscribers are not supported.");
-        }
-
         int subscriberIdx = 0;
 
         for (Publisher<T> publisher : publishers) {
