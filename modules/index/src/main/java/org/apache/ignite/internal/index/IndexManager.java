@@ -437,7 +437,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         for (var columnName : indexView.columns().namedListKeys()) {
             IndexColumnView columnView = indexView.columns().get(columnName);
 
-            //TODO: link to ticket
+            //TODO IGNITE-15141: Make null-order configurable.
             // NULLS FIRST for ASC, NULLS LAST for DESC by default.
             boolean nullsFirst = !columnView.asc();
 
@@ -502,8 +502,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
 
             var rowConverter = new BinaryConverter(descriptor, tupleSchema, false);
 
-            return new VersionedConverter(descriptor.version(),
-                    row -> rowConverter.toTuple(row));
+            return new VersionedConverter(descriptor.version(), rowConverter::toTuple);
         }
 
         private int[] resolveColumnIndexes(SchemaDescriptor descriptor) {

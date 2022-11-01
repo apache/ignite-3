@@ -74,32 +74,12 @@ public class IgniteMdSelectivity extends RelMdSelectivity {
                 conjunctions.remove(bounds.condition());
             }
 
-            idxSelectivity *= getMultiplier(bounds);
+            idxSelectivity *= guessCostMultiplier(bounds);
         }
 
         RexNode remaining = RexUtil.composeConjunction(RexUtils.builder(rel), conjunctions, true);
 
         return idxSelectivity * RelMdUtil.guessSelectivity(remaining);
-    }
-
-    private static double getMultiplier(SearchBounds bounds) {
-        if (bounds instanceof ExactBounds) {
-            return .1;
-        } else if (bounds instanceof RangeBounds) {
-            RangeBounds rangeBounds = (RangeBounds) bounds;
-
-            if (rangeBounds.condition() != null) {
-               return  ((RexCall) rangeBounds.condition()).op.kind == SqlKind.EQUALS ? .1 : .2;
-            } else {
-                return  .35;
-            }
-        } else if (bounds instanceof MultiBounds) {
-            MultiBounds multiBounds = (MultiBounds) bounds;
-
-            return multiBounds.bounds().stream().mapToDouble(IgniteMdSelectivity::getMultiplier).max().orElseThrow(AssertionError::new);
-        }
-
-        return 1.0;
     }
 
     /**
@@ -150,5 +130,29 @@ public class IgniteMdSelectivity extends RelMdSelectivity {
         }
 
         return mq.getSelectivity(rel.getInput(), rel.condition());
+    }
+
+    /** Guess cost multiplier regarding search bounds only. */
+    private static double guessCostMultiplier(SearchBounds bounds) {
+        if (bounds instanceof ExactBounds) {
+            return .1;
+        } else if (bounds instanceof RangeBounds) {
+            RangeBounds rangeBounds = (RangeBounds) bounds;
+
+            if (rangeBounds.condition() != null) {
+                return ((RexCall) rangeBounds.condition()).op.kind == SqlKind.EQUALS ? .1 : .2;
+            } else {
+                return .35;
+            }
+        } else if (bounds instanceof MultiBounds) {
+            MultiBounds multiBounds = (MultiBounds) bounds;
+
+            return multiBounds.bounds().stream()
+                    .mapToDouble(IgniteMdSelectivity::guessCostMultiplier)
+                    .max()
+                    .orElseThrow(AssertionError::new);
+        }
+
+        return 1.0;
     }
 }

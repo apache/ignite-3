@@ -76,7 +76,7 @@ public abstract class AbstractIndexScan<RowT, IdxRowT> implements Iterable<RowT>
     /** {@inheritDoc} */
     @Override
     public synchronized Iterator<RowT> iterator() {
-        if (ranges == null) {
+        if (ranges == null) { // Full index scan.
             Cursor<IdxRowT> cursor = idx.find(null, null, true, true);
 
             Iterator<RowT> it = new TransformingIterator<>(cursor, AbstractIndexScan.this::indexRow2Row);

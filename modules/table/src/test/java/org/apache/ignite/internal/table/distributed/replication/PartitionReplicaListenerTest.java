@@ -90,7 +90,6 @@ import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.service.RaftGroupService;
-import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -430,8 +429,9 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         assertNull(binaryRow);
     }
 
+    //TODO: Add test for read-only scan request
     @Test
-    public void test() {
+    public void testWriteScanRetriveBatchReplicaRequst() {
         UUID txId = Timestamp.nextVersion().toUuid();
         UUID sortedIndexId = sortedIndexStorage.indexDescriptor().id();
 
@@ -518,7 +518,6 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         assertEquals(0, rows.size());
     }
 
-    @NotNull
     private static BinaryTuple sortedIndexValue(TestValue val) {
         ByteBuffer tuple = new BinaryTupleBuilder(1, false).appendInt(val.intVal).build();
 

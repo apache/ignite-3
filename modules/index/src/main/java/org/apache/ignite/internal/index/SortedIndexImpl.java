@@ -23,7 +23,6 @@ import java.util.UUID;
 import java.util.concurrent.Flow.Publisher;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
-import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -36,7 +35,6 @@ public class SortedIndexImpl implements SortedIndex {
     private final UUID id;
     private final InternalTable table;
     private final SortedIndexDescriptor descriptor;
-    private final SchemaRegistry schemaRegistry;
 
     /**
      * Constructs the sorted index.
@@ -49,8 +47,6 @@ public class SortedIndexImpl implements SortedIndex {
         this.id = Objects.requireNonNull(id, "id");
         this.table = Objects.requireNonNull(table.internalTable(), "table");
         this.descriptor = Objects.requireNonNull(descriptor, "descriptor");
-
-        schemaRegistry = table.schemaView();
     }
 
     /** {@inheritDoc} */
@@ -80,7 +76,7 @@ public class SortedIndexImpl implements SortedIndex {
     /** {@inheritDoc} */
     @Override
     public Publisher<BinaryRow> scan(int partId, InternalTransaction tx, BinaryTuple key, BitSet columns) {
-        return scan(partId, tx, key, key, INCLUDE_LEFT, columns); // TODO: Fix flags.
+        return scan(partId, tx, key, key, INCLUDE_LEFT | INCLUDE_RIGHT, columns);
     }
 
     /** {@inheritDoc} */

@@ -21,7 +21,6 @@ import static org.apache.ignite.internal.binarytuple.BinaryTupleCommon.PREFIX_FL
 
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
-import java.util.stream.IntStream;
 import org.apache.ignite.internal.binarytuple.BinaryTuplePrefixBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.schema.row.InternalTuple;
@@ -64,11 +63,12 @@ public class BinaryTuplePrefix extends BinaryTupleReader implements InternalTupl
      * @return Prefix, equivalent to the tuple.
      */
     public static BinaryTuplePrefix fromBinaryTuple(BinaryTuple tuple) {
-        //TODO: Create ticket to avoid this convertion.
+        //TODO https://issues.apache.org/jira/browse/IGNITE-18056: Get rid of the method.
         // Restore original prefix. Explicit 'null' value is not supported for now.
-        int count = (int) IntStream.range(0, tuple.count())
-                .takeWhile(i -> !tuple.hasNullValue(i))
-                .count();
+        int count = 0;
+        while (count < tuple.count() && !tuple.hasNullValue(count)) {
+            count++;
+        }
 
         ByteBuffer tupleBuffer = tuple.byteBuffer();
 

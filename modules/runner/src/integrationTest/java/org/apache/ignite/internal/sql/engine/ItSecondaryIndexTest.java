@@ -23,7 +23,6 @@ import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIn
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsSubPlan;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsTableScan;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsUnion;
-import static org.hamcrest.CoreMatchers.anyOf;
 import static org.hamcrest.Matchers.not;
 
 import java.util.List;
@@ -35,6 +34,8 @@ import org.junit.jupiter.api.Test;
  * Basic index tests.
  */
 public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
+    private static final String PK_SORTED_IDX = "PK_SORTED_IDX";
+
     private static final String DEPID_IDX = "DEPID_IDX";
 
     private static final String NAME_CITY_IDX = "NAME_CITY_IDX";
@@ -51,7 +52,6 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
         sql("CREATE INDEX " + DEPID_IDX + " ON developer (depid)");
         sql("CREATE INDEX " + NAME_CITY_IDX + " ON developer (name DESC, city DESC)");
         sql("CREATE INDEX " + NAME_DEPID_CITY_IDX + " ON developer (name DESC, depid DESC, city DESC)");
-
 
         insertData("DEVELOPER", List.of("ID", "NAME", "DEPID", "CITY", "AGE"), new Object[][]{
                 {1, "Mozart", 3, "Vienna", 33},
@@ -81,6 +81,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
 
         //TODO IGNITE-17813: Remove 'PARTITIONS=1' limitation
         sql("CREATE TABLE unwrap_pk(f1 VARCHAR, f2 BIGINT, f3 BIGINT, f4 BIGINT, primary key(f2, f1)) WITH PARTITIONS=1");
+        sql("CREATE INDEX " + PK_SORTED_IDX + " ON unwrap_pk(f2, f1)");
 
         insertData("UNWRAP_PK", List.of("F1", "F2", "F3", "F4"), new Object[][]{
                 {"Petr", 1L, 2L, 3L},
@@ -91,12 +92,26 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 {"Ivan4", 24L, 2L, 4L},
                 {"Ivan5", 25L, 2L, 4L},
         });
+
+        //TODO IGNITE-17813: Remove 'PARTITIONS=1' limitation
+        sql("CREATE TABLE t1 (id INT PRIMARY KEY, val INT) WITH PARTITIONS=1");
+        sql("CREATE INDEX t1_idx on t1(val DESC)");
+
+        insertData("T1", List.of("ID", "VAL"), new Object[][]{
+                {1, null},
+                {2, null},
+                {3, 3},
+                {4, 4},
+                {5, 5},
+                {6, 6},
+                {7, null}
+        });
     }
 
     @Test
     public void testEqualsFilterWithUnwrpKey() {
         assertQuery("SELECT F1 FROM UNWRAP_PK WHERE F2=2")
-                .matches(containsIndexScan("PUBLIC", "UNWRAP_PK", "UNWRAP_PK_PK"))
+                .matches(containsIndexScan("PUBLIC", "UNWRAP_PK", PK_SORTED_IDX))
                 .returns("Ivan")
                 .check();
     }
@@ -178,7 +193,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
     public void testKeyGreaterThanFilter() {
         assertQuery("SELECT * FROM Developer WHERE id>? and id<?")
                 .withParams(3, 12)
-                .matches(containsIndexScan("PUBLIC", "DEVELOPER", "DEVELOPER_PK"))
+                .matches(containsTableScan("PUBLIC", "DEVELOPER"))
                 .returns(4, "Strauss", 2, "Munich", 66)
                 .returns(5, "Vagner", 4, "Leipzig", 70)
                 .returns(6, "Chaikovsky", 5, "Votkinsk", 53)
@@ -193,7 +208,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
     @Test
     public void testKeyGreaterThanOrEqualsFilter() {
         assertQuery("SELECT * FROM Developer WHERE id>=3 and id<12")
-                .matches(containsIndexScan("PUBLIC", "DEVELOPER", "DEVELOPER_PK"))
+                .matches(containsTableScan("PUBLIC", "DEVELOPER"))
                 .returns(3, "Bach", 1, "Leipzig", 55)
                 .returns(4, "Strauss", 2, "Munich", 66)
                 .returns(5, "Vagner", 4, "Leipzig", 70)
@@ -209,7 +224,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
     @Test
     public void testKeyLessThanFilter() {
         assertQuery("SELECT * FROM Developer WHERE id<3")
-                .matches(containsIndexScan("PUBLIC", "DEVELOPER", "DEVELOPER_PK"))
+                .matches(containsTableScan("PUBLIC", "DEVELOPER"))
                 .returns(1, "Mozart", 3, "Vienna", 33)
                 .returns(2, "Beethoven", 2, "Vienna", 44)
                 .check();
@@ -218,7 +233,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
     @Test
     public void testKeyLessThanOrEqualsFilter() {
         assertQuery("SELECT * FROM Developer WHERE id<=2")
-                .matches(containsIndexScan("PUBLIC", "DEVELOPER", "DEVELOPER_PK"))
+                .matches(containsTableScan("PUBLIC", "DEVELOPER"))
                 .returns(1, "Mozart", 3, "Vienna", 33)
                 .returns(2, "Beethoven", 2, "Vienna", 44)
                 .check();
@@ -424,7 +439,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
     @Test
     public void testComplexIndexCondition7() {
         assertQuery("SELECT * FROM Developer WHERE name='Mozart' AND depId>=2")
-                .matches(containsAnyScan("PUBLIC", "DEVELOPER", NAME_CITY_IDX, NAME_DEPID_CITY_IDX))
+                .matches(containsIndexScan("PUBLIC", "DEVELOPER", NAME_DEPID_CITY_IDX))
                 .returns(1, "Mozart", 3, "Vienna", 33)
                 .check();
     }
@@ -432,7 +447,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
     @Test
     public void testComplexIndexCondition8() {
         assertQuery("SELECT * FROM Developer WHERE name='Mozart' AND depId>=2 AND age>20")
-                .matches(containsAnyScan("PUBLIC", "DEVELOPER", NAME_CITY_IDX, NAME_DEPID_CITY_IDX))
+                .matches(containsIndexScan("PUBLIC", "DEVELOPER", NAME_DEPID_CITY_IDX))
                 .returns(1, "Mozart", 3, "Vienna", 33)
                 .check();
     }
@@ -520,20 +535,18 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
     }
 
     @Test
-//    @Disabled("https://issues.apache.org/jira/browse/IGNITE-13710")
     public void testOrCondition2() {
         assertQuery("SELECT * FROM Developer WHERE name='Mozart' AND (depId=1 OR depId=3)")
-//                .matches(containsUnion(true))
+                .matches(not(containsUnion()))
                 .matches(containsIndexScan("PUBLIC", "DEVELOPER", NAME_DEPID_CITY_IDX))
                 .returns(1, "Mozart", 3, "Vienna", 33)
                 .check();
     }
 
     @Test
-//    @Disabled("https://issues.apache.org/jira/browse/IGNITE-13710")
     public void testOrCondition3() {
         assertQuery("SELECT * FROM Developer WHERE name='Mozart' AND (age > 22 AND (depId=1 OR depId=3))")
-//                .matches(containsUnion(true))
+                .matches(not(containsUnion()))
                 .matches(containsIndexScan("PUBLIC", "DEVELOPER", NAME_DEPID_CITY_IDX))
                 .returns(1, "Mozart", 3, "Vienna", 33)
                 .check();
@@ -562,8 +575,8 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
     @Test
     public void testOrderByKey() {
         assertQuery("SELECT * FROM Developer WHERE id<=4 ORDER BY id")
-                .matches(containsIndexScan("PUBLIC", "DEVELOPER"))
-                .matches(not(containsSubPlan("IgniteSort")))
+                .matches(containsTableScan("PUBLIC", "DEVELOPER"))
+                .matches(containsSubPlan("IgniteSort"))
                 .returns(1, "Mozart", 3, "Vienna", 33)
                 .returns(2, "Beethoven", 2, "Vienna", 44)
                 .returns(3, "Bach", 1, "Leipzig", 55)
@@ -574,34 +587,33 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
 
     @Test
     public void testOrderByDepId() {
-        //TODO: use project to avoid duplicates
-        assertQuery("SELECT depId FROM Developer ORDER BY depId")
+        assertQuery("SELECT depid FROM Developer ORDER BY depId")
                 .matches(containsIndexScan("PUBLIC", "DEVELOPER", DEPID_IDX))
                 .matches(not(containsSubPlan("IgniteSort")))
-                .returns(3, "Bach", 1, "Leipzig", 55)
-                .returns(2, "Beethoven", 2, "Vienna", 44)
-                .returns(4, "Strauss", 2, "Munich", 66)
-                .returns(1, "Mozart", 3, "Vienna", 33)
-                .returns(5, "Vagner", 4, "Leipzig", 70)
-                .returns(6, "Chaikovsky", 5, "Votkinsk", 53)
-                .returns(7, "Verdy", 6, "Rankola", 88)
-                .returns(8, "Stravinsky", 7, "Spt", 89)
-                .returns(9, "Rahmaninov", 8, "Starorussky ud", 70)
-                .returns(10, "Shubert", 9, "Vienna", 31)
-                .returns(11, "Glinka", 10, "Smolenskaya gb", 53)
+                .returns(1) //Bach
+                .returns(2) //Beethoven or Strauss
+                .returns(2) //Strauss or Beethoven
+                .returns(3) //Mozart
+                .returns(4) //Vagner
+                .returns(5) //Chaikovsky
+                .returns(6) //Verdy
+                .returns(7) //Stravinsky
+                .returns(8) //Rahmaninov
+                .returns(9) //Shubert
+                .returns(10) //Glinka
 
-                .returns(12, "Einaudi", 11, "", -1)
-                .returns(13, "Glass", 12, "", -1)
-                .returns(14, "Rihter", 13, "", -1)
-                .returns(15, "Marradi", 14, "", -1)
-                .returns(16, "Zimmer", 15, "", -1)
-                .returns(17, "Hasaishi", 16, "", -1)
-                .returns(18, "Arnalds", 17, "", -1)
-                .returns(19, "Yiruma", 18, "", -1)
-                .returns(20, "O'Halloran", 19, "", -1)
-                .returns(21, "Cacciapaglia", 20, "", -1)
-                .returns(22, "Prokofiev", 21, "", -1)
-                .returns(23, "Musorgskii", 22, "", -1)
+                .returns(11) //Einaudi
+                .returns(12) //Glass
+                .returns(13) //Rihter
+                .returns(14) //Marradi
+                .returns(15) //Zimmer
+                .returns(16) //Hasaishi
+                .returns(17) //Arnalds
+                .returns(18) //Yiruma
+                .returns(19) //O'Halloran
+                .returns(20) //Cacciapaglia
+                .returns(21) //Prokofiev
+                .returns(22) //Musorgskii
 
                 .ordered()
                 .check();
@@ -674,7 +686,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
 
     @Test
     public void testOrderByNoIndexedColumn() {
-        assertQuery("SELECT * FROM Developer ORDER BY age DESC, id ASC")
+        assertQuery("SELECT * FROM Developer ORDER BY age DESC, depid ASC")
                 .matches(containsAnyProject("PUBLIC", "DEVELOPER"))
                 .matches(containsSubPlan("IgniteSort"))
                 .returns(8, "Stravinsky", 7, "Spt", 89)
@@ -722,25 +734,77 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .check();
     }
 
+    /**
+     * Test scan correclty handle 'nulls' when range condition is used.
+     */
     @Test
-    public void test() {
-        sql("CREATE TABLE t1 (id INT PRIMARY KEY, val INT) WITH PARTITIONS=1");
-        sql("CREATE INDEX t1_idx on t1(val DESC);");
+    public void testIndexedNullableFieldGreaterThanFilter() {
+        assertQuery("SELECT * FROM T1 WHERE val > 4")
+                .matches(containsIndexScan("PUBLIC", "T1", "T1_IDX"))
+                .returns(5, 5)
+                .returns(6, 6)
+                .check();
+    }
 
-        insertData("T1", List.of("ID", "VAL"), new Object[][]{
-                {1, null},
-                {2, null},
-                {3, null},
-                {4, 4},
-                {5, 5},
-                {6, 6},
-                {7, 7}
-        });
+    @Test
+    public void testIndexedNullableFieldLessThanFilter() {
+        assertQuery("SELECT * FROM T1 WHERE val <= 5")
+                .matches(containsIndexScan("PUBLIC", "T1", "T1_IDX"))
+                .returns(3, 3)
+                .returns(4, 4)
+                .returns(5, 5)
+                .check();
+    }
 
-        assertQuery("SELECT * FROM T1 WHERE val >= 5")
-                .returns(5,5)
-                .returns(6,6)
-                .returns(7,7)
+    @Test
+    public void testNotNullCondition() {
+        assertQuery("SELECT * FROM T1 WHERE val is not null")
+                .matches(containsIndexScan("PUBLIC", "T1", "T1_IDX"))
+                .matches(not(containsUnion()))
+                .returns(3, 3)
+                .returns(4, 4)
+                .returns(5, 5)
+                .returns(6, 6)
+                .check();
+    }
+
+    @Test
+    public void testNullCondition1() {
+        assertQuery("SELECT * FROM T1 WHERE val is null")
+                .matches(containsIndexScan("PUBLIC", "T1", "T1_IDX"))
+                .matches(not(containsUnion()))
+                .returns(1, null)
+                .returns(2, null)
+                .returns(7, null)
+                .check();
+    }
+
+    @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18055")
+    public void testNullCondition2() {
+        assertQuery("SELECT * FROM T1 WHERE (val <= 5) or (val is null)")
+                .matches(containsIndexScan("PUBLIC", "T1", "T1_IDX"))
+                .matches(not(containsUnion()))
+                .returns(1, null)
+                .returns(2, null)
+                .returns(3, 3)
+                .returns(4, 4)
+                .returns(5, 5)
+                .returns(7, null)
+                .check();
+    }
+
+    @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18055")
+    public void testNullCondition3() {
+        assertQuery("SELECT * FROM T1 WHERE (val >= 5) or (val is null)")
+                .matches(containsIndexScan("PUBLIC", "T1", "T1_IDX"))
+                .matches(not(containsUnion()))
+                .returns(1, null)
+                .returns(2, null)
+                .returns(5, 5)
+                .returns(6, 6)
+                .returns(7, null)
                 .check();
     }
 }

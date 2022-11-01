@@ -66,14 +66,17 @@ public final class RowConverter {
 
         int prefixColumnsCount = binarySchema.elementCount();
 
-        //TODO: create ticket. Make SearchRow conpatible with index row.
-//        assert binarySchema.elementCount() >= handler.columnCount(searchRow) : "Invalid lookup condition";
+        //TODO IGNITE-18056: Uncomment. Search row must be a valid index row prefix.
+        // assert handler.columnCount(searchRow) <= binarySchema.elementCount() : "Invalid range condition";
+        //
+        // int specifiedCols = handler.columnCount(searchRow);
 
-        //TODO: avoid strems here
-        int specifiedCols = (int)IntStream.range(0, handler.columnCount(searchRow))
-                .mapToObj(i -> handler.get(i, searchRow))
-                .filter(o -> o != ectx.unspecifiedValue())
-                .count();
+        int specifiedCols = 0;
+        for (int i = 0; i < prefixColumnsCount; i++) {
+            if (handler.get(idxColumnMapper.get(i), searchRow) != ectx.unspecifiedValue()) {
+                specifiedCols++;
+            }
+        }
 
         BinaryTuplePrefixBuilder tupleBuilder = new BinaryTuplePrefixBuilder(specifiedCols, prefixColumnsCount);
 
@@ -101,8 +104,8 @@ public final class RowConverter {
 
         int prefixColumnsCount = binarySchema.elementCount();
 
-        //TODO: create ticket. Make SearchRow conpatible with index row.
-//        assert prefixColumnsCount == handler.columnCount(searchRow) : "Invalid lookup condition";
+        //TODO IGNITE-18056: Uncomment. Search row must be a valid index row.
+        // assert handler.columnCount(searchRow) == binarySchema.elementCount() : "Invalid lookup condition";
 
         BinaryTupleBuilder tupleBuilder = new BinaryTupleBuilder(prefixColumnsCount, binarySchema.hasNullableElements());
 
@@ -117,7 +120,7 @@ public final class RowConverter {
             BinaryTupleBuilder tupleBuilder,
             RowT searchRow
     ) {
-        for (int i = 0; i < tupleBuilder.numElements(); i++) {
+        for (int i = 0; i < binarySchema.elementCount(); i++) {
             Object val = handler.get(idxColumnMapper.get(i), searchRow);
 
             if (val == ectx.unspecifiedValue()) {
@@ -132,29 +135,5 @@ public final class RowConverter {
         }
 
         return new BinaryTuple(binarySchema, tupleBuilder.build());
-    }
-
-    /**
-     * Converts binary tuple to row.
-     *
-     * @param ectx Execution context.
-     * @param binTuple Binary tuple.
-     * @param factory Row handler factory.
-     * @param <RowT> Row type.
-     * @return Row.
-     */
-    public static <RowT> RowT toRow(
-            ExecutionContext<RowT> ectx,
-            BinaryTuple binTuple,
-            RowHandler.RowFactory<RowT> factory
-    ) {
-        RowHandler<RowT> handler = factory.handler();
-        RowT res = factory.create();
-
-        for (int i = 0; i < binTuple.count(); i++) {
-            handler.set(i, res, TypeUtils.toInternal(ectx, binTuple.value(i)));
-        }
-
-        return res;
     }
 }

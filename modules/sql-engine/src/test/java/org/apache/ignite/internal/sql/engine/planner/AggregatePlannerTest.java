@@ -96,9 +96,9 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
                 first(agg.getAggCallList()).getAggregation(),
                 IsInstanceOf.instanceOf(SqlAvgAggFunction.class));
 
-         if (algo == AggregateAlgorithm.SORT) {
-             assertNotNull(findFirstNode(phys, byClass(IgniteSort.class)));
-         }
+        if (algo == AggregateAlgorithm.SORT) {
+            assertNotNull(findFirstNode(phys, byClass(IgniteSort.class)));
+        }
     }
 
     /**
@@ -133,9 +133,9 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
                 first(agg.getAggCallList()).getAggregation(),
                 IsInstanceOf.instanceOf(SqlAvgAggFunction.class));
 
-         if (algo == AggregateAlgorithm.SORT) {
-             assertNotNull(findFirstNode(phys, byClass(IgniteIndexScan.class)));
-         }
+        if (algo == AggregateAlgorithm.SORT) {
+            assertNotNull(findFirstNode(phys, byClass(IgniteIndexScan.class)));
+        }
     }
 
     /**
@@ -177,9 +177,9 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
                 first(mapAgg.getAggCallList()).getAggregation(),
                 IsInstanceOf.instanceOf(SqlAvgAggFunction.class));
 
-         if (algo == AggregateAlgorithm.SORT) {
-             assertNotNull(findFirstNode(phys, byClass(IgniteSort.class)));
-         }
+        if (algo == AggregateAlgorithm.SORT) {
+            assertNotNull(findFirstNode(phys, byClass(IgniteSort.class)));
+        }
     }
 
     /**

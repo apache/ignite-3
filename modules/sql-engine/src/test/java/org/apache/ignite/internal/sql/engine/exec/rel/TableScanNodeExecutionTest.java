@@ -62,7 +62,7 @@ import org.mockito.Mockito;
 /**
  * Tests execution flow of TableScanNode.
  */
-public class TableScanExecutionTest extends AbstractExecutionTest {
+public class TableScanNodeExecutionTest extends AbstractExecutionTest {
     private static int dataAmount;
 
     // Ensures that all data from TableScanNode is being propagated correctly.

@@ -21,15 +21,11 @@ import java.util.BitSet;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.Flow.Publisher;
-import org.apache.ignite.internal.schema.BinaryConverter;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
-import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.util.PublisherAdapter;
 
 /**
  * An object that represents a hash index.
@@ -38,7 +34,6 @@ public class HashIndex implements Index<IndexDescriptor> {
     private final UUID id;
     private final InternalTable table;
     private final IndexDescriptor descriptor;
-    private final SchemaRegistry schemaRegistry;
 
     /**
      * Constructs the index.
@@ -51,8 +46,6 @@ public class HashIndex implements Index<IndexDescriptor> {
         this.id = Objects.requireNonNull(id, "id");
         this.table = Objects.requireNonNull(table.internalTable(), "table");
         this.descriptor = Objects.requireNonNull(descriptor, "descriptor");
-
-        schemaRegistry = table.schemaView();
     }
 
     /** {@inheritDoc} */

@@ -336,6 +336,11 @@ public class InternalTableImpl implements InternalTable {
      * @param partId Partition number.
      * @param scanId Scan id.
      * @param batchSize Size of batch.
+     * @param indexId Optional index id.
+     * @param lowerBound Lower search bound.
+     * @param upperBound Upper search bound.
+     * @param flags Control flags. See {@link org.apache.ignite.internal.storage.index.SortedIndexStorage} constants.
+     * @param columnsToInclude Row projection.
      * @return Batch of retrieved rows.
      */
     protected CompletableFuture<Collection<BinaryRow>> enlistCursorInTx(
@@ -813,7 +818,7 @@ public class InternalTableImpl implements InternalTable {
             int partId,
             @NotNull HybridTimestamp readTimestamp,
             @NotNull ClusterNode recipientNode,
-            @NotNull UUID indexId,
+            @Nullable UUID indexId,
             @Nullable BinaryTuple lowerBound,
             @Nullable BinaryTuple upperBound,
             int flags,

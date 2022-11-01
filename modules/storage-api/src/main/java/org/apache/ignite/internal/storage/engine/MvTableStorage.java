@@ -162,9 +162,4 @@ public interface MvTableStorage {
      * @throws StorageException If an error has occurred during the destruction of the storage.
      */
     void destroy() throws StorageException;
-
-    //TODO: implement
-    default IndexStorage getIndexStorage(int partId, UUID uuid) {
-        return null;
-    }
 }

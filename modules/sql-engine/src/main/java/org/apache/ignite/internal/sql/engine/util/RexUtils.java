@@ -499,19 +499,15 @@ public class RexUtils {
                     }
                     // fallthrough.
 
-                    //TODO: Create ticket.
-                    // Storage doesn't support 'null' in bounds.
-                    break;
-
                 case IS_NOT_NULL:
                     if (fc.nullDirection == RelFieldCollation.NullDirection.FIRST && lowerBound == null) {
                         lowerCond = pred;
                         lowerBound = nullVal;
-                        lowerInclude = false;
+                        // lowerInclude = false;
                     } else if (fc.nullDirection == RelFieldCollation.NullDirection.LAST && upperBound == null) {
                         upperCond = pred;
                         upperBound = nullVal;
-                        upperInclude = false;
+                        // upperInclude = false;
                     }
                     break;
 

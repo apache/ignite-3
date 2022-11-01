@@ -611,12 +611,14 @@ public class PartitionReplicaListener implements ReplicaListener {
             return lockManager.acquire(txId, new LockKey(tableId), LockMode.IS).thenCompose(tblLock -> { // Table IS lock
                 @SuppressWarnings("resource") Cursor<IndexRow> cursor = (Cursor<IndexRow>) cursors.computeIfAbsent(cursorId,
                         id -> {
-                            //TODO: Fix scan cursor return item closet to lowerbound and <= lowerbound
+                            // TODO https://issues.apache.org/jira/browse/IGNITE-18057
+                            // Fix scan cursor return item closet to lowerbound and <= lowerbound
                             // to correctly lock range between lowerbound value and the item next to lowerbound.
                             return indexStorage.scan(
                                     lowerBound == null ? null : BinaryTuplePrefix.fromBinaryTuple(lowerBound),
                                     // We need upperBound next value for correct range lock.
-                                    null, //BinaryTuplePrefix.fromBinaryTuple(upperBound),
+                                    upperBound == null ? null : BinaryTuplePrefix.fromBinaryTuple(upperBound),
+                                    // TODO IGNITE-18055: Add support null-bounds.
                                     flags
                             );
                         });
@@ -737,13 +739,13 @@ public class PartitionReplicaListener implements ReplicaListener {
                         return CompletableFuture.completedFuture(null); // End of range reached. Exit loop.
                     }
 
-                    if (upperBound != null) {
-                        int cmp = upperBound.byteBuffer().compareTo(currentRow.indexColumns().byteBuffer());
-
-                        if ((includeBound && cmp < 0) || (!includeBound && cmp == 0)) {
-                            return CompletableFuture.completedFuture(null); // Locked. Skip adding to result and exit loop.
-                        }
-                    }
+//                    if (upperBound != null) {
+//                        int cmp = upperBound.byteBuffer().compareTo(currentRow.indexColumns().byteBuffer());
+//
+//                        if ((includeBound && cmp < 0) || (!includeBound && cmp == 0)) {
+//                            return CompletableFuture.completedFuture(null); // Locked. Skip adding to result and exit loop.
+//                        }
+//                    }
 
                     return lockManager.acquire(txId, new LockKey(tableId, currentRow.rowId()), LockMode.S)
                             .thenCompose(rowLock -> { // Table row S lock
@@ -937,7 +939,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     /**
      * Tests row values for equality.
      *
-     * @param row Row.
+     * @param row  Row.
      * @param row2 Row.
      * @return Extracted key.
      */
@@ -1325,7 +1327,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     /**
      * Takes all required locks on a key, before upserting.
      *
-     * @param txId Transaction id.
+     * @param txId      Transaction id.
      * @return Future completes with {@link RowId} or {@code null} if there is no value.
      */
     private CompletableFuture<RowId> takeLocksForUpdate(BinaryRow tableRow, RowId rowId, UUID txId) {
@@ -1385,7 +1387,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     /**
      * Takes all required locks on a key, before deleting the value.
      *
-     * @param txId Transaction id.
+     * @param txId      Transaction id.
      * @return Future completes with {@link RowId} or {@code null} if there is no value for remove.
      */
     private CompletableFuture<RowId> takeLocksForDeleteExact(BinaryRow expectedRow, RowId rowId, BinaryRow actualRow, UUID txId) {
@@ -1405,7 +1407,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     /**
      * Takes all required locks on a key, before deleting the value.
      *
-     * @param txId Transaction id.
+     * @param txId      Transaction id.
      * @return Future completes with {@link RowId} or {@code null} if there is no value for the key.
      */
     private CompletableFuture<RowId> takeLocksForDelete(BinaryRow tableRow, RowId rowId, UUID txId) {
@@ -1418,7 +1420,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     /**
      * Takes all required locks on a key, before getting the value.
      *
-     * @param txId Transaction id.
+     * @param txId      Transaction id.
      * @return Future completes with {@link RowId} or {@code null} if there is no value for the key.
      */
     private CompletableFuture<RowId> takeLocksForGet(RowId rowId, UUID txId) {
@@ -1467,7 +1469,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     /**
      * Takes all required locks on a key, before updating the value.
      *
-     * @param txId Transaction id.
+     * @param txId      Transaction id.
      * @return Future completes with {@link RowId} or {@code null} if there is no suitable row.
      */
     private CompletableFuture<RowId> takeLocksForReplace(BinaryRow expectedRow, BinaryRow oldRow,
@@ -1606,7 +1608,8 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     /**
-     * Resolves a read result to the matched row. If the result does not match any row, the method returns a future to {@code null}.
+     * Resolves a read result to the matched row.
+     * If the result does not match any row, the method returns a future to {@code null}.
      *
      * @param readResult Read result.
      * @param timestamp Timestamp.

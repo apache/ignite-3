@@ -84,7 +84,7 @@ public class SortedIndexLocker implements IndexLocker {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<IndexRow> locksForScan(UUID txId, Cursor<IndexRow> cursor) {
-        //TODO: Fix scan consistency
+        // TODO https://issues.apache.org/jira/browse/IGNITE-18057
         // 1. Do index.peekNext() item and lock it. (Lock INF+ if not found)
         // 2. Do index.peekNext() again and ensure it wasn't changed.
         // 3. If matches then return lock, otherwise release lock on peeked one and repeat from step 1.

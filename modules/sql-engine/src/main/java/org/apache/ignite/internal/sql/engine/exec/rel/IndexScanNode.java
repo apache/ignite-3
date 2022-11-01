@@ -19,7 +19,6 @@ package org.apache.ignite.internal.sql.engine.exec.rel;
 
 import static org.apache.ignite.internal.util.ArrayUtils.nullOrEmpty;
 
-import java.util.BitSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Queue;
@@ -289,7 +288,7 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
                         lowerBound,
                         upperBound,
                         flags,
-                        requiredColumns.toBitSet()
+                        requiredColumns == null ? null : requiredColumns.toBitSet()
                 ).subscribe(new SubscriberImpl());
             } else {
                 assert schemaIndex.type() == Type.HASH;
@@ -318,7 +317,7 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
                         parts[part],
                         context().transaction(),
                         key,
-                        requiredColumns.toBitSet()
+                        requiredColumns == null ? null : requiredColumns.toBitSet()
                 ).subscribe(new SubscriberImpl());
             }
         } else {

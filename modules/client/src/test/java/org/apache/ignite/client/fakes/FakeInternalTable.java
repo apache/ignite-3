@@ -326,6 +326,7 @@ public class FakeInternalTable implements InternalTable {
         throw new IgniteInternalException(new OperationNotSupportedException());
     }
 
+    /** {@inheritDoc} */
     @Override
     public Publisher<BinaryRow> scan(int partId, @NotNull HybridTimestamp readTimestamp, @NotNull ClusterNode recipientNode,
             @NotNull UUID indexId, @Nullable BinaryTuple lowerBound, @Nullable BinaryTuple upperBound, int flags,

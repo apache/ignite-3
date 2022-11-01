@@ -67,7 +67,7 @@ public class IgniteIndexScan extends AbstractIndexScan implements SourceAwareIgn
      * @param tbl Table definition.
      * @param idxName Index name.
      * @param type Type of the index.
-     * @param collation Collation.
+     * @param collation Index columns collation.
      * @param proj Projects.
      * @param cond Filters.
      * @param searchBounds Index search conditions.
@@ -91,12 +91,15 @@ public class IgniteIndexScan extends AbstractIndexScan implements SourceAwareIgn
     /**
      * Creates a IndexScan.
      *
-     * @param cluster      Cluster that this relational expression belongs to
-     * @param traits       Traits of this relational expression
-     * @param tbl          Table definition.
-     * @param idxName      Index name.
-     * @param proj         Projects.
-     * @param cond         Filters.
+     * @param sourceId Sorce id.
+     * @param cluster Cluster that this relational expression belongs to
+     * @param traits Traits of this relational expression
+     * @param tbl Table definition.
+     * @param idxName Index name.
+     * @param type Type of the index.
+     * @param collation Index columns collation.
+     * @param proj Projects.
+     * @param cond Filters.
      * @param searchBounds Index search conditions.
      * @param requiredCols Participating columns.
      */
@@ -126,7 +129,8 @@ public class IgniteIndexScan extends AbstractIndexScan implements SourceAwareIgn
     }
 
     /** {@inheritDoc} */
-    @Override public RelCollation collation() {
+    @Override
+    public RelCollation collation() {
         return collation;
     }
 

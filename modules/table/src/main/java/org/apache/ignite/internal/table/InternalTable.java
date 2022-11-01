@@ -243,7 +243,7 @@ public interface InternalTable extends AutoCloseable {
     /**
      * Scans given partition, providing {@link Publisher} that reactively notifies about partition rows.
      *
-     * @param partId  The partition.
+     * @param partId The partition.
      * @param tx The transaction.
      * @return {@link Publisher} that reactively notifies about partition rows.
      * @throws IllegalArgumentException If proposed partition index {@code p} is out of bounds.
@@ -255,7 +255,7 @@ public interface InternalTable extends AutoCloseable {
     /**
      * Scans given partition with the proposed read timestamp, providing {@link Publisher} that reactively notifies about partition rows.
      *
-     * @param partId             The partition.
+     * @param partId The partition.
      * @param readTimestamp Read timestamp.
      * @param recipientNode Cluster node that will handle given get request.
      * @return {@link Publisher} that reactively notifies about partition rows.
@@ -277,7 +277,7 @@ public interface InternalTable extends AutoCloseable {
      * @param tx The transaction.
      * @param indexId Index id.
      * @param key Key to search.
-     * @param columnsToInclude Row projection. // TODO: Drop parameter or pushdown converter with the schema registry.
+     * @param columnsToInclude Row projection.
      * @return {@link Publisher} that reactively notifies about partition rows.
      */
     default Publisher<BinaryRow> scan(
@@ -287,7 +287,7 @@ public interface InternalTable extends AutoCloseable {
             BinaryTuple key,
             @Nullable BitSet columnsToInclude
     ) {
-        return scan(partId, tx, indexId, key, key, SortedIndexStorage.GREATER_OR_EQUAL, columnsToInclude);
+        return scan(partId, tx, indexId, key, key, SortedIndexStorage.LESS_OR_EQUAL | SortedIndexStorage.GREATER_OR_EQUAL, columnsToInclude);
     }
 
     /**
