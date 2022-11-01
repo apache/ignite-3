@@ -102,7 +102,7 @@ public final class ReliableChannel implements AutoCloseable {
      * the table will compare its version with channel version to detect an update. */
     private final AtomicLong assignmentVersion = new AtomicLong();
 
-    /** */
+    /** Cluster id from the first handshake. */
     private final AtomicReference<UUID> clusterId = new AtomicReference<>();
 
     /**
@@ -757,8 +757,8 @@ public final class ReliableChannel implements AutoCloseable {
                             // Ignore
                         }
 
-                        throw new IgniteClientConnectionException(CONNECTION_ERR, "Cluster ID mismatch: expected=" + oldClusterId +
-                                ", actual=" + ch0.protocolContext().clusterId());
+                        throw new IgniteClientConnectionException(CONNECTION_ERR, "Cluster ID mismatch: expected=" + oldClusterId
+                                + ", actual=" + ch0.protocolContext().clusterId());
                     }
 
                     ch = ch0;

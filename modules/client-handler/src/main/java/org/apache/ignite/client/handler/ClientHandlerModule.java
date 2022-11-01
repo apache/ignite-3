@@ -36,7 +36,6 @@ import java.util.function.Supplier;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.client.proto.ClientMessageDecoder;
-import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
