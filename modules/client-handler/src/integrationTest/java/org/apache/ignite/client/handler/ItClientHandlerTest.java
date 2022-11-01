@@ -144,7 +144,7 @@ public class ItClientHandlerTest {
             unpacker.skipValue(extensionsLen);
 
             assertArrayEquals(MAGIC, magic);
-            assertEquals(26, len);
+            assertEquals(44, len);
             assertEquals(3, major);
             assertEquals(0, minor);
             assertEquals(0, patch);
