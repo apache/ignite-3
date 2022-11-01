@@ -31,6 +31,7 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
+import javax.validation.constraints.Null;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.handler.ClientHandlerModule;
@@ -46,6 +47,7 @@ import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.network.NetworkAddress;
+import org.jetbrains.annotations.Nullable;
 import org.mockito.Mockito;
 
 /**
@@ -90,7 +92,7 @@ public class TestServer implements AutoCloseable {
             int portRange,
             long idleTimeout,
             Ignite ignite,
-            Function<Integer, Boolean> shouldDropConnection,
+            @Nullable Function<Integer, Boolean> shouldDropConnection,
             String nodeName
     ) {
         cfg = new ConfigurationRegistry(
