@@ -30,7 +30,6 @@ import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.function.Function;
 import java.util.function.Predicate;
-import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.index.SortedIndex;
 import org.apache.ignite.internal.schema.BinaryTuple;
@@ -98,7 +97,7 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
      * @param rowType Output type of the current node.
      * @param schemaTable The table this node should scan.
      * @param parts Partition numbers to scan.
-     * @param collation Index collation.
+     * @param comp Rows comparator.
      * @param rangeConditions Range conditions.
      * @param filters Optional filter to filter out rows.
      * @param rowTransformer Optional projection function.
@@ -110,7 +109,7 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
             IgniteIndex schemaIndex,
             InternalIgniteTable schemaTable,
             int[] parts,
-            RelCollation collation,
+            @Nullable Comparator<RowT> comp,
             @Nullable RangeIterable<RowT> rangeConditions,
             @Nullable Predicate<RowT> filters,
             @Nullable Function<RowT, RowT> rowTransformer,
@@ -125,10 +124,7 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
         this.rowTransformer = rowTransformer;
         this.requiredColumns = requiredColumns;
         this.rangeConditions = rangeConditions;
-
-        Comparator<RowT> rowCmp = schemaIndex.type() == Type.SORTED ? ctx.expressionFactory().comparator(collation) : null;
-
-        comp = rowCmp == null ? null : (o1, o2) -> rowCmp.compare(convert(o1), convert(o2));
+        this.comp = comp == null ? null : (o1, o2) -> comp.compare(convert(o1), convert(o2));
 
         rangeConditionIterator = rangeConditions == null ? null : rangeConditions.iterator();
 
