@@ -23,6 +23,7 @@ import java.util.ResourceBundle;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.lang.LoggerFactory;
+import org.apache.ignite.rest.client.invoker.Configuration;
 
 /**
  * This class is used when verbose output for command is needed. Instances of loggers created by the {@link CliLoggers#forClass(Class)} and
@@ -32,6 +33,9 @@ public class CliLoggers {
     private static PrintWriter output;
 
     private static boolean isVerbose;
+
+    /** Http logger for the default REST API client. */
+    private static final HttpLogging httpLogger = new HttpLogging(Configuration.getDefaultApiClient());
 
     private static final LoggerFactory loggerFactory = name -> new CliLogger(System.getLogger(name));
 
@@ -63,7 +67,7 @@ public class CliLoggers {
     public static void startOutputRedirect(PrintWriter out) {
         output = out;
         isVerbose = true;
-        HttpLogging.startHttpLogging(out);
+        httpLogger.startHttpLogging(out);
     }
 
     /**
@@ -72,7 +76,7 @@ public class CliLoggers {
     public static void stopOutputRedirect() {
         output = null;
         isVerbose = false;
-        HttpLogging.stopHttpLogging();
+        httpLogger.stopHttpLogging();
     }
 
     /**

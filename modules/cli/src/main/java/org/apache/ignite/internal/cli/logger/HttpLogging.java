@@ -22,35 +22,43 @@ import okhttp3.OkHttpClient.Builder;
 import okhttp3.logging.HttpLoggingInterceptor;
 import okhttp3.logging.HttpLoggingInterceptor.Level;
 import org.apache.ignite.rest.client.invoker.ApiClient;
-import org.apache.ignite.rest.client.invoker.Configuration;
 
 /** Helper class for logging HTTP requests/responses from generated REST API client. */
-public class HttpLogging {
+class HttpLogging {
+    private final ApiClient client;
+    private HttpLoggingInterceptor interceptor;
+
+    HttpLogging(ApiClient client) {
+        this.client = client;
+    }
+
     /**
      * Starts logging HTTP requests/responses to specified {@code PrintWriter}.
      *
      * @param output Print writer to print logs to.
      */
-    public static void startHttpLogging(PrintWriter output) {
-        ApiClient client = Configuration.getDefaultApiClient();
-        Builder builder = client.getHttpClient().newBuilder();
+    void startHttpLogging(PrintWriter output) {
+        if (interceptor == null) {
+            Builder builder = client.getHttpClient().newBuilder();
 
-        HttpLoggingInterceptor interceptor = new HttpLoggingInterceptor(output::println);
-        interceptor.setLevel(Level.BASIC);
-        builder.interceptors().add(interceptor);
+            interceptor = new HttpLoggingInterceptor(output::println);
+            interceptor.setLevel(Level.BASIC);
+            builder.interceptors().add(interceptor);
 
-        client.setHttpClient(builder.build());
+            client.setHttpClient(builder.build());
+        }
     }
 
     /**
      * Stops logging previously started by {@link HttpLogging#startHttpLogging(PrintWriter)}.
      */
-    public static void stopHttpLogging() {
-        ApiClient client = Configuration.getDefaultApiClient();
-        Builder builder = client.getHttpClient().newBuilder();
+    void stopHttpLogging() {
+        if (interceptor != null) {
+            Builder builder = client.getHttpClient().newBuilder();
 
-        builder.interceptors().clear();
+            builder.interceptors().remove(interceptor);
 
-        client.setHttpClient(builder.build());
+            client.setHttpClient(builder.build());
+        }
     }
 }
