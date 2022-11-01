@@ -24,5 +24,5 @@ import org.apache.ignite.internal.metrics.exporters.configuration.ExporterConfig
  * Empty configuration for {@link TestSimpleExporter}
  */
 @PolymorphicConfigInstance(TestSimpleExporter.EXPORTER_NAME)
-class TestSimpleExporterConfigurationSchema extends ExporterConfigurationSchema {
+public class TestSimpleExporterConfigurationSchema extends ExporterConfigurationSchema {
 }
