@@ -21,6 +21,7 @@ import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryMXBean;
 import java.lang.management.MemoryUsage;
 import java.util.HashMap;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.metrics.LongGauge;
 import org.apache.ignite.internal.metrics.Metric;
 import org.apache.ignite.internal.metrics.MetricSet;
@@ -35,20 +36,11 @@ public class JvmMetricSource implements MetricSource {
     /** Source name. */
     private static final String SOURCE_NAME = "jvm";
 
+    /** Timeout for memory usage stats cache. */
+    private static final long MEMORY_USAGE_CACHE_TIMEOUT = 1000;
+
     /** JVM standard MXBean to provide information about memory usage. */
     private final MemoryMXBean memoryMxBean;
-
-    /** Cache holder for initial amount of heap memory.  */
-    private final long heapInit;
-
-    /** Cache holder for max amount of heap memory.  */
-    private final long heapMax;
-
-    /** Cache holder for initial amount of non-heap memory.  */
-    private final long nonHeapInit;
-
-    /** Cache holder for max amount of non-heap memory.  */
-    private final long nonHeapMax;
 
     /** True, if source is enabled, false otherwise. */
     private boolean enabled;
@@ -60,14 +52,6 @@ public class JvmMetricSource implements MetricSource {
      */
     JvmMetricSource(MemoryMXBean memoryMxBean) {
         this.memoryMxBean = memoryMxBean;
-
-        MemoryUsage heapMemoryUsage = memoryMxBean.getHeapMemoryUsage();
-        heapInit = heapMemoryUsage.getInit();
-        heapMax = heapMemoryUsage.getMax();
-
-        MemoryUsage nonHeapMemoryUsage = memoryMxBean.getHeapMemoryUsage();
-        nonHeapInit = nonHeapMemoryUsage.getInit();
-        nonHeapMax = nonHeapMemoryUsage.getMax();
     }
 
     /**
@@ -75,14 +59,6 @@ public class JvmMetricSource implements MetricSource {
      */
     public JvmMetricSource() {
         memoryMxBean = ManagementFactory.getMemoryMXBean();
-
-        MemoryUsage heapMemoryUsage = memoryMxBean.getHeapMemoryUsage();
-        heapInit = heapMemoryUsage.getInit();
-        heapMax = heapMemoryUsage.getMax();
-
-        MemoryUsage nonHeapMemoryUsage = memoryMxBean.getHeapMemoryUsage();
-        nonHeapInit = nonHeapMemoryUsage.getInit();
-        nonHeapMax = nonHeapMemoryUsage.getMax();
     }
 
     /** {@inheritDoc} */
@@ -96,38 +72,39 @@ public class JvmMetricSource implements MetricSource {
     public synchronized @Nullable MetricSet enable() {
         var metrics = new HashMap<String, Metric>();
 
+        CachedMemoryUsage heapMemoryUsage = new CachedMemoryUsage(memoryMxBean::getHeapMemoryUsage, MEMORY_USAGE_CACHE_TIMEOUT);
         metrics.put("memory.heap.init",
-                new LongGauge("memory.heap.init", "Initial amount of heap memory", () -> heapInit));
+                new LongGauge("memory.heap.init", "Initial amount of heap memory", () -> heapMemoryUsage.get().getInit()));
         metrics.put("memory.heap.used",
                 new LongGauge("memory.heap.used",
                         "Current used amount of heap memory",
-                        () -> memoryMxBean.getHeapMemoryUsage().getUsed()));
+                        () -> heapMemoryUsage.get().getUsed()));
         metrics.put("memory.heap.committed",
                 new LongGauge("memory.heap.committed",
                         "Committed amount of heap memory",
-                        () -> memoryMxBean.getHeapMemoryUsage().getCommitted()));
+                        () -> heapMemoryUsage.get().getCommitted()));
         metrics.put("memory.heap.max",
                 new LongGauge("memory.heap.max",
                         "Maximum amount of heap memory",
-                        () -> heapMax));
+                        () -> heapMemoryUsage.get().getMax()));
 
-
+        CachedMemoryUsage nonHeapMemoryUsage = new CachedMemoryUsage(memoryMxBean::getNonHeapMemoryUsage, MEMORY_USAGE_CACHE_TIMEOUT);
         metrics.put("memory.non-heap.init",
                 new LongGauge("memory.non-heap.init",
                         "Initial amount of non-heap memory",
-                        () -> nonHeapInit));
+                        () -> nonHeapMemoryUsage.get().getInit()));
         metrics.put("memory.non-heap.used",
                 new LongGauge("memory.non-heap.used",
                         "Used amount of non-heap memory",
-                        () -> memoryMxBean.getNonHeapMemoryUsage().getUsed()));
+                        () -> nonHeapMemoryUsage.get().getUsed()));
         metrics.put("memory.non-heap.committed",
                 new LongGauge("memory.non-heap.committed",
                         "Committed amount of non-heap memory",
-                        () -> memoryMxBean.getNonHeapMemoryUsage().getCommitted()));
+                        () -> nonHeapMemoryUsage.get().getCommitted()));
         metrics.put("memory.non-heap.max",
                 new LongGauge("memory.non-heap.max",
                         "Maximum amount of non-heap memory",
-                        () -> nonHeapMax));
+                        () -> nonHeapMemoryUsage.get().getMax()));
 
         enabled = true;
 
@@ -144,5 +121,57 @@ public class JvmMetricSource implements MetricSource {
     @Override
     public synchronized boolean enabled() {
         return enabled;
+    }
+
+    /**
+     * Simple wrapper for memoization memory usage stats.
+     */
+    private static class CachedMemoryUsage {
+        /** Source of memory usage stats. */
+        private final Supplier<MemoryUsage> source;
+
+        /** Timeout of cache in ms. */
+        private final long timeout;
+
+        /** Last update time in ms. */
+        private volatile long lastUpdateTime;
+
+        /** Last received from source value. */
+        private volatile MemoryUsage currentVal;
+
+        /**
+         * Constructor.
+         *
+         * @param source Source of memory usage data.
+         * @param timeout Cache timeout in millis.
+         */
+        private CachedMemoryUsage(Supplier<MemoryUsage> source, long timeout) {
+            this.source = source;
+            this.timeout = timeout;
+
+            update();
+        }
+
+        /**
+         * Returns current cached value.
+         *
+         * @return Current cached value.
+         */
+        private MemoryUsage get() {
+            if ((System.currentTimeMillis() - lastUpdateTime) > timeout) {
+                update();
+            }
+
+            return currentVal;
+        }
+
+        /**
+         * Update cache value and last update time.
+         */
+        private synchronized void update() {
+            currentVal = source.get();
+
+            lastUpdateTime = System.currentTimeMillis();
+        }
     }
 }

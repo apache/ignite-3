@@ -21,6 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.lang.management.MemoryMXBean;
 import java.lang.management.MemoryUsage;
+import java.util.concurrent.locks.LockSupport;
 import javax.management.ObjectName;
 import org.apache.ignite.internal.metrics.LongMetric;
 import org.junit.jupiter.api.Test;
@@ -51,6 +52,11 @@ public class JvmMetricSourceTest {
 
         memoryBean.nonHeapUsed += 1;
         memoryBean.nonHeapCommitted += 1;
+
+        // wait for memory usage cache update
+        while (metricSet.<LongMetric>get("memory.heap.used").value() != memoryBean.heapUsed) {
+            LockSupport.parkNanos(100_000_000);
+        }
 
         assertEquals(memoryBean.heapInit, metricSet.<LongMetric>get("memory.heap.init").value());
         assertEquals(memoryBean.heapUsed, metricSet.<LongMetric>get("memory.heap.used").value());
