@@ -35,6 +35,8 @@ import java.io.OutputStream;
 import java.net.Socket;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
@@ -232,7 +234,7 @@ public class ItClientHandlerTest {
 
         var module = new ClientHandlerModule(mock(QueryProcessor.class), mock(IgniteTablesInternal.class), mock(IgniteTransactions.class),
                 registry, mock(IgniteCompute.class), clusterService, bootstrapFactory, mock(IgniteSql.class),
-                mock(ClusterManagementGroupManager.class));
+                () -> CompletableFuture.completedFuture(UUID.randomUUID()));
 
         module.start();
 

@@ -416,7 +416,7 @@ public class IgniteImpl implements Ignite {
                 clusterSvc,
                 nettyBootstrapFactory,
                 sql,
-                cmgMgr
+                () -> cmgMgr.clusterState().thenApply(s -> s.clusterTag().clusterId())
         );
     }
 

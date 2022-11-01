@@ -29,6 +29,8 @@ import io.netty.channel.ChannelOption;
 import io.netty.util.ReferenceCounted;
 import java.net.BindException;
 import java.net.SocketAddress;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import org.apache.ignite.Ignite;
@@ -168,7 +170,7 @@ public class TestClientHandlerModule implements IgniteComponent {
                                         compute,
                                         clusterService,
                                         mock(IgniteSql.class),
-                                        mock(ClusterManagementGroupManager.class)));
+                                        () -> CompletableFuture.completedFuture(UUID.randomUUID())));
                     }
                 })
                 .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, configuration.connectTimeout());

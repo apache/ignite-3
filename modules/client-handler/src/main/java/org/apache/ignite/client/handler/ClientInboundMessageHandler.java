@@ -30,6 +30,7 @@ import java.util.BitSet;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Supplier;
 import org.apache.ignite.client.handler.configuration.ClientConnectorView;
 import org.apache.ignite.client.handler.requests.cluster.ClientClusterGetNodesRequest;
 import org.apache.ignite.client.handler.requests.compute.ClientComputeExecuteColocatedRequest;
@@ -129,8 +130,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
     /** SQL query cursor handler. */
     private final JdbcQueryCursorHandler jdbcQueryCursorHandler;
 
-    /** Cluster manager. */
-    private final ClusterManagementGroupManager cmgMgr;
+    /** Cluster ID supplier. */
+    private final Supplier<CompletableFuture<UUID>> clusterIdSupplier;
 
     /** Context. */
     private ClientContext clientContext;
@@ -147,6 +148,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
      * @param configuration      Configuration.
      * @param compute            Compute.
      * @param clusterService     Cluster.
+     * @param sql                SQL.
+     * @param clusterIdSupplier  Cluster ID supplier.
      */
     public ClientInboundMessageHandler(
             IgniteTablesInternal igniteTables,
@@ -156,7 +159,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
             IgniteCompute compute,
             ClusterService clusterService,
             IgniteSql sql,
-            ClusterManagementGroupManager cmgMgr) {
+            Supplier<CompletableFuture<UUID>> clusterIdSupplier) {
         assert igniteTables != null;
         assert igniteTransactions != null;
         assert processor != null;
@@ -164,7 +167,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
         assert compute != null;
         assert clusterService != null;
         assert sql != null;
-        assert cmgMgr != null;
+        assert clusterIdSupplier != null;
 
         this.igniteTables = igniteTables;
         this.igniteTransactions = igniteTransactions;
@@ -172,7 +175,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
         this.compute = compute;
         this.clusterService = clusterService;
         this.sql = sql;
-        this.cmgMgr = cmgMgr;
+        this.clusterIdSupplier = clusterIdSupplier;
 
         jdbcQueryEventHandler = new JdbcQueryEventHandlerImpl(processor, new JdbcMetadataCatalog(igniteTables), resources);
         jdbcQueryCursorHandler = new JdbcQueryCursorHandlerImpl(resources);
@@ -236,8 +239,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
             packer.packString(localMember.id());
             packer.packString(localMember.name());
 
-            // TODO Non-blocking wait?
-            UUID clusterId = cmgMgr.clusterState().join().clusterTag().clusterId();
+            // TODO Non-blocking wait and/or caching of the cluster id.
+            UUID clusterId = clusterIdSupplier.get().join();
             packer.packUuid(clusterId);
 
             packer.packBinaryHeader(0); // Features.
