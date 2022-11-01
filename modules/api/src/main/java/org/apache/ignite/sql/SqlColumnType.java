@@ -124,7 +124,7 @@ public enum SqlColumnType {
                 return BigDecimal.class;
 
             case UUID:
-                return java.util.UUID.class;
+                return UUID.class;
 
             case STRING:
                 return String.class;
