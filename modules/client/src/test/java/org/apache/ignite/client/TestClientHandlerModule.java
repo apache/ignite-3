@@ -149,6 +149,7 @@ public class TestClientHandlerModule implements IgniteComponent {
 
         int desiredPort = configuration.port();
         int portRange = configuration.portRange();
+        UUID clusterId = UUID.randomUUID();
 
         Channel ch = null;
 
@@ -170,7 +171,7 @@ public class TestClientHandlerModule implements IgniteComponent {
                                         compute,
                                         clusterService,
                                         mock(IgniteSql.class),
-                                        () -> CompletableFuture.completedFuture(UUID.randomUUID())));
+                                        clusterId));
                     }
                 })
                 .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, configuration.connectTimeout());
