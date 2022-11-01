@@ -298,15 +298,16 @@ namespace Apache.Ignite.Internal
             var idleTimeoutMs = reader.ReadInt64();
             var clusterNodeId = reader.ReadString();
             var clusterNodeName = reader.ReadString();
+            var clusterId = reader.ReadGuid();
 
-            reader.Skip(); // Cluster ID. TODO IGNITE-18046.
             reader.Skip(); // Features.
             reader.Skip(); // Extensions.
 
             return new ConnectionContext(
                 serverVer,
                 TimeSpan.FromMilliseconds(idleTimeoutMs),
-                new ClusterNode(clusterNodeId, clusterNodeName, endPoint));
+                new ClusterNode(clusterNodeId, clusterNodeName, endPoint),
+                clusterId);
         }
 
         private static IgniteException? ReadError(ref MessagePackReader reader)

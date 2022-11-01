@@ -69,6 +69,9 @@ namespace Apache.Ignite.Internal
          * the table will compare its version with channel version to detect an update. */
         private int _assignmentVersion;
 
+        /** Cluster id from the first handshake. */
+        private Guid? _clusterId;
+
         /// <summary>
         /// Initializes a new instance of the <see cref="ClientFailoverSocket"/> class.
         /// </summary>
@@ -400,6 +403,17 @@ namespace Apache.Ignite.Internal
             }
 
             var socket = await ClientSocket.ConnectAsync(endpoint.EndPoint, Configuration, OnAssignmentChanged).ConfigureAwait(false);
+
+            // We are under _socketLock here.
+            if (_clusterId == null)
+            {
+                _clusterId = socket.ConnectionContext.ClusterId;
+            }
+            else if (_clusterId != socket.ConnectionContext.ClusterId)
+            {
+                socket.Dispose();
+                throw new IgniteClientConnectionException(ErrorGroups.Client.ClusterIdMismatch, "TODO");
+            }
 
             endpoint.Socket = socket;
 

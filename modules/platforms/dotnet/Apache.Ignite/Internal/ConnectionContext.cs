@@ -26,5 +26,6 @@ namespace Apache.Ignite.Internal
     /// <param name="Version">Protocol version.</param>
     /// <param name="IdleTimeout">Server idle timeout.</param>
     /// <param name="ClusterNode">Cluster node.</param>
-    internal record ConnectionContext(ClientProtocolVersion Version, TimeSpan IdleTimeout, IClusterNode ClusterNode);
+    /// <param name="ClusterId">Cluster id.</param>
+    internal record ConnectionContext(ClientProtocolVersion Version, TimeSpan IdleTimeout, IClusterNode ClusterNode, Guid ClusterId);
 }
