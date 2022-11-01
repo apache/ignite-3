@@ -105,8 +105,8 @@ public interface FlowBuilder<I, O>  {
     /**
      * Adds verbose output from debug log to the output.
      *
-     * @param verbose if @{code true}, flow execution will print debug logs
-     * @return instance of builder
+     * @param verbose If @{code true}, flow execution will print debug logs.
+     * @return Builder instance.
      */
     FlowBuilder<I, O> verbose(boolean verbose);
 
