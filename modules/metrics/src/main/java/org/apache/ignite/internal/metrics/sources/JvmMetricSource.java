@@ -19,6 +19,7 @@ package org.apache.ignite.internal.metrics.sources;
 
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryMXBean;
+import java.lang.management.MemoryUsage;
 import java.util.HashMap;
 import org.apache.ignite.internal.metrics.LongGauge;
 import org.apache.ignite.internal.metrics.Metric;
@@ -60,11 +61,13 @@ public class JvmMetricSource implements MetricSource {
     JvmMetricSource(MemoryMXBean memoryMxBean) {
         this.memoryMxBean = memoryMxBean;
 
-        heapInit = memoryMxBean.getHeapMemoryUsage().getInit();
-        heapMax = memoryMxBean.getHeapMemoryUsage().getMax();
+        MemoryUsage heapMemoryUsage = memoryMxBean.getHeapMemoryUsage();
+        heapInit = heapMemoryUsage.getInit();
+        heapMax = heapMemoryUsage.getMax();
 
-        nonHeapInit = memoryMxBean.getNonHeapMemoryUsage().getInit();
-        nonHeapMax = memoryMxBean.getNonHeapMemoryUsage().getMax();
+        MemoryUsage nonHeapMemoryUsage = memoryMxBean.getHeapMemoryUsage();
+        nonHeapInit = nonHeapMemoryUsage.getInit();
+        nonHeapMax = nonHeapMemoryUsage.getMax();
     }
 
     /**
@@ -73,11 +76,13 @@ public class JvmMetricSource implements MetricSource {
     public JvmMetricSource() {
         memoryMxBean = ManagementFactory.getMemoryMXBean();
 
-        heapInit = memoryMxBean.getHeapMemoryUsage().getInit();
-        heapMax = memoryMxBean.getHeapMemoryUsage().getMax();
+        MemoryUsage heapMemoryUsage = memoryMxBean.getHeapMemoryUsage();
+        heapInit = heapMemoryUsage.getInit();
+        heapMax = heapMemoryUsage.getMax();
 
-        nonHeapInit = memoryMxBean.getNonHeapMemoryUsage().getInit();
-        nonHeapMax = memoryMxBean.getNonHeapMemoryUsage().getMax();
+        MemoryUsage nonHeapMemoryUsage = memoryMxBean.getHeapMemoryUsage();
+        nonHeapInit = nonHeapMemoryUsage.getInit();
+        nonHeapMax = nonHeapMemoryUsage.getMax();
     }
 
     /** {@inheritDoc} */

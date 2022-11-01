@@ -31,7 +31,7 @@ public class TestSimpleExporter extends BasicMetricExporter<TestSimpleExporterVi
     static final String EXPORTER_NAME = "simple";
 
     /**
-     * Receives all metrics as map (sourceName -> [(metricName -> metricValue), ...]).
+     * Returns all metrics as map (sourceName -> [(metricName -> metricValue), ...]).
      *
      * @return All available metrics.
      */
