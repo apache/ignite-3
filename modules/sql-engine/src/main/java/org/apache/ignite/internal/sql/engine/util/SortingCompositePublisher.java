@@ -160,7 +160,7 @@ public class SortingCompositePublisher<T> extends CompositePublisher<T> {
         @Override
         public synchronized void onSubscriptionComplete(int subscribeId) {
             if (finished.add(subscribeId) && finishedCnt.incrementAndGet() == subscribers.size()) {
-                // It could be a completely dummy request (no data),in which case
+                // It could be a completely dummy request (no data), in which case
                 // the wait-set must be also updated.
                 waitResponse.remove(subscribeId);
 

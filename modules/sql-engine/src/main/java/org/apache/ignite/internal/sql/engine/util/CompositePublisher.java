@@ -160,7 +160,7 @@ public class CompositePublisher<T> implements Flow.Publisher<T> {
      * Sequentially receives data from each registered subscription
      * until the total number of requested items has been received.
      */
-    public static class SequentialSubscriptionStrategy<T> extends AbstractCompositeSubscriptionStrategy<T> {
+    private static class SequentialSubscriptionStrategy<T> extends AbstractCompositeSubscriptionStrategy<T> {
         /** Current subscription index. */
         int subscriptionIdx = 0;
 
