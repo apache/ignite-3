@@ -143,7 +143,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
             for (var index = 0; index < count; index++)
             {
                 var col = columns[index];
-                var fieldInfo = type.GetFieldIgnoreCase(col.Name);
+                var fieldInfo = type.GetFieldByColumnName(col.Name);
 
                 if (fieldInfo == null)
                 {
@@ -211,7 +211,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 }
                 else
                 {
-                    fieldInfo = (col.IsKey ? keyType : valType).GetFieldIgnoreCase(col.Name);
+                    fieldInfo = (col.IsKey ? keyType : valType).GetFieldByColumnName(col.Name);
                 }
 
                 if (fieldInfo == null)
@@ -296,7 +296,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
             for (var i = 0; i < count; i++)
             {
                 var col = columns[i];
-                var fieldInfo = type.GetFieldIgnoreCase(col.Name);
+                var fieldInfo = type.GetFieldByColumnName(col.Name);
 
                 EmitFieldRead(fieldInfo, il, col, i, local);
             }
@@ -345,7 +345,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
                     local = col.IsKey ? keyLocal : valLocal;
                     fieldInfo = local == null
                         ? null
-                        : (col.IsKey ? keyType : valType).GetFieldIgnoreCase(col.Name);
+                        : (col.IsKey ? keyType : valType).GetFieldByColumnName(col.Name);
                 }
 
                 EmitFieldRead(fieldInfo, il, col, i, local);
@@ -403,7 +403,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
             for (var i = 0; i < columns.Count; i++)
             {
                 var col = columns[i];
-                var fieldInfo = type.GetFieldIgnoreCase(col.Name);
+                var fieldInfo = type.GetFieldByColumnName(col.Name);
 
                 if (col.IsKey)
                 {
@@ -456,7 +456,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 for (var i = schema.KeyColumnCount; i < columns.Count; i++)
                 {
                     var col = columns[i];
-                    var fieldInfo = valType.GetFieldIgnoreCase(col.Name);
+                    var fieldInfo = valType.GetFieldByColumnName(col.Name);
 
                     EmitFieldRead(fieldInfo, il, col, i - schema.KeyColumnCount, valLocal);
                 }
@@ -612,7 +612,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
             var keyValTypes = type.GetGenericArguments();
 
-            return (keyValTypes[0], keyValTypes[1], type.GetFieldIgnoreCase("Key")!, type.GetFieldIgnoreCase("Val")!);
+            return (keyValTypes[0], keyValTypes[1], type.GetFieldByColumnName("Key")!, type.GetFieldByColumnName("Val")!);
         }
     }
 }

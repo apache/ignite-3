@@ -817,7 +817,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         txTimestampUpdateMap.put(txId, fut);
 
-        HybridTimestamp commitTimestamp = hybridClock.now();
+        HybridTimestamp commitTimestamp =  commit ? hybridClock.now() : null;
 
         CompletableFuture<Object> changeStateFuture = raftClient.run(
                 new FinishTxCommand(

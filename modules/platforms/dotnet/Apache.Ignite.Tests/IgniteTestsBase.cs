@@ -79,7 +79,15 @@ namespace Apache.Ignite.Tests
             Client?.Dispose();
 
             Assert.Greater(_eventListener.BuffersRented, 0);
-            Assert.AreEqual(_eventListener.BuffersReturned, _eventListener.BuffersRented);
+
+            // Use WaitForCondition to check rented/returned buffers equality:
+            // Buffer pools are used by everything, including testing framework, internal .NET needs, etc.
+            var listener = _eventListener;
+            TestUtils.WaitForCondition(
+                condition: () => listener.BuffersReturned == listener.BuffersRented,
+                timeoutMs: 1000,
+                messageFactory: () => $"rented = {listener.BuffersRented}, returned = {listener.BuffersReturned}");
+
             _eventListener.Dispose();
         }
 

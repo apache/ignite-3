@@ -19,7 +19,6 @@ package org.apache.ignite.internal.storage;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.BiConsumer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.util.Cursor;
@@ -198,14 +197,4 @@ public interface MvPartitionStorage extends AutoCloseable {
      */
     @Deprecated
     long rowsCount() throws StorageException;
-
-    /**
-     * Iterates over all versions of all entries, except for tombstones.
-     *
-     * @param consumer Closure to process entries.
-     * @deprecated This method was born out of desperation and isn't well-designed. Implementation is not polished either. Currently, it's
-     *      only usage is to work-around in-memory PK index rebuild on node restart, which shouldn't even exist in the first place.
-     */
-    @Deprecated
-    void forEach(BiConsumer<RowId, BinaryRow> consumer);
 }
