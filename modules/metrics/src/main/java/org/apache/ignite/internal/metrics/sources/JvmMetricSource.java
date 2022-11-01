@@ -167,8 +167,10 @@ public class JvmMetricSource implements MetricSource {
 
         /**
          * Update cache value and last update time.
+         * Current value and last updates can be updated without atomic requirement,
+         * it will produce redundant update in rare cases, but it's not an issue for metric flow.
          */
-        private synchronized void update() {
+        private void update() {
             currentVal = source.get();
 
             lastUpdateTime = System.currentTimeMillis();
