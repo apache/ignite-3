@@ -42,7 +42,7 @@ public interface JRaftServiceFactory {
      *
      * @param uri The snapshot storage uri from {@link NodeOptions#getSnapshotUri()}
      * @param raftOptions the raft options.
-     * @param logManager the log manager.
+     * @param logManager JRaft's LogManager.
      * @return storage to store state machine snapshot.
      */
     SnapshotStorage createSnapshotStorage(final String uri, final RaftOptions raftOptions, LogManager logManager);
