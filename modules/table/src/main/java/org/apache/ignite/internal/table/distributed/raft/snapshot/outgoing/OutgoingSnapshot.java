@@ -239,6 +239,8 @@ public class OutgoingSnapshot {
             long totalBytesBefore,
             SnapshotMvDataRequest request
     ) {
+        assert mvOperationsLock.isLocked() : "MV operations lock must be acquired!";
+
         long totalBytesAfter = totalBytesBefore;
 
         while (totalBytesAfter < request.batchSizeHint()) {
