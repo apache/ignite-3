@@ -38,10 +38,10 @@ public class TestSimpleExporter extends BasicMetricExporter<TestSimpleExporterVi
     Map<String, Map<String, String>> pull() {
         Map<String, Map<String, String>> results = new HashMap<>();
 
-        for (MetricSet metricSet: metrics().get1().values()) {
+        for (MetricSet metricSet : metrics().get1().values()) {
             Map<String, String> metricSetMetrics = new HashMap<>();
 
-            for (Metric metric: metricSet) {
+            for (Metric metric : metricSet) {
                 metricSetMetrics.put(metric.name(), metric.getValueAsString());
             }
 
