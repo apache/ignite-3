@@ -60,8 +60,4 @@ public class SnapshotMetaUtils {
     private static Collection<String> peersToStrings(List<PeerId> peers) {
         return peers.stream().map(PeerId::toString).collect(toList());
     }
-
-    private SnapshotMetaUtils() {
-        // Prevent instantiation.
-    }
 }
