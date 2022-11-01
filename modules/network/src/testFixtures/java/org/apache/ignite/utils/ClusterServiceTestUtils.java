@@ -44,6 +44,7 @@ import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NodeFinder;
+import org.apache.ignite.network.NodeMetadata;
 import org.apache.ignite.network.StaticNodeFinder;
 import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
@@ -150,6 +151,9 @@ public class ClusterServiceTestUtils {
             public boolean isStopped() {
                 return clusterSvc.isStopped();
             }
+
+            @Override
+            public void updateMetadata(NodeMetadata metadata) {}
 
             @Override
             public void start() {

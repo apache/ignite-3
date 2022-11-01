@@ -18,6 +18,7 @@
 package org.apache.ignite.network.scalecube;
 
 import static io.scalecube.cluster.membership.MembershipEvent.createAdded;
+import static io.scalecube.cluster.membership.MembershipEvent.createUpdated;
 
 import io.scalecube.cluster.ClusterConfig;
 import io.scalecube.cluster.ClusterImpl;
@@ -201,6 +202,17 @@ public class ScaleCubeClusterServiceFactory {
             @Override
             public boolean isStopped() {
                 return shutdownFuture.isDone();
+            }
+
+            @Override
+            public void updateMetadata(NodeMetadata metadata) {
+                cluster.updateMetadata(metadata).block();
+                MembershipEvent membershipEvent = createUpdated(cluster.member(),
+                        cluster.<NodeMetadata>metadata().map(METADATA_CODEC::serialize).orElse(null),
+                        METADATA_CODEC.serialize(metadata),
+                        System.currentTimeMillis()
+                );
+                topologyService.onMembershipEvent(membershipEvent);
             }
         };
     }

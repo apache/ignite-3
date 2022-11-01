@@ -30,7 +30,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /** Tests for ignite node commands with a provided node name. */
-public class NodeNameTest extends CliCommandTestNotInitializedIntegrationBase {
+public class NodeNameTest extends CliCommandTestInitializedIntegrationBase {
 
     @Inject
     NodeNameRegistry nodeNameRegistry;

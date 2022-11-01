@@ -80,6 +80,8 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
             LOG.info("Node joined [node={}]", member);
 
             fireAppearedEvent(member);
+        } else if (event.isUpdated()) {
+            members.put(member.address(), member);
         } else if (event.isRemoved()) {
             members.compute(member.address(), (addr, node) -> {
                 // Ignore stale remove event.
