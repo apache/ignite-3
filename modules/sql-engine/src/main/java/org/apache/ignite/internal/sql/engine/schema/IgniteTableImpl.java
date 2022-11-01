@@ -511,7 +511,7 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
 
             // Forbid zero result, to prevent zero cost for table and index scans because cost is defined as multiplication of row count
             // by selectivity.
-            return (localRowCnt == 0L) ? null : (double) localRowCnt;
+            return (localRowCnt == 0L) ? 10_000L : (double) localRowCnt;
         }
 
         /** {@inheritDoc} */

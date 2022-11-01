@@ -73,6 +73,7 @@ public abstract class LogicalScanConverterRule<T extends ProjectableFilterableTa
 
                     RelDistribution distribution = table.distribution();
                     RelCollation collation = TraitUtils.createCollation(index.columns(), index.collations(), table.descriptor());
+                    RelCollation outputCollation = collation;
 
                     if (rel.projects() != null || rel.requiredColumns() != null) {
                         Mappings.TargetMapping mapping = createMapping(
@@ -82,7 +83,7 @@ public abstract class LogicalScanConverterRule<T extends ProjectableFilterableTa
                         );
 
                         distribution = distribution.apply(mapping);
-                        collation = collation.apply(mapping);
+                        outputCollation = collation.apply(mapping);
                     }
 
                     Set<CorrelationId> corrIds = RexUtils.extractCorrelationIds(rel.condition());
@@ -94,7 +95,7 @@ public abstract class LogicalScanConverterRule<T extends ProjectableFilterableTa
                     RelTraitSet traits = rel.getCluster().traitSetOf(IgniteConvention.INSTANCE)
                             .replace(RewindabilityTrait.REWINDABLE)
                             .replace(distribution)
-                            .replace(collation)
+                            .replace(outputCollation)
                             .replace(corrIds.isEmpty() ? CorrelationTrait.UNCORRELATED : CorrelationTrait.correlations(corrIds));
 
                     return new IgniteIndexScan(
@@ -103,6 +104,7 @@ public abstract class LogicalScanConverterRule<T extends ProjectableFilterableTa
                         rel.getTable(),
                         rel.indexName(),
                         index.type(),
+                        collation,
                         rel.projects(),
                         rel.condition(),
                         rel.searchBounds(),

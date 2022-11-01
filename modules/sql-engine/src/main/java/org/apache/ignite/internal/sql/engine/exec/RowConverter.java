@@ -17,9 +17,10 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
+import java.util.stream.IntStream;
+import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTuplePrefixBuilder;
-import org.apache.ignite.internal.index.IndexDescriptor;
 import org.apache.ignite.internal.schema.BinaryConverter;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
@@ -35,9 +36,9 @@ public final class RowConverter {
     /**
      * Creates binary tuple schema for index rows.
      */
-    public static BinaryTupleSchema createIndexRowSchema(TableDescriptor tableDescriptor, IndexDescriptor indexDescriptor) {
-        Element[] elements = indexDescriptor.columns().stream()
-                .map(colName -> tableDescriptor.columnDescriptor(colName))
+    public static BinaryTupleSchema createIndexRowSchema(TableDescriptor tableDescriptor, ImmutableIntList idxColumnMapping) {
+        Element[] elements = IntStream.of(idxColumnMapping.toIntArray())
+                .mapToObj(tableDescriptor::columnDescriptor)
                 .map(colDesc -> new Element(colDesc.physicalType(), colDesc.nullable()))
                 .toArray(Element[]::new);
 
@@ -57,16 +58,26 @@ public final class RowConverter {
     public static <RowT> BinaryTuple toBinaryTuplePrefix(
             ExecutionContext<RowT> ectx,
             BinaryTupleSchema binarySchema,
+            ImmutableIntList idxColumnMapper,
             RowHandler.RowFactory<RowT> factory,
             RowT searchRow
     ) {
         RowHandler<RowT> handler = factory.handler();
 
-        int prefixColumnsCount = handler.columnCount(searchRow);
-        int totalColumnsCount = binarySchema.elementCount();
-        BinaryTupleBuilder tupleBuilder = new BinaryTuplePrefixBuilder(prefixColumnsCount, totalColumnsCount);
+        int prefixColumnsCount = binarySchema.elementCount();
 
-        return toBinaryTuple(ectx, binarySchema, handler, tupleBuilder, searchRow);
+        //TODO: create ticket. Make SearchRow conpatible with index row.
+//        assert binarySchema.elementCount() >= handler.columnCount(searchRow) : "Invalid lookup condition";
+
+        //TODO: avoid strems here
+        int specifiedCols = (int)IntStream.range(0, handler.columnCount(searchRow))
+                .mapToObj(i -> handler.get(i, searchRow))
+                .filter(o -> o != ectx.unspecifiedValue())
+                .count();
+
+        BinaryTuplePrefixBuilder tupleBuilder = new BinaryTuplePrefixBuilder(specifiedCols, prefixColumnsCount);
+
+        return toBinaryTuple(ectx, binarySchema, idxColumnMapper, handler, tupleBuilder, searchRow);
     }
 
     /**
@@ -82,32 +93,36 @@ public final class RowConverter {
     public static <RowT> BinaryTuple toBinaryTuple(
             ExecutionContext<RowT> ectx,
             BinaryTupleSchema binarySchema,
+            ImmutableIntList idxColumnMapper,
             RowHandler.RowFactory<RowT> factory,
             RowT searchRow
     ) {
         RowHandler<RowT> handler = factory.handler();
 
-        int prefixColumnsCount = handler.columnCount(searchRow);
-        int totalColumnsCount = binarySchema.elementCount();
+        int prefixColumnsCount = binarySchema.elementCount();
 
-        assert prefixColumnsCount == totalColumnsCount : "Invalid lookup condition";
+        //TODO: create ticket. Make SearchRow conpatible with index row.
+//        assert prefixColumnsCount == handler.columnCount(searchRow) : "Invalid lookup condition";
 
         BinaryTupleBuilder tupleBuilder = new BinaryTupleBuilder(prefixColumnsCount, binarySchema.hasNullableElements());
 
-        return toBinaryTuple(ectx, binarySchema, handler, tupleBuilder, searchRow);
+        return toBinaryTuple(ectx, binarySchema, idxColumnMapper, handler, tupleBuilder, searchRow);
     }
 
     private static <RowT> BinaryTuple toBinaryTuple(
             ExecutionContext<RowT> ectx,
             BinaryTupleSchema binarySchema,
+            ImmutableIntList idxColumnMapper,
             RowHandler<RowT> handler,
             BinaryTupleBuilder tupleBuilder,
             RowT searchRow
     ) {
-        int prefixColumnsCount = handler.columnCount(searchRow);
+        for (int i = 0; i < tupleBuilder.numElements(); i++) {
+            Object val = handler.get(idxColumnMapper.get(i), searchRow);
 
-        for (int i = 0; i < prefixColumnsCount; i++) {
-            Object val = handler.get(i, searchRow);
+            if (val == ectx.unspecifiedValue()) {
+                break;
+            }
 
             Element element = binarySchema.element(i);
 

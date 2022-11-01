@@ -437,8 +437,12 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         for (var columnName : indexView.columns().namedListKeys()) {
             IndexColumnView columnView = indexView.columns().get(columnName);
 
+            //TODO: link to ticket
+            // NULLS FIRST for ASC, NULLS LAST for DESC by default.
+            boolean nullsFirst = !columnView.asc();
+
             indexedColumns.add(columnName);
-            collations.add(ColumnCollation.get(columnView.asc(), false));
+            collations.add(ColumnCollation.get(columnView.asc(), nullsFirst));
         }
 
         return new SortedIndexDescriptor(

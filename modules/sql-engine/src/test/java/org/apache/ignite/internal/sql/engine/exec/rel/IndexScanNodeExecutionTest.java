@@ -28,6 +28,7 @@ import java.util.concurrent.Flow.Subscription;
 import java.util.stream.IntStream;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory.Builder;
+import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.index.ColumnCollation;
 import org.apache.ignite.internal.index.Index;
@@ -44,6 +45,7 @@ import org.apache.ignite.internal.sql.engine.exec.exp.RangeCondition;
 import org.apache.ignite.internal.sql.engine.exec.exp.RangeIterable;
 import org.apache.ignite.internal.sql.engine.planner.AbstractPlannerTest;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
+import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Collation;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
@@ -289,11 +291,18 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
             Mockito.doAnswer(inv -> List.of(range).iterator()).when(rangeIterable).iterator();
         }
 
+        ImmutableIntList idxColMapping = ImmutableIntList.of(index.collations().stream()
+                .map(Collation::name)
+                .map(schemaDescriptor::column)
+                .mapToInt(Column::schemaIndex)
+                .toArray());
+
         IndexScanNode<Object[]> scanNode = new IndexScanNode<>(
                 ectx,
                 rowType,
                 index,
                 new TestTable(rowType),
+                idxColMapping,
                 new int[]{0, 2},
                 rangeIterable,
                 null,

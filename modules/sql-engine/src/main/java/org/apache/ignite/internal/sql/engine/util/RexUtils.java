@@ -220,7 +220,7 @@ public class RexUtils {
             ImmutableBitSet requiredColumns
     ) {
         if (condition == null) {
-            return List.of();
+            return null;
         }
 
         condition = RexUtil.toCnf(builder(cluster), condition);
@@ -228,7 +228,7 @@ public class RexUtils {
         Int2ObjectMap<List<RexCall>> fieldsToPredicates = mapPredicatesToFields(condition, cluster);
 
         if (nullOrEmpty(fieldsToPredicates)) {
-            return List.of();
+            return null;
         }
 
         // Force collation for all fields of the condition.
@@ -296,7 +296,7 @@ public class RexUtils {
             }
         }
 
-        return boundsEmpty ? List.of() : bounds;
+        return boundsEmpty ? null : bounds;
     }
 
     /**
@@ -310,7 +310,7 @@ public class RexUtils {
             ImmutableBitSet requiredColumns
     ) {
         if (condition == null) {
-            return List.of();
+            return null;
         }
 
         condition = RexUtil.toCnf(builder(cluster), condition);
@@ -318,7 +318,7 @@ public class RexUtils {
         Int2ObjectMap<List<RexCall>> fieldsToPredicates = mapPredicatesToFields(condition, cluster);
 
         if (nullOrEmpty(fieldsToPredicates)) {
-            return List.of();
+            return null;
         }
 
         List<SearchBounds> bounds = Arrays.asList(new SearchBounds[rowType.getFieldCount()]);
@@ -332,7 +332,7 @@ public class RexUtils {
             RelDataTypeField field = rowType.getField(columnName, true, false);
 
             if (field == null) {
-                return List.of();
+                return null;
             }
 
             int collFldIdx = toTrimmedRowMapping == null ? field.getIndex() : toTrimmedRowMapping.getTargetOpt(field.getIndex());
@@ -340,7 +340,7 @@ public class RexUtils {
             List<RexCall> collFldPreds = fieldsToPredicates.get(collFldIdx);
 
             if (nullOrEmpty(collFldPreds)) {
-                return List.of(); // Hash index can't be applied to partial condition.
+                return null; // Hash index can't be applied to partial condition.
             }
 
             RexCall columnPred = collFldPreds.stream()
@@ -348,7 +348,7 @@ public class RexUtils {
                     .findAny().orElse(null);
 
             if (columnPred == null) {
-                return List.of();
+                return null;
             }
 
             bounds.set(collFldIdx, createBounds(null, Collections.singletonList(columnPred), cluster, field.getType(), 1));
@@ -370,7 +370,7 @@ public class RexUtils {
         Int2ObjectMap<List<RexCall>> fieldsToPredicates = mapPredicatesToFields(condition, cluster);
 
         if (nullOrEmpty(fieldsToPredicates)) {
-            return List.of();
+            return null;
         }
 
         List<RexNode> searchPreds = null;
@@ -382,7 +382,7 @@ public class RexUtils {
 
             for (RexCall pred : collFldPreds) {
                 if (pred.getOperator().kind != SqlKind.EQUALS) {
-                    return List.of();
+                    return null;
                 }
 
                 if (searchPreds == null) {
@@ -394,7 +394,7 @@ public class RexUtils {
         }
 
         if (searchPreds == null) {
-            return List.of();
+            return null;
         }
 
         return asBound(cluster, searchPreds, rowType, null);
@@ -498,6 +498,10 @@ public class RexUtils {
                         }
                     }
                     // fallthrough.
+
+                    //TODO: Create ticket.
+                    // Storage doesn't support 'null' in bounds.
+                    break;
 
                 case IS_NOT_NULL:
                     if (fc.nullDirection == RelFieldCollation.NullDirection.FIRST && lowerBound == null) {

@@ -1202,19 +1202,19 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
         /** {@inheritDoc} */
         @Override
-        public Publisher<BinaryTuple> scan(int partId, InternalTransaction tx, BinaryTuple key, BitSet columns) {
+        public Publisher<BinaryRow> scan(int partId, InternalTransaction tx, BinaryTuple key, BitSet columns) {
             throw new AssertionError("Should not be called");
         }
 
         /** {@inheritDoc} */
         @Override
-        public Publisher<BinaryTuple> scan(int partId, InternalTransaction tx, BinaryTuple left, BinaryTuple right, BitSet columns) {
+        public Publisher<BinaryRow> scan(int partId, InternalTransaction tx, BinaryTuple left, BinaryTuple right, BitSet columns) {
             throw new AssertionError("Should not be called");
         }
 
         /** {@inheritDoc} */
         @Override
-        public Publisher<BinaryTuple> scan(int partId, InternalTransaction tx,
+        public Publisher<BinaryRow> scan(int partId, InternalTransaction tx,
                 @Nullable BinaryTuple leftBound, @Nullable BinaryTuple rightBound, int flags, BitSet columnsToInclude) {
             throw new AssertionError("Should not be called");
         }
@@ -1263,7 +1263,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
         /** {@inheritDoc} */
         @Override
-        public Publisher<BinaryTuple> scan(int partId, InternalTransaction tx, BinaryTuple key, BitSet columns) {
+        public Publisher<BinaryRow> scan(int partId, InternalTransaction tx, BinaryTuple key, BitSet columns) {
             throw new AssertionError("Should not be called");
         }
     }

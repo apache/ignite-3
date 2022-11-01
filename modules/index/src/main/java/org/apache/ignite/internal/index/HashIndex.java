@@ -81,17 +81,7 @@ public class HashIndex implements Index<IndexDescriptor> {
 
     /** {@inheritDoc} */
     @Override
-    public Publisher<BinaryTuple> scan(int partId, InternalTransaction tx, BinaryTuple key, BitSet columns) {
-        return new PublisherAdapter<>(
-                table.scan(partId, tx, id, key, columns),
-                this::convertToTuple
-        );
-    }
-
-    // TODO: fix row conversion, apply projection, upgrade row version if needed.
-    private BinaryTuple convertToTuple(BinaryRow row) {
-        SchemaDescriptor schemaDesc = schemaRegistry.schema(row.schemaVersion());
-
-        return BinaryConverter.forRow(schemaDesc).toTuple(row);
+    public Publisher<BinaryRow> scan(int partId, InternalTransaction tx, BinaryTuple key, BitSet columns) {
+        return table.scan(partId, tx, id, key, columns);
     }
 }

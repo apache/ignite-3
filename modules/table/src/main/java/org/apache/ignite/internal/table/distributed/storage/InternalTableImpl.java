@@ -852,7 +852,7 @@ public class InternalTableImpl implements InternalTable {
     public Publisher<BinaryRow> scan(
             int partId,
             @Nullable InternalTransaction tx,
-            @NotNull UUID indexId,
+            @Nullable UUID indexId,
             @Nullable BinaryTuple lowerBound,
             @Nullable BinaryTuple upperBound,
             int flags,

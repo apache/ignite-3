@@ -31,6 +31,7 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import org.apache.calcite.rel.RelCollation;
+import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.Intersect;
 import org.apache.calcite.rel.core.JoinRelType;
@@ -100,6 +101,7 @@ import org.apache.ignite.internal.sql.engine.rel.agg.IgniteSingleHashAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteSingleSortAggregate;
 import org.apache.ignite.internal.sql.engine.rel.set.IgniteSetOp;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
+import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.schema.InternalIgniteTable;
 import org.apache.ignite.internal.sql.engine.trait.Destination;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
@@ -292,16 +294,25 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
         ImmutableBitSet requiredColumns = rel.requiredColumns();
         RelDataType rowType = tbl.getRowType(typeFactory, requiredColumns);
 
+        IgniteIndex idx = tbl.getIndex(rel.indexName());
+
         List<SearchBounds> searchBounds = rel.searchBounds();
         RexNode condition = rel.condition();
         List<RexNode> projects = rel.projects();
 
         Predicate<RowT> filters = condition == null ? null : expressionFactory.predicate(condition, rowType);
         Function<RowT, RowT> prj = projects == null ? null : expressionFactory.project(projects, rowType);
-        RangeIterable<RowT> ranges = searchBounds == null ? null :
-                expressionFactory.ranges(searchBounds, rel.collation(), tbl.getRowType(typeFactory));
 
-        IgniteIndex idx = tbl.getIndex(rel.indexName());
+        RelCollation collation = rel.collation();
+
+        if (collation == RelCollations.EMPTY && idx.type() == Type.HASH) {
+            collation = RelCollations.of(0); // TODO: fix to key fields
+        }
+
+        // TODO: tbl.rowType -> idx.rowType
+        RangeIterable<RowT> ranges = searchBounds == null ? null :
+                expressionFactory.ranges(searchBounds, collation, tbl.getRowType(typeFactory));
+
         ColocationGroup group = ctx.group(rel.sourceId());
 
         if (!group.nodeIds().contains(ctx.localNode().id())) {
@@ -313,11 +324,12 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
                 rowType,
                 idx,
                 tbl,
+                collation.getKeys(),
                 group.partitions(ctx.localNode().id()),
                 ranges,
                 filters,
                 prj,
-                requiredColumns.toBitSet()
+                requiredColumns
         );
     }
 
