@@ -135,7 +135,7 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
     private void cleanupSnapshots() {
         PartitionSnapshots partitionSnapshots = getPartitionSnapshots();
 
-        try (AutoLockup ignored = partitionSnapshots.acquireReadLock()) {
+        try (AutoLockup ignoredLockup = partitionSnapshots.acquireReadLock()) {
             partitionSnapshots.ongoingSnapshots().forEach(snapshot -> partitionsSnapshots.finishOutgoingSnapshot(snapshot.id()));
 
             partitionsSnapshots.removeSnapshots(partitionKey);
