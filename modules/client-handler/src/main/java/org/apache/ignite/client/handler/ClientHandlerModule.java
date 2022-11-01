@@ -72,6 +72,9 @@ public class ClientHandlerModule implements IgniteComponent {
     /** Cluster ID supplier. */
     private final Supplier<CompletableFuture<UUID>> clusterIdSupplier;
 
+    /** Cluster ID. */
+    private UUID clusterId;
+
     /** Netty channel. */
     private volatile Channel channel;
 
@@ -137,6 +140,7 @@ public class ClientHandlerModule implements IgniteComponent {
 
         try {
             channel = startEndpoint().channel();
+            clusterId = clusterIdSupplier.get().join();
         } catch (InterruptedException e) {
             throw new IgniteException(e);
         }
