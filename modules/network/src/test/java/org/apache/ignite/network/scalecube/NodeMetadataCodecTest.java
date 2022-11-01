@@ -29,11 +29,21 @@ class NodeMetadataCodecTest {
     private static final NodeMetadataCodec METADATA_CODEC = NodeMetadataCodec.INSTANCE;
 
     @Test
-    void byteBufferAndFromByteBuffer() {
+    void serializeAndDeserialize() {
         NodeMetadata metadata = new NodeMetadata("localhost",10000);
         ByteBuffer buffer = METADATA_CODEC.serialize(metadata);
         NodeMetadata fromByteBuffer = METADATA_CODEC.deserialize(buffer);
         assertEquals(metadata, fromByteBuffer);
+    }
+
+    @Test
+    void serializeNull() {
+        assertNull(METADATA_CODEC.serialize(null));
+    }
+
+    @Test
+    void deserializeNull() {
+        assertNull(METADATA_CODEC.deserialize(null));
     }
 
     @Test

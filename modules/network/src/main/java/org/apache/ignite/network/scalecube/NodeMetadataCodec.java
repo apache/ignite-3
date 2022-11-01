@@ -46,6 +46,9 @@ public class NodeMetadataCodec implements MetadataCodec {
      */
     @Override
     public NodeMetadata deserialize(ByteBuffer byteBuffer) {
+        if (byteBuffer == null) {
+            return null;
+        }
         try {
             return mapper.readValue(byteBuffer.array(), NodeMetadata.class);
         } catch (IOException e) {
@@ -61,23 +64,13 @@ public class NodeMetadataCodec implements MetadataCodec {
      */
     @Override
     public ByteBuffer serialize(Object o) {
+        if (o == null) {
+            return null;
+        }
         try {
             return ByteBuffer.wrap(mapper.writeValueAsBytes(o));
         } catch (JsonProcessingException e) {
             return null;
         }
-    }
-
-    /**
-     * Reads a specific integer byte value (4 bytes) from the input byte buffer at the given offset.
-     *
-     * @param buf input byte buffer
-     * @param pos offset into the byte buffer to read
-     * @return the int value read
-     */
-    private static int readInt(ByteBuffer buf, int pos) {
-        return (((buf.get(pos) & 0xff) << 24)
-                | ((buf.get(pos + 1) & 0xff) << 16)
-                | ((buf.get(pos + 2) & 0xff) << 8) | (buf.get(pos + 3) & 0xff));
     }
 }
