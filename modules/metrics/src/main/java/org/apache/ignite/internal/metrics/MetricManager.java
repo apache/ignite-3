@@ -34,7 +34,6 @@ import org.apache.ignite.internal.metrics.configuration.MetricConfiguration;
 import org.apache.ignite.internal.metrics.configuration.MetricView;
 import org.apache.ignite.internal.metrics.exporters.MetricExporter;
 import org.apache.ignite.internal.metrics.exporters.configuration.ExporterView;
-import org.apache.ignite.internal.metrics.sources.JvmMetricSource;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.VisibleForTesting;
@@ -101,8 +100,6 @@ public class MetricManager implements IgniteComponent {
         }
 
         metricConfiguration.exporters().listenElements(new ExporterConfigurationListener());
-
-        registerSource(new JvmMetricSource());
     }
 
     /** {@inheritDoc} */

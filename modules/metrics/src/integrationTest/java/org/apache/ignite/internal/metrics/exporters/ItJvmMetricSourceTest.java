@@ -27,6 +27,7 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.configuration.MetricConfiguration;
+import org.apache.ignite.internal.metrics.sources.JvmMetricSource;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -56,6 +57,8 @@ public class ItJvmMetricSourceTest {
         TestSimpleExporter simpleExporter = new TestSimpleExporter();
 
         exporters.put(simpleExporter.name(), simpleExporter);
+
+        metricManager.registerSource(new JvmMetricSource());
 
         metricManager.start(exporters);
 
