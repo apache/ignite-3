@@ -25,7 +25,7 @@ import javax.management.ObjectName;
 import org.apache.ignite.internal.metrics.LongMetric;
 import org.junit.jupiter.api.Test;
 
-/** Tests for jvm system metrics */
+/** Tests for jvm system metrics. */
 public class JvmMetricSourceTest {
 
     @Test
@@ -80,7 +80,7 @@ public class JvmMetricSourceTest {
         public long nonHeapMax;
 
         private MemoryBean(long heapInit, long heapUsed, long heapCommitted, long heapMax,
-            long nonHeapInit, long nonHeapUsed, long nonHeapCommitted, long nonHeapMax) {
+                long nonHeapInit, long nonHeapUsed, long nonHeapCommitted, long nonHeapMax) {
             this.heapInit = heapInit;
             this.heapUsed = heapUsed;
             this.heapCommitted = heapCommitted;
