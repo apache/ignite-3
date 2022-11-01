@@ -19,6 +19,7 @@ package org.apache.ignite.client;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.UUID;
 import org.apache.ignite.client.IgniteClient.Builder;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
@@ -37,8 +38,8 @@ public class MultiClusterTest {
 
     @BeforeEach
     void setUp() {
-        server1 = new TestServer(10900, 10, 0, new FakeIgnite(), null, "s1");
-        server2 = new TestServer(10900, 10, 0, new FakeIgnite(), null, "s2");
+        server1 = new TestServer(10900, 10, 0, new FakeIgnite(), null, "s1", UUID.randomUUID());
+        server2 = new TestServer(10900, 10, 0, new FakeIgnite(), null, "s2", UUID.randomUUID());
     }
 
     @AfterEach
@@ -49,8 +50,11 @@ public class MultiClusterTest {
     @Test
     public void testClientDropsConnectionOnClusterIdMismatch()
             throws Exception {
+        TestLoggerFactory loggerFactory = new TestLoggerFactory("client");
+
         Builder builder = IgniteClient.builder()
-                .addresses("127.0.0.1:" + server1.port(), "127.0.0.1:" + server2.port());
+                .addresses("127.0.0.1:" + server1.port(), "127.0.0.1:" + server2.port())
+                .loggerFactory(loggerFactory);
 
         try (var client = builder.build()) {
             assertTrue(IgniteTestUtils.waitForCondition(() -> client.connections().size() == 2, 3000));

@@ -30,7 +30,6 @@ import io.netty.util.ReferenceCounted;
 import java.net.BindException;
 import java.net.SocketAddress;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import org.apache.ignite.Ignite;
@@ -38,7 +37,6 @@ import org.apache.ignite.client.handler.ClientInboundMessageHandler;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.client.proto.ClientMessageDecoder;
-import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
@@ -68,6 +66,9 @@ public class TestClientHandlerModule implements IgniteComponent {
     /** Compute. */
     private final IgniteCompute compute;
 
+    /** Cluster id. */
+    private final UUID clusterId;
+
     /** Netty channel. */
     private volatile Channel channel;
 
@@ -77,12 +78,13 @@ public class TestClientHandlerModule implements IgniteComponent {
     /**
      * Constructor.
      *
-     * @param ignite               Ignite.
-     * @param registry             Configuration registry.
-     * @param bootstrapFactory     Bootstrap factory.
+     * @param ignite Ignite.
+     * @param registry Configuration registry.
+     * @param bootstrapFactory Bootstrap factory.
      * @param shouldDropConnection Connection drop condition.
-     * @param clusterService       Cluster service.
-     * @param compute              Compute.
+     * @param clusterService Cluster service.
+     * @param compute Compute.
+     * @param clusterId Cluster id.
      */
     public TestClientHandlerModule(
             Ignite ignite,
@@ -90,7 +92,8 @@ public class TestClientHandlerModule implements IgniteComponent {
             NettyBootstrapFactory bootstrapFactory,
             Function<Integer, Boolean> shouldDropConnection,
             ClusterService clusterService,
-            IgniteCompute compute) {
+            IgniteCompute compute,
+            UUID clusterId) {
         assert ignite != null;
         assert registry != null;
         assert bootstrapFactory != null;
@@ -101,6 +104,7 @@ public class TestClientHandlerModule implements IgniteComponent {
         this.shouldDropConnection = shouldDropConnection;
         this.clusterService = clusterService;
         this.compute = compute;
+        this.clusterId = clusterId;
     }
 
     /** {@inheritDoc} */
@@ -149,7 +153,6 @@ public class TestClientHandlerModule implements IgniteComponent {
 
         int desiredPort = configuration.port();
         int portRange = configuration.portRange();
-        UUID clusterId = UUID.randomUUID();
 
         Channel ch = null;
 
