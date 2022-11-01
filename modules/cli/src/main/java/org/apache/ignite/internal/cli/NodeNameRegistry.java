@@ -26,7 +26,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.internal.cli.call.cluster.topology.PhysicalTopologyCall;
@@ -49,14 +48,11 @@ public class NodeNameRegistry {
      */
     public void startPullingUpdates(String nodeUrl) {
         stopPullingUpdates();
-        Lock lock = readWriteLock.writeLock();
-        try {
+        synchronized (this) {
             if (executor == null) {
                 executor = Executors.newScheduledThreadPool(1);
                 executor.scheduleWithFixedDelay(() -> updateNodeNames(nodeUrl), 0, 30, TimeUnit.SECONDS);
             }
-        } finally {
-            lock.unlock();
         }
     }
 
@@ -64,14 +60,11 @@ public class NodeNameRegistry {
      * Stops pulling updates.
      */
     public void stopPullingUpdates() {
-        Lock lock = readWriteLock.writeLock();
-        try {
+        synchronized (this) {
             if (executor != null) {
                 executor.shutdown();
                 executor = null;
             }
-        } finally {
-            lock.unlock();
         }
     }
 
@@ -79,11 +72,11 @@ public class NodeNameRegistry {
      * Gets a node url by a provided node name.
      */
     public String getNodeUrl(String nodeName) {
-        Lock lock = readWriteLock.readLock();
+        readWriteLock.readLock().lock();
         try {
             return nodeNameToNodeUrl.get(nodeName);
         } finally {
-            lock.unlock();
+            readWriteLock.readLock().unlock();
         }
     }
 
@@ -91,21 +84,26 @@ public class NodeNameRegistry {
      * Gets all node names.
      */
     public List<String> getAllNames() {
-        Lock lock = readWriteLock.readLock();
+        readWriteLock.readLock().lock();
         try {
             return new ArrayList<>(nodeNameToNodeUrl.keySet());
         } finally {
-            lock.unlock();
+            readWriteLock.readLock().unlock();
         }
     }
 
     private void updateNodeNames(String nodeUrl) {
-        nodeNameToNodeUrl.clear();
-        PhysicalTopologyCall topologyCall = new PhysicalTopologyCall();
-        topologyCall.execute(new UrlCallInput(nodeUrl)).body()
-                .forEach(it -> {
-                    nodeNameToNodeUrl.put(it.getName(), urlFromClusterNode(it));
-                });
+        readWriteLock.writeLock().lock();
+        try {
+            nodeNameToNodeUrl.clear();
+            PhysicalTopologyCall topologyCall = new PhysicalTopologyCall();
+            topologyCall.execute(new UrlCallInput(nodeUrl)).body()
+                    .forEach(it -> {
+                        nodeNameToNodeUrl.put(it.getName(), urlFromClusterNode(it));
+                    });
+        } finally {
+            readWriteLock.writeLock().unlock();
+        }
     }
 
     private static String urlFromClusterNode(ClusterNode node) {
