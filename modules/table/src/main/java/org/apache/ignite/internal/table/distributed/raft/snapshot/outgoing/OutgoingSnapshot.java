@@ -77,7 +77,7 @@ public class OutgoingSnapshot {
     private final ReusableLockLockup mvOperationsLockup = new ReusableLockLockup(mvOperationsLock);
 
     /** Snapshot metadata taken on snapshot scope freezing. */
-    private SnapshotMeta meta;
+    private volatile SnapshotMeta meta;
 
     /**
      * {@link RowId}s for which the corresponding rows were sent out of order (relative to the order in which this
