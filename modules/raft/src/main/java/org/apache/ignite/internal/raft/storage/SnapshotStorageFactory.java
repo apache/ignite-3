@@ -29,7 +29,7 @@ public interface SnapshotStorageFactory {
      *
      * @param uri Snapshot URI.
      * @param raftOptions Raft options.
-     * @param logManager Log manager.
+     * @param logManager JRaft's LogManager.
      * @return Snapshot storage.
      */
     SnapshotStorage createSnapshotStorage(String uri, RaftOptions raftOptions, LogManager logManager);
