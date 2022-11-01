@@ -208,7 +208,7 @@ public class PartitionListener implements RaftGroupListener {
             if (!nullOrEmpty(rowsToUpdate)) {
                 for (Map.Entry<UUID, ByteString> entry : rowsToUpdate.entrySet()) {
                     RowId rowId = new RowId(partitionId, entry.getKey());
-                    BinaryRow row = new ByteBufferRow(entry.getValue().toByteArray());
+                    BinaryRow row = entry.getValue() != null ? new ByteBufferRow(entry.getValue().toByteArray()) : null;
 
                     storage.addWrite(rowId, row, txId, commitTblId, commitPartId);
 
