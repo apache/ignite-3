@@ -15,10 +15,10 @@
  * limitations under the License.
  */
 
-#ifdef WIN32
+#ifdef _WIN32
 # include "detail/win_process.h"
 #else
-# include "detail/linux_process.h"
+# include "detail/unix_process.h"
 #endif
 
 #include "cmd_process.h"
@@ -30,11 +30,11 @@
 namespace ignite {
 
 std::unique_ptr<CmdProcess> CmdProcess::make(std::string command, std::vector<std::string> args, std::string workDir) {
-#ifdef WIN32
+#ifdef _WIN32
     return std::unique_ptr<CmdProcess>(new detail::WinProcess(std::move(command), std::move(args), std::move(workDir)));
 #else
     return std::unique_ptr<CmdProcess>(
-        new detail::LinuxProcess(std::move(command), std::move(args), std::move(workDir)));
+        new detail::UnixProcess(std::move(command), std::move(args), std::move(workDir)));
 #endif
 }
 
