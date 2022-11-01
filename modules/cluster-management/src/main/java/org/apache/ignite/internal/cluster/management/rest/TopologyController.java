@@ -31,6 +31,7 @@ import org.apache.ignite.internal.rest.api.cluster.TopologyApi;
 import org.apache.ignite.internal.rest.exception.ClusterNotInitializedException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.network.NodeMetadata;
 import org.apache.ignite.network.TopologyService;
 
 /**
@@ -75,7 +76,13 @@ public class TopologyController implements TopologyApi {
         NetworkAddress addr = node.address();
 
         var addrDto = new NetworkAddressDto(addr.host(), addr.port());
-        var metadata = new NodeMetadataDto(node.nodeMetadata().restHost(), node.nodeMetadata().restPort());
-        return new ClusterNodeDto(node.id(), node.name(), addrDto, metadata);
+        return new ClusterNodeDto(node.id(), node.name(), addrDto, toNodeMetadataDto(node.nodeMetadata()));
+    }
+
+    private static NodeMetadataDto toNodeMetadataDto(NodeMetadata metadata) {
+        if (metadata == null) {
+            return null;
+        }
+        return new NodeMetadataDto(metadata.getRestHost(), metadata.getRestPort());
     }
 }

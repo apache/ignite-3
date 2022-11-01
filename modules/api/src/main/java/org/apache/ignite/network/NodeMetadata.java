@@ -37,7 +37,7 @@ public class NodeMetadata implements Serializable {
         this.restPort = restPort;
     }
 
-    public String restHost() {
+    public String getRestHost() {
         return restHost;
     }
 
@@ -45,7 +45,7 @@ public class NodeMetadata implements Serializable {
         this.restHost = restHost;
     }
 
-    public int restPort() {
+    public int getRestPort() {
         return restPort;
     }
 
