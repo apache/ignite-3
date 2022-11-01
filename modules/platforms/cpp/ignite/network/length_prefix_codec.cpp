@@ -62,7 +62,7 @@ data_buffer_ref length_prefix_codec::decode(data_buffer_ref &data) {
         if (m_packet.size() < PACKET_HEADER_SIZE)
             return {};
 
-        m_packet_size = bytes::load<endian::LITTLE, int32_t>(m_packet.data());
+        m_packet_size = bytes::load<endian::BIG, int32_t>(m_packet.data());
     }
 
     consume(data, m_packet_size + PACKET_HEADER_SIZE);
