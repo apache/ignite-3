@@ -49,12 +49,12 @@ void signal_handler(int signum) {
  * @param handler Abortion handler.
  */
 void set_process_abort_handler(std::function<void(int)> handler) {
+    shutdown_handler = std::move(handler);
+
     // Install signal handlers to clean up resources on early exit.
     signal(SIGABRT, signal_handler);
     signal(SIGINT, signal_handler);
     signal(SIGSEGV, signal_handler);
-
-    shutdown_handler = std::move(handler);
 }
 
 /**
@@ -73,6 +73,9 @@ void before_all() {
 }
 
 int main(int argc, char **argv) {
+    int res = 0;
+    before_all();
+
     ignite::IgniteRunner runner;
 
     set_process_abort_handler([&](int signal) {
@@ -80,9 +83,6 @@ int main(int argc, char **argv) {
 
         runner.stop();
     });
-
-    int res = 0;
-    before_all();
 
     try {
         runner.start(false);
