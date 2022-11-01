@@ -29,7 +29,7 @@ void buffer_adapter::write_length_header() {
 
     auto length = std::int32_t(m_buffer.size() - (m_length_pos + LENGTH_HEADER_SIZE));
 
-    bytes::store<endian::LITTLE, int32_t>(m_buffer.data() + m_length_pos, length);
+    bytes::store<endian::BIG, int32_t>(m_buffer.data() + m_length_pos, length);
 }
 
 } // namespace ignite::protocol

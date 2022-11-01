@@ -78,6 +78,9 @@ void node_connection::process_message(bytes_view msg) {
     }
 
     auto reqId = reader.read_int64();
+    auto flags = reader.read_int32();
+    (void) flags; // Flags are unused for now.
+
     auto handler = get_and_remove_handler(reqId);
 
     if (!handler) {

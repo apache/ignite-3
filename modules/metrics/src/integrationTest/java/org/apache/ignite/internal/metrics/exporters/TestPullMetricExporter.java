@@ -23,6 +23,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import org.apache.ignite.internal.metrics.Metric;
+import org.apache.ignite.internal.metrics.MetricProvider;
 import org.apache.ignite.internal.metrics.MetricSet;
 
 /**
@@ -52,7 +53,9 @@ public class TestPullMetricExporter extends BasicMetricExporter<TestPullMetricsE
     }
 
     @Override
-    public void start() {
+    public void start(MetricProvider metricProvider, TestPullMetricsExporterView conf) {
+        super.start(metricProvider, conf);
+
         executorService.execute(() -> {
             while (true) {
                 waitForRequest();
@@ -91,6 +94,14 @@ public class TestPullMetricExporter extends BasicMetricExporter<TestPullMetricsE
     @Override
     public String name() {
         return EXPORTER_NAME;
+    }
+
+    @Override
+    public void addMetricSet(MetricSet metricSet) {
+    }
+
+    @Override
+    public void removeMetricSet(String metricSetName) {
     }
 
     private void waitForRequest() {

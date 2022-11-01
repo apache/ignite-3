@@ -149,6 +149,11 @@ void binary_tuple_builder::put_int8(bytes_view bytes) {
     put_bytes({bytes.data(), size});
 }
 
+void binary_tuple_builder::put_int8(std::int8_t value) {
+    SizeT size = gauge_int8(value);
+    put_bytes({reinterpret_cast<const std::byte*>(&value), size});
+}
+
 void binary_tuple_builder::put_int16(bytes_view bytes) {
     auto value = binary_tuple_parser::get_int16(bytes);
 
@@ -161,6 +166,15 @@ void binary_tuple_builder::put_int16(bytes_view bytes) {
         value = bytes::reverse(value);
         put_bytes({reinterpret_cast<const std::byte *>(&value), size});
     }
+}
+
+void binary_tuple_builder::put_int16(std::int16_t value) {
+    SizeT size = gauge_int16(value);
+
+    if constexpr (!is_little_endian_platform()) {
+        value = bytes::reverse(value);
+    }
+    put_bytes({reinterpret_cast<const std::byte *>(&value), size});
 }
 
 void binary_tuple_builder::put_int32(bytes_view bytes) {
@@ -177,6 +191,15 @@ void binary_tuple_builder::put_int32(bytes_view bytes) {
     }
 }
 
+void binary_tuple_builder::put_int32(std::int32_t value) {
+    SizeT size = gauge_int32(value);
+
+    if constexpr (!is_little_endian_platform()) {
+        value = bytes::reverse(value);
+    }
+    put_bytes({reinterpret_cast<const std::byte *>(&value), size});
+}
+
 void binary_tuple_builder::put_int64(bytes_view bytes) {
     auto value = binary_tuple_parser::get_int64(bytes);
 
@@ -191,11 +214,23 @@ void binary_tuple_builder::put_int64(bytes_view bytes) {
     }
 }
 
+void binary_tuple_builder::put_int64(std::int64_t value) {
+    SizeT size = gauge_int64(value);
+
+    if constexpr (!is_little_endian_platform()) {
+        value = bytes::reverse(value);
+    }
+    put_bytes({reinterpret_cast<const std::byte *>(&value), size});
+}
+
 void binary_tuple_builder::put_float(bytes_view bytes) {
     float value = binary_tuple_parser::get_float(bytes);
+    put_float(value);
+}
 
+void binary_tuple_builder::put_float(float value) {
     SizeT size = gauge_float(value);
-    assert(size <= bytes.size());
+
     assert(element_index < element_count);
     assert(next_value + size <= value_base + value_area_size);
 
@@ -210,9 +245,11 @@ void binary_tuple_builder::put_float(bytes_view bytes) {
 
 void binary_tuple_builder::put_double(bytes_view bytes) {
     double value = binary_tuple_parser::get_double(bytes);
+    put_double(value);
+}
 
+void binary_tuple_builder::put_double(double value) {
     SizeT size = gauge_double(value);
-    assert(size <= bytes.size());
     assert(element_index < element_count);
     assert(next_value + size <= value_base + value_area_size);
 
@@ -248,9 +285,11 @@ void binary_tuple_builder::put_number(bytes_view bytes) {
 
 void binary_tuple_builder::put_uuid(bytes_view bytes) {
     auto value = binary_tuple_parser::get_uuid(bytes);
+    put_uuid(value);
+}
 
+void binary_tuple_builder::put_uuid(uuid value) {
     SizeT size = gauge_uuid(value);
-    assert(size <= bytes.size());
     assert(element_index < element_count);
     assert(next_value + size <= value_base + value_area_size);
 

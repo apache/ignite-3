@@ -17,13 +17,13 @@
 
 package org.apache.ignite.internal.metrics.exporters.configuration;
 
+import static org.apache.ignite.internal.metrics.exporters.jmx.JmxExporter.JMX_EXPORTER_NAME;
+
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 
 /**
  * Jmx exporter configuration.
  */
-// TODO: Should be clarified under IGNITE-17357.
-// TODO: Now it is needed to satisfy configuration framework, we can't have polymorphic config with 0 instances
-@PolymorphicConfigInstance("jmx")
+@PolymorphicConfigInstance(value = JMX_EXPORTER_NAME)
 public class JmxExporterConfigurationSchema extends ExporterConfigurationSchema {
 }

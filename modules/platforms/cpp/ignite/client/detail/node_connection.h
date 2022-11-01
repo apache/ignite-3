@@ -114,9 +114,7 @@ public:
 
         bool sent = m_pool->send(m_id, std::move(message));
         if (!sent) {
-            std::lock_guard<std::mutex> lock(m_request_handlers_mutex);
             get_and_remove_handler(reqId);
-
             return false;
         }
         return true;

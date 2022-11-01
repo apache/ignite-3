@@ -94,7 +94,7 @@ binary_tuple_parser::binary_tuple_parser(IntT num_elements, bytes_view data)
     SizeT table_size = entry_size * element_count;
     next_entry = binary_tuple.data() + binary_tuple_header::SIZE + nullmap_size;
     value_base = next_entry + table_size;
-    if (value_base > &binary_tuple.back()) {
+    if (value_base > binary_tuple.data() + binary_tuple.size()) {
         throw std::out_of_range("Too short byte buffer");
     }
 
@@ -106,7 +106,7 @@ binary_tuple_parser::binary_tuple_parser(IntT num_elements, bytes_view data)
 
     // Fix tuple size if needed.
     const std::byte *tuple_end = value_base + bytes::ltoh(le_end_offset);
-    const std::byte *given_end = &(*binary_tuple.end());
+    const std::byte *given_end = binary_tuple.data() + binary_tuple.size();
     if (given_end > tuple_end) {
         binary_tuple.remove_suffix(given_end - tuple_end);
     } else if (given_end < tuple_end) {
