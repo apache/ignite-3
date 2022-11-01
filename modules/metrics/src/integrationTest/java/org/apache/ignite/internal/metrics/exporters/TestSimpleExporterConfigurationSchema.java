@@ -15,27 +15,14 @@
  * limitations under the License.
  */
 
-#include "network.h"
+package org.apache.ignite.internal.metrics.exporters;
 
-#include "async_client_pool_adapter.h"
+import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
+import org.apache.ignite.internal.metrics.exporters.configuration.ExporterConfigurationSchema;
 
-#include <ignite/common/config.h>
-
-#ifdef _WIN32
-# include "detail/win/win_async_client_pool.h"
-#else
-# include "detail/linux/linux_async_client_pool.h"
-#endif
-
-namespace ignite::network {
-
-std::shared_ptr<async_client_pool> make_async_client_pool(data_filters filters) {
-    auto pool = std::make_shared<IGNITE_SWITCH_WIN_OTHER(
-        detail::win_async_client_pool,
-        detail::linux_async_client_pool
-    )>();
-
-    return std::make_shared<async_client_pool_adapter>(std::move(filters), std::move(pool));
+/**
+ * Empty configuration for {@link TestSimpleExporter}.
+ */
+@PolymorphicConfigInstance(TestSimpleExporter.EXPORTER_NAME)
+public class TestSimpleExporterConfigurationSchema extends ExporterConfigurationSchema {
 }
-
-} // namespace ignite::network
