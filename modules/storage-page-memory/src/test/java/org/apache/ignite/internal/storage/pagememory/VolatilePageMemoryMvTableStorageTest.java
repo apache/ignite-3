@@ -77,4 +77,22 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
     public void testDestroyIndex() {
         super.testDestroyIndex();
     }
+
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18028")
+    @Override
+    protected void testStartRebalanceMvPartition() throws Exception {
+        super.testStartRebalanceMvPartition();
+    }
+
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18028")
+    @Override
+    protected void testAbortRebalanceMvPartition() throws Exception {
+        super.testAbortRebalanceMvPartition();
+    }
+
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18028")
+    @Override
+    protected void testFinishRebalanceMvPartition() throws Exception {
+        super.testFinishRebalanceMvPartition();
+    }
 }

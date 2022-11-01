@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.storage.impl;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -40,6 +42,8 @@ import org.jetbrains.annotations.Nullable;
  */
 public class TestMvTableStorage implements MvTableStorage {
     private final Map<Integer, MvPartitionStorage> partitions = new ConcurrentHashMap<>();
+
+    private final Map<Integer, MvPartitionStorage> backupPartitions = new ConcurrentHashMap<>();
 
     private final Map<UUID, SortedIndices> sortedIndicesById = new ConcurrentHashMap<>();
 
@@ -102,12 +106,10 @@ public class TestMvTableStorage implements MvTableStorage {
 
     @Override
     public void destroyPartition(int partitionId) throws StorageException {
-        Integer boxedPartitionId = partitionId;
+        partitions.remove(partitionId);
 
-        partitions.remove(boxedPartitionId);
-
-        sortedIndicesById.values().forEach(indices -> indices.storageByPartitionId.remove(boxedPartitionId));
-        hashIndicesById.values().forEach(indices -> indices.storageByPartitionId.remove(boxedPartitionId));
+        sortedIndicesById.values().forEach(indices -> indices.storageByPartitionId.remove(partitionId));
+        hashIndicesById.values().forEach(indices -> indices.storageByPartitionId.remove(partitionId));
     }
 
     @Override
@@ -148,7 +150,7 @@ public class TestMvTableStorage implements MvTableStorage {
             hashIndex.storageByPartitionId.values().forEach(HashIndexStorage::destroy);
         }
 
-        return CompletableFuture.completedFuture(null);
+        return completedFuture(null);
     }
 
     @Override
@@ -179,20 +181,33 @@ public class TestMvTableStorage implements MvTableStorage {
     }
 
     @Override
-    public CompletableFuture<Void> startRebalanceMvPartition(int partId, Executor executor) {
-        // TODO: IGNITE-18021 Реализовать и протестировать.
-        return null;
+    public CompletableFuture<Void> startRebalanceMvPartition(int partitionId, Executor executor) {
+        MvPartitionStorage oldPartitionStorage = partitions.get(partitionId);
+
+        assert oldPartitionStorage != null : "Partition does not exists: " + partitionId;
+
+        if (backupPartitions.putIfAbsent(partitionId, oldPartitionStorage) == null) {
+            partitions.put(partitionId, new TestMvPartitionStorage(partitionId));
+        }
+
+        return completedFuture(null);
     }
 
     @Override
-    public CompletableFuture<Void> abortRebalanceMvPartition(int partId, Executor executor) {
-        // TODO: IGNITE-18021 Реализовать и протестировать.
-        return null;
+    public CompletableFuture<Void> abortRebalanceMvPartition(int partitionId, Executor executor) {
+        MvPartitionStorage oldPartitionStorage = backupPartitions.remove(partitionId);
+
+        if (oldPartitionStorage != null) {
+            partitions.put(partitionId, oldPartitionStorage);
+        }
+
+        return completedFuture(null);
     }
 
     @Override
-    public CompletableFuture<Void> finishRebalanceMvPartition(int partId, Executor executor) {
-        // TODO: IGNITE-18021 Реализовать и протестировать.
-        return null;
+    public CompletableFuture<Void> finishRebalanceMvPartition(int partitionId, Executor executor) {
+        backupPartitions.remove(partitionId);
+
+        return completedFuture(null);
     }
 }

@@ -167,28 +167,28 @@ public interface MvTableStorage {
     /**
      * Prepares the partition storage for rebalancing: makes a backup and creates a new one.
      *
-     * @param partId Partition ID.
+     * @param partitionId Partition ID.
      * @param executor Executor.
      * @return Future, if completed without errors, then {@link #getMvPartition} will return a new (empty) partition storage.
      */
-    CompletableFuture<Void> startRebalanceMvPartition(int partId, Executor executor);
+    CompletableFuture<Void> startRebalanceMvPartition(int partitionId, Executor executor);
 
     /**
      * Aborts rebalancing of the partition storage if it was started: restores the backup and deletes the new one.
      *
-     * @param partId Partition ID.
+     * @param partitionId Partition ID.
      * @param executor Executor.
      * @return Future, upon completion of which (even if with an error) {@link #getMvPartition} will return the partition storage restored
      *      from the backup.
      */
-    CompletableFuture<Void> abortRebalanceMvPartition(int partId, Executor executor);
+    CompletableFuture<Void> abortRebalanceMvPartition(int partitionId, Executor executor);
 
     /**
      * Finishes a successful partition storage rebalance if it has been started: deletes the backup and saves the new one.
      *
-     * @param partId Partition ID.
+     * @param partitionId Partition ID.
      * @param executor Executor.
      * @return Future, if it fails, will abort the partition storage rebalance.
      */
-    CompletableFuture<Void> finishRebalanceMvPartition(int partId, Executor executor);
+    CompletableFuture<Void> finishRebalanceMvPartition(int partitionId, Executor executor);
 }
