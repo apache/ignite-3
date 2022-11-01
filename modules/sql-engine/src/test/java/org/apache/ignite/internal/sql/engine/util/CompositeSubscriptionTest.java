@@ -39,7 +39,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 /**
- * Composite publisher test.
+ * Composite subscription test.
  */
 public class CompositeSubscriptionTest {
     @Test
@@ -55,6 +55,9 @@ public class CompositeSubscriptionTest {
 
     @Test
     public void testNotEnoughData() throws Throwable {
+        doPublishSubscribe(1, 0, 2, true, false, true);
+        doPublishSubscribe(1, 0, 2, true, false, false);
+
         doPublishSubscribe(100, 70, 7, true, false, true);
         doPublishSubscribe(100, 70, 7, true, false, false);
 
@@ -144,8 +147,10 @@ public class CompositeSubscriptionTest {
         };
 
         CompositeSubscription<Integer> compSubscription = sort
-                ? new MergeSortCompositeSubscription<>(subscr, Comparator.comparingInt(v -> v), Commons.IN_BUFFER_SIZE / pubCnt, pubCnt)
-                : new SequentialCompositeSubscription<>(subscr);
+                ? new OrderedMergeCompositeSubscription<>(subscr, Comparator.comparingInt(v -> v), Commons.IN_BUFFER_SIZE / pubCnt, pubCnt)
+                : new CompositeSubscription<>(subscr);
+
+        lsnr.reset(cnt);
 
         compSubscription.subscribe(publishers);
 
@@ -157,6 +162,8 @@ public class CompositeSubscriptionTest {
             InputParameters params = new InputParameters(expData, 1);
 
             for (int off = 0; off < Math.min(cnt, total); off++) {
+                lsnr.reset(params.requested);
+
                 checkSubscriptionRequest(subscriptionRef.get(), params.offset(off), lsnr);
             }
         }
@@ -173,8 +180,6 @@ public class CompositeSubscriptionTest {
 
     private static void checkSubscriptionRequest(Subscription subscription, InputParameters params, SubscriberListener<Integer> lsnr)
             throws InterruptedException {
-        lsnr.reset(params.requested);
-
         subscription.request(params.requested);
 
         Assertions.assertTrue(lsnr.awaitComplete(10), "Execution timeout");
@@ -292,7 +297,7 @@ public class CompositeSubscriptionTest {
         final AtomicInteger onCompleteCntr = new AtomicInteger();
         final Collection<T> res = new LinkedBlockingQueue<>();
         final AtomicReference<Integer> requestedCnt = new AtomicReference<>();
-        volatile CountDownLatch waitLatch = new CountDownLatch(1);
+        volatile CountDownLatch waitLatch;
 
         void reset(int requested) {
             receivedCnt.set(0);

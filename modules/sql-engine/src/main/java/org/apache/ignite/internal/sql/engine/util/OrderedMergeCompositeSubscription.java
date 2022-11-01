@@ -34,43 +34,53 @@ import java.util.concurrent.atomic.AtomicReference;
 /**
  * Sorting composite subscription.
  * <br>
- * Merges multiple concurrent sorted data streams into one.
+ * Merges multiple concurrent ordered data streams into one.
  */
-public class MergeSortCompositeSubscription<T> extends AtomicInteger implements CompositeSubscription<T> {
-    /** Serial version uid. */
-    private static final long serialVersionUID = 0L;
-
-    private final Subscriber<? super T> downstream;
-
-    private final MergeSortSubscriber<T>[] subscribers;
-
-    private final Comparator<? super T> comp;
-
-    private final Object[] values;
-
+public class OrderedMergeCompositeSubscription<T> extends CompositeSubscription<T> {
+    /** Marker to indicate completed subscription. */
     private static final Object DONE = new Object();
 
-    private Throwable error;
-
-    private boolean cancelled;
-
-    private long requested;
-
-    private long emitted;
-
+    /** Atomic updater for {@link #error} field. */
     private static final VarHandle ERROR;
 
+    /** Atomic updater for {@link #cancelled} field. */
     private static final VarHandle CANCELLED;
 
+    /** Atomic updater for {@link #requested} field. */
     private static final VarHandle REQUESTED;
+
+    /** Counter to prevent concurrent execution of a critical section. */
+    private final AtomicInteger guardCntr = new AtomicInteger();
+
+    /** Subscribers. */
+    private final OrderedMergeSubscriber<T>[] subscribers;
+
+    /** Rows comparator. */
+    private final Comparator<? super T> comp;
+
+    /** Last received values. */
+    private final Object[] values;
+
+    /** Error. */
+    private Throwable error;
+
+    /** Cancelled flag. */
+    private boolean cancelled;
+
+    /** Number of requested rows. */
+    private long requested;
+
+    /** Number of emitted rows (guarded by {@link #guardCntr}). */
+    private long emitted;
 
     static {
         Lookup lk = MethodHandles.lookup();
+
         try {
-            ERROR = lk.findVarHandle(MergeSortCompositeSubscription.class, "error", Throwable.class);
-            CANCELLED = lk.findVarHandle(MergeSortCompositeSubscription.class, "cancelled", boolean.class);
-            REQUESTED = lk.findVarHandle(MergeSortCompositeSubscription.class, "requested", long.class);
-        } catch (Throwable ex) {
+            ERROR = lk.findVarHandle(OrderedMergeCompositeSubscription.class, "error", Throwable.class);
+            CANCELLED = lk.findVarHandle(OrderedMergeCompositeSubscription.class, "cancelled", boolean.class);
+            REQUESTED = lk.findVarHandle(OrderedMergeCompositeSubscription.class, "requested", long.class);
+        } catch (NoSuchFieldException | IllegalAccessException ex) {
             throw new InternalError(ex);
         }
     }
@@ -83,14 +93,16 @@ public class MergeSortCompositeSubscription<T> extends AtomicInteger implements 
      * @param prefetch Prefetch size.
      * @param cnt Count of subscriptions.
      */
-    public MergeSortCompositeSubscription(Subscriber<? super T> downstream, Comparator<? super T> comp, int prefetch, int cnt) {
-        this.downstream = downstream;
+    public OrderedMergeCompositeSubscription(Subscriber<? super T> downstream, Comparator<? super T> comp, int prefetch, int cnt) {
+        super(downstream);
+
         this.comp = comp;
-        this.subscribers = new MergeSortSubscriber[cnt];
+        this.subscribers = new OrderedMergeSubscriber[cnt];
 
         for (int i = 0; i < cnt; i++) {
-            this.subscribers[i] = new MergeSortSubscriber<>(this, prefetch);
+            this.subscribers[i] = new OrderedMergeSubscriber<>(this, prefetch);
         }
+
         this.values = new Object[cnt];
     }
 
@@ -124,21 +136,21 @@ public class MergeSortCompositeSubscription<T> extends AtomicInteger implements 
     @Override
     public void cancel() {
         if (CANCELLED.compareAndSet(this, false, true)) {
-            for (MergeSortSubscriber<T> inner : subscribers) {
+            for (OrderedMergeSubscriber<T> inner : subscribers) {
                 inner.cancel();
             }
 
-            if (getAndIncrement() == 0) {
+            if (guardCntr.getAndIncrement() == 0) {
                 Arrays.fill(values, null);
 
-                for (MergeSortSubscriber<T> inner : subscribers) {
+                for (OrderedMergeSubscriber<T> inner : subscribers) {
                     inner.queue.clear();
                 }
             }
         }
     }
 
-    private void onInnerError(MergeSortSubscriber<T> sender, Throwable ex) {
+    private void onInnerError(OrderedMergeSubscriber<T> sender, Throwable ex) {
         updateError(ex);
 
         sender.done = true;
@@ -166,53 +178,54 @@ public class MergeSortCompositeSubscription<T> extends AtomicInteger implements 
     }
 
     private void drain() {
-        if (getAndIncrement() != 0) {
+        // Only one thread can pass below.
+        if (guardCntr.getAndIncrement() != 0) {
             return;
         }
 
-        int missed = 1;
+        // Frequently accessed fields.
         Subscriber<? super T> downstream = this.downstream;
-
-        Comparator<? super T> comparator = this.comp;
-
-        MergeSortSubscriber<T>[] subscribers = this.subscribers;
-        int n = subscribers.length;
-
+        OrderedMergeSubscriber<T>[] subscribers = this.subscribers;
+        int subsCnt = subscribers.length;
         Object[] values = this.values;
-
-        long e = emitted;
+        long emitted = this.emitted;
 
         for (;;) {
-            long r = (long) REQUESTED.getAcquire(this);
+            long requested = (long) REQUESTED.getAcquire(this);
 
             for (;;) {
                 if ((boolean) CANCELLED.getAcquire(this)) {
                     Arrays.fill(values, null);
 
-                    for (MergeSortSubscriber<T> inner : subscribers) {
+                    for (OrderedMergeSubscriber<T> inner : subscribers) {
                         inner.queue.clear();
                     }
+
                     return;
                 }
 
-                int done = 0;
+                int completed = 0;
                 int nonEmpty = 0;
 
-                for (int i = 0; i < n; i++) {
-                    Object o = values[i];
-                    if (o == DONE) {
-                        done++;
-                        nonEmpty++;
-                    } else if (o == null) {
-                        boolean innerDone = subscribers[i].done;
-                        o = subscribers[i].queue.poll();
+                for (int i = 0; i < subsCnt; i++) {
+                    Object obj = values[i];
 
-                        if (o != null) {
-                            values[i] = o;
+                    if (obj == DONE) {
+                        completed++;
+                        nonEmpty++;
+                    } else if (obj == null) {
+                        boolean innerDone = subscribers[i].done;
+
+                        obj = subscribers[i].queue.poll();
+
+                        if (obj != null) {
+                            values[i] = obj;
+
                             nonEmpty++;
                         } else if (innerDone) {
                             values[i] = DONE;
-                            done++;
+
+                            completed++;
                             nonEmpty++;
                         }
                     } else {
@@ -220,7 +233,7 @@ public class MergeSortCompositeSubscription<T> extends AtomicInteger implements 
                     }
                 }
 
-                if (done == n) {
+                if (completed == subsCnt) {
                     Throwable ex = (Throwable) ERROR.getAcquire(this);
 
                     if (ex == null) {
@@ -232,35 +245,34 @@ public class MergeSortCompositeSubscription<T> extends AtomicInteger implements 
                     return;
                 }
 
-                if (nonEmpty != n || e == r) {
+                if (nonEmpty != subsCnt || emitted == requested) {
                     break;
                 }
 
                 T min = null;
                 int minIndex = -1;
-                int i = 0;
 
-                for (Object o : values) {
-                    if (o != DONE) {
-                        if (min == null || comparator.compare(min, (T) o) > 0) {
-                            min = (T) o;
-                            minIndex = i;
-                        }
+                for (int i = 0; i < values.length; i++) {
+                    Object obj = values[i];
+
+                    if (obj != DONE && (min == null || comp.compare(min, (T) obj) > 0)) {
+                        min = (T) obj;
+                        minIndex = i;
                     }
-                    i++;
                 }
 
                 values[minIndex] = null;
 
                 downstream.onNext(min);
 
-                e++;
+                emitted++;
                 subscribers[minIndex].request(1);
             }
 
-            emitted = e;
-            missed = addAndGet(-missed);
-            if (missed == 0) {
+            this.emitted = emitted;
+
+            // Retry if any other thread has incremented the counter.
+            if (guardCntr.decrementAndGet() == 0) {
                 break;
             }
         }
@@ -269,23 +281,26 @@ public class MergeSortCompositeSubscription<T> extends AtomicInteger implements 
     /**
      * Merge sort subscriber.
      */
-    public static final class MergeSortSubscriber<T> extends AtomicReference<Subscription> implements Subscriber<T>, Subscription {
-        /** Serial version uid. */
-        private static final long serialVersionUID = 0L;
+    public static final class OrderedMergeSubscriber<T> extends AtomicReference<Subscription> implements Subscriber<T>, Subscription {
+        /** Parent subscription. */
+        private final OrderedMergeCompositeSubscription<T> parent;
 
-        private final MergeSortCompositeSubscription<T> parent;
-
+        /** Prefetch size. */
         private final int prefetch;
 
+        /** Number of requests to buffer. */
         private final int limit;
 
+        /** Inner data buffer. */
         private final Queue<T> queue;
 
+        /** Count of consumed requests. */
         private int consumed;
 
+        /** Flag indicating that the subscription has completed. */
         private volatile boolean done;
 
-        MergeSortSubscriber(MergeSortCompositeSubscription<T> parent, int prefetch) {
+        OrderedMergeSubscriber(OrderedMergeCompositeSubscription<T> parent, int prefetch) {
             this.parent = parent;
             this.prefetch = prefetch;
             this.limit = prefetch - (prefetch >> 2);
@@ -304,6 +319,7 @@ public class MergeSortCompositeSubscription<T> extends AtomicInteger implements 
         @Override
         public void onNext(T item) {
             queue.offer(item);
+
             parent.drain();
         }
 
@@ -315,28 +331,29 @@ public class MergeSortCompositeSubscription<T> extends AtomicInteger implements 
         @Override
         public void onComplete() {
             done = true;
+
             parent.drain();
         }
 
         @Override
         public void request(long n) {
-            int c = consumed + 1;
-            if (c == limit) {
+            if (++consumed == limit) {
                 consumed = 0;
-                Subscription s = get();
-                if (s != this) {
-                    s.request(c);
+
+                Subscription subscription = get();
+
+                if (subscription != this) {
+                    subscription.request(consumed);
                 }
-            } else {
-                consumed = c;
             }
         }
 
         @Override
         public void cancel() {
-            Subscription s = getAndSet(this);
-            if (s != null && s != this) {
-                s.cancel();
+            Subscription subscription = getAndSet(this);
+
+            if (subscription != null && subscription != this) {
+                subscription.cancel();
             }
         }
     }

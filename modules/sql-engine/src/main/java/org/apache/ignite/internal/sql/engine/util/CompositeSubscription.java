@@ -17,18 +17,119 @@
 
 package org.apache.ignite.internal.sql.engine.util;
 
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 import java.util.concurrent.Flow.Publisher;
+import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Composite subscription.
+ * Sequential composite subscription.
+ * <br>
+ * Sequentially receives data from each registered subscription
+ * until the total number of requested items has been received.
  */
-public interface CompositeSubscription<T> extends Subscription {
+public class CompositeSubscription<T> implements Subscription {
+    /** List of subscriptions. */
+    private final List<Subscription> subscriptions = new ArrayList<>();
+
+    /** Downstream subscriber. */
+    protected final Subscriber<? super T> downstream;
+
+    /** Current subscription index. */
+    private int subscriptionIdx = 0;
+
+    /** Total number of remaining items. */
+    private long remaining;
+
+    public CompositeSubscription(Subscriber<? super T> downstream) {
+        this.downstream = downstream;
+    }
+
     /**
      * Subscribe multiple publishers.
      *
      * @param sources Publishers.
      */
-    void subscribe(Collection<? extends Publisher<? extends T>> sources);
+    public void subscribe(Collection<? extends Publisher<? extends T>> sources) {
+        for (Publisher<? extends T> publisher : sources) {
+            publisher.subscribe(new PlainSubscriber());
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void request(long n) {
+        remaining = n;
+
+        requestInternal();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void cancel() {
+        Subscription subscription = activeSubscription();
+
+        if (subscription != null) {
+            subscription.cancel();
+        }
+    }
+
+    /** Request data from a subscription. */
+    private void requestInternal() {
+        Subscription subscription = activeSubscription();
+
+        if (subscription != null) {
+            subscription.request(remaining);
+        }
+    }
+
+    private @Nullable Subscription activeSubscription() {
+        if (subscriptionIdx >= subscriptions.size()) {
+            return null;
+        }
+
+        return subscriptions.get(subscriptionIdx);
+    }
+
+    /**
+     * Plain subscriber.
+     */
+    protected class PlainSubscriber implements Subscriber<T> {
+        /** {@inheritDoc} */
+        @Override
+        public void onSubscribe(Subscription subscription) {
+            subscriptions.add(subscription);
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public void onNext(T item) {
+            --remaining;
+
+            downstream.onNext(item);
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public void onError(Throwable throwable) {
+            downstream.onError(throwable);
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public void onComplete() {
+            if (++subscriptionIdx == subscriptions.size()) {
+                downstream.onComplete();
+
+                return;
+            }
+
+            if (remaining > 0) {
+                requestInternal();
+            }
+        }
+    }
 }
