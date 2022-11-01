@@ -31,12 +31,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.BiFunction;
@@ -99,6 +101,9 @@ public final class ReliableChannel implements AutoCloseable {
     /** Local topology assignment version. Instead of using event handlers to notify all tables about assignment change,
      * the table will compare its version with channel version to detect an update. */
     private final AtomicLong assignmentVersion = new AtomicLong();
+
+    /** */
+    private final AtomicReference<UUID> clusterId = new AtomicReference<>();
 
     /**
      * Constructor.
@@ -741,7 +746,15 @@ public final class ReliableChannel implements AutoCloseable {
                         throw new IgniteClientConnectionException(CONNECTION_ERR, "Reconnect is not allowed due to applied throttling");
                     }
 
-                    ch = chFactory.apply(chCfg, connMgr);
+                    ClientChannel ch0 = chFactory.apply(chCfg, connMgr);
+
+                    var oldClusterId = clusterId.compareAndExchange(null, ch0.protocolContext().clusterId());
+
+                    if (oldClusterId != null && !oldClusterId.equals(ch0.protocolContext().clusterId())) {
+                        throw new IgniteClientConnectionException(CONNECTION_ERR, "Cluster ID mismatch");
+                    }
+
+                    ch = ch0;
 
                     ch.addTopologyAssignmentChangeListener(ReliableChannel.this::onTopologyAssignmentChanged);
 

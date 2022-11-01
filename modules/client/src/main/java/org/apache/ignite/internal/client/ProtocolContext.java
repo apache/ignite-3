@@ -122,4 +122,13 @@ public class ProtocolContext {
     public ClusterNode clusterNode() {
         return clusterNode;
     }
+
+    /**
+     * Returns cluster id.
+     *
+     * @return Cluster id.
+     */
+    public UUID clusterId() {
+        return clusterId;
+    }
 }
