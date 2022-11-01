@@ -35,10 +35,10 @@ public class TestPushMetricExporter extends PushMetricExporter<TestPushMetricsEx
     private long period;
 
     @Override
-    public void init(MetricProvider metricsProvider, TestPushMetricsExporterView configuration) {
-        super.init(metricsProvider, configuration);
-
+    public void start(MetricProvider metricsProvider, TestPushMetricsExporterView configuration) {
         period = configuration.period();
+
+        super.start(metricsProvider, configuration);
     }
 
     public static void setOutputStream(OutputStream outputStream) {
@@ -83,5 +83,13 @@ public class TestPushMetricExporter extends PushMetricExporter<TestPushMetricsEx
     @Override
     public String name() {
         return EXPORTER_NAME;
+    }
+
+    @Override
+    public void addMetricSet(MetricSet metricSet) {
+    }
+
+    @Override
+    public void removeMetricSet(String metricSetName) {
     }
 }

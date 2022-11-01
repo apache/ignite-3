@@ -227,7 +227,6 @@ using ignite_callback = std::function<void(ignite_result<T> &&)>;
  */
 template <typename T>
 ignite_result<T> result_of_operation(const std::function<T()> &operation) noexcept {
-    // TODO: IGNITE-17760 Move to common once it's re-factored
     try {
         if constexpr (std::is_same<decltype(operation()), void>::value) {
             operation();
@@ -255,7 +254,6 @@ ignite_result<T> result_of_operation(const std::function<T()> &operation) noexce
  */
 template <typename T>
 void result_set_promise(std::promise<T> &pr, ignite_result<T> &&res) {
-    // TODO: IGNITE-17760 Move to common once it's re-factored
     if (!res) {
         pr.set_exception(std::make_exception_ptr(std::move(res).error()));
     } else {
@@ -275,8 +273,20 @@ void result_set_promise(std::promise<T> &pr, ignite_result<T> &&res) {
  */
 template <typename T>
 std::function<void(ignite_result<T>)> result_promise_setter(std::shared_ptr<std::promise<T>> pr) {
-    // TODO: IGNITE-17760 Move to common once it's re-factored
     return [pr = std::move(pr)](ignite_result<T> &&res) mutable { result_set_promise<T>(*pr, std::move(res)); };
+}
+
+/**
+ * Synchronously calls async function.
+ *
+ * @param pr Promise.
+ * @return Promise setter.
+ */
+template <typename T>
+T sync(std::function<void(ignite_callback<T>)> func) {
+    auto promise = std::make_shared<std::promise<T>>();
+    func(result_promise_setter(promise));
+    return promise->get_future().get();
 }
 
 } // namespace ignite
