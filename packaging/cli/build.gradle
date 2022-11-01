@@ -39,7 +39,7 @@ dependencies {
 // Common for ZIP and RPM/DEB
 
 def tokens = [
-        PRODUCT_NAME        : 'ignite3cli',
+        PRODUCT_NAME        : 'ignite3-cli',
         PRODUCT_DISPLAY_NAME: 'Apache Ignite CLI',
         INSTALL_DIR         : '/usr/bin',
         LIB_DIR             : '/usr/lib/ignite3',
@@ -96,7 +96,7 @@ task cliStartScript(type: CreateStartScripts) {
 
 distributions {
     main {
-        distributionBaseName = 'ignite3cli'
+        distributionBaseName = 'ignite3-cli'
         contents {
             into('') {
                 from("$rootDir/LICENSE")

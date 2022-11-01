@@ -39,7 +39,7 @@ dependencies {
 
 distributions {
     main {
-        distributionBaseName = 'ignite3db'
+        distributionBaseName = 'ignite3-db'
         contents {
             // create empty dirs that are required to start Ignite
             into('') {
@@ -63,6 +63,9 @@ distributions {
             into('bin') {
                 fileMode 0755
                 from("$rootDir/packaging/zip/ignite3db.sh")
+                rename {
+                    "ignite3db"
+                }
             }
             into('lib') {
                 from configurations.dbArtifacts
@@ -107,6 +110,7 @@ def args = '--config-path $IGNITE_CONFIG_FILE --work-dir $WORK_PATH $NODE_NAME'
 
 def tokens = [
         PRODUCT_NAME        : 'ignite3db',
+        PACKAGE_NAME        : 'ignite3-db',
         PRODUCT_DISPLAY_NAME: 'Apache Ignite',
         APP_JAR             : "${project(':ignite-runner').name}-${project(':ignite-runner').version}.jar".toString(),
         MAIN_CLASS          : 'org.apache.ignite.app.IgniteCliRunner',
@@ -166,7 +170,7 @@ buildDeb {
 
 ospackage {
     license "ASL 2.0"
-    packageName packageTokens.PRODUCT_NAME
+    packageName packageTokens.PACKAGE_NAME
     packageGroup "System Environment/Daemons"
     url "https://ignite.apache.org"
     user packageTokens.USERNAME
