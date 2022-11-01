@@ -132,7 +132,7 @@ public:
     }
 
     /**
-     * Inserts a record into the table if does not exist or replaces the existed one.
+     * Inserts a record into the table if does not exist or replaces the existing one.
      *
      * @param tx Optional transaction. If nullptr implicit transaction for this
      *  single operation is used.
@@ -142,7 +142,7 @@ public:
     IGNITE_API void upsert_async(transaction* tx, const value_type& record, ignite_callback<void> callback);
 
     /**
-     * Inserts a record into the table if does not exist or replaces the existed one.
+     * Inserts a record into the table if does not exist or replaces the existing one.
      *
      * @param tx Optional transaction. If nullptr implicit transaction for this
      *  single operation is used.

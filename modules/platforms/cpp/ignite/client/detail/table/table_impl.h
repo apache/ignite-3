@@ -117,7 +117,7 @@ public:
         ignite_callback<std::vector<std::optional<ignite_tuple>>> callback);
 
     /**
-     * Inserts a record into the table if does not exist or replaces the existed one.
+     * Inserts a record into the table if does not exist or replaces the existing one.
      *
      * @param tx Optional transaction. If nullptr implicit transaction for this
      *  single operation is used.

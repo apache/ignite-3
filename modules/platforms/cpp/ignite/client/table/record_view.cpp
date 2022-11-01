@@ -41,8 +41,10 @@ void record_view<ignite_tuple>::upsert_async(transaction *tx, const ignite_tuple
 void record_view<ignite_tuple>::get_all_async(transaction *tx, std::vector<value_type> keys,
         ignite_callback<std::vector<std::optional<value_type>>> callback)
 {
-    if (keys.empty())
-        throw ignite_error("At least one key should be supplied");
+    if (keys.empty()) {
+        callback(std::vector<std::optional<value_type>>{});
+        return;
+    }
 
     m_impl->get_all_async(tx, std::move(keys), std::move(callback));
 }
@@ -50,8 +52,10 @@ void record_view<ignite_tuple>::get_all_async(transaction *tx, std::vector<value
 void record_view<ignite_tuple>::upsert_all_async(transaction *tx, std::vector<value_type> records,
     ignite_callback<void> callback)
 {
-    if (records.empty())
-        throw ignite_error("At least one record should be supplied");
+    if (records.empty()) {
+        callback({});
+        return;
+    }
 
     m_impl->upsert_all_async(tx, std::move(records), std::move(callback));
 }
@@ -77,8 +81,10 @@ void record_view<ignite_tuple>::insert_async(transaction *tx, const ignite_tuple
 void record_view<ignite_tuple>::insert_all_async(transaction *tx, std::vector<value_type> records,
     ignite_callback<std::vector<value_type>> callback)
 {
-    if (records.empty())
-        throw ignite_error("At least one record should be supplied");
+    if (records.empty()) {
+        callback(std::vector<value_type>{});
+        return;
+    }
 
     m_impl->insert_all_async(tx, std::move(records), std::move(callback));
 }
@@ -138,8 +144,10 @@ void record_view<ignite_tuple>::get_and_remove_async(transaction *tx, const igni
 void record_view<ignite_tuple>::remove_all_async(transaction *tx, std::vector<value_type> keys,
     ignite_callback<std::vector<value_type>> callback)
 {
-    if (keys.empty())
-        throw ignite_error("At least one key should be supplied");
+    if (keys.empty()) {
+        callback(std::vector<value_type>{});
+        return;
+    }
 
     m_impl->remove_all_async(tx, std::move(keys), std::move(callback));
 }
@@ -147,8 +155,10 @@ void record_view<ignite_tuple>::remove_all_async(transaction *tx, std::vector<va
 void record_view<ignite_tuple>::remove_all_exact_async(transaction *tx, std::vector<value_type> records,
     ignite_callback<std::vector<value_type>> callback)
 {
-    if (records.empty())
-        throw ignite_error("At least one record should be supplied");
+    if (records.empty()) {
+        callback(std::vector<value_type>{});
+        return;
+    }
 
     m_impl->remove_all_exact_async(tx, std::move(records), std::move(callback));
 }

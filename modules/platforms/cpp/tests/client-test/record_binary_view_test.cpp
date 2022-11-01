@@ -164,36 +164,19 @@ TEST_F(record_binary_view_test, get_empty_tuple_throws) {
     }, ignite_error);
 }
 
-TEST_F(record_binary_view_test, get_all_empty_keyset_throws) {
-    EXPECT_THROW({
-        try {
-            std::vector<ignite_tuple> empty;
-            (void) tuple_view.get_all(nullptr, empty);
-        } catch (const ignite_error& e) {
-            EXPECT_STREQ("At least one key should be supplied", e.what());
-            throw;
-        }
-    }, ignite_error);
+TEST_F(record_binary_view_test, get_all_empty) {
+    auto res = tuple_view.get_all(nullptr, {});
+    EXPECT_TRUE(res.empty());
 }
 
-TEST_F(record_binary_view_test, get_all_empty_resultset) {
-    std::vector<ignite_tuple> some;
-    some.push_back(get_tuple(-42));
-    auto res = tuple_view.get_all(nullptr, some);
+TEST_F(record_binary_view_test, get_all_nonexisting) {
+    auto res = tuple_view.get_all(nullptr, {get_tuple(-42)});
 
     ASSERT_TRUE(res.empty());
 }
 
-TEST_F(record_binary_view_test, upsert_all_empty_throws) {
-    EXPECT_THROW({
-        try {
-            std::vector<ignite_tuple> empty;
-            tuple_view.upsert_all(nullptr, empty);
-        } catch (const ignite_error& e) {
-            EXPECT_STREQ("At least one record should be supplied", e.what());
-            throw;
-        }
-    }, ignite_error);
+TEST_F(record_binary_view_test, upsert_all_empty_no_throw) {
+    tuple_view.upsert_all(nullptr, {});
 }
 
 TEST_F(record_binary_view_test, upsert_all_get_all) {
@@ -467,16 +450,9 @@ TEST_F(record_binary_view_test, insert_all_overlapped_async) {
     EXPECT_EQ("bar", res_tuple->get<std::string>("val"));
 }
 
-TEST_F(record_binary_view_test, insert_all_empty_throws) {
-    EXPECT_THROW({
-        try {
-            std::vector<ignite_tuple> empty;
-            tuple_view.insert_all(nullptr, empty);
-        } catch (const ignite_error& e) {
-            EXPECT_STREQ("At least one record should be supplied", e.what());
-            throw;
-        }
-    }, ignite_error);
+TEST_F(record_binary_view_test, insert_all_empty) {
+    auto res = tuple_view.insert_all(nullptr, {});
+    EXPECT_TRUE(res.empty());
 }
 
 TEST_F(record_binary_view_test, replace_nonexisting) {
@@ -926,16 +902,9 @@ TEST_F(record_binary_view_test, remove_all_overlapped) {
     EXPECT_EQ(11, res[1].get<int64_t>("key"));
 }
 
-TEST_F(record_binary_view_test, remove_all_empty_keyset_throws) {
-    EXPECT_THROW({
-        try {
-            std::vector<ignite_tuple> empty;
-            tuple_view.remove_all(nullptr, empty);
-        } catch (const ignite_error& e) {
-            EXPECT_STREQ("At least one key should be supplied", e.what());
-            throw;
-        }
-    }, ignite_error);
+TEST_F(record_binary_view_test, remove_all_empty) {
+    auto res = tuple_view.remove_all(nullptr, {});
+    EXPECT_TRUE(res.empty());
 }
 
 TEST_F(record_binary_view_test, remove_all_exact_nonexisting) {
@@ -984,14 +953,7 @@ TEST_F(record_binary_view_test, remove_all_exact_overlapped_async) {
     EXPECT_EQ("baz", res_tuple.front().get<std::string>("val"));
 }
 
-TEST_F(record_binary_view_test, remove_all_exact_throws) {
-    EXPECT_THROW({
-        try {
-            std::vector<ignite_tuple> empty;
-            tuple_view.remove_all_exact(nullptr, empty);
-        } catch (const ignite_error& e) {
-            EXPECT_STREQ("At least one record should be supplied", e.what());
-            throw;
-        }
-    }, ignite_error);
+TEST_F(record_binary_view_test, remove_all_exact_empty) {
+    auto res = tuple_view.remove_all_exact(nullptr, {});
+    EXPECT_TRUE(res.empty());
 }
