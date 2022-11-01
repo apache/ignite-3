@@ -42,8 +42,9 @@ import org.apache.ignite.internal.sql.engine.exec.exp.RangeIterable;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.schema.InternalIgniteTable;
-import org.apache.ignite.internal.sql.engine.util.CompositePublisher;
-import org.apache.ignite.internal.sql.engine.util.SortingCompositePublisher;
+import org.apache.ignite.internal.sql.engine.util.CompositeSubscription;
+import org.apache.ignite.internal.sql.engine.util.MergeSortCompositeSubscription;
+import org.apache.ignite.internal.sql.engine.util.SequentialCompositeSubscription;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.Nullable;
 
@@ -264,11 +265,15 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
                 partPublishers.add(partPublisher(p, cond));
             }
 
-            Flow.Publisher<BinaryTuple> publisher = comp != null
-                    ? new SortingCompositePublisher<>(partPublishers, comp)
-                    : new CompositePublisher<>(partPublishers);
+            SubscriberImpl subscriber = new SubscriberImpl();
 
-            publisher.subscribe(new SubscriberImpl());
+            CompositeSubscription<BinaryTuple> compSubscription = comp != null
+                    ? new MergeSortCompositeSubscription<>(subscriber, comp, inBufSize / partPublishers.size(), partPublishers.size())
+                    : new SequentialCompositeSubscription<>(subscriber);
+
+            compSubscription.subscribe(partPublishers);
+
+            subscriber.onSubscribe(compSubscription);
         } else {
             waiting = NOT_WAITING;
         }

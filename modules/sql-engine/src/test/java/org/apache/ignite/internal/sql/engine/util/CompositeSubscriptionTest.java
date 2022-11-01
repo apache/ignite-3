@@ -41,7 +41,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Composite publisher test.
  */
-public class CompositePublisherTest {
+public class CompositeSubscriptionTest {
     @Test
     public void testEnoughData() throws Throwable {
         doPublishSubscribe(1, 2, 2, true, false, true);
@@ -55,9 +55,6 @@ public class CompositePublisherTest {
 
     @Test
     public void testNotEnoughData() throws Throwable {
-        doPublishSubscribe(1, 0, 2, true, false, true);
-        doPublishSubscribe(1, 0, 2, true, false, false);
-
         doPublishSubscribe(100, 70, 7, true, false, true);
         doPublishSubscribe(100, 70, 7, true, false, false);
 
@@ -124,31 +121,35 @@ public class CompositePublisherTest {
         AtomicReference<Subscription> subscriptionRef = new AtomicReference<>();
         SubscriberListener<Integer> lsnr = new SubscriberListener<>();
 
-        Publisher<Integer> publisher = sort
-                ? new SortingCompositePublisher<>(publishers, Comparator.comparingInt(v -> v))
-                : new CompositePublisher<>(publishers);
+        Subscriber<Integer> subscr = new Subscriber<>() {
+            @Override
+            public void onSubscribe(Subscription subscription) {
+                subscriptionRef.set(subscription);
+            }
 
-        publisher.subscribe(new Subscriber<>() {
-                @Override
-                public void onSubscribe(Subscription subscription) {
-                    subscriptionRef.set(subscription);
-                }
+            @Override
+            public void onNext(Integer item) {
+                lsnr.onNext(item);
+            }
 
-                @Override
-                public void onNext(Integer item) {
-                    lsnr.onNext(item);
-                }
+            @Override
+            public void onError(Throwable t) {
+                assert false;
+            }
 
-                @Override
-                public void onError(Throwable t) {
-                    assert false;
-                }
+            @Override
+            public void onComplete() {
+                lsnr.onComplete();
+            }
+        };
 
-                @Override
-                public void onComplete() {
-                    lsnr.onComplete();
-                }
-        });
+        CompositeSubscription<Integer> compSubscription = sort
+                ? new MergeSortCompositeSubscription<>(subscr, Comparator.comparingInt(v -> v), Commons.IN_BUFFER_SIZE / pubCnt, pubCnt)
+                : new SequentialCompositeSubscription<>(subscr);
+
+        compSubscription.subscribe(publishers);
+
+        subscr.onSubscribe(compSubscription);
 
         if (!split) {
             checkSubscriptionRequest(subscriptionRef.get(), new InputParameters(expData, cnt), lsnr);
