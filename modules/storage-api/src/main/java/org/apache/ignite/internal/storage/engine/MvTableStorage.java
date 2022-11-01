@@ -165,7 +165,18 @@ public interface MvTableStorage {
     void destroy() throws StorageException;
 
     /**
-     * Prepares the partition storage for rebalancing: makes a backup and creates a new one.
+     * Prepares the partition storage for rebalancing: makes a backup of the current partition storage and creates a new one.
+     *
+     * <p>This method must be called before each full rebalance of the partition storage, so that in case of errors or cancellation of the
+     * full rebalance, we can restore the partition storage from the backup.
+     *
+     * <p>Full rebalance will be completed when one of the methods is called:
+     * <ol>
+     *     <li>{@link #abortRebalanceMvPartition(int, Executor)} - in case of a full rebalance cancellation or failure, so that we can
+     *     restore the partition storage from a backup;</li>
+     *     <li>{@link #finishRebalanceMvPartition(int, Executor)} - in case of a successful full rebalance, to remove the backup of the
+     *     partition storage.</li>
+     * </ol>
      *
      * @param partitionId Partition ID.
      * @param executor Executor.
@@ -174,7 +185,9 @@ public interface MvTableStorage {
     CompletableFuture<Void> startRebalanceMvPartition(int partitionId, Executor executor);
 
     /**
-     * Aborts rebalancing of the partition storage if it was started: restores the backup and deletes the new one.
+     * Aborts rebalancing of the partition storage if it was started: restores the partition storage from a backup and deletes the new one.
+     *
+     * <p>If a full rebalance has not {@link #startRebalanceMvPartition(int, Executor) started}, then nothing will happen.
      *
      * @param partitionId Partition ID.
      * @param executor Executor.
@@ -184,7 +197,10 @@ public interface MvTableStorage {
     CompletableFuture<Void> abortRebalanceMvPartition(int partitionId, Executor executor);
 
     /**
-     * Finishes a successful partition storage rebalance if it has been started: deletes the backup and saves the new one.
+     * Finishes a successful partition storage rebalance if it has been started: deletes the backup of the partition storage and saves a new
+     * one.
+     *
+     * <p>If a full rebalance has not {@link #startRebalanceMvPartition(int, Executor) started}, then nothing will happen.
      *
      * @param partitionId Partition ID.
      * @param executor Executor.

@@ -184,7 +184,7 @@ public class TestMvTableStorage implements MvTableStorage {
     public CompletableFuture<Void> startRebalanceMvPartition(int partitionId, Executor executor) {
         MvPartitionStorage oldPartitionStorage = partitions.get(partitionId);
 
-        assert oldPartitionStorage != null : "Partition does not exists: " + partitionId;
+        assert oldPartitionStorage != null : "Partition does not exist: " + partitionId;
 
         if (backupPartitions.putIfAbsent(partitionId, oldPartitionStorage) == null) {
             partitions.put(partitionId, new TestMvPartitionStorage(partitionId));

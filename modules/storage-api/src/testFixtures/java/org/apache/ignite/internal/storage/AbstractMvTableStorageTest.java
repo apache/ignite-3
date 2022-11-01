@@ -88,7 +88,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
     private TableIndexView hashIdx;
 
-    private HybridClock clock = new HybridClockImpl();
+    private final HybridClock clock = new HybridClockImpl();
 
     /**
      * Initializes the internal structures needed for tests.
@@ -376,7 +376,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
     }
 
     @Test
-    protected void testFinishRebalanceMvPartition() throws Exception {
+    public void testFinishRebalanceMvPartition() throws Exception {
         ExecutorService executorService = Executors.newSingleThreadExecutor();
 
         try {
