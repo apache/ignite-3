@@ -61,9 +61,6 @@ public class ClientLoggingTest {
         assertEquals("t", client1.tables().tables().get(0).name());
         assertEquals("t", client2.tables().tables().get(0).name());
 
-        assertThat(loggerFactory1.logger.entries(), empty());
-        assertThat(loggerFactory2.logger.entries(), empty());
-
         server.close();
 
         FakeIgnite ignite2 = new FakeIgnite();
