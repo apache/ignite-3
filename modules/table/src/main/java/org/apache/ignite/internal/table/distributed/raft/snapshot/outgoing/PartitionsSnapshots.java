@@ -39,7 +39,6 @@ public interface PartitionsSnapshots {
      */
     void removeSnapshots(PartitionKey partitionKey);
 
-
     /**
      * Finishes a snapshot. This closes the snapshot and deregisters it.
      *
