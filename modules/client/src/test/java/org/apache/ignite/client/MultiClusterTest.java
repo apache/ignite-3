@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.UUID;
@@ -24,6 +25,7 @@ import org.apache.ignite.client.IgniteClient.Builder;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -32,14 +34,18 @@ import org.junit.jupiter.api.Test;
  * Tests client behavior with multiple clusters
  */
 public class MultiClusterTest {
+    private static final UUID clusterId1 = UUID.randomUUID();
+
+    private static final UUID clusterId2 = UUID.randomUUID();
+
     private TestServer server1;
 
     private TestServer server2;
 
     @BeforeEach
     void setUp() {
-        server1 = new TestServer(10900, 10, 0, new FakeIgnite(), null, "s1", UUID.randomUUID());
-        server2 = new TestServer(10900, 10, 0, new FakeIgnite(), null, "s2", UUID.randomUUID());
+        server1 = new TestServer(10900, 10, 0, new FakeIgnite(), null, "s1", clusterId1);
+        server2 = new TestServer(10900, 10, 0, new FakeIgnite(), null, "s2", clusterId2);
     }
 
     @AfterEach
@@ -57,7 +63,18 @@ public class MultiClusterTest {
                 .loggerFactory(loggerFactory);
 
         try (var client = builder.build()) {
-            assertTrue(IgniteTestUtils.waitForCondition(() -> client.connections().size() == 2, 3000));
+            assertTrue(IgniteTestUtils.waitForCondition(() -> getFailedConnectionEntry(loggerFactory) != null, 3000));
+
+            assertEquals(1, client.connections().size());
+
+            String err = getFailedConnectionEntry(loggerFactory);
         }
+    }
+
+    private static @Nullable String getFailedConnectionEntry(TestLoggerFactory loggerFactory) {
+        return loggerFactory.logger.entries().stream()
+                .filter(x -> x.contains("Failed to establish connection to"))
+                .findFirst()
+                .orElse(null);
     }
 }

@@ -636,8 +636,8 @@ public final class ReliableChannel implements AutoCloseable {
 
                         try {
                             hld.getOrCreateChannel(true);
-                        } catch (Exception ignore) {
-                            // No-op.
+                        } catch (Exception e) {
+                            log.warn("Failed to establish connection to " + hld.chCfg.getAddress() + ": " + e.getMessage(), e);
                         }
                     }
                 }
