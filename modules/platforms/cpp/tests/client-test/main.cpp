@@ -21,10 +21,8 @@
 
 #include <gtest/gtest.h>
 
-#if defined(__APPLE__)
-#include <csignal>
-#endif
 #include <chrono>
+#include <csignal>
 #include <thread>
 
 namespace {
@@ -41,8 +39,22 @@ void signal_handler(int signum) {
 
     signal(signum, SIG_DFL);
 
-    kill(getpid(), signum);
+    raise(signum);
 }
+}
+
+/**
+ * Sets process abortion (SIGABRT, SIGINT, SIGSEGV signals) handler.
+ *
+ * @param handler Abortion handler.
+ */
+void set_process_abort_handler(std::function<void(int)> handler) {
+    // Install signal handlers to clean up resources on early exit.
+    signal(SIGABRT, signal_handler);
+    signal(SIGINT, signal_handler);
+    signal(SIGSEGV, signal_handler);
+
+    shutdown_handler = std::move(handler);
 }
 
 /**
@@ -61,17 +73,13 @@ void before_all() {
 }
 
 int main(int argc, char **argv) {
-    // Install signal handlers to clean up resources on early exit.
-    signal(SIGABRT, signal_handler);
-    signal(SIGINT, signal_handler);
-
     ignite::IgniteRunner runner;
 
-    shutdown_handler = [&](int signal) {
+    set_process_abort_handler([&](int signal) {
         std::cout << "Caught signal " << signal << " during tests" << std::endl;
 
         runner.stop();
-    };
+    });
 
     int res = 0;
     before_all();

@@ -15,10 +15,10 @@
  * limitations under the License.
  */
 
-#include "../linux/linux_async_worker_thread.h"
+#include <ignite/network/detail/linux/linux_async_worker_thread.h>
+#include <ignite/network/detail/linux/linux_async_client_pool.h>
 
 #include "../utils.h"
-#include "../linux/linux_async_client_pool.h"
 
 #include <algorithm>
 #include <cstring>

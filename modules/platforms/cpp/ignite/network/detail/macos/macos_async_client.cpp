@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-#include "../linux/linux_async_client.h"
+#include <ignite/network/detail/linux/linux_async_client.h>
 
 
 #include <algorithm>

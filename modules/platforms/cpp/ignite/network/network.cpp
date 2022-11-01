@@ -21,7 +21,7 @@
 
 #include <ignite/common/config.h>
 
-#if defined(_WIN32)
+#ifdef _WIN32
 # include "detail/win/win_async_client_pool.h"
 #else
 # include "detail/linux/linux_async_client_pool.h"
