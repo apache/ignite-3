@@ -21,7 +21,6 @@ import jakarta.inject.Singleton;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -30,7 +29,7 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.internal.cli.call.cluster.topology.PhysicalTopologyCall;
 import org.apache.ignite.internal.cli.core.call.UrlCallInput;
-import org.apache.ignite.rest.client.model.ClusterNode;
+import org.apache.ignite.rest.client.model.NodeMetadata;
 
 /**
  * Registry to get a node URL by a node name.
@@ -99,15 +98,17 @@ public class NodeNameRegistry {
             PhysicalTopologyCall topologyCall = new PhysicalTopologyCall();
             topologyCall.execute(new UrlCallInput(nodeUrl)).body()
                     .forEach(it -> {
-                        nodeNameToNodeUrl.put(it.getName(), urlFromClusterNode(it));
+                        nodeNameToNodeUrl.put(it.getName(), urlFromClusterNode(it.getMetadata()));
                     });
         } finally {
             readWriteLock.writeLock().unlock();
         }
     }
 
-    private static String urlFromClusterNode(ClusterNode node) {
-        Objects.requireNonNull(node, "node must not be null");
-        return "http://" + node.getMetadata().getRestHost() + ":" + node.getMetadata().getRestPort();
+    private static String urlFromClusterNode(NodeMetadata metadata) {
+        if (metadata == null) {
+            return null;
+        }
+        return "http://" + metadata.getRestHost() + ":" + metadata.getRestPort();
     }
 }
