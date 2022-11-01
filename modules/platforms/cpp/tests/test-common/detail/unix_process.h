@@ -103,6 +103,16 @@ public:
     }
 
     /**
+     * Kill the process.
+     */
+    void kill() final {
+        if (!m_running)
+            return;
+
+        ::kill(-m_pid, SIGTERM);
+    }
+
+    /**
      * Join process.
      *
      * @param timeout Timeout.
@@ -112,14 +122,7 @@ public:
         ::waitpid(m_pid, nullptr, 0);
     }
 
-    void kill() final {
-        if (!m_running)
-            return;
-
-        ::kill(-m_pid, SIGTERM);
-    }
-
-protected:
+private:
     /** Running flag. */
     bool m_running;
 
