@@ -39,6 +39,7 @@ public class TestLoggerFactory implements LoggerFactory {
         return logger;
     }
 
+    /** Logger that stores all messages in a list. */
     public static class ListLogger implements System.Logger {
         private final String name;
 

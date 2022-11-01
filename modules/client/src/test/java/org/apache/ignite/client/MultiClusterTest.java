@@ -33,7 +33,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
- * Tests client behavior with multiple clusters
+ * Tests client behavior with multiple clusters.
  */
 public class MultiClusterTest {
     private static final UUID clusterId1 = UUID.randomUUID();
