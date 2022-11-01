@@ -16,6 +16,12 @@
  */
 package org.apache.ignite.raft.jraft.storage.impl;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -35,12 +41,6 @@ import org.apache.ignite.raft.jraft.util.Utils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public abstract class BaseLogStorageTest extends BaseStorageTest {
     protected LogStorage logStorage;
@@ -68,7 +68,7 @@ public abstract class BaseLogStorageTest extends BaseStorageTest {
     }
 
     @AfterEach
-    public void teardown() throws Exception {
+    public void teardown() {
         this.logStorage.shutdown();
     }
 

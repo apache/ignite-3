@@ -21,11 +21,12 @@ import java.io.Serializable;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.apache.ignite.internal.close.ManuallyCloseable;
 
 /**
  * Common interface for configuration storage.
  */
-public interface ConfigurationStorage extends AutoCloseable {
+public interface ConfigurationStorage extends ManuallyCloseable {
     /**
      * Reads all configuration values and current storage version during the recovery phase.
      *
@@ -88,4 +89,10 @@ public interface ConfigurationStorage extends AutoCloseable {
      * @return A future that will be completed when revisions are written to the storage.
      */
     CompletableFuture<Void> writeConfigurationRevision(long prevRevision, long currentRevision);
+
+    /**
+     * Closes the storage.
+     */
+    @Override
+    void close();
 }

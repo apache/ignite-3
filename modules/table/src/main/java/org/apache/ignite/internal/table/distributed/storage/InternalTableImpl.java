@@ -1198,7 +1198,7 @@ public class InternalTableImpl implements InternalTable {
 
     /** {@inheritDoc} */
     @Override
-    public void close() throws Exception {
+    public void close() {
         for (RaftGroupService srv : partitionMap.values()) {
             srv.shutdown();
         }

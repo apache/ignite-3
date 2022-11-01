@@ -93,7 +93,7 @@ public class TestPartitionDataStorage implements PartitionDataStorage {
     }
 
     @Override
-    public void close() throws Exception {
+    public void close() {
         partitionStorage.close();
     }
 }

@@ -386,7 +386,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
     /** {@inheritDoc} */
     @Override
-    public void close() throws Exception {
+    public void close() {
         // No-op.
     }
 

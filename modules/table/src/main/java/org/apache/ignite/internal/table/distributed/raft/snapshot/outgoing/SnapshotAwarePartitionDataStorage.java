@@ -122,7 +122,7 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
     }
 
     @Override
-    public void close() throws Exception {
+    public void close() {
         // TODO: IGNITE-17935 - terminate all snapshots of this partition considering correct locking to do it consistently
 
         partitionStorage.close();

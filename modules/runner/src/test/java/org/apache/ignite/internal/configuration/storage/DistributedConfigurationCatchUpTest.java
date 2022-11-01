@@ -31,6 +31,7 @@ import java.util.function.Consumer;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.internal.close.AutoCloser;
 import org.apache.ignite.internal.configuration.TestConfigurationChanger;
 import org.apache.ignite.internal.configuration.asm.ConfigurationAsmGenerator;
 import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
@@ -94,9 +95,9 @@ public class DistributedConfigurationCatchUpTest {
 
         MetaStorageMockWrapper wrapper = new MetaStorageMockWrapper();
 
-        try (var storage = new DistributedConfigurationStorage(wrapper.metaStorageManager(), vaultManager)) {
+        try (var storageHolder = new AutoCloser<>(storage(wrapper), DistributedConfigurationStorage::close)) {
             var changer = new TestConfigurationChanger(cgen, List.of(rootKey), Collections.emptyMap(),
-                    storage, Collections.emptyList(), Collections.emptyList());
+                    storageHolder.value(), Collections.emptyList(), Collections.emptyList());
 
             try {
                 changer.start();
@@ -120,15 +121,16 @@ public class DistributedConfigurationCatchUpTest {
         // This emulates a change in MetaStorage that is not related to the configuration.
         vaultManager.put(MetaStorageManager.APPLIED_REV, ByteUtils.longToBytes(2)).get();
 
-        try (var storage = new DistributedConfigurationStorage(wrapper.metaStorageManager(), vaultManager)) {
+        try (var storageHolder = new AutoCloser<>(storage(wrapper), DistributedConfigurationStorage::close)) {
+
             var changer = new TestConfigurationChanger(cgen, List.of(rootKey), Collections.emptyMap(),
-                    storage, Collections.emptyList(), Collections.emptyList());
+                    storageHolder.value(), Collections.emptyList(), Collections.emptyList());
 
             try {
                 changer.start();
 
                 // Should return last configuration change, not last MetaStorage change.
-                Long lastConfigurationChangeRevision = storage.lastRevision().get();
+                Long lastConfigurationChangeRevision = storageHolder.value().lastRevision().get();
 
                 // Should be one, because we only changed configuration once.
                 assertEquals(1, lastConfigurationChangeRevision);
@@ -136,6 +138,10 @@ public class DistributedConfigurationCatchUpTest {
                 changer.stop();
             }
         }
+    }
+
+    private DistributedConfigurationStorage storage(MetaStorageMockWrapper wrapper) {
+        return new DistributedConfigurationStorage(wrapper.metaStorageManager(), vaultManager);
     }
 
     /**

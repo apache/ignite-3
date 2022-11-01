@@ -126,6 +126,7 @@ public class VolatileLogStorageFactory implements LogStorageFactory {
 
     /** {@inheritDoc} */
     @Override
-    public void close() throws Exception {
+    public void close() {
+        // No-op.
     }
 }

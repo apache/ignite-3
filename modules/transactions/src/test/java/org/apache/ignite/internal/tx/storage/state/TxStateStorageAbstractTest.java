@@ -35,6 +35,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.IntStream;
+import org.apache.ignite.internal.close.AutoCloser;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -43,6 +44,8 @@ import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.IgniteBiTuple;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -54,10 +57,24 @@ public abstract class TxStateStorageAbstractTest {
     @WorkDirectory
     protected Path workDir;
 
+    private TxStateTableStorage tableStorage;
+
+    @BeforeEach
+    void initStorage() {
+        tableStorage = createStorage();
+    }
+
+    @AfterEach
+    void closeStorage() {
+        if (tableStorage != null) {
+            tableStorage.close();
+        }
+    }
+
     @Test
-    public void testPutGetRemove() throws Exception {
-        try (TxStateTableStorage tableStorage = createStorage()) {
-            TxStateStorage storage = tableStorage.getOrCreateTxStateStorage(0);
+    public void testPutGetRemove() {
+        try (var storageHolder = new AutoCloser<>(tableStorage.getOrCreateTxStateStorage(0), TxStateStorage::close)) {
+            TxStateStorage storage = storageHolder.value();
 
             List<UUID> txIds = new ArrayList<>();
 
@@ -110,9 +127,9 @@ public abstract class TxStateStorageAbstractTest {
     }
 
     @Test
-    public void testCas() throws Exception {
-        try (TxStateTableStorage tableStorage = createStorage()) {
-            TxStateStorage storage = tableStorage.getOrCreateTxStateStorage(0);
+    public void testCas() {
+        try (var storageHolder = new AutoCloser<>(tableStorage.getOrCreateTxStateStorage(0), TxStateStorage::close)) {
+            TxStateStorage storage = storageHolder.value();
 
             UUID txId = UUID.randomUUID();
 
@@ -150,10 +167,14 @@ public abstract class TxStateStorageAbstractTest {
 
     @Test
     public void testScan() throws Exception {
-        try (TxStateTableStorage tableStorage = createStorage()) {
-            TxStateStorage storage0 = tableStorage.getOrCreateTxStateStorage(0);
-            TxStateStorage storage1 = tableStorage.getOrCreateTxStateStorage(1);
-            TxStateStorage storage2 = tableStorage.getOrCreateTxStateStorage(2);
+        try (
+                var storageHolder0 = new AutoCloser<>(tableStorage.getOrCreateTxStateStorage(0), TxStateStorage::close);
+                var storageHolder1 = new AutoCloser<>(tableStorage.getOrCreateTxStateStorage(1), TxStateStorage::close);
+                var storageHolder2 = new AutoCloser<>(tableStorage.getOrCreateTxStateStorage(2), TxStateStorage::close)
+        ) {
+            TxStateStorage storage0 = storageHolder0.value();
+            TxStateStorage storage1 = storageHolder1.value();
+            TxStateStorage storage2 = storageHolder2.value();
 
             Map<UUID, TxMeta> txs = new HashMap<>();
 
@@ -184,10 +205,13 @@ public abstract class TxStateStorageAbstractTest {
     }
 
     @Test
-    public void testDestroy() throws Exception {
-        try (TxStateTableStorage tableStorage = createStorage()) {
-            TxStateStorage storage0 = tableStorage.getOrCreateTxStateStorage(0);
-            TxStateStorage storage1 = tableStorage.getOrCreateTxStateStorage(1);
+    public void testDestroy() {
+        try (
+                var storageHolder0 = new AutoCloser<>(tableStorage.getOrCreateTxStateStorage(0), TxStateStorage::close);
+                var storageHolder1 = new AutoCloser<>(tableStorage.getOrCreateTxStateStorage(1), TxStateStorage::close)
+        ) {
+            TxStateStorage storage0 = storageHolder0.value();
+            TxStateStorage storage1 = storageHolder1.value();
 
             UUID txId0 = UUID.randomUUID();
             storage0.put(txId0, new TxMeta(TxState.COMMITED, generateEnlistedPartitions(1), generateTimestamp(txId0)));
@@ -203,8 +227,8 @@ public abstract class TxStateStorageAbstractTest {
 
     @Test
     public void scansInOrderDefinedByTxIds() throws Exception {
-        try (TxStateTableStorage tableStorage = createStorage()) {
-            TxStateStorage partitionStorage = tableStorage.getOrCreateTxStateStorage(0);
+        try (var storageHolder = new AutoCloser<>(tableStorage.getOrCreateTxStateStorage(0), TxStateStorage::close)) {
+            TxStateStorage partitionStorage = storageHolder.value();
 
             for (int i = 0; i < 100; i++) {
                 putRandomTxMetaWithCommandIndex(partitionStorage, i, i);
@@ -226,8 +250,8 @@ public abstract class TxStateStorageAbstractTest {
 
     @Test
     public void scanOnlySeesDataExistingAtTheMomentOfCreation() throws Exception {
-        try (TxStateTableStorage tableStorage = createStorage()) {
-            TxStateStorage partitionStorage = tableStorage.getOrCreateTxStateStorage(0);
+        try (var storageHolder = new AutoCloser<>(tableStorage.getOrCreateTxStateStorage(0), TxStateStorage::close)) {
+            TxStateStorage partitionStorage = storageHolder.value();
 
             UUID existingBeforeScan = new UUID(2, 0);
             partitionStorage.put(existingBeforeScan, randomTxMeta(1, existingBeforeScan));

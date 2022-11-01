@@ -42,7 +42,7 @@ public class RocksDbSharedLogStorageTest extends BaseLogStorageTest {
     /** {@inheritDoc} */
     @AfterEach
     @Override
-    public void teardown() throws Exception {
+    public void teardown() {
         super.teardown();
 
         logStorageProvider.close();

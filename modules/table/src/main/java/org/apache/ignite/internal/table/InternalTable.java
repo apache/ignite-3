@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
+import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
@@ -39,7 +40,7 @@ import org.jetbrains.annotations.Nullable;
  * Internal table facade provides low-level methods for table operations. The facade hides TX/replication protocol over table storage
  * abstractions.
  */
-public interface InternalTable extends AutoCloseable {
+public interface InternalTable extends ManuallyCloseable {
     /**
      * Gets a storage for the table.
      *
@@ -306,4 +307,10 @@ public interface InternalTable extends AutoCloseable {
     TxStateTableStorage txStateStorage();
 
     //TODO: IGNITE-14488. Add invoke() methods.
+
+    /**
+     * Closes the table.
+     */
+    @Override
+    void close();
 }

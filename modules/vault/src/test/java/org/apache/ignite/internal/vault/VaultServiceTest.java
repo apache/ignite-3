@@ -60,7 +60,7 @@ public abstract class VaultServiceTest {
      * After each.
      */
     @AfterEach
-    void tearDown() throws Exception {
+    void tearDown() {
         vaultService.close();
     }
 
