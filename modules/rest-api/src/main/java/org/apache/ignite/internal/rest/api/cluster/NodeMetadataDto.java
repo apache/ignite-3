@@ -34,7 +34,7 @@ public class NodeMetadataDto {
     /**
      * Constructor.
      *
-     * @param restHost
+     * @param restHost REST host of a node.
      * @param restPort REST port of a node.
      */
     @JsonCreator

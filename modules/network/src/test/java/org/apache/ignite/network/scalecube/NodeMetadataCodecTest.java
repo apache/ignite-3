@@ -30,7 +30,7 @@ class NodeMetadataCodecTest {
 
     @Test
     void serializeAndDeserialize() {
-        NodeMetadata metadata = new NodeMetadata("localhost",10000);
+        NodeMetadata metadata = new NodeMetadata("localhost", 10000);
         ByteBuffer buffer = METADATA_CODEC.serialize(metadata);
         NodeMetadata fromByteBuffer = METADATA_CODEC.deserialize(buffer);
         assertEquals(metadata, fromByteBuffer);
