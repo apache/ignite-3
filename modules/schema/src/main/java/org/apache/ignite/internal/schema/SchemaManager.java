@@ -97,31 +97,6 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
     /** {@inheritDoc} */
     @Override
     public void start() {
-        for (String tblName : tablesCfg.tables().value().namedListKeys()) {
-            ExtendedTableConfiguration tblCfg = ((ExtendedTableConfiguration) tablesCfg.tables().get(tblName));
-            UUID tblId = tblCfg.id().value();
-
-            Map<Integer, byte[]> schemas = collectAllSchemas(tblId);
-
-            byte[] serialized;
-
-            if (!schemas.isEmpty()) {
-                for (Map.Entry<Integer, byte[]> ent : schemas.entrySet()) {
-                    serialized = ent.getValue();
-
-                    SchemaDescriptor desc = SchemaSerializerImpl.INSTANCE.deserialize(serialized);
-
-                    createSchema(0, tblId, tblName, desc).join();
-                }
-
-                registriesVv.complete(0);
-            } else {
-                serialized = schemas.get(INITIAL_SCHEMA_VERSION);
-
-                assert serialized != null;
-            }
-        }
-
         tablesCfg.tables().any().columns().listen(this::onSchemaChange);
     }
 
@@ -152,17 +127,13 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
             }
 
             if (verFromUpdate != INITIAL_SCHEMA_VERSION) {
-                SchemaDescriptor oldSchema = searchSchemaByVersion(tblId, verFromUpdate - 1);
-                assert oldSchema != null;
+                byte[] serPrevSchema = schemaByVersion(tblId, verFromUpdate - 1);
 
-                NamedListView<ColumnView> oldCols = ctx.oldValue();
-                NamedListView<ColumnView> newCols = ctx.newValue();
+                assert serPrevSchema != null;
 
-                schemaDescFromUpdate.columnMapping(SchemaUtils.columnMapper(
-                        oldSchema,
-                        oldCols,
-                        schemaDescFromUpdate,
-                        newCols));
+                SchemaDescriptor oldSchema = SchemaSerializerImpl.INSTANCE.deserialize(serPrevSchema);
+
+                schemaDescFromUpdate.columnMapping(SchemaUtils.columnMapper(oldSchema, schemaDescFromUpdate));
             }
 
             long causalityToken = ctx.storageRevision();
@@ -301,14 +272,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
         CompletableFuture<SchemaDescriptor> fut = new CompletableFuture<>();
 
         if (checkSchemaVersion(tblId, schemaVer)) {
-            SchemaDescriptor desc = searchSchemaByVersion(tblId, schemaVer);
-
-            if (desc == null) {
-                return getSchemaDescriptor(schemaVer, tblCfg);
-            } else {
-                fut.complete(desc);
-                return fut;
-            }
+            return getSchemaDescriptor(schemaVer, tblCfg);
         }
 
         IgniteTriConsumer<Long, Map<UUID, SchemaRegistryImpl>, Throwable> schemaListener = (token, regs, e) -> {
@@ -471,6 +435,27 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
             }
 
             return lastVer;
+        } catch (NodeStoppingException e) {
+            throw new IgniteException(e.traceId(), e.code(), e.getMessage(), e);
+        }
+    }
+
+    private byte[] schemaByVersion(UUID tblId, int ver) {
+        try {
+            Cursor<Entry> cur = metastorageMgr.prefix(schemaHistPrefix(tblId));
+
+            int lastVer = INITIAL_SCHEMA_VERSION;
+
+            for (Entry ent : cur) {
+                String key = ent.key().toString();
+                int descVer = extractVerFromSchemaKey(key);
+
+                if (descVer == ver) {
+                    return ent.value();
+                }
+            }
+
+            return null;
         } catch (NodeStoppingException e) {
             throw new IgniteException(e.traceId(), e.code(), e.getMessage(), e);
         }

@@ -383,25 +383,34 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
                 .thenAccept(table -> {
                     Index<?> index = newIndex(table, tableIndexView);
 
-                    TableRowToIndexKeyConverter tableRowConverter = new TableRowToIndexKeyConverter(
-                            schemaManager.schemaRegistry(tableId),
-                            index.descriptor().columns().toArray(STRING_EMPTY_ARRAY)
-                    );
+        CompletableFuture<SchemaRegistry> schemaFut = schemaManager.schemaRegistry(causalityToken, tableId);
 
-                    if (index instanceof HashIndex) {
-                        table.registerHashIndex(tableIndexView.id(), tableIndexView.uniq(), tableRowConverter::convert);
+        return schemaFut.thenCompose((reg) -> {
+            TableRowToIndexKeyConverter tableRowConverter = new TableRowToIndexKeyConverter(
+                    schemaManager.schemaRegistry(tableId),
+                    index.descriptor().columns().toArray(STRING_EMPTY_ARRAY)
+            );
 
-                        if (tableIndexView.uniq()) {
-                            table.pkId(index.id());
+            if (index instanceof HashIndex) {
+                table.registerHashIndex(tableIndexView.id(), tableIndexView.uniq(), tableRowConverter::convert);
+
+            return tableManager.tableAsync(tableId)
+                    .thenAccept(table -> {
+                        if (index instanceof HashIndex) {
+                            table.registerHashIndex(tableIndexView.id(), tableIndexView.uniq(), tableRowConverter::convert);
+
+                            if (tableIndexView.uniq()) {
+                                table.pkId(index.id());
+                            }
+                        } else if (index instanceof SortedIndex) {
+                            table.registerSortedIndex(tableIndexView.id(), tableRowConverter::convert);
+                        } else {
+                            throw new AssertionError("Unknown index type [type=" + index.getClass() + ']');
                         }
-                    } else if (index instanceof SortedIndex) {
-                        table.registerSortedIndex(tableIndexView.id(), tableRowConverter::convert);
-                    } else {
-                        throw new AssertionError("Unknown index type [type=" + index.getClass() + ']');
-                    }
 
-                    fireEvent(IndexEvent.CREATE, new IndexEventParameters(causalityToken, index), null);
-                });
+                        fireEvent(IndexEvent.CREATE, new IndexEventParameters(causalityToken, index), null);
+                    });
+        });
     }
 
     private Index<?> newIndex(TableImpl table, TableIndexView indexView) {
@@ -486,6 +495,8 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
 
         /** Creates converter for given version of the schema. */
         private VersionedConverter createConverter(int schemaVersion) {
+            assert registry != null : "Registry is not initialized for schema=" + schemaVersion;
+
             SchemaDescriptor descriptor = registry.schema();
 
             if (descriptor.version() < schemaVersion) {
