@@ -135,6 +135,7 @@ public class ItClientHandlerTest {
             final var idleTimeout = unpacker.unpackLong();
             final var nodeId = unpacker.unpackString();
             final var nodeName = unpacker.unpackString();
+            unpacker.skipValue(); // Cluster id.
 
             var featuresLen = unpacker.unpackBinaryHeader();
             unpacker.skipValue(featuresLen);
