@@ -17,16 +17,19 @@
 
 package org.apache.ignite.client;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.lang.ErrorGroups.Client.CLUSTER_ID_MISMATCH_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.client.IgniteClient.Builder;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.hamcrest.CoreMatchers;
 import org.jetbrains.annotations.Nullable;
@@ -92,9 +95,9 @@ public class MultiClusterTest {
             server1.close();
             server1 = new TestServer(10900, 10, 0, new FakeIgnite(), null, "s1", clusterId2);
 
-            IgniteClientConnectionException ex = assertThrows(IgniteClientConnectionException.class, () -> client.tables().tables());
+            // TODO: Generify assertThrowsWithCause
+            IgniteClientConnectionException ex = (IgniteClientConnectionException) assertThrowsWithCause(() -> client.tables().tables(), IgniteClientConnectionException.class, "Cluster ID mismatch");
             assertEquals(CLUSTER_ID_MISMATCH_ERR, ex.code());
-            assertThat(ex.getMessage(), CoreMatchers.containsString("Cluster ID mismatch"));
         }
     }
 
