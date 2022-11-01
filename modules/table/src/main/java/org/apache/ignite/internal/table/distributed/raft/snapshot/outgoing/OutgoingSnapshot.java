@@ -76,9 +76,7 @@ public class OutgoingSnapshot {
 
     private final ReusableLockLockup mvOperationsLockup = new ReusableLockLockup(mvOperationsLock);
 
-    /**
-     * Snapshot metadata taken on snapshot scope freezing.
-     */
+    /** Snapshot metadata taken on snapshot scope freezing. */
     private SnapshotMeta meta;
 
     /**
