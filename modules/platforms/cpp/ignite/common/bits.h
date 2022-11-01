@@ -174,7 +174,7 @@ T bit_ceil(T value) noexcept {
  * @return Required bytes number.
  */
 [[nodiscard]] inline std::size_t bytes_for_bits(std::size_t bits_num) {
-    return bits_num ? ((bits_num - 1) / CHAR_BIT) + 1 : 0;
+    return (bits_num + CHAR_BIT - 1) / CHAR_BIT;
 }
 
 } // namespace ignite

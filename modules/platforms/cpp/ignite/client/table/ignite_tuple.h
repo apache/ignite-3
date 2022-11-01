@@ -43,6 +43,15 @@ public:
     /**
      * Constructor.
      *
+     * @param capacity Capacity.
+     */
+    explicit ignite_tuple(size_t capacity) {
+        m_pairs.reserve(capacity);
+    }
+
+    /**
+     * Constructor.
+     *
      * @param pairs Pairs.
      */
     ignite_tuple(std::initializer_list<std::pair<std::string, std::any>> pairs)
@@ -139,11 +148,16 @@ public:
      */
     template<typename T>
     void set(std::string_view name, T&& value) {
-        auto it = m_indices.find(parse_name(name));
-        if (it == m_indices.end())
-            throw ignite_error("Can not find column with the name '" + std::string(name) + "' in the tuple");
-        auto idx = it->second;
-        m_pairs[idx].second = std::forward<T>(value);
+        auto parsed_name = parse_name(name);
+        auto it = m_indices.find(parsed_name);
+        if (it != m_indices.end()) {
+            auto idx = it->second;
+            m_pairs[idx].second = std::forward<T>(value);
+            return;
+        }
+
+        m_pairs.emplace_back(name, std::forward<T>(value));
+        m_indices.emplace(parsed_name, m_pairs.size() - 1);
     }
 
     /**
@@ -208,48 +222,6 @@ private:
         return res;
     }
 
-    /** Pairs of column names and values. */
-    std::vector<std::pair<std::string, std::any>> m_pairs;
-
-    /** Indices of the columns corresponding to their names. */
-    std::unordered_map<std::string, size_t> m_indices;
-};
-
-/**
- * Ignite tuple builder.
- */
-class ignite_tuple_builder {
-public:
-    /**
-     * Constructor.
-     *
-     * @param capacity Capacity.
-     */
-    explicit ignite_tuple_builder(size_t capacity) {
-        m_pairs.reserve(capacity);
-    }
-
-    /**
-     * Adds new column.
-     *
-     * @tparam T Column type.
-     * @param name The column name.
-     * @param value Column value.
-     */
-    template<typename T>
-    void add(std::string_view name, T&& value) {
-        m_pairs.emplace_back(name, std::forward<T>(value));
-        m_indices.emplace(ignite_tuple::parse_name(name), m_pairs.size() - 1);
-    }
-
-    /**
-     * Build tuple.
-     *
-     * @return Resulting Ignite tuple instance.
-     */
-    [[nodiscard]] ignite_tuple build() && { return {std::move(m_pairs), std::move(m_indices)}; }
-
-private:
     /** Pairs of column names and values. */
     std::vector<std::pair<std::string, std::any>> m_pairs;
 

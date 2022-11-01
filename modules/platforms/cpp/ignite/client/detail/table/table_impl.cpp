@@ -268,18 +268,18 @@ ignite_tuple read_tuple(protocol::reader& reader, const schema* sch, const ignit
     auto tuple_data = reader.read_binary();
 
     auto columns_cnt = std::int32_t(sch->columns.size());
-    ignite_tuple_builder res(columns_cnt);
+    ignite_tuple res(columns_cnt);
     binary_tuple_parser parser(columns_cnt - sch->key_column_count, tuple_data);
 
     for (std::int32_t i = 0; i < columns_cnt; ++i) {
         auto& column = sch->columns[i];
         if (i < sch->key_column_count) {
-            res.add(column.name, key.get(column.name));
+            res.set(column.name, key.get(column.name));
         } else {
-            res.add(column.name, read_next_column(parser, column.type));
+            res.set(column.name, read_next_column(parser, column.type));
         }
     }
-    return std::move(res).build();
+    return res;
 }
 
 /**
@@ -294,14 +294,14 @@ ignite_tuple read_tuple(protocol::reader& reader, const schema* sch, bool key_on
     auto tuple_data = reader.read_binary();
 
     auto columns_cnt = std::int32_t(key_only ? sch->key_column_count : sch->columns.size());
-    ignite_tuple_builder res(columns_cnt);
+    ignite_tuple res(columns_cnt);
     binary_tuple_parser parser(columns_cnt, tuple_data);
 
     for (std::int32_t i = 0; i < columns_cnt; ++i) {
         auto& column = sch->columns[i];
-        res.add(column.name, read_next_column(parser, column.type));
+        res.set(column.name, read_next_column(parser, column.type));
     }
-    return std::move(res).build();
+    return res;
 }
 
 /**
