@@ -141,7 +141,8 @@ public class SqlQueryProcessor implements QueryProcessor {
     /** Transaction manager. */
     private final TxManager txManager;
 
-    private HybridClock clock;
+    /** Clock. */
+    private final HybridClock clock;
 
     /** Constructor. */
     public SqlQueryProcessor(

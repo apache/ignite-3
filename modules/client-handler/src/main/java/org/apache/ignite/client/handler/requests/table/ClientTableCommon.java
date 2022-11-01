@@ -43,9 +43,11 @@ import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.DecimalNativeType;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
+import org.apache.ignite.internal.schema.NumberNativeType;
 import org.apache.ignite.internal.schema.SchemaAware;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
+import org.apache.ignite.internal.schema.TemporalNativeType;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.lang.IgniteException;
@@ -85,13 +87,14 @@ public class ClientTableCommon {
         for (var colIdx = 0; colIdx < colCnt; colIdx++) {
             var col = schema.column(colIdx);
 
-            packer.packArrayHeader(6);
+            packer.packArrayHeader(7);
             packer.packString(col.name());
             packer.packInt(getClientDataType(col.type().spec()));
             packer.packBoolean(schema.isKeyColumn(colIdx));
             packer.packBoolean(col.nullable());
             packer.packBoolean(colocationCols.contains(col));
             packer.packInt(getDecimalScale(col.type()));
+            packer.packInt(getPrecision(col.type()));
         }
     }
 
@@ -522,5 +525,21 @@ public class ClientTableCommon {
 
     private static int getDecimalScale(NativeType type) {
         return type instanceof DecimalNativeType ? ((DecimalNativeType) type).scale() : 0;
+    }
+
+    private static int getPrecision(NativeType type) {
+        if (type instanceof NumberNativeType) {
+            return ((NumberNativeType) type).precision();
+        }
+
+        if (type instanceof TemporalNativeType) {
+            return ((TemporalNativeType) type).precision();
+        }
+
+        if (type instanceof DecimalNativeType) {
+            return ((DecimalNativeType) type).precision();
+        }
+
+        return 0;
     }
 }

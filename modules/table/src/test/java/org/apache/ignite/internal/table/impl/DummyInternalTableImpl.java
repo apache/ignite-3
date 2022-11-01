@@ -51,14 +51,14 @@ import org.apache.ignite.internal.table.distributed.IndexLocker;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
+import org.apache.ignite.internal.table.distributed.replicator.PlacementDriver;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
-import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
-import org.apache.ignite.internal.tx.storage.state.test.TestTxStateStorage;
+import org.apache.ignite.internal.tx.storage.state.test.TestTxStateTableStorage;
 import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.lang.IgniteBiTuple;
@@ -105,9 +105,15 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      * @param txManager Transaction manager.
      * @param crossTableUsage If this dummy table is going to be used in cross-table tests, it won't mock the calls of ReplicaService
      *                        by itself.
+     * @param placementDriver Placement driver.
      */
-    public DummyInternalTableImpl(ReplicaService replicaSvc, TxManager txManager, boolean crossTableUsage) {
-        this(replicaSvc, new TestMvPartitionStorage(0), txManager, crossTableUsage);
+    public DummyInternalTableImpl(
+            ReplicaService replicaSvc,
+            TxManager txManager,
+            boolean crossTableUsage,
+            PlacementDriver placementDriver
+    ) {
+        this(replicaSvc, new TestMvPartitionStorage(0), txManager, crossTableUsage, placementDriver);
     }
 
     /**
@@ -117,7 +123,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      * @param mvPartStorage Multi version partition storage.
      */
     public DummyInternalTableImpl(ReplicaService replicaSvc, MvPartitionStorage mvPartStorage) {
-        this(replicaSvc, mvPartStorage, null, false);
+        this(replicaSvc, mvPartStorage, null, false, null);
     }
 
     /**
@@ -128,12 +134,14 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      * @param txManager Transaction manager, if {@code null}, then default one will be created.
      * @param crossTableUsage If this dummy table is going to be used in cross-table tests, it won't mock the calls of ReplicaService
      *                        by itself.
+     * @param placementDriver Placement driver.
      */
     public DummyInternalTableImpl(
             ReplicaService replicaSvc,
             MvPartitionStorage mvPartStorage,
             @Nullable TxManager txManager,
-            boolean crossTableUsage
+            boolean crossTableUsage,
+            PlacementDriver placementDriver
     ) {
         super(
                 "test",
@@ -144,7 +152,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 addr -> Mockito.mock(ClusterNode.class),
                 txManager == null ? new TxManagerImpl(replicaSvc, new HeapLockManager(), new HybridClockImpl()) : txManager,
                 mock(MvTableStorage.class),
-                mock(TxStateTableStorage.class),
+                new TestTxStateTableStorage(),
                 replicaSvc,
                 new HybridClockImpl()
         );
@@ -243,15 +251,15 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 pkStorage,
                 clock,
                 new PendingComparableValuesTracker<>(clock.now()),
+                txStateStorage().getOrCreateTxStateStorage(0),
                 null,
-                null,
-                null,
+                placementDriver,
                 peer -> true
         );
 
         partitionListener = new PartitionListener(
                 new TestPartitionDataStorage(mvPartStorage),
-                new TestTxStateStorage(),
+                txStateStorage().getOrCreateTxStateStorage(0),
                 this.txManager,
                 () -> Map.of(pkStorage.get().id(), pkStorage.get()),
                 0

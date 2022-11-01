@@ -18,14 +18,12 @@
 package org.apache.ignite.internal.storage.impl;
 
 import java.util.Iterator;
-import java.util.Map.Entry;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
-import java.util.function.BiConsumer;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -384,24 +382,6 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     @Override
     public long rowsCount() {
         return map.size();
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void forEach(BiConsumer<RowId, BinaryRow> consumer) {
-        for (Entry<RowId, VersionChain> entry : map.entrySet()) {
-            RowId rowId = entry.getKey();
-
-            VersionChain versionChain = entry.getValue();
-
-            for (VersionChain cur = versionChain; cur != null; cur = cur.next) {
-                if (cur.row == null) {
-                    continue;
-                }
-
-                consumer.accept(rowId, cur.row);
-            }
-        }
     }
 
     /** {@inheritDoc} */
