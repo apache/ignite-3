@@ -183,17 +183,17 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
             }
 
             for (int j = 0; j < partSize; j++) {
-                int cur = p * partSize + j;
+                int rowNum = p * partSize + j;
 
-                data[cur] = new Object[4];
+                data[rowNum] = new Object[4];
 
                 int bound1 = ThreadLocalRandom.current().nextInt(3);
                 int bound2 = ThreadLocalRandom.current().nextInt(3);
 
-                data[cur][0] = uniqueNumList.get(cur);
-                data[cur][1] = bound1 == 0 ? null : bound1;
-                data[cur][2] = bound2 == 0 ? null : bound2;;
-                data[cur][3] = "something-" + cur;
+                data[rowNum][0] = uniqueNumList.get(rowNum);
+                data[rowNum][1] = bound1 == 0 ? null : bound1;
+                data[rowNum][2] = bound2 == 0 ? null : bound2;;
+                data[rowNum][3] = "row-" + rowNum;
             }
         }
 
@@ -328,13 +328,13 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
         RootNode<Object[]> node = new RootNode<>(ectx, scanNode.rowType());
         node.register(scanNode);
 
-        ArrayList<Object[]> res = new ArrayList<>();
+        int n = 0;
 
         while (node.hasNext()) {
-            res.add(node.next());
+            assertThat(node.next(), equalTo(expectedData[n++]));
         }
 
-        assertThat(res.toArray(EMPTY), equalTo(expectedData));
+        assertThat(n, equalTo(expectedData.length));
     }
 
     private static RelDataType createRowTypeFromSchema(IgniteTypeFactory typeFactory, SchemaDescriptor schemaDescriptor) {
