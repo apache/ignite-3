@@ -26,7 +26,7 @@ int writer::write_callback(void *data, const char *buf, size_t len) {
     auto buffer = static_cast<buffer_adapter *>(data);
 
     // We do not support messages larger than MAX_INT32
-    if (buffer->data().size() + len > std::numeric_limits<int32_t>::max())
+    if (buffer->data().size() + len > std::size_t(std::numeric_limits<int32_t>::max()))
         return -1;
 
     auto bytes = reinterpret_cast<const std::byte *>(buf);

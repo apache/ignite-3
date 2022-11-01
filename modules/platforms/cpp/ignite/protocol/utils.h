@@ -24,6 +24,7 @@
 #include <ignite/protocol/extension_types.h>
 
 #include <array>
+#include <functional>
 #include <optional>
 
 #include <cstddef>
@@ -93,6 +94,39 @@ template <>
  */
 template <>
 [[nodiscard]] uuid unpack_object(const msgpack_object &object);
+
+/**
+ * Unpack bool.
+ *
+ * @param object MsgPack object.
+ * @return bool value.
+ * @throw ignite_error if the object is not a bool.
+ */
+template <>
+[[nodiscard]] bool unpack_object(const msgpack_object &object);
+
+/**
+ * Get array size.
+ *
+ * @param object Object.
+ * @return Array size.
+ */
+[[nodiscard]] std::uint32_t unpack_array_size(const msgpack_object &object);
+
+/**
+ * Unpack array.
+ *
+ * @param object Object.
+ */
+void unpack_array_raw(const msgpack_object &object, const std::function<void(const msgpack_object&)>& read_func);
+
+/**
+ * Get binary data.
+ *
+ * @param object Object.
+ * @return Binary data view.
+ */
+[[nodiscard]] bytes_view unpack_binary(const msgpack_object &object);
 
 /**
  * Make random UUID.
