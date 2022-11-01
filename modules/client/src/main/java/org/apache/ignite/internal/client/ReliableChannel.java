@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.client;
 
+import static org.apache.ignite.lang.ErrorGroups.Client.CLUSTER_ID_MISMATCH_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.CONFIGURATION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.CONNECTION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Common.UNKNOWN_ERR;
@@ -600,6 +601,10 @@ public final class ReliableChannel implements AutoCloseable {
     /** Determines whether specified operation should be retried. */
     private boolean shouldRetry(ClientOperationType opType, int iteration, IgniteClientConnectionException exception,
                                 IgniteClientConnectionException aggregateException) {
+        if (exception.code() == CLUSTER_ID_MISMATCH_ERR) {
+            return false;
+        }
+
         if (opType == null) {
             // System operation.
             return iteration < RetryLimitPolicy.DFLT_RETRY_LIMIT;
@@ -757,7 +762,7 @@ public final class ReliableChannel implements AutoCloseable {
                             // Ignore
                         }
 
-                        throw new IgniteClientConnectionException(CONNECTION_ERR, "Cluster ID mismatch: expected=" + oldClusterId
+                        throw new IgniteClientConnectionException(CLUSTER_ID_MISMATCH_ERR, "Cluster ID mismatch: expected=" + oldClusterId
                                 + ", actual=" + ch0.protocolContext().clusterId());
                     }
 

@@ -17,8 +17,10 @@
 
 package org.apache.ignite.client;
 
+import static org.apache.ignite.lang.ErrorGroups.Client.CLUSTER_ID_MISMATCH_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.UUID;
@@ -73,6 +75,26 @@ public class MultiClusterTest {
             String expectedErr = "Cluster ID mismatch: expected=" + clusterId2 + ", actual=" + clusterId1;
 
             assertThat(err, CoreMatchers.containsString(expectedErr));
+        }
+    }
+
+    @Test
+    public void testReconnectToDifferentClusterFails()
+            throws Exception {
+        Builder builder = IgniteClient.builder()
+                .addresses("127.0.0.1:" + server1.port());
+
+        server2.close();
+
+        try (var client = builder.build()) {
+            client.tables().tables();
+
+            server1.close();
+            server1 = new TestServer(10900, 10, 0, new FakeIgnite(), null, "s1", clusterId2);
+
+            IgniteClientConnectionException ex = assertThrows(IgniteClientConnectionException.class, () -> client.tables().tables());
+            assertEquals(CLUSTER_ID_MISMATCH_ERR, ex.code());
+            assertThat(ex.getMessage(), CoreMatchers.containsString("Cluster ID mismatch"));
         }
     }
 

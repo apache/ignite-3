@@ -87,6 +87,9 @@ public class ErrorGroups {
 
         /** Configuration error. */
         public static final int CONFIGURATION_ERR = CLIENT_ERR_GROUP.registerErrorCode(7);
+
+        /** Cluster ID mismatch error. */
+        public static final int CLUSTER_ID_MISMATCH_ERR = CLIENT_ERR_GROUP.registerErrorCode(8);
     }
 
     /** SQL error group. */
