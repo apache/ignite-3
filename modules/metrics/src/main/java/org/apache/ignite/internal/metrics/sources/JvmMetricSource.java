@@ -27,85 +27,115 @@ import org.apache.ignite.internal.metrics.MetricSource;
 import org.jetbrains.annotations.Nullable;
 
 /**
- *
+ * Metric source, which provides JVM metrics like memory usage, gc stats etc.
  */
 public class JvmMetricSource implements MetricSource {
 
+    /** Source name. */
     private static final String SOURCE_NAME = "jvm";
 
-    private final MemoryMXBean memoryMXBean;
+    /** JVM standard MXBean to provide information about memory usage. */
+    private final MemoryMXBean memoryMxBean;
 
+    /** Cache holder for initial amount of heap memory.  */
     private final long heapInit;
 
+    /** Cache holder for max amount of heap memory.  */
     private final long heapMax;
 
+    /** Cache holder for initial amount of non-heap memory.  */
     private final long nonHeapInit;
 
+    /** Cache holder for max amount of non-heap memory.  */
     private final long nonHeapMax;
 
+    /** True, if source is enabled, false otherwise. */
     private boolean enabled;
 
-    public JvmMetricSource(MemoryMXBean memoryMXBean) {
-        this.memoryMXBean = memoryMXBean;
+    /**
+     * Constructor.
+     *
+     * @param memoryMxBean MXBean implementation to receive memory info.
+     */
+    JvmMetricSource(MemoryMXBean memoryMxBean) {
+        this.memoryMxBean = memoryMxBean;
 
-        heapInit = memoryMXBean.getHeapMemoryUsage().getInit();
-        heapMax = memoryMXBean.getHeapMemoryUsage().getMax();
+        heapInit = memoryMxBean.getHeapMemoryUsage().getInit();
+        heapMax = memoryMxBean.getHeapMemoryUsage().getMax();
 
-        nonHeapInit = memoryMXBean.getNonHeapMemoryUsage().getInit();
-        nonHeapMax = memoryMXBean.getNonHeapMemoryUsage().getMax();
+        nonHeapInit = memoryMxBean.getNonHeapMemoryUsage().getInit();
+        nonHeapMax = memoryMxBean.getNonHeapMemoryUsage().getMax();
     }
 
+    /**
+     * Constructs new metric source with standard MemoryMXBean as metric provider.
+     */
     public JvmMetricSource() {
-        memoryMXBean = ManagementFactory.getMemoryMXBean();
+        memoryMxBean = ManagementFactory.getMemoryMXBean();
 
-        heapInit = memoryMXBean.getHeapMemoryUsage().getInit();
-        heapMax = memoryMXBean.getHeapMemoryUsage().getMax();
+        heapInit = memoryMxBean.getHeapMemoryUsage().getInit();
+        heapMax = memoryMxBean.getHeapMemoryUsage().getMax();
 
-        nonHeapInit = memoryMXBean.getNonHeapMemoryUsage().getInit();
-        nonHeapMax = memoryMXBean.getNonHeapMemoryUsage().getMax();
+        nonHeapInit = memoryMxBean.getNonHeapMemoryUsage().getInit();
+        nonHeapMax = memoryMxBean.getNonHeapMemoryUsage().getMax();
     }
 
+    /** {@inheritDoc} */
     @Override
     public String name() {
         return SOURCE_NAME;
     }
 
+    /** {@inheritDoc} */
     @Override
     public synchronized @Nullable MetricSet enable() {
         var metrics = new HashMap<String, Metric>();
 
-        // TODO: KKK fill descriptions
         metrics.put("memory.heap.init",
-                new LongGauge("memory.heap.init", "", () -> heapInit));
+                new LongGauge("memory.heap.init", "Initial amount of heap memory", () -> heapInit));
         metrics.put("memory.heap.used",
-                new LongGauge("memory.heap.used", "", () -> memoryMXBean.getHeapMemoryUsage().getUsed()));
+                new LongGauge("memory.heap.used",
+                        "Current used amount of heap memory",
+                        () -> memoryMxBean.getHeapMemoryUsage().getUsed()));
         metrics.put("memory.heap.committed",
-                new LongGauge("memory.heap.committed", "", () -> memoryMXBean.getHeapMemoryUsage().getCommitted()));
+                new LongGauge("memory.heap.committed",
+                        "Committed amount of heap memory",
+                        () -> memoryMxBean.getHeapMemoryUsage().getCommitted()));
         metrics.put("memory.heap.max",
-                new LongGauge("memory.heap.max", "", () -> heapMax));
+                new LongGauge("memory.heap.max",
+                        "Maximum amount of heap memory",
+                        () -> heapMax));
 
-
-        var nonHeapMemoryUsage = memoryMXBean.getNonHeapMemoryUsage();
 
         metrics.put("memory.non-heap.init",
-                new LongGauge("memory.non-heap.init", "", () -> nonHeapInit));
+                new LongGauge("memory.non-heap.init",
+                        "Initial amount of non-heap memory",
+                        () -> nonHeapInit));
         metrics.put("memory.non-heap.used",
-                new LongGauge("memory.non-heap.used", "", () -> memoryMXBean.getNonHeapMemoryUsage().getUsed()));
+                new LongGauge("memory.non-heap.used",
+                        "Used amount of non-heap memory",
+                        () -> memoryMxBean.getNonHeapMemoryUsage().getUsed()));
         metrics.put("memory.non-heap.committed",
-                new LongGauge("memory.non-heap.committed", "", () -> memoryMXBean.getNonHeapMemoryUsage().getCommitted()));
+                new LongGauge("memory.non-heap.committed",
+                        "Committed amount of non-heap memory",
+                        () -> memoryMxBean.getNonHeapMemoryUsage().getCommitted()));
         metrics.put("memory.non-heap.max",
-                new LongGauge("memory.non-heap.max", "", () -> nonHeapMax));
+                new LongGauge("memory.non-heap.max",
+                        "Maximum amount of non-heap memory",
+                        () -> nonHeapMax));
 
         enabled = true;
 
         return new MetricSet(SOURCE_NAME, metrics);
     }
 
+    /** {@inheritDoc} */
     @Override
     public synchronized void disable() {
         enabled = false;
     }
 
+    /** {@inheritDoc} */
     @Override
     public synchronized boolean enabled() {
         return enabled;

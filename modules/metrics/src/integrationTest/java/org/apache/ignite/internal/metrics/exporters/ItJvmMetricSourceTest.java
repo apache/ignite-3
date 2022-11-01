@@ -13,6 +13,9 @@ import org.apache.ignite.internal.metrics.configuration.MetricConfiguration;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
+/**
+ * Suite to test, that enabled by default jvm metrics aren't broken.
+ */
 @ExtendWith(ConfigurationExtension.class)
 public class ItJvmMetricSourceTest {
     @InjectConfiguration(
