@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client;
 
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -25,6 +26,7 @@ import org.apache.ignite.client.IgniteClient.Builder;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.hamcrest.CoreMatchers;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -68,6 +70,9 @@ public class MultiClusterTest {
             assertEquals(1, client.connections().size());
 
             String err = getFailedConnectionEntry(loggerFactory);
+            String expectedErr = "Cluster ID mismatch: expected=" + clusterId1 + ", actual=" + clusterId2;
+
+            assertThat(err, CoreMatchers.containsString(expectedErr));
         }
     }
 

@@ -751,7 +751,8 @@ public final class ReliableChannel implements AutoCloseable {
                     var oldClusterId = clusterId.compareAndExchange(null, ch0.protocolContext().clusterId());
 
                     if (oldClusterId != null && !oldClusterId.equals(ch0.protocolContext().clusterId())) {
-                        throw new IgniteClientConnectionException(CONNECTION_ERR, "Cluster ID mismatch");
+                        throw new IgniteClientConnectionException(CONNECTION_ERR, "Cluster ID mismatch: expected=" + oldClusterId +
+                                ", actual=" + ch0.protocolContext().clusterId());
                     }
 
                     ch = ch0;
