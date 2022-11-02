@@ -18,8 +18,10 @@
 package org.apache.ignite.internal.cli.commands.flow;
 
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.emptyString;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.startsWith;
 
 import java.io.FileDescriptor;
 import java.io.FileOutputStream;
@@ -29,6 +31,9 @@ import java.io.StringWriter;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import org.apache.ignite.internal.cli.core.call.StringCallInput;
+import org.apache.ignite.internal.cli.core.call.ThrowingStrCall;
+import org.apache.ignite.internal.cli.core.exception.TestExceptionHandler;
 import org.apache.ignite.internal.cli.core.flow.Flow;
 import org.apache.ignite.internal.cli.core.flow.Flowable;
 import org.apache.ignite.internal.cli.core.flow.builder.FlowBuilder;
@@ -53,13 +58,32 @@ class FlowTest {
     private StringWriter out;
     private StringWriter errOut;
 
+    @Test
+    void testVerbose() throws IOException {
+        // Given
+        bindAnswers("no");
+
+        // When start flow with print and verbose
+        askQuestion()
+                .then(Flows.fromCall(new ThrowingStrCall(), StringCallInput::new))
+                .exceptionHandler(new TestExceptionHandler())
+                .verbose(true)
+                .print()
+                .start();
+
+        // Then error output starts with the message from exception and contains verbose output
+        assertThat(out.toString(), emptyString());
+        assertThat(errOut.toString(), startsWith("Ooops!" + System.lineSeparator()));
+        assertThat(errOut.toString(), containsString("verbose output"));
+    }
+
     private static Flow<Object, Integer> createFlow() {
         return askQuestion()
                 .question(s -> "Here is your number " + s + ":, would you like to multiply it by 2?",
                         List.of(new QuestionAnswer<>("yes"::equals, (a, i) -> Integer.parseInt(i) * 2),
                                 new QuestionAnswer<>("no"::equals, (a, i) -> Integer.parseInt(i))))
                 .ifThen(num -> num == 1, Flows.fromCall(new IntCall(), IntCallInput::new))
-                .ifThen(num -> num > 1, Flows.fromCall(new StrCall(), integer -> new StrCallInput(String.valueOf(integer))))
+                .ifThen(num -> num > 1, Flows.fromCall(new StrCall(), integer -> new StringCallInput(String.valueOf(integer))))
                 .build();
     }
 
@@ -130,7 +154,7 @@ class FlowTest {
         // When build flow and start
         askQuestion()
                 .exceptionHandler(new TestExceptionHandler())
-                .then(Flows.fromCall(new ThrowingStrCall(), StrCallInput::new))
+                .then(Flows.fromCall(new ThrowingStrCall(), StringCallInput::new))
                 .print()
                 .start();
 
@@ -147,7 +171,7 @@ class FlowTest {
         // When build flow and start
         askQuestion()
                 .print()
-                .then(Flows.fromCall(new ThrowingStrCall(), StrCallInput::new))
+                .then(Flows.fromCall(new ThrowingStrCall(), StringCallInput::new))
                 .exceptionHandler(new TestExceptionHandler())
                 .start();
 
@@ -163,7 +187,7 @@ class FlowTest {
 
         // When build flow and start
         askQuestion()
-                .then(Flows.fromCall(new ThrowingStrCall(), StrCallInput::new))
+                .then(Flows.fromCall(new ThrowingStrCall(), StringCallInput::new))
                 .exceptionHandler(new TestExceptionHandler())
                 .print()
                 .start();
@@ -196,7 +220,7 @@ class FlowTest {
 
         // When build flow and start
         askQuestion()
-                .then(Flows.fromCall(new ThrowingStrCall(), StrCallInput::new))
+                .then(Flows.fromCall(new ThrowingStrCall(), StringCallInput::new))
                 .exceptionHandler(new TestExceptionHandler())
                 .print()
                 .print()
@@ -230,7 +254,7 @@ class FlowTest {
 
         // When start flow with print
         askQuestion()
-                .then(Flows.fromCall(new ThrowingStrCall(), StrCallInput::new))
+                .then(Flows.fromCall(new ThrowingStrCall(), StringCallInput::new))
                 .exceptionHandler(new TestExceptionHandler())
                 .print()
                 .start();

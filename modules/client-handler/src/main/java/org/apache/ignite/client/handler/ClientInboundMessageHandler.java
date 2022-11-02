@@ -128,6 +128,9 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
     /** SQL query cursor handler. */
     private final JdbcQueryCursorHandler jdbcQueryCursorHandler;
 
+    /** Cluster ID. */
+    private final UUID clusterId;
+
     /** Context. */
     private ClientContext clientContext;
 
@@ -143,6 +146,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
      * @param configuration      Configuration.
      * @param compute            Compute.
      * @param clusterService     Cluster.
+     * @param sql                SQL.
+     * @param clusterId          Cluster ID.
      */
     public ClientInboundMessageHandler(
             IgniteTablesInternal igniteTables,
@@ -151,7 +156,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
             ClientConnectorView configuration,
             IgniteCompute compute,
             ClusterService clusterService,
-            IgniteSql sql) {
+            IgniteSql sql,
+            UUID clusterId) {
         assert igniteTables != null;
         assert igniteTransactions != null;
         assert processor != null;
@@ -159,6 +165,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
         assert compute != null;
         assert clusterService != null;
         assert sql != null;
+        assert clusterId != null;
 
         this.igniteTables = igniteTables;
         this.igniteTransactions = igniteTransactions;
@@ -166,6 +173,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
         this.compute = compute;
         this.clusterService = clusterService;
         this.sql = sql;
+        this.clusterId = clusterId;
 
         jdbcQueryEventHandler = new JdbcQueryEventHandlerImpl(processor, new JdbcMetadataCatalog(igniteTables), resources);
         jdbcQueryCursorHandler = new JdbcQueryCursorHandlerImpl(resources);
@@ -228,6 +236,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
             ClusterNode localMember = clusterService.topologyService().localMember();
             packer.packString(localMember.id());
             packer.packString(localMember.name());
+            packer.packUuid(clusterId);
 
             packer.packBinaryHeader(0); // Features.
             packer.packMapHeader(0); // Extensions.

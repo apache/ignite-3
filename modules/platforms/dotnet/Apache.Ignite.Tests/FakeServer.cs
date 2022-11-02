@@ -85,6 +85,8 @@ namespace Apache.Ignite.Tests
 
         public IClusterNode Node { get; }
 
+        public Guid ClusterId { get; set; }
+
         public string[] PartitionAssignment { get; set; }
 
         public bool PartitionAssignmentChanged { get; set; }
@@ -379,6 +381,7 @@ namespace Apache.Ignite.Tests
                 handshakeWriter.Write(0); // Idle timeout.
                 handshakeWriter.Write(Node.Id); // Node id.
                 handshakeWriter.Write(Node.Name); // Node name (consistent id).
+                handshakeWriter.Write(ClusterId);
                 handshakeWriter.WriteBinHeader(0); // Features.
                 handshakeWriter.WriteMapHeader(0); // Extensions.
                 handshakeWriter.Flush();

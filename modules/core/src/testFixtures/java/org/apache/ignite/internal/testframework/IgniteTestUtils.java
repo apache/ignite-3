@@ -308,15 +308,13 @@ public final class IgniteTestUtils {
     ) {
         for (Throwable th = t; th != null; th = th.getCause()) {
             if (cls.isAssignableFrom(th.getClass())) {
-                if (msg != null) {
-                    if (th.getMessage() != null && th.getMessage().contains(msg)) {
-                        return true;
-                    } else {
-                        continue;
-                    }
+                if (msg == null) {
+                    return true;
                 }
 
-                return true;
+                if (th.getMessage() != null && th.getMessage().contains(msg)) {
+                    return true;
+                }
             }
 
             for (Throwable n : th.getSuppressed()) {
