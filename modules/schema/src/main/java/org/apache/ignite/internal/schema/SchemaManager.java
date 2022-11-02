@@ -24,8 +24,6 @@ import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.SortedMap;
-import java.util.TreeMap;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -107,6 +105,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
      * @return A future.
      */
     private CompletableFuture<?> onSchemaChange(ConfigurationNotificationEvent<NamedListView<ColumnView>> ctx) {
+        // TODO: restore all schemes on recovery https://issues.apache.org/jira/browse/IGNITE-18066
         if (!busyLock.enterBusy()) {
             return failedFuture(new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException()));
         }
@@ -464,31 +463,6 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
             }
 
             return null;
-        } catch (NodeStoppingException e) {
-            throw new IgniteException(e.traceId(), e.code(), e.getMessage(), e);
-        }
-    }
-
-    /**
-     * Collect all schemes for appropriate table.
-     *
-     * @param tblId Table id.
-     * @return Sorted by key collection of schemes.
-     */
-    private SortedMap<Integer, byte[]> collectAllSchemas(UUID tblId) {
-        try {
-            Cursor<Entry> cur = metastorageMgr.prefix(schemaHistPrefix(tblId));
-
-            SortedMap<Integer, byte[]> schemes = new TreeMap<>();
-
-            for (Entry ent : cur) {
-                String key = ent.key().toString();
-                int descVer = extractVerFromSchemaKey(key);
-
-                schemes.put(descVer, ent.value());
-            }
-
-            return schemes;
         } catch (NodeStoppingException e) {
             throw new IgniteException(e.traceId(), e.code(), e.getMessage(), e);
         }

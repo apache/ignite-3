@@ -824,6 +824,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     /**
      * Checks that the table created in cluster of 2 nodes, is recovered on a node after restart of this node.
      */
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17959")
     @Test
     public void testRecoveryOnOneNode() {
         Ignite ignite = startNode(0);
