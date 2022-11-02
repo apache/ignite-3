@@ -127,10 +127,11 @@ namespace Apache.Ignite.Internal.Generators
                 foreach (var (errorName, errorCode) in javaErrors)
                 {
                     var dotNetErrorName = SnakeToCamelCase(errorName);
+                    var fullCode = (groupCode << 16) | (errorCode & 0xFFFF);
 
                     sb.AppendLine();
                     sb.AppendLine($"            /// <summary> {dotNetErrorName} error. </summary>");
-                    sb.AppendLine($"            public static readonly int {dotNetErrorName} = GetFullCode(GroupCode, {errorCode});");
+                    sb.AppendLine($"            public const int {dotNetErrorName} = {fullCode};");
                 }
 
                 sb.AppendLine("        }");
