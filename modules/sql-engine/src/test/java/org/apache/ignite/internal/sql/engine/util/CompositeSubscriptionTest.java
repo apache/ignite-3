@@ -146,9 +146,14 @@ public class CompositeSubscriptionTest {
             }
         };
 
-        CompositeSubscription<Integer> compSubscription = sort
-                ? new OrderedMergeCompositeSubscription<>(subscr, Comparator.comparingInt(v -> v), Commons.IN_BUFFER_SIZE, pubCnt)
-                : new CompositeSubscription<>(subscr);
+        CompositeSubscription<Integer> compSubscription;
+
+        if (sort) {
+            compSubscription = new OrderedMergeCompositeSubscription<>(subscr, Comparator.comparingInt(v -> v),
+                    Commons.SORTED_IDX_PART_PREFETCH_SIZE, pubCnt);
+        } else {
+            compSubscription = new CompositeSubscription<>(subscr);
+        }
 
         lsnr.reset(cnt);
 

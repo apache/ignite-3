@@ -42,6 +42,7 @@ import org.apache.ignite.internal.sql.engine.exec.exp.RangeIterable;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.schema.InternalIgniteTable;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.CompositeSubscription;
 import org.apache.ignite.internal.sql.engine.util.OrderedMergeCompositeSubscription;
 import org.jetbrains.annotations.Contract;
@@ -267,7 +268,7 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
             SubscriberImpl subscriber = new SubscriberImpl();
 
             CompositeSubscription<BinaryTuple> compSubscription = comp != null
-                    ? new OrderedMergeCompositeSubscription<>(subscriber, comp, inBufSize, partPublishers.size())
+                    ? new OrderedMergeCompositeSubscription<>(subscriber, comp, Commons.SORTED_IDX_PART_PREFETCH_SIZE, parts.length)
                     : new CompositeSubscription<>(subscriber);
 
             compSubscription.subscribe(partPublishers);
