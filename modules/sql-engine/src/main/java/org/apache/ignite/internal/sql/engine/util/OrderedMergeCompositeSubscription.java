@@ -205,14 +205,13 @@ public class OrderedMergeCompositeSubscription<T> extends CompositeSubscription<
                 }
 
                 int completed = 0;
-                int nonEmpty = 0;
+                boolean responseMissed = false;
 
                 for (int i = 0; i < subsCnt; i++) {
                     Object obj = values[i];
 
                     if (obj == DONE) {
                         completed++;
-                        nonEmpty++;
                     } else if (obj == null) {
                         boolean innerDone = subscribers[i].done;
 
@@ -220,16 +219,17 @@ public class OrderedMergeCompositeSubscription<T> extends CompositeSubscription<
 
                         if (obj != null) {
                             values[i] = obj;
-
-                            nonEmpty++;
                         } else if (innerDone) {
                             values[i] = DONE;
 
                             completed++;
-                            nonEmpty++;
                         }
-                    } else {
-                        nonEmpty++;
+                        else {
+                            // Subscriber has not received a response yet.
+                            responseMissed = true;
+
+                            break;
+                        }
                     }
                 }
 
@@ -245,7 +245,7 @@ public class OrderedMergeCompositeSubscription<T> extends CompositeSubscription<
                     return;
                 }
 
-                if (nonEmpty != subsCnt || emitted == requested) {
+                if (responseMissed || emitted == requested) {
                     break;
                 }
 
@@ -337,14 +337,17 @@ public class OrderedMergeCompositeSubscription<T> extends CompositeSubscription<
 
         @Override
         public void request(long n) {
-            if (++consumed == limit) {
-                consumed = 0;
+            int c = consumed + 1;
 
+            if (c == limit) {
+                consumed = 0;
                 Subscription subscription = get();
 
                 if (subscription != this) {
-                    subscription.request(consumed);
+                    subscription.request(c);
                 }
+            } else {
+                consumed = c;
             }
         }
 
