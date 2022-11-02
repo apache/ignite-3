@@ -39,6 +39,7 @@ public class DisconnectCommand extends BaseCommand implements Runnable {
                 .inputProvider(EmptyCallInput::new)
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())
+                .verbose(verbose)
                 .build()
                 .runPipeline();
     }

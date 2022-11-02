@@ -59,6 +59,7 @@ public class ClusterConfigShowCommand extends BaseCommand implements Callable<In
                 .exceptionHandler(new ClusterNotInitializedExceptionHandler(
                         "Cannot show cluster config", "ignite cluster init"
                 ))
+                .verbose(verbose)
                 .build()
                 .runPipeline();
     }

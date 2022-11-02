@@ -48,6 +48,7 @@ public class NodeMetricDisableReplCommand extends BaseCommand implements Runnabl
         question.askQuestionIfNotConnected(nodeUrl.getNodeUrl())
                 .map(metricSource::buildDisableCallInput)
                 .then(Flows.fromCall(call))
+                .verbose(verbose)
                 .print()
                 .start();
     }

@@ -40,6 +40,7 @@ public class CliConfigProfileShowCommand extends BaseCommand implements Callable
                 .inputProvider(EmptyCallInput::new)
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())
+                .verbose(verbose)
                 .build()
                 .runPipeline();
     }
