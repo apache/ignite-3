@@ -18,7 +18,9 @@
 namespace Apache.Ignite.Tests;
 
 using System;
+using System.Linq;
 using System.Threading.Tasks;
+using Log;
 using NUnit.Framework;
 
 /// <summary>
@@ -50,18 +52,22 @@ public class SocketTimeoutTest
             HeartbeatDelay = TimeSpan.FromMilliseconds(100)
         };
 
+        var log = new ListLogger(new ConsoleLogger { MinLevel = LogLevel.Trace });
+
         var cfg = new IgniteClientConfiguration
         {
             SocketTimeout = TimeSpan.FromMilliseconds(50),
             HeartbeatInterval = TimeSpan.FromMilliseconds(100),
-            RetryPolicy = new RetryNonePolicy()
+            RetryPolicy = new RetryNonePolicy(),
+            Logger = log
         };
 
         using var client = await server.ConnectClientAsync(cfg);
-
         await Task.Delay(200);
 
-        var ex = Assert.ThrowsAsync<TimeoutException>(async () => await client.Tables.GetTablesAsync());
-        StringAssert.Contains("at Apache.Ignite.Internal.ClientSocket.SendHeartbeatAsync", ex!.ToString());
+        var expectedLog = "Exception while reading from socket, connection closed: The operation was canceled.";
+        Assert.IsTrue(
+            condition: log.Entries.Any(e => e.Message.Contains(expectedLog)),
+            message: string.Join(Environment.NewLine, log));
     }
 }

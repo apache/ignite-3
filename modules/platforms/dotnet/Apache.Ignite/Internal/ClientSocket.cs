@@ -538,7 +538,7 @@ namespace Apache.Ignite.Internal
             }
             catch (Exception e)
             {
-                const string message = "Exception while reading from socket. Connection closed.";
+                var message = "Exception while reading from socket, connection closed: " + e.Message;
 
                 _logger?.Error(message, e);
                 Dispose(new IgniteClientConnectionException(ErrorGroups.Client.Connection, message, e));
