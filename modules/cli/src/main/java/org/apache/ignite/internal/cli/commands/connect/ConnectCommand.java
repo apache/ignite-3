@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.cli.commands.OptionsConstants.NODE_NAME
 import static org.apache.ignite.internal.cli.commands.OptionsConstants.NODE_URL_DESC;
 
 import jakarta.inject.Inject;
+import java.io.File;
 import java.net.URL;
 import org.apache.ignite.internal.cli.NodeNameRegistry;
 import org.apache.ignite.internal.cli.call.connect.ConnectCall;
@@ -32,6 +33,7 @@ import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
 import org.apache.ignite.internal.cli.core.converters.UrlConverter;
 import org.apache.ignite.internal.cli.deprecated.IgniteCliException;
+import picocli.CommandLine.ArgGroup;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
@@ -41,18 +43,24 @@ import picocli.CommandLine.Parameters;
  */
 @Command(name = "connect", description = "Connects to Ignite 3 node")
 public class ConnectCommand extends BaseCommand implements Runnable {
-    /** Node URL option. */
-    @Parameters(description = NODE_URL_DESC, descriptionKey = CLUSTER_URL_KEY, converter = UrlConverter.class)
-    private URL nodeUrl;
 
-    @Option(names = {NODE_NAME_OPTION_SHORT, NODE_NAME_OPTION}, description = NODE_NAME_DESC)
-    private String nodeName;
+    @ArgGroup(multiplicity = "1")
+    private ExecOptions execOptions;
 
     @Inject
     private ConnectCall connectCall;
 
     @Inject
     private NodeNameRegistry nodeNameRegistry;
+
+    private static class ExecOptions {
+        /** Node URL option. */
+        @Parameters(description = NODE_URL_DESC, descriptionKey = CLUSTER_URL_KEY, converter = UrlConverter.class)
+        private URL nodeUrl;
+
+        @Option(names = {NODE_NAME_OPTION_SHORT, NODE_NAME_OPTION}, description = NODE_NAME_DESC)
+        private String nodeName;
+    }
 
     /** {@inheritDoc} */
     @Override
@@ -67,14 +75,14 @@ public class ConnectCommand extends BaseCommand implements Runnable {
     }
 
     private String nodeUrl() {
-        if (nodeUrl != null) {
-            return nodeUrl.toString();
+        if (execOptions.nodeUrl != null) {
+            return execOptions.nodeUrl.toString();
         } else {
-            String url = nodeNameRegistry.getNodeUrl(nodeName);
+            String url = nodeNameRegistry.getNodeUrl(execOptions.nodeName);
             if (url != null) {
                 return url;
             } else {
-                throw new IgniteCliException("Node " + nodeName + " not found. Use URL.");
+                throw new IgniteCliException("Node " + execOptions.nodeName + " not found. Use URL.");
             }
         }
     }

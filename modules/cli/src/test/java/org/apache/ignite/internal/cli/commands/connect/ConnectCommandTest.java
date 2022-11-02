@@ -34,7 +34,7 @@ class ConnectCommandTest extends CliCommandTestBase {
     @DisplayName("Should throw error if provided an unknown node name")
     void unknownNodeName() {
         String nodeName = "unknown";
-        execute("--node-name " + nodeName);
+        execute("-n " + nodeName);
 
         assertAll(
                 () -> assertExitCodeIs(1),
