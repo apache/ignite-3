@@ -58,12 +58,10 @@ public class NodeNameRegistry {
     /**
      * Stops pulling updates.
      */
-    public void stopPullingUpdates() {
-        synchronized (this) {
-            if (executor != null) {
-                executor.shutdown();
-                executor = null;
-            }
+    public synchronized void stopPullingUpdates() {
+        if (executor != null) {
+            executor.shutdown();
+            executor = null;
         }
     }
 
