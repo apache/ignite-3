@@ -64,7 +64,7 @@ public class MultiClusterTest
         var ex = Assert.ThrowsAsync<IgniteClientConnectionException>(async () => await client.Tables.GetTablesAsync());
 
         var inner = EnumerateInnerExceptions(ex)
-            .SingleOrDefault(e => e is IgniteClientConnectionException ce && ce.Code == ErrorGroups.Client.ClusterIdMismatch);
+            .SingleOrDefault(e => e is IgniteClientConnectionException { Code: ErrorGroups.Client.ClusterIdMismatch });
 
         Assert.IsNotNull(inner, $"Unexpected exception, should be 'Cluster ID mismatch', but was {ex}");
         Assert.AreEqual($"Cluster ID mismatch: expected={primaryServer.ClusterId}, actual={secondaryServer.ClusterId}", inner!.Message);
