@@ -37,7 +37,7 @@ import picocli.CommandLine.Option;
  */
 public class NodeUrlMixin {
 
-    @ArgGroup(multiplicity = "1")
+    @ArgGroup
     private Options options;
 
     @Inject
@@ -64,14 +64,18 @@ public class NodeUrlMixin {
      * @return Node URL
      */
     public String getNodeUrl() {
-        if (options.nodeUrl != null) {
-            return options.nodeUrl.toString();
+        if(options == null) {
+            return null;
         } else {
-            String nodeUrl = nodeNameRegistry.getNodeUrl(options.nodeName);
-            if (nodeUrl != null) {
-                return nodeUrl;
+            if (options.nodeUrl != null) {
+                return options.nodeUrl.toString();
             } else {
-                throw new IgniteCliException("Node " + options.nodeName + " not found. Use URL.");
+                String nodeUrl = nodeNameRegistry.getNodeUrl(options.nodeName);
+                if (nodeUrl != null) {
+                    return nodeUrl;
+                } else {
+                    throw new IgniteCliException("Node " + options.nodeName + " not found. Use URL.");
+                }
             }
         }
     }
