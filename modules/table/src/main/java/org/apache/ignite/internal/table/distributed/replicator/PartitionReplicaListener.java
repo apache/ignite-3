@@ -634,25 +634,40 @@ public class PartitionReplicaListener implements ReplicaListener {
         txTimestampUpdateMap.put(txId, fut);
 
         HybridTimestamp commitTimestamp =  commit ? hybridClock.now() : null;
+        Command cmd;
 
-        CompletableFuture<Object> changeStateFuture = raftClient.run(
-                msgFactory.finishTxCommand()
-                        .txId(txId)
-                        .commit(commit)
-                        .commitTimestamp(
-                                msgFactory.hybridTimestampMessage()
+        if (commit) {
+            cmd = msgFactory.finishTxCommand()
+                    .txId(txId)
+                    .commit(true)
+                    .commitTimestamp(
+                            msgFactory.hybridTimestampMessage()
                                         .logical(commitTimestamp.getLogical())
                                         .physical(commitTimestamp.getPhysical())
                                         .build()
-                        )
-                        .tablePartitionIds(aggregatedGroupIds.stream()
-                                .map(rgId -> msgFactory.tablePartitionIdMessage()
-                                        .tableId(((TablePartitionId) rgId).getTableId())
-                                        .partitionId(((TablePartitionId) rgId).getPartId())
-                                        .build())
-                                .collect(Collectors.toList()))
-                        .build()
-        ).whenComplete((o, throwable) -> {
+                    )
+                    .tablePartitionIds(aggregatedGroupIds.stream()
+                            .map(rgId -> msgFactory.tablePartitionIdMessage()
+                                    .tableId(((TablePartitionId) rgId).getTableId())
+                                    .partitionId(((TablePartitionId) rgId).getPartId())
+                                    .build())
+                            .collect(Collectors.toList()))
+                    .build();
+        }
+        else {
+            cmd = msgFactory.finishTxCommand()
+                    .txId(txId)
+                    .commit(false)
+                    .tablePartitionIds(aggregatedGroupIds.stream()
+                            .map(rgId -> msgFactory.tablePartitionIdMessage()
+                                    .tableId(((TablePartitionId) rgId).getTableId())
+                                    .partitionId(((TablePartitionId) rgId).getPartId())
+                                    .build())
+                            .collect(Collectors.toList()))
+                    .build();
+        }
+
+        CompletableFuture<Object> changeStateFuture = raftClient.run(cmd).whenComplete((o, throwable) -> {
             fut.complete(new TxMeta(commit ? TxState.COMMITED : TxState.ABORTED, aggregatedGroupIds, commitTimestamp));
 
             txTimestampUpdateMap.remove(txId);

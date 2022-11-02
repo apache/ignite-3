@@ -239,7 +239,7 @@ public class PartitionListener implements RaftGroupListener {
 
         UUID txId = cmd.txId();
 
-        TxState stateToSet = cmd.commit() ? TxState.COMMITED : TxState.ABORTED;
+        TxState stateToSet = cmd.commit() ? COMMITED : ABORTED;
 
         TxMeta txMetaToSet = new TxMeta(
                 stateToSet,
@@ -247,7 +247,7 @@ public class PartitionListener implements RaftGroupListener {
                         .stream()
                         .map(tpIdMsg -> (ReplicationGroupId) tpIdMsg.asTablePartitionId())
                         .collect(Collectors.toList()),
-                cmd.commitTimestamp().asHybridTimestamp()
+                cmd.commitTimestamp() != null ? cmd.commitTimestamp().asHybridTimestamp() : null
         );
 
         TxMeta txMetaBeforeCas = txStateStorage.get(txId);
