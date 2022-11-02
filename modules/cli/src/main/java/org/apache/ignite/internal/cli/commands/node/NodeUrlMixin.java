@@ -64,7 +64,7 @@ public class NodeUrlMixin {
      * @return Node URL
      */
     public String getNodeUrl() {
-        if(options == null) {
+        if (options == null) {
             return null;
         } else {
             if (options.nodeUrl != null) {
