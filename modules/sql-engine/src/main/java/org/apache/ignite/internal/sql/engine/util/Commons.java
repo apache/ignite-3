@@ -126,7 +126,8 @@ public final class Commons {
 
     public static final int IN_BUFFER_SIZE = 512;
 
-    public static final int SORTED_IDX_PART_PREFETCH_SIZE = 100;
+    // todo
+    public static final int SORTED_IDX_PART_PREFETCH_SIZE = 1;
 
     public static final SqlParser.Config PARSER_CONFIG = SqlParser.config()
             .withParserFactory(IgniteSqlParserImpl.FACTORY)

@@ -26,6 +26,8 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.Flow;
+import java.util.concurrent.Flow.Publisher;
+import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.function.Function;
@@ -77,7 +79,7 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
 
     private final @Nullable RangeIterable<RowT> rangeConditions;
 
-    private final @Nullable Comparator<BinaryTuple> comp;
+    private final @Nullable Comparator<RowT> comp;
 
     private @Nullable Iterator<RangeCondition<RowT>> rangeConditionIterator;
 
@@ -125,7 +127,7 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
         this.rowTransformer = rowTransformer;
         this.requiredColumns = requiredColumns;
         this.rangeConditions = rangeConditions;
-        this.comp = comp == null ? null : (o1, o2) -> comp.compare(convert(o1), convert(o2));
+        this.comp = comp;
 
         rangeConditionIterator = rangeConditions == null ? null : rangeConditions.iterator();
 
@@ -259,7 +261,7 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
                 rangeConditionsProcessed = !rangeConditionIterator.hasNext();
             }
 
-            List<Flow.Publisher<BinaryTuple>> partPublishers = new ArrayList<>(parts.length);
+            List<Flow.Publisher<RowT>> partPublishers = new ArrayList<>(parts.length);
 
             for (int p : parts) {
                 partPublishers.add(partPublisher(p, cond));
@@ -267,7 +269,7 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
 
             SubscriberImpl subscriber = new SubscriberImpl();
 
-            CompositeSubscription<BinaryTuple> compSubscription = comp != null
+            CompositeSubscription<RowT> compSubscription = comp != null
                     ? new OrderedMergeCompositeSubscription<>(subscriber, comp, Commons.SORTED_IDX_PART_PREFETCH_SIZE, parts.length)
                     : new CompositeSubscription<>(subscriber);
 
@@ -279,7 +281,9 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
         }
     }
 
-    private Flow.Publisher<BinaryTuple> partPublisher(int part, @Nullable RangeCondition<RowT> cond) {
+    private Flow.Publisher<RowT> partPublisher(int part, @Nullable RangeCondition<RowT> cond) {
+        Publisher<BinaryTuple> pub;
+
         if (schemaIndex.type() == Type.SORTED) {
             int flags = 0;
             BinaryTuple lower = null;
@@ -295,7 +299,7 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
                 flags |= (cond.upperInclude()) ? SortedIndex.INCLUDE_RIGHT : 0;
             }
 
-            return ((SortedIndex) schemaIndex.index()).scan(part, context().transaction(), lower, upper, flags, requiredColumns);
+            pub = ((SortedIndex) schemaIndex.index()).scan(part, context().transaction(), lower, upper, flags, requiredColumns);
         } else {
             assert schemaIndex.type() == Type.HASH;
             BinaryTuple key = null;
@@ -306,11 +310,38 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
                 key = toBinaryTuple(cond.lower());
             }
 
-            return schemaIndex.index().scan(part, context().transaction(), key, requiredColumns);
+            pub = schemaIndex.index().scan(part, context().transaction(), key, requiredColumns);
         }
+
+        return downstream -> {
+            // BinaryTuple -> RowT converter.
+            Subscriber<BinaryTuple> subs = new Subscriber<>() {
+                @Override
+                public void onSubscribe(Subscription subscription) {
+                    downstream.onSubscribe(subscription);
+                }
+
+                @Override
+                public void onNext(BinaryTuple item) {
+                    downstream.onNext(convert(item));
+                }
+
+                @Override
+                public void onError(Throwable throwable) {
+                    downstream.onError(throwable);
+                }
+
+                @Override
+                public void onComplete() {
+                    downstream.onComplete();
+                }
+            };
+
+            pub.subscribe(subs);
+        };
     }
 
-    private class SubscriberImpl implements Flow.Subscriber<BinaryTuple> {
+    private class SubscriberImpl implements Flow.Subscriber<RowT> {
 
         private int received = 0; // HB guarded here.
 
@@ -325,9 +356,7 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
 
         /** {@inheritDoc} */
         @Override
-        public void onNext(BinaryTuple binRow) {
-            RowT row = convert(binRow);
-
+        public void onNext(RowT row) {
             inBuff.add(row);
 
             if (++received == inBufSize) {
