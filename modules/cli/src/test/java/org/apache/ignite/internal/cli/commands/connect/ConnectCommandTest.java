@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.cli.commands.connect;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertAll;
 
 import org.apache.ignite.internal.cli.commands.CliCommandTestBase;
 import org.junit.jupiter.api.DisplayName;
