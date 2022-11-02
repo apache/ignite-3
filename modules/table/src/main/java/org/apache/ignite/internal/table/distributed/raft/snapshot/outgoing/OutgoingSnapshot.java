@@ -77,7 +77,7 @@ public class OutgoingSnapshot {
     private final ReusableLockLockup mvOperationsLockup = new ReusableLockLockup(mvOperationsLock);
 
     /** Snapshot metadata taken on snapshot scope freezing. */
-    private volatile SnapshotMeta meta;
+    private volatile SnapshotMeta frozenMeta;
 
     /**
      * {@link RowId}s for which the corresponding rows were sent out of order (relative to the order in which this
@@ -151,7 +151,7 @@ public class OutgoingSnapshot {
     void freezeScope() {
         assert mvOperationsLock.isLocked() : "MV operations lock must be acquired!";
 
-        meta = takeSnapshotMeta();
+        frozenMeta = takeSnapshotMeta();
 
         txDataCursor = partition.txStatePartitionStorage().scan();
     }
@@ -171,9 +171,9 @@ public class OutgoingSnapshot {
      * @return This snapshot metadata.
      */
     public SnapshotMeta meta() {
-        assert meta != null : "No snapshot meta yet, probably the snapshot scope was not yet frozen";
+        assert frozenMeta != null : "No snapshot meta yet, probably the snapshot scope was not yet frozen";
 
-        return meta;
+        return frozenMeta;
     }
 
     /**
@@ -187,9 +187,9 @@ public class OutgoingSnapshot {
             return logAlreadyClosedAndReturnNull();
         }
 
-        assert meta != null : "No snapshot meta yet, probably the snapshot scope was not yet frozen";
+        assert frozenMeta != null : "No snapshot meta yet, probably the snapshot scope was not yet frozen";
 
-        return MESSAGES_FACTORY.snapshotMetaResponse().meta(meta).build();
+        return MESSAGES_FACTORY.snapshotMetaResponse().meta(frozenMeta).build();
     }
 
     @Nullable
