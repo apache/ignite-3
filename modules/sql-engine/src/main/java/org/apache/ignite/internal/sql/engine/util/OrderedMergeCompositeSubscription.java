@@ -33,8 +33,8 @@ import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Sorting composite subscription.
- * <br>
- * Merges multiple concurrent ordered data streams into one.
+ *
+ * <p>Merges multiple concurrent ordered data streams into one.
  */
 public class OrderedMergeCompositeSubscription<T> extends CompositeSubscription<T> {
     /** Marker to indicate completed subscription. */
@@ -62,12 +62,15 @@ public class OrderedMergeCompositeSubscription<T> extends CompositeSubscription<
     private final Object[] values;
 
     /** Error. */
+    @SuppressWarnings({"unused", "FieldMayBeFinal"})
     private Throwable error;
 
     /** Cancelled flag. */
+    @SuppressWarnings({"unused", "FieldMayBeFinal"})
     private boolean cancelled;
 
     /** Number of requested rows. */
+    @SuppressWarnings({"unused", "FieldMayBeFinal"})
     private long requested;
 
     /** Number of emitted rows (guarded by {@link #guardCntr}). */
