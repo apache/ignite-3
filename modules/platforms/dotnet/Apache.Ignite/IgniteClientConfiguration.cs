@@ -88,7 +88,12 @@ namespace Apache.Ignite
         public IIgniteLogger? Logger { get; set; }
 
         /// <summary>
-        /// Gets or sets the socket operation timeout. Zero or negative means infinite timeout.
+        /// Gets or sets the socket timeout.
+        /// <para />
+        /// The timeout applies to handshake and heartbeats (see <see cref="HeartbeatInterval"/>). If the server does not respond
+        /// to a handshake or heartbeat in the specified time, the connection is closed with <see cref="TimeoutException"/>.
+        /// <para />
+        /// -1 means infinite timeout.
         /// </summary>
         [DefaultValue(typeof(TimeSpan), "00:00:05")]
         public TimeSpan SocketTimeout { get; set; } = DefaultSocketTimeout;

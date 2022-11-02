@@ -77,6 +77,9 @@ namespace Apache.Ignite.Internal
         /** Effective heartbeat interval. */
         private readonly TimeSpan _heartbeatInterval;
 
+        /** Socket timeout for handshakes and heartbeats. */
+        private readonly TimeSpan _socketTimeout;
+
         /** Logger. */
         private readonly IIgniteLogger? _logger;
 
@@ -109,6 +112,7 @@ namespace Apache.Ignite.Internal
             ConnectionContext = connectionContext;
             _assignmentChangeCallback = assignmentChangeCallback;
             _logger = configuration.Logger.GetLogger(GetType());
+            _socketTimeout = configuration.SocketTimeout;
 
             _heartbeatInterval = GetHeartbeatInterval(configuration.HeartbeatInterval, connectionContext.IdleTimeout, _logger);
 
@@ -597,7 +601,7 @@ namespace Apache.Ignite.Internal
         {
             try
             {
-                await DoOutInOpAsync(ClientOp.Heartbeat).ConfigureAwait(false);
+                await DoOutInOpAsync(ClientOp.Heartbeat).WaitAsync(_socketTimeout).ConfigureAwait(false);
             }
             catch (Exception e)
             {
