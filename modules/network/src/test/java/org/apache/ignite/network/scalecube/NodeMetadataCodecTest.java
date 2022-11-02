@@ -38,7 +38,7 @@ class NodeMetadataCodecTest {
 
     @Test
     void serializeNull() {
-        assertNull(METADATA_CODEC.serialize(null));
+        assertEquals(4, METADATA_CODEC.serialize(null).array().length);
     }
 
     @Test
