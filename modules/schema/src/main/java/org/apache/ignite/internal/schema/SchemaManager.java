@@ -127,11 +127,15 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
             }
 
             if (verFromUpdate != INITIAL_SCHEMA_VERSION) {
-                byte[] serPrevSchema = schemaByVersion(tblId, verFromUpdate - 1);
+                SchemaDescriptor oldSchema = searchSchemaByVersion(tblId, verFromUpdate - 1);
 
-                assert serPrevSchema != null;
+                if (oldSchema == null) {
+                    byte[] serPrevSchema = schemaByVersion(tblId, verFromUpdate - 1);
 
-                SchemaDescriptor oldSchema = SchemaSerializerImpl.INSTANCE.deserialize(serPrevSchema);
+                    assert serPrevSchema != null;
+
+                    oldSchema = SchemaSerializerImpl.INSTANCE.deserialize(serPrevSchema);
+                }
 
                 schemaDescFromUpdate.columnMapping(SchemaUtils.columnMapper(oldSchema, schemaDescFromUpdate));
             }
@@ -440,11 +444,15 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
         }
     }
 
-    private byte[] schemaByVersion(UUID tblId, int ver) {
+    /**
+     * Gets the defined version of the table schema which available in Metastore.
+     *
+     * @param tblId Table id.
+     * @return Schema representation if schema found, {@code null} otherwise.
+     */
+    @Nullable private byte[] schemaByVersion(UUID tblId, int ver) {
         try {
             Cursor<Entry> cur = metastorageMgr.prefix(schemaHistPrefix(tblId));
-
-            int lastVer = INITIAL_SCHEMA_VERSION;
 
             for (Entry ent : cur) {
                 String key = ent.key().toString();
