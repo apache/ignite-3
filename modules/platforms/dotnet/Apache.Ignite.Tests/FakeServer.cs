@@ -64,6 +64,8 @@ namespace Apache.Ignite.Tests
 
         private bool _disposed;
 
+        private Socket? _handler;
+
         public FakeServer(
             Func<int, bool>? shouldDropConnection = null,
             string nodeName = "fake-server",
@@ -126,6 +128,7 @@ namespace Apache.Ignite.Tests
                 _listener.Disconnect(false);
                 _listener.Dispose();
                 _cts.Dispose();
+                _handler?.Dispose();
 
                 _disposed = true;
             }
@@ -375,6 +378,8 @@ namespace Apache.Ignite.Tests
             while (!_cts.IsCancellationRequested)
             {
                 using Socket handler = _listener.Accept();
+                _handler = handler;
+
                 handler.NoDelay = true;
 
                 // Read handshake.

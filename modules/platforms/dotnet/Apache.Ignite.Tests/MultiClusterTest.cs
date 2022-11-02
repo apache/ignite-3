@@ -35,7 +35,7 @@ public class MultiClusterTest
         using var client = await IgniteClient.StartAsync(new IgniteClientConfiguration(server1.Endpoint, server2.Endpoint));
         await client.Tables.GetTablesAsync();
 
-        server1.Dispose();
+        server2.Dispose();
         await client.Tables.GetTablesAsync();
     }
 
