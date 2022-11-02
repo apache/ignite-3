@@ -379,7 +379,6 @@ namespace Apache.Ignite.Internal
 
             while (received < size)
             {
-                // TODO IGNITE-18058 This may wait forever, use IgniteClientConfiguration.SocketTimeout.
                 var res = await stream.ReadAsync(buffer.AsMemory(received, size - received), cancellationToken).ConfigureAwait(false);
 
                 if (res == 0)
@@ -540,7 +539,7 @@ namespace Apache.Ignite.Internal
             {
                 var message = "Exception while reading from socket, connection closed: " + e.Message;
 
-                _logger?.Error(message, e);
+                _logger?.Error(e, message);
                 Dispose(new IgniteClientConnectionException(ErrorGroups.Client.Connection, message, e));
             }
         }

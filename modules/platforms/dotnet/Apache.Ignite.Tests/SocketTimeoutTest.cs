@@ -67,7 +67,7 @@ public class SocketTimeoutTest
 
         var expectedLog = "Exception while reading from socket, connection closed: The operation was canceled.";
         Assert.IsTrue(
-            condition: log.Entries.Any(e => e.Message.Contains(expectedLog)),
+            condition: log.Entries.Any(e => e.Message.Contains(expectedLog) && e.Exception is TimeoutException),
             message: string.Join(Environment.NewLine, log));
     }
 }
