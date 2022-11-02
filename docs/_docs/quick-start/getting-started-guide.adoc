@@ -36,7 +36,7 @@ In this guide we will use a link:../installation/installing-using-zip[zip] archi
 --
 tab:Linux[]
 ----
-sh ignite3db-3.0.0-beta1/bin/ignite3db.sh start
+ignite3db-3.0.0-beta1/bin/ignite3db.sh start
 ----
 
 tab:Windows[]
@@ -61,7 +61,7 @@ Ignite CLI is a single entry point for all the Ignite operations. In this guide 
 --
 tab:Linux[]
 ----
-sh ignite3cli-3.0.0-beta1\bin\ignite
+ignite3cli-3.0.0-beta1\bin\ignite
 ----
 
 tab:Windows[]
@@ -83,7 +83,7 @@ After you are done working on the cluster, you need to stop the node. Use the co
 --
 tab:Linux[]
 ----
-sh ignite3db-3.0.0-beta1/bin/ignite3db.sh stop
+ignite3db-3.0.0-beta1/bin/ignite3db.sh stop
 ----
 
 tab:Windows[]

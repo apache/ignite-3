@@ -22,12 +22,7 @@ include::../includes/prereqs.adoc[]
 
 == Downloading Docker Image
 
-Assuming that you already have Docker installed on your machine, you can pull and run the Ignite Docker image by using the following commands\:
-[source,shell]
-----
-# Pull latest version
-sudo docker pull apacheignite/ignite3
-----
+Assuming that you already have Docker installed on your machine, you need to download the Ignite Docker image.
 
 == Running In-Memory Cluster
 
