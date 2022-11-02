@@ -21,6 +21,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Network;
 using NUnit.Framework;
 
 /// <summary>
@@ -37,7 +38,10 @@ public class MultiClusterTest
         using var client = await IgniteClient.StartAsync(new IgniteClientConfiguration(server1.Endpoint, server2.Endpoint));
         await client.Tables.GetTablesAsync();
 
-        server2.Dispose();
+        var primaryServer = client.GetConnections().Single().Address.Port == server1.Port ? server1 : server2;
+        var secondaryServer = primaryServer == server1 ? server2 : server1;
+
+        primaryServer.Dispose();
 
         var ex = Assert.ThrowsAsync<IgniteClientConnectionException>(async () => await client.Tables.GetTablesAsync());
 
@@ -47,7 +51,7 @@ public class MultiClusterTest
         Assert.IsNotNull(inner, $"Unexpected exception, should be 'Cluster ID mismatch', but was {ex}");
 
         Assert.AreEqual(
-            "Cluster ID mismatch: expected=00000002-0000-0000-0000-000000000000, actual=00000001-0000-0000-0000-000000000000",
+            $"Cluster ID mismatch: expected={primaryServer.ClusterId}, actual={secondaryServer.ClusterId}",
             inner!.Message);
     }
 
