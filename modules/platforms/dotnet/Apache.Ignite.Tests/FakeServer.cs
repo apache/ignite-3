@@ -374,6 +374,21 @@ namespace Apache.Ignite.Tests
 
         private void ListenLoop()
         {
+            while (!_cts.IsCancellationRequested)
+            {
+                try
+                {
+                    ListenLoopInternal();
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine("Error in FakeServer: " + e);
+                }
+            }
+        }
+
+        private void ListenLoopInternal()
+        {
             int requestCount = 0;
 
             while (!_cts.IsCancellationRequested)
