@@ -100,7 +100,7 @@ public class OrderedMergeCompositeSubscription<T> extends CompositeSubscription<
         this.subscribers = new OrderedMergeSubscriber[cnt];
 
         for (int i = 0; i < cnt; i++) {
-            this.subscribers[i] = new OrderedMergeSubscriber<>(this, prefetch);
+            this.subscribers[i] = new OrderedMergeSubscriber<>(this, prefetch / cnt);
         }
 
         this.values = new Object[cnt];
@@ -302,8 +302,8 @@ public class OrderedMergeCompositeSubscription<T> extends CompositeSubscription<
 
         OrderedMergeSubscriber(OrderedMergeCompositeSubscription<T> parent, int prefetch) {
             this.parent = parent;
-            this.prefetch = prefetch;
-            this.limit = prefetch - (prefetch >> 2);
+            this.prefetch = Math.max(1, prefetch);
+            this.limit = Math.max(1, prefetch - (prefetch >> 2));
             this.queue = new ConcurrentLinkedQueue<>();
         }
 
@@ -343,6 +343,7 @@ public class OrderedMergeCompositeSubscription<T> extends CompositeSubscription<
                 consumed = 0;
                 Subscription subscription = get();
 
+                // If the subscription has not yet been cancelled - request upstream.
                 if (subscription != this) {
                     subscription.request(c);
                 }

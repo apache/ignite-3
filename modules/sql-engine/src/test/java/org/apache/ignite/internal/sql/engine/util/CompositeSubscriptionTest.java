@@ -147,7 +147,7 @@ public class CompositeSubscriptionTest {
         };
 
         CompositeSubscription<Integer> compSubscription = sort
-                ? new OrderedMergeCompositeSubscription<>(subscr, Comparator.comparingInt(v -> v), Commons.IN_BUFFER_SIZE / pubCnt, pubCnt)
+                ? new OrderedMergeCompositeSubscription<>(subscr, Comparator.comparingInt(v -> v), Commons.IN_BUFFER_SIZE, pubCnt)
                 : new CompositeSubscription<>(subscr);
 
         lsnr.reset(cnt);

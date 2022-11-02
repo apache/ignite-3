@@ -267,7 +267,7 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
             SubscriberImpl subscriber = new SubscriberImpl();
 
             CompositeSubscription<BinaryTuple> compSubscription = comp != null
-                    ? new OrderedMergeCompositeSubscription<>(subscriber, comp, inBufSize / partPublishers.size(), partPublishers.size())
+                    ? new OrderedMergeCompositeSubscription<>(subscriber, comp, inBufSize, partPublishers.size())
                     : new CompositeSubscription<>(subscriber);
 
             compSubscription.subscribe(partPublishers);
