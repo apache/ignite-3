@@ -65,9 +65,8 @@ big_integer read_tuple(std::optional<bytes_view> data) {
     return binary_tuple_parser::get_number(data.value());
 }
 
-template<>
-big_decimal read_tuple(std::optional<bytes_view> data) {
-    return binary_tuple_parser::get_decimal(data.value());
+big_decimal read_decimal(std::optional<bytes_view> data, int32_t scale) {
+    return binary_tuple_parser::get_decimal(data.value(), scale);
 }
 
 template<>
@@ -254,7 +253,7 @@ TEST(tuple, AllTypes) {
     EXPECT_EQ(v3, read_tuple<int32_t>(tp.get_next()));
     EXPECT_EQ(v4, read_tuple<int64_t>(tp.get_next()));
     EXPECT_EQ(v5, read_tuple<big_integer>(tp.get_next()));
-    EXPECT_EQ(v6, read_tuple<big_decimal>(tp.get_next()));
+    EXPECT_EQ(v6, read_decimal(tp.get_next(), v6.get_scale()));
     EXPECT_EQ(v7, read_tuple<float>(tp.get_next()));
     EXPECT_EQ(v8, read_tuple<double>(tp.get_next()));
     EXPECT_EQ(v9, read_tuple<ignite_date>(tp.get_next()));

@@ -291,8 +291,7 @@ void binary_tuple_builder::put_number(const ignite::big_decimal &value) {
     assert(next_value + size <= value_base + value_area_size);
 
     if (size != 0) {
-        bytes::store<endian::LITTLE>(next_value, value.get_scale());
-        value.get_unscaled_value().store_bytes(next_value + 4 /* size of scale */);
+        value.get_unscaled_value().store_bytes(next_value);
         next_value += size;
     }
 

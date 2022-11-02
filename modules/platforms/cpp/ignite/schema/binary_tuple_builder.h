@@ -556,7 +556,7 @@ private:
             return 0;
         }
 
-        return 4 /* scale */ + value.get_unscaled_value().byte_size();
+        return value.get_unscaled_value().byte_size();
     }
 
     /**

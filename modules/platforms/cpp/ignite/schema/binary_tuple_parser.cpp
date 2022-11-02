@@ -252,9 +252,8 @@ big_integer binary_tuple_parser::get_number(bytes_view bytes) {
     return big_integer(bytes.data(), bytes.size());
 }
 
-big_decimal binary_tuple_parser::get_decimal(bytes_view bytes) {
-    auto scale = load_as<std::int32_t>(bytes);
-    big_integer mag(bytes.data() + 4, bytes.size() - 4);
+big_decimal binary_tuple_parser::get_decimal(bytes_view bytes, int32_t scale) {
+    big_integer mag(bytes.data(), bytes.size());
     return {mag, scale};
 }
 
