@@ -559,4 +559,22 @@ public class RocksDbTableStorage implements MvTableStorage {
 
         return new ColumnFamilyDescriptor(cfName.getBytes(UTF_8), options);
     }
+
+    @Override
+    public CompletableFuture<Void> startRebalanceMvPartition(int partitionId) {
+        // TODO: IGNITE-18027 Implement
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public CompletableFuture<Void> abortRebalanceMvPartition(int partitionId) {
+        // TODO: IGNITE-18027 Implement
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public CompletableFuture<Void> finishRebalanceMvPartition(int partitionId) {
+        // TODO: IGNITE-18027 Implement
+        throw new UnsupportedOperationException();
+    }
 }

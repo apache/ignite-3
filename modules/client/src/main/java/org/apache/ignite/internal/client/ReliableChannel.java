@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.client;
 
+import static org.apache.ignite.lang.ErrorGroups.Client.CLUSTER_ID_MISMATCH_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.CONFIGURATION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.CONNECTION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Common.UNKNOWN_ERR;
@@ -31,12 +32,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.BiFunction;
@@ -99,6 +102,9 @@ public final class ReliableChannel implements AutoCloseable {
     /** Local topology assignment version. Instead of using event handlers to notify all tables about assignment change,
      * the table will compare its version with channel version to detect an update. */
     private final AtomicLong assignmentVersion = new AtomicLong();
+
+    /** Cluster id from the first handshake. */
+    private final AtomicReference<UUID> clusterId = new AtomicReference<>();
 
     /**
      * Constructor.
@@ -595,6 +601,10 @@ public final class ReliableChannel implements AutoCloseable {
     /** Determines whether specified operation should be retried. */
     private boolean shouldRetry(ClientOperationType opType, int iteration, IgniteClientConnectionException exception,
                                 IgniteClientConnectionException aggregateException) {
+        if (exception.code() == CLUSTER_ID_MISMATCH_ERR) {
+            return false;
+        }
+
         if (opType == null) {
             // System operation.
             return iteration < RetryLimitPolicy.DFLT_RETRY_LIMIT;
@@ -631,8 +641,8 @@ public final class ReliableChannel implements AutoCloseable {
 
                         try {
                             hld.getOrCreateChannel(true);
-                        } catch (Exception ignore) {
-                            // No-op.
+                        } catch (Exception e) {
+                            log.warn("Failed to establish connection to " + hld.chCfg.getAddress() + ": " + e.getMessage(), e);
                         }
                     }
                 }
@@ -741,7 +751,22 @@ public final class ReliableChannel implements AutoCloseable {
                         throw new IgniteClientConnectionException(CONNECTION_ERR, "Reconnect is not allowed due to applied throttling");
                     }
 
-                    ch = chFactory.apply(chCfg, connMgr);
+                    ClientChannel ch0 = chFactory.apply(chCfg, connMgr);
+
+                    var oldClusterId = clusterId.compareAndExchange(null, ch0.protocolContext().clusterId());
+
+                    if (oldClusterId != null && !oldClusterId.equals(ch0.protocolContext().clusterId())) {
+                        try {
+                            ch0.close();
+                        } catch (Exception ignored) {
+                            // Ignore
+                        }
+
+                        throw new IgniteClientConnectionException(CLUSTER_ID_MISMATCH_ERR, "Cluster ID mismatch: expected=" + oldClusterId
+                                + ", actual=" + ch0.protocolContext().clusterId());
+                    }
+
+                    ch = ch0;
 
                     ch.addTopologyAssignmentChangeListener(ReliableChannel.this::onTopologyAssignmentChanged);
 

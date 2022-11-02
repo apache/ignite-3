@@ -49,6 +49,7 @@ public class ConnectCommand extends BaseCommand implements Runnable {
                 .inputProvider(() -> new ConnectCallInput(nodeUrl.toString()))
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())
+                .verbose(verbose)
                 .build()
                 .runPipeline();
     }

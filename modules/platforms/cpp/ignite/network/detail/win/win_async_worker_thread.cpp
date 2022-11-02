@@ -99,7 +99,7 @@ void win_async_worker_thread::run() {
                     auto data = client->process_received(bytesTransferred);
 
                     if (!data.empty())
-                        m_client_pool->handle_nessage_received(client->id(), data);
+                        m_client_pool->handle_message_received(client->id(), data);
 
                     bool success = client->receive();
 

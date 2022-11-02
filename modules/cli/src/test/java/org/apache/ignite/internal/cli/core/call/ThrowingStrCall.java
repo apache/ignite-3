@@ -15,21 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.commands.flow;
+package org.apache.ignite.internal.cli.core.call;
 
-import org.apache.ignite.internal.cli.core.exception.ExceptionHandler;
-import org.apache.ignite.internal.cli.core.exception.ExceptionWriter;
-
-class TestExceptionHandler implements ExceptionHandler<RuntimeException> {
+/** Test call that throws a runtime exception. **/
+public class ThrowingStrCall implements Call<StringCallInput, String> {
     @Override
-    public int handle(ExceptionWriter err, RuntimeException e) {
-        err.write(e.getMessage());
-
-        return 0;
-    }
-
-    @Override
-    public Class<RuntimeException> applicableException() {
-        return RuntimeException.class;
+    public CallOutput<String> execute(StringCallInput input) {
+        return DefaultCallOutput.failure(new RuntimeException("Ooops!"));
     }
 }

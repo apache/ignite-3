@@ -15,14 +15,17 @@
  * limitations under the License.
  */
 
-#include "table.h"
-
-#include <ignite/client/detail/table/table_impl.h>
+#include "ignite/client/table/table.h"
+#include "ignite/client/detail/table/table_impl.h"
 
 namespace ignite {
 
 const std::string &table::name() const noexcept {
-    return impl().name();
+    return m_impl->name();
+}
+
+record_view<ignite_tuple> table::record_binary_view() const noexcept {
+    return record_view<ignite_tuple>{m_impl};
 }
 
 } // namespace ignite

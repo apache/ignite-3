@@ -15,14 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.commands.flow;
+package org.apache.ignite.internal.cli.core.exception;
 
-import org.apache.ignite.internal.cli.core.call.CallInput;
+import org.apache.ignite.internal.cli.logger.CliLoggers;
+import org.apache.ignite.internal.logger.IgniteLogger;
 
-class StrCallInput implements CallInput {
-    final String value;
+/** Exception handler that writes exception messages and logs verbose output. **/
+public class TestExceptionHandler implements ExceptionHandler<RuntimeException> {
+    private static final IgniteLogger LOG = CliLoggers.forClass(TestExceptionHandler.class);
 
-    StrCallInput(String value) {
-        this.value = value;
+    @Override
+    public int handle(ExceptionWriter err, RuntimeException e) {
+        err.write(e.getMessage());
+        LOG.debug("verbose output");
+        return 0;
+    }
+
+    @Override
+    public Class<RuntimeException> applicableException() {
+        return RuntimeException.class;
     }
 }
