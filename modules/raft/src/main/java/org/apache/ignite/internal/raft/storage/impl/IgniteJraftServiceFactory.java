@@ -39,9 +39,8 @@ public class IgniteJraftServiceFactory extends DefaultJRaftServiceFactory {
     private final LogStorageFactory logStorageFactory;
 
     /** Snapshot storage factory. */
-    private volatile SnapshotStorageFactory snapshotStorageFactory = (path, raftOptions, logManager) -> {
-        return new LocalSnapshotStorage(path, raftOptions);
-    };
+    private volatile SnapshotStorageFactory snapshotStorageFactory = (path, raftOptions, logManager) ->
+            new LocalSnapshotStorage(path, raftOptions);
 
     /** Raft meta storage factory. */
     private volatile RaftMetaStorageFactory raftMetaStorageFactory = LocalRaftMetaStorage::new;
