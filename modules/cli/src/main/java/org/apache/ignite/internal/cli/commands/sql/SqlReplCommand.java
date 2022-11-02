@@ -116,6 +116,7 @@ public class SqlReplCommand extends BaseCommand implements Runnable {
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())
                 .decorator(new SqlQueryResultDecorator(tableDecorator))
+                .verbose(verbose)
                 .build();
     }
 
@@ -127,6 +128,7 @@ public class SqlReplCommand extends BaseCommand implements Runnable {
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())
                 .exceptionHandlers(exceptionHandlers)
+                .verbose(verbose)
                 .build();
     }
 }

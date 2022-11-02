@@ -22,7 +22,6 @@ import org.apache.ignite.internal.cli.core.call.Call;
 import org.apache.ignite.internal.cli.core.call.DefaultCallOutput;
 import org.apache.ignite.internal.cli.core.exception.IgniteCliApiException;
 import org.apache.ignite.rest.client.api.NodeConfigurationApi;
-import org.apache.ignite.rest.client.invoker.ApiClient;
 import org.apache.ignite.rest.client.invoker.ApiException;
 import org.apache.ignite.rest.client.invoker.Configuration;
 
@@ -50,8 +49,6 @@ public class NodeConfigUpdateCall implements Call<NodeConfigUpdateCallInput, Str
     }
 
     private NodeConfigurationApi createApiClient(NodeConfigUpdateCallInput input) {
-        ApiClient client = Configuration.getDefaultApiClient();
-        client.setBasePath(input.getNodeUrl());
-        return new NodeConfigurationApi(client);
+        return new NodeConfigurationApi(Configuration.getDefaultApiClient().setBasePath(input.getNodeUrl()));
     }
 }
