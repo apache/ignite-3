@@ -18,6 +18,8 @@
 namespace Apache.Ignite.Tests;
 
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using NUnit.Framework;
 
@@ -38,11 +40,48 @@ public class MultiClusterTest
         server2.Dispose();
 
         var ex = Assert.ThrowsAsync<IgniteClientConnectionException>(async () => await client.Tables.GetTablesAsync());
+
+        var inner = EnumerateInnerExceptions(ex)
+            .SingleOrDefault(e => e is IgniteClientConnectionException ce && ce.Code == ErrorGroups.Client.ClusterIdMismatch);
+
+        Assert.IsNotNull(inner, $"Unexpected exception, should be 'Cluster ID mismatch', but was {ex}");
+
+        Assert.AreEqual(
+            "Cluster ID mismatch: expected=00000002-0000-0000-0000-000000000000, actual=00000001-0000-0000-0000-000000000000",
+            inner!.Message);
     }
 
     [Test]
     public void TestReconnectToDifferentClusterFails()
     {
         Assert.Fail("TODO");
+    }
+
+    private static IEnumerable<Exception> EnumerateInnerExceptions(Exception? e)
+    {
+        if (e == null)
+        {
+            yield break;
+        }
+
+        yield return e;
+
+        if (e is AggregateException ae)
+        {
+            foreach (var inner in ae.InnerExceptions)
+            {
+                foreach (var inner2 in EnumerateInnerExceptions(inner))
+                {
+                    yield return inner2;
+                }
+            }
+        }
+        else if (e.InnerException is { } inner)
+        {
+            foreach (var inner2 in EnumerateInnerExceptions(inner))
+            {
+                yield return inner2;
+            }
+        }
     }
 }
