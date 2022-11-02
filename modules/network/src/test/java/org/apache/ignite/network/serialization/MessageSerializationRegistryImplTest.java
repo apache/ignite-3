@@ -25,8 +25,6 @@ import org.apache.ignite.network.MessageSerializationRegistryImpl;
 import org.apache.ignite.network.NetworkConfigurationException;
 import org.apache.ignite.network.NetworkMessage;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.EnumSource;
 
 /**
  * {@link MessageSerializationRegistryImpl} tests.
@@ -108,16 +106,16 @@ public class MessageSerializationRegistryImplTest {
         assertNotNull(registry.createSerializer(Short.MAX_VALUE, Short.MAX_VALUE));
     }
 
-    @ParameterizedTest
-    @EnumSource(CreationAction.class)
-    void exceptionIsThrownForNegativeGroupId(CreationAction creationAction) {
-        assertThrows(NetworkConfigurationException.class, () -> creationAction.create(registry, (short) -1, (short) 1));
+    @Test
+    void exceptionIsThrownForNegativeGroupId() {
+        assertThrows(NetworkConfigurationException.class, () -> registry.createSerializer((short) -1, (short) 1));
+        assertThrows(NetworkConfigurationException.class, () -> registry.createDeserializer((short) -1, (short) 1));
     }
 
-    @ParameterizedTest
-    @EnumSource(CreationAction.class)
-    void exceptionIsThrownForNegativeMessageTypeId(CreationAction creationAction) {
-        assertThrows(NetworkConfigurationException.class, () -> creationAction.create(registry, (short) 1, (short) -1));
+    @Test
+    void exceptionIsThrownForNegativeMessageTypeId() {
+        assertThrows(NetworkConfigurationException.class, () -> registry.createSerializer((short) 1, (short) -1));
+        assertThrows(NetworkConfigurationException.class, () -> registry.createDeserializer((short) 1, (short) -1));
     }
 
     /**
@@ -156,22 +154,5 @@ public class MessageSerializationRegistryImplTest {
         public MessageSerializer<Msg> createSerializer() {
             return mock(MessageSerializer.class);
         }
-    }
-
-    private enum CreationAction {
-        CREATE_SERIALIZER {
-            @Override
-            void create(MessageSerializationRegistry registry, short groupType, short messageType) {
-                registry.createSerializer(groupType, messageType);
-            }
-        },
-        CREATE_DESERIALIZER {
-            @Override
-            void create(MessageSerializationRegistry registry, short groupType, short messageType) {
-                registry.createDeserializer(groupType, messageType);
-            }
-        };
-
-        abstract void create(MessageSerializationRegistry registry, short groupType, short messageType);
     }
 }
