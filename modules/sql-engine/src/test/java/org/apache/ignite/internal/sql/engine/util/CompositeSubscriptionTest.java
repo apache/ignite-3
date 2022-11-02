@@ -144,20 +144,13 @@ public class CompositeSubscriptionTest {
             }
         };
 
-        CompositeSubscription<Integer> compSubscription;
-
-        if (sort) {
-            compSubscription = new OrderedMergeCompositeSubscription<>(subscr, Comparator.comparingInt(v -> v),
-                    cnt / pubCnt, pubCnt);
-        } else {
-            compSubscription = new CompositeSubscription<>(subscr);
-        }
+        CompositePublisher<Integer> compPublisher = sort
+                ? new SortingCompositePublisher<>(publishers, Comparator.comparingInt(v -> v), cnt / pubCnt)
+                : new CompositePublisher<>(publishers);
 
         lsnr.reset(cnt);
 
-        compSubscription.subscribe(publishers);
-
-        subscr.onSubscribe(compSubscription);
+        compPublisher.subscribe(subscr);
 
         if (!split) {
             checkSubscriptionRequest(subscriptionRef.get(), new InputParameters(expData, cnt), lsnr);
