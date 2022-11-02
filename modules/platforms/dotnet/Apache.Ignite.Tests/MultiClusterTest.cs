@@ -21,7 +21,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using Network;
 using NUnit.Framework;
 
 /// <summary>
@@ -49,10 +48,7 @@ public class MultiClusterTest
             .SingleOrDefault(e => e is IgniteClientConnectionException ce && ce.Code == ErrorGroups.Client.ClusterIdMismatch);
 
         Assert.IsNotNull(inner, $"Unexpected exception, should be 'Cluster ID mismatch', but was {ex}");
-
-        Assert.AreEqual(
-            $"Cluster ID mismatch: expected={primaryServer.ClusterId}, actual={secondaryServer.ClusterId}",
-            inner!.Message);
+        Assert.AreEqual($"Cluster ID mismatch: expected={primaryServer.ClusterId}, actual={secondaryServer.ClusterId}", inner!.Message);
     }
 
     [Test]
