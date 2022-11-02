@@ -18,7 +18,8 @@
 package org.apache.ignite.internal.schema;
 
 import java.util.Arrays;
-import java.util.HashSet;
+import java.util.Comparator;
+import java.util.Optional;
 import org.apache.ignite.internal.schema.configuration.ConfigurationToSchemaDescriptorConverter;
 import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.mapping.ColumnMapper;
@@ -51,22 +52,38 @@ public class SchemaUtils {
             SchemaDescriptor oldDesc,
             SchemaDescriptor newDesc
     ) {
+        // Rename not supported from standard, thus only deletion.
         if (newDesc.keyColumns().length() != oldDesc.keyColumns().length()) {
-            HashSet<Column> oldKeyCols = new HashSet<>(Arrays.asList(oldDesc.keyColumns().columns()));
-            HashSet<Column> newKeyCols = new HashSet<>(Arrays.asList(newDesc.keyColumns().columns()));
-            oldKeyCols.removeAll(newKeyCols);
+            Optional<Column> droppedKeyCol = Arrays.stream(oldDesc.keyColumns().columns())
+                    .filter(c -> !newDesc.column(c.schemaIndex()).name().equals(c.name()))
+                    .findAny();
 
-            throw new AssertionError(IgniteStringFormatter.format("Dropping of primary key column is forbidden: "
-                    + "[schemaVer={}, colsToDrop={}]", newDesc.version(), oldKeyCols));
+            // TODO: IGNITE-15774 Assertion just in case, proper validation should be implemented with the help of configuration validators.
+            assert droppedKeyCol.isEmpty() :
+                    IgniteStringFormatter.format(
+                            "Renaming of key column is forbidden: [schemaVer={}, col={}]",
+                            newDesc.version(),
+                            droppedKeyCol.get()
+                    );
         }
+
+        Column[] cols = oldDesc.valueColumns().columns();
+        Column[] oldCols = Arrays.copyOf(cols, cols.length);
+
+        Arrays.sort(oldCols, Comparator.comparingInt(Column::columnOrder));
+
+        cols = newDesc.valueColumns().columns();
+        Column[] newCols = Arrays.copyOf(cols, cols.length);
+
+        Arrays.sort(newCols, Comparator.comparingInt(Column::columnOrder));
 
         ColumnMapper mapper = null;
 
-        for (int i = 0; i < newDesc.length(); ++i) {
-            Column newCol = newDesc.column(i);
+        for (int i = 0; i < newCols.length; ++i) {
+            Column newCol = newCols[i];
 
-            if (i < oldDesc.length()) {
-                Column oldCol = oldDesc.column(i);
+            if (i < oldCols.length) {
+                Column oldCol = oldCols[i];
 
                 if (newCol.schemaIndex() == oldCol.schemaIndex()) {
                     if (!newCol.name().equals(oldCol.name())) {
@@ -89,8 +106,6 @@ public class SchemaUtils {
                     mapper.add(newCol.schemaIndex(), oldCol.schemaIndex());
                 }
             } else {
-                assert !newDesc.isKeyColumn(newCol.schemaIndex());
-
                 if (mapper == null) {
                     mapper = ColumnMapping.createMapper(newDesc);
                 }

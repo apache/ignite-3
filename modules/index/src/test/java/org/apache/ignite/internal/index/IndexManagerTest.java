@@ -136,7 +136,10 @@ public class IndexManagerTest {
             return CompletableFuture.completedFuture(new TableImpl(tbl, new HeapLockManager(), () -> List.of()));
         });
 
-        indexManager = new IndexManager(tablesConfig, mock(SchemaManager.class), tableManagerMock);
+        SchemaManager schManager = mock(SchemaManager.class);
+        when(schManager.schemaRegistry(anyLong(), any())).thenReturn(CompletableFuture.completedFuture(null));
+
+        indexManager = new IndexManager(tablesConfig, schManager, tableManagerMock);
         indexManager.start();
 
         tablesConfig.tables().change(tableChange -> tableChange.create("tName", chg -> {
