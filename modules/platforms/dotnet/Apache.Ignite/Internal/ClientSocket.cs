@@ -372,6 +372,7 @@ namespace Apache.Ignite.Internal
 
             while (received < size)
             {
+                // TODO IGNITE-18058 This may wait forever, use IgniteClientConfiguration.SocketTimeout.
                 var res = await stream.ReadAsync(buffer.AsMemory(received, size - received), cancellationToken).ConfigureAwait(false);
 
                 if (res == 0)
