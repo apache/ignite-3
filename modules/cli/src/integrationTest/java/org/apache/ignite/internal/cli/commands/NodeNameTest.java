@@ -20,12 +20,14 @@ package org.apache.ignite.internal.cli.commands;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
 import jakarta.inject.Inject;
+import java.time.Duration;
 import java.util.Optional;
-import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.cli.Await;
 import org.apache.ignite.internal.cli.NodeNameRegistry;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -40,7 +42,7 @@ public class NodeNameTest extends CliCommandTestNotInitializedIntegrationBase {
     void setUp() throws InterruptedException {
         nodeNameRegistry.startPullingUpdates("http://localhost:10301");
         // wait to pulling node names
-        TimeUnit.SECONDS.sleep(1);
+        Await.await(() -> !nodeNameRegistry.getAllNames().isEmpty(), Duration.ofSeconds(5));
         Optional<String> nodeName = nodeNameRegistry.getAllNames().stream().findFirst();
         Assertions.assertTrue(nodeName.isPresent());
         this.nodeName = nodeName.get();
@@ -48,6 +50,7 @@ public class NodeNameTest extends CliCommandTestNotInitializedIntegrationBase {
     }
 
     @Test
+    @Disabled
     @DisplayName("Should connect to node with provided node name")
     void connectWithGivenNodeName() {
         // When connect with given url
@@ -71,6 +74,34 @@ public class NodeNameTest extends CliCommandTestNotInitializedIntegrationBase {
                 this::assertExitCodeIsZero,
                 this::assertErrOutputIsEmpty,
                 () -> assertOutputMatches("[1-9]\\d*\\.\\d+\\.\\d+(?:-[a-zA-Z0-9]+)?\\s+")
+        );
+    }
+
+    @Test
+    @DisplayName("Should display node config with provided node name")
+    void nodeConfig() {
+        // When
+        execute("node", "config", "show", "--node-name", nodeName);
+
+        // Then
+        assertAll(
+                this::assertExitCodeIsZero,
+                this::assertErrOutputIsEmpty,
+                this::assertOutputIsNotEmpty
+        );
+    }
+
+    @Test
+    @DisplayName("Should display node status with provided node name")
+    void nodeStatus() {
+        // When
+        execute("node", "status", "--node-name", nodeName);
+
+        // Then
+        assertAll(
+                this::assertExitCodeIsZero,
+                this::assertErrOutputIsEmpty,
+                () -> assertOutputMatches("\\[name: " + nodeName + ", state: starting\\]?\\s+")
         );
     }
 
