@@ -15,15 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.commands.flow;
+package org.apache.ignite.internal.metrics.exporters;
 
-import org.apache.ignite.internal.cli.core.call.Call;
-import org.apache.ignite.internal.cli.core.call.CallOutput;
-import org.apache.ignite.internal.cli.core.call.DefaultCallOutput;
+import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
+import org.apache.ignite.internal.metrics.exporters.configuration.ExporterConfigurationSchema;
 
-class ThrowingStrCall implements Call<StrCallInput, String> {
-    @Override
-    public CallOutput<String> execute(StrCallInput input) {
-        return DefaultCallOutput.failure(new RuntimeException("Ooops!"));
-    }
+/**
+ * Empty configuration for {@link TestSimpleExporter}.
+ */
+@PolymorphicConfigInstance(TestSimpleExporter.EXPORTER_NAME)
+public class TestSimpleExporterConfigurationSchema extends ExporterConfigurationSchema {
 }

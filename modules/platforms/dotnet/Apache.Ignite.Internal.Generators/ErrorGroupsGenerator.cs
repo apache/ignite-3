@@ -130,7 +130,7 @@ namespace Apache.Ignite.Internal.Generators
 
                     sb.AppendLine();
                     sb.AppendLine($"            /// <summary> {dotNetErrorName} error. </summary>");
-                    sb.AppendLine($"            public static readonly int {dotNetErrorName} = GetFullCode(GroupCode, {errorCode});");
+                    sb.AppendLine($"            public const int {dotNetErrorName} = (GroupCode << 16) | ({errorCode} & 0xFFFF);");
                 }
 
                 sb.AppendLine("        }");

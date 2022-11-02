@@ -165,7 +165,7 @@ namespace Apache.Ignite.Internal
                 var stream = new NetworkStream(socket, ownsSocket: true);
 
                 var context = await HandshakeAsync(stream, endPoint).ConfigureAwait(false);
-                logger?.Debug($"Handshake succeeded. Server protocol version: {context.Version}, idle timeout: {context.IdleTimeout}");
+                logger?.Debug($"Handshake succeeded: {context}.");
 
                 return new ClientSocket(stream, configuration, context, assignmentChangeCallback);
             }
@@ -298,6 +298,7 @@ namespace Apache.Ignite.Internal
             var idleTimeoutMs = reader.ReadInt64();
             var clusterNodeId = reader.ReadString();
             var clusterNodeName = reader.ReadString();
+            var clusterId = reader.ReadGuid();
 
             reader.Skip(); // Features.
             reader.Skip(); // Extensions.
@@ -305,7 +306,8 @@ namespace Apache.Ignite.Internal
             return new ConnectionContext(
                 serverVer,
                 TimeSpan.FromMilliseconds(idleTimeoutMs),
-                new ClusterNode(clusterNodeId, clusterNodeName, endPoint));
+                new ClusterNode(clusterNodeId, clusterNodeName, endPoint),
+                clusterId);
         }
 
         private static IgniteException? ReadError(ref MessagePackReader reader)
@@ -370,6 +372,7 @@ namespace Apache.Ignite.Internal
 
             while (received < size)
             {
+                // TODO IGNITE-18058 This may wait forever, use IgniteClientConfiguration.SocketTimeout.
                 var res = await stream.ReadAsync(buffer.AsMemory(received, size - received), cancellationToken).ConfigureAwait(false);
 
                 if (res == 0)

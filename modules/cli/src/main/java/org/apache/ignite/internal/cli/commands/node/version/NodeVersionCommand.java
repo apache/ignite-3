@@ -43,6 +43,7 @@ public class NodeVersionCommand extends BaseCommand implements Callable<Integer>
                 .inputProvider(() -> new UrlCallInput(nodeUrl.getNodeUrl()))
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())
+                .verbose(verbose)
                 .build()
                 .runPipeline();
     }

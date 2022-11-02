@@ -45,7 +45,7 @@ namespace Apache.Ignite.Table
         /// </summary>
         /// <typeparam name="T">Record type.</typeparam>
         /// <returns>Record view.</returns>
-        public IRecordView<T> GetRecordView<T>() // TODO: Custom mapping (IGNITE-16356)
+        public IRecordView<T> GetRecordView<T>()
             where T : notnull;
 
         /// <summary>
