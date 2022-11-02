@@ -36,7 +36,8 @@ public class MultiClusterTest
         await client.Tables.GetTablesAsync();
 
         server2.Dispose();
-        await client.Tables.GetTablesAsync();
+
+        var ex = Assert.ThrowsAsync<IgniteClientConnectionException>(async () => await client.Tables.GetTablesAsync());
     }
 
     [Test]
