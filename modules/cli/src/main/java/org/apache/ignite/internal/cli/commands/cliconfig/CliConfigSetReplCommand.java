@@ -45,6 +45,7 @@ public class CliConfigSetReplCommand extends BaseCommand implements Callable<Int
                         .parameters(parameters)::build)
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())
+                .verbose(verbose)
                 .build()
                 .runPipeline();
     }

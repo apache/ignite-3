@@ -24,8 +24,8 @@ import org.apache.ignite.internal.cli.core.call.DefaultCallOutput;
 import org.apache.ignite.internal.cli.core.call.UrlCallInput;
 import org.apache.ignite.internal.cli.core.exception.IgniteCliApiException;
 import org.apache.ignite.rest.client.api.NodeManagementApi;
-import org.apache.ignite.rest.client.invoker.ApiClient;
 import org.apache.ignite.rest.client.invoker.ApiException;
+import org.apache.ignite.rest.client.invoker.Configuration;
 
 /** Call to get node version. */
 @Singleton
@@ -40,6 +40,6 @@ public class NodeVersionCall implements Call<UrlCallInput, String> {
     }
 
     private String getNodeVersion(String url) throws ApiException {
-        return new NodeManagementApi(new ApiClient().setBasePath(url)).nodeVersion();
+        return new NodeManagementApi(Configuration.getDefaultApiClient().setBasePath(url)).nodeVersion();
     }
 }
