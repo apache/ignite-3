@@ -90,8 +90,9 @@ namespace Apache.Ignite
         /// <summary>
         /// Gets or sets the socket timeout.
         /// <para />
-        /// The timeout applies to handshake and heartbeats (see <see cref="HeartbeatInterval"/>). If the server does not respond
-        /// to a handshake or heartbeat in the specified time, the connection is closed with <see cref="TimeoutException"/>.
+        /// The timeout applies to the initial handshake procedure and heartbeats (see <see cref="HeartbeatInterval"/>).
+        /// If the server does not respond to the initial handshake message or a periodic heartbeat in the specified time,
+        /// the connection is closed with a <see cref="TimeoutException"/>.
         /// <para />
         /// -1 means infinite timeout.
         /// </summary>

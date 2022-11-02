@@ -59,7 +59,7 @@ public class SocketTimeoutTest
 
         using var client = await server.ConnectClientAsync(cfg);
 
-        await Task.Delay(100);
+        await Task.Delay(200);
 
         var ex = Assert.ThrowsAsync<TimeoutException>(async () => await client.Tables.GetTablesAsync());
         StringAssert.Contains("at Apache.Ignite.Internal.ClientSocket.SendHeartbeatAsync", ex!.ToString());
