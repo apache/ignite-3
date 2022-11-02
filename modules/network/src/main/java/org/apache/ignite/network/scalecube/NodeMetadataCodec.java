@@ -20,7 +20,6 @@ package org.apache.ignite.network.scalecube;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.scalecube.cluster.metadata.MetadataCodec;
-import java.io.IOException;
 import java.nio.ByteBuffer;
 import org.apache.ignite.network.NodeMetadata;
 
@@ -51,7 +50,7 @@ public class NodeMetadataCodec implements MetadataCodec {
         }
         try {
             return mapper.readValue(byteBuffer.array(), NodeMetadata.class);
-        } catch (IOException e) {
+        } catch (Exception e) {
             return null;
         }
     }
@@ -60,17 +59,14 @@ public class NodeMetadataCodec implements MetadataCodec {
      * Serializes {@link NodeMetadata} to {@link ByteBuffer}.
      *
      * @param o {@link NodeMetadata} to serialize.
-     * @return {@link ByteBuffer} or null of something goes wrong.
+     * @return {@link ByteBuffer}.
      */
     @Override
     public ByteBuffer serialize(Object o) {
-        if (o == null) {
-            return null;
-        }
         try {
             return ByteBuffer.wrap(mapper.writeValueAsBytes(o));
         } catch (JsonProcessingException e) {
-            return null;
+            return ByteBuffer.wrap(new byte[0]);
         }
     }
 }

@@ -33,11 +33,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 
-import org.apache.ignite.configuration.schemas.network.ClusterMembershipView;
-import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
-import org.apache.ignite.configuration.schemas.network.NetworkView;
-import org.apache.ignite.configuration.schemas.network.ScaleCubeView;
-import org.apache.ignite.configuration.schemas.rest.RestConfiguration;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
@@ -206,7 +201,7 @@ public class ScaleCubeClusterServiceFactory {
 
             @Override
             public void updateMetadata(NodeMetadata metadata) {
-                cluster.updateMetadata(metadata).block();
+                cluster.updateMetadata(metadata).subscribe();
                 MembershipEvent membershipEvent = createUpdated(cluster.member(),
                         cluster.<NodeMetadata>metadata().map(METADATA_CODEC::serialize).orElse(null),
                         METADATA_CODEC.serialize(metadata),
