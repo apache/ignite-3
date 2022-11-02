@@ -125,10 +125,11 @@ namespace Apache.Ignite.Tests
                 }
 
                 _cts.Cancel();
+                _handler?.Disconnect(false);
+                _handler?.Dispose();
                 _listener.Disconnect(false);
                 _listener.Dispose();
                 _cts.Dispose();
-                _handler?.Dispose();
 
                 _disposed = true;
             }
