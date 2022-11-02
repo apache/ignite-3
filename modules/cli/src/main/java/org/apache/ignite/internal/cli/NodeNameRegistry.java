@@ -50,7 +50,7 @@ public class NodeNameRegistry {
         synchronized (this) {
             if (executor == null) {
                 executor = Executors.newScheduledThreadPool(1);
-                executor.scheduleWithFixedDelay(() -> updateNodeNames(nodeUrl), 0, 30, TimeUnit.SECONDS);
+                executor.scheduleWithFixedDelay(() -> updateNodeNames(nodeUrl), 0, 5, TimeUnit.SECONDS);
             }
         }
     }

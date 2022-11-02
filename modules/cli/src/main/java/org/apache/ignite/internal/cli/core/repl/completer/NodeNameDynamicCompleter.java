@@ -31,13 +31,13 @@ public class NodeNameDynamicCompleter implements DynamicCompleter {
     /** Words, after those the completer should have been activated. */
     private final Set<String> activationPostfixes;
 
-    /** Node names registry. */
-    private final NodeNameRegistry nodeNameRegistry;
+    /** Node names. */
+    private final List<String> nodeNames;
 
     /** Default constructor that creates an instance from a given set of postfixes that trigger the completion. */
-    public NodeNameDynamicCompleter(Set<String> activationPostfixes, NodeNameRegistry nodeNameRegistry) {
+    public NodeNameDynamicCompleter(Set<String> activationPostfixes, List<String> nodeNames) {
         this.activationPostfixes = activationPostfixes;
-        this.nodeNameRegistry = nodeNameRegistry;
+        this.nodeNames = nodeNames;
     }
 
     @Override
@@ -45,9 +45,9 @@ public class NodeNameDynamicCompleter implements DynamicCompleter {
         String lastWord = beforeLastNotEmptyWord(0, words);
         String beforeLastWord = beforeLastNotEmptyWord(1, words);
         if (activationPostfixes.contains(lastWord)) {
-            return nodeNameRegistry.getAllNames();
+            return nodeNames;
         } else if (activationPostfixes.contains(beforeLastWord)) {
-            return nodeNameRegistry.getAllNames().stream()
+            return nodeNames.stream()
                     .filter(it -> it.startsWith(lastWord))
                     .collect(Collectors.toList());
         } else {

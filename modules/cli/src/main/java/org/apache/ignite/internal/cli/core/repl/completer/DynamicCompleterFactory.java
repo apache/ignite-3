@@ -94,12 +94,12 @@ public class DynamicCompleterFactory {
         });
     }
 
-    public LazyDynamicCompleter nodeNameCompleter(String activationPrefix) {
-        return nodeNameCompleter(Set.of(activationPrefix));
+    public LazyDynamicCompleter nodeNameCompleter(String... activationPrefixes) {
+        return nodeNameCompleter(Set.of(activationPrefixes));
     }
 
     public LazyDynamicCompleter nodeNameCompleter(Set<String> activationPrefixes) {
-        return new LazyDynamicCompleter(() -> new NodeNameDynamicCompleter(activationPrefixes, nodeNameRegistry));
+        return new LazyDynamicCompleter(() -> new NodeNameDynamicCompleter(activationPrefixes, nodeNameRegistry.getAllNames()));
     }
 
 }

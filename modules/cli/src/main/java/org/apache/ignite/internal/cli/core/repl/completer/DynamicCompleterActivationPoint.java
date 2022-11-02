@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.cli.core.repl.completer;
 
+import static org.apache.ignite.internal.cli.commands.OptionsConstants.NODE_NAME_OPTION;
+import static org.apache.ignite.internal.cli.commands.OptionsConstants.NODE_NAME_OPTION_SHORT;
+
 import jakarta.inject.Singleton;
 
 /**
@@ -40,6 +43,6 @@ public class DynamicCompleterActivationPoint {
         registry.register(new String[]{"cluster", "config", "update"}, factory.clusterConfigCompleter(""));
         registry.register(new String[]{"node", "config", "show"}, factory.nodeConfigCompleter(""));
         registry.register(new String[]{"node", "config", "update"}, factory.nodeConfigCompleter(""));
-        registry.register(factory.nodeNameCompleter("--node-name, -n"));
+        registry.register(factory.nodeNameCompleter(NODE_NAME_OPTION, NODE_NAME_OPTION_SHORT));
     }
 }
