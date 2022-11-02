@@ -19,10 +19,10 @@ Apache Ignite is a distributed database for high-performance computing with in-m
 The technical documentation introduces you to the key capabilities, shows how to use certain features of
 the current Apache Ignite version.
 
-NOTE: Though this alpha release version does not support most of the Apache Ignite functionality,
+NOTE: Though this beta release version does not support most of the Apache Ignite 2 functionality,
 it introduces several new features, which are to be accompanied with other improvements from the link:https://cwiki.apache.org/confluence/display/IGNITE/Proposals+for+Ignite+3.0[Ignite Enhancement Proposal,window=_blank] list.
 
-This alpha version of Apache Ignite, incorporating all the best solutions over the past years,
+This beta version of Apache Ignite, incorporating all the best solutions over the past years,
 possesses the highest level of usability thanks to the following improvements:
 
 * Schema-first approach: This feature introduces one-to-one mapping between data schemas and caches/tables, which means that the schema is defined for a cache/table before its creation.
@@ -33,15 +33,4 @@ possesses the highest level of usability thanks to the following improvements:
 - Consistent runtime configuration change support
 * Ignite CLI tool: This tool functions as a single sign-on for any operational, management, and development needs.
 * See a link:https://cwiki.apache.org/confluence/display/IGNITE/Proposals+for+Ignite+3.0[full list of improvements,window=_blank].
-
-
-== New in Alpha 5
-
-Apache Ignite Alpha 5 comes with the following new features:
-
-* New CLI tool;
-* Distributed computing;
-* Java SQL API;
-* Data colocation;
-* REST API.
 
