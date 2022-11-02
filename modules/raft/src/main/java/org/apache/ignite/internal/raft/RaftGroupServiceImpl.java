@@ -19,6 +19,7 @@ package org.apache.ignite.internal.raft;
 
 import static java.lang.System.currentTimeMillis;
 import static java.util.concurrent.ThreadLocalRandom.current;
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.raft.jraft.rpc.CliRequests.AddLearnersRequest;
 import static org.apache.ignite.raft.jraft.rpc.CliRequests.AddPeerRequest;
 import static org.apache.ignite.raft.jraft.rpc.CliRequests.AddPeerResponse;
@@ -49,7 +50,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.stream.Collectors;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
@@ -116,8 +116,8 @@ public class RaftGroupServiceImpl implements RaftGroupService {
      * @param cluster A cluster.
      * @param factory A message factory.
      * @param timeout Request timeout.
-     * @param peers Peers list.
-     * @param learners Learners list.
+     * @param peers Initial peers list.
+     * @param learners Initial learners list.
      * @param leader Group leader.
      * @param retryDelay Retry delay.
      * @param executor Executor for retrying requests.
@@ -155,8 +155,8 @@ public class RaftGroupServiceImpl implements RaftGroupService {
      * @param factory Message factory.
      * @param timeout Timeout.
      * @param rpcTimeout Network call timeout.
-     * @param peers Peers list.
-     * @param learners Learners list.
+     * @param peers Initial peers list.
+     * @param learners Initial learners list.
      * @param getLeader {@code True} to get the group's leader upon service creation.
      * @param retryDelay Retry delay.
      * @param executor Executor for retrying requests.
@@ -204,7 +204,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
      * @param cluster Cluster service.
      * @param factory Message factory.
      * @param timeout Timeout.
-     * @param peers List of all peers.
+     * @param peers Initial peers list.
      * @param getLeader {@code True} to get the group's leader upon service creation.
      * @param retryDelay Retry delay.
      * @param executor Executor for retrying requests.
@@ -706,6 +706,6 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     }
 
     private static List<String> peerIds(Collection<Peer> peers) {
-        return peers.stream().map(RaftGroupServiceImpl::peerId).collect(Collectors.toList());
+        return peers.stream().map(RaftGroupServiceImpl::peerId).collect(toList());
     }
 }

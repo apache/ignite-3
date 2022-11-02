@@ -19,12 +19,17 @@ package org.apache.ignite.internal.raft;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static java.util.stream.Collectors.toUnmodifiableList;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.raft.jraft.test.TestUtils.peersToIds;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.instanceOf;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -37,16 +42,13 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -71,7 +73,6 @@ import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentMatcher;
 import org.mockito.Mock;
@@ -81,14 +82,11 @@ import org.mockito.junit.jupiter.MockitoExtension;
  * Test methods of raft group service.
  */
 @ExtendWith(MockitoExtension.class)
-public class RaftGroupServiceTest {
-    /** The logger. */
-    private static final IgniteLogger LOG = Loggers.forClass(RaftGroupServiceTest.class);
-
+public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
     private static final List<Peer> NODES = Stream.of(20000, 20001, 20002)
             .map(port -> new NetworkAddress("localhost", port))
             .map(Peer::new)
-            .collect(Collectors.toUnmodifiableList());
+            .collect(toUnmodifiableList());
 
     private static final RaftMessagesFactory FACTORY = new RaftMessagesFactory();
 
@@ -101,7 +99,7 @@ public class RaftGroupServiceTest {
     private static final int DELAY = 200;
 
     /** Current term. */
-    private static final int CURRENT_TERM = 1;
+    private static final long CURRENT_TERM = 1;
 
     /** Test group id. */
     private static final TestReplicationGroupId TEST_GRP = new TestReplicationGroupId("test");
@@ -118,12 +116,10 @@ public class RaftGroupServiceTest {
     private ScheduledExecutorService executor;
 
     @BeforeEach
-    void before(TestInfo testInfo) {
+    void before() {
         when(cluster.messagingService()).thenReturn(messagingService);
 
-        executor = new ScheduledThreadPoolExecutor(20, new NamedThreadFactory(Loza.CLIENT_POOL_NAME, LOG));
-
-        LOG.info(">>>> Starting test {}", testInfo.getTestMethod().orElseThrow().getName());
+        executor = new ScheduledThreadPoolExecutor(20, new NamedThreadFactory(Loza.CLIENT_POOL_NAME, logger()));
     }
 
     /**
@@ -135,42 +131,34 @@ public class RaftGroupServiceTest {
     }
 
     @Test
-    public void testRefreshLeaderStable() throws Exception {
+    public void testRefreshLeaderStable() {
         mockLeaderRequest(false);
 
-        RaftGroupService service =
-                RaftGroupServiceImpl.start(TEST_GRP, cluster, FACTORY, TIMEOUT, NODES, false, DELAY, executor).get(3, TimeUnit.SECONDS);
+        RaftGroupService service = startRaftGroupService(NODES, false);
 
         assertNull(service.leader());
 
-        service.refreshLeader().get();
+        assertThat(service.refreshLeader(), willCompleteSuccessfully());
 
         assertEquals(leader, service.leader());
     }
 
     @Test
-    public void testRefreshLeaderNotElected() throws Exception {
+    public void testRefreshLeaderNotElected() {
         mockLeaderRequest(false);
 
         // Simulate running elections.
         leader = null;
 
-        RaftGroupService service =
-                RaftGroupServiceImpl.start(TEST_GRP, cluster, FACTORY, TIMEOUT, NODES, false, DELAY, executor).get(3, TimeUnit.SECONDS);
+        RaftGroupService service = startRaftGroupService(NODES, false);
 
         assertNull(service.leader());
 
-        try {
-            service.refreshLeader().get();
-
-            fail("Should fail");
-        } catch (ExecutionException e) {
-            assertTrue(e.getCause() instanceof TimeoutException);
-        }
+        assertThat(service.refreshLeader(), willThrow(TimeoutException.class));
     }
 
     @Test
-    public void testRefreshLeaderElectedAfterDelay() throws Exception {
+    public void testRefreshLeaderElectedAfterDelay() {
         mockLeaderRequest(false);
 
         // Simulate running elections.
@@ -178,88 +166,66 @@ public class RaftGroupServiceTest {
 
         executor.schedule((Runnable) () -> leader = NODES.get(0), 500, TimeUnit.MILLISECONDS);
 
-        RaftGroupService service =
-                RaftGroupServiceImpl.start(TEST_GRP, cluster, FACTORY, TIMEOUT, NODES, false, DELAY, executor).get(3, TimeUnit.SECONDS);
+        RaftGroupService service = startRaftGroupService(NODES, false);
 
         assertNull(service.leader());
 
-        service.refreshLeader().get();
+        assertThat(service.refreshLeader(), willCompleteSuccessfully());
 
         assertEquals(NODES.get(0), service.leader());
     }
 
     @Test
-    public void testRefreshLeaderWithTimeout() throws Exception {
+    public void testRefreshLeaderWithTimeout() {
         mockLeaderRequest(true);
 
-        RaftGroupService service =
-                RaftGroupServiceImpl.start(TEST_GRP, cluster, FACTORY, TIMEOUT, NODES, false, DELAY, executor).get(3, TimeUnit.SECONDS);
+        RaftGroupService service = startRaftGroupService(NODES, false);
 
-        try {
-            service.refreshLeader().get(500, TimeUnit.MILLISECONDS);
-
-            fail();
-        } catch (TimeoutException e) {
-            // Expected.
-        }
+        assertThat(service.refreshLeader(), willThrow(TimeoutException.class, 500, TimeUnit.MILLISECONDS));
     }
 
     @Test
-    public void testUserRequestLeaderElected() throws Exception {
+    public void testUserRequestLeaderElected() {
         mockLeaderRequest(false);
         mockUserInput(false, null);
 
-        RaftGroupService service =
-                RaftGroupServiceImpl.start(TEST_GRP, cluster, FACTORY, TIMEOUT, NODES, false, DELAY, executor).get(3, TimeUnit.SECONDS);
+        RaftGroupService service = startRaftGroupService(NODES, false);
 
-        service.refreshLeader().get();
+        assertThat(service.refreshLeader(), willCompleteSuccessfully());
 
-        TestResponse resp = service.<TestResponse>run(new TestCommand()).get();
-
-        assertNotNull(resp);
+        assertThat(service.run(new TestCommand()), willBe(instanceOf(TestResponse.class)));
     }
 
     @Test
-    public void testUserRequestLazyInitLeader() throws Exception {
+    public void testUserRequestLazyInitLeader() {
         mockLeaderRequest(false);
         mockUserInput(false, null);
 
-        RaftGroupService service =
-                RaftGroupServiceImpl.start(TEST_GRP, cluster, FACTORY, TIMEOUT, NODES, false, DELAY, executor).get(3, TimeUnit.SECONDS);
+        RaftGroupService service = startRaftGroupService(NODES, false);
 
         assertNull(service.leader());
 
-        TestResponse resp = service.<TestResponse>run(new TestCommand()).get();
-
-        assertNotNull(resp);
+        assertThat(service.run(new TestCommand()), willBe(instanceOf(TestResponse.class)));
 
         assertEquals(leader, service.leader());
     }
 
     @Test
-    public void testUserRequestWithTimeout() throws Exception {
+    public void testUserRequestWithTimeout() {
         mockLeaderRequest(false);
         mockUserInput(true, null);
 
-        RaftGroupService service =
-                RaftGroupServiceImpl.start(TEST_GRP, cluster, FACTORY, TIMEOUT, NODES, false, DELAY, executor).get(3, TimeUnit.SECONDS);
+        RaftGroupService service = startRaftGroupService(NODES, false);
 
-        try {
-            service.run(new TestCommand()).get(500, TimeUnit.MILLISECONDS);
-
-            fail();
-        } catch (TimeoutException e) {
-            // Expected.
-        }
+        assertThat(service.run(new TestCommand()), willThrow(TimeoutException.class, 500, TimeUnit.MILLISECONDS));
     }
 
     @Test
-    public void testUserRequestLeaderNotElected() throws Exception {
+    public void testUserRequestLeaderNotElected() {
         mockLeaderRequest(false);
         mockUserInput(false, null);
 
-        RaftGroupService service =
-                RaftGroupServiceImpl.start(TEST_GRP, cluster, FACTORY, TIMEOUT, NODES, true, DELAY, executor).get(3, TimeUnit.SECONDS);
+        RaftGroupService service = startRaftGroupService(NODES, true);
 
         Peer leader = this.leader;
 
@@ -269,22 +235,15 @@ public class RaftGroupServiceTest {
 
         assertEquals(leader, service.leader());
 
-        try {
-            service.run(new TestCommand()).get();
-
-            fail("Expecting timeout");
-        } catch (ExecutionException e) {
-            assertTrue(e.getCause() instanceof TimeoutException);
-        }
+        assertThat(service.run(new TestCommand()), willThrow(TimeoutException.class));
     }
 
     @Test
-    public void testUserRequestLeaderElectedAfterDelay() throws Exception {
+    public void testUserRequestLeaderElectedAfterDelay() {
         mockLeaderRequest(false);
         mockUserInput(false, null);
 
-        RaftGroupService service =
-                RaftGroupServiceImpl.start(TEST_GRP, cluster, FACTORY, TIMEOUT, NODES, true, DELAY, executor).get(3, TimeUnit.SECONDS);
+        RaftGroupService service = startRaftGroupService(NODES, true);
 
         Peer leader = this.leader;
 
@@ -296,20 +255,17 @@ public class RaftGroupServiceTest {
 
         executor.schedule((Runnable) () -> this.leader = NODES.get(0), 500, TimeUnit.MILLISECONDS);
 
-        TestResponse resp = service.<TestResponse>run(new TestCommand()).get();
-
-        assertNotNull(resp);
+        assertThat(service.run(new TestCommand()), willBe(instanceOf(TestResponse.class)));
 
         assertEquals(NODES.get(0), service.leader());
     }
 
     @Test
-    public void testUserRequestLeaderElectedAfterDelayWithFailedNode() throws Exception {
+    public void testUserRequestLeaderElectedAfterDelayWithFailedNode() {
         mockLeaderRequest(false);
         mockUserInput(false, NODES.get(0));
 
-        RaftGroupService service =
-                RaftGroupServiceImpl.start(TEST_GRP, cluster, FACTORY, TIMEOUT * 3, NODES, true, DELAY, executor).get(3, TimeUnit.SECONDS);
+        RaftGroupService service = startRaftGroupService(NODES, true);
 
         Peer leader = this.leader;
 
@@ -321,27 +277,24 @@ public class RaftGroupServiceTest {
 
         executor.schedule(
                 () -> {
-                    LOG.info("Set leader {}", NODES.get(1));
+                    logger().info("Set leader {}", NODES.get(1));
 
                     this.leader = NODES.get(1);
                 },
                 500, TimeUnit.MILLISECONDS
         );
 
-        TestResponse resp = service.<TestResponse>run(new TestCommand()).get();
-
-        assertNotNull(resp);
+        assertThat(service.run(new TestCommand()), willBe(instanceOf(TestResponse.class)));
 
         assertEquals(NODES.get(1), service.leader());
     }
 
     @Test
-    public void testUserRequestLeaderChanged() throws Exception {
+    public void testUserRequestLeaderChanged() {
         mockLeaderRequest(false);
         mockUserInput(false, null);
 
-        RaftGroupService service =
-                RaftGroupServiceImpl.start(TEST_GRP, cluster, FACTORY, TIMEOUT, NODES, true, DELAY, executor).get(3, TimeUnit.SECONDS);
+        RaftGroupService service = startRaftGroupService(NODES, true);
 
         Peer leader = this.leader;
 
@@ -355,55 +308,35 @@ public class RaftGroupServiceTest {
         assertNotEquals(leader, newLeader);
 
         // Runs the command on an old leader. It should respond with leader changed error, when transparently retry.
-        TestResponse resp = service.<TestResponse>run(new TestCommand()).get();
-
-        assertNotNull(resp);
+        assertThat(service.run(new TestCommand()), willBe(instanceOf(TestResponse.class)));
 
         assertEquals(newLeader, service.leader());
     }
 
     @Test
-    public void testSnapshotExecutionException() throws Exception {
+    public void testSnapshotExecutionException() {
         mockSnapshotRequest(1);
 
-        RaftGroupService service =
-                RaftGroupServiceImpl.start(TEST_GRP, cluster, FACTORY, TIMEOUT, NODES, false, DELAY, executor).get(3, TimeUnit.SECONDS);
+        RaftGroupService service = startRaftGroupService(NODES, false);
 
         var addr = new NetworkAddress("localhost", 8082);
 
-        CompletableFuture<Void> fut = service.snapshot(new Peer(addr));
-
-        try {
-            fut.get();
-
-            fail();
-        } catch (ExecutionException e) {
-            assertTrue(e.getCause() instanceof IgniteInternalException);
-        }
+        assertThat(service.snapshot(new Peer(addr)), willThrow(IgniteInternalException.class));
     }
 
     @Test
-    public void testSnapshotExecutionFailedResponse() throws Exception {
+    public void testSnapshotExecutionFailedResponse() {
         mockSnapshotRequest(0);
 
-        RaftGroupService service =
-                RaftGroupServiceImpl.start(TEST_GRP, cluster, FACTORY, TIMEOUT, NODES, false, DELAY, executor).get(3, TimeUnit.SECONDS);
+        RaftGroupService service = startRaftGroupService(NODES, false);
 
         var addr = new NetworkAddress("localhost", 8082);
 
-        CompletableFuture<Void> fut = service.snapshot(new Peer(addr));
-
-        try {
-            fut.get();
-
-            fail();
-        } catch (ExecutionException e) {
-            assertTrue(e.getCause() instanceof RaftException);
-        }
+        assertThat(service.snapshot(new Peer(addr)), willThrow(RaftException.class));
     }
 
     @Test
-    public void testRefreshMembers() throws Exception {
+    public void testRefreshMembers() {
         List<String> respPeers = peersToIds(NODES.subList(0, 2));
         List<String> respLearners = peersToIds(NODES.subList(2, 2));
 
@@ -414,20 +347,19 @@ public class RaftGroupServiceTest {
 
         mockLeaderRequest(false);
 
-        RaftGroupService service =
-                RaftGroupServiceImpl.start(TEST_GRP, cluster, FACTORY, TIMEOUT, NODES, true, DELAY, executor).get(3, TimeUnit.SECONDS);
+        RaftGroupService service = startRaftGroupService(NODES, true);
 
         assertEquals(NODES, service.peers());
         assertEquals(Collections.emptyList(), service.learners());
 
-        service.refreshMembers(false).get(3, TimeUnit.SECONDS);
+        assertThat(service.refreshMembers(false), willCompleteSuccessfully());
 
         assertEquals(NODES.subList(0, 2), service.peers());
         assertEquals(NODES.subList(2, 2), service.learners());
     }
 
     @Test
-    public void testAddPeer() throws Exception {
+    public void testAddPeer() {
         List<String> respPeers = peersToIds(NODES);
 
         when(messagingService.invoke(any(NetworkAddress.class),
@@ -439,21 +371,19 @@ public class RaftGroupServiceTest {
 
         mockLeaderRequest(false);
 
-        RaftGroupService service =
-                RaftGroupServiceImpl.start(TEST_GRP, cluster, FACTORY, TIMEOUT, NODES.subList(0, 2), true, DELAY, executor)
-                        .get(3, TimeUnit.SECONDS);
+        RaftGroupService service = startRaftGroupService(NODES.subList(0, 2), true);
 
         assertEquals(NODES.subList(0, 2), service.peers());
         assertEquals(Collections.emptyList(), service.learners());
 
-        service.addPeer(NODES.get(2)).get();
+        assertThat(service.addPeer(NODES.get(2)), willCompleteSuccessfully());
 
         assertEquals(NODES, service.peers());
         assertEquals(Collections.emptyList(), service.learners());
     }
 
     @Test
-    public void testRemovePeer() throws Exception {
+    public void testRemovePeer() {
         List<String> respPeers = peersToIds(NODES.subList(0, 2));
 
         when(messagingService.invoke(any(NetworkAddress.class),
@@ -465,20 +395,19 @@ public class RaftGroupServiceTest {
 
         mockLeaderRequest(false);
 
-        RaftGroupService service =
-                RaftGroupServiceImpl.start(TEST_GRP, cluster, FACTORY, TIMEOUT, NODES, true, DELAY, executor).get(3, TimeUnit.SECONDS);
+        RaftGroupService service = startRaftGroupService(NODES, true);
 
         assertEquals(NODES, service.peers());
         assertEquals(Collections.emptyList(), service.learners());
 
-        service.removePeer(NODES.get(2)).get();
+        assertThat(service.removePeer(NODES.get(2)), willCompleteSuccessfully());
 
         assertEquals(NODES.subList(0, 2), service.peers());
         assertEquals(Collections.emptyList(), service.learners());
     }
 
     @Test
-    public void testChangePeers() throws Exception {
+    public void testChangePeers() {
         List<String> shrunkPeers = peersToIds(NODES.subList(0, 1));
 
         List<String> extendedPeers = peersToIds(NODES);
@@ -499,26 +428,24 @@ public class RaftGroupServiceTest {
 
         mockLeaderRequest(false);
 
-        RaftGroupService service =
-                RaftGroupServiceImpl.start(TEST_GRP, cluster, FACTORY, TIMEOUT, NODES.subList(0, 2), true, DELAY, executor)
-                        .get(3, TimeUnit.SECONDS);
+        RaftGroupService service = startRaftGroupService(NODES.subList(0, 2), true);
 
         assertEquals(NODES.subList(0, 2), service.peers());
         assertEquals(Collections.emptyList(), service.learners());
 
-        service.changePeers(NODES.subList(0, 1)).get();
+        assertThat(service.changePeers(NODES.subList(0, 1)), willCompleteSuccessfully());
 
         assertEquals(NODES.subList(0, 1), service.peers());
         assertEquals(Collections.emptyList(), service.learners());
 
-        service.changePeers(NODES).get();
+        assertThat(service.changePeers(NODES), willCompleteSuccessfully());
 
         assertEquals(NODES, service.peers());
         assertEquals(Collections.emptyList(), service.learners());
     }
 
     @Test
-    public void testTransferLeadership() throws Exception {
+    public void testTransferLeadership() {
         when(messagingService.invoke(any(NetworkAddress.class),
                 eq(FACTORY.transferLeaderRequest()
                         .peerId(PeerId.fromPeer(NODES.get(1)).toString())
@@ -529,18 +456,17 @@ public class RaftGroupServiceTest {
 
         mockLeaderRequest(false);
 
-        RaftGroupService service =
-                RaftGroupServiceImpl.start(TEST_GRP, cluster, FACTORY, TIMEOUT, NODES, true, DELAY, executor).get(3, TimeUnit.SECONDS);
+        RaftGroupService service = startRaftGroupService(NODES, true);
 
         assertEquals(NODES.get(0), service.leader());
 
-        service.transferLeadership(NODES.get(1)).get();
+        assertThat(service.transferLeadership(NODES.get(1)), willCompleteSuccessfully());
 
         assertEquals(NODES.get(1), service.leader());
     }
 
     @Test
-    public void testAddLearners() throws Exception {
+    public void testAddLearners() {
         List<String> addLearners = peersToIds(NODES.subList(1, 3));
 
         when(messagingService.invoke(any(NetworkAddress.class),
@@ -552,21 +478,19 @@ public class RaftGroupServiceTest {
 
         mockLeaderRequest(false);
 
-        RaftGroupService service =
-                RaftGroupServiceImpl.start(TEST_GRP, cluster, FACTORY, TIMEOUT, NODES.subList(0, 1), true, DELAY, executor)
-                        .get(3, TimeUnit.SECONDS);
+        RaftGroupService service = startRaftGroupService(NODES.subList(0, 1), true);
 
         assertEquals(NODES.subList(0, 1), service.peers());
         assertEquals(Collections.emptyList(), service.learners());
 
-        service.addLearners(NODES.subList(1, 3)).get();
+        assertThat(service.addLearners(NODES.subList(1, 3)), willCompleteSuccessfully());
 
         assertEquals(NODES.subList(0, 1), service.peers());
         assertEquals(NODES.subList(1, 3), service.learners());
     }
 
     @Test
-    public void testResetLearners() throws Exception {
+    public void testResetLearners() {
         List<String> addLearners = peersToIds(NODES.subList(1, 3));
 
         List<String> resetLearners = peersToIds(NODES.subList(2, 3));
@@ -582,29 +506,26 @@ public class RaftGroupServiceTest {
 
         mockLeaderRequest(false);
 
-        RaftGroupService service =
-                RaftGroupServiceImpl.start(TEST_GRP, cluster, FACTORY, TIMEOUT, NODES.subList(0, 1), true, DELAY, executor)
-                        .get(3, TimeUnit.SECONDS);
+        RaftGroupService service = startRaftGroupService(NODES.subList(0, 1), true);
 
-        service.addLearners(NODES.subList(1, 3)).get();
+        assertThat(service.addLearners(NODES.subList(1, 3)), willCompleteSuccessfully());
 
         assertEquals(NODES.subList(0, 1), service.peers());
         assertEquals(NODES.subList(1, 3), service.learners());
 
-        service.resetLearners(NODES.subList(2, 3)).get();
+        assertThat(service.resetLearners(NODES.subList(2, 3)), willCompleteSuccessfully());
 
         assertEquals(NODES.subList(0, 1), service.peers());
         assertEquals(NODES.subList(2, 3), service.learners());
     }
 
     @Test
-    public void testRemoveLearners() throws Exception {
+    public void testRemoveLearners() {
         List<String> addLearners = peersToIds(NODES.subList(1, 3));
 
         List<String> removeLearners = peersToIds(NODES.subList(2, 3));
 
-        List<String> resultLearners =
-                NODES.subList(1, 2).stream().map(p -> PeerId.fromPeer(p).toString()).collect(Collectors.toList());
+        List<String> resultLearners = peersToIds(NODES.subList(1, 2));
 
         when(messagingService.invoke(any(NetworkAddress.class),
                 eq(FACTORY.removeLearnersRequest()
@@ -617,39 +538,45 @@ public class RaftGroupServiceTest {
 
         mockLeaderRequest(false);
 
-        RaftGroupService service =
-                RaftGroupServiceImpl.start(TEST_GRP, cluster, FACTORY, TIMEOUT, NODES.subList(0, 1), true, DELAY, executor)
-                        .get(3, TimeUnit.SECONDS);
+        RaftGroupService service = startRaftGroupService(NODES.subList(0, 1), true);
 
-        service.addLearners(NODES.subList(1, 3)).get();
+        assertThat(service.addLearners(NODES.subList(1, 3)), willCompleteSuccessfully());
 
         assertEquals(NODES.subList(0, 1), service.peers());
         assertEquals(NODES.subList(1, 3), service.learners());
 
-        service.removeLearners(NODES.subList(2, 3)).get();
+        assertThat(service.removeLearners(NODES.subList(2, 3)), willCompleteSuccessfully());
 
         assertEquals(NODES.subList(0, 1), service.peers());
         assertEquals(NODES.subList(1, 2), service.learners());
     }
 
     @Test
-    public void testGetLeaderRequest() throws Exception {
+    public void testGetLeaderRequest() {
         mockLeaderRequest(false);
 
-        RaftGroupService service =
-                RaftGroupServiceImpl.start(TEST_GRP, cluster, FACTORY, TIMEOUT, NODES, false, DELAY, executor).get(3, TimeUnit.SECONDS);
+        RaftGroupService service = startRaftGroupService(NODES, false);
 
         assertNull(service.leader());
 
-        service.refreshLeader().get();
+        assertThat(service.refreshLeader(), willCompleteSuccessfully());
 
         GetLeaderRequest req = FACTORY.getLeaderRequest().groupId(TEST_GRP.toString()).build();
 
-        GetLeaderResponse fut = (GetLeaderResponse) messagingService.invoke(leader.address(), req, TIMEOUT).get();
+        CompletableFuture<GetLeaderResponse> fut = messagingService.invoke(leader.address(), req, TIMEOUT)
+                        .thenApply(GetLeaderResponse.class::cast);
 
-        assertEquals(PeerId.fromPeer(leader).toString(), fut.leaderId());
+        assertThat(fut.thenApply(GetLeaderResponse::leaderId), willBe(equalTo(PeerId.fromPeer(leader).toString())));
+        assertThat(fut.thenApply(GetLeaderResponse::currentTerm), willBe(equalTo(CURRENT_TERM)));
+    }
 
-        assertEquals(CURRENT_TERM, fut.currentTerm());
+    private RaftGroupService startRaftGroupService(List<Peer> peers, boolean getLeader) {
+        CompletableFuture<RaftGroupService> service =
+                RaftGroupServiceImpl.start(TEST_GRP, cluster, FACTORY, TIMEOUT, peers, getLeader, DELAY, executor);
+
+        assertThat(service, willCompleteSuccessfully());
+
+        return service.join();
     }
 
     /**
@@ -767,10 +694,10 @@ public class RaftGroupServiceTest {
     /**
      * Test replication group id.
      */
-    protected static class TestReplicationGroupId implements ReplicationGroupId {
+    private static class TestReplicationGroupId implements ReplicationGroupId {
         private final String name;
 
-        public TestReplicationGroupId(String name) {
+        TestReplicationGroupId(String name) {
             this.name = name;
         }
 
