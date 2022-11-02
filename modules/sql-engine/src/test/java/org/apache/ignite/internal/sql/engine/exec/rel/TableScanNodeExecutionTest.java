@@ -34,6 +34,7 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
@@ -168,8 +169,9 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest {
                 long scanId,
                 int batchSize,
                 @Nullable UUID indexId,
-                @Nullable BinaryTuple lowerBound,
-                @Nullable BinaryTuple upperBound,
+                @Nullable BinaryTuple exactKey,
+                @Nullable BinaryTuplePrefix lowerBound,
+                @Nullable BinaryTuplePrefix upperBound,
                 int flags,
                 @Nullable BitSet columnsToInclude
         ) {

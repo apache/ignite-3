@@ -53,7 +53,6 @@ import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaSafeTimeSyncRequest;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
@@ -600,12 +599,10 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         UUID indexId = request.indexToUse();
 
-        BinaryTuple lowerBound = request.lowerBound();
-        BinaryTuple upperBound = request.upperBound();
+        BinaryTuplePrefix lowerBound = request.lowerBound();
+        BinaryTuplePrefix upperBound = request.upperBound();
 
         int flags = request.flags();
-
-        boolean includeUpperBound = (flags & SortedIndexStorage.LESS_OR_EQUAL) != 0;
 
         return lockManager.acquire(txId, new LockKey(indexId), LockMode.IS).thenCompose(idxLock -> { // Index IS lock
             return lockManager.acquire(txId, new LockKey(tableId), LockMode.IS).thenCompose(tblLock -> { // Table IS lock
@@ -615,9 +612,9 @@ public class PartitionReplicaListener implements ReplicaListener {
                             // Fix scan cursor return item closet to lowerbound and <= lowerbound
                             // to correctly lock range between lowerbound value and the item next to lowerbound.
                             return indexStorage.scan(
-                                    lowerBound == null ? null : BinaryTuplePrefix.fromBinaryTuple(lowerBound),
+                                    lowerBound,
                                     // We need upperBound next value for correct range lock.
-                                    upperBound == null ? null : BinaryTuplePrefix.fromBinaryTuple(upperBound),
+                                    upperBound,
                                     // TODO IGNITE-18055: Add support null-bounds.
                                     flags
                             );
@@ -627,7 +624,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                 final ArrayList<BinaryRow> result = new ArrayList<>(batchCount);
 
-                return continueIndexScan(txId, indexId, indexLocker, cursor, upperBound, includeUpperBound, batchCount, result)
+                return continueIndexScan(txId, indexId, indexLocker, cursor, batchCount, result)
                         .thenApply(ignore -> result);
             });
         });
@@ -650,16 +647,16 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         IgniteUuid cursorId = new IgniteUuid(txId, request.scanId());
 
-        BinaryTuple lowerBound = request.lowerBound();
-        BinaryTuple upperBound = request.upperBound();
+        BinaryTuplePrefix lowerBound = request.lowerBound();
+        BinaryTuplePrefix upperBound = request.upperBound();
 
         int flags = request.flags();
 
         @SuppressWarnings("resource") Cursor<IndexRow> cursor = (Cursor<IndexRow>) cursors.computeIfAbsent(cursorId,
                 id -> {
                     return indexStorage.scan(
-                            lowerBound == null ? null : BinaryTuplePrefix.fromBinaryTuple(lowerBound),
-                            upperBound == null ? null : BinaryTuplePrefix.fromBinaryTuple(upperBound),
+                            lowerBound,
+                            upperBound,
                             flags
                     );
                 });
@@ -724,8 +721,6 @@ public class PartitionReplicaListener implements ReplicaListener {
             UUID indexId,
             IndexLocker indexLocker,
             Cursor<IndexRow> indexCursor,
-            BinaryTuple upperBound,
-            boolean includeBound,
             int batchSize,
             List<BinaryRow> result
     ) {
@@ -739,14 +734,6 @@ public class PartitionReplicaListener implements ReplicaListener {
                         return CompletableFuture.completedFuture(null); // End of range reached. Exit loop.
                     }
 
-//                    if (upperBound != null) {
-//                        int cmp = upperBound.byteBuffer().compareTo(currentRow.indexColumns().byteBuffer());
-//
-//                        if ((includeBound && cmp < 0) || (!includeBound && cmp == 0)) {
-//                            return CompletableFuture.completedFuture(null); // Locked. Skip adding to result and exit loop.
-//                        }
-//                    }
-
                     return lockManager.acquire(txId, new LockKey(tableId, currentRow.rowId()), LockMode.S)
                             .thenCompose(rowLock -> { // Table row S lock
                                 ReadResult readResult = mvDataStorage.read(currentRow.rowId(), HybridTimestamp.MAX_VALUE);
@@ -757,8 +744,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                                 }
 
                                 // Proceed scan.
-                                return continueIndexScan(txId, indexId, indexLocker, indexCursor, upperBound, includeBound, batchSize,
-                                        result);
+                                return continueIndexScan(txId, indexId, indexLocker, indexCursor, batchSize, result);
                             });
                 });
     }

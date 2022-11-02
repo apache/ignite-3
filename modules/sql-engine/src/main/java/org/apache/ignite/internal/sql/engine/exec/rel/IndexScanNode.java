@@ -30,9 +30,11 @@ import java.util.function.Predicate;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.ImmutableIntList;
+import org.apache.ignite.internal.index.Index;
 import org.apache.ignite.internal.index.SortedIndex;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowConverter;
@@ -257,8 +259,8 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
                 int part = curPartIdx;
 
                 int flags = 0;
-                BinaryTuple lowerBound = null;
-                BinaryTuple upperBound = null;
+                BinaryTuplePrefix lowerBound = null;
+                BinaryTuplePrefix upperBound = null;
 
                 if (rangeConditions == null) {
                     flags = SortedIndex.INCLUDE_LEFT | SortedIndex.INCLUDE_RIGHT;
@@ -371,7 +373,7 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
     }
 
     @Contract("null -> null")
-    private @Nullable BinaryTuple toBinaryTuplePrefix(@Nullable RowT condition) {
+    private @Nullable BinaryTuplePrefix toBinaryTuplePrefix(@Nullable RowT condition) {
         if (condition == null) {
             return null;
         }
@@ -385,7 +387,7 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
             return null;
         }
 
-        return RowConverter.toBinaryTuple(context(), indexRowSchema, idxColumnMapping, factory, condition);
+        return RowConverter.toByteBuffer(context(), indexRowSchema, idxColumnMapping, factory, condition);
     }
 
     private RowT convert(BinaryRow binaryRow) {

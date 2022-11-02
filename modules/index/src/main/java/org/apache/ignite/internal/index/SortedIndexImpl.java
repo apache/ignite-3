@@ -23,10 +23,10 @@ import java.util.UUID;
 import java.util.concurrent.Flow.Publisher;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * An object that represents a sorted index.
@@ -76,7 +76,7 @@ public class SortedIndexImpl implements SortedIndex {
     /** {@inheritDoc} */
     @Override
     public Publisher<BinaryRow> scan(int partId, InternalTransaction tx, BinaryTuple key, BitSet columns) {
-        return scan(partId, tx, key, key, INCLUDE_LEFT | INCLUDE_RIGHT, columns);
+        return table.scan(partId, tx, id, key, columns);
     }
 
     /** {@inheritDoc} */
@@ -84,8 +84,8 @@ public class SortedIndexImpl implements SortedIndex {
     public Publisher<BinaryRow> scan(
             int partId,
             InternalTransaction tx,
-            @Nullable BinaryTuple leftBound,
-            @Nullable BinaryTuple rightBound,
+            BinaryTuplePrefix leftBound,
+            BinaryTuplePrefix rightBound,
             int flags,
             BitSet columnsToInclude
     ) {

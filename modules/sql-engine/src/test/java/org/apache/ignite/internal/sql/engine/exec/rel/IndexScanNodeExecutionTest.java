@@ -38,6 +38,7 @@ import org.apache.ignite.internal.index.SortedIndex;
 import org.apache.ignite.internal.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -246,19 +247,23 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
 
         Index<IndexDescriptor> hashIndexMock = Mockito.mock(Index.class);
 
-        when(hashIndexMock.scan(Mockito.anyInt(), Mockito.any(), Mockito.any(), Mockito.any()))
-                .thenAnswer(invocation -> {
+        Mockito.doReturn(indexDescriptor).when(hashIndexMock).descriptor();
+        //CHECKSTYLE:OFF:Indentation
+        Mockito.doAnswer(invocation -> {
                     if (key != null) {
                         validateBound(indexDescriptor, schemaDescriptor, invocation.getArgument(2));
                     }
 
                     return dummyPublisher(partitionData(tableData, schemaDescriptor, invocation.getArgument(0)));
-                });
+                })
+                .when(hashIndexMock)
+                .scan(Mockito.anyInt(), Mockito.any(), Mockito.any(), Mockito.any());
+        //CHECKSTYLE:ON:Indentation
 
         IgniteIndex indexMock = Mockito.mock(IgniteIndex.class);
-        when(indexMock.type()).thenReturn(IgniteIndex.Type.HASH);
-        when(indexMock.index()).thenAnswer(inv -> hashIndexMock);
-        when(indexMock.columns()).thenReturn(indexDescriptor.columns());
+        Mockito.doReturn(IgniteIndex.Type.HASH).when(indexMock).type();
+        Mockito.doReturn(hashIndexMock).when(indexMock).index();
+        Mockito.doReturn(indexDescriptor.columns()).when(indexMock).columns();
 
         validateIndexScan(tableData, schemaDescriptor, indexMock, key, key, expRes);
     }
@@ -288,8 +293,8 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
 
         SortedIndex sortedIndexMock = Mockito.mock(SortedIndex.class);
 
-        when(sortedIndexMock.scan(Mockito.anyInt(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.anyInt(), Mockito.any()))
-                .thenAnswer(invocation -> {
+        //CHECKSTYLE:OFF:Indentation
+        Mockito.doAnswer(invocation -> {
                     if (lowerBound != null) {
                         validateBoundPrefix(indexDescriptor, schemaDescriptor, invocation.getArgument(2));
                     }
@@ -298,12 +303,14 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
                     }
 
                     return dummyPublisher(partitionData(tableData, schemaDescriptor, invocation.getArgument(0)));
-                });
+                }).when(sortedIndexMock)
+                .scan(Mockito.anyInt(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.anyInt(), Mockito.any());
+        //CHECKSTYLE:ON:Indentation
 
         IgniteIndex indexMock = Mockito.mock(IgniteIndex.class);
-        when(indexMock.type()).thenReturn(Type.SORTED);
-        when(indexMock.index()).thenAnswer(inv -> sortedIndexMock);
-        when(indexMock.columns()).thenReturn(indexDescriptor.columns());
+        Mockito.doReturn(Type.SORTED).when(indexMock).type();
+        Mockito.doReturn(sortedIndexMock).when(indexMock).index();
+        Mockito.doReturn(indexDescriptor.columns()).when(indexMock).columns();
 
         validateIndexScan(tableData, schemaDescriptor, indexMock, lowerBound, upperBound, expectedData);
     }
@@ -427,18 +434,19 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
         };
     }
 
-    private void validateBoundPrefix(IndexDescriptor indexDescriptor, SchemaDescriptor schemaDescriptor, BinaryTuple boundPrefix) {
+    private void validateBoundPrefix(IndexDescriptor indexDescriptor, SchemaDescriptor schemaDescriptor, BinaryTuplePrefix boundPrefix) {
         List<String> idxCols = indexDescriptor.columns();
 
         assertThat(boundPrefix.count(), Matchers.lessThanOrEqualTo(idxCols.size()));
 
-        for (int i = 0; i < boundPrefix.count(); i++) {
+        for (int i = 0; i < boundPrefix.elementCount(); i++) {
             Column col = schemaDescriptor.column(idxCols.get(i));
-            Object val = boundPrefix.value(i);
 
-            if (col.nullable() && val == null) {
+            if (boundPrefix.hasNullValue(i)) {
                 continue;
             }
+
+            Object val = col.type().spec().objectValue(boundPrefix, i);
 
             assertThat("Column type doesn't match: columnName=" + idxCols.get(i), NativeTypes.fromObject(val), equalTo(col.type()));
         }

@@ -89,6 +89,7 @@ import org.apache.ignite.internal.index.SortedIndex;
 import org.apache.ignite.internal.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
@@ -1208,14 +1209,15 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
         /** {@inheritDoc} */
         @Override
-        public Publisher<BinaryRow> scan(int partId, InternalTransaction tx, BinaryTuple left, BinaryTuple right, BitSet columns) {
+        public Publisher<BinaryRow> scan(int partId, InternalTransaction tx, @Nullable BinaryTuplePrefix left,
+                @Nullable BinaryTuplePrefix right, BitSet columns) {
             throw new AssertionError("Should not be called");
         }
 
         /** {@inheritDoc} */
         @Override
-        public Publisher<BinaryRow> scan(int partId, InternalTransaction tx,
-                @Nullable BinaryTuple leftBound, @Nullable BinaryTuple rightBound, int flags, BitSet columnsToInclude) {
+        public Publisher<BinaryRow> scan(int partId, InternalTransaction tx, @Nullable BinaryTuplePrefix leftBound,
+                @Nullable BinaryTuplePrefix rightBound, int flags, BitSet columnsToInclude) {
             throw new AssertionError("Should not be called");
         }
     }

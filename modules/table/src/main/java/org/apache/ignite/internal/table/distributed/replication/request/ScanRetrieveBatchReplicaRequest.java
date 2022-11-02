@@ -21,6 +21,7 @@ import java.util.BitSet;
 import java.util.UUID;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.network.annotations.Marshallable;
 
@@ -57,7 +58,7 @@ public interface ScanRetrieveBatchReplicaRequest extends ReplicaRequest {
      * @return lower bound.
      */
     @Marshallable
-    BinaryTuple lowerBound();
+    BinaryTuplePrefix lowerBound();
 
     /**
      * Gets an upper bound to choose entries from {@link SortedIndexStorage}. Upper bound. Exclusivity is controlled by a {@link
@@ -66,7 +67,7 @@ public interface ScanRetrieveBatchReplicaRequest extends ReplicaRequest {
      * @return upper bound.
      */
     @Marshallable
-    BinaryTuple upperBound();
+    BinaryTuplePrefix upperBound();
 
     /**
      * Gets control flags for {@link SortedIndexStorage}. {@link SortedIndexStorage#GREATER} | {@link SortedIndexStorage#LESS} by default.

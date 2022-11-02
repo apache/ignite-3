@@ -20,7 +20,7 @@ package org.apache.ignite.internal.index;
 import java.util.BitSet;
 import java.util.concurrent.Flow.Publisher;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.jetbrains.annotations.Nullable;
 
@@ -49,8 +49,8 @@ public interface SortedIndex extends Index<SortedIndexDescriptor> {
     default Publisher<BinaryRow> scan(
             int partId,
             InternalTransaction tx,
-            @Nullable BinaryTuple left,
-            @Nullable BinaryTuple right,
+            @Nullable BinaryTuplePrefix left,
+            @Nullable BinaryTuplePrefix right,
             BitSet columns
     ) {
         return scan(partId, tx, left, right, INCLUDE_LEFT, columns);
@@ -72,8 +72,8 @@ public interface SortedIndex extends Index<SortedIndexDescriptor> {
     Publisher<BinaryRow> scan(
             int partId,
             InternalTransaction tx,
-            @Nullable BinaryTuple leftBound,
-            @Nullable BinaryTuple rightBound,
+            @Nullable BinaryTuplePrefix leftBound,
+            @Nullable BinaryTuplePrefix rightBound,
             int flags,
             BitSet columnsToInclude
     );

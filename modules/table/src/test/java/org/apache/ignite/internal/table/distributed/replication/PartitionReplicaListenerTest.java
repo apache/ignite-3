@@ -37,12 +37,14 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
+import org.apache.ignite.internal.binarytuple.BinaryTuplePrefixBuilder;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
 import org.apache.ignite.internal.schema.Column;
@@ -439,7 +441,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
             RowId rowId = new RowId(partId);
             TestValue testValue = new TestValue(i, "val" + i);
 
-            BinaryTuple indexedValue = sortedIndexValue(testValue);
+            BinaryTuple indexedValue = new BinaryTuple(sortedIndexBinarySchema,
+                    new BinaryTupleBuilder(1, false).appendInt(i).build());
             BinaryRow storeRow = binaryRow(key(nextBinaryKey()), testValue);
 
             testMvPartitionStorage.addWrite(rowId, storeRow, txId, tblId, partId);
@@ -489,8 +492,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 .term(1L)
                 .scanId(2L)
                 .indexToUse(sortedIndexId)
-                .lowerBound(sortedIndexValue(new TestValue(2, "val" + 2)))
-                .upperBound(sortedIndexValue(new TestValue(4, "val" + 4)))
+                .lowerBound(toIndexBound(new TestValue(2, "val" + 2)))
+                .upperBound(toIndexBound(new TestValue(4, "val" + 4)))
                 .flags(SortedIndexStorage.LESS_OR_EQUAL)
                 .batchSize(5)
                 .build());
@@ -508,7 +511,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 .term(1L)
                 .scanId(2L)
                 .indexToUse(sortedIndexId)
-                .lowerBound(sortedIndexValue(new TestValue(5, "val" + 2)))
+                .lowerBound(toIndexBound(new TestValue(5, "val" + 2)))
                 .batchSize(5)
                 .build());
 
@@ -518,10 +521,10 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         assertEquals(0, rows.size());
     }
 
-    private static BinaryTuple sortedIndexValue(TestValue val) {
-        ByteBuffer tuple = new BinaryTupleBuilder(1, false).appendInt(val.intVal).build();
+    private static BinaryTuplePrefix toIndexBound(TestValue val) {
+        ByteBuffer tuple = new BinaryTuplePrefixBuilder(1, 1).appendInt(val.intVal).build();
 
-        return new BinaryTuple(sortedIndexBinarySchema, tuple);
+        return new BinaryTuplePrefix(sortedIndexBinarySchema, tuple);
     }
 
     protected static BinaryRow nextBinaryKey() {

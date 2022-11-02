@@ -27,8 +27,8 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
-import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LockException;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
@@ -280,15 +280,13 @@ public interface InternalTable extends AutoCloseable {
      * @param columnsToInclude Row projection.
      * @return {@link Publisher} that reactively notifies about partition rows.
      */
-    default Publisher<BinaryRow> scan(
+    Publisher<BinaryRow> scan(
             int partId,
             @Nullable InternalTransaction tx,
             @NotNull UUID indexId,
             BinaryTuple key,
             @Nullable BitSet columnsToInclude
-    ) {
-        return scan(partId, tx, indexId, key, key, SortedIndexStorage.LESS_OR_EQUAL | SortedIndexStorage.GREATER_OR_EQUAL, columnsToInclude);
-    }
+    );
 
     /**
      * Scans given partition index, providing {@link Publisher} that reactively notifies about partition rows.
@@ -308,8 +306,8 @@ public interface InternalTable extends AutoCloseable {
             @NotNull HybridTimestamp readTimestamp,
             @NotNull ClusterNode recipientNode,
             @NotNull UUID indexId,
-            @Nullable BinaryTuple lowerBound,
-            @Nullable BinaryTuple upperBound,
+            @Nullable BinaryTuplePrefix lowerBound,
+            @Nullable BinaryTuplePrefix upperBound,
             int flags,
             @Nullable BitSet columnsToInclude
     );
@@ -330,8 +328,8 @@ public interface InternalTable extends AutoCloseable {
             int partId,
             @Nullable InternalTransaction tx,
             @Nullable UUID indexId,
-            @Nullable BinaryTuple lowerBound,
-            @Nullable BinaryTuple upperBound,
+            @Nullable BinaryTuplePrefix lowerBound,
+            @Nullable BinaryTuplePrefix upperBound,
             int flags,
             @Nullable BitSet columnsToInclude
     );

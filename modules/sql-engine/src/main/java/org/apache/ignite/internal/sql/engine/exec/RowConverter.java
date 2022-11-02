@@ -17,12 +17,14 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
+import java.nio.ByteBuffer;
 import java.util.stream.IntStream;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTuplePrefixBuilder;
 import org.apache.ignite.internal.schema.BinaryConverter;
 import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
@@ -55,7 +57,7 @@ public final class RowConverter {
      * @param <RowT> Row type.
      * @return Binary tuple.
      */
-    public static <RowT> BinaryTuple toBinaryTuplePrefix(
+    public static <RowT> BinaryTuplePrefix toBinaryTuplePrefix(
             ExecutionContext<RowT> ectx,
             BinaryTupleSchema binarySchema,
             ImmutableIntList idxColumnMapper,
@@ -80,7 +82,7 @@ public final class RowConverter {
 
         BinaryTuplePrefixBuilder tupleBuilder = new BinaryTuplePrefixBuilder(specifiedCols, prefixColumnsCount);
 
-        return toBinaryTuple(ectx, binarySchema, idxColumnMapper, handler, tupleBuilder, searchRow);
+        return new BinaryTuplePrefix(binarySchema, toByteBuffer(ectx, binarySchema, idxColumnMapper, handler, tupleBuilder, searchRow));
     }
 
     /**
@@ -93,7 +95,7 @@ public final class RowConverter {
      * @param <RowT> Row type.
      * @return Binary tuple.
      */
-    public static <RowT> BinaryTuple toBinaryTuple(
+    public static <RowT> BinaryTuple toByteBuffer(
             ExecutionContext<RowT> ectx,
             BinaryTupleSchema binarySchema,
             ImmutableIntList idxColumnMapper,
@@ -109,10 +111,10 @@ public final class RowConverter {
 
         BinaryTupleBuilder tupleBuilder = new BinaryTupleBuilder(prefixColumnsCount, binarySchema.hasNullableElements());
 
-        return toBinaryTuple(ectx, binarySchema, idxColumnMapper, handler, tupleBuilder, searchRow);
+        return new BinaryTuple(binarySchema, toByteBuffer(ectx, binarySchema, idxColumnMapper, handler, tupleBuilder, searchRow));
     }
 
-    private static <RowT> BinaryTuple toBinaryTuple(
+    private static <RowT> ByteBuffer toByteBuffer(
             ExecutionContext<RowT> ectx,
             BinaryTupleSchema binarySchema,
             ImmutableIntList idxColumnMapper,
@@ -134,6 +136,6 @@ public final class RowConverter {
             BinaryConverter.appendValue(tupleBuilder, element, val);
         }
 
-        return new BinaryTuple(binarySchema, tupleBuilder.build());
+        return tupleBuilder.build();
     }
 }

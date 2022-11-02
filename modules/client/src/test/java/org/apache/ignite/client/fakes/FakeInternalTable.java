@@ -32,6 +32,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -321,15 +322,22 @@ public class FakeInternalTable implements InternalTable {
 
     /** {@inheritDoc} */
     @Override
-    public Publisher<BinaryRow> scan(int partId, @Nullable InternalTransaction tx, UUID indexId, @Nullable BinaryTuple lowerBound,
-            @Nullable BinaryTuple upperBound, int flags, BitSet columnsToInclude) {
+    public Publisher<BinaryRow> scan(int partId, @Nullable InternalTransaction tx, UUID indexId, @Nullable BinaryTuplePrefix lowerBound,
+            @Nullable BinaryTuplePrefix upperBound, int flags, BitSet columnsToInclude) {
         throw new IgniteInternalException(new OperationNotSupportedException());
     }
 
     /** {@inheritDoc} */
     @Override
     public Publisher<BinaryRow> scan(int partId, @NotNull HybridTimestamp readTimestamp, @NotNull ClusterNode recipientNode,
-            @NotNull UUID indexId, @Nullable BinaryTuple lowerBound, @Nullable BinaryTuple upperBound, int flags,
+            @NotNull UUID indexId, @Nullable BinaryTuplePrefix lowerBound, @Nullable BinaryTuplePrefix upperBound, int flags,
+            @Nullable BitSet columnsToInclude) {
+        throw new IgniteInternalException(new OperationNotSupportedException());
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Publisher<BinaryRow> scan(int partId, @Nullable InternalTransaction tx, @NotNull UUID indexId, BinaryTuple key,
             @Nullable BitSet columnsToInclude) {
         throw new IgniteInternalException(new OperationNotSupportedException());
     }

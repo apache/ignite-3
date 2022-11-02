@@ -51,6 +51,7 @@ import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
@@ -349,8 +350,9 @@ public class InternalTableImpl implements InternalTable {
             long scanId,
             int batchSize,
             @Nullable UUID indexId,
-            @Nullable BinaryTuple lowerBound,
-            @Nullable BinaryTuple upperBound,
+            @Nullable BinaryTuple exactKey,
+            @Nullable BinaryTuplePrefix lowerBound,
+            @Nullable BinaryTuplePrefix upperBound,
             int flags,
             @Nullable BitSet columnsToInclude
     ) {
@@ -365,6 +367,7 @@ public class InternalTableImpl implements InternalTable {
                 .transactionId(tx.id())
                 .scanId(scanId)
                 .indexToUse(indexId)
+                .exactKey(exactKey)
                 .lowerBound(lowerBound)
                 .upperBound(upperBound)
                 .flags(flags)
@@ -819,8 +822,8 @@ public class InternalTableImpl implements InternalTable {
             @NotNull HybridTimestamp readTimestamp,
             @NotNull ClusterNode recipientNode,
             @Nullable UUID indexId,
-            @Nullable BinaryTuple lowerBound,
-            @Nullable BinaryTuple upperBound,
+            @Nullable BinaryTuplePrefix lowerBound,
+            @Nullable BinaryTuplePrefix upperBound,
             int flags,
             @Nullable BitSet columnsToInclude
     ) {
@@ -854,12 +857,32 @@ public class InternalTableImpl implements InternalTable {
 
     /** {@inheritDoc} */
     @Override
+    public Publisher<BinaryRow> scan(int partId, @Nullable InternalTransaction tx, @NotNull UUID indexId, BinaryTuple key,
+            @Nullable BitSet columnsToInclude) {
+        return scan(partId, tx, indexId, key, null, null, 0, columnsToInclude);
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public Publisher<BinaryRow> scan(
             int partId,
             @Nullable InternalTransaction tx,
             @Nullable UUID indexId,
-            @Nullable BinaryTuple lowerBound,
-            @Nullable BinaryTuple upperBound,
+            @Nullable BinaryTuplePrefix lowerBound,
+            @Nullable BinaryTuplePrefix upperBound,
+            int flags,
+            @Nullable BitSet columnsToInclude
+    ) {
+        return scan(partId, tx, indexId, null, lowerBound, upperBound, flags, columnsToInclude);
+    }
+
+    private Publisher<BinaryRow> scan(
+            int partId,
+            @Nullable InternalTransaction tx,
+            @Nullable UUID indexId,
+            @Nullable BinaryTuple exactKey,
+            @Nullable BinaryTuplePrefix lowerBound,
+            @Nullable BinaryTuplePrefix upperBound,
             int flags,
             @Nullable BitSet columnsToInclude
     ) {
@@ -888,6 +911,7 @@ public class InternalTableImpl implements InternalTable {
                         scanId,
                         batchSize,
                         indexId,
+                        exactKey,
                         lowerBound,
                         upperBound,
                         flags,
