@@ -30,10 +30,8 @@ import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Supplier;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -150,7 +148,7 @@ public class CompositeSubscriptionTest {
 
         if (sort) {
             compSubscription = new OrderedMergeCompositeSubscription<>(subscr, Comparator.comparingInt(v -> v),
-                    Commons.SORTED_IDX_PART_PREFETCH_SIZE, pubCnt);
+                    cnt / pubCnt, pubCnt);
         } else {
             compSubscription = new CompositeSubscription<>(subscr);
         }
@@ -213,9 +211,9 @@ public class CompositeSubscriptionTest {
 
     private static class TestPublisher<T> implements Publisher<T> {
         private final T[] data;
-        private final AtomicBoolean publicationComplete = new AtomicBoolean();
         private final AtomicReference<Throwable> errRef = new AtomicReference<>();
         private final boolean async;
+        private boolean publicationComplete;
 
         TestPublisher(T[] data, boolean async) {
             this.data = data;
@@ -225,29 +223,27 @@ public class CompositeSubscriptionTest {
         @Override
         public void subscribe(Subscriber<? super T> subscriber) {
             subscriber.onSubscribe(new Subscription() {
-                private final AtomicInteger idx = new AtomicInteger(0);
+                private int idx;
 
-                @SuppressWarnings("NumericCastThatLosesPrecision")
                 @Override
-                public void request(long n) {
-                    Supplier<Long> dataSupplier = () -> {
-                        int startIdx = idx.getAndAdd((int) n);
-                        int endIdx = Math.min(startIdx + (int) n, data.length);
+                public void request(long requested) {
+                    Runnable dataSupplier = () -> {
+                        int max = Math.min(data.length, idx + (int) requested);
 
-                        for (int n0 = startIdx; n0 < endIdx; n0++) {
-                            subscriber.onNext(data[n0]);
+                        while (idx < max) {
+                            subscriber.onNext(data[idx++]);
                         }
 
-                        if (endIdx >= data.length && publicationComplete.compareAndSet(false, true)) {
+                        if (idx == data.length && !publicationComplete) {
+                            publicationComplete = true;
+
                             subscriber.onComplete();
                         }
-
-                        return n;
                     };
 
                     if (!async) {
                         try {
-                            dataSupplier.get();
+                            dataSupplier.run();
                         } catch (Throwable t) {
                             handleError(t);
                         }
@@ -255,12 +251,16 @@ public class CompositeSubscriptionTest {
                         return;
                     }
 
-                    CompletableFuture.supplyAsync(dataSupplier)
-                            .whenComplete((res, err) -> {
-                                if (err != null) {
-                                    handleError(err);
-                                }
-                            });
+                    CompletableFuture.runAsync(() -> {
+                        // Multiple requests to the same subscription must not be executed concurrently.
+                        synchronized (TestPublisher.this) {
+                            dataSupplier.run();
+                        }
+                    }).whenComplete((res, err) -> {
+                        if (err != null) {
+                            handleError(err);
+                        }
+                    });
                 }
 
                 @Override
