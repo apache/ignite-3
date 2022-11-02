@@ -76,7 +76,8 @@ public class OutgoingSnapshot {
 
     private final ReusableLockLockup mvOperationsLockup = new ReusableLockLockup(mvOperationsLock);
 
-    /** Snapshot metadata taken on snapshot scope freezing. */
+    /** Snapshot metadata taken on snapshot scope freezing. {@code null} until the snapshot scope is frozen. */
+    @Nullable
     private volatile SnapshotMeta frozenMeta;
 
     /**
@@ -171,9 +172,11 @@ public class OutgoingSnapshot {
      * @return This snapshot metadata.
      */
     public SnapshotMeta meta() {
-        assert frozenMeta != null : "No snapshot meta yet, probably the snapshot scope was not yet frozen";
+        SnapshotMeta meta = frozenMeta;
 
-        return frozenMeta;
+        assert meta != null : "No snapshot meta yet, probably the snapshot scope was not yet frozen";
+
+        return meta;
     }
 
     /**
@@ -187,9 +190,11 @@ public class OutgoingSnapshot {
             return logAlreadyClosedAndReturnNull();
         }
 
-        assert frozenMeta != null : "No snapshot meta yet, probably the snapshot scope was not yet frozen";
+        SnapshotMeta meta = frozenMeta;
 
-        return MESSAGES_FACTORY.snapshotMetaResponse().meta(frozenMeta).build();
+        assert meta != null : "No snapshot meta yet, probably the snapshot scope was not yet frozen";
+
+        return MESSAGES_FACTORY.snapshotMetaResponse().meta(meta).build();
     }
 
     @Nullable
