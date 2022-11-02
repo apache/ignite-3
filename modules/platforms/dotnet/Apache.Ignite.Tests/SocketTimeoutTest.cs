@@ -43,8 +43,25 @@ public class SocketTimeoutTest
     }
 
     [Test]
-    public async Task TestHeartbeatTimeoutThrowsException()
+    public async Task TestHeartbeatTimeoutDisconnectsSocket()
     {
-        await Task.Delay(1);
+        using var server = new FakeServer
+        {
+            HeartbeatDelay = TimeSpan.FromMilliseconds(100)
+        };
+
+        var cfg = new IgniteClientConfiguration
+        {
+            SocketTimeout = TimeSpan.FromMilliseconds(50),
+            HeartbeatInterval = TimeSpan.FromMilliseconds(100),
+            RetryPolicy = new RetryNonePolicy()
+        };
+
+        using var client = await server.ConnectClientAsync(cfg);
+
+        await Task.Delay(100);
+
+        var ex = Assert.ThrowsAsync<TimeoutException>(async () => await client.Tables.GetTablesAsync());
+        StringAssert.Contains("at Apache.Ignite.Internal.ClientSocket.SendHeartbeatAsync", ex!.ToString());
     }
 }
