@@ -165,7 +165,7 @@ namespace Apache.Ignite.Internal
                 var stream = new NetworkStream(socket, ownsSocket: true);
 
                 var context = await HandshakeAsync(stream, endPoint).ConfigureAwait(false);
-                logger?.Debug($"Handshake succeeded. Server protocol version: {context.Version}, idle timeout: {context.IdleTimeout}");
+                logger?.Debug($"Handshake succeeded: {context}.");
 
                 return new ClientSocket(stream, configuration, context, assignmentChangeCallback);
             }
