@@ -604,6 +604,8 @@ namespace Apache.Ignite.Internal
             }
             catch (Exception e)
             {
+                _logger?.Error(e, "Heartbeat failed: " + e.Message);
+
                 Dispose(e);
             }
         }

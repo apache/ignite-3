@@ -65,9 +65,9 @@ public class SocketTimeoutTest
         using var client = await server.ConnectClientAsync(cfg);
         await Task.Delay(200);
 
-        var expectedLog = "Exception while reading from socket, connection closed: The operation was canceled.";
+        var expectedLog = "Heartbeat failed: The operation has timed out.";
         Assert.IsTrue(
             condition: log.Entries.Any(e => e.Message.Contains(expectedLog) && e.Exception is TimeoutException),
-            message: string.Join(Environment.NewLine, log));
+            message: string.Join(Environment.NewLine, log.Entries));
     }
 }
