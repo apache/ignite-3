@@ -36,6 +36,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.times;
@@ -108,6 +109,7 @@ import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessagingService;
@@ -425,7 +427,8 @@ public class TableManagerTest extends IgniteAbstractTest {
     }
 
     /**
-     * Cheks that the all RAFT nodes will be stopped when Table manager is stopping.
+     * Cheks that the all RAFT nodes will be stopped when Table manager is stopping and
+     * an exception that was thrown by one of the component will not prevent stopping other components.
      *
      * @throws Exception If failed.
      */
@@ -441,6 +444,8 @@ public class TableManagerTest extends IgniteAbstractTest {
         verify(rm, times(PARTITIONS)).startRaftGroupService(any(), any());
 
         TableManager tableManager = tblManagerFut.join();
+
+        doThrow(new NodeStoppingException()).when(rm).stopRaftGroup(any());
 
         tableManager.stop();
 

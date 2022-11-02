@@ -62,13 +62,13 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.IntSupplier;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import org.apache.ignite.configuration.ConfigurationChangeException;
 import org.apache.ignite.configuration.ConfigurationProperty;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
@@ -971,30 +971,56 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      */
     private void cleanUpTablesResources(Map<UUID, TableImpl> tables) {
         for (TableImpl table : tables.values()) {
+            List<Runnable> stopping = new ArrayList<>();
+
+            AtomicReference<Exception> exception = new AtomicReference<>();
+
             for (int p = 0; p < table.internalTable().partitions(); p++) {
                 TablePartitionId replicationGroupId = new TablePartitionId(table.tableId(), p);
 
-                try {
-                    raftMgr.stopRaftGroup(replicationGroupId);
-                } catch (Exception e) {
-                    LOG.info("Unable to stop the raft group [tableName={}, partition={}]", e, table.name(), p);
-                }
+                stopping.add(() -> {
+                    try {
+                        raftMgr.stopRaftGroup(replicationGroupId);
+                    } catch (NodeStoppingException e) {
+                        if (!exception.compareAndSet(null, e)) {
+                            exception.get().addSuppressed(e);
+                        }
+                    }
+                });
 
-                try {
-                    replicaMgr.stopReplica(replicationGroupId);
-                } catch (Exception e) {
-                    LOG.info("Unable to stop the replica [tableName={}, partition={}]", e, table.name(), p);
+                stopping.add(() -> {
+                    try {
+                        replicaMgr.stopReplica(replicationGroupId);
+                    } catch (NodeStoppingException e) {
+                        if (!exception.compareAndSet(null, e)) {
+                            exception.get().addSuppressed(e);
+                        }
+                    }
+                });
+            }
+
+            try {
+                IgniteUtils.runAll(stopping.stream());
+            } catch (Exception e) {
+                if (!exception.compareAndSet(null, e)) {
+                    exception.get().addSuppressed(e);
                 }
             }
 
             try {
                 IgniteUtils.closeAll(
-                        Stream.of(table.internalTable().storage(),
-                                table.internalTable().txStateStorage(),
-                                table.internalTable())
+                        table.internalTable().storage(),
+                        table.internalTable().txStateStorage(),
+                        table.internalTable()
                 );
             } catch (Exception e) {
-                LOG.info("Unable to stop table [name={}]", e, table.name());
+                if (!exception.compareAndSet(null, e)) {
+                    exception.get().addSuppressed(e);
+                }
+            }
+
+            if (exception.get() != null) {
+                LOG.info("Unable to stop table [name={}, tableId={}]", exception.get(), table.name(), table.tableId());
             }
         }
     }
