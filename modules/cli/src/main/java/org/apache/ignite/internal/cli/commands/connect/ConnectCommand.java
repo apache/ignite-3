@@ -24,7 +24,6 @@ import static org.apache.ignite.internal.cli.commands.OptionsConstants.NODE_NAME
 import static org.apache.ignite.internal.cli.commands.OptionsConstants.NODE_URL_DESC;
 
 import jakarta.inject.Inject;
-import java.io.File;
 import java.net.URL;
 import org.apache.ignite.internal.cli.NodeNameRegistry;
 import org.apache.ignite.internal.cli.call.connect.ConnectCall;
