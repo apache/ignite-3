@@ -15,26 +15,8 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network.configuration;
-
-import org.apache.ignite.configuration.annotation.ConfigurationRoot;
-import org.apache.ignite.configuration.annotation.ConfigurationType;
-import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.configuration.validation.Range;
-
 /**
- * Configuration schema for REST endpoint subtree.
+ * Configuration schemas for Rest component.
  */
-@SuppressWarnings("PMD.UnusedPrivateField")
-@ConfigurationRoot(rootName = "rest", type = ConfigurationType.LOCAL)
-public class RestConfigurationSchema {
-    /** TCP port. */
-    @Range(min = 1024, max = 0xFFFF)
-    @Value(hasDefault = true)
-    public final int port = 10300;
 
-    /** TCP port range. */
-    @Range(min = 0)
-    @Value(hasDefault = true)
-    public final int portRange = 100;
-}
+package org.apache.ignite.internal.rest.configuration;
