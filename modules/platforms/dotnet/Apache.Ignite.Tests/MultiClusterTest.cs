@@ -21,6 +21,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Log;
 using NUnit.Framework;
 
 /// <summary>
@@ -31,8 +32,19 @@ public class MultiClusterTest
     [Test]
     public async Task TestClientDropsConnectionOnClusterIdMismatch()
     {
-        // TODO: Connect 2 endpoints, wait for 2 connections, check logs.
-        await Task.Delay(1);
+        using var server1 = new FakeServer(nodeName: "s1") { ClusterId = new Guid(1, 0, 0, new byte[8]) };
+        using var server2 = new FakeServer(nodeName: "s2") { ClusterId = new Guid(2, 0, 0, new byte[8]) };
+
+        var log = new ListLogger(new ConsoleLogger());
+        var cfg = new IgniteClientConfiguration(server1.Endpoint, server2.Endpoint)
+        {
+            Logger = log
+        };
+
+        using var client = await IgniteClient.StartAsync(cfg);
+
+        TestUtils.WaitForCondition(() => log.Entries.Any(e => e.Message.Contains("Cluster ID mismatch")));
+        Assert.AreEqual(1, client.GetConnections().Count);
     }
 
     [Test]
