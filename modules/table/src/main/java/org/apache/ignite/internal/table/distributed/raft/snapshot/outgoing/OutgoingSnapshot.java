@@ -28,8 +28,6 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.locks.ReentrantLock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.lock.AutoLockup;
-import org.apache.ignite.internal.lock.ReusableLockLockup;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -74,9 +72,6 @@ public class OutgoingSnapshot {
      */
     private final ReentrantLock mvOperationsLock = new ReentrantLock();
 
-    private final ReusableLockLockup mvOperationsLockup = new ReusableLockLockup(mvOperationsLock);
-
-    /** Snapshot metadata taken on snapshot scope freezing. {@code null} until the snapshot scope is frozen. */
     @Nullable
     private volatile SnapshotMeta frozenMeta;
 
@@ -220,7 +215,9 @@ public class OutgoingSnapshot {
         List<SnapshotMvDataResponse.ResponseEntry> batch = new ArrayList<>();
 
         while (true) {
-            try (AutoLockup ignored = acquireMvLock()) {
+            acquireMvLock();
+
+            try {
                 totalBatchSize = fillWithOutOfOrderRows(batch, totalBatchSize, request);
 
                 totalBatchSize = tryProcessRowFromPartition(batch, totalBatchSize, request);
@@ -230,6 +227,8 @@ public class OutgoingSnapshot {
                 if (finishedMvData() || batchIsFull(request, totalBatchSize)) {
                     break;
                 }
+            } finally {
+                releaseMvLock();
             }
         }
 
@@ -391,8 +390,15 @@ public class OutgoingSnapshot {
     /**
      * Acquires lock over this snapshot MV data.
      */
-    public AutoLockup acquireMvLock() {
-        return mvOperationsLockup.acquireLock();
+    public void acquireMvLock() {
+        mvOperationsLock.lock();
+    }
+
+    /**
+     * Releases lock over this snapshot MV data.
+     */
+    public void releaseMvLock() {
+        mvOperationsLock.unlock();
     }
 
     /**

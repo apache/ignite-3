@@ -35,7 +35,6 @@ import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
-import org.apache.ignite.internal.lock.AutoLockup;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionAccess;
@@ -128,8 +127,12 @@ class OutgoingSnapshotTxDataStreamingTest {
     }
 
     private void freezeSnapshotScope() {
-        try (AutoLockup ignored = snapshot.acquireMvLock()) {
+        snapshot.acquireMvLock();
+
+        try {
             snapshot.freezeScope();
+        } finally {
+            snapshot.releaseMvLock();
         }
     }
 

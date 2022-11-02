@@ -20,7 +20,6 @@ package org.apache.ignite.internal.table.distributed.raft;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.lock.AutoLockup;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.MvPartitionStorage.WriteClosure;
@@ -56,11 +55,14 @@ public interface PartitionDataStorage extends AutoCloseable {
     <V> V runConsistently(WriteClosure<V> closure) throws StorageException;
 
     /**
-     * Acquires a read lock on partition snapshots.
-     *
-     * @return The acquired lockup. It will be released through {@link AutoLockup#close()} invocation.
+     * Acquires the read lock on partition snapshots.
      */
-    AutoLockup acquirePartitionSnapshotsReadLock();
+    void acquirePartitionSnapshotsReadLock();
+
+    /**
+     * Releases the read lock on partition snapshots.
+     */
+    void releasePartitionSnapshotsReadLock();
 
     /**
      * Flushes current state of the data or <i>the state from the nearest future</i> to the storage. It means that the future can be

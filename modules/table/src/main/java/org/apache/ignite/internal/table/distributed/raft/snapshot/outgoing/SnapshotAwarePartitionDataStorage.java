@@ -20,7 +20,6 @@ package org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.lock.AutoLockup;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.MvPartitionStorage.WriteClosure;
@@ -60,10 +59,17 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
     }
 
     @Override
-    public AutoLockup acquirePartitionSnapshotsReadLock() {
+    public void acquirePartitionSnapshotsReadLock() {
         PartitionSnapshots partitionSnapshots = getPartitionSnapshots();
 
-        return partitionSnapshots.acquireReadLock();
+        partitionSnapshots.acquireReadLock();
+    }
+
+    @Override
+    public void releasePartitionSnapshotsReadLock() {
+        PartitionSnapshots partitionSnapshots = getPartitionSnapshots();
+
+        partitionSnapshots.releaseReadLock();
     }
 
     private PartitionSnapshots getPartitionSnapshots() {
@@ -111,7 +117,9 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
         PartitionSnapshots partitionSnapshots = getPartitionSnapshots();
 
         for (OutgoingSnapshot snapshot : partitionSnapshots.ongoingSnapshots()) {
-            try (AutoLockup ignored = snapshot.acquireMvLock()) {
+            snapshot.acquireMvLock();
+
+            try {
                 if (snapshot.alreadyPassed(rowId)) {
                     continue;
                 }
@@ -121,6 +129,8 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
                 }
 
                 snapshot.enqueueForSending(rowId);
+            } finally {
+                snapshot.releaseMvLock();
             }
         }
     }
@@ -135,10 +145,14 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
     private void cleanupSnapshots() {
         PartitionSnapshots partitionSnapshots = getPartitionSnapshots();
 
-        try (AutoLockup ignoredLockup = partitionSnapshots.acquireReadLock()) {
+        partitionSnapshots.acquireReadLock();
+
+        try {
             partitionSnapshots.ongoingSnapshots().forEach(snapshot -> partitionsSnapshots.finishOutgoingSnapshot(snapshot.id()));
 
             partitionsSnapshots.removeSnapshots(partitionKey);
+        } finally {
+            partitionSnapshots.releaseReadLock();
         }
     }
 

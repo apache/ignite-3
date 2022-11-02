@@ -27,7 +27,6 @@ import static org.mockito.Mockito.when;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.Executor;
-import org.apache.ignite.internal.lock.AutoLockup;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionAccess;
@@ -62,9 +61,15 @@ public class OutgoingSnapshotReaderTest {
         OutgoingSnapshotsManager outgoingSnapshotsManager = mock(OutgoingSnapshotsManager.class);
         doAnswer(invocation -> {
             OutgoingSnapshot snapshot = invocation.getArgument(1);
-            try (AutoLockup ignored = snapshot.acquireMvLock()) {
+
+            snapshot.acquireMvLock();
+
+            try {
                 snapshot.freezeScope();
+            } finally {
+                snapshot.releaseMvLock();
             }
+
             return null;
         }).when(outgoingSnapshotsManager).startOutgoingSnapshot(any(), any());
 

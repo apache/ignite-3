@@ -35,7 +35,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.lock.AutoLockup;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
@@ -159,11 +158,16 @@ class SnapshotAwarePartitionDataStorageTest {
 
     @Test
     void delegatesAcquirePartitionSnapshotsReadLock() {
-        AutoLockup lockup = mock(AutoLockup.class);
+        testedStorage.acquirePartitionSnapshotsReadLock();
 
-        when(partitionSnapshots.acquireReadLock()).thenReturn(lockup);
+        verify(partitionSnapshots).acquireReadLock();
+    }
 
-        assertThat(testedStorage.acquirePartitionSnapshotsReadLock(), is(lockup));
+    @Test
+    void delegatesReleasePartitionSnapshotsReadLock() {
+        testedStorage.releasePartitionSnapshotsReadLock();
+
+        verify(partitionSnapshots).releaseReadLock();
     }
 
     @ParameterizedTest

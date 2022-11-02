@@ -34,7 +34,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
-import org.apache.ignite.internal.lock.AutoLockup;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommand;
@@ -123,7 +122,9 @@ public class PartitionListener implements RaftGroupListener {
                             + ", mvAppliedIndex=" + storage.lastAppliedIndex()
                             + ", txStateAppliedIndex=" + txStateStorage.lastAppliedIndex() + "]";
 
-            try (AutoLockup ignoredPartitionSnapshotsReadLockup = storage.acquirePartitionSnapshotsReadLock()) {
+            storage.acquirePartitionSnapshotsReadLock();
+
+            try {
                 if (command instanceof UpdateCommand) {
                     handleUpdateCommand((UpdateCommand) command, commandIndex);
                 } else if (command instanceof UpdateAllCommand) {
@@ -141,6 +142,8 @@ public class PartitionListener implements RaftGroupListener {
                 clo.result(null);
             } catch (IgniteInternalException e) {
                 clo.result(e);
+            } finally {
+                storage.releasePartitionSnapshotsReadLock();
             }
         });
     }

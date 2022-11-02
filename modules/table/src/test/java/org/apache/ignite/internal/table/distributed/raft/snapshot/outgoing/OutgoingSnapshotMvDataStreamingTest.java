@@ -34,7 +34,6 @@ import java.util.Objects;
 import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
-import org.apache.ignite.internal.lock.AutoLockup;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.ReadResult;
@@ -197,8 +196,12 @@ class OutgoingSnapshotMvDataStreamingTest {
 
     @Test
     void rowsWithIdsToSkipAreIgnored() {
-        try (AutoLockup ignored = snapshot.acquireMvLock()) {
+        snapshot.acquireMvLock();
+
+        try {
             snapshot.addRowIdToSkip(rowId1);
+        } finally {
+            snapshot.releaseMvLock();
         }
 
         when(mvPartitionStorage.closestRowId(lowestRowId)).thenReturn(rowId1);
@@ -222,8 +225,12 @@ class OutgoingSnapshotMvDataStreamingTest {
 
         when(mvPartitionStorage.scanVersions(rowIdOutOfOrder)).thenReturn(Cursor.fromIterable(List.of(version2, version1)));
 
-        try (AutoLockup ignored = snapshot.acquireMvLock()) {
+        snapshot.acquireMvLock();
+
+        try {
             snapshot.enqueueForSending(rowIdOutOfOrder);
+        } finally {
+            snapshot.releaseMvLock();
         }
 
         configureStorageToBeEmpty();
@@ -256,8 +263,12 @@ class OutgoingSnapshotMvDataStreamingTest {
 
         when(mvPartitionStorage.scanVersions(rowIdOutOfOrder)).thenReturn(Cursor.fromIterable(List.of(version1)));
 
-        try (AutoLockup ignored = snapshot.acquireMvLock()) {
+        snapshot.acquireMvLock();
+
+        try {
             snapshot.enqueueForSending(rowIdOutOfOrder);
+        } finally {
+            snapshot.releaseMvLock();
         }
 
         configureStorageToHaveExactlyOneRowWith(List.of(version2));
@@ -329,8 +340,12 @@ class OutgoingSnapshotMvDataStreamingTest {
 
         when(mvPartitionStorage.scanVersions(rowIdOutOfOrder)).thenReturn(Cursor.fromIterable(List.of(version1)));
 
-        try (AutoLockup ignored = snapshot.acquireMvLock()) {
+        snapshot.acquireMvLock();
+
+        try {
             snapshot.enqueueForSending(rowIdOutOfOrder);
+        } finally {
+            snapshot.releaseMvLock();
         }
 
         lenient().when(mvPartitionStorage.closestRowId(lowestRowId)).thenReturn(rowId1);
@@ -375,8 +390,12 @@ class OutgoingSnapshotMvDataStreamingTest {
 
         when(mvPartitionStorage.scanVersions(rowIdOutOfOrder)).thenReturn(Cursor.fromIterable(List.of(version)));
 
-        try (AutoLockup ignored = snapshot.acquireMvLock()) {
+        snapshot.acquireMvLock();
+
+        try {
             snapshot.enqueueForSending(rowIdOutOfOrder);
+        } finally {
+            snapshot.releaseMvLock();
         }
 
         configureStorageToBeEmpty();
@@ -390,8 +409,12 @@ class OutgoingSnapshotMvDataStreamingTest {
 
     @Test
     void whenNotStartedThenEvenLowestRowIdIsNotPassed() {
-        try (AutoLockup ignored = snapshot.acquireMvLock()) {
+        snapshot.acquireMvLock();
+
+        try {
             assertFalse(snapshot.alreadyPassed(lowestRowId));
+        } finally {
+            snapshot.releaseMvLock();
         }
     }
 
@@ -406,8 +429,12 @@ class OutgoingSnapshotMvDataStreamingTest {
 
         getMvDataResponse(1);
 
-        try (AutoLockup ignored = snapshot.acquireMvLock()) {
+        snapshot.acquireMvLock();
+
+        try {
             assertTrue(snapshot.alreadyPassed(rowId1));
+        } finally {
+            snapshot.releaseMvLock();
         }
     }
 
@@ -422,8 +449,12 @@ class OutgoingSnapshotMvDataStreamingTest {
 
         getMvDataResponse(1);
 
-        try (AutoLockup ignored = snapshot.acquireMvLock()) {
+        snapshot.acquireMvLock();
+
+        try {
             assertFalse(snapshot.alreadyPassed(rowId2));
+        } finally {
+            snapshot.releaseMvLock();
         }
     }
 
@@ -435,9 +466,13 @@ class OutgoingSnapshotMvDataStreamingTest {
 
         getMvDataResponse(Long.MAX_VALUE);
 
-        try (AutoLockup ignored = snapshot.acquireMvLock()) {
+        snapshot.acquireMvLock();
+
+        try {
             //noinspection ConstantConditions
             assertTrue(snapshot.alreadyPassed(rowId3.increment().increment().increment()));
+        } finally {
+            snapshot.releaseMvLock();
         }
     }
 

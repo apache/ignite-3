@@ -22,7 +22,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.lock.AutoLockup;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.MvPartitionStorage.WriteClosure;
@@ -50,10 +49,13 @@ public class TestPartitionDataStorage implements PartitionDataStorage {
     }
 
     @Override
-    public AutoLockup acquirePartitionSnapshotsReadLock() {
+    public void acquirePartitionSnapshotsReadLock() {
         partitionSnapshotsLock.lock();
+    }
 
-        return partitionSnapshotsLock::unlock;
+    @Override
+    public void releasePartitionSnapshotsReadLock() {
+        partitionSnapshotsLock.unlock();
     }
 
     @Override
