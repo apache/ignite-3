@@ -23,7 +23,6 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Executor;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
@@ -181,7 +180,7 @@ public class TestMvTableStorage implements MvTableStorage {
     }
 
     @Override
-    public CompletableFuture<Void> startRebalanceMvPartition(int partitionId, Executor executor) {
+    public CompletableFuture<Void> startRebalanceMvPartition(int partitionId) {
         MvPartitionStorage oldPartitionStorage = partitions.get(partitionId);
 
         assert oldPartitionStorage != null : "Partition does not exist: " + partitionId;
@@ -194,7 +193,7 @@ public class TestMvTableStorage implements MvTableStorage {
     }
 
     @Override
-    public CompletableFuture<Void> abortRebalanceMvPartition(int partitionId, Executor executor) {
+    public CompletableFuture<Void> abortRebalanceMvPartition(int partitionId) {
         MvPartitionStorage oldPartitionStorage = backupPartitions.remove(partitionId);
 
         if (oldPartitionStorage != null) {
@@ -205,7 +204,7 @@ public class TestMvTableStorage implements MvTableStorage {
     }
 
     @Override
-    public CompletableFuture<Void> finishRebalanceMvPartition(int partitionId, Executor executor) {
+    public CompletableFuture<Void> finishRebalanceMvPartition(int partitionId) {
         backupPartitions.remove(partitionId);
 
         return completedFuture(null);

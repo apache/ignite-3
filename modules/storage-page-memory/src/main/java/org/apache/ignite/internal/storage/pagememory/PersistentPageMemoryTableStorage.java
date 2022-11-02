@@ -21,7 +21,6 @@ import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.pagememory.evict.PageEvictionTrackerNoOp;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
@@ -403,19 +402,19 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
     }
 
     @Override
-    public CompletableFuture<Void> startRebalanceMvPartition(int partitionId, Executor executor) {
+    public CompletableFuture<Void> startRebalanceMvPartition(int partitionId) {
         // TODO: IGNITE-18029 Implement
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public CompletableFuture<Void> abortRebalanceMvPartition(int partitionId, Executor executor) {
+    public CompletableFuture<Void> abortRebalanceMvPartition(int partitionId) {
         // TODO: IGNITE-18029 Implement
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public CompletableFuture<Void> finishRebalanceMvPartition(int partitionId, Executor executor) {
+    public CompletableFuture<Void> finishRebalanceMvPartition(int partitionId) {
         // TODO: IGNITE-18029 Implement
         throw new UnsupportedOperationException();
     }

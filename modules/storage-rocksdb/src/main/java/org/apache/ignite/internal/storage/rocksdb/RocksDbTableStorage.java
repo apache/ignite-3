@@ -34,7 +34,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 import java.util.stream.Collectors;
@@ -562,19 +561,19 @@ public class RocksDbTableStorage implements MvTableStorage {
     }
 
     @Override
-    public CompletableFuture<Void> startRebalanceMvPartition(int partitionId, Executor executor) {
+    public CompletableFuture<Void> startRebalanceMvPartition(int partitionId) {
         // TODO: IGNITE-18027 Implement
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public CompletableFuture<Void> abortRebalanceMvPartition(int partitionId, Executor executor) {
+    public CompletableFuture<Void> abortRebalanceMvPartition(int partitionId) {
         // TODO: IGNITE-18027 Implement
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public CompletableFuture<Void> finishRebalanceMvPartition(int partitionId, Executor executor) {
+    public CompletableFuture<Void> finishRebalanceMvPartition(int partitionId) {
         // TODO: IGNITE-18027 Implement
         throw new UnsupportedOperationException();
     }

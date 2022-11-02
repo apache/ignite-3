@@ -37,8 +37,6 @@ import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
@@ -63,7 +61,6 @@ import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.IndexRowImpl;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -313,89 +310,71 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
     }
 
     @Test
-    protected void testStartRebalanceMvPartition() throws Exception {
-        ExecutorService executorService = Executors.newSingleThreadExecutor();
+    public void testStartRebalanceMvPartition() throws Exception {
+        MvPartitionStorage partitionStorage = tableStorage.getOrCreateMvPartition(PARTITION_ID);
 
-        try {
-            MvPartitionStorage partitionStorage = tableStorage.getOrCreateMvPartition(PARTITION_ID);
+        partitionStorage.runConsistently(() -> {
+            partitionStorage.addWriteCommitted(
+                    new RowId(PARTITION_ID),
+                    binaryRow(new TestKey(0, "0"), new TestValue(1, "1")),
+                    clock.now()
+            );
 
-            partitionStorage.runConsistently(() -> {
-                partitionStorage.addWriteCommitted(
-                        new RowId(PARTITION_ID),
-                        binaryRow(new TestKey(0, "0"), new TestValue(1, "1")),
-                        clock.now()
-                );
+            partitionStorage.lastAppliedIndex(100);
 
-                partitionStorage.lastAppliedIndex(100);
+            return null;
+        });
 
-                return null;
-            });
+        partitionStorage.flush().get(1, TimeUnit.SECONDS);
 
-            partitionStorage.flush().get(1, TimeUnit.SECONDS);
+        tableStorage.startRebalanceMvPartition(PARTITION_ID).get(1, TimeUnit.SECONDS);
 
-            tableStorage.startRebalanceMvPartition(PARTITION_ID, executorService).get(1, TimeUnit.SECONDS);
+        MvPartitionStorage newPartitionStorage0 = tableStorage.getMvPartition(PARTITION_ID);
 
-            MvPartitionStorage newPartitionStorage0 = tableStorage.getMvPartition(PARTITION_ID);
+        assertNotNull(newPartitionStorage0);
+        assertNotSame(partitionStorage, newPartitionStorage0);
 
-            assertNotNull(newPartitionStorage0);
-            assertNotSame(partitionStorage, newPartitionStorage0);
+        assertEquals(0L, newPartitionStorage0.lastAppliedIndex());
+        assertEquals(0L, newPartitionStorage0.persistedIndex());
+        assertEquals(0, newPartitionStorage0.rowsCount());
 
-            assertEquals(0L, newPartitionStorage0.lastAppliedIndex());
-            assertEquals(0L, newPartitionStorage0.persistedIndex());
-            assertEquals(0, newPartitionStorage0.rowsCount());
+        tableStorage.startRebalanceMvPartition(PARTITION_ID).get(1, TimeUnit.SECONDS);
 
-            tableStorage.startRebalanceMvPartition(PARTITION_ID, executorService).get(1, TimeUnit.SECONDS);
+        MvPartitionStorage newPartitionStorage1 = tableStorage.getMvPartition(PARTITION_ID);
 
-            MvPartitionStorage newPartitionStorage1 = tableStorage.getMvPartition(PARTITION_ID);
-
-            assertSame(newPartitionStorage0, newPartitionStorage1);
-        } finally {
-            IgniteUtils.shutdownAndAwaitTermination(executorService, 1, TimeUnit.SECONDS);
-        }
+        assertSame(newPartitionStorage0, newPartitionStorage1);
     }
 
     @Test
-    protected void testAbortRebalanceMvPartition() throws Exception {
-        ExecutorService executorService = Executors.newSingleThreadExecutor();
+    public void testAbortRebalanceMvPartition() throws Exception {
+        assertDoesNotThrow(() -> tableStorage.abortRebalanceMvPartition(PARTITION_ID).get(1, TimeUnit.SECONDS));
 
-        try {
-            assertDoesNotThrow(() -> tableStorage.abortRebalanceMvPartition(PARTITION_ID, executorService).get(1, TimeUnit.SECONDS));
+        MvPartitionStorage partitionStorage = tableStorage.getOrCreateMvPartition(PARTITION_ID);
 
-            MvPartitionStorage partitionStorage = tableStorage.getOrCreateMvPartition(PARTITION_ID);
+        tableStorage.startRebalanceMvPartition(PARTITION_ID).get(1, TimeUnit.SECONDS);
 
-            tableStorage.startRebalanceMvPartition(PARTITION_ID, executorService).get(1, TimeUnit.SECONDS);
+        tableStorage.abortRebalanceMvPartition(PARTITION_ID).get(1, TimeUnit.SECONDS);
 
-            tableStorage.abortRebalanceMvPartition(PARTITION_ID, executorService).get(1, TimeUnit.SECONDS);
+        assertSame(partitionStorage, tableStorage.getMvPartition(PARTITION_ID));
 
-            assertSame(partitionStorage, tableStorage.getMvPartition(PARTITION_ID));
-
-            assertDoesNotThrow(() -> tableStorage.abortRebalanceMvPartition(PARTITION_ID, executorService).get(1, TimeUnit.SECONDS));
-        } finally {
-            IgniteUtils.shutdownAndAwaitTermination(executorService, 1, TimeUnit.SECONDS);
-        }
+        assertDoesNotThrow(() -> tableStorage.abortRebalanceMvPartition(PARTITION_ID).get(1, TimeUnit.SECONDS));
     }
 
     @Test
     public void testFinishRebalanceMvPartition() throws Exception {
-        ExecutorService executorService = Executors.newSingleThreadExecutor();
+        assertDoesNotThrow(() -> tableStorage.finishRebalanceMvPartition(PARTITION_ID).get(1, TimeUnit.SECONDS));
 
-        try {
-            assertDoesNotThrow(() -> tableStorage.finishRebalanceMvPartition(PARTITION_ID, executorService).get(1, TimeUnit.SECONDS));
+        tableStorage.getOrCreateMvPartition(PARTITION_ID);
 
-            tableStorage.getOrCreateMvPartition(PARTITION_ID);
+        tableStorage.startRebalanceMvPartition(PARTITION_ID).get(1, TimeUnit.SECONDS);
 
-            tableStorage.startRebalanceMvPartition(PARTITION_ID, executorService).get(1, TimeUnit.SECONDS);
+        MvPartitionStorage newPartitionStorage = tableStorage.getMvPartition(PARTITION_ID);
 
-            MvPartitionStorage newPartitionStorage = tableStorage.getMvPartition(PARTITION_ID);
+        tableStorage.finishRebalanceMvPartition(PARTITION_ID).get(1, TimeUnit.SECONDS);
 
-            tableStorage.finishRebalanceMvPartition(PARTITION_ID, executorService).get(1, TimeUnit.SECONDS);
+        assertSame(newPartitionStorage, tableStorage.getMvPartition(PARTITION_ID));
 
-            assertSame(newPartitionStorage, tableStorage.getMvPartition(PARTITION_ID));
-
-            assertDoesNotThrow(() -> tableStorage.finishRebalanceMvPartition(PARTITION_ID, executorService).get(1, TimeUnit.SECONDS));
-        } finally {
-            IgniteUtils.shutdownAndAwaitTermination(executorService, 1, TimeUnit.SECONDS);
-        }
+        assertDoesNotThrow(() -> tableStorage.finishRebalanceMvPartition(PARTITION_ID).get(1, TimeUnit.SECONDS));
     }
 
     private static void createTestIndexes(TablesConfiguration tablesConfig) {
