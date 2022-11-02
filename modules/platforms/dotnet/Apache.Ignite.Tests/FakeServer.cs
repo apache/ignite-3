@@ -60,6 +60,10 @@ namespace Apache.Ignite.Tests
 
         private readonly ConcurrentQueue<ClientOp>? _ops;
 
+        private readonly object _disposeSyncRoot = new();
+
+        private bool _disposed;
+
         public FakeServer(
             Func<int, bool>? shouldDropConnection = null,
             string nodeName = "fake-server",
@@ -93,6 +97,8 @@ namespace Apache.Ignite.Tests
 
         public int Port => ((IPEndPoint)_listener.LocalEndPoint!).Port;
 
+        public string Endpoint => "127.0.0.1:" + Port;
+
         internal IList<ClientOp> ClientOps => _ops?.ToList() ?? throw new Exception("Ops tracking is disabled");
 
         public async Task<IIgniteClient> ConnectClientAsync(IgniteClientConfiguration? cfg = null)
@@ -100,7 +106,7 @@ namespace Apache.Ignite.Tests
             cfg ??= new IgniteClientConfiguration();
 
             cfg.Endpoints.Clear();
-            cfg.Endpoints.Add("127.0.0.1:" + Port);
+            cfg.Endpoints.Add(Endpoint);
 
             return await IgniteClient.StartAsync(cfg);
         }
@@ -109,10 +115,20 @@ namespace Apache.Ignite.Tests
 
         public void Dispose()
         {
-            _cts.Cancel();
-            _listener.Disconnect(false);
-            _listener.Dispose();
-            _cts.Dispose();
+            lock (_disposeSyncRoot)
+            {
+                if (_disposed)
+                {
+                    return;
+                }
+
+                _cts.Cancel();
+                _listener.Disconnect(false);
+                _listener.Dispose();
+                _cts.Dispose();
+
+                _disposed = true;
+            }
         }
 
         private static int ReceiveMessageSize(Socket handler)
