@@ -25,7 +25,6 @@ dependencies {
     api libs.rocksdb.jni
 
     testImplementation libs.hamcrest.core
-    testImplementation libs.hamcrest.core
     testImplementation libs.mockito.junit
 }
 
