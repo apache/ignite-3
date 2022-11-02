@@ -39,7 +39,7 @@ public class NodeNameTest extends CliCommandTestNotInitializedIntegrationBase {
     private String nodeName;
 
     @BeforeEach
-    void setUp() throws InterruptedException {
+    void setUp() {
         nodeNameRegistry.startPullingUpdates("http://localhost:10301");
         // wait to pulling node names
         Await.await(() -> !nodeNameRegistry.getAllNames().isEmpty(), Duration.ofSeconds(5));
@@ -47,20 +47,6 @@ public class NodeNameTest extends CliCommandTestNotInitializedIntegrationBase {
         Assertions.assertTrue(nodeName.isPresent());
         this.nodeName = nodeName.get();
 
-    }
-
-    @Test
-    @Disabled
-    @DisplayName("Should connect to node with provided node name")
-    void connectWithGivenNodeName() {
-        // When connect with given url
-        execute("connect", "--node-name", nodeName);
-
-        // Then
-        assertAll(
-                this::assertErrOutputIsEmpty,
-                () -> assertOutputContains("Connected to http://localhost:10301")
-        );
     }
 
     @Test

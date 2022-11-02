@@ -199,7 +199,7 @@ public class ScaleCubeClusterServiceFactory {
 
             @Override
             public void updateMetadata(NodeMetadata metadata) {
-                cluster.updateMetadata(metadata).subscribe();
+                cluster.updateMetadata(metadata).block();
                 MembershipEvent membershipEvent = createUpdated(cluster.member(),
                         cluster.<NodeMetadata>metadata().map(METADATA_CODEC::serialize).orElse(null),
                         METADATA_CODEC.serialize(metadata),
