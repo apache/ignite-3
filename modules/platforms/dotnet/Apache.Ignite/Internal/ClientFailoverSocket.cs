@@ -412,7 +412,10 @@ namespace Apache.Ignite.Internal
             else if (_clusterId != socket.ConnectionContext.ClusterId)
             {
                 socket.Dispose();
-                throw new IgniteClientConnectionException(ErrorGroups.Client.ClusterIdMismatch, "TODO");
+
+                throw new IgniteClientConnectionException(
+                    ErrorGroups.Client.ClusterIdMismatch,
+                    $"Cluster ID mismatch: expected={_clusterId}, actual={socket.ConnectionContext.ClusterId}");
             }
 
             endpoint.Socket = socket;
