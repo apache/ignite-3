@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Internal.Proto
 {
+    using System.Text;
     using Buffers;
 
     /// <summary>
@@ -33,6 +34,11 @@ namespace Apache.Ignite.Internal.Proto
         /// Magic bytes.
         /// </summary>
         public static readonly byte[] MagicBytes = { (byte)'I', (byte)'G', (byte)'N', (byte)'I' };
+
+        /// <summary>
+        /// UTF8 encoding without preamble (as opposed to <see cref="Encoding.UTF8"/>).
+        /// </summary>
+        public static readonly Encoding StringEncoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
 
         /// <summary>
         /// Gets a new message writer.

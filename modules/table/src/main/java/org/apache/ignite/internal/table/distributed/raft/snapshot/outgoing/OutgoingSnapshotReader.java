@@ -47,18 +47,24 @@ public class OutgoingSnapshotReader extends SnapshotReader {
     public OutgoingSnapshotReader(PartitionSnapshotStorage snapshotStorage) {
         this.snapshotStorage = snapshotStorage;
 
-        //TODO https://issues.apache.org/jira/browse/IGNITE-17262
+        // We have to choose the maximum applied index because we have to send a snapshot with all the latest changes in the storages.
+        long lastIncludedIndex = Math.max(
+                snapshotStorage.partition().mvPartitionStorage().persistedIndex(),
+                snapshotStorage.partition().txStatePartitionStorage().persistedIndex()
+        );
+
+        //TODO https://issues.apache.org/jira/browse/IGNITE-17935
         // This meta is wrong, we need a right one.
         snapshotMeta = new RaftMessagesFactory().snapshotMeta()
-                .lastIncludedIndex(snapshotStorage.partition().persistedIndex())
+                .lastIncludedIndex(lastIncludedIndex)
                 .lastIncludedTerm(snapshotStorage.startupSnapshotMeta().lastIncludedTerm())
                 .peersList(snapshotStorage.startupSnapshotMeta().peersList())
                 .learnersList(snapshotStorage.startupSnapshotMeta().learnersList())
                 .build();
 
-        OutgoingSnapshot outgoingSnapshot = new OutgoingSnapshot();
+        OutgoingSnapshot outgoingSnapshot = new OutgoingSnapshot(id, snapshotStorage.partition());
 
-        snapshotStorage.outgoingSnapshotsManager().registerOutgoingSnapshot(id, outgoingSnapshot);
+        snapshotStorage.outgoingSnapshotsManager().startOutgoingSnapshot(id, outgoingSnapshot);
     }
 
     @Override

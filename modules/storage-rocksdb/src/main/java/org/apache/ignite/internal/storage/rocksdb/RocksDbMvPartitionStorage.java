@@ -21,7 +21,7 @@ import static java.lang.ThreadLocal.withInitial;
 import static java.nio.ByteBuffer.allocateDirect;
 import static java.util.Arrays.copyOf;
 import static java.util.Arrays.copyOfRange;
-import static org.apache.ignite.hlc.HybridTimestamp.HYBRID_TIMESTAMP_SIZE;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.HYBRID_TIMESTAMP_SIZE;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToUuid;
 import static org.apache.ignite.internal.util.ByteUtils.putUuidToBytes;
@@ -34,8 +34,7 @@ import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.BiConsumer;
-import org.apache.ignite.hlc.HybridTimestamp;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.rocksdb.RocksIteratorAdapter;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -817,37 +816,6 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         }
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public void forEach(BiConsumer<RowId, BinaryRow> consumer) {
-        try (
-                var upperBound = new Slice(partitionEndPrefix());
-                var options = new ReadOptions().setIterateUpperBound(upperBound);
-                RocksIterator it = db.newIterator(cf, options)
-        ) {
-            it.seek(partitionStartPrefix());
-
-            while (it.isValid()) {
-                byte[] keyBytes = it.key();
-                byte[] valueBytes = it.value();
-
-                boolean valueHasTxId = keyBytes.length == ROW_PREFIX_SIZE;
-
-                if (!isTombstone(valueBytes, valueHasTxId)) {
-                    ByteBuffer keyBuf = ByteBuffer.wrap(keyBytes).order(KEY_BYTE_ORDER);
-
-                    RowId rowId = getRowId(keyBuf);
-
-                    BinaryRow binaryRow = wrapValueIntoBinaryRow(valueBytes, valueHasTxId);
-
-                    consumer.accept(rowId, binaryRow);
-                }
-
-                it.next();
-            }
-        }
-    }
-
     /**
      * Deletes partition data from the storage.
      */
@@ -1115,9 +1083,11 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
             currentRowId = null;
 
             // Prepare direct buffer slice to read keys from the iterator.
-            ByteBuffer directBuffer = MV_KEY_BUFFER.get().position(0);
+            ByteBuffer currentKeyBuffer = MV_KEY_BUFFER.get().position(0);
 
             while (true) {
+                currentKeyBuffer.position(0);
+
                 // At this point, seekKeyBuf should contain row id that's above the one we already scanned, but not greater than any
                 // other row id in partition. When we start, row id is filled with zeroes. Value during the iteration is described later
                 // in this code. Now let's describe what we'll find, assuming that iterator found something:
@@ -1140,15 +1110,17 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                 }
 
                 // Read the actual key into a direct buffer.
-                int keyLength = it.key(directBuffer.limit(MAX_KEY_SIZE));
+                int keyLength = it.key(currentKeyBuffer.limit(MAX_KEY_SIZE));
 
                 boolean isWriteIntent = keyLength == ROW_PREFIX_SIZE;
 
-                directBuffer.limit(ROW_PREFIX_SIZE);
+                currentKeyBuffer.limit(ROW_PREFIX_SIZE);
+
+                RowId rowId = getRowId(currentKeyBuffer);
 
                 // Copy actual row id into a "seekKeyBuf" buffer.
-                seekKeyBuf.putLong(ROW_ID_OFFSET, directBuffer.getLong(ROW_ID_OFFSET));
-                seekKeyBuf.putLong(ROW_ID_OFFSET + Long.BYTES, directBuffer.getLong(ROW_ID_OFFSET + Long.BYTES));
+                seekKeyBuf.putLong(ROW_ID_OFFSET, normalize(rowId.mostSignificantBits()));
+                seekKeyBuf.putLong(ROW_ID_OFFSET + Long.BYTES, normalize(rowId.leastSignificantBits()));
 
                 // This one might look tricky. We finished processing next row. There are three options:
                 //  - "found" flag is false - there's no fitting version of the row. We'll continue to next iteration;
@@ -1168,12 +1140,37 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                 // Cache row and return "true" if it's found and not a tombstone.
                 byte[] valueBytes = it.value();
 
-                directBuffer.limit(keyLength);
-                ReadResult readResult = readResultFromKeyAndValue(isWriteIntent, directBuffer, valueBytes);
+                HybridTimestamp nextCommitTimestamp = null;
 
-                if (!readResult.isEmpty()) {
+                if (isWriteIntent) {
+                    it.next();
+
+                    if (!invalid(it)) {
+                        ByteBuffer key = ByteBuffer.wrap(it.key()).order(KEY_BYTE_ORDER);
+
+                        if (matches(rowId, key)) {
+                            // This is a next version of current row.
+                            nextCommitTimestamp = readTimestamp(key);
+                        }
+                    }
+                }
+
+                currentKeyBuffer.limit(keyLength);
+
+                assert valueBytes != null;
+
+                ReadResult readResult;
+
+                if (!isWriteIntent) {
+                    // There is no write-intent, return latest committed row.
+                    readResult = wrapCommittedValue(valueBytes, readTimestamp(currentKeyBuffer));
+                } else {
+                    readResult = wrapUncommittedValue(valueBytes, nextCommitTimestamp);
+                }
+
+                if (!readResult.isEmpty() || readResult.isWriteIntent()) {
                     next = readResult;
-                    currentRowId = getRowId(directBuffer);
+                    currentRowId = rowId;
 
                     return true;
                 }
@@ -1224,7 +1221,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
                 ReadResult readResult = handleReadByTimestampIterator(it, rowId, timestamp, seekKeyBuf);
 
-                if (readResult.isEmpty()) {
+                if (readResult.isEmpty() && !readResult.isWriteIntent()) {
                     // Seek to next row id as we found nothing that matches.
                     incrementRowId(seekKeyBuf);
 

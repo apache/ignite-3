@@ -21,6 +21,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
     using System.Collections.Concurrent;
     using System.Collections.Generic;
     using System.Diagnostics;
+    using System.Diagnostics.CodeAnalysis;
     using System.Linq;
     using System.Reflection;
     using System.Reflection.Emit;
@@ -34,16 +35,19 @@ namespace Apache.Ignite.Internal.Table.Serialization
     /// <typeparam name="T">Object type.</typeparam>
     internal class ObjectSerializerHandler<T> : IRecordSerializerHandler<T>
     {
-        private readonly ConcurrentDictionary<(int, bool), WriteDelegate<T>> _writers = new();
+        private readonly ConcurrentDictionary<(int, int), WriteDelegate<T>> _writers = new();
 
         private readonly ConcurrentDictionary<(int, bool), ReadDelegate<T>> _readers = new();
 
         private readonly ConcurrentDictionary<int, ReadValuePartDelegate<T>> _valuePartReaders = new();
 
+        [SuppressMessage("Naming", "CA1711:Identifiers should not have incorrect suffix", Justification = "Reviewed.")]
         private delegate void WriteDelegate<in TV>(ref BinaryTupleBuilder writer, Span<byte> noValueSet, TV value);
 
+        [SuppressMessage("Naming", "CA1711:Identifiers should not have incorrect suffix", Justification = "Reviewed.")]
         private delegate TV ReadDelegate<out TV>(ref BinaryTupleReader reader);
 
+        [SuppressMessage("Naming", "CA1711:Identifiers should not have incorrect suffix", Justification = "Reviewed.")]
         private delegate TV ReadValuePartDelegate<TV>(ref BinaryTupleReader reader, TV key);
 
         /// <inheritdoc/>
@@ -75,32 +79,18 @@ namespace Apache.Ignite.Internal.Table.Serialization
         }
 
         /// <inheritdoc/>
-        public void Write(ref MessagePackWriter writer, Schema schema, T record, bool keyOnly = false)
+        public void Write(ref BinaryTupleBuilder tupleBuilder, T record, Schema schema, int columnCount, Span<byte> noValueSet)
         {
-            var cacheKey = (schema.Version, keyOnly);
+            var cacheKey = (schema.Version, columnCount);
 
             var writeDelegate = _writers.TryGetValue(cacheKey, out var w)
                 ? w
-                : _writers.GetOrAdd(cacheKey, EmitWriter(schema, keyOnly));
+                : _writers.GetOrAdd(cacheKey, EmitWriter(schema, columnCount));
 
-            var count = keyOnly ? schema.KeyColumnCount : schema.Columns.Count;
-            var noValueSet = writer.WriteBitSet(count);
-            var tupleBuilder = new BinaryTupleBuilder(count);
-
-            try
-            {
-                writeDelegate(ref tupleBuilder, noValueSet, record);
-
-                var binaryTupleMemory = tupleBuilder.Build();
-                writer.Write(binaryTupleMemory.Span);
-            }
-            finally
-            {
-                tupleBuilder.Dispose();
-            }
+            writeDelegate(ref tupleBuilder, noValueSet, record);
         }
 
-        private static WriteDelegate<T> EmitWriter(Schema schema, bool keyOnly)
+        private static WriteDelegate<T> EmitWriter(Schema schema, int count)
         {
             var type = typeof(T);
 
@@ -113,13 +103,12 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
             if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(KvPair<,>))
             {
-                return EmitKvWriter(schema, keyOnly, method);
+                return EmitKvWriter(schema, count, method);
             }
 
             var il = method.GetILGenerator();
 
             var columns = schema.Columns;
-            var count = keyOnly ? schema.KeyColumnCount : columns.Count;
 
             if (BinaryTupleMethods.GetWriteMethodOrNull(type) is { } directWriteMethod)
             {
@@ -154,7 +143,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
             for (var index = 0; index < count; index++)
             {
                 var col = columns[index];
-                var fieldInfo = type.GetFieldIgnoreCase(col.Name);
+                var fieldInfo = type.GetFieldByColumnName(col.Name);
 
                 if (fieldInfo == null)
                 {
@@ -188,7 +177,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
             return (WriteDelegate<T>)method.CreateDelegate(typeof(WriteDelegate<T>));
         }
 
-        private static WriteDelegate<T> EmitKvWriter(Schema schema, bool keyOnly, DynamicMethod method)
+        private static WriteDelegate<T> EmitKvWriter(Schema schema, int count, DynamicMethod method)
         {
             var type = typeof(T);
             var (keyType, valType, keyField, valField) = GetKeyValTypes();
@@ -199,7 +188,6 @@ namespace Apache.Ignite.Internal.Table.Serialization
             var il = method.GetILGenerator();
 
             var columns = schema.Columns;
-            var count = keyOnly ? schema.KeyColumnCount : columns.Count;
 
             int mappedCount = 0;
 
@@ -223,7 +211,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 }
                 else
                 {
-                    fieldInfo = (col.IsKey ? keyType : valType).GetFieldIgnoreCase(col.Name);
+                    fieldInfo = (col.IsKey ? keyType : valType).GetFieldByColumnName(col.Name);
                 }
 
                 if (fieldInfo == null)
@@ -308,7 +296,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
             for (var i = 0; i < count; i++)
             {
                 var col = columns[i];
-                var fieldInfo = type.GetFieldIgnoreCase(col.Name);
+                var fieldInfo = type.GetFieldByColumnName(col.Name);
 
                 EmitFieldRead(fieldInfo, il, col, i, local);
             }
@@ -357,7 +345,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
                     local = col.IsKey ? keyLocal : valLocal;
                     fieldInfo = local == null
                         ? null
-                        : (col.IsKey ? keyType : valType).GetFieldIgnoreCase(col.Name);
+                        : (col.IsKey ? keyType : valType).GetFieldByColumnName(col.Name);
                 }
 
                 EmitFieldRead(fieldInfo, il, col, i, local);
@@ -415,7 +403,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
             for (var i = 0; i < columns.Count; i++)
             {
                 var col = columns[i];
-                var fieldInfo = type.GetFieldIgnoreCase(col.Name);
+                var fieldInfo = type.GetFieldByColumnName(col.Name);
 
                 if (col.IsKey)
                 {
@@ -468,7 +456,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 for (var i = schema.KeyColumnCount; i < columns.Count; i++)
                 {
                     var col = columns[i];
-                    var fieldInfo = valType.GetFieldIgnoreCase(col.Name);
+                    var fieldInfo = valType.GetFieldByColumnName(col.Name);
 
                     EmitFieldRead(fieldInfo, il, col, i - schema.KeyColumnCount, valLocal);
                 }
@@ -624,7 +612,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
             var keyValTypes = type.GetGenericArguments();
 
-            return (keyValTypes[0], keyValTypes[1], type.GetFieldIgnoreCase("Key")!, type.GetFieldIgnoreCase("Val")!);
+            return (keyValTypes[0], keyValTypes[1], type.GetFieldByColumnName("Key")!, type.GetFieldByColumnName("Val")!);
         }
     }
 }

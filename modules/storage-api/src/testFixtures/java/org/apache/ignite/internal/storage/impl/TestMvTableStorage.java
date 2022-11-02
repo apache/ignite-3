@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.storage.impl;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -39,6 +41,8 @@ import org.jetbrains.annotations.Nullable;
  */
 public class TestMvTableStorage implements MvTableStorage {
     private final Map<Integer, MvPartitionStorage> partitions = new ConcurrentHashMap<>();
+
+    private final Map<Integer, MvPartitionStorage> backupPartitions = new ConcurrentHashMap<>();
 
     private final Map<UUID, SortedIndices> sortedIndicesById = new ConcurrentHashMap<>();
 
@@ -100,15 +104,11 @@ public class TestMvTableStorage implements MvTableStorage {
     }
 
     @Override
-    public CompletableFuture<Void> destroyPartition(int partitionId) throws StorageException {
-        Integer boxedPartitionId = partitionId;
+    public void destroyPartition(int partitionId) throws StorageException {
+        partitions.remove(partitionId);
 
-        partitions.remove(boxedPartitionId);
-
-        sortedIndicesById.values().forEach(indices -> indices.storageByPartitionId.remove(boxedPartitionId));
-        hashIndicesById.values().forEach(indices -> indices.storageByPartitionId.remove(boxedPartitionId));
-
-        return CompletableFuture.completedFuture(null);
+        sortedIndicesById.values().forEach(indices -> indices.storageByPartitionId.remove(partitionId));
+        hashIndicesById.values().forEach(indices -> indices.storageByPartitionId.remove(partitionId));
     }
 
     @Override
@@ -149,7 +149,7 @@ public class TestMvTableStorage implements MvTableStorage {
             hashIndex.storageByPartitionId.values().forEach(HashIndexStorage::destroy);
         }
 
-        return CompletableFuture.completedFuture(null);
+        return completedFuture(null);
     }
 
     @Override
@@ -177,5 +177,36 @@ public class TestMvTableStorage implements MvTableStorage {
 
     @Override
     public void destroy() throws StorageException {
+    }
+
+    @Override
+    public CompletableFuture<Void> startRebalanceMvPartition(int partitionId) {
+        MvPartitionStorage oldPartitionStorage = partitions.get(partitionId);
+
+        assert oldPartitionStorage != null : "Partition does not exist: " + partitionId;
+
+        if (backupPartitions.putIfAbsent(partitionId, oldPartitionStorage) == null) {
+            partitions.put(partitionId, new TestMvPartitionStorage(partitionId));
+        }
+
+        return completedFuture(null);
+    }
+
+    @Override
+    public CompletableFuture<Void> abortRebalanceMvPartition(int partitionId) {
+        MvPartitionStorage oldPartitionStorage = backupPartitions.remove(partitionId);
+
+        if (oldPartitionStorage != null) {
+            partitions.put(partitionId, oldPartitionStorage);
+        }
+
+        return completedFuture(null);
+    }
+
+    @Override
+    public CompletableFuture<Void> finishRebalanceMvPartition(int partitionId) {
+        backupPartitions.remove(partitionId);
+
+        return completedFuture(null);
     }
 }

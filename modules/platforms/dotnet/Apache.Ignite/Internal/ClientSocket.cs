@@ -80,6 +80,9 @@ namespace Apache.Ignite.Internal
         /** Logger. */
         private readonly IIgniteLogger? _logger;
 
+        /** Partition assignment change callback. */
+        private readonly Action<ClientSocket> _assignmentChangeCallback;
+
         /** Pre-allocated buffer for message size + op code + request id. To be used under <see cref="_sendLock"/>. */
         private readonly byte[] _prefixBuffer = new byte[ProtoCommon.MessagePrefixSize];
 
@@ -95,10 +98,16 @@ namespace Apache.Ignite.Internal
         /// <param name="stream">Network stream.</param>
         /// <param name="configuration">Configuration.</param>
         /// <param name="connectionContext">Connection context.</param>
-        private ClientSocket(NetworkStream stream, IgniteClientConfiguration configuration, ConnectionContext connectionContext)
+        /// <param name="assignmentChangeCallback">Partition assignment change callback.</param>
+        private ClientSocket(
+            NetworkStream stream,
+            IgniteClientConfiguration configuration,
+            ConnectionContext connectionContext,
+            Action<ClientSocket> assignmentChangeCallback)
         {
             _stream = stream;
             ConnectionContext = connectionContext;
+            _assignmentChangeCallback = assignmentChangeCallback;
             _logger = configuration.Logger.GetLogger(GetType());
 
             _heartbeatInterval = GetHeartbeatInterval(configuration.HeartbeatInterval, connectionContext.IdleTimeout, _logger);
@@ -130,12 +139,16 @@ namespace Apache.Ignite.Internal
         /// </summary>
         /// <param name="endPoint">Specific endpoint to connect to.</param>
         /// <param name="configuration">Configuration.</param>
+        /// <param name="assignmentChangeCallback">Partition assignment change callback.</param>
         /// <returns>A <see cref="Task{TResult}"/> representing the result of the asynchronous operation.</returns>
         [SuppressMessage(
             "Microsoft.Reliability",
             "CA2000:Dispose objects before losing scope",
             Justification = "NetworkStream is returned from this method in the socket.")]
-        public static async Task<ClientSocket> ConnectAsync(IPEndPoint endPoint, IgniteClientConfiguration configuration)
+        public static async Task<ClientSocket> ConnectAsync(
+            IPEndPoint endPoint,
+            IgniteClientConfiguration configuration,
+            Action<ClientSocket> assignmentChangeCallback)
         {
             var socket = new Socket(SocketType.Stream, ProtocolType.Tcp)
             {
@@ -152,9 +165,9 @@ namespace Apache.Ignite.Internal
                 var stream = new NetworkStream(socket, ownsSocket: true);
 
                 var context = await HandshakeAsync(stream, endPoint).ConfigureAwait(false);
-                logger?.Debug($"Handshake succeeded. Server protocol version: {context.Version}, idle timeout: {context.IdleTimeout}");
+                logger?.Debug($"Handshake succeeded: {context}.");
 
-                return new ClientSocket(stream, configuration, context);
+                return new ClientSocket(stream, configuration, context, assignmentChangeCallback);
             }
             catch (Exception)
             {
@@ -285,6 +298,7 @@ namespace Apache.Ignite.Internal
             var idleTimeoutMs = reader.ReadInt64();
             var clusterNodeId = reader.ReadString();
             var clusterNodeName = reader.ReadString();
+            var clusterId = reader.ReadGuid();
 
             reader.Skip(); // Features.
             reader.Skip(); // Extensions.
@@ -292,7 +306,8 @@ namespace Apache.Ignite.Internal
             return new ConnectionContext(
                 serverVer,
                 TimeSpan.FromMilliseconds(idleTimeoutMs),
-                new ClusterNode(clusterNodeId, clusterNodeName, endPoint));
+                new ClusterNode(clusterNodeId, clusterNodeName, endPoint),
+                clusterId);
         }
 
         private static IgniteException? ReadError(ref MessagePackReader reader)
@@ -357,6 +372,7 @@ namespace Apache.Ignite.Internal
 
             while (received < size)
             {
+                // TODO IGNITE-18058 This may wait forever, use IgniteClientConfiguration.SocketTimeout.
                 var res = await stream.ReadAsync(buffer.AsMemory(received, size - received), cancellationToken).ConfigureAwait(false);
 
                 if (res == 0)
@@ -545,8 +561,12 @@ namespace Apache.Ignite.Internal
                 return;
             }
 
-            // Skip flags.
-            reader.ReadInt32();
+            var flags = (ResponseFlags)reader.ReadInt32();
+
+            if (flags.HasFlag(ResponseFlags.PartitionAssignmentChanged))
+            {
+                _assignmentChangeCallback(this);
+            }
 
             var exception = ReadError(ref reader);
 

@@ -51,7 +51,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
-import org.apache.ignite.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
@@ -80,7 +81,7 @@ import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
-import org.apache.ignite.internal.tx.storage.state.test.TestConcurrentHashMapTxStateTableStorage;
+import org.apache.ignite.internal.tx.storage.state.test.TestTxStateTableStorage;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.network.ClusterNode;
@@ -128,7 +129,7 @@ public class ItColocationTest {
 
         ReplicaService replicaService = Mockito.mock(ReplicaService.class, RETURNS_DEEP_STUBS);
 
-        TxManager txManager = new TxManagerImpl(replicaService,  new HeapLockManager(), new HybridClock()) {
+        TxManager txManager = new TxManagerImpl(replicaService,  new HeapLockManager(), new HybridClockImpl()) {
             @Override
             public CompletableFuture<Void> finish(
                     ReplicationGroupId commitPartition,
@@ -209,7 +210,7 @@ public class ItColocationTest {
                 address -> clusterNode,
                 txManager,
                 Mockito.mock(MvTableStorage.class),
-                new TestConcurrentHashMapTxStateTableStorage(),
+                new TestTxStateTableStorage(),
                 replicaService,
                 Mockito.mock(HybridClock.class)
         );
@@ -391,7 +392,7 @@ public class ItColocationTest {
 
         schemaRegistry = new DummySchemaManagerImpl(schema);
 
-        tbl = new TableImpl(INT_TABLE, schemaRegistry);
+        tbl = new TableImpl(INT_TABLE, schemaRegistry, new HeapLockManager());
 
         marshaller = new TupleMarshallerImpl(schemaRegistry);
     }

@@ -25,4 +25,11 @@ import org.apache.ignite.network.annotations.Transferable;
  */
 @Transferable(TableMessageGroup.SNAPSHOT_MV_DATA_REQUEST)
 public interface SnapshotMvDataRequest extends SnapshotRequestMessage {
+    /**
+     * How many bytes the receiver is willing to receive. This corresponds to the sum of byte representations of row
+     * versions, so the overall size of the message might exceed the hint (due to metadata and other fields of row versions).
+     *
+     * @return Batch size hint.
+     */
+    long batchSizeHint();
 }

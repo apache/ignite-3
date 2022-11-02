@@ -28,6 +28,7 @@
 
 namespace ignite::network::detail {
 
+#if defined(__linux__)
 std::string get_socket_error_message(int error) {
     std::stringstream res;
 
@@ -44,6 +45,35 @@ std::string get_socket_error_message(int error) {
 
     return res.str();
 }
+#elif defined(__APPLE__)
+std::string get_socket_error_message(int error) {
+    std::stringstream res;
+
+    res << "error_code=" << error;
+
+    if (error == 0)
+        return res.str();
+
+    char err_buf[1024] = {0};
+
+    const int err_res = strerror_r(error, err_buf, sizeof(err_buf));
+
+    switch (err_res) {
+        case 0:
+            res << ", msg=" << err_buf;
+            break;
+        case ERANGE:
+            // Buffer too small.
+            break;
+        default:
+        case EINVAL:
+            // Invalid error code.
+            break;
+    }
+
+    return res.str();
+}
+#endif
 
 std::string get_last_socket_error_message() {
     int last_error = errno;

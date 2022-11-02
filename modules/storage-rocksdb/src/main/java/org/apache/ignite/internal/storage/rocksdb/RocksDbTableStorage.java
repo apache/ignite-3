@@ -173,7 +173,6 @@ public class RocksDbTableStorage implements MvTableStorage {
         return meta.columnFamily().handle();
     }
 
-    /** {@inheritDoc} */
     @Override
     public TableConfiguration configuration() {
         return tableCfg;
@@ -184,7 +183,6 @@ public class RocksDbTableStorage implements MvTableStorage {
         return tablesCfg;
     }
 
-    /** {@inheritDoc} */
     @Override
     public void start() throws StorageException {
         flusher = new RocksDbFlusher(
@@ -306,7 +304,6 @@ public class RocksDbTableStorage implements MvTableStorage {
         }
     }
 
-    /** {@inheritDoc} */
     @Override
     public void stop() throws StorageException {
         if (!stopGuard.compareAndSet(false, true)) {
@@ -345,7 +342,6 @@ public class RocksDbTableStorage implements MvTableStorage {
         }
     }
 
-    /** {@inheritDoc} */
     @Override
     public void destroy() throws StorageException {
         stop();
@@ -353,7 +349,6 @@ public class RocksDbTableStorage implements MvTableStorage {
         IgniteUtils.deleteIfExists(tablePath);
     }
 
-    /** {@inheritDoc} */
     @Override
     public RocksDbMvPartitionStorage getOrCreateMvPartition(int partitionId) throws StorageException {
         RocksDbMvPartitionStorage partition = getMvPartition(partitionId);
@@ -371,7 +366,6 @@ public class RocksDbTableStorage implements MvTableStorage {
         return partition;
     }
 
-    /** {@inheritDoc} */
     @Override
     public @Nullable RocksDbMvPartitionStorage getMvPartition(int partitionId) {
         checkPartitionId(partitionId);
@@ -379,32 +373,24 @@ public class RocksDbTableStorage implements MvTableStorage {
         return partitions.get(partitionId);
     }
 
-    /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> destroyPartition(int partitionId) throws StorageException {
+    public void destroyPartition(int partitionId) throws StorageException {
         checkPartitionId(partitionId);
 
         RocksDbMvPartitionStorage mvPartition = partitions.getAndSet(partitionId, null);
 
-        if (mvPartition == null) {
-            return CompletableFuture.completedFuture(null);
+        if (mvPartition != null) {
+            //TODO IGNITE-17626 Destroy indexes as well...
+            mvPartition.destroy();
+
+            try {
+                mvPartition.close();
+            } catch (Exception e) {
+                throw new StorageException("Error when closing partition storage for the partition: " + partitionId, e);
+            }
         }
-
-        //TODO IGNITE-17626 Destroy indexes as well...
-        mvPartition.destroy();
-
-        // Wait for the data to actually be removed from the disk and close the storage.
-        return awaitFlush(false)
-                .whenComplete((v, e) -> {
-                    try {
-                        mvPartition.close();
-                    } catch (Exception ex) {
-                        LOG.error("Error when closing partition storage for partId = {}", ex, partitionId);
-                    }
-                });
     }
 
-    /** {@inheritDoc} */
     @Override
     public SortedIndexStorage getOrCreateSortedIndex(int partitionId, UUID indexId) {
         SortedIndex storages = sortedIndices.computeIfAbsent(indexId, this::createSortedIndex);
@@ -452,7 +438,6 @@ public class RocksDbTableStorage implements MvTableStorage {
         return storages.getOrCreateStorage(partitionStorage);
     }
 
-    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> destroyIndex(UUID indexId) {
         HashIndex hashIdx = hashIndices.remove(indexId);
@@ -479,7 +464,6 @@ public class RocksDbTableStorage implements MvTableStorage {
         }
     }
 
-    /** {@inheritDoc} */
     @Override
     public boolean isVolatile() {
         return false;
@@ -574,5 +558,23 @@ public class RocksDbTableStorage implements MvTableStorage {
         ColumnFamilyOptions options = new ColumnFamilyOptions().setComparator(comparator);
 
         return new ColumnFamilyDescriptor(cfName.getBytes(UTF_8), options);
+    }
+
+    @Override
+    public CompletableFuture<Void> startRebalanceMvPartition(int partitionId) {
+        // TODO: IGNITE-18027 Implement
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public CompletableFuture<Void> abortRebalanceMvPartition(int partitionId) {
+        // TODO: IGNITE-18027 Implement
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public CompletableFuture<Void> finishRebalanceMvPartition(int partitionId) {
+        // TODO: IGNITE-18027 Implement
+        throw new UnsupportedOperationException();
     }
 }

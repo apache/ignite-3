@@ -19,28 +19,29 @@ package org.apache.ignite.internal.table.distributed.raft;
 
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITED;
+import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_UNEXPECTED_STATE_ERR;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
-import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
-import java.util.stream.Collectors;
+import java.util.function.Supplier;
+import org.apache.ignite.internal.lock.AutoLockup;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommand;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
 import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
 import org.apache.ignite.internal.table.distributed.command.TxCleanupCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateAllCommand;
@@ -49,13 +50,13 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
-import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.ReadCommand;
 import org.apache.ignite.raft.client.WriteCommand;
 import org.apache.ignite.raft.client.service.CommandClosure;
 import org.apache.ignite.raft.client.service.RaftGroupListener;
+import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
 /**
@@ -65,49 +66,38 @@ public class PartitionListener implements RaftGroupListener {
     /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(PartitionListener.class);
 
-    /** Versioned partition storage. */
-    private final MvPartitionStorage storage;
+    /** Partition storage with access to MV data of a partition. */
+    private final PartitionDataStorage storage;
 
-    /** Transaction state storage. */
+    /** Storage of transaction metadata. */
     private final TxStateStorage txStateStorage;
 
     /** Transaction manager. */
     private final TxManager txManager;
 
-    //TODO: https://issues.apache.org/jira/browse/IGNITE-17205 Temporary solution until the implementation of the primary index is done.
-    /** Dummy primary index. */
-    private final ConcurrentHashMap<ByteBuffer, RowId> primaryIndex;
-
-    /** Keys that were inserted by a transaction. */
-    private HashMap<UUID, Set<ByteBuffer>> txsInsertedKeys = new HashMap<>();
-
-    /** Keys that were removed by a transaction. */
-    private HashMap<UUID, Set<ByteBuffer>> txsRemovedKeys = new HashMap<>();
+    private final Supplier<Map<UUID, TableSchemaAwareIndexStorage>> indexes;
 
     /** Rows that were inserted, updated or removed. */
-    private HashMap<UUID, Set<RowId>> txsPendingRowIds = new HashMap<>();
+    private final HashMap<UUID, Set<RowId>> txsPendingRowIds = new HashMap<>();
 
     /**
      * The constructor.
      *
-     * @param store  The storage.
-     * @param txStateStorage Transaction state storage.
+     * @param partitionDataStorage  The storage.
      * @param txManager Transaction manager.
-     * @param primaryIndex Primary index map.
      */
     public PartitionListener(
-            MvPartitionStorage store,
+            PartitionDataStorage partitionDataStorage,
             TxStateStorage txStateStorage,
             TxManager txManager,
-            ConcurrentHashMap<ByteBuffer, RowId> primaryIndex
+            Supplier<Map<UUID, TableSchemaAwareIndexStorage>> indexes
     ) {
-        this.storage = store;
+        this.storage = partitionDataStorage;
         this.txStateStorage = txStateStorage;
         this.txManager = txManager;
-        this.primaryIndex = primaryIndex;
+        this.indexes = indexes;
     }
 
-    /** {@inheritDoc} */
     @Override
     public void onRead(Iterator<CommandClosure<ReadCommand>> iterator) {
         iterator.forEachRemaining((CommandClosure<? extends ReadCommand> clo) -> {
@@ -117,7 +107,6 @@ public class PartitionListener implements RaftGroupListener {
         });
     }
 
-    /** {@inheritDoc} */
     @Override
     public void onWrite(Iterator<CommandClosure<WriteCommand>> iterator) {
         iterator.forEachRemaining((CommandClosure<? extends WriteCommand> clo) -> {
@@ -125,13 +114,16 @@ public class PartitionListener implements RaftGroupListener {
 
             long commandIndex = clo.index();
 
-            long storageAppliedIndex = storage.lastAppliedIndex();
+            // We choose the minimum applied index, since we choose it (the minimum one) on local recovery so as not to lose the data for
+            // one of the storages.
+            long storagesAppliedIndex = Math.min(storage.lastAppliedIndex(), txStateStorage.lastAppliedIndex());
 
-            assert storageAppliedIndex < commandIndex
-                    : "Pending write command has a higher index than already processed commands [commandIndex=" + commandIndex
-                    + ", storageAppliedIndex=" + storageAppliedIndex + ']';
+            assert commandIndex > storagesAppliedIndex :
+                    "Write command must have an index greater than that of storages [commandIndex=" + commandIndex
+                            + ", mvAppliedIndex=" + storage.lastAppliedIndex()
+                            + ", txStateAppliedIndex=" + txStateStorage.lastAppliedIndex() + "]";
 
-            try {
+            try (AutoLockup ignoredPartitionSnapshotsReadLockup = storage.acquirePartitionSnapshotsReadLock()) {
                 if (command instanceof UpdateCommand) {
                     handleUpdateCommand((UpdateCommand) command, commandIndex);
                 } else if (command instanceof UpdateAllCommand) {
@@ -140,9 +132,12 @@ public class PartitionListener implements RaftGroupListener {
                     handleFinishTxCommand((FinishTxCommand) command, commandIndex);
                 } else if (command instanceof TxCleanupCommand) {
                     handleTxCleanupCommand((TxCleanupCommand) command, commandIndex);
+                } else if (command instanceof SafeTimeSyncCommand) {
+                    handleSafeTimeSyncCommand((SafeTimeSyncCommand) command);
                 } else {
                     assert false : "Command was not found [cmd=" + command + ']';
                 }
+
                 clo.result(null);
             } catch (IgniteInternalException e) {
                 clo.result(e);
@@ -154,8 +149,14 @@ public class PartitionListener implements RaftGroupListener {
      * Handler for the {@link UpdateCommand}.
      *
      * @param cmd Command.
+     * @param commandIndex Index of the RAFT command.
      */
     private void handleUpdateCommand(UpdateCommand cmd, long commandIndex) {
+        // Skips the write command because the storage has already executed it.
+        if (commandIndex <= storage.lastAppliedIndex()) {
+            return;
+        }
+
         storage.runConsistently(() -> {
             BinaryRow row = cmd.getRow();
             RowId rowId = cmd.getRowId();
@@ -167,28 +168,7 @@ public class PartitionListener implements RaftGroupListener {
 
             txsPendingRowIds.computeIfAbsent(txId, entry -> new HashSet<>()).add(rowId);
 
-            if (row == null) {
-                // Remove entry.
-                List<ByteBuffer> keys = primaryIndex.entrySet().stream()
-                        .filter(e -> e.getValue().equals(rowId))
-                        .map(Entry::getKey)
-                        .collect(Collectors.toList());
-
-                assert keys.size() <= 1;
-
-                if (keys.size() == 1) {
-                    txsRemovedKeys.computeIfAbsent(txId, entry -> new HashSet<>()).add(keys.get(0));
-                    txsInsertedKeys.computeIfAbsent(txId, entry -> new HashSet<>()).remove(keys.get(0));
-                }
-            } else if (!primaryIndex.containsKey(row.keySlice())) {
-                // Insert entry.
-                txsInsertedKeys.computeIfAbsent(txId, entry -> new HashSet<>()).add(row.keySlice());
-                txsRemovedKeys.computeIfAbsent(txId, entry -> new HashSet<>()).remove(row.keySlice());
-
-                primaryIndex.put(row.keySlice(), rowId);
-            } else if (primaryIndex.containsKey(row.keySlice())) {
-                txsRemovedKeys.computeIfAbsent(txId, entry -> new HashSet<>()).remove(row.keySlice());
-            }
+            addToIndexes(row, rowId);
 
             storage.lastAppliedIndex(commandIndex);
 
@@ -200,15 +180,21 @@ public class PartitionListener implements RaftGroupListener {
      * Handler for the {@link UpdateAllCommand}.
      *
      * @param cmd Command.
+     * @param commandIndex Index of the RAFT command.
      */
     private void handleUpdateAllCommand(UpdateAllCommand cmd, long commandIndex) {
+        // Skips the write command because the storage has already executed it.
+        if (commandIndex <= storage.lastAppliedIndex()) {
+            return;
+        }
+
         storage.runConsistently(() -> {
             UUID txId = cmd.txId();
             Map<RowId, BinaryRow> rowsToUpdate = cmd.getRowsToUpdate();
             UUID commitTblId = cmd.getReplicationGroupId().getTableId();
             int commitPartId = cmd.getReplicationGroupId().getPartId();
 
-            if (!CollectionUtils.nullOrEmpty(rowsToUpdate)) {
+            if (!nullOrEmpty(rowsToUpdate)) {
                 for (Map.Entry<RowId, BinaryRow> entry : rowsToUpdate.entrySet()) {
                     RowId rowId = entry.getKey();
                     BinaryRow row = entry.getValue();
@@ -217,30 +203,10 @@ public class PartitionListener implements RaftGroupListener {
 
                     txsPendingRowIds.computeIfAbsent(txId, entry0 -> new HashSet<>()).add(rowId);
 
-                    if (row == null) {
-                        // Remove entry.
-                        List<ByteBuffer> keys = primaryIndex.entrySet().stream()
-                                .filter(e -> e.getValue().equals(rowId))
-                                .map(Entry::getKey)
-                                .collect(Collectors.toList());
-
-                        assert keys.size() <= 1;
-
-                        if (keys.size() == 1) {
-                            txsRemovedKeys.computeIfAbsent(txId, entry0 -> new HashSet<>()).add(keys.get(0));
-                            txsInsertedKeys.computeIfAbsent(txId, entry0 -> new HashSet<>()).remove(keys.get(0));
-                        }
-                    } else if (!primaryIndex.containsKey(row.keySlice())) {
-                        // Insert entry.
-                        txsInsertedKeys.computeIfAbsent(txId, entry0 -> new HashSet<>()).add(row.keySlice());
-                        txsRemovedKeys.computeIfAbsent(txId, entry0 -> new HashSet<>()).remove(row.keySlice());
-
-                        primaryIndex.put(row.keySlice(), rowId);
-                    } else if (primaryIndex.containsKey(row.keySlice())) {
-                        txsRemovedKeys.computeIfAbsent(txId, entry0 -> new HashSet<>()).remove(row.keySlice());
-                    }
+                    addToIndexes(row, rowId);
                 }
             }
+
             storage.lastAppliedIndex(commandIndex);
 
             return null;
@@ -250,11 +216,16 @@ public class PartitionListener implements RaftGroupListener {
     /**
      * Handler for the {@link FinishTxCommand}.
      *
-     * @param cmd          Command.
+     * @param cmd Command.
      * @param commandIndex Index of the RAFT command.
      * @throws IgniteInternalException if an exception occurred during a transaction state change.
      */
     private void handleFinishTxCommand(FinishTxCommand cmd, long commandIndex) throws IgniteInternalException {
+        // Skips the write command because the storage has already executed it.
+        if (commandIndex <= txStateStorage.lastAppliedIndex()) {
+            return;
+        }
+
         UUID txId = cmd.txId();
 
         TxState stateToSet = cmd.commit() ? TxState.COMMITED : TxState.ABORTED;
@@ -300,35 +271,25 @@ public class PartitionListener implements RaftGroupListener {
      * Handler for the {@link TxCleanupCommand}.
      *
      * @param cmd Command.
+     * @param commandIndex Index of the RAFT command.
      */
     private void handleTxCleanupCommand(TxCleanupCommand cmd, long commandIndex) {
+        // Skips the write command because the storage has already executed it.
+        if (commandIndex <= storage.lastAppliedIndex()) {
+            return;
+        }
+
         storage.runConsistently(() -> {
             UUID txId = cmd.txId();
-
-            Set<ByteBuffer> removedKeys = txsRemovedKeys.getOrDefault(txId, Collections.emptySet());
-
-            Set<ByteBuffer> insertedKeys = txsInsertedKeys.getOrDefault(txId, Collections.emptySet());
 
             Set<RowId> pendingRowIds = txsPendingRowIds.getOrDefault(txId, Collections.emptySet());
 
             if (cmd.commit()) {
                 pendingRowIds.forEach(rowId -> storage.commitWrite(rowId, cmd.commitTimestamp()));
             } else {
-                pendingRowIds.forEach(rowId -> storage.abortWrite(rowId));
+                pendingRowIds.forEach(storage::abortWrite);
             }
 
-            if (cmd.commit()) {
-                for (ByteBuffer key : removedKeys) {
-                    primaryIndex.remove(key);
-                }
-            } else {
-                for (ByteBuffer key : insertedKeys) {
-                    primaryIndex.remove(key);
-                }
-            }
-
-            txsRemovedKeys.remove(txId);
-            txsInsertedKeys.remove(txId);
             txsPendingRowIds.remove(txId);
 
             // TODO: IGNITE-17638 TestOnly code, let's consider using Txn state map instead of states.
@@ -340,21 +301,51 @@ public class PartitionListener implements RaftGroupListener {
         });
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public void onSnapshotSave(Path path, Consumer<Throwable> doneClo) {
-        storage.flush();
+    /**
+     * Handler for the {@link SafeTimeSyncCommand}.
+     *
+     * @param cmd Command.
+     */
+    private void handleSafeTimeSyncCommand(SafeTimeSyncCommand cmd) {
+        // No-op.
     }
 
-    /** {@inheritDoc} */
+    @Override
+    public void onSnapshotSave(Path path, Consumer<Throwable> doneClo) {
+        // The max index here is required for local recovery and a possible scenario
+        // of false node failure when we actually have all required data. This might happen because we use the minimal index
+        // among storages on a node restart.
+        // Let's consider a more detailed example:
+        //      1) We don't propagate the maximal lastAppliedIndex among storages, and onSnapshotSave finishes, it leads to the raft log
+        //         truncation until the maximal lastAppliedIndex.
+        //      2) Unexpected cluster restart happens.
+        //      3) Local recovery of a node is started, where we request data from the minimal lastAppliedIndex among storages, because
+        //         some data for some node might not have been flushed before unexpected cluster restart.
+        //      4) When we try to restore data starting from the minimal lastAppliedIndex, we come to the situation
+        //         that a raft node doesn't have such data, because the truncation until the maximal lastAppliedIndex from 1) has happened.
+        //      5) Node cannot finish local recovery.
+        long maxLastAppliedIndex = Math.max(storage.lastAppliedIndex(), txStateStorage.lastAppliedIndex());
+
+        storage.runConsistently(() -> {
+            storage.lastAppliedIndex(maxLastAppliedIndex);
+
+            return null;
+        });
+
+        txStateStorage.lastAppliedIndex(maxLastAppliedIndex);
+
+        CompletableFuture.allOf(storage.flush(), txStateStorage.flush())
+                .whenComplete((unused, throwable) -> doneClo.accept(throwable));
+    }
+
     @Override
     public boolean onSnapshotLoad(Path path) {
         return true;
     }
 
-    /** {@inheritDoc} */
     @Override
     public void onShutdown() {
+        // TODO: IGNITE-17958 - probably, we should not close the storage here as PartitionListener did not create the storage.
         try {
             storage.close();
         } catch (Exception e) {
@@ -362,19 +353,21 @@ public class PartitionListener implements RaftGroupListener {
         }
     }
 
+    private void addToIndexes(@Nullable BinaryRow tableRow, RowId rowId) {
+        if (tableRow == null || !tableRow.hasValue()) { // skip removes
+            return;
+        }
+
+        for (TableSchemaAwareIndexStorage index : indexes.get().values()) {
+            index.put(tableRow, rowId);
+        }
+    }
+
     /**
      * Returns underlying storage.
      */
     @TestOnly
-    public MvPartitionStorage getStorage() {
-        return storage;
-    }
-
-    /**
-     * Returns a primary index map.
-     */
-    @TestOnly
-    public Map<ByteBuffer, RowId> getPk() {
-        return primaryIndex;
+    public MvPartitionStorage getMvStorage() {
+        return storage.getStorage();
     }
 }

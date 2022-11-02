@@ -17,13 +17,18 @@
 
 package org.apache.ignite.internal.replicator;
 
+import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
+
 import java.util.Collection;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import org.apache.ignite.hlc.HybridClock;
-import org.apache.ignite.hlc.HybridTimestamp;
+import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -33,7 +38,9 @@ import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.ReplicaMessageGroup;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
+import org.apache.ignite.internal.replicator.message.ReplicaSafeTimeSyncRequest;
 import org.apache.ignite.internal.replicator.message.TimestampAware;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NodeStoppingException;
@@ -52,6 +59,9 @@ import org.jetbrains.annotations.TestOnly;
  * This class allow to start/stop/get a replica.
  */
 public class ReplicaManager implements IgniteComponent {
+    /** Idle safe time propagation period. */
+    private static final int IDLE_SAFE_TIME_PROPAGATION_PERIOD_SECONDS = 1;
+
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(ReplicaManager.class);
 
@@ -75,6 +85,10 @@ public class ReplicaManager implements IgniteComponent {
 
     /** A hybrid logical clock. */
     private final HybridClock clock;
+
+    /** Scheduled executor for idle safe time sync. */
+    private final ScheduledExecutorService scheduledIdleSafeTimeSyncExecutor =
+            Executors.newScheduledThreadPool(1, new NamedThreadFactory("scheduled-idle-safe-time-sync-thread", LOG));
 
     /** Set of message groups to handler as replica requests. */
     Set<Class<?>> messageGroupsToHandle;
@@ -168,7 +182,8 @@ public class ReplicaManager implements IgniteComponent {
      */
     public Replica startReplica(
             ReplicationGroupId replicaGrpId,
-            ReplicaListener listener) throws NodeStoppingException {
+            ReplicaListener listener
+    ) throws NodeStoppingException {
         if (!busyLock.enterBusy()) {
             throw new NodeStoppingException();
         }
@@ -187,7 +202,10 @@ public class ReplicaManager implements IgniteComponent {
      * @param listener Replica listener.
      * @return New replica.
      */
-    private Replica startReplicaInternal(ReplicationGroupId replicaGrpId, ReplicaListener listener) {
+    private Replica startReplicaInternal(
+            ReplicationGroupId replicaGrpId,
+            ReplicaListener listener
+    ) {
         var replica = new Replica(replicaGrpId, listener);
 
         Replica previous = replicas.putIfAbsent(replicaGrpId, replica);
@@ -233,6 +251,12 @@ public class ReplicaManager implements IgniteComponent {
     public void start() {
         clusterNetSvc.messagingService().addMessageHandler(ReplicaMessageGroup.class, handler);
         messageGroupsToHandle.forEach(mg -> clusterNetSvc.messagingService().addMessageHandler(mg, handler));
+        scheduledIdleSafeTimeSyncExecutor.scheduleAtFixedRate(
+                this::idleSafeTimeSync,
+                0,
+                IDLE_SAFE_TIME_PROPAGATION_PERIOD_SECONDS,
+                TimeUnit.SECONDS
+        );
     }
 
     /** {@inheritDoc} */
@@ -243,6 +267,8 @@ public class ReplicaManager implements IgniteComponent {
         }
 
         busyLock.block();
+
+        shutdownAndAwaitTermination(scheduledIdleSafeTimeSyncExecutor, 10, TimeUnit.SECONDS);
 
         assert replicas.isEmpty() : "There are replicas alive [replicas=" + replicas.keySet() + ']';
     }
@@ -339,6 +365,19 @@ public class ReplicaManager implements IgniteComponent {
                     .throwable(ex)
                     .build();
         }
+    }
+
+    /**
+     * Idle safe time sync for replicas.
+     */
+    private void idleSafeTimeSync() {
+        replicas.values().forEach(r -> {
+            ReplicaSafeTimeSyncRequest req = REPLICA_MESSAGES_FACTORY.replicaSafeTimeSyncRequest()
+                    .groupId(r.groupId())
+                    .build();
+
+            r.processRequest(req);
+        });
     }
 
     /**

@@ -48,6 +48,7 @@ public class NodeStatusReplCommand extends BaseCommand implements Runnable {
         question.askQuestionIfNotConnected(nodeUrl.getNodeUrl())
                 .map(UrlCallInput::new)
                 .then(Flows.fromCall(call))
+                .verbose(verbose)
                 .print()
                 .start();
     }

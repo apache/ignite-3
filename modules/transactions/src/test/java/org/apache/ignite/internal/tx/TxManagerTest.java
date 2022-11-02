@@ -25,7 +25,7 @@ import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 
 import java.util.Objects;
 import java.util.UUID;
-import org.apache.ignite.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
@@ -67,7 +67,7 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         replicaService = Mockito.mock(ReplicaService.class, RETURNS_DEEP_STUBS);
 
-        txManager = new TxManagerImpl(replicaService, new HeapLockManager(), new HybridClock());
+        txManager = new TxManagerImpl(replicaService, new HeapLockManager(), new HybridClockImpl());
     }
 
     @Test

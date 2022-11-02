@@ -20,9 +20,10 @@ namespace Apache.Ignite.Internal.Table.Serialization
     using System;
     using System.Collections.Concurrent;
     using System.Collections.Generic;
-    using System.Linq;
+    using System.ComponentModel.DataAnnotations.Schema;
     using System.Linq.Expressions;
     using System.Reflection;
+    using System.Runtime.CompilerServices;
     using System.Runtime.Serialization;
 
     /// <summary>
@@ -41,7 +42,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// </summary>
         public static readonly MethodInfo GetTypeFromHandleMethod = GetMethodInfo(() => Type.GetTypeFromHandle(default));
 
-        private static readonly ConcurrentDictionary<Type, IReadOnlyDictionary<string, FieldInfo>> FieldsByNameCache = new();
+        private static readonly ConcurrentDictionary<Type, IReadOnlyDictionary<string, FieldInfo>> FieldsByColumnNameCache = new();
 
         /// <summary>
         /// Gets all fields from the type, including non-public and inherited.
@@ -50,6 +51,11 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// <returns>Fields.</returns>
         public static IEnumerable<FieldInfo> GetAllFields(this Type type)
         {
+            if (type.IsPrimitive)
+            {
+                yield break;
+            }
+
             const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public |
                                        BindingFlags.NonPublic | BindingFlags.DeclaredOnly;
 
@@ -67,20 +73,38 @@ namespace Apache.Ignite.Internal.Table.Serialization
         }
 
         /// <summary>
-        /// Gets the field by name ignoring case.
+        /// Gets the field by column name. Ignores case, handles <see cref="ColumnAttribute"/>.
         /// </summary>
         /// <param name="type">Type.</param>
         /// <param name="name">Field name.</param>
         /// <returns>Field info, or null when no matching fields exist.</returns>
-        public static FieldInfo? GetFieldIgnoreCase(this Type type, string name)
+        public static FieldInfo? GetFieldByColumnName(this Type type, string name)
         {
             // ReSharper disable once HeapView.CanAvoidClosure, ConvertClosureToMethodGroup
-            return FieldsByNameCache.GetOrAdd(type, t => GetFieldsByName(t)).TryGetValue(name, out var fieldInfo)
+            return FieldsByColumnNameCache.GetOrAdd(type, t => GetFieldsByColumnName(t)).TryGetValue(name, out var fieldInfo)
                 ? fieldInfo
                 : null;
 
-            static IReadOnlyDictionary<string, FieldInfo> GetFieldsByName(Type type) =>
-                type.GetAllFields().ToDictionary(f => f.GetCleanName(), StringComparer.OrdinalIgnoreCase);
+            static IReadOnlyDictionary<string, FieldInfo> GetFieldsByColumnName(Type type)
+            {
+                var res = new Dictionary<string, FieldInfo>(StringComparer.OrdinalIgnoreCase);
+
+                foreach (var field in type.GetAllFields())
+                {
+                    var columnName = field.GetColumnName();
+
+                    if (res.TryGetValue(columnName, out var existingField))
+                    {
+                        throw new IgniteClientException(
+                            ErrorGroups.Client.Configuration,
+                            $"Column '{columnName}' maps to more than one field of type {type}: {field} and {existingField}");
+                    }
+
+                    res.Add(columnName, field);
+                }
+
+                return res;
+            }
         }
 
         /// <summary>
@@ -89,6 +113,32 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// <param name="memberInfo">Member.</param>
         /// <returns>Clean name.</returns>
         public static string GetCleanName(this MemberInfo memberInfo) => CleanFieldName(memberInfo.Name);
+
+        /// <summary>
+        /// Gets column name for the specified field: uses <see cref="ColumnAttribute"/> when available,
+        /// falls back to cleaned up field name otherwise.
+        /// </summary>
+        /// <param name="fieldInfo">Member.</param>
+        /// <returns>Clean name.</returns>
+        public static string GetColumnName(this FieldInfo fieldInfo)
+        {
+            if (fieldInfo.GetCustomAttribute<ColumnAttribute>() is { Name: { } columnAttributeName })
+            {
+                return columnAttributeName;
+            }
+
+            var cleanName = fieldInfo.GetCleanName();
+
+            if (fieldInfo.IsDefined(typeof(CompilerGeneratedAttribute), inherit: true) &&
+                fieldInfo.DeclaringType?.GetProperty(cleanName) is { } property &&
+                property.GetCustomAttribute<ColumnAttribute>() is { Name: { } columnAttributeName2 })
+            {
+                // This is a compiler-generated backing field for an automatic property - get the attribute from the property.
+                return columnAttributeName2;
+            }
+
+            return cleanName;
+        }
 
         /// <summary>
         /// Cleans the field name and removes compiler-generated prefixes and suffixes.

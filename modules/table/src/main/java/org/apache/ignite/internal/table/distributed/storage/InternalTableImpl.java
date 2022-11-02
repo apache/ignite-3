@@ -19,11 +19,15 @@ package org.apache.ignite.internal.table.distributed.storage;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
+import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_UNAVAILABLE_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_INSUFFICIENT_READ_WRITE_OPERATION_ERR;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -37,7 +41,8 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import org.apache.ignite.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
@@ -47,6 +52,7 @@ import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
+import org.apache.ignite.internal.table.distributed.replication.request.ReadOnlyScanRetrieveBatchReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteScanRetrieveBatchReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteScanRetrieveBatchReplicaRequestBuilder;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
@@ -194,6 +200,18 @@ public class InternalTableImpl implements InternalTable {
             InternalTransaction tx,
             IgniteTetraFunction<TablePartitionId, InternalTransaction, ReplicationGroupId, Long, ReplicaRequest> op
     ) {
+        // Check whether proposed tx is read-only. Complete future exceptionally if true.
+        // Attempting to enlist a read-only in a read-write transaction does not corrupt the transaction itself, thus read-write transaction
+        // won't be rolled back automatically - it's up to the user or outer engine.
+        if (tx != null && tx.isReadOnly()) {
+            return failedFuture(
+                    new TransactionException(
+                            TX_INSUFFICIENT_READ_WRITE_OPERATION_ERR,
+                            "Failed to enlist read-write operation into read-only transaction txId={" + tx.id() + '}'
+                    )
+            );
+        }
+
         final boolean implicit = tx == null;
 
         final InternalTransaction tx0 = implicit ? txManager.begin() : tx;
@@ -245,6 +263,19 @@ public class InternalTableImpl implements InternalTable {
             IgniteFiveFunction<TablePartitionId, Collection<BinaryRow>, InternalTransaction, ReplicationGroupId, Long, ReplicaRequest> op,
             Function<CompletableFuture<Object>[], CompletableFuture<T>> reducer
     ) {
+        // Check whether proposed tx is read-only. Complete future exceptionally if true.
+        // Attempting to enlist a read-only in a read-write transaction does not corrupt the transaction itself, thus read-write transaction
+        // won't be rolled back automatically - it's up to the user or outer engine.
+        if (tx != null && tx.isReadOnly()) {
+            return failedFuture(
+                    new TransactionException(
+                            TX_INSUFFICIENT_READ_WRITE_OPERATION_ERR,
+                            "Failed to enlist read-write operation into read-only transaction txId={" + tx.id() + '}'
+                    )
+            );
+        }
+
+
         final boolean implicit = tx == null;
 
         if (!implicit && tx.state() != null) {
@@ -305,7 +336,7 @@ public class InternalTableImpl implements InternalTable {
      * @param batchSize Size of batch.
      * @return Batch of retrieved rows.
      */
-    private CompletableFuture<Collection<BinaryRow>> enlistCursorInTx(
+    protected CompletableFuture<Collection<BinaryRow>> enlistCursorInTx(
             @NotNull InternalTransaction tx,
             int partId,
             long scanId,
@@ -359,24 +390,24 @@ public class InternalTableImpl implements InternalTable {
         CompletableFuture<R> result = new CompletableFuture();
 
         enlist(partId, tx).<R>thenCompose(
-                        primaryReplicaAndTerm -> {
-                            try {
-                                return replicaSvc.invoke(
-                                        primaryReplicaAndTerm.get1(),
-                                        requestFunction.apply((TablePartitionId) tx.commitPartition(), primaryReplicaAndTerm.get2())
-                                );
-                            } catch (PrimaryReplicaMissException e) {
-                                throw new TransactionException(e);
-                            } catch (Throwable e) {
-                                throw new TransactionException(
-                                        IgniteStringFormatter.format(
-                                                "Failed to enlist partition[tableName={}, partId={}] into a transaction",
-                                                tableName,
-                                                partId
-                                                )
-                                );
-                            }
-                        })
+                primaryReplicaAndTerm -> {
+                    try {
+                        return replicaSvc.invoke(
+                                primaryReplicaAndTerm.get1(),
+                                requestFunction.apply((TablePartitionId) tx.commitPartition(), primaryReplicaAndTerm.get2())
+                        );
+                    } catch (PrimaryReplicaMissException e) {
+                        throw new TransactionException(e);
+                    } catch (Throwable e) {
+                        throw new TransactionException(
+                                IgniteStringFormatter.format(
+                                        "Failed to enlist partition[tableName={}, partId={}] into a transaction",
+                                        tableName,
+                                        partId
+                                )
+                        );
+                    }
+                })
                 .handle((res0, e) -> {
                     if (e != null) {
                         if (e.getCause() instanceof PrimaryReplicaMissException && attempts > 0) {
@@ -431,35 +462,100 @@ public class InternalTableImpl implements InternalTable {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<BinaryRow> get(BinaryRowEx keyRow, InternalTransaction tx) {
-        return enlistInTx(
-                keyRow,
-                tx,
-                (commitPart, txo, groupId, term) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
-                        .groupId(groupId)
-                        .binaryRow(keyRow)
-                        .transactionId(txo.id())
-                        .term(term)
-                        .requestType(RequestType.RW_GET)
-                        .timestamp(clock.now())
-                        .build()
+        if (tx != null && tx.isReadOnly()) {
+            return evaluateReadOnlyRecipientNode(partId(keyRow))
+                    .thenCompose(recipientNode -> get(keyRow, tx.readTimestamp(), recipientNode));
+        } else {
+            return enlistInTx(
+                    keyRow,
+                    tx,
+                    (commitPart, txo, groupId, term) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
+                            .groupId(groupId)
+                            .binaryRow(keyRow)
+                            .transactionId(txo.id())
+                            .term(term)
+                            .requestType(RequestType.RW_GET)
+                            .timestamp(clock.now())
+                            .build()
+            );
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<BinaryRow> get(
+            BinaryRowEx keyRow,
+            @NotNull HybridTimestamp readTimestamp,
+            @NotNull ClusterNode recipientNode
+    ) {
+        int partId = partId(keyRow);
+        ReplicationGroupId partGroupId = partitionMap.get(partId).groupId();
+
+        return replicaSvc.invoke(recipientNode, tableMessagesFactory.readOnlySingleRowReplicaRequest()
+                .groupId(partGroupId)
+                .binaryRow(keyRow)
+                .requestType(RequestType.RO_GET)
+                .readTimestamp(readTimestamp)
+                .build()
         );
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Collection<BinaryRow>> getAll(Collection<BinaryRowEx> keyRows, InternalTransaction tx) {
-        return enlistInTx(
-                keyRows,
-                tx,
-                (commitPart, keyRows0, txo, groupId, term) -> tableMessagesFactory.readWriteMultiRowReplicaRequest()
-                        .groupId(groupId)
-                        .binaryRows(keyRows0)
-                        .transactionId(txo.id())
-                        .term(term)
-                        .requestType(RequestType.RW_GET_ALL)
-                        .timestamp(clock.now())
-                        .build(),
-                this::collectMultiRowsResponses);
+        if (tx != null && tx.isReadOnly()) {
+            BinaryRowEx firstRow = keyRows.iterator().next();
+
+            if (firstRow == null) {
+                return CompletableFuture.completedFuture(Collections.emptyList());
+            } else {
+                return evaluateReadOnlyRecipientNode(partId(firstRow))
+                        .thenCompose(recipientNode -> getAll(keyRows, tx.readTimestamp(), recipientNode));
+            }
+        } else {
+            return enlistInTx(
+                    keyRows,
+                    tx,
+                    (commitPart, keyRows0, txo, groupId, term) -> tableMessagesFactory.readWriteMultiRowReplicaRequest()
+                            .groupId(groupId)
+                            .binaryRows(keyRows0)
+                            .transactionId(txo.id())
+                            .term(term)
+                            .requestType(RequestType.RW_GET_ALL)
+                            .timestamp(clock.now())
+                            .build(),
+                    this::collectMultiRowsResponses);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Collection<BinaryRow>> getAll(
+            Collection<BinaryRowEx> keyRows,
+            @NotNull HybridTimestamp readTimestamp,
+            @NotNull ClusterNode recipientNode
+    ) {
+        Int2ObjectOpenHashMap<List<BinaryRow>> keyRowsByPartition = mapRowsToPartitions(keyRows);
+
+        CompletableFuture<Object>[] futures = new CompletableFuture[keyRowsByPartition.size()];
+
+        int batchNum = 0;
+
+        for (Int2ObjectOpenHashMap.Entry<List<BinaryRow>> partToRows : keyRowsByPartition.int2ObjectEntrySet()) {
+            ReplicationGroupId partGroupId = partitionMap.get(partToRows.getIntKey()).groupId();
+
+            CompletableFuture<Object> fut = replicaSvc.invoke(recipientNode, tableMessagesFactory.readOnlyMultiRowReplicaRequest()
+                    .groupId(partGroupId)
+                    .binaryRows(partToRows.getValue())
+                    .requestType(RequestType.RO_GET_ALL)
+                    .readTimestamp(readTimestamp)
+                    .build()
+            );
+
+            futures[batchNum++] = fut;
+        }
+
+        return collectMultiRowsResponses(futures);
     }
 
     /** {@inheritDoc} */
@@ -702,6 +798,65 @@ public class InternalTableImpl implements InternalTable {
     /** {@inheritDoc} */
     @Override
     public Publisher<BinaryRow> scan(int p, @Nullable InternalTransaction tx) {
+        // Check whether proposed tx is read-only. Complete future exceptionally if true.
+        // Attempting to enlist a read-only in a read-write transaction does not corrupt the transaction itself, thus read-write transaction
+        // won't be rolled back automatically - it's up to the user or outer engine.
+        if (tx != null && tx.isReadOnly()) {
+            throw new TransactionException(
+                    new TransactionException(
+                            TX_INSUFFICIENT_READ_WRITE_OPERATION_ERR,
+                            "Failed to enlist read-write operation into read-only transaction txId={" + tx.id() + '}'
+                    )
+            );
+        }
+
+        validatePartitionIndex(p);
+
+        final boolean implicit = tx == null;
+
+        final InternalTransaction tx0 = implicit ? txManager.begin() : tx;
+
+        return new PartitionScanPublisher(
+                (scanId, batchSize) -> enlistCursorInTx(tx0, p, scanId, batchSize),
+                fut -> postEnlist(fut, implicit, tx0)
+        );
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Publisher<BinaryRow> scan(
+            int p,
+            @NotNull HybridTimestamp readTimestamp,
+            @NotNull ClusterNode recipientNode
+    ) {
+        validatePartitionIndex(p);
+
+        return new PartitionScanPublisher(
+                (scanId, batchSize) -> {
+                    ReplicationGroupId partGroupId = partitionMap.get(p).groupId();
+
+                    ReadOnlyScanRetrieveBatchReplicaRequest request = tableMessagesFactory.readOnlyScanRetrieveBatchReplicaRequest()
+                            .groupId(partGroupId)
+                            // TODO: IGNITE-17666 Close cursor tx finish.
+                            .transactionId(UUID.randomUUID())
+                            .scanId(scanId)
+                            .batchSize(batchSize)
+                            .readTimestamp(readTimestamp)
+                            .build();
+
+                    return replicaSvc.invoke(recipientNode, request);
+                },
+                // TODO: IGNITE-17666 Close cursor tx finish.
+                Function.identity());
+    }
+
+    /**
+     * Validates partition index.
+     *
+     * @param p Partition index.
+     * @throws IllegalArgumentException If proposed partition is out of bounds.
+     */
+    private void validatePartitionIndex(int p) {
         if (p < 0 || p >= partitions) {
             throw new IllegalArgumentException(
                     IgniteStringFormatter.format(
@@ -712,15 +867,6 @@ public class InternalTableImpl implements InternalTable {
                     )
             );
         }
-
-        final boolean implicit = tx == null;
-
-        final InternalTransaction tx0 = implicit ? txManager.begin() : tx;
-
-        return new PartitionScanPublisher(
-                (scanId, batchSize) -> enlistCursorInTx(tx0, p, scanId, batchSize),
-                fut -> postEnlist(fut, implicit, tx0)
-        );
     }
 
     /**
@@ -1039,7 +1185,7 @@ public class InternalTableImpl implements InternalTable {
                     if (binaryRows.size() < n) {
                         cancel();
                     } else if (requestedItemsCnt.addAndGet(Math.negateExact(binaryRows.size())) > 0) {
-                        scanBatch(INTERNAL_BATCH_SIZE);
+                        scanBatch(Math.min(n, INTERNAL_BATCH_SIZE));
                     }
                 }).exceptionally(t -> {
                     cancel(t);
@@ -1056,5 +1202,28 @@ public class InternalTableImpl implements InternalTable {
         for (RaftGroupService srv : partitionMap.values()) {
             srv.shutdown();
         }
+    }
+
+    // TODO: IGNITE-17963 Use smarter logic for recipient node evaluation.
+    /**
+     * Evaluated cluster node for read-only request processing.
+     *
+     * @param partId Partition id.
+     * @return Cluster node to evalute read-only request.
+     */
+    protected CompletableFuture<ClusterNode> evaluateReadOnlyRecipientNode(int partId) {
+        RaftGroupService svc = partitionMap.get(partId);
+
+        return svc.refreshAndGetLeaderWithTerm().handle((res, e) -> {
+            if (e != null) {
+                throw withCause(TransactionException::new, REPLICA_UNAVAILABLE_ERR, e);
+            } else {
+                if (res == null || res.getKey() == null) {
+                    throw withCause(TransactionException::new, REPLICA_UNAVAILABLE_ERR, e);
+                } else {
+                    return clusterNodeResolver.apply(res.get1().address());
+                }
+            }
+        });
     }
 }

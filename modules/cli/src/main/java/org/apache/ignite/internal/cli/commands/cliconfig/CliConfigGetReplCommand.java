@@ -44,6 +44,7 @@ public class CliConfigGetReplCommand extends BaseCommand implements Callable<Int
                         .key(key)::build)
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())
+                .verbose(verbose)
                 .build()
                 .runPipeline();
     }

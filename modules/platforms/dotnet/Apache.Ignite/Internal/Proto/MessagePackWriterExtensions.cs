@@ -34,14 +34,14 @@ namespace Apache.Ignite.Internal.Proto
         /// see https://en.wikipedia.org/wiki/Universally_unique_identifier#Encoding.
         /// </summary>
         /// <param name="writer">Writer.</param>
-        /// <param name="guid">Guid.</param>
-        public static void Write(this ref MessagePackWriter writer, Guid guid)
+        /// <param name="val">Guid.</param>
+        public static void Write(this ref MessagePackWriter writer, Guid val)
         {
             writer.WriteExtensionFormatHeader(new ExtensionHeader((sbyte)ClientMessagePackType.Uuid, 16));
 
             var jBytes = writer.GetSpan(16);
 
-            UuidSerializer.Write(guid, jBytes);
+            UuidSerializer.Write(val, jBytes);
 
             writer.Advance(16);
         }

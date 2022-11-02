@@ -48,6 +48,7 @@ import org.apache.ignite.internal.configuration.notifications.ConfigurationStora
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.configuration.testframework.InjectRevisionListenerHolder;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.raft.Loza;
@@ -69,6 +70,7 @@ import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDa
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageView;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
 import org.apache.ignite.internal.table.distributed.TableManager;
+import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.util.Cursor;
@@ -127,6 +129,9 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     /** Meta storage manager. */
     @Mock
     MetaStorageManager msm;
+
+    @Mock
+    HybridClock clock;
 
     /**
      * Revision listener holder. It uses for the test configurations:
@@ -231,7 +236,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         tblManager = mockManagers();
 
-        idxManager = new IndexManager(tblsCfg);
+        idxManager = new IndexManager(tblsCfg, schemaManager, tblManager);
 
         idxManager.start();
 
@@ -243,10 +248,13 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 schemaManager,
                 dataStorageManager,
                 tm,
-                () -> dataStorageModules.collectSchemasFields(List.of(
-                        RocksDbDataStorageConfigurationSchema.class,
-                        TestDataStorageConfigurationSchema.class
-                ))
+                () -> dataStorageModules.collectSchemasFields(
+                        List.of(
+                                RocksDbDataStorageConfigurationSchema.class,
+                                TestDataStorageConfigurationSchema.class
+                        )
+                ),
+                clock
         );
 
         queryProc.start();
@@ -484,9 +492,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         when(msm.registerWatch(any(ByteArray.class), any())).thenReturn(CompletableFuture.completedFuture(1L));
 
-        TableManager tableManager = createTableManager();
-
-        return tableManager;
+        return createTableManager();
     }
 
     private TableManager createTableManager() {
@@ -506,7 +512,8 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 msm,
                 schemaManager,
                 view -> new LocalLogStorageFactory(),
-                null
+                clock,
+                mock(OutgoingSnapshotsManager.class)
         );
 
         tableManager.start();

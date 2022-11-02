@@ -27,10 +27,20 @@ namespace Apache.Ignite.Internal.Generators
     /// </summary>
     internal static class GeneratorUtils
     {
+        /// <summary>
+        /// Gets the C# project root directory.
+        /// </summary>
+        /// <param name="context">Context.</param>
+        /// <returns>Directory.</returns>
         public static string GetProjectRootDirectory(this GeneratorExecutionContext context) =>
             Path.GetDirectoryName(
                 context.Compilation.SyntaxTrees.Single(x => x.FilePath.EndsWith("IIgnite.cs", StringComparison.Ordinal)).FilePath)!;
 
+        /// <summary>
+        /// Gets the modules directory.
+        /// </summary>
+        /// <param name="context">Context.</param>
+        /// <returns>Modules directory.</returns>
         public static string GetJavaModulesDirectory(this GeneratorExecutionContext context) =>
             Path.GetFullPath(Path.Combine(context.GetProjectRootDirectory(), "..", "..", ".."));
     }

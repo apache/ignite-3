@@ -109,6 +109,55 @@ public:
     /**
      * @brief Assigns a binary value for the next element.
      *
+     * @param value Element value.
+     */
+    void claim_int8(std::int8_t value) noexcept { claim(gauge_int8(value)); }
+
+    /**
+     * @brief Assigns a binary value for the next element.
+     *
+     * @param value Element value.
+     */
+    void claim_int16(std::int16_t value) noexcept { claim(gauge_int16(value)); }
+
+    /**
+     * @brief Assigns a binary value for the next element.
+     *
+     * @param value Element value.
+     */
+    void claim_int32(std::int32_t value) noexcept { claim(gauge_int32(value)); }
+
+    /**
+     * @brief Assigns a binary value for the next element.
+     *
+     * @param value Element value.
+     */
+    void claim_int64(std::int64_t value) noexcept { claim(gauge_int64(value)); }
+
+    /**
+     * @brief Assigns a binary value for the next element.
+     *
+     * @param value Element value.
+     */
+    void claim_float(float value) noexcept { claim(gauge_float(value)); }
+
+    /**
+     * @brief Assigns a binary value for the next element.
+     *
+     * @param value Element value.
+     */
+    void claim_double(double value) noexcept { claim(gauge_double(value)); }
+
+    /**
+     * @brief Assigns a binary value for the next element.
+     *
+     * @param value Element value.
+     */
+    void claim_uuid(uuid value) noexcept { claim(gauge_uuid(value)); }
+
+    /**
+     * @brief Assigns a binary value for the next element.
+     *
      * @param type Element type.
      * @param bytes Binary element value.
      */
@@ -159,6 +208,55 @@ public:
             binary_tuple_schema::get_null_mask(element_index);
         append_entry();
     }
+
+    /**
+     * @brief Appends a value for the next element.
+     *
+     * @param value Element value.
+     */
+    void append_int8(std::int8_t value) { put_int8(value); }
+
+    /**
+     * @brief Appends a value for the next element.
+     *
+     * @param value Element value.
+     */
+    void append_int16(std::int16_t value) { put_int16(value); }
+
+    /**
+     * @brief Appends a value for the next element.
+     *
+     * @param value Element value.
+     */
+    void append_int32(std::int32_t value) { put_int32(value); }
+
+    /**
+     * @brief Appends a value for the next element.
+     *
+     * @param value Element value.
+     */
+    void append_int64(std::int64_t value) { put_int64(value); }
+
+    /**
+     * @brief Appends a value for the next element.
+     *
+     * @param value Element value.
+     */
+    void append_float(float value) { put_float(value); }
+
+    /**
+     * @brief Appends a value for the next element.
+     *
+     * @param value Element value.
+     */
+    void append_double(double value) { put_double(value); }
+
+    /**
+     * @brief Appends a value for the next element.
+     *
+     * @param value Element value.
+     */
+    void append_uuid(uuid value) { put_uuid(value); }
 
     /**
      * @brief Appends a value for the next element.
@@ -322,7 +420,9 @@ private:
      * @param value Actual element value.
      * @return Required size.
      */
-    static SizeT gauge_number(const big_integer &value) noexcept { return value.is_zero() ? 0 : value.byte_size(); }
+    static SizeT gauge_number(const big_integer &value) noexcept {
+        return SizeT(value.is_zero() ? 0 : value.byte_size());
+    }
 
     /**
      * @brief Computes required binary size for a given value.
@@ -331,7 +431,7 @@ private:
      * @return Required size.
      */
     static SizeT gauge_number(const big_decimal &value) noexcept {
-        return value.is_zero() ? 0 : value.get_unscaled_value().byte_size();
+        return SizeT(value.is_zero() ? 0 : value.get_unscaled_value().byte_size());
     }
 
     /**
@@ -426,6 +526,15 @@ private:
     void put_int8(bytes_view bytes);
 
     /**
+     * @brief Writes specified element.
+     *
+     * The written value may differ from the original because of value compression.
+     *
+     * @param value Element value.
+     */
+    void put_int8(std::int8_t value);
+
+    /**
      * @brief Writes binary value of specified element.
      *
      * The written value may differ from the original because of value compression.
@@ -433,6 +542,15 @@ private:
      * @param bytes Binary element value.
      */
     void put_int16(bytes_view bytes);
+
+    /**
+     * @brief Writes specified element.
+     *
+     * The written value may differ from the original because of value compression.
+     *
+     * @param value Element value.
+     */
+    void put_int16(std::int16_t value);
 
     /**
      * @brief Writes binary value of specified element.
@@ -444,6 +562,15 @@ private:
     void put_int32(bytes_view bytes);
 
     /**
+     * @brief Writes specified element.
+     *
+     * The written value may differ from the original because of value compression.
+     *
+     * @param value Element value.
+     */
+    void put_int32(std::int32_t value);
+
+    /**
      * @brief Writes binary value of specified element.
      *
      * The written value may differ from the original because of value compression.
@@ -451,6 +578,15 @@ private:
      * @param bytes Binary element value.
      */
     void put_int64(bytes_view bytes);
+
+    /**
+     * @brief Writes specified element.
+     *
+     * The written value may differ from the original because of value compression.
+     *
+     * @param value Element value.
+     */
+    void put_int64(std::int64_t value);
 
     /**
      * @brief Writes binary value of specified element.
@@ -462,6 +598,15 @@ private:
     void put_float(bytes_view bytes);
 
     /**
+     * @brief Writes specified element.
+     *
+     * The written value may differ from the original because of value compression.
+     *
+     * @param value Element value.
+     */
+    void put_float(float value);
+
+    /**
      * @brief Writes binary value of specified element.
      *
      * The written value may differ from the original because of value compression.
@@ -469,6 +614,15 @@ private:
      * @param bytes Binary element value.
      */
     void put_double(bytes_view bytes);
+
+    /**
+     * @brief Writes specified element.
+     *
+     * The written value may differ from the original because of value compression.
+     *
+     * @param value Element value.
+     */
+    void put_double(double value);
 
     /**
      * @brief Writes binary value of specified element.
@@ -487,6 +641,15 @@ private:
      * @param bytes Binary element value.
      */
     void put_uuid(bytes_view bytes);
+
+    /**
+     * @brief Writes specified element.
+     *
+     * The written value may differ from the original because of value compression.
+     *
+     * @param value Element value.
+     */
+    void put_uuid(uuid value);
 
     /**
      * @brief Writes binary value of specified element.

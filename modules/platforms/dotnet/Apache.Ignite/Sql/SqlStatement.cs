@@ -20,6 +20,7 @@ namespace Apache.Ignite.Sql
 {
     using System;
     using System.Collections.Generic;
+    using System.Globalization;
     using System.Text;
     using Internal.Common;
 
@@ -119,7 +120,7 @@ namespace Apache.Ignite.Sql
 
             builder
                 .Append("SqlStatement { ")
-                .Append($"Query = {Query}, Timeout = {Timeout}, Schema = {Schema}, PageSize = {PageSize}, ")
+                .Append(CultureInfo.InvariantCulture, $"Query = {Query}, Timeout = {Timeout}, Schema = {Schema}, PageSize = {PageSize}, ")
                 .Append("Properties = {");
 
             var first = true;

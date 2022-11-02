@@ -34,8 +34,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.stream.Collectors;
-import org.apache.ignite.hlc.HybridClock;
-import org.apache.ignite.hlc.HybridTimestamp;
+import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -90,7 +90,6 @@ import org.apache.ignite.raft.jraft.rpc.RaftClientService;
 import org.apache.ignite.raft.jraft.rpc.RaftRpcFactory;
 import org.apache.ignite.raft.jraft.rpc.RaftServerService;
 import org.apache.ignite.raft.jraft.rpc.ReadIndexResponseBuilder;
-import org.apache.ignite.raft.jraft.rpc.RequestVoteResponseBuilder;
 import org.apache.ignite.raft.jraft.rpc.RpcRequestClosure;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.AppendEntriesRequest;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.AppendEntriesResponse;
@@ -117,6 +116,7 @@ import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
 import org.apache.ignite.raft.jraft.util.OnlyForTest;
 import org.apache.ignite.raft.jraft.util.RepeatedTimer;
 import org.apache.ignite.raft.jraft.util.Requires;
+import org.apache.ignite.raft.jraft.util.SafeTimeCandidateManager;
 import org.apache.ignite.raft.jraft.util.StringUtils;
 import org.apache.ignite.raft.jraft.util.SystemPropertyUtil;
 import org.apache.ignite.raft.jraft.util.ThreadHelper;
@@ -137,6 +137,8 @@ public class NodeImpl implements Node, RaftServerService {
     private static final int MAX_APPLY_RETRY_TIMES = 3;
 
     private volatile HybridClock clock;
+
+    private volatile SafeTimeCandidateManager safeTimeCandidateManager;
 
     /**
      * Internal states
@@ -823,6 +825,7 @@ public class NodeImpl implements Node, RaftServerService {
         opts.setRaftMessagesFactory(raftOptions.getRaftMessagesFactory());
         opts.setfSMCallerExecutorDisruptor(options.getfSMCallerExecutorDisruptor());
         opts.setGroupId(groupId);
+        opts.setSafeTimeCandidateManager(safeTimeCandidateManager);
 
         return this.fsmCaller.init(opts);
     }
@@ -858,6 +861,9 @@ public class NodeImpl implements Node, RaftServerService {
         Requires.requireNonNull(opts.getServiceFactory(), "Null jraft service factory");
         this.serviceFactory = opts.getServiceFactory();
         this.clock = opts.getNodeOptions().getClock();
+        if (opts.getNodeOptions().getSafeTimeTracker() != null) {
+            this.safeTimeCandidateManager = new SafeTimeCandidateManager(opts.getNodeOptions().getSafeTimeTracker());
+        }
         // Term is not an option since changing it is very dangerous
         final long bootstrapLogTerm = opts.getLastLogIndex() > 0 ? 1 : 0;
         final LogId bootstrapId = new LogId(opts.getLastLogIndex(), bootstrapLogTerm);
@@ -956,6 +962,9 @@ public class NodeImpl implements Node, RaftServerService {
         Requires.requireNonNull(opts.getServiceFactory(), "Null jraft service factory");
         this.serviceFactory = opts.getServiceFactory();
         this.clock = opts.getClock();
+        if (opts.getSafeTimeTracker() != null) {
+            this.safeTimeCandidateManager = new SafeTimeCandidateManager(opts.getSafeTimeTracker());
+        }
         this.options = opts;
         this.raftOptions = opts.getRaftOptions();
         this.metrics = new NodeMetrics(opts.isEnableMetrics());
@@ -2217,6 +2226,10 @@ public class NodeImpl implements Node, RaftServerService {
                                 realChecksum);
                     }
                     entries.add(logEntry);
+                }
+
+                if (safeTimeCandidateManager != null) {
+                    safeTimeCandidateManager.addSafeTimeCandidate(index, request.term(), request.timestamp());
                 }
             }
 

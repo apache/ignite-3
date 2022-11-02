@@ -20,7 +20,6 @@
     <PropertyGroup>
         <TargetFramework>net6.0</TargetFramework>
         <IsPackable>false</IsPackable>
-        <CodeAnalysisRuleSet>..\Apache.Ignite.Tests.ruleset</CodeAnalysisRuleSet>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
         <SignAssembly>true</SignAssembly>
         <AssemblyOriginatorKeyFile>Apache.Ignite.Tests.snk</AssemblyOriginatorKeyFile>

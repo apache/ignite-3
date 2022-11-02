@@ -32,9 +32,9 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
-import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -102,7 +102,7 @@ public class ItRaftGroupServiceTest {
         CompletableFuture<RaftGroupService>[] svcFutures = new CompletableFuture[NODES_CNT];
 
         for (int i = 0; i < NODES_CNT; i++) {
-            Loza raftServer = new Loza(clusterServices.get(i), raftConfiguration, workDir.resolve("node" + i), new HybridClock());
+            Loza raftServer = new Loza(clusterServices.get(i), raftConfiguration, workDir.resolve("node" + i), new HybridClockImpl());
 
             raftSrvs.add(raftServer);
 

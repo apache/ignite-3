@@ -72,6 +72,7 @@ import org.apache.ignite.internal.configuration.notifications.ConfigurationStora
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.configuration.testframework.InjectRevisionListenerHolder;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -97,6 +98,7 @@ import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageChange;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
 import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.event.TableEvent;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
@@ -613,6 +615,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         CountDownLatch createTblLatch = new CountDownLatch(1);
 
         tableManager.listen(TableEvent.CREATE, (parameters, exception) -> {
+            parameters.table().pkId(UUID.randomUUID());
             createTblLatch.countDown();
 
             return completedFuture(true);
@@ -768,7 +771,8 @@ public class TableManagerTest extends IgniteAbstractTest {
                 msm,
                 sm = new SchemaManager(revisionUpdater, tblsCfg, msm),
                 budgetView -> new LocalLogStorageFactory(),
-                null
+                new HybridClockImpl(),
+                new OutgoingSnapshotsManager(messagingService)
         );
 
         sm.start();

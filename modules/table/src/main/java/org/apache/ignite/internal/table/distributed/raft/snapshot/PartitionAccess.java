@@ -17,12 +17,40 @@
 
 package org.apache.ignite.internal.table.distributed.raft.snapshot;
 
+import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
+
 /**
  * Small abstractions for partition storages that includes only methods, mandatory for the snapshot storage.
  */
 public interface PartitionAccess {
     /**
-     * Returns persisted RAFT index for the partition.
+     * Returns the key that uniquely identifies the corresponding partition.
      */
-    long persistedIndex();
+    PartitionKey partitionKey();
+
+    /**
+     * Returns the multi-versioned partition storage.
+     */
+    MvPartitionStorage mvPartitionStorage();
+
+    /**
+     * Returns transaction state storage for the partition.
+     */
+    TxStateStorage txStatePartitionStorage();
+
+    /**
+     * Destroys and recreates the multi-versioned partition storage.
+     *
+     * @throws StorageException If an error has occurred during the partition destruction.
+     */
+    MvPartitionStorage reCreateMvPartitionStorage() throws StorageException;
+
+    /**
+     * Destroys and recreates the multi-versioned partition storage.
+     *
+     * @throws StorageException If an error has occurred during transaction state storage for the partition destruction.
+     */
+    TxStateStorage reCreateTxStatePartitionStorage() throws StorageException;
 }
