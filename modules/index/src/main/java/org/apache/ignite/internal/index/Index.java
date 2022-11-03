@@ -20,9 +20,11 @@ package org.apache.ignite.internal.index;
 import java.util.BitSet;
 import java.util.UUID;
 import java.util.concurrent.Flow.Publisher;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.network.ClusterNode;
 
 /**
  * An object describing an abstract index.
@@ -41,5 +43,7 @@ public interface Index<DescriptorT extends IndexDescriptor> {
     DescriptorT descriptor();
 
     /** Returns cursor for the values corresponding to the given key. */
-    Publisher<BinaryRow> scan(int partId, InternalTransaction tx, BinaryTuple key, BitSet columns);
+    Publisher<BinaryRow> lookup(int partId, InternalTransaction tx, BinaryTuple key, BitSet columns);
+
+    Publisher<BinaryRow> lookup(int partId, HybridTimestamp timestamp, ClusterNode recipient, BinaryTuple key, BitSet columns);
 }

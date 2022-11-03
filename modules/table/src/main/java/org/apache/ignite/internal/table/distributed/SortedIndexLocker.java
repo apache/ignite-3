@@ -81,8 +81,13 @@ public class SortedIndexLocker implements IndexLocker {
         return lockManager.acquire(txId, new LockKey(indexId, key.byteBuffer()), LockMode.S);
     }
 
-    /** {@inheritDoc} */
-    @Override
+    /**
+     * Acquires the lock for scan operation.
+     *
+     * @param txId An identifier of the transaction in which the row is read.
+     * @param cursor Cursor, which next key is to be locked.
+     * @return A future representing a result.
+     */
     public CompletableFuture<IndexRow> locksForScan(UUID txId, Cursor<IndexRow> cursor) {
         // TODO https://issues.apache.org/jira/browse/IGNITE-18057
         // 1. Do index.peekNext() item and lock it. (Lock INF+ if not found)

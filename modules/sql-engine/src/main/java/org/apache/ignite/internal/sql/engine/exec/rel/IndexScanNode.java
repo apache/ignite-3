@@ -20,7 +20,6 @@ package org.apache.ignite.internal.sql.engine.exec.rel;
 import static org.apache.ignite.internal.util.ArrayUtils.nullOrEmpty;
 
 import java.util.ArrayList;
-import java.util.BitSet;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
@@ -332,7 +331,7 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
                 key = toBinaryTuple(cond.lower());
             }
 
-            pub = schemaIndex.index().scan(
+            pub = schemaIndex.index().lookup(
                     part,
                     context().transaction(),
                     key,

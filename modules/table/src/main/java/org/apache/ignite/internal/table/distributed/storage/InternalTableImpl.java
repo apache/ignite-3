@@ -278,7 +278,6 @@ public class InternalTableImpl implements InternalTable {
             );
         }
 
-
         final boolean implicit = tx == null;
 
         if (!implicit && tx.state() != null) {
@@ -410,24 +409,24 @@ public class InternalTableImpl implements InternalTable {
         CompletableFuture<R> result = new CompletableFuture<>();
 
         enlist(partId, tx).<R>thenCompose(
-                primaryReplicaAndTerm -> {
-                    try {
-                        return replicaSvc.invoke(
-                                primaryReplicaAndTerm.get1(),
-                                requestFunction.apply((TablePartitionId) tx.commitPartition(), primaryReplicaAndTerm.get2())
-                        );
-                    } catch (PrimaryReplicaMissException e) {
-                        throw new TransactionException(e);
-                    } catch (Throwable e) {
-                        throw new TransactionException(
-                                IgniteStringFormatter.format(
-                                        "Failed to enlist partition[tableName={}, partId={}] into a transaction",
-                                        tableName,
-                                        partId
-                                )
-                        );
-                    }
-                })
+                        primaryReplicaAndTerm -> {
+                            try {
+                                return replicaSvc.invoke(
+                                        primaryReplicaAndTerm.get1(),
+                                        requestFunction.apply((TablePartitionId) tx.commitPartition(), primaryReplicaAndTerm.get2())
+                                );
+                            } catch (PrimaryReplicaMissException e) {
+                                throw new TransactionException(e);
+                            } catch (Throwable e) {
+                                throw new TransactionException(
+                                        IgniteStringFormatter.format(
+                                                "Failed to enlist partition[tableName={}, partId={}] into a transaction",
+                                                tableName,
+                                                partId
+                                        )
+                                );
+                            }
+                        })
                 .handle((res0, e) -> {
                     if (e != null) {
                         if (e.getCause() instanceof PrimaryReplicaMissException && attempts > 0) {
@@ -817,11 +816,32 @@ public class InternalTableImpl implements InternalTable {
 
     /** {@inheritDoc} */
     @Override
+    public Publisher<BinaryRow> lookup(int partId, @NotNull HybridTimestamp readTimestamp, @NotNull ClusterNode recipientNode,
+            @NotNull UUID indexId, BinaryTuple key, @Nullable BitSet columnsToInclude) {
+        return scan(partId, readTimestamp, recipientNode, indexId, key, null, null, 0, columnsToInclude);
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public Publisher<BinaryRow> scan(
             int partId,
             @NotNull HybridTimestamp readTimestamp,
             @NotNull ClusterNode recipientNode,
             @Nullable UUID indexId,
+            @Nullable BinaryTuplePrefix lowerBound,
+            @Nullable BinaryTuplePrefix upperBound,
+            int flags,
+            @Nullable BitSet columnsToInclude
+    ) {
+        return scan(partId, readTimestamp, recipientNode, indexId, null, lowerBound, upperBound, flags, columnsToInclude);
+    }
+
+    private Publisher<BinaryRow> scan(
+            int partId,
+            @NotNull HybridTimestamp readTimestamp,
+            @NotNull ClusterNode recipientNode,
+            @Nullable UUID indexId,
+            @Nullable BinaryTuple exactKey,
             @Nullable BinaryTuplePrefix lowerBound,
             @Nullable BinaryTuplePrefix upperBound,
             int flags,
@@ -843,6 +863,7 @@ public class InternalTableImpl implements InternalTable {
                             .scanId(scanId)
                             .batchSize(batchSize)
                             .indexToUse(indexId)
+                            .exactKey(exactKey)
                             .lowerBound(lowerBound)
                             .upperBound(upperBound)
                             .flags(flags)
@@ -857,7 +878,7 @@ public class InternalTableImpl implements InternalTable {
 
     /** {@inheritDoc} */
     @Override
-    public Publisher<BinaryRow> scan(int partId, @Nullable InternalTransaction tx, @NotNull UUID indexId, BinaryTuple key,
+    public Publisher<BinaryRow> lookup(int partId, @Nullable InternalTransaction tx, @NotNull UUID indexId, BinaryTuple key,
             @Nullable BitSet columnsToInclude) {
         return scan(partId, tx, indexId, key, null, null, 0, columnsToInclude);
     }
@@ -1080,7 +1101,7 @@ public class InternalTableImpl implements InternalTable {
      * Enlists a partition.
      *
      * @param partId Partition id.
-     * @param tx     The transaction.
+     * @param tx The transaction.
      * @return The enlist future (then will a leader become known).
      */
     protected CompletableFuture<IgniteBiTuple<ClusterNode, Long>> enlist(int partId, InternalTransaction tx) {
@@ -1276,6 +1297,7 @@ public class InternalTableImpl implements InternalTable {
     }
 
     // TODO: IGNITE-17963 Use smarter logic for recipient node evaluation.
+
     /**
      * Evaluated cluster node for read-only request processing.
      *

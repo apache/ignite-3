@@ -21,12 +21,15 @@ import java.util.BitSet;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.Flow.Publisher;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.network.ClusterNode;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * An object that represents a sorted index.
@@ -75,8 +78,13 @@ public class SortedIndexImpl implements SortedIndex {
 
     /** {@inheritDoc} */
     @Override
-    public Publisher<BinaryRow> scan(int partId, InternalTransaction tx, BinaryTuple key, BitSet columns) {
-        return table.scan(partId, tx, id, key, columns);
+    public Publisher<BinaryRow> lookup(int partId, InternalTransaction tx, BinaryTuple key, BitSet columns) {
+        return table.lookup(partId, tx, id, key, columns);
+    }
+
+    @Override
+    public Publisher<BinaryRow> lookup(int partId, HybridTimestamp timestamp, ClusterNode recipient, BinaryTuple key, BitSet columns) {
+        return table.lookup(partId, timestamp, recipient, id, key, columns);
     }
 
     /** {@inheritDoc} */
@@ -90,5 +98,12 @@ public class SortedIndexImpl implements SortedIndex {
             BitSet columnsToInclude
     ) {
         return table.scan(partId, tx, id, leftBound, rightBound, flags, columnsToInclude);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Publisher<BinaryRow> scan(int partId, HybridTimestamp timestamp, ClusterNode recipient, @Nullable BinaryTuplePrefix leftBound,
+            @Nullable BinaryTuplePrefix rightBound, int flags, BitSet columnsToInclude) {
+        return table.scan(partId, timestamp, recipient, id, leftBound, rightBound, flags, columnsToInclude);
     }
 }

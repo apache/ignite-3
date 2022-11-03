@@ -302,7 +302,7 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
                     return dummyPublisher(partitionData(tableData, schemaDescriptor, invocation.getArgument(0)));
                 })
                 .when(hashIndexMock)
-                .scan(Mockito.anyInt(), Mockito.any(), Mockito.any(), Mockito.any());
+                .lookup(Mockito.anyInt(), Mockito.any(), Mockito.any(), Mockito.any());
         //CHECKSTYLE:ON:Indentation
 
         IgniteIndex indexMock = Mockito.mock(IgniteIndex.class);

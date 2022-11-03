@@ -45,7 +45,6 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommand;
@@ -57,14 +56,17 @@ import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaSafeTimeSyncRequest;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.index.IndexRow;
+import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.table.distributed.IndexLocker;
+import org.apache.ignite.internal.table.distributed.SortedIndexLocker;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
 import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
 import org.apache.ignite.internal.table.distributed.command.TxCleanupCommand;
@@ -350,14 +352,6 @@ public class PartitionReplicaListener implements ReplicaListener {
     ) {
         requireNonNull(isPrimary);
 
-        if (request.indexToUse() != null) {
-            TableSchemaAwareIndexStorage indexStorage = secondaryIndexStorages.get().get(request.indexToUse());
-
-            if (indexStorage != null && indexStorage.storage() instanceof SortedIndexStorage) {
-                return scanSortedIndex(request, (SortedIndexStorage) indexStorage);
-            }
-        }
-
         UUID txId = request.transactionId();
         int batchCount = request.batchSize();
         HybridTimestamp readTimestamp = request.readTimestamp();
@@ -365,6 +359,24 @@ public class PartitionReplicaListener implements ReplicaListener {
         IgniteUuid cursorId = new IgniteUuid(txId, request.scanId());
 
         CompletableFuture<Void> safeReadFuture = isPrimary ? completedFuture(null) : safeTime.waitFor(readTimestamp);
+
+        if (request.indexToUse() != null) {
+            TableSchemaAwareIndexStorage indexStorage = secondaryIndexStorages.get().get(request.indexToUse());
+
+            if (indexStorage == null) {
+                throw new AssertionError("Index not found: uuid=" + request.indexToUse());
+            }
+
+            if (request.exactKey() != null) {
+                assert request.lowerBound() == null && request.upperBound() == null : "Index lookup doesn't allow bounds.";
+
+                return safeReadFuture.thenCompose(unused -> lookupIndex(request, indexStorage.storage()));
+            }
+
+            assert indexStorage.storage() instanceof SortedIndexStorage;
+
+            return safeReadFuture.thenCompose(unused -> scanSortedIndex(request, (SortedIndexStorage) indexStorage));
+        }
 
         return safeReadFuture.thenCompose(unused -> retrieveExactEntriesUntilCursorEmpty(readTimestamp, cursorId, batchCount));
     }
@@ -566,10 +578,21 @@ public class PartitionReplicaListener implements ReplicaListener {
         if (request.indexToUse() != null) {
             TableSchemaAwareIndexStorage indexStorage = secondaryIndexStorages.get().get(request.indexToUse());
 
-            if (indexStorage != null && indexStorage.storage() instanceof SortedIndexStorage) {
-                return scanSortedIndex(request, (SortedIndexStorage) indexStorage.storage());
+            if (indexStorage == null) {
+                throw new AssertionError("Index not found: uuid=" + request.indexToUse());
             }
+
+            if (request.exactKey() != null) {
+                assert request.lowerBound() == null && request.upperBound() == null : "Index lookup doesn't allow bounds.";
+
+                return lookupIndex(request, indexStorage.storage());
+            }
+
+            assert indexStorage.storage() instanceof SortedIndexStorage;
+
+            return scanSortedIndex(request, (SortedIndexStorage) indexStorage.storage());
         }
+
         UUID txId = request.transactionId();
         int batchCount = request.batchSize();
 
@@ -632,12 +655,73 @@ public class PartitionReplicaListener implements ReplicaListener {
                             );
                         });
 
-                IndexLocker indexLocker = indexesLockers.get().get(indexId);
+                SortedIndexLocker indexLocker = (SortedIndexLocker) indexesLockers.get().get(indexId);
 
                 final ArrayList<BinaryRow> result = new ArrayList<>(batchCount);
 
-                return continueIndexScan(txId, indexId, indexLocker, cursor, batchCount, result)
+                return continueSortedIndexScan(txId, indexId, indexLocker, cursor, batchCount, result)
                         .thenApply(ignore -> result);
+            });
+        });
+    }
+
+    /**
+     * Lookup sorted index in RO tx.
+     *
+     * @param request Index scan request.
+     * @param indexStorage Index storage.
+     * @return Opreation future.
+     */
+    private CompletableFuture<List<BinaryRow>> lookupIndex(
+            ReadOnlyScanRetrieveBatchReplicaRequest request,
+            IndexStorage indexStorage
+    ) {
+        int batchCount = request.batchSize();
+        HybridTimestamp timestamp = request.readTimestamp();
+
+        IgniteUuid cursorId = new IgniteUuid(request.transactionId(), request.scanId());
+
+        BinaryTuple key = request.exactKey();
+
+        @SuppressWarnings("resource") Cursor<IndexRow> cursor = (Cursor<IndexRow>) cursors.computeIfAbsent(cursorId,
+                id -> indexStorage.get(key));
+
+        final ArrayList<BinaryRow> result = new ArrayList<>(batchCount);
+
+        return continueReadOnlyIndexScan(cursor, timestamp, batchCount, result)
+                .thenCompose(ignore -> CompletableFuture.completedFuture(result));
+    }
+
+    private CompletableFuture<List<BinaryRow>> lookupIndex(
+            ReadWriteScanRetrieveBatchReplicaRequest request,
+            IndexStorage indexStorage
+    ) {
+        UUID txId = request.transactionId();
+        int batchCount = request.batchSize();
+
+        IgniteUuid cursorId = new IgniteUuid(txId, request.scanId());
+
+        UUID indexId = request.indexToUse();
+
+        BinaryTuple exactKey = request.exactKey();
+
+        return lockManager.acquire(txId, new LockKey(indexId), LockMode.IS).thenCompose(idxLock -> { // Index IS lock
+            return lockManager.acquire(txId, new LockKey(tableId), LockMode.IS).thenCompose(tblLock -> { // Table IS lock
+                return lockManager.acquire(txId, new LockKey(indexId, exactKey.byteBuffer()), LockMode.S)
+                        .thenCompose(indRowLock -> { // Hash index bucket S lock
+                            @SuppressWarnings("resource") Cursor<RowId> cursor = (Cursor<RowId>) cursors.computeIfAbsent(cursorId,
+                                    id -> {
+                                        // TODO https://issues.apache.org/jira/browse/IGNITE-18057
+                                        // Fix scan cursor return item closet to lowerbound and <= lowerbound
+                                        // to correctly lock range between lowerbound value and the item next to lowerbound.
+                                        return indexStorage.get(exactKey);
+                                    });
+
+                            final ArrayList<BinaryRow> result = new ArrayList<>(batchCount);
+
+                            return continueIndexLookup(txId, indexId, cursor, batchCount, result)
+                                    .thenApply(ignore -> result);
+                        });
             });
         });
     }
@@ -693,7 +777,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         RowId rowId = indexRow.rowId();
 
-        ReadResult readResult = mvDataStorage.read(rowId, HybridTimestamp.MAX_VALUE);
+        ReadResult readResult = mvDataStorage.read(rowId, timestamp);
 
         return resolveReadResult(readResult, timestamp, () -> {
             if (readResult.newestCommitTimestamp() == null) {
@@ -712,7 +796,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 result.add(resolvedReadResult);
             }
 
-            return CompletableFuture.supplyAsync(() -> continueReadOnlyIndexScan(cursor, timestamp, batchSize, result), scanRequestExecutor)
+            return CompletableFuture.supplyAsync(() -> continueReadOnlyIndexScan(cursor, timestamp, batchSize, result))
                     .thenCompose(Function.identity());
         });
     }
@@ -730,10 +814,10 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param result Result collection.
      * @return Future.
      */
-    CompletableFuture<Void> continueIndexScan(
+    CompletableFuture<Void> continueSortedIndexScan(
             UUID txId,
             UUID indexId,
-            IndexLocker indexLocker,
+            SortedIndexLocker indexLocker,
             Cursor<IndexRow> indexCursor,
             int batchSize,
             List<BinaryRow> result
@@ -759,10 +843,44 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                                 // Proceed scan.
                                 return CompletableFuture.supplyAsync(
-                                                () -> continueIndexScan(txId, indexId, indexLocker, indexCursor, batchSize, result),
+                                        () -> continueSortedIndexScan(txId, indexId, indexLocker, indexCursor, batchSize, result),
                                         scanRequestExecutor
-                                        ).thenCompose(Function.identity());
+                                ).thenCompose(Function.identity());
                             });
+                });
+    }
+
+    CompletableFuture<Void> continueIndexLookup(
+            UUID txId,
+            UUID indexId,
+            Cursor<RowId> indexCursor,
+            int batchSize,
+            List<BinaryRow> result
+    ) {
+        if (result.size() == batchSize) { // Batch is full, exit loop.
+            return CompletableFuture.completedFuture(null);
+        }
+
+        if (!indexCursor.hasNext()) {
+            return CompletableFuture.completedFuture(null);
+        }
+
+        RowId rowId = indexCursor.next();
+
+        return lockManager.acquire(txId, new LockKey(tableId, rowId), LockMode.S)
+                .thenCompose(rowLock -> { // Table row S lock
+                    ReadResult readResult = mvDataStorage.read(rowId, HybridTimestamp.MAX_VALUE);
+                    BinaryRow resolvedReadResult = resolveReadResult(readResult, txId);
+
+                    if (resolvedReadResult != null) {
+                        result.add(resolvedReadResult);
+                    }
+
+                    // Proceed lookup.
+                    return CompletableFuture.supplyAsync(
+                            () -> continueIndexLookup(txId, indexId, indexCursor, batchSize, result),
+                            scanRequestExecutor
+                    ).thenCompose(Function.identity());
                 });
     }
 
@@ -942,7 +1060,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     /**
      * Tests row values for equality.
      *
-     * @param row  Row.
+     * @param row Row.
      * @param row2 Row.
      * @return Extracted key.
      */
@@ -1330,7 +1448,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     /**
      * Takes all required locks on a key, before upserting.
      *
-     * @param txId      Transaction id.
+     * @param txId Transaction id.
      * @return Future completes with {@link RowId} or {@code null} if there is no value.
      */
     private CompletableFuture<RowId> takeLocksForUpdate(BinaryRow tableRow, RowId rowId, UUID txId) {
@@ -1390,7 +1508,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     /**
      * Takes all required locks on a key, before deleting the value.
      *
-     * @param txId      Transaction id.
+     * @param txId Transaction id.
      * @return Future completes with {@link RowId} or {@code null} if there is no value for remove.
      */
     private CompletableFuture<RowId> takeLocksForDeleteExact(BinaryRow expectedRow, RowId rowId, BinaryRow actualRow, UUID txId) {
@@ -1410,7 +1528,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     /**
      * Takes all required locks on a key, before deleting the value.
      *
-     * @param txId      Transaction id.
+     * @param txId Transaction id.
      * @return Future completes with {@link RowId} or {@code null} if there is no value for the key.
      */
     private CompletableFuture<RowId> takeLocksForDelete(BinaryRow tableRow, RowId rowId, UUID txId) {
@@ -1423,7 +1541,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     /**
      * Takes all required locks on a key, before getting the value.
      *
-     * @param txId      Transaction id.
+     * @param txId Transaction id.
      * @return Future completes with {@link RowId} or {@code null} if there is no value for the key.
      */
     private CompletableFuture<RowId> takeLocksForGet(RowId rowId, UUID txId) {
@@ -1472,7 +1590,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     /**
      * Takes all required locks on a key, before updating the value.
      *
-     * @param txId      Transaction id.
+     * @param txId Transaction id.
      * @return Future completes with {@link RowId} or {@code null} if there is no suitable row.
      */
     private CompletableFuture<RowId> takeLocksForReplace(BinaryRow expectedRow, BinaryRow oldRow,
@@ -1614,8 +1732,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     /**
-     * Resolves a read result to the matched row.
-     * If the result does not match any row, the method returns a future to {@code null}.
+     * Resolves a read result to the matched row. If the result does not match any row, the method returns a future to {@code null}.
      *
      * @param readResult Read result.
      * @param timestamp Timestamp.

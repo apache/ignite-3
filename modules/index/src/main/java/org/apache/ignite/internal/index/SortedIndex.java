@@ -19,9 +19,11 @@ package org.apache.ignite.internal.index;
 
 import java.util.BitSet;
 import java.util.concurrent.Flow.Publisher;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -56,6 +58,17 @@ public interface SortedIndex extends Index<SortedIndexDescriptor> {
         return scan(partId, tx, left, right, INCLUDE_LEFT, columns);
     }
 
+    default Publisher<BinaryRow> scan(
+            int partId,
+            HybridTimestamp timestamp,
+            ClusterNode recipient,
+            @Nullable BinaryTuplePrefix left,
+            @Nullable BinaryTuplePrefix right,
+            BitSet columns
+    ) {
+        return scan(partId, timestamp, recipient, left, right, INCLUDE_LEFT, columns);
+    }
+
     /**
      * Opens a range cursor for given bounds. Inclusion of the bounds is defined by {@code includeBounds} mask.
      *
@@ -72,6 +85,30 @@ public interface SortedIndex extends Index<SortedIndexDescriptor> {
     Publisher<BinaryRow> scan(
             int partId,
             InternalTransaction tx,
+            @Nullable BinaryTuplePrefix leftBound,
+            @Nullable BinaryTuplePrefix rightBound,
+            int flags,
+            BitSet columnsToInclude
+    );
+
+
+    /**
+     * Opens a range cursor for given bounds. Inclusion of the bounds is defined by {@code includeBounds} mask.
+     *
+     * @param partId Partition.
+     * @param tx Transaction. //TODO
+     * @param leftBound Left bound of range.
+     * @param rightBound Right bound of range.
+     * @param flags A mask that defines whether to include bounds into the final result or not.
+     * @param columnsToInclude Columns to include.
+     * @return A cursor from resulting rows.
+     * @see SortedIndex#INCLUDE_LEFT
+     * @see SortedIndex#INCLUDE_RIGHT
+     */
+    Publisher<BinaryRow> scan(
+            int partId,
+            HybridTimestamp timestamp,
+            ClusterNode recipient,
             @Nullable BinaryTuplePrefix leftBound,
             @Nullable BinaryTuplePrefix rightBound,
             int flags,

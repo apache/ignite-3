@@ -42,14 +42,6 @@ public interface IndexLocker {
      */
     CompletableFuture<?> locksForLookup(UUID txId, BinaryRow tableRow);
 
-    /**
-     * Acquires the lock for scan operation.
-     *
-     * @param txId An identifier of the transaction in which the row is read.
-     * @param cursor Cursor, which next key is to be locked.
-     * @return A future representing a result.
-     */
-    CompletableFuture<IndexRow> locksForScan(UUID txId, Cursor<IndexRow> cursor);
 
     /**
      * Acquires the lock for insert operation.
