@@ -72,6 +72,7 @@ public class OutgoingSnapshot {
      */
     private final ReentrantLock mvOperationsLock = new ReentrantLock();
 
+    /** Snapshot metadata that is taken at the moment when snapshot scope is frozen. {@code null} till the freeze happens. */
     @Nullable
     private volatile SnapshotMeta frozenMeta;
 
