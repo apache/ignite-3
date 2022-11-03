@@ -303,6 +303,26 @@ public class PartitionAwarenessTests
             await AssertOpOnNode(() => view.UpsertAsync(null, new CompositeKey(idStr, idGuid)), ClientOp.TupleUpsert, node);
     }
 
+    [Test]
+    [TestCaseSource(nameof(KeyNodeCases))]
+    public async Task TestExecuteColocatedTupleKeyRoutesRequestToPrimaryNode(int keyId, int node)
+    {
+        using var client = await GetClient();
+        var expectedNode = node == 1 ? _server1 : _server2;
+
+        await AssertOpOnNode(
+            () => client.Compute.ExecuteColocatedAsync<object?>(FakeServer.ExistingTableName, new IgniteTuple { ["ID"] = keyId }, "job"),
+            ClientOp.ComputeExecuteColocated,
+            expectedNode);
+    }
+
+    [Test]
+    public async Task TestExecuteColocatedObjectKeyRoutesRequestToPrimaryNode()
+    {
+        // TODO
+        await Task.Delay(1);
+    }
+
     private static async Task AssertOpOnNode(
         Func<Task> action,
         ClientOp op,
