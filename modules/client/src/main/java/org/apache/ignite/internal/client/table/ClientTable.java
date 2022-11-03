@@ -319,7 +319,7 @@ public class ClientTable implements Table {
             int opCode,
             BiConsumer<ClientSchema, PayloadOutputChannel> writer,
             Function<ClientMessageUnpacker, T> reader,
-            Function<ClientSchema, Integer> hashFunction) {
+            @Nullable Function<ClientSchema, Integer> hashFunction) {
 
         CompletableFuture<ClientSchema> schemaFut = getLatestSchema();
         CompletableFuture<List<String>> partitionsFut = hashFunction == null
@@ -419,7 +419,10 @@ public class ClientTable implements Table {
     }
 
     @Nullable
-    private static String getPreferredNodeId(Function<ClientSchema, Integer> hashFunction, List<String> partitions, ClientSchema schema) {
+    private static String getPreferredNodeId(
+            @Nullable Function<ClientSchema, Integer> hashFunction,
+            @Nullable List<String> partitions,
+            ClientSchema schema) {
         if (partitions == null || partitions.isEmpty() || hashFunction == null) {
             return null;
         }
