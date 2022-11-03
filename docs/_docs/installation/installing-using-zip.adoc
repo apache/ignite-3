@@ -31,7 +31,7 @@ include::../includes/prereqs.adoc[]
 tab:Unix[]
 [source,shell]
 ----
-curl -L "https://www.apache.org/dyn/mirrors/mirrors.cgi?action=download&filename=ignite/3.0.0-beta1/apache-ignite-3.0.0-beta1.zip" -o apache-ignite-3.0.0-beta1.zip
+curl -L "https://www.apache.org/dyn/mirrors/mirrors.cgi?action=download&filename=ignite/3.0.0-beta1/ignite3-3.0.0-beta1.zip" -o ignite3-3.0.0-beta1.zip
 ----
 
 tab:Windows (PowerShell)[]
@@ -54,20 +54,20 @@ include::../includes/ignite-cli-download-windows.adoc[tag=command,indent=0]
 tab:Unix[]
 [source,shell]
 ----
-unzip ignite-3-beta1.zip && cd ignite-3-beta1
+unzip ignite3-3.0.0-beta1.zip && cd ignite-3-beta1
 ----
 
 
 tab:Windows (PowerShell)[]
 [source,shell]
 ----
-Expand-Archive ignite-3-beta1.zip -DestinationPath . ; cd ignite-3-beta1
+Expand-Archive ignite3-3.0.0-beta1.zip -DestinationPath . ; cd ignite-3-beta1
 ----
 
 tab:Windows (CMD)[]
 [source,shell]
 ----
-tar -xf ignite-3-beta1.zip & cd ignite-3-beta1
+tar -xf ignite3-3.0.0-beta1.zip & cd ignite-3-beta1
 ----
 --
 
