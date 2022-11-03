@@ -29,6 +29,7 @@ import org.apache.calcite.plan.RelOptPlanner;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.PhysicalNode;
 import org.apache.calcite.rel.RelCollation;
+import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.RelDistribution;
 import org.apache.calcite.rel.core.CorrelationId;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
@@ -44,6 +45,7 @@ import org.apache.ignite.internal.sql.engine.rel.ProjectableFilterableTableScan;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
+import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.schema.InternalIgniteTable;
 import org.apache.ignite.internal.sql.engine.trait.CorrelationTrait;
 import org.apache.ignite.internal.sql.engine.trait.RewindabilityTrait;
@@ -73,7 +75,7 @@ public abstract class LogicalScanConverterRule<T extends ProjectableFilterableTa
 
                     RelDistribution distribution = table.distribution();
                     RelCollation collation = TraitUtils.createCollation(index.columns(), index.collations(), table.descriptor());
-                    RelCollation outputCollation = collation;
+                    RelCollation outputCollation = index.type() == Type.HASH ? RelCollations.EMPTY : collation;
 
                     if (rel.projects() != null || rel.requiredColumns() != null) {
                         Mappings.TargetMapping mapping = createMapping(
@@ -83,7 +85,7 @@ public abstract class LogicalScanConverterRule<T extends ProjectableFilterableTa
                         );
 
                         distribution = distribution.apply(mapping);
-                        outputCollation = collation.apply(mapping);
+                        outputCollation = outputCollation.apply(mapping);
                     }
 
                     Set<CorrelationId> corrIds = RexUtils.extractCorrelationIds(rel.condition());
