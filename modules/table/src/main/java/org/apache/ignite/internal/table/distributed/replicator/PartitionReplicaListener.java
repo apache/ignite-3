@@ -590,8 +590,10 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param indexStorage Index storage.
      * @return Opreation future.
      */
-    private CompletableFuture<List<BinaryRow>> scanSortedIndex(ReadWriteScanRetrieveBatchReplicaRequest request,
-            SortedIndexStorage indexStorage) {
+    private CompletableFuture<List<BinaryRow>> scanSortedIndex(
+            ReadWriteScanRetrieveBatchReplicaRequest request,
+            SortedIndexStorage indexStorage
+    ) {
         UUID txId = request.transactionId();
         int batchCount = request.batchSize();
 
@@ -1539,8 +1541,11 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param lastCommitted Action to get the latest committed row.
      * @return Future to resolved binary row.
      */
-    private CompletableFuture<BinaryRow> resolveReadResult(ReadResult readResult, HybridTimestamp timestamp,
-            Supplier<BinaryRow> lastCommitted) {
+    private CompletableFuture<BinaryRow> resolveReadResult(
+            ReadResult readResult,
+            HybridTimestamp timestamp,
+            Supplier<BinaryRow> lastCommitted
+    ) {
         return resolveReadResult(readResult, null, timestamp, lastCommitted);
     }
 
