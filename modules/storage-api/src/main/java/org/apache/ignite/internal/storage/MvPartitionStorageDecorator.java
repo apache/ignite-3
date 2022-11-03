@@ -58,7 +58,7 @@ public class MvPartitionStorageDecorator implements MvPartitionStorage {
      * @return Previous delegate.
      */
     public MvPartitionStorage replaceDelegate(MvPartitionStorage newDelegate) {
-        return (MvPartitionStorage) DELEGATE.getAndAdd(this, newDelegate);
+        return (MvPartitionStorage) DELEGATE.getAndSet(this, newDelegate);
     }
 
     @Override

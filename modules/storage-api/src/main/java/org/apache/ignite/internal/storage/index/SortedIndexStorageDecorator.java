@@ -58,7 +58,7 @@ public class SortedIndexStorageDecorator implements SortedIndexStorage {
      * @return Previous delegate.
      */
     public SortedIndexStorage replaceDelegate(SortedIndexStorage newDelegate) {
-        return (SortedIndexStorage) DELEGATE.getAndAdd(this, newDelegate);
+        return (SortedIndexStorage) DELEGATE.getAndSet(this, newDelegate);
     }
 
     @Override

@@ -179,6 +179,8 @@ public interface MvTableStorage {
      *     partition storage and its index storages.</li>
      * </ol>
      *
+     * <p>Only modification of data in partition storage and its index storages is allowed.
+     *
      * @param partitionId Partition ID.
      * @return Future, if completed without errors, then {@link #getMvPartition}, {@link #getOrCreateSortedIndex(int, UUID)} and
      *      {@link #getOrCreateSortedIndex(int, UUID)} will return a new (empty) storages.

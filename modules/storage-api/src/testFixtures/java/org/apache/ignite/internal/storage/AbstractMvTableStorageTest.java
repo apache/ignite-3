@@ -18,8 +18,10 @@
 package org.apache.ignite.internal.storage;
 
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.CollectionUtils.viewReadOnly;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.instanceOf;
@@ -59,8 +61,10 @@ import org.apache.ignite.internal.schema.testutils.definition.TableDefinition;
 import org.apache.ignite.internal.schema.testutils.definition.index.IndexDefinition;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
+import org.apache.ignite.internal.storage.index.HashIndexStorageDecorator;
 import org.apache.ignite.internal.storage.index.IndexRowImpl;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
+import org.apache.ignite.internal.storage.index.SortedIndexStorageDecorator;
 import org.apache.ignite.internal.util.Cursor;
 import org.junit.jupiter.api.Test;
 
@@ -321,6 +325,10 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         HashIndexStorage hashIndexStorage = tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIndexId);
         SortedIndexStorage sortedIndexStorage = tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIndexId);
 
+        assertThat(partitionStorage, instanceOf(MvPartitionStorageDecorator.class));
+        assertThat(hashIndexStorage, instanceOf(HashIndexStorageDecorator.class));
+        assertThat(sortedIndexStorage, instanceOf(SortedIndexStorageDecorator.class));
+
         RowId rowId = new RowId(PARTITION_ID);
 
         TestKey key = new TestKey(0, "0");
@@ -361,10 +369,8 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
         assertThat(getAll(newPartitionStorage0.scanVersions(rowId)), empty());
 
-        BinaryTuple keyBinaryTuple = keyBinaryTuple(binaryKey(key));
-
-        assertThat(getAll(newHashIndexStorage0.get(keyBinaryTuple)), empty());
-        assertThat(getAll(newSortedIndexStorage0.get(keyBinaryTuple)), empty());
+        assertThat(getAll(newHashIndexStorage0.get(indexRow.indexColumns())), empty());
+        assertThat(getAll(newSortedIndexStorage0.get(indexRow.indexColumns())), empty());
 
         tableStorage.startRebalance(PARTITION_ID).get(1, TimeUnit.SECONDS);
 
@@ -388,7 +394,45 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         HashIndexStorage hashIndexStorage = tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIndexId);
         SortedIndexStorage sortedIndexStorage = tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIndexId);
 
+        RowId oldRowId = new RowId(PARTITION_ID);
+
+        TestKey oldKey = new TestKey(0, "0");
+
+        BinaryRow oldBinaryRow = binaryRow(oldKey, new TestValue(1, "1"));
+        IndexRowImpl oldIndexRow = new IndexRowImpl(keyValueBinaryTuple(oldBinaryRow), oldRowId);
+
+        partitionStorage.runConsistently(() -> {
+            partitionStorage.addWriteCommitted(oldRowId, oldBinaryRow, clock.now());
+
+            hashIndexStorage.put(oldIndexRow);
+
+            sortedIndexStorage.put(oldIndexRow);
+
+            partitionStorage.lastAppliedIndex(100);
+
+            return null;
+        });
+
         tableStorage.startRebalance(PARTITION_ID).get(1, TimeUnit.SECONDS);
+
+        RowId newRowId = new RowId(PARTITION_ID);
+
+        TestKey newKey = new TestKey(1, "1");
+
+        BinaryRow newBinaryRow = binaryRow(newKey, new TestValue(2, "2"));
+        IndexRowImpl newIndexRow = new IndexRowImpl(keyValueBinaryTuple(newBinaryRow), newRowId);
+
+        partitionStorage.runConsistently(() -> {
+            partitionStorage.addWriteCommitted(newRowId, newBinaryRow, clock.now());
+
+            hashIndexStorage.put(newIndexRow);
+
+            sortedIndexStorage.put(newIndexRow);
+
+            partitionStorage.lastAppliedIndex(500);
+
+            return null;
+        });
 
         tableStorage.abortRebalance(PARTITION_ID).get(1, TimeUnit.SECONDS);
 
@@ -397,6 +441,16 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         assertSame(sortedIndexStorage, tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIndexId));
 
         assertDoesNotThrow(() -> tableStorage.abortRebalance(PARTITION_ID).get(1, TimeUnit.SECONDS));
+
+        assertEquals(100L, partitionStorage.lastAppliedIndex());
+
+        assertThat(viewReadOnly(getAll(partitionStorage.scanVersions(oldRowId)), ReadResult::binaryRow), containsInAnyOrder(oldBinaryRow));
+        assertThat(getAll(hashIndexStorage.get(oldIndexRow.indexColumns())), containsInAnyOrder(oldRowId));
+        assertThat(getAll(sortedIndexStorage.get(oldIndexRow.indexColumns())), containsInAnyOrder(oldRowId));
+
+        assertThat(getAll(partitionStorage.scanVersions(newRowId)), empty());
+        assertThat(getAll(hashIndexStorage.get(newIndexRow.indexColumns())), empty());
+        assertThat(getAll(sortedIndexStorage.get(newIndexRow.indexColumns())), empty());
     }
 
     @Test
@@ -406,15 +460,53 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         UUID hashIndexId = hashIdx.id();
         UUID sortedIndexId = sortedIdx.id();
 
-        tableStorage.getOrCreateMvPartition(PARTITION_ID);
-        tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIndexId);
-        tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIndexId);
+        MvPartitionStorage partitionStorage = tableStorage.getOrCreateMvPartition(PARTITION_ID);
+        HashIndexStorage hashIndexStorage = tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIndexId);
+        SortedIndexStorage sortedIndexStorage = tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIndexId);
+
+        RowId oldRowId = new RowId(PARTITION_ID);
+
+        TestKey oldKey = new TestKey(0, "0");
+
+        BinaryRow oldBinaryRow = binaryRow(oldKey, new TestValue(1, "1"));
+        IndexRowImpl oldIndexRow = new IndexRowImpl(keyValueBinaryTuple(oldBinaryRow), oldRowId);
+
+        partitionStorage.runConsistently(() -> {
+            partitionStorage.addWriteCommitted(oldRowId, oldBinaryRow, clock.now());
+
+            hashIndexStorage.put(oldIndexRow);
+
+            sortedIndexStorage.put(oldIndexRow);
+
+            partitionStorage.lastAppliedIndex(100);
+
+            return null;
+        });
 
         tableStorage.startRebalance(PARTITION_ID).get(1, TimeUnit.SECONDS);
 
         MvPartitionStorage newPartitionStorage = tableStorage.getMvPartition(PARTITION_ID);
         HashIndexStorage newHashIndexStorage = tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIndexId);
         SortedIndexStorage newSortedIndexStorage = tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIndexId);
+
+        RowId newRowId = new RowId(PARTITION_ID);
+
+        TestKey newKey = new TestKey(1, "1");
+
+        BinaryRow newBinaryRow = binaryRow(newKey, new TestValue(2, "2"));
+        IndexRowImpl newIndexRow = new IndexRowImpl(keyValueBinaryTuple(newBinaryRow), newRowId);
+
+        partitionStorage.runConsistently(() -> {
+            partitionStorage.addWriteCommitted(newRowId, newBinaryRow, clock.now());
+
+            hashIndexStorage.put(newIndexRow);
+
+            sortedIndexStorage.put(newIndexRow);
+
+            partitionStorage.lastAppliedIndex(500);
+
+            return null;
+        });
 
         tableStorage.finishRebalance(PARTITION_ID).get(1, TimeUnit.SECONDS);
 
@@ -423,6 +515,16 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         assertSame(newSortedIndexStorage, tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIndexId));
 
         assertDoesNotThrow(() -> tableStorage.finishRebalance(PARTITION_ID).get(1, TimeUnit.SECONDS));
+
+        assertEquals(500L, partitionStorage.lastAppliedIndex());
+
+        assertThat(getAll(partitionStorage.scanVersions(oldRowId)), empty());
+        assertThat(getAll(hashIndexStorage.get(oldIndexRow.indexColumns())), empty());
+        assertThat(getAll(sortedIndexStorage.get(oldIndexRow.indexColumns())), empty());
+
+        assertThat(viewReadOnly(getAll(partitionStorage.scanVersions(newRowId)), ReadResult::binaryRow), containsInAnyOrder(newBinaryRow));
+        assertThat(getAll(hashIndexStorage.get(newIndexRow.indexColumns())), containsInAnyOrder(newRowId));
+        assertThat(getAll(sortedIndexStorage.get(newIndexRow.indexColumns())), containsInAnyOrder(newRowId));
     }
 
     private static void createTestIndexes(TablesConfiguration tablesConfig) {

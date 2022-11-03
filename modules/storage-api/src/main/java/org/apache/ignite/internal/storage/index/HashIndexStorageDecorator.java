@@ -56,7 +56,7 @@ public class HashIndexStorageDecorator implements HashIndexStorage {
      * @return Previous delegate.
      */
     public HashIndexStorage replaceDelegate(HashIndexStorage newDelegate) {
-        return (HashIndexStorage) DELEGATE.getAndAdd(this, newDelegate);
+        return (HashIndexStorage) DELEGATE.getAndSet(this, newDelegate);
     }
 
     @Override
