@@ -309,9 +309,13 @@ public class PartitionAwarenessTests
     {
         using var client = await GetClient();
         var expectedNode = node == 1 ? _server1 : _server2;
+        var key = new IgniteTuple { ["ID"] = keyId };
+
+        // Warm up.
+        await client.Compute.ExecuteColocatedAsync<object?>(FakeServer.ExistingTableName, key, "job");
 
         await AssertOpOnNode(
-            () => client.Compute.ExecuteColocatedAsync<object?>(FakeServer.ExistingTableName, new IgniteTuple { ["ID"] = keyId }, "job"),
+            () => client.Compute.ExecuteColocatedAsync<object?>(FakeServer.ExistingTableName, key, "job"),
             ClientOp.ComputeExecuteColocated,
             expectedNode);
     }
