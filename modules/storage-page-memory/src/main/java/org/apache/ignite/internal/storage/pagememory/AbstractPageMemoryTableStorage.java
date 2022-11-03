@@ -166,7 +166,7 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
     }
 
     @Override
-    public CompletableFuture<Void> destroyIndex(UUID indexId) {
+    public CompletableFuture<Void> destroyIndex(int partitionId, UUID indexId) {
         throw new UnsupportedOperationException("Not implemented yet");
     }
 

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.storage.index;
 
 import java.util.UUID;
+import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
@@ -26,7 +27,7 @@ import org.apache.ignite.internal.storage.engine.MvTableStorage;
  * Storage for a Hash Index.
  *
  * <p>This storage serves as an unordered mapping from a subset of a table's columns (a.k.a. index columns) to a set of {@link RowId}s
- * from a single {@link org.apache.ignite.internal.storage.MvPartitionStorage} from the same table.
+ * from a single {@link MvPartitionStorage} from the same table.
  */
 public interface HashIndexStorage extends IndexStorage {
     /**
@@ -38,7 +39,8 @@ public interface HashIndexStorage extends IndexStorage {
      * Removes all data from this index.
      *
      * @throws StorageException If failed to destory index.
-     * @deprecated IGNITE-17626 Synchronous API should be removed. {@link MvTableStorage#destroyIndex(UUID)} must be the only public option.
+     * @deprecated IGNITE-17626 Synchronous API should be removed. {@link MvTableStorage#destroyIndex(int, UUID)} must be the only public
+     *      option.
      */
     @Deprecated
     void destroy() throws StorageException;

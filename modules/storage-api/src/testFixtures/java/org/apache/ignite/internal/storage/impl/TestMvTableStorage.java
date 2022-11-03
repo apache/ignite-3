@@ -25,13 +25,10 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
-import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.index.HashIndexDescriptor;
-import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
-import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
 import org.apache.ignite.internal.storage.index.impl.TestSortedIndexStorage;
 import org.jetbrains.annotations.Nullable;
@@ -40,50 +37,27 @@ import org.jetbrains.annotations.Nullable;
  * Test table storage implementation.
  */
 public class TestMvTableStorage implements MvTableStorage {
-    private final Map<Integer, MvPartitionStorage> partitions = new ConcurrentHashMap<>();
+    private final Map<Integer, Storages> storagesByPartitionId = new ConcurrentHashMap<>();
 
-    private final Map<Integer, MvPartitionStorage> backupPartitions = new ConcurrentHashMap<>();
-
-    private final Map<UUID, SortedIndices> sortedIndicesById = new ConcurrentHashMap<>();
-
-    private final Map<UUID, HashIndices> hashIndicesById = new ConcurrentHashMap<>();
+    private final Map<Integer, Storages> backupStoragesByPartitionId = new ConcurrentHashMap<>();
 
     private final TableConfiguration tableCfg;
 
     private final TablesConfiguration tablesCfg;
 
     /**
-     * Class for storing Sorted Indices for a particular partition.
+     * Storages container for the partition.
      */
-    private static class SortedIndices {
-        private final SortedIndexDescriptor descriptor;
-
-        final Map<Integer, SortedIndexStorage> storageByPartitionId = new ConcurrentHashMap<>();
-
-        SortedIndices(SortedIndexDescriptor descriptor) {
-            this.descriptor = descriptor;
+    private static class Storages {
+        public Storages(TestMvPartitionStorage mvPartitionStorage) {
+            this.mvPartitionStorage = mvPartitionStorage;
         }
 
-        SortedIndexStorage getOrCreateStorage(Integer partitionId) {
-            return storageByPartitionId.computeIfAbsent(partitionId, id -> new TestSortedIndexStorage(descriptor));
-        }
-    }
+        private final TestMvPartitionStorage mvPartitionStorage;
 
-    /**
-     * Class for storing Hash Indices for a particular partition.
-     */
-    private static class HashIndices {
-        private final HashIndexDescriptor descriptor;
+        private final Map<UUID, TestHashIndexStorage> hashIndexes = new ConcurrentHashMap<>();
 
-        final Map<Integer, HashIndexStorage> storageByPartitionId = new ConcurrentHashMap<>();
-
-        HashIndices(HashIndexDescriptor descriptor) {
-            this.descriptor = descriptor;
-        }
-
-        HashIndexStorage getOrCreateStorage(Integer partitionId) {
-            return storageByPartitionId.computeIfAbsent(partitionId, id -> new TestHashIndexStorage(descriptor));
-        }
+        private final Map<UUID, TestSortedIndexStorage> sortedIndexes = new ConcurrentHashMap<>();
     }
 
     /** Costructor. */
@@ -93,61 +67,58 @@ public class TestMvTableStorage implements MvTableStorage {
     }
 
     @Override
-    public MvPartitionStorage getOrCreateMvPartition(int partitionId) throws StorageException {
-        return partitions.computeIfAbsent(partitionId, TestMvPartitionStorage::new);
+    public TestMvPartitionStorage getOrCreateMvPartition(int partitionId) throws StorageException {
+        return storagesByPartitionId
+                .computeIfAbsent(partitionId, partId -> new Storages(new TestMvPartitionStorage(partId)))
+                .mvPartitionStorage;
     }
 
     @Override
     @Nullable
-    public MvPartitionStorage getMvPartition(int partitionId) {
-        return partitions.get(partitionId);
+    public TestMvPartitionStorage getMvPartition(int partitionId) {
+        Storages storages = storagesByPartitionId.get(partitionId);
+
+        return storages == null ? null : storages.mvPartitionStorage;
     }
 
     @Override
     public void destroyPartition(int partitionId) throws StorageException {
-        partitions.remove(partitionId);
-
-        sortedIndicesById.values().forEach(indices -> indices.storageByPartitionId.remove(partitionId));
-        hashIndicesById.values().forEach(indices -> indices.storageByPartitionId.remove(partitionId));
+        storagesByPartitionId.remove(partitionId);
     }
 
     @Override
-    public SortedIndexStorage getOrCreateSortedIndex(int partitionId, UUID indexId) {
-        if (!partitions.containsKey(partitionId)) {
-            throw new StorageException("Partition ID " + partitionId + " does not exist");
-        }
+    public TestSortedIndexStorage getOrCreateSortedIndex(int partitionId, UUID indexId) throws StorageException {
+        Storages storages = storagesByPartitionId.get(partitionId);
 
-        SortedIndices sortedIndices = sortedIndicesById.computeIfAbsent(
-                indexId,
-                id -> new SortedIndices(new SortedIndexDescriptor(id, tablesCfg.value()))
-        );
+        checkPartitionStoragesExists(storages, partitionId);
 
-        return sortedIndices.getOrCreateStorage(partitionId);
+        return storages.sortedIndexes
+                .computeIfAbsent(indexId, uuid -> new TestSortedIndexStorage(new SortedIndexDescriptor(uuid, tablesCfg.value())));
     }
 
     @Override
-    public HashIndexStorage getOrCreateHashIndex(int partitionId, UUID indexId) {
-        if (!partitions.containsKey(partitionId)) {
-            throw new StorageException("Partition ID " + partitionId + " does not exist");
-        }
+    public TestHashIndexStorage getOrCreateHashIndex(int partitionId, UUID indexId) throws StorageException {
+        Storages storages = storagesByPartitionId.get(partitionId);
 
-        HashIndices sortedIndices = hashIndicesById.computeIfAbsent(
-                indexId,
-                id -> new HashIndices(new HashIndexDescriptor(id, tablesCfg.value()))
-        );
+        checkPartitionStoragesExists(storages, partitionId);
 
-        return sortedIndices.getOrCreateStorage(partitionId);
+        return storages.hashIndexes
+                .computeIfAbsent(indexId, uuid -> new TestHashIndexStorage(new HashIndexDescriptor(uuid, tablesCfg.value())));
     }
 
     @Override
-    public CompletableFuture<Void> destroyIndex(UUID indexId) {
-        sortedIndicesById.remove(indexId);
+    public CompletableFuture<Void> destroyIndex(int partitionId, UUID indexId) throws StorageException {
+        Storages storages = storagesByPartitionId.get(partitionId);
 
-        HashIndices hashIndex = hashIndicesById.remove(indexId);
+        checkPartitionStoragesExists(storages, partitionId);
+
+        TestHashIndexStorage hashIndex = storages.hashIndexes.remove(indexId);
 
         if (hashIndex != null) {
-            hashIndex.storageByPartitionId.values().forEach(HashIndexStorage::destroy);
+            hashIndex.destroy();
         }
+
+        storages.sortedIndexes.remove(indexId);
 
         return completedFuture(null);
     }
@@ -180,13 +151,25 @@ public class TestMvTableStorage implements MvTableStorage {
     }
 
     @Override
-    public CompletableFuture<Void> startRebalanceMvPartition(int partitionId) {
-        MvPartitionStorage oldPartitionStorage = partitions.get(partitionId);
+    public CompletableFuture<Void> startRebalanceMvPartition(int partitionId) throws StorageException {
+        Storages oldStorages = storagesByPartitionId.get(partitionId);
 
-        assert oldPartitionStorage != null : "Partition does not exist: " + partitionId;
+        checkPartitionStoragesExists(oldStorages, partitionId);
 
-        if (backupPartitions.putIfAbsent(partitionId, oldPartitionStorage) == null) {
-            partitions.put(partitionId, new TestMvPartitionStorage(partitionId));
+        if (backupStoragesByPartitionId.putIfAbsent(partitionId, oldStorages) == null) {
+            Storages newStorages = new Storages(new TestMvPartitionStorage(partitionId));
+
+            oldStorages.hashIndexes.keySet().forEach(indexId -> newStorages.hashIndexes.put(
+                    indexId,
+                    new TestHashIndexStorage(new HashIndexDescriptor(indexId, tablesCfg.value()))
+            ));
+
+            oldStorages.sortedIndexes.keySet().forEach(indexId -> newStorages.sortedIndexes.put(
+                    indexId,
+                    new TestSortedIndexStorage(new SortedIndexDescriptor(indexId, tablesCfg.value()))
+            ));
+
+            storagesByPartitionId.put(partitionId, newStorages);
         }
 
         return completedFuture(null);
@@ -194,10 +177,10 @@ public class TestMvTableStorage implements MvTableStorage {
 
     @Override
     public CompletableFuture<Void> abortRebalanceMvPartition(int partitionId) {
-        MvPartitionStorage oldPartitionStorage = backupPartitions.remove(partitionId);
+        Storages oldStorages = backupStoragesByPartitionId.remove(partitionId);
 
-        if (oldPartitionStorage != null) {
-            partitions.put(partitionId, oldPartitionStorage);
+        if (oldStorages != null) {
+            storagesByPartitionId.put(partitionId, oldStorages);
         }
 
         return completedFuture(null);
@@ -205,8 +188,14 @@ public class TestMvTableStorage implements MvTableStorage {
 
     @Override
     public CompletableFuture<Void> finishRebalanceMvPartition(int partitionId) {
-        backupPartitions.remove(partitionId);
+        backupStoragesByPartitionId.remove(partitionId);
 
         return completedFuture(null);
+    }
+
+    private void checkPartitionStoragesExists(@Nullable Storages storages, int partitionId) throws StorageException {
+        if (storages == null) {
+            throw new StorageException("Partition ID " + partitionId + " does not exist");
+        }
     }
 }

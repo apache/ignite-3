@@ -17,11 +17,16 @@
 
 package org.apache.ignite.internal.storage;
 
+import static org.apache.ignite.internal.schema.BinaryTupleSchema.createKeySchema;
+import static org.apache.ignite.internal.schema.BinaryTupleSchema.createRowSchema;
+
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.schema.BinaryConverter;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -52,6 +57,11 @@ public abstract class BaseMvStoragesTest {
     /** Key-value marshaller for tests. */
     protected static KvMarshaller<TestKey, TestValue> kvMarshaller;
 
+    /** Key-value converter form {@link BinaryRow} to {@link BinaryTuple}. */
+    protected static BinaryConverter kvBinaryConverter;
+
+    protected static BinaryConverter kBinaryConverter;
+
     @BeforeAll
     static void beforeAll() {
         marshallerFactory = new ReflectionMarshallerFactory();
@@ -65,6 +75,9 @@ public abstract class BaseMvStoragesTest {
         });
 
         kvMarshaller = marshallerFactory.create(schemaDescriptor, TestKey.class, TestValue.class);
+
+        kvBinaryConverter = BinaryConverter.forRow(schemaDescriptor);
+        kBinaryConverter = BinaryConverter.forKey(schemaDescriptor);
     }
 
     @AfterAll
@@ -72,6 +85,8 @@ public abstract class BaseMvStoragesTest {
         kvMarshaller = null;
         schemaDescriptor = null;
         marshallerFactory = null;
+        kvBinaryConverter = null;
+        kBinaryConverter = null;
     }
 
     protected static BinaryRow binaryKey(TestKey key) {
@@ -222,5 +237,13 @@ public abstract class BaseMvStoragesTest {
         public String toString() {
             return S.toString(TestValue.class, this);
         }
+    }
+
+    protected static BinaryTuple keyValueBinaryTuple(BinaryRow keValueBinaryRow) {
+        return new BinaryTuple(createRowSchema(schemaDescriptor), kvBinaryConverter.toTuple(keValueBinaryRow));
+    }
+
+    protected static BinaryTuple keyBinaryTuple(BinaryRow keyBinaryRow) {
+        return new BinaryTuple(createKeySchema(schemaDescriptor), kBinaryConverter.toTuple(keyBinaryRow));
     }
 }

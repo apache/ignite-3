@@ -20,6 +20,7 @@ package org.apache.ignite.internal.storage;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
@@ -44,6 +45,7 @@ import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
@@ -204,8 +206,8 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         assertThat(tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIdx.id()), is(notNullValue()));
         assertThat(tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx.id()), is(notNullValue()));
 
-        CompletableFuture<Void> destroySortedIndexFuture = tableStorage.destroyIndex(sortedIdx.id());
-        CompletableFuture<Void> destroyHashIndexFuture = tableStorage.destroyIndex(hashIdx.id());
+        CompletableFuture<Void> destroySortedIndexFuture = tableStorage.destroyIndex(PARTITION_ID, sortedIdx.id());
+        CompletableFuture<Void> destroyHashIndexFuture = tableStorage.destroyIndex(PARTITION_ID, hashIdx.id());
 
         assertThat(partitionStorage.flush(), willCompleteSuccessfully());
         assertThat(destroySortedIndexFuture, willCompleteSuccessfully());
@@ -311,51 +313,89 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
     @Test
     public void testStartRebalanceMvPartition() throws Exception {
+        assertThrows(StorageException.class, () -> tableStorage.startRebalanceMvPartition(PARTITION_ID_1));
+
+        UUID hashIndexId = hashIdx.id();
+        UUID sortedIndexId = sortedIdx.id();
+
         MvPartitionStorage partitionStorage = tableStorage.getOrCreateMvPartition(PARTITION_ID);
+        HashIndexStorage hashIndexStorage = tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIndexId);
+        SortedIndexStorage sortedIndexStorage = tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIndexId);
+
+        RowId rowId = new RowId(PARTITION_ID);
+
+        TestKey key = new TestKey(0, "0");
+
+        BinaryRow binaryRow = binaryRow(key, new TestValue(1, "1"));
+        IndexRowImpl indexRow = new IndexRowImpl(keyValueBinaryTuple(binaryRow), rowId);
 
         partitionStorage.runConsistently(() -> {
-            partitionStorage.addWriteCommitted(
-                    new RowId(PARTITION_ID),
-                    binaryRow(new TestKey(0, "0"), new TestValue(1, "1")),
-                    clock.now()
-            );
+            partitionStorage.addWriteCommitted(rowId, binaryRow, clock.now());
 
             partitionStorage.lastAppliedIndex(100);
 
             return null;
         });
 
+        hashIndexStorage.put(indexRow);
+
+        sortedIndexStorage.put(indexRow);
+
         partitionStorage.flush().get(1, TimeUnit.SECONDS);
 
         tableStorage.startRebalanceMvPartition(PARTITION_ID).get(1, TimeUnit.SECONDS);
 
         MvPartitionStorage newPartitionStorage0 = tableStorage.getMvPartition(PARTITION_ID);
+        HashIndexStorage newHashIndexStorage0 = tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIndexId);
+        SortedIndexStorage newSortedIndexStorage0 = tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIndexId);
 
         assertNotNull(newPartitionStorage0);
+        assertNotNull(newHashIndexStorage0);
+        assertNotNull(newSortedIndexStorage0);
+
         assertNotSame(partitionStorage, newPartitionStorage0);
+        assertNotSame(hashIndexStorage, newHashIndexStorage0);
+        assertNotSame(sortedIndexStorage, newSortedIndexStorage0);
 
         assertEquals(0L, newPartitionStorage0.lastAppliedIndex());
         assertEquals(0L, newPartitionStorage0.persistedIndex());
-        assertEquals(0, newPartitionStorage0.rowsCount());
+
+        assertThat(getAll(newPartitionStorage0.scanVersions(rowId)), empty());
+
+        BinaryTuple keyBinaryTuple = keyBinaryTuple(binaryKey(key));
+
+        assertThat(getAll(newHashIndexStorage0.get(keyBinaryTuple)), empty());
+        assertThat(getAll(newSortedIndexStorage0.get(keyBinaryTuple)), empty());
 
         tableStorage.startRebalanceMvPartition(PARTITION_ID).get(1, TimeUnit.SECONDS);
 
         MvPartitionStorage newPartitionStorage1 = tableStorage.getMvPartition(PARTITION_ID);
+        HashIndexStorage newHashIndexStorage1 = tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIndexId);
+        SortedIndexStorage newSortedIndexStorage1 = tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIndexId);
 
         assertSame(newPartitionStorage0, newPartitionStorage1);
+        assertSame(newHashIndexStorage0, newHashIndexStorage1);
+        assertSame(newSortedIndexStorage0, newSortedIndexStorage1);
     }
 
     @Test
     public void testAbortRebalanceMvPartition() throws Exception {
         assertDoesNotThrow(() -> tableStorage.abortRebalanceMvPartition(PARTITION_ID).get(1, TimeUnit.SECONDS));
 
+        UUID hashIndexId = hashIdx.id();
+        UUID sortedIndexId = sortedIdx.id();
+
         MvPartitionStorage partitionStorage = tableStorage.getOrCreateMvPartition(PARTITION_ID);
+        HashIndexStorage hashIndexStorage = tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIndexId);
+        SortedIndexStorage sortedIndexStorage = tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIndexId);
 
         tableStorage.startRebalanceMvPartition(PARTITION_ID).get(1, TimeUnit.SECONDS);
 
         tableStorage.abortRebalanceMvPartition(PARTITION_ID).get(1, TimeUnit.SECONDS);
 
         assertSame(partitionStorage, tableStorage.getMvPartition(PARTITION_ID));
+        assertSame(hashIndexStorage, tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIndexId));
+        assertSame(sortedIndexStorage, tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIndexId));
 
         assertDoesNotThrow(() -> tableStorage.abortRebalanceMvPartition(PARTITION_ID).get(1, TimeUnit.SECONDS));
     }
@@ -364,15 +404,24 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
     public void testFinishRebalanceMvPartition() throws Exception {
         assertDoesNotThrow(() -> tableStorage.finishRebalanceMvPartition(PARTITION_ID).get(1, TimeUnit.SECONDS));
 
+        UUID hashIndexId = hashIdx.id();
+        UUID sortedIndexId = sortedIdx.id();
+
         tableStorage.getOrCreateMvPartition(PARTITION_ID);
+        tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIndexId);
+        tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIndexId);
 
         tableStorage.startRebalanceMvPartition(PARTITION_ID).get(1, TimeUnit.SECONDS);
 
         MvPartitionStorage newPartitionStorage = tableStorage.getMvPartition(PARTITION_ID);
+        HashIndexStorage newHashIndexStorage = tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIndexId);
+        SortedIndexStorage newSortedIndexStorage = tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIndexId);
 
         tableStorage.finishRebalanceMvPartition(PARTITION_ID).get(1, TimeUnit.SECONDS);
 
         assertSame(newPartitionStorage, tableStorage.getMvPartition(PARTITION_ID));
+        assertSame(newHashIndexStorage, tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIndexId));
+        assertSame(newSortedIndexStorage, tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIndexId));
 
         assertDoesNotThrow(() -> tableStorage.finishRebalanceMvPartition(PARTITION_ID).get(1, TimeUnit.SECONDS));
     }

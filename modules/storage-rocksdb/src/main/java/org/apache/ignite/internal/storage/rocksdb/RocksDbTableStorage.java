@@ -439,7 +439,7 @@ public class RocksDbTableStorage implements MvTableStorage {
     }
 
     @Override
-    public CompletableFuture<Void> destroyIndex(UUID indexId) {
+    public CompletableFuture<Void> destroyIndex(int partitionId, UUID indexId) {
         HashIndex hashIdx = hashIndices.remove(indexId);
 
         if (hashIdx != null) {

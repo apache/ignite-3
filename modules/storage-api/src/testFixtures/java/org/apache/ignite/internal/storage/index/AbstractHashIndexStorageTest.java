@@ -226,7 +226,7 @@ public abstract class AbstractHashIndexStorageTest {
         put(row2);
         put(row3);
 
-        CompletableFuture<Void> destroyFuture = tableStorage.destroyIndex(indexStorage.indexDescriptor().id());
+        CompletableFuture<Void> destroyFuture = tableStorage.destroyIndex(TEST_PARTITION, indexStorage.indexDescriptor().id());
 
         waitForDurableCompletion(destroyFuture);
 

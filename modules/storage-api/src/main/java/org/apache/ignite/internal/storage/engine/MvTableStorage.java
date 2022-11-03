@@ -102,7 +102,7 @@ public interface MvTableStorage {
      * @throws StorageException If the given partition does not exist, or if the given index does not exist or is not configured as
      *         a sorted index.
      */
-    SortedIndexStorage getOrCreateSortedIndex(int partitionId, UUID indexId);
+    SortedIndexStorage getOrCreateSortedIndex(int partitionId, UUID indexId) throws StorageException;
 
     /**
      * Returns an already created Hash Index with the given name or creates a new one if it does not exist.
@@ -116,16 +116,18 @@ public interface MvTableStorage {
      * @throws StorageException If the given partition does not exist, or the given index does not exist or is not configured as a
      *         hash index.
      */
-    HashIndexStorage getOrCreateHashIndex(int partitionId, UUID indexId);
+    HashIndexStorage getOrCreateHashIndex(int partitionId, UUID indexId) throws StorageException;
 
     /**
      * Destroys the index under the given name and all data in it.
      *
      * <p>This method is a no-op if the index under the given name does not exist.
      *
+     * @param partitionId Partition ID.
      * @param indexId Index ID.
+     * @throws StorageException If the given partition does not exist, or fail destroying the index.
      */
-    CompletableFuture<Void> destroyIndex(UUID indexId);
+    CompletableFuture<Void> destroyIndex(int partitionId, UUID indexId) throws StorageException;
 
     /**
      * Returns {@code true} if this storage is volatile (i.e. stores its data in memory), or {@code false} if it's persistent.
@@ -164,43 +166,47 @@ public interface MvTableStorage {
     void destroy() throws StorageException;
 
     /**
-     * Prepares the partition storage for rebalancing: makes a backup of the current partition storage and creates a new storage.
+     * Prepares partition and index storages for rebalancing: makes backup of the partition storage and its index storages (hash and sorted)
+     * then creates new storages.
      *
-     * <p>This method must be called before every full rebalance of the partition storage, so that in case of errors or cancellation of the
-     * full rebalance, we can restore the partition storage from the backup.
+     * <p>This method must be called before every full rebalance, so that in case of errors or cancellation of the full rebalance, we can
+     * restore the partition storage and its index storages from the backup.
      *
      * <p>Full rebalance will be completed when one of the methods is called:
      * <ol>
      *     <li>{@link #abortRebalanceMvPartition(int)} - in case of a full rebalance cancellation or failure, so that we can
-     *     restore the partition storage from a backup;</li>
+     *     restore thepartition storage and its index storages from a backup;</li>
      *     <li>{@link #finishRebalanceMvPartition(int)} - in case of a successful full rebalance, to remove the backup of the
-     *     partition storage.</li>
+     *     partition storage and its index storages.</li>
      * </ol>
      *
      * @param partitionId Partition ID.
-     * @return Future, if completed without errors, then {@link #getMvPartition} will return a new (empty) partition storage.
+     * @return Future, if completed without errors, then {@link #getMvPartition}, {@link #getOrCreateSortedIndex(int, UUID)} and
+     *      {@link #getOrCreateSortedIndex(int, UUID)} will return a new (empty) storages.
+     * @throws StorageException If the given partition does not exist, or fail the start of rebalancing.
      */
-    CompletableFuture<Void> startRebalanceMvPartition(int partitionId);
+    CompletableFuture<Void> startRebalanceMvPartition(int partitionId) throws StorageException;
 
     /**
-     * Aborts rebalancing of the partition storage if it was started: restores the partition storage from a backup and deletes the new
-     * storage.
+     * Aborts rebalancing of the partition and index storages if it was started: restores the partition storage and its index storages (hash
+     * and sorted) from a backup and deletes the new storages.
      *
      * <p>If a full rebalance has not been {@link #startRebalanceMvPartition(int) started}, then nothing will happen.
      *
      * @param partitionId Partition ID.
-     * @return Future, upon completion of which {@link #getMvPartition} will return the partition storage restored from the backup.
+     * @return Future, upon completion of which {@link #getMvPartition}, {@link #getOrCreateSortedIndex(int, UUID)} and
+     *      {@link #getOrCreateSortedIndex(int, UUID)} will return the storages restored from the backup.
      */
     CompletableFuture<Void> abortRebalanceMvPartition(int partitionId);
 
     /**
-     * Finishes a successful partition storage rebalance if it has been started: deletes the backup of the partition storage and saves a new
-     * storage.
+     * Finishes a successful partition and index storages rebalance if it has been started: deletes the backup of the partition storage and
+     * its index storages (hash and sorted) and saves a new storages.
      *
      * <p>If a full rebalance has not been {@link #startRebalanceMvPartition(int) started}, then nothing will happen.
      *
      * @param partitionId Partition ID.
-     * @return Future, if it fails, will abort the partition storage rebalance.
+     * @return Future, if it fails, will abort the partition and index storages rebalance.
      */
     CompletableFuture<Void> finishRebalanceMvPartition(int partitionId);
 }
