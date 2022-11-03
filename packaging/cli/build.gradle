@@ -20,9 +20,11 @@ plugins {
     id 'distribution'
     id 'signing'
     alias(libs.plugins.nebula)
+    alias(libs.plugins.checksum)
 }
 
 import org.apache.tools.ant.filters.ReplaceTokens
+import org.gradle.crypto.checksum.Checksum
 
 configurations {
     cliArtifacts
@@ -68,6 +70,15 @@ task replacePostInstallScriptVars(type: Copy) {
 
 distTar.dependsOn replaceScriptVars
 distZip.dependsOn replaceScriptVars
+
+task createChecksums(type: Checksum) {
+    files = files(file("${buildDir}/distributions/ignite3cli-${project.version}.zip"))
+    outputDir = new File("${buildDir}/distributions")
+    algorithm = Checksum.Algorithm.SHA512
+}
+
+distTar.finalizedBy(createChecksums)
+distZip.finalizedBy(createChecksums)
 
 // task that generates start script for cli
 task cliStartScript(type: CreateStartScripts) {
