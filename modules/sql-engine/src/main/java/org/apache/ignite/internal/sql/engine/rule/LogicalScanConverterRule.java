@@ -159,7 +159,7 @@ public abstract class LogicalScanConverterRule<T extends ProjectableFilterableTa
         super(clazz, descPrefix);
     }
 
-    private static Mappings.TargetMapping createMapping(
+    public static Mappings.TargetMapping createMapping(
             List<RexNode> projects,
             ImmutableBitSet requiredColumns,
             int tableRowSize

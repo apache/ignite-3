@@ -99,6 +99,7 @@ import org.apache.ignite.internal.sql.engine.rel.agg.IgniteReduceSortAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteSingleHashAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteSingleSortAggregate;
 import org.apache.ignite.internal.sql.engine.rel.set.IgniteSetOp;
+import org.apache.ignite.internal.sql.engine.rule.LogicalScanConverterRule;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.schema.InternalIgniteTable;
@@ -306,8 +307,18 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
         RangeIterable<RowT> ranges = searchBounds == null ? null :
                 expressionFactory.ranges(searchBounds, rel.collation(), tbl.getRowType(typeFactory));
 
+        RelCollation outputCollation = rel.collation();
+
+        if (projects != null || requiredColumns != null) {
+            outputCollation = outputCollation.apply(LogicalScanConverterRule.createMapping(
+                    projects,
+                    requiredColumns,
+                    tbl.getRowType(typeFactory).getFieldCount()
+            ));
+        }
+
         ColocationGroup group = ctx.group(rel.sourceId());
-        Comparator<RowT> comp = idx.type() == Type.SORTED ? ctx.expressionFactory().comparator(rel.collation()) : null;
+        Comparator<RowT> comp = idx.type() == Type.SORTED ? ctx.expressionFactory().comparator(outputCollation) : null;
 
         if (!group.nodeIds().contains(ctx.localNode().id())) {
             return new ScanNode<>(ctx, rowType, Collections.emptyList());

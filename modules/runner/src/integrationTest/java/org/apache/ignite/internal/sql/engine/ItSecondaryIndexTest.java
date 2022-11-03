@@ -47,8 +47,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
      */
     @BeforeAll
     static void initTestData() {
-        //TODO IGNITE-17813: Remove 'PARTITIONS=1' limitation
-        sql("CREATE TABLE developer (id INT PRIMARY KEY, name VARCHAR, depid INT, city VARCHAR, age INT) WITH PARTITIONS=1");
+        sql("CREATE TABLE developer (id INT PRIMARY KEY, name VARCHAR, depid INT, city VARCHAR, age INT)");
         sql("CREATE INDEX " + DEPID_IDX + " ON developer (depid)");
         sql("CREATE INDEX " + NAME_CITY_IDX + " ON developer (name DESC, city DESC)");
         sql("CREATE INDEX " + NAME_DEPID_CITY_IDX + " ON developer (name DESC, depid DESC, city DESC)");
@@ -79,8 +78,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 {23, "Musorgskii", 22, "", -1}
         });
 
-        //TODO IGNITE-17813: Remove 'PARTITIONS=1' limitation
-        sql("CREATE TABLE unwrap_pk(f1 VARCHAR, f2 BIGINT, f3 BIGINT, f4 BIGINT, primary key(f2, f1)) WITH PARTITIONS=1");
+        sql("CREATE TABLE unwrap_pk(f1 VARCHAR, f2 BIGINT, f3 BIGINT, f4 BIGINT, primary key(f2, f1))");
         sql("CREATE INDEX " + PK_SORTED_IDX + " ON unwrap_pk(f2, f1)");
 
         insertData("UNWRAP_PK", List.of("F1", "F2", "F3", "F4"), new Object[][]{
@@ -93,8 +91,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 {"Ivan5", 25L, 2L, 4L},
         });
 
-        //TODO IGNITE-17813: Remove 'PARTITIONS=1' limitation
-        sql("CREATE TABLE t1 (id INT PRIMARY KEY, val INT) WITH PARTITIONS=1");
+        sql("CREATE TABLE t1 (id INT PRIMARY KEY, val INT)");
         sql("CREATE INDEX t1_idx on t1(val DESC)");
 
         insertData("T1", List.of("ID", "VAL"), new Object[][]{
