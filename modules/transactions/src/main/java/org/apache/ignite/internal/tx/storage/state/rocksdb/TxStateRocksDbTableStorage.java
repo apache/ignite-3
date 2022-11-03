@@ -302,10 +302,26 @@ public class TxStateRocksDbTableStorage implements TxStateTableStorage {
 
     /**
      * Returns a future to await flush.
-     *
-     * @return Flush future.
      */
     public CompletableFuture<Void> awaitFlush(boolean schedule) {
         return flusher.awaitFlush(schedule);
+    }
+
+    @Override
+    public CompletableFuture<Void> startRebalance(int partitionId) {
+        // TODO: IGNITE-18024 Implement
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public CompletableFuture<Void> abortRebalance(int partitionId) {
+        // TODO: IGNITE-18024 Implement
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public CompletableFuture<Void> finishRebalance(int partitionId) {
+        // TODO: IGNITE-18024 Implement
+        throw new UnsupportedOperationException();
     }
 }

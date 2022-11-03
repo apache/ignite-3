@@ -17,11 +17,15 @@
 
 package org.apache.ignite.internal.tx.storage.state.test;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.internal.configuration.storage.StorageException;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
+import org.apache.ignite.internal.tx.storage.state.TxStateStorageDecorator;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.jetbrains.annotations.Nullable;
 
@@ -29,20 +33,23 @@ import org.jetbrains.annotations.Nullable;
  * Table tx state storage for {@link TestTxStateStorage}.
  */
 public class TestTxStateTableStorage implements TxStateTableStorage {
-    private final Map<Integer, TxStateStorage> storages = new ConcurrentHashMap<>();
+    private final Map<Integer, TxStateStorageDecorator> storageByPartitionId = new ConcurrentHashMap<>();
 
-    @Override public TxStateStorage getOrCreateTxStateStorage(int partitionId) throws StorageException {
-        return storages.computeIfAbsent(partitionId, k -> new TestTxStateStorage());
+    private final Map<Integer, TxStateStorage> backupStoragesByPartitionId = new ConcurrentHashMap<>();
+
+    @Override
+    public TxStateStorage getOrCreateTxStateStorage(int partitionId) throws StorageException {
+        return storageByPartitionId.computeIfAbsent(partitionId, k -> new TxStateStorageDecorator(new TestTxStateStorage()));
     }
 
     @Override
     public @Nullable TxStateStorage getTxStateStorage(int partitionId) {
-        return storages.get(partitionId);
+        return storageByPartitionId.get(partitionId);
     }
 
     @Override
     public void destroyTxStateStorage(int partitionId) throws StorageException {
-        TxStateStorage storage = storages.remove(partitionId);
+        TxStateStorage storage = storageByPartitionId.remove(partitionId);
 
         if (storage != null) {
             storage.destroy();
@@ -66,11 +73,50 @@ public class TestTxStateTableStorage implements TxStateTableStorage {
 
     @Override
     public void destroy() throws StorageException {
-        storages.clear();
+        storageByPartitionId.clear();
     }
 
     @Override
     public void close() throws Exception {
         stop();
+    }
+
+    @Override
+    public CompletableFuture<Void> startRebalance(int partitionId) {
+        TxStateStorageDecorator oldStorage = storageByPartitionId.get(partitionId);
+
+        checkPartitionStoragesExists(oldStorage, partitionId);
+
+        backupStoragesByPartitionId.computeIfAbsent(partitionId, partId -> oldStorage.replaceDelegate(new TestTxStateStorage()));
+
+        return completedFuture(null);
+    }
+
+    @Override
+    public CompletableFuture<Void> abortRebalance(int partitionId) {
+        TxStateStorage backupStorage = backupStoragesByPartitionId.remove(partitionId);
+
+        if (backupStorage != null) {
+            TxStateStorageDecorator storage = storageByPartitionId.get(partitionId);
+
+            checkPartitionStoragesExists(storage, partitionId);
+
+            storage.replaceDelegate(backupStorage);
+        }
+
+        return completedFuture(null);
+    }
+
+    @Override
+    public CompletableFuture<Void> finishRebalance(int partitionId) {
+        backupStoragesByPartitionId.remove(partitionId);
+
+        return completedFuture(null);
+    }
+
+    private void checkPartitionStoragesExists(@Nullable TxStateStorage storages, int partitionId) throws StorageException {
+        if (storages == null) {
+            throw new StorageException("Partition ID " + partitionId + " does not exist");
+        }
     }
 }

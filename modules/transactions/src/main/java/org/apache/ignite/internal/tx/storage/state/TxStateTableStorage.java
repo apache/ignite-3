@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.tx.storage.state;
 
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.configuration.storage.StorageException;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.jetbrains.annotations.Nullable;
@@ -26,19 +27,17 @@ import org.jetbrains.annotations.Nullable;
  */
 public interface TxStateTableStorage extends AutoCloseable {
     /**
-     * Get or create transaction state storage for partition.
+     * Returns or creates transaction state storage for partition.
      *
      * @param partitionId Partition id.
-     * @return Transaction state storage.
-     * @throws StorageException  In case when the operation has failed.
+     * @throws StorageException In case when the operation has failed.
      */
     TxStateStorage getOrCreateTxStateStorage(int partitionId) throws StorageException;
 
     /**
-     * Get transaction state storage.
+     * Returns transaction state storage.
      *
      * @param partitionId Partition id.
-     * @return Transaction state storage.
      */
     @Nullable
     TxStateStorage getTxStateStorage(int partitionId);
@@ -52,9 +51,7 @@ public interface TxStateTableStorage extends AutoCloseable {
     void destroyTxStateStorage(int partitionId) throws StorageException;
 
     /**
-     * Table configuration.
-     *
-     * @return Table configuration.
+     * Returns table configuration.
      */
     TableConfiguration configuration();
 
@@ -78,4 +75,49 @@ public interface TxStateTableStorage extends AutoCloseable {
      * @throws StorageException In case when the operation has failed.
      */
     void destroy() throws StorageException;
+
+    /**
+     * Prepares the transaction state storage for rebalancing: makes a backup of the current transaction state storage and creates a new
+     * storage.
+     *
+     * <p>This method must be called before every full rebalance of the transaction state storage, so that in case of errors or cancellation
+     * of the full rebalance, we can restore the transaction state storage from the backup.
+     *
+     * <p>Full rebalance will be completed when one of the methods is called:
+     * <ol>
+     *     <li>{@link #abortRebalance(int)} - in case of a full rebalance cancellation or failure, so that we can restore the transaction
+     *     state storage from a backup;</li>
+     *     <li>{@link #finishRebalance(int)} - in case of a successful full rebalance, to remove the backup of the transaction state
+     *     storage.</li>
+     * </ol>
+     *
+     * <p>Only modification of data in transaction state storage is allowed.
+     *
+     * @param partitionId Partition ID.
+     * @return Future, if completed without errors, then {@link #getTxStateStorage} will return a new (empty) transaction state storage.
+     * @throws StorageException If the given partition does not exist, or fail the start of rebalancing.
+     */
+    CompletableFuture<Void> startRebalance(int partitionId) throws StorageException;
+
+    /**
+     * Aborts rebalancing of the transaction state storage if it was started: restores the transaction state storage from a backup and
+     * deletes the new storage.
+     *
+     * <p>If a full rebalance has not been {@link #startRebalance(int) started}, then nothing will happen.
+     *
+     * @param partitionId Partition ID.
+     * @return Future, upon completion of which {@link #getTxStateStorage} will return the transaction state storage restored from backup.
+     */
+    CompletableFuture<Void> abortRebalance(int partitionId);
+
+    /**
+     * Finishes a successful transaction state storage rebalance if it has been started: deletes the backup of the transaction state storage
+     * and saves a new storage.
+     *
+     * <p>If a full rebalance has not been {@link #startRebalance(int) started}, then nothing will happen.
+     *
+     * @param partitionId Partition ID.
+     * @return Future, if it fails, will abort the transaction state storage rebalance.
+     */
+    CompletableFuture<Void> finishRebalance(int partitionId);
 }
