@@ -61,7 +61,7 @@ public class SchemaUtils {
             // TODO: IGNITE-15774 Assertion just in case, proper validation should be implemented with the help of configuration validators.
             assert droppedKeyCol.isEmpty() :
                     IgniteStringFormatter.format(
-                            "Renaming of key column is forbidden: [schemaVer={}, col={}]",
+                            "Dropping of key column is forbidden: [schemaVer={}, col={}]",
                             newDesc.version(),
                             droppedKeyCol.get()
                     );
