@@ -20,7 +20,6 @@ package org.apache.ignite.internal.client.sql;
 import java.util.List;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientSqlColumnTypeConverter;
-import org.apache.ignite.internal.sql.SqlColumnTypeConverter;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.SqlColumnType;
 
@@ -75,7 +74,7 @@ public class ClientColumnMetadata implements ColumnMetadata {
     /** {@inheritDoc} */
     @Override
     public Class<?> valueClass() {
-        return SqlColumnTypeConverter.columnTypeToClass(type);
+        return SqlColumnType.columnTypeToClass(type);
     }
 
     /** {@inheritDoc} */
