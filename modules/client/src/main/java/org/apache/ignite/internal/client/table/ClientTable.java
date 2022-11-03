@@ -145,7 +145,7 @@ public class ClientTable implements Table {
         return loadSchema(ver);
     }
 
-    private CompletableFuture<ClientSchema> loadSchema(Integer ver) {
+    private CompletableFuture<ClientSchema> loadSchema(@Nullable Integer ver) {
         return ch.serviceAsync(ClientOp.SCHEMAS_GET, w -> {
             w.out().packUuid(id);
 
@@ -259,7 +259,7 @@ public class ClientTable implements Table {
             int opCode,
             BiConsumer<ClientSchema, PayloadOutputChannel> writer,
             BiFunction<ClientSchema, ClientMessageUnpacker, T> reader,
-            T defaultValue
+            @Nullable T defaultValue
     ) {
         return getLatestSchema()
                 .thenCompose(schema ->
@@ -339,11 +339,11 @@ public class ClientTable implements Table {
                 });
     }
 
-    private <T> Object readSchemaAndReadData(
+    private <T> @Nullable Object readSchemaAndReadData(
             ClientSchema knownSchema,
             ClientMessageUnpacker in,
             BiFunction<ClientSchema, ClientMessageUnpacker, T> fn,
-            T defaultValue
+            @Nullable T defaultValue
     ) {
         if (in.tryUnpackNil()) {
             return defaultValue;
