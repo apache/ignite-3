@@ -744,7 +744,9 @@ public class PartitionReplicaListener implements ReplicaListener {
                                 }
 
                                 // Proceed scan.
-                                return continueIndexScan(txId, indexId, indexLocker, indexCursor, batchSize, result);
+                                return CompletableFuture.supplyAsync(() ->
+                                        continueIndexScan(txId, indexId, indexLocker, indexCursor, batchSize, result))
+                                        .thenCompose(Function.identity());
                             });
                 });
     }
