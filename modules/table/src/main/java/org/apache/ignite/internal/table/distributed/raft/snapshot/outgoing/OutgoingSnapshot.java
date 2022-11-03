@@ -110,7 +110,7 @@ public class OutgoingSnapshot {
      */
     private boolean finishedTxData = false;
 
-    private boolean closed = false;
+    private volatile boolean closed = false;
 
     /**
      * Creates a new instance.
