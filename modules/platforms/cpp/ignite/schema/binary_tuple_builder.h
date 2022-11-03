@@ -268,117 +268,6 @@ public:
     /**
      * @brief Appends a value for the next element.
      *
-     * @param value Element value.
-     */
-    void append_int8(std::int8_t value) { put_int8(value); }
-
-    /**
-     * @brief Appends a value for the next element.
-     *
-     * @param value Element value.
-     */
-    void append_int16(std::int16_t value) { put_int16(value); }
-
-    /**
-     * @brief Appends a value for the next element.
-     *
-     * @param value Element value.
-     */
-    void append_int32(std::int32_t value) { put_int32(value); }
-
-    /**
-     * @brief Appends a value for the next element.
-     *
-     * @param value Element value.
-     */
-    void append_int64(std::int64_t value) { put_int64(value); }
-
-    /**
-     * @brief Appends a value for the next element.
-     *
-     * @param value Element value.
-     */
-    void append_float(float value) { put_float(value); }
-
-    /**
-     * @brief Appends a value for the next element.
-     *
-     * @param value Element value.
-     */
-    void append_double(double value) { put_double(value); }
-
-    /**
-     * @brief Appends a value for the next element.
-     *
-     * @param value Element value.
-     */
-    void append_uuid(uuid value) { put_uuid(value); }
-
-    /**
-     * @brief Appends a big integer for the next element.
-     *
-     * @param value Element value.
-     */
-    void append_number(const big_integer &value) { put_number(value); }
-
-    /**
-     * @brief Appends a big decimal for the next element.
-     *
-     * @param value Element value.
-     */
-    void append_number(const big_decimal &value) { put_number(value); }
-
-    /**
-     * @brief Appends a date for the next element.
-     *
-     * @param value Element value.
-     */
-    void append_date(const ignite_date &value) { put_date(value); }
-
-    /**
-     * @brief Appends a time for the next element.
-     *
-     * @param value Element value.
-     */
-    void append_time(const ignite_time &value) { put_time(value); }
-
-    /**
-     * @brief Appends a date time for the next element.
-     *
-     * @param value Element value.
-     */
-    void append_date_time(const ignite_date_time &value) { put_date_time(value); }
-
-    /**
-     * @brief Appends a timestamp for the next element.
-     *
-     * @param value Element value.
-     */
-    void append_timestamp(const ignite_timestamp &value) { put_timestamp(value); }
-
-    /**
-     * @brief Appends a string for the next element.
-     *
-     * @param value Element value.
-     */
-    void append_string(const std::string &value) {
-        ignite::bytes_view bytes {reinterpret_cast<const std::byte *>(value.data()), value.size()};
-
-        put_bytes(bytes);
-    }
-
-    /**
-     * @brief Appends bytes for the next element.
-     *
-     * @param value Element value.
-     */
-    void append_bytes(const bytes_view &value) {
-        put_bytes(value);
-    }
-
-    /**
-     * @brief Appends a value for the next element.
-     *
      * @param type Element type.
      * @param value Value of an internal tuple field.
      */
@@ -412,6 +301,249 @@ public:
         for (IntT i = 0; i < schema.num_elements(); i++) {
             append(schema.get_element(i).dataType, tuple[i]);
         }
+    }
+
+    /**
+     * @brief Writes binary value of specified element.
+     *
+     * @param bytes Binary element value.
+     */
+    void append_bytes(bytes_view bytes);
+
+    /**
+     * @brief Writes binary value of specified element.
+     *
+     * The written value may differ from the original because of value compression.
+     *
+     * @param bytes Binary element value.
+     */
+    void append_int8(bytes_view bytes);
+
+    /**
+     * @brief Writes specified element.
+     *
+     * The written value may differ from the original because of value compression.
+     *
+     * @param value Element value.
+     */
+    void append_int8(std::int8_t value);
+
+    /**
+     * @brief Writes binary value of specified element.
+     *
+     * The written value may differ from the original because of value compression.
+     *
+     * @param bytes Binary element value.
+     */
+    void append_int16(bytes_view bytes);
+
+    /**
+     * @brief Writes specified element.
+     *
+     * The written value may differ from the original because of value compression.
+     *
+     * @param value Element value.
+     */
+    void append_int16(std::int16_t value);
+
+    /**
+     * @brief Writes binary value of specified element.
+     *
+     * The written value may differ from the original because of value compression.
+     *
+     * @param bytes Binary element value.
+     */
+    void append_int32(bytes_view bytes);
+
+    /**
+     * @brief Writes specified element.
+     *
+     * The written value may differ from the original because of value compression.
+     *
+     * @param value Element value.
+     */
+    void append_int32(std::int32_t value);
+
+    /**
+     * @brief Writes binary value of specified element.
+     *
+     * The written value may differ from the original because of value compression.
+     *
+     * @param bytes Binary element value.
+     */
+    void append_int64(bytes_view bytes);
+
+    /**
+     * @brief Writes specified element.
+     *
+     * The written value may differ from the original because of value compression.
+     *
+     * @param value Element value.
+     */
+    void append_int64(std::int64_t value);
+
+    /**
+     * @brief Writes binary value of specified element.
+     *
+     * The written value may differ from the original because of value compression.
+     *
+     * @param bytes Binary element value.
+     */
+    void append_float(bytes_view bytes);
+
+    /**
+     * @brief Writes specified element.
+     *
+     * The written value may differ from the original because of value compression.
+     *
+     * @param value Element value.
+     */
+    void append_float(float value);
+
+    /**
+     * @brief Writes binary value of specified element.
+     *
+     * The written value may differ from the original because of value compression.
+     *
+     * @param bytes Binary element value.
+     */
+    void append_double(bytes_view bytes);
+
+    /**
+     * @brief Writes specified element.
+     *
+     * The written value may differ from the original because of value compression.
+     *
+     * @param value Element value.
+     */
+    void append_double(double value);
+
+    /**
+     * @brief Writes binary value of specified element.
+     *
+     * The written value may differ from the original because of value compression.
+     *
+     * @param bytes Binary element value.
+     */
+    void append_number(bytes_view bytes);
+
+    /**
+     * @brief Writes binary value of specified element.
+     *
+     * The written value may differ from the original because of value compression.
+     *
+     * @param value Big integer value.
+     */
+    void append_number(const big_integer &value);
+
+    /**
+     * @brief Writes binary value of specified element.
+     *
+     * The written value may differ from the original because of value compression.
+     *
+     * @param value Big decimal value.
+     */
+    void append_number(const big_decimal &value);
+
+    /**
+     * @brief Writes binary value of specified element.
+     *
+     * The written value may differ from the original because of value compression.
+     *
+     * @param bytes Binary element value.
+     */
+    void append_uuid(bytes_view bytes);
+
+    /**
+     * @brief Writes specified element.
+     *
+     * The written value may differ from the original because of value compression.
+     *
+     * @param value Element value.
+     */
+    void append_uuid(uuid value);
+
+    /**
+     * @brief Writes binary value of specified element.
+     *
+     * The written value may differ from the original because of value compression.
+     *
+     * @param bytes Binary element value.
+     */
+    void append_date(bytes_view bytes);
+
+    /**
+     * @brief Writes binary value of specified element.
+     *
+     * The written value may differ from the original because of value compression.
+     *
+     * @param value Date value.
+     */
+    void append_date(const ignite_date &value);
+
+    /**
+     * @brief Writes binary value of specified element.
+     *
+     * The written value may differ from the original because of value compression.
+     *
+     * @param bytes Binary element value.
+     */
+    void append_time(bytes_view bytes);
+
+    /**
+     * @brief Writes binary value of specified element.
+     *
+     * The written value may differ from the original because of value compression.
+     *
+     * @param value Time value.
+     */
+    void append_time(const ignite_time &value);
+
+    /**
+     * @brief Writes binary value of specified element.
+     *
+     * The written value may differ from the original because of value compression.
+     *
+     * @param bytes Binary element value.
+     */
+    void append_date_time(bytes_view bytes);
+
+    /**
+     * @brief Writes binary value of specified element.
+     *
+     * The written value may differ from the original because of value compression.
+     *
+     * @param value Date time value.
+     */
+    void append_date_time(const ignite_date_time &value);
+
+    /**
+     * @brief Writes binary value of specified element.
+     *
+     * The written value may differ from the original because of value compression.
+     *
+     * @param bytes Binary element value.
+     */
+    void append_timestamp(bytes_view bytes);
+
+    /**
+     * @brief Writes binary value of specified element.
+     *
+     * The written value may differ from the original because of value compression.
+     *
+     * @param value Timestamp value.
+     */
+    void append_timestamp(const ignite_timestamp &value);
+
+    /**
+     * @brief Appends a string for the next element.
+     *
+     * @param value Element value.
+     */
+    void append_string(const std::string &value) {
+        ignite::bytes_view bytes{reinterpret_cast<const std::byte *>(value.data()), value.size()};
+
+        append_bytes(bytes);
     }
 
     /**
@@ -629,238 +761,6 @@ private:
      * @return Required size.
      */
     static SizeT gauge(ignite_type type, bytes_view bytes);
-
-    /**
-     * @brief Writes binary value of specified element.
-     *
-     * @param bytes Binary element value.
-     */
-    void put_bytes(bytes_view bytes);
-
-    /**
-     * @brief Writes binary value of specified element.
-     *
-     * The written value may differ from the original because of value compression.
-     *
-     * @param bytes Binary element value.
-     */
-    void put_int8(bytes_view bytes);
-
-    /**
-     * @brief Writes specified element.
-     *
-     * The written value may differ from the original because of value compression.
-     *
-     * @param value Element value.
-     */
-    void put_int8(std::int8_t value);
-
-    /**
-     * @brief Writes binary value of specified element.
-     *
-     * The written value may differ from the original because of value compression.
-     *
-     * @param bytes Binary element value.
-     */
-    void put_int16(bytes_view bytes);
-
-    /**
-     * @brief Writes specified element.
-     *
-     * The written value may differ from the original because of value compression.
-     *
-     * @param value Element value.
-     */
-    void put_int16(std::int16_t value);
-
-    /**
-     * @brief Writes binary value of specified element.
-     *
-     * The written value may differ from the original because of value compression.
-     *
-     * @param bytes Binary element value.
-     */
-    void put_int32(bytes_view bytes);
-
-    /**
-     * @brief Writes specified element.
-     *
-     * The written value may differ from the original because of value compression.
-     *
-     * @param value Element value.
-     */
-    void put_int32(std::int32_t value);
-
-    /**
-     * @brief Writes binary value of specified element.
-     *
-     * The written value may differ from the original because of value compression.
-     *
-     * @param bytes Binary element value.
-     */
-    void put_int64(bytes_view bytes);
-
-    /**
-     * @brief Writes specified element.
-     *
-     * The written value may differ from the original because of value compression.
-     *
-     * @param value Element value.
-     */
-    void put_int64(std::int64_t value);
-
-    /**
-     * @brief Writes binary value of specified element.
-     *
-     * The written value may differ from the original because of value compression.
-     *
-     * @param bytes Binary element value.
-     */
-    void put_float(bytes_view bytes);
-
-    /**
-     * @brief Writes specified element.
-     *
-     * The written value may differ from the original because of value compression.
-     *
-     * @param value Element value.
-     */
-    void put_float(float value);
-
-    /**
-     * @brief Writes binary value of specified element.
-     *
-     * The written value may differ from the original because of value compression.
-     *
-     * @param bytes Binary element value.
-     */
-    void put_double(bytes_view bytes);
-
-    /**
-     * @brief Writes specified element.
-     *
-     * The written value may differ from the original because of value compression.
-     *
-     * @param value Element value.
-     */
-    void put_double(double value);
-
-    /**
-     * @brief Writes binary value of specified element.
-     *
-     * The written value may differ from the original because of value compression.
-     *
-     * @param bytes Binary element value.
-     */
-    void put_number(bytes_view bytes);
-
-    /**
-     * @brief Writes binary value of specified element.
-     *
-     * The written value may differ from the original because of value compression.
-     *
-     * @param value Big integer value.
-     */
-    void put_number(const big_integer &value);
-
-    /**
-     * @brief Writes binary value of specified element.
-     *
-     * The written value may differ from the original because of value compression.
-     *
-     * @param value Big decimal value.
-     */
-    void put_number(const big_decimal &value);
-
-    /**
-     * @brief Writes binary value of specified element.
-     *
-     * The written value may differ from the original because of value compression.
-     *
-     * @param bytes Binary element value.
-     */
-    void put_uuid(bytes_view bytes);
-
-    /**
-     * @brief Writes specified element.
-     *
-     * The written value may differ from the original because of value compression.
-     *
-     * @param value Element value.
-     */
-    void put_uuid(uuid value);
-
-    /**
-     * @brief Writes binary value of specified element.
-     *
-     * The written value may differ from the original because of value compression.
-     *
-     * @param bytes Binary element value.
-     */
-    void put_date(bytes_view bytes);
-
-    /**
-     * @brief Writes binary value of specified element.
-     *
-     * The written value may differ from the original because of value compression.
-     *
-     * @param value Date value.
-     */
-    void put_date(const ignite_date &value);
-
-    /**
-     * @brief Writes binary value of specified element.
-     *
-     * The written value may differ from the original because of value compression.
-     *
-     * @param bytes Binary element value.
-     */
-    void put_time(bytes_view bytes);
-
-    /**
-     * @brief Writes binary value of specified element.
-     *
-     * The written value may differ from the original because of value compression.
-     *
-     * @param value Time value.
-     */
-    void put_time(const ignite_time &value);
-
-    /**
-     * @brief Writes binary value of specified element.
-     *
-     * The written value may differ from the original because of value compression.
-     *
-     * @param bytes Binary element value.
-     */
-    void put_date_time(bytes_view bytes);
-
-    /**
-     * @brief Writes binary value of specified element.
-     *
-     * The written value may differ from the original because of value compression.
-     *
-     * @param value Date time value.
-     */
-    void put_date_time(const ignite_date_time &value);
-
-    /**
-     * @brief Writes binary value of specified element.
-     *
-     * The written value may differ from the original because of value compression.
-     *
-     * @param bytes Binary element value.
-     */
-    void put_timestamp(bytes_view bytes);
-
-    /**
-     * @brief Writes binary value of specified element.
-     *
-     * The written value may differ from the original because of value compression.
-     *
-     * @param value Timestamp value.
-     */
-    void put_timestamp(const ignite_timestamp &value);
 
     /**
      * @brief Adds an entry to the offset table.
