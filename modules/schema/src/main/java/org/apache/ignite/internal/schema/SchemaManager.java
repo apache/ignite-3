@@ -274,20 +274,19 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
 
         CompletableFuture<SchemaDescriptor> fut = new CompletableFuture<>();
 
-        if (checkSchemaVersion(tblId, schemaVer)) {
+        SchemaRegistry registry = registriesVv.latest().get(tblId);
+
+        // TODO: We can remove it after: restore all schemes on recovery https://issues.apache.org/jira/browse/IGNITE-18066
+        // Probably all near stuff must be improved too.
+        if (registry.lastSchemaVersion() > schemaVer) {
             return getSchemaDescriptor(schemaVer, tblCfg);
         }
 
         IgniteTriConsumer<Long, Map<UUID, SchemaRegistryImpl>, Throwable> schemaListener = (token, regs, e) -> {
             if (schemaVer <= regs.get(tblId).lastSchemaVersion()) {
-                getSchemaDescriptor(schemaVer, tblCfg)
-                        .whenComplete((desc, th) -> {
-                            if (th != null) {
-                                fut.completeExceptionally(th);
-                            } else {
-                                fut.complete(desc);
-                            }
-                        });
+                SchemaRegistry registry0 = registriesVv.latest().get(tblId);
+
+                fut.complete(registry0.schemaCached(schemaVer));
             }
         };
 
@@ -298,7 +297,9 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
         if (checkSchemaVersion(tblId, schemaVer)) {
             registriesVv.removeWhenComplete(schemaListener);
 
-            return getSchemaDescriptor(schemaVer, tblCfg);
+            registry = registriesVv.latest().get(tblId);
+
+            fut.complete(registry.schemaCached(schemaVer));
         }
 
         return fut.thenApply(res -> {
