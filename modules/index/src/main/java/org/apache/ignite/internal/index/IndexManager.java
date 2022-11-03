@@ -438,7 +438,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
             IndexColumnView columnView = indexView.columns().get(columnName);
 
             //TODO IGNITE-15141: Make null-order configurable.
-            // NULLS FIRST for ASC, NULLS LAST for DESC by default.
+            // NULLS FIRST for DESC, NULLS LAST for ASC by default.
             boolean nullsFirst = !columnView.asc();
 
             indexedColumns.add(columnName);

@@ -95,7 +95,7 @@ public final class RowConverter {
      * @param <RowT> Row type.
      * @return Binary tuple.
      */
-    public static <RowT> BinaryTuple toByteBuffer(
+    public static <RowT> BinaryTuple toBinaryTuple(
             ExecutionContext<RowT> ectx,
             BinaryTupleSchema binarySchema,
             ImmutableIntList idxColumnMapper,

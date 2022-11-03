@@ -86,10 +86,10 @@ public abstract class AbstractIndexScan extends ProjectableFilterableTableScan {
     /** {@inheritDoc} */
     @Override
     protected RelWriter explainTerms0(RelWriter pw) {
-        return super.explainTerms0(pw
-                .item("index", idxName)
+        pw = pw.item("index", idxName)
                 .item("type", type.name())
-                .itemIf("searchBounds", searchBounds, searchBounds != null));
+                .itemIf("searchBounds", searchBounds, searchBounds != null);
+        return super.explainTerms0(pw);
     }
 
     /**

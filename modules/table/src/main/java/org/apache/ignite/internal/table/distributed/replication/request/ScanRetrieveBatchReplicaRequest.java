@@ -72,7 +72,6 @@ public interface ScanRetrieveBatchReplicaRequest extends ReplicaRequest {
     /**
      * Gets control flags for {@link SortedIndexStorage}. {@link SortedIndexStorage#GREATER} | {@link SortedIndexStorage#LESS} by default.
      * Other available values are {@link SortedIndexStorage#GREATER_OR_EQUAL}, {@link SortedIndexStorage#LESS_OR_EQUAL}.
-     * TODO: IGNITE-17748 Refresh the summary when the meaning changes, after the issue will be implemented.
      *
      * @return Flags to determine a scan order.
      */

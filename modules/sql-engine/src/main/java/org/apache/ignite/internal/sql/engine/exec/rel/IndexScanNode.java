@@ -316,14 +316,19 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
                 flags |= (cond.upperInclude()) ? SortedIndex.INCLUDE_RIGHT : 0;
             }
 
-            pub = ((SortedIndex) schemaIndex.index()).scan(part, context().transaction(), lower, upper, flags, requiredColumns);
+            pub = ((SortedIndex) schemaIndex.index()).scan(
+                    part,
+                    context().transaction(),
+                    lower,
+                    upper,
+                    flags,
+                    requiredColumns == null ? null : requiredColumns.toBitSet()
+            );
         } else {
             assert schemaIndex.type() == Type.HASH;
             BinaryTuple key = null;
 
             if (cond != null) {
-                assert cond.lower() == cond.upper();
-
                 key = toBinaryTuple(cond.lower());
             }
 
