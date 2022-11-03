@@ -215,7 +215,7 @@ namespace Apache.Ignite.Internal.Compute
                 w.Write(schema.Version);
 
                 var serializerHandler = serializerHandlerFunc(table);
-                var colocationHash = serializerHandler.Write(ref w, schema, key, true);
+                var colocationHash = serializerHandler.Write(ref w, schema, key, keyOnly: true, computeHash: true);
 
                 w.Write(jobClassName);
                 w.WriteObjectArrayAsBinaryTuple(args);
