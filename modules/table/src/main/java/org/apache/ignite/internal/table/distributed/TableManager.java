@@ -1548,6 +1548,24 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 .thenApply(Function.identity());
     }
 
+    /**
+     * Asynchronously gets the table using causality token.
+     *
+     * @param causalityToken Causality token.
+     * @param id Table id.
+     * @return Future.
+     */
+    public CompletableFuture<TableImpl> tableAsync(long causalityToken, UUID id) {
+        if (!busyLock.enterBusy()) {
+            throw new IgniteException(new NodeStoppingException());
+        }
+        try {
+            return tablesByIdVv.get(causalityToken).thenApply(tablesById -> tablesById.get(id));
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<TableImpl> tableAsync(UUID id) {
