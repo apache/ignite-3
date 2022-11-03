@@ -23,8 +23,8 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeN
 import io.github.classgraph.ClassGraph;
 import io.github.classgraph.ClassInfo;
 import io.github.classgraph.ScanResult;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -35,6 +35,7 @@ import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage
 import org.apache.ignite.internal.network.NetworkMessagesSerializationRegistryInitializer;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.configuration.NodeFinderType;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessageSerializationRegistryImpl;
@@ -56,29 +57,47 @@ public class ClusterServiceTestUtils {
     private static final TestScaleCubeClusterServiceFactory SERVICE_FACTORY = new TestScaleCubeClusterServiceFactory();
 
     /** Registry initializers collected via reflection. */
-    private static final List<Method> REGISTRY_INITIALIZERS = new ArrayList<>();
+    private static final List<Method> REGISTRY_INITIALIZERS = collectRegistryInitializers();
 
-    static {
+    private static List<Method> collectRegistryInitializers() {
         // Automatically find all registry initializers to avoid configuring serialization registry manually in every test.
         String className = MessageSerializationRegistryInitializer.class.getName();
 
-        // ClassGraph library should be in classpath along with ignite-network test-jar
-        try (ScanResult scanResult = new ClassGraph().acceptPackages("org.apache.ignite").enableClassInfo().scan()) {
-            for (ClassInfo ci : scanResult.getClassesImplementing(className)) {
-                Class<?> clazz = ci.loadClass();
-                if (clazz == NetworkMessagesSerializationRegistryInitializer.class) {
-                    // This class is registered automatically in the MessageSerializationRegistryImpl
-                    continue;
-                }
+        ClassGraph classGraph = new ClassGraph().acceptPackages("org.apache.ignite").enableClassInfo();
 
-                try {
-                    Method method = clazz.getMethod("registerFactories", MessageSerializationRegistry.class);
-                    REGISTRY_INITIALIZERS.add(method);
-                } catch (Throwable e) {
-                    throw new RuntimeException("Failed to collect MessageSerializationRegistryInitializers", e);
-                }
-            }
+        // ClassGraph library should be in classpath along with ignite-network test-jar
+        try (ScanResult scanResult = classGraph.scan()) {
+            return scanResult.getClassesImplementing(className).stream()
+                    .map(ClassInfo::loadClass)
+                    // This class is registered automatically in the MessageSerializationRegistryImpl
+                    .filter(clazz -> clazz != NetworkMessagesSerializationRegistryInitializer.class)
+                    .map(clazz -> {
+                        try {
+                            return clazz.getMethod("registerFactories", MessageSerializationRegistry.class);
+                        } catch (NoSuchMethodException e) {
+                            throw new RuntimeException("Failed to collect MessageSerializationRegistryInitializers", e);
+                        }
+                    })
+                    .collect(toUnmodifiableList());
         }
+    }
+
+    /**
+     * Creates a {@link MessageSerializationRegistry} that is pre-populated with all {@link MessageSerializationRegistryInitializer}s,
+     * accessible thought the classpath.
+     */
+    public static MessageSerializationRegistry defaultSerializationRegistry() {
+        var registry = new MessageSerializationRegistryImpl();
+
+        REGISTRY_INITIALIZERS.forEach(method -> {
+            try {
+                method.invoke(method.getDeclaringClass(), registry);
+            } catch (InvocationTargetException | IllegalAccessException e) {
+                throw new RuntimeException("Failed to invoke registry initializer", e);
+            }
+        });
+
+        return registry;
     }
 
     /**
@@ -91,17 +110,7 @@ public class ClusterServiceTestUtils {
      * @param nodeFinder               Node finder.
      */
     public static ClusterService clusterService(TestInfo testInfo, int port, NodeFinder nodeFinder) {
-        var registry = new MessageSerializationRegistryImpl();
-
-        REGISTRY_INITIALIZERS.forEach(c -> {
-            try {
-                c.invoke(c.getDeclaringClass(), registry);
-            } catch (Throwable e) {
-                throw new RuntimeException("Failed to invoke registry initializer", e);
-            }
-        });
-
-        var ctx = new ClusterLocalConfiguration(testNodeName(testInfo, port), registry);
+        var ctx = new ClusterLocalConfiguration(testNodeName(testInfo, port), defaultSerializationRegistry());
 
         ConfigurationManager nodeConfigurationMgr = new ConfigurationManager(
                 Collections.singleton(NetworkConfiguration.KEY),
@@ -166,9 +175,11 @@ public class ClusterServiceTestUtils {
             @Override
             public void stop() {
                 try {
-                    clusterSvc.stop();
-                    bootstrapFactory.stop();
-                    nodeConfigurationMgr.stop();
+                    IgniteUtils.closeAll(
+                            clusterSvc::stop,
+                            bootstrapFactory::stop,
+                            nodeConfigurationMgr::stop
+                    );
                 } catch (Exception e) {
                     throw new RuntimeException(e);
                 }
