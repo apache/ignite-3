@@ -70,7 +70,7 @@ import org.apache.ignite.internal.tx.LockMode;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
-import org.apache.ignite.internal.tx.storage.state.test.TestConcurrentHashMapTxStateStorage;
+import org.apache.ignite.internal.tx.storage.state.test.TestTxStateStorage;
 import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.Pair;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
@@ -173,7 +173,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                 pkStorage,
                 CLOCK,
                 new PendingComparableValuesTracker<>(CLOCK.now()),
-                new TestConcurrentHashMapTxStateStorage(),
+                new TestTxStateStorage(),
                 mock(TopologyService.class),
                 mock(PlacementDriver.class),
                 peer -> true

@@ -42,6 +42,16 @@ namespace Apache.Ignite.Tests
 
         public const string ExistingTableName = "tbl1";
 
+        public const string CompositeKeyTableName = "tbl2";
+
+        public const string CustomColocationKeyTableName = "tbl3";
+
+        private static readonly Guid ExistingTableId = Guid.NewGuid();
+
+        private static readonly Guid CompositeKeyTableId = Guid.NewGuid();
+
+        private static readonly Guid CustomColocationKeyTableId = Guid.NewGuid();
+
         private readonly Socket _listener;
 
         private readonly CancellationTokenSource _cts = new();
@@ -49,6 +59,12 @@ namespace Apache.Ignite.Tests
         private readonly Func<int, bool> _shouldDropConnection;
 
         private readonly ConcurrentQueue<ClientOp>? _ops;
+
+        private readonly object _disposeSyncRoot = new();
+
+        private bool _disposed;
+
+        private Socket? _handler;
 
         public FakeServer(
             Func<int, bool>? shouldDropConnection = null,
@@ -75,11 +91,19 @@ namespace Apache.Ignite.Tests
 
         public IClusterNode Node { get; }
 
+        public Guid ClusterId { get; set; }
+
         public string[] PartitionAssignment { get; set; }
 
         public bool PartitionAssignmentChanged { get; set; }
 
+        public TimeSpan HandshakeDelay { get; set; }
+
+        public TimeSpan HeartbeatDelay { get; set; }
+
         public int Port => ((IPEndPoint)_listener.LocalEndPoint!).Port;
+
+        public string Endpoint => "127.0.0.1:" + Port;
 
         internal IList<ClientOp> ClientOps => _ops?.ToList() ?? throw new Exception("Ops tracking is disabled");
 
@@ -88,7 +112,7 @@ namespace Apache.Ignite.Tests
             cfg ??= new IgniteClientConfiguration();
 
             cfg.Endpoints.Clear();
-            cfg.Endpoints.Add("127.0.0.1:" + Port);
+            cfg.Endpoints.Add(Endpoint);
 
             return await IgniteClient.StartAsync(cfg);
         }
@@ -97,10 +121,21 @@ namespace Apache.Ignite.Tests
 
         public void Dispose()
         {
-            _cts.Cancel();
-            _listener.Disconnect(false);
-            _listener.Dispose();
-            _cts.Dispose();
+            lock (_disposeSyncRoot)
+            {
+                if (_disposed)
+                {
+                    return;
+                }
+
+                _cts.Cancel();
+                _handler?.Dispose();
+                _listener.Disconnect(false);
+                _listener.Dispose();
+                _cts.Dispose();
+
+                _disposed = true;
+            }
         }
 
         private static int ReceiveMessageSize(Socket handler)
@@ -274,13 +309,96 @@ namespace Apache.Ignite.Tests
             Send(handler, requestId, arrayBufferWriter);
         }
 
+        private void GetSchemas(MessagePackReader reader, Socket handler, long requestId)
+        {
+            var tableId = reader.ReadGuid();
+
+            using var arrayBufferWriter = new PooledArrayBufferWriter();
+            var writer = new MessagePackWriter(arrayBufferWriter);
+            writer.WriteMapHeader(1);
+            writer.Write(1); // Version.
+
+            if (tableId == ExistingTableId)
+            {
+                writer.WriteArrayHeader(1); // Columns.
+                writer.WriteArrayHeader(6); // Column props.
+                writer.Write("ID");
+                writer.Write((int)ClientDataType.Int32);
+                writer.Write(true); // Key.
+                writer.Write(false); // Nullable.
+                writer.Write(true); // Colocation.
+                writer.Write(0); // Scale.
+            }
+            else if (tableId == CompositeKeyTableId)
+            {
+                writer.WriteArrayHeader(2); // Columns.
+
+                writer.WriteArrayHeader(6); // Column props.
+                writer.Write("IdStr");
+                writer.Write((int)ClientDataType.String);
+                writer.Write(true); // Key.
+                writer.Write(false); // Nullable.
+                writer.Write(true); // Colocation.
+                writer.Write(0); // Scale.
+
+                writer.WriteArrayHeader(6); // Column props.
+                writer.Write("IdGuid");
+                writer.Write((int)ClientDataType.Uuid);
+                writer.Write(true); // Key.
+                writer.Write(false); // Nullable.
+                writer.Write(true); // Colocation.
+                writer.Write(0); // Scale.
+            }
+            else if (tableId == CustomColocationKeyTableId)
+            {
+                writer.WriteArrayHeader(2); // Columns.
+
+                writer.WriteArrayHeader(6); // Column props.
+                writer.Write("IdStr");
+                writer.Write((int)ClientDataType.String);
+                writer.Write(true); // Key.
+                writer.Write(false); // Nullable.
+                writer.Write(true); // Colocation.
+                writer.Write(0); // Scale.
+
+                writer.WriteArrayHeader(6); // Column props.
+                writer.Write("IdGuid");
+                writer.Write((int)ClientDataType.Uuid);
+                writer.Write(true); // Key.
+                writer.Write(false); // Nullable.
+                writer.Write(false); // Colocation.
+                writer.Write(0); // Scale.
+            }
+
+            writer.Flush();
+
+            Send(handler, requestId, arrayBufferWriter);
+        }
+
         private void ListenLoop()
+        {
+            while (!_cts.IsCancellationRequested)
+            {
+                try
+                {
+                    ListenLoopInternal();
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine("Error in FakeServer: " + e);
+                }
+            }
+        }
+
+        private void ListenLoopInternal()
         {
             int requestCount = 0;
 
             while (!_cts.IsCancellationRequested)
             {
                 using Socket handler = _listener.Accept();
+                _handler = handler;
+
                 handler.NoDelay = true;
 
                 // Read handshake.
@@ -290,6 +408,7 @@ namespace Apache.Ignite.Tests
 
                 // Write handshake response.
                 handler.Send(ProtoCommon.MagicBytes);
+                Thread.Sleep(HandshakeDelay);
 
                 using var handshakeBufferWriter = new PooledArrayBufferWriter();
                 var handshakeWriter = handshakeBufferWriter.GetMessageWriter();
@@ -303,6 +422,7 @@ namespace Apache.Ignite.Tests
                 handshakeWriter.Write(0); // Idle timeout.
                 handshakeWriter.Write(Node.Id); // Node id.
                 handshakeWriter.Write(Node.Name); // Node name (consistent id).
+                handshakeWriter.Write(ClusterId);
                 handshakeWriter.WriteBinHeader(0); // Features.
                 handshakeWriter.WriteMapHeader(0); // Extensions.
                 handshakeWriter.Flush();
@@ -339,11 +459,19 @@ namespace Apache.Ignite.Tests
                         {
                             var tableName = reader.ReadString();
 
-                            if (tableName == ExistingTableName)
+                            var tableId = tableName switch
+                            {
+                                ExistingTableName => ExistingTableId,
+                                CompositeKeyTableName => CompositeKeyTableId,
+                                CustomColocationKeyTableName => CustomColocationKeyTableId,
+                                _ => default
+                            };
+
+                            if (tableId != default)
                             {
                                 using var arrayBufferWriter = new PooledArrayBufferWriter();
                                 var writer = new MessagePackWriter(arrayBufferWriter);
-                                writer.Write(Guid.Empty);
+                                writer.Write(tableId);
                                 writer.Flush();
 
                                 Send(handler, requestId, arrayBufferWriter);
@@ -355,25 +483,8 @@ namespace Apache.Ignite.Tests
                         }
 
                         case ClientOp.SchemasGet:
-                        {
-                            using var arrayBufferWriter = new PooledArrayBufferWriter();
-                            var writer = new MessagePackWriter(arrayBufferWriter);
-                            writer.WriteMapHeader(1);
-                            writer.Write(1); // Version.
-                            writer.WriteArrayHeader(1); // Columns.
-                            writer.WriteArrayHeader(6); // Column props.
-                            writer.Write("ID");
-                            writer.Write((int)ClientDataType.Int32);
-                            writer.Write(true); // Key.
-                            writer.Write(false); // Nullable.
-                            writer.Write(true); // Colocation.
-                            writer.Write(0); // Scale.
-
-                            writer.Flush();
-
-                            Send(handler, requestId, arrayBufferWriter);
+                            GetSchemas(reader, handler, requestId);
                             continue;
-                        }
 
                         case ClientOp.PartitionAssignmentGet:
                         {
@@ -438,6 +549,11 @@ namespace Apache.Ignite.Tests
 
                         case ClientOp.SqlCursorNextPage:
                             SqlCursorNextPage(handler, requestId);
+                            continue;
+
+                        case ClientOp.Heartbeat:
+                            Thread.Sleep(HeartbeatDelay);
+                            Send(handler, requestId, Array.Empty<byte>());
                             continue;
                     }
 

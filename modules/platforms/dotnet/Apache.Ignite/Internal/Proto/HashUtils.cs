@@ -17,7 +17,10 @@
 
 namespace Apache.Ignite.Internal.Proto;
 
+using System;
+using System.Buffers.Binary;
 using System.Numerics;
+using NodaTime;
 
 /// <summary>
 /// Hash function based on MurmurHash3
@@ -30,65 +33,263 @@ internal static class HashUtils
     private const ulong C1 = 0x87c37b91114253d5L;
     private const ulong C2 = 0x4cf5ad432745937fL;
     private const int R1 = 31;
-
-    // TODO IGNITE-17969 Partition Awareness - support all key types
-    /*private const int R2 = 27;
+    private const int R2 = 27;
     private const int R3 = 33;
     private const int M = 5;
     private const int N1 = 0x52dce729;
-    private const int N2 = 0x38495ab5;*/
+    private const int N2 = 0x38495ab5;
 
     /// <summary>
-    /// Generates 32-bit hash from the integer value.
+    /// Generates 32-bit hash.
     /// </summary>
     /// <param name="data">Input data.</param>
     /// <param name="seed">Current hash.</param>
     /// <returns>Resulting hash.</returns>
-    public static int Hash32(int data, int seed)
-    {
-        ulong hash = Hash64(data, seed);
+    public static int Hash32(sbyte data, int seed) => Hash32Internal((ulong)(data & 0xffL), (ulong)seed, 1);
 
-        return (int)(hash ^ (hash >> 32));
+    /// <summary>
+    /// Generates 32-bit hash.
+    /// </summary>
+    /// <param name="data">Input data.</param>
+    /// <param name="seed">Current hash.</param>
+    /// <returns>Resulting hash.</returns>
+    public static int Hash32(short data, int seed) => Hash32Internal((ulong)(data & 0xffffL), (ulong)seed, 2);
+
+    /// <summary>
+    /// Generates 32-bit hash.
+    /// </summary>
+    /// <param name="data">Input data.</param>
+    /// <param name="seed">Current hash.</param>
+    /// <returns>Resulting hash.</returns>
+    public static int Hash32(int data, int seed) => Hash32Internal((ulong)(data & 0xffffffffL), (ulong)seed, 4);
+
+    /// <summary>
+    /// Generates 32-bit hash.
+    /// </summary>
+    /// <param name="data">Input data.</param>
+    /// <param name="seed">Current hash.</param>
+    /// <returns>Resulting hash.</returns>
+    public static int Hash32(long data, int seed) => Hash32Internal((ulong)data, (ulong)seed, 8);
+
+    /// <summary>
+    /// Generates 32-bit hash.
+    /// </summary>
+    /// <param name="data">Input data.</param>
+    /// <param name="seed">Current hash.</param>
+    /// <returns>Resulting hash.</returns>
+    public static int Hash32(float data, int seed) => Hash32(BitConverter.SingleToInt32Bits(data), seed);
+
+    /// <summary>
+    /// Generates 32-bit hash.
+    /// </summary>
+    /// <param name="data">Input data.</param>
+    /// <param name="seed">Current hash.</param>
+    /// <returns>Resulting hash.</returns>
+    public static int Hash32(double data, int seed) => Hash32(BitConverter.DoubleToInt64Bits(data), seed);
+
+    /// <summary>
+    /// Generates 32-bit hash.
+    /// </summary>
+    /// <param name="data">Input data.</param>
+    /// <param name="seed">Current hash.</param>
+    /// <returns>Resulting hash.</returns>
+    public static int Hash32(Span<byte> data, int seed) => Hash32Internal(data, (ulong)seed & 0xffffffffL);
+
+    /// <summary>
+    /// Generates 32-bit hash.
+    /// </summary>
+    /// <param name="data">Input data.</param>
+    /// <param name="seed">Current hash.</param>
+    /// <returns>Resulting hash.</returns>
+    public static int Hash32(LocalDate data, int seed) => Hash32((long)data.Day, Hash32((long)data.Month, Hash32((long)data.Year, seed)));
+
+    /// <summary>
+    /// Generates 32-bit hash.
+    /// </summary>
+    /// <param name="data">Input data.</param>
+    /// <param name="seed">Current hash.</param>
+    /// <returns>Resulting hash.</returns>
+    public static int Hash32(LocalTime data, int seed)
+    {
+        // TODO IGNITE-17992 Account for column precision.
+        return Hash32((long)data.NanosecondOfSecond, Hash32((long)data.Second, Hash32((long)data.Minute, Hash32((long)data.Hour, seed))));
     }
 
-    private static ulong Hash64(int data, long seed)
+    /// <summary>
+    /// Generates 32-bit hash.
+    /// </summary>
+    /// <param name="data">Input data.</param>
+    /// <param name="seed">Current hash.</param>
+    /// <returns>Resulting hash.</returns>
+    public static int Hash32(LocalDateTime data, int seed) => Hash32(data.TimeOfDay, Hash32(data.Date, seed));
+
+    private static int Hash32Internal(ulong data, ulong seed, byte byteCount)
     {
-        return HashInternal((uint)data, (ulong)seed);
+        var hash64 = Hash64Internal(data, seed, byteCount);
+
+        return (int)(hash64 ^ (hash64 >> 32));
     }
 
-    private static ulong HashInternal(uint data, ulong seed)
+    private static ulong Hash64Internal(ulong data, ulong seed, byte byteCount)
     {
-        ulong h1 = seed;
-        ulong h2 = seed;
+        unchecked
+        {
+            ulong h1 = seed;
+            ulong h2 = seed;
 
-        ulong k1 = 0;
+            ulong k1 = 0;
 
-        k1 ^= data & 0xffffffffUL;
-        k1 *= C1;
-        k1 = BitOperations.RotateLeft(k1, R1);
-        k1 *= C2;
-        h1 ^= k1;
+            k1 ^= data;
+            k1 *= C1;
+            k1 = BitOperations.RotateLeft(k1, R1);
+            k1 *= C2;
+            h1 ^= k1;
 
-        // finalization
-        h1 ^= 4;
-        h2 ^= 4;
+            // finalization
+            h1 ^= byteCount;
+            h2 ^= byteCount;
 
-        h1 += h2;
-        h2 += h1;
+            h1 += h2;
+            h2 += h1;
 
-        h1 = Fmix64(h1);
-        h2 = Fmix64(h2);
+            h1 = Fmix64(h1);
+            h2 = Fmix64(h2);
 
-        return h1 + h2;
+            return h1 + h2;
+        }
+    }
+
+    private static int Hash32Internal(Span<byte> data, ulong seed)
+    {
+        var hash64 = Hash64Internal(data, seed);
+
+        return (int)(hash64 ^ (hash64 >> 32));
+    }
+
+    private static ulong Hash64Internal(Span<byte> data, ulong seed)
+    {
+        unchecked
+        {
+            ulong h1 = seed;
+            ulong h2 = seed;
+            var length = data.Length;
+            int nblocks = length >> 4;
+
+            // body
+            for (int i = 0; i < nblocks; i++)
+            {
+                int idx = (i << 4);
+                ulong kk1 = BinaryPrimitives.ReadUInt64LittleEndian(data.Slice(idx));
+                ulong kk2 = BinaryPrimitives.ReadUInt64LittleEndian(data.Slice(idx + 8));
+
+                // mix functions for k1
+                kk1 *= C1;
+                kk1 = BitOperations.RotateLeft(kk1, R1);
+                kk1 *= C2;
+                h1 ^= kk1;
+                h1 = BitOperations.RotateLeft(h1, R2);
+                h1 += h2;
+                h1 = h1 * M + N1;
+
+                // mix functions for k2
+                kk2 *= C2;
+                kk2 = BitOperations.RotateLeft(kk2, R3);
+                kk2 *= C1;
+                h2 ^= kk2;
+                h2 = BitOperations.RotateLeft(h2, R1);
+                h2 += h1;
+                h2 = h2 * M + N2;
+            }
+
+            // tail
+            ulong k1 = 0;
+            ulong k2 = 0;
+            int index = nblocks << 4;
+            switch (length - index)
+            {
+                case 15:
+                    k2 ^= ((ulong)data[index + 14] & 0xff) << 48;
+                    goto case 14;
+                case 14:
+                    k2 ^= ((ulong)data[index + 13] & 0xff) << 40;
+                    goto case 13;
+                case 13:
+                    k2 ^= ((ulong)data[index + 12] & 0xff) << 32;
+                    goto case 12;
+                case 12:
+                    k2 ^= ((ulong)data[index + 11] & 0xff) << 24;
+                    goto case 11;
+                case 11:
+                    k2 ^= ((ulong)data[index + 10] & 0xff) << 16;
+                    goto case 10;
+                case 10:
+                    k2 ^= ((ulong)data[index + 9] & 0xff) << 8;
+                    goto case 9;
+
+                case 9:
+                    k2 ^= (ulong)data[index + 8] & 0xff;
+                    k2 *= C2;
+                    k2 = BitOperations.RotateLeft(k2, R3);
+                    k2 *= C1;
+                    h2 ^= k2;
+                    goto case 8;
+
+                case 8:
+                    k1 ^= ((ulong)data[index + 7] & 0xff) << 56;
+                    goto case 7;
+                case 7:
+                    k1 ^= ((ulong)data[index + 6] & 0xff) << 48;
+                    goto case 6;
+                case 6:
+                    k1 ^= ((ulong)data[index + 5] & 0xff) << 40;
+                    goto case 5;
+                case 5:
+                    k1 ^= ((ulong)data[index + 4] & 0xff) << 32;
+                    goto case 4;
+                case 4:
+                    k1 ^= ((ulong)data[index + 3] & 0xff) << 24;
+                    goto case 3;
+                case 3:
+                    k1 ^= ((ulong)data[index + 2] & 0xff) << 16;
+                    goto case 2;
+                case 2:
+                    k1 ^= ((ulong)data[index + 1] & 0xff) << 8;
+                    goto case 1;
+
+                case 1:
+                    k1 ^= (ulong)data[index] & 0xff;
+                    k1 *= C1;
+                    k1 = BitOperations.RotateLeft(k1, R1);
+                    k1 *= C2;
+                    h1 ^= k1;
+                    break;
+            }
+
+            // finalization
+            h1 ^= (ulong)length;
+            h2 ^= (ulong)length;
+
+            h1 += h2;
+            h2 += h1;
+
+            h1 = Fmix64(h1);
+            h2 = Fmix64(h2);
+
+            return h1 + h2;
+        }
     }
 
     private static ulong Fmix64(ulong hash)
     {
-        hash ^= (hash >> 33);
-        hash *= 0xff51afd7ed558ccdL;
-        hash ^= (hash >> 33);
-        hash *= 0xc4ceb9fe1a85ec53L;
-        hash ^= (hash >> 33);
-        return hash;
+        unchecked
+        {
+            hash ^= hash >> 33;
+            hash *= 0xff51afd7ed558ccdL;
+            hash ^= hash >> 33;
+            hash *= 0xc4ceb9fe1a85ec53L;
+            hash ^= hash >> 33;
+
+            return hash;
+        }
     }
 }

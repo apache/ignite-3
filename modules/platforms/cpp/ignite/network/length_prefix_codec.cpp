@@ -31,7 +31,7 @@ length_prefix_codec::length_prefix_codec()
 data_buffer_owning length_prefix_codec::encode(data_buffer_owning &data) {
     // Just pass data as is, because we encode message size in
     // the application to avoid unnecessary re-allocations and copying.
-    return std::move(data.consume_entirely());
+    return data.consume_entirely();
 }
 
 void length_prefix_codec::reset_buffer() {
@@ -62,7 +62,7 @@ data_buffer_ref length_prefix_codec::decode(data_buffer_ref &data) {
         if (m_packet.size() < PACKET_HEADER_SIZE)
             return {};
 
-        m_packet_size = bytes::load<endian::LITTLE, int32_t>(m_packet.data());
+        m_packet_size = bytes::load<endian::BIG, int32_t>(m_packet.data());
     }
 
     consume(data, m_packet_size + PACKET_HEADER_SIZE);

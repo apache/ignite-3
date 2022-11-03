@@ -29,25 +29,25 @@ namespace ignite {
  * @note type of enum value is int, size is same as sizeof(int).
  */
 enum class ignite_type {
-    INT8, /**< 1-byte signed integer. */
-    INT16, /**< 2-byte signed integer. */
-    INT32, /**< 4-byte signed integer. */
-    INT64, /**< 8-byte signed integer. */
-    FLOAT, /**< 4-byte floating-point number. */
-    DOUBLE, /**< 8-byte floating-point number. */
-    NUMBER, /**< Variable-length integer number (optionally bound by n bytes in size). */
-    DECIMAL, /**< Variable-length fixed-point number. */
-    STRING, /**< A UTF-8 encoded string. */
-    BINARY, /**< Variable-size byte array. */
-    BITMASK, /**< A fixed-length bitmask of n bits. */
-    UUID, /**< UUID (16 bytes). */
-    DATE, /**< A timezone-free date encoded into 3 bytes as a year (1 sign bit + 14 bits), month
+    INT8 = 1, /**< 1-byte signed integer. */
+    INT16 = 2, /**< 2-byte signed integer. */
+    INT32 = 3, /**< 4-byte signed integer. */
+    INT64 = 4, /**< 8-byte signed integer. */
+    FLOAT = 5, /**< 4-byte floating-point number. */
+    DOUBLE = 6, /**< 8-byte floating-point number. */
+    DECIMAL = 7, /**< Variable-length fixed-point number. */
+    UUID = 8, /**< UUID (16 bytes). */
+    STRING = 9, /**< A UTF-8 encoded string. */
+    BINARY = 10, /**< Variable-size byte array. */
+    BITMASK = 11, /**< A fixed-length bitmask of n bits. */
+    DATE = 12, /**< A timezone-free date encoded into 3 bytes as a year (1 sign bit + 14 bits), month
                (4 bits), day (5 bits). */
-    TIME, /**< A timezone-free time encoded into 5 bytes as padding (3 bits), hour
+    TIME = 13, /**< A timezone-free time encoded into 5 bytes as padding (3 bits), hour
                (5 bits), minute (6 bits), second (6 bits), microsecond (20 bits). */
-    DATETIME, /**< A timezone-free datetime encoded into 8 bytes as (date, time). */
-    TIMESTAMP, /**< Number of microseconds since Jan 1, 1970 00:00:00.000000 (with no
+    DATETIME = 14, /**< A timezone-free datetime encoded into 8 bytes as (date, time). */
+    TIMESTAMP = 15, /**< Number of microseconds since Jan 1, 1970 00:00:00.000000 (with no
                     timezone) encoded into 10 bytes. */
+    NUMBER = 16, /**< Variable-length integer number (optionally bound by n bytes in size). */
     LAST /**< Can be used internally for input data range checks. */
 };
 

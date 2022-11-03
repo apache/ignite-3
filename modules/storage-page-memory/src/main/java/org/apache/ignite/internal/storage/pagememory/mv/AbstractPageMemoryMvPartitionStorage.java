@@ -27,7 +27,6 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.BiConsumer;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 import org.apache.ignite.configuration.NamedListView;
@@ -696,11 +695,6 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException("Error occurred while fetching the size.", e);
         }
-    }
-
-    @Override
-    public void forEach(BiConsumer<RowId, BinaryRow> consumer) {
-        // No-op. Nothing to recover for a volatile storage. See usages and a comment about PK index rebuild.
     }
 
     @Override

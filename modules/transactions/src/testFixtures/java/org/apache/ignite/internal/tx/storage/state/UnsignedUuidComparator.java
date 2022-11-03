@@ -15,26 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing;
+package org.apache.ignite.internal.tx.storage.state;
 
+import java.util.Comparator;
 import java.util.UUID;
 
 /**
- * Registry of {@link OutgoingSnapshot}s.
+ * {@link Comparator} for {@link UUID} instances that orders them interpreting them as unsigned 128-bit integers.
  */
-public interface OutgoingSnapshotRegistry {
-    /**
-     * Register a snapshot with the registry.
-     *
-     * @param snapshotId ID of the snapshot.
-     * @param outgoingSnapshot Snapshot itself.
-     */
-    void registerOutgoingSnapshot(UUID snapshotId, OutgoingSnapshot outgoingSnapshot);
+public class UnsignedUuidComparator implements Comparator<UUID> {
+    @Override
+    public int compare(UUID o1, UUID o2) {
+        int highHalvesComparisonResult = Long.compareUnsigned(o1.getMostSignificantBits(), o2.getMostSignificantBits());
 
-    /**
-     * Unregisters a snapshot with the given ID.
-     *
-     * @param snapshotId Snapshot ID.
-     */
-    void unregisterOutgoingSnapshot(UUID snapshotId);
+        if (highHalvesComparisonResult != 0) {
+            return highHalvesComparisonResult;
+        }
+
+        return Long.compareUnsigned(o1.getLeastSignificantBits(), o2.getLeastSignificantBits());
+    }
 }

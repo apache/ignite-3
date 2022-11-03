@@ -867,6 +867,18 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         CompletableFuture.allOf(futures).join();
     }
 
+    private PartitionDataStorage partitionDataStorage(MvPartitionStorage partitionStorage, InternalTable internalTbl, int partId) {
+        return new SnapshotAwarePartitionDataStorage(
+                partitionStorage,
+                outgoingSnapshotsManager,
+                partitionKey(internalTbl, partId)
+        );
+    }
+
+    private PartitionKey partitionKey(InternalTable internalTbl, int partId) {
+        return new PartitionKey(internalTbl.tableId(), partId);
+    }
+
     /**
      * Calculates the quantity of the data nodes for the partition of the table.
      *
@@ -913,7 +925,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         //TODO Revisit peers String representation: https://issues.apache.org/jira/browse/IGNITE-17814
         raftGroupOptions.snapshotStorageFactory(new PartitionSnapshotStorageFactory(
                 raftMgr.topologyService(),
-                //TODO IGNITE-17302 Use miniumum from mv storage and tx state storage.
                 outgoingSnapshotsManager,
                 new PartitionAccessImpl(partitionKey, mvTableStorage, txStateTableStorage),
                 peers.stream().map(n -> new Peer(n.address())).map(PeerId::fromPeer).map(Object::toString).collect(Collectors.toList()),
@@ -1018,11 +1029,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         TableConfiguration tableCfg = tablesCfg.tables().get(name);
 
-        MvTableStorage tableStorage = dataStorageMgr.engine(tableCfg.dataStorage()).createMvTable(tableCfg, tablesCfg);
-
+        MvTableStorage tableStorage = createTableStorage(tableCfg, tablesCfg);
         TxStateTableStorage txStateStorage = createTxStateTableStorage(tableCfg);
-
-        tableStorage.start();
 
         InternalTableImpl internalTable = new InternalTableImpl(name, tblId, new Int2ObjectOpenHashMap<>(partitions),
                 partitions, netAddrResolver, clusterNodeResolver, txManager, tableStorage, txStateStorage, replicaSvc, clock);
@@ -1059,12 +1067,27 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     /**
+     * Creates data storage for the provided table.
+     *
+     * @param tableCfg Table configuration.
+     * @param tablesCfg Tables configuration.
+     * @return Table data storage.
+     */
+    protected MvTableStorage createTableStorage(TableConfiguration tableCfg, TablesConfiguration tablesCfg) {
+        MvTableStorage tableStorage = dataStorageMgr.engine(tableCfg.dataStorage()).createMvTable(tableCfg, tablesCfg);
+
+        tableStorage.start();
+
+        return tableStorage;
+    }
+
+    /**
      * Creates transaction state storage for the provided table.
      *
      * @param tableCfg Table configuration.
      * @return Transaction state storage.
      */
-    private TxStateTableStorage createTxStateTableStorage(TableConfiguration tableCfg) {
+    protected TxStateTableStorage createTxStateTableStorage(TableConfiguration tableCfg) {
         Path path = storagePath.resolve(TX_STATE_DIR + tableCfg.value().tableId());
 
         try {
@@ -1141,6 +1164,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 name, tblId);
 
             table.internalTable().storage().destroy();
+            table.internalTable().txStateStorage().destroy();
 
             CompletableFuture<?> fut = schemaManager.dropRegistry(causalityToken, table.tableId())
                     .thenCompose(
@@ -2000,14 +2024,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      */
     private <T extends ConfigurationProperty<?>> T directProxy(T property) {
         return getMetadataLocallyOnly ? property : ConfigurationUtil.directProxy(property);
-    }
-
-    private PartitionDataStorage partitionDataStorage(MvPartitionStorage partitionStorage, InternalTable internalTbl, int partId) {
-        return new SnapshotAwarePartitionDataStorage(partitionStorage, outgoingSnapshotsManager, partitionKey(internalTbl, partId));
-    }
-
-    private PartitionKey partitionKey(InternalTable internalTbl, int partId) {
-        return new PartitionKey(internalTbl.tableId(), partId);
     }
 
     /**

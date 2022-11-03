@@ -59,7 +59,7 @@ void linux_async_client_pool::stop() {
 
 bool linux_async_client_pool::send(uint64_t id, std::vector<std::byte> &&data) {
     if (m_stopping)
-        return false;
+        throw ignite_error("Client is stopped");
 
     auto client = find_client(id);
     if (!client)
@@ -142,7 +142,7 @@ void linux_async_client_pool::handle_connection_closed(uint64_t id, std::optiona
         handler->on_connection_closed(id, std::move(err));
 }
 
-void linux_async_client_pool::handle_nessage_received(uint64_t id, bytes_view msg) {
+void linux_async_client_pool::handle_message_received(uint64_t id, bytes_view msg) {
     if (auto handler = m_async_handler.lock())
         handler->on_message_received(id, msg);
 }

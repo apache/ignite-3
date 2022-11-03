@@ -15,15 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.commands.flow;
+package org.apache.ignite.internal.tx.storage.state.test;
 
-import org.apache.ignite.internal.cli.core.call.Call;
-import org.apache.ignite.internal.cli.core.call.CallOutput;
-import org.apache.ignite.internal.cli.core.call.DefaultCallOutput;
+import java.util.concurrent.ConcurrentHashMap;
+import org.apache.ignite.internal.tx.storage.state.TxStateStorageAbstractTest;
+import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 
-class ThrowingStrCall implements Call<StrCallInput, String> {
-    @Override
-    public CallOutput<String> execute(StrCallInput input) {
-        return DefaultCallOutput.failure(new RuntimeException("Ooops!"));
+/**
+ * Tx storage test for test implementation based on {@link ConcurrentHashMap}.
+ */
+public class TestTxStateStorageTest extends TxStateStorageAbstractTest {
+    /** {@inheritDoc} */
+    @Override protected TxStateTableStorage createStorage() {
+        return new TestTxStateTableStorage();
     }
 }

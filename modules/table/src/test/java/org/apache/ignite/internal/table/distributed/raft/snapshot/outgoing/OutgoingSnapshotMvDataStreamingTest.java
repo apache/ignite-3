@@ -26,17 +26,14 @@ import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.lenient;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.lock.AutoLockup;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.ReadResult;
@@ -54,15 +51,12 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
-class OutgoingSnapshotTest {
+class OutgoingSnapshotMvDataStreamingTest {
     @Mock
     private PartitionAccess partitionAccess;
 
     @Mock
     private MvPartitionStorage mvPartitionStorage;
-
-    @Mock
-    private OutgoingSnapshotRegistry snapshotRegistry;
 
     private OutgoingSnapshot snapshot;
 
@@ -88,7 +82,7 @@ class OutgoingSnapshotTest {
 
         lenient().when(partitionAccess.mvPartitionStorage()).thenReturn(mvPartitionStorage);
 
-        snapshot = new OutgoingSnapshot(UUID.randomUUID(), partitionAccess, snapshotRegistry);
+        snapshot = new OutgoingSnapshot(UUID.randomUUID(), partitionAccess);
     }
 
     @BeforeEach
@@ -108,7 +102,7 @@ class OutgoingSnapshotTest {
     }
 
     @Test
-    void sendsCommittedAndUncommittedVersionsFromStorage() throws Exception {
+    void sendsCommittedAndUncommittedVersionsFromStorage() {
         ReadResult version1 = ReadResult.createFromCommitted(new ByteBufferRow(new byte[]{1}), clock.now());
         ReadResult version2 = ReadResult.createFromWriteIntent(
                 new ByteBufferRow(new byte[]{2}),
@@ -143,16 +137,16 @@ class OutgoingSnapshotTest {
         lenient().when(mvPartitionStorage.closestRowId(rowId2)).thenReturn(null);
     }
 
-    private SnapshotMvDataResponse getMvDataResponse(long batchSizeHint) throws InterruptedException, ExecutionException, TimeoutException {
+    private SnapshotMvDataResponse getMvDataResponse(long batchSizeHint) {
         SnapshotMvDataRequest request = messagesFactory.snapshotMvDataRequest()
                 .batchSizeHint(batchSizeHint)
                 .build();
 
-        return snapshot.handleSnapshotMvDataRequest(request).get(1, TimeUnit.SECONDS);
+        return snapshot.handleSnapshotMvDataRequest(request);
     }
 
     @Test
-    void reversesOrderOfVersionsObtainedFromPartition() throws Exception {
+    void reversesOrderOfVersionsObtainedFromPartition() {
         ReadResult version1 = ReadResult.createFromCommitted(new ByteBufferRow(new byte[]{1}), clock.now());
         ReadResult version2 = ReadResult.createFromCommitted(new ByteBufferRow(new byte[]{2}), clock.now());
 
@@ -171,7 +165,7 @@ class OutgoingSnapshotTest {
     }
 
     @Test
-    void iteratesRowsInPartition() throws Exception {
+    void iteratesRowsInPartition() {
         ReadResult version1 = ReadResult.createFromCommitted(new ByteBufferRow(new byte[]{1}), clock.now());
         ReadResult version2 = ReadResult.createFromCommitted(new ByteBufferRow(new byte[]{2}), clock.now());
 
@@ -192,8 +186,10 @@ class OutgoingSnapshotTest {
     }
 
     @Test
-    void rowsWithIdsToSkipAreIgnored() throws Exception {
-        snapshot.addRowIdToSkip(rowId1);
+    void rowsWithIdsToSkipAreIgnored() {
+        try (AutoLockup ignored = snapshot.acquireMvLock()) {
+            snapshot.addRowIdToSkip(rowId1);
+        }
 
         when(mvPartitionStorage.closestRowId(lowestRowId)).thenReturn(rowId1);
         when(mvPartitionStorage.closestRowId(rowId2)).thenReturn(null);
@@ -204,7 +200,7 @@ class OutgoingSnapshotTest {
     }
 
     @Test
-    void sendsCommittedAndUncommittedVersionsFromQueue() throws Exception {
+    void sendsCommittedAndUncommittedVersionsFromQueue() {
         ReadResult version1 = ReadResult.createFromCommitted(new ByteBufferRow(new byte[]{1}), clock.now());
         ReadResult version2 = ReadResult.createFromWriteIntent(
                 new ByteBufferRow(new byte[]{2}),
@@ -216,7 +212,9 @@ class OutgoingSnapshotTest {
 
         when(mvPartitionStorage.scanVersions(rowIdOutOfOrder)).thenReturn(Cursor.fromIterable(List.of(version2, version1)));
 
-        snapshot.enqueueForSending(rowIdOutOfOrder);
+        try (AutoLockup ignored = snapshot.acquireMvLock()) {
+            snapshot.enqueueForSending(rowIdOutOfOrder);
+        }
 
         configureStorageToBeEmpty();
 
@@ -242,13 +240,15 @@ class OutgoingSnapshotTest {
     }
 
     @Test
-    void sendsOutOfOrderRowsWithHighestPriority() throws Exception {
+    void sendsOutOfOrderRowsWithHighestPriority() {
         ReadResult version1 = ReadResult.createFromCommitted(new ByteBufferRow(new byte[]{1}), clock.now());
         ReadResult version2 = ReadResult.createFromCommitted(new ByteBufferRow(new byte[]{2}), clock.now());
 
         when(mvPartitionStorage.scanVersions(rowIdOutOfOrder)).thenReturn(Cursor.fromIterable(List.of(version1)));
 
-        snapshot.enqueueForSending(rowIdOutOfOrder);
+        try (AutoLockup ignored = snapshot.acquireMvLock()) {
+            snapshot.enqueueForSending(rowIdOutOfOrder);
+        }
 
         configureStorageToHaveExactlyOneRowWith(List.of(version2));
 
@@ -261,29 +261,7 @@ class OutgoingSnapshotTest {
     }
 
     @Test
-    void sendsOutOfOrderRowsWhichAppearWhenScanning() throws Exception {
-        ReadResult version1 = ReadResult.createFromCommitted(new ByteBufferRow(new byte[]{1}), clock.now());
-        ReadResult version2 = ReadResult.createFromCommitted(new ByteBufferRow(new byte[]{2}), clock.now());
-
-        when(mvPartitionStorage.scanVersions(rowIdOutOfOrder)).thenReturn(Cursor.fromIterable(List.of(version2)));
-
-        when(mvPartitionStorage.closestRowId(lowestRowId)).thenReturn(rowId1);
-        when(mvPartitionStorage.scanVersions(rowId1)).thenReturn(Cursor.fromIterable(List.of(version1)));
-        when(mvPartitionStorage.closestRowId(rowId2)).then(invocation -> {
-            snapshot.enqueueForSending(rowIdOutOfOrder);
-            return null;
-        });
-
-        SnapshotMvDataResponse response = getMvDataResponse(Long.MAX_VALUE);
-
-        assertThat(response.rows(), hasSize(2));
-
-        assertThat(response.rows().get(0).rowId(), is(rowId1.uuid()));
-        assertThat(response.rows().get(1).rowId(), is(rowIdOutOfOrder.uuid()));
-    }
-
-    @Test
-    void sendsTombstonesWithNullBuffers() throws Exception {
+    void sendsTombstonesWithNullBuffers() {
         ReadResult version = ReadResult.createFromCommitted(null, clock.now());
 
         configureStorageToHaveExactlyOneRowWith(List.of(version));
@@ -294,7 +272,7 @@ class OutgoingSnapshotTest {
     }
 
     @Test
-    void doesNotSendWriteIntentTimestamp() throws Exception {
+    void doesNotSendWriteIntentTimestamp() {
         ReadResult version = ReadResult.createFromWriteIntent(
                 new ByteBufferRow(new byte[]{1}),
                 transactionId,
@@ -311,7 +289,7 @@ class OutgoingSnapshotTest {
     }
 
     @Test
-    void finalMvDataChunkHasFinishTrue() throws Exception {
+    void finalMvDataChunkHasFinishTrue() {
         configureStorageToBeEmpty();
 
         SnapshotMvDataResponse response = getMvDataResponse(Long.MAX_VALUE);
@@ -320,29 +298,14 @@ class OutgoingSnapshotTest {
     }
 
     @Test
-    void snapshotThatSentAllDataIsFinished() throws Exception {
-        configureStorageToBeEmpty();
-
-        getMvDataResponse(Long.MAX_VALUE);
-
-        assertTrue(snapshot.isFinished());
-    }
-
-    @Test
-    void snapshotThatSentAllDataUnregistersItself() throws Exception {
-        configureStorageToBeEmpty();
-
-        getMvDataResponse(Long.MAX_VALUE);
-
-        verify(snapshotRegistry).unregisterOutgoingSnapshot(snapshot.id());
-    }
-
-    @Test
-    void mvDataHandlingRespectsBatchSizeHintForMessagesFromPartition() throws Exception {
-        ReadResult version = ReadResult.createFromCommitted(new ByteBufferRow(new byte[]{1}), clock.now());
+    void mvDataHandlingRespectsBatchSizeHintForMessagesFromPartition() {
+        ReadResult version1 = ReadResult.createFromCommitted(new ByteBufferRow(new byte[]{1}), clock.now());
+        ReadResult version2 = ReadResult.createFromCommitted(new ByteBufferRow(new byte[]{2}), clock.now());
 
         when(mvPartitionStorage.closestRowId(lowestRowId)).thenReturn(rowId1);
-        when(mvPartitionStorage.scanVersions(rowId1)).thenReturn(Cursor.fromIterable(List.of(version)));
+        when(mvPartitionStorage.scanVersions(rowId1)).thenReturn(Cursor.fromIterable(List.of(version1)));
+        lenient().when(mvPartitionStorage.closestRowId(rowId1)).thenReturn(rowId1);
+        lenient().when(mvPartitionStorage.scanVersions(rowId2)).thenReturn(Cursor.fromIterable(List.of(version2)));
 
         SnapshotMvDataResponse response = getMvDataResponse(1);
 
@@ -350,14 +313,19 @@ class OutgoingSnapshotTest {
     }
 
     @Test
-    void mvDataHandlingRespectsBatchSizeHintForOutOfOrderMessages() throws Exception {
-        ReadResult version = ReadResult.createFromCommitted(new ByteBufferRow(new byte[]{1}), clock.now());
+    void mvDataHandlingRespectsBatchSizeHintForOutOfOrderMessages() {
+        ReadResult version1 = ReadResult.createFromCommitted(new ByteBufferRow(new byte[]{1}), clock.now());
+        ReadResult version2 = ReadResult.createFromCommitted(new ByteBufferRow(new byte[]{2}), clock.now());
 
-        when(mvPartitionStorage.scanVersions(rowIdOutOfOrder)).thenReturn(Cursor.fromIterable(List.of(version)));
+        when(mvPartitionStorage.scanVersions(rowIdOutOfOrder)).thenReturn(Cursor.fromIterable(List.of(version1)));
 
-        snapshot.enqueueForSending(rowIdOutOfOrder);
+        try (AutoLockup ignored = snapshot.acquireMvLock()) {
+            snapshot.enqueueForSending(rowIdOutOfOrder);
+        }
 
-        configureStorageToBeEmpty();
+        lenient().when(mvPartitionStorage.closestRowId(lowestRowId)).thenReturn(rowId1);
+        lenient().when(mvPartitionStorage.scanVersions(rowId1)).thenReturn(Cursor.fromIterable(List.of(version2)));
+        lenient().when(mvPartitionStorage.closestRowId(rowId2)).thenReturn(null);
 
         SnapshotMvDataResponse response = getMvDataResponse(1);
 
@@ -365,7 +333,7 @@ class OutgoingSnapshotTest {
     }
 
     @Test
-    void mvDataResponseThatIsNotLastHasFinishFalse() throws Exception {
+    void mvDataResponseThatIsNotLastHasFinishFalse() {
         ReadResult version1 = ReadResult.createFromCommitted(new ByteBufferRow(new byte[]{1}), clock.now());
         ReadResult version2 = ReadResult.createFromCommitted(new ByteBufferRow(new byte[]{2}), clock.now());
 
@@ -379,7 +347,7 @@ class OutgoingSnapshotTest {
     }
 
     @Test
-    void sendsRowsFromPartitionBiggerThanHint() throws Exception {
+    void sendsRowsFromPartitionBiggerThanHint() {
         ReadResult version = ReadResult.createFromCommitted(new ByteBufferRow(new byte[1000]), clock.now());
 
         configureStorageToHaveExactlyOneRowWith(List.of(version));
@@ -392,12 +360,14 @@ class OutgoingSnapshotTest {
     }
 
     @Test
-    void sendsRowsFromOutOfOrderQueueBiggerThanHint() throws Exception {
+    void sendsRowsFromOutOfOrderQueueBiggerThanHint() {
         ReadResult version = ReadResult.createFromCommitted(new ByteBufferRow(new byte[1000]), clock.now());
 
         when(mvPartitionStorage.scanVersions(rowIdOutOfOrder)).thenReturn(Cursor.fromIterable(List.of(version)));
 
-        snapshot.enqueueForSending(rowIdOutOfOrder);
+        try (AutoLockup ignored = snapshot.acquireMvLock()) {
+            snapshot.enqueueForSending(rowIdOutOfOrder);
+        }
 
         configureStorageToBeEmpty();
 
@@ -410,11 +380,13 @@ class OutgoingSnapshotTest {
 
     @Test
     void whenNotStartedThenEvenLowestRowIdIsNotPassed() {
-        assertFalse(snapshot.alreadyPassed(lowestRowId));
+        try (AutoLockup ignored = snapshot.acquireMvLock()) {
+            assertFalse(snapshot.alreadyPassed(lowestRowId));
+        }
     }
 
     @Test
-    void lastSentRowIdIsPassed() throws Exception {
+    void lastSentRowIdIsPassed() {
         ReadResult version1 = ReadResult.createFromCommitted(new ByteBufferRow(new byte[]{1}), clock.now());
         ReadResult version2 = ReadResult.createFromCommitted(new ByteBufferRow(new byte[]{2}), clock.now());
 
@@ -424,11 +396,13 @@ class OutgoingSnapshotTest {
 
         getMvDataResponse(1);
 
-        assertTrue(snapshot.alreadyPassed(rowId1));
+        try (AutoLockup ignored = snapshot.acquireMvLock()) {
+            assertTrue(snapshot.alreadyPassed(rowId1));
+        }
     }
 
     @Test
-    void notYetSentRowIdIsNotPassed() throws Exception {
+    void notYetSentRowIdIsNotPassed() {
         ReadResult version1 = ReadResult.createFromCommitted(new ByteBufferRow(new byte[]{1}), clock.now());
         ReadResult version2 = ReadResult.createFromCommitted(new ByteBufferRow(new byte[]{2}), clock.now());
 
@@ -438,18 +412,22 @@ class OutgoingSnapshotTest {
 
         getMvDataResponse(1);
 
-        assertFalse(snapshot.alreadyPassed(rowId2));
+        try (AutoLockup ignored = snapshot.acquireMvLock()) {
+            assertFalse(snapshot.alreadyPassed(rowId2));
+        }
     }
 
     @Test
-    void anyRowIdIsPassedForFinishedSnapshot() throws Exception {
+    void anyRowIdIsPassedForFinishedSnapshot() {
         ReadResult version = ReadResult.createFromCommitted(new ByteBufferRow(new byte[]{1}), clock.now());
 
         configureStorageToHaveExactlyOneRowWith(List.of(version));
 
         getMvDataResponse(Long.MAX_VALUE);
 
-        //noinspection ConstantConditions
-        assertTrue(snapshot.alreadyPassed(rowId3.increment().increment().increment()));
+        try (AutoLockup ignored = snapshot.acquireMvLock()) {
+            //noinspection ConstantConditions
+            assertTrue(snapshot.alreadyPassed(rowId3.increment().increment().increment()));
+        }
     }
 }

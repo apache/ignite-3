@@ -15,21 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.lang;
+package org.apache.ignite.internal.metrics.exporters;
 
-import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
+import org.apache.ignite.internal.metrics.exporters.configuration.ExporterConfigurationSchema;
 
 /**
- * Ignite exception utils.
+ * Empty configuration for {@link TestSimpleExporter}.
  */
-public final class IgniteExceptionUtils {
-    /**
-     * Gets the Ignite error code if the specified throwable is an {@link IgniteException}.
-     *
-     * @param t Throwable.
-     * @return Ignite error code or null.
-     */
-    public static Integer getIgniteErrorCode(Throwable t) {
-        return (t instanceof IgniteException) ? ((IgniteException) t).code() : null;
-    }
+@PolymorphicConfigInstance(TestSimpleExporter.EXPORTER_NAME)
+public class TestSimpleExporterConfigurationSchema extends ExporterConfigurationSchema {
 }
