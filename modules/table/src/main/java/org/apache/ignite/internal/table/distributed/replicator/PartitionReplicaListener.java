@@ -56,6 +56,7 @@ import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaSafeTimeSyncRequest;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.ReadResult;
@@ -63,8 +64,13 @@ import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.IndexLocker;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
+import org.apache.ignite.internal.table.distributed.command.FinishTxCommandBuilder;
 import org.apache.ignite.internal.table.distributed.command.HybridTimestampMessage;
+import org.apache.ignite.internal.table.distributed.command.TablePartitionIdMessage;
 import org.apache.ignite.internal.table.distributed.command.TxCleanupCommand;
+import org.apache.ignite.internal.table.distributed.command.UpdateAllCommand;
+import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
+import org.apache.ignite.internal.table.distributed.command.UpdateCommandBuilder;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadOnlyMultiRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadOnlyReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadOnlyScanRetrieveBatchReplicaRequest;
@@ -634,40 +640,17 @@ public class PartitionReplicaListener implements ReplicaListener {
         txTimestampUpdateMap.put(txId, fut);
 
         HybridTimestamp commitTimestamp =  commit ? hybridClock.now() : null;
-        Command cmd;
 
-        if (commit) {
-            cmd = msgFactory.finishTxCommand()
-                    .txId(txId)
-                    .commit(true)
-                    .commitTimestamp(
-                            msgFactory.hybridTimestampMessage()
-                                        .logical(commitTimestamp.getLogical())
-                                        .physical(commitTimestamp.getPhysical())
-                                        .build()
-                    )
-                    .tablePartitionIds(aggregatedGroupIds.stream()
-                            .map(rgId -> msgFactory.tablePartitionIdMessage()
-                                    .tableId(((TablePartitionId) rgId).getTableId())
-                                    .partitionId(((TablePartitionId) rgId).getPartId())
-                                    .build())
-                            .collect(Collectors.toList()))
-                    .build();
-        }
-        else {
-            cmd = msgFactory.finishTxCommand()
-                    .txId(txId)
-                    .commit(false)
-                    .tablePartitionIds(aggregatedGroupIds.stream()
-                            .map(rgId -> msgFactory.tablePartitionIdMessage()
-                                    .tableId(((TablePartitionId) rgId).getTableId())
-                                    .partitionId(((TablePartitionId) rgId).getPartId())
-                                    .build())
-                            .collect(Collectors.toList()))
-                    .build();
-        }
+        FinishTxCommandBuilder finishTxCmdBldr = msgFactory.finishTxCommand()
+                .txId(txId)
+                .commit(commit)
+                .tablePartitionIds(aggregatedGroupIds.stream()
+                        .map(rgId -> tablePartitionId((TablePartitionId) rgId)).collect(Collectors.toList()));
 
-        CompletableFuture<Object> changeStateFuture = raftClient.run(cmd).whenComplete((o, throwable) -> {
+        if (commit)
+            finishTxCmdBldr.commitTimestamp(hybridTimestamp(commitTimestamp));
+
+        CompletableFuture<Object> changeStateFuture = raftClient.run(finishTxCmdBldr.build()).whenComplete((o, throwable) -> {
             fut.complete(new TxMeta(commit ? TxState.COMMITED : TxState.ABORTED, aggregatedGroupIds, commitTimestamp));
 
             txTimestampUpdateMap.remove(txId);
@@ -874,15 +857,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                         return completedFuture(result);
                     }
 
-                    return applyCmdWithExceptionHandling(
-                            msgFactory.updateAllCommand()
-                                    .tablePartitionId(msgFactory.tablePartitionIdMessage()
-                                            .tableId(committedPartitionId.getTableId())
-                                            .partitionId(committedPartitionId.getPartId())
-                                            .build())
-                                    .rowsToUpdate(rowIdsToDelete)
-                                    .txId(txId)
-                                    .build())
+                    return applyCmdWithExceptionHandling(updateAllCommand(committedPartitionId, rowIdsToDelete, txId))
                             .thenApply(ignored -> result);
                 });
             }
@@ -917,16 +892,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                         }
                     }
 
-                    CompletableFuture raftFut = rowIdsToDelete.isEmpty() ? completedFuture(null)
-                            : applyCmdWithExceptionHandling(
-                                    msgFactory.updateAllCommand()
-                                            .tablePartitionId(msgFactory.tablePartitionIdMessage()
-                                                    .tableId(committedPartitionId.getTableId())
-                                                    .partitionId(committedPartitionId.getPartId())
-                                                    .build())
-                                            .rowsToUpdate(rowIdsToDelete)
-                                            .txId(txId)
-                                            .build());
+                    CompletableFuture<Object> raftFut = rowIdsToDelete.isEmpty() ? completedFuture(null)
+                            : applyCmdWithExceptionHandling(updateAllCommand(committedPartitionId, rowIdsToDelete, txId));
 
                     return raftFut.thenApply(ignored -> result);
                 });
@@ -982,15 +949,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     return allOf(insertLockFuts)
                             .thenCompose(ignored -> applyCmdWithExceptionHandling(
-                                    msgFactory.updateAllCommand()
-                                            .tablePartitionId(msgFactory.tablePartitionIdMessage()
-                                                    .tableId(committedPartitionId.getTableId())
-                                                    .partitionId(committedPartitionId.getPartId())
-                                                    .build())
-                                            .rowsToUpdate(convertedMap)
-                                            .txId(txId)
-                                            .build()))
-                            .thenApply(ignored -> result);
+                                    updateAllCommand(committedPartitionId, convertedMap, txId))).thenApply(ignored -> result);
                 });
             }
             case RW_UPSERT_ALL: {
@@ -1025,15 +984,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                         return completedFuture(null);
                     }
 
-                    return applyCmdWithExceptionHandling(
-                            msgFactory.updateAllCommand()
-                                            .tablePartitionId(msgFactory.tablePartitionIdMessage()
-                                                    .tableId(committedPartitionId.getTableId())
-                                                    .partitionId(committedPartitionId.getPartId())
-                                                    .build())
-                                            .rowsToUpdate(rowsToUpdate)
-                                            .txId(txId)
-                                            .build())
+                    return applyCmdWithExceptionHandling(updateAllCommand(committedPartitionId, rowsToUpdate, txId))
                             .thenApply(ignored -> null);
                 });
             }
@@ -1101,14 +1052,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     return takeLocksForDelete(searchRow, rowId, txId)
                             .thenCompose(ignored -> applyCmdWithExceptionHandling(
-                                    msgFactory.updateCommand()
-                                            .tablePartitionId(msgFactory.tablePartitionIdMessage()
-                                                    .tableId(commitPartitionId.getTableId())
-                                                    .partitionId(commitPartitionId.getPartId())
-                                                    .build())
-                                            .rowUuid(rowId.uuid())
-                                            .txId(txId)
-                                            .build()))
+                                    updateCommand(commitPartitionId, rowId.uuid(), null, txId)))
                             .thenApply(ignored -> true);
                 });
             }
@@ -1120,14 +1064,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     return takeLocksForDelete(searchRow, rowId, txId)
                             .thenCompose(ignored -> applyCmdWithExceptionHandling(
-                                    msgFactory.updateCommand()
-                                            .tablePartitionId(msgFactory.tablePartitionIdMessage()
-                                                    .tableId(commitPartitionId.getTableId())
-                                                    .partitionId(commitPartitionId.getPartId())
-                                                    .build())
-                                            .rowUuid(rowId.uuid())
-                                            .txId(txId)
-                                            .build()))
+                                    updateCommand(commitPartitionId, rowId.uuid(), null, txId)))
                             .thenApply(ignored -> row);
                 });
             }
@@ -1144,14 +1081,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                                 }
 
                                 return applyCmdWithExceptionHandling(
-                                        msgFactory.updateCommand()
-                                                .tablePartitionId(msgFactory.tablePartitionIdMessage()
-                                                        .tableId(commitPartitionId.getTableId())
-                                                        .partitionId(commitPartitionId.getPartId())
-                                                        .build())
-                                                .rowUuid(validatedRowId.uuid())
-                                                .txId(txId)
-                                                .build())
+                                        updateCommand(commitPartitionId, validatedRowId.uuid(), null, txId))
                                         .thenApply(ignored -> true);
                             });
                 });
@@ -1166,15 +1096,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     return takeLocksForInsert(searchRow, rowId0, txId)
                             .thenCompose(ignored -> applyCmdWithExceptionHandling(
-                                    msgFactory.updateCommand()
-                                            .tablePartitionId(msgFactory.tablePartitionIdMessage()
-                                                    .tableId(commitPartitionId.getTableId())
-                                                    .partitionId(commitPartitionId.getPartId())
-                                                    .build())
-                                            .rowUuid(rowId0.uuid())
-                                            .rowBuffer(new ByteString(searchRow.byteBuffer()))
-                                            .txId(txId)
-                                            .build()))
+                                    updateCommand(commitPartitionId, rowId0.uuid(), searchRow.byteBuffer(), txId)))
                             .thenApply(ignored -> true);
                 });
             }
@@ -1190,15 +1112,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     return lockFut
                             .thenCompose(ignored -> applyCmdWithExceptionHandling(
-                                    msgFactory.updateCommand()
-                                            .tablePartitionId(msgFactory.tablePartitionIdMessage()
-                                                    .tableId(commitPartitionId.getTableId())
-                                                    .partitionId(commitPartitionId.getPartId())
-                                                    .build())
-                                            .rowUuid(rowId0.uuid())
-                                            .rowBuffer(new ByteString(searchRow.byteBuffer()))
-                                            .txId(txId)
-                                            .build()))
+                                    updateCommand(commitPartitionId, rowId0.uuid(), searchRow.byteBuffer(), txId)))
                             .thenApply(ignored -> null);
                 });
             }
@@ -1214,15 +1128,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     return lockFut
                             .thenCompose(ignored -> applyCmdWithExceptionHandling(
-                                    msgFactory.updateCommand()
-                                            .tablePartitionId(msgFactory.tablePartitionIdMessage()
-                                                    .tableId(commitPartitionId.getTableId())
-                                                    .partitionId(commitPartitionId.getPartId())
-                                                    .build())
-                                            .rowUuid(rowId0.uuid())
-                                            .rowBuffer(new ByteString(searchRow.byteBuffer()))
-                                            .txId(txId)
-                                            .build()))
+                                    updateCommand(commitPartitionId, rowId0.uuid(), searchRow.byteBuffer(), txId)))
                             .thenApply(ignored -> row);
                 });
             }
@@ -1234,15 +1140,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     return takeLocksForUpdate(searchRow, rowId, txId)
                             .thenCompose(ignored -> applyCmdWithExceptionHandling(
-                                    msgFactory.updateCommand()
-                                            .tablePartitionId(msgFactory.tablePartitionIdMessage()
-                                                    .tableId(commitPartitionId.getTableId())
-                                                    .partitionId(commitPartitionId.getPartId())
-                                                    .build())
-                                            .rowUuid(rowId.uuid())
-                                            .rowBuffer(new ByteString(searchRow.byteBuffer()))
-                                            .txId(txId)
-                                            .build()))
+                                    updateCommand(commitPartitionId, rowId.uuid(), searchRow.byteBuffer(), txId)))
                             .thenApply(ignored0 -> row);
                 });
             }
@@ -1254,15 +1152,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     return takeLocksForUpdate(searchRow, rowId, txId)
                             .thenCompose(ignored -> applyCmdWithExceptionHandling(
-                                    msgFactory.updateCommand()
-                                            .tablePartitionId(msgFactory.tablePartitionIdMessage()
-                                                    .tableId(commitPartitionId.getTableId())
-                                                    .partitionId(commitPartitionId.getPartId())
-                                                    .build())
-                                            .rowUuid(rowId.uuid())
-                                            .rowBuffer(new ByteString(searchRow.byteBuffer()))
-                                            .txId(txId)
-                                            .build()))
+                                    updateCommand(commitPartitionId, rowId.uuid(), searchRow.byteBuffer(), txId)))
                             .thenApply(ignored -> true);
                 });
             }
@@ -1406,16 +1296,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                             }
 
                             return applyCmdWithExceptionHandling(
-                                    msgFactory.updateCommand()
-                                            .tablePartitionId(
-                                                    msgFactory.tablePartitionIdMessage()
-                                                            .tableId(commitPartitionId.getTableId())
-                                                            .partitionId(commitPartitionId.getPartId())
-                                                            .build())
-                                            .rowUuid(validatedRowId.uuid())
-                                            .rowBuffer(new ByteString(newRow.byteBuffer()))
-                                            .txId(txId)
-                                            .build())
+                                    updateCommand(commitPartitionId, validatedRowId.uuid(), newRow.byteBuffer(), txId))
                                     .thenApply(ignored -> true);
                         });
             });
@@ -1610,7 +1491,6 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param partition Number of table partitions.
      * @return A RAFT group name.
      */
-    @NotNull
     private String partitionRaftGroupName(UUID tblId, int partition) {
         return tblId + "_part_" + partition;
     }
@@ -1627,5 +1507,55 @@ public class PartitionReplicaListener implements ReplicaListener {
                 .logical(tmstmp.getLogical())
                 .build()
                 : null;
+    }
+
+    /**
+     * Method to construct {@link UpdateCommand} object.
+     *
+     * @param tablePartId {@link TablePartitionId} object to construct {@link UpdateCommand} object with.
+     * @param rowUuid Row UUID.
+     * @param rowBuf {@link ByteBuffer} representation of {@link BinaryRow}.
+     * @param txId Transaction ID.
+     * @return Constructed {@link UpdateCommand} object.
+     */
+    private UpdateCommand updateCommand(TablePartitionId tablePartId, UUID rowUuid, ByteBuffer rowBuf, UUID txId) {
+        UpdateCommandBuilder bldr = msgFactory.updateCommand()
+                .tablePartitionId(tablePartitionId(tablePartId))
+                .rowUuid(rowUuid)
+                .txId(txId);
+
+        if (rowBuf != null)
+            bldr.rowBuffer(new ByteString(rowBuf));
+
+        return bldr.build();
+    }
+
+    /**
+     * Method to construct {@link UpdateAllCommand} object.
+     *
+     * @param tablePartId {@link TablePartitionId} object to construct {@link UpdateCommand} object with.
+     * @param rowsToUpdate All {@link BinaryRow}s represented as {@link ByteString}s to be updated.
+     * @param txId Transaction ID.
+     * @return Constructed {@link UpdateAllCommand} object.
+     */
+    private UpdateAllCommand updateAllCommand(TablePartitionId tablePartId, Map<UUID, ByteString> rowsToUpdate, UUID txId) {
+        return msgFactory.updateAllCommand()
+                .tablePartitionId(tablePartitionId(tablePartId))
+                .rowsToUpdate(rowsToUpdate)
+                .txId(txId)
+                .build();
+    }
+
+    /**
+     * Method to convert from {@link TablePartitionId} object to command-based {@link TablePartitionIdMessage} object.
+     *
+     * @param tablePartId {@link TablePartitionId} object to convert to {@link TablePartitionIdMessage}.
+     * @return {@link TablePartitionIdMessage} object converted from argument.
+     */
+    private TablePartitionIdMessage tablePartitionId(TablePartitionId tablePartId) {
+        return msgFactory.tablePartitionIdMessage()
+                .tableId(tablePartId.getTableId())
+                .partitionId(tablePartId.getPartId())
+                .build();
     }
 }

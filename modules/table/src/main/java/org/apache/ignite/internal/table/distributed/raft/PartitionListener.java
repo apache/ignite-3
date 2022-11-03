@@ -46,6 +46,7 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
 import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
+import org.apache.ignite.internal.table.distributed.command.TablePartitionIdMessage;
 import org.apache.ignite.internal.table.distributed.command.TxCleanupCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateAllCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
@@ -170,7 +171,7 @@ public class PartitionListener implements RaftGroupListener {
         storage.runConsistently(() -> {
             BinaryRow row = cmd.rowBuffer() != null ? new ByteBufferRow(cmd.rowBuffer().toByteArray()) : null;
             UUID rowUuid = cmd.rowUuid();
-            RowId rowId = new RowId(partitionId, rowUuid.getMostSignificantBits(), rowUuid.getLeastSignificantBits());
+            RowId rowId = new RowId(partitionId, rowUuid);
             UUID txId = cmd.txId();
             UUID commitTblId = cmd.tablePartitionId().tableId();
             int commitPartId = cmd.tablePartitionId().partitionId();
@@ -245,7 +246,7 @@ public class PartitionListener implements RaftGroupListener {
                 stateToSet,
                 cmd.tablePartitionIds()
                         .stream()
-                        .map(tpIdMsg -> (ReplicationGroupId) tpIdMsg.asTablePartitionId())
+                        .map(TablePartitionIdMessage::asTablePartitionId)
                         .collect(Collectors.toList()),
                 cmd.commitTimestamp() != null ? cmd.commitTimestamp().asHybridTimestamp() : null
         );
