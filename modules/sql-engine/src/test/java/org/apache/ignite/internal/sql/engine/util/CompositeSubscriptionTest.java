@@ -208,7 +208,7 @@ public class CompositeSubscriptionTest {
         subscription.request(params.requested);
 
         Assertions.assertTrue(lsnr.awaitComplete(10),
-                "Execution timeout [params="+ params + ", results=" + lsnr + ']');
+                "Execution timeout [params=" + params + ", results=" + lsnr + ']');
 
         int remaining = params.total - params.offset;
         int expReceived = Math.min(params.requested, remaining);
@@ -321,11 +321,11 @@ public class CompositeSubscriptionTest {
 
         @Override
         public String toString() {
-            return "InputParameters{" +
-                    "requested=" + requested +
-                    ", total=" + total +
-                    ", offset=" + offset +
-                    '}';
+            return "InputParameters{"
+                    + "requested=" + requested
+                    + ", total=" + total
+                    + ", offset=" + offset
+                    + '}';
         }
     }
 
@@ -364,10 +364,10 @@ public class CompositeSubscriptionTest {
 
         @Override
         public String toString() {
-            return "SubscriberListener{" +
-                    "receivedCnt=" + receivedCnt.get() +
-                    ", onCompleteCntr=" + onCompleteCntr.get() +
-                    '}';
+            return "SubscriberListener{"
+                    + "receivedCnt=" + receivedCnt.get()
+                    + ", onCompleteCntr=" + onCompleteCntr.get()
+                    + '}';
         }
     }
 }
