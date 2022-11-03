@@ -254,7 +254,7 @@ big_integer binary_tuple_parser::get_number(bytes_view bytes) {
 
 big_decimal binary_tuple_parser::get_decimal(bytes_view bytes, int32_t scale) {
     big_integer mag(bytes.data(), bytes.size());
-    return {mag, scale};
+    return {std::move(mag), scale};
 }
 
 uuid binary_tuple_parser::get_uuid(bytes_view bytes) {

@@ -552,11 +552,7 @@ private:
      * @return Required size.
      */
     static SizeT gauge_number(const big_decimal &value) noexcept {
-        if (value.is_zero()) {
-            return 0;
-        }
-
-        return value.get_unscaled_value().byte_size();
+        return SizeT(value.is_zero() ? 0 : value.get_unscaled_value().byte_size());
     }
 
     /**

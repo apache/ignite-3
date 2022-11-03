@@ -140,8 +140,7 @@ void checkReaderWriterEquality(const SchemaDescriptor &schema, const std::tuple<
     EXPECT_EQ(tp.num_elements(), tp.num_parsed_elements());
 
     if (!skipAssemblerCheck) {
-        binary_tuple_schema sch = schema.to_tuple_schema();
-        tuple_assembler ta(sch);
+        tuple_assembler ta(schema.to_tuple_schema());
 
         bytes_view built = ta.build(values);
 
@@ -952,8 +951,7 @@ TEST(tuple, EmptyValueTupleAssembler) { // NOLINT(cert-err58-cpp)
 
     schema.columns.emplace_back(column_info {ignite_type::INT32, false});
 
-    binary_tuple_schema sch = schema.to_tuple_schema();
-    tuple_assembler ta(sch);
+    tuple_assembler ta(schema.to_tuple_schema());
 
     auto tuple = ta.build(std::tuple<int32_t>(123));
 
@@ -1117,22 +1115,20 @@ TEST(tuple, NullKeyTupleAssembler) { // NOLINT(cert-err58-cpp)
     schema.columns.emplace_back(column_info {ignite_type::INT32, false});
 
     {
-        binary_tuple_schema sch = schema.to_tuple_schema();
-        tuple_assembler ta(sch);
+        tuple_assembler ta(schema.to_tuple_schema());
 
         ta.start();
 
-        ASSERT_THROW(ta.appendNull(), std::runtime_error);
+        ASSERT_THROW(ta.append_null(), std::runtime_error);
     }
 
     schema.columns[0].nullable = true;
 
-    binary_tuple_schema sch = schema.to_tuple_schema();
-    tuple_assembler ta(sch);
+    tuple_assembler ta(schema.to_tuple_schema());
 
     ta.start();
 
-    ta.appendNull();
+    ta.append_null();
 
     auto &tuple = ta.build(std::make_tuple(std::nullopt));
 
@@ -1150,8 +1146,7 @@ TEST(tuple, VarlenLargeTest) { // NOLINT(cert-err58-cpp)
     {
         auto values = std::make_tuple(std::string(100'000, 'a'), "b"s, std::nullopt);
 
-        binary_tuple_schema sch = schema.to_tuple_schema();
-        tuple_assembler tuple_assembler(sch);
+        tuple_assembler tuple_assembler(schema.to_tuple_schema());
 
         bytes_view tuple = tuple_assembler.build(values);
 
@@ -1164,8 +1159,7 @@ TEST(tuple, VarlenLargeTest) { // NOLINT(cert-err58-cpp)
     {
         auto values = std::make_tuple(std::string(100'000, 'a'), "b"s, "c"s);
 
-        binary_tuple_schema sch = schema.to_tuple_schema();
-        tuple_assembler tuple_assembler(sch);
+        tuple_assembler tuple_assembler(schema.to_tuple_schema());
 
         bytes_view tuple = tuple_assembler.build(values);
 
@@ -1181,8 +1175,7 @@ TEST(tuple, VarlenLargeTest) { // NOLINT(cert-err58-cpp)
 
         auto values = std::make_tuple(std::nullopt, std::string(100'000, 'a'), "b"s);
 
-        binary_tuple_schema sch = schema.to_tuple_schema();
-        tuple_assembler tuple_assembler(sch);
+        tuple_assembler tuple_assembler(schema.to_tuple_schema());
 
         bytes_view tuple = tuple_assembler.build(values);
 

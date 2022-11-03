@@ -26,31 +26,28 @@
 #include <type_traits>
 #include <vector>
 
+namespace ignite {
 /**
 * This used to be the main tool to construct binary tuples (in IEP-54 format).
 * Now this is just a helper for unit tests.
-*/
+ */
 class tuple_assembler {
 private:
-    ignite::binary_tuple_schema schema;
+    binary_tuple_schema schema;
 
-    ignite::binary_tuple_builder builder;
+    binary_tuple_builder builder;
 
 public:
     /** Construct a new Tuple Assembler object. */
-    explicit tuple_assembler(ignite::binary_tuple_schema &sch)
+    explicit tuple_assembler(binary_tuple_schema &&sch)
         : schema(std::move(sch))
         , builder(schema.num_elements()) { }
 
     /** Start a new tuple. */
-    void start() {
-        builder.start();
-    }
+    void start() { builder.start(); }
 
     /** Append a null value. */
-    void appendNull() {
-        builder.claim(std::nullopt);
-    }
+    void append_null() { builder.claim(std::nullopt); }
 
     template <typename T>
     void claim_value(const T &value) {
@@ -124,11 +121,11 @@ public:
 
     template <typename... Ts>
     void from_std_tuple(std::tuple<Ts...> const &tuple) {
-        std::apply([&](auto &&... args) { ((claim_value(args)), ...); }, tuple);
+        std::apply([&](auto &&...args) { ((claim_value(args)), ...); }, tuple);
 
         builder.layout();
 
-        std::apply([&](auto &&... args) { ((append_value(args)), ...); }, tuple);
+        std::apply([&](auto &&...args) { ((append_value(args)), ...); }, tuple);
     }
 
     /**
@@ -145,3 +142,4 @@ public:
         return builder.build();
     }
 };
+}

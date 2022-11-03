@@ -272,7 +272,7 @@ void binary_tuple_builder::put_number(bytes_view bytes) {
     put_number(value);
 }
 
-void binary_tuple_builder::put_number(const ignite::big_integer &value) {
+void binary_tuple_builder::put_number(const big_integer &value) {
     SizeT size = gauge_number(value);
     assert(element_index < element_count);
     assert(next_value + size <= value_base + value_area_size);
@@ -285,7 +285,7 @@ void binary_tuple_builder::put_number(const ignite::big_integer &value) {
     append_entry();
 }
 
-void binary_tuple_builder::put_number(const ignite::big_decimal &value) {
+void binary_tuple_builder::put_number(const big_decimal &value) {
     SizeT size = gauge_number(value);
     assert(element_index < element_count);
     assert(next_value + size <= value_base + value_area_size);
