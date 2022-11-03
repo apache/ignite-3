@@ -261,23 +261,25 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
                 rangeConditionsProcessed = !rangeConditionIterator.hasNext();
             }
 
-            List<Flow.Publisher<RowT>> partPublishers = new ArrayList<>(parts.length);
-
-            for (int p : parts) {
-                partPublishers.add(partPublisher(p, cond));
-            }
-
-            CompositePublisher<RowT> compPublisher = comp != null
-                    ? new SortingCompositePublisher<>(partPublishers, comp, Commons.SORTED_IDX_PART_PREFETCH_SIZE)
-                    : new CompositePublisher<>(partPublishers);
-
-            compPublisher.subscribe(new SubscriberImpl());
+            indexPublisher(parts, cond).subscribe(new SubscriberImpl());
         } else {
             waiting = NOT_WAITING;
         }
     }
 
-    private Flow.Publisher<RowT> partPublisher(int part, @Nullable RangeCondition<RowT> cond) {
+    private Publisher<RowT> indexPublisher(int[] parts, @Nullable RangeCondition<RowT> cond) {
+        List<Flow.Publisher<RowT>> partPublishers = new ArrayList<>(parts.length);
+
+        for (int p : parts) {
+            partPublishers.add(partitionPublisher(p, cond));
+        }
+
+        return comp != null
+                ? new SortingCompositePublisher<>(partPublishers, comp, Commons.SORTED_IDX_PART_PREFETCH_SIZE)
+                : new CompositePublisher<>(partPublishers);
+    }
+
+    private Flow.Publisher<RowT> partitionPublisher(int part, @Nullable RangeCondition<RowT> cond) {
         Publisher<BinaryTuple> pub;
 
         if (schemaIndex.type() == Type.SORTED) {

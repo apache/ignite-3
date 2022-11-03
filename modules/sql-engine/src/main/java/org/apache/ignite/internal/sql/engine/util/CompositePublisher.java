@@ -71,6 +71,9 @@ public class CompositePublisher<T> implements Publisher<T> {
         /** Total number of remaining items. */
         private long remaining;
 
+        /** Flag indicating that the subscription has been cancelled. */
+        private boolean cancelled;
+
         public CompositeSubscription(Subscriber<? super T> downstream) {
             this.downstream = downstream;
         }
@@ -97,6 +100,8 @@ public class CompositePublisher<T> implements Publisher<T> {
         /** {@inheritDoc} */
         @Override
         public void cancel() {
+            cancelled = true;
+
             Subscription subscription = activeSubscription();
 
             if (subscription != null) {
@@ -148,6 +153,10 @@ public class CompositePublisher<T> implements Publisher<T> {
             /** {@inheritDoc} */
             @Override
             public void onComplete() {
+                if (cancelled) {
+                    return;
+                }
+
                 if (++subscriptionIdx == subscriptions.size()) {
                     downstream.onComplete();
 

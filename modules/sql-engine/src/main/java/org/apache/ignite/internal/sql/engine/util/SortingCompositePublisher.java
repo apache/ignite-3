@@ -239,7 +239,7 @@ public class SortingCompositePublisher<T> extends CompositePublisher<T> {
                     }
 
                     int completed = 0;
-                    boolean responseMissed = false;
+                    boolean waitResponse = false;
 
                     for (int i = 0; i < subsCnt; i++) {
                         Object obj = values[i];
@@ -259,7 +259,7 @@ public class SortingCompositePublisher<T> extends CompositePublisher<T> {
                                 completed++;
                             } else {
                                 // Subscriber has not received a response yet.
-                                responseMissed = true;
+                                waitResponse = true;
 
                                 break;
                             }
@@ -278,7 +278,7 @@ public class SortingCompositePublisher<T> extends CompositePublisher<T> {
                         return;
                     }
 
-                    if (responseMissed || emitted == requested) {
+                    if (waitResponse || emitted == requested) {
                         break;
                     }
 
@@ -314,7 +314,7 @@ public class SortingCompositePublisher<T> extends CompositePublisher<T> {
         /**
          * Merge sort subscriber.
          */
-        public static final class OrderedMergeSubscriber<T> extends AtomicReference<Subscription> implements Subscriber<T>, Subscription {
+        private static final class OrderedMergeSubscriber<T> extends AtomicReference<Subscription> implements Subscriber<T>, Subscription {
             /** Parent subscription. */
             private final OrderedMergeCompositeSubscription<T> parent;
 
