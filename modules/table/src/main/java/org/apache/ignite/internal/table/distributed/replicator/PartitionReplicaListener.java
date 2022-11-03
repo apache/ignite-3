@@ -35,6 +35,8 @@ import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
@@ -136,8 +138,8 @@ public class PartitionReplicaListener implements ReplicaListener {
     private final LockManager lockManager;
 
     /**
-     * Cursors map. The key of the map is internal Ignite uuid which consists of a transaction id ({@link UUID}) and a cursor id ({@link
-     * Long}).
+     * Cursors map. The key of the map is internal Ignite uuid which consists of a transaction id ({@link UUID}) and a cursor id
+     * ({@link Long}).
      */
     private final ConcurrentNavigableMap<IgniteUuid, Cursor<?>> cursors;
 
@@ -155,6 +157,9 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     /** Placement Driver. */
     private final PlacementDriver placementDriver;
+
+    /** Runs async scan tasks for effective tail recursion execution (avoid deep recursive calls). */
+    private final Executor scanRequestExecutor = Executors.newSingleThreadExecutor();
 
     /**
      * Map to control clock's update in the read only transactions concurrently with a commit timestamp.
@@ -701,7 +706,9 @@ public class PartitionReplicaListener implements ReplicaListener {
             if (resolvedReadResult != null) {
                 result.add(resolvedReadResult);
             }
-            return continueReadOnlyIndexScan(cursor, timestamp, batchSize, result);
+
+            return CompletableFuture.supplyAsync(() -> continueReadOnlyIndexScan(cursor, timestamp, batchSize, result), scanRequestExecutor)
+                    .thenCompose(Function.identity());
         });
     }
 
@@ -746,9 +753,10 @@ public class PartitionReplicaListener implements ReplicaListener {
                                 }
 
                                 // Proceed scan.
-                                return CompletableFuture.supplyAsync(() ->
-                                        continueIndexScan(txId, indexId, indexLocker, indexCursor, batchSize, result))
-                                        .thenCompose(Function.identity());
+                                return CompletableFuture.supplyAsync(
+                                                () -> continueIndexScan(txId, indexId, indexLocker, indexCursor, batchSize, result),
+                                        scanRequestExecutor
+                                        ).thenCompose(Function.identity());
                             });
                 });
     }
@@ -809,7 +817,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         txTimestampUpdateMap.put(txId, fut);
 
-        HybridTimestamp commitTimestamp =  commit ? hybridClock.now() : null;
+        HybridTimestamp commitTimestamp = commit ? hybridClock.now() : null;
 
         CompletableFuture<Object> changeStateFuture = raftClient.run(
                 new FinishTxCommand(
