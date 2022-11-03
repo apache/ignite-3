@@ -955,9 +955,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                             result.add(row);
                         } else {
                             ByteBuffer keyToCheck = row.keySlice();
-                            if (!uniqueKeys.contains(keyToCheck)) {
-                                uniqueKeys.add(keyToCheck);
-
+                            if (uniqueKeys.add(keyToCheck)) {
                                 rowsToInsert.put(new RowId(partId), row);
                             } else {
                                 result.add(row);
