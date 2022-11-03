@@ -555,6 +555,10 @@ namespace Apache.Ignite.Tests
                             Thread.Sleep(HeartbeatDelay);
                             Send(handler, requestId, Array.Empty<byte>());
                             continue;
+
+                        case ClientOp.ComputeExecuteColocated:
+                            Send(handler, requestId, new[] { MessagePackCode.Nil }.AsMemory());
+                            continue;
                     }
 
                     // Fake error message for any other op code.
