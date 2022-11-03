@@ -107,18 +107,16 @@ public class TestMvTableStorage implements MvTableStorage {
     }
 
     @Override
-    public CompletableFuture<Void> destroyIndex(int partitionId, UUID indexId) throws StorageException {
-        Storages storages = storagesByPartitionId.get(partitionId);
+    public CompletableFuture<Void> destroyIndex(UUID indexId) throws StorageException {
+        for (Storages storages : storagesByPartitionId.values()) {
+            storages.sortedIndexes.remove(indexId);
 
-        checkPartitionStoragesExists(storages, partitionId);
+            TestHashIndexStorage hashIndexStorage = storages.hashIndexes.remove(indexId);
 
-        TestHashIndexStorage hashIndex = storages.hashIndexes.remove(indexId);
-
-        if (hashIndex != null) {
-            hashIndex.destroy();
+            if (hashIndexStorage != null) {
+                hashIndexStorage.destroy();
+            }
         }
-
-        storages.sortedIndexes.remove(indexId);
 
         return completedFuture(null);
     }
@@ -151,7 +149,7 @@ public class TestMvTableStorage implements MvTableStorage {
     }
 
     @Override
-    public CompletableFuture<Void> startRebalanceMvPartition(int partitionId) throws StorageException {
+    public CompletableFuture<Void> startRebalance(int partitionId) throws StorageException {
         Storages oldStorages = storagesByPartitionId.get(partitionId);
 
         checkPartitionStoragesExists(oldStorages, partitionId);
@@ -176,7 +174,7 @@ public class TestMvTableStorage implements MvTableStorage {
     }
 
     @Override
-    public CompletableFuture<Void> abortRebalanceMvPartition(int partitionId) {
+    public CompletableFuture<Void> abortRebalance(int partitionId) {
         Storages oldStorages = backupStoragesByPartitionId.remove(partitionId);
 
         if (oldStorages != null) {
@@ -187,7 +185,7 @@ public class TestMvTableStorage implements MvTableStorage {
     }
 
     @Override
-    public CompletableFuture<Void> finishRebalanceMvPartition(int partitionId) {
+    public CompletableFuture<Void> finishRebalance(int partitionId) {
         backupStoragesByPartitionId.remove(partitionId);
 
         return completedFuture(null);

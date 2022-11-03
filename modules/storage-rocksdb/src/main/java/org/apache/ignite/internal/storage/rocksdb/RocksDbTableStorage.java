@@ -439,7 +439,7 @@ public class RocksDbTableStorage implements MvTableStorage {
     }
 
     @Override
-    public CompletableFuture<Void> destroyIndex(int partitionId, UUID indexId) {
+    public CompletableFuture<Void> destroyIndex(UUID indexId) {
         HashIndex hashIdx = hashIndices.remove(indexId);
 
         if (hashIdx != null) {
@@ -561,19 +561,19 @@ public class RocksDbTableStorage implements MvTableStorage {
     }
 
     @Override
-    public CompletableFuture<Void> startRebalanceMvPartition(int partitionId) {
+    public CompletableFuture<Void> startRebalance(int partitionId) throws StorageException {
         // TODO: IGNITE-18027 Implement
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public CompletableFuture<Void> abortRebalanceMvPartition(int partitionId) {
+    public CompletableFuture<Void> abortRebalance(int partitionId) {
         // TODO: IGNITE-18027 Implement
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public CompletableFuture<Void> finishRebalanceMvPartition(int partitionId) {
+    public CompletableFuture<Void> finishRebalance(int partitionId) {
         // TODO: IGNITE-18027 Implement
         throw new UnsupportedOperationException();
     }

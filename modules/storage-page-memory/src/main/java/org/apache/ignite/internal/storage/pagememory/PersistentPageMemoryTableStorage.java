@@ -402,19 +402,19 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
     }
 
     @Override
-    public CompletableFuture<Void> startRebalanceMvPartition(int partitionId) {
+    public CompletableFuture<Void> startRebalance(int partitionId) throws StorageException {
         // TODO: IGNITE-18029 Implement
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public CompletableFuture<Void> abortRebalanceMvPartition(int partitionId) {
+    public CompletableFuture<Void> abortRebalance(int partitionId) throws StorageException {
         // TODO: IGNITE-18029 Implement
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public CompletableFuture<Void> finishRebalanceMvPartition(int partitionId) {
+    public CompletableFuture<Void> finishRebalance(int partitionId) throws StorageException {
         // TODO: IGNITE-18029 Implement
         throw new UnsupportedOperationException();
     }
