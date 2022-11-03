@@ -151,7 +151,7 @@ void binary_tuple_builder::append_int8(bytes_view bytes) {
 
 void binary_tuple_builder::append_int8(std::int8_t value) {
     SizeT size = gauge_int8(value);
-    append_bytes({reinterpret_cast<const std::byte*>(&value), size});
+    append_bytes({reinterpret_cast<const std::byte *>(&value), size});
 }
 
 void binary_tuple_builder::append_int16(bytes_view bytes) {

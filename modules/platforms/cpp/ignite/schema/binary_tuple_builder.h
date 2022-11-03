@@ -588,11 +588,9 @@ private:
     static bool fits(SRC value) noexcept {
         static_assert(std::is_signed_v<SRC>);
         static_assert(std::is_signed_v<TGT>);
-        using U_TGT = std::make_unsigned_t<TGT>;
-
         // Check if TGT::min <= value <= TGT::max.
         return std::make_unsigned_t<SRC>(value + std::numeric_limits<TGT>::max() + 1)
-            <= std::numeric_limits<U_TGT>::max();
+            <= std::numeric_limits<std::make_unsigned_t<TGT>>::max();
     }
 
     /**
@@ -736,7 +734,7 @@ private:
 
         auto nanos = value.get_nano();
         if ((nanos % 1000) != 0) {
-            return 8;
+            return 9;
         } else if ((nanos % 1000000) != 0) {
             return 8;
         }

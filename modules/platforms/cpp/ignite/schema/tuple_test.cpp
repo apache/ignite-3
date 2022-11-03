@@ -15,11 +15,11 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
-#include <gmock/gmock.h>
-#include <ignite/schema/column_info.h>
-#include <ignite/schema/binary_tuple_parser.h>
 #include "tuple_assembler.h"
+#include <gmock/gmock.h>
+#include <gtest/gtest.h>
+#include <ignite/schema/binary_tuple_parser.h>
+#include <ignite/schema/column_info.h>
 
 #include <array>
 #include <string>
@@ -30,37 +30,37 @@ using namespace ignite;
 template <typename T>
 T read_tuple(std::optional<bytes_view> data);
 
-template<>
+template <>
 int8_t read_tuple(std::optional<bytes_view> data) {
     return binary_tuple_parser::get_int8(data.value());
 }
 
-template<>
+template <>
 int16_t read_tuple(std::optional<bytes_view> data) {
     return binary_tuple_parser::get_int16(data.value());
 }
 
-template<>
+template <>
 int32_t read_tuple(std::optional<bytes_view> data) {
     return binary_tuple_parser::get_int32(data.value());
 }
 
-template<>
+template <>
 int64_t read_tuple(std::optional<bytes_view> data) {
     return binary_tuple_parser::get_int64(data.value());
 }
 
-template<>
+template <>
 double read_tuple(std::optional<bytes_view> data) {
     return binary_tuple_parser::get_double(data.value());
 }
 
-template<>
+template <>
 float read_tuple(std::optional<bytes_view> data) {
     return binary_tuple_parser::get_float(data.value());
 }
 
-template<>
+template <>
 big_integer read_tuple(std::optional<bytes_view> data) {
     return binary_tuple_parser::get_number(data.value());
 }
@@ -69,36 +69,36 @@ big_decimal read_decimal(std::optional<bytes_view> data, int32_t scale) {
     return binary_tuple_parser::get_decimal(data.value(), scale);
 }
 
-template<>
+template <>
 ignite_date read_tuple(std::optional<bytes_view> data) {
     return binary_tuple_parser::get_date(data.value());
 }
 
-template<>
+template <>
 ignite_date_time read_tuple(std::optional<bytes_view> data) {
     return binary_tuple_parser::get_date_time(data.value());
 }
 
-template<>
+template <>
 uuid read_tuple(std::optional<bytes_view> data) {
     return binary_tuple_parser::get_uuid(data.value());
 }
 
-template<>
+template <>
 ignite_time read_tuple(std::optional<bytes_view> data) {
     return binary_tuple_parser::get_time(data.value());
 }
 
-template<>
+template <>
 ignite_timestamp read_tuple(std::optional<bytes_view> data) {
     return binary_tuple_parser::get_timestamp(data.value());
 }
 
-template<>
+template <>
 std::string read_tuple(std::optional<bytes_view> data) {
     bytes_view &bytes = data.value();
 
-    return {reinterpret_cast<const char*>(bytes.data()), bytes.size()};
+    return {reinterpret_cast<const char *>(bytes.data()), bytes.size()};
 }
 
 struct SchemaDescriptor {
@@ -110,12 +110,11 @@ struct SchemaDescriptor {
     [[nodiscard]] binary_tuple_schema to_tuple_schema() const {
         return binary_tuple_schema({columns.begin(), columns.end()});
     }
-
 };
 
 struct SingleValueCheck {
     explicit SingleValueCheck(binary_tuple_parser &parser)
-        : parser {parser} { }
+        : parser{parser} { }
 
     binary_tuple_parser &parser;
 
@@ -131,7 +130,7 @@ template <typename... Ts, int size>
 void checkReaderWriterEquality(const SchemaDescriptor &schema, const std::tuple<Ts...> &values,
     const int8_t (&data)[size], bool skipAssemblerCheck = false) {
 
-    auto bytes = bytes_view {reinterpret_cast<const std::byte *>(data), size};
+    auto bytes = bytes_view{reinterpret_cast<const std::byte *>(data), size};
 
     binary_tuple_parser tp(schema.length(), bytes);
 
@@ -205,7 +204,7 @@ TEST(tuple, AllTypes) {
     uuid v14;
 
     std::string v15_tmp("\1\2\3"s);
-    bytes_view v15 {reinterpret_cast<const std::byte *>(v15_tmp.data()), v15_tmp.size()};
+    bytes_view v15{reinterpret_cast<const std::byte *>(v15_tmp.data()), v15_tmp.size()};
 
     binary_tuple_builder tb(sch.num_elements());
     tb.start();
@@ -283,14 +282,13 @@ TEST(tuple, FixedKeyFixedNullableValue) { // NOLINT(cert-err58-cpp)
 
     // Null value.
     {
-        auto values = std::make_tuple(int32_t {77}, std::nullopt);
+        auto values = std::make_tuple(int32_t{77}, std::nullopt);
 
         int8_t data[] = {4, 2, 1, 1, 77};
 
         checkReaderWriterEquality(schema, values, data);
     }
 }
-
 
 TEST(tuple, FixedKeyVarlenValue) { // NOLINT(cert-err58-cpp)
     SchemaDescriptor schema;
@@ -302,7 +300,7 @@ TEST(tuple, FixedKeyVarlenValue) { // NOLINT(cert-err58-cpp)
 
     // With value.
     {
-        auto values = std::make_tuple(int16_t {-33}, std::string {"val"});
+        auto values = std::make_tuple(int16_t{-33}, std::string{"val"});
 
         int8_t data[] = {0, 1, 4, -33, 118, 97, 108};
 
@@ -320,7 +318,7 @@ TEST(tuple, FixedKeyVarlenNullableValue) { // NOLINT(cert-err58-cpp)
 
     // With value.
     {
-        auto values = std::make_tuple(int16_t {-33}, std::string {"val"});
+        auto values = std::make_tuple(int16_t{-33}, std::string{"val"});
 
         int8_t data[] = {0, 1, 4, -33, 118, 97, 108};
 
@@ -329,7 +327,7 @@ TEST(tuple, FixedKeyVarlenNullableValue) { // NOLINT(cert-err58-cpp)
 
     // Null value.
     {
-        auto values = std::make_tuple(int16_t {33}, std::nullopt);
+        auto values = std::make_tuple(int16_t{33}, std::nullopt);
 
         int8_t data[] = {4, 2, 1, 1, 33};
 
@@ -347,7 +345,7 @@ TEST(tuple, VarlenNullableKeyVarlenNullableValue) { // NOLINT(cert-err58-cpp)
 
     // With key and value.
     {
-        auto values = std::make_tuple(std::string {"key"}, std::string {"val"});
+        auto values = std::make_tuple(std::string{"key"}, std::string{"val"});
 
         int8_t data[] = {0, 3, 6, 107, 101, 121, 118, 97, 108};
 
@@ -356,7 +354,7 @@ TEST(tuple, VarlenNullableKeyVarlenNullableValue) { // NOLINT(cert-err58-cpp)
 
     // Null key.
     {
-        auto values = std::make_tuple(std::nullopt, std::string {"val"});
+        auto values = std::make_tuple(std::nullopt, std::string{"val"});
 
         int8_t data[] = {4, 1, 0, 3, 118, 97, 108};
 
@@ -365,7 +363,7 @@ TEST(tuple, VarlenNullableKeyVarlenNullableValue) { // NOLINT(cert-err58-cpp)
 
     // Null value.
     {
-        auto values = std::make_tuple(std::string {"key"}, std::nullopt);
+        auto values = std::make_tuple(std::string{"key"}, std::nullopt);
 
         int8_t data[] = {4, 2, 3, 3, 107, 101, 121};
 
@@ -382,7 +380,6 @@ TEST(tuple, VarlenNullableKeyVarlenNullableValue) { // NOLINT(cert-err58-cpp)
     }
 }
 
-
 TEST(tuple, FixedAndVarlenKeyFixedAndVarlenValue) { // NOLINT(cert-err58-cpp)
     SchemaDescriptor schema;
 
@@ -395,17 +392,16 @@ TEST(tuple, FixedAndVarlenKeyFixedAndVarlenValue) { // NOLINT(cert-err58-cpp)
 
     // With value.
     {
-        auto values = std::make_tuple(int16_t {33}, std::string {"keystr"}, int32_t {73}, std::string {"valstr"});
+        auto values = std::make_tuple(int16_t{33}, std::string{"keystr"}, int32_t{73}, std::string{"valstr"});
 
-        int8_t data[] = {
-            0, 1, 7, 8, 14, 33, 107, 101, 121, 115, 116, 114, 73, 118, 97, 108, 115, 116, 114};
+        int8_t data[] = {0, 1, 7, 8, 14, 33, 107, 101, 121, 115, 116, 114, 73, 118, 97, 108, 115, 116, 114};
 
         checkReaderWriterEquality(schema, values, data);
     }
 
     // Null value.
     {
-        auto values = std::make_tuple(int16_t {33}, std::string {"keystr2"}, std::nullopt, std::nullopt);
+        auto values = std::make_tuple(int16_t{33}, std::string{"keystr2"}, std::nullopt, std::nullopt);
 
         int8_t data[] = {4, 12, 1, 8, 8, 8, 33, 107, 101, 121, 115, 116, 114, 50};
 
@@ -427,8 +423,7 @@ TEST(tuple, FixedNullableColumns) { // NOLINT(cert-err58-cpp)
 
     // Last column null.
     {
-        auto values =
-            std::make_tuple(int8_t {11}, int16_t {22}, std::nullopt, int8_t {-44}, int16_t {-66}, std::nullopt);
+        auto values = std::make_tuple(int8_t{11}, int16_t{22}, std::nullopt, int8_t{-44}, int16_t{-66}, std::nullopt);
 
         int8_t data[] = {4, 36, 1, 2, 2, 3, 4, 4, 11, 22, -44, -66};
 
@@ -437,8 +432,7 @@ TEST(tuple, FixedNullableColumns) { // NOLINT(cert-err58-cpp)
 
     // First column null.
     {
-        auto values =
-            std::make_tuple(std::nullopt, int16_t {22}, int32_t {33}, std::nullopt, int16_t {-55}, int32_t {-66});
+        auto values = std::make_tuple(std::nullopt, int16_t{22}, int32_t{33}, std::nullopt, int16_t{-55}, int32_t{-66});
 
         int8_t data[] = {4, 9, 0, 1, 2, 2, 3, 4, 22, 33, -55, -66};
 
@@ -447,8 +441,7 @@ TEST(tuple, FixedNullableColumns) { // NOLINT(cert-err58-cpp)
 
     // Middle column null.
     {
-        auto values =
-            std::make_tuple(int8_t {11}, std::nullopt, int32_t {33}, int8_t {-44}, std::nullopt, int32_t {-66});
+        auto values = std::make_tuple(int8_t{11}, std::nullopt, int32_t{33}, int8_t{-44}, std::nullopt, int32_t{-66});
 
         int8_t data[] = {4, 18, 1, 1, 2, 3, 3, 4, 11, 33, -44, -66};
 
@@ -536,7 +529,7 @@ TEST(tuple, FixedAndVarlenNullableColumns) { // NOLINT(cert-err58-cpp)
     // Check null/non-null all fixed/varlen.
     {
         auto values = std::make_tuple(
-            int8_t {11}, int16_t {22}, std::nullopt, std::nullopt, std::nullopt, std::nullopt, "yz"s, "ascii"s);
+            int8_t{11}, int16_t{22}, std::nullopt, std::nullopt, std::nullopt, std::nullopt, "yz"s, "ascii"s);
 
         int8_t data[] = {4, 60, 1, 2, 2, 2, 2, 2, 4, 9, 11, 22, 121, 122, 97, 115, 99, 105, 105};
 
@@ -546,9 +539,10 @@ TEST(tuple, FixedAndVarlenNullableColumns) { // NOLINT(cert-err58-cpp)
     // Check null/non-null single fixed.
     {
         auto values =
-            std::make_tuple(std::nullopt, int16_t {22}, "ab"s, "我愛Java"s, int8_t {55}, std::nullopt, "yz"s, "ascii"s);
+            std::make_tuple(std::nullopt, int16_t{22}, "ab"s, "我愛Java"s, int8_t{55}, std::nullopt, "yz"s, "ascii"s);
 
-        int8_t data[] = {4, 33, 0, 1, 3, 13, 14, 14, 16, 21, 22, 97, 98, -26, -120, -111, -26, -124, -101, 74, 97, 118, 97, 55, 121, 122, 97, 115, 99, 105, 105};
+        int8_t data[] = {4, 33, 0, 1, 3, 13, 14, 14, 16, 21, 22, 97, 98, -26, -120, -111, -26, -124, -101, 74, 97, 118,
+            97, 55, 121, 122, 97, 115, 99, 105, 105};
 
         checkReaderWriterEquality(schema, values, data);
     }
@@ -556,9 +550,10 @@ TEST(tuple, FixedAndVarlenNullableColumns) { // NOLINT(cert-err58-cpp)
     // Check null/non-null single varlen.
     {
         auto values = std::make_tuple(
-            int8_t {11}, int16_t {22}, std::nullopt, "我愛Java"s, int8_t {55}, int16_t {66}, "yz"s, std::nullopt);
+            int8_t{11}, int16_t{22}, std::nullopt, "我愛Java"s, int8_t{55}, int16_t{66}, "yz"s, std::nullopt);
 
-        int8_t data[] = {4, -124, 1, 2, 2, 12, 13, 14, 16, 16, 11, 22, -26, -120, -111, -26, -124, -101, 74, 97, 118, 97, 55, 66, 121, 122};
+        int8_t data[] = {4, -124, 1, 2, 2, 12, 13, 14, 16, 16, 11, 22, -26, -120, -111, -26, -124, -101, 74, 97, 118,
+            97, 55, 66, 121, 122};
 
         checkReaderWriterEquality(schema, values, data);
     }
@@ -566,9 +561,10 @@ TEST(tuple, FixedAndVarlenNullableColumns) { // NOLINT(cert-err58-cpp)
     // Check null/non-null mixed.
     {
         auto values = std::make_tuple(
-            int8_t {11}, std::nullopt, std::nullopt, "我愛Java"s, std::nullopt, int16_t {22}, "yz"s, std::nullopt);
+            int8_t{11}, std::nullopt, std::nullopt, "我愛Java"s, std::nullopt, int16_t{22}, "yz"s, std::nullopt);
 
-        int8_t data[] = {4, -106, 1, 1, 1, 11, 11, 12, 14, 14, 11, -26, -120, -111, -26, -124, -101, 74, 97, 118, 97, 22, 121, 122};
+        int8_t data[] = {
+            4, -106, 1, 1, 1, 11, 11, 12, 14, 14, 11, -26, -120, -111, -26, -124, -101, 74, 97, 118, 97, 22, 121, 122};
 
         checkReaderWriterEquality(schema, values, data);
     }
@@ -576,7 +572,7 @@ TEST(tuple, FixedAndVarlenNullableColumns) { // NOLINT(cert-err58-cpp)
     // Check all null/non-null.
     {
         auto values = std::make_tuple(
-            int8_t {11}, int16_t {22}, "ab"s, "我愛Java"s, std::nullopt, std::nullopt, std::nullopt, std::nullopt);
+            int8_t{11}, int16_t{22}, "ab"s, "我愛Java"s, std::nullopt, std::nullopt, std::nullopt, std::nullopt);
 
         int8_t data[] = {
             4, -16, 1, 2, 4, 14, 14, 14, 14, 14, 11, 22, 97, 98, -26, -120, -111, -26, -124, -101, 74, 97, 118, 97};
@@ -595,7 +591,7 @@ TEST(tuple, ZeroLengthVarlen) { // NOLINT(cert-err58-cpp)
 
     // Single zero-length vector of bytes.
     {
-        auto values = std::make_tuple(int32_t {0}, ""s);
+        auto values = std::make_tuple(int32_t{0}, ""s);
 
         int8_t data[] = {0, 0, 0};
 
@@ -604,9 +600,9 @@ TEST(tuple, ZeroLengthVarlen) { // NOLINT(cert-err58-cpp)
 
     // Two zero-length vectors of bytes.
     {
-        schema.columns.emplace_back(column_info {ignite_type::BINARY, false});
+        schema.columns.emplace_back(column_info{ignite_type::BINARY, false});
 
-        auto values = std::make_tuple(int32_t {0}, ""s, ""s);
+        auto values = std::make_tuple(int32_t{0}, ""s, ""s);
 
         int8_t data[] = {0, 0, 0, 0};
 
@@ -617,11 +613,11 @@ TEST(tuple, ZeroLengthVarlen) { // NOLINT(cert-err58-cpp)
     {
         schema.columns.erase(schema.columns.begin() + 1, schema.columns.end());
 
-        schema.columns.emplace_back(column_info {ignite_type::INT32, false});
-        schema.columns.emplace_back(column_info {ignite_type::BINARY, false});
-        schema.columns.emplace_back(column_info {ignite_type::BINARY, false});
+        schema.columns.emplace_back(column_info{ignite_type::INT32, false});
+        schema.columns.emplace_back(column_info{ignite_type::BINARY, false});
+        schema.columns.emplace_back(column_info{ignite_type::BINARY, false});
 
-        auto values = std::make_tuple(int32_t {0}, int32_t {123}, ""s, ""s);
+        auto values = std::make_tuple(int32_t{0}, int32_t{123}, ""s, ""s);
 
         int8_t data[] = {0, 0, 1, 1, 1, 123};
 
@@ -637,7 +633,7 @@ TEST(tuple, SingleVarlen) { // NOLINT(cert-err58-cpp)
         {ignite_type::BINARY, false},
     };
 
-    auto values = std::make_tuple(int32_t {0}, "\1\2\3"s);
+    auto values = std::make_tuple(int32_t{0}, "\1\2\3"s);
 
     int8_t data[] = {0, 0, 3, 1, 2, 3};
 
@@ -647,16 +643,16 @@ TEST(tuple, SingleVarlen) { // NOLINT(cert-err58-cpp)
 TEST(tuple, TinyVarlenFormatOverflowLarge) { // NOLINT(cert-err58-cpp)
     SchemaDescriptor schema;
 
-    schema.columns.emplace_back(column_info {ignite_type::INT32, false});
+    schema.columns.emplace_back(column_info{ignite_type::INT32, false});
     for (int i = 0; i < 300; i++) {
-        schema.columns.emplace_back(column_info {ignite_type::BINARY, false});
+        schema.columns.emplace_back(column_info{ignite_type::BINARY, false});
     }
 
     // Flags - 1 zero byte
     // Varlen table - 1 byte for key column + 300 bytes for value columns
     // Key - 4 zero bytes for int32 zero.
     std::vector<std::byte> reference(306);
-    std::fill(reference.begin() + 1, reference.end() - 4, std::byte {4});
+    std::fill(reference.begin() + 1, reference.end() - 4, std::byte{4});
 
     binary_tuple_parser tp(schema.length(), {reinterpret_cast<std::byte *>(reference.data()), reference.size()});
 
@@ -674,9 +670,9 @@ TEST(tuple, TinyVarlenFormatOverflowLarge) { // NOLINT(cert-err58-cpp)
 TEST(tuple, TinyVarlenFormatOverflowMedium) { // NOLINT(cert-err58-cpp)
     SchemaDescriptor schema;
 
-    schema.columns.emplace_back(column_info {ignite_type::INT32, false});
+    schema.columns.emplace_back(column_info{ignite_type::INT32, false});
     for (int i = 0; i < 300; i++) {
-        schema.columns.emplace_back(column_info {ignite_type::BINARY, false});
+        schema.columns.emplace_back(column_info{ignite_type::BINARY, false});
     }
 
     // Flags - 1 zero byte
@@ -753,7 +749,8 @@ TEST(tuple, ExpectedVarlenTupleBinaries) { // NOLINT(cert-err58-cpp)
         97, 98, 99};
     // clang-format on
 
-    binary_tuple_parser tpTiny(schema.length(), {reinterpret_cast<std::byte *>(referenceTiny.data()), referenceTiny.size()});
+    binary_tuple_parser tpTiny(
+        schema.length(), {reinterpret_cast<std::byte *>(referenceTiny.data()), referenceTiny.size()});
     tuple_view tiny = tpTiny.parse();
 
     EXPECT_TRUE(tiny[0].has_value());
@@ -820,7 +817,8 @@ TEST(tuple, ExpectedVarlenTupleBinaries) { // NOLINT(cert-err58-cpp)
     // Copy varlen array that does not fit to tiny format.
     referenceMedium.insert(referenceMedium.end() - 3, mediumArray.begin(), mediumArray.end());
 
-    binary_tuple_parser tpMedium(schema.length(), {reinterpret_cast<std::byte *>(referenceMedium.data()), referenceMedium.size()});
+    binary_tuple_parser tpMedium(
+        schema.length(), {reinterpret_cast<std::byte *>(referenceMedium.data()), referenceMedium.size()});
     tuple_view medium = tpMedium.parse();
 
     EXPECT_TRUE(medium[0].has_value());
@@ -888,7 +886,8 @@ TEST(tuple, ExpectedVarlenTupleBinaries) { // NOLINT(cert-err58-cpp)
     // Copy varlen array that does not fit to tiny and medium format.
     referenceLarge.insert(referenceLarge.end() - 3, largeArray.begin(), largeArray.end());
 
-    binary_tuple_parser tpLarge(schema.length(), {reinterpret_cast<std::byte *>(referenceLarge.data()), referenceLarge.size()});
+    binary_tuple_parser tpLarge(
+        schema.length(), {reinterpret_cast<std::byte *>(referenceLarge.data()), referenceLarge.size()});
     tuple_view large = tpLarge.parse();
 
     EXPECT_TRUE(large[0].has_value());
@@ -929,9 +928,9 @@ TEST(tuple, ExpectedVarlenTupleBinaries) { // NOLINT(cert-err58-cpp)
 TEST(tuple, StringAfterNull) {
     SchemaDescriptor schema;
 
-    schema.columns.emplace_back(column_info {ignite_type::INT32, false});
-    schema.columns.emplace_back(column_info {ignite_type::BINARY, true});
-    schema.columns.emplace_back(column_info {ignite_type::STRING, false});
+    schema.columns.emplace_back(column_info{ignite_type::INT32, false});
+    schema.columns.emplace_back(column_info{ignite_type::BINARY, true});
+    schema.columns.emplace_back(column_info{ignite_type::STRING, false});
 
     // 101, null, "Bob"
     std::vector<std::byte> tuple;
@@ -949,7 +948,7 @@ TEST(tuple, StringAfterNull) {
 TEST(tuple, EmptyValueTupleAssembler) { // NOLINT(cert-err58-cpp)
     SchemaDescriptor schema;
 
-    schema.columns.emplace_back(column_info {ignite_type::INT32, false});
+    schema.columns.emplace_back(column_info{ignite_type::INT32, false});
 
     tuple_assembler ta(schema.to_tuple_schema());
 
@@ -965,12 +964,12 @@ TEST(tuple, EmptyValueTupleAssembler) { // NOLINT(cert-err58-cpp)
 TEST(tuple, TupleWriteRead) { // NOLINT(cert-err58-cpp)
     SchemaDescriptor schema;
 
-    schema.columns.emplace_back(column_info {ignite_type::INT32, false});
-    schema.columns.emplace_back(column_info {ignite_type::DOUBLE, false});
-    schema.columns.emplace_back(column_info {ignite_type::INT8, false});
-    schema.columns.emplace_back(column_info {ignite_type::INT16, false});
-    schema.columns.emplace_back(column_info {ignite_type::INT64, false});
-    schema.columns.emplace_back(column_info {ignite_type::INT8, false});
+    schema.columns.emplace_back(column_info{ignite_type::INT32, false});
+    schema.columns.emplace_back(column_info{ignite_type::DOUBLE, false});
+    schema.columns.emplace_back(column_info{ignite_type::INT8, false});
+    schema.columns.emplace_back(column_info{ignite_type::INT16, false});
+    schema.columns.emplace_back(column_info{ignite_type::INT64, false});
+    schema.columns.emplace_back(column_info{ignite_type::INT8, false});
 
     for (bool nullable : {false, true}) {
         for (IntT i = 0; i < schema.length(); i++) {
@@ -1038,12 +1037,12 @@ TEST(tuple, TupleWriteRead) { // NOLINT(cert-err58-cpp)
 TEST(tuple, Int8TupleWriteRead) { // NOLINT(cert-err58-cpp)
     SchemaDescriptor schema;
 
-    schema.columns.emplace_back(column_info {ignite_type::INT8, false});
-    schema.columns.emplace_back(column_info {ignite_type::INT8, false});
-    schema.columns.emplace_back(column_info {ignite_type::INT8, false});
-    schema.columns.emplace_back(column_info {ignite_type::INT8, false});
-    schema.columns.emplace_back(column_info {ignite_type::INT8, false});
-    schema.columns.emplace_back(column_info {ignite_type::INT8, false});
+    schema.columns.emplace_back(column_info{ignite_type::INT8, false});
+    schema.columns.emplace_back(column_info{ignite_type::INT8, false});
+    schema.columns.emplace_back(column_info{ignite_type::INT8, false});
+    schema.columns.emplace_back(column_info{ignite_type::INT8, false});
+    schema.columns.emplace_back(column_info{ignite_type::INT8, false});
+    schema.columns.emplace_back(column_info{ignite_type::INT8, false});
 
     for (bool nullable : {false, true}) {
         for (IntT i = 0; i < schema.length(); i++) {
@@ -1112,7 +1111,7 @@ TEST(tuple, NullKeyTupleAssembler) { // NOLINT(cert-err58-cpp)
     GTEST_SKIP() << "Skip, as nullability is not checked during tuple assembly at the moment";
     SchemaDescriptor schema;
 
-    schema.columns.emplace_back(column_info {ignite_type::INT32, false});
+    schema.columns.emplace_back(column_info{ignite_type::INT32, false});
 
     {
         tuple_assembler ta(schema.to_tuple_schema());
@@ -1140,8 +1139,7 @@ TEST(tuple, NullKeyTupleAssembler) { // NOLINT(cert-err58-cpp)
 TEST(tuple, VarlenLargeTest) { // NOLINT(cert-err58-cpp)
     SchemaDescriptor schema;
 
-    schema.columns = {
-        {ignite_type::STRING, true}, {ignite_type::STRING, true}, {ignite_type::STRING, true}};
+    schema.columns = {{ignite_type::STRING, true}, {ignite_type::STRING, true}, {ignite_type::STRING, true}};
 
     {
         auto values = std::make_tuple(std::string(100'000, 'a'), "b"s, std::nullopt);
@@ -1170,8 +1168,7 @@ TEST(tuple, VarlenLargeTest) { // NOLINT(cert-err58-cpp)
         EXPECT_EQ(std::get<2>(values), read_tuple<std::string>(tp.get_next()));
     }
     {
-        schema.columns = {
-            {ignite_type::INT8, true}, {ignite_type::STRING, true}, {ignite_type::STRING, true}};
+        schema.columns = {{ignite_type::INT8, true}, {ignite_type::STRING, true}, {ignite_type::STRING, true}};
 
         auto values = std::make_tuple(std::nullopt, std::string(100'000, 'a'), "b"s);
 
@@ -1190,9 +1187,9 @@ TEST(tuple, VarlenLargeTest) { // NOLINT(cert-err58-cpp)
 TEST(tuple, VarlenMediumTest) { // NOLINT(cert-err58-cpp)
     SchemaDescriptor schema;
 
-    schema.columns.emplace_back(column_info {ignite_type::INT32, false});
+    schema.columns.emplace_back(column_info{ignite_type::INT32, false});
     for (int i = 0; i < 300; i++) {
-        schema.columns.emplace_back(column_info {ignite_type::BINARY, false});
+        schema.columns.emplace_back(column_info{ignite_type::BINARY, false});
     }
 
     {
@@ -1220,7 +1217,7 @@ TEST(tuple, VarlenMediumTest) { // NOLINT(cert-err58-cpp)
 
         // The varlen area will take (10 * 300) = 3000 bytes. So the varlen table entry will take 2 bytes.
         // The flags field must be equal to log2(2) = 1.
-        EXPECT_EQ(std::byte {1}, tuple[0]);
+        EXPECT_EQ(std::byte{1}, tuple[0]);
 
         binary_tuple_parser tp(schema.length(), tuple);
 
@@ -1259,7 +1256,7 @@ TEST(tuple, VarlenMediumTest) { // NOLINT(cert-err58-cpp)
         // The varlen area will take (300 * 300) = 90000 bytes. The size value does not fit to
         // one or two bytes. So the varlen table entry will take 4 bytes. The flags field must
         // be equal to log2(4) = 2.
-        EXPECT_EQ(std::byte {2}, tuple[0]);
+        EXPECT_EQ(std::byte{2}, tuple[0]);
 
         binary_tuple_parser tp(schema.length(), tuple);
 

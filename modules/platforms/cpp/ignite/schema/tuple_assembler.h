@@ -17,8 +17,8 @@
 
 #pragma once
 
-#include <ignite/schema/binary_tuple_schema.h>
 #include <ignite/schema/binary_tuple_builder.h>
+#include <ignite/schema/binary_tuple_schema.h>
 
 #include <cstring>
 #include <optional>
@@ -28,8 +28,8 @@
 
 namespace ignite {
 /**
-* This used to be the main tool to construct binary tuples (in IEP-54 format).
-* Now this is just a helper for unit tests.
+ * This used to be the main tool to construct binary tuples (in IEP-54 format).
+ * Now this is just a helper for unit tests.
  */
 class tuple_assembler {
 private:
@@ -129,11 +129,11 @@ public:
     }
 
     /**
-    * @brief Assemble and return a tuple in binary format.
-    *
-    * @tparam Ts Types parameter pack.
-    * @param tupleArgs Elements to be appended to column.
-    * @return Byte buffer with tuple in the binary form.
+     * @brief Assemble and return a tuple in binary format.
+     *
+     * @tparam Ts Types parameter pack.
+     * @param tupleArgs Elements to be appended to column.
+     * @return Byte buffer with tuple in the binary form.
      */
     template <typename... Ts>
     const auto &build(std::tuple<Ts...> const &tuple) {
