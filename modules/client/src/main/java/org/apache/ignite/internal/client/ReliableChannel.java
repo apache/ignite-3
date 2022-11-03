@@ -56,6 +56,7 @@ import org.apache.ignite.internal.client.io.netty.NettyClientConnectionMultiplex
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Communication channel with failover and partition awareness.
@@ -174,8 +175,8 @@ public final class ReliableChannel implements AutoCloseable {
             int opCode,
             PayloadWriter payloadWriter,
             PayloadReader<T> payloadReader,
-            String preferredNodeName,
-            String preferredNodeId
+            @Nullable String preferredNodeName,
+            @Nullable String preferredNodeId
     ) {
         CompletableFuture<T> fut = new CompletableFuture<>();
 
@@ -218,9 +219,9 @@ public final class ReliableChannel implements AutoCloseable {
             int opCode,
             PayloadWriter payloadWriter,
             PayloadReader<T> payloadReader,
-            String preferredNodeName,
-            String preferredNodeId,
-            IgniteClientConnectionException failure,
+            @Nullable String preferredNodeName,
+            @Nullable String preferredNodeId,
+            @Nullable IgniteClientConnectionException failure,
             int attempt) {
         ClientChannel ch = null;
         ClientChannelHolder holder = null;

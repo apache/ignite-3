@@ -23,9 +23,14 @@ import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
+import java.util.HashSet;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscription;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.IntStream;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory.Builder;
@@ -56,28 +61,39 @@ import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
+import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.hamcrest.Matchers;
 import org.jetbrains.annotations.Nullable;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 /**
  * Test {@link IndexScanNode} contract.
+ * Note: we just bounds are valid and don't care that data meets bound conditions.
+ * Bound condition applies in underlying storage, which is mocked here.
  */
 public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
 
-    // TODO IGNITE-17813: sort data, once IndexScanNode will support merging.
-    public static final Object[][] TABLE_DATA = new Object[][]{
-            {1L, null, 1, "Roman"},
-            {2L, 4, 2, "Igor"},
-            {3L, 3, 1, "Taras"},
-            {4L, 2, null, "Alexey"},
-            {5L, 4, 1, "Ivan"},
-            {6L, null, null, "Andrey"}
-    };
+    private final Comparator<Object[]> comp = Comparator.comparingLong(v -> (long) ((Object[]) v)[0]);
+    
+    private Object[][] sortedIndexData;
+    private Object[][] hashIndexData;
 
+    private Object[][] sortedScanResult;
+    private Object[][] hashScanResult;
+
+    @BeforeAll
+    public void generateData() {
+        sortedIndexData = generateIndexData(2, Commons.IN_BUFFER_SIZE * 2, true);
+        hashIndexData = generateIndexData(2, Commons.IN_BUFFER_SIZE * 2, false);
+        sortedScanResult = Arrays.stream(tableData).map(Object[]::clone).sorted(comp).toArray(Object[][]::new);
+        hashScanResult = hashIndexData;
+    } 
+    
     @Test
     public void sortedIndexScanOverEmptyIndex() {
         validateSortedIndexScan(
@@ -91,81 +107,79 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
     @Test
     public void sortedIndexScanWithNoBounds() {
         validateSortedIndexScan(
-                TABLE_DATA,
+                tableData,
                 null,
                 null,
-                TABLE_DATA
+                sortedData
         );
     }
 
     @Test
     public void sortedIndexScan() {
         validateSortedIndexScan(
-                TABLE_DATA,
+                tableData,
                 new Object[]{null, 2, 1, null},
                 new Object[]{null, 3, 0, null},
-                TABLE_DATA
+                sortedData
         );
     }
 
     @Test
     public void sortedIndexScan2() {
         validateSortedIndexScan(
-                TABLE_DATA,
+                tableData,
                 new Object[]{null, 2, 1, null},
                 new Object[]{null, 4, null, null},
-                TABLE_DATA
+                sortedData
 
         );
         validateSortedIndexScan(
-                TABLE_DATA,
+                tableData,
                 new Object[]{null, 2, null, null},
                 new Object[]{null, 4, 0, null},
-                TABLE_DATA
-
+                sortedData
         );
     }
 
     @Test
     public void sortedIndexScanNoUpperBound() {
         validateSortedIndexScan(
-                TABLE_DATA,
+                tableData,
                 new Object[]{null, 2, 1, null},
                 null,
-                TABLE_DATA
+                sortedData
         );
 
         validateSortedIndexScan(
-                TABLE_DATA,
+                tableData,
                 new Object[]{null, null, null, null},
                 null,
-                TABLE_DATA
+                sortedData
         );
     }
 
     @Test
     public void sortedIndexScanNoLowerBound() {
         validateSortedIndexScan(
-                TABLE_DATA,
+                tableData,
                 null,
                 new Object[]{null, 4, 0, null},
-                TABLE_DATA
+                sortedData
         );
 
         validateSortedIndexScan(
-                TABLE_DATA,
+                tableData,
                 null,
                 new Object[]{null, null, null, null},
-                TABLE_DATA
+                sortedData
         );
     }
-
 
     @Test
     public void sortedIndexScanInvalidBounds() {
         IgniteTestUtils.assertThrowsWithCause(() ->
                 validateSortedIndexScan(
-                        TABLE_DATA,
+                        tableData,
                         new Object[]{null, 2, "Brutus", null},
                         new Object[]{null, 3.9, 0, null},
                         EMPTY
@@ -173,7 +187,7 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
 
         IgniteTestUtils.assertThrowsWithCause(() ->
                 validateSortedIndexScan(
-                        TABLE_DATA,
+                        tableData,
                         new Object[]{null, 2},
                         new Object[]{null, 3},
                         EMPTY
@@ -193,43 +207,77 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
     public void hashIndexLookupNoKey() {
         // Validate data.
         validateHashIndexScan(
-                TABLE_DATA,
+                tableData,
                 null,
-                TABLE_DATA
+                tableData
         );
     }
 
     @Test
     public void hashIndexLookup() {
         validateHashIndexScan(
-                TABLE_DATA,
+                tableData,
                 new Object[]{null, 4, 2, null},
-                TABLE_DATA);
+                tableData);
     }
 
     @Test
     public void hashIndexLookupEmptyKey() {
         validateHashIndexScan(
-                TABLE_DATA,
+                tableData,
                 new Object[]{null, null, null, null},
-                TABLE_DATA);
+                tableData);
     }
 
     @Test
     public void hashIndexLookupInvalidKey() {
         IgniteTestUtils.assertThrowsWithCause(() ->
                 validateHashIndexScan(
-                        TABLE_DATA,
+                        tableData,
                         new Object[]{2},
                         EMPTY
                 ), ArrayIndexOutOfBoundsException.class, "Index 2 out of bounds for length 1");
 
         IgniteTestUtils.assertThrowsWithCause(() ->
                 validateHashIndexScan(
-                        TABLE_DATA,
+                        tableData,
                         new Object[]{null, 2, "Brutus", null},
                         EMPTY
                 ), ClassCastException.class, "class java.lang.String cannot be cast to class java.lang.Integer");
+    }
+
+    private Object[][] generateIndexData(int partCnt, int partSize, boolean sorted) {
+        Set<Long> uniqueNumbers = new HashSet<>();
+
+        while (uniqueNumbers.size() < partCnt * partSize) {
+            uniqueNumbers.add(ThreadLocalRandom.current().nextLong());
+        }
+
+        List<Long> uniqueNumList = new ArrayList<>(uniqueNumbers);
+
+        Object[][] data = new Object[partCnt * partSize][4];
+
+        for (int p = 0; p < partCnt; p++) {
+            if (sorted) {
+                uniqueNumList.subList(p * partSize, (p + 1) * partSize).sort(Comparator.comparingLong(v -> v));
+            }
+
+            for (int j = 0; j < partSize; j++) {
+                int rowNum = p * partSize + j;
+
+                data[rowNum] = new Object[4];
+
+                int bound1 = ThreadLocalRandom.current().nextInt(3);
+                int bound2 = ThreadLocalRandom.current().nextInt(3);
+
+                data[rowNum][0] = uniqueNumList.get(rowNum);
+                data[rowNum][1] = bound1 == 0 ? null : bound1;
+                data[rowNum][2] = bound2 == 0 ? null : bound2;;
+                data[rowNum][3] = "row-" + rowNum;
+            }
+        }
+
+        return data;
     }
 
     private void validateHashIndexScan(Object[][] tableData, @Nullable Object[] key, Object[][] expRes) {
@@ -355,6 +403,7 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
                 new TestTable(rowType, schemaDescriptor),
                 idxColMapping,
                 new int[]{0, 2},
+                index.type() == Type.SORTED ? Comparator.comparingLong(v -> (long) ((Object[]) v)[0]) : null,
                 rangeIterable,
                 null,
                 null,
@@ -364,13 +413,13 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
         RootNode<Object[]> node = new RootNode<>(ectx, scanNode.rowType());
         node.register(scanNode);
 
-        ArrayList<Object[]> res = new ArrayList<>();
+        int n = 0;
 
         while (node.hasNext()) {
-            res.add(node.next());
+            assertThat(node.next(), equalTo(expectedData[n++]));
         }
 
-        assertThat(res.toArray(EMPTY), equalTo(expectedData));
+        assertThat(n, equalTo(expectedData.length));
     }
 
     private static RelDataType createRowTypeFromSchema(IgniteTypeFactory typeFactory, SchemaDescriptor schemaDescriptor) {
@@ -415,9 +464,25 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
     private static Publisher<BinaryRow> dummyPublisher(BinaryRow[] rows) {
         return s -> {
             s.onSubscribe(new Subscription() {
+                int off = 0;
+                boolean completed = false;
+
                 @Override
                 public void request(long n) {
-                    // No-op.
+                    int start = off;
+                    int end = Math.min(start + (int) n, rows.length);
+
+                    off = end;
+
+                    for (int i = start; i < end; i++) {
+                        s.onNext(rows[i]);
+                    }
+
+                    if (off >= rows.length && !completed) {
+                        completed = true;
+
+                        s.onComplete();
+                    }
                 }
 
                 @Override
@@ -425,12 +490,6 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
                     // No-op.
                 }
             });
-
-            for (int i = 0; i < rows.length; ++i) {
-                s.onNext(rows[i]);
-            }
-
-            s.onComplete();
         };
     }
 

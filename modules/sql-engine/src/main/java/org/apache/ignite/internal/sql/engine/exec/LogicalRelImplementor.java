@@ -100,6 +100,7 @@ import org.apache.ignite.internal.sql.engine.rel.agg.IgniteSingleHashAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteSingleSortAggregate;
 import org.apache.ignite.internal.sql.engine.rel.set.IgniteSetOp;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
+import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.schema.InternalIgniteTable;
 import org.apache.ignite.internal.sql.engine.trait.Destination;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
@@ -306,6 +307,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
                 expressionFactory.ranges(searchBounds, rel.collation(), tbl.getRowType(typeFactory));
 
         ColocationGroup group = ctx.group(rel.sourceId());
+        Comparator<RowT> comp = idx.type() == Type.SORTED ? ctx.expressionFactory().comparator(rel.collation()) : null;
 
         if (!group.nodeIds().contains(ctx.localNode().id())) {
             return new ScanNode<>(ctx, rowType, Collections.emptyList());
@@ -318,6 +320,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
                 tbl,
                 rel.collation().getKeys(),
                 group.partitions(ctx.localNode().id()),
+                comp,
                 ranges,
                 filters,
                 prj,
