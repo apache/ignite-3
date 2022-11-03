@@ -15,30 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.commands.connect;
+package org.apache.ignite.internal.cli.commands.node;
 
-import static org.junit.jupiter.api.Assertions.assertAll;
+import java.net.URL;
 
-import org.apache.ignite.internal.cli.commands.CliCommandTestBase;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+/** Node URL. */
+public class NodeUrl {
+    private URL nodeUrl;
 
-class ConnectCommandTest extends CliCommandTestBase {
-
-    @Override
-    protected Class<?> getCommandClass() {
-        return ConnectCommand.class;
+    public NodeUrl(URL nodeUrl) {
+        this.nodeUrl = nodeUrl;
     }
 
-    @Test
-    @DisplayName("Should throw error if provided an unknown node name")
-    void unknownNodeName() {
-        execute("nodeName");
-
-        assertAll(
-                () -> assertExitCodeIs(2),
-                this::assertOutputIsEmpty,
-                () -> assertErrOutputContains("Node [nodeName] not found. Provide correct node url or node name")
-        );
+    public String getNodeUrl() {
+        return nodeUrl.toString();
     }
 }
