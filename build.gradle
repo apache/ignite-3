@@ -36,7 +36,8 @@ repositories {
 ext {
     repos = [
             'apache-release'   : "https://repo.maven.apache.org/maven2/",
-            'apache-snapshot'  : "https://repository.apache.org/snapshots"
+            'apache-snapshot'  : "https://repository.apache.org/snapshots",
+            'apache-staging'   : 'https://repository.apache.org/service/local/staging/deploy/maven2'
     ]
 }
 
@@ -63,6 +64,12 @@ allprojects {
         }
     }
 
+    tasks.withType(Sign) {
+        enabled = project.hasProperty('signing.keyId')
+                && project.hasProperty('signing.password')
+                && project.hasProperty('signing.secretKeyRingFile')
+    }
+
     tasks.withType(Javadoc) {
         options.tags = [ "apiNote" ]
     }
@@ -86,6 +93,13 @@ subprojects {
 
         maven {
             url = uri('https://repo.maven.apache.org/maven2/')
+            mavenContent {
+                releasesOnly()
+            }
+        }
+
+        maven {
+            url = uri(' https://repository.apache.org/service/local/staging/deploy/maven2')
             mavenContent {
                 releasesOnly()
             }
