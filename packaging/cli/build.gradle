@@ -18,6 +18,7 @@
 plugins {
     id 'java'
     id 'distribution'
+    id 'signing'
     alias(libs.plugins.nebula)
 }
 
@@ -121,10 +122,18 @@ artifacts {
     }
 }
 
+signing {
+    sign configurations.cliZip
+}
+
 
 // DEB/RPM packaging
 
 buildDeb {
+    signingKeyId = project.findProperty("signing.keyId")
+    signingKeyPassphrase = project.findProperty("signing.password")
+    signingKeyRingFile = project.hasProperty("signing.secretKeyRingFile") ? file(project.property("signing.secretKeyRingFile")) : null
+
     into("/usr/share/bash-completion/completions/") {
         from configurations.cliScripts
         fileMode 0755

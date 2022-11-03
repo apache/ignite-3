@@ -99,3 +99,46 @@ Perform the following actions ONLY after the vote is successful and closed.
    svn add {version}
    svn commit -m “Apache Ignite {version}”
    ```
+
+
+## Gradle commands
+1. Fill sign information in gradle.properties file.
+   ```
+   signing.keyId=*INSERT KEY HERE LAST 8 CHARS*
+   signing.password=*INSERT PASSWORD HERE*
+   signing.secretKeyRingFile=*INSERT KEY RING ABSOLUTE PATH HERE* 
+   ```
+   For generate secret key ring file please use follow command
+   ```
+   gpg --keyring secring.gpg --export-secret-keys > ~/.gnupg/secring.gpg
+   ```
+   Show key id command (you need only last 8 chars from printed key)
+   ```
+   gpg -K
+   ```
+2. You can sign any artifact via follow tasks
+   ```
+   signCliZip     --- sign CLI zip distribution 
+   signDbZip      --- sign Ignite zip distribution 
+   signAllDistZip --- sign meta zip distribution (CLI + Ignite)
+   signMavenPublication --- sign jars of all modules
+   ```
+3. DEB\RPM package automatically sign while building in case when properties filled in gradle.properties file
+   ```
+   packaging-db:buildDeb 
+   packaging-cli:buildDeb
+   packaging-db:buildRpm
+   packaging-cli:buildRpm
+   ```
+   NOTE: Currently RPM package can't sign because of problem with long keys support
+   https://github.com/craigwblake/redline/issues/62
+4. Publishing of jars can be done via `publishAllPublicationsToMavenRepository` task but before that you need specify follow properties 
+   in gradle.properties file
+   ```
+   staging_user=*INSERT STAGING USERNAME HERE*
+   staging_password=*INSERT STAGING PASSWORD HERE*
+   ```
+   Also, you can test all publications before it via `publishMavenPublicationToMavenLocal` task, 
+   and check all artifact in your local .m2 folder.
+
+   NOTE: you don't need to run sign tasks before this step, it will executed automatically!

@@ -18,6 +18,7 @@
 plugins {
     id 'java'
     id 'distribution'
+    id 'signing'
     alias(libs.plugins.nebula)
 }
 
@@ -81,6 +82,10 @@ artifacts {
     }
 }
 
+signing {
+    sign configurations.dbZip
+}
+
 // RPM/DEB packaging
 
 def javaArgs = '-Dio.netty.tryReflectionSetAccessible=true ' +
@@ -133,6 +138,9 @@ buildRpm {
 }
 
 buildDeb {
+    signingKeyId = project.findProperty("signing.keyId")
+    signingKeyPassphrase = project.findProperty("signing.password")
+    signingKeyRingFile = project.hasProperty("signing.secretKeyRingFile") ? file(project.property("signing.secretKeyRingFile")) : null
     dependsOn replacePackageScriptVars
     configurationFile = "/etc/ignite3/vars.env"
 

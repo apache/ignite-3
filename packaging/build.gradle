@@ -17,6 +17,7 @@
 
 plugins {
     id 'java'
+    id 'signing'
     alias(libs.plugins.docker)
     alias(libs.plugins.nebula)
 }
@@ -81,6 +82,10 @@ task allDistZip(type: Zip) {
     allZipFiles.each {
         from(zipTree(it))
     }
+}
+
+signing {
+    sign allDistZip
 }
 
 // copyCliAndDbZi depends on configurations.cliZip and configurations.dbZip
