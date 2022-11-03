@@ -179,7 +179,6 @@ namespace Apache.Ignite.Internal.Compute
             params object?[]? args)
             where TKey : notnull
         {
-            // TODO: IGNITE-16990 - implement partition awareness.
             IgniteArgumentCheck.NotNull(tableName, nameof(tableName));
             IgniteArgumentCheck.NotNull(key, nameof(key));
             IgniteArgumentCheck.NotNull(jobClassName, nameof(jobClassName));
@@ -189,11 +188,14 @@ namespace Apache.Ignite.Internal.Compute
                 var table = await GetTableAsync(tableName).ConfigureAwait(false);
                 var schema = await table.GetLatestSchemaAsync().ConfigureAwait(false);
 
-                using var bufferWriter = Write(table, schema);
+                using var bufferWriter = ProtoCommon.GetMessageWriter();
+                var colocationHash = Write(bufferWriter, table, schema);
+                var preferredNode = await table.GetPreferredNode(colocationHash, null).ConfigureAwait(false);
 
                 try
                 {
-                    using var res = await _socket.DoOutInOpAsync(ClientOp.ComputeExecuteColocated, bufferWriter).ConfigureAwait(false);
+                    using var res = await _socket.DoOutInOpAsync(ClientOp.ComputeExecuteColocated, bufferWriter, preferredNode)
+                        .ConfigureAwait(false);
 
                     return Read(res);
                 }
@@ -205,23 +207,22 @@ namespace Apache.Ignite.Internal.Compute
                 }
             }
 
-            PooledArrayBufferWriter Write(Table table, Schema schema)
+            int Write(PooledArrayBufferWriter bufferWriter, Table table, Schema schema)
             {
-                var bufferWriter = ProtoCommon.GetMessageWriter();
                 var w = bufferWriter.GetMessageWriter();
 
                 w.Write(table.Id);
                 w.Write(schema.Version);
 
                 var serializerHandler = serializerHandlerFunc(table);
-                serializerHandler.Write(ref w, schema, key, true);
+                var colocationHash = serializerHandler.Write(ref w, schema, key, true);
 
                 w.Write(jobClassName);
                 w.WriteObjectArrayAsBinaryTuple(args);
 
                 w.Flush();
 
-                return bufferWriter;
+                return colocationHash;
             }
 
             static T Read(in PooledBuffer buf)
