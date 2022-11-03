@@ -29,11 +29,9 @@ import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
-import org.apache.ignite.internal.close.AutoCloser;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.vault.VaultEntry;
-import org.apache.ignite.internal.vault.VaultService;
 import org.apache.ignite.lang.ByteArray;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -57,25 +55,35 @@ class ItPersistencePropertiesVaultServiceTest {
                 new ByteArray("key" + 3), fromString("value" + 3)
         );
 
-        try (var serviceHolder = new AutoCloser<>(new PersistentVaultService(vaultDir), VaultService::close)) {
-            serviceHolder.value().start();
+        var service = new PersistentVaultService(vaultDir);
 
-            assertThat(serviceHolder.value().putAll(data), willBe(nullValue(Void.class)));
+        try {
+            service.start();
+
+            assertThat(service.putAll(data), willBe(nullValue(Void.class)));
+        } finally {
+            service.close();
         }
 
-        try (var serviceHolder = new AutoCloser<>(new PersistentVaultService(vaultDir), VaultService::close)) {
-            serviceHolder.value().start();
+        service = new PersistentVaultService(vaultDir);
+
+        try {
+            service.start();
 
             assertThat(
-                    serviceHolder.value().get(new ByteArray("key" + 1)),
+                    service.get(new ByteArray("key" + 1)),
                     willBe(equalTo(new VaultEntry(new ByteArray("key" + 1), fromString("value" + 1))))
             );
+        } finally {
+            service.close();
         }
 
-        try (var serviceHolder = new AutoCloser<>(new PersistentVaultService(vaultDir), VaultService::close)) {
-            serviceHolder.value().start();
+        service = new PersistentVaultService(vaultDir);
 
-            try (var cursor = serviceHolder.value().range(new ByteArray("key" + 1), new ByteArray("key" + 4))) {
+        try {
+            service.start();
+
+            try (var cursor = service.range(new ByteArray("key" + 1), new ByteArray("key" + 4))) {
                 List<VaultEntry> expectedData = data.entrySet().stream()
                         .map(e -> new VaultEntry(e.getKey(), e.getValue()))
                         .sorted(Comparator.comparing(VaultEntry::key))
@@ -83,6 +91,8 @@ class ItPersistencePropertiesVaultServiceTest {
 
                 assertThat(cursor.stream().collect(toList()), is(expectedData));
             }
+        } finally {
+            service.close();
         }
     }
 
