@@ -23,6 +23,7 @@ using System.Threading.Tasks;
 using Ignite.Table;
 using Internal.Proto;
 using NUnit.Framework;
+using Table;
 
 /// <summary>
 /// Tests partition awareness.
@@ -321,10 +322,20 @@ public class PartitionAwarenessTests
     }
 
     [Test]
-    public async Task TestExecuteColocatedObjectKeyRoutesRequestToPrimaryNode()
+    [TestCaseSource(nameof(KeyNodeCases))]
+    public async Task TestExecuteColocatedObjectKeyRoutesRequestToPrimaryNode(int keyId, int node)
     {
-        // TODO
-        await Task.Delay(1);
+        using var client = await GetClient();
+        var expectedNode = node == 1 ? _server1 : _server2;
+        var key = new SimpleKey(keyId);
+
+        // Warm up.
+        await client.Compute.ExecuteColocatedAsync<object?, SimpleKey>(FakeServer.ExistingTableName, key, "job");
+
+        await AssertOpOnNode(
+            () => client.Compute.ExecuteColocatedAsync<object?, SimpleKey>(FakeServer.ExistingTableName, key, "job"),
+            ClientOp.ComputeExecuteColocated,
+            expectedNode);
     }
 
     private static async Task AssertOpOnNode(
@@ -376,4 +387,6 @@ public class PartitionAwarenessTests
 
     // ReSharper disable NotAccessedPositionalProperty.Local
     private record CompositeKey(string IdStr, Guid IdGuid);
+
+    private record SimpleKey(int Id);
 }
