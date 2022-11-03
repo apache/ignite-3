@@ -37,7 +37,7 @@ struct end_point {
      */
     end_point(std::string host, uint16_t port)
         : host(std::move(host))
-        , port(port) { }
+        , port(port) {}
 
     /**
      * Convert to string.

@@ -27,7 +27,7 @@
 #include <vector>
 
 #ifdef __APPLE__
-#include <csignal>
+# include <csignal>
 #endif
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -51,7 +51,7 @@ public:
         : m_running(false)
         , m_command(std::move(command))
         , m_args(std::move(args))
-        , m_workDir(std::move(workDir)) { }
+        , m_workDir(std::move(workDir)) {}
 
     /**
      * Destructor.

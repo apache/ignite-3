@@ -32,13 +32,14 @@ namespace ignite {
  * @param err Error.
  * @return Failed future with the specified error.
  */
-template <typename T>
+template<typename T>
 std::future<T> make_future_error(ignite_error err) {
     std::promise<T> promise;
     promise.set_exception(std::make_exception_ptr(std::move(err)));
 
     return promise.get_future();
 }
+
 /**
  * Make future value.
  *
@@ -46,7 +47,7 @@ std::future<T> make_future_error(ignite_error err) {
  * @param value Value.
  * @return Failed future with the specified error.
  */
-template <typename T>
+template<typename T>
 std::future<T> make_future_value(T value) {
     std::promise<T> promise;
     promise.set_value(std::move(value));

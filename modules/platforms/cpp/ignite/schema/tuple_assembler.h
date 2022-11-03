@@ -41,7 +41,7 @@ public:
     /** Constructs a new Tuple Assembler object. */
     explicit tuple_assembler(binary_tuple_schema &&sch)
         : schema(std::move(sch))
-        , builder(schema.num_elements()) { }
+        , builder(schema.num_elements()) {}
 
     /** Starts a new tuple. */
     void start() { builder.start(); }
@@ -52,7 +52,7 @@ public:
     /** Appends a null value. */
     void append_null() { builder.append(std::nullopt); }
 
-    template <typename T>
+    template<typename T>
     void claim_value(const T &value) {
         if constexpr (std::is_same<T, std::nullopt_t>::value) {
             builder.claim(value);
@@ -87,7 +87,7 @@ public:
         }
     }
 
-    template <typename T>
+    template<typename T>
     void append_value(const T &value) {
         if constexpr (std::is_same<T, std::nullopt_t>::value) {
             builder.append(value);
@@ -122,7 +122,7 @@ public:
         }
     }
 
-    template <typename... Ts>
+    template<typename... Ts>
     void from_std_tuple(std::tuple<Ts...> const &tuple) {
         std::apply([&](auto &&...args) { ((claim_value(args)), ...); }, tuple);
 
@@ -138,7 +138,7 @@ public:
      * @param tupleArgs Elements to be appended to column.
      * @return Byte buffer with tuple in the binary form.
      */
-    template <typename... Ts>
+    template<typename... Ts>
     const auto &build(std::tuple<Ts...> const &tuple) {
         start();
         from_std_tuple(tuple);
