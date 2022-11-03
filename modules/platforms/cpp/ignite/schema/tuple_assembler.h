@@ -17,8 +17,8 @@
 
 #pragma once
 
-#include "ignite/schema/binary_tuple_builder.h"
-#include "ignite/schema/binary_tuple_schema.h"
+#include "binary_tuple_builder.h"
+#include "binary_tuple_schema.h"
 
 #include <cstring>
 #include <optional>
@@ -27,9 +27,9 @@
 #include <vector>
 
 namespace ignite {
+
 /**
- * This used to be the main tool to construct binary tuples (in IEP-54 format).
- * Now this is just a helper for unit tests.
+ * This is just a helper for unit tests.
  */
 class tuple_assembler {
 private:
@@ -56,33 +56,19 @@ public:
     void claim_value(const T &value) {
         if constexpr (std::is_same<T, std::nullopt_t>::value) {
             builder.claim(value);
-        }
-
-        if constexpr (std::is_same<T, int8_t>::value) {
+        } else if constexpr (std::is_same<T, int8_t>::value) {
             builder.claim_int8(value);
-        }
-
-        if constexpr (std::is_same<T, int16_t>::value) {
+        } else if constexpr (std::is_same<T, int16_t>::value) {
             builder.claim_int16(value);
-        }
-
-        if constexpr (std::is_same<T, int32_t>::value) {
+        } else if constexpr (std::is_same<T, int32_t>::value) {
             builder.claim_int32(value);
-        }
-
-        if constexpr (std::is_same<T, int64_t>::value) {
+        } else if constexpr (std::is_same<T, int64_t>::value) {
             builder.claim_int64(value);
-        }
-
-        if constexpr (std::is_same<T, float>::value) {
+        } else if constexpr (std::is_same<T, float>::value) {
             builder.claim_float(value);
-        }
-
-        if constexpr (std::is_same<T, double>::value) {
+        } else if constexpr (std::is_same<T, double>::value) {
             builder.claim_double(value);
-        }
-
-        if constexpr (std::is_same<T, std::string>::value) {
+        } else if constexpr (std::is_same<T, std::string>::value) {
             builder.claim_string(value);
         }
     }
@@ -91,44 +77,21 @@ public:
     void append_value(const T &value) {
         if constexpr (std::is_same<T, std::nullopt_t>::value) {
             builder.append(value);
-        }
-
-        if constexpr (std::is_same<T, int8_t>::value) {
+        } else if constexpr (std::is_same<T, int8_t>::value) {
             builder.append_int8(value);
-        }
-
-        if constexpr (std::is_same<T, int16_t>::value) {
+        } else if constexpr (std::is_same<T, int16_t>::value) {
             builder.append_int16(value);
-        }
-
-        if constexpr (std::is_same<T, int32_t>::value) {
+        } else if constexpr (std::is_same<T, int32_t>::value) {
             builder.append_int32(value);
-        }
-
-        if constexpr (std::is_same<T, int64_t>::value) {
+        } else if constexpr (std::is_same<T, int64_t>::value) {
             builder.append_int64(value);
-        }
-
-        if constexpr (std::is_same<T, float>::value) {
+        } else if constexpr (std::is_same<T, float>::value) {
             builder.append_float(value);
-        }
-
-        if constexpr (std::is_same<T, double>::value) {
+        } else if constexpr (std::is_same<T, double>::value) {
             builder.append_double(value);
-        }
-
-        if constexpr (std::is_same<T, std::string>::value) {
+        } else if constexpr (std::is_same<T, std::string>::value) {
             builder.append_string(value);
         }
-    }
-
-    template<typename... Ts>
-    void from_std_tuple(std::tuple<Ts...> const &tuple) {
-        std::apply([&](auto &&...args) { ((claim_value(args)), ...); }, tuple);
-
-        builder.layout();
-
-        std::apply([&](auto &&...args) { ((append_value(args)), ...); }, tuple);
     }
 
     /**
@@ -141,8 +104,11 @@ public:
     template<typename... Ts>
     const auto &build(std::tuple<Ts...> const &tuple) {
         start();
-        from_std_tuple(tuple);
+        std::apply([&](auto &&...args) { ((claim_value(args)), ...); }, tuple);
+        builder.layout();
+        std::apply([&](auto &&...args) { ((append_value(args)), ...); }, tuple);
         return builder.build();
     }
 };
+
 } // namespace ignite

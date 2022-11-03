@@ -536,14 +536,12 @@ public:
     void append_timestamp(const ignite_timestamp &value);
 
     /**
-     * @brief Appends a string for the next element.
+     * @brief Appends a string as the next element.
      *
      * @param value Element value.
      */
     void append_string(const std::string &value) {
-        bytes_view bytes{reinterpret_cast<const std::byte *>(value.data()), value.size()};
-
-        append_bytes(bytes);
+        append_bytes({reinterpret_cast<const std::byte *>(value.data()), value.size()});
     }
 
     /**

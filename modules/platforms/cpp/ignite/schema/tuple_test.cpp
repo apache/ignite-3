@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 
-#include "ignite/schema/binary_tuple_parser.h"
-#include "ignite/schema/column_info.h"
+#include "binary_tuple_parser.h"
+#include "column_info.h"
 #include "tuple_assembler.h"
 
 #include <gmock/gmock.h>
@@ -97,13 +97,10 @@ ignite_timestamp read_tuple(std::optional<bytes_view> data) {
 
 template<>
 std::string read_tuple(std::optional<bytes_view> data) {
-    bytes_view &bytes = data.value();
-
-    return {reinterpret_cast<const char *>(bytes.data()), bytes.size()};
+    return {reinterpret_cast<const char *>(data->data()), data->size()};
 }
 
 struct SchemaDescriptor {
-
     std::vector<column_info> columns;
 
     [[nodiscard]] IntT length() const { return columns.size(); }
