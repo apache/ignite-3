@@ -45,6 +45,8 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommand;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
@@ -79,6 +81,7 @@ import org.apache.ignite.internal.table.distributed.replication.request.ReadWrit
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSingleRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSwapRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.tx.LockKey;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.LockMode;
@@ -159,7 +162,9 @@ public class PartitionReplicaListener implements ReplicaListener {
     private final PlacementDriver placementDriver;
 
     /** Runs async scan tasks for effective tail recursion execution (avoid deep recursive calls). */
-    private final Executor scanRequestExecutor = Executors.newSingleThreadExecutor();
+    private final Executor scanRequestExecutor = Executors.newSingleThreadExecutor(
+            new NamedThreadFactory("scan-query-executor-", Loggers.forClass(PartitionReplicaListener.class))
+    );
 
     /**
      * Map to control clock's update in the read only transactions concurrently with a commit timestamp.
