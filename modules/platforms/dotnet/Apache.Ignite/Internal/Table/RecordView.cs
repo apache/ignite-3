@@ -19,6 +19,7 @@ namespace Apache.Ignite.Internal.Table
 {
     using System;
     using System.Collections.Generic;
+    using System.Linq;
     using System.Threading.Tasks;
     using Buffers;
     using Common;
@@ -277,6 +278,12 @@ namespace Apache.Ignite.Internal.Table
         /// <inheritdoc/>
         public async Task<IList<T>> DeleteAllExactAsync(ITransaction? transaction, IEnumerable<T> records) =>
             await DeleteAllAsync(transaction, records, exact: true).ConfigureAwait(false);
+
+        /// <inheritdoc/>
+        public IQueryable<T> AsQueryable(ITransaction? transaction = null)
+        {
+            throw new NotImplementedException();
+        }
 
         /// <summary>
         /// Deletes multiple records. If one or more keys do not exist, other records are still deleted.

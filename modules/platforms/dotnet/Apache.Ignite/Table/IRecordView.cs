@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Table
 {
     using System.Collections.Generic;
+    using System.Linq;
     using System.Threading.Tasks;
     using Transactions;
 
@@ -192,5 +193,13 @@ namespace Apache.Ignite.Table
         /// The task result contains records from <paramref name="records"/> that did not exist.
         /// </returns>
         Task<IList<T>> DeleteAllExactAsync(ITransaction? transaction, IEnumerable<T> records);
+
+        /// <summary>
+        /// Gets a <see cref="IQueryable{T}"/> to perform Ignite SQL queries using LINQ
+        /// (see <see href="https://learn.microsoft.com/en-us/dotnet/csharp/programming-guide/concepts/linq/" />).
+        /// </summary>
+        /// <param name="transaction">Optional transaction.</param>
+        /// <returns><see cref="IQueryable{T}"/>.</returns>
+        IQueryable<T> AsQueryable(ITransaction? transaction = null);
     }
 }
