@@ -38,16 +38,19 @@ private:
     binary_tuple_builder builder;
 
 public:
-    /** Construct a new Tuple Assembler object. */
+    /** Constructs a new Tuple Assembler object. */
     explicit tuple_assembler(binary_tuple_schema &&sch)
         : schema(std::move(sch))
         , builder(schema.num_elements()) { }
 
-    /** Start a new tuple. */
+    /** Starts a new tuple. */
     void start() { builder.start(); }
 
-    /** Append a null value. */
-    void append_null() { builder.claim(std::nullopt); }
+    /** Claims a null value. */
+    void claim_null() { builder.claim(std::nullopt); }
+
+    /** Appends a null value. */
+    void append_null() { builder.append(std::nullopt); }
 
     template <typename T>
     void claim_value(const T &value) {
@@ -129,7 +132,7 @@ public:
     }
 
     /**
-     * @brief Assemble and return a tuple in binary format.
+     * @brief Assembles and returns a tuple in binary format.
      *
      * @tparam Ts Types parameter pack.
      * @param tupleArgs Elements to be appended to column.

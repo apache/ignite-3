@@ -541,7 +541,7 @@ public:
      * @param value Element value.
      */
     void append_string(const std::string &value) {
-        ignite::bytes_view bytes{reinterpret_cast<const std::byte *>(value.data()), value.size()};
+        bytes_view bytes{reinterpret_cast<const std::byte *>(value.data()), value.size()};
 
         append_bytes(bytes);
     }
