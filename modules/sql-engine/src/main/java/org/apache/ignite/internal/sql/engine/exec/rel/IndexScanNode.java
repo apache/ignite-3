@@ -322,8 +322,6 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
             BinaryTuple key = null;
 
             if (cond != null) {
-                assert cond.lower() == cond.upper();
-
                 key = toBinaryTuple(cond.lower());
             }
 
