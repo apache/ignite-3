@@ -94,6 +94,7 @@ binary_tuple_parser::binary_tuple_parser(IntT num_elements, bytes_view data)
     SizeT table_size = entry_size * element_count;
     next_entry = binary_tuple.data() + binary_tuple_header::SIZE + nullmap_size;
     value_base = next_entry + table_size;
+
     if (value_base > binary_tuple.data() + binary_tuple.size()) {
         throw std::out_of_range("Too short byte buffer");
     }
@@ -251,6 +252,11 @@ big_integer binary_tuple_parser::get_number(bytes_view bytes) {
     return big_integer(bytes.data(), bytes.size());
 }
 
+big_decimal binary_tuple_parser::get_decimal(bytes_view bytes, int32_t scale) {
+    big_integer mag(bytes.data(), bytes.size());
+    return {std::move(mag), scale};
+}
+
 uuid binary_tuple_parser::get_uuid(bytes_view bytes) {
     switch (bytes.size()) {
         case 0:
@@ -309,7 +315,7 @@ ignite_timestamp binary_tuple_parser::get_timestamp(bytes_view bytes) {
         }
         case 12: {
             std::int64_t seconds = load_as<std::int64_t>(bytes);
-            std::int32_t nanos = load_as<std::int32_t>(bytes);
+            std::int32_t nanos = load_as<std::int32_t>(bytes, 8);
             return ignite_timestamp(seconds, nanos);
         }
         default:
