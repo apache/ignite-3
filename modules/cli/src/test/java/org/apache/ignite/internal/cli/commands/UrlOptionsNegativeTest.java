@@ -29,6 +29,7 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.List;
+import org.apache.ignite.internal.cli.NodeNameRegistry;
 import org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerHelper;
 import org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerProvider;
 import org.apache.ignite.internal.cli.commands.cluster.config.ClusterConfigShowCommand;
@@ -40,6 +41,7 @@ import org.apache.ignite.internal.cli.commands.cluster.init.ClusterInitReplComma
 import org.apache.ignite.internal.cli.commands.cluster.status.ClusterStatusCommand;
 import org.apache.ignite.internal.cli.commands.cluster.status.ClusterStatusReplCommand;
 import org.apache.ignite.internal.cli.commands.connect.ConnectCommand;
+import org.apache.ignite.internal.cli.commands.node.NodeUrl;
 import org.apache.ignite.internal.cli.commands.node.config.NodeConfigShowCommand;
 import org.apache.ignite.internal.cli.commands.node.config.NodeConfigShowReplCommand;
 import org.apache.ignite.internal.cli.commands.node.config.NodeConfigUpdateCommand;
@@ -57,6 +59,7 @@ import org.apache.ignite.internal.cli.commands.topology.LogicalTopologyReplComma
 import org.apache.ignite.internal.cli.commands.topology.PhysicalTopologyCommand;
 import org.apache.ignite.internal.cli.commands.topology.PhysicalTopologyReplCommand;
 import org.apache.ignite.internal.cli.config.ini.IniConfigManager;
+import org.apache.ignite.internal.cli.core.converters.NodeNameOrUrlConverter;
 import org.apache.ignite.internal.cli.core.repl.context.CommandLineContextProvider;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -89,10 +92,14 @@ public class UrlOptionsNegativeTest {
     @Inject
     TestConfigManagerProvider configManagerProvider;
 
+    @Inject
+    NodeNameRegistry nodeNameRegistry;
+
     private void setUp(Class<?> cmdClass) {
         configManagerProvider.configManager = new IniConfigManager(TestConfigManagerHelper.createSectionWithDefaultProfile());
         MicronautFactory factory = new MicronautFactory(context);
-        cmd = new CommandLine(cmdClass, factory);
+        cmd = new CommandLine(cmdClass, factory)
+                .registerConverter(NodeUrl.class, new NodeNameOrUrlConverter(nodeNameRegistry));
         CommandLineContextProvider.setCmd(cmd);
         sout = new StringWriter();
         serr = new StringWriter();
@@ -211,8 +218,7 @@ public class UrlOptionsNegativeTest {
     void incorrectPortRepl(Class<?> cmdClass, String urlOptionName, List<String> additionalOptions) {
         execute(cmdClass, urlOptionName, NODE_URL + "incorrect", additionalOptions);
 
-        String expectedErrOutput = "Invalid URL '" + NODE_URL
-                + "incorrect' (Error at index 5 in: \"10300incorrect\")";
+        String expectedErrOutput = "Node [http://localhost:10300incorrect] not found. Provide correct node url or node name";
         assertAll(
                 this::assertOutputIsEmpty,
                 () -> assertErrOutputContains(expectedErrOutput)
@@ -225,8 +231,7 @@ public class UrlOptionsNegativeTest {
     void invalidUrlSchemeRepl(Class<?> cmdClass, String urlOptionName, List<String> additionalOptions) {
         execute(cmdClass, urlOptionName, "incorrect" + NODE_URL, additionalOptions);
 
-        String expectedErrOutput = "Invalid URL 'incorrect" + NODE_URL
-                + "' (unknown protocol: incorrecthttp)";
+        String expectedErrOutput = "Node [incorrecthttp://localhost:10300] not found. Provide correct node url or node name";
         assertAll(
                 this::assertOutputIsEmpty,
                 () -> assertErrOutputContains(expectedErrOutput)

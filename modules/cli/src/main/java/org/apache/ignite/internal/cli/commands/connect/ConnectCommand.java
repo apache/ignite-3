@@ -21,7 +21,6 @@ import static org.apache.ignite.internal.cli.commands.OptionsConstants.CLUSTER_U
 import static org.apache.ignite.internal.cli.commands.OptionsConstants.NODE_URL_OR_NAME_DESC;
 
 import jakarta.inject.Inject;
-import org.apache.ignite.internal.cli.NodeNameRegistry;
 import org.apache.ignite.internal.cli.call.connect.ConnectCall;
 import org.apache.ignite.internal.cli.call.connect.ConnectCallInput;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
@@ -42,9 +41,6 @@ public class ConnectCommand extends BaseCommand implements Runnable {
 
     @Inject
     private ConnectCall connectCall;
-
-    @Inject
-    private NodeNameRegistry nodeNameRegistry;
 
     /** {@inheritDoc} */
     @Override
