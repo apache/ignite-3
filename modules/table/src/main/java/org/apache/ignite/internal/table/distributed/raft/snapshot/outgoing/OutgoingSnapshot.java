@@ -176,14 +176,14 @@ public class OutgoingSnapshot {
     }
 
     /**
-     * Reads the snapshot meta and returns a future with the response.
+     * Reads the snapshot meta and returns a future with the response. Returns {@code null} if the snapshot is already closed.
      *
      * @param request Meta request.
      */
     @Nullable
     SnapshotMetaResponse handleSnapshotMetaRequest(SnapshotMetaRequest request) {
         if (closed) {
-            return logAlreadyClosedAndReturnNull();
+            return logThatAlreadyClosedAndReturnNull();
         }
 
         SnapshotMeta meta = frozenMeta;
@@ -194,20 +194,20 @@ public class OutgoingSnapshot {
     }
 
     @Nullable
-    private <T> T logAlreadyClosedAndReturnNull() {
+    private <T> T logThatAlreadyClosedAndReturnNull() {
         LOG.debug("Snapshot with ID '{}' is already closed", id);
         return null;
     }
 
     /**
-     * Reads a chunk of partition data and returns a future with the response.
+     * Reads a chunk of partition data and returns a future with the response. Returns {@code null} if the snapshot is already closed.
      *
      * @param request Data request.
      */
     @Nullable
     SnapshotMvDataResponse handleSnapshotMvDataRequest(SnapshotMvDataRequest request) {
         if (closed) {
-            return logAlreadyClosedAndReturnNull();
+            return logThatAlreadyClosedAndReturnNull();
         }
 
         assert !finishedMvData() : "MV data sending has already been finished";
@@ -340,14 +340,15 @@ public class OutgoingSnapshot {
     }
 
     /**
-     * Reads a chunk of TX states from partition and returns a future with the response.
+     * Reads a chunk of TX states from partition and returns a future with the response. Returns {@code null} if the snapshot is
+     * already closed.
      *
      * @param request Data request.
      */
     @Nullable
     SnapshotTxDataResponse handleSnapshotTxDataRequest(SnapshotTxDataRequest request) {
         if (closed) {
-            return logAlreadyClosedAndReturnNull();
+            return logThatAlreadyClosedAndReturnNull();
         }
 
         List<IgniteBiTuple<UUID, TxMeta>> rows = new ArrayList<>();
