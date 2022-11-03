@@ -15,11 +15,12 @@
  * limitations under the License.
  */
 
+#include "ignite/schema/binary_tuple_parser.h"
+#include "ignite/schema/column_info.h"
 #include "tuple_assembler.h"
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
-#include <ignite/schema/binary_tuple_parser.h>
-#include <ignite/schema/column_info.h>
 
 #include <array>
 #include <string>
