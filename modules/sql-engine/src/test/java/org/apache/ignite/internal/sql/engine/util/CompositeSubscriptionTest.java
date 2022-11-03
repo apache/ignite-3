@@ -40,48 +40,71 @@ import org.junit.jupiter.api.Test;
  * Composite subscription test.
  */
 public class CompositeSubscriptionTest {
+    /** Test case probe count. */
+    private static final int PROBE_CNT = 10;
+
     @Test
     public void testEnoughData() throws Throwable {
-        doPublishSubscribe(1, 2, 2, true, false, true);
-        doPublishSubscribe(1, 2, 2, true, false, false);
+        for (int req = 1; req <= PROBE_CNT; req++) {
+            doPublishSubscribe(req, req + 1, req + 1, true, false, true);
+            doPublishSubscribe(req, req + 1, req + 1, true, false, false);
 
-        doPublishSubscribe(50, 357, 7, true, false, true);
-        doPublishSubscribe(50, 357, 7, true, false, false);
-
-        doPublishSubscribe(50, 357, 7, false, false, true);
+            for (int pubCnt = 1; pubCnt <= PROBE_CNT * 10; pubCnt += 10) {
+                doPublishSubscribe(req, req * pubCnt, pubCnt, true, false, true);
+                doPublishSubscribe(req, req * pubCnt, pubCnt, true, false, false);
+                doPublishSubscribe(req, req * pubCnt, pubCnt, false, false, true);
+            }
+        }
     }
 
     @Test
     public void testNotEnoughData() throws Throwable {
-        doPublishSubscribe(1, 0, 2, true, false, true);
-        doPublishSubscribe(1, 0, 2, true, false, false);
+        for (int req = 1; req <= PROBE_CNT; req++) {
+            doPublishSubscribe(req, 0, req, true, false, true);
+            doPublishSubscribe(req, 0, req, true, false, false);
 
-        doPublishSubscribe(100, 70, 7, true, false, true);
-        doPublishSubscribe(100, 70, 7, true, false, false);
+            for (int pubCnt = 1; pubCnt <= PROBE_CNT * 10; pubCnt += 10) {
+                int total = req * pubCnt;
+                int requested = total * 2;
 
-        doPublishSubscribe(100, 70, 7, false, false, true);
+                doPublishSubscribe(requested, total, pubCnt, true, false, true);
+                doPublishSubscribe(requested, total, pubCnt, true, false, false);
+                doPublishSubscribe(requested, total, pubCnt, false, false, true);
+            }
+        }
     }
 
     @Test
     public void testMultipleRequest() throws Throwable {
-        doPublishSubscribe(100, 70, 7, true, true, true);
-        doPublishSubscribe(100, 70, 7, true, true, false);
+        for (int req = 1; req <= PROBE_CNT; req++) {
+            for (int pubCnt = 1; pubCnt <= PROBE_CNT * 10; pubCnt += 10) {
+                int total = req * pubCnt;
+                int requested = total * 2;
 
-        doPublishSubscribe(100, 70, 7, false, true, true);
+                doPublishSubscribe(requested, total, pubCnt, true, true, true);
+                doPublishSubscribe(requested, total, pubCnt, true, true, false);
+                doPublishSubscribe(requested, total, pubCnt, false, true, true);
+            }
+        }
     }
 
     @Test
     public void testExactEnoughData() throws Throwable {
-        doPublishSubscribe(30, 30, 3, true, false, true);
-        doPublishSubscribe(30, 30, 3, true, false, false);
+        for (int req = 1; req <= PROBE_CNT; req++) {
+            for (int pubCnt = 1; pubCnt <= PROBE_CNT * 10; pubCnt += 10) {
+                int total = req * pubCnt;
 
-        doPublishSubscribe(30, 30, 3, false, false, true);
+                doPublishSubscribe(total, total, pubCnt, true, false, true);
+                doPublishSubscribe(total, total, pubCnt, true, false, false);
+                doPublishSubscribe(total, total, pubCnt, false, false, true);
+            }
+        }
     }
 
     /**
      * Test composite publishing-subscribing.
      *
-     * @param cnt Number of requested items.
+     * @param requested Number of requested items.
      * @param total Total number of available items.
      * @param pubCnt Number of publishers.
      * @param rnd {@code True} to generate random data, otherwise sequential range will be generated.
@@ -89,7 +112,14 @@ public class CompositeSubscriptionTest {
      * @param sort {@code True} to test merge sort strategy, otherwise all requests will be sent sequentially in single threaded mode.
      * @throws InterruptedException If failed.
      */
-    private static void doPublishSubscribe(int cnt, int total, int pubCnt, boolean rnd, boolean split, boolean sort) throws Throwable {
+    private void doPublishSubscribe(
+            int requested,
+            int total,
+            int pubCnt,
+            boolean rnd,
+            boolean split,
+            boolean sort
+    ) throws Throwable {
         int dataCnt = total / pubCnt;
         Integer[][] data = new Integer[pubCnt][dataCnt];
         int[] expData = new int[total];
@@ -122,7 +152,13 @@ public class CompositeSubscriptionTest {
         AtomicReference<Subscription> subscriptionRef = new AtomicReference<>();
         SubscriberListener<Integer> lsnr = new SubscriberListener<>();
 
-        Subscriber<Integer> subscr = new Subscriber<>() {
+        CompositePublisher<Integer> compPublisher = sort
+                ? new SortingCompositePublisher<>(publishers, Comparator.comparingInt(v -> v), requested / pubCnt)
+                : new CompositePublisher<>(publishers);
+
+        lsnr.reset(requested);
+
+        compPublisher.subscribe(new Subscriber<>() {
             @Override
             public void onSubscribe(Subscription subscription) {
                 subscriptionRef.set(subscription);
@@ -142,25 +178,15 @@ public class CompositeSubscriptionTest {
             public void onComplete() {
                 lsnr.onComplete();
             }
-        };
-
-        CompositePublisher<Integer> compPublisher = sort
-                ? new SortingCompositePublisher<>(publishers, Comparator.comparingInt(v -> v), cnt / pubCnt)
-                : new CompositePublisher<>(publishers);
-
-        lsnr.reset(cnt);
-
-        compPublisher.subscribe(subscr);
+        });
 
         if (!split) {
-            checkSubscriptionRequest(subscriptionRef.get(), new InputParameters(expData, cnt), lsnr);
+            checkSubscriptionRequest(subscriptionRef.get(), new InputParameters(expData, requested), lsnr);
         } else {
-            InputParameters params = new InputParameters(expData, 1);
+            for (int off = 1; off < Math.min(requested, total); off += off) {
+                InputParameters params = new InputParameters(expData, off);
 
-            for (int off = 0; off < Math.min(cnt, total); off++) {
-                lsnr.reset(params.requested);
-
-                checkSubscriptionRequest(subscriptionRef.get(), params.offset(off), lsnr);
+                checkSubscriptionRequest(subscriptionRef.get(), params.offset(off - 1), lsnr.reset(params.requested));
             }
         }
 
@@ -174,23 +200,27 @@ public class CompositeSubscriptionTest {
         }
     }
 
-    private static void checkSubscriptionRequest(Subscription subscription, InputParameters params, SubscriberListener<Integer> lsnr)
-            throws InterruptedException {
+    private void checkSubscriptionRequest(
+            Subscription subscription,
+            InputParameters params,
+            SubscriberListener<Integer> lsnr
+    ) throws InterruptedException {
         subscription.request(params.requested);
 
-        Assertions.assertTrue(lsnr.awaitComplete(10), "Execution timeout");
+        Assertions.assertTrue(lsnr.awaitComplete(10),
+                "Execution timeout [params="+ params + ", results=" + lsnr + ']');
 
         int remaining = params.total - params.offset;
         int expReceived = Math.min(params.requested, remaining);
         int[] expResult = Arrays.copyOfRange(params.data, params.offset, params.offset + expReceived);
 
-        Assertions.assertEquals(expReceived, lsnr.res.size());
-        Assertions.assertEquals(expReceived, lsnr.receivedCnt.get());
+        Assertions.assertEquals(expReceived, lsnr.res.size(), "params=" + params);
+        Assertions.assertEquals(expReceived, lsnr.receivedCnt.get(), "params=" + params);
 
         // Ensures that onComplete has (not) been called.
         int expCnt = params.offset + params.requested >= params.total ? 1 : 0;
         IgniteTestUtils.waitForCondition(() -> lsnr.onCompleteCntr.get() == expCnt, 10_000);
-        Assertions.assertEquals(expCnt, lsnr.onCompleteCntr.get());
+        Assertions.assertEquals(expCnt, lsnr.onCompleteCntr.get(), "params=" + params);
 
         int[] resArr = new int[expReceived];
         int k = 0;
@@ -199,7 +229,7 @@ public class CompositeSubscriptionTest {
             resArr[k++] = n;
         }
 
-        Assertions.assertArrayEquals(expResult, resArr, "\n" + Arrays.toString(expResult) + "\n" + Arrays.toString(resArr) + "\n");
+        Assertions.assertArrayEquals(expResult, resArr, params + "\n" + Arrays.toString(expResult) + "\n" + Arrays.toString(resArr) + "\n");
     }
 
     private static class TestPublisher<T> implements Publisher<T> {
@@ -288,6 +318,15 @@ public class CompositeSubscriptionTest {
 
             return this;
         }
+
+        @Override
+        public String toString() {
+            return "InputParameters{" +
+                    "requested=" + requested +
+                    ", total=" + total +
+                    ", offset=" + offset +
+                    '}';
+        }
     }
 
     private static class SubscriberListener<T> {
@@ -297,11 +336,13 @@ public class CompositeSubscriptionTest {
         final AtomicReference<Integer> requestedCnt = new AtomicReference<>();
         volatile CountDownLatch waitLatch;
 
-        void reset(int requested) {
+        SubscriberListener<T> reset(int requested) {
             receivedCnt.set(0);
             waitLatch = new CountDownLatch(1);
             requestedCnt.set(requested);
             res.clear();
+
+            return this;
         }
 
         void onNext(T item) {
@@ -319,6 +360,14 @@ public class CompositeSubscriptionTest {
         void onComplete() {
             waitLatch.countDown();
             onCompleteCntr.incrementAndGet();
+        }
+
+        @Override
+        public String toString() {
+            return "SubscriberListener{" +
+                    "receivedCnt=" + receivedCnt.get() +
+                    ", onCompleteCntr=" + onCompleteCntr.get() +
+                    '}';
         }
     }
 }
