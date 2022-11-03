@@ -28,6 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -125,7 +126,7 @@ public class IndexManagerTest {
 
         TableManager tableManagerMock = mock(TableManager.class);
 
-        when(tableManagerMock.tableAsync(any(UUID.class)))
+        when(tableManagerMock.tableAsync(anyLong(), any(UUID.class)))
                 .thenReturn(CompletableFuture.completedFuture(mock(TableImpl.class)));
 
         indexManager = new IndexManager(tablesConfig, mock(SchemaManager.class), tableManagerMock);
