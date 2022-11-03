@@ -328,7 +328,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
             return failedFuture(new NodeStoppingException());
         }
 
-        return tableManager.tableAsync(evt.oldValue().tableId())
+        return tableManager.tableAsync(evt.storageRevision(), evt.oldValue().tableId())
                 .thenAccept(table -> {
                     if (table != null) { // in case of DROP TABLE the table will be removed first
                         table.unregisterIndex(idxId);
@@ -379,7 +379,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         LOG.trace("Creating local index: name={}, id={}, tableId={}, token={}",
                 tableIndexView.name(), tableIndexView.id(), tableId, causalityToken);
 
-        return tableManager.tableAsync(tableId)
+        return tableManager.tableAsync(causalityToken, tableId)
                 .thenAccept(table -> {
                     Index<?> index = newIndex(table, tableIndexView);
 
