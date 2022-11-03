@@ -445,13 +445,13 @@ public class ClientTupleSerializer {
     }
 
     @Nullable
-    static Function<ClientSchema, Integer> getHashFunction(@Nullable Transaction tx, @NotNull Tuple rec) {
+    public static Function<ClientSchema, Integer> getHashFunction(@Nullable Transaction tx, @NotNull Tuple rec) {
         // Disable partition awareness when transaction is used: tx belongs to a default connection.
         return tx != null ? null : schema -> getColocationHash(schema, rec);
     }
 
     @Nullable
-    static Function<ClientSchema, Integer> getHashFunction(@Nullable Transaction tx, Mapper<?> mapper, @NotNull Object rec) {
+    public static Function<ClientSchema, Integer> getHashFunction(@Nullable Transaction tx, Mapper<?> mapper, @NotNull Object rec) {
         // Disable partition awareness when transaction is used: tx belongs to a default connection.
         return tx != null ? null : schema -> getColocationHash(schema, mapper, rec);
     }
