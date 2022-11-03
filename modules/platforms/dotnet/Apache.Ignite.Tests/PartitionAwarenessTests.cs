@@ -23,6 +23,7 @@ using System.Threading.Tasks;
 using Ignite.Table;
 using Internal.Proto;
 using NUnit.Framework;
+using Table;
 
 /// <summary>
 /// Tests partition awareness.
@@ -303,6 +304,40 @@ public class PartitionAwarenessTests
             await AssertOpOnNode(() => view.UpsertAsync(null, new CompositeKey(idStr, idGuid)), ClientOp.TupleUpsert, node);
     }
 
+    [Test]
+    [TestCaseSource(nameof(KeyNodeCases))]
+    public async Task TestExecuteColocatedTupleKeyRoutesRequestToPrimaryNode(int keyId, int node)
+    {
+        using var client = await GetClient();
+        var expectedNode = node == 1 ? _server1 : _server2;
+        var key = new IgniteTuple { ["ID"] = keyId };
+
+        // Warm up.
+        await client.Compute.ExecuteColocatedAsync<object?>(FakeServer.ExistingTableName, key, "job");
+
+        await AssertOpOnNode(
+            () => client.Compute.ExecuteColocatedAsync<object?>(FakeServer.ExistingTableName, key, "job"),
+            ClientOp.ComputeExecuteColocated,
+            expectedNode);
+    }
+
+    [Test]
+    [TestCaseSource(nameof(KeyNodeCases))]
+    public async Task TestExecuteColocatedObjectKeyRoutesRequestToPrimaryNode(int keyId, int node)
+    {
+        using var client = await GetClient();
+        var expectedNode = node == 1 ? _server1 : _server2;
+        var key = new SimpleKey(keyId);
+
+        // Warm up.
+        await client.Compute.ExecuteColocatedAsync<object?, SimpleKey>(FakeServer.ExistingTableName, key, "job");
+
+        await AssertOpOnNode(
+            () => client.Compute.ExecuteColocatedAsync<object?, SimpleKey>(FakeServer.ExistingTableName, key, "job"),
+            ClientOp.ComputeExecuteColocated,
+            expectedNode);
+    }
+
     private static async Task AssertOpOnNode(
         Func<Task> action,
         ClientOp op,
@@ -352,4 +387,6 @@ public class PartitionAwarenessTests
 
     // ReSharper disable NotAccessedPositionalProperty.Local
     private record CompositeKey(string IdStr, Guid IdGuid);
+
+    private record SimpleKey(int Id);
 }
