@@ -120,7 +120,7 @@ public class ClientCompute implements IgniteCompute {
         Objects.requireNonNull(jobClassName);
 
         return getTable(tableName)
-                .thenCompose(table -> (CompletableFuture<R>)executeColocatedTupleKey(table, key, jobClassName, args))
+                .thenCompose(table -> (CompletableFuture<R>) executeColocatedTupleKey(table, key, jobClassName, args))
                 .handle((res, err) -> handleMissingTable(tableName, res, err))
                 .thenCompose(r ->
                         // If a table was dropped, try again: maybe a new table was created with the same name and new id.
@@ -138,7 +138,7 @@ public class ClientCompute implements IgniteCompute {
         Objects.requireNonNull(jobClassName);
 
         return getTable(tableName)
-                .thenCompose(table -> (CompletableFuture<R>)executeColocatedObjectKey(table, key, keyMapper, jobClassName, args))
+                .thenCompose(table -> (CompletableFuture<R>) executeColocatedObjectKey(table, key, keyMapper, jobClassName, args))
                 .handle((res, err) -> handleMissingTable(tableName, res, err))
                 .thenCompose(r ->
                         // If a table was dropped, try again: maybe a new table was created with the same name and new id.

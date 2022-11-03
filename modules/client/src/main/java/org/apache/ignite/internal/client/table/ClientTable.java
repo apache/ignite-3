@@ -315,6 +315,16 @@ public class ClientTable implements Table {
                                 r -> reader.apply(r.in())));
     }
 
+    /**
+     * Performs a schema-based operation.
+     *
+     * @param opCode Op code.
+     * @param writer Writer.
+     * @param reader Reader.
+     * @param hashFunction Hash function for partition awareness.
+     * @param <T> Result type.
+     * @return Future representing pending completion of the operation.
+     */
     public <T> CompletableFuture<T> doSchemaOutOpAsync(
             int opCode,
             BiConsumer<ClientSchema, PayloadOutputChannel> writer,
