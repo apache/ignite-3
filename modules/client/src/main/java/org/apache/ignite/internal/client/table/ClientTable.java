@@ -273,8 +273,8 @@ public class ClientTable implements Table {
             int opCode,
             BiConsumer<ClientSchema, PayloadOutputChannel> writer,
             BiFunction<ClientSchema, ClientMessageUnpacker, T> reader,
-            T defaultValue,
-            Function<ClientSchema, Integer> hashFunction
+            @Nullable T defaultValue,
+            @Nullable Function<ClientSchema, Integer> hashFunction
     ) {
         CompletableFuture<ClientSchema> schemaFut = getLatestSchema();
         CompletableFuture<List<String>> partitionsFut = hashFunction == null
@@ -315,7 +315,7 @@ public class ClientTable implements Table {
                                 r -> reader.apply(r.in())));
     }
 
-    <T> CompletableFuture<T> doSchemaOutOpAsync(
+    public <T> CompletableFuture<T> doSchemaOutOpAsync(
             int opCode,
             BiConsumer<ClientSchema, PayloadOutputChannel> writer,
             Function<ClientMessageUnpacker, T> reader,
