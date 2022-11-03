@@ -21,7 +21,8 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 
 import org.apache.ignite.internal.cli.commands.CliCommandTestBase;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 class ConnectCommandTest extends CliCommandTestBase {
 
@@ -30,11 +31,12 @@ class ConnectCommandTest extends CliCommandTestBase {
         return ConnectCommand.class;
     }
 
-    @Test
+    @ParameterizedTest
+    @ValueSource(strings = {"-n", "--node-name"})
     @DisplayName("Should throw error if provided an unknown node name")
-    void unknownNodeName() {
+    void unknownNodeName(String optionName) {
         String nodeName = "unknown";
-        execute("-n " + nodeName);
+        execute(optionName, nodeName);
 
         assertAll(
                 () -> assertExitCodeIs(1),

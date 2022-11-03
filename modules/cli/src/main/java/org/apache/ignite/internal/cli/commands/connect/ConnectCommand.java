@@ -43,8 +43,8 @@ import picocli.CommandLine.Parameters;
 @Command(name = "connect", description = "Connects to Ignite 3 node")
 public class ConnectCommand extends BaseCommand implements Runnable {
 
-    @ArgGroup(multiplicity = "1")
-    private ExecOptions execOptions;
+    @ArgGroup
+    private ExecOptions execOptions = new ExecOptions();
 
     @Inject
     private ConnectCall connectCall;
