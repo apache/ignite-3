@@ -82,9 +82,10 @@ public class SortedIndexImpl implements SortedIndex {
         return table.lookup(partId, tx, id, key, columns);
     }
 
+    /** {@inheritDoc} */
     @Override
-    public Publisher<BinaryRow> lookup(int partId, HybridTimestamp timestamp, ClusterNode recipient, BinaryTuple key, BitSet columns) {
-        return table.lookup(partId, timestamp, recipient, id, key, columns);
+    public Publisher<BinaryRow> lookup(int partId, HybridTimestamp timestamp, ClusterNode recipientNode, BinaryTuple key, BitSet columns) {
+        return table.lookup(partId, timestamp, recipientNode, id, key, columns);
     }
 
     /** {@inheritDoc} */
@@ -102,8 +103,15 @@ public class SortedIndexImpl implements SortedIndex {
 
     /** {@inheritDoc} */
     @Override
-    public Publisher<BinaryRow> scan(int partId, HybridTimestamp timestamp, ClusterNode recipient, @Nullable BinaryTuplePrefix leftBound,
-            @Nullable BinaryTuplePrefix rightBound, int flags, BitSet columnsToInclude) {
-        return table.scan(partId, timestamp, recipient, id, leftBound, rightBound, flags, columnsToInclude);
+    public Publisher<BinaryRow> scan(
+            int partId,
+            HybridTimestamp readTimestamp,
+            ClusterNode recipientNode,
+            @Nullable BinaryTuplePrefix leftBound,
+            @Nullable BinaryTuplePrefix rightBound,
+            int flags,
+            BitSet columnsToInclude
+    ) {
+        return table.scan(partId, readTimestamp, recipientNode, id, leftBound, rightBound, flags, columnsToInclude);
     }
 }

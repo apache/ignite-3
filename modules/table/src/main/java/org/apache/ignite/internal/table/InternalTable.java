@@ -271,44 +271,8 @@ public interface InternalTable extends AutoCloseable {
     }
 
     /**
-     * Scans given partition index, providing {@link Publisher} that reactively notifies about partition rows.
-     *
-     * @param partId The partition.
-     * @param tx The transaction.
-     * @param indexId Index id.
-     * @param key Key to search.
-     * @param columnsToInclude Row projection.
-     * @return {@link Publisher} that reactively notifies about partition rows.
-     */
-    Publisher<BinaryRow> lookup(
-            int partId,
-            @NotNull HybridTimestamp readTimestamp,
-            @NotNull ClusterNode recipientNode,
-            @NotNull UUID indexId,
-            BinaryTuple key,
-            @Nullable BitSet columnsToInclude
-    );
-
-    /**
-     * Scans given partition index, providing {@link Publisher} that reactively notifies about partition rows.
-     *
-     * @param partId The partition.
-     * @param tx The transaction.
-     * @param indexId Index id.
-     * @param key Key to search.
-     * @param columnsToInclude Row projection.
-     * @return {@link Publisher} that reactively notifies about partition rows.
-     */
-    Publisher<BinaryRow> lookup(
-            int partId,
-            @Nullable InternalTransaction tx,
-            @NotNull UUID indexId,
-            BinaryTuple key,
-            @Nullable BitSet columnsToInclude
-    );
-
-    /**
-     * Scans given partition index, providing {@link Publisher} that reactively notifies about partition rows.
+     * Lookup rows corresponding to the given key given partition index, providing {@link Publisher}
+     * that reactively notifies about partition rows.
      *
      * @param partId The partition.
      * @param readTimestamp Read timestamp.
@@ -350,6 +314,45 @@ public interface InternalTable extends AutoCloseable {
             @Nullable BinaryTuplePrefix lowerBound,
             @Nullable BinaryTuplePrefix upperBound,
             int flags,
+            @Nullable BitSet columnsToInclude
+    );
+
+    /**
+     * Scans given partition index, providing {@link Publisher} that reactively notifies about partition rows.
+     *
+     * @param partId The partition.
+     * @param readTimestamp Read timestamp.
+     * @param recipientNode Cluster node that will handle given get request.
+     * @param indexId Index id.
+     * @param key Key to search.
+     * @param columnsToInclude Row projection.
+     * @return {@link Publisher} that reactively notifies about partition rows.
+     */
+    Publisher<BinaryRow> lookup(
+            int partId,
+            @NotNull HybridTimestamp readTimestamp,
+            @NotNull ClusterNode recipientNode,
+            @NotNull UUID indexId,
+            BinaryTuple key,
+            @Nullable BitSet columnsToInclude
+    );
+
+    /**
+     * Lookup rows corresponding to the given key given partition index, providing {@link Publisher}
+     * that reactively notifies about partition rows.
+     *
+     * @param partId The partition.
+     * @param tx The transaction.
+     * @param indexId Index id.
+     * @param key Key to search.
+     * @param columnsToInclude Row projection.
+     * @return {@link Publisher} that reactively notifies about partition rows.
+     */
+    Publisher<BinaryRow> lookup(
+            int partId,
+            @Nullable InternalTransaction tx,
+            @NotNull UUID indexId,
+            BinaryTuple key,
             @Nullable BitSet columnsToInclude
     );
 

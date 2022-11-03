@@ -58,15 +58,26 @@ public interface SortedIndex extends Index<SortedIndexDescriptor> {
         return scan(partId, tx, left, right, INCLUDE_LEFT, columns);
     }
 
+    /**
+     * Opens a read-only range cursor for given bounds with left bound included in result and right excluded.
+     *
+     * @param partId Partition.
+     * @param readTimestamp Read timestamp.
+     * @param recipientNode Cluster node that will handle given get request.
+     * @param left Left bound of range.
+     * @param right Right bound of range.
+     * @param columns Columns to include.
+     * @return A cursor from resulting rows.
+     */
     default Publisher<BinaryRow> scan(
             int partId,
-            HybridTimestamp timestamp,
-            ClusterNode recipient,
+            HybridTimestamp readTimestamp,
+            ClusterNode recipientNode,
             @Nullable BinaryTuplePrefix left,
             @Nullable BinaryTuplePrefix right,
             BitSet columns
     ) {
-        return scan(partId, timestamp, recipient, left, right, INCLUDE_LEFT, columns);
+        return scan(partId, readTimestamp, recipientNode, left, right, INCLUDE_LEFT, columns);
     }
 
     /**
@@ -96,7 +107,8 @@ public interface SortedIndex extends Index<SortedIndexDescriptor> {
      * Opens a range cursor for given bounds. Inclusion of the bounds is defined by {@code includeBounds} mask.
      *
      * @param partId Partition.
-     * @param tx Transaction. //TODO
+     * @param readTimestamp Read timestamp.
+     * @param recipientNode Cluster node that will handle given get request.
      * @param leftBound Left bound of range.
      * @param rightBound Right bound of range.
      * @param flags A mask that defines whether to include bounds into the final result or not.
@@ -107,8 +119,8 @@ public interface SortedIndex extends Index<SortedIndexDescriptor> {
      */
     Publisher<BinaryRow> scan(
             int partId,
-            HybridTimestamp timestamp,
-            ClusterNode recipient,
+            HybridTimestamp readTimestamp,
+            ClusterNode recipientNode,
             @Nullable BinaryTuplePrefix leftBound,
             @Nullable BinaryTuplePrefix rightBound,
             int flags,

@@ -21,8 +21,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.RowId;
-import org.apache.ignite.internal.storage.index.IndexRow;
-import org.apache.ignite.internal.util.Cursor;
 
 /**
  * A decorator interface to hide all tx-protocol-related things.
@@ -41,7 +39,6 @@ public interface IndexLocker {
      * @return A future representing a result.
      */
     CompletableFuture<?> locksForLookup(UUID txId, BinaryRow tableRow);
-
 
     /**
      * Acquires the lock for insert operation.

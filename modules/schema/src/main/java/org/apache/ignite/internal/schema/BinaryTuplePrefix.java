@@ -63,19 +63,12 @@ public class BinaryTuplePrefix extends BinaryTupleReader implements InternalTupl
      * @return Prefix, equivalent to the tuple.
      */
     public static BinaryTuplePrefix fromBinaryTuple(BinaryTuple tuple) {
-        //TODO https://issues.apache.org/jira/browse/IGNITE-18056: Get rid of the method.
-        // Restore original prefix. Explicit 'null' value is not supported for now.
-        int count = 0;
-        while (count < tuple.count() && !tuple.hasNullValue(count)) {
-            count++;
-        }
-
         ByteBuffer tupleBuffer = tuple.byteBuffer();
 
         ByteBuffer prefixBuffer = ByteBuffer.allocate(tupleBuffer.remaining() + Integer.BYTES)
                 .order(ORDER)
                 .put(tupleBuffer)
-                .putInt(count)
+                .putInt(tuple.count())
                 .flip();
 
         byte flags = prefixBuffer.get(0);

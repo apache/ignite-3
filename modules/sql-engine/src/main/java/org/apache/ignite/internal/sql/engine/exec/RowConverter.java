@@ -41,7 +41,7 @@ public final class RowConverter {
     public static BinaryTupleSchema createIndexRowSchema(TableDescriptor tableDescriptor, ImmutableIntList idxColumnMapping) {
         Element[] elements = IntStream.of(idxColumnMapping.toIntArray())
                 .mapToObj(tableDescriptor::columnDescriptor)
-                .map(colDesc -> new Element(colDesc.physicalType(), colDesc.nullable()))
+                .map(colDesc -> new Element(colDesc.physicalType(), true))
                 .toArray(Element[]::new);
 
         return BinaryTupleSchema.create(elements);

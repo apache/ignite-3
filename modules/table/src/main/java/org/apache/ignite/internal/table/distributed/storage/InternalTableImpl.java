@@ -816,9 +816,27 @@ public class InternalTableImpl implements InternalTable {
 
     /** {@inheritDoc} */
     @Override
-    public Publisher<BinaryRow> lookup(int partId, @NotNull HybridTimestamp readTimestamp, @NotNull ClusterNode recipientNode,
-            @NotNull UUID indexId, BinaryTuple key, @Nullable BitSet columnsToInclude) {
+    public Publisher<BinaryRow> lookup(
+            int partId,
+            @NotNull HybridTimestamp readTimestamp,
+            @NotNull ClusterNode recipientNode,
+            @NotNull UUID indexId,
+            BinaryTuple key,
+            @Nullable BitSet columnsToInclude
+    ) {
         return scan(partId, readTimestamp, recipientNode, indexId, key, null, null, 0, columnsToInclude);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Publisher<BinaryRow> lookup(
+            int partId,
+            @Nullable InternalTransaction tx,
+            @NotNull UUID indexId,
+            BinaryTuple key,
+            @Nullable BitSet columnsToInclude
+    ) {
+        return scan(partId, tx, indexId, key, null, null, 0, columnsToInclude);
     }
 
     /** {@inheritDoc} */
@@ -874,13 +892,6 @@ public class InternalTableImpl implements InternalTable {
                 },
                 // TODO: IGNITE-17666 Close cursor tx finish.
                 Function.identity());
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public Publisher<BinaryRow> lookup(int partId, @Nullable InternalTransaction tx, @NotNull UUID indexId, BinaryTuple key,
-            @Nullable BitSet columnsToInclude) {
-        return scan(partId, tx, indexId, key, null, null, 0, columnsToInclude);
     }
 
     /** {@inheritDoc} */
@@ -1101,7 +1112,7 @@ public class InternalTableImpl implements InternalTable {
      * Enlists a partition.
      *
      * @param partId Partition id.
-     * @param tx The transaction.
+     * @param tx     The transaction.
      * @return The enlist future (then will a leader become known).
      */
     protected CompletableFuture<IgniteBiTuple<ClusterNode, Long>> enlist(int partId, InternalTransaction tx) {
@@ -1297,7 +1308,6 @@ public class InternalTableImpl implements InternalTable {
     }
 
     // TODO: IGNITE-17963 Use smarter logic for recipient node evaluation.
-
     /**
      * Evaluated cluster node for read-only request processing.
      *

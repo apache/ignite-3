@@ -564,6 +564,8 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
         assertQuery("SELECT * FROM Developer WHERE depId=1 OR name='Mozart'")
                 .matches(containsUnion(true))
                 .matches(containsIndexScan("PUBLIC", "DEVELOPER", DEPID_IDX))
+                .returns(1, "Mozart", 3, "Vienna", 33)
+                .returns(3, "Bach", 1, "Leipzig", 55)
                 .check();
     }
 
@@ -743,6 +745,9 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .check();
     }
 
+    /**
+     * Test scan correclty handle 'nulls' when range condition is used.
+     */
     @Test
     public void testIndexedNullableFieldLessThanFilter() {
         assertQuery("SELECT * FROM T1 WHERE val <= 5")
@@ -777,7 +782,6 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18055")
     public void testNullCondition2() {
         assertQuery("SELECT * FROM T1 WHERE (val <= 5) or (val is null)")
                 .matches(containsIndexScan("PUBLIC", "T1", "T1_IDX"))
@@ -792,7 +796,6 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18055")
     public void testNullCondition3() {
         assertQuery("SELECT * FROM T1 WHERE (val >= 5) or (val is null)")
                 .matches(containsIndexScan("PUBLIC", "T1", "T1_IDX"))
