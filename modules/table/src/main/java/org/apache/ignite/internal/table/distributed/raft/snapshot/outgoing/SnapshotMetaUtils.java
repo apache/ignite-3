@@ -36,7 +36,7 @@ public class SnapshotMetaUtils {
      * Builds a {@link SnapshotMeta} corresponding to RAFT state (term, configuration) at the given log index.
      *
      * @param logIndex RAFT log index.
-     * @param logManager LogManager from which to load term and configuration.
+     * @param logManager JRaft's LogManager from which to load term and configuration.
      * @return SnapshotMeta corresponding to the given log index.
      */
     public static SnapshotMeta snapshotMetaAt(long logIndex, LogManager logManager) {
