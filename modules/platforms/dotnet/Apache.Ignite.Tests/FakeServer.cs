@@ -97,6 +97,10 @@ namespace Apache.Ignite.Tests
 
         public bool PartitionAssignmentChanged { get; set; }
 
+        public TimeSpan HandshakeDelay { get; set; }
+
+        public TimeSpan HeartbeatDelay { get; set; }
+
         public int Port => ((IPEndPoint)_listener.LocalEndPoint!).Port;
 
         public string Endpoint => "127.0.0.1:" + Port;
@@ -404,6 +408,7 @@ namespace Apache.Ignite.Tests
 
                 // Write handshake response.
                 handler.Send(ProtoCommon.MagicBytes);
+                Thread.Sleep(HandshakeDelay);
 
                 using var handshakeBufferWriter = new PooledArrayBufferWriter();
                 var handshakeWriter = handshakeBufferWriter.GetMessageWriter();
@@ -544,6 +549,11 @@ namespace Apache.Ignite.Tests
 
                         case ClientOp.SqlCursorNextPage:
                             SqlCursorNextPage(handler, requestId);
+                            continue;
+
+                        case ClientOp.Heartbeat:
+                            Thread.Sleep(HeartbeatDelay);
+                            Send(handler, requestId, Array.Empty<byte>());
                             continue;
                     }
 
