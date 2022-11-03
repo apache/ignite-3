@@ -39,7 +39,7 @@ public interface HashIndexStorage extends IndexStorage {
      * Removes all data from this index.
      *
      * @throws StorageException If failed to destory index.
-     * @deprecated IGNITE-17626 Synchronous API should be removed. {@link MvTableStorage#destroyIndex(int, UUID)} must be the only public
+     * @deprecated IGNITE-17626 Synchronous API should be removed. {@link MvTableStorage#destroyIndex(UUID)} must be the only public
      *      option.
      */
     @Deprecated

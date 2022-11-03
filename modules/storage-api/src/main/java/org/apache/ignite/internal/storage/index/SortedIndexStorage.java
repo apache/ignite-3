@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.storage.index;
 
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
+import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.util.Cursor;
 import org.intellij.lang.annotations.MagicConstant;
@@ -27,7 +28,7 @@ import org.jetbrains.annotations.Nullable;
  * Storage for a Sorted Index.
  *
  * <p>This storage serves as a sorted mapping from a subset of a table's columns (a.k.a. index columns) to a set of {@link RowId}s
- * from a single {@link org.apache.ignite.internal.storage.MvPartitionStorage} from the same table.
+ * from a single {@link MvPartitionStorage} from the same table.
  */
 public interface SortedIndexStorage extends IndexStorage {
     /** Exclude lower bound. */
