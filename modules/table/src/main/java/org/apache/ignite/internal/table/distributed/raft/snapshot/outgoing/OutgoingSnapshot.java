@@ -176,7 +176,7 @@ public class OutgoingSnapshot {
     }
 
     /**
-     * Reads the snapshot meta and returns a future with the response. Returns {@code null} if the snapshot is already closed.
+     * Reads the snapshot meta and returns a response. Returns {@code null} if the snapshot is already closed.
      *
      * @param request Meta request.
      */
@@ -200,7 +200,7 @@ public class OutgoingSnapshot {
     }
 
     /**
-     * Reads a chunk of partition data and returns a future with the response. Returns {@code null} if the snapshot is already closed.
+     * Reads a chunk of partition data and returns a response. Returns {@code null} if the snapshot is already closed.
      *
      * @param request Data request.
      */
@@ -340,8 +340,7 @@ public class OutgoingSnapshot {
     }
 
     /**
-     * Reads a chunk of TX states from partition and returns a future with the response. Returns {@code null} if the snapshot is
-     * already closed.
+     * Reads a chunk of TX states from partition and returns a response. Returns {@code null} if the snapshot is already closed.
      *
      * @param request Data request.
      */
