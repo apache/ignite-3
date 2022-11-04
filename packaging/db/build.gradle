@@ -75,7 +75,8 @@ distributions {
 }
 
 task createChecksums(type: Checksum) {
-    files = files(file("${buildDir}/distributions/ignite3db-${project.version}.zip"))
+    //TODO: remove distribution name hard code IGNITE-18092
+    files = files(file("${buildDir}/distributions/ignite3-db-${project.version}.zip"))
     outputDir = new File("${buildDir}/distributions")
     algorithm = Checksum.Algorithm.SHA512
 }

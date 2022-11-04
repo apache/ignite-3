@@ -92,6 +92,7 @@ signing {
 }
 
 task createChecksums(type: Checksum) {
+    //TODO: remove distribution name hard code IGNITE-18092
     files = files(files("${buildDir}/distributions/ignite3-${project.version}.zip"))
     outputDir = new File("${buildDir}/distributions")
     algorithm = Checksum.Algorithm.SHA512

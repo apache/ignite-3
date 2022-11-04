@@ -72,7 +72,8 @@ distTar.dependsOn replaceScriptVars
 distZip.dependsOn replaceScriptVars
 
 task createChecksums(type: Checksum) {
-    files = files(file("${buildDir}/distributions/ignite3cli-${project.version}.zip"))
+    //TODO: remove distribution name hard code IGNITE-18092
+    files = files(file("${buildDir}/distributions/ignite3-cli-${project.version}.zip"))
     outputDir = new File("${buildDir}/distributions")
     algorithm = Checksum.Algorithm.SHA512
 }
