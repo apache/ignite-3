@@ -150,7 +150,7 @@ class SnapshotAwarePartitionDataStorageTest {
     }
 
     @Test
-    void delegatesClose() throws Exception {
+    void delegatesClose() {
         testedStorage.close();
 
         verify(partitionStorage).close();

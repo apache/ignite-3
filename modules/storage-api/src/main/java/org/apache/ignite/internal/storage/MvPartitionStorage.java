@@ -19,6 +19,7 @@ package org.apache.ignite.internal.storage;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.util.Cursor;
@@ -37,7 +38,7 @@ import org.jetbrains.annotations.Nullable;
  * <p>Each MvPartitionStorage instance represents exactly one partition. All RowIds within a partition are sorted consistently with the
  * {@link RowId#compareTo} comparison order.
  */
-public interface MvPartitionStorage extends AutoCloseable {
+public interface MvPartitionStorage extends ManuallyCloseable {
     /**
      * Closure for executing write operations on the storage.
      *
@@ -197,4 +198,10 @@ public interface MvPartitionStorage extends AutoCloseable {
      */
     @Deprecated
     long rowsCount() throws StorageException;
+
+    /**
+     * Closes the storage.
+     */
+    @Override
+    void close();
 }
