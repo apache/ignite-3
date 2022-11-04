@@ -325,7 +325,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
             return failedFuture(new NodeStoppingException());
         }
 
-        return tableManager.tableAsync(evt.oldValue().tableId())
+        return tableManager.tableAsync(evt.storageRevision(), evt.oldValue().tableId())
                 .thenAccept(table -> {
                     if (table != null) { // in case of DROP TABLE the table will be removed first
                         table.unregisterIndex(idxId);
@@ -383,7 +383,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
                 index.descriptor().columns().toArray(STRING_EMPTY_ARRAY)
         );
 
-        return tableManager.tableAsync(tableId)
+        return tableManager.tableAsync(causalityToken, tableId)
                 .thenAccept(table -> {
                     if (index instanceof HashIndex) {
                         table.registerHashIndex(tableIndexView.id(), tableIndexView.uniq(), tableRowConverter::convert);

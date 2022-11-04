@@ -1029,11 +1029,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         TableConfiguration tableCfg = tablesCfg.tables().get(name);
 
-        MvTableStorage tableStorage = dataStorageMgr.engine(tableCfg.dataStorage()).createMvTable(tableCfg, tablesCfg);
-
+        MvTableStorage tableStorage = createTableStorage(tableCfg, tablesCfg);
         TxStateTableStorage txStateStorage = createTxStateTableStorage(tableCfg);
-
-        tableStorage.start();
 
         InternalTableImpl internalTable = new InternalTableImpl(name, tblId, new Int2ObjectOpenHashMap<>(partitions),
                 partitions, netAddrResolver, clusterNodeResolver, txManager, tableStorage, txStateStorage, replicaSvc, clock);
@@ -1070,12 +1067,27 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     /**
+     * Creates data storage for the provided table.
+     *
+     * @param tableCfg Table configuration.
+     * @param tablesCfg Tables configuration.
+     * @return Table data storage.
+     */
+    protected MvTableStorage createTableStorage(TableConfiguration tableCfg, TablesConfiguration tablesCfg) {
+        MvTableStorage tableStorage = dataStorageMgr.engine(tableCfg.dataStorage()).createMvTable(tableCfg, tablesCfg);
+
+        tableStorage.start();
+
+        return tableStorage;
+    }
+
+    /**
      * Creates transaction state storage for the provided table.
      *
      * @param tableCfg Table configuration.
      * @return Transaction state storage.
      */
-    private TxStateTableStorage createTxStateTableStorage(TableConfiguration tableCfg) {
+    protected TxStateTableStorage createTxStateTableStorage(TableConfiguration tableCfg) {
         Path path = storagePath.resolve(TX_STATE_DIR + tableCfg.value().tableId());
 
         try {
@@ -1152,6 +1164,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 name, tblId);
 
             table.internalTable().storage().destroy();
+            table.internalTable().txStateStorage().destroy();
 
             CompletableFuture<?> fut = schemaManager.dropRegistry(causalityToken, table.tableId())
                     .thenCompose(
@@ -1533,6 +1546,24 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     public CompletableFuture<Table> tableAsync(String name) {
         return tableAsyncInternal(IgniteNameUtils.parseSimpleName(name))
                 .thenApply(Function.identity());
+    }
+
+    /**
+     * Asynchronously gets the table using causality token.
+     *
+     * @param causalityToken Causality token.
+     * @param id Table id.
+     * @return Future.
+     */
+    public CompletableFuture<TableImpl> tableAsync(long causalityToken, UUID id) {
+        if (!busyLock.enterBusy()) {
+            throw new IgniteException(new NodeStoppingException());
+        }
+        try {
+            return tablesByIdVv.get(causalityToken).thenApply(tablesById -> tablesById.get(id));
+        } finally {
+            busyLock.leaveBusy();
+        }
     }
 
     /** {@inheritDoc} */
