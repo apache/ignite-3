@@ -20,6 +20,7 @@ namespace Apache.Ignite.Internal.Linq;
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
@@ -138,10 +139,10 @@ internal static class MethodVisitor
     /// </summary>
     public static bool VisitPropertyCall(MemberExpression expression, CacheQueryExpressionVisitor visitor)
     {
-        string funcName;
-
-        if (!Properties.TryGetValue(expression.Member, out funcName))
+        if (!Properties.TryGetValue(expression.Member, out var funcName) || expression.Expression == null)
+        {
             return false;
+        }
 
         visitor.ResultBuilder.Append(funcName).Append('(');
 
@@ -159,11 +160,14 @@ internal static class MethodVisitor
     {
         var mtd = expression.Method;
 
-        VisitMethodDelegate del;
-
-        if (!Delegates.TryGetValue(mtd, out del))
-            throw new NotSupportedException(string.Format("Method not supported: {0}.({1})",
-                mtd.DeclaringType == null ? "static" : mtd.DeclaringType.FullName, mtd));
+        if (!Delegates.TryGetValue(mtd, out var del))
+        {
+            throw new NotSupportedException(string.Format(
+                CultureInfo.InvariantCulture,
+                "Method not supported: {0}.({1})",
+                mtd.DeclaringType == null ? "static" : mtd.DeclaringType.FullName,
+                mtd));
+        }
 
         del(expression, visitor);
     }
@@ -191,7 +195,7 @@ internal static class MethodVisitor
 
         if (regexOptions != RegexOptions.None)
         {
-            throw new NotSupportedException(string.Format("RegexOptions.{0} is not supported", regexOptions));
+            throw new NotSupportedException($"RegexOptions.{regexOptions} is not supported");
         }
 
         visitor.AppendParameter(result);
@@ -210,22 +214,30 @@ internal static class MethodVisitor
     /// <summary>
     /// Visits the instance function.
     /// </summary>
-    private static void VisitFunc(MethodCallExpression expression, CacheQueryExpressionVisitor visitor,
-        string func, string suffix, params int[] adjust)
+    private static void VisitFunc(
+        MethodCallExpression expression,
+        CacheQueryExpressionVisitor visitor,
+        string func,
+        string? suffix,
+        params int[] adjust)
     {
         visitor.ResultBuilder.Append(func).Append('(');
 
         var isInstanceMethod = expression.Object != null;
 
         if (isInstanceMethod)
-            visitor.Visit(expression.Object);
+        {
+            visitor.Visit(expression.Object!);
+        }
 
         for (int i= 0; i < expression.Arguments.Count; i++)
         {
             var arg = expression.Arguments[i];
 
             if (isInstanceMethod || (i > 0))
+            {
                 visitor.ResultBuilder.Append(", ");
+            }
 
             visitor.Visit(arg);
 
@@ -240,8 +252,10 @@ internal static class MethodVisitor
     /// <summary>
     /// Visits the instance function for Trim specific handling.
     /// </summary>
-    private static void VisitParameterizedTrimFunc(MethodCallExpression expression,
-        CacheQueryExpressionVisitor visitor, string func)
+    private static void VisitParameterizedTrimFunc(
+        MethodCallExpression expression,
+        CacheQueryExpressionVisitor visitor,
+        string func)
     {
         visitor.ResultBuilder.Append(func).Append('(');
 
