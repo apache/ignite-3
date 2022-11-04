@@ -25,8 +25,11 @@ namespace Apache.Ignite.Internal.Table
     using Common;
     using Ignite.Table;
     using Ignite.Transactions;
+    using Linq;
     using Proto;
+    using Remotion.Linq.Parsing.Structure;
     using Serialization;
+    using Sql;
     using Transactions;
 
     /// <summary>
@@ -284,8 +287,17 @@ namespace Apache.Ignite.Internal.Table
         {
             // TODO: AsQueryable should be present in all kinds of views - extract a separate interface?
             // TODO: Accept options with PageSize, Timeout.
-            // TODO: Use Remotion.Linq.SqlBackend?
-            throw new NotImplementedException();
+#pragma warning disable CA2000 // TODO: Fix this
+
+            var sql = new Sql(_table.Socket); // TODO: Reuse existing SQL from Ignite
+            var executor = new CacheFieldsQueryExecutor(_table, sql);
+            var ignite = new IgniteClientInternal(_table.Socket); // TODO: Reuse existing client.
+            var cacheValueType = typeof(T); // TODO: ???
+            var provider = new CacheFieldsQueryProvider(CacheQueryParser.Instance, executor, ignite, _table.Name, cacheValueType);
+
+#pragma warning restore CA2000
+
+            return new CacheFieldsQueryable<T>(provider);
         }
 
         /// <summary>

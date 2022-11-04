@@ -28,6 +28,17 @@ internal class CacheFieldsQueryable<T> : CacheQueryableBase<T>
     /// </summary>
     /// <param name="provider">The provider used to execute the query represented by this queryable.
     /// and to construct new queries.</param>
+    public CacheFieldsQueryable(IQueryProvider provider)
+        : base(provider)
+    {
+        // No-op.
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="CacheFieldsQueryable{T}"/> class.
+    /// </summary>
+    /// <param name="provider">The provider used to execute the query represented by this queryable.
+    /// and to construct new queries.</param>
     /// <param name="expression">The expression representing the query.</param>
     public CacheFieldsQueryable(IQueryProvider provider, Expression expression)
         : base(provider, expression)
