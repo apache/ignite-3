@@ -17,9 +17,13 @@
 
 plugins {
     id 'java'
+    id 'signing'
     alias(libs.plugins.docker)
     alias(libs.plugins.nebula)
+    alias(libs.plugins.checksum)
 }
+
+import org.gradle.crypto.checksum.Checksum
 
 configurations {
     dbArtifacts
@@ -82,6 +86,18 @@ task allDistZip(type: Zip) {
         from(zipTree(it))
     }
 }
+
+signing {
+    sign allDistZip
+}
+
+task createChecksums(type: Checksum) {
+    files = files(files("${buildDir}/distributions/ignite3-${project.version}.zip"))
+    outputDir = new File("${buildDir}/distributions")
+    algorithm = Checksum.Algorithm.SHA512
+}
+
+allDistZip.finalizedBy(createChecksums)
 
 // copyCliAndDbZi depends on configurations.cliZip and configurations.dbZip
 // it makes allDistZip be depended on configurations.cliZip and configurations.dbZip
