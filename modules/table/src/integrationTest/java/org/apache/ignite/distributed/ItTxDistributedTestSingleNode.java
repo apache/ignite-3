@@ -456,6 +456,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                                                 raftSvc,
                                                 txManagers.get(node),
                                                 txManagers.get(node).lockManager(),
+                                                Runnable::run,
                                                 partId,
                                                 tblId,
                                                 () -> Map.of(pkLocker.id(), pkLocker),

@@ -41,7 +41,7 @@ void signal_handler(int signum) {
 
     raise(signum);
 }
-}
+} // namespace
 
 /**
  * Sets process abortion (SIGABRT, SIGINT, SIGSEGV signals) handler.

@@ -66,7 +66,6 @@ public class HashIndexDescriptor implements IndexDescriptor {
          * Creates a Column Descriptor.
          *
          * @param tableColumnView Table column configuration.
-         * @param indexColumnView Index column configuration.
          */
         HashIndexColumnDescriptor(ColumnView tableColumnView) {
             this.name = tableColumnView.name();

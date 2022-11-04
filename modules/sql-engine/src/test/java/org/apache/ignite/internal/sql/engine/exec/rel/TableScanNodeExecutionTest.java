@@ -28,7 +28,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadLocalRandom;
 import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.replicator.ReplicaService;
@@ -130,7 +129,7 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest {
 
         @Override
         public <RowT> RowT toRow(ExecutionContext<RowT> ectx, BinaryRow row, RowFactory<RowT> factory,
-                @Nullable ImmutableBitSet requiredColumns) {
+                @Nullable BitSet requiredColumns) {
             return (RowT) res;
         }
     }
