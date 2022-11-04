@@ -36,13 +36,13 @@ In this guide we will use a link:../installation/installing-using-zip[zip] archi
 --
 tab:Linux[]
 ----
-ignite3db-3.0.0-beta1/bin/ignite3db start
+ignite3-db-3.0.0-beta1/bin/ignite3db start
 ----
 
 tab:Windows[]
 NOTE: You need to install Java in Bash environment to run Ignite on Windows.
 ----
-bash ignite3db-3.0.0-beta1\bin\ignite3db start
+bash ignite3-db-3.0.0-beta1/bin/ignite3db start
 ----
 --
 
@@ -61,13 +61,13 @@ Ignite CLI is a single entry point for all the Ignite operations. In this guide 
 --
 tab:Linux[]
 ----
-ignite3cli-3.0.0-beta1\bin\ignite3
+ignite3-cli-3.0.0-beta1\bin\ignite3
 ----
 
 tab:Windows[]
 NOTE: You need to install Java in Bash environment to run Ignite 3 beta on Windows.
 ----
-bash ignite3cli-3.0.0-beta1\bin\ignite3
+bash ignite3-cli-3.0.0-beta1\bin\ignite3
 ----
 --
 
@@ -83,12 +83,12 @@ After you are done working on the cluster, you need to stop the node. Use the co
 --
 tab:Linux[]
 ----
-ignite3db-3.0.0-beta1/bin/ignite3db stop
+ignite3-db-3.0.0-beta1/bin/ignite3db stop
 ----
 
 tab:Windows[]
 ----
-bash ignite3db-3.0.0-beta1\bin\ignite3db stop
+bash ignite3-db-3.0.0-beta1/bin/ignite3db stop
 ----
 --
 

@@ -57,6 +57,6 @@ Install the Apache Ignite 3 package:
 
 [source, shell]
 ----
-sudo apt install ignite3db_3.beta1_all.deb --no-install-recommends
-sudo apt install ignite3cli_3.beta1_all.deb --no-install-recommends
+sudo apt install ignite3-db_3.0.0-beta1_all.deb --no-install-recommends
+sudo apt install ignite3-cli_3.0.0-beta1_all.deb --no-install-recommends
 ----

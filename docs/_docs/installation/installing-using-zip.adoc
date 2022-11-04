@@ -54,14 +54,14 @@ include::../includes/ignite-cli-download-windows.adoc[tag=command,indent=0]
 tab:Unix[]
 [source,shell]
 ----
-unzip ignite3-3.0.0-beta1.zip && cd ignite-3-beta1
+unzip ignite3-3.0.0-beta1.zip && cd ignite3-3.0.0-beta1
 ----
 
 
 tab:Windows (PowerShell)[]
 [source,shell]
 ----
-Expand-Archive ignite3-3.0.0-beta1.zip -DestinationPath . ; cd ignite-3-beta1
+Expand-Archive ignite3-3.0.0-beta1.zip -DestinationPath . ; cd cd ignite3-3.0.0-beta1
 ----
 
 tab:Windows (CMD)[]
