@@ -30,13 +30,13 @@ struct bytes_view : std::basic_string_view<std::byte> {
     constexpr bytes_view() noexcept = default;
 
     constexpr bytes_view(const std::byte *data, std::size_t size) noexcept
-        : Base(data, size) { }
+        : Base(data, size) {}
 
     constexpr bytes_view(const Base &v) noexcept // NOLINT(google-explicit-constructor)
-        : Base(v.data(), v.size()) { }
+        : Base(v.data(), v.size()) {}
 
     bytes_view(const std::vector<std::byte> &v) noexcept // NOLINT(google-explicit-constructor)
-        : Base(v.data(), v.size()) { }
+        : Base(v.data(), v.size()) {}
 
     explicit operator std::vector<std::byte>() const { return {begin(), end()}; }
 };

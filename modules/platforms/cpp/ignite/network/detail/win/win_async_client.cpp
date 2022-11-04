@@ -79,7 +79,7 @@ bool win_async_client::close() {
 HANDLE win_async_client::add_to_iocp(HANDLE iocp) {
     assert(state::CONNECTED == m_state);
 
-    HANDLE res = CreateIoCompletionPort((HANDLE)m_socket, iocp, reinterpret_cast<DWORD_PTR>(this), 0);
+    HANDLE res = CreateIoCompletionPort((HANDLE) m_socket, iocp, reinterpret_cast<DWORD_PTR>(this), 0);
 
     if (!res)
         return res;
@@ -111,8 +111,8 @@ bool win_async_client::send_next_packet_locked() {
     DWORD flags = 0;
 
     WSABUF buffer;
-    buffer.buf = (CHAR *)dataView.data();
-    buffer.len = (ULONG)dataView.size();
+    buffer.buf = (CHAR *) dataView.data();
+    buffer.len = (ULONG) dataView.size();
 
     int ret =
         ::WSASend(m_socket, &buffer, 1, NULL, flags, &m_current_send.overlapped, NULL); // NOLINT(modernize-use-nullptr)
@@ -131,11 +131,11 @@ bool win_async_client::receive() {
 
     DWORD flags = 0;
     WSABUF buffer;
-    buffer.buf = (CHAR *)m_recv_packet.data();
-    buffer.len = (ULONG)m_recv_packet.size();
+    buffer.buf = (CHAR *) m_recv_packet.data();
+    buffer.len = (ULONG) m_recv_packet.size();
 
-    int ret =
-        ::WSARecv(m_socket, &buffer, 1, NULL, &flags, &m_current_recv.overlapped, NULL); // NOLINT(modernize-use-nullptr)
+    int ret = ::WSARecv(
+        m_socket, &buffer, 1, NULL, &flags, &m_current_recv.overlapped, NULL); // NOLINT(modernize-use-nullptr)
 
     return ret != SOCKET_ERROR || WSAGetLastError() == ERROR_IO_PENDING;
 }

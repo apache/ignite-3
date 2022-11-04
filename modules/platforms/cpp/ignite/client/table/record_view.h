@@ -24,9 +24,9 @@
 #include "ignite/common/ignite_result.h"
 
 #include <memory>
+#include <type_traits>
 #include <utility>
 #include <vector>
-#include <type_traits>
 
 namespace ignite {
 
@@ -61,6 +61,7 @@ public:
 template<>
 class record_view<ignite_tuple> {
     friend class table;
+
 public:
     typedef ignite_tuple value_type;
 
@@ -83,7 +84,8 @@ public:
      * @param callback Callback which is called on success with value if it
      *   exists and @c std::nullopt otherwise
      */
-    IGNITE_API void get_async(transaction* tx, const value_type& key, ignite_callback<std::optional<value_type>> callback);
+    IGNITE_API void get_async(
+        transaction *tx, const value_type &key, ignite_callback<std::optional<value_type>> callback);
 
     /**
      * Gets a record by key.
@@ -93,10 +95,9 @@ public:
      * @param key Key.
      * @return Value if exists and @c std::nullopt otherwise.
      */
-    [[nodiscard]] IGNITE_API std::optional<value_type> get(transaction* tx, const value_type& key) {
-        return sync<std::optional<value_type>>([this, tx, &key] (auto callback) {
-            get_async(tx, key, std::move(callback));
-        });
+    [[nodiscard]] IGNITE_API std::optional<value_type> get(transaction *tx, const value_type &key) {
+        return sync<std::optional<value_type>>(
+            [this, tx, &key](auto callback) { get_async(tx, key, std::move(callback)); });
     }
 
     /**
@@ -111,7 +112,7 @@ public:
      *   does not exist, the resulting element of the corresponding order is
      *   @c std::nullopt.
      */
-    IGNITE_API void get_all_async(transaction* tx, std::vector<value_type> keys,
+    IGNITE_API void get_all_async(transaction *tx, std::vector<value_type> keys,
         ignite_callback<std::vector<std::optional<value_type>>> callback);
 
     /**
@@ -125,8 +126,9 @@ public:
      *   keys. If a record does not exist, the resulting element of the
      *   corresponding order is @c std::nullopt.
      */
-    [[nodiscard]] IGNITE_API std::vector<std::optional<value_type>> get_all(transaction* tx, std::vector<value_type> keys) {
-        return sync<std::vector<std::optional<value_type>>>([this, tx, keys = std::move(keys)] (auto callback) mutable {
+    [[nodiscard]] IGNITE_API std::vector<std::optional<value_type>> get_all(
+        transaction *tx, std::vector<value_type> keys) {
+        return sync<std::vector<std::optional<value_type>>>([this, tx, keys = std::move(keys)](auto callback) mutable {
             get_all_async(tx, std::move(keys), std::move(callback));
         });
     }
@@ -139,7 +141,7 @@ public:
      * @param record A record to insert into the table. The record cannot be @c nullptr.
      * @param callback Callback.
      */
-    IGNITE_API void upsert_async(transaction* tx, const value_type& record, ignite_callback<void> callback);
+    IGNITE_API void upsert_async(transaction *tx, const value_type &record, ignite_callback<void> callback);
 
     /**
      * Inserts a record into the table if does not exist or replaces the existing one.
@@ -148,10 +150,8 @@ public:
      *  single operation is used.
      * @param record A record to insert into the table. The record cannot be @c nullptr.
      */
-    IGNITE_API void upsert(transaction* tx, const value_type& record) {
-        sync<void>([this, tx, &record] (auto callback) {
-            upsert_async(tx, record, std::move(callback));
-        });
+    IGNITE_API void upsert(transaction *tx, const value_type &record) {
+        sync<void>([this, tx, &record](auto callback) { upsert_async(tx, record, std::move(callback)); });
     }
 
     /**
@@ -163,7 +163,7 @@ public:
      * @param records Records to upsert.
      * @param callback Callback that called on operation completion.
      */
-    IGNITE_API void upsert_all_async(transaction* tx, std::vector<value_type> records, ignite_callback<void> callback);
+    IGNITE_API void upsert_all_async(transaction *tx, std::vector<value_type> records, ignite_callback<void> callback);
 
     /**
      * Inserts multiple records into the table, replacing existing.
@@ -172,10 +172,9 @@ public:
      *   single operation is used.
      * @param records Records to upsert.
      */
-    IGNITE_API void upsert_all(transaction* tx, std::vector<value_type> records) {
-        sync<void>([this, tx, records = std::move(records)] (auto callback) mutable {
-            upsert_all_async(tx, std::move(records), std::move(callback));
-        });
+    IGNITE_API void upsert_all(transaction *tx, std::vector<value_type> records) {
+        sync<void>([this, tx, records = std::move(records)](
+                       auto callback) mutable { upsert_all_async(tx, std::move(records), std::move(callback)); });
     }
 
     /**
@@ -187,8 +186,8 @@ public:
      * @param callback Callback. Called with a value which contains replaced
      *   record or @c std::nullopt if it did not exist.
      */
-    IGNITE_API void get_and_upsert_async(transaction* tx, const value_type& record,
-        ignite_callback<std::optional<value_type>> callback);
+    IGNITE_API void get_and_upsert_async(
+        transaction *tx, const value_type &record, ignite_callback<std::optional<value_type>> callback);
 
     /**
      * Inserts a record into the table and returns previous record.
@@ -198,10 +197,9 @@ public:
      * @param record A record to upsert.
      * @return A replaced record or @c std::nullopt if it did not exist.
      */
-    [[nodiscard]] IGNITE_API std::optional<value_type> get_and_upsert(transaction* tx, const value_type& record) {
-        return sync<std::optional<value_type>>([this, tx, &record] (auto callback) {
-            get_and_upsert_async(tx, record, std::move(callback));
-        });
+    [[nodiscard]] IGNITE_API std::optional<value_type> get_and_upsert(transaction *tx, const value_type &record) {
+        return sync<std::optional<value_type>>(
+            [this, tx, &record](auto callback) { get_and_upsert_async(tx, record, std::move(callback)); });
     }
 
     /**
@@ -214,7 +212,7 @@ public:
      *   record was inserted. Equals @c false if a record with the same key
      *   already exists.
      */
-    IGNITE_API void insert_async(transaction* tx, const value_type& record, ignite_callback<bool> callback);
+    IGNITE_API void insert_async(transaction *tx, const value_type &record, ignite_callback<bool> callback);
 
     /**
      * Inserts a record into the table if does not exist.
@@ -223,10 +221,8 @@ public:
      *   single operation is used.
      * @param record A record to insert into the table.
      */
-    IGNITE_API bool insert(transaction* tx, const value_type& record) {
-        return sync<bool>([this, tx, &record] (auto callback) {
-            insert_async(tx, record, std::move(callback));
-        });
+    IGNITE_API bool insert(transaction *tx, const value_type &record) {
+        return sync<bool>([this, tx, &record](auto callback) { insert_async(tx, record, std::move(callback)); });
     }
 
     /**
@@ -238,8 +234,8 @@ public:
      * @param callback Callback that called on operation completion. Called with
      *   skipped records.
      */
-    IGNITE_API void insert_all_async(transaction* tx, std::vector<value_type> records,
-        ignite_callback<std::vector<value_type>> callback);
+    IGNITE_API void insert_all_async(
+        transaction *tx, std::vector<value_type> records, ignite_callback<std::vector<value_type>> callback);
 
     /**
      * Inserts multiple records into the table, skipping existing ones.
@@ -249,8 +245,8 @@ public:
      * @param records Records to insert.
      * @return Skipped records.
      */
-    IGNITE_API std::vector<value_type> insert_all(transaction* tx, std::vector<value_type> records) {
-        return sync<std::vector<value_type>>([this, tx, records = std::move(records)] (auto callback) mutable {
+    IGNITE_API std::vector<value_type> insert_all(transaction *tx, std::vector<value_type> records) {
+        return sync<std::vector<value_type>>([this, tx, records = std::move(records)](auto callback) mutable {
             insert_all_async(tx, std::move(records), std::move(callback));
         });
     }
@@ -265,7 +261,7 @@ public:
      * @param callback Callback. Called with a value indicating whether a record
      *   with the specified key was replaced.
      */
-    IGNITE_API void replace_async(transaction* tx, const value_type& record, ignite_callback<bool> callback);
+    IGNITE_API void replace_async(transaction *tx, const value_type &record, ignite_callback<bool> callback);
 
     /**
      * Replaces a record with the same key columns if it exists, otherwise does
@@ -277,10 +273,8 @@ public:
      * @return A value indicating whether a record with the specified key was
      *   replaced.
      */
-    IGNITE_API bool replace(transaction* tx, const value_type& record) {
-        return sync<bool>([this, tx, &record] (auto callback) {
-            replace_async(tx, record, std::move(callback));
-        });
+    IGNITE_API bool replace(transaction *tx, const value_type &record) {
+        return sync<bool>([this, tx, &record](auto callback) { replace_async(tx, record, std::move(callback)); });
     }
 
     /**
@@ -294,8 +288,8 @@ public:
      * @param callback Callback. Called with a value indicating whether a
      *   specified record was replaced.
      */
-    IGNITE_API void replace_async(transaction* tx, const value_type& record, const value_type& new_record,
-        ignite_callback<bool> callback);
+    IGNITE_API void replace_async(
+        transaction *tx, const value_type &record, const value_type &new_record, ignite_callback<bool> callback);
 
     /**
      * Replaces a record with a new one only if all existing columns have
@@ -307,10 +301,9 @@ public:
      * @param new_record A record to replace it with.
      * @return A value indicating whether a specified record was replaced.
      */
-    IGNITE_API bool replace(transaction* tx, const value_type& record, const value_type& new_record) {
-        return sync<bool>([this, tx, &record, &new_record] (auto callback) {
-            replace_async(tx, record, new_record, std::move(callback));
-        });
+    IGNITE_API bool replace(transaction *tx, const value_type &record, const value_type &new_record) {
+        return sync<bool>([this, tx, &record, &new_record](
+                              auto callback) { replace_async(tx, record, new_record, std::move(callback)); });
     }
 
     /**
@@ -323,8 +316,8 @@ public:
      * @param callback Callback. Called with a previous value for the given key,
      *   or @c std::nullopt if it did not exist.
      */
-    IGNITE_API void get_and_replace_async(transaction* tx, const value_type& record,
-        ignite_callback<std::optional<value_type>> callback);
+    IGNITE_API void get_and_replace_async(
+        transaction *tx, const value_type &record, ignite_callback<std::optional<value_type>> callback);
 
     /**
      * Replaces a record with the same key columns if it exists returning
@@ -336,10 +329,9 @@ public:
      * @param callback A previous value for the given key, or @c std::nullopt if
      *   it did not exist.
      */
-    [[nodiscard]] IGNITE_API std::optional<value_type> get_and_replace(transaction* tx, const value_type& record) {
-        return sync<std::optional<value_type>>([this, tx, &record] (auto callback) {
-            get_and_replace_async(tx, record, std::move(callback));
-        });
+    [[nodiscard]] IGNITE_API std::optional<value_type> get_and_replace(transaction *tx, const value_type &record) {
+        return sync<std::optional<value_type>>(
+            [this, tx, &record](auto callback) { get_and_replace_async(tx, record, std::move(callback)); });
     }
 
     /**
@@ -351,7 +343,7 @@ public:
      * @param callback Callback that called on operation completion. Called with
      *   a value indicating whether a record with the specified key was deleted.
      */
-    IGNITE_API void remove_async(transaction* tx, const value_type &key, ignite_callback<bool> callback);
+    IGNITE_API void remove_async(transaction *tx, const value_type &key, ignite_callback<bool> callback);
 
     /**
      * Deletes a record with the specified key.
@@ -361,10 +353,8 @@ public:
      * @param key A record with key columns set.
      * @return A value indicating whether a record with the specified key was deleted.
      */
-    IGNITE_API bool remove(transaction* tx, const value_type& record) {
-        return sync<bool>([this, tx, &record] (auto callback) {
-            remove_async(tx, record, std::move(callback));
-        });
+    IGNITE_API bool remove(transaction *tx, const value_type &record) {
+        return sync<bool>([this, tx, &record](auto callback) { remove_async(tx, record, std::move(callback)); });
     }
 
     /**
@@ -377,7 +367,7 @@ public:
      * @param callback Callback that called on operation completion. Called with
      *   a value indicating whether a record with the specified key was deleted.
      */
-    IGNITE_API void remove_exact_async(transaction* tx, const value_type &record, ignite_callback<bool> callback);
+    IGNITE_API void remove_exact_async(transaction *tx, const value_type &record, ignite_callback<bool> callback);
 
     /**
      * Deletes a record only if all existing columns have the same values as
@@ -389,10 +379,8 @@ public:
      * @return A value indicating whether a record with the specified key was
      *   deleted.
      */
-    IGNITE_API bool remove_exact(transaction* tx, const value_type& record) {
-        return sync<bool>([this, tx, &record] (auto callback) {
-            remove_exact_async(tx, record, std::move(callback));
-        });
+    IGNITE_API bool remove_exact(transaction *tx, const value_type &record) {
+        return sync<bool>([this, tx, &record](auto callback) { remove_exact_async(tx, record, std::move(callback)); });
     }
 
     /**
@@ -404,8 +392,8 @@ public:
      * @param callback Callback that called on operation completion. Called with
      *   a deleted record or @c std::nullopt if it did not exist.
      */
-    IGNITE_API void get_and_remove_async(transaction* tx, const value_type &key,
-        ignite_callback<std::optional<value_type>> callback);
+    IGNITE_API void get_and_remove_async(
+        transaction *tx, const value_type &key, ignite_callback<std::optional<value_type>> callback);
 
     /**
      * Gets and deletes a record with the specified key.
@@ -415,10 +403,9 @@ public:
      * @param key A record with key columns set.
      * @return A deleted record or @c std::nullopt if it did not exist.
      */
-    IGNITE_API std::optional<value_type> get_and_remove(transaction* tx, const value_type& key) {
-        return sync<std::optional<value_type>>([this, tx, &key] (auto callback) {
-            get_and_remove_async(tx, key, std::move(callback));
-        });
+    IGNITE_API std::optional<value_type> get_and_remove(transaction *tx, const value_type &key) {
+        return sync<std::optional<value_type>>(
+            [this, tx, &key](auto callback) { get_and_remove_async(tx, key, std::move(callback)); });
     }
 
     /**
@@ -431,8 +418,8 @@ public:
      * @param callback Callback that called on operation completion. Called with
      *   records from @c keys that did not exist.
      */
-    IGNITE_API void remove_all_async(transaction* tx, std::vector<value_type> keys,
-        ignite_callback<std::vector<value_type>> callback);
+    IGNITE_API void remove_all_async(
+        transaction *tx, std::vector<value_type> keys, ignite_callback<std::vector<value_type>> callback);
 
     /**
      * Deletes multiple records from the table If one or more keys do not exist,
@@ -443,8 +430,8 @@ public:
      * @param keys Record keys to delete.
      * @return Records from @c keys that did not exist.
      */
-    IGNITE_API std::vector<value_type> remove_all(transaction* tx, std::vector<value_type> keys) {
-        return sync<std::vector<value_type>>([this, tx, keys = std::move(keys)] (auto callback) mutable {
+    IGNITE_API std::vector<value_type> remove_all(transaction *tx, std::vector<value_type> keys) {
+        return sync<std::vector<value_type>>([this, tx, keys = std::move(keys)](auto callback) mutable {
             remove_all_async(tx, std::move(keys), std::move(callback));
         });
     }
@@ -459,8 +446,8 @@ public:
      * @param callback Callback that called on operation completion. Called with
      *   records from @c records that did not exist.
      */
-    IGNITE_API void remove_all_exact_async(transaction* tx, std::vector<value_type> records,
-        ignite_callback<std::vector<value_type>> callback);
+    IGNITE_API void remove_all_exact_async(
+        transaction *tx, std::vector<value_type> records, ignite_callback<std::vector<value_type>> callback);
 
     /**
      * Deletes multiple exactly matching records. If one or more records do not
@@ -471,8 +458,8 @@ public:
      * @param records Records to delete.
      * @return Records from @c records that did not exist.
      */
-    IGNITE_API std::vector<value_type> remove_all_exact(transaction* tx, std::vector<value_type> records) {
-        return sync<std::vector<value_type>>([this, tx, records = std::move(records)] (auto callback) mutable {
+    IGNITE_API std::vector<value_type> remove_all_exact(transaction *tx, std::vector<value_type> records) {
+        return sync<std::vector<value_type>>([this, tx, records = std::move(records)](auto callback) mutable {
             remove_all_exact_async(tx, std::move(records), std::move(callback));
         });
     }
@@ -484,7 +471,7 @@ private:
      * @param impl Implementation
      */
     explicit record_view(std::shared_ptr<detail::table_impl> impl)
-        : m_impl(std::move(impl)) { }
+        : m_impl(std::move(impl)) {}
 
     /** Implementation. */
     std::shared_ptr<detail::table_impl> m_impl;

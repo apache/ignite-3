@@ -20,27 +20,24 @@
 
 namespace ignite {
 
-void record_view<ignite_tuple>::get_async(transaction *tx, const ignite_tuple& key,
-        ignite_callback<std::optional<value_type>> callback)
-{
+void record_view<ignite_tuple>::get_async(
+    transaction *tx, const ignite_tuple &key, ignite_callback<std::optional<value_type>> callback) {
     if (0 == key.column_count())
         throw ignite_error("Tuple can not be empty");
 
     m_impl->get_async(tx, key, std::move(callback));
 }
 
-void record_view<ignite_tuple>::upsert_async(transaction *tx, const ignite_tuple& record,
-        ignite_callback<void> callback)
-{
+void record_view<ignite_tuple>::upsert_async(
+    transaction *tx, const ignite_tuple &record, ignite_callback<void> callback) {
     if (0 == record.column_count())
         throw ignite_error("Tuple can not be empty");
 
     m_impl->upsert_async(tx, record, std::move(callback));
 }
 
-void record_view<ignite_tuple>::get_all_async(transaction *tx, std::vector<value_type> keys,
-        ignite_callback<std::vector<std::optional<value_type>>> callback)
-{
+void record_view<ignite_tuple>::get_all_async(
+    transaction *tx, std::vector<value_type> keys, ignite_callback<std::vector<std::optional<value_type>>> callback) {
     if (keys.empty()) {
         callback(std::vector<std::optional<value_type>>{});
         return;
@@ -49,9 +46,8 @@ void record_view<ignite_tuple>::get_all_async(transaction *tx, std::vector<value
     m_impl->get_all_async(tx, std::move(keys), std::move(callback));
 }
 
-void record_view<ignite_tuple>::upsert_all_async(transaction *tx, std::vector<value_type> records,
-    ignite_callback<void> callback)
-{
+void record_view<ignite_tuple>::upsert_all_async(
+    transaction *tx, std::vector<value_type> records, ignite_callback<void> callback) {
     if (records.empty()) {
         callback({});
         return;
@@ -60,27 +56,24 @@ void record_view<ignite_tuple>::upsert_all_async(transaction *tx, std::vector<va
     m_impl->upsert_all_async(tx, std::move(records), std::move(callback));
 }
 
-void record_view<ignite_tuple>::get_and_upsert_async(transaction *tx, const ignite_tuple &record,
-    ignite_callback<std::optional<value_type>> callback)
-{
+void record_view<ignite_tuple>::get_and_upsert_async(
+    transaction *tx, const ignite_tuple &record, ignite_callback<std::optional<value_type>> callback) {
     if (0 == record.column_count())
         throw ignite_error("Tuple can not be empty");
 
     m_impl->get_and_upsert_async(tx, record, std::move(callback));
 }
 
-void record_view<ignite_tuple>::insert_async(transaction *tx, const ignite_tuple &record,
-    ignite_callback<bool> callback)
-{
+void record_view<ignite_tuple>::insert_async(
+    transaction *tx, const ignite_tuple &record, ignite_callback<bool> callback) {
     if (0 == record.column_count())
         throw ignite_error("Tuple can not be empty");
 
     m_impl->insert_async(tx, record, std::move(callback));
 }
 
-void record_view<ignite_tuple>::insert_all_async(transaction *tx, std::vector<value_type> records,
-    ignite_callback<std::vector<value_type>> callback)
-{
+void record_view<ignite_tuple>::insert_all_async(
+    transaction *tx, std::vector<value_type> records, ignite_callback<std::vector<value_type>> callback) {
     if (records.empty()) {
         callback(std::vector<value_type>{});
         return;
@@ -89,27 +82,24 @@ void record_view<ignite_tuple>::insert_all_async(transaction *tx, std::vector<va
     m_impl->insert_all_async(tx, std::move(records), std::move(callback));
 }
 
-void record_view<ignite_tuple>::replace_async(transaction *tx, const ignite_tuple &record,
-    ignite_callback<bool> callback)
-{
+void record_view<ignite_tuple>::replace_async(
+    transaction *tx, const ignite_tuple &record, ignite_callback<bool> callback) {
     if (0 == record.column_count())
         throw ignite_error("Tuple can not be empty");
 
     m_impl->replace_async(tx, record, std::move(callback));
 }
 
-void record_view<ignite_tuple>::replace_async(transaction *tx, const ignite_tuple &record,
-    const ignite_tuple &new_record, ignite_callback<bool> callback)
-{
+void record_view<ignite_tuple>::replace_async(
+    transaction *tx, const ignite_tuple &record, const ignite_tuple &new_record, ignite_callback<bool> callback) {
     if (0 == record.column_count() || 0 == new_record.column_count())
         throw ignite_error("Tuple can not be empty");
 
     m_impl->replace_async(tx, record, new_record, std::move(callback));
 }
 
-void record_view<ignite_tuple>::get_and_replace_async(transaction *tx, const ignite_tuple &record,
-    ignite_callback<std::optional<value_type>> callback)
-{
+void record_view<ignite_tuple>::get_and_replace_async(
+    transaction *tx, const ignite_tuple &record, ignite_callback<std::optional<value_type>> callback) {
     if (0 == record.column_count())
         throw ignite_error("Tuple can not be empty");
 
@@ -123,27 +113,24 @@ void record_view<ignite_tuple>::remove_async(transaction *tx, const ignite_tuple
     m_impl->remove_async(tx, key, std::move(callback));
 }
 
-void record_view<ignite_tuple>::remove_exact_async(transaction *tx, const ignite_tuple &record,
-    ignite_callback<bool> callback)
-{
+void record_view<ignite_tuple>::remove_exact_async(
+    transaction *tx, const ignite_tuple &record, ignite_callback<bool> callback) {
     if (0 == record.column_count())
         throw ignite_error("Tuple can not be empty");
 
     m_impl->remove_exact_async(tx, record, std::move(callback));
 }
 
-void record_view<ignite_tuple>::get_and_remove_async(transaction *tx, const ignite_tuple &key,
-    ignite_callback<std::optional<value_type>> callback)
-{
+void record_view<ignite_tuple>::get_and_remove_async(
+    transaction *tx, const ignite_tuple &key, ignite_callback<std::optional<value_type>> callback) {
     if (0 == key.column_count())
         throw ignite_error("Tuple can not be empty");
 
     m_impl->get_and_remove_async(tx, key, std::move(callback));
 }
 
-void record_view<ignite_tuple>::remove_all_async(transaction *tx, std::vector<value_type> keys,
-    ignite_callback<std::vector<value_type>> callback)
-{
+void record_view<ignite_tuple>::remove_all_async(
+    transaction *tx, std::vector<value_type> keys, ignite_callback<std::vector<value_type>> callback) {
     if (keys.empty()) {
         callback(std::vector<value_type>{});
         return;
@@ -152,9 +139,8 @@ void record_view<ignite_tuple>::remove_all_async(transaction *tx, std::vector<va
     m_impl->remove_all_async(tx, std::move(keys), std::move(callback));
 }
 
-void record_view<ignite_tuple>::remove_all_exact_async(transaction *tx, std::vector<value_type> records,
-    ignite_callback<std::vector<value_type>> callback)
-{
+void record_view<ignite_tuple>::remove_all_exact_async(
+    transaction *tx, std::vector<value_type> records, ignite_callback<std::vector<value_type>> callback) {
     if (records.empty()) {
         callback(std::vector<value_type>{});
         return;

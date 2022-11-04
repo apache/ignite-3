@@ -17,17 +17,17 @@
 
 #pragma once
 
-#include "ignite/common/bytes_view.h"
 #include "ignite/common/bytes.h"
+#include "ignite/common/bytes_view.h"
 #include "ignite/common/uuid.h"
 #include "ignite/protocol/bitset_span.h"
-#include "ignite/protocol/extension_types.h"
 #include "ignite/protocol/buffer_adapter.h"
+#include "ignite/protocol/extension_types.h"
 
-#include <msgpack.h>
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <msgpack.h>
 #include <string_view>
 
 namespace ignite::protocol {
@@ -121,9 +121,7 @@ public:
      *
      * @param data Binary data to pack.
      */
-    void write_binary(bytes_view data) {
-        msgpack_pack_bin_with_body(m_packer.get(), data.data(), data.size());
-    }
+    void write_binary(bytes_view data) { msgpack_pack_bin_with_body(m_packer.get(), data.data(), data.size()); }
 
     /**
      * Write empty map.

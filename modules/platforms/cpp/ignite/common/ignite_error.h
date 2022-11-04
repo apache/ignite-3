@@ -54,7 +54,7 @@ public:
     explicit ignite_error(std::string message)
         : m_status_code(status_code::GENERIC)
         , m_message(std::move(message))
-        , m_cause() { } // NOLINT(bugprone-throw-keyword-missing)
+        , m_cause() {} // NOLINT(bugprone-throw-keyword-missing)
 
     /**
      * Constructor.
@@ -65,7 +65,7 @@ public:
     explicit ignite_error(status_code statusCode, std::string message)
         : m_status_code(statusCode)
         , m_message(std::move(message))
-        , m_cause() { } // NOLINT(bugprone-throw-keyword-missing)
+        , m_cause() {} // NOLINT(bugprone-throw-keyword-missing)
 
     /**
      * Constructor.
@@ -77,7 +77,7 @@ public:
     explicit ignite_error(status_code statusCode, std::string message, const std::exception_ptr &cause)
         : m_status_code(statusCode)
         , m_message(std::move(message))
-        , m_cause(cause) { } // NOLINT(bugprone-throw-keyword-missing)
+        , m_cause(cause) {} // NOLINT(bugprone-throw-keyword-missing)
 
     /**
      * Get error message.
