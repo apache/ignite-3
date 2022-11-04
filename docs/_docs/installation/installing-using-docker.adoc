@@ -20,9 +20,17 @@ Ignite was tested on:
 
 include::../includes/prereqs.adoc[]
 
-== Downloading Docker Image
+== Building Docker Image
 
-Assuming that you already have Docker installed on your machine, you need to download the Ignite Docker image.
+Apache Ignite 3 Beta is not currently available on DockerHub. To use a Docker image, you need to build it locally:
+
+- Check out the Apache Ignite 3 link:https://github.com/apache/ignite-3[repository].
+- Run the Gradle command to build a Docker image:
+----
+./gradlew docker
+----
+
+The build will result in a docker image you can use locally.
 
 == Running In-Memory Cluster
 
