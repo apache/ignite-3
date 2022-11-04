@@ -34,6 +34,7 @@ import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.RelCollation;
+import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.RelReferentialConstraint;
 import org.apache.calcite.rel.core.TableModify;
 import org.apache.calcite.rel.hint.RelHint;
@@ -56,6 +57,7 @@ import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.prepare.MappingQueryContext;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalTableScan;
+import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.schema.ModifyRow.Operation;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.RewindabilityTrait;
@@ -202,7 +204,7 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
         RelTraitSet traitSet = cluster.traitSetOf(Convention.Impl.NONE)
                 .replace(distribution())
                 .replace(RewindabilityTrait.REWINDABLE)
-                .replace(collation);
+                .replace(index.type() == Type.HASH ? RelCollations.EMPTY : collation);
 
         return IgniteLogicalIndexScan.create(cluster, traitSet, relOptTable, idxName, proj, condition, requiredCols);
     }
@@ -509,7 +511,8 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
                 localRowCnt = size;
             }
 
-            return (double) localRowCnt;
+            // Forbid zero result, to prevent zero cost for table and index scans.
+            return Math.max(10_000.0, (double) localRowCnt);
         }
 
         /** {@inheritDoc} */

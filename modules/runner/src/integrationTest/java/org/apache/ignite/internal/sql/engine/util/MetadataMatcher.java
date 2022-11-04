@@ -25,7 +25,6 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 
 import java.util.ArrayList;
 import java.util.List;
-import org.apache.ignite.internal.sql.SqlColumnTypeConverter;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnMetadata.ColumnOrigin;
@@ -143,7 +142,7 @@ public class MetadataMatcher {
         if (type != NO_CHECK) {
             SqlColumnType type0 = (SqlColumnType) type;
             matchers.add(() -> assertSame(type0, actualMeta.type(), "type"));
-            matchers.add(() -> assertSame(SqlColumnTypeConverter.columnTypeToClass(type0), actualMeta.valueClass(), "value class"));
+            matchers.add(() -> assertSame(SqlColumnType.columnTypeToClass(type0), actualMeta.valueClass(), "value class"));
         }
 
         if (precision != NO_CHECK) {

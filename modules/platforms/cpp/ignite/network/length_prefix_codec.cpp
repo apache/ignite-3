@@ -31,7 +31,7 @@ length_prefix_codec::length_prefix_codec()
 data_buffer_owning length_prefix_codec::encode(data_buffer_owning &data) {
     // Just pass data as is, because we encode message size in
     // the application to avoid unnecessary re-allocations and copying.
-    return std::move(data.consume_entirely());
+    return data.consume_entirely();
 }
 
 void length_prefix_codec::reset_buffer() {

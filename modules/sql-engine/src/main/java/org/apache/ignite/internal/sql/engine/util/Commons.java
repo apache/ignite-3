@@ -126,6 +126,13 @@ public final class Commons {
 
     public static final int IN_BUFFER_SIZE = 512;
 
+    /**
+     * The number of elements to be prefetched from each partition when scanning the sorted index.
+     * The higher the value, the fewer calls to the upstream will be, but at the same time, the bigger
+     * internal buffer will be.
+     */
+    public static final int SORTED_IDX_PART_PREFETCH_SIZE = 100;
+
     public static final SqlParser.Config PARSER_CONFIG = SqlParser.config()
             .withParserFactory(IgniteSqlParserImpl.FACTORY)
             .withLex(Lex.ORACLE)
@@ -169,7 +176,7 @@ public final class Commons {
             .parserConfig(PARSER_CONFIG)
             .sqlValidatorConfig(SqlValidator.Config.DEFAULT
                     .withIdentifierExpansion(true)
-                    .withDefaultNullCollation(NullCollation.LOW)
+                    .withDefaultNullCollation(NullCollation.HIGH)
                     .withSqlConformance(IgniteSqlConformance.INSTANCE)
                     .withTypeCoercionFactory(IgniteTypeCoercion::new))
             // Dialects support.

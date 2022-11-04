@@ -15,21 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.lang;
+package org.apache.ignite.internal.cli.core.call;
 
-import org.apache.ignite.lang.IgniteException;
-
-/**
- * Ignite exception utils.
- */
-public final class IgniteExceptionUtils {
-    /**
-     * Gets the Ignite error code if the specified throwable is an {@link IgniteException}.
-     *
-     * @param t Throwable.
-     * @return Ignite error code or null.
-     */
-    public static Integer getIgniteErrorCode(Throwable t) {
-        return (t instanceof IgniteException) ? ((IgniteException) t).code() : null;
+/** Test call that throws a runtime exception. **/
+public class ThrowingStrCall implements Call<StringCallInput, String> {
+    @Override
+    public CallOutput<String> execute(StringCallInput input) {
+        return DefaultCallOutput.failure(new RuntimeException("Ooops!"));
     }
 }

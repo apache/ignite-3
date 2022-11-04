@@ -50,6 +50,7 @@ public class CliConfigGetCommand extends BaseCommand implements Callable<Integer
                         .profileName(profileName.getProfileName())::build)
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())
+                .verbose(verbose)
                 .build()
                 .runPipeline();
     }

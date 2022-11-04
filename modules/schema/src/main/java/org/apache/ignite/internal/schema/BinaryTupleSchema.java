@@ -235,11 +235,10 @@ public class BinaryTupleSchema {
         Element[] elements = new Element[columns.length];
         boolean hasNullables = false;
 
-        int idx = 0;
-        for (int i : columns) {
-            Column column = descriptor.column(i);
+        for (int i = 0; i < columns.length; i++) {
+            Column column = descriptor.column(columns[i]);
             boolean nullable = column.nullable();
-            elements[idx++] = new Element(column.type(), nullable);
+            elements[i] = new Element(column.type(), nullable);
             hasNullables |= nullable;
         }
 

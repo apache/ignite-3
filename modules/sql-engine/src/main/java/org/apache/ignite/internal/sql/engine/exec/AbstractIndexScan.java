@@ -24,6 +24,7 @@ import java.util.function.Predicate;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.sql.engine.exec.exp.RangeIterable;
 import org.apache.ignite.internal.util.CollectionUtils;
+import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.FilteringIterator;
 import org.apache.ignite.internal.util.TransformingIterator;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -75,17 +76,28 @@ public abstract class AbstractIndexScan<RowT, IdxRowT> implements Iterable<RowT>
     /** {@inheritDoc} */
     @Override
     public synchronized Iterator<RowT> iterator() {
+        if (ranges == null) { // Full index scan.
+            Cursor<IdxRowT> cursor = idx.find(null, null, true, true);
+
+            Iterator<RowT> it = new TransformingIterator<>(cursor, AbstractIndexScan.this::indexRow2Row);
+
+            it = (filters != null) ? new FilteringIterator<>(it, filters) : it;
+
+            return (rowTransformer != null) ? new TransformingIterator<>(it, rowTransformer) : it;
+        }
+
         Iterable<RowT>[] iterables = Streams.stream(ranges)
                 .map(range -> new Iterable<RowT>() {
                             @Override
                             public Iterator<RowT> iterator() {
-                                Iterator<RowT> it = new TransformingIterator<>(
-                                        idx.find(row2indexRow(range.lower()), row2indexRow(range.upper()), range.lowerInclude(),
-                                                range.upperInclude()),
-                                        AbstractIndexScan.this::indexRow2Row
-                                );
+                                IdxRowT lower = row2indexRow(range.lower());
+                                IdxRowT upper = row2indexRow(range.upper());
 
-                                it = new FilteringIterator<>(it, filters);
+                                Cursor<IdxRowT> cursor = idx.find(lower, upper, range.lowerInclude(), range.upperInclude());
+
+                                Iterator<RowT> it = new TransformingIterator<>(cursor, AbstractIndexScan.this::indexRow2Row);
+
+                                it = (filters != null) ? new FilteringIterator<>(it, filters) : it;
 
                                 return (rowTransformer != null) ? new TransformingIterator<>(it, rowTransformer) : it;
                             }
