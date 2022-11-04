@@ -61,13 +61,13 @@ unzip ignite3-3.0.0-beta1.zip && cd ignite3-3.0.0-beta1
 tab:Windows (PowerShell)[]
 [source,shell]
 ----
-Expand-Archive ignite3-3.0.0-beta1.zip -DestinationPath . ; cd cd ignite3-3.0.0-beta1
+Expand-Archive ignite3-3.0.0-beta1.zip -DestinationPath . ; cd ignite3-3.0.0-beta1
 ----
 
 tab:Windows (CMD)[]
 [source,shell]
 ----
-tar -xf ignite3-3.0.0-beta1.zip & cd ignite-3-beta1
+tar -xf ignite3-3.0.0-beta1.zip & cd ignite3-3.0.0-beta1
 ----
 --
 
