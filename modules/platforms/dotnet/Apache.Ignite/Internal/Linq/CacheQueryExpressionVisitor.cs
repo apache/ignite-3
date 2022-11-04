@@ -348,17 +348,15 @@ internal class CacheQueryExpressionVisitor : ThrowingExpressionVisitor
     /// </summary>
     private static string GetEscapedFieldName(MemberExpression expression, ICacheQueryableInternal queryable)
     {
-        var sqlEscapeAll = queryable.CacheConfiguration.SqlEscapeAll;
         var fieldName = GetFieldName(expression, queryable);
 
-        return sqlEscapeAll ? string.Format("\"{0}\"", fieldName) : fieldName;
+        return $"\"{fieldName}\"";
     }
 
     /// <summary>
     /// Gets the name of the field from a member expression, with quotes when necessary.
     /// </summary>
-    private static string GetFieldName(MemberExpression expression, ICacheQueryableInternal queryable,
-        bool ignoreAlias = false)
+    private static string GetFieldName(MemberExpression expression, ICacheQueryableInternal queryable, bool ignoreAlias = false)
     {
         var fieldName = GetMemberFieldName(expression.Member);
 
@@ -643,11 +641,8 @@ internal class CacheQueryExpressionVisitor : ThrowingExpressionVisitor
     }
 
     /** <inheritdoc /> */
-    protected override Exception CreateUnhandledItemException<T>(T unhandledItem, string visitMethod)
-    {
-        return new NotSupportedException(string.Format("The expression '{0}' (type: {1}) is not supported.",
-            unhandledItem, typeof(T)));
-    }
+    protected override Exception CreateUnhandledItemException<T>(T unhandledItem, string visitMethod) =>
+        new NotSupportedException($"The expression '{unhandledItem}' (type: {typeof(T)}) is not supported.");
 
     /// <summary>
     /// Visits multiple arguments.
@@ -662,7 +657,9 @@ internal class CacheQueryExpressionVisitor : ThrowingExpressionVisitor
             if (!first)
             {
                 if (_useStar)
+                {
                     throw new NotSupportedException("Aggregate functions do not support multiple fields");
+                }
 
                 ResultBuilder.Append(", ");
             }
