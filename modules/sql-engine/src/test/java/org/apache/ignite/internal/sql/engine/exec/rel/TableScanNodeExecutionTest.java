@@ -130,7 +130,7 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest {
 
         @Override
         public <RowT> RowT toRow(ExecutionContext<RowT> ectx, BinaryRow row, RowFactory<RowT> factory,
-                @Nullable ImmutableBitSet requiredColumns) {
+                @Nullable BitSet requiredColumns) {
             return (RowT) res;
         }
     }

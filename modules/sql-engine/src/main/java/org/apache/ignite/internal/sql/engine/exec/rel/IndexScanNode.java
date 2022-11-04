@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.exec.rel;
 import static org.apache.ignite.internal.util.ArrayUtils.nullOrEmpty;
 
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
@@ -32,7 +33,6 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.index.SortedIndex;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -79,12 +79,12 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
 
     private final @Nullable Function<RowT, RowT> rowTransformer;
 
-    private final IgniteTetraFunction<ExecutionContext<RowT>, BinaryRow, RowFactory<RowT>, ImmutableBitSet, RowT> tableRowConverter;
+    private final IgniteTetraFunction<ExecutionContext<RowT>, BinaryRow, RowFactory<RowT>, BitSet, RowT> tableRowConverter;
 
     private final ImmutableIntList idxColumnMapping;
 
     /** Participating columns. */
-    private final @Nullable ImmutableBitSet requiredColumns;
+    private final @Nullable BitSet requiredColumns;
 
     private final @Nullable RangeIterable<RowT> rangeConditions;
 
@@ -126,7 +126,7 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
             @Nullable RangeIterable<RowT> rangeConditions,
             @Nullable Predicate<RowT> filters,
             @Nullable Function<RowT, RowT> rowTransformer,
-            @Nullable ImmutableBitSet requiredColumns
+            @Nullable BitSet requiredColumns
     ) {
         super(ctx, rowType);
 
@@ -321,7 +321,7 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
                     lower,
                     upper,
                     flags,
-                    requiredColumns == null ? null : requiredColumns.toBitSet()
+                    requiredColumns
             );
         } else {
             assert schemaIndex.type() == Type.HASH;
@@ -335,7 +335,7 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
                     part,
                     context().transaction(),
                     key,
-                    requiredColumns == null ? null : requiredColumns.toBitSet()
+                    requiredColumns
             );
         }
 

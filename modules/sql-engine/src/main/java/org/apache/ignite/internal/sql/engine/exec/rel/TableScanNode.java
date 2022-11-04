@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.exec.rel;
 
 import static org.apache.ignite.internal.util.ArrayUtils.nullOrEmpty;
 
+import java.util.BitSet;
 import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.Flow;
@@ -59,7 +60,7 @@ public class TableScanNode<RowT> extends AbstractNode<RowT> {
     private final @Nullable Function<RowT, RowT> rowTransformer;
 
     /** Participating columns. */
-    private final @Nullable ImmutableBitSet requiredColumns;
+    private final @Nullable BitSet requiredColumns;
 
     private int requested;
 
@@ -89,7 +90,7 @@ public class TableScanNode<RowT> extends AbstractNode<RowT> {
             int[] parts,
             @Nullable Predicate<RowT> filters,
             @Nullable Function<RowT, RowT> rowTransformer,
-            @Nullable ImmutableBitSet requiredColumns
+            @Nullable BitSet requiredColumns
     ) {
         super(ctx, rowType);
 
