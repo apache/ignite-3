@@ -156,4 +156,8 @@ public class TestSortedIndexStorage implements SortedIndexStorage {
 
         buffer.put(0, (byte) (flags | BinaryTupleCommon.EQUALITY_FLAG));
     }
+
+    public void destroy() {
+        index.clear();
+    }
 }

@@ -77,8 +77,8 @@ public class ItJoinTest extends AbstractBasicIntegrationTest {
                 .returns(1, 1, 1, 1, 1)
                 .returns(2, 2, 2, 2, 2)
                 .returns(2, 2, 2, 2, 2)
-                .returns(3, 3, null, 3, 3)
                 .returns(3, 3, 3, 3, 3)
+                .returns(3, 3, null, 3, 3)
                 .returns(4, 4, 4, 4, 4)
                 .check();
 
@@ -129,8 +129,8 @@ public class ItJoinTest extends AbstractBasicIntegrationTest {
         )
                 .ordered()
                 .returns(4, 4, 4, 4, 4)
-                .returns(3, 3, null, 3, 3)
                 .returns(3, 3, 3, 3, 3)
+                .returns(3, 3, null, 3, 3)
                 .returns(2, 2, 2, 2, 2)
                 .returns(2, 2, 2, 2, 2)
                 .returns(1, 1, 1, 1, 1)
@@ -258,11 +258,11 @@ public class ItJoinTest extends AbstractBasicIntegrationTest {
         )
                 .ordered()
                 .returns(1, 1, 1, 1, 1)
+                .returns(2, 2, 2, 2, 2)
+                .returns(2, 2, 2, 2, 2)
                 .returns(2, null, 2, null, null)
-                .returns(2, 2, 2, 2, 2)
-                .returns(2, 2, 2, 2, 2)
-                .returns(3, 3, null, 3, 3)
                 .returns(3, 3, 3, 3, 3)
+                .returns(3, 3, null, 3, 3)
                 .returns(4, 4, 4, 4, 4)
                 .check();
 
@@ -315,11 +315,11 @@ public class ItJoinTest extends AbstractBasicIntegrationTest {
         )
                 .ordered()
                 .returns(4, 4, 4, 4, 4)
-                .returns(3, 3, null, 3, 3)
                 .returns(3, 3, 3, 3, 3)
+                .returns(3, 3, null, 3, 3)
+                .returns(2, 2, 2, 2, 2)
+                .returns(2, 2, 2, 2, 2)
                 .returns(2, null, 2, null, null)
-                .returns(2, 2, 2, 2, 2)
-                .returns(2, 2, 2, 2, 2)
                 .returns(1, 1, 1, 1, 1)
                 .check();
 
@@ -336,9 +336,9 @@ public class ItJoinTest extends AbstractBasicIntegrationTest {
                 .returns(4, 4, 4, 4, 4)
                 .returns(3, 3, null, 3, 3)
                 .returns(3, 3, 3, 3, 3)
+                .returns(2, 2, 2, 2, 2)
+                .returns(2, 2, 2, 2, 2)
                 .returns(2, null, 2, null, null)
-                .returns(2, 2, 2, 2, 2)
-                .returns(2, 2, 2, 2, 2)
                 .returns(1, 1, 1, 1, 1)
                 .check();
 
@@ -355,9 +355,9 @@ public class ItJoinTest extends AbstractBasicIntegrationTest {
                 .returns(4, 4, 4, 4, 4)
                 .returns(3, 3, 3, 3, 3)
                 .returns(3, 3, null, 3, 3)
+                .returns(2, 2, 2, 2, 2)
+                .returns(2, 2, 2, 2, 2)
                 .returns(2, null, 2, null, null)
-                .returns(2, 2, 2, 2, 2)
-                .returns(2, 2, 2, 2, 2)
                 .returns(1, 1, 1, 1, 1)
                 .check();
 
@@ -371,12 +371,12 @@ public class ItJoinTest extends AbstractBasicIntegrationTest {
                 joinType
         )
                 .ordered()
-                .returns(null, 3, null, null)
                 .returns(1, 1, 1, 1)
-                .returns(2, null, null, null)
                 .returns(2, 2, 2, 2)
+                .returns(2, null, null, null)
                 .returns(3, 3, 3, 3)
                 .returns(4, 4, 4, 4)
+                .returns(null, 3, null, null)
                 .check();
 
         assertQuery(""
@@ -473,11 +473,11 @@ public class ItJoinTest extends AbstractBasicIntegrationTest {
         )
                 .ordered()
                 .returns(1, 1, 1, 1, 1)
-                .returns(2, 2, 2, 2, null)
                 .returns(2, 2, 2, 2, 2)
+                .returns(2, 2, 2, 2, null)
+                .returns(3, 3, 3, 3, 3)
+                .returns(3, 3, 3, 3, 3)
                 .returns(null, null, 3, null, 3)
-                .returns(3, 3, 3, 3, 3)
-                .returns(3, 3, 3, 3, 3)
                 .returns(4, 4, 4, 4, 4)
                 .check();
 
@@ -530,11 +530,11 @@ public class ItJoinTest extends AbstractBasicIntegrationTest {
         )
                 .ordered()
                 .returns(4, 4, 4, 4, 4)
+                .returns(3, 3, 3, 3, 3)
+                .returns(3, 3, 3, 3, 3)
                 .returns(null, null, 3, null, 3)
-                .returns(3, 3, 3, 3, 3)
-                .returns(3, 3, 3, 3, 3)
-                .returns(2, 2, 2, 2, null)
                 .returns(2, 2, 2, 2, 2)
+                .returns(2, 2, 2, 2, null)
                 .returns(1, 1, 1, 1, 1)
                 .check();
 
@@ -549,9 +549,9 @@ public class ItJoinTest extends AbstractBasicIntegrationTest {
         )
                 .ordered()
                 .returns(4, 4, 4, 4, 4)
+                .returns(3, 3, 3, 3, 3)
+                .returns(3, 3, 3, 3, 3)
                 .returns(null, null, 3, null, 3)
-                .returns(3, 3, 3, 3, 3)
-                .returns(3, 3, 3, 3, 3)
                 .returns(2, 2, 2, 2, null)
                 .returns(2, 2, 2, 2, 2)
                 .returns(1, 1, 1, 1, 1)
@@ -568,9 +568,9 @@ public class ItJoinTest extends AbstractBasicIntegrationTest {
         )
                 .ordered()
                 .returns(4, 4, 4, 4, 4)
+                .returns(3, 3, 3, 3, 3)
+                .returns(3, 3, 3, 3, 3)
                 .returns(null, null, 3, null, 3)
-                .returns(3, 3, 3, 3, 3)
-                .returns(3, 3, 3, 3, 3)
                 .returns(2, 2, 2, 2, 2)
                 .returns(2, 2, 2, 2, null)
                 .returns(1, 1, 1, 1, 1)
@@ -586,12 +586,12 @@ public class ItJoinTest extends AbstractBasicIntegrationTest {
                 joinType
         )
                 .ordered()
-                .returns(null, null, null, 2)
                 .returns(1, 1, 1, 1)
                 .returns(2, 2, 2, 2)
-                .returns(null, null, 3, null)
                 .returns(3, 3, 3, 3)
+                .returns(null, null, 3, null)
                 .returns(4, 4, 4, 4)
+                .returns(null, null, null, 2)
                 .check();
 
         assertQuery(""

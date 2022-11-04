@@ -30,7 +30,6 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -38,7 +37,6 @@ import org.junit.jupiter.api.Test;
  */
 public class HashIndexPlannerTest extends AbstractPlannerTest {
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17748")
     public void hashIndexIsAppliedForEquiCondition() throws Exception {
         var indexName = "VAL_HASH_IDX";
 
@@ -92,7 +90,6 @@ public class HashIndexPlannerTest extends AbstractPlannerTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17748")
     public void hashIndexIsAppliedForComplexConditions() throws Exception {
         var indexName = "VAL_HASH_IDX";
 
