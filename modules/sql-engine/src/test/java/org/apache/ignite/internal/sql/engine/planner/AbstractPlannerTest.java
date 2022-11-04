@@ -961,7 +961,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         /** {@inheritDoc} */
         @Override
         public <RowT> RowT toRow(ExecutionContext<RowT> ectx, BinaryRow row, RowFactory<RowT> factory,
-                @Nullable ImmutableBitSet requiredColumns) {
+                @Nullable BitSet requiredColumns) {
             throw new AssertionError();
         }
 

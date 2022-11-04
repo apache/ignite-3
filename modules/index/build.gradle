@@ -26,8 +26,6 @@ dependencies {
     implementation project(':ignite-schema')
     implementation project(':ignite-table')
     implementation project(':ignite-transactions')
-    implementation project(':ignite-table')
-    implementation project(':ignite-configuration')
     implementation libs.jetbrains.annotations
     testImplementation(testFixtures(project(':ignite-configuration')))
     testImplementation(testFixtures(project(':ignite-core')))

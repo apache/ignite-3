@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.schema;
 import it.unimi.dsi.fastutil.objects.Object2IntMap;
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -261,7 +262,7 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
             ExecutionContext<RowT> ectx,
             BinaryRow binaryRow,
             RowHandler.RowFactory<RowT> factory,
-            @Nullable ImmutableBitSet requiredColumns
+            @Nullable BitSet requiredColumns
     ) {
         RowHandler<RowT> handler = factory.handler();
 

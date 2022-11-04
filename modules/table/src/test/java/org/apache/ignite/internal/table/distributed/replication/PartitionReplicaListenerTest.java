@@ -254,6 +254,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 mockRaftClient,
                 mock(TxManager.class),
                 lockManager,
+                Runnable::run,
                 partId,
                 tblId,
                 () -> Map.of(pkLocker.id(), pkLocker, sortedIndexId, sortedIndexLocker, hashIndexId, hashIndexLocker),

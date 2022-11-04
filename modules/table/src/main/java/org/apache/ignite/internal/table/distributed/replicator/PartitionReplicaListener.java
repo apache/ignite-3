@@ -36,7 +36,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
@@ -45,7 +44,6 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommand;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
@@ -83,7 +81,6 @@ import org.apache.ignite.internal.table.distributed.replication.request.ReadWrit
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSingleRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSwapRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.tx.LockKey;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.LockMode;
@@ -164,9 +161,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     private final PlacementDriver placementDriver;
 
     /** Runs async scan tasks for effective tail recursion execution (avoid deep recursive calls). */
-    private final Executor scanRequestExecutor = Executors.newSingleThreadExecutor(
-            new NamedThreadFactory("scan-query-executor-", Loggers.forClass(PartitionReplicaListener.class))
-    );
+    private final Executor scanRequestExecutor;
 
     /**
      * Map to control clock's update in the read only transactions concurrently with a commit timestamp.
@@ -205,6 +200,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             RaftGroupService raftClient,
             TxManager txManager,
             LockManager lockManager,
+            Executor scanRequestExecutor,
             int partId,
             UUID tableId,
             Supplier<Map<UUID, IndexLocker>> indexesLockers,
@@ -221,6 +217,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         this.raftClient = raftClient;
         this.txManager = txManager;
         this.lockManager = lockManager;
+        this.scanRequestExecutor = scanRequestExecutor;
         this.partId = partId;
         this.tableId = tableId;
         this.indexesLockers = indexesLockers;
