@@ -34,9 +34,6 @@ using Remotion.Linq.Clauses.Expressions;
 /// </summary>
 internal static class ExpressionWalker
 {
-    /** SQL quote */
-    private const string SqlQuote = "\"";
-
     /** Compiled member readers. */
     private static readonly ConcurrentDictionary<MemberInfo, Func<object?, object?>> MemberReaders = new();
 
@@ -303,7 +300,7 @@ internal static class ExpressionWalker
     /// <param name="expr">Expression.</param>
     /// <typeparam name="T">Expression type.</typeparam>
     /// <returns>Evaluation result.</returns>
-    public static T EvaluateExpression<T>(Expression expr)
+    public static T? EvaluateExpression<T>(Expression expr)
     {
         var constExpr = expr as ConstantExpression;
 
@@ -328,7 +325,7 @@ internal static class ExpressionWalker
                     return (T) reader(target)!;
                 }
 
-                return (T) MemberReaders.GetOrAdd(memberExpr.Member, _ => CompileMemberReader(memberExpr))(target);
+                return (T?) MemberReaders.GetOrAdd(memberExpr.Member, _ => CompileMemberReader(memberExpr))(target);
             }
         }
 
@@ -347,7 +344,8 @@ internal static class ExpressionWalker
     /// </summary>
     public static IEnumerable<object> EvaluateEnumerableValues(Expression fromExpression)
     {
-        IEnumerable result;
+        IEnumerable? result;
+
         switch (fromExpression.NodeType)
         {
             case ExpressionType.MemberAccess:
@@ -373,7 +371,7 @@ internal static class ExpressionWalker
                 break;
         }
 
-        result = result ?? Enumerable.Empty<object>();
+        result ??= Enumerable.Empty<object>();
 
         return result
             .Cast<object>()
@@ -383,18 +381,24 @@ internal static class ExpressionWalker
     /// <summary>
     /// Compiles the member reader.
     /// </summary>
-    private static Func<object, object> CompileMemberReader(MemberExpression memberExpr)
+    private static Func<object?, object?> CompileMemberReader(MemberExpression memberExpr)
     {
         // Field or property
         var fld = memberExpr.Member as FieldInfo;
 
         if (fld != null)
-            return DelegateConverter.CompileFieldGetter(fld);
+        {
+            // TODO: Compiled delegate.
+            return o => fld.GetValue(o);
+        }
 
         var prop = memberExpr.Member as PropertyInfo;
 
         if (prop != null)
-            return DelegateConverter.CompilePropertyGetter(prop);
+        {
+            // TODO: Compiled delegate.
+            return o => prop.GetValue(o, null);
+        }
 
         throw new NotSupportedException("Expression not supported: " + memberExpr);
     }
@@ -406,58 +410,8 @@ internal static class ExpressionWalker
     {
         Debug.Assert(queryable != null);
 
-        var cacheCfg = queryable.CacheConfiguration;
+        const string schemaName = "PUB"; // TODO
 
-        var tableName = queryable.TableName;
-        if (cacheCfg.SqlEscapeAll)
-        {
-            tableName = string.Format("{0}{1}{0}", SqlQuote, tableName);
-        }
-
-        var schemaName = NormalizeSchemaName(cacheCfg.Name, cacheCfg.SqlSchema);
-
-        return string.Format("{0}.{1}", schemaName, tableName);
-    }
-
-    /// <summary>
-    /// Normalizes SQL schema name, see
-    /// <c>org.apache.ignite.internal.processors.query.QueryUtils#normalizeSchemaName</c>
-    /// </summary>
-    private static string NormalizeSchemaName(string cacheName, string schemaName)
-    {
-        if (schemaName == null)
-        {
-            // If schema name is not set explicitly, we will use escaped cache name. The reason is that cache name
-            // could contain weird characters, such as underscores, dots or non-Latin stuff, which are invalid from
-            // SQL syntax perspective. We do not want node to fail on startup due to this.
-            return string.Format("{0}{1}{0}", SqlQuote, cacheName);
-        }
-
-        if (schemaName.StartsWith(SqlQuote, StringComparison.Ordinal)
-            && schemaName.EndsWith(SqlQuote, StringComparison.Ordinal))
-        {
-            return schemaName;
-        }
-
-        return NormalizeObjectName(schemaName, false);
-    }
-
-    /// <summary>
-    /// Normalizes SQL object name, see
-    /// <c>org.apache.ignite.internal.processors.query.QueryUtils#normalizeObjectName</c>
-    /// </summary>
-    private static string NormalizeObjectName(string name, bool replace)
-    {
-        if (string.IsNullOrEmpty(name))
-        {
-            return name;
-        }
-
-        if (replace)
-        {
-            name = name.Replace('.', '_').Replace('$', '_');
-        }
-
-        return name.ToUpperInvariant();
+        return $"{schemaName}.{queryable.Table.Name}";
     }
 }

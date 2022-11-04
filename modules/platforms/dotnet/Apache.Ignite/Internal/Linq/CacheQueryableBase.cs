@@ -21,6 +21,7 @@ namespace Apache.Ignite.Internal.Linq;
 using System.Linq;
 using System.Linq.Expressions;
 using Remotion.Linq;
+using Table;
 
 /// <summary>
 /// Base class for cache queryables.
@@ -49,6 +50,8 @@ internal abstract class CacheQueryableBase<T>
     {
         // No-op.
     }
+
+    public Table Table => null!; // TODO
 
     /// <summary>
     /// Gets the cache query provider.
