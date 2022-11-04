@@ -84,7 +84,7 @@ public class ClusterServiceTestUtils {
 
     /**
      * Creates a {@link MessageSerializationRegistry} that is pre-populated with all {@link MessageSerializationRegistryInitializer}s,
-     * accessible thought the classpath.
+     * accessible through the classpath.
      */
     public static MessageSerializationRegistry defaultSerializationRegistry() {
         var registry = new MessageSerializationRegistryImpl();
