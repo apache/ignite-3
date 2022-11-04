@@ -218,7 +218,8 @@ public class UrlOptionsNegativeTest {
     void incorrectPortRepl(Class<?> cmdClass, String urlOptionName, List<String> additionalOptions) {
         execute(cmdClass, urlOptionName, NODE_URL + "incorrect", additionalOptions);
 
-        String expectedErrOutput = "Node [http://localhost:10300incorrect] not found. Provide correct node url or node name";
+        String expectedErrOutput = "Invalid URL '" + NODE_URL
+                + "incorrect' (Error at index 5 in: \"10300incorrect\")";
         assertAll(
                 this::assertOutputIsEmpty,
                 () -> assertErrOutputContains(expectedErrOutput)
@@ -231,7 +232,8 @@ public class UrlOptionsNegativeTest {
     void invalidUrlSchemeRepl(Class<?> cmdClass, String urlOptionName, List<String> additionalOptions) {
         execute(cmdClass, urlOptionName, "incorrect" + NODE_URL, additionalOptions);
 
-        String expectedErrOutput = "Node [incorrecthttp://localhost:10300] not found. Provide correct node url or node name";
+        String expectedErrOutput = "Invalid URL 'incorrect" + NODE_URL
+                + "' (unknown protocol: incorrecthttp)";
         assertAll(
                 this::assertOutputIsEmpty,
                 () -> assertErrOutputContains(expectedErrOutput)

@@ -70,12 +70,8 @@ public class NodeUrlMixin {
             if (options.nodeUrl != null) {
                 return options.nodeUrl.toString();
             } else {
-                String nodeUrl = nodeNameRegistry.getNodeUrl(options.nodeName);
-                if (nodeUrl != null) {
-                    return nodeUrl;
-                } else {
-                    throw new IgniteCliException("Node " + options.nodeName + " not found. Use URL.");
-                }
+                return nodeNameRegistry.getNodeUrl(options.nodeName)
+                        .orElseThrow(() -> new IgniteCliException("Node " + options.nodeName + "not found. Provide valid name or use URL"));
             }
         }
     }

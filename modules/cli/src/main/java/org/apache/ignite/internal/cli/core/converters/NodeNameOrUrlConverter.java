@@ -19,35 +19,44 @@ package org.apache.ignite.internal.cli.core.converters;
 
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.regex.Pattern;
 import org.apache.ignite.internal.cli.NodeNameRegistry;
 import org.apache.ignite.internal.cli.commands.node.NodeUrl;
+import org.apache.ignite.internal.cli.core.exception.ParameterException;
 import picocli.CommandLine;
 import picocli.CommandLine.TypeConversionException;
 
 /** Converter for {@link NodeUrl}. */
 public class NodeNameOrUrlConverter implements CommandLine.ITypeConverter<NodeUrl> {
 
+    private static final Pattern URL_PATTERN = Pattern.compile("^.*[/:].*");
     private final NodeNameRegistry nodeNameRegistry;
 
     public NodeNameOrUrlConverter(NodeNameRegistry nodeNameRegistry) {
         this.nodeNameRegistry = nodeNameRegistry;
     }
 
-    @Override
-    public NodeUrl convert(String input) throws Exception {
+    private static URL stringToUrl(String str) {
         try {
-            return new NodeUrl(nodeUrl(input));
+            return new URL(str);
         } catch (MalformedURLException e) {
-            String message = String.format("Node [%s] not found. Provide correct node url or node name", input);
-            throw new TypeConversionException(message);
+            throw new TypeConversionException("Invalid URL '" + str + "' (" + e.getMessage() + ")");
         }
     }
 
-    private URL nodeUrl(String input) throws MalformedURLException {
-        try {
-            return new URL(input);
-        } catch (MalformedURLException e) {
-            return new URL(nodeNameRegistry.getNodeUrl(input));
+    @Override
+    public NodeUrl convert(String input) throws Exception {
+        boolean isUrl = URL_PATTERN.matcher(input).find();
+        if (isUrl) {
+            return new NodeUrl(stringToUrl(input));
+        } else {
+            return new NodeUrl(findNodeUrlByNodeName(input));
         }
+    }
+
+    private URL findNodeUrlByNodeName(String name) {
+        return nodeNameRegistry.getNodeUrl(name)
+                .map(NodeNameOrUrlConverter::stringToUrl)
+                .orElseThrow(() -> new ParameterException("Node " + name + "not found. Provide valid name or use URL"));
     }
 }

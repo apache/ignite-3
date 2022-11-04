@@ -21,6 +21,7 @@ import jakarta.inject.Singleton;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -68,10 +69,10 @@ public class NodeNameRegistry {
     /**
      * Gets a node url by a provided node name.
      */
-    public String getNodeUrl(String nodeName) {
+    public Optional<String> getNodeUrl(String nodeName) {
         readWriteLock.readLock().lock();
         try {
-            return nodeNameToNodeUrl.get(nodeName);
+            return Optional.ofNullable(nodeNameToNodeUrl.get(nodeName));
         } finally {
             readWriteLock.readLock().unlock();
         }
