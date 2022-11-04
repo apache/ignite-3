@@ -259,11 +259,11 @@ internal static class MethodVisitor
     {
         visitor.ResultBuilder.Append(func).Append('(');
 
-        visitor.Visit(expression.Object);
+        visitor.Visit(expression.Object!);
 
         var arg = expression.Arguments[0];
 
-        if (arg != null)
+        if (arg != null!)
         {
             visitor.ResultBuilder.Append(", ");
 
@@ -314,45 +314,45 @@ internal static class MethodVisitor
             var delta = adjust[idx];
 
             if (delta > 0)
-                visitor.ResultBuilder.AppendFormat(" + {0}", delta);
+            {
+                visitor.ResultBuilder.AppendFormat(CultureInfo.InvariantCulture,  " + {0}", delta);
+            }
             else if (delta < 0)
-                visitor.ResultBuilder.AppendFormat(" {0}", delta);
+            {
+                visitor.ResultBuilder.AppendFormat(CultureInfo.InvariantCulture, " {0}", delta);
+            }
         }
     }
 
     /// <summary>
     /// Visits the SQL like expression.
     /// </summary>
-    private static void VisitSqlLike(MethodCallExpression expression, CacheQueryExpressionVisitor visitor,
+    private static void VisitSqlLike(
+        MethodCallExpression expression,
+        CacheQueryExpressionVisitor visitor,
         string likeFormat)
     {
         visitor.ResultBuilder.Append('(');
 
-        visitor.Visit(expression.Object);
+        visitor.Visit(expression.Object!);
 
-        visitor.ResultBuilder.AppendFormat(" like {0}) ", likeFormat);
+        visitor.ResultBuilder.AppendFormat(CultureInfo.InvariantCulture, " like {0}) ", likeFormat);
 
-        var arg = expression.Arguments[0] as ConstantExpression;
-
-        var paramValue = arg != null
+        var paramValue = expression.Arguments[0] is ConstantExpression arg
             ? arg.Value
             : ExpressionWalker.EvaluateExpression<object>(expression.Arguments[0]);
 
-        visitor.Parameters.Add(paramValue);
+        visitor.Parameters.Add(paramValue!); // TODO: Nullability
     }
 
     /// <summary>
-    /// Get IgnoreCase parameter for string.Compare method
+    /// Get IgnoreCase parameter for string.Compare method.
     /// </summary>
     private static bool GetStringCompareIgnoreCaseParameter(Expression expression)
     {
-        var constant = expression as ConstantExpression;
-        if (constant != null)
+        if (expression is ConstantExpression { Value: bool } constant)
         {
-            if (constant.Value is bool)
-            {
-                return (bool)constant.Value;
-            }
+            return (bool)constant.Value;
         }
 
         throw new NotSupportedException(
@@ -360,7 +360,7 @@ internal static class MethodVisitor
     }
 
     /// <summary>
-    /// Visits string.Compare method
+    /// Visits string.Compare method.
     /// </summary>
     private static void VisitStringCompare(MethodCallExpression expression, CacheQueryExpressionVisitor visitor, bool ignoreCase)
     {
@@ -381,34 +381,46 @@ internal static class MethodVisitor
     /// <summary>
     /// Visits member expression argument.
     /// </summary>
-    private static void VisitArg(CacheQueryExpressionVisitor visitor, MethodCallExpression expression, int idx,
+    private static void VisitArg(
+        CacheQueryExpressionVisitor visitor,
+        MethodCallExpression expression,
+        int idx,
         bool lower)
     {
         if (lower)
+        {
             visitor.ResultBuilder.Append("lower(");
+        }
 
         visitor.Visit(expression.Arguments[idx]);
 
         if (lower)
+        {
             visitor.ResultBuilder.Append(')');
+        }
     }
 
     /// <summary>
     /// Gets the method.
     /// </summary>
-    private static KeyValuePair<MethodInfo, VisitMethodDelegate> GetMethod(Type type, string name,
-        Type[] argTypes = null, VisitMethodDelegate del = null)
+    private static KeyValuePair<MethodInfo, VisitMethodDelegate> GetMethod(
+        Type type,
+        string name,
+        Type[]? argTypes = null,
+        VisitMethodDelegate? del = null)
     {
         var method = argTypes == null ? type.GetMethod(name) : type.GetMethod(name, argTypes);
 
-        return new KeyValuePair<MethodInfo, VisitMethodDelegate>(method, del ?? GetFunc(name));
+        return new KeyValuePair<MethodInfo, VisitMethodDelegate>(method!, del ?? GetFunc(name));
     }
 
     /// <summary>
     /// Gets the string method.
     /// </summary>
-    private static KeyValuePair<MethodInfo, VisitMethodDelegate> GetStringMethod(string name,
-        Type[] argTypes = null, VisitMethodDelegate del = null)
+    private static KeyValuePair<MethodInfo, VisitMethodDelegate> GetStringMethod(
+        string name,
+        Type[]? argTypes = null,
+        VisitMethodDelegate? del = null)
     {
         return GetMethod(typeof(string), name, argTypes, del);
     }
@@ -416,7 +428,9 @@ internal static class MethodVisitor
     /// <summary>
     /// Gets the string method.
     /// </summary>
-    private static KeyValuePair<MethodInfo, VisitMethodDelegate> GetStringMethod(string name, string sqlName,
+    private static KeyValuePair<MethodInfo, VisitMethodDelegate> GetStringMethod(
+        string name,
+        string sqlName,
         params Type[] argTypes)
     {
         return GetMethod(typeof(string), name, argTypes, GetFunc(sqlName));
@@ -425,7 +439,9 @@ internal static class MethodVisitor
     /// <summary>
     /// Gets the Regex method.
     /// </summary>
-    private static KeyValuePair<MethodInfo, VisitMethodDelegate> GetRegexMethod(string name, string sqlName,
+    private static KeyValuePair<MethodInfo, VisitMethodDelegate> GetRegexMethod(
+        string name,
+        string sqlName,
         params Type[] argTypes)
     {
         return GetMethod(typeof(Regex), name, argTypes, GetFunc(sqlName));
@@ -434,27 +450,37 @@ internal static class MethodVisitor
     /// <summary>
     /// Gets string parameterized Trim(TrimStart, TrimEnd) method.
     /// </summary>
-    private static KeyValuePair<MethodInfo, VisitMethodDelegate> GetParameterizedTrimMethod(string name,
+    private static KeyValuePair<MethodInfo, VisitMethodDelegate> GetParameterizedTrimMethod(
+        string name,
         string sqlName)
     {
-        return GetMethod(typeof(string), name, new[] {typeof(char[])},
+        return GetMethod(
+            typeof(string),
+            name,
+            new[] {typeof(char[])},
             (e, v) => VisitParameterizedTrimFunc(e, v, sqlName));
     }
 
     /// <summary>
     /// Gets string parameterized Trim(TrimStart, TrimEnd) method that takes a single char.
     /// </summary>
-    private static KeyValuePair<MethodInfo, VisitMethodDelegate> GetCharTrimMethod(string name,
+    private static KeyValuePair<MethodInfo, VisitMethodDelegate> GetCharTrimMethod(
+        string name,
         string sqlName)
     {
-        return GetMethod(typeof(string), name, new[] {typeof(char)},
+        return GetMethod(
+            typeof(string),
+            name,
+            new[] {typeof(char)},
             (e, v) => VisitParameterizedTrimFunc(e, v, sqlName));
     }
 
     /// <summary>
     /// Gets the math method.
     /// </summary>
-    private static KeyValuePair<MethodInfo, VisitMethodDelegate> GetMathMethod(string name, string sqlName,
+    private static KeyValuePair<MethodInfo, VisitMethodDelegate> GetMathMethod(
+        string name,
+        string sqlName,
         params Type[] argTypes)
     {
         return GetMethod(typeof(Math), name, argTypes, GetFunc(sqlName));
