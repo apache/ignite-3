@@ -40,6 +40,7 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteTableFunctionScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTrimExchange;
 import org.apache.ignite.internal.sql.engine.rel.IgniteValues;
+import org.apache.ignite.internal.sql.engine.rel.ProjectableFilterableTableScan;
 import org.apache.ignite.internal.sql.engine.schema.InternalIgniteTable;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
@@ -199,14 +200,31 @@ public class IgniteMdFragmentMapping implements MetadataHandler<FragmentMappingM
      * See {@link IgniteMdFragmentMapping#fragmentMapping(RelNode, RelMetadataQuery, MappingQueryContext)}.
      */
     public FragmentMapping fragmentMapping(IgniteIndexScan rel, RelMetadataQuery mq, MappingQueryContext ctx) {
-        return FragmentMapping.create(rel.sourceId(),
-                rel.getTable().unwrap(InternalIgniteTable.class).colocationGroup(ctx));
+        return getFragmentMapping(rel.sourceId(), rel, ctx);
     }
 
     /**
      * See {@link IgniteMdFragmentMapping#fragmentMapping(RelNode, RelMetadataQuery, MappingQueryContext)}.
      */
     public FragmentMapping fragmentMapping(IgniteTableScan rel, RelMetadataQuery mq, MappingQueryContext ctx) {
+        return getFragmentMapping(rel.sourceId(), rel, ctx);
+    }
+
+    /**
+     * See {@link IgniteMdFragmentMapping#fragmentMapping(RelNode, RelMetadataQuery, MappingQueryContext)}.
+     */
+    public FragmentMapping fragmentMapping(IgniteValues rel, RelMetadataQuery mq, MappingQueryContext ctx) {
+        return FragmentMapping.create();
+    }
+
+    /**
+     * See {@link IgniteMdFragmentMapping#fragmentMapping(RelNode, RelMetadataQuery, MappingQueryContext)}.
+     */
+    public FragmentMapping fragmentMapping(IgniteTableFunctionScan rel, RelMetadataQuery mq, MappingQueryContext ctx) {
+        return FragmentMapping.create();
+    }
+
+    private static FragmentMapping getFragmentMapping(long sourceId, ProjectableFilterableTableScan rel, MappingQueryContext ctx) {
         ColocationGroup group = rel.getTable().unwrap(InternalIgniteTable.class).colocationGroup(ctx);
 
         // This condition is kinda workaround to make transactional scan works.
@@ -225,20 +243,6 @@ public class IgniteMdFragmentMapping implements MetadataHandler<FragmentMappingM
             group = ColocationGroup.forAssignments(fakeAssignments);
         }
 
-        return FragmentMapping.create(rel.sourceId(), group);
-    }
-
-    /**
-     * See {@link IgniteMdFragmentMapping#fragmentMapping(RelNode, RelMetadataQuery, MappingQueryContext)}.
-     */
-    public FragmentMapping fragmentMapping(IgniteValues rel, RelMetadataQuery mq, MappingQueryContext ctx) {
-        return FragmentMapping.create();
-    }
-
-    /**
-     * See {@link IgniteMdFragmentMapping#fragmentMapping(RelNode, RelMetadataQuery, MappingQueryContext)}.
-     */
-    public FragmentMapping fragmentMapping(IgniteTableFunctionScan rel, RelMetadataQuery mq, MappingQueryContext ctx) {
-        return FragmentMapping.create();
+        return FragmentMapping.create(sourceId, group);
     }
 }

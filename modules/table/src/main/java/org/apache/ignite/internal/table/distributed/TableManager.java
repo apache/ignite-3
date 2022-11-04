@@ -835,6 +835,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                                         table.indexesLockers(partId),
                                                                         new Lazy<>(() -> table.indexStorageAdapters(partId)
                                                                                 .get().get(table.pkId())),
+                                                                        () -> table.indexStorageAdapters(partId).get(),
                                                                         clock,
                                                                         safeTime,
                                                                         txStatePartitionStorage,
@@ -1835,6 +1836,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                             tblId,
                                             tbl.indexesLockers(partId),
                                             new Lazy<>(() -> tbl.indexStorageAdapters(partId).get().get(tbl.pkId())),
+                                            () -> tbl.indexStorageAdapters(partId).get(),
                                             clock,
                                             safeTime,
                                             txStatePartitionStorage,
