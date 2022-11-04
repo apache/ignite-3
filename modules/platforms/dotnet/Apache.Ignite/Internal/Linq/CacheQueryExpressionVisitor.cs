@@ -329,14 +329,16 @@ internal class CacheQueryExpressionVisitor : ThrowingExpressionVisitor
         if (queryable != null)
         {
             // Find where the projection comes from.
-            expression = ExpressionWalker.GetProjectedMember(expression.Expression, expression.Member) ?? expression;
+            expression = ExpressionWalker.GetProjectedMember(expression.Expression!, expression.Member) ?? expression;
 
             var fieldName = GetEscapedFieldName(expression, queryable);
 
-            ResultBuilder.AppendFormat("{0}.{1}", Aliases.GetTableAlias(expression), fieldName);
+            ResultBuilder.AppendFormat(CultureInfo.InvariantCulture, "{0}.{1}", Aliases.GetTableAlias(expression), fieldName);
         }
         else
+        {
             AppendParameter(ExpressionWalker.EvaluateExpression<object>(expression));
+        }
 
         return expression;
     }
@@ -485,7 +487,7 @@ internal class CacheQueryExpressionVisitor : ThrowingExpressionVisitor
     /// <summary>
     /// Appends the parameter.
     /// </summary>
-    public void AppendParameter(object value)
+    public void AppendParameter(object? value)
     {
         ResultBuilder.Append('?');
 
@@ -493,7 +495,6 @@ internal class CacheQueryExpressionVisitor : ThrowingExpressionVisitor
     }
 
     /** <inheritdoc /> */
-    [SuppressMessage("Microsoft.Design", "CA1062:Validate arguments of public methods")]
     protected override Expression VisitMethodCall(MethodCallExpression expression)
     {
         MethodVisitor.VisitMethodCall(expression, this);
@@ -502,7 +503,6 @@ internal class CacheQueryExpressionVisitor : ThrowingExpressionVisitor
     }
 
     /** <inheritdoc /> */
-    [SuppressMessage("Microsoft.Design", "CA1062:Validate arguments of public methods")]
     protected override Expression VisitNew(NewExpression expression)
     {
         VisitArguments(expression.Arguments);
@@ -511,7 +511,6 @@ internal class CacheQueryExpressionVisitor : ThrowingExpressionVisitor
     }
 
     /** <inheritdoc /> */
-    [SuppressMessage("Microsoft.Design", "CA1062:Validate arguments of public methods")]
     protected override Expression VisitInvocation(InvocationExpression expression)
     {
         throw new NotSupportedException("The LINQ expression '" + expression +
@@ -519,7 +518,6 @@ internal class CacheQueryExpressionVisitor : ThrowingExpressionVisitor
     }
 
     /** <inheritdoc /> */
-    [SuppressMessage("Microsoft.Design", "CA1062:Validate arguments of public methods")]
     protected override Expression VisitConditional(ConditionalExpression expression)
     {
         ResultBuilder.Append("casewhen(");
@@ -529,7 +527,7 @@ internal class CacheQueryExpressionVisitor : ThrowingExpressionVisitor
         // Explicit type specification is required when all arguments of CASEWHEN are parameters
         ResultBuilder.Append(", cast(");
         Visit(expression.IfTrue);
-        ResultBuilder.AppendFormat(" as {0}), ", SqlTypes.GetSqlTypeName(expression.Type) ?? "other");
+        ResultBuilder.AppendFormat(CultureInfo.InvariantCulture, " as {0}), ", SqlTypes.GetSqlTypeName(expression.Type) ?? "other");
 
         Visit(expression.IfFalse);
         ResultBuilder.Append(')');
@@ -538,8 +536,6 @@ internal class CacheQueryExpressionVisitor : ThrowingExpressionVisitor
     }
 
     /** <inheritdoc /> */
-
-    [SuppressMessage("Microsoft.Design", "CA1062:Validate arguments of public methods")]
     protected override Expression VisitSubQuery(SubQueryExpression expression)
     {
         var subQueryModel = expression.QueryModel;
@@ -567,7 +563,7 @@ internal class CacheQueryExpressionVisitor : ThrowingExpressionVisitor
     }
 
     /// <summary>
-    /// Visits IEnumerable.Contains
+    /// Visits IEnumerable.Contains.
     /// </summary>
     private void VisitContains(QueryModel subQueryModel, ContainsResultOperator contains)
     {
@@ -624,14 +620,16 @@ internal class CacheQueryExpressionVisitor : ThrowingExpressionVisitor
     /// <summary>
     /// Appends not null parameters using ", " as delimeter.
     /// </summary>
-    private void AppendInParameters(IEnumerable<object> values)
+    private void AppendInParameters(IEnumerable<object?> values)
     {
         var first = true;
 
         foreach (var val in values)
         {
             if (val == null)
+            {
                 continue;
+            }
 
             if (!first)
             {
