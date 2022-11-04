@@ -271,15 +271,13 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     private final ScheduledExecutorService rebalanceScheduler;
 
     /** Transaction state storage scheduled pool. */
-    private final ScheduledExecutorService txStateStorageScheduledPool = Executors.newSingleThreadScheduledExecutor(
-        new NamedThreadFactory("tx-state-storage-scheduled-pool", LOG)
-    );
+    private final ScheduledExecutorService txStateStorageScheduledPool;
 
     /** Transaction state storage pool. */
-    private final ExecutorService txStateStoragePool = Executors.newFixedThreadPool(
-            Runtime.getRuntime().availableProcessors(),
-            new NamedThreadFactory("tx-state-storage-pool", LOG)
-    );
+    private final ExecutorService txStateStoragePool;
+
+    /** Scan request executor. */
+    private final ExecutorService scanRequestExecutor;
 
     /** Separate executor for IO operations like partition storage initialization
      * or partition raft group meta data persisting.
@@ -415,6 +413,15 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         }
                     });
         });
+
+        txStateStorageScheduledPool = Executors.newSingleThreadScheduledExecutor(
+                NamedThreadFactory.create(nodeName, "tx-state-storage-scheduled-pool", LOG));
+
+        txStateStoragePool = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors(),
+                NamedThreadFactory.create(nodeName, "tx-state-storage-pool", LOG));
+
+        scanRequestExecutor = Executors.newSingleThreadExecutor(
+                NamedThreadFactory.create(nodeName, "scan-query-executor-", LOG));
 
         rebalanceScheduler = new ScheduledThreadPoolExecutor(REBALANCE_SCHEDULER_POOL_SIZE,
                 NamedThreadFactory.create(nodeName, "rebalance-scheduler", LOG));
@@ -831,11 +838,13 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                                         updatedRaftGroupService,
                                                                         txManager,
                                                                         lockMgr,
+                                                                        scanRequestExecutor,
                                                                         partId,
                                                                         tblId,
                                                                         table.indexesLockers(partId),
                                                                         new Lazy<>(() -> table.indexStorageAdapters(partId)
                                                                                 .get().get(table.pkId())),
+                                                                        () -> table.indexStorageAdapters(partId).get(),
                                                                         clock,
                                                                         safeTime,
                                                                         txStatePartitionStorage,
@@ -958,6 +967,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         shutdownAndAwaitTermination(ioExecutor, 10, TimeUnit.SECONDS);
         shutdownAndAwaitTermination(txStateStoragePool, 10, TimeUnit.SECONDS);
         shutdownAndAwaitTermination(txStateStorageScheduledPool, 10, TimeUnit.SECONDS);
+        shutdownAndAwaitTermination(scanRequestExecutor, 10, TimeUnit.SECONDS);
         shutdownAndAwaitTermination(incomingSnapshotsExecutor, 10, TimeUnit.SECONDS);
     }
 
@@ -1831,10 +1841,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                             internalTable.partitionRaftGroupService(partId),
                                             txManager,
                                             lockMgr,
+                                            scanRequestExecutor,
                                             partId,
                                             tblId,
                                             tbl.indexesLockers(partId),
                                             new Lazy<>(() -> tbl.indexStorageAdapters(partId).get().get(tbl.pkId())),
+                                            () -> tbl.indexStorageAdapters(partId).get(),
                                             clock,
                                             safeTime,
                                             txStatePartitionStorage,

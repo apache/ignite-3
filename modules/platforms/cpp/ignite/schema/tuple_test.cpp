@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 
-#include "ignite/schema/binary_tuple_parser.h"
-#include "ignite/schema/column_info.h"
+#include "binary_tuple_parser.h"
+#include "column_info.h"
 #include "tuple_assembler.h"
 
 #include <gmock/gmock.h>
@@ -28,40 +28,40 @@
 using namespace std::string_literals;
 using namespace ignite;
 
-template <typename T>
+template<typename T>
 T read_tuple(std::optional<bytes_view> data);
 
-template <>
+template<>
 int8_t read_tuple(std::optional<bytes_view> data) {
     return binary_tuple_parser::get_int8(data.value());
 }
 
-template <>
+template<>
 int16_t read_tuple(std::optional<bytes_view> data) {
     return binary_tuple_parser::get_int16(data.value());
 }
 
-template <>
+template<>
 int32_t read_tuple(std::optional<bytes_view> data) {
     return binary_tuple_parser::get_int32(data.value());
 }
 
-template <>
+template<>
 int64_t read_tuple(std::optional<bytes_view> data) {
     return binary_tuple_parser::get_int64(data.value());
 }
 
-template <>
+template<>
 double read_tuple(std::optional<bytes_view> data) {
     return binary_tuple_parser::get_double(data.value());
 }
 
-template <>
+template<>
 float read_tuple(std::optional<bytes_view> data) {
     return binary_tuple_parser::get_float(data.value());
 }
 
-template <>
+template<>
 big_integer read_tuple(std::optional<bytes_view> data) {
     return binary_tuple_parser::get_number(data.value());
 }
@@ -70,40 +70,37 @@ big_decimal read_decimal(std::optional<bytes_view> data, int32_t scale) {
     return binary_tuple_parser::get_decimal(data.value(), scale);
 }
 
-template <>
+template<>
 ignite_date read_tuple(std::optional<bytes_view> data) {
     return binary_tuple_parser::get_date(data.value());
 }
 
-template <>
+template<>
 ignite_date_time read_tuple(std::optional<bytes_view> data) {
     return binary_tuple_parser::get_date_time(data.value());
 }
 
-template <>
+template<>
 uuid read_tuple(std::optional<bytes_view> data) {
     return binary_tuple_parser::get_uuid(data.value());
 }
 
-template <>
+template<>
 ignite_time read_tuple(std::optional<bytes_view> data) {
     return binary_tuple_parser::get_time(data.value());
 }
 
-template <>
+template<>
 ignite_timestamp read_tuple(std::optional<bytes_view> data) {
     return binary_tuple_parser::get_timestamp(data.value());
 }
 
-template <>
+template<>
 std::string read_tuple(std::optional<bytes_view> data) {
-    bytes_view &bytes = data.value();
-
-    return {reinterpret_cast<const char *>(bytes.data()), bytes.size()};
+    return {reinterpret_cast<const char *>(data->data()), data->size()};
 }
 
 struct SchemaDescriptor {
-
     std::vector<column_info> columns;
 
     [[nodiscard]] IntT length() const { return columns.size(); }
@@ -115,11 +112,11 @@ struct SchemaDescriptor {
 
 struct SingleValueCheck {
     explicit SingleValueCheck(binary_tuple_parser &parser)
-        : parser{parser} { }
+        : parser{parser} {}
 
     binary_tuple_parser &parser;
 
-    template <typename T>
+    template<typename T>
     void operator()(T value) {
         EXPECT_EQ(value, read_tuple<T>(parser.get_next()));
     }
@@ -127,7 +124,7 @@ struct SingleValueCheck {
     void operator()(std::nullopt_t /*null*/) { EXPECT_FALSE(parser.get_next()); }
 };
 
-template <typename... Ts, int size>
+template<typename... Ts, int size>
 void checkReaderWriterEquality(const SchemaDescriptor &schema, const std::tuple<Ts...> &values,
     const int8_t (&data)[size], bool skipAssemblerCheck = false) {
 
@@ -792,7 +789,7 @@ TEST(tuple, ExpectedVarlenTupleBinaries) { // NOLINT(cert-err58-cpp)
     // Make data that doesn't fit to tiny format tuple but fits to medium format tuple.
     std::vector<int8_t> mediumArray(256 * 2);
     for (size_t i = 0; i < mediumArray.size(); i++) {
-        mediumArray[i] = (int8_t)((i * 127) % 256);
+        mediumArray[i] = (int8_t) ((i * 127) % 256);
     }
 
     // Construct reference tuple binary independently of tuple assembler.
@@ -859,7 +856,7 @@ TEST(tuple, ExpectedVarlenTupleBinaries) { // NOLINT(cert-err58-cpp)
     // Make data that doesn't fit to medium format tuple but fits to large format tuple.
     std::vector<int8_t> largeArray(64 * 2 * 1024);
     for (size_t i = 0; i < largeArray.size(); i++) {
-        largeArray[i] = (int8_t)((i * 127) % 256);
+        largeArray[i] = (int8_t) ((i * 127) % 256);
     }
 
     // Construct reference tuple binary independently of tuple assembler.

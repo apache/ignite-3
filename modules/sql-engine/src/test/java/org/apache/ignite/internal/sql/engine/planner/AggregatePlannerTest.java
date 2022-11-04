@@ -37,13 +37,18 @@ import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.sql.SqlExplainLevel;
 import org.apache.calcite.sql.fun.SqlAvgAggFunction;
 import org.apache.ignite.internal.sql.engine.rel.IgniteAggregate;
+import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
+import org.apache.ignite.internal.sql.engine.rel.IgniteSort;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteMapAggregateBase;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteMapHashAggregate;
+import org.apache.ignite.internal.sql.engine.rel.agg.IgniteMapSortAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteReduceAggregateBase;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteReduceHashAggregate;
+import org.apache.ignite.internal.sql.engine.rel.agg.IgniteReduceSortAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteSingleAggregateBase;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteSingleHashAggregate;
+import org.apache.ignite.internal.sql.engine.rel.agg.IgniteSingleSortAggregate;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
@@ -91,10 +96,9 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
                 first(agg.getAggCallList()).getAggregation(),
                 IsInstanceOf.instanceOf(SqlAvgAggFunction.class));
 
-        // TODO: uncomment after IGNITE-17748
-        // if (algo == AggregateAlgorithm.SORT) {
-        //     assertNotNull(findFirstNode(phys, byClass(IgniteSort.class)));
-        // }
+        if (algo == AggregateAlgorithm.SORT) {
+            assertNotNull(findFirstNode(phys, byClass(IgniteSort.class)));
+        }
     }
 
     /**
@@ -129,10 +133,9 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
                 first(agg.getAggCallList()).getAggregation(),
                 IsInstanceOf.instanceOf(SqlAvgAggFunction.class));
 
-        // TODO: uncomment after IGNITE-17748
-        // if (algo == AggregateAlgorithm.SORT) {
-        //     assertNotNull(findFirstNode(phys, byClass(IgniteIndexScan.class)));
-        // }
+        if (algo == AggregateAlgorithm.SORT) {
+            assertNotNull(findFirstNode(phys, byClass(IgniteIndexScan.class)));
+        }
     }
 
     /**
@@ -174,10 +177,9 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
                 first(mapAgg.getAggCallList()).getAggregation(),
                 IsInstanceOf.instanceOf(SqlAvgAggFunction.class));
 
-        // TODO: uncomment after IGNITE-17748
-        // if (algo == AggregateAlgorithm.SORT) {
-        //     assertNotNull(findFirstNode(phys, byClass(IgniteSort.class)));
-        // }
+        if (algo == AggregateAlgorithm.SORT) {
+            assertNotNull(findFirstNode(phys, byClass(IgniteSort.class)));
+        }
     }
 
     /**
@@ -337,22 +339,20 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
 
     private static Stream<Arguments> provideAlgoAndDistribution() {
         return Stream.of(
-                // TODO: uncomment after IGNITE-17748
-                // Arguments.of(AggregateAlgorithm.SORT, IgniteDistributions.broadcast()),
-                // Arguments.of(AggregateAlgorithm.SORT, IgniteDistributions.random()),
+                Arguments.of(AggregateAlgorithm.SORT, IgniteDistributions.broadcast()),
+                Arguments.of(AggregateAlgorithm.SORT, IgniteDistributions.random()),
                 Arguments.of(AggregateAlgorithm.HASH, IgniteDistributions.broadcast()),
                 Arguments.of(AggregateAlgorithm.HASH, IgniteDistributions.random())
         );
     }
 
     enum AggregateAlgorithm {
-        // TODO: uncomment after IGNITE-17748
-        // SORT(
-        //         IgniteSingleSortAggregate.class,
-        //         IgniteMapSortAggregate.class,
-        //         IgniteReduceSortAggregate.class,
-        //         "HashSingleAggregateConverterRule", "HashMapReduceAggregateConverterRule"
-        // ),
+        SORT(
+                IgniteSingleSortAggregate.class,
+                IgniteMapSortAggregate.class,
+                IgniteReduceSortAggregate.class,
+                "HashSingleAggregateConverterRule", "HashMapReduceAggregateConverterRule"
+        ),
 
         HASH(
                 IgniteSingleHashAggregate.class,

@@ -22,17 +22,19 @@ import static org.mockito.Mockito.mock;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.Collection;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Function;
 import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
@@ -60,7 +62,7 @@ import org.mockito.Mockito;
 /**
  * Tests execution flow of TableScanNode.
  */
-public class TableScanExecutionTest extends AbstractExecutionTest {
+public class TableScanNodeExecutionTest extends AbstractExecutionTest {
     private static int dataAmount;
 
     // Ensures that all data from TableScanNode is being propagated correctly.
@@ -127,7 +129,7 @@ public class TableScanExecutionTest extends AbstractExecutionTest {
 
         @Override
         public <RowT> RowT toRow(ExecutionContext<RowT> ectx, BinaryRow row, RowFactory<RowT> factory,
-                @Nullable ImmutableBitSet requiredColumns) {
+                @Nullable BitSet requiredColumns) {
             return (RowT) res;
         }
     }
@@ -164,7 +166,13 @@ public class TableScanExecutionTest extends AbstractExecutionTest {
                 @NotNull InternalTransaction tx,
                 int partId,
                 long scanId,
-                int batchSize
+                int batchSize,
+                @Nullable UUID indexId,
+                @Nullable BinaryTuple exactKey,
+                @Nullable BinaryTuplePrefix lowerBound,
+                @Nullable BinaryTuplePrefix upperBound,
+                int flags,
+                @Nullable BitSet columnsToInclude
         ) {
             int fillAmount = Math.min(dataAmount - processedPerPart[partId], Commons.IN_BUFFER_SIZE);
 

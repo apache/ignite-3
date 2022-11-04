@@ -28,7 +28,7 @@
 
 namespace ignite::protocol {
 
-template <typename T>
+template<typename T>
 T unpack_int(const msgpack_object &object) {
     static_assert(
         std::numeric_limits<T>::is_integer && std::numeric_limits<T>::is_signed, "Type T is not a signed integer type");
@@ -44,7 +44,7 @@ T unpack_int(const msgpack_object &object) {
     return T(i64_val);
 }
 
-template <>
+template<>
 std::int64_t unpack_object(const msgpack_object &object) {
     if (object.type != MSGPACK_OBJECT_NEGATIVE_INTEGER && object.type != MSGPACK_OBJECT_POSITIVE_INTEGER)
         throw ignite_error("The value in stream is not an integer number : " + std::to_string(object.type));
@@ -52,17 +52,17 @@ std::int64_t unpack_object(const msgpack_object &object) {
     return object.via.i64;
 }
 
-template <>
+template<>
 std::int32_t unpack_object(const msgpack_object &object) {
     return unpack_int<std::int32_t>(object);
 }
 
-template <>
+template<>
 std::int16_t unpack_object(const msgpack_object &object) {
     return unpack_int<std::int16_t>(object);
 }
 
-template <>
+template<>
 std::string unpack_object(const msgpack_object &object) {
     if (object.type != MSGPACK_OBJECT_STR)
         throw ignite_error("The value in stream is not a string : " + std::to_string(object.type));
@@ -70,7 +70,7 @@ std::string unpack_object(const msgpack_object &object) {
     return {object.via.str.ptr, object.via.str.size};
 }
 
-template <>
+template<>
 uuid unpack_object(const msgpack_object &object) {
     if (object.type != MSGPACK_OBJECT_EXT && object.via.ext.type != std::int8_t(extension_type::UUID))
         throw ignite_error("The value in stream is not a UUID : " + std::to_string(object.type));
@@ -86,7 +86,7 @@ uuid unpack_object(const msgpack_object &object) {
     return {msb, lsb};
 }
 
-template <>
+template<>
 bool unpack_object(const msgpack_object &object) {
     if (object.type != MSGPACK_OBJECT_BOOLEAN)
         throw ignite_error("The value in stream is not a bool : " + std::to_string(object.type));
@@ -110,7 +110,7 @@ bytes_view unpack_binary(const msgpack_object &object) {
     if (object.type != MSGPACK_OBJECT_BIN)
         throw ignite_error("The value in stream is not a Binary data : " + std::to_string(object.type));
 
-    return {reinterpret_cast<const std::byte*>(object.via.bin.ptr), object.via.bin.size};
+    return {reinterpret_cast<const std::byte *>(object.via.bin.ptr), object.via.bin.size};
 }
 
 uuid make_random_uuid() {
