@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.commands.topology;
+package org.apache.ignite.internal.cli.commands.cluster.topology;
 
 import org.apache.ignite.internal.cli.commands.BaseCommand;
 import picocli.CommandLine.Command;
@@ -24,6 +24,9 @@ import picocli.CommandLine.Command;
  * Command that prints ignite cluster topology.
  */
 @Command(name = "topology", description = "Prints topology information",
-        subcommands = {PhysicalTopologyCommand.class, LogicalTopologyCommand.class })
+        subcommands = {
+                PhysicalTopologyCommand.class,
+                LogicalTopologyCommand.class
+        })
 public class TopologyCommand extends BaseCommand {
 }

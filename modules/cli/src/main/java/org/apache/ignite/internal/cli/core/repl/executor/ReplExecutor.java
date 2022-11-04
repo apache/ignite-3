@@ -89,7 +89,6 @@ public class ReplExecutor {
             IgnitePicocliCommands picocliCommands = createPicocliCommands(repl);
             SystemRegistryImpl registry = new SystemRegistryImpl(parser, terminal, workDirProvider, null);
             registry.setCommandRegistries(picocliCommands);
-            registry.register("help", picocliCommands);
 
             LineReader reader = createReader(repl.getCompleter() != null
                     ? new AggregateCompleter(registry.completer(), repl.getCompleter())
@@ -98,7 +97,7 @@ public class ReplExecutor {
                 reader.variable(LineReader.HISTORY_FILE, StateFolderProvider.getStateFile(repl.getHistoryFileName()));
             }
 
-            RegistryCommandExecutor executor = new RegistryCommandExecutor(registry, parser);
+            RegistryCommandExecutor executor = new RegistryCommandExecutor(registry, parser, picocliCommands::usageMessage);
             TailTipWidgets widgets = repl.isTailTipWidgetsEnabled() ? createWidgets(registry, reader) : null;
 
             QuestionAskerFactory.setReadWriter(new JlineQuestionWriterReader(reader, widgets));

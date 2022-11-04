@@ -24,7 +24,10 @@ import picocli.CommandLine.Command;
  * Node config command.
  */
 @Command(name = "config",
-        subcommands = {NodeConfigShowCommand.class, NodeConfigUpdateCommand.class},
+        subcommands = {
+                NodeConfigShowCommand.class,
+                NodeConfigUpdateCommand.class
+        },
         description = "Node config operations")
 public class NodeConfigCommand extends BaseCommand {
 }
