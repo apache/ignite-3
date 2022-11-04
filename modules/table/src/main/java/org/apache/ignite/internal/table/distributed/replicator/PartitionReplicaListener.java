@@ -1188,7 +1188,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                         RowId lockedRowId = rowIdLockFuts[futNum++].join();
 
                         if (lockedRowId != null) {
-                            rowIdsToDelete.put(lockedRowId.uuid(), new ByteString(row.byteBuffer()));
+                            rowIdsToDelete.put(lockedRowId.uuid(), null);
                         } else {
                             result.add(row);
                         }
