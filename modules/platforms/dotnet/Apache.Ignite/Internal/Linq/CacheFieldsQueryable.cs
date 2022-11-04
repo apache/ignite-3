@@ -15,25 +15,23 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Internal.Linq
-{
-    using System.Linq;
-    using System.Linq.Expressions;
+#pragma warning disable SA1615, SA1611, SA1405, SA1202, SA1600 // TODO: Fix warnings.
+namespace Apache.Ignite.Internal.Linq;
 
+using System.Linq;
+using System.Linq.Expressions;
+
+internal class CacheFieldsQueryable<T> : CacheQueryableBase<T>
+{
     /// <summary>
-    /// Fields <see cref="IQueryable{T}"/> implementation for <see cref="ICache{TK,TV}"/>.
+    /// Initializes a new instance of the <see cref="CacheFieldsQueryable{T}"/> class.
     /// </summary>
-    internal class CacheFieldsQueryable<T> : CacheQueryableBase<T>
+    /// <param name="provider">The provider used to execute the query represented by this queryable.
+    /// and to construct new queries.</param>
+    /// <param name="expression">The expression representing the query.</param>
+    public CacheFieldsQueryable(IQueryProvider provider, Expression expression)
+        : base(provider, expression)
     {
-        /// <summary>
-        /// Initializes a new instance of the <see cref="CacheQueryable{TKey, TValue}"/> class.
-        /// </summary>
-        /// <param name="provider">The provider used to execute the query represented by this queryable 
-        /// and to construct new queries.</param>
-        /// <param name="expression">The expression representing the query.</param>
-        public CacheFieldsQueryable(IQueryProvider provider, Expression expression) : base(provider, expression)
-        {
-            // No-op.
-        }
+        // No-op.
     }
 }

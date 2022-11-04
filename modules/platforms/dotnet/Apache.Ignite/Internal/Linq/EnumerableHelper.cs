@@ -15,45 +15,45 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Internal.Linq
+#pragma warning disable SA1615, SA1611, SA1405, SA1202, SA1600 // TODO: Fix warnings.
+namespace Apache.Ignite.Internal.Linq;
+
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Linq;
+
+/// <summary>
+/// Contains static methods to work with IEnumerable
+/// </summary>
+internal static class EnumerableHelper
 {
-    using System;
-    using System.Collections;
-    using System.Collections.Generic;
-    using System.Diagnostics;
-    using System.Linq;
-
     /// <summary>
-    /// Contains static methods to work with IEnumerable
+    /// Gets item type of enumerable
     /// </summary>
-    internal static class EnumerableHelper
+    public static Type GetIEnumerableItemType(Type type)
     {
-        /// <summary>
-        /// Gets item type of enumerable
-        /// </summary>
-        public static Type GetIEnumerableItemType(Type type)
+        Debug.Assert(type != null);
+
+        if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(IEnumerable<>))
         {
-            Debug.Assert(type != null);
-
-            if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(IEnumerable<>))
-            {
-                return type.GetGenericArguments()[0];
-            }
-
-            var implementedIEnumerableType = type.GetInterfaces()
-                .FirstOrDefault(t => t.IsGenericType && t.GetGenericTypeDefinition() == typeof(IEnumerable<>));
-
-            if (implementedIEnumerableType != null)
-            {
-                return implementedIEnumerableType.GetGenericArguments()[0];
-            }
-
-            if (type == typeof(IEnumerable))
-            {
-                return typeof(object);
-            }
-
-            throw new NotSupportedException("Type is not IEnumerable: " + type.FullName);
+            return type.GetGenericArguments()[0];
         }
+
+        var implementedIEnumerableType = type.GetInterfaces()
+            .FirstOrDefault(t => t.IsGenericType && t.GetGenericTypeDefinition() == typeof(IEnumerable<>));
+
+        if (implementedIEnumerableType != null)
+        {
+            return implementedIEnumerableType.GetGenericArguments()[0];
+        }
+
+        if (type == typeof(IEnumerable))
+        {
+            return typeof(object);
+        }
+
+        throw new NotSupportedException("Type is not IEnumerable: " + type.FullName);
     }
 }

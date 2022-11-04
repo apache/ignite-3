@@ -15,86 +15,86 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Internal.Linq
+#pragma warning disable SA1615, SA1611, SA1405, SA1202, SA1600 // TODO: Fix warnings.
+namespace Apache.Ignite.Internal.Linq;
+
+using System.Threading;
+using Remotion.Linq.Parsing.ExpressionVisitors.Transformation;
+using Remotion.Linq.Parsing.ExpressionVisitors.TreeEvaluation;
+using Remotion.Linq.Parsing.Structure;
+using Remotion.Linq.Parsing.Structure.ExpressionTreeProcessors;
+using Remotion.Linq.Parsing.Structure.NodeTypeProviders;
+
+/// <summary>
+/// Cache query parser.
+/// </summary>
+internal static class CacheQueryParser
 {
-    using System.Threading;
-    using Remotion.Linq.Parsing.ExpressionVisitors.Transformation;
-    using Remotion.Linq.Parsing.ExpressionVisitors.TreeEvaluation;
-    using Remotion.Linq.Parsing.Structure;
-    using Remotion.Linq.Parsing.Structure.ExpressionTreeProcessors;
-    using Remotion.Linq.Parsing.Structure.NodeTypeProviders;
+    /** */
+    private static readonly ThreadLocal<QueryParser> ThreadLocalInstance =
+        new ThreadLocal<QueryParser>(CreateParser);
 
     /// <summary>
-    /// Cache query parser.
+    /// Gets the default instance for current thread.
     /// </summary>
-    internal static class CacheQueryParser
+    public static QueryParser Instance
     {
-        /** */
-        private static readonly ThreadLocal<QueryParser> ThreadLocalInstance =
-            new ThreadLocal<QueryParser>(CreateParser);
+        get { return ThreadLocalInstance.Value; }
+    }
 
-        /// <summary>
-        /// Gets the default instance for current thread.
-        /// </summary>
-        public static QueryParser Instance
+    /// <summary>
+    /// Creates the parser.
+    /// </summary>
+    private static QueryParser CreateParser()
+    {
+        var transformerRegistry = ExpressionTransformerRegistry.CreateDefault();
+
+        var proc = CreateCompoundProcessor(transformerRegistry);
+
+        var parser = new ExpressionTreeParser(CreateNodeTypeProvider(), proc);
+
+        return new QueryParser(parser);
+    }
+
+    /// <summary>
+    /// Creates the node type provider.
+    /// </summary>
+    private static INodeTypeProvider CreateNodeTypeProvider()
+    {
+        var methodInfoRegistry = MethodInfoBasedNodeTypeRegistry.CreateFromRelinqAssembly();
+
+        methodInfoRegistry.Register(RemoveAllExpressionNode.GetSupportedMethods(),
+            typeof(RemoveAllExpressionNode));
+
+        methodInfoRegistry.Register(UpdateAllExpressionNode.GetSupportedMethods(),
+            typeof(UpdateAllExpressionNode));
+
+        return new CompoundNodeTypeProvider(new INodeTypeProvider[]
         {
-            get { return ThreadLocalInstance.Value; }
-        }
+            methodInfoRegistry,
+            MethodNameBasedNodeTypeRegistry.CreateFromRelinqAssembly()
+        });
+    }
 
-        /// <summary>
-        /// Creates the parser.
-        /// </summary>
-        private static QueryParser CreateParser()
-        {
-            var transformerRegistry = ExpressionTransformerRegistry.CreateDefault();
-
-            var proc = CreateCompoundProcessor(transformerRegistry);
-
-            var parser = new ExpressionTreeParser(CreateNodeTypeProvider(), proc);
-
-            return new QueryParser(parser);
-        }
-
-        /// <summary>
-        /// Creates the node type provider.
-        /// </summary>
-        private static INodeTypeProvider CreateNodeTypeProvider()
-        {
-            var methodInfoRegistry = MethodInfoBasedNodeTypeRegistry.CreateFromRelinqAssembly();
-
-            methodInfoRegistry.Register(RemoveAllExpressionNode.GetSupportedMethods(), 
-                typeof(RemoveAllExpressionNode));
-
-            methodInfoRegistry.Register(UpdateAllExpressionNode.GetSupportedMethods(),
-                typeof(UpdateAllExpressionNode));
-
-            return new CompoundNodeTypeProvider(new INodeTypeProvider[]
+    /// <summary>
+    /// Creates CompoundExpressionTreeProcessor.
+    /// </summary>
+    private static CompoundExpressionTreeProcessor CreateCompoundProcessor(
+        IExpressionTranformationProvider tranformationProvider)
+    {
+        return new CompoundExpressionTreeProcessor(
+            new IExpressionTreeProcessor[]
             {
-                methodInfoRegistry,
-                MethodNameBasedNodeTypeRegistry.CreateFromRelinqAssembly()
+                new PartialEvaluatingExpressionTreeProcessor(new NullEvaluatableExpressionFilter()),
+                new TransformingExpressionTreeProcessor(tranformationProvider)
             });
-        }
+    }
 
-        /// <summary>
-        /// Creates CompoundExpressionTreeProcessor.
-        /// </summary>
-        private static CompoundExpressionTreeProcessor CreateCompoundProcessor(
-            IExpressionTranformationProvider tranformationProvider)
-        {
-            return new CompoundExpressionTreeProcessor(
-                new IExpressionTreeProcessor[]
-                {
-                    new PartialEvaluatingExpressionTreeProcessor(new NullEvaluatableExpressionFilter()),
-                    new TransformingExpressionTreeProcessor(tranformationProvider)
-                });
-        }
-
-        /// <summary>
-        /// Empty implementation of IEvaluatableExpressionFilter.
-        /// </summary>
-        private sealed class NullEvaluatableExpressionFilter : EvaluatableExpressionFilterBase
-        {
-            // No-op.
-        }
+    /// <summary>
+    /// Empty implementation of IEvaluatableExpressionFilter.
+    /// </summary>
+    private sealed class NullEvaluatableExpressionFilter : EvaluatableExpressionFilterBase
+    {
+        // No-op.
     }
 }

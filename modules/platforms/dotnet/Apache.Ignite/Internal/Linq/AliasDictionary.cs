@@ -16,149 +16,148 @@
  */
 
 #pragma warning disable SA1615, SA1611, SA1405, SA1202 // TODO: Fix warnings.
-namespace Apache.Ignite.Internal.Linq
+namespace Apache.Ignite.Internal.Linq;
+
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
+using System.Linq;
+using System.Linq.Expressions;
+using System.Text;
+using Remotion.Linq.Clauses;
+using Remotion.Linq.Clauses.Expressions;
+
+/// <summary>
+/// Alias dictionary.
+/// </summary>
+[SuppressMessage("Naming", "CA1711:Identifiers should not have incorrect suffix", Justification = "Reviewed.")]
+internal sealed class AliasDictionary
 {
-    using System.Collections.Generic;
-    using System.Diagnostics;
-    using System.Diagnostics.CodeAnalysis;
-    using System.Globalization;
-    using System.Linq;
-    using System.Linq.Expressions;
-    using System.Text;
-    using Remotion.Linq.Clauses;
-    using Remotion.Linq.Clauses.Expressions;
+    /** */
+    private readonly Dictionary<Expression, string> _fieldAliases = new Dictionary<Expression, string>();
+
+    /** */
+    private readonly Stack<Dictionary<IQuerySource, string>> _stack
+        = new Stack<Dictionary<IQuerySource, string>>();
+
+    /** */
+    private int _tableAliasIndex;
+
+    /** */
+    private Dictionary<IQuerySource, string> _tableAliases = new Dictionary<IQuerySource, string>();
+
+    /** */
+    private int _fieldAliasIndex;
 
     /// <summary>
-    /// Alias dictionary.
+    /// Pushes current aliases to stack.
     /// </summary>
-    [SuppressMessage("Naming", "CA1711:Identifiers should not have incorrect suffix", Justification = "Reviewed.")]
-    internal sealed class AliasDictionary
+    /// <param name="copyAliases">Flag indicating that current aliases should be copied.</param>
+    public void Push(bool copyAliases)
     {
-        /** */
-        private readonly Dictionary<Expression, string> _fieldAliases = new Dictionary<Expression, string>();
+        _stack.Push(_tableAliases);
 
-        /** */
-        private readonly Stack<Dictionary<IQuerySource, string>> _stack
-            = new Stack<Dictionary<IQuerySource, string>>();
+        _tableAliases = copyAliases
+            ? _tableAliases.ToDictionary(p => p.Key, p => p.Value)
+            : new Dictionary<IQuerySource, string>();
+    }
 
-        /** */
-        private int _tableAliasIndex;
+    /// <summary>
+    /// Pops current aliases from stack.
+    /// </summary>
+    public void Pop()
+    {
+        _tableAliases = _stack.Pop();
+    }
 
-        /** */
-        private Dictionary<IQuerySource, string> _tableAliases = new Dictionary<IQuerySource, string>();
+    /// <summary>
+    /// Gets the table alias.
+    /// </summary>
+    /// <param name="expression">Expression.</param>
+    /// <returns>Table alias.</returns>
+    public string GetTableAlias(Expression expression)
+    {
+        Debug.Assert(expression != null, "expression != null");
 
-        /** */
-        private int _fieldAliasIndex;
+        return GetTableAlias(ExpressionWalker.GetQuerySource(expression));
+    }
 
-        /// <summary>
-        /// Pushes current aliases to stack.
-        /// </summary>
-        /// <param name="copyAliases">Flag indicating that current aliases should be copied.</param>
-        public void Push(bool copyAliases)
+    /// <summary>
+    /// Gets the table alias.
+    /// </summary>
+    public string GetTableAlias(IFromClause fromClause)
+    {
+        return GetTableAlias(ExpressionWalker.GetQuerySource(fromClause.FromExpression) ?? fromClause);
+    }
+
+    /// <summary>
+    /// Gets the table alias.
+    /// </summary>
+    public string GetTableAlias(JoinClause joinClause)
+    {
+        return GetTableAlias(ExpressionWalker.GetQuerySource(joinClause.InnerSequence) ?? joinClause);
+    }
+
+    /// <summary>
+    /// Gets the table alias.
+    /// </summary>
+    private string GetTableAlias(IQuerySource querySource)
+    {
+        Debug.Assert(querySource != null);
+
+        if (!_tableAliases.TryGetValue(querySource, out var alias))
         {
-            _stack.Push(_tableAliases);
+            alias = "_T" + _tableAliasIndex++;
 
-            _tableAliases = copyAliases
-                ? _tableAliases.ToDictionary(p => p.Key, p => p.Value)
-                : new Dictionary<IQuerySource, string>();
+            _tableAliases[querySource] = alias;
         }
 
-        /// <summary>
-        /// Pops current aliases from stack.
-        /// </summary>
-        public void Pop()
+        return alias;
+    }
+
+    /// <summary>
+    /// Gets the fields alias.
+    /// </summary>
+    public string GetFieldAlias(Expression expression)
+    {
+        Debug.Assert(expression != null);
+
+        var referenceExpression = ExpressionWalker.GetQuerySourceReference(expression);
+
+        return GetFieldAlias(referenceExpression);
+    }
+
+    /// <summary>
+    /// Gets the fields alias.
+    /// </summary>
+    private string GetFieldAlias(QuerySourceReferenceExpression querySource)
+    {
+        Debug.Assert(querySource != null);
+
+        if (!_fieldAliases.TryGetValue(querySource, out var alias))
         {
-            _tableAliases = _stack.Pop();
+            alias = "F" + _fieldAliasIndex++;
+
+            _fieldAliases[querySource] = alias;
         }
 
-        /// <summary>
-        /// Gets the table alias.
-        /// </summary>
-        /// <param name="expression">Expression.</param>
-        /// <returns>Table alias.</returns>
-        public string GetTableAlias(Expression expression)
-        {
-            Debug.Assert(expression != null, "expression != null");
+        return alias;
+    }
 
-            return GetTableAlias(ExpressionWalker.GetQuerySource(expression));
-        }
+    /// <summary>
+    /// Appends as clause.
+    /// </summary>
+    public StringBuilder AppendAsClause(StringBuilder builder, IFromClause clause)
+    {
+        Debug.Assert(builder != null);
+        Debug.Assert(clause != null);
 
-        /// <summary>
-        /// Gets the table alias.
-        /// </summary>
-        public string GetTableAlias(IFromClause fromClause)
-        {
-            return GetTableAlias(ExpressionWalker.GetQuerySource(fromClause.FromExpression) ?? fromClause);
-        }
+        var queryable = ExpressionWalker.GetCacheQueryable(clause);
+        var tableName = ExpressionWalker.GetTableNameWithSchema(queryable);
 
-        /// <summary>
-        /// Gets the table alias.
-        /// </summary>
-        public string GetTableAlias(JoinClause joinClause)
-        {
-            return GetTableAlias(ExpressionWalker.GetQuerySource(joinClause.InnerSequence) ?? joinClause);
-        }
+        builder.AppendFormat(CultureInfo.InvariantCulture, "{0} as {1}", tableName, GetTableAlias(clause));
 
-        /// <summary>
-        /// Gets the table alias.
-        /// </summary>
-        private string GetTableAlias(IQuerySource querySource)
-        {
-            Debug.Assert(querySource != null);
-
-            if (!_tableAliases.TryGetValue(querySource, out var alias))
-            {
-                alias = "_T" + _tableAliasIndex++;
-
-                _tableAliases[querySource] = alias;
-            }
-
-            return alias;
-        }
-
-        /// <summary>
-        /// Gets the fields alias.
-        /// </summary>
-        public string GetFieldAlias(Expression expression)
-        {
-            Debug.Assert(expression != null);
-
-            var referenceExpression = ExpressionWalker.GetQuerySourceReference(expression);
-
-            return GetFieldAlias(referenceExpression);
-        }
-
-        /// <summary>
-        /// Gets the fields alias.
-        /// </summary>
-        private string GetFieldAlias(QuerySourceReferenceExpression querySource)
-        {
-            Debug.Assert(querySource != null);
-
-            if (!_fieldAliases.TryGetValue(querySource, out var alias))
-            {
-                alias = "F" + _fieldAliasIndex++;
-
-                _fieldAliases[querySource] = alias;
-            }
-
-            return alias;
-        }
-
-        /// <summary>
-        /// Appends as clause.
-        /// </summary>
-        public StringBuilder AppendAsClause(StringBuilder builder, IFromClause clause)
-        {
-            Debug.Assert(builder != null);
-            Debug.Assert(clause != null);
-
-            var queryable = ExpressionWalker.GetCacheQueryable(clause);
-            var tableName = ExpressionWalker.GetTableNameWithSchema(queryable);
-
-            builder.AppendFormat(CultureInfo.InvariantCulture, "{0} as {1}", tableName, GetTableAlias(clause));
-
-            return builder;
-        }
+        return builder;
     }
 }

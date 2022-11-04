@@ -15,58 +15,57 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Internal.Linq
+namespace Apache.Ignite.Internal.Linq;
+
+using System;
+using System.Collections;
+using System.Linq;
+using System.Linq.Expressions;
+using System.Reflection;
+using Remotion.Linq.Parsing;
+
+/// <summary>
+/// Transforms JoinClause with parameterised inner sequence to .Join(innerSequence ?? new T[0] ...
+/// </summary>
+internal class JoinInnerSequenceParameterNotNullExpressionVisitor : RelinqExpressionVisitor
 {
-    using System;
-    using System.Collections;
-    using System.Linq;
-    using System.Linq.Expressions;
-    using System.Reflection;
-    using Remotion.Linq.Parsing;
+    /** */
+    private static readonly MethodInfo[] JoinMethods = typeof(Queryable).GetMethods()
+        .Where(info => info.Name == "Join")
+        .ToArray();
 
-    /// <summary>
-    /// Transforms JoinClause with parameterised inner sequence to .Join(innerSequence ?? new T[0] ...
-    /// </summary>
-    internal class JoinInnerSequenceParameterNotNullExpressionVisitor : RelinqExpressionVisitor
+    /** */
+    private static readonly Type EnumerableType = typeof(IEnumerable);
+
+    /** */
+    private bool _inJoin;
+
+    /** <inheritdoc /> */
+    protected override Expression VisitMethodCall(MethodCallExpression node)
     {
-        /** */
-        private static readonly MethodInfo[] JoinMethods = typeof(Queryable).GetMethods()
-            .Where(info => info.Name == "Join")
-            .ToArray();
-
-        /** */
-        private static readonly Type EnumerableType = typeof(IEnumerable);
-
-        /** */
-        private bool _inJoin;
-
-        /** <inheritdoc /> */
-        protected override Expression VisitMethodCall(MethodCallExpression node)
+        if (node.Method.IsGenericMethod)
         {
-            if (node.Method.IsGenericMethod)
-            {
-                var genericMethodDefinition = node.Method.GetGenericMethodDefinition();
+            var genericMethodDefinition = node.Method.GetGenericMethodDefinition();
 
-                _inJoin = JoinMethods.Any(mi => mi == genericMethodDefinition);
-            }
-
-            var result = base.VisitMethodCall(node);
-
-            _inJoin = false;
-
-            return result;
+            _inJoin = JoinMethods.Any(mi => mi == genericMethodDefinition);
         }
 
-        /** <inheritdoc /> */
-        protected override Expression VisitParameter(ParameterExpression node)
-        {
-            if (_inJoin && EnumerableType.IsAssignableFrom(node.Type))
-            {
-                var itemType = EnumerableHelper.GetIEnumerableItemType(node.Type);
-                return Expression.Coalesce(node, Expression.NewArrayBounds(itemType, Expression.Constant(0)));
-            }
+        var result = base.VisitMethodCall(node);
 
-            return node;
+        _inJoin = false;
+
+        return result;
+    }
+
+    /** <inheritdoc /> */
+    protected override Expression VisitParameter(ParameterExpression node)
+    {
+        if (_inJoin && EnumerableType.IsAssignableFrom(node.Type))
+        {
+            var itemType = EnumerableHelper.GetIEnumerableItemType(node.Type);
+            return Expression.Coalesce(node, Expression.NewArrayBounds(itemType, Expression.Constant(0)));
         }
+
+        return node;
     }
 }

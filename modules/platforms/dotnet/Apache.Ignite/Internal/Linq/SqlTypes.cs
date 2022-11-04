@@ -15,60 +15,58 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Internal.Linq
+namespace Apache.Ignite.Internal.Linq;
+
+using System;
+using System.Collections.Generic;
+
+/// <summary>
+/// SQL type mapping.
+/// </summary>
+internal static class SqlTypes
 {
-    using System;
-    using System.Collections.Generic;
+    /** */
+    private static readonly Dictionary<Type, string> NetToSql = new Dictionary<Type, string>
+    {
+        {typeof(bool), "boolean"},
+        {typeof(byte), "smallint"},
+        {typeof(sbyte), "tinyint"},
+        {typeof(short), "smallint"},
+        {typeof(ushort), "int"},
+        {typeof(int), "int"},
+        {typeof(uint), "bigint"},
+        {typeof(long), "bigint"},
+        {typeof(ulong), "bigint"},
+        {typeof(float), "real"},
+        {typeof(double), "double"},
+        {typeof(string), "nvarchar"},
+        {typeof(decimal), "decimal"},
+        {typeof(Guid), "uuid"},
+        {typeof(DateTime), "timestamp"},
+    };
+
+    /** */
+    private static readonly HashSet<Type> NotSupportedTypes = new(new[] { typeof(char) });
 
     /// <summary>
-    /// SQL type mapping.
+    /// Gets the corresponding Java type name.
     /// </summary>
-    internal static class SqlTypes
+    /// <param name="type">CLR type.</param>
+    /// <returns>SQL type name.</returns>
+    public static string? GetSqlTypeName(Type? type)
     {
-        /** */
-        private static readonly Dictionary<Type, string> NetToSql = new Dictionary<Type, string>
+        if (type == null)
         {
-            {typeof (bool), "boolean"},
-            {typeof (byte), "smallint"},
-            {typeof (sbyte), "tinyint"},
-            {typeof (short), "smallint"},
-            {typeof (ushort), "int"},
-            {typeof (int), "int"},
-            {typeof (uint), "bigint"},
-            {typeof (long), "bigint"},
-            {typeof (ulong), "bigint"},
-            {typeof (float), "real"},
-            {typeof (double), "double"},
-            {typeof (string), "nvarchar"},
-            {typeof (decimal), "decimal"},
-            {typeof (Guid), "uuid"},
-            {typeof (DateTime), "timestamp"},
-        };
-
-        /** */
-        private static readonly HashSet<Type> NotSupportedTypes = new HashSet<Type>(new []
-        {
-            typeof(char)
-        }); 
-
-        /// <summary>
-        /// Gets the corresponding Java type name.
-        /// </summary>
-        public static string GetSqlTypeName(Type type)
-        {
-            if (type == null)
-                return null;
-
-            type = Nullable.GetUnderlyingType(type) ?? type;
-
-            if (NotSupportedTypes.Contains(type))
-            {
-                throw new NotSupportedException("Type is not supported for SQL mapping: " + type);
-            }
-
-            string res;
-
-            return NetToSql.TryGetValue(type, out res) ? res : null;
+            return null;
         }
+
+        type = Nullable.GetUnderlyingType(type) ?? type;
+
+        if (NotSupportedTypes.Contains(type))
+        {
+            throw new NotSupportedException("Type is not supported for SQL mapping: " + type);
+        }
+
+        return NetToSql.TryGetValue(type, out var res) ? res : null;
     }
 }
