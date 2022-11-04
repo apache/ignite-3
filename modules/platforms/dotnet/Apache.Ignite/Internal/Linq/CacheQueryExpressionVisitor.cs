@@ -356,70 +356,8 @@ internal class CacheQueryExpressionVisitor : ThrowingExpressionVisitor
     /// <summary>
     /// Gets the name of the field from a member expression, with quotes when necessary.
     /// </summary>
-    private static string GetFieldName(MemberExpression expression, ICacheQueryableInternal queryable, bool ignoreAlias = false)
-    {
-        var fieldName = GetMemberFieldName(expression.Member);
-
-        // Look for a field alias
-        var cacheCfg = queryable.CacheConfiguration;
-
-        if (cacheCfg.QueryEntities == null || cacheCfg.QueryEntities.All(x => x.Aliases == null))
-        {
-            // There are no aliases defined - early exit.
-            return fieldName;
-        }
-
-        // Find query entity by key-val types
-        var entity = GetQueryEntity(queryable, cacheCfg);
-
-        if (entity == null)
-        {
-            return fieldName;
-        }
-
-        // There are some aliases for the current query type
-        // Calculate full field name and look for alias
-        var fullFieldName = fieldName;
-        var member = expression;
-
-        while ((member = member.Expression as MemberExpression) != null &&
-               member.Member.DeclaringType != queryable.ElementType)
-        {
-            fullFieldName = GetFieldName(member, queryable, true) + "." + fullFieldName;
-        }
-
-        var alias = ignoreAlias ? null : ((IQueryEntityInternal)entity).GetAlias(fullFieldName);
-
-        return alias ?? fieldName;
-    }
-
-    /// <summary>
-    /// Finds matching query entity in the cache configuration.
-    /// </summary>
-    private static QueryEntity GetQueryEntity(ICacheQueryableInternal queryable, CacheConfiguration cacheCfg)
-    {
-        if (cacheCfg.QueryEntities.Count == 1)
-        {
-            return cacheCfg.QueryEntities.Single();
-        }
-
-        var keyValTypes = queryable.ElementType.GetGenericArguments();
-
-        Debug.Assert(keyValTypes.Length == 2);
-
-        // PERF: No LINQ.
-        foreach (var e in cacheCfg.QueryEntities)
-        {
-            if (e.Aliases != null
-                && (e.KeyType == keyValTypes[0] || e.KeyTypeName == keyValTypes[0].FullName)
-                && (e.ValueType == keyValTypes[1] || e.ValueTypeName == keyValTypes[1].FullName))
-            {
-                return e;
-            }
-        }
-
-        return null;
-    }
+    private static string GetFieldName(MemberExpression expression, ICacheQueryableInternal queryable, bool ignoreAlias = false) =>
+        GetMemberFieldName(expression.Member);
 
     /// <summary>
     /// Gets the name of the member field.
@@ -469,7 +407,6 @@ internal class CacheQueryExpressionVisitor : ThrowingExpressionVisitor
     }
 
     /** <inheritdoc /> */
-    [SuppressMessage("Microsoft.Design", "CA1062:Validate arguments of public methods")]
     protected override Expression VisitConstant(ConstantExpression expression)
     {
         if (MethodVisitor.VisitConstantCall(expression, this))

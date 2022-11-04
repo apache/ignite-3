@@ -342,7 +342,7 @@ internal static class ExpressionWalker
     /// <summary>
     /// Gets the values from IEnumerable expression.
     /// </summary>
-    public static IEnumerable<object> EvaluateEnumerableValues(Expression fromExpression)
+    public static IEnumerable<object?> EvaluateEnumerableValues(Expression fromExpression)
     {
         IEnumerable? result;
 
