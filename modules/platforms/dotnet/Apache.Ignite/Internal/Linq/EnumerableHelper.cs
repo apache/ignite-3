@@ -25,12 +25,12 @@ using System.Diagnostics;
 using System.Linq;
 
 /// <summary>
-/// Contains static methods to work with IEnumerable
+/// Contains static methods to work with IEnumerable.
 /// </summary>
 internal static class EnumerableHelper
 {
     /// <summary>
-    /// Gets item type of enumerable
+    /// Gets item type of enumerable.
     /// </summary>
     public static Type GetIEnumerableItemType(Type type)
     {

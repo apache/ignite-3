@@ -31,16 +31,12 @@ using Remotion.Linq.Parsing.Structure.NodeTypeProviders;
 internal static class CacheQueryParser
 {
     /** */
-    private static readonly ThreadLocal<QueryParser> ThreadLocalInstance =
-        new ThreadLocal<QueryParser>(CreateParser);
+    private static readonly ThreadLocal<QueryParser> ThreadLocalInstance = new(CreateParser);
 
     /// <summary>
     /// Gets the default instance for current thread.
     /// </summary>
-    public static QueryParser Instance
-    {
-        get { return ThreadLocalInstance.Value; }
-    }
+    public static QueryParser Instance => ThreadLocalInstance.Value!;
 
     /// <summary>
     /// Creates the parser.
@@ -63,12 +59,12 @@ internal static class CacheQueryParser
     {
         var methodInfoRegistry = MethodInfoBasedNodeTypeRegistry.CreateFromRelinqAssembly();
 
-        methodInfoRegistry.Register(RemoveAllExpressionNode.GetSupportedMethods(),
-            typeof(RemoveAllExpressionNode));
-
-        methodInfoRegistry.Register(UpdateAllExpressionNode.GetSupportedMethods(),
-            typeof(UpdateAllExpressionNode));
-
+        // TODO: DML
+        // methodInfoRegistry.Register(RemoveAllExpressionNode.GetSupportedMethods(),
+        //     typeof(RemoveAllExpressionNode));
+        //
+        // methodInfoRegistry.Register(UpdateAllExpressionNode.GetSupportedMethods(),
+        //     typeof(UpdateAllExpressionNode));
         return new CompoundNodeTypeProvider(new INodeTypeProvider[]
         {
             methodInfoRegistry,
