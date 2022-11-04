@@ -89,8 +89,8 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
         hashIndexData = generateIndexData(2, Commons.IN_BUFFER_SIZE * 2, false);
         sortedScanResult = Arrays.stream(sortedIndexData).map(Object[]::clone).sorted(comp).toArray(Object[][]::new);
         hashScanResult = hashIndexData;
-    } 
-    
+    }
+
     @Test
     public void sortedIndexScanOverEmptyIndex() {
         validateSortedIndexScan(
