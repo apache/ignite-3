@@ -178,7 +178,8 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     /**
      * Start some of Ignite components that are able to serve as Ignite node for test purposes.
      *
-     * @param cfgString Configuration string.
+     * @param idx Node index.
+     * @param cfgString Configuration string or {@code null} to use the default configuration.
      * @return List of started components.
      */
     private List<IgniteComponent> startPartialNode(int idx, @Nullable @Language("HOCON") String cfgString) {
@@ -188,7 +189,8 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     /**
      * Start some of Ignite components that are able to serve as Ignite node for test purposes.
      *
-     * @param cfgString Configuration string.
+     * @param idx Node index.
+     * @param cfgString Configuration string or {@code null} to use the default configuration.
      * @param revisionCallback Callback on storage revision update.
      * @return List of started components.
      */
@@ -486,10 +488,10 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     }
 
     /**
-     * Start node with the given parameters.
+     * Starts a node with the given parameters.
      *
-     * @param idx Node index, is used to stop the node later, see {@link #stopNode(int)}.
-     * @param cfg Configuration string, can be auto-generated if {@code null}.
+     * @param idx Node index.
+     * @param cfg Configuration string or {@code null} to use the default configuration.
      * @return Created node instance.
      */
     private IgniteImpl startNode(int idx, @Nullable String cfg) {
@@ -511,15 +513,22 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     }
 
     /**
-     * Start node with the given parameters.
+     * Starts a node with the given parameters.
      *
-     * @param idx Node index, is used to stop the node later, see {@link #stopNode(int)}.
+     * @param idx Node index.
      * @return Created node instance.
      */
     private IgniteImpl startNode(int idx) {
         return startNode(idx, null);
     }
 
+    /**
+     * Starts a node with the given parameters. Does not run the Init command.
+     *
+     * @param idx Node index.
+     * @param cfg Configuration string or {@code null} to use the default configuration.
+     * @return Future that completes with a created node instance.
+     */
     private CompletableFuture<Ignite> startNodeAsync(int idx, @Nullable String cfg) {
         String nodeName = testNodeName(testInfo, idx);
 
@@ -536,6 +545,9 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
         return IgnitionManager.start(nodeName, cfgString, workDir.resolve(nodeName));
     }
 
+    /**
+     * Starts an {@code amount} number of nodes (with sequential indices starting from 0).
+     */
     private List<IgniteImpl> startNodes(int amount) {
         boolean initNeeded = clusterNodesNames.isEmpty();
 
