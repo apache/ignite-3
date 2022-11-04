@@ -26,6 +26,9 @@
 #include <string>
 #include <vector>
 
+#ifdef __APPLE__
+# include <csignal>
+#endif
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -33,9 +36,9 @@
 namespace ignite::detail {
 
 /**
- * Implementation of CmdProcess for Windows.
+ * Implementation of CmdProcess for UNIX and UNIX-like systems.
  */
-class LinuxProcess : public ignite::CmdProcess {
+class UnixProcess : public ignite::CmdProcess {
 public:
     /**
      * Constructor.
@@ -44,16 +47,16 @@ public:
      * @param args Arguments.
      * @param workDir Working directory.
      */
-    LinuxProcess(std::string command, std::vector<std::string> args, std::string workDir)
+    UnixProcess(std::string command, std::vector<std::string> args, std::string workDir)
         : m_running(false)
         , m_command(std::move(command))
         , m_args(std::move(args))
-        , m_workDir(std::move(workDir)) { }
+        , m_workDir(std::move(workDir)) {}
 
     /**
      * Destructor.
      */
-    ~LinuxProcess() override { kill(); }
+    ~UnixProcess() override { kill(); }
 
     /**
      * Start process.

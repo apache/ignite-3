@@ -22,7 +22,40 @@
 #include <gtest/gtest.h>
 
 #include <chrono>
+#include <csignal>
 #include <thread>
+
+namespace {
+/** Shutdown handler that cleans up resources. */
+std::function<void(int)> shutdown_handler;
+
+/**
+ * Receives OS signal and handles it.
+ *
+ * @param signum Signal value.
+ */
+void signal_handler(int signum) {
+    shutdown_handler(signum);
+
+    signal(signum, SIG_DFL);
+
+    raise(signum);
+}
+} // namespace
+
+/**
+ * Sets process abortion (SIGABRT, SIGINT, SIGSEGV signals) handler.
+ *
+ * @param handler Abortion handler.
+ */
+void set_process_abort_handler(std::function<void(int)> handler) {
+    shutdown_handler = std::move(handler);
+
+    // Install signal handlers to clean up resources on early exit.
+    signal(SIGABRT, signal_handler);
+    signal(SIGINT, signal_handler);
+    signal(SIGSEGV, signal_handler);
+}
 
 /**
  * Run prior to any other tests.
@@ -42,7 +75,15 @@ void before_all() {
 int main(int argc, char **argv) {
     int res = 0;
     before_all();
+
     ignite::IgniteRunner runner;
+
+    set_process_abort_handler([&](int signal) {
+        std::cout << "Caught signal " << signal << " during tests" << std::endl;
+
+        runner.stop();
+    });
+
     try {
         runner.start(false);
 

@@ -77,6 +77,9 @@ namespace Apache.Ignite.Internal
         /** Effective heartbeat interval. */
         private readonly TimeSpan _heartbeatInterval;
 
+        /** Socket timeout for handshakes and heartbeats. */
+        private readonly TimeSpan _socketTimeout;
+
         /** Logger. */
         private readonly IIgniteLogger? _logger;
 
@@ -109,6 +112,7 @@ namespace Apache.Ignite.Internal
             ConnectionContext = connectionContext;
             _assignmentChangeCallback = assignmentChangeCallback;
             _logger = configuration.Logger.GetLogger(GetType());
+            _socketTimeout = configuration.SocketTimeout;
 
             _heartbeatInterval = GetHeartbeatInterval(configuration.HeartbeatInterval, connectionContext.IdleTimeout, _logger);
 
@@ -164,8 +168,11 @@ namespace Apache.Ignite.Internal
 
                 var stream = new NetworkStream(socket, ownsSocket: true);
 
-                var context = await HandshakeAsync(stream, endPoint).ConfigureAwait(false);
-                logger?.Debug($"Handshake succeeded. Server protocol version: {context.Version}, idle timeout: {context.IdleTimeout}");
+                var context = await HandshakeAsync(stream, endPoint)
+                    .WaitAsync(configuration.SocketTimeout)
+                    .ConfigureAwait(false);
+
+                logger?.Debug($"Handshake succeeded: {context}.");
 
                 return new ClientSocket(stream, configuration, context, assignmentChangeCallback);
             }
@@ -298,6 +305,7 @@ namespace Apache.Ignite.Internal
             var idleTimeoutMs = reader.ReadInt64();
             var clusterNodeId = reader.ReadString();
             var clusterNodeName = reader.ReadString();
+            var clusterId = reader.ReadGuid();
 
             reader.Skip(); // Features.
             reader.Skip(); // Extensions.
@@ -305,7 +313,8 @@ namespace Apache.Ignite.Internal
             return new ConnectionContext(
                 serverVer,
                 TimeSpan.FromMilliseconds(idleTimeoutMs),
-                new ClusterNode(clusterNodeId, clusterNodeName, endPoint));
+                new ClusterNode(clusterNodeId, clusterNodeName, endPoint),
+                clusterId);
         }
 
         private static IgniteException? ReadError(ref MessagePackReader reader)
@@ -528,9 +537,9 @@ namespace Apache.Ignite.Internal
             }
             catch (Exception e)
             {
-                const string message = "Exception while reading from socket. Connection closed.";
+                var message = "Exception while reading from socket, connection closed: " + e.Message;
 
-                _logger?.Error(message, e);
+                _logger?.Error(e, message);
                 Dispose(new IgniteClientConnectionException(ErrorGroups.Client.Connection, message, e));
             }
         }
@@ -591,10 +600,12 @@ namespace Apache.Ignite.Internal
         {
             try
             {
-                await DoOutInOpAsync(ClientOp.Heartbeat).ConfigureAwait(false);
+                await DoOutInOpAsync(ClientOp.Heartbeat).WaitAsync(_socketTimeout).ConfigureAwait(false);
             }
             catch (Exception e)
             {
+                _logger?.Error(e, "Heartbeat failed: " + e.Message);
+
                 Dispose(e);
             }
         }

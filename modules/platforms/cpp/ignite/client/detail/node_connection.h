@@ -65,7 +65,8 @@ public:
      * @param pool Connection pool.
      * @param logger Logger.
      */
-    node_connection(uint64_t id, std::shared_ptr<network::async_client_pool> pool, std::shared_ptr<ignite_logger> logger);
+    node_connection(
+        uint64_t id, std::shared_ptr<network::async_client_pool> pool, std::shared_ptr<ignite_logger> logger);
 
     /**
      * Get connection ID.
@@ -90,7 +91,7 @@ public:
      * @param handler Response handler.
      * @return @c true on success and @c false otherwise.
      */
-    template <typename T>
+    template<typename T>
     bool perform_request(client_operation op, const std::function<void(protocol::writer &)> &wr,
         std::shared_ptr<response_handler_impl<T>> handler) {
         auto reqId = generate_request_id();
@@ -114,9 +115,7 @@ public:
 
         bool sent = m_pool->send(m_id, std::move(message));
         if (!sent) {
-            std::lock_guard<std::mutex> lock(m_request_handlers_mutex);
             get_and_remove_handler(reqId);
-
             return false;
         }
         return true;

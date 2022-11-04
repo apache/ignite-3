@@ -19,6 +19,7 @@ package org.apache.ignite.internal.table.distributed.raft;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
@@ -41,7 +42,7 @@ import org.jetbrains.annotations.TestOnly;
  *
  * @see MvPartitionStorage
  */
-public interface PartitionDataStorage extends AutoCloseable {
+public interface PartitionDataStorage extends ManuallyCloseable {
     /**
      * Executes {@link WriteClosure} atomically, meaning that partial result of an incomplete closure will never be written to the
      * physical device, thus guaranteeing data consistency after restart. Simply runs the closure in case of a volatile storage.
@@ -143,4 +144,10 @@ public interface PartitionDataStorage extends AutoCloseable {
      */
     @TestOnly
     MvPartitionStorage getStorage();
+
+    /**
+     * Closes the storage.
+     */
+    @Override
+    void close();
 }

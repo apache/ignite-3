@@ -28,7 +28,7 @@ import java.lang.annotation.Target;
  * This annotation marks the {@link PolymorphicConfig polymorphic configuration schema} field as a special (read only) leaf that will store
  * the current {@link PolymorphicConfigInstance#value polymorphic configuration type}.
  *
- * <p>NOTE: Field must be the first in the schema, and the type must be {@link String}.
+ * <p>NOTE: Field type must be {@link String}.
  */
 @Target(FIELD)
 @Retention(RUNTIME)

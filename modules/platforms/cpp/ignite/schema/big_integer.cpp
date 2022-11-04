@@ -37,7 +37,7 @@ namespace {
  * @param lower Lower bits part.
  * @return New 64-bit integer.
  */
-inline uint64_t makeU64(uint32_t higher, uint32_t lower) {
+inline uint64_t make_u64(uint32_t higher, uint32_t lower) {
     return (uint64_t{higher} << 32) | lower;
 }
 
@@ -93,17 +93,17 @@ void shift_right(const uint32_t *in, int32_t len, uint32_t *out, unsigned n) {
  * Part of the division algorithm. Computes q - (a * x).
  *
  * @param q Minuend.
- * @param a Multipliplier of the subtrahend.
+ * @param a Multiplier of the subtrahend.
  * @param alen Length of the a.
- * @param x Multipliplicand of the subtrahend.
+ * @param x Multiplicand of the subtrahend.
  * @return Carry.
  */
-uint32_t multiply_and_subtruct(uint32_t *q, const uint32_t *a, int32_t alen, uint32_t x) {
+uint32_t multiply_and_subtract(uint32_t *q, const uint32_t *a, int32_t alen, uint32_t x) {
     uint64_t carry = 0;
 
     for (int32_t i = 0; i < alen; ++i) {
         uint64_t product = a[i] * static_cast<uint64_t>(x);
-        int64_t difference = q[i] - carry - (product & 0xFFFFFFFF);
+        auto difference = int64_t(q[i] - carry - (product & 0xFFFFFFFF));
 
         q[i] = static_cast<uint32_t>(difference);
 
@@ -188,6 +188,9 @@ void big_integer::from_big_endian(const std::byte *data, std::size_t size) {
             case 1:
                 last |= std::to_integer<std::uint32_t>(data[size - 1]);
                 break;
+            default:
+                assert(false);
+                break;
         }
         mag.back() = last;
     }
@@ -227,26 +230,29 @@ void big_integer::from_negative_big_endian(const std::byte *data, std::size_t si
             case 1:
                 last |= std::to_integer<std::uint32_t>(~data[size - 1]);
                 break;
+            default:
+                assert(false);
+                break;
         }
         mag.back() = last;
     }
 
-    for (std::size_t i = 0; i < mag.size(); i++) {
-        mag[i]++;
-        if (mag[i] != 0) {
+    for (auto &val : mag) {
+        ++val;
+        if (val != 0) {
             break;
         }
     }
 }
 
-big_integer::big_integer(const int8_t *val, int32_t len, int32_t sign, bool bigEndian)
+big_integer::big_integer(const int8_t *val, int32_t len, int8_t sign, bool bigEndian)
     : sign(sign) {
-    assert(val != 0);
+    assert(val != nullptr);
     assert(len >= 0);
     assert(sign == 1 || sign == 0 || sign == -1);
 
     std::size_t size = len;
-    const std::byte *data = (const std::byte *)(val);
+    const auto *data = (const std::byte *) (val);
 
     if (bigEndian) {
         from_big_endian(data, size);
@@ -279,6 +285,9 @@ big_integer::big_integer(const int8_t *val, int32_t len, int32_t sign, bool bigE
                     [[fallthrough]];
                 case 1:
                     last |= std::to_integer<std::uint32_t>(data[0]);
+                    break;
+                default:
+                    assert(false);
                     break;
             }
             mag.back() = last;
@@ -315,7 +324,7 @@ void big_integer::assign_uint64(uint64_t val) {
         return;
     }
 
-    uint32_t highWord = static_cast<uint32_t>(val >> 32);
+    auto highWord = uint32_t(val >> 32);
 
     if (highWord == 0)
         mag.resize(1);
@@ -330,7 +339,7 @@ void big_integer::assign_uint64(uint64_t val) {
 void big_integer::assign_string(const char *val, std::size_t len) {
     std::stringstream converter;
 
-    converter.write(val, len);
+    converter.write(val, std::streamsize(len));
 
     converter >> *this;
 }
@@ -348,7 +357,7 @@ std::uint32_t big_integer::magnitude_bit_length() const noexcept {
 
     std::uint32_t res = bit_width(mag.back());
     if (mag.size() > 1)
-        res += (mag.size() - 1) * 32;
+        res += uint32_t(mag.size() - 1) * 32;
 
     return res;
 }
@@ -390,6 +399,9 @@ void big_integer::store_bytes(std::byte *data) const {
                 case 1:
                     data[size - 1] = std::byte(last);
                     break;
+                default:
+                    assert(false);
+                    break;
             }
         }
     } else {
@@ -418,6 +430,9 @@ void big_integer::store_bytes(std::byte *data) const {
                 case 1:
                     data[size - 1] = std::byte(last);
                     break;
+                default:
+                    assert(false);
+                    break;
             }
         }
     }
@@ -427,10 +442,10 @@ int32_t big_integer::get_precision() const noexcept {
     // See http://graphics.stanford.edu/~seander/bithacks.html
     // for the details on the algorithm.
 
-    if (mag.size() == 0)
+    if (mag.empty())
         return 1;
 
-    int32_t r = static_cast<uint32_t>(((static_cast<uint64_t>(magnitude_bit_length()) + 1) * 646456993) >> 31);
+    auto r = int32_t(uint32_t(((static_cast<uint64_t>(magnitude_bit_length()) + 1) * 646456993) >> 31));
 
     big_integer prec;
     big_integer::get_power_of_ten(r, prec);
@@ -451,23 +466,23 @@ void big_integer::pow(int32_t exp) {
 
     if (bitsLen == 1) {
         if ((exp % 2 == 0) && sign < 0)
-            sign = -sign;
+            sign = int8_t(-sign);
         return;
     }
 
-    big_integer multiplicant(*this);
+    big_integer multiplicand(*this);
     assign_int64(1);
 
     int32_t mutExp = exp;
     while (mutExp) {
         if (mutExp & 1) {
-            multiply(multiplicant, *this);
+            multiply(multiplicand, *this);
         }
 
         mutExp >>= 1;
 
         if (mutExp) {
-            multiplicant.multiply(multiplicant, multiplicant);
+            multiplicand.multiply(multiplicand, multiplicand);
         }
     }
 }
@@ -491,13 +506,13 @@ void big_integer::multiply(const big_integer &other, big_integer &res) const {
     }
 
     res.mag.swap(resMag);
-    res.sign = sign * other.sign;
+    res.sign = int8_t(sign * other.sign);
 
     res.normalize();
 }
 
 void big_integer::divide(const big_integer &divisor, big_integer &res) const {
-    divide(divisor, res, 0);
+    divide(divisor, res, nullptr);
 }
 
 void big_integer::divide(const big_integer &divisor, big_integer &res, big_integer &rem) const {
@@ -513,7 +528,7 @@ void big_integer::add(const uint32_t *addend, int32_t len) {
     }
 
     if (uint32_t carry = ignite::add(mag.data(), addend, len)) {
-        carry = ignite::add(mag.data() + len, mag.size() - len, carry);
+        carry = ignite::add(mag.data() + len, int32_t(mag.size()) - len, carry);
         if (carry) {
             mag.push_back(carry);
         }
@@ -544,13 +559,13 @@ int big_integer::compare(const big_integer &other, bool ignoreSign) const {
     if (!ignoreSign) {
         if (sign != other.sign)
             return sign > other.sign ? 1 : -1;
-        mgt = sign;
+        mgt = uint8_t(sign);
     }
 
     if (mag.size() != other.mag.size())
         return mag.size() > other.mag.size() ? mgt : -mgt;
 
-    for (int32_t i = mag.size() - 1; i >= 0; --i) {
+    for (int32_t i = int32_t(mag.size()) - 1; i >= 0; --i) {
         if (mag[i] != other.mag[i]) {
             return mag[i] > other.mag[i] ? mgt : -mgt;
         }
@@ -560,7 +575,7 @@ int big_integer::compare(const big_integer &other, bool ignoreSign) const {
 }
 
 int64_t big_integer::to_int64() const {
-    return (static_cast<uint64_t>(get_mag_int(1)) << 32) | get_mag_int(0);
+    return int64_t((uint64_t(get_mag_int(1)) << 32) | get_mag_int(0));
 }
 
 void big_integer::get_power_of_ten(int32_t pow, big_integer &res) {
@@ -569,7 +584,7 @@ void big_integer::get_power_of_ten(int32_t pow, big_integer &res) {
     static constexpr auto n64 = std::numeric_limits<uint64_t>::digits10 + 1;
     if (pow < n64) {
         static const auto power10 = [] {
-            std::array<std::uint64_t, n64> a;
+            std::array<std::uint64_t, n64> a{};
             uint64_t power = 1;
             for (int i = 0; i < n64; i++) {
                 a[i] = power;
@@ -599,7 +614,7 @@ void big_integer::divide(const big_integer &divisor, big_integer &res, big_integ
         throw ignite_error(status_code::GENERIC, "Division by zero.");
 
     int32_t compRes = compare(divisor, true);
-    int8_t resSign = sign * divisor.sign;
+    auto resSign = int8_t(sign * divisor.sign);
 
     // The same magnitude. Result is [-]1 and remainder is zero.
     if (compRes == 0) {
@@ -629,7 +644,7 @@ void big_integer::divide(const big_integer &divisor, big_integer &res, big_integ
     if (divisor.magnitude_bit_length() == 1) {
         // Once again: order is important.
         res = *this;
-        res.sign = sign * divisor.sign;
+        res.sign = int8_t(sign * divisor.sign);
 
         if (rem) {
             rem->assign_int64(0);
@@ -674,17 +689,17 @@ void big_integer::divide(const big_integer &divisor, big_integer &res, big_integ
     const MagArray &u = mag;
     const MagArray &v = divisor.mag;
     MagArray &q = res.mag;
-    int32_t ulen = u.size();
-    int32_t vlen = v.size();
+    auto ulen = int32_t(u.size());
+    auto vlen = int32_t(v.size());
 
-    // First we need to normilize divisor.
+    // First we need to normalize divisor.
     MagArray nv;
     nv.resize(v.size());
 
     int32_t shift = countl_zero(v.back());
     shift_left(v.data(), vlen, nv.data(), shift);
 
-    // Divisor is normilized. Now we need to normilize divident.
+    // Divisor is normalized. Now we need to normalize dividend.
     MagArray nu;
 
     // First find out what is the size of it.
@@ -713,7 +728,7 @@ void big_integer::divide(const big_integer &divisor, big_integer &res, big_integ
 
     // Main loop
     for (int32_t i = ulen - vlen; i >= 0; --i) {
-        uint64_t base = makeU64(nu[i + vlen], nu[i + vlen - 1]);
+        uint64_t base = make_u64(nu[i + vlen], nu[i + vlen - 1]);
 
         uint64_t qhat = base / nv[vlen - 1]; // Estimated quotient.
         uint64_t rhat = base % nv[vlen - 1]; // A remainder.
@@ -728,10 +743,10 @@ void big_integer::divide(const big_integer &divisor, big_integer &res, big_integ
                 break;
         }
 
-        uint32_t qhat32 = static_cast<uint32_t>(qhat);
+        auto qhat32 = static_cast<uint32_t>(qhat);
 
         // Multiply and subtract.
-        uint32_t carry = multiply_and_subtruct(nu.data() + i, nv.data(), vlen, qhat32);
+        uint32_t carry = multiply_and_subtract(nu.data() + i, nv.data(), vlen, qhat32);
 
         int64_t difference = nu[i + vlen] - carry;
 
@@ -750,23 +765,133 @@ void big_integer::divide(const big_integer &divisor, big_integer &res, big_integ
     res.sign = resSign;
     res.normalize();
 
-    // If remainder is needed unnormolize it.
+    // If remainder is needed denormalize it.
     if (rem) {
         rem->sign = resSign;
         rem->mag.resize(vlen);
 
-        shift_right(nu.data(), rem->mag.size(), rem->mag.data(), shift);
+        shift_right(nu.data(), int32_t(rem->mag.size()), rem->mag.data(), shift);
 
         rem->normalize();
     }
 }
 
 void big_integer::normalize() {
-    int32_t lastNonZero = mag.size() - 1;
+    int32_t lastNonZero = int32_t(mag.size()) - 1;
     while (lastNonZero >= 0 && mag[lastNonZero] == 0)
         --lastNonZero;
 
     mag.resize(lastNonZero + 1);
+}
+
+std::ostream &operator<<(std::ostream &os, const big_integer &val) {
+    if (val.is_zero())
+        return os << '0';
+
+    if (val.sign < 0)
+        os << '-';
+
+    const int32_t maxResultDigits = 19;
+    big_integer maxUintTenPower;
+    big_integer res;
+    big_integer left;
+
+    maxUintTenPower.assign_uint64(10000000000000000000U);
+
+    std::vector<uint64_t> vals;
+
+    val.divide(maxUintTenPower, left, res);
+
+    if (res.sign < 0)
+        res.sign = int8_t(-res.sign);
+
+    if (left.sign < 0)
+        left.sign = int8_t(-left.sign);
+
+    vals.push_back(static_cast<uint64_t>(res.to_int64()));
+
+    while (!left.is_zero()) {
+        left.divide(maxUintTenPower, left, res);
+
+        vals.push_back(static_cast<uint64_t>(res.to_int64()));
+    }
+
+    os << vals.back();
+
+    for (int32_t i = static_cast<int32_t>(vals.size()) - 2; i >= 0; --i) {
+        os.fill('0');
+        os.width(maxResultDigits);
+
+        os << vals[i];
+    }
+
+    return os;
+}
+
+std::istream &operator>>(std::istream &is, big_integer &val) {
+    std::istream::sentry sentry(is);
+
+    // Return zero if input failed.
+    val.assign_int64(0);
+
+    if (!is)
+        return is;
+
+    // Current value parts.
+    uint64_t part = 0;
+    int32_t partDigits = 0;
+    int32_t sign = 1;
+
+    big_integer pow;
+    big_integer bigPart;
+
+    // Current char.
+    int c = is.peek();
+
+    if (!is)
+        return is;
+
+    // Checking sign.
+    if (c == '-' || c == '+') {
+        if (c == '-')
+            sign = -1;
+
+        is.ignore();
+        c = is.peek();
+    }
+
+    // Reading number itself.
+    while (is && isdigit(c)) {
+        part = part * 10 + (c - '0');
+        ++partDigits;
+
+        if (part >= 1000000000000000000U) {
+            big_integer::get_power_of_ten(partDigits, pow);
+            val.multiply(pow, val);
+
+            val.add(part);
+
+            part = 0;
+            partDigits = 0;
+        }
+
+        is.ignore();
+        c = is.peek();
+    }
+
+    // Adding last part of the number.
+    if (partDigits) {
+        big_integer::get_power_of_ten(partDigits, pow);
+
+        val.multiply(pow, val);
+
+        val.add(part);
+    }
+
+    if (sign < 0)
+        val.negate();
+
+    return is;
 }
 
 } // namespace ignite

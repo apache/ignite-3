@@ -73,8 +73,12 @@ public class MessageSerializationRegistryImpl implements MessageSerializationReg
      * @throws NetworkConfigurationException if no serializers have been registered for the given group type and message type.
      */
     private <T extends NetworkMessage> MessageSerializationFactory<T> getFactory(short groupType, short messageType) {
-        assert groupType >= 0 : "group type must not be negative, groupType=" + groupType;
-        assert messageType >= 0 : "message type must not be negative, messageType=" + messageType;
+        if (groupType < 0) {
+            throw new NetworkConfigurationException("Group type must not be negative, groupType=" + groupType);
+        }
+        if (messageType < 0) {
+            throw new NetworkConfigurationException("Message type must not be negative, messageType=" + messageType);
+        }
 
         MessageSerializationFactory<?>[] groupFactories = factories[groupType];
 

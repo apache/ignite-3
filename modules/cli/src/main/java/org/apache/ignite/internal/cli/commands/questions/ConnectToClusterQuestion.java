@@ -92,12 +92,14 @@ public class ConnectToClusterQuestion {
         String clusterUrl;
         if (lastConnectedUrl != null) {
             question = QuestionUiComponent.fromQuestion(
-                    "Do you want to connect to the last connected node %s? %s ", UiElements.url(lastConnectedUrl), UiElements.yesNo()
+                    "Do you want to reconnect to the last connected node %s? %s ",
+                    UiElements.url(lastConnectedUrl), UiElements.yesNo()
             );
             clusterUrl = lastConnectedUrl;
         } else if (defaultUrl != null) {
             question = QuestionUiComponent.fromQuestion(
-                    "Do you want to connect to the default node %s? %s ", UiElements.url(defaultUrl), UiElements.yesNo()
+                    "You appear to have not connected to any node yet. Do you want to connect to the default node %s? %s ",
+                    UiElements.url(defaultUrl), UiElements.yesNo()
             );
             clusterUrl = defaultUrl;
         } else {

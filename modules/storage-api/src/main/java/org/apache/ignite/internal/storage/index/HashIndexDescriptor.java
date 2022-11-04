@@ -49,6 +49,24 @@ public class HashIndexDescriptor implements IndexDescriptor {
 
         private final boolean nullable;
 
+        /**
+         * Creates a Column Descriptor.
+         *
+         * @param name Name of the column.
+         * @param type Type of the column.
+         * @param nullable Flag indicating that the column may contain {@code null}s.
+         */
+        public HashIndexColumnDescriptor(String name, NativeType type, boolean nullable) {
+            this.name = name;
+            this.type = type;
+            this.nullable = nullable;
+        }
+
+        /**
+         * Creates a Column Descriptor.
+         *
+         * @param tableColumnView Table column configuration.
+         */
         HashIndexColumnDescriptor(ColumnView tableColumnView) {
             this.name = tableColumnView.name();
             this.type = ConfigurationToSchemaDescriptorConverter.convert(tableColumnView.type());
@@ -83,10 +101,25 @@ public class HashIndexDescriptor implements IndexDescriptor {
     /**
      * Creates an Index Descriptor from a given Table Configuration.
      *
-     * @param tablesConfig Tables and indexes configuration.
      * @param indexId Index id.
+     * @param tablesConfig Tables and indexes configuration.
      */
     public HashIndexDescriptor(UUID indexId, TablesView tablesConfig) {
+        this(indexId, extractIndexColumnsConfiguration(indexId, tablesConfig));
+    }
+
+    /**
+     * Creates an Index Descriptor from a given set of columns.
+     *
+     * @param indexId Index id.
+     * @param columns Columns descriptors.
+     */
+    public HashIndexDescriptor(UUID indexId, List<HashIndexColumnDescriptor> columns) {
+        this.id = indexId;
+        this.columns = columns;
+    }
+
+    private static List<HashIndexColumnDescriptor> extractIndexColumnsConfiguration(UUID indexId, TablesView tablesConfig) {
         TableIndexView indexConfig = ConfigurationUtil.getByInternalId(tablesConfig.indexes(), indexId);
 
         if (indexConfig == null) {
@@ -106,11 +139,9 @@ public class HashIndexDescriptor implements IndexDescriptor {
             throw new StorageException(String.format("Table configuration for \"%s\" could not be found", indexConfig.tableId()));
         }
 
-        this.id = indexId;
-
         String[] indexColumns = ((HashIndexView) indexConfig).columnNames();
 
-        this.columns = Arrays.stream(indexColumns)
+        return Arrays.stream(indexColumns)
                 .map(columnName -> {
                     ColumnView columnView = tableConfig.columns().get(columnName);
 

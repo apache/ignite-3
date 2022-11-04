@@ -59,7 +59,6 @@ import org.junit.jupiter.api.TestInfo;
 /**
  * These tests check in-memory node restart scenarios.
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-17302")
 public class ItIgniteInMemoryNodeRestartTest extends IgniteAbstractTest {
     /** Default node port. */
     private static final int DEFAULT_NODE_PORT = 3344;
@@ -179,6 +178,7 @@ public class ItIgniteInMemoryNodeRestartTest extends IgniteAbstractTest {
      * Restarts an in-memory node that is not a leader of the table's partition.
      */
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17986")
     public void inMemoryNodeRestartNotLeader(TestInfo testInfo) throws Exception {
         // Start three nodes, the first one is going to be CMG and MetaStorage leader.
         IgniteImpl ignite = startNode(testInfo, 0);
@@ -269,6 +269,7 @@ public class ItIgniteInMemoryNodeRestartTest extends IgniteAbstractTest {
      * Restarts all the nodes with the partition.
      */
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17986")
     public void inMemoryNodeFullPartitionRestart(TestInfo testInfo) throws Exception {
         // Start three nodes, the first one is going to be CMG and MetaStorage leader.
         IgniteImpl ignite0 = startNode(testInfo, 0);

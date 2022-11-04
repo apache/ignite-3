@@ -53,6 +53,7 @@ public class NodeConfigShowCommand extends BaseCommand implements Callable<Integ
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())
                 .decorator(new JsonDecorator())
+                .verbose(verbose)
                 .build()
                 .runPipeline();
     }

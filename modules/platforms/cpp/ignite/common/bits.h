@@ -19,6 +19,7 @@
 
 #include "config.h"
 
+#include <climits>
 #include <type_traits>
 
 #if defined(__cpp_lib_bitops) && __cpp_lib_bitops >= 201907L
@@ -45,7 +46,7 @@ namespace ignite {
 /**
  * Returns the number of consecutive 0 bits in the value of x, starting from the least significant bit ("right").
  */
-template <typename T>
+template<typename T>
 int countr_zero(T value) noexcept {
     static_assert(std::is_unsigned_v<T>, "countr_zero() doesn't support this type");
     static_assert(sizeof(T) <= sizeof(unsigned long long), "countr_zero() doesn't support this type size");
@@ -79,7 +80,7 @@ int countr_zero(T value) noexcept {
 /**
  * Returns the number of consecutive 0 bits in the value of x, starting from the most significant bit ("left").
  */
-template <typename T>
+template<typename T>
 int countl_zero(T value) noexcept {
     static_assert(std::is_unsigned_v<T>, "countl_zero() doesn't support this type");
     static_assert(sizeof(T) <= sizeof(unsigned long long), "countl_zero() doesn't support this type size");
@@ -119,7 +120,7 @@ int countl_zero(T value) noexcept {
  * If x is not zero, calculates the number of bits needed to store the value x, that is, 1 + ⌊log2(x)⌋.
  * If x is zero, returns zero.
  */
-template <typename T>
+template<typename T>
 int bit_width(T value) noexcept {
     static_assert(std::is_unsigned_v<T>, "bit_width() doesn't support this type");
 
@@ -134,7 +135,7 @@ int bit_width(T value) noexcept {
  * If value is not zero, calculates the largest integral power of two that is not greater than value.
  * If value is zero, returns zero.
  */
-template <typename T>
+template<typename T>
 T bit_floor(T value) noexcept {
     static_assert(std::is_unsigned_v<T>, "bit_floor() doesn't support this type");
 
@@ -148,7 +149,7 @@ T bit_floor(T value) noexcept {
 /**
  * Calculates the smallest integral power of two that is not smaller than a given value.
  */
-template <typename T>
+template<typename T>
 T bit_ceil(T value) noexcept {
     static_assert(std::is_unsigned_v<T>, "bit_ceil() doesn't support this type");
 
@@ -161,9 +162,19 @@ T bit_ceil(T value) noexcept {
     // "Possible implementation" section here:
     // https://en.cppreference.com/w/cpp/numeric/bit_ceil
     // But do we really need this complication in our code? We can use somewhat relaxed
-    // rules as comapred to the standard library.
+    // rules as compared to the standard library.
     return value <= 1u ? 1u : T(1u) << bit_width(T(value - 1u));
 #endif
+}
+
+/**
+ * Get a number of bytes needed to store a specified number of bits of information.
+ *
+ * @param bits_num Number of bits to store.
+ * @return Required bytes number.
+ */
+[[nodiscard]] inline std::size_t bytes_for_bits(std::size_t bits_num) {
+    return (bits_num + CHAR_BIT - 1) / CHAR_BIT;
 }
 
 } // namespace ignite

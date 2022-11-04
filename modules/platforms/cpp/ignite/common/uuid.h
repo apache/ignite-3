@@ -44,7 +44,7 @@ public:
      */
     constexpr uuid(std::int64_t most, std::int64_t least) noexcept
         : most(most)
-        , least(least) { }
+        , least(least) {}
 
     /**
      * Returns the most significant 64 bits of this instance.
@@ -190,7 +190,7 @@ constexpr bool operator>=(const uuid &lhs, const uuid &rhs) noexcept {
  * @param uuid Uuid to output.
  * @return Reference to the first param.
  */
-template <typename C, typename T>
+template<typename C, typename T>
 ::std::basic_ostream<C, T> &operator<<(std::basic_ostream<C, T> &os, const uuid &uuid) {
     auto msb = uuid.getMostSignificantBits();
     auto lsb = uuid.getLeastSignificantBits();
@@ -224,7 +224,7 @@ template <typename C, typename T>
  * @param uuid Uuid to input.
  * @return Reference to the first param.
  */
-template <typename C, typename T>
+template<typename C, typename T>
 ::std::basic_istream<C, T> &operator>>(std::basic_istream<C, T> &is, uuid &result) {
     uint64_t parts[5];
 

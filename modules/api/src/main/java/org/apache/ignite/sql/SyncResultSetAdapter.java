@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql;
+package org.apache.ignite.sql;
 
 import java.util.Iterator;
 import java.util.NoSuchElementException;
@@ -23,17 +23,13 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.sql.NoRowSetExpectedException;
-import org.apache.ignite.sql.ResultSet;
-import org.apache.ignite.sql.ResultSetMetadata;
-import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Synchronous wrapper over {@link org.apache.ignite.sql.async.AsyncResultSet}.
  */
-public class ResultSetImpl implements ResultSet {
+class SyncResultSetAdapter implements ResultSet {
     /** Wrapped async result set. */
     private final AsyncResultSet ars;
 
@@ -45,7 +41,7 @@ public class ResultSetImpl implements ResultSet {
      *
      * @param ars Asynchronous result set.
      */
-    public ResultSetImpl(AsyncResultSet ars) {
+    SyncResultSetAdapter(AsyncResultSet ars) {
         assert ars != null;
 
         this.ars = ars;
@@ -79,7 +75,11 @@ public class ResultSetImpl implements ResultSet {
     /** {@inheritDoc} */
     @Override
     public void close() {
-        ars.closeAsync().toCompletableFuture().join();
+        try {
+            ars.closeAsync().toCompletableFuture().join();
+        } catch (CompletionException e) {
+            throw IgniteException.wrap(e);
+        }
     }
 
     /** {@inheritDoc} */

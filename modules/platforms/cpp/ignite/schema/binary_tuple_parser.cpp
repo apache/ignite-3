@@ -27,7 +27,7 @@ namespace ignite {
 
 namespace {
 
-template <typename T>
+template<typename T>
 T load_as(bytes_view bytes, std::size_t offset = 0) noexcept {
     return bytes::load<endian::LITTLE, T>(bytes.data() + offset);
 }
@@ -49,24 +49,24 @@ ignite_time load_time(bytes_view bytes) {
     std::int32_t nano;
     switch (bytes.size()) {
         case 4:
-            nano = ((std::int32_t)time & ((1 << 10) - 1)) * 1000 * 1000;
+            nano = ((std::int32_t) time & ((1 << 10) - 1)) * 1000 * 1000;
             time >>= 10;
             break;
         case 5:
             time |= std::uint64_t(load_as<std::uint8_t>(bytes, 4)) << 32;
-            nano = ((std::int32_t)time & ((1 << 20) - 1)) * 1000;
+            nano = ((std::int32_t) time & ((1 << 20) - 1)) * 1000;
             time >>= 20;
             break;
         case 6:
             time |= std::uint64_t(load_as<std::uint16_t>(bytes, 4)) << 32;
-            nano = ((std::int32_t)time & ((1 << 30) - 1));
+            nano = ((std::int32_t) time & ((1 << 30) - 1));
             time >>= 30;
             break;
     }
 
-    std::int_fast8_t second = ((int)time) & 63;
-    std::int_fast8_t minute = ((int)time >> 6) & 63;
-    std::int_fast8_t hour = ((int)time >> 12) & 31;
+    std::int_fast8_t second = ((int) time) & 63;
+    std::int_fast8_t minute = ((int) time >> 6) & 63;
+    std::int_fast8_t hour = ((int) time >> 12) & 31;
 
     return {hour, minute, second, nano};
 }
@@ -94,7 +94,8 @@ binary_tuple_parser::binary_tuple_parser(IntT num_elements, bytes_view data)
     SizeT table_size = entry_size * element_count;
     next_entry = binary_tuple.data() + binary_tuple_header::SIZE + nullmap_size;
     value_base = next_entry + table_size;
-    if (value_base > &binary_tuple.back()) {
+
+    if (value_base > binary_tuple.data() + binary_tuple.size()) {
         throw std::out_of_range("Too short byte buffer");
     }
 
@@ -106,7 +107,7 @@ binary_tuple_parser::binary_tuple_parser(IntT num_elements, bytes_view data)
 
     // Fix tuple size if needed.
     const std::byte *tuple_end = value_base + bytes::ltoh(le_end_offset);
-    const std::byte *given_end = &(*binary_tuple.end());
+    const std::byte *given_end = binary_tuple.data() + binary_tuple.size();
     if (given_end > tuple_end) {
         binary_tuple.remove_suffix(given_end - tuple_end);
     } else if (given_end < tuple_end) {
@@ -251,6 +252,11 @@ big_integer binary_tuple_parser::get_number(bytes_view bytes) {
     return big_integer(bytes.data(), bytes.size());
 }
 
+big_decimal binary_tuple_parser::get_decimal(bytes_view bytes, int32_t scale) {
+    big_integer mag(bytes.data(), bytes.size());
+    return {std::move(mag), scale};
+}
+
 uuid binary_tuple_parser::get_uuid(bytes_view bytes) {
     switch (bytes.size()) {
         case 0:
@@ -309,7 +315,7 @@ ignite_timestamp binary_tuple_parser::get_timestamp(bytes_view bytes) {
         }
         case 12: {
             std::int64_t seconds = load_as<std::int64_t>(bytes);
-            std::int32_t nanos = load_as<std::int32_t>(bytes);
+            std::int32_t nanos = load_as<std::int32_t>(bytes, 8);
             return ignite_timestamp(seconds, nanos);
         }
         default:

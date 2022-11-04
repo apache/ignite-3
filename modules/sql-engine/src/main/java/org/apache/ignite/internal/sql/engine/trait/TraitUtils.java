@@ -514,8 +514,17 @@ public class TraitUtils {
             @Nullable List<IgniteIndex.Collation> collations,
             TableDescriptor descriptor
     ) {
-        if (collations == null) {
-            return RelCollations.EMPTY;
+        if (collations == null) { // Build collation for Hash index.
+            List<RelFieldCollation> fieldCollations = new ArrayList<>();
+
+            for (int i = 0; i < indexedColumns.size(); i++) {
+                String columnName = indexedColumns.get(i);
+                ColumnDescriptor columnDesc = descriptor.columnDescriptor(columnName);
+
+                fieldCollations.add(new RelFieldCollation(columnDesc.logicalIndex(), Direction.CLUSTERED, NullDirection.UNSPECIFIED));
+            }
+
+            return RelCollations.of(fieldCollations);
         }
 
         List<RelFieldCollation> fieldCollations = new ArrayList<>();
@@ -535,7 +544,7 @@ public class TraitUtils {
      * Creates field collation with default direction and nulls ordering.
      */
     public static RelFieldCollation createFieldCollation(int fieldIdx) {
-        return new RelFieldCollation(fieldIdx, Direction.ASCENDING, NullDirection.FIRST);
+        return new RelFieldCollation(fieldIdx, Direction.ASCENDING, NullDirection.LAST);
     }
 
     /**

@@ -46,6 +46,7 @@ public class CliConfigShowCommand extends BaseCommand implements Callable<Intege
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())
                 .decorator(new ProfileDecorator())
+                .verbose(verbose)
                 .build()
                 .runPipeline();
     }

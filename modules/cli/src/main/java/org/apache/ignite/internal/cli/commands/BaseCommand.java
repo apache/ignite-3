@@ -29,6 +29,9 @@ public abstract class BaseCommand {
     @Option(names = {"-h", "--help"}, usageHelp = true, description = "Show this help message and exit.")
     protected boolean usageHelpRequested;
 
+    @Option(names = {"-v", "--verbose"}, description = "Show additional information.")
+    protected boolean verbose;
+
     @Spec
     protected CommandSpec spec;
 }

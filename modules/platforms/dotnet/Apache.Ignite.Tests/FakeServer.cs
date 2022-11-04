@@ -60,6 +60,12 @@ namespace Apache.Ignite.Tests
 
         private readonly ConcurrentQueue<ClientOp>? _ops;
 
+        private readonly object _disposeSyncRoot = new();
+
+        private bool _disposed;
+
+        private Socket? _handler;
+
         public FakeServer(
             Func<int, bool>? shouldDropConnection = null,
             string nodeName = "fake-server",
@@ -85,11 +91,19 @@ namespace Apache.Ignite.Tests
 
         public IClusterNode Node { get; }
 
+        public Guid ClusterId { get; set; }
+
         public string[] PartitionAssignment { get; set; }
 
         public bool PartitionAssignmentChanged { get; set; }
 
+        public TimeSpan HandshakeDelay { get; set; }
+
+        public TimeSpan HeartbeatDelay { get; set; }
+
         public int Port => ((IPEndPoint)_listener.LocalEndPoint!).Port;
+
+        public string Endpoint => "127.0.0.1:" + Port;
 
         internal IList<ClientOp> ClientOps => _ops?.ToList() ?? throw new Exception("Ops tracking is disabled");
 
@@ -98,7 +112,7 @@ namespace Apache.Ignite.Tests
             cfg ??= new IgniteClientConfiguration();
 
             cfg.Endpoints.Clear();
-            cfg.Endpoints.Add("127.0.0.1:" + Port);
+            cfg.Endpoints.Add(Endpoint);
 
             return await IgniteClient.StartAsync(cfg);
         }
@@ -107,10 +121,21 @@ namespace Apache.Ignite.Tests
 
         public void Dispose()
         {
-            _cts.Cancel();
-            _listener.Disconnect(false);
-            _listener.Dispose();
-            _cts.Dispose();
+            lock (_disposeSyncRoot)
+            {
+                if (_disposed)
+                {
+                    return;
+                }
+
+                _cts.Cancel();
+                _handler?.Dispose();
+                _listener.Disconnect(false);
+                _listener.Dispose();
+                _cts.Dispose();
+
+                _disposed = true;
+            }
         }
 
         private static int ReceiveMessageSize(Socket handler)
@@ -352,11 +377,28 @@ namespace Apache.Ignite.Tests
 
         private void ListenLoop()
         {
+            while (!_cts.IsCancellationRequested)
+            {
+                try
+                {
+                    ListenLoopInternal();
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine("Error in FakeServer: " + e);
+                }
+            }
+        }
+
+        private void ListenLoopInternal()
+        {
             int requestCount = 0;
 
             while (!_cts.IsCancellationRequested)
             {
                 using Socket handler = _listener.Accept();
+                _handler = handler;
+
                 handler.NoDelay = true;
 
                 // Read handshake.
@@ -366,6 +408,7 @@ namespace Apache.Ignite.Tests
 
                 // Write handshake response.
                 handler.Send(ProtoCommon.MagicBytes);
+                Thread.Sleep(HandshakeDelay);
 
                 using var handshakeBufferWriter = new PooledArrayBufferWriter();
                 var handshakeWriter = handshakeBufferWriter.GetMessageWriter();
@@ -379,6 +422,7 @@ namespace Apache.Ignite.Tests
                 handshakeWriter.Write(0); // Idle timeout.
                 handshakeWriter.Write(Node.Id); // Node id.
                 handshakeWriter.Write(Node.Name); // Node name (consistent id).
+                handshakeWriter.Write(ClusterId);
                 handshakeWriter.WriteBinHeader(0); // Features.
                 handshakeWriter.WriteMapHeader(0); // Extensions.
                 handshakeWriter.Flush();
@@ -505,6 +549,15 @@ namespace Apache.Ignite.Tests
 
                         case ClientOp.SqlCursorNextPage:
                             SqlCursorNextPage(handler, requestId);
+                            continue;
+
+                        case ClientOp.Heartbeat:
+                            Thread.Sleep(HeartbeatDelay);
+                            Send(handler, requestId, Array.Empty<byte>());
+                            continue;
+
+                        case ClientOp.ComputeExecuteColocated:
+                            Send(handler, requestId, new[] { MessagePackCode.Nil }.AsMemory());
                             continue;
                     }
 

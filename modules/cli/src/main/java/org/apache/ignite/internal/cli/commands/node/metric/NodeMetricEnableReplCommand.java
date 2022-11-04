@@ -48,6 +48,7 @@ public class NodeMetricEnableReplCommand extends BaseCommand implements Runnable
         question.askQuestionIfNotConnected(nodeUrl.getNodeUrl())
                 .map(metricSource::buildEnableCallInput)
                 .then(Flows.fromCall(call))
+                .verbose(verbose)
                 .print()
                 .start();
     }
