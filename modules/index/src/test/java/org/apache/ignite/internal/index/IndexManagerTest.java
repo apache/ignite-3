@@ -70,9 +70,11 @@ import org.apache.ignite.internal.schema.configuration.index.SortedIndexChange;
 import org.apache.ignite.internal.schema.configuration.index.SortedIndexConfigurationSchema;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexConfiguration;
 import org.apache.ignite.internal.schema.configuration.storage.UnknownDataStorageConfigurationSchema;
+import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IndexNotFoundException;
@@ -81,6 +83,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mockito;
 
 /**
  * Test class to verify {@link IndexManager}.
@@ -96,7 +99,7 @@ public class IndexManagerTest {
     /** Index manager. */
     private static IndexManager indexManager;
 
-    /** Per test unique index name.  */
+    /** Per test unique index name. */
     private static AtomicInteger index = new AtomicInteger();
 
     /**
@@ -124,10 +127,14 @@ public class IndexManagerTest {
 
         tablesConfig = confRegistry.getConfiguration(TablesConfiguration.KEY);
 
-        TableManager tableManagerMock = mock(TableManager.class);
+        TableManager tableManagerMock = Mockito.mock(TableManager.class);
+        Map<UUID, TableImpl> tables = Mockito.mock(Map.class);
 
-        when(tableManagerMock.tableAsync(anyLong(), any(UUID.class)))
-                .thenReturn(CompletableFuture.completedFuture(mock(TableImpl.class)));
+        when(tableManagerMock.tableAsync(anyLong(), any(UUID.class))).thenAnswer(inv -> {
+            InternalTable tbl = Mockito.mock(InternalTable.class);
+            Mockito.doReturn(inv.getArgument(1)).when(tbl).tableId();
+            return CompletableFuture.completedFuture(new TableImpl(tbl, new HeapLockManager(), () -> List.of()));
+        });
 
         indexManager = new IndexManager(tablesConfig, mock(SchemaManager.class), tableManagerMock);
         indexManager.start();

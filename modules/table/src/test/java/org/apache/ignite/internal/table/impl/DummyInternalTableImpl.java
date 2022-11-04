@@ -248,6 +248,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 tableId,
                 () -> Map.of(pkLocker.id(), pkLocker),
                 pkStorage,
+                () -> Map.of(),
                 clock,
                 new PendingComparableValuesTracker<>(clock.now()),
                 txStateStorage().getOrCreateTxStateStorage(0),

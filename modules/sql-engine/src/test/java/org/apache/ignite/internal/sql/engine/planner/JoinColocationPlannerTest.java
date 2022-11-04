@@ -38,13 +38,11 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
  * Test suite to verify join colocation.
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-17748")
 public class JoinColocationPlannerTest extends AbstractPlannerTest {
     /**
      * Join of the same tables with a simple affinity is expected to be colocated.

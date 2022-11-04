@@ -379,11 +379,11 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
         Map<ClusterNode, Function<Peer, Boolean>> isLocalPeerCheckerList = cluster.stream().collect(Collectors.toMap(
                 node -> node.topologyService().localMember(),
                 node -> {
-                        TopologyService ts = node.topologyService();
+                    TopologyService ts = node.topologyService();
 
-                        Function<Peer, Boolean> f = peer -> ts.getByAddress(peer.address()).equals(ts.localMember());
+                    Function<Peer, Boolean> f = peer -> ts.getByAddress(peer.address()).equals(ts.localMember());
 
-                        return f;
+                    return f;
                 }
         ));
 
@@ -458,6 +458,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                                                 tblId,
                                                 () -> Map.of(pkLocker.id(), pkLocker),
                                                 pkStorage,
+                                                () -> Map.of(),
                                                 clocks.get(node),
                                                 safeTime,
                                                 txSateStorage,
