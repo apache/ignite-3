@@ -56,7 +56,6 @@ import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaSafeTimeSyncRequest;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.ReadResult;
@@ -647,8 +646,9 @@ public class PartitionReplicaListener implements ReplicaListener {
                 .tablePartitionIds(aggregatedGroupIds.stream()
                         .map(rgId -> tablePartitionId((TablePartitionId) rgId)).collect(Collectors.toList()));
 
-        if (commit)
+        if (commit) {
             finishTxCmdBldr.commitTimestamp(hybridTimestamp(commitTimestamp));
+        }
 
         CompletableFuture<Object> changeStateFuture = raftClient.run(finishTxCmdBldr.build()).whenComplete((o, throwable) -> {
             fut.complete(new TxMeta(commit ? TxState.COMMITED : TxState.ABORTED, aggregatedGroupIds, commitTimestamp));
@@ -1524,8 +1524,9 @@ public class PartitionReplicaListener implements ReplicaListener {
                 .rowUuid(rowUuid)
                 .txId(txId);
 
-        if (rowBuf != null)
+        if (rowBuf != null) {
             bldr.rowBuffer(new ByteString(rowBuf));
+        }
 
         return bldr.build();
     }
