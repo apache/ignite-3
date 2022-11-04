@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Linq.Impl
+namespace Apache.Ignite.Internal.Linq
 {
     using System.Linq;
     using System.Linq.Expressions;

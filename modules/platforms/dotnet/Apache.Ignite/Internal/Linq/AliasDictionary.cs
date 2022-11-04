@@ -1,10 +1,10 @@
 ﻿/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -15,10 +15,13 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Linq.Impl
+#pragma warning disable SA1615, SA1611, SA1405, SA1202 // TODO: Fix warnings.
+namespace Apache.Ignite.Internal.Linq
 {
     using System.Collections.Generic;
     using System.Diagnostics;
+    using System.Diagnostics.CodeAnalysis;
+    using System.Globalization;
     using System.Linq;
     using System.Linq.Expressions;
     using System.Text;
@@ -28,7 +31,8 @@ namespace Apache.Ignite.Linq.Impl
     /// <summary>
     /// Alias dictionary.
     /// </summary>
-    internal class AliasDictionary
+    [SuppressMessage("Naming", "CA1711:Identifiers should not have incorrect suffix", Justification = "Reviewed.")]
+    internal sealed class AliasDictionary
     {
         /** */
         private readonly Dictionary<Expression, string> _fieldAliases = new Dictionary<Expression, string>();
@@ -49,7 +53,7 @@ namespace Apache.Ignite.Linq.Impl
         /// <summary>
         /// Pushes current aliases to stack.
         /// </summary>
-        /// <param name="copyAliases">Flag indicating that current aliases should be copied</param>
+        /// <param name="copyAliases">Flag indicating that current aliases should be copied.</param>
         public void Push(bool copyAliases)
         {
             _stack.Push(_tableAliases);
@@ -70,9 +74,11 @@ namespace Apache.Ignite.Linq.Impl
         /// <summary>
         /// Gets the table alias.
         /// </summary>
+        /// <param name="expression">Expression.</param>
+        /// <returns>Table alias.</returns>
         public string GetTableAlias(Expression expression)
         {
-            Debug.Assert(expression != null);
+            Debug.Assert(expression != null, "expression != null");
 
             return GetTableAlias(ExpressionWalker.GetQuerySource(expression));
         }
@@ -100,9 +106,7 @@ namespace Apache.Ignite.Linq.Impl
         {
             Debug.Assert(querySource != null);
 
-            string alias;
-
-            if (!_tableAliases.TryGetValue(querySource, out alias))
+            if (!_tableAliases.TryGetValue(querySource, out var alias))
             {
                 alias = "_T" + _tableAliasIndex++;
 
@@ -131,9 +135,7 @@ namespace Apache.Ignite.Linq.Impl
         {
             Debug.Assert(querySource != null);
 
-            string alias;
-
-            if (!_fieldAliases.TryGetValue(querySource, out alias))
+            if (!_fieldAliases.TryGetValue(querySource, out var alias))
             {
                 alias = "F" + _fieldAliasIndex++;
 
@@ -154,7 +156,7 @@ namespace Apache.Ignite.Linq.Impl
             var queryable = ExpressionWalker.GetCacheQueryable(clause);
             var tableName = ExpressionWalker.GetTableNameWithSchema(queryable);
 
-            builder.AppendFormat("{0} as {1}", tableName, GetTableAlias(clause));
+            builder.AppendFormat(CultureInfo.InvariantCulture, "{0} as {1}", tableName, GetTableAlias(clause));
 
             return builder;
         }

@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Linq.Impl
+namespace Apache.Ignite.Internal.Linq
 {
     using System;
     using System.Collections.Generic;
@@ -24,11 +24,6 @@ namespace Apache.Ignite.Linq.Impl
     using System.Linq;
     using System.Linq.Expressions;
     using System.Reflection;
-    using Apache.Ignite.Core.Binary;
-    using Apache.Ignite.Core.Cache;
-    using Apache.Ignite.Core.Cache.Query;
-    using Apache.Ignite.Core.Impl.Cache;
-    using Apache.Ignite.Core.Impl.Common;
     using Remotion.Linq;
 
     /// <summary>
