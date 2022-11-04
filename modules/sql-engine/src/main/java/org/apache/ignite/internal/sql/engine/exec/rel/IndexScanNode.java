@@ -42,7 +42,6 @@ import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowConverter;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.RangeCondition;
 import org.apache.ignite.internal.sql.engine.exec.exp.RangeIterable;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
@@ -51,7 +50,6 @@ import org.apache.ignite.internal.sql.engine.schema.InternalIgniteTable;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.CompositePublisher;
 import org.apache.ignite.internal.sql.engine.util.SortingCompositePublisher;
-import org.apache.ignite.lang.IgniteTetraFunction;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.Nullable;
 
@@ -79,7 +77,7 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
 
     private final @Nullable Function<RowT, RowT> rowTransformer;
 
-    private final IgniteTetraFunction<ExecutionContext<RowT>, BinaryRow, RowFactory<RowT>, BitSet, RowT> tableRowConverter;
+    private final Function<BinaryRow, RowT> tableRowConverter;
 
     private final ImmutableIntList idxColumnMapping;
 
@@ -147,7 +145,7 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
 
         factory = ctx.rowHandler().factory(ctx.getTypeFactory(), rowType);
 
-        tableRowConverter = schemaTable::toRow;
+        tableRowConverter = row -> schemaTable.toRow(context(), row, factory, requiredColumns);
 
         indexRowSchema = RowConverter.createIndexRowSchema(schemaTable.descriptor(), idxColumnMapping);
     }
@@ -429,6 +427,6 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
     }
 
     private RowT convert(BinaryRow binaryRow) {
-        return tableRowConverter.apply(context(), binaryRow, factory, requiredColumns);
+        return tableRowConverter.apply(binaryRow);
     }
 }
