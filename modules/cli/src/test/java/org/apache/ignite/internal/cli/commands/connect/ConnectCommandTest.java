@@ -38,7 +38,7 @@ class ConnectCommandTest extends CliCommandTestBase {
         assertAll(
                 () -> assertExitCodeIs(2),
                 this::assertOutputIsEmpty,
-                () -> assertErrOutputContains("Node [nodeName] not found. Provide correct node url or node name")
+                () -> assertErrOutputContains("Node nodeName not found. Provide valid name or use URL")
         );
     }
 }

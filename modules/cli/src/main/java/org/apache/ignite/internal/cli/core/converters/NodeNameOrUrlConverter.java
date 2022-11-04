@@ -57,6 +57,6 @@ public class NodeNameOrUrlConverter implements CommandLine.ITypeConverter<NodeUr
     private URL findNodeUrlByNodeName(String name) {
         return nodeNameRegistry.getNodeUrl(name)
                 .map(NodeNameOrUrlConverter::stringToUrl)
-                .orElseThrow(() -> new ParameterException("Node " + name + "not found. Provide valid name or use URL"));
+                .orElseThrow(() -> new ParameterException("Node " + name + " not found. Provide valid name or use URL"));
     }
 }
