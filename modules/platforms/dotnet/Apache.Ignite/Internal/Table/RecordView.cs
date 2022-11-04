@@ -284,6 +284,7 @@ namespace Apache.Ignite.Internal.Table
         {
             // TODO: AsQueryable should be present in all kinds of views - extract a separate interface?
             // TODO: Accept options with PageSize, Timeout.
+            // TODO: Use Remotion.Linq.SqlBackend?
             throw new NotImplementedException();
         }
 
