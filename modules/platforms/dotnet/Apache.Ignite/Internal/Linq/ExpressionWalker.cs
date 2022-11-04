@@ -411,7 +411,7 @@ internal static class ExpressionWalker
     {
         Debug.Assert(queryable != null);
 
-        const string schemaName = "PUB"; // TODO
+        const string schemaName = "PUBLIC"; // TODO
 
         return $"{schemaName}.{queryable.TableName}";
     }
