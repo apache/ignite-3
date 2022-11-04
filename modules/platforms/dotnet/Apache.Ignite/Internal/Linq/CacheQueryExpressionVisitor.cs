@@ -19,9 +19,11 @@
 namespace Apache.Ignite.Internal.Linq;
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
@@ -38,14 +40,13 @@ using Remotion.Linq.Parsing;
 internal class CacheQueryExpressionVisitor : ThrowingExpressionVisitor
 {
     /** */
+    private static readonly ConcurrentDictionary<MemberInfo, string> FieldNameMap = new();
+
+    /** */
     private readonly bool _useStar;
 
     /** */
     private readonly CacheQueryModelVisitor _modelVisitor;
-
-    /** */
-    private static readonly CopyOnWriteConcurrentDictionary<MemberInfo, string> FieldNameMap =
-        new CopyOnWriteConcurrentDictionary<MemberInfo, string>();
 
     /** */
     private readonly bool _includeAllFields;
@@ -66,11 +67,9 @@ internal class CacheQueryExpressionVisitor : ThrowingExpressionVisitor
     /// for the whole-table select as well as _key, _val.
     /// </param>
     /// <param name="visitEntireSubQueryModel">
-    /// Flag indicating that subquery
-    /// should be visited as full query
+    /// Flag indicating that subquery should be visited as full query.
     /// </param>
-    public CacheQueryExpressionVisitor(CacheQueryModelVisitor modelVisitor, bool useStar, bool includeAllFields,
-        bool visitEntireSubQueryModel)
+    public CacheQueryExpressionVisitor(CacheQueryModelVisitor modelVisitor, bool useStar, bool includeAllFields, bool visitEntireSubQueryModel)
     {
         Debug.Assert(modelVisitor != null);
 
@@ -91,7 +90,7 @@ internal class CacheQueryExpressionVisitor : ThrowingExpressionVisitor
     /// <summary>
     /// Gets the parameters.
     /// </summary>
-    public IList<object> Parameters
+    public IList<object?> Parameters
     {
         get { return _modelVisitor.Parameters; }
     }
@@ -105,7 +104,6 @@ internal class CacheQueryExpressionVisitor : ThrowingExpressionVisitor
     }
 
     /** <inheritdoc /> */
-    [SuppressMessage("Microsoft.Design", "CA1062:Validate arguments of public methods", MessageId = "0")]
     protected override Expression VisitUnary(UnaryExpression expression)
     {
         var closeBracket = false;
@@ -132,8 +130,10 @@ internal class CacheQueryExpressionVisitor : ThrowingExpressionVisitor
 
         Visit(expression.Operand);
 
-        if(closeBracket)
+        if (closeBracket)
+        {
             ResultBuilder.Append(')');
+        }
 
         return expression;
     }
@@ -146,11 +146,17 @@ internal class CacheQueryExpressionVisitor : ThrowingExpressionVisitor
     private bool VisitBinaryFunc(BinaryExpression expression)
     {
         if (expression.NodeType == ExpressionType.Add && expression.Left.Type == typeof(string))
+        {
             ResultBuilder.Append("concat(");
+        }
         else if (expression.NodeType == ExpressionType.Coalesce)
+        {
             ResultBuilder.Append("coalesce(");
+        }
         else
+        {
             return false;
+        }
 
         Visit(expression.Left);
         ResultBuilder.Append(", ");
@@ -161,12 +167,13 @@ internal class CacheQueryExpressionVisitor : ThrowingExpressionVisitor
     }
 
     /** <inheritdoc /> */
-    [SuppressMessage("Microsoft.Design", "CA1062:Validate arguments of public methods")]
     protected override Expression VisitBinary(BinaryExpression expression)
     {
         // Either func or operator
         if (VisitBinaryFunc(expression))
+        {
             return expression;
+        }
 
         ResultBuilder.Append('(');
 
@@ -275,7 +282,7 @@ internal class CacheQueryExpressionVisitor : ThrowingExpressionVisitor
             var tableName = Aliases.GetTableAlias(expression);
             var fieldname = Aliases.GetFieldAlias(expression);
 
-            ResultBuilder.AppendFormat("{0}.{1}", tableName, fieldname);
+            ResultBuilder.AppendFormat(CultureInfo.InvariantCulture, "{0}.{1}", tableName, fieldname);
         }
         else if (joinClause != null && joinClause.InnerSequence is SubQueryExpression)
         {
@@ -294,33 +301,35 @@ internal class CacheQueryExpressionVisitor : ThrowingExpressionVisitor
 
             var tableName = Aliases.GetTableAlias(expression);
 
-            ResultBuilder.AppendFormat(format, tableName);
+            ResultBuilder.AppendFormat(CultureInfo.InvariantCulture, format, tableName);
         }
 
         return expression;
     }
 
     /** <inheritdoc /> */
-    [SuppressMessage("Microsoft.Design", "CA1062:Validate arguments of public methods")]
     protected override Expression VisitMember(MemberExpression expression)
     {
         // Field hierarchy is flattened (Person.Address.Street is just Street), append as is, do not call Visit.
 
         // Property call (string.Length, DateTime.Month, etc).
         if (MethodVisitor.VisitPropertyCall(expression, this))
+        {
             return expression;
+        }
 
         // Special case: grouping
         if (VisitGroupByMember(expression.Expression))
+        {
             return expression;
+        }
 
         var queryable = ExpressionWalker.GetCacheQueryable(expression, false);
 
         if (queryable != null)
         {
             // Find where the projection comes from.
-            expression = ExpressionWalker.GetProjectedMember(expression.Expression, expression.Member) ??
-                         expression;
+            expression = ExpressionWalker.GetProjectedMember(expression.Expression, expression.Member) ?? expression;
 
             var fieldName = GetEscapedFieldName(expression, queryable);
 
@@ -415,52 +424,44 @@ internal class CacheQueryExpressionVisitor : ThrowingExpressionVisitor
     /// <summary>
     /// Gets the name of the member field.
     /// </summary>
-    [SuppressMessage("Microsoft.Globalization", "CA1308:NormalizeStringsToUppercase",
-        Justification = "Not applicable.")]
     private static string GetMemberFieldName(MemberInfo member)
     {
-        string fieldName;
-
-        if (FieldNameMap.TryGetValue(member, out fieldName))
-            return fieldName;
-
-        return FieldNameMap.GetOrAdd(member, m =>
+        if (FieldNameMap.TryGetValue(member, out var fieldName))
         {
-            // Special case: _key, _val
-            if (m.DeclaringType != null &&
-                m.DeclaringType.IsGenericType &&
-                m.DeclaringType.GetGenericTypeDefinition() == typeof(ICacheEntry<,>))
-                return "_" + m.Name.ToUpperInvariant().Substring(0, 3);
+            return fieldName;
+        }
 
-            var qryFieldAttr = m.GetCustomAttributes(true)
-                .OfType<QuerySqlFieldAttribute>().FirstOrDefault();
-
-            return qryFieldAttr == null || string.IsNullOrEmpty(qryFieldAttr.Name)
-                ? m.Name
-                : qryFieldAttr.Name;
-        });
+        return FieldNameMap.GetOrAdd(member, member.Name);
     }
 
     /// <summary>
     /// Visits the group by member.
     /// </summary>
-    private bool VisitGroupByMember(Expression expression)
+    private bool VisitGroupByMember(Expression? expression)
     {
         var srcRef = expression as QuerySourceReferenceExpression;
         if (srcRef == null)
+        {
             return false;
+        }
 
         var from = srcRef.ReferencedQuerySource as IFromClause;
         if (from == null)
+        {
             return false;
+        }
 
         var subQry = from.FromExpression as SubQueryExpression;
         if (subQry == null)
+        {
             return false;
+        }
 
         var grpBy = subQry.QueryModel.ResultOperators.OfType<GroupResultOperator>().FirstOrDefault();
         if (grpBy == null)
+        {
             return false;
+        }
 
         Visit(grpBy.KeySelector);
 
