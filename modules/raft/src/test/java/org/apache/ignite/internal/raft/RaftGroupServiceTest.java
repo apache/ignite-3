@@ -265,7 +265,7 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
         mockLeaderRequest(false);
         mockUserInput(false, NODES.get(0));
 
-        RaftGroupService service = startRaftGroupService(NODES, true);
+        RaftGroupService service = startRaftGroupService(NODES, true, TIMEOUT * 3);
 
         Peer leader = this.leader;
 
@@ -573,6 +573,15 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
     private RaftGroupService startRaftGroupService(List<Peer> peers, boolean getLeader) {
         CompletableFuture<RaftGroupService> service =
                 RaftGroupServiceImpl.start(TEST_GRP, cluster, FACTORY, TIMEOUT, peers, getLeader, DELAY, executor);
+
+        assertThat(service, willCompleteSuccessfully());
+
+        return service.join();
+    }
+
+    private RaftGroupService startRaftGroupService(List<Peer> peers, boolean getLeader, int timeout) {
+        CompletableFuture<RaftGroupService> service =
+                RaftGroupServiceImpl.start(TEST_GRP, cluster, FACTORY, timeout, peers, getLeader, DELAY, executor);
 
         assertThat(service, willCompleteSuccessfully());
 
