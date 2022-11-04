@@ -36,7 +36,6 @@ import org.apache.ignite.internal.network.NetworkMessagesSerializationRegistryIn
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.configuration.NodeFinderType;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.internal.network.configuration.RestConfiguration;
 import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessageSerializationRegistryImpl;
