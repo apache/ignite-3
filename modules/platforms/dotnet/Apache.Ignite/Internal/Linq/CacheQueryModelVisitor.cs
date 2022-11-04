@@ -48,7 +48,7 @@ internal sealed class CacheQueryModelVisitor : QueryModelVisitorBase
 
     /** */
     [SuppressMessage("Microsoft.Design", "CA1002:DoNotExposeGenericLists", Justification = "Private.")]
-    private readonly List<object> _parameters = new List<object>();
+    private readonly List<object?> _parameters = new List<object?>();
 
     /** */
     private readonly AliasDictionary _aliases = new AliasDictionary();
@@ -64,7 +64,7 @@ internal sealed class CacheQueryModelVisitor : QueryModelVisitorBase
     /// <summary>
     /// Gets the parameters.
     /// </summary>
-    public IList<object> Parameters
+    public IList<object?> Parameters
     {
         get { return _parameters; }
     }
@@ -152,9 +152,11 @@ internal sealed class CacheQueryModelVisitor : QueryModelVisitorBase
             var resOp = resultOps[0] as TakeResultOperator;
 
             if (resOp == null)
+            {
                 throw new NotSupportedException(
                     "RemoveAll can not be combined with result operators (other than Take): " +
                     resultOps[0].GetType().Name);
+            }
 
             _builder.Append("top ");
             BuildSqlExpression(resOp.Count);
@@ -188,9 +190,11 @@ internal sealed class CacheQueryModelVisitor : QueryModelVisitorBase
             var resOp = resultOps[0] as TakeResultOperator;
 
             if (resOp == null)
+            {
                 throw new NotSupportedException(
                     "UpdateAll can not be combined with result operators (other than Take): " +
                     resultOps[0].GetType().Name);
+            }
 
             _builder.Append("limit ");
             BuildSqlExpression(resOp.Count);
@@ -219,9 +223,8 @@ internal sealed class CacheQueryModelVisitor : QueryModelVisitorBase
     }
 
     /// <summary>
-    /// Processes the result operators that come right after SELECT: min/max/count/sum/distinct
+    /// Processes the result operators that come right after SELECT: min/max/count/sum/distinct.
     /// </summary>
-    [SuppressMessage("Microsoft.Performance", "CA1800:DoNotCastUnnecessarily")]
     private int ProcessResultOperatorsBegin(QueryModel queryModel)
     {
         int parenCount = 0;
@@ -254,24 +257,35 @@ internal sealed class CacheQueryModelVisitor : QueryModelVisitorBase
                 parenCount++;
             }
             else if (op is DistinctResultOperator)
+            {
                 _builder.Append("distinct ");
+            }
             else if (op is FirstResultOperator || op is SingleResultOperator)
+            {
                 _builder.Append("top 1 ");
+            }
             else if (op is UnionResultOperator || op is IntersectResultOperator || op is ExceptResultOperator
                      || op is DefaultIfEmptyResultOperator || op is SkipResultOperator || op is TakeResultOperator)
+            {
                 // Will be processed later
                 break;
+            }
             else if (op is ContainsResultOperator)
+            {
                 // Should be processed already
                 break;
+            }
             else
+            {
                 throw new NotSupportedException("Operator is not supported: " + op);
+            }
         }
+
         return parenCount;
     }
 
     /// <summary>
-    /// Processes the result operators that go in the end of the query: limit/offset/union/intersect/except
+    /// Processes the result operators that go in the end of the query: limit/offset/union/intersect/except.
     /// </summary>
     private void ProcessResultOperatorsEnd(QueryModel queryModel)
     {
@@ -279,8 +293,8 @@ internal sealed class CacheQueryModelVisitor : QueryModelVisitorBase
 
         foreach (var op in queryModel.ResultOperators.Reverse())
         {
-            string keyword = null;
-            Expression source = null;
+            string? keyword = null;
+            Expression? source = null;
 
             var union = op as UnionResultOperator;
             if (union != null)
@@ -309,22 +323,29 @@ internal sealed class CacheQueryModelVisitor : QueryModelVisitorBase
 
                 var subQuery = source as SubQueryExpression;
 
-                if (subQuery != null)  // Subquery union
+                if (subQuery != null)
+                {
+                    // Subquery union.
                     VisitQueryModel(subQuery.QueryModel);
+                }
                 else
                 {
                     // Direct cache union, source is ICacheQueryable
                     var innerExpr = source as ConstantExpression;
 
                     if (innerExpr == null)
+                    {
                         throw new NotSupportedException("Unexpected UNION inner sequence: " + source);
+                    }
 
                     var queryable = innerExpr.Value as ICacheQueryableInternal;
 
                     if (queryable == null)
+                    {
                         throw new NotSupportedException("Unexpected UNION inner sequence " +
                                                         "(only results of cache.ToQueryable() are supported): " +
                                                         innerExpr.Value);
+                    }
 
                     VisitQueryModel(queryable.GetQueryModel());
                 }
@@ -343,7 +364,9 @@ internal sealed class CacheQueryModelVisitor : QueryModelVisitorBase
         var offset = queryModel.ResultOperators.OfType<SkipResultOperator>().FirstOrDefault();
 
         if (limit == null && offset == null)
+        {
             return;
+        }
 
         // "limit" is mandatory if there is "offset", but not vice versa
         _builder.Append("limit ");
@@ -353,15 +376,18 @@ internal sealed class CacheQueryModelVisitor : QueryModelVisitorBase
             // Workaround for unlimited offset (IGNITE-2602)
             // H2 allows NULL & -1 for unlimited, but Ignite indexing does not
             // Maximum limit that works is (int.MaxValue - offset)
-
-            if (offset.Count is ParameterExpression)
+            if (offset!.Count is ParameterExpression)
+            {
                 throw new NotSupportedException("Skip() without Take() is not supported in compiled queries.");
+            }
 
-            var offsetInt = (int) ((ConstantExpression) offset.Count).Value;
+            var offsetInt = (int) ((ConstantExpression) offset.Count).Value!;
             _builder.Append((int.MaxValue - offsetInt).ToString(CultureInfo.InvariantCulture));
         }
         else
+        {
             BuildSqlExpression(limit.Count);
+        }
 
         if (offset != null)
         {
@@ -375,17 +401,23 @@ internal sealed class CacheQueryModelVisitor : QueryModelVisitorBase
     {
         var i = 0;
         foreach (var join in bodyClauses.OfType<JoinClause>())
+        {
             VisitJoinClause(join, queryModel, i++);
+        }
 
         var hasGroups = ProcessGroupings(queryModel);
 
         i = 0;
         foreach (var where in bodyClauses.OfType<WhereClause>())
+        {
             VisitWhereClause(where, i++, hasGroups);
+        }
 
         i = 0;
         foreach (var orderBy in bodyClauses.OfType<OrderByClause>())
+        {
             VisitOrderByClause(orderBy, queryModel, i++);
+        }
     }
 
     /// <summary>
@@ -396,21 +428,29 @@ internal sealed class CacheQueryModelVisitor : QueryModelVisitorBase
         var subQuery = queryModel.MainFromClause.FromExpression as SubQueryExpression;
 
         if (subQuery == null)
+        {
             return false;
+        }
 
         var groupBy = subQuery.QueryModel.ResultOperators.OfType<GroupResultOperator>().FirstOrDefault();
 
         if (groupBy == null)
+        {
             return false;
+        }
 
         // Visit inner joins before grouping
         var i = 0;
         foreach (var join in subQuery.QueryModel.BodyClauses.OfType<JoinClause>())
+        {
             VisitJoinClause(join, queryModel, i++);
+        }
 
         i = 0;
         foreach (var where in subQuery.QueryModel.BodyClauses.OfType<WhereClause>())
+        {
             VisitWhereClause(where, i++, false);
+        }
 
         // Append grouping
         _builder.Append("group by (");
@@ -423,12 +463,12 @@ internal sealed class CacheQueryModelVisitor : QueryModelVisitorBase
     }
 
     /** <inheritdoc /> */
-    [SuppressMessage("Microsoft.Design", "CA1062:Validate arguments of public methods")]
     public override void VisitMainFromClause(MainFromClause fromClause, QueryModel queryModel)
     {
         base.VisitMainFromClause(fromClause, queryModel);
 
-        var isUpdateQuery = queryModel.ResultOperators.LastOrDefault() is UpdateAllResultOperator;
+        // TODO: DML: queryModel.ResultOperators.LastOrDefault() is UpdateAllResultOperator;
+        var isUpdateQuery = false;
         if (!isUpdateQuery)
         {
             _builder.Append("from ");
@@ -448,7 +488,8 @@ internal sealed class CacheQueryModelVisitor : QueryModelVisitorBase
 
         if (isUpdateQuery)
         {
-            BuildSetClauseForUpdateAll(queryModel);
+            // TODO: DML
+            // BuildSetClauseForUpdateAll(queryModel);
         }
     }
 
@@ -466,7 +507,6 @@ internal sealed class CacheQueryModelVisitor : QueryModelVisitorBase
     }
 
     /** <inheritdoc /> */
-    [SuppressMessage("Microsoft.Design", "CA1062:Validate arguments of public methods")]
     public override void VisitWhereClause(WhereClause whereClause, QueryModel queryModel, int index)
     {
         base.VisitWhereClause(whereClause, queryModel, index);
@@ -491,7 +531,6 @@ internal sealed class CacheQueryModelVisitor : QueryModelVisitorBase
     }
 
     /** <inheritdoc /> */
-    [SuppressMessage("Microsoft.Design", "CA1062:Validate arguments of public methods")]
     public override void VisitOrderByClause(OrderByClause orderByClause, QueryModel queryModel, int index)
     {
         base.VisitOrderByClause(orderByClause, queryModel, index);
@@ -503,7 +542,9 @@ internal sealed class CacheQueryModelVisitor : QueryModelVisitorBase
             var ordering = orderByClause.Orderings[i];
 
             if (i > 0)
+            {
                 _builder.Append(", ");
+            }
 
             _builder.Append('(');
 
@@ -518,7 +559,6 @@ internal sealed class CacheQueryModelVisitor : QueryModelVisitorBase
     }
 
     /** <inheritdoc /> */
-    [SuppressMessage("Microsoft.Design", "CA1062:Validate arguments of public methods")]
     public override void VisitJoinClause(JoinClause joinClause, QueryModel queryModel, int index)
     {
         base.VisitJoinClause(joinClause, queryModel, index);
@@ -532,18 +572,18 @@ internal sealed class CacheQueryModelVisitor : QueryModelVisitorBase
             {
                 var isOuter = subQuery.QueryModel.ResultOperators.OfType<DefaultIfEmptyResultOperator>().Any();
 
-                _builder.AppendFormat("{0} join (", isOuter ? "left outer" : "inner");
+                _builder.AppendFormat(CultureInfo.InvariantCulture, "{0} join (", isOuter ? "left outer" : "inner");
 
                 VisitQueryModel(subQuery.QueryModel, true);
 
                 var alias = _aliases.GetTableAlias(subQuery.QueryModel.MainFromClause);
-                _builder.AppendFormat(") as {0} on (", alias);
+                _builder.AppendFormat(CultureInfo.InvariantCulture, ") as {0} on (", alias);
             }
             else
             {
                 var tableName = ExpressionWalker.GetTableNameWithSchema(queryable);
                 var alias = _aliases.GetTableAlias(joinClause);
-                _builder.AppendFormat("inner join {0} as {1} on (", tableName, alias);
+                _builder.AppendFormat(CultureInfo.InvariantCulture, "inner join {0} as {1} on (", tableName, alias);
             }
         }
         else
@@ -557,9 +597,7 @@ internal sealed class CacheQueryModelVisitor : QueryModelVisitorBase
     }
 
     /** <inheritdoc /> */
-    [SuppressMessage("Microsoft.Design", "CA1062:Validate arguments of public methods")]
-    public override void VisitAdditionalFromClause(AdditionalFromClause fromClause, QueryModel queryModel,
-        int index)
+    public override void VisitAdditionalFromClause(AdditionalFromClause fromClause, QueryModel queryModel, int index)
     {
         base.VisitAdditionalFromClause(fromClause, queryModel, index);
 
@@ -571,7 +609,7 @@ internal sealed class CacheQueryModelVisitor : QueryModelVisitorBase
             VisitQueryModel(subQuery.QueryModel, true);
 
             var alias = _aliases.GetTableAlias(subQuery.QueryModel.MainFromClause);
-            _builder.AppendFormat(") as {0} ", alias);
+            _builder.AppendFormat(CultureInfo.InvariantCulture, ") as {0} ", alias);
         }
         else
         {
@@ -580,7 +618,7 @@ internal sealed class CacheQueryModelVisitor : QueryModelVisitorBase
     }
 
     /// <summary>
-    /// Visists Join clause in case of join with local collection
+    /// Visits Join clause in case of join with local collection.
     /// </summary>
     private void VisitJoinWithLocalCollectionClause(JoinClause joinClause)
     {
@@ -597,7 +635,7 @@ internal sealed class CacheQueryModelVisitor : QueryModelVisitorBase
 
         var isOuter = false;
         var sequenceExpression = joinClause.InnerSequence;
-        object values;
+        object? values;
 
         var subQuery = sequenceExpression as SubQueryExpression;
         if (subQuery != null)
@@ -609,11 +647,12 @@ internal sealed class CacheQueryModelVisitor : QueryModelVisitorBase
         switch (sequenceExpression.NodeType)
         {
             case ExpressionType.Constant:
-                var constantValueType = ((ConstantExpression)sequenceExpression).Value.GetType();
+                var constantValueType = ((ConstantExpression)sequenceExpression).Value!.GetType();
                 if (constantValueType.IsGenericType)
                 {
-                    isOuter = DefaultIfEmptyEnumeratorType == constantValueType.GetGenericTypeDefinition();
+                    isOuter = constantValueType.GetGenericTypeDefinition() == DefaultIfEmptyEnumeratorType;
                 }
+
                 values = ExpressionWalker.EvaluateEnumerableValues(sequenceExpression);
                 break;
 
@@ -629,7 +668,9 @@ internal sealed class CacheQueryModelVisitor : QueryModelVisitorBase
         var tableAlias = _aliases.GetTableAlias(joinClause);
         var fieldAlias = _aliases.GetFieldAlias(joinClause.InnerKeySelector);
 
-        _builder.AppendFormat("{0} join table ({1} {2} = ?) {3} on (",
+        _builder.AppendFormat(
+            CultureInfo.InvariantCulture,
+            "{0} join table ({1} {2} = ?) {3} on (",
             isOuter ? "left outer" : "inner",
             fieldAlias,
             sqlTypeName,
@@ -643,8 +684,6 @@ internal sealed class CacheQueryModelVisitor : QueryModelVisitorBase
     /// </summary>
     /// <param name="innerKey">The inner key selector.</param>
     /// <param name="outerKey">The outer key selector.</param>
-    /// <exception cref="System.NotSupportedException">
-    /// </exception>
     private void BuildJoinCondition(Expression innerKey, Expression outerKey)
     {
         var innerNew = innerKey as NewExpression;
@@ -659,14 +698,18 @@ internal sealed class CacheQueryModelVisitor : QueryModelVisitorBase
         if (innerNew != null && outerNew != null)
         {
             if (innerNew.Constructor != outerNew.Constructor)
+            {
                 throw new NotSupportedException(
-                    string.Format("Unexpected JOIN condition. Multi-key joins should have " +
-                                  "the same initializers on both sides: '{0} = {1}'", innerKey, outerKey));
+                    "Unexpected JOIN condition. Multi-key joins should have " +
+                    $"the same initializers on both sides: '{innerKey} = {outerKey}'");
+            }
 
             for (var i = 0; i < innerNew.Arguments.Count; i++)
             {
                 if (i > 0)
+                {
                     _builder.Append(" and ");
+                }
 
                 BuildJoinSubCondition(innerNew.Arguments[i], outerNew.Arguments[i]);
             }
@@ -675,8 +718,8 @@ internal sealed class CacheQueryModelVisitor : QueryModelVisitorBase
         }
 
         throw new NotSupportedException(
-            string.Format("Unexpected JOIN condition. Multi-key joins should have " +
-                          "anonymous type instances on both sides: '{0} = {1}'", innerKey, outerKey));
+            "Unexpected JOIN condition. Multi-key joins should have " +
+            $"anonymous type instances on both sides: '{innerKey} = {outerKey}'");
     }
 
     /// <summary>
@@ -694,32 +737,8 @@ internal sealed class CacheQueryModelVisitor : QueryModelVisitorBase
     /// <summary>
     /// Builds the SQL expression.
     /// </summary>
-    private void BuildSqlExpression(Expression expression, bool useStar = false, bool includeAllFields = false,
-        bool visitSubqueryModel = false)
+    private void BuildSqlExpression(Expression expression, bool useStar = false, bool includeAllFields = false, bool visitSubqueryModel = false)
     {
         new CacheQueryExpressionVisitor(this, useStar, includeAllFields, visitSubqueryModel).Visit(expression);
-    }
-
-    /// <summary>
-    /// Builds SET clause of UPDATE statement
-    /// </summary>
-    private void BuildSetClauseForUpdateAll(QueryModel queryModel)
-    {
-        var updateAllResultOperator = queryModel.ResultOperators.LastOrDefault() as UpdateAllResultOperator;
-        if (updateAllResultOperator != null)
-        {
-            _builder.Append("set ");
-            var first = true;
-            foreach (var update in updateAllResultOperator.Updates)
-            {
-                if (!first) _builder.Append(", ");
-                first = false;
-                BuildSqlExpression(update.Selector);
-                _builder.Append(" = ");
-                BuildSqlExpression(update.Value, visitSubqueryModel: true);
-            }
-
-            _builder.Append(' ');
-        }
     }
 }

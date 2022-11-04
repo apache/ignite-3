@@ -29,7 +29,7 @@ using System.Linq;
 internal class QueryData
 {
     /** */
-    private readonly ICollection<object> _parameters;
+    private readonly ICollection<object?> _parameters;
 
     /** */
     private readonly string _queryText;
@@ -39,7 +39,7 @@ internal class QueryData
     /// </summary>
     /// <param name="queryText">The query text.</param>
     /// <param name="parameters">The parameters.</param>
-    public QueryData(string queryText, ICollection<object> parameters)
+    public QueryData(string queryText, ICollection<object?> parameters)
     {
         Debug.Assert(queryText != null);
         Debug.Assert(parameters != null);
@@ -51,7 +51,7 @@ internal class QueryData
     /// <summary>
     /// Gets the parameters.
     /// </summary>
-    public ICollection<object> Parameters // TODO: Nullability
+    public ICollection<object?> Parameters
     {
         get { return _parameters; }
     }
