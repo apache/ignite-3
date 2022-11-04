@@ -30,6 +30,7 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.client.fakes.FakeInternalTable;
+import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.table.KeyValueView;
@@ -48,13 +49,13 @@ import org.junit.jupiter.params.provider.ValueSource;
  * Tests partition awareness.
  */
 public class PartitionAwarenessTest extends AbstractClientTest {
-    protected static TestServer testServer2;
+    private static TestServer testServer2;
 
-    protected static Ignite server2;
+    private static Ignite server2;
 
-    protected static IgniteClient client2;
+    private static IgniteClient client2;
 
-    protected static int serverPort2;
+    private static int serverPort2;
 
     private String lastOp;
 
@@ -415,6 +416,26 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         assertOpOnNode("server-2", "deleteAll", x -> kvView.removeAll(null, List.of(t2)));
     }
 
+    @Test
+    public void testExecuteColocatedTupleKeyRoutesRequestToPrimaryNode() {
+        Table table = defaultTable();
+
+        Tuple t1 = Tuple.create().set("ID", 0L);
+        Tuple t2 = Tuple.create().set("ID", 1L);
+
+        assertEquals("server-1", compute().executeColocated(table.name(), t1, "job").join());
+        assertEquals("server-2", compute().executeColocated(table.name(), t2, "job").join());
+    }
+
+    @Test
+    public void testExecuteColocatedObjectKeyRoutesRequestToPrimaryNode() {
+        var mapper = Mapper.of(Long.class);
+        Table table = defaultTable();
+
+        assertEquals("server-1", compute().executeColocated(table.name(), 0L, mapper, "job").join());
+        assertEquals("server-2", compute().executeColocated(table.name(), 1L, mapper, "job").join());
+    }
+
     private void assertOpOnNode(String expectedNode, String expectedOp, Consumer<Void> op) {
         lastOpServerName = null;
         lastOp = null;
@@ -437,6 +458,10 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         createTable(server2, tableId, name);
 
         return client2.tables().table(name);
+    }
+
+    private IgniteCompute compute() {
+        return client2.compute();
     }
 
     private void createTable(Ignite ignite, UUID id, String name) {

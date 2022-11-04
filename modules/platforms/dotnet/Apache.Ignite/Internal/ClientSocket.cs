@@ -77,6 +77,9 @@ namespace Apache.Ignite.Internal
         /** Effective heartbeat interval. */
         private readonly TimeSpan _heartbeatInterval;
 
+        /** Socket timeout for handshakes and heartbeats. */
+        private readonly TimeSpan _socketTimeout;
+
         /** Logger. */
         private readonly IIgniteLogger? _logger;
 
@@ -109,6 +112,7 @@ namespace Apache.Ignite.Internal
             ConnectionContext = connectionContext;
             _assignmentChangeCallback = assignmentChangeCallback;
             _logger = configuration.Logger.GetLogger(GetType());
+            _socketTimeout = configuration.SocketTimeout;
 
             _heartbeatInterval = GetHeartbeatInterval(configuration.HeartbeatInterval, connectionContext.IdleTimeout, _logger);
 
@@ -164,7 +168,10 @@ namespace Apache.Ignite.Internal
 
                 var stream = new NetworkStream(socket, ownsSocket: true);
 
-                var context = await HandshakeAsync(stream, endPoint).ConfigureAwait(false);
+                var context = await HandshakeAsync(stream, endPoint)
+                    .WaitAsync(configuration.SocketTimeout)
+                    .ConfigureAwait(false);
+
                 logger?.Debug($"Handshake succeeded: {context}.");
 
                 return new ClientSocket(stream, configuration, context, assignmentChangeCallback);
@@ -372,7 +379,6 @@ namespace Apache.Ignite.Internal
 
             while (received < size)
             {
-                // TODO IGNITE-18058 This may wait forever, use IgniteClientConfiguration.SocketTimeout.
                 var res = await stream.ReadAsync(buffer.AsMemory(received, size - received), cancellationToken).ConfigureAwait(false);
 
                 if (res == 0)
@@ -531,9 +537,9 @@ namespace Apache.Ignite.Internal
             }
             catch (Exception e)
             {
-                const string message = "Exception while reading from socket. Connection closed.";
+                var message = "Exception while reading from socket, connection closed: " + e.Message;
 
-                _logger?.Error(message, e);
+                _logger?.Error(e, message);
                 Dispose(new IgniteClientConnectionException(ErrorGroups.Client.Connection, message, e));
             }
         }
@@ -594,10 +600,12 @@ namespace Apache.Ignite.Internal
         {
             try
             {
-                await DoOutInOpAsync(ClientOp.Heartbeat).ConfigureAwait(false);
+                await DoOutInOpAsync(ClientOp.Heartbeat).WaitAsync(_socketTimeout).ConfigureAwait(false);
             }
             catch (Exception e)
             {
+                _logger?.Error(e, "Heartbeat failed: " + e.Message);
+
                 Dispose(e);
             }
         }

@@ -85,6 +85,7 @@ cmake = "net.freudasoft.gradle-cmake-plugin:0.0.4"
 modernizer = "com.github.andygoossens.modernizer:1.6.2"
 nebula = "nebula.ospackage:9.1.1"
 docker = "com.palantir.docker:0.34.0"
+checksum = "org.gradle.crypto.checksum:1.4.0"
 
 [libraries]
 assertj-core = { module = "org.assertj:assertj-core", version.ref = "assertj" }

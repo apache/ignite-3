@@ -272,7 +272,7 @@ namespace Apache.Ignite.Internal
                         }
                         catch (Exception e)
                         {
-                            _logger?.Warn($"Failed to connect to preferred node {preferredNode}: {e.Message}", e);
+                            _logger?.Warn(e, $"Failed to connect to preferred node {preferredNode}: {e.Message}");
                         }
                     }
                 }
@@ -338,7 +338,7 @@ namespace Apache.Ignite.Internal
             }
             catch (Exception e)
             {
-                _logger?.Warn("Error while trying to establish secondary connections: " + e.Message, e);
+                _logger?.Warn(e, "Error while trying to establish secondary connections: " + e.Message);
             }
             finally
             {
