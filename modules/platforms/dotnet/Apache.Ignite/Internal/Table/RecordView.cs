@@ -282,6 +282,8 @@ namespace Apache.Ignite.Internal.Table
         /// <inheritdoc/>
         public IQueryable<T> AsQueryable(ITransaction? transaction = null)
         {
+            // TODO: AsQueryable should be present in all kinds of views - extract a separate interface?
+            // TODO: Accept options with PageSize, Timeout.
             throw new NotImplementedException();
         }
 
