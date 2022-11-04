@@ -19,6 +19,7 @@
 namespace Apache.Ignite.Internal.Linq;
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
@@ -26,6 +27,7 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using Remotion.Linq;
+using Table;
 
 /// <summary>
 /// Fields query executor.
@@ -33,37 +35,28 @@ using Remotion.Linq;
 internal class CacheFieldsQueryExecutor : IQueryExecutor
 {
     /** */
-    private readonly ICacheInternal _cache;
+    private static readonly ConcurrentDictionary<ConstructorInfo, object> CtorCache = new();
 
     /** */
-    private readonly QueryOptions _options;
-
-    /** */
-    private static readonly CopyOnWriteConcurrentDictionary<ConstructorInfo, object> CtorCache =
-        new CopyOnWriteConcurrentDictionary<ConstructorInfo, object>();
+    private readonly Table _cache;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="CacheFieldsQueryExecutor" /> class.
     /// </summary>
     /// <param name="cache">The executor function.</param>
-    /// <param name="options">Query options.</param>
-    public CacheFieldsQueryExecutor(ICacheInternal cache, QueryOptions options)
+    public CacheFieldsQueryExecutor(Table cache)
     {
-        Debug.Assert(cache != null);
-        Debug.Assert(options != null);
-
         _cache = cache;
-        _options = options;
     }
 
     /** <inheritdoc /> */
-    public T ExecuteScalar<T>(QueryModel queryModel)
+    public T? ExecuteScalar<T>(QueryModel queryModel)
     {
         return ExecuteSingle<T>(queryModel, false);
     }
 
     /** <inheritdoc /> */
-    public T ExecuteSingle<T>(QueryModel queryModel, bool returnDefaultWhenEmpty)
+    public T? ExecuteSingle<T>(QueryModel queryModel, bool returnDefaultWhenEmpty)
     {
         var col = ExecuteCollection<T>(queryModel);
 
@@ -71,14 +64,13 @@ internal class CacheFieldsQueryExecutor : IQueryExecutor
     }
 
     /** <inheritdoc /> */
-    [SuppressMessage("Microsoft.Design", "CA1062:Validate arguments of public methods")]
     public IEnumerable<T> ExecuteCollection<T>(QueryModel queryModel)
     {
-        Debug.Assert(queryModel != null);
-
         var qryData = GetQueryData(queryModel);
 
-        Debug.WriteLine("\nFields Query: {0} | {1}", qryData.QueryText,
+        Debug.WriteLine(
+            "\nFields Query: {0} | {1}",
+            qryData.QueryText,
             string.Join(", ", qryData.Parameters.Select(x => x == null ? "null" : x.ToString())));
 
         var qry = GetFieldsQuery(qryData.QueryText, qryData.Parameters.ToArray());
@@ -192,7 +184,7 @@ internal class CacheFieldsQueryExecutor : IQueryExecutor
     /// <summary>
     /// Gets the fields query.
     /// </summary>
-    internal SqlFieldsQuery GetFieldsQuery(string text, object[] args)
+    internal SqlFieldsQuery GetFieldsQuery(string text, object?[] args)
     {
         return new SqlFieldsQuery(text)
         {
