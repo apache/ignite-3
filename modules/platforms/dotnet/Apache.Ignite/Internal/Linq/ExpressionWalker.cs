@@ -413,6 +413,6 @@ internal static class ExpressionWalker
 
         const string schemaName = "PUB"; // TODO
 
-        return $"{schemaName}.{queryable.Table.Name}";
+        return $"{schemaName}.{queryable.TableName}";
     }
 }

@@ -18,7 +18,6 @@
 namespace Apache.Ignite.Internal.Linq;
 
 using Remotion.Linq;
-using Table;
 
 /// <summary>
 /// Internal queryable interface.
@@ -26,9 +25,9 @@ using Table;
 internal interface ICacheQueryableInternal // TODO: Better name.
 {
     /// <summary>
-    /// Gets the table.
+    /// Gets the table name.
     /// </summary>
-    Table Table { get; }
+    string TableName { get; }
 
     /// <summary>
     /// Gets the query model.

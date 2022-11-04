@@ -51,7 +51,7 @@ internal abstract class CacheQueryableBase<T>
         // No-op.
     }
 
-    public Table Table => null!; // TODO
+    public string TableName => CacheQueryProvider.TableName;
 
     /// <summary>
     /// Gets the cache query provider.
