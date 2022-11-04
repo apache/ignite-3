@@ -512,7 +512,7 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
             }
 
             // Forbid zero result, to prevent zero cost for table and index scans.
-            return (localRowCnt == 0L) ? 10_000.0 : (double) localRowCnt;
+            return Math.max(10_000.0, (double) localRowCnt);
         }
 
         /** {@inheritDoc} */
