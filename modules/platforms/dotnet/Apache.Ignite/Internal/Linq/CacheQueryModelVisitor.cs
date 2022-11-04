@@ -38,37 +38,20 @@ using Remotion.Linq.Clauses.ResultOperators;
 internal sealed class CacheQueryModelVisitor : QueryModelVisitorBase
 {
     /** */
-    private readonly StringBuilder _builder = new StringBuilder();
-
-    /** */
-    private readonly List<object> _parameters = new List<object>();
-
-    /** */
-    private readonly AliasDictionary _aliases = new AliasDictionary();
-
-    /** */
-    private static readonly Type DefaultIfEmptyEnumeratorType = new object[0]
+    private static readonly Type DefaultIfEmptyEnumeratorType = Array.Empty<object>()
         .DefaultIfEmpty()
         .GetType()
         .GetGenericTypeDefinition();
 
-    /// <summary>
-    /// Generates the query.
-    /// </summary>
-    public QueryData GenerateQuery(QueryModel queryModel)
-    {
-        Debug.Assert(_builder.Length == 0);
-        Debug.Assert(_parameters.Count == 0);
+    /** */
+    private readonly StringBuilder _builder = new StringBuilder();
 
-        VisitQueryModel(queryModel);
+    /** */
+    [SuppressMessage("Microsoft.Design", "CA1002:DoNotExposeGenericLists", Justification = "Private.")]
+    private readonly List<object> _parameters = new List<object>();
 
-        if (char.IsWhiteSpace(_builder[_builder.Length - 1]))
-            _builder.Remove(_builder.Length - 1, 1);  // TrimEnd
-
-        var qryText = _builder.ToString();
-
-        return new QueryData(qryText, _parameters);
-    }
+    /** */
+    private readonly AliasDictionary _aliases = new AliasDictionary();
 
     /// <summary>
     /// Gets the builder.
@@ -94,6 +77,26 @@ internal sealed class CacheQueryModelVisitor : QueryModelVisitorBase
         get { return _aliases; }
     }
 
+    /// <summary>
+    /// Generates the query.
+    /// </summary>
+    public QueryData GenerateQuery(QueryModel queryModel)
+    {
+        Debug.Assert(_builder.Length == 0);
+        Debug.Assert(_parameters.Count == 0);
+
+        VisitQueryModel(queryModel);
+
+        if (char.IsWhiteSpace(_builder[_builder.Length - 1]))
+        {
+            _builder.Remove(_builder.Length - 1, 1);  // TrimEnd
+        }
+
+        var qryText = _builder.ToString();
+
+        return new QueryData(qryText, _parameters);
+    }
+
     /** <inheritdoc /> */
     public override void VisitQueryModel(QueryModel queryModel)
     {
@@ -107,16 +110,17 @@ internal sealed class CacheQueryModelVisitor : QueryModelVisitorBase
     {
         _aliases.Push(copyAliases);
 
-        var lastResultOp = queryModel.ResultOperators.LastOrDefault();
-        if (lastResultOp is RemoveAllResultOperator)
-        {
-            VisitRemoveOperator(queryModel);
-        }
-        else if(lastResultOp is UpdateAllResultOperator)
-        {
-            VisitUpdateAllOperator(queryModel);
-        }
-        else
+        // TODO: DML
+        // var lastResultOp = queryModel.ResultOperators.LastOrDefault();
+        // if (lastResultOp is RemoveAllResultOperator)
+        // {
+        //     VisitRemoveOperator(queryModel);
+        // }
+        // else if (lastResultOp is UpdateAllResultOperator)
+        // {
+        //     VisitUpdateAllOperator(queryModel);
+        // }
+        // else
         {
             // SELECT
             _builder.Append("select ");
