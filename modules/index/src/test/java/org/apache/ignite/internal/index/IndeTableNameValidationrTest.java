@@ -91,7 +91,7 @@ import org.mockito.Mockito;
  * Test class to verify {@link IndexManager}.
  */
 @ExtendWith(ConfigurationExtension.class)
-public class IndexManagerTest {
+public class IndeTableNameValidationrTest {
     /** Configuration registry with one table for each test. */
     private static ConfigurationRegistry confRegistry;
 
@@ -101,7 +101,7 @@ public class IndexManagerTest {
     /** Index manager. */
     private static IndexManager indexManager;
 
-    /** Per test unique index name. */
+    /** Per test unique index name.  */
     private static AtomicInteger index = new AtomicInteger();
 
     /**
@@ -130,8 +130,7 @@ public class IndexManagerTest {
 
         tablesConfig = confRegistry.getConfiguration(TablesConfiguration.KEY);
 
-        TableManager tableManagerMock = Mockito.mock(TableManager.class);
-        Map<UUID, TableImpl> tables = Mockito.mock(Map.class);
+        TableManager tableManagerMock = mock(TableManager.class);
 
         when(tableManagerMock.tableAsync(anyLong(), any(UUID.class))).thenAnswer(inv -> {
             InternalTable tbl = Mockito.mock(InternalTable.class);
@@ -151,6 +150,16 @@ public class IndexManagerTest {
 
             ((ExtendedTableChange) chg).changeAssignments((byte) 1).changeSchemaId(1);
         })).get();
+
+        tablesConfig.tables().change(tableChange -> tableChange.create("tName2", chg -> {
+            chg.changeColumns(cols -> cols
+                    .create("c1", col -> col.changeType(t -> t.changeType("STRING")))
+                    .create("c2", col -> col.changeType(t -> t.changeType("STRING"))));
+
+            chg.changePrimaryKey(pk -> pk.changeColumns("c1").changeColocationColumns("c1"));
+
+            ((ExtendedTableChange) chg).changeAssignments((byte) 1).changeSchemaId(1);
+        })).get();
     }
 
     /**
@@ -159,118 +168,6 @@ public class IndexManagerTest {
     @AfterAll
     public static void tearDown() throws Exception {
         confRegistry.stop();
-    }
-
-    @Test
-    void configurationChangedWhenCreateIsInvoked() {
-        String indexName = "idx" + index.incrementAndGet();
-
-        NamedConfigurationTree<TableConfiguration, TableView, TableChange> cfg0 = tablesConfig.tables();
-
-        List<UUID> ids = ((NamedListConfiguration<TableConfiguration, ?, ?>) cfg0).internalIds();
-
-        assertEquals(1, ids.size());
-
-        UUID tableId = ids.get(0);
-
-        indexManager.createIndexAsync("sName", indexName, "tName", true, indexChange -> {
-            SortedIndexChange sortedIndexChange = indexChange.convert(SortedIndexChange.class);
-
-            sortedIndexChange.changeColumns(columns -> {
-                columns.create("c1", columnChange -> columnChange.changeAsc(true));
-                columns.create("c2", columnChange -> columnChange.changeAsc(false));
-            });
-
-            sortedIndexChange.changeTableId(tableId);
-        }).join();
-
-        var expected = List.of(
-                Map.of(
-                        "columns", List.of(
-                                Map.of(
-                                        "asc", true,
-                                        "name", "c1"
-                                ),
-                                Map.of(
-                                        "asc", false,
-                                        "name", "c2"
-                                )
-                        ),
-                        "name", indexName,
-                        "type", "SORTED",
-                        "uniq", false,
-                        "tableId", tableId.toString()
-                )
-        );
-
-        assertSameObjects(expected, toMap(tablesConfig.indexes().value()));
-    }
-
-    @Test
-    public void createIndexForNonExistingTable() {
-        CompletionException completionException = assertThrows(
-                CompletionException.class,
-                () -> indexManager.createIndexAsync("sName", "idx", "tName_notExist", true, indexChange -> {/* doesn't matter */}).join()
-        );
-
-        assertTrue(IgniteTestUtils.hasCause(completionException, TableNotFoundException.class,
-                "The table does not exist [name=\"sName\".\"tName_notExist\"]"));
-    }
-
-    @Test
-    public void createIndexWithEmptyName() {
-        CompletionException completionException = assertThrows(
-                CompletionException.class,
-                () -> indexManager.createIndexAsync("sName", "", "tName", true, indexChange -> {/* doesn't matter */}).join()
-        );
-
-        assertThat(completionException.getCause(), instanceOf(IgniteInternalException.class));
-        assertThat(
-                ((IgniteInternalException) completionException.getCause()).code(),
-                equalTo(ErrorGroups.Index.INVALID_INDEX_DEFINITION_ERR)
-        );
-    }
-
-    @Test
-    public void createIndexWithEmptyColumnList() {
-        String indexTitle = "idx" + index.incrementAndGet();
-
-        CompletionException completionException = assertThrows(
-                CompletionException.class,
-                () -> indexManager.createIndexAsync("sName", indexTitle, "tName", true,
-                        indexChange -> indexChange.convert(HashIndexChange.class).changeColumnNames()
-                                .changeTableId(UUID.randomUUID())).join()
-        );
-
-        assertTrue(IgniteTestUtils.hasCause(completionException, ConfigurationValidationException.class,
-                "Index must include at least one column"));
-    }
-
-    @Test
-    public void createIndexForNonExistingColumn() {
-        String indexName = "idx" + index.incrementAndGet();
-
-        CompletionException completionException = assertThrows(
-                CompletionException.class,
-                () -> indexManager.createIndexAsync("sName", indexName, "tName", true,
-                        indexChange ->
-                                indexChange.convert(HashIndexChange.class).changeColumnNames("nonExistingColumn")
-                                        .changeTableId(UUID.randomUUID())).join()
-        );
-
-        assertTrue(IgniteTestUtils.hasCause(completionException, ConfigurationValidationException.class,
-                "Columns don't exist"));
-    }
-
-    @Test
-    public void dropNonExistingIndex() {
-        CompletionException completionException = assertThrows(
-                CompletionException.class,
-                () -> indexManager.dropIndexAsync("sName", "nonExisting", true).join()
-        );
-
-        assertTrue(IgniteTestUtils.hasCause(completionException, IndexNotFoundException.class,
-                "Index does not exist [name=\"sName\".\"nonExisting\"]"));
     }
 
     @Test
@@ -298,7 +195,7 @@ public class IndexManagerTest {
 
         List<UUID> ids = ((NamedListConfiguration<TableConfiguration, ?, ?>) cfg0).internalIds();
 
-        assertEquals(1, ids.size());
+        assertEquals(2, ids.size());
 
         UUID tableId = ids.get(0);
 
@@ -312,9 +209,19 @@ public class IndexManagerTest {
             sortedIndexChange.changeTableId(tableId);
         }).join();
 
+        indexManager.createIndexAsync("sName", "tName2", "tName", true, indexChange -> {
+            SortedIndexChange sortedIndexChange = indexChange.convert(SortedIndexChange.class);
+
+            sortedIndexChange.changeColumns(columns -> {
+                columns.create("c2", columnChange -> columnChange.changeAsc(true));
+            });
+
+            sortedIndexChange.changeTableId(tableId);
+        }).join();
+
         ids = ((NamedListConfiguration<TableIndexConfiguration, ?, ?>) tablesConfig.indexes()).internalIds();
 
-        assertEquals(1, ids.size());
+        assertEquals(2, ids.size());
 
         UUID indexId = ids.get(0);
 

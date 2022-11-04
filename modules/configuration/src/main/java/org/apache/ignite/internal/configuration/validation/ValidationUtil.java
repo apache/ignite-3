@@ -139,6 +139,9 @@ public class ValidationUtil {
                                 issues
                         );
 
+//                        System.out.println(">xxx> validate inner " + lastInnerNode.getClass().getSimpleName()
+//                                + ", val=" + val + ", key=" + currentKey + ", path=" + currentPath);
+
                         ((Validator<Annotation, Object>) validator).validate(annotation, ctx);
                     }
                 }
