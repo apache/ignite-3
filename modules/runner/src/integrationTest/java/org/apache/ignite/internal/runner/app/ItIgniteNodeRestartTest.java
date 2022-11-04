@@ -937,7 +937,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * @param testInfo Test info.
      */
     @Test
-    @RepeatedTest(300)
+    @RepeatedTest(3)
     @WithSystemProperty(key = CONFIGURATION_CATCH_UP_DIFFERENCE_PROPERTY, value = "0")
     public void testMetastorageStop(TestInfo testInfo) throws NodeStoppingException {
         final int nodes = 3;

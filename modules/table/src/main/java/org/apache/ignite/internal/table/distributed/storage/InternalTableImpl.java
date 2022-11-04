@@ -46,6 +46,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
+import org.apache.ignite.internal.replicator.exception.ReplicaUnavailableException;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
@@ -398,6 +399,8 @@ public class InternalTableImpl implements InternalTable {
                         );
                     } catch (PrimaryReplicaMissException e) {
                         throw new TransactionException(e);
+                    } catch (ReplicaUnavailableException e) {
+                        throw new TransactionException(e);
                     } catch (Throwable e) {
                         throw new TransactionException(
                                 IgniteStringFormatter.format(
@@ -410,7 +413,14 @@ public class InternalTableImpl implements InternalTable {
                 })
                 .handle((res0, e) -> {
                     if (e != null) {
-                        if (e.getCause() instanceof PrimaryReplicaMissException && attempts > 0) {
+                        if ((e.getCause() instanceof PrimaryReplicaMissException || e.getCause() instanceof ReplicaUnavailableException)
+                                && attempts > 0) {
+                            try {
+                                Thread.sleep(200);
+                            } catch (InterruptedException ex) {
+                                throw new RuntimeException(ex);
+                            }
+
                             return enlistWithRetry(tx, partId, requestFunction, attempts - 1).handle((r2, e2) -> {
                                 if (e2 != null) {
                                     return result.completeExceptionally(e2);
