@@ -265,24 +265,28 @@ public abstract class TxStateStorageAbstractTest {
 
     @Test
     void lastAppliedIndexGetterIsConsistentWithSetter() throws Exception {
-        try (TxStateTableStorage tableStorage = createStorage()) {
-            TxStateStorage partitionStorage = tableStorage.getOrCreateTxStateStorage(0);
+        TxStateStorage partitionStorage = tableStorage.getOrCreateTxStateStorage(0);
 
+        try {
             partitionStorage.lastAppliedIndex(10);
 
             assertThat(partitionStorage.lastAppliedIndex(), is(10L));
+        } finally {
+            partitionStorage.close();
         }
     }
 
     @Test
     void compareAndSetMakesVisibleLastAppliedIndexChange() throws Exception {
-        try (TxStateTableStorage tableStorage = createStorage()) {
-            TxStateStorage partitionStorage = tableStorage.getOrCreateTxStateStorage(0);
+        TxStateStorage partitionStorage = tableStorage.getOrCreateTxStateStorage(0);
 
+        try {
             UUID txId = UUID.randomUUID();
             partitionStorage.compareAndSet(txId, null, randomTxMeta(1, txId), 10);
 
             assertThat(partitionStorage.lastAppliedIndex(), is(10L));
+        } finally {
+            partitionStorage.close();
         }
     }
 
