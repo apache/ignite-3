@@ -164,6 +164,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                 mockRaftClient,
                 mock(TxManager.class),
                 LOCK_MANAGER,
+                Runnable::run,
                 PART_ID,
                 TABLE_ID,
                 () -> Map.of(

@@ -244,6 +244,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 partitionMap.get(0),
                 this.txManager,
                 this.txManager.lockManager(),
+                Runnable::run,
                 0,
                 tableId,
                 () -> Map.of(pkLocker.id(), pkLocker),
