@@ -121,7 +121,6 @@ public class HashIndexDescriptor implements IndexDescriptor {
     }
 
     private static List<HashIndexColumnDescriptor> extractIndexColumnsConfiguration(UUID indexId, TablesView tablesConfig) {
-        final List<HashIndexColumnDescriptor> columns;
         TableIndexView indexConfig = ConfigurationUtil.getByInternalId(tablesConfig.indexes(), indexId);
 
         if (indexConfig == null) {
