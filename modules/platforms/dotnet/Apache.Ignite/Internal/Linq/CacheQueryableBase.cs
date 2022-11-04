@@ -27,7 +27,7 @@ using Remotion.Linq;
 /// </summary>
 /// <typeparam name="T">Query result type.</typeparam>
 internal abstract class CacheQueryableBase<T>
-    : QueryableBase<T>
+    : QueryableBase<T>, ICacheQueryableInternal
 {
     /// <summary>
     /// Initializes a new instance of the <see cref="CacheQueryableBase{T}"/> class.

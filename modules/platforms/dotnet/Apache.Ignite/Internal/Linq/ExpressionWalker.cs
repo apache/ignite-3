@@ -20,6 +20,7 @@ namespace Apache.Ignite.Internal.Linq;
 
 using System;
 using System.Collections;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -37,13 +38,12 @@ internal static class ExpressionWalker
     private const string SqlQuote = "\"";
 
     /** Compiled member readers. */
-    private static readonly CopyOnWriteConcurrentDictionary<MemberInfo, Func<object, object>> MemberReaders =
-        new CopyOnWriteConcurrentDictionary<MemberInfo, Func<object, object>>();
+    private static readonly ConcurrentDictionary<MemberInfo, Func<object?, object?>> MemberReaders = new();
 
     /// <summary>
     /// Gets the cache queryable.
     /// </summary>
-    public static ICacheQueryableInternal GetCacheQueryable(IFromClause fromClause, bool throwWhenNotFound = true)
+    public static ICacheQueryableInternal? GetCacheQueryable(IFromClause fromClause, bool throwWhenNotFound = true)
     {
         return GetCacheQueryable(fromClause.FromExpression, throwWhenNotFound);
     }
@@ -51,7 +51,7 @@ internal static class ExpressionWalker
     /// <summary>
     /// Gets the cache queryable.
     /// </summary>
-    public static ICacheQueryableInternal GetCacheQueryable(JoinClause joinClause, bool throwWhenNotFound = true)
+    public static ICacheQueryableInternal? GetCacheQueryable(JoinClause joinClause, bool throwWhenNotFound = true)
     {
         return GetCacheQueryable(joinClause.InnerSequence, throwWhenNotFound);
     }
@@ -59,12 +59,14 @@ internal static class ExpressionWalker
     /// <summary>
     /// Gets the cache queryable.
     /// </summary>
-    public static ICacheQueryableInternal GetCacheQueryable(Expression expression, bool throwWhenNotFound = true)
+    public static ICacheQueryableInternal? GetCacheQueryable(Expression expression, bool throwWhenNotFound = true)
     {
         var subQueryExp = expression as SubQueryExpression;
 
         if (subQueryExp != null)
+        {
             return GetCacheQueryable(subQueryExp.QueryModel.MainFromClause, throwWhenNotFound);
+        }
 
         var srcRefExp = expression as QuerySourceReferenceExpression;
 
@@ -73,12 +75,16 @@ internal static class ExpressionWalker
             var fromSource = srcRefExp.ReferencedQuerySource as IFromClause;
 
             if (fromSource != null)
+            {
                 return GetCacheQueryable(fromSource, throwWhenNotFound);
+            }
 
             var joinSource = srcRefExp.ReferencedQuerySource as JoinClause;
 
             if (joinSource != null)
+            {
                 return GetCacheQueryable(joinSource, throwWhenNotFound);
+            }
 
             throw new NotSupportedException("Unexpected query source: " + srcRefExp.ReferencedQuerySource);
         }
@@ -89,9 +95,11 @@ internal static class ExpressionWalker
         {
             if (memberExpr.Type.IsGenericType &&
                 memberExpr.Type.GetGenericTypeDefinition() == typeof(IQueryable<>))
+            {
                 return EvaluateExpression<ICacheQueryableInternal>(memberExpr);
+            }
 
-            return GetCacheQueryable(memberExpr.Expression, throwWhenNotFound);
+            return GetCacheQueryable(memberExpr.Expression!, throwWhenNotFound);
         }
 
         var constExpr = expression as ConstantExpression;
@@ -101,7 +109,9 @@ internal static class ExpressionWalker
             var queryable = constExpr.Value as ICacheQueryableInternal;
 
             if (queryable != null)
+            {
                 return queryable;
+            }
         }
 
         var callExpr = expression as MethodCallExpression;
@@ -109,11 +119,13 @@ internal static class ExpressionWalker
         if (callExpr != null)
         {
             // This is usually a nested query with a call to AsCacheQueryable().
-            return (ICacheQueryableInternal) Expression.Lambda(callExpr).Compile().DynamicInvoke();
+            return (ICacheQueryableInternal) Expression.Lambda(callExpr).Compile().DynamicInvoke()!;
         }
 
         if (throwWhenNotFound)
+        {
             throw new NotSupportedException("Unexpected query source: " + expression);
+        }
 
         return null;
     }
@@ -124,7 +136,7 @@ internal static class ExpressionWalker
     /// This method finds the original member expression from the given projected expression, e.g finds
     /// <c>Person.Name</c> from <c>Foo</c>.
     /// </summary>
-    public static MemberExpression GetProjectedMember(Expression expression, MemberInfo memberHint)
+    public static MemberExpression? GetProjectedMember(Expression expression, MemberInfo memberHint)
     {
         Debug.Assert(memberHint != null);
 
@@ -134,7 +146,7 @@ internal static class ExpressionWalker
             var selector = subQueryExp.QueryModel.SelectClause.Selector;
             var newExpr = selector as NewExpression;
 
-            if (newExpr != null)
+            if (newExpr != null && newExpr.Members != null)
             {
                 Debug.Assert(newExpr.Members.Count == newExpr.Arguments.Count);
 
@@ -171,7 +183,9 @@ internal static class ExpressionWalker
             var fromSource = srcRefExp.ReferencedQuerySource as IFromClause;
 
             if (fromSource != null)
+            {
                 return GetProjectedMember(fromSource.FromExpression, memberHint);
+            }
         }
 
         return null;
@@ -180,8 +194,8 @@ internal static class ExpressionWalker
     /// <summary>
     /// Gets the original QuerySourceReferenceExpression.
     /// </summary>
-    public static QuerySourceReferenceExpression GetQuerySourceReference(Expression expression,
-        // ReSharper disable once ParameterOnlyUsedForPreconditionCheck.Global
+    public static QuerySourceReferenceExpression? GetQuerySourceReference(
+        Expression expression,
         bool throwWhenNotFound = true)
     {
         var reference = expression as QuerySourceReferenceExpression;
@@ -213,13 +227,13 @@ internal static class ExpressionWalker
     /// <summary>
     /// Gets the query source.
     /// </summary>
-    public static IQuerySource GetQuerySource(Expression expression, MemberExpression memberHint = null)
+    public static IQuerySource? GetQuerySource(Expression expression, MemberExpression? memberHint = null)
     {
         if (memberHint != null)
         {
             var newExpr = expression as NewExpression;
 
-            if (newExpr != null)
+            if (newExpr != null && newExpr.Members != null)
             {
                 for (var i = 0; i < newExpr.Members.Count; i++)
                 {
@@ -266,15 +280,19 @@ internal static class ExpressionWalker
             var joinSource = srcRefExp.ReferencedQuerySource as JoinClause;
 
             if (joinSource != null)
+            {
                 return GetQuerySource(joinSource.InnerSequence, memberHint) ?? joinSource;
+            }
 
             throw new NotSupportedException("Unexpected query source: " + srcRefExp.ReferencedQuerySource);
         }
 
         var memberExpr = expression as MemberExpression;
 
-        if (memberExpr != null)
+        if (memberExpr != null && memberExpr.Expression != null)
+        {
             return GetQuerySource(memberExpr.Expression, memberExpr);
+        }
 
         return null;
     }
@@ -282,12 +300,17 @@ internal static class ExpressionWalker
     /// <summary>
     /// Evaluates the expression.
     /// </summary>
+    /// <param name="expr">Expression.</param>
+    /// <typeparam name="T">Expression type.</typeparam>
+    /// <returns>Evaluation result.</returns>
     public static T EvaluateExpression<T>(Expression expr)
     {
         var constExpr = expr as ConstantExpression;
 
         if (constExpr != null)
-            return (T)constExpr.Value;
+        {
+            return (T)constExpr.Value!;
+        }
 
         var memberExpr = expr as MemberExpression;
 
@@ -300,24 +323,27 @@ internal static class ExpressionWalker
                 // Instance or static member
                 var target = targetExpr == null ? null : targetExpr.Value;
 
-                Func<object, object> reader;
-                if (MemberReaders.TryGetValue(memberExpr.Member, out reader))
-                    return (T) reader(target);
+                if (MemberReaders.TryGetValue(memberExpr.Member, out var reader))
+                {
+                    return (T) reader(target)!;
+                }
 
-                return (T) MemberReaders.GetOrAdd(memberExpr.Member, x => CompileMemberReader(memberExpr))(target);
+                return (T) MemberReaders.GetOrAdd(memberExpr.Member, _ => CompileMemberReader(memberExpr))(target);
             }
         }
 
         // Case for compiled queries: return unchanged.
         // ReSharper disable once CanBeReplacedWithTryCastAndCheckForNull
         if (expr is ParameterExpression)
+        {
             return (T) (object) expr;
+        }
 
         throw new NotSupportedException("Expression not supported: " + expr);
     }
 
     /// <summary>
-    /// Gets the values from IEnumerable expression
+    /// Gets the values from IEnumerable expression.
     /// </summary>
     public static IEnumerable<object> EvaluateEnumerableValues(Expression fromExpression)
     {
