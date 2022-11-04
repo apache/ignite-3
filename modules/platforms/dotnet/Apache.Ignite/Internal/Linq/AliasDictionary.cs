@@ -80,7 +80,7 @@ internal sealed class AliasDictionary
     {
         Debug.Assert(expression != null, "expression != null");
 
-        return GetTableAlias(ExpressionWalker.GetQuerySource(expression));
+        return GetTableAlias(ExpressionWalker.GetQuerySource(expression)!);
     }
 
     /// <summary>
@@ -123,7 +123,7 @@ internal sealed class AliasDictionary
     {
         Debug.Assert(expression != null);
 
-        var referenceExpression = ExpressionWalker.GetQuerySourceReference(expression);
+        var referenceExpression = ExpressionWalker.GetQuerySourceReference(expression)!;
 
         return GetFieldAlias(referenceExpression);
     }
@@ -153,7 +153,7 @@ internal sealed class AliasDictionary
         Debug.Assert(builder != null);
         Debug.Assert(clause != null);
 
-        var queryable = ExpressionWalker.GetCacheQueryable(clause);
+        var queryable = ExpressionWalker.GetCacheQueryable(clause)!;
         var tableName = ExpressionWalker.GetTableNameWithSchema(queryable);
 
         builder.AppendFormat(CultureInfo.InvariantCulture, "{0} as {1}", tableName, GetTableAlias(clause));
