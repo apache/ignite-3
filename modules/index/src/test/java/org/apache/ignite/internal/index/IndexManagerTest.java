@@ -362,15 +362,19 @@ public class IndexManagerTest {
 
         assertTrue(created);
 
-        CompletableFuture<Void> createTblFut = tablesConfig.tables().change(tableChange -> tableChange.create(indexName, chg -> {
-            chg.changeColumns(cols -> cols.create("c1", col -> col.changeType(t -> t.changeType("STRING"))))
-                    .changePrimaryKey(pk -> pk.changeColumns("c1").changeColocationColumns("c1"));
-        }));
+        try {
+            CompletableFuture<Void> createTblFut = tablesConfig.tables().change(tableChange -> tableChange.create(indexName, chg -> {
+                chg.changeColumns(cols -> cols.create("c1", col -> col.changeType(t -> t.changeType("STRING"))))
+                        .changePrimaryKey(pk -> pk.changeColumns("c1").changeColocationColumns("c1"));
+            }));
 
-        CompletionException completionException = assertThrows(CompletionException.class, createTblFut::join);
+            CompletionException completionException = assertThrows(CompletionException.class, createTblFut::join);
 
-        assertTrue(IgniteTestUtils.hasCause(completionException, ConfigurationValidationException.class,
-                "Index with the same name already exists."));
+            assertTrue(IgniteTestUtils.hasCause(completionException, ConfigurationValidationException.class,
+                    "Index with the same name already exists."));
+        } finally {
+            indexManager.dropIndexAsync("sName", indexName, true).join();
+        }
     }
 
     private static Object toMap(Object obj) {

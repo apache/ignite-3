@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.util.ArrayUtils.nullOrEmpty;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -42,10 +43,9 @@ public class TableValidatorImpl implements Validator<TableValidator, NamedListVi
     public void validate(TableValidator annotation, ValidationContext<NamedListView<TableView>> ctx) {
         TablesView tablesConfig = ctx.getNewRoot(TablesConfiguration.KEY);
 
-        assert tablesConfig != null;
+        Set<String> idxNames = tablesConfig == null ? Collections.emptySet() : new HashSet<>(tablesConfig.indexes().namedListKeys());
 
         NamedListView<TableView> newTables = ctx.getNewValue();
-        Set<String> idxNames = new HashSet<>(tablesConfig.indexes().namedListKeys());
 
         for (String tableName : newKeys(ctx.getOldValue(), ctx.getNewValue())) {
             if (idxNames.contains(tableName)) {
