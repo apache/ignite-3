@@ -19,12 +19,16 @@ package org.apache.ignite.internal.cli.core.repl.completer;
 
 import static org.apache.ignite.internal.cli.commands.OptionsConstants.NODE_NAME_OPTION;
 import static org.apache.ignite.internal.cli.commands.OptionsConstants.NODE_NAME_OPTION_SHORT;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.cli.NodeNameRegistry;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -35,8 +39,14 @@ class NodeNameDynamicCompleterTest {
 
     private static final Set<String> prefixes = Set.of(NODE_NAME_OPTION, NODE_NAME_OPTION_SHORT);
     private static final List<String> nodeNames = List.of("node1", "node2", "remoteNode");
-    private final NodeNameDynamicCompleter completer = new NodeNameDynamicCompleter(prefixes, nodeNames);
+    private NodeNameDynamicCompleter completer;
 
+    @BeforeEach
+    void setUp() {
+        NodeNameRegistry nodeNameRegistry = mock(NodeNameRegistry.class);
+        when(nodeNameRegistry.getAllNames()).thenReturn(nodeNames);
+        completer = new NodeNameDynamicCompleter(prefixes, nodeNameRegistry);
+    }
 
     private static Stream<Arguments> words() {
         return Stream.of(

@@ -34,7 +34,7 @@ import org.junit.jupiter.api.Test;
 public class NodeNameTest extends CliCommandTestNotInitializedIntegrationBase {
 
     @Inject
-    NodeNameRegistry nodeNameRegistry;
+    private NodeNameRegistry nodeNameRegistry;
     private String nodeName;
 
     @BeforeEach
@@ -45,7 +45,6 @@ public class NodeNameTest extends CliCommandTestNotInitializedIntegrationBase {
         Optional<String> nodeName = nodeNameRegistry.getAllNames().stream().findFirst();
         Assertions.assertTrue(nodeName.isPresent());
         this.nodeName = nodeName.get();
-
     }
 
     @Test

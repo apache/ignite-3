@@ -21,6 +21,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.cli.NodeNameRegistry;
 
 /**
  * Completes typed words with node names.
@@ -30,13 +31,13 @@ public class NodeNameDynamicCompleter implements DynamicCompleter {
     /** Words, after those the completer should have been activated. */
     private final Set<String> activationPostfixes;
 
-    /** Node names. */
-    private final List<String> nodeNames;
+    /** Node names registry. */
+    private final NodeNameRegistry nodeNameRegistry;
 
     /** Default constructor that creates an instance from a given set of postfixes that trigger the completion. */
-    public NodeNameDynamicCompleter(Set<String> activationPostfixes, List<String> nodeNames) {
+    public NodeNameDynamicCompleter(Set<String> activationPostfixes, NodeNameRegistry nodeNameRegistry) {
         this.activationPostfixes = activationPostfixes;
-        this.nodeNames = nodeNames;
+        this.nodeNameRegistry = nodeNameRegistry;
     }
 
     @Override
@@ -44,9 +45,9 @@ public class NodeNameDynamicCompleter implements DynamicCompleter {
         String lastWord = beforeLastNotEmptyWord(0, words);
         String beforeLastWord = beforeLastNotEmptyWord(1, words);
         if (activationPostfixes.contains(lastWord)) {
-            return nodeNames;
+            return nodeNameRegistry.getAllNames();
         } else if (activationPostfixes.contains(beforeLastWord)) {
-            return nodeNames.stream()
+            return nodeNameRegistry.getAllNames().stream()
                     .filter(it -> it.startsWith(lastWord))
                     .collect(Collectors.toList());
         } else {
