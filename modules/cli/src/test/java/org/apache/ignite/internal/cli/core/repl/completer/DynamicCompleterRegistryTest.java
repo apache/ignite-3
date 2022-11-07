@@ -92,7 +92,7 @@ class DynamicCompleterRegistryTest {
     @Test
     void doesntReturnCompleterWithStopPostfixWords() {
         // Given
-        registry.register(new String[]{"command1", "subcommand1"}, new String[]{"--stopWord"},completer1);
+        registry.register(new String[]{"command1", "subcommand1"}, new String[]{"--stopWord"}, completer1);
         registry.register(new String[]{"command1", "subcommand1"}, new String[]{"--stopWord"}, completer2);
 
         // Then
