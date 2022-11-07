@@ -99,7 +99,7 @@ public class DynamicCompleterFactory {
     }
 
     public DynamicCompleter nodeNameCompleter(Set<String> activationPrefixes) {
-        return new LazyDynamicCompleter(() -> new NodeNameDynamicCompleter(activationPrefixes, nodeNameRegistry));
+        return new NodeNameDynamicCompleter(activationPrefixes, nodeNameRegistry);
     }
 
 }
