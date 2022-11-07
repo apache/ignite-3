@@ -276,7 +276,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
     }
 
     /**
-     * Handles an incoming messages.
+     * Handles an incoming message.
      *
      * @param obj Incoming message wrapper.
      */

@@ -20,7 +20,6 @@ package org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.lock.AutoLockup;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.MvPartitionStorage.WriteClosure;
@@ -60,10 +59,21 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
     }
 
     @Override
-    public AutoLockup acquirePartitionSnapshotsReadLock() {
-        PartitionSnapshots partitionSnapshots = partitionsSnapshots.partitionSnapshots(partitionKey);
+    public void acquirePartitionSnapshotsReadLock() {
+        PartitionSnapshots partitionSnapshots = getPartitionSnapshots();
 
-        return partitionSnapshots.acquireReadLock();
+        partitionSnapshots.acquireReadLock();
+    }
+
+    @Override
+    public void releasePartitionSnapshotsReadLock() {
+        PartitionSnapshots partitionSnapshots = getPartitionSnapshots();
+
+        partitionSnapshots.releaseReadLock();
+    }
+
+    private PartitionSnapshots getPartitionSnapshots() {
+        return partitionsSnapshots.partitionSnapshots(partitionKey);
     }
 
     @Override
@@ -104,10 +114,12 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
     }
 
     private void handleSnapshotInterference(RowId rowId) {
-        PartitionSnapshots partitionSnapshots = partitionsSnapshots.partitionSnapshots(partitionKey);
+        PartitionSnapshots partitionSnapshots = getPartitionSnapshots();
 
         for (OutgoingSnapshot snapshot : partitionSnapshots.ongoingSnapshots()) {
-            try (AutoLockup ignored = snapshot.acquireMvLock()) {
+            snapshot.acquireMvLock();
+
+            try {
                 if (snapshot.alreadyPassed(rowId)) {
                     continue;
                 }
@@ -117,15 +129,31 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
                 }
 
                 snapshot.enqueueForSending(rowId);
+            } finally {
+                snapshot.releaseMvLock();
             }
         }
     }
 
     @Override
     public void close() {
-        // TODO: IGNITE-17935 - terminate all snapshots of this partition considering correct locking to do it consistently
+        cleanupSnapshots();
 
         partitionStorage.close();
+    }
+
+    private void cleanupSnapshots() {
+        PartitionSnapshots partitionSnapshots = getPartitionSnapshots();
+
+        partitionSnapshots.acquireReadLock();
+
+        try {
+            partitionSnapshots.ongoingSnapshots().forEach(snapshot -> partitionsSnapshots.finishOutgoingSnapshot(snapshot.id()));
+
+            partitionsSnapshots.removeSnapshots(partitionKey);
+        } finally {
+            partitionSnapshots.releaseReadLock();
+        }
     }
 
     @Override
