@@ -22,7 +22,6 @@ import java.net.URL;
 import java.util.regex.Pattern;
 import org.apache.ignite.internal.cli.NodeNameRegistry;
 import org.apache.ignite.internal.cli.commands.node.NodeUrl;
-import org.apache.ignite.internal.cli.core.exception.ParameterException;
 import picocli.CommandLine;
 import picocli.CommandLine.TypeConversionException;
 
@@ -57,6 +56,6 @@ public class NodeNameOrUrlConverter implements CommandLine.ITypeConverter<NodeUr
     private URL findNodeUrlByNodeName(String name) {
         return nodeNameRegistry.getNodeUrl(name)
                 .map(NodeNameOrUrlConverter::stringToUrl)
-                .orElseThrow(() -> new ParameterException("Node " + name + " not found. Provide valid name or use URL"));
+                .orElseThrow(() -> new TypeConversionException("Node " + name + " not found. Provide valid name or use URL"));
     }
 }
