@@ -51,7 +51,7 @@
         <maven.compiler.target>11</maven.compiler.target>
 
         <!-- Dependencies versions -->
-        <apache.ivy.version>2.5.0</apache.ivy.version>
+        <apache.ivy.version>2.5.1</apache.ivy.version>
         <assertj-core.version>3.22.0</assertj-core.version>
         <asm.framework.version>9.0</asm.framework.version>
         <compile.testing.library.version>0.19</compile.testing.library.version>
