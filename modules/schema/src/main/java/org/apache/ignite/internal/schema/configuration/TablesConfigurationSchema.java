@@ -38,13 +38,11 @@ public class TablesConfigurationSchema {
     /** List of configured tables. */
     @NamedConfigValue
     @TableValidator
-    @TableIndexNameValidator(type = 1)
     public TableConfigurationSchema tables;
 
     /** List of configured indexes. */
     @NamedConfigValue
     @IndexValidator
-    @TableIndexNameValidator(type = 0)
     public TableIndexConfigurationSchema indexes;
 
     /** Default data storage for tables. */

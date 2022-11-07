@@ -40,9 +40,18 @@ public class TableValidatorImpl implements Validator<TableValidator, NamedListVi
     /** {@inheritDoc} */
     @Override
     public void validate(TableValidator annotation, ValidationContext<NamedListView<TableView>> ctx) {
+        TablesView tablesConfig = ctx.getNewRoot(TablesConfiguration.KEY);
+
+        assert tablesConfig != null;
+
         NamedListView<TableView> newTables = ctx.getNewValue();
+        Set<String> idxNames = new HashSet<>(tablesConfig.indexes().namedListKeys());
 
         for (String tableName : newKeys(ctx.getOldValue(), ctx.getNewValue())) {
+            if (idxNames.contains(tableName)) {
+                ctx.addIssue(new ValidationIssue(tableName, "Unable to create table. Index with the same name already exists."));
+            }
+
             TableView newTable = newTables.get(tableName);
 
             if (newTable.columns() == null || newTable.columns().size() == 0) {
