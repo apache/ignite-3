@@ -331,7 +331,7 @@ public class IndexManagerTest {
 
     @Test
     public void createIndexWithExistingTableName() {
-        CompletableFuture<Boolean> createIdxFut = indexManager.createIndexAsync("sName", "tName", "tName", true, indexChange ->
+        CompletableFuture<Boolean> createIdxFut = indexManager.createIndexAsync("sName", "tNAME", "tName", true, indexChange ->
                 indexChange.convert(SortedIndexChange.class).changeColumns(columns ->
                         columns.create("c2", columnChange -> columnChange.changeAsc(true))));
 
@@ -363,10 +363,11 @@ public class IndexManagerTest {
         assertTrue(created);
 
         try {
-            CompletableFuture<Void> createTblFut = tablesConfig.tables().change(tableChange -> tableChange.create(indexName, chg -> {
-                chg.changeColumns(cols -> cols.create("c1", col -> col.changeType(t -> t.changeType("STRING"))))
-                        .changePrimaryKey(pk -> pk.changeColumns("c1").changeColocationColumns("c1"));
-            }));
+            CompletableFuture<Void> createTblFut = tablesConfig.tables()
+                    .change(tableChange -> tableChange.create(indexName.toUpperCase(), chg -> {
+                        chg.changeColumns(cols -> cols.create("c1", col -> col.changeType(t -> t.changeType("STRING"))))
+                                .changePrimaryKey(pk -> pk.changeColumns("c1").changeColocationColumns("c1"));
+                    }));
 
             CompletionException completionException = assertThrows(CompletionException.class, createTblFut::join);
 

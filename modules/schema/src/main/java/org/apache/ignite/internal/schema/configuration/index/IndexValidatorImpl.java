@@ -22,10 +22,10 @@ import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.ge
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.configuration.validation.ValidationIssue;
@@ -51,10 +51,10 @@ public class IndexValidatorImpl implements Validator<IndexValidator, NamedListVi
 
         NamedListView<? extends TableView> tablesView = tablesConfig.tables();
 
-        Set<String> tblNames = new HashSet<>(tablesView.namedListKeys());
+        Set<String> tblNames = tablesView.namedListKeys().stream().map(String::toUpperCase).collect(Collectors.toSet());
 
         for (String key : newKeys(ctx.getOldValue(), ctx.getNewValue())) {
-            if (tblNames.contains(key)) {
+            if (tblNames.contains(key.toUpperCase())) {
                 ctx.addIssue(new ValidationIssue(key, "Unable to create index. Table with the same name already exists."));
             }
 
