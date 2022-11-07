@@ -1,3 +1,5 @@
+import java.time.LocalDate
+
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements. See the NOTICE file distributed with
@@ -20,6 +22,7 @@
 plugins {
     alias(libs.plugins.javacc) apply false
     alias(libs.plugins.modernizer) apply false
+    alias(libs.plugins.aggregateJavadoc)
 }
 
 repositories {
@@ -76,6 +79,53 @@ allprojects {
 
     tasks.withType(JavaCompile) {
         options.encoding = 'UTF-8'
+    }
+
+    tasks.withType(Javadoc) {
+        options.addStringOption('bottom', """
+            <table width="100%" border="0" cellspacing=0 cellpadding=0 style="padding: 5px">
+            <tr>
+                <td>
+                    <table style="padding-left: 0; margin: 0">
+                        <tbody style="padding: 0; margin: 0">
+                            <tr style="padding: 0; margin: 0">
+                                <td>
+                                    <a target=_blank href="https://ignite.apache.org"><nobr>${LocalDate.now().year} Copyright &#169; Apache Software Foundation</nobr></a>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </td>
+                <td width="100%" align="right" valign="center">
+                    <a href="https://twitter.com/ApacheIgnite" class="twitter-follow-button" data-show-count="false" data-size="large">Follow @ApacheIgnite</a>
+                </td>
+            </tr>
+            <tr>
+                <td colspan="2" valign="top" align="left">
+                    <table style="padding-left: 0; margin: 0">
+                        <tbody style="padding: 0; margin: 0">
+                            <tr style="padding: 0; margin: 0">
+                                <td>
+                                    <b>Ignite Database and Caching Platform</b>
+                                </td>
+                                <td>:&nbsp;&nbsp;
+                                    ver. <strong>${project.version}</strong>
+                                </td>
+                            </tr>
+                            <tr style="padding: 0; margin: 0">
+                                <td>
+                                    <b>Release Date</b>
+                                </td>
+                                <td>:&nbsp;&nbsp;
+                                    ${LocalDate.now()}
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </td>
+            </tr>
+            </table>
+""")
     }
 }
 

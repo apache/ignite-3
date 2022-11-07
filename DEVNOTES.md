@@ -297,7 +297,18 @@ Run integration tests only:
 ***
 
 ## Checking and generating Javadoc
- [TBD](https://issues.apache.org/jira/browse/IGNITE-17930)
+Javadoc is generated and checked for correctness with [Gradle Javadoc Plugin](https://docs.gradle.org/current/dsl/org.gradle.api.tasks.javadoc.Javadoc.html).
+
+Build Javadoc site (found in `build/docs/aggregateJavadoc/index.html`):
+```
+./gradlew aggregateJavadoc 
+```
+
+If you don't need to aggregate all javadoc you can use javadoc task and find generated 
+artifacts in each module (for example `modules/api/build/docs/javadoc`)
+```
+./gradlew javadoc
+```
 ***
 
 
