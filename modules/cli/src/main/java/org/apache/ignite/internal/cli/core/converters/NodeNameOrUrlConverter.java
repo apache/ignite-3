@@ -29,6 +29,7 @@ import picocli.CommandLine.TypeConversionException;
 public class NodeNameOrUrlConverter implements CommandLine.ITypeConverter<NodeUrl> {
 
     private static final Pattern URL_PATTERN = Pattern.compile("^.*[/:].*");
+
     private final NodeNameRegistry nodeNameRegistry;
 
     public NodeNameOrUrlConverter(NodeNameRegistry nodeNameRegistry) {

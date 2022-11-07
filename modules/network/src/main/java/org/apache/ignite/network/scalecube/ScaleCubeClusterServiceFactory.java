@@ -56,7 +56,6 @@ import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NodeFinder;
 import org.apache.ignite.network.NodeFinderFactory;
 import org.apache.ignite.network.NodeMetadata;
-import reactor.core.Exceptions;
 import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
 
@@ -69,7 +68,7 @@ public class ScaleCubeClusterServiceFactory {
 
     /** Metadata codec. */
     private static final NodeMetadataCodec METADATA_CODEC = NodeMetadataCodec.INSTANCE;
-    /** Scalecube cluster executor to update metadata  */
+    /** Scalecube cluster executor to update metadata.  */
     private final Scheduler scheduler = Schedulers.fromExecutor(Executors.newSingleThreadExecutor());
 
     /**
