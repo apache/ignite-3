@@ -28,13 +28,13 @@ public final class Await {
 
     /** Awaits a condition. */
     public static void await(Supplier<Boolean> supplier, Duration timeout) {
-        long startTime = System.currentTimeMillis();
+        long startTime = System.nanoTime();
         long currentTime = startTime;
-        while (currentTime - startTime < timeout.toMillis()) {
+        while (currentTime - startTime < timeout.toNanos()) {
             if (supplier.get()) {
                 return;
             } else {
-                currentTime = System.currentTimeMillis();
+                currentTime = System.nanoTime();
             }
         }
         throw new AwaitException("Timeout exceed");

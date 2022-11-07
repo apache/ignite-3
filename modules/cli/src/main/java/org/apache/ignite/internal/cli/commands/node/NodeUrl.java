@@ -27,7 +27,7 @@ public class NodeUrl {
         this.nodeUrl = nodeUrl;
     }
 
-    public String getNodeUrl() {
+    public String stringUrl() {
         return nodeUrl.toString();
     }
 }

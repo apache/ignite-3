@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
@@ -55,6 +56,9 @@ import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NodeFinder;
 import org.apache.ignite.network.NodeFinderFactory;
 import org.apache.ignite.network.NodeMetadata;
+import reactor.core.Exceptions;
+import reactor.core.scheduler.Scheduler;
+import reactor.core.scheduler.Schedulers;
 
 /**
  * Cluster service factory that uses ScaleCube for messaging and topology services.
@@ -65,6 +69,8 @@ public class ScaleCubeClusterServiceFactory {
 
     /** Metadata codec. */
     private static final NodeMetadataCodec METADATA_CODEC = NodeMetadataCodec.INSTANCE;
+    /** Scalecube cluster executor to update metadata  */
+    private final Scheduler scheduler = Schedulers.fromExecutor(Executors.newSingleThreadExecutor());
 
     /**
      * Creates a new {@link ClusterService} using the provided context. The created network will not be in the "started" state.
@@ -199,7 +205,7 @@ public class ScaleCubeClusterServiceFactory {
 
             @Override
             public void updateMetadata(NodeMetadata metadata) {
-                cluster.updateMetadata(metadata).subscribe(ignored -> {});
+                cluster.updateMetadata(metadata).subscribeOn(scheduler).subscribe();
                 MembershipEvent membershipEvent = createUpdated(cluster.member(),
                         cluster.<NodeMetadata>metadata().map(METADATA_CODEC::serialize).orElse(null),
                         METADATA_CODEC.serialize(metadata),
