@@ -23,6 +23,7 @@ import java.nio.ByteBuffer;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Queue;
 import java.util.Set;
 import java.util.UUID;
@@ -182,6 +183,8 @@ public class OutgoingSnapshot {
      */
     @Nullable
     SnapshotMetaResponse handleSnapshotMetaRequest(SnapshotMetaRequest request) {
+        assert Objects.equals(request.id(), id) : "Expected id " + id + " but got " + request.id();
+
         if (closed) {
             return logThatAlreadyClosedAndReturnNull();
         }

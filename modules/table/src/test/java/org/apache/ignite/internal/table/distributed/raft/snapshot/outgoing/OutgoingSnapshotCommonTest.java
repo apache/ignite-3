@@ -134,7 +134,9 @@ class OutgoingSnapshotCommonTest {
 
     @Nullable
     private SnapshotMetaResponse getNullableSnapshotMetaResponse() {
-        SnapshotMetaRequest request = messagesFactory.snapshotMetaRequest().build();
+        SnapshotMetaRequest request = messagesFactory.snapshotMetaRequest()
+                .id(snapshot.id())
+                .build();
 
         return snapshot.handleSnapshotMetaRequest(request);
     }
