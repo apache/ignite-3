@@ -15,22 +15,18 @@
  * limitations under the License.
  */
 
-apply from: "$rootDir/buildscripts/java-core.gradle"
-apply from: "$rootDir/buildscripts/publishing.gradle"
-apply from: "$rootDir/buildscripts/java-junit5.gradle"
+package org.apache.ignite.internal.network.processor.tests;
 
-dependencies {
-    implementation project(':ignite-core')
-    implementation project(':ignite-network-api')
-    implementation libs.jetbrains.annotations
-    implementation libs.fastutil.core
-    implementation libs.javapoet
+import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.annotations.Marshallable;
+import org.apache.ignite.network.annotations.Transferable;
 
-    testAnnotationProcessor project(":ignite-network-annotation-processor")
-    testImplementation libs.mockito.core
-    testImplementation libs.mockito.junit
-    testImplementation libs.hamcrest.core
-    testImplementation libs.compileTesting
+/**
+ * A message containing a marshallable field.
+ */
+@Transferable(2)
+interface WithMarshallable extends NetworkMessage {
+    /** A marshallable field. */
+    @Marshallable
+    Object[] objects();
 }
-
-description = 'ignite-network-annotation-processor'
