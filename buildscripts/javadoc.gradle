@@ -17,7 +17,7 @@
 
 import java.time.LocalDate
 
-GString javadocFooter() {
+String javadocFooter() {
     return """
 <table width="100%" border="0" cellspacing=0 cellpadding=0 style="padding: 5px">
   <tr>
@@ -61,7 +61,7 @@ GString javadocFooter() {
     </td>
   </tr>
 </table>
-"""
+""".replaceAll('\n', System.lineSeparator())
 }
 
 // Export methods
