@@ -77,6 +77,7 @@ public abstract class BaseMvStoragesTest {
         kvMarshaller = marshallerFactory.create(schemaDescriptor, TestKey.class, TestValue.class);
 
         kvBinaryConverter = BinaryConverter.forRow(schemaDescriptor);
+        kBinaryConverter = BinaryConverter.forKey(schemaDescriptor);
     }
 
     @AfterAll
@@ -85,6 +86,7 @@ public abstract class BaseMvStoragesTest {
         schemaDescriptor = null;
         marshallerFactory = null;
         kvBinaryConverter = null;
+        kBinaryConverter = null;
     }
 
     protected static BinaryRow binaryKey(TestKey key) {
@@ -108,7 +110,7 @@ public abstract class BaseMvStoragesTest {
     }
 
     protected static BinaryTuple indexKey(BinaryRow binaryKey) {
-        return kvBinaryConverter.toTuple(binaryKey);
+        return kBinaryConverter.toTuple(binaryKey);
     }
 
     protected static TestKey key(BinaryRow binaryRow) {

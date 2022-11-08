@@ -108,24 +108,24 @@ public class TestMvTableStorage implements MvTableStorage {
     public void destroyPartition(int partitionId) throws StorageException {
         checkPartitionId(partitionId);
 
-        MvPartitionStorage removed = partitions.remove(partitionId);
+        MvPartitionStorage removedMvPartitionStorage = partitions.remove(partitionId);
 
-        if (removed != null) {
-            // TODO: IGNITE-17132 что-то тут сделать?
+        if (removedMvPartitionStorage != null) {
+            ((TestMvPartitionStorage) removedMvPartitionStorage).destroy();
 
             for (HashIndices hashIndices : hashIndicesById.values()) {
-                HashIndexStorage hashIndexStorage = hashIndices.storageByPartitionId.remove(partitionId);
+                HashIndexStorage removedHashIndexStorage = hashIndices.storageByPartitionId.remove(partitionId);
 
-                if (hashIndexStorage != null) {
-                    // TODO: IGNITE-17132 что-то тут сделать?
+                if (removedHashIndexStorage != null) {
+                    removedHashIndexStorage.destroy();
                 }
             }
 
             for (SortedIndices sortedIndices : sortedIndicesById.values()) {
-                SortedIndexStorage sortedIndexStorage = sortedIndices.storageByPartitionId.remove(partitionId);
+                SortedIndexStorage removedSortedIndexStorage = sortedIndices.storageByPartitionId.remove(partitionId);
 
-                if (sortedIndexStorage != null) {
-                    // TODO: IGNITE-17132 что-то тут сделать?
+                if (removedSortedIndexStorage != null) {
+                    ((TestSortedIndexStorage) removedSortedIndexStorage).destroy();
                 }
             }
         }

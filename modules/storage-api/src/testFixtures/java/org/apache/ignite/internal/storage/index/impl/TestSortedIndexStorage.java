@@ -31,6 +31,7 @@ import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.StorageClosedException;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.index.BinaryTupleComparator;
 import org.apache.ignite.internal.storage.index.IndexRow;
@@ -48,6 +49,8 @@ public class TestSortedIndexStorage implements SortedIndexStorage {
 
     private final SortedIndexDescriptor descriptor;
 
+    private volatile boolean started = true;
+
     /**
      * Constructor.
      */
@@ -63,13 +66,19 @@ public class TestSortedIndexStorage implements SortedIndexStorage {
 
     @Override
     public Cursor<RowId> get(BinaryTuple key) throws StorageException {
-        Set<RowId> rowIds = index.getOrDefault(key.byteBuffer(), Set.of());
+        checkClosed();
 
-        return Cursor.fromIterator(rowIds.iterator());
+        Iterator<RowId> iterator = index.getOrDefault(key.byteBuffer(), Set.of()).stream()
+                .peek(rowId -> checkClosed())
+                .iterator();
+
+        return Cursor.fromIterator(iterator);
     }
 
     @Override
     public void put(IndexRow row) {
+        checkClosed();
+
         index.compute(row.indexColumns().byteBuffer(), (k, v) -> {
             if (v == null) {
                 return Set.of(row.rowId());
@@ -88,6 +97,8 @@ public class TestSortedIndexStorage implements SortedIndexStorage {
 
     @Override
     public void remove(IndexRow row) {
+        checkClosed();
+
         index.computeIfPresent(row.indexColumns().byteBuffer(), (k, v) -> {
             if (v.contains(row.rowId())) {
                 if (v.size() == 1) {
@@ -111,6 +122,8 @@ public class TestSortedIndexStorage implements SortedIndexStorage {
             @Nullable BinaryTuplePrefix upperBound,
             int flags
     ) {
+        checkClosed();
+
         boolean includeLower = (flags & GREATER_OR_EQUAL) != 0;
         boolean includeUpper = (flags & LESS_OR_EQUAL) != 0;
 
@@ -139,6 +152,7 @@ public class TestSortedIndexStorage implements SortedIndexStorage {
         }
 
         Iterator<? extends IndexRow> iterator = data.entrySet().stream()
+                .peek(byteBufferSetEntry -> checkClosed())
                 .flatMap(e -> {
                     var tuple = new BinaryTuple(descriptor.binaryTupleSchema(), e.getKey());
 
@@ -157,7 +171,18 @@ public class TestSortedIndexStorage implements SortedIndexStorage {
         buffer.put(0, (byte) (flags | BinaryTupleCommon.EQUALITY_FLAG));
     }
 
+    /**
+     * Destroys the storage.
+     */
     public void destroy() {
+        started = false;
+
         index.clear();
+    }
+
+    private void checkClosed() {
+        if (!started) {
+            throw new StorageClosedException("Storage is already closed");
+        }
     }
 }
