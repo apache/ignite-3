@@ -622,6 +622,7 @@ public class MutableRowTupleAdapterTest {
     }
 
     //TODO: Fix varlen types truncation.
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17729")
     @Test
     void testVarlenValuesLengthNarrowing() throws Exception {
         SchemaDescriptor schemaDescriptor = new SchemaDescriptor(1,
