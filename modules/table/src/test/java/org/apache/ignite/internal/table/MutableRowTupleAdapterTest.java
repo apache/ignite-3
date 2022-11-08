@@ -66,6 +66,7 @@ import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.NotNull;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -351,7 +352,7 @@ public class MutableRowTupleAdapterTest {
 
         TupleMarshaller marshaller = new TupleMarshallerImpl(new DummySchemaManagerImpl(fullSchema));
 
-        Tuple  tuple = Tuple.create()
+        Tuple tuple = Tuple.create()
                 .set("valByteCol", (byte) 1)
                 .set("valShortCol", (short) 2)
                 .set("valIntCol", 3)
@@ -543,6 +544,110 @@ public class MutableRowTupleAdapterTest {
         assertEquals(val1, val2);
     }
 
+    @Test
+    void testTemporalValuesPrecisionWidening() throws Exception {
+        SchemaDescriptor schemaDescriptor = new SchemaDescriptor(1,
+                new Column[]{new Column("key", NativeTypes.INT32, false)},
+                new Column[]{
+                        new Column("time", NativeTypes.time(3), true),
+                        new Column("datetime", NativeTypes.datetime(4), true),
+                        new Column("timestamp", NativeTypes.timestamp(5), true)
+                }
+        );
+
+        TupleMarshaller marshaller = new TupleMarshallerImpl(new DummySchemaManagerImpl(schemaDescriptor));
+
+        Tuple tuple = Tuple.create().set("key", 1)
+                .set("time", LocalTime.of(1, 2))
+                .set("datetime", LocalDateTime.of(2022, 1, 2, 3, 4))
+                .set("timestamp", Instant.ofEpochSecond(123));
+
+        Row row = new Row(schemaDescriptor, new ByteBufferRow(marshaller.marshal(tuple).bytes()));
+
+        Tuple tuple1 = deserializeTuple(serializeTuple(TableRow.tuple(row)));
+
+        assertEquals(tuple, tuple1);
+    }
+
+    @Test
+    void testTemporalValuesPrecisionNarrowing() throws Exception {
+        SchemaDescriptor schemaDescriptor = new SchemaDescriptor(1,
+                new Column[]{new Column("key", NativeTypes.INT32, false)},
+                new Column[]{
+                        new Column("time", NativeTypes.time(3), true),
+                        new Column("datetime", NativeTypes.datetime(3), true),
+                        new Column("timestamp", NativeTypes.timestamp(3), true)
+                }
+        );
+
+        Tuple tuple = Tuple.create().set("key", 1)
+                .set("time", LocalTime.of(1, 2, 3, 456_700_000))
+                .set("datetime", LocalDateTime.of(2022, 1, 2, 3, 4, 5, 678_900_000))
+                .set("timestamp", Instant.ofEpochSecond(123, 456_700_000));
+        Tuple expected = Tuple.create().set("key", 1)
+                .set("time", LocalTime.of(1, 2, 3, 456_000_000))
+                .set("datetime", LocalDateTime.of(2022, 1, 2, 3, 4, 5, 678_000_000))
+                .set("timestamp", Instant.ofEpochSecond(123, 456_000_000));
+
+        TupleMarshaller marshaller = new TupleMarshallerImpl(new DummySchemaManagerImpl(schemaDescriptor));
+
+        Row row = new Row(schemaDescriptor, new ByteBufferRow(marshaller.marshal(tuple).bytes()));
+
+        Tuple tuple1 = deserializeTuple(serializeTuple(TableRow.tuple(row)));
+
+        assertEquals(expected, tuple1);
+    }
+
+    @Test
+    void testVarlenValuesLengthWidening() throws Exception {
+        SchemaDescriptor schemaDescriptor = new SchemaDescriptor(1,
+                new Column[]{new Column("key", NativeTypes.INT32, false)},
+                new Column[]{
+                        new Column("string", NativeTypes.stringOf(5), true),
+                        new Column("bytes", NativeTypes.blobOf(5), true),
+                }
+        );
+
+        TupleMarshaller marshaller = new TupleMarshallerImpl(new DummySchemaManagerImpl(schemaDescriptor));
+
+        Tuple tuple = Tuple.create().set("key", 1)
+                .set("string", "abc")
+                .set("bytes", new byte[]{1, 2, 3});
+
+        Row row = new Row(schemaDescriptor, new ByteBufferRow(marshaller.marshal(tuple).bytes()));
+
+        Tuple tuple1 = deserializeTuple(serializeTuple(TableRow.tuple(row)));
+
+        assertEquals(tuple, tuple1);
+    }
+
+    //TODO: Fix varlen types truncation.
+    @Test
+    void testVarlenValuesLengthNarrowing() throws Exception {
+        SchemaDescriptor schemaDescriptor = new SchemaDescriptor(1,
+                new Column[]{new Column("key", NativeTypes.INT32, false)},
+                new Column[]{
+                        new Column("string", NativeTypes.stringOf(5), true),
+                        new Column("bytes", NativeTypes.blobOf(5), true),
+                }
+        );
+
+        Tuple tuple = Tuple.create().set("key", 1)
+                .set("string", "abcefghi")
+                .set("bytes", new byte[]{1, 2, 3, 4, 5, 6, 7, 8});
+        Tuple expected = Tuple.create().set("key", 1)
+                .set("string", "abcef")
+                .set("bytes", new byte[]{1, 2, 3, 4, 5});
+
+        TupleMarshaller marshaller = new TupleMarshallerImpl(new DummySchemaManagerImpl(schemaDescriptor));
+
+        Row row = new Row(schemaDescriptor, new ByteBufferRow(marshaller.marshal(tuple).bytes()));
+
+        Tuple tuple1 = deserializeTuple(serializeTuple(TableRow.tuple(row)));
+
+        assertEquals(expected, tuple1);
+    }
+
     private <T extends Temporal> T truncateToDefaultPrecision(T temporal) {
         int precision = temporal instanceof Instant ? ColumnType.TemporalColumnType.DEFAULT_TIMESTAMP_PRECISION
                 : ColumnType.TemporalColumnType.DEFAULT_TIME_PRECISION;
@@ -610,7 +715,7 @@ public class MutableRowTupleAdapterTest {
     /**
      * Returns random BitSet.
      *
-     * @param rnd  Random generator.
+     * @param rnd Random generator.
      * @param bits Amount of bits in bitset.
      */
     private static BitSet randomBitSet(Random rnd, int bits) {
