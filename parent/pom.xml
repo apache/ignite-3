@@ -51,7 +51,6 @@
         <maven.compiler.target>11</maven.compiler.target>
 
         <!-- Dependencies versions -->
-        <apache.ivy.version>2.5.0</apache.ivy.version>
         <assertj-core.version>3.22.0</assertj-core.version>
         <asm.framework.version>9.0</asm.framework.version>
         <compile.testing.library.version>0.19</compile.testing.library.version>
@@ -551,12 +550,6 @@
                 <groupId>org.checkerframework</groupId>
                 <artifactId>checker-qual</artifactId>
                 <version>${checker.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.apache.ivy</groupId>
-                <artifactId>ivy</artifactId>
-                <version>${apache.ivy.version}</version>
             </dependency>
 
             <dependency>

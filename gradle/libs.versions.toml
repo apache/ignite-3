@@ -16,7 +16,6 @@
 #
 
 [versions]
-ivy = "2.5.0"
 assertj = "3.22.0"
 asm = "9.0"
 compileTesting = "0.19"
@@ -139,8 +138,6 @@ jansi-core = { module = "org.fusesource.jansi:jansi", version.ref = "jansi" }
 jackson-core = { module = "com.fasterxml.jackson.core:jackson-core", version.ref = "jackson" }
 jackson-databind = { module = "com.fasterxml.jackson.core:jackson-databind", version.ref = "jackson" }
 jackson-annotations = { module = "com.fasterxml.jackson.core:jackson-annotations", version.ref = "jackson" }
-
-apache-ivy = { module = "org.apache.ivy:ivy", version.ref = "ivy" }
 
 typesafe-config = { module = "com.typesafe:config", version.ref = "typesafe" }
 slf4j-jdk14 = { module = "org.slf4j:slf4j-jdk14", version.ref = "slf4j" }
