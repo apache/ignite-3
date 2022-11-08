@@ -21,6 +21,8 @@ import static org.apache.ignite.internal.rocksdb.RocksUtils.incrementArray;
 import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.VarHandle;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.UUID;
@@ -28,6 +30,7 @@ import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.rocksdb.RocksIteratorAdapter;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.StorageClosedException;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.index.HashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
@@ -58,10 +61,18 @@ import org.rocksdb.WriteOptions;
  * <p>We use an empty array as values, because all required information can be extracted from the key.
  */
 public class RocksDbHashIndexStorage implements HashIndexStorage {
-    /**
-     * Length of the fixed part of the key: Index ID + Partition ID + Hash.
-     */
+    /** Length of the fixed part of the key: Index ID + Partition ID + Hash. */
     public static final int FIXED_PREFIX_LENGTH = 2 * Long.BYTES + Short.BYTES + Integer.BYTES;
+
+    private static final VarHandle STARTED;
+
+    static {
+        try {
+            STARTED = MethodHandles.lookup().findVarHandle(RocksDbHashIndexStorage.class, "started", boolean.class);
+        } catch (ReflectiveOperationException e) {
+            throw new ExceptionInInitializerError(e);
+        }
+    }
 
     private final HashIndexDescriptor descriptor;
 
@@ -69,10 +80,10 @@ public class RocksDbHashIndexStorage implements HashIndexStorage {
 
     private final RocksDbMvPartitionStorage partitionStorage;
 
-    /**
-     * Constant prefix of every index key.
-     */
+    /** Constant prefix of every index key. */
     private final byte[] constantPrefix;
+
+    private volatile boolean started = true;
 
     /**
      * Creates a new Hash Index storage.
@@ -107,6 +118,8 @@ public class RocksDbHashIndexStorage implements HashIndexStorage {
 
     @Override
     public Cursor<RowId> get(BinaryTuple key) {
+        checkClosed();
+
         byte[] rangeStart = rocksPrefix(key);
 
         byte[] rangeEnd = incrementArray(rangeStart);
@@ -120,6 +133,13 @@ public class RocksDbHashIndexStorage implements HashIndexStorage {
         it.seek(rangeStart);
 
         return new RocksIteratorAdapter<>(it) {
+            @Override
+            public boolean hasNext() {
+                checkClosed();
+
+                return super.hasNext();
+            }
+
             @Override
             protected RowId decodeEntry(byte[] key, byte[] value) {
                 // RowId UUID is located at the last 16 bytes of the key
@@ -140,6 +160,8 @@ public class RocksDbHashIndexStorage implements HashIndexStorage {
 
     @Override
     public void put(IndexRow row) {
+        checkClosed();
+
         WriteBatchWithIndex writeBatch = partitionStorage.currentWriteBatch();
 
         try {
@@ -151,6 +173,8 @@ public class RocksDbHashIndexStorage implements HashIndexStorage {
 
     @Override
     public void remove(IndexRow row) {
+        checkClosed();
+
         WriteBatchWithIndex writeBatch = partitionStorage.currentWriteBatch();
 
         try {
@@ -162,6 +186,10 @@ public class RocksDbHashIndexStorage implements HashIndexStorage {
 
     @Override
     public void destroy() {
+        if (!STARTED.compareAndSet(this, true, false)) {
+            return;
+        }
+
         byte[] rangeEnd = incrementArray(constantPrefix);
 
         assert rangeEnd != null;
@@ -195,5 +223,11 @@ public class RocksDbHashIndexStorage implements HashIndexStorage {
                 .putLong(rowId.mostSignificantBits())
                 .putLong(rowId.leastSignificantBits())
                 .array();
+    }
+
+    private void checkClosed() {
+        if (!started) {
+            throw new StorageClosedException("Storage is already closed");
+        }
     }
 }

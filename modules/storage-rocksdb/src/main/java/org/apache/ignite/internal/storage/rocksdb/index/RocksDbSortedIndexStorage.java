@@ -20,15 +20,20 @@ package org.apache.ignite.internal.storage.rocksdb.index;
 import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
 import static org.apache.ignite.internal.util.CursorUtils.map;
 
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.VarHandle;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.UUID;
 import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.rocksdb.RocksIteratorAdapter;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.StorageClosedException;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexRowImpl;
 import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
@@ -42,6 +47,7 @@ import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
 import org.rocksdb.Slice;
 import org.rocksdb.WriteBatchWithIndex;
+import org.rocksdb.WriteOptions;
 
 /**
  * {@link SortedIndexStorage} implementation based on RocksDB.
@@ -60,11 +66,23 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
 
     private static final ByteOrder ORDER = ByteOrder.BIG_ENDIAN;
 
+    private static final VarHandle STARTED;
+
+    static {
+        try {
+            STARTED = MethodHandles.lookup().findVarHandle(RocksDbSortedIndexStorage.class, "started", boolean.class);
+        } catch (ReflectiveOperationException e) {
+            throw new ExceptionInInitializerError(e);
+        }
+    }
+
     private final SortedIndexDescriptor descriptor;
 
     private final ColumnFamily indexCf;
 
     private final RocksDbMvPartitionStorage partitionStorage;
+
+    private volatile boolean started = true;
 
     /**
      * Creates a storage.
@@ -90,6 +108,8 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
 
     @Override
     public Cursor<RowId> get(BinaryTuple key) throws StorageException {
+        checkClosed();
+
         BinaryTuplePrefix keyPrefix = BinaryTuplePrefix.fromBinaryTuple(key);
 
         return map(scan(keyPrefix, keyPrefix, true, true), this::decodeRowId);
@@ -97,6 +117,8 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
 
     @Override
     public void put(IndexRow row) {
+        checkClosed();
+
         WriteBatchWithIndex writeBatch = partitionStorage.currentWriteBatch();
 
         try {
@@ -108,6 +130,8 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
 
     @Override
     public void remove(IndexRow row) {
+        checkClosed();
+
         WriteBatchWithIndex writeBatch = partitionStorage.currentWriteBatch();
 
         try {
@@ -119,6 +143,8 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
 
     @Override
     public Cursor<IndexRow> scan(@Nullable BinaryTuplePrefix lowerBound, @Nullable BinaryTuplePrefix upperBound, int flags) {
+        checkClosed();
+
         boolean includeLower = (flags & GREATER_OR_EQUAL) != 0;
         boolean includeUpper = (flags & LESS_OR_EQUAL) != 0;
 
@@ -174,6 +200,13 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
         }
 
         return new RocksIteratorAdapter<>(it) {
+            @Override
+            public boolean hasNext() {
+                checkClosed();
+
+                return super.hasNext();
+            }
+
             @Override
             protected ByteBuffer decodeEntry(byte[] key, byte[] value) {
                 return ByteBuffer.wrap(key).order(ORDER);
@@ -241,5 +274,34 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
                 .limit(key.limit() - ROW_ID_SIZE)
                 .slice()
                 .order(ByteOrder.LITTLE_ENDIAN);
+    }
+
+    /**
+     * Removes all data from this index.
+     *
+     * @throws StorageException If failed to destory index.
+     * @deprecated IGNITE-17626 Synchronous API should be removed. {@link MvTableStorage#destroyIndex(UUID)} must be the only public option.
+     */
+    public void destroy() {
+        if (!STARTED.compareAndSet(this, true, false)) {
+            return;
+        }
+
+        try (WriteOptions writeOptions = new WriteOptions().setDisableWAL(true)) {
+            indexCf.db().deleteRange(
+                    indexCf.handle(),
+                    writeOptions,
+                    partitionStorage.partitionStartPrefix(),
+                    partitionStorage.partitionEndPrefix()
+            );
+        } catch (RocksDBException e) {
+            throw new StorageException("Unable to remove data from hash index. Index ID: " + descriptor.id(), e);
+        }
+    }
+
+    private void checkClosed() {
+        if (!started) {
+            throw new StorageClosedException("Storage is already closed");
+        }
     }
 }

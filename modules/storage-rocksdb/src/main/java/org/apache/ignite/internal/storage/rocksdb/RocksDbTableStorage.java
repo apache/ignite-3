@@ -384,13 +384,14 @@ public class RocksDbTableStorage implements MvTableStorage {
         RocksDbMvPartitionStorage mvPartition = partitions.getAndSet(partitionId, null);
 
         if (mvPartition != null) {
-            //TODO IGNITE-17626 Destroy indexes as well...
             mvPartition.destroy();
 
-            try {
-                mvPartition.close();
-            } catch (RuntimeException e) {
-                throw new StorageException("Error when closing partition storage for the partition: " + partitionId, e);
+            for (HashIndex hashIndex : hashIndices.values()) {
+                hashIndex.destroy(partitionId);
+            }
+
+            for (SortedIndex sortedIndex : sortedIndices.values()) {
+                sortedIndex.destroy(partitionId);
             }
         }
     }
