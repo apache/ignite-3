@@ -65,7 +65,6 @@
         <module>modules/metrics</module>
         <module>modules/network</module>
         <module>modules/network-annotation-processor</module>
-        <module>modules/network-annotation-processor-tests</module>
         <module>modules/network-api</module>
         <module>modules/page-memory</module>
         <module>modules/raft</module>
