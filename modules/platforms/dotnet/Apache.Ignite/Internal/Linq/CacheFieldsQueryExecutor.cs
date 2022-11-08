@@ -87,6 +87,7 @@ internal class CacheFieldsQueryExecutor : IQueryExecutor
 
         // TODO: Async execution.
         // TODO: Async pagination.
+        // TODO: ToResultSetAsync extension will solve all those requirements.
         IResultSet<IIgniteTuple> resultSet = _sql.ExecuteAsync(null, statement, qryData.Parameters.ToArray()).GetAwaiter().GetResult();
         var rows = resultSet.ToListAsync().AsTask().GetAwaiter().GetResult();
 
