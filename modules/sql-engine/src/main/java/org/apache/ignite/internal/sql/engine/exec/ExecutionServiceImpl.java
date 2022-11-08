@@ -197,7 +197,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
         assert old == null;
 
-        ctx.cancel().add(() -> queryManager.close(false));
+        ctx.cancel().add(() -> queryManager.close(false)); // .join()
 
         return queryManager.execute(plan);
     }
@@ -617,25 +617,29 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             };
         }
 
+        private CompletableFuture<Void> close0(boolean cancel) {
+            if (!root.completeExceptionally(new ExecutionCancelledException()) && !root.isCompletedExceptionally()) {
+                if (cancel) {
+                    return root.thenAccept(root -> root.onError(new ExecutionCancelledException()));
+                }
+
+                return root.join().closeAsync();
+            }
+
+            return CompletableFuture.completedFuture(null);
+        }
+
         private CompletableFuture<Void> close(boolean cancel) {
             if (!cancelled.compareAndSet(false, true)) {
                 return cancelFut.thenApply(Function.identity());
             }
 
+            CompletableFuture<Void> closeRes = close0(cancel);
+
             CompletableFuture<Void> start = new CompletableFuture<>();
 
             start
-                    .thenCompose(none -> {
-                        if (!root.completeExceptionally(new ExecutionCancelledException()) && !root.isCompletedExceptionally()) {
-                            if (cancel) {
-                                return root.thenAccept(root -> root.onError(new ExecutionCancelledException()));
-                            }
-
-                            return root.thenCompose(AsyncRootNode::closeAsync);
-                        }
-
-                        return CompletableFuture.completedFuture(null);
-                    })
+                    .thenCompose(none -> closeRes)
                     .thenCompose(tmp -> {
                         Map<String, List<CompletableFuture<?>>> requestsPerNode = new HashMap<>();
                         for (Map.Entry<RemoteFragmentKey, CompletableFuture<Void>> entry : remoteFragmentInitCompletion.entrySet()) {
