@@ -108,6 +108,8 @@ javadoc {
     enabled = true
 }
 
+javadoc.dependsOn compileJava
+
 jacocoTestReport {
     reports {
         xml.required = false
