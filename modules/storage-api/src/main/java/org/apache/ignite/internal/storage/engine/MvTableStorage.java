@@ -59,6 +59,11 @@ public interface MvTableStorage {
     /**
      * Destroys a partition and all associated indices.
      *
+     * <p>This method will do nothing if there is no partition with that ID.
+     *
+     * <p>This method will do nothing if there is no partition by ID, when trying to call methods for {@link MvPartitionStorage},
+     * {@link HashIndexStorage} and {@link SortedIndexStorage}, {@link StorageException} will be thrown.
+     *
      * @param partitionId Partition ID.
      * @throws IllegalArgumentException If Partition ID is out of bounds.
      * @throws StorageException If an error has occurred during the partition destruction.

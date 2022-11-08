@@ -34,6 +34,7 @@ import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
 import org.apache.ignite.internal.storage.index.impl.TestSortedIndexStorage;
+import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -105,10 +106,29 @@ public class TestMvTableStorage implements MvTableStorage {
 
     @Override
     public void destroyPartition(int partitionId) throws StorageException {
-        partitions.remove(partitionId);
+        checkPartitionId(partitionId);
 
-        sortedIndicesById.values().forEach(indices -> indices.storageByPartitionId.remove(partitionId));
-        hashIndicesById.values().forEach(indices -> indices.storageByPartitionId.remove(partitionId));
+        MvPartitionStorage removed = partitions.remove(partitionId);
+
+        if (removed != null) {
+            // TODO: IGNITE-17132 что-то тут сделать?
+
+            for (HashIndices hashIndices : hashIndicesById.values()) {
+                HashIndexStorage hashIndexStorage = hashIndices.storageByPartitionId.remove(partitionId);
+
+                if (hashIndexStorage != null) {
+                    // TODO: IGNITE-17132 что-то тут сделать?
+                }
+            }
+
+            for (SortedIndices sortedIndices : sortedIndicesById.values()) {
+                SortedIndexStorage sortedIndexStorage = sortedIndices.storageByPartitionId.remove(partitionId);
+
+                if (sortedIndexStorage != null) {
+                    // TODO: IGNITE-17132 что-то тут сделать?
+                }
+            }
+        }
     }
 
     @Override
@@ -208,5 +228,18 @@ public class TestMvTableStorage implements MvTableStorage {
         backupPartitions.remove(partitionId);
 
         return completedFuture(null);
+    }
+
+    private void checkPartitionId(int partitionId) {
+        Integer partitions = tableCfg.partitions().value();
+
+        if (partitionId < 0 || partitionId >= partitions) {
+            throw new IllegalArgumentException(S.toString(
+                    "Unable to access partition with id outside of configured range",
+                    "table", tableCfg.value().name(), false,
+                    "partitionId", partitionId, false,
+                    "partitions", partitions, false
+            ));
+        }
     }
 }
