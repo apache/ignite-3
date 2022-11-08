@@ -27,7 +27,6 @@ namespace Apache.Ignite.Internal.Table
     using Ignite.Transactions;
     using Linq;
     using Proto;
-    using Remotion.Linq.Parsing.Structure;
     using Serialization;
     using Sql;
     using Transactions;

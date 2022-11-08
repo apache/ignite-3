@@ -145,6 +145,13 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
         (await _recordView.GetAndReplaceAsync(transaction, ToKv(key, val)).ConfigureAwait(false))
         .Select(static x => x.Val);
 
+    /// <inheritdoc/>
+    public IQueryable<KeyValuePair<TK, TV>> AsQueryable(ITransaction? transaction = null)
+    {
+        // TODO IGNITE-18111 KeyValueView support
+        throw new NotImplementedException();
+    }
+
     private static KvPair<TK, TV> ToKv(KeyValuePair<TK, TV> x)
     {
         IgniteArgumentCheck.NotNull(x.Key, "key");

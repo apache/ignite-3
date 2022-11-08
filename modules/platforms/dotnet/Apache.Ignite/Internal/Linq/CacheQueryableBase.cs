@@ -21,7 +21,6 @@ namespace Apache.Ignite.Internal.Linq;
 using System.Linq;
 using System.Linq.Expressions;
 using Remotion.Linq;
-using Table;
 
 /// <summary>
 /// Base class for cache queryables.

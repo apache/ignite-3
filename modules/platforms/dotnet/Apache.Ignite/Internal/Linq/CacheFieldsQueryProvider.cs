@@ -20,7 +20,6 @@ namespace Apache.Ignite.Internal.Linq;
 
 using System;
 using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
@@ -131,16 +130,6 @@ internal class CacheFieldsQueryProvider : IQueryProvider
     public TResult Execute<TResult>(Expression expression)
     {
         return (TResult) Execute(expression).Value;
-    }
-
-    /// <summary>
-    /// Escapes the name of the table: strips namespace and nested class qualifiers.
-    /// </summary>
-    private static string EscapeTableName(string valueTypeName)
-    {
-        var nsIndex = Math.Max(valueTypeName.LastIndexOf('.'), valueTypeName.LastIndexOf('+'));
-
-        return nsIndex > 0 ? valueTypeName.Substring(nsIndex + 1) : valueTypeName;
     }
 
     /// <summary>
