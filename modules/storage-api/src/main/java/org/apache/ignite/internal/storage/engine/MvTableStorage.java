@@ -27,6 +27,7 @@ import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.StorageClosedException;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.IndexStorage;
@@ -59,10 +60,8 @@ public interface MvTableStorage {
     /**
      * Destroys a partition and all associated indices.
      *
-     * <p>This method will do nothing if there is no partition with that ID.
-     *
      * <p>This method will do nothing if there is no partition by ID, when trying to call methods for {@link MvPartitionStorage},
-     * {@link HashIndexStorage} and {@link SortedIndexStorage}, {@link StorageException} will be thrown.
+     * {@link HashIndexStorage} and {@link SortedIndexStorage}, {@link StorageClosedException} will be thrown.
      *
      * @param partitionId Partition ID.
      * @throws IllegalArgumentException If Partition ID is out of bounds.

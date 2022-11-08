@@ -59,6 +59,9 @@ public abstract class BaseMvStoragesTest {
     /** Key-value {@link BinaryTuple} converter for tests. */
     protected static BinaryConverter kvBinaryConverter;
 
+    /** Key {@link BinaryTuple} converter for tests. */
+    protected static BinaryConverter kBinaryConverter;
+
     @BeforeAll
     static void beforeAll() {
         marshallerFactory = new ReflectionMarshallerFactory();
@@ -102,6 +105,10 @@ public abstract class BaseMvStoragesTest {
 
     protected static IndexRow indexRow(BinaryRow binaryRow, RowId rowId) {
         return new IndexRowImpl(kvBinaryConverter.toTuple(binaryRow), rowId);
+    }
+
+    protected static BinaryTuple indexKey(BinaryRow binaryKey) {
+        return kvBinaryConverter.toTuple(binaryKey);
     }
 
     protected static TestKey key(BinaryRow binaryRow) {

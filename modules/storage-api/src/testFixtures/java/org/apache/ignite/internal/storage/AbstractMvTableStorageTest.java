@@ -47,6 +47,7 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
 import org.apache.ignite.internal.schema.NativeTypes;
@@ -62,6 +63,7 @@ import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexRowImpl;
+import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.util.Cursor;
 import org.junit.jupiter.api.Test;
@@ -414,7 +416,9 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         assertThrows(StorageException.class, () -> tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx.id()));
         assertThrows(StorageException.class, () -> tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIdx.id()));
 
-        // TODO: IGNITE-17132 вот думаю стоит ли проверять что не получится выполнять команды с текущими хранилищами?
+        checkStorageDestroyed(mvPartitionStorage);
+        checkStorageDestroyed(hashIndexStorage);
+        checkStorageDestroyed(sortedIndexStorage);
 
         // Let's check that nothing will happen if we try to destroy a non-existing partition.
         tableStorage.destroyPartition(PARTITION_ID);
@@ -463,5 +467,63 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
+    }
+
+    private void checkStorageDestroyed(MvPartitionStorage storage) {
+        int partId = PARTITION_ID;
+
+        assertThrows(StorageClosedException.class, () -> storage.runConsistently(() -> null));
+
+        assertThrows(StorageClosedException.class, storage::flush);
+
+        assertThrows(StorageClosedException.class, storage::lastAppliedIndex);
+        assertThrows(StorageClosedException.class, () -> storage.lastAppliedIndex(100));
+        assertThrows(StorageClosedException.class, storage::persistedIndex);
+
+        RowId rowId = new RowId(partId);
+
+        HybridTimestamp timestamp = clock.now();
+
+        assertThrows(StorageClosedException.class, () -> storage.read(new RowId(PARTITION_ID), timestamp));
+
+        BinaryRow binaryRow = binaryRow(new TestKey(0, "0"), new TestValue(1, "1"));
+
+        assertThrows(StorageClosedException.class, () -> storage.addWrite(rowId, binaryRow, UUID.randomUUID(), UUID.randomUUID(), partId));
+        assertThrows(StorageClosedException.class, () -> storage.commitWrite(rowId, timestamp));
+        assertThrows(StorageClosedException.class, () -> storage.abortWrite(rowId));
+        assertThrows(StorageClosedException.class, () -> storage.addWriteCommitted(rowId, binaryRow, timestamp));
+
+        assertThrows(StorageClosedException.class, () -> storage.scan(timestamp));
+        assertThrows(StorageClosedException.class, () -> storage.scanVersions(rowId));
+        assertThrows(StorageClosedException.class, () -> storage.scanVersions(rowId));
+
+        assertThrows(StorageClosedException.class, () -> storage.closestRowId(rowId));
+
+        assertThrows(StorageClosedException.class, storage::rowsCount);
+    }
+
+    private void checkStorageDestroyed(SortedIndexStorage storage) {
+        checkStorageDestroyed((IndexStorage) storage);
+
+        BinaryTuple indexKey = indexKey(binaryKey(new TestKey(0, "0")));
+
+        assertThrows(
+                StorageClosedException.class,
+                () -> storage.scan(BinaryTuplePrefix.fromBinaryTuple(indexKey), BinaryTuplePrefix.fromBinaryTuple(indexKey), 0)
+        );
+    }
+
+    private void checkStorageDestroyed(IndexStorage storage) {
+        TestKey key = new TestKey(0, "0");
+
+        BinaryTuple indexKey = indexKey(binaryKey(key));
+
+        IndexRow indexRow = indexRow(binaryRow(key, new TestValue(1, "1")), new RowId(PARTITION_ID));
+
+        assertThrows(StorageClosedException.class, () -> storage.get(indexKey));
+
+        assertThrows(StorageClosedException.class, () -> storage.put(indexRow));
+
+        assertThrows(StorageClosedException.class, () -> storage.remove(indexRow));
     }
 }

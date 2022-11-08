@@ -18,15 +18,15 @@
 package org.apache.ignite.internal.storage;
 
 /**
- * Exception thrown by the storage.
+ *  Exception that will be thrown when the storage is closed.
  */
-public class StorageException extends RuntimeException {
+public class StorageClosedException extends StorageException {
     /**
      * Constructor.
      *
      * @param message Error message.
      */
-    public StorageException(String message) {
+    public StorageClosedException(String message) {
         super(message);
     }
 
@@ -36,7 +36,7 @@ public class StorageException extends RuntimeException {
      * @param message Error message.
      * @param cause The cause.
      */
-    public StorageException(String message, Throwable cause) {
+    public StorageClosedException(String message, Throwable cause) {
         super(message, cause);
     }
 
@@ -45,7 +45,7 @@ public class StorageException extends RuntimeException {
      *
      * @param cause The cause.
      */
-    public StorageException(Throwable cause) {
+    public StorageClosedException(Throwable cause) {
         super(cause);
     }
 }
