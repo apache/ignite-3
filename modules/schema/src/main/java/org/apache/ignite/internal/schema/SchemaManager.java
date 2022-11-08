@@ -286,7 +286,11 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
             if (schemaVer <= regs.get(tblId).lastSchemaVersion()) {
                 SchemaRegistry registry0 = registriesVv.latest().get(tblId);
 
-                fut.complete(registry0.schemaCached(schemaVer));
+                SchemaDescriptor desc = registry0.schemaCached(schemaVer);
+
+                assert desc != null : "Unexpected empty schema description.";
+
+                fut.complete(desc);
             }
         };
 
@@ -299,7 +303,11 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
 
             registry = registriesVv.latest().get(tblId);
 
-            fut.complete(registry.schemaCached(schemaVer));
+            SchemaDescriptor desc = registry.schemaCached(schemaVer);
+
+            assert desc != null : "Unexpected empty schema description.";
+
+            fut.complete(desc);
         }
 
         return fut.thenApply(res -> {
