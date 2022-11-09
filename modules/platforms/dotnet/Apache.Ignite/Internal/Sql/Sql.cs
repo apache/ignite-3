@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Internal.Sql
 {
     using System;
+    using System.Collections.Generic;
     using System.Threading.Tasks;
     using Buffers;
     using Common;
@@ -33,6 +34,10 @@ namespace Apache.Ignite.Internal.Sql
     /// </summary>
     internal sealed class Sql : ISql
     {
+        private static readonly RowReader<IIgniteTuple> TupleReader = static (cols, reader) => ReadTuple(cols, reader);
+
+        private static readonly RowReaderFactory<IIgniteTuple> TupleReaderFactory = static _ => TupleReader;
+
         /** Underlying connection. */
         private readonly ClientFailoverSocket _socket;
 
@@ -56,7 +61,7 @@ namespace Apache.Ignite.Internal.Sql
             var (buf, socket) = await _socket.DoOutInOpAndGetSocketAsync(ClientOp.SqlExec, tx, bufferWriter).ConfigureAwait(false);
 
             // ResultSet will dispose the pooled buffer.
-            return new ResultSet(socket, buf);
+            return new ResultSet<IIgniteTuple>(socket, buf, TupleReaderFactory);
 
             PooledArrayBufferWriter Write()
             {
@@ -94,6 +99,51 @@ namespace Apache.Ignite.Internal.Sql
         {
             // TODO: IGNITE-17333 SQL ResultSet object mapping
             throw new NotSupportedException();
+        }
+
+        private static IIgniteTuple ReadTuple(IReadOnlyList<IColumnMetadata> cols, BinaryTupleReader tupleReader)
+        {
+            var row = new IgniteTuple(cols.Count);
+
+            for (var i = 0; i < cols.Count; i++)
+            {
+                var col = cols[i];
+                row[col.Name] = ReadValue(ref tupleReader, col, i);
+            }
+
+            return row;
+        }
+
+        private static object? ReadValue(ref BinaryTupleReader reader, IColumnMetadata col, int idx)
+        {
+            if (reader.IsNull(idx))
+            {
+                return null;
+            }
+
+            return col.Type switch
+            {
+                SqlColumnType.Boolean => reader.GetByte(idx) != 0,
+                SqlColumnType.Int8 => reader.GetByte(idx),
+                SqlColumnType.Int16 => reader.GetShort(idx),
+                SqlColumnType.Int32 => reader.GetInt(idx),
+                SqlColumnType.Int64 => reader.GetLong(idx),
+                SqlColumnType.Float => reader.GetFloat(idx),
+                SqlColumnType.Double => reader.GetDouble(idx),
+                SqlColumnType.Decimal => reader.GetDecimal(idx, col.Scale),
+                SqlColumnType.Date => reader.GetDate(idx),
+                SqlColumnType.Time => reader.GetTime(idx),
+                SqlColumnType.Datetime => reader.GetDateTime(idx),
+                SqlColumnType.Timestamp => reader.GetTimestamp(idx),
+                SqlColumnType.Uuid => reader.GetGuid(idx),
+                SqlColumnType.Bitmask => reader.GetBitmask(idx),
+                SqlColumnType.String => reader.GetString(idx),
+                SqlColumnType.ByteArray => reader.GetBytes(idx),
+                SqlColumnType.Period => reader.GetPeriod(idx),
+                SqlColumnType.Duration => reader.GetDuration(idx),
+                SqlColumnType.Number => reader.GetNumber(idx),
+                _ => throw new ArgumentOutOfRangeException(nameof(col.Type), col.Type, "Unknown SQL column type.")
+            };
         }
     }
 }
