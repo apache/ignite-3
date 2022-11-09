@@ -358,6 +358,7 @@ internal class CacheQueryExpressionVisitor : ThrowingExpressionVisitor
     private static string GetFieldName(MemberExpression expression, ICacheQueryableInternal queryable, bool ignoreAlias = false)
     {
         // TODO: We need schema to provide adequate mapping. Change extension to AsQueryableAsync() and retrieve the latest schema first.
+        // OR use upper-case non-quoted names? We don't care about upper/lower case anyway.
         if (FieldNameMap.TryGetValue(expression.Member, out var fieldName))
         {
             return fieldName;
