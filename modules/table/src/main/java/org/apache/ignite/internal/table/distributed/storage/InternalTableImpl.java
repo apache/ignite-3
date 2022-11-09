@@ -36,6 +36,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiFunction;
@@ -43,6 +46,8 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
@@ -58,6 +63,7 @@ import org.apache.ignite.internal.table.distributed.replication.request.ReadWrit
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteScanRetrieveBatchReplicaRequestBuilder;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
@@ -70,6 +76,8 @@ import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.service.RaftGroupService;
+import org.apache.ignite.raft.jraft.rpc.CliRequests.GetLeaderResponse;
+import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupServiceImpl;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -79,11 +87,14 @@ import org.jetbrains.annotations.TestOnly;
  * Storage of table rows.
  */
 public class InternalTableImpl implements InternalTable {
+    private static final IgniteLogger LOG = Loggers.forClass(InternalTableImpl.class);
     /** Cursor id generator. */
     private static final AtomicLong CURSOR_ID_GENERATOR = new AtomicLong();
 
     /** Number of attempts. */
     private static final int ATTEMPTS_TO_ENLIST_PARTITION = 5;
+
+    private static final int ENLIST_TIMEOUT = 200;
 
     /** Partition map. */
     protected final Int2ObjectMap<RaftGroupService> partitionMap;
@@ -124,6 +135,9 @@ public class InternalTableImpl implements InternalTable {
     /** A hybrid logical clock. */
     private final HybridClock clock;
 
+    /** Executor for scheduling retries of {@link InternalTableImpl#enlistWithRetry} invocations. */
+    private final ScheduledExecutorService executor;
+
     /**
      * Constructor.
      *
@@ -162,6 +176,12 @@ public class InternalTableImpl implements InternalTable {
         this.replicaSvc = replicaSvc;
         this.tableMessagesFactory = new TableMessagesFactory();
         this.clock = clock;
+
+        this.executor = new ScheduledThreadPoolExecutor(10,
+                new NamedThreadFactory("InternalTableImpl_Pool"/*NamedThreadFactory.threadPrefix(clusterNetSvc.localConfiguration().getName(),
+                        CLIENT_POOL_NAME)*/, LOG
+                )
+        );
     }
 
     /** {@inheritDoc} */
@@ -238,10 +258,13 @@ public class InternalTableImpl implements InternalTable {
                 throw new TransactionException("Failed to invoke the replica request.");
             }
         } else {
-            fut = enlistWithRetry(
+            fut = new CompletableFuture<>();
+
+            enlistWithRetry(
                     tx0,
                     partId,
                     (commitPart, term) -> op.apply(commitPart, tx0, partGroupId, term),
+                    fut,
                     ATTEMPTS_TO_ENLIST_PARTITION
             );
         }
@@ -312,10 +335,13 @@ public class InternalTableImpl implements InternalTable {
                     throw new TransactionException("Failed to invoke the replica request.");
                 }
             } else {
-                fut = enlistWithRetry(
+                fut = new CompletableFuture<>();
+
+                enlistWithRetry(
                         tx0,
                         partToRows.getIntKey(),
                         (commitPart, term) -> op.apply(commitPart, partToRows.getValue(), tx0, partGroupId, term),
+                        fut,
                         ATTEMPTS_TO_ENLIST_PARTITION
                 );
             }
@@ -367,7 +393,9 @@ public class InternalTableImpl implements InternalTable {
                 throw new TransactionException("Failed to invoke the replica request.");
             }
         } else {
-            fut = enlistWithRetry(tx, partId, (commitPart, term) -> requestBuilder.term(term).build(), ATTEMPTS_TO_ENLIST_PARTITION);
+            fut = new CompletableFuture<>();
+
+            enlistWithRetry(tx, partId, (commitPart, term) -> requestBuilder.term(term).build(), fut, ATTEMPTS_TO_ENLIST_PARTITION);
         }
 
         return postEnlist(fut, false, tx);
@@ -382,61 +410,59 @@ public class InternalTableImpl implements InternalTable {
      * @param attempts Number of attempts.
      * @return The future.
      */
-    private <R> CompletableFuture<R> enlistWithRetry(
+    private <R> void enlistWithRetry(
             InternalTransaction tx,
             int partId,
             BiFunction<TablePartitionId, Long, ReplicaRequest> requestFunction,
+            CompletableFuture<R> fut,
             int attempts
     ) {
-        CompletableFuture<R> result = new CompletableFuture();
-
         enlist(partId, tx).<R>thenCompose(
-                primaryReplicaAndTerm -> {
-                    try {
-                        return replicaSvc.invoke(
-                                primaryReplicaAndTerm.get1(),
-                                requestFunction.apply((TablePartitionId) tx.commitPartition(), primaryReplicaAndTerm.get2())
-                        );
-                    } catch (PrimaryReplicaMissException e) {
-                        throw new TransactionException(e);
-                    } catch (ReplicaUnavailableException e) {
-                        throw new TransactionException(e);
-                    } catch (Throwable e) {
-                        throw new TransactionException(
-                                IgniteStringFormatter.format(
-                                        "Failed to enlist partition[tableName={}, partId={}] into a transaction",
-                                        tableName,
-                                        partId
-                                )
-                        );
-                    }
-                })
+                        primaryReplicaAndTerm -> {
+                            try {
+                                return replicaSvc.invoke(
+                                        primaryReplicaAndTerm.get1(),
+                                        requestFunction.apply((TablePartitionId) tx.commitPartition(), primaryReplicaAndTerm.get2())
+                                );
+                            } catch (PrimaryReplicaMissException e) {
+                                throw new TransactionException(e);
+                            } catch (ReplicaUnavailableException e) {
+                                System.out.println("enlistWithRetry ReplicaUnavailableException 1");
+                                throw new TransactionException(e);
+                            } catch (Throwable e) {
+                                throw new TransactionException(
+                                        IgniteStringFormatter.format(
+                                                "Failed to enlist partition[tableName={}, partId={}] into a transaction",
+                                                tableName,
+                                                partId
+                                        )
+                                );
+                            }
+                        })
                 .handle((res0, e) -> {
                     if (e != null) {
                         if ((e.getCause() instanceof PrimaryReplicaMissException || e.getCause() instanceof ReplicaUnavailableException)
                                 && attempts > 0) {
-                            try {
-                                Thread.sleep(200);
-                            } catch (InterruptedException ex) {
-                                throw new RuntimeException(ex);
+                            int timeout = 0;
+
+                            if (e.getCause() instanceof ReplicaUnavailableException) {
+                                timeout = ENLIST_TIMEOUT;
                             }
 
-                            return enlistWithRetry(tx, partId, requestFunction, attempts - 1).handle((r2, e2) -> {
-                                if (e2 != null) {
-                                    return result.completeExceptionally(e2);
-                                } else {
-                                    return result.complete((R) r2);
-                                }
-                            });
+                            executor.schedule(() -> {
+                                        enlistWithRetry(tx, partId, requestFunction, fut, attempts - 1);
+                                    },
+                                    timeout,
+                                    TimeUnit.MILLISECONDS);
+                        } else {
+                            fut.completeExceptionally(e);
                         }
-
-                        return result.completeExceptionally(e);
+                    } else {
+                        fut.complete(res0);
                     }
 
-                    return result.complete(res0);
+                    return null;
                 });
-
-        return result;
     }
 
     /**
