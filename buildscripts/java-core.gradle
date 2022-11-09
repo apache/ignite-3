@@ -100,7 +100,7 @@ javadoc {
     def sourceDirs = sourceSets.main.java.sourceDirectories.join(":")
     def generatedSources = "$buildDir/generated/sources/annotationProcessor/java/main"
 
-    options.addStringOption("-source-path", sourceDirs + ":" + generatedSources)
+    options.addStringOption("-source-path", sourceDirs + File.pathSeparator + generatedSources)
 
     exclude 'org/apache/ignite/internal/**'
     exclude 'com/facebook/presto/**'
