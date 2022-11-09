@@ -16,6 +16,12 @@
  */
 package org.apache.ignite.raft.jraft.rpc;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Queue;
@@ -23,18 +29,11 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
-import org.apache.ignite.network.annotations.Transferable;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.messages.TestRaftMessagesFactory;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  *
@@ -243,34 +242,6 @@ public abstract class AbstractRpcTest {
         @Override public String interest() {
             return Request2.class.getName();
         }
-    }
-
-    /** */
-    @Transferable(value = 0)
-    public static interface Request1 extends Message {
-        /** */
-        int val();
-    }
-
-    /** */
-    @Transferable(value = 1)
-    public static interface Request2 extends Message {
-        /** */
-        int val();
-    }
-
-    /** */
-    @Transferable(value = 2)
-    public static interface Response1 extends Message {
-        /** */
-        int val();
-    }
-
-    /** */
-    @Transferable(value = 3)
-    public static interface Response2 extends Message {
-        /** */
-        int val();
     }
 
     /**
