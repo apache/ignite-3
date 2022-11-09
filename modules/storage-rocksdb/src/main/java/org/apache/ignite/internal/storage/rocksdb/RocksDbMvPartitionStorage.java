@@ -857,7 +857,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     }
 
     /**
-     * Closes the partition storage and removes data from it.
+     * Destroys the storage and the data in it.
      */
     public void destroy() {
         close(true);

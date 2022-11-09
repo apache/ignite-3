@@ -60,7 +60,7 @@ class SortedIndex implements ManuallyCloseable {
     }
 
     /**
-     * Removes all data associated with the index.
+     * Destroys the storage and the data in it.
      */
     void destroy() {
         try {
@@ -71,7 +71,7 @@ class SortedIndex implements ManuallyCloseable {
     }
 
     /**
-     * Removes all data associated with the index for partition.
+     * Destroys the storage and the data in it for partition.
      *
      * @param partitionId Partition ID.
      */

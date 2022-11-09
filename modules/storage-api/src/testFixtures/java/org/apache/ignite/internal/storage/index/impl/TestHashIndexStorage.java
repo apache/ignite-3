@@ -114,6 +114,13 @@ public class TestHashIndexStorage implements HashIndexStorage {
         index.clear();
     }
 
+    /**
+     * Removes all index data.
+     */
+    public void clear() {
+        index.clear();
+    }
+
     private void checkClosed() {
         if (!started) {
             throw new StorageClosedException("Storage is already closed");

@@ -27,7 +27,6 @@ import java.util.stream.StreamSupport;
  * @param <T> Type of elements.
  */
 public interface Cursor<T> extends Iterator<T>, Iterable<T>, AutoCloseable {
-    /** {@inheritDoc} */
     @Override
     default Iterator<T> iterator() {
         return this;
@@ -42,7 +41,6 @@ public interface Cursor<T> extends Iterator<T>, Iterable<T>, AutoCloseable {
      */
     static <T> Cursor<T> fromIterator(Iterator<? extends T> it) {
         return new Cursor<>() {
-            /** {@inheritDoc} */
             @Override
             public void close() throws Exception {
                 if (it instanceof AutoCloseable) {
@@ -50,13 +48,11 @@ public interface Cursor<T> extends Iterator<T>, Iterable<T>, AutoCloseable {
                 }
             }
 
-            /** {@inheritDoc} */
             @Override
             public boolean hasNext() {
                 return it.hasNext();
             }
 
-            /** {@inheritDoc} */
             @Override
             public T next() {
                 return it.next();
@@ -77,8 +73,6 @@ public interface Cursor<T> extends Iterator<T>, Iterable<T>, AutoCloseable {
 
     /**
      * Returns a sequential Stream over the elements covered by this cursor.
-     *
-     * @return Sequential Stream over the elements covered by this cursor.
      */
     default Stream<T> stream() {
         return StreamSupport.stream(spliterator(), false);

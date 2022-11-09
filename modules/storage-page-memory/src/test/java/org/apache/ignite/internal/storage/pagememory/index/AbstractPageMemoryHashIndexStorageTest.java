@@ -65,7 +65,7 @@ abstract class AbstractPageMemoryHashIndexStorageTest extends AbstractHashIndexS
     }
 
     @Test
-    void testWithStringsLargerThanMaximumInlineSize() {
+    void testWithStringsLargerThanMaximumInlineSize() throws Exception {
         IndexRow indexRow0 = createIndexRow(1, randomString(random, MAX_BINARY_TUPLE_INLINE_SIZE), new RowId(TEST_PARTITION));
         IndexRow indexRow1 = createIndexRow(1, randomString(random, MAX_BINARY_TUPLE_INLINE_SIZE), new RowId(TEST_PARTITION));
 
@@ -79,7 +79,7 @@ abstract class AbstractPageMemoryHashIndexStorageTest extends AbstractHashIndexS
     }
 
     @Test
-    void testFragmentedIndexColumns() {
+    void testFragmentedIndexColumns() throws Exception {
         IndexRow indexRow0 = createIndexRow(1, randomString(random, baseEngineConfig.pageSize().value() * 2), new RowId(TEST_PARTITION));
         IndexRow indexRow1 = createIndexRow(1, randomString(random, baseEngineConfig.pageSize().value() * 2), new RowId(TEST_PARTITION));
 

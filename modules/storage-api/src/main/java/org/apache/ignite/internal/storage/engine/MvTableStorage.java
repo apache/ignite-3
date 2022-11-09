@@ -60,8 +60,9 @@ public interface MvTableStorage {
     /**
      * Destroys a partition and all associated indices.
      *
-     * <p>This method will do nothing if there is no partition by ID, when trying to call methods for {@link MvPartitionStorage},
-     * {@link HashIndexStorage} and {@link SortedIndexStorage}, {@link StorageClosedException} will be thrown.
+     * <p>This method will do nothing if there is no partition by ID, when trying to call methods to read or write (as well as all previous
+     * open cursors) for {@link MvPartitionStorage}, {@link HashIndexStorage} and {@link SortedIndexStorage}, {@link StorageClosedException}
+     * will be thrown.
      *
      * @param partitionId Partition ID.
      * @throws IllegalArgumentException If Partition ID is out of bounds.
@@ -125,7 +126,8 @@ public interface MvTableStorage {
     /**
      * Destroys the index under the given name and all data in it.
      *
-     * <p>This method is a no-op if the index under the given name does not exist.
+     * <p>This method will do nothing if there is no partition by ID, when trying to call methods to read or write (as well as all previous
+     * open cursors) for {@link HashIndexStorage} and {@link SortedIndexStorage}, {@link StorageClosedException} will be thrown.
      *
      * @param indexId Index ID.
      */

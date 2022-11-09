@@ -152,7 +152,6 @@ public class TestSortedIndexStorage implements SortedIndexStorage {
         }
 
         Iterator<? extends IndexRow> iterator = data.entrySet().stream()
-                .peek(byteBufferSetEntry -> checkClosed())
                 .flatMap(e -> {
                     var tuple = new BinaryTuple(descriptor.binaryTupleSchema(), e.getKey());
 
@@ -160,7 +159,26 @@ public class TestSortedIndexStorage implements SortedIndexStorage {
                 })
                 .iterator();
 
-        return Cursor.fromIterator(iterator);
+        return new Cursor<>() {
+            @Override
+            public void close() throws Exception {
+                if (iterator instanceof AutoCloseable) {
+                    ((AutoCloseable) iterator).close();
+                }
+            }
+
+            @Override
+            public boolean hasNext() {
+                checkClosed();
+
+                return iterator.hasNext();
+            }
+
+            @Override
+            public IndexRow next() {
+                return iterator.next();
+            }
+        };
     }
 
     private static void setEqualityFlag(BinaryTuplePrefix prefix) {
@@ -172,7 +190,7 @@ public class TestSortedIndexStorage implements SortedIndexStorage {
     }
 
     /**
-     * Destroys the storage.
+     * Destroys the storage and the data in it.
      */
     public void destroy() {
         started = false;

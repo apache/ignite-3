@@ -277,7 +277,7 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
     }
 
     /**
-     * Removes all data from this index.
+     * Destroys the storage and the data in it.
      *
      * @throws StorageException If failed to destory index.
      * @deprecated IGNITE-17626 Synchronous API should be removed. {@link MvTableStorage#destroyIndex(UUID)} must be the only public option.

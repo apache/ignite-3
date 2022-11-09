@@ -218,7 +218,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
     }
 
     @Test
-    public void testHashIndexIndependence() {
+    public void testHashIndexIndependence() throws Exception {
         MvPartitionStorage partitionStorage1 = tableStorage.getOrCreateMvPartition(PARTITION_ID);
 
         assertThat(tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx.id()), is(notNullValue()));
@@ -383,7 +383,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
     }
 
     @Test
-    void testDestroyPartition() {
+    public void testDestroyPartition() {
         assertThrows(
                 IllegalArgumentException.class,
                 () -> tableStorage.destroyPartition(tableStorage.configuration().partitions().value())
@@ -409,6 +409,14 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
             return null;
         });
 
+        Cursor<ReadResult> scanVersionsCursor = mvPartitionStorage.scanVersions(rowId);
+        PartitionTimestampCursor scanTimestampCursor = mvPartitionStorage.scan(clock.now());
+
+        Cursor<RowId> getFromHashIndexCursor = hashIndexStorage.get(indexRow.indexColumns());
+
+        Cursor<RowId> getFromSortedIndexCursor = sortedIndexStorage.get(indexRow.indexColumns());
+        Cursor<IndexRow> scanFromSortedIndexCursor = sortedIndexStorage.scan(null, null, 0);
+
         tableStorage.destroyPartition(PARTITION_ID);
 
         // Let's check that we won't get destroyed storages.
@@ -419,6 +427,14 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         checkStorageDestroyed(mvPartitionStorage);
         checkStorageDestroyed(hashIndexStorage);
         checkStorageDestroyed(sortedIndexStorage);
+
+        assertThrows(StorageClosedException.class, () -> getAll(scanVersionsCursor));
+        assertThrows(StorageClosedException.class, () -> getAll(scanTimestampCursor));
+
+        assertThrows(StorageClosedException.class, () -> getAll(getFromHashIndexCursor));
+
+        assertThrows(StorageClosedException.class, () -> getAll(getFromSortedIndexCursor));
+        assertThrows(StorageClosedException.class, () -> getAll(scanFromSortedIndexCursor));
 
         // Let's check that nothing will happen if we try to destroy a non-existing partition.
         tableStorage.destroyPartition(PARTITION_ID);
@@ -461,11 +477,9 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         assertThat(createTableFuture, willCompleteSuccessfully());
     }
 
-    private static <T> List<T> getAll(Cursor<T> cursor) {
+    private static <T> List<T> getAll(Cursor<T> cursor) throws Exception {
         try (cursor) {
             return cursor.stream().collect(Collectors.toList());
-        } catch (Exception e) {
-            throw new RuntimeException(e);
         }
     }
 
@@ -505,7 +519,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
     private void checkStorageDestroyed(SortedIndexStorage storage) {
         checkStorageDestroyed((IndexStorage) storage);
 
-        BinaryTuple indexKey = indexKey(binaryKey(new TestKey(0, "0")));
+        BinaryTuple indexKey = indexKey(binaryRow(new TestKey(0, "0"), new TestValue(1, "1")));
 
         assertThrows(
                 StorageClosedException.class,
@@ -514,13 +528,9 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
     }
 
     private void checkStorageDestroyed(IndexStorage storage) {
-        TestKey key = new TestKey(0, "0");
+        IndexRow indexRow = indexRow(binaryRow(new TestKey(0, "0"), new TestValue(1, "1")), new RowId(PARTITION_ID));
 
-        BinaryTuple indexKey = indexKey(binaryKey(key));
-
-        IndexRow indexRow = indexRow(binaryRow(key, new TestValue(1, "1")), new RowId(PARTITION_ID));
-
-        assertThrows(StorageClosedException.class, () -> storage.get(indexKey));
+        assertThrows(StorageClosedException.class, () -> storage.get(indexRow.indexColumns()));
 
         assertThrows(StorageClosedException.class, () -> storage.put(indexRow));
 
