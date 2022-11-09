@@ -352,20 +352,24 @@ internal static class ExpressionWalker
                 var memberExpression = (MemberExpression)fromExpression;
                 result = EvaluateExpression<IEnumerable>(memberExpression);
                 break;
+
             case ExpressionType.ListInit:
                 var listInitExpression = (ListInitExpression)fromExpression;
                 result = listInitExpression.Initializers
                     .SelectMany(init => init.Arguments)
                     .Select(EvaluateExpression<object>);
                 break;
+
             case ExpressionType.NewArrayInit:
                 var newArrayExpression = (NewArrayExpression)fromExpression;
                 result = newArrayExpression.Expressions
                     .Select(EvaluateExpression<object>);
                 break;
+
             case ExpressionType.Parameter:
                 // This should happen only when 'IEnumerable.Contains' is called on parameter of compiled query
                 throw new NotSupportedException("'Contains' clause on compiled query parameter is not supported.");
+
             default:
                 result = Expression.Lambda(fromExpression).Compile().DynamicInvoke() as IEnumerable;
                 break;
@@ -405,13 +409,8 @@ internal static class ExpressionWalker
 
     /// <summary>
     /// Gets the table name with schema.
+    /// <para />
+    /// Only PUBLIC schema is supported for now by the SQL engine.
     /// </summary>
-    public static string GetTableNameWithSchema(ICacheQueryableInternal queryable)
-    {
-        Debug.Assert(queryable != null);
-
-        const string schemaName = "PUBLIC"; // TODO
-
-        return $"{schemaName}.{queryable.TableName}";
-    }
+    public static string GetTableNameWithSchema(ICacheQueryableInternal queryable) => $"PUBLIC.{queryable.TableName}";
 }
