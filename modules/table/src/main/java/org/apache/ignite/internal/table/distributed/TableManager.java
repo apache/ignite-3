@@ -21,6 +21,7 @@ import static java.util.Collections.unmodifiableMap;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.getByInternalId;
 import static org.apache.ignite.internal.schema.SchemaManager.INITIAL_SCHEMA_VERSION;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
@@ -67,7 +68,6 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.IntSupplier;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 import org.apache.ignite.configuration.ConfigurationChangeException;
 import org.apache.ignite.configuration.ConfigurationProperty;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
@@ -152,7 +152,6 @@ import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.MessagingService;
-import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.service.RaftGroupListener;
@@ -250,11 +249,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      */
     private final Map<UUID, TableImpl> tablesToStopInCaseOfError = new ConcurrentHashMap<>();
 
-    /** Resolver that resolves a network address to node id. */
-    private final Function<NetworkAddress, String> netAddrResolver;
+    /** Resolver that resolves a node consistent ID to node id. */
+    private final Function<String, String> nodeIdResolver;
 
-    /** Resolver that resolves a network address to cluster node. */
-    private final Function<NetworkAddress, ClusterNode> clusterNodeResolver;
+    /** Resolver that resolves a node consistent ID to cluster node. */
+    private final Function<String, ClusterNode> clusterNodeResolver;
 
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
@@ -355,17 +354,17 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         placementDriver = new PlacementDriver(replicaSvc);
 
-        netAddrResolver = addr -> {
-            ClusterNode node = topologyService.getByAddress(addr);
+        nodeIdResolver = consistentId -> {
+            ClusterNode node = topologyService.getByConsistentId(consistentId);
 
             if (node == null) {
-                throw new IllegalStateException("Can't resolve ClusterNode by its networkAddress=" + addr);
+                throw new IllegalStateException("Can't resolve ClusterNode by its consistent ID =" + consistentId);
             }
 
             return node.id();
         };
 
-        clusterNodeResolver = topologyService::getByAddress;
+        clusterNodeResolver = topologyService::getByConsistentId;
 
         tablesByIdVv = new VersionedValue<>(null, HashMap::new);
 
@@ -374,7 +373,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
             beforeTablesVvComplete.clear();
 
-            return CompletableFuture.allOf(futures.toArray(new CompletableFuture[]{}))
+            return allOf(futures.toArray(new CompletableFuture[]{}))
                     .orTimeout(TABLES_COMPLETE_TIMEOUT, TimeUnit.SECONDS)
                     .whenComplete((v, e) -> {
                         if (!busyLock.enterBusy()) {
@@ -463,7 +462,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             public CompletableFuture<?> onRename(String oldName, String newName, ConfigurationNotificationEvent<TableView> ctx) {
                 // TODO: IGNITE-15485 Support table rename operation.
 
-                return CompletableFuture.completedFuture(null);
+                return completedFuture(null);
             }
 
             @Override
@@ -496,7 +495,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param messagingService Messaging service.
      */
     private void addMessageHandler(MessagingService messagingService) {
-        messagingService.addMessageHandler(TableMessageGroup.class, (message, senderAddr, correlationId) -> {
+        messagingService.addMessageHandler(TableMessageGroup.class, (message, sender, correlationId) -> {
             if (message instanceof HasDataRequest) {
                 // This message queries if a node has any data for a specific partition of a table
                 assert correlationId != null;
@@ -524,7 +523,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     }
                 }
 
-                messagingService.respond(senderAddr, TABLE_MESSAGES_FACTORY.hasDataResponse().result(contains).build(), correlationId);
+                messagingService.respond(sender, TABLE_MESSAGES_FACTORY.hasDataResponse().result(contains).build(), correlationId);
             }
         });
     }
@@ -591,7 +590,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             busyLock.leaveBusy();
         }
 
-        return CompletableFuture.completedFuture(null);
+        return completedFuture(null);
     }
 
     /**
@@ -602,7 +601,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      */
     private CompletableFuture<?> onUpdateReplicas(ConfigurationNotificationEvent<Integer> replicasCtx) {
         if (!busyLock.enterBusy()) {
-            return CompletableFuture.completedFuture(new NodeStoppingException());
+            return completedFuture(new NodeStoppingException());
         }
 
         try {
@@ -625,9 +624,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             replicasCtx.storageRevision(), metaStorageMgr, i);
                 }
 
-                return CompletableFuture.allOf(futures);
+                return allOf(futures);
             } else {
-                return CompletableFuture.completedFuture(null);
+                return completedFuture(null);
             }
         } finally {
             busyLock.leaveBusy();
@@ -698,6 +697,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
             Set<ClusterNode> newPartAssignment = newAssignments.get(partId);
 
+            List<String> newPartAssignmentIds = newPartAssignment.stream().map(ClusterNode::name).collect(toList());
+
             // Create new raft nodes according to new assignments.
             tablesByIdVv.update(causalityToken, (tablesById, e) -> {
                 if (e != null) {
@@ -718,7 +719,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 placementDriver.updateAssignment(replicaGrpId, nodes);
 
-                CompletableFuture<Void> startGroupFut = CompletableFuture.completedFuture(null);
+                CompletableFuture<Void> startGroupFut = completedFuture(null);
 
                 PendingComparableValuesTracker<HybridTimestamp> safeTime = new PendingComparableValuesTracker<>(clock.now());
 
@@ -754,12 +755,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                         }
                                     });
                                 } else {
-                                    fut = CompletableFuture.completedFuture(true);
+                                    fut = completedFuture(true);
                                 }
 
                                 return fut.thenCompose(startGroup -> {
                                     if (!startGroup) {
-                                        return CompletableFuture.completedFuture(null);
+                                        return completedFuture(null);
                                     }
 
                                     return CompletableFuture.supplyAsync(
@@ -778,7 +779,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                 try {
                                                     raftMgr.startRaftGroupNode(
                                                             replicaGrpId,
-                                                            newPartAssignment,
+                                                            newPartAssignmentIds,
                                                             new PartitionListener(
                                                                     partitionDataStorage(mvPartitionStorage, internalTbl, partId),
                                                                     txStatePartitionStorage,
@@ -798,9 +799,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                             groupOptions
                                                     );
 
-                                                    return CompletableFuture.completedFuture(null);
+                                                    return completedFuture(null);
                                                 } catch (NodeStoppingException ex) {
-                                                    return CompletableFuture.failedFuture(ex);
+                                                    return failedFuture(ex);
                                                 }
                                             }, ioExecutor);
                                 });
@@ -810,9 +811,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 futures[partId] = startGroupFut
                         .thenComposeAsync((v) -> {
                             try {
-                                return raftMgr.startRaftGroupService(replicaGrpId, newPartAssignment);
+                                return raftMgr.startRaftGroupService(replicaGrpId, newPartAssignmentIds);
                             } catch (NodeStoppingException ex) {
-                                return CompletableFuture.failedFuture(ex);
+                                return failedFuture(ex);
                             }
                         }, ioExecutor)
                         .thenCompose(updatedRaftGroupService -> {
@@ -848,7 +849,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                                         txStatePartitionStorage,
                                                                         topologyService,
                                                                         placementDriver,
-                                                                        peer -> clusterNodeResolver.apply(peer.address())
+                                                                        peer -> clusterNodeResolver.apply(peer.consistentId())
                                                                                 .equals(topologyService.localMember())
                                                                 )
                                                         );
@@ -872,7 +873,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             });
         }
 
-        CompletableFuture.allOf(futures).join();
+        allOf(futures).join();
     }
 
     private PartitionDataStorage partitionDataStorage(MvPartitionStorage partitionStorage, InternalTable internalTbl, int partId) {
@@ -909,7 +910,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             }).exceptionally(unused -> false);
         }).toArray(CompletableFuture[]::new);
 
-        return CompletableFuture.allOf(requestFutures)
+        return allOf(requestFutures)
                 .thenApply(unused -> Arrays.stream(requestFutures).filter(CompletableFuture::join).count());
     }
 
@@ -930,7 +931,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             raftGroupOptions = RaftGroupOptions.forPersistentStores();
         }
 
-        //TODO Revisit peers String representation: https://issues.apache.org/jira/browse/IGNITE-17814
         raftGroupOptions.snapshotStorageFactory(new PartitionSnapshotStorageFactory(
                 raftMgr.topologyService(),
                 outgoingSnapshotsManager,
@@ -1040,7 +1040,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         TxStateTableStorage txStateStorage = createTxStateTableStorage(tableCfg);
 
         InternalTableImpl internalTable = new InternalTableImpl(name, tblId, new Int2ObjectOpenHashMap<>(partitions),
-                partitions, netAddrResolver, clusterNodeResolver, txManager, tableStorage, txStateStorage, replicaSvc, clock);
+                partitions, nodeIdResolver, clusterNodeResolver, txManager, tableStorage, txStateStorage, replicaSvc, clock);
 
         var table = new TableImpl(internalTable, lockMgr, this::directIndexIds);
 
@@ -1612,7 +1612,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             UUID tableId = directTableId(name);
 
             if (tableId == null) {
-                return CompletableFuture.completedFuture(null);
+                return completedFuture(null);
             }
 
             return tableAsyncInternal(tableId, false);
@@ -1630,13 +1630,13 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      */
     public CompletableFuture<TableImpl> tableAsyncInternal(UUID id, boolean checkConfiguration) {
         if (checkConfiguration && !isTableConfigured(id)) {
-            return CompletableFuture.completedFuture(null);
+            return completedFuture(null);
         }
 
         var tbl = tablesByIdVv.latest().get(id);
 
         if (tbl != null) {
-            return CompletableFuture.completedFuture(tbl);
+            return completedFuture(tbl);
         }
 
         CompletableFuture<TableImpl> getTblFut = new CompletableFuture<>();
@@ -1662,7 +1662,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         if (tbl != null) {
             tablesByIdVv.removeWhenComplete(tablesListener);
 
-            return CompletableFuture.completedFuture(tbl);
+            return completedFuture(tbl);
         }
 
         return getTblFut.whenComplete((unused, throwable) -> tablesByIdVv.removeWhenComplete(tablesListener));
@@ -1768,9 +1768,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                     ClusterNode localMember = raftMgr.topologyService().localMember();
 
-                    var deltaPeers = newPeers.stream()
+                    List<ClusterNode> deltaPeers = newPeers.stream()
                             .filter(p -> !assignments.contains(p))
-                            .collect(Collectors.toList());
+                            .collect(toList());
 
                     PendingComparableValuesTracker<HybridTimestamp> safeTime = new PendingComparableValuesTracker<>(clock.now());
 
@@ -1817,7 +1817,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                             raftMgr.startRaftGroupNode(
                                     replicaGrpId,
-                                    assignments,
+                                    assignments.stream().map(ClusterNode::name).collect(toList()),
                                     raftGrpLsnr,
                                     raftGrpEvtsLsnr,
                                     groupOptions
@@ -1849,7 +1849,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                             txStatePartitionStorage,
                                             raftMgr.topologyService(),
                                             placementDriver,
-                                            peer -> clusterNodeResolver.apply(peer.address())
+                                            peer -> clusterNodeResolver.apply(peer.consistentId())
                                                     .equals(raftMgr.topologyService().localMember())
                                     )
                             );
@@ -1864,14 +1864,14 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         return true;
                     }
 
-                    var newNodes = newPeers.stream().map(n -> new Peer(n.address())).collect(Collectors.toList());
+                    List<Peer> newNodes = newPeers.stream().map(n -> new Peer(n.name())).collect(toList());
 
                     RaftGroupService partGrpSvc = internalTable.partitionRaftGroupService(partId);
 
                     IgniteBiTuple<Peer, Long> leaderWithTerm = partGrpSvc.refreshAndGetLeaderWithTerm().join();
 
                     // run update of raft configuration if this node is a leader
-                    if (localMember.address().equals(leaderWithTerm.get1().address())) {
+                    if (localMember.name().equals(leaderWithTerm.get1().consistentId())) {
                         LOG.info("Current node={} is the leader of partition raft group={}. "
                                         + "Initiate rebalance process for partition={}, table={}",
                                 localMember.address(), replicaGrpId, partId, tbl.name());

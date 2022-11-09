@@ -73,7 +73,7 @@ public class TopologyController implements TopologyApi {
     private static ClusterNodeDto toClusterNodeDto(ClusterNode node) {
         NetworkAddress addr = node.address();
 
-        var addrDto = new NetworkAddressDto(addr.host(), addr.port(), addr.consistentId());
+        var addrDto = new NetworkAddressDto(addr.host(), addr.port());
 
         return new ClusterNodeDto(node.id(), node.name(), addrDto);
     }

@@ -63,7 +63,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
+import java.util.stream.IntStream;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.baseline.BaselineManager;
@@ -567,17 +567,19 @@ public class TableManagerTest extends IgniteAbstractTest {
             CompletableFuture<TableManager> tblManagerFut,
             Phaser phaser
     ) throws Exception {
+        String consistentId = "node0";
+
         when(rm.startRaftGroupService(any(), any())).thenAnswer(mock -> {
             RaftGroupService raftGrpSrvcMock = mock(RaftGroupService.class);
 
-            when(raftGrpSrvcMock.leader()).thenReturn(new Peer(new NetworkAddress("localhost", 47500)));
+            when(raftGrpSrvcMock.leader()).thenReturn(new Peer(consistentId));
 
             return completedFuture(raftGrpSrvcMock);
         });
 
-        when(ts.getByAddress(any(NetworkAddress.class))).thenReturn(new ClusterNode(
+        when(ts.getByConsistentId(any())).thenReturn(new ClusterNode(
                 UUID.randomUUID().toString(),
-                "node0",
+                consistentId,
                 new NetworkAddress("localhost", 47500)
         ));
 
@@ -656,9 +658,17 @@ public class TableManagerTest extends IgniteAbstractTest {
     public void testChangePeersAsyncRetryLogic() throws Exception {
         RaftMessagesFactory factory = new RaftMessagesFactory();
 
-        List<Peer> nodes = Stream.of(20000, 20001, 20002)
-                .map(port -> new NetworkAddress("localhost", port))
-                .map(Peer::new)
+        List<ClusterNode> clusterNodes = IntStream.of(20000, 20001, 20002)
+                .mapToObj(port -> new NetworkAddress("localhost", port))
+                .map(addr -> {
+                    String id = UUID.randomUUID().toString();
+
+                    return new ClusterNode(id, id, addr);
+                })
+                .collect(Collectors.toUnmodifiableList());
+
+        List<Peer> nodes = clusterNodes.stream()
+                .map(n -> new Peer(n.name()))
                 .collect(Collectors.toUnmodifiableList());
 
         int timeout = 1000;
@@ -668,6 +678,17 @@ public class TableManagerTest extends IgniteAbstractTest {
         Peer leader = nodes.get(0);
 
         when(cluster.messagingService()).thenReturn(messagingService);
+
+        TopologyService topologyService = mock(TopologyService.class);
+
+        when(cluster.topologyService()).thenReturn(topologyService);
+
+        when(topologyService.getByConsistentId(any()))
+                .thenAnswer(invocation -> {
+                    String consistentId = invocation.getArgument(0);
+
+                    return clusterNodes.stream().filter(n -> n.name().equals(consistentId)).findAny().orElseThrow();
+                });
 
         TableManager tableManager = createTableManager(tblManagerFut, false);
 
@@ -683,7 +704,7 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         AtomicInteger counter = new AtomicInteger(0);
 
-        when(messagingService.invoke(any(NetworkAddress.class),
+        when(messagingService.invoke(any(),
                 eq(factory.changePeersAsyncRequest()
                         .newPeersList(shrunkPeers)
                         .term(1L)
@@ -704,7 +725,7 @@ public class TableManagerTest extends IgniteAbstractTest {
                     return failedFuture(new TimeoutException());
                 });
 
-        when(messagingService.invoke(any(NetworkAddress.class), any(CliRequests.GetLeaderRequest.class), anyLong()))
+        when(messagingService.invoke(any(), any(CliRequests.GetLeaderRequest.class), anyLong()))
                 .then(invocation -> {
                     PeerId leader0 = PeerId.fromPeer(leader);
 
@@ -724,7 +745,7 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         AtomicLong secondInvocationOfChangePeersAsync = new AtomicLong(0L);
 
-        when(messagingService.invoke(any(NetworkAddress.class),
+        when(messagingService.invoke(any(),
                 eq(factory.changePeersAsyncRequest()
                         .newPeersList(shrunkPeers)
                         .term(1L)

@@ -21,6 +21,7 @@ import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.socket.SocketChannel;
+import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.util.Objects;
 import java.util.concurrent.CancellationException;
@@ -76,7 +77,7 @@ public class NettyClient {
      * @param messageListener       Message listener.
      */
     public NettyClient(
-            SocketAddress address,
+            InetSocketAddress address,
             SerializationService serializationService,
             HandshakeManager manager,
             Consumer<InNetworkObject> messageListener

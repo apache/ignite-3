@@ -444,7 +444,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         when(rm.prepareRaftGroup(any(), any(), any(), any())).thenAnswer(mock -> {
             RaftGroupService raftGrpSrvcMock = mock(RaftGroupService.class);
 
-            when(raftGrpSrvcMock.leader()).thenReturn(new Peer(new NetworkAddress("localhost", 47500)));
+            when(raftGrpSrvcMock.leader()).thenReturn(new Peer("test"));
 
             return completedFuture(raftGrpSrvcMock);
         });
@@ -452,7 +452,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         when(rm.startRaftGroupService(any(), any())).thenAnswer(mock -> {
             RaftGroupService raftGrpSrvcMock = mock(RaftGroupService.class);
 
-            when(raftGrpSrvcMock.leader()).thenReturn(new Peer(new NetworkAddress("localhost", 47500)));
+            when(raftGrpSrvcMock.leader()).thenReturn(new Peer("test"));
 
             return completedFuture(raftGrpSrvcMock);
         });

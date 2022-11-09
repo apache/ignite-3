@@ -239,14 +239,14 @@ public class ItMetaStorageRaftGroupTest {
 
         List<RaftServer> raftServers = raftServersRaftGroups.stream().map(p -> p.key).collect(Collectors.toList());
 
-        NetworkAddress oldLeader = raftServersRaftGroups.get(0).value.leader().address();
+        String oldLeaderId = raftServersRaftGroups.get(0).value.leader().consistentId();
 
         Optional<RaftServer> oldLeaderServer = raftServers.stream()
-                .filter(s -> s.clusterService().topologyService().localMember().address().equals(oldLeader)).findFirst();
+                .filter(s -> localMemberName(s.clusterService()).equals(oldLeaderId)).findFirst();
 
         //Server that will be alive after we stop leader.
         Optional<RaftServer> liveServer = raftServers.stream()
-                .filter(s -> !s.clusterService().topologyService().localMember().address().equals(oldLeader)).findFirst();
+                .filter(s -> !localMemberName(s.clusterService()).equals(oldLeaderId)).findFirst();
 
         if (oldLeaderServer.isEmpty() || liveServer.isEmpty()) {
             fail();
@@ -276,11 +276,11 @@ public class ItMetaStorageRaftGroupTest {
         //stop leader
         oldLeaderServer.get().stopRaftGroup(INSTANCE);
         oldLeaderServer.get().stop();
-        cluster.stream().filter(c -> c.topologyService().localMember().address().equals(oldLeader)).findFirst().get().stop();
+        cluster.stream().filter(c -> localMemberName(c).equals(oldLeaderId)).findFirst().get().stop();
 
         raftGroupServiceOfLiveServer.refreshLeader().get();
 
-        assertNotSame(oldLeader, raftGroupServiceOfLiveServer.leader().address());
+        assertNotSame(oldLeaderId, raftGroupServiceOfLiveServer.leader().consistentId());
 
         // ensure that leader has been changed only once
         assertTrue(TestUtils.waitForCondition(
@@ -296,7 +296,7 @@ public class ItMetaStorageRaftGroupTest {
             AtomicInteger replicatorStoppedCounter) throws InterruptedException, ExecutionException {
         List<Peer> peers = new ArrayList<>();
 
-        cluster.forEach(c -> peers.add(new Peer(c.topologyService().localMember().address())));
+        cluster.forEach(c -> peers.add(new Peer(localMemberName(c))));
 
         assertTrue(cluster.size() > 1);
 
@@ -392,6 +392,10 @@ public class ItMetaStorageRaftGroupTest {
         group3.refreshLeader();
 
         return Objects.equals(group1.leader(), group2.leader()) && Objects.equals(group2.leader(), group3.leader());
+    }
+
+    private static String localMemberName(ClusterService service) {
+        return service.topologyService().localMember().name();
     }
 
     /**

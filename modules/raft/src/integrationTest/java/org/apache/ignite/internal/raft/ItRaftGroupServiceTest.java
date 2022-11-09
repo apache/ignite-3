@@ -97,7 +97,9 @@ public class ItRaftGroupServiceTest {
 
         assertTrue(waitForTopology(clusterServices.get(NODES_CNT - 1), NODES_CNT, 1000));
 
-        List<ClusterNode> nodes = clusterServices.stream().map(cs -> cs.topologyService().localMember()).collect(Collectors.toList());
+        List<String> nodeNames = clusterServices.stream()
+                .map(cs -> cs.topologyService().localMember().name())
+                .collect(Collectors.toList());
 
         CompletableFuture<RaftGroupService>[] svcFutures = new CompletableFuture[NODES_CNT];
 
@@ -110,7 +112,7 @@ public class ItRaftGroupServiceTest {
 
             CompletableFuture<RaftGroupService> raftGroupServiceFuture = raftSrvs.get(i).prepareRaftGroup(
                     RAFT_GROUP_NAME,
-                    nodes,
+                    nodeNames,
                     () -> mock(RaftGroupListener.class),
                     defaults()
             );
@@ -147,12 +149,12 @@ public class ItRaftGroupServiceTest {
         }
 
         ClusterNode oldLeaderNode = raftGroups.keySet().stream()
-                .filter(clusterNode -> new Peer(clusterNode.address()).equals(raftGroupService.leader())).findFirst().get();
+                .filter(clusterNode -> new Peer(clusterNode.name()).equals(raftGroupService.leader())).findFirst().get();
 
         ClusterNode newLeaderNode = raftGroups.keySet().stream()
-                .filter(clusterNode -> !new Peer(clusterNode.address()).equals(raftGroupService.leader())).findFirst().get();
+                .filter(clusterNode -> !new Peer(clusterNode.name()).equals(raftGroupService.leader())).findFirst().get();
 
-        Peer expectedNewLeaderPeer = new Peer(newLeaderNode.address());
+        Peer expectedNewLeaderPeer = new Peer(newLeaderNode.name());
 
         raftGroups.get(oldLeaderNode).transferLeadership(expectedNewLeaderPeer).get();
 

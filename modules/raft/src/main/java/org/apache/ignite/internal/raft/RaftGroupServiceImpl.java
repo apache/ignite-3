@@ -40,6 +40,7 @@ import static org.apache.ignite.raft.jraft.rpc.CliRequests.SnapshotRequest;
 import static org.apache.ignite.raft.jraft.rpc.CliRequests.TransferLeaderRequest;
 
 import java.io.IOException;
+import java.net.ConnectException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -56,8 +57,8 @@ import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.Peer;
@@ -74,7 +75,6 @@ import org.apache.ignite.raft.jraft.rpc.impl.RaftException;
 import org.apache.ignite.raft.jraft.rpc.impl.SMCompactedThrowable;
 import org.apache.ignite.raft.jraft.rpc.impl.SMFullThrowable;
 import org.apache.ignite.raft.jraft.rpc.impl.SMThrowable;
-import org.apache.ignite.raft.jraft.util.Endpoint;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -406,7 +406,8 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         SnapshotRequest req = factory.snapshotRequest().groupId(groupId).build();
 
         // Disable the timeout for a snapshot request.
-        return cluster.messagingService().invoke(peer.address(), req, Integer.MAX_VALUE)
+        return resolvePeer(peer)
+                .thenCompose(node -> cluster.messagingService().invoke(node, req, Integer.MAX_VALUE))
                 .thenAccept(resp -> {
                     if (resp != null) {
                         RpcRequests.ErrorResponse resp0 = (RpcRequests.ErrorResponse) resp;
@@ -480,14 +481,6 @@ public class RaftGroupServiceImpl implements RaftGroupService {
      * @param <R> Response type.
      */
     private <R extends NetworkMessage> void sendWithRetry(Peer peer, NetworkMessage req, long stopTime, CompletableFuture<R> fut) {
-        if (LOG.isTraceEnabled()) {
-            LOG.trace("sendWithRetry peers={} req={} from={} to={}",
-                    peers,
-                    S.toString(req),
-                    cluster.topologyService().localMember().address(),
-                    peer.address());
-        }
-
         if (currentTimeMillis() >= stopTime) {
             fut.completeExceptionally(new TimeoutException());
 
@@ -495,13 +488,14 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         }
 
         //TODO: IGNITE-15389 org.apache.ignite.internal.metastorage.client.CursorImpl has potential deadlock inside
-        cluster.messagingService().invoke(peer.address(), req, rpcTimeout)
+        resolvePeer(peer)
+                .thenCompose(node -> cluster.messagingService().invoke(node, req, rpcTimeout))
                 .whenCompleteAsync((resp, err) -> {
                     if (LOG.isTraceEnabled()) {
                         LOG.trace("sendWithRetry resp={} from={} to={} err={}",
                                 S.toString(resp),
                                 cluster.topologyService().localMember().address(),
-                                peer.address(),
+                                peer.consistentId(),
                                 err == null ? null : err.getMessage());
                     }
 
@@ -672,13 +666,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     private static @Nullable Peer parsePeer(@Nullable String peerId) {
         PeerId id = PeerId.parsePeer(peerId);
 
-        if (id == null) {
-            return null;
-        } else {
-            Endpoint endpoint = id.getEndpoint();
-
-            return new Peer(new NetworkAddress(endpoint.getIp(), endpoint.getPort()));
-        }
+        return id == null ? null : new Peer(id.getConsistentId());
     }
 
     /**
@@ -707,5 +695,15 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
     private static List<String> peerIds(Collection<Peer> peers) {
         return peers.stream().map(RaftGroupServiceImpl::peerId).collect(toList());
+    }
+
+    private CompletableFuture<ClusterNode> resolvePeer(Peer peer) {
+        ClusterNode node = cluster.topologyService().getByConsistentId(peer.consistentId());
+
+        if (node == null) {
+            return CompletableFuture.failedFuture(new ConnectException("Peer " + peer.consistentId() + " is unavailable"));
+        }
+
+        return CompletableFuture.completedFuture(node);
     }
 }

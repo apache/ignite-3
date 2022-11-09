@@ -575,7 +575,7 @@ public class NodeImpl implements Node, RaftServerService {
         opts.setFsmCaller(this.fsmCaller);
         opts.setNode(this);
         opts.setLogManager(this.logManager);
-        opts.setAddr(this.serverId != null ? this.serverId.getEndpoint() : null);
+        opts.setPeerId(this.serverId);
         opts.setInitTerm(this.currTerm);
         opts.setFilterBeforeCopyRemote(this.options.isFilterBeforeCopyRemote());
         // get snapshot throttle
@@ -973,8 +973,8 @@ public class NodeImpl implements Node, RaftServerService {
         if (opts.getReplicationStateListeners() != null)
             this.replicatorStateListeners.addAll(opts.getReplicationStateListeners());
 
-        if (this.serverId.getIp().equals(Utils.IP_ANY)) {
-            LOG.error("Node can't start from IP_ANY.");
+        if (this.serverId.isEmpty()) {
+            LOG.error("Server ID is empty.");
             return false;
         }
 
@@ -1328,9 +1328,9 @@ public class NodeImpl implements Node, RaftServerService {
                     continue;
                 }
 
-                rpcClientService.connectAsync(peer.getEndpoint()).thenAccept(ok -> {
+                rpcClientService.connectAsync(peer).thenAccept(ok -> {
                     if (!ok) {
-                        LOG.warn("Node {} failed to init channel, address={}.", getNodeId(), peer.getEndpoint());
+                        LOG.warn("Node {} failed to init channel, address={}.", getNodeId(), peer);
                         return ;
                     }
                     final OnRequestVoteRpcDone done = new OnRequestVoteRpcDone(peer, electSelfTerm, this);
@@ -1344,7 +1344,7 @@ public class NodeImpl implements Node, RaftServerService {
                             .lastLogIndex(lastLogId.getIndex())
                             .lastLogTerm(lastLogId.getTerm())
                             .build();
-                    this.rpcClientService.requestVote(peer.getEndpoint(), done.request, done);
+                    this.rpcClientService.requestVote(peer, done.request, done);
                 });
             }
 
@@ -1722,7 +1722,7 @@ public class NodeImpl implements Node, RaftServerService {
             .entriesList(request.entriesList())
             .peerId(this.leaderId.toString())
             .build();
-        this.rpcClientService.readIndex(this.leaderId.getEndpoint(), newRequest, -1, closure);
+        this.rpcClientService.readIndex(this.leaderId, newRequest, -1, closure);
     }
 
     private void readLeader(ReadIndexRequest request, RpcResponseClosure<ReadIndexResponse> closure) {
@@ -2930,9 +2930,9 @@ public class NodeImpl implements Node, RaftServerService {
                     continue;
                 }
 
-                rpcClientService.connectAsync(peer.getEndpoint()).thenAccept(ok -> {
+                rpcClientService.connectAsync(peer).thenAccept(ok -> {
                     if (!ok) {
-                        LOG.warn("Node {} failed to init channel, address={}.", getNodeId(), peer.getEndpoint());
+                        LOG.warn("Node {} failed to init channel, address={}.", getNodeId(), peer);
                         return;
                     }
                     final OnPreVoteRpcDone done = new OnPreVoteRpcDone(peer, preVoteTerm);
@@ -2946,7 +2946,7 @@ public class NodeImpl implements Node, RaftServerService {
                             .lastLogIndex(lastLogId.getIndex())
                             .lastLogTerm(lastLogId.getTerm())
                             .build();
-                    this.rpcClientService.preVote(peer.getEndpoint(), done.request, done);
+                    this.rpcClientService.preVote(peer, done.request, done);
                 });
             }
             this.prevVoteCtx.grant(this.serverId);
@@ -3525,7 +3525,7 @@ public class NodeImpl implements Node, RaftServerService {
             PeerId peerId = peer.copy();
             // if peer_id is ANY_PEER(0.0.0.0:0:0), the peer with the largest
             // last_log_id will be selected.
-            if (peerId.equals(PeerId.ANY_PEER)) {
+            if (peerId.isEmpty()) {
                 LOG.info("Node {} starts to transfer leadership to any peer.", getNodeId());
                 if ((peerId = this.replicatorGroup.findTheNextCandidate(this.conf)) == null) {
                     return new Status(-1, "Candidate not found for any peer");

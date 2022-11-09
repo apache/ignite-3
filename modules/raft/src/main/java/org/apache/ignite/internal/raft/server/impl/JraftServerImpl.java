@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.raft.server.impl;
 
-import static org.apache.ignite.raft.jraft.JRaftUtils.addressFromEndpoint;
-
 import java.io.File;
 import java.io.IOException;
 import java.io.Serializable;
@@ -46,7 +44,6 @@ import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.client.ElectionPriority;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.WriteCommand;
@@ -328,7 +325,7 @@ public class JraftServerImpl implements RaftServer {
     public Path getServerDataPath(ReplicationGroupId groupId) {
         ClusterNode clusterNode = service.topologyService().localMember();
 
-        String dirName = groupId + "_" + clusterNode.address().toString().replace(':', '_');
+        String dirName = groupId + "_" + clusterNode.name();
 
         return this.dataPath.resolve(dirName);
     }
@@ -418,9 +415,9 @@ public class JraftServerImpl implements RaftServer {
                 nodeOptions.setSafeTimeTracker(groupOptions.replicationGroupOptions().safeTime());
             }
 
-            NetworkAddress addr = service.topologyService().localMember().address();
+            String consistentId = service.topologyService().localMember().name();
 
-            var peerId = new PeerId(addr.host(), addr.port(), 0, ElectionPriority.DISABLED);
+            var peerId = new PeerId(consistentId, 0, ElectionPriority.DISABLED);
 
             var server = new RaftGroupService(grpId, peerId, nodeOptions, rpcServer, nodeManager);
 
@@ -457,7 +454,7 @@ public class JraftServerImpl implements RaftServer {
 
         PeerId peerId = service.getRaftNode().getNodeId().getPeerId();
 
-        return new Peer(addressFromEndpoint(peerId.getEndpoint()), peerId.getPriority());
+        return new Peer(peerId.getConsistentId(), peerId.getPriority());
     }
 
     /**

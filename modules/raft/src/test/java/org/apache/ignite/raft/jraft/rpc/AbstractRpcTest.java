@@ -24,14 +24,12 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.network.annotations.Transferable;
-import org.apache.ignite.raft.jraft.test.TestUtils;
-import org.apache.ignite.raft.jraft.util.Endpoint;
+import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.messages.TestRaftMessagesFactory;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import static org.apache.ignite.raft.jraft.test.TestUtils.INIT_PORT;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -42,7 +40,7 @@ import static org.junit.jupiter.api.Assertions.fail;
  *
  */
 public abstract class AbstractRpcTest {
-    protected Endpoint endpoint;
+    protected PeerId peerId;
 
     private RpcServer<?> server;
 
@@ -52,13 +50,13 @@ public abstract class AbstractRpcTest {
 
     @BeforeEach
     public void setup() {
-        endpoint = new Endpoint(TestUtils.getLocalAddress(), INIT_PORT);
-
-        server = createServer(endpoint);
+        server = createServer();
 
         server.registerProcessor(new Request1RpcProcessor());
         server.registerProcessor(new Request2RpcProcessor());
         server.init(null);
+
+        peerId = new PeerId(server.consistentId());
     }
 
     @AfterEach
@@ -69,10 +67,9 @@ public abstract class AbstractRpcTest {
     }
 
     /**
-     * @param endpoint The endpoint.
      * @return The server.
      */
-    public abstract RpcServer<?> createServer(Endpoint endpoint);
+    public abstract RpcServer<?> createServer();
 
     /**
      * @return The client.
@@ -93,7 +90,7 @@ public abstract class AbstractRpcTest {
     public void testConnection() {
         RpcClient client = createClient();
 
-        assertTrue(client.checkConnection(endpoint));
+        assertTrue(client.checkConnection(peerId));
     }
 
     @Test
@@ -102,7 +99,7 @@ public abstract class AbstractRpcTest {
 
         CountDownLatch l1 = new CountDownLatch(1);
         AtomicReference<Response1> resp1 = new AtomicReference<>();
-        client.invokeAsync(endpoint, msgFactory.request1().build(), new InvokeContext(), (result, err) -> {
+        client.invokeAsync(peerId, msgFactory.request1().build(), new InvokeContext(), (result, err) -> {
             resp1.set((Response1) result);
             l1.countDown();
         }, 5000);
@@ -111,7 +108,7 @@ public abstract class AbstractRpcTest {
 
         CountDownLatch l2 = new CountDownLatch(1);
         AtomicReference<Response2> resp2 = new AtomicReference<>();
-        client.invokeAsync(endpoint, msgFactory.request2().build(), new InvokeContext(), (result, err) -> {
+        client.invokeAsync(peerId, msgFactory.request2().build(), new InvokeContext(), (result, err) -> {
             resp2.set((Response2) result);
             l2.countDown();
         }, 5000);
@@ -124,16 +121,16 @@ public abstract class AbstractRpcTest {
         RpcClient client1 = createClient();
         RpcClient client2 = createClient();
 
-        assertTrue(client1.checkConnection(endpoint));
-        assertTrue(client2.checkConnection(endpoint));
+        assertTrue(client1.checkConnection(peerId));
+        assertTrue(client2.checkConnection(peerId));
 
         server.shutdown();
 
         assertTrue(waitForTopology(client1, 2, 5_000));
         assertTrue(waitForTopology(client2, 2, 5_000));
 
-        assertFalse(client1.checkConnection(endpoint));
-        assertFalse(client2.checkConnection(endpoint));
+        assertFalse(client1.checkConnection(peerId));
+        assertFalse(client2.checkConnection(peerId));
     }
 
     @Test
@@ -141,12 +138,12 @@ public abstract class AbstractRpcTest {
         RpcClientEx client1 = (RpcClientEx) createClient();
         client1.recordMessages((a, b) -> true);
 
-        assertTrue(client1.checkConnection(endpoint));
+        assertTrue(client1.checkConnection(peerId));
 
         CountDownLatch l = new CountDownLatch(2);
 
-        client1.invokeAsync(endpoint, msgFactory.request1().build(), null, (result, err) -> l.countDown(), 500);
-        client1.invokeAsync(endpoint, msgFactory.request2().build(), null, (result, err) -> l.countDown(), 500);
+        client1.invokeAsync(peerId, msgFactory.request1().build(), null, (result, err) -> l.countDown(), 500);
+        client1.invokeAsync(peerId, msgFactory.request2().build(), null, (result, err) -> l.countDown(), 500);
 
         l.await();
 
@@ -160,14 +157,14 @@ public abstract class AbstractRpcTest {
         RpcClientEx client1 = (RpcClientEx) createClient();
         client1.recordMessages((a, b) -> true);
 
-        assertTrue(client1.checkConnection(endpoint));
+        assertTrue(client1.checkConnection(peerId));
 
         try {
             Request1 request = msgFactory.request1().val(10_000).build();
 
             CompletableFuture<Object> fut = new CompletableFuture<>();
 
-            client1.invokeAsync(endpoint, request, null, (result, err) -> {
+            client1.invokeAsync(peerId, request, null, (result, err) -> {
                 if (err == null)
                     fut.complete(result);
                 else
@@ -193,11 +190,11 @@ public abstract class AbstractRpcTest {
         RpcClientEx client1 = (RpcClientEx) createClient();
         client1.blockMessages((msg, id) -> msg instanceof Request1);
 
-        assertTrue(client1.checkConnection(endpoint));
+        assertTrue(client1.checkConnection(peerId));
 
         CompletableFuture<Object> resp = new CompletableFuture<>();
 
-        client1.invokeAsync(endpoint, msgFactory.request1().build(), null, (result, err) -> resp.complete(result), 30_000);
+        client1.invokeAsync(peerId, msgFactory.request1().build(), null, (result, err) -> resp.complete(result), 30_000);
 
         Thread.sleep(500);
 
