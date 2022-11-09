@@ -103,7 +103,7 @@ std::string read_tuple(std::optional<bytes_view> data) {
 struct SchemaDescriptor {
     std::vector<column_info> columns;
 
-    [[nodiscard]] IntT length() const { return columns.size(); }
+    [[nodiscard]] IntT length() const { return IntT(columns.size()); }
 
     [[nodiscard]] binary_tuple_schema to_tuple_schema() const {
         return binary_tuple_schema({columns.begin(), columns.end()});

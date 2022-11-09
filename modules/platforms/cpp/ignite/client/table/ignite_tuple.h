@@ -175,13 +175,13 @@ public:
      * the column with the given name does not exist.
      *
      * @param name The column name.
-     * @return Column name.
+     * @return Column index.
      */
-    [[nodiscard]] int32_t column_ordinal(std::string_view name) const {
+    [[nodiscard]] std::int32_t column_ordinal(std::string_view name) const {
         auto it = m_indices.find(parse_name(name));
         if (it == m_indices.end())
             return -1;
-        return int32_t(it->second);
+        return std::int32_t(it->second);
     }
 
 private:
@@ -222,7 +222,7 @@ private:
     std::vector<std::pair<std::string, std::any>> m_pairs;
 
     /** Indices of the columns corresponding to their names. */
-    std::unordered_map<std::string, size_t> m_indices;
+    std::unordered_map<std::string, std::size_t> m_indices;
 };
 
 } // namespace ignite

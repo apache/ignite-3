@@ -1,0 +1,60 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+#pragma once
+
+#include "ignite/common/config.h"
+
+#include <memory>
+#include <utility>
+
+namespace ignite {
+
+namespace detail {
+class sql_impl;
+}
+
+/**
+ * Ignite SQL query facade.
+ */
+class sql {
+    friend class ignite_client;
+public:
+    // Default
+    sql() = default;
+    ~sql() = default;
+    sql(sql &&) noexcept = default;
+    sql &operator=(sql &&) noexcept = default;
+
+    // Deleted
+    sql(const sql &) = delete;
+    sql &operator=(const sql &) = delete;
+
+private:
+    /**
+     * Constructor
+     *
+     * @param impl Implementation
+     */
+    explicit sql(std::shared_ptr<detail::sql_impl> impl)
+        : m_impl(std::move(impl)) {}
+
+    /** Implementation. */
+    std::shared_ptr<detail::sql_impl> m_impl;
+};
+
+} // namespace ignite

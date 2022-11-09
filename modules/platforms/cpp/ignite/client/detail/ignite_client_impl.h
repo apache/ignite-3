@@ -19,6 +19,7 @@
 
 #include <ignite/client/detail/cluster_connection.h>
 #include <ignite/client/detail/table/tables_impl.h>
+#include <ignite/client/detail/sql/sql_impl.h>
 #include <ignite/client/ignite_client_configuration.h>
 
 #include <ignite/common/ignite_result.h>
@@ -48,7 +49,8 @@ public:
     explicit ignite_client_impl(ignite_client_configuration configuration)
         : m_configuration(std::move(configuration))
         , m_connection(cluster_connection::create(m_configuration))
-        , m_tables(std::make_shared<tables_impl>(m_connection)) {}
+        , m_tables(std::make_shared<tables_impl>(m_connection))
+        , m_sql(std::make_shared<sql_impl>()) {}
 
     /**
      * Destructor.
@@ -82,6 +84,13 @@ public:
      */
     [[nodiscard]] std::shared_ptr<tables_impl> get_tables_impl() const { return m_tables; }
 
+    /**
+     * Get SQL management API implementation.
+     *
+     * @return SQL management API implementation.
+     */
+    [[nodiscard]] std::shared_ptr<sql_impl> get_sql_impl() const { return m_sql; }
+
 private:
     /** Configuration. */
     const ignite_client_configuration m_configuration;
@@ -91,6 +100,9 @@ private:
 
     /** Tables. */
     std::shared_ptr<tables_impl> m_tables;
+
+    /** SQL. */
+    std::shared_ptr<sql_impl> m_sql;
 };
 
 } // namespace ignite::detail
