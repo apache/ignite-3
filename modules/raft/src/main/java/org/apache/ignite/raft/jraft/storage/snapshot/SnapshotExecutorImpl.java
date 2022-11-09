@@ -217,7 +217,7 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
         this.term = opts.getInitTerm();
         this.msgFactory = node.getRaftOptions().getRaftMessagesFactory();
         this.snapshotStorage = this.node.getServiceFactory().createSnapshotStorage(opts.getUri(),
-            this.node.getRaftOptions());
+            this.node.getRaftOptions(), logManager);
         if (opts.isFilterBeforeCopyRemote()) {
             this.snapshotStorage.setFilterBeforeCopyRemote();
         }

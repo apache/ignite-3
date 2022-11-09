@@ -94,7 +94,9 @@ public class DistributedConfigurationCatchUpTest {
 
         MetaStorageMockWrapper wrapper = new MetaStorageMockWrapper();
 
-        try (var storage = new DistributedConfigurationStorage(wrapper.metaStorageManager(), vaultManager)) {
+        DistributedConfigurationStorage storage = storage(wrapper);
+
+        try {
             var changer = new TestConfigurationChanger(cgen, List.of(rootKey), Collections.emptyMap(),
                     storage, Collections.emptyList(), Collections.emptyList());
 
@@ -112,6 +114,8 @@ public class DistributedConfigurationCatchUpTest {
             } finally {
                 changer.stop();
             }
+        } finally {
+            storage.close();
         }
 
         // Put a value to the configuration, so we start on non-empty vault.
@@ -120,7 +124,10 @@ public class DistributedConfigurationCatchUpTest {
         // This emulates a change in MetaStorage that is not related to the configuration.
         vaultManager.put(MetaStorageManager.APPLIED_REV, ByteUtils.longToBytes(2)).get();
 
-        try (var storage = new DistributedConfigurationStorage(wrapper.metaStorageManager(), vaultManager)) {
+        storage = storage(wrapper);
+
+        try {
+
             var changer = new TestConfigurationChanger(cgen, List.of(rootKey), Collections.emptyMap(),
                     storage, Collections.emptyList(), Collections.emptyList());
 
@@ -135,7 +142,13 @@ public class DistributedConfigurationCatchUpTest {
             } finally {
                 changer.stop();
             }
+        } finally {
+            storage.close();
         }
+    }
+
+    private DistributedConfigurationStorage storage(MetaStorageMockWrapper wrapper) {
+        return new DistributedConfigurationStorage(wrapper.metaStorageManager(), vaultManager);
     }
 
     /**

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing;
 
+import static java.util.Collections.singletonList;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.sameInstance;
@@ -34,7 +35,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.lock.AutoLockup;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
@@ -150,7 +150,7 @@ class SnapshotAwarePartitionDataStorageTest {
     }
 
     @Test
-    void delegatesClose() throws Exception {
+    void delegatesClose() {
         testedStorage.close();
 
         verify(partitionStorage).close();
@@ -158,11 +158,16 @@ class SnapshotAwarePartitionDataStorageTest {
 
     @Test
     void delegatesAcquirePartitionSnapshotsReadLock() {
-        AutoLockup lockup = mock(AutoLockup.class);
+        testedStorage.acquirePartitionSnapshotsReadLock();
 
-        when(partitionSnapshots.acquireReadLock()).thenReturn(lockup);
+        verify(partitionSnapshots).acquireReadLock();
+    }
 
-        assertThat(testedStorage.acquirePartitionSnapshotsReadLock(), is(lockup));
+    @Test
+    void delegatesReleasePartitionSnapshotsReadLock() {
+        testedStorage.releasePartitionSnapshotsReadLock();
+
+        verify(partitionSnapshots).releaseReadLock();
     }
 
     @ParameterizedTest
@@ -215,7 +220,7 @@ class SnapshotAwarePartitionDataStorageTest {
         verify(snapshot).enqueueForSending(rowId);
     }
 
-    private void configureSnapshotToLetEnqueueOutOfOrderMvRow(OutgoingSnapshot snapshotToConfigure) {
+    private static void configureSnapshotToLetEnqueueOutOfOrderMvRow(OutgoingSnapshot snapshotToConfigure) {
         doReturn(false).when(snapshotToConfigure).alreadyPassed(any());
         doReturn(true).when(snapshotToConfigure).addRowIdToSkip(any());
     }
@@ -234,6 +239,24 @@ class SnapshotAwarePartitionDataStorageTest {
 
         verify(snapshot).enqueueForSending(rowId);
         verify(snapshot2).enqueueForSending(rowId);
+    }
+
+    @Test
+    void finishesSnapshotsOnStop() throws Exception {
+        when(partitionSnapshots.ongoingSnapshots()).thenReturn(singletonList(snapshot));
+
+        testedStorage.close();
+
+        verify(partitionsSnapshots).finishOutgoingSnapshot(snapshot.id());
+    }
+
+    @Test
+    void removesSnapshotsCollectionOnStop() throws Exception {
+        when(partitionSnapshots.ongoingSnapshots()).thenReturn(singletonList(snapshot));
+
+        testedStorage.close();
+
+        verify(partitionsSnapshots).removeSnapshots(partitionKey);
     }
 
     private enum MvWriteAction {

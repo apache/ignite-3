@@ -25,6 +25,7 @@ import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.option.SnapshotCopierOptions;
 import org.apache.ignite.raft.jraft.rpc.Message;
+import org.apache.ignite.raft.jraft.storage.LogManager;
 import org.apache.ignite.raft.jraft.storage.SnapshotStorage;
 import org.apache.ignite.raft.jraft.storage.SnapshotThrottle;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotCopier;
@@ -48,7 +49,7 @@ public class SnapshotInMemoryStorageFactory implements SnapshotStorageFactory {
     }
 
     @Override
-    public SnapshotStorage createSnapshotStorage(String uri, RaftOptions raftOptions) {
+    public SnapshotStorage createSnapshotStorage(String uri, RaftOptions raftOptions, LogManager logManager) {
         return new SnapshotStorage() {
             @Override
             public boolean setFilterBeforeCopyRemote() {

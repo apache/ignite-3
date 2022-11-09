@@ -138,7 +138,7 @@ public class ItCmgRaftServiceTest {
             try {
                 IgniteUtils.closeAll(
                         raftManager::stop,
-                        raftStorage,
+                        raftStorage::close,
                         clusterService::stop
                 );
             } catch (Exception e) {

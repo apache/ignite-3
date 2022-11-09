@@ -17,11 +17,13 @@
 
 package org.apache.ignite.internal.pagememory.util;
 
+import org.apache.ignite.internal.close.ManuallyCloseable;
+
 /**
  * Page lock listener.
  */
 //TODO IGNITE-16350 Consider froper Before/After naming convention for all methods in this class.
-public interface PageLockListener extends AutoCloseable {
+public interface PageLockListener extends ManuallyCloseable {
     /**
      * Callback that's called before write lock acquiring.
      *
@@ -82,5 +84,5 @@ public interface PageLockListener extends AutoCloseable {
 
     /** {@inheritDoc} */
     @Override
-    public void close();
+    void close();
 }
