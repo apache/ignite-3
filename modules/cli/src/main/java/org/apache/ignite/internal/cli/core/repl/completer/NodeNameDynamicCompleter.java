@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.cli.core.repl.completer;
 
+import static org.apache.ignite.internal.cli.util.ArrayUtils.findLastNotEmptyWord;
+import static org.apache.ignite.internal.cli.util.ArrayUtils.findLastNotEmptyWordBeforeWordFromEnd;
+
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
@@ -42,8 +45,8 @@ public class NodeNameDynamicCompleter implements DynamicCompleter {
 
     @Override
     public List<String> complete(String[] words) {
-        String lastWord = beforeLastNotEmptyWord(0, words);
-        String beforeLastWord = beforeLastNotEmptyWord(1, words);
+        String lastWord = findLastNotEmptyWord(words);
+        String beforeLastWord = findLastNotEmptyWordBeforeWordFromEnd(words, lastWord);
         if (activationPostfixes.contains(lastWord)) {
             return nodeNameRegistry.getAllNames();
         } else if (activationPostfixes.contains(beforeLastWord)) {
@@ -53,14 +56,5 @@ public class NodeNameDynamicCompleter implements DynamicCompleter {
         } else {
             return Collections.emptyList();
         }
-    }
-
-    private static String beforeLastNotEmptyWord(int index, String[] words) {
-        for (int i = words.length - 1 - index; i >= 0; i--) {
-            if (!words[i].isEmpty()) {
-                return words[i];
-            }
-        }
-        return "";
     }
 }

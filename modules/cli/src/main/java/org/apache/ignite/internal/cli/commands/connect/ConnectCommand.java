@@ -24,7 +24,7 @@ import jakarta.inject.Inject;
 import org.apache.ignite.internal.cli.call.connect.ConnectCall;
 import org.apache.ignite.internal.cli.call.connect.ConnectCallInput;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
-import org.apache.ignite.internal.cli.commands.node.NodeUrl;
+import org.apache.ignite.internal.cli.commands.node.NodeNameOrUrl;
 import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Parameters;
@@ -37,7 +37,7 @@ public class ConnectCommand extends BaseCommand implements Runnable {
 
     /** Node URL option. */
     @Parameters(description = NODE_URL_OR_NAME_DESC, descriptionKey = CLUSTER_URL_KEY)
-    private NodeUrl nodeUrl;
+    private NodeNameOrUrl nodeNameOrUrl;
 
     @Inject
     private ConnectCall connectCall;
@@ -46,7 +46,7 @@ public class ConnectCommand extends BaseCommand implements Runnable {
     @Override
     public void run() {
         CallExecutionPipeline.builder(connectCall)
-                .inputProvider(() -> new ConnectCallInput(nodeUrl.stringUrl()))
+                .inputProvider(() -> new ConnectCallInput(nodeNameOrUrl.stringUrl()))
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())
                 .verbose(verbose)

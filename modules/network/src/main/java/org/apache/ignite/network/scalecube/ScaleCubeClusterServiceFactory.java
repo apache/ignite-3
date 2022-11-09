@@ -24,6 +24,7 @@ import io.scalecube.cluster.ClusterConfig;
 import io.scalecube.cluster.ClusterImpl;
 import io.scalecube.cluster.ClusterMessageHandler;
 import io.scalecube.cluster.membership.MembershipEvent;
+import io.scalecube.cluster.metadata.JdkMetadataCodec;
 import io.scalecube.net.Address;
 import java.util.List;
 import java.util.UUID;
@@ -67,7 +68,7 @@ public class ScaleCubeClusterServiceFactory {
     private static final IgniteLogger LOG = Loggers.forClass(ScaleCubeClusterServiceFactory.class);
 
     /** Metadata codec. */
-    private static final NodeMetadataCodec METADATA_CODEC = NodeMetadataCodec.INSTANCE;
+    private static final JdkMetadataCodec METADATA_CODEC = new JdkMetadataCodec();
     /** Scalecube cluster executor to update metadata.  */
     private final Scheduler scheduler = Schedulers.fromExecutor(Executors.newSingleThreadExecutor());
 

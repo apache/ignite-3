@@ -23,7 +23,7 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.cli.NodeNameRegistry;
-import org.apache.ignite.internal.cli.commands.node.NodeUrl;
+import org.apache.ignite.internal.cli.commands.node.NodeNameOrUrl;
 import org.apache.ignite.internal.cli.config.StateFolderProvider;
 import org.apache.ignite.internal.cli.core.converters.NodeNameOrUrlConverter;
 import org.apache.ignite.internal.cli.core.exception.ExceptionHandlers;
@@ -168,7 +168,7 @@ public class ReplExecutor {
         }
         CommandLineContextProvider.setCmd(cmd);
         cmd.setExecutionExceptionHandler(new PicocliExecutionExceptionHandler());
-        cmd.registerConverter(NodeUrl.class, new NodeNameOrUrlConverter(nodeNameRegistry));
+        cmd.registerConverter(NodeNameOrUrl.class, new NodeNameOrUrlConverter(nodeNameRegistry));
         DynamicCompleterRegistry completerRegistry = factory.create(DynamicCompleterRegistry.class);
         DynamicCompleterActivationPoint activationPoint = factory.create(DynamicCompleterActivationPoint.class);
         activationPoint.activateDynamicCompleter(completerRegistry);

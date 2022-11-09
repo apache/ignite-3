@@ -20,36 +20,31 @@ package org.apache.ignite.network.scalecube;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
+import io.scalecube.cluster.metadata.JdkMetadataCodec;
 import java.nio.ByteBuffer;
 import org.apache.ignite.network.NodeMetadata;
 import org.junit.jupiter.api.Test;
 
-class NodeMetadataCodecTest {
+class MetadataSerDeTest {
 
-    private static final NodeMetadataCodec METADATA_CODEC = NodeMetadataCodec.INSTANCE;
+    private static final NodeMetadataDeserializer METADATA_DESERIALIZER = new NodeMetadataDeserializer();
+    private static final JdkMetadataCodec JDK_METADATA_CODEC = new JdkMetadataCodec();
 
     @Test
     void serializeAndDeserialize() {
         NodeMetadata metadata = new NodeMetadata("localhost", 10000);
-        ByteBuffer buffer = METADATA_CODEC.serialize(metadata);
-        NodeMetadata fromByteBuffer = METADATA_CODEC.deserialize(buffer);
+        ByteBuffer buffer = JDK_METADATA_CODEC.serialize(metadata);
+        NodeMetadata fromByteBuffer = METADATA_DESERIALIZER.deserialize(buffer);
         assertEquals(metadata, fromByteBuffer);
     }
 
     @Test
-    void serializeNull() {
-        assertEquals(4, METADATA_CODEC.serialize(null).array().length);
-    }
-
-    @Test
     void deserializeNull() {
-        assertNull(METADATA_CODEC.deserialize(null));
+        assertNull(METADATA_DESERIALIZER.deserialize(null));
     }
 
     @Test
-    void fromByteBufferWithWrongContent() {
-        ByteBuffer buffer = ByteBuffer.allocate(8);
-        NodeMetadata fromByteBuffer = METADATA_CODEC.deserialize(buffer);
-        assertNull(fromByteBuffer);
+    void deserializeEmptyByteBuffer() {
+        assertNull(METADATA_DESERIALIZER.deserialize(ByteBuffer.wrap(new byte[0])));
     }
 }

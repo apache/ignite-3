@@ -17,43 +17,63 @@
 
 package org.apache.ignite.internal.cli;
 
+import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
+
 import jakarta.inject.Singleton;
+import java.net.URL;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.cli.call.cluster.topology.PhysicalTopologyCall;
 import org.apache.ignite.internal.cli.core.call.UrlCallInput;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.rest.client.model.ClusterNode;
 import org.apache.ignite.rest.client.model.NodeMetadata;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Registry to get a node URL by a node name.
  */
 @Singleton
 public class NodeNameRegistry {
-    private final Map<String, String> nodeNameToNodeUrl = new ConcurrentHashMap<>();
-    private final ReadWriteLock readWriteLock = new ReentrantReadWriteLock();
-    private volatile ScheduledExecutorService executor;
+
+    private final IgniteLogger log = Loggers.forClass(getClass());
+    private volatile Map<String, URL> nodeNameToNodeUrl = new HashMap<>();
+    private ScheduledExecutorService executor;
 
     /**
      * Start pulling updates from a node.
      *
      * @param nodeUrl Node URL.
      */
-    public void startPullingUpdates(String nodeUrl) {
+    public synchronized void startPullingUpdates(String nodeUrl) {
         stopPullingUpdates();
-        synchronized (this) {
-            if (executor == null) {
-                executor = Executors.newScheduledThreadPool(1);
-                executor.scheduleWithFixedDelay(() -> updateNodeNames(nodeUrl), 0, 5, TimeUnit.SECONDS);
-            }
+        if (executor == null) {
+            executor = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("NodeNameRegistry", log));
+            executor.scheduleWithFixedDelay(() -> updateNodeNames(nodeUrl), 0, 5, TimeUnit.SECONDS);
         }
+    }
+
+    /**
+     * Gets a node url by a provided node name.
+     */
+    public Optional<URL> getNodeUrl(String nodeName) {
+        return Optional.ofNullable(nodeNameToNodeUrl.get(nodeName));
+    }
+
+    /**
+     * Gets all node names.
+     */
+    public List<String> getAllNames() {
+        return new ArrayList<>(nodeNameToNodeUrl.keySet());
     }
 
     /**
@@ -61,53 +81,39 @@ public class NodeNameRegistry {
      */
     public synchronized void stopPullingUpdates() {
         if (executor != null) {
-            executor.shutdown();
-            executor = null;
-        }
-    }
-
-    /**
-     * Gets a node url by a provided node name.
-     */
-    public Optional<String> getNodeUrl(String nodeName) {
-        readWriteLock.readLock().lock();
-        try {
-            return Optional.ofNullable(nodeNameToNodeUrl.get(nodeName));
-        } finally {
-            readWriteLock.readLock().unlock();
-        }
-    }
-
-    /**
-     * Gets all node names.
-     */
-    public List<String> getAllNames() {
-        readWriteLock.readLock().lock();
-        try {
-            return new ArrayList<>(nodeNameToNodeUrl.keySet());
-        } finally {
-            readWriteLock.readLock().unlock();
+            shutdownAndAwaitTermination(executor, 3, TimeUnit.SECONDS);
         }
     }
 
     private void updateNodeNames(String nodeUrl) {
-        readWriteLock.writeLock().lock();
-        try {
-            nodeNameToNodeUrl.clear();
-            PhysicalTopologyCall topologyCall = new PhysicalTopologyCall();
-            topologyCall.execute(new UrlCallInput(nodeUrl)).body()
-                    .forEach(it -> {
-                        nodeNameToNodeUrl.put(it.getName(), urlFromClusterNode(it.getMetadata()));
-                    });
-        } finally {
-            readWriteLock.writeLock().unlock();
-        }
+        PhysicalTopologyCall topologyCall = new PhysicalTopologyCall();
+        nodeNameToNodeUrl = topologyCall.execute(new UrlCallInput(nodeUrl)).body().stream().map(NodeNameRegistry::toNodeNameAndUrlPair)
+                .filter(it -> it.url != null).collect(Collectors.toMap(it -> it.name, it -> it.url));
     }
 
-    private static String urlFromClusterNode(NodeMetadata metadata) {
+    private static NodeNameAndUrlPair toNodeNameAndUrlPair(ClusterNode node) {
+        return new NodeNameAndUrlPair(node.getName(), urlFromClusterNode(node.getMetadata()));
+    }
+
+    @Nullable
+    private static URL urlFromClusterNode(NodeMetadata metadata) {
         if (metadata == null) {
             return null;
         }
-        return "http://" + metadata.getRestHost() + ":" + metadata.getRestPort();
+        try {
+            return new URL("http://" + metadata.getRestHost() + ":" + metadata.getRestPort());
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private static class NodeNameAndUrlPair {
+        private final String name;
+        private final URL url;
+
+        private NodeNameAndUrlPair(String name, @Nullable URL url) {
+            this.name = name;
+            this.url = url;
+        }
     }
 }

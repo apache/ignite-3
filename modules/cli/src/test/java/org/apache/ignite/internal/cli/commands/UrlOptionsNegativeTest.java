@@ -41,7 +41,7 @@ import org.apache.ignite.internal.cli.commands.cluster.init.ClusterInitReplComma
 import org.apache.ignite.internal.cli.commands.cluster.status.ClusterStatusCommand;
 import org.apache.ignite.internal.cli.commands.cluster.status.ClusterStatusReplCommand;
 import org.apache.ignite.internal.cli.commands.connect.ConnectCommand;
-import org.apache.ignite.internal.cli.commands.node.NodeUrl;
+import org.apache.ignite.internal.cli.commands.node.NodeNameOrUrl;
 import org.apache.ignite.internal.cli.commands.node.config.NodeConfigShowCommand;
 import org.apache.ignite.internal.cli.commands.node.config.NodeConfigShowReplCommand;
 import org.apache.ignite.internal.cli.commands.node.config.NodeConfigUpdateCommand;
@@ -99,7 +99,7 @@ public class UrlOptionsNegativeTest {
         configManagerProvider.configManager = new IniConfigManager(TestConfigManagerHelper.createSectionWithDefaultProfile());
         MicronautFactory factory = new MicronautFactory(context);
         cmd = new CommandLine(cmdClass, factory)
-                .registerConverter(NodeUrl.class, new NodeNameOrUrlConverter(nodeNameRegistry));
+                .registerConverter(NodeNameOrUrl.class, new NodeNameOrUrlConverter(nodeNameRegistry));
         CommandLineContextProvider.setCmd(cmd);
         sout = new StringWriter();
         serr = new StringWriter();

@@ -17,15 +17,11 @@
 
 package org.apache.ignite.internal.cli.commands;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
-import jakarta.inject.Inject;
 import java.time.Duration;
-import java.util.Optional;
-import org.apache.ignite.internal.cli.Await;
-import org.apache.ignite.internal.cli.NodeNameRegistry;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -33,18 +29,16 @@ import org.junit.jupiter.api.Test;
 /** Tests for ignite node commands with a provided node name. */
 public class NodeNameTest extends CliCommandTestNotInitializedIntegrationBase {
 
-    @Inject
-    private NodeNameRegistry nodeNameRegistry;
     private String nodeName;
 
     @BeforeEach
-    void setUp() {
+    void setUp() throws InterruptedException {
         nodeNameRegistry.startPullingUpdates("http://localhost:10301");
         // wait to pulling node names
-        Await.await(() -> !nodeNameRegistry.getAllNames().isEmpty(), Duration.ofSeconds(5));
-        Optional<String> nodeName = nodeNameRegistry.getAllNames().stream().findFirst();
-        Assertions.assertTrue(nodeName.isPresent());
-        this.nodeName = nodeName.get();
+        waitForCondition(() -> !nodeNameRegistry.getAllNames().isEmpty(), Duration.ofSeconds(5).toMillis());
+        this.nodeName = nodeNameRegistry.getAllNames().stream()
+                .findFirst()
+                .orElseThrow(() -> new RuntimeException("nodeNameRegistry doesn't contain any nodes"));
     }
 
     @Test

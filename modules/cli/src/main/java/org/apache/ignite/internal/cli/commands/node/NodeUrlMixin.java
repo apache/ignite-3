@@ -29,6 +29,7 @@ import java.net.URL;
 import org.apache.ignite.internal.cli.NodeNameRegistry;
 import org.apache.ignite.internal.cli.core.converters.UrlConverter;
 import org.apache.ignite.internal.cli.deprecated.IgniteCliException;
+import org.jetbrains.annotations.Nullable;
 import picocli.CommandLine.ArgGroup;
 import picocli.CommandLine.Option;
 
@@ -63,6 +64,7 @@ public class NodeUrlMixin {
      *
      * @return Node URL
      */
+    @Nullable
     public String getNodeUrl() {
         if (options == null) {
             return null;
@@ -71,8 +73,9 @@ public class NodeUrlMixin {
                 return options.nodeUrl.toString();
             } else {
                 return nodeNameRegistry.getNodeUrl(options.nodeName)
+                        .map(URL::toString)
                         .orElseThrow(() -> new IgniteCliException("Node " + options.nodeName
-                                + " not found. Provide valid name or use URL"));
+                                + " not found. Provide a valid name or use a URL"));
             }
         }
     }

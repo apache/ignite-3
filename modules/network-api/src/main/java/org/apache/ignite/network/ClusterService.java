@@ -58,5 +58,10 @@ public interface ClusterService extends IgniteComponent {
      */
     boolean isStopped();
 
+    /**
+     * Updates metadata of this cluster node and sends update events to other members.
+     *
+     * @param metadata new metadata.
+     */
     void updateMetadata(NodeMetadata metadata);
 }

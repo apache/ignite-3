@@ -28,7 +28,7 @@ import java.io.StringWriter;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.ignite.internal.cli.NodeNameRegistry;
-import org.apache.ignite.internal.cli.commands.node.NodeUrl;
+import org.apache.ignite.internal.cli.commands.node.NodeNameOrUrl;
 import org.apache.ignite.internal.cli.core.converters.NodeNameOrUrlConverter;
 import org.junit.jupiter.api.BeforeEach;
 import picocli.CommandLine;
@@ -67,7 +67,7 @@ public abstract class CliCommandTestBase {
 
     private CommandLine commandLine(Class<?> clazz, ApplicationContext context) {
         return new CommandLine(clazz, new MicronautFactory(context))
-                .registerConverter(NodeUrl.class, new NodeNameOrUrlConverter(nodeNameRegistry));
+                .registerConverter(NodeNameOrUrl.class, new NodeNameOrUrlConverter(nodeNameRegistry));
     }
 
     protected abstract Class<?> getCommandClass();

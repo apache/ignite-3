@@ -17,9 +17,6 @@
 
 package org.apache.ignite.network;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonGetter;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import java.io.Serializable;
 import java.util.Objects;
 
@@ -29,25 +26,19 @@ import java.util.Objects;
 public class NodeMetadata implements Serializable {
     private static final long serialVersionUID = 3216463261002854096L;
 
-    private String restHost;
+    private final String restHost;
 
-    private int restPort;
+    private final int restPort;
 
-    public NodeMetadata() {
-    }
-
-    @JsonCreator
-    public NodeMetadata(@JsonProperty("restHost") String restHost, @JsonProperty("restPort") int restPort) {
+    public NodeMetadata(String restHost, int restPort) {
         this.restHost = restHost;
         this.restPort = restPort;
     }
 
-    @JsonGetter("restHost")
     public String restHost() {
         return restHost;
     }
 
-    @JsonGetter("restPort")
     public int restPort() {
         return restPort;
     }

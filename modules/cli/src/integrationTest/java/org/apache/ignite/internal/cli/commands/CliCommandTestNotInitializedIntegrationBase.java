@@ -29,7 +29,7 @@ import org.apache.ignite.internal.cli.IntegrationTestBase;
 import org.apache.ignite.internal.cli.NodeNameRegistry;
 import org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerHelper;
 import org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerProvider;
-import org.apache.ignite.internal.cli.commands.node.NodeUrl;
+import org.apache.ignite.internal.cli.commands.node.NodeNameOrUrl;
 import org.apache.ignite.internal.cli.config.ConfigDefaultValueProvider;
 import org.apache.ignite.internal.cli.config.ini.IniConfigManager;
 import org.apache.ignite.internal.cli.core.converters.NodeNameOrUrlConverter;
@@ -80,7 +80,7 @@ public class CliCommandTestNotInitializedIntegrationBase extends IntegrationTest
         super.setUp(testInfo);
         configManagerProvider.configManager = new IniConfigManager(TestConfigManagerHelper.createIntegrationTests());
         cmd = new CommandLine(getCommandClass(), new MicronautFactory(context))
-                .registerConverter(NodeUrl.class, new NodeNameOrUrlConverter(nodeNameRegistry));
+                .registerConverter(NodeNameOrUrl.class, new NodeNameOrUrlConverter(nodeNameRegistry));
         cmd.setDefaultValueProvider(configDefaultValueProvider);
         sout = new StringWriter();
         serr = new StringWriter();

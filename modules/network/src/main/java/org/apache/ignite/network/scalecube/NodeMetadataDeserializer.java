@@ -17,25 +17,15 @@
 
 package org.apache.ignite.network.scalecube;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import io.scalecube.cluster.metadata.MetadataCodec;
+import io.scalecube.cluster.metadata.JdkMetadataCodec;
 import java.nio.ByteBuffer;
 import org.apache.ignite.network.NodeMetadata;
+import org.jetbrains.annotations.Nullable;
 
-/**
- * Codec for serialization and deserialization of {@link NodeMetadata}.
- */
-public class NodeMetadataCodec implements MetadataCodec {
+/** Deserializer for {@link org.apache.ignite.network.NodeMetadata}. */
+public class NodeMetadataDeserializer {
 
-    public static final NodeMetadataCodec INSTANCE = new NodeMetadataCodec();
-    private final ObjectMapper mapper = new ObjectMapper();
-
-    /**
-     * Default constructor.
-     */
-    private NodeMetadataCodec() {
-    }
+    private final JdkMetadataCodec metadataCodec = new JdkMetadataCodec();
 
     /**
      * Deserializes {@link ByteBuffer} to {@link NodeMetadata}.
@@ -43,30 +33,15 @@ public class NodeMetadataCodec implements MetadataCodec {
      * @param byteBuffer {@link ByteBuffer} to deserialize.
      * @return {@link NodeMetadata} or null if something goes wrong.
      */
-    @Override
-    public NodeMetadata deserialize(ByteBuffer byteBuffer) {
+    @Nullable
+    public NodeMetadata deserialize(@Nullable ByteBuffer byteBuffer) {
         if (byteBuffer == null) {
             return null;
         }
         try {
-            return mapper.readValue(byteBuffer.array(), NodeMetadata.class);
+            return (NodeMetadata) metadataCodec.deserialize(byteBuffer);
         } catch (Exception e) {
             return null;
-        }
-    }
-
-    /**
-     * Serializes {@link NodeMetadata} to {@link ByteBuffer}.
-     *
-     * @param o {@link NodeMetadata} to serialize.
-     * @return {@link ByteBuffer}.
-     */
-    @Override
-    public ByteBuffer serialize(Object o) {
-        try {
-            return ByteBuffer.wrap(mapper.writeValueAsBytes(o));
-        } catch (JsonProcessingException e) {
-            return ByteBuffer.wrap(new byte[0]);
         }
     }
 }

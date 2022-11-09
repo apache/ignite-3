@@ -26,8 +26,32 @@ public final class ArrayUtils {
     /** Finds the last not empty word in array. */
     public static String findLastNotEmptyWord(String[] words) {
         for (int i = words.length - 1; i >= 0; i--) {
-            if (!words[i].isEmpty()) {
+            if (!words[i].isBlank()) {
                 return words[i];
+            }
+        }
+        return "";
+    }
+
+    /** Finds the last not empty word in array before word from the end. */
+    public static String findLastNotEmptyWordBeforeWordFromEnd(String[] words, String word) {
+        if (word.isBlank()) {
+            throw new IllegalArgumentException("word must not be blank");
+        }
+        if (words.length == 0) {
+            return "";
+        }
+        boolean beforeWordFound = false;
+        for (int i = words.length - 1; i >= 0; i--) {
+            String currentWord = words[i];
+            if (!currentWord.isBlank()) {
+                if (beforeWordFound) {
+                    return currentWord;
+                } else {
+                    if (currentWord.equals(word)) {
+                        beforeWordFound = true;
+                    }
+                }
             }
         }
         return "";

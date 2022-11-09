@@ -20,10 +20,10 @@ package org.apache.ignite.internal.cli.commands.node;
 import java.net.URL;
 
 /** Node URL. */
-public class NodeUrl {
-    private URL nodeUrl;
+public class NodeNameOrUrl {
+    private final URL nodeUrl;
 
-    public NodeUrl(URL nodeUrl) {
+    public NodeNameOrUrl(URL nodeUrl) {
         this.nodeUrl = nodeUrl;
     }
 

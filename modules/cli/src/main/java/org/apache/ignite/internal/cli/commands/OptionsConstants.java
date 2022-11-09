@@ -39,7 +39,7 @@ public class OptionsConstants {
     public static final String NODE_URL_DESC = "URL of ignite node";
 
     /** Node URL or name option description. */
-    public static final String NODE_URL_OR_NAME_DESC = "URL or name of ignite node";
+    public static final String NODE_URL_OR_NAME_DESC = "URL or name of an Ignite node";
 
     /** Profile name option names. */
     public static final String PROFILE_OPTION = "--profile";

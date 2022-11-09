@@ -21,12 +21,12 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.regex.Pattern;
 import org.apache.ignite.internal.cli.NodeNameRegistry;
-import org.apache.ignite.internal.cli.commands.node.NodeUrl;
+import org.apache.ignite.internal.cli.commands.node.NodeNameOrUrl;
 import picocli.CommandLine;
 import picocli.CommandLine.TypeConversionException;
 
-/** Converter for {@link NodeUrl}. */
-public class NodeNameOrUrlConverter implements CommandLine.ITypeConverter<NodeUrl> {
+/** Converter for {@link NodeNameOrUrl}. */
+public class NodeNameOrUrlConverter implements CommandLine.ITypeConverter<NodeNameOrUrl> {
 
     private static final Pattern URL_PATTERN = Pattern.compile("^.*[/:].*");
 
@@ -45,18 +45,17 @@ public class NodeNameOrUrlConverter implements CommandLine.ITypeConverter<NodeUr
     }
 
     @Override
-    public NodeUrl convert(String input) throws Exception {
-        boolean isUrl = URL_PATTERN.matcher(input).find();
+    public NodeNameOrUrl convert(String input) throws Exception {
+        boolean isUrl = URL_PATTERN.matcher(input).matches();
         if (isUrl) {
-            return new NodeUrl(stringToUrl(input));
+            return new NodeNameOrUrl(stringToUrl(input));
         } else {
-            return new NodeUrl(findNodeUrlByNodeName(input));
+            return new NodeNameOrUrl(findNodeUrlByNodeName(input));
         }
     }
 
     private URL findNodeUrlByNodeName(String name) {
         return nodeNameRegistry.getNodeUrl(name)
-                .map(NodeNameOrUrlConverter::stringToUrl)
                 .orElseThrow(() -> new TypeConversionException("Node " + name + " not found. Provide valid name or use URL"));
     }
 }
