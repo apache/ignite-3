@@ -110,6 +110,8 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
 
     @Override
     public <V> V runConsistently(WriteClosure<V> closure) throws StorageException {
+        checkClosed();
+
         checkpointTimeoutLock.checkpointReadLock();
 
         try {
@@ -121,6 +123,8 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
 
     @Override
     public CompletableFuture<Void> flush() {
+        checkClosed();
+
         CheckpointProgress lastCheckpoint = checkpointManager.lastCheckpointProgress();
 
         CheckpointProgress scheduledCheckpoint;
@@ -141,12 +145,16 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
 
     @Override
     public long lastAppliedIndex() {
+        checkClosed();
+
         return meta.lastAppliedIndex();
     }
 
     @Override
     public void lastAppliedIndex(long lastAppliedIndex) throws StorageException {
         assert checkpointTimeoutLock.checkpointLockIsHeldByThread();
+
+        checkClosed();
 
         CheckpointProgress lastCheckpoint = checkpointManager.lastCheckpointProgress();
 
@@ -157,6 +165,8 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
 
     @Override
     public long persistedIndex() {
+        checkClosed();
+
         return persistedIndex;
     }
 

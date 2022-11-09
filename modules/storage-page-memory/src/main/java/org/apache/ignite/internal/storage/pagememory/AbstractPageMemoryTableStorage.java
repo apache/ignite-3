@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.storage.pagememory;
 
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.VarHandle;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -27,7 +29,6 @@ import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
-import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
@@ -41,9 +42,19 @@ import org.jetbrains.annotations.Nullable;
  * Abstract table storage implementation based on {@link PageMemory}.
  */
 public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
-    protected final TableConfiguration tableCfg;
+    private static final VarHandle STARTED;
 
-    protected TablesConfiguration tablesConfiguration;
+    static {
+        try {
+            STARTED = MethodHandles.lookup().findVarHandle(AbstractPageMemoryTableStorage.class, "started", boolean.class);
+        } catch (ReflectiveOperationException e) {
+            throw new ExceptionInInitializerError(e);
+        }
+    }
+
+    protected final TableConfiguration tableConfig;
+
+    protected TablesConfiguration tablesConfig;
 
     protected volatile boolean started;
 
@@ -52,21 +63,21 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
     /**
      * Constructor.
      *
-     * @param tableCfg Table configuration.
+     * @param tableConfig Table configuration.
      */
-    protected AbstractPageMemoryTableStorage(TableConfiguration tableCfg, TablesConfiguration tablesCfg) {
-        this.tableCfg = tableCfg;
-        tablesConfiguration = tablesCfg;
+    protected AbstractPageMemoryTableStorage(TableConfiguration tableConfig, TablesConfiguration tablesCfg) {
+        this.tableConfig = tableConfig;
+        this.tablesConfig = tablesCfg;
     }
 
     @Override
     public TableConfiguration configuration() {
-        return tableCfg;
+        return tableConfig;
     }
 
     @Override
     public TablesConfiguration tablesConfiguration() {
-        return tablesConfiguration;
+        return tablesConfig;
     }
 
     /**
@@ -76,7 +87,7 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
 
     @Override
     public void start() throws StorageException {
-        TableView tableView = tableCfg.value();
+        TableView tableView = tableConfig.value();
 
         mvPartitions = new AtomicReferenceArray<>(tableView.partitions());
 
@@ -117,14 +128,7 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
     public @Nullable AbstractPageMemoryMvPartitionStorage getMvPartition(int partitionId) {
         assert started : "Storage has not started yet";
 
-        if (partitionId < 0 || partitionId >= mvPartitions.length()) {
-            throw new IllegalArgumentException(S.toString(
-                    "Unable to access partition with id outside of configured range",
-                    "table", tableCfg.value().name(), false,
-                    "partitionId", partitionId, false,
-                    "partitions", mvPartitions.length(), false
-            ));
-        }
+        checkPartitionId(partitionId);
 
         return mvPartitions.get(partitionId);
     }
@@ -133,13 +137,12 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
     public void destroyPartition(int partitionId) throws StorageException {
         assert started : "Storage has not started yet";
 
-        MvPartitionStorage partition = getMvPartition(partitionId);
+        checkPartitionId(partitionId);
+
+        AbstractPageMemoryMvPartitionStorage partition = mvPartitions.getAndSet(partitionId, null);
 
         if (partition != null) {
-            mvPartitions.set(partitionId, null);
-
-            // TODO: IGNITE-17197 Actually destroy the partition.
-            //partition.destroy();
+            partition.destroy();
         }
     }
 
@@ -177,7 +180,9 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
      * @throws StorageException If failed.
      */
     protected void close(boolean destroy) throws StorageException {
-        started = false;
+        if (!STARTED.compareAndSet(this, true, false)) {
+            return;
+        }
 
         List<AutoCloseable> closeables = new ArrayList<>();
 
@@ -193,6 +198,24 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
             IgniteUtils.closeAll(closeables);
         } catch (Exception e) {
             throw new StorageException("Failed to stop PageMemory table storage.", e);
+        }
+    }
+
+    /**
+     * Checks that a passed partition id is within the proper bounds.
+     *
+     * @param partitionId Partition id.
+     */
+    protected void checkPartitionId(int partitionId) {
+        int partitions = mvPartitions.length();
+
+        if (partitionId < 0 || partitionId >= partitions) {
+            throw new IllegalArgumentException(S.toString(
+                    "Unable to access partition with id outside of configured range",
+                    "table", tableConfig.value().name(), false,
+                    "partitionId", partitionId, false,
+                    "partitions", partitions, false
+            ));
         }
     }
 }

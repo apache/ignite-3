@@ -20,6 +20,8 @@ package org.apache.ignite.internal.storage.pagememory.mv;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.getByInternalId;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
 
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.VarHandle;
 import java.nio.ByteBuffer;
 import java.util.NoSuchElementException;
 import java.util.Objects;
@@ -46,6 +48,7 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.StorageClosedException;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.TxIdMismatchException;
 import org.apache.ignite.internal.storage.index.HashIndexDescriptor;
@@ -66,13 +69,21 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Abstract implementation of {@link MvPartitionStorage} using Page Memory.
- *
- * @see MvPartitionStorage
  */
 public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitionStorage {
     private static final byte[] TOMBSTONE_PAYLOAD = new byte[0];
 
     private static final Predicate<HybridTimestamp> ALWAYS_LOAD_VALUE = timestamp -> true;
+
+    private static final VarHandle STARTED;
+
+    static {
+        try {
+            STARTED = MethodHandles.lookup().findVarHandle(AbstractPageMemoryMvPartitionStorage.class, "started", boolean.class);
+        } catch (ReflectiveOperationException e) {
+            throw new ExceptionInInitializerError(e);
+        }
+    }
 
     protected final int partitionId;
 
@@ -95,6 +106,8 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     protected final ConcurrentMap<UUID, PageMemoryHashIndexStorage> hashIndexes = new ConcurrentHashMap<>();
 
     protected final ConcurrentMap<UUID, PageMemorySortedIndexStorage> sortedIndexes = new ConcurrentHashMap<>();
+
+    private volatile boolean started;
 
     /**
      * Constructor.
@@ -138,7 +151,6 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
      */
     public void start() {
         try (Cursor<IndexMeta> cursor = indexMetaTree.find(null, null)) {
-
             NamedListView<TableIndexView> indexesCfgView = tablesConfiguration.indexes().value();
 
             while (cursor.hasNext()) {
@@ -159,6 +171,8 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         } catch (Exception e) {
             throw new StorageException("Failed to process SQL indexes during the partition start", e);
         }
+
+        started = true;
     }
 
     /**
@@ -167,6 +181,8 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
      * @param indexId Index UUID.
      */
     public PageMemoryHashIndexStorage getOrCreateHashIndex(UUID indexId) {
+        checkClosed();
+
         return hashIndexes.computeIfAbsent(indexId, uuid -> createOrRestoreHashIndex(new IndexMeta(indexId, 0L)));
     }
 
@@ -176,6 +192,8 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
      * @param indexId Index UUID.
      */
     public PageMemorySortedIndexStorage getOrCreateSortedIndex(UUID indexId) {
+        checkClosed();
+
         return sortedIndexes.computeIfAbsent(indexId, uuid -> createOrRestoreSortedIndex(new IndexMeta(indexId, 0L)));
     }
 
@@ -259,6 +277,8 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
     @Override
     public ReadResult read(RowId rowId, HybridTimestamp timestamp) throws StorageException {
+        checkClosed();
+
         if (rowId.partitionId() != partitionId) {
             throw new IllegalArgumentException(
                     String.format("RowId partition [%d] is not equal to storage partition [%d].", rowId.partitionId(), partitionId));
@@ -690,6 +710,8 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
     @Override
     public long rowsCount() {
+        checkClosed();
+
         try {
             return versionChainTree.size();
         } catch (IgniteInternalCheckedException e) {
@@ -705,11 +727,11 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     }
 
     /**
-     * Removes all data from this storage and frees all associated resources.
+     * Destroys the partition storage and all index storages associated with it, as well as all the data in them.
      *
      * @throws StorageException If failed to destroy the data or storage is already stopped.
      */
-    public void destroy() {
+    public void destroy() throws StorageException {
         // TODO: IGNITE-17132 Implement it
     }
 
@@ -851,6 +873,12 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
                 return true;
             }
+        }
+    }
+
+    protected void checkClosed() {
+        if (!started) {
+            throw new StorageClosedException("Storage is already closed");
         }
     }
 }

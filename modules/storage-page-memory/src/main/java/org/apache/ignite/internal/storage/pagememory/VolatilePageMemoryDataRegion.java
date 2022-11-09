@@ -140,7 +140,6 @@ public class VolatilePageMemoryDataRegion implements DataRegion<VolatilePageMemo
         );
     }
 
-    /** {@inheritDoc} */
     @Override
     public VolatilePageMemory pageMemory() {
         checkDataRegionStarted();

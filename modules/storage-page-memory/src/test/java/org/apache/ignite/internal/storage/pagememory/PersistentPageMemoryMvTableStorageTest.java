@@ -18,9 +18,11 @@
 package org.apache.ignite.internal.storage.pagememory;
 
 import java.nio.file.Path;
+import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
+import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.AbstractMvTableStorageTest;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
@@ -31,13 +33,13 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Tests for {@link PersistentPageMemoryTableStorage} class.
  */
-@ExtendWith(WorkDirectoryExtension.class)
-@ExtendWith(ConfigurationExtension.class)
+@ExtendWith({ConfigurationExtension.class, WorkDirectoryExtension.class})
 public class PersistentPageMemoryMvTableStorageTest extends AbstractMvTableStorageTest {
     private PersistentPageMemoryStorageEngine engine;
 
@@ -100,5 +102,20 @@ public class PersistentPageMemoryMvTableStorageTest extends AbstractMvTableStora
     @Override
     public void testFinishRebalanceMvPartition() throws Exception {
         super.testFinishRebalanceMvPartition();
+    }
+
+    @Test
+    @Override
+    public void testDestroyPartition() throws Exception {
+        super.testDestroyPartition();
+
+        // Let's make sure that the checkpoint doesn't failed.
+        engine.checkpointManager()
+                .forceCheckpoint("after-test-destroy-partition")
+                .futureFor(CheckpointState.FINISHED)
+                .get(1, TimeUnit.SECONDS);
+
+        // TODO: IGNITE-17132 убедиться что файлы отсутствуют ?
+        // TODO: IGNITE-17132 убедиться что в регионе нет страниц?
     }
 }

@@ -477,15 +477,17 @@ public class RocksDbTableStorage implements MvTableStorage {
     /**
      * Checks that a passed partition id is within the proper bounds.
      *
-     * @param partId Partition id.
+     * @param partitionId Partition id.
      */
-    private void checkPartitionId(int partId) {
-        if (partId < 0 || partId >= partitions.length()) {
+    private void checkPartitionId(int partitionId) {
+        int partitions = this.partitions.length();
+
+        if (partitionId < 0 || partitionId >= partitions) {
             throw new IllegalArgumentException(S.toString(
                     "Unable to access partition with id outside of configured range",
                     "table", tableCfg.value().name(), false,
-                    "partitionId", partId, false,
-                    "partitions", partitions.length(), false
+                    "partitionId", partitionId, false,
+                    "partitions", partitions, false
             ));
         }
     }

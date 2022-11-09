@@ -198,6 +198,13 @@ public class TestSortedIndexStorage implements SortedIndexStorage {
         index.clear();
     }
 
+    /**
+     * Removes all index data.
+     */
+    public void clear() {
+        index.clear();
+    }
+
     private void checkClosed() {
         if (!started) {
             throw new StorageClosedException("Storage is already closed");

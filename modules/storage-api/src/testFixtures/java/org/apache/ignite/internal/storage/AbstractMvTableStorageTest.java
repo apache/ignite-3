@@ -383,7 +383,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
     }
 
     @Test
-    public void testDestroyPartition() {
+    public void testDestroyPartition() throws Exception {
         assertThrows(
                 IllegalArgumentException.class,
                 () -> tableStorage.destroyPartition(tableStorage.configuration().partitions().value())

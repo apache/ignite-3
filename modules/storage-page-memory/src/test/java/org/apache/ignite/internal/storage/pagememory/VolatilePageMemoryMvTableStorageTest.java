@@ -98,7 +98,7 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
 
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-17833")
     @Override
-    public void testDestroyPartition() {
+    public void testDestroyPartition() throws Exception {
         super.testDestroyPartition();
     }
 }

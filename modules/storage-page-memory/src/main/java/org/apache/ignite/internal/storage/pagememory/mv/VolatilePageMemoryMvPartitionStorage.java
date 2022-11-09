@@ -60,11 +60,15 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
 
     @Override
     public <V> V runConsistently(WriteClosure<V> closure) throws StorageException {
+        checkClosed();
+
         return closure.execute();
     }
 
     @Override
     public CompletableFuture<Void> flush() {
+        checkClosed();
+
         return CompletableFuture.completedFuture(null);
     }
 

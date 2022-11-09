@@ -33,13 +33,11 @@ import org.jetbrains.annotations.Nullable;
  * Implementation for creating {@link PersistentPageMemoryStorageEngine}.
  */
 public class PersistentPageMemoryDataStorageModule implements DataStorageModule {
-    /** {@inheritDoc} */
     @Override
     public String name() {
         return ENGINE_NAME;
     }
 
-    /** {@inheritDoc} */
     @Override
     public StorageEngine createEngine(
             String igniteInstanceName,
