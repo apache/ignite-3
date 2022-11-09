@@ -19,15 +19,13 @@ package org.apache.ignite.internal.cli.commands.node.metric;
 
 import org.apache.ignite.internal.cli.commands.BaseCommand;
 import picocli.CommandLine.Command;
-import picocli.CommandLine.HelpCommand;
 
 /** Node metric command in REPL. */
 @Command(name = "metric",
         subcommands = {
                 NodeMetricEnableReplCommand.class,
                 NodeMetricDisableReplCommand.class,
-                NodeMetricListReplCommand.class,
-                HelpCommand.class
+                NodeMetricListReplCommand.class
         },
         description = "Node metric operations")
 public class NodeMetricReplCommand extends BaseCommand {
