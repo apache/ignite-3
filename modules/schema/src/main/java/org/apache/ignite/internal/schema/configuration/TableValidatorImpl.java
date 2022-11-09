@@ -26,7 +26,6 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.configuration.validation.ValidationIssue;
@@ -44,14 +43,12 @@ public class TableValidatorImpl implements Validator<TableValidator, NamedListVi
     public void validate(TableValidator annotation, ValidationContext<NamedListView<TableView>> ctx) {
         TablesView tablesConfig = ctx.getNewRoot(TablesConfiguration.KEY);
 
-        Set<String> idxNames = tablesConfig == null
-                ? Collections.emptySet()
-                : tablesConfig.indexes().namedListKeys().stream().map(String::toUpperCase).collect(Collectors.toSet());
+        Set<String> idxNames = tablesConfig == null ? Collections.emptySet() : new HashSet<>(tablesConfig.indexes().namedListKeys());
 
         NamedListView<TableView> newTables = ctx.getNewValue();
 
         for (String tableName : newKeys(ctx.getOldValue(), ctx.getNewValue())) {
-            if (idxNames.contains(tableName.toUpperCase())) {
+            if (idxNames.contains(tableName)) {
                 ctx.addIssue(new ValidationIssue(tableName, "Unable to create table. Index with the same name already exists."));
             }
 
