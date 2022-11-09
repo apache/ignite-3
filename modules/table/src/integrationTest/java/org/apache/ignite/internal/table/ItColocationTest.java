@@ -48,11 +48,14 @@ import java.util.Set;
 import java.util.TimeZone;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
@@ -78,6 +81,7 @@ import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
@@ -101,6 +105,8 @@ import org.mockito.Mockito;
  * Tests for data colocation.
  */
 public class ItColocationTest {
+    private static final IgniteLogger LOG = Loggers.forClass(ItColocationTest.class);
+
     /** Partitions count. */
     private static final int PARTS = 32;
 
@@ -212,7 +218,11 @@ public class ItColocationTest {
                 Mockito.mock(MvTableStorage.class),
                 new TestTxStateTableStorage(),
                 replicaService,
-                Mockito.mock(HybridClock.class)
+                Mockito.mock(HybridClock.class),
+                new ScheduledThreadPoolExecutor(
+                        Runtime.getRuntime().availableProcessors(),
+                        new NamedThreadFactory("internal-table-scheduled-pool", LOG)
+                )
         );
     }
 

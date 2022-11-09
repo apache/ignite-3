@@ -276,6 +276,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         new NamedThreadFactory("tx-state-storage-scheduled-pool", LOG)
     );
 
+    /** Internal table scheduled pool. */
+    private final ScheduledThreadPoolExecutor internalTableScheduledPool = new ScheduledThreadPoolExecutor(
+            Runtime.getRuntime().availableProcessors(),
+            new NamedThreadFactory("internal-table-scheduled-pool", LOG)
+    );
+
     /** Transaction state storage pool. */
     private final ExecutorService txStateStoragePool = Executors.newFixedThreadPool(
             Runtime.getRuntime().availableProcessors(),
@@ -959,6 +965,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         shutdownAndAwaitTermination(txStateStoragePool, 10, TimeUnit.SECONDS);
         shutdownAndAwaitTermination(txStateStorageScheduledPool, 10, TimeUnit.SECONDS);
         shutdownAndAwaitTermination(incomingSnapshotsExecutor, 10, TimeUnit.SECONDS);
+        shutdownAndAwaitTermination(internalTableScheduledPool, 10, TimeUnit.SECONDS);
     }
 
     /**
@@ -1033,7 +1040,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         TxStateTableStorage txStateStorage = createTxStateTableStorage(tableCfg);
 
         InternalTableImpl internalTable = new InternalTableImpl(name, tblId, new Int2ObjectOpenHashMap<>(partitions),
-                partitions, netAddrResolver, clusterNodeResolver, txManager, tableStorage, txStateStorage, replicaSvc, clock);
+                partitions, netAddrResolver, clusterNodeResolver, txManager, tableStorage, txStateStorage, replicaSvc,
+                clock, internalTableScheduledPool);
 
         var table = new TableImpl(internalTable, lockMgr, this::directIndexIds);
 

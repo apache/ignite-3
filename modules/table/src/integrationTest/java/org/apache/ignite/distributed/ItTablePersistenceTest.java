@@ -29,11 +29,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.function.BooleanSupplier;
 import java.util.function.Function;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.ByteBufferRow;
@@ -49,6 +52,7 @@ import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
@@ -68,6 +72,8 @@ import org.junit.jupiter.api.Disabled;
  */
 @Disabled("IGNITE-16644, IGNITE-17817 MvPartitionStorage hasn't supported snapshots yet")
 public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<PartitionListener> {
+    private static final IgniteLogger LOG = Loggers.forClass(ItTablePersistenceTest.class);
+
     private static final SchemaDescriptor SCHEMA = new SchemaDescriptor(
             1,
             new Column[]{new Column("key", NativeTypes.INT64, false)},
@@ -124,7 +130,11 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                 mock(MvTableStorage.class),
                 mock(TxStateTableStorage.class),
                 mock(ReplicaService.class),
-                mock(HybridClock.class)
+                mock(HybridClock.class),
+                new ScheduledThreadPoolExecutor(
+                        Runtime.getRuntime().availableProcessors(),
+                        new NamedThreadFactory("internal-table-scheduled-pool", LOG)
+                )
         );
 
         table.upsert(FIRST_VALUE, null).get();
@@ -151,7 +161,11 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                 mock(MvTableStorage.class),
                 mock(TxStateTableStorage.class),
                 mock(ReplicaService.class),
-                mock(HybridClock.class)
+                mock(HybridClock.class),
+                new ScheduledThreadPoolExecutor(
+                        Runtime.getRuntime().availableProcessors(),
+                        new NamedThreadFactory("internal-table-scheduled-pool", LOG)
+                )
         );
 
         // Remove the first key
@@ -184,7 +198,11 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                 mock(MvTableStorage.class),
                 mock(TxStateTableStorage.class),
                 mock(ReplicaService.class),
-                mock(HybridClock.class)
+                mock(HybridClock.class),
+                new ScheduledThreadPoolExecutor(
+                        Runtime.getRuntime().availableProcessors(),
+                        new NamedThreadFactory("internal-table-scheduled-pool", LOG)
+                )
         );
 
         table.upsert(SECOND_VALUE, null).get();

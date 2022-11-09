@@ -46,8 +46,6 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
@@ -63,7 +61,6 @@ import org.apache.ignite.internal.table.distributed.replication.request.ReadWrit
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteScanRetrieveBatchReplicaRequestBuilder;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
@@ -76,8 +73,6 @@ import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.service.RaftGroupService;
-import org.apache.ignite.raft.jraft.rpc.CliRequests.GetLeaderResponse;
-import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupServiceImpl;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -87,7 +82,6 @@ import org.jetbrains.annotations.TestOnly;
  * Storage of table rows.
  */
 public class InternalTableImpl implements InternalTable {
-    private static final IgniteLogger LOG = Loggers.forClass(InternalTableImpl.class);
     /** Cursor id generator. */
     private static final AtomicLong CURSOR_ID_GENERATOR = new AtomicLong();
 
@@ -162,7 +156,8 @@ public class InternalTableImpl implements InternalTable {
             MvTableStorage tableStorage,
             TxStateTableStorage txStateStorage,
             ReplicaService replicaSvc,
-            HybridClock clock
+            HybridClock clock,
+            ScheduledThreadPoolExecutor executor
     ) {
         this.tableName = tableName;
         this.tableId = tableId;
@@ -176,12 +171,7 @@ public class InternalTableImpl implements InternalTable {
         this.replicaSvc = replicaSvc;
         this.tableMessagesFactory = new TableMessagesFactory();
         this.clock = clock;
-
-        this.executor = new ScheduledThreadPoolExecutor(10,
-                new NamedThreadFactory("InternalTableImpl_Pool"/*NamedThreadFactory.threadPrefix(clusterNetSvc.localConfiguration().getName(),
-                        CLIENT_POOL_NAME)*/, LOG
-                )
-        );
+        this.executor = executor;
     }
 
     /** {@inheritDoc} */
@@ -407,8 +397,8 @@ public class InternalTableImpl implements InternalTable {
      * @param tx Internal transaction.
      * @param partId Partition number.
      * @param requestFunction Function to create replica request with new raft term.
+     * @param fut The future.
      * @param attempts Number of attempts.
-     * @return The future.
      */
     private <R> void enlistWithRetry(
             InternalTransaction tx,
@@ -449,10 +439,40 @@ public class InternalTableImpl implements InternalTable {
                                 timeout = ENLIST_TIMEOUT;
                             }
 
-                            executor.schedule(() -> {
-                                        enlistWithRetry(tx, partId, requestFunction, fut, attempts - 1);
-                                    },
+                            executor.schedule(() -> enlistWithRetry(tx, partId, requestFunction, fut, attempts - 1),
                                     timeout,
+                                    TimeUnit.MILLISECONDS);
+                        } else {
+                            fut.completeExceptionally(e);
+                        }
+                    } else {
+                        fut.complete(res0);
+                    }
+
+                    return null;
+                });
+    }
+
+    /**
+     * Partition enlisting with retrying.
+     *
+     * @param node Replica node.
+     * @param request Request.
+     * @param fut The future.
+     * @param attempts Number of attempts.
+     */
+    private <R> void invokeWithRetry(
+            ClusterNode node,
+            ReplicaRequest request,
+            CompletableFuture<R> fut,
+            int attempts
+    ) {
+        replicaSvc.<R>invoke(node, request)
+                .handle((res0, e) -> {
+                    if (e != null) {
+                        if (e instanceof ReplicaUnavailableException && attempts > 0) {
+                            executor.schedule(() -> invokeWithRetry(node, request, fut, attempts - 1),
+                                    ENLIST_TIMEOUT,
                                     TimeUnit.MILLISECONDS);
                         } else {
                             fut.completeExceptionally(e);
@@ -527,13 +547,19 @@ public class InternalTableImpl implements InternalTable {
         int partId = partId(keyRow);
         ReplicationGroupId partGroupId = partitionMap.get(partId).groupId();
 
-        return replicaSvc.invoke(recipientNode, tableMessagesFactory.readOnlySingleRowReplicaRequest()
+        CompletableFuture<BinaryRow> fut = new CompletableFuture<>();
+
+        invokeWithRetry(recipientNode,
+                tableMessagesFactory.readOnlySingleRowReplicaRequest()
                 .groupId(partGroupId)
                 .binaryRow(keyRow)
                 .requestType(RequestType.RO_GET)
                 .readTimestamp(readTimestamp)
-                .build()
-        );
+                .build(),
+                fut,
+                ATTEMPTS_TO_ENLIST_PARTITION);
+
+        return fut;
     }
 
     /** {@inheritDoc} */
@@ -580,13 +606,17 @@ public class InternalTableImpl implements InternalTable {
         for (Int2ObjectOpenHashMap.Entry<List<BinaryRow>> partToRows : keyRowsByPartition.int2ObjectEntrySet()) {
             ReplicationGroupId partGroupId = partitionMap.get(partToRows.getIntKey()).groupId();
 
-            CompletableFuture<Object> fut = replicaSvc.invoke(recipientNode, tableMessagesFactory.readOnlyMultiRowReplicaRequest()
-                    .groupId(partGroupId)
-                    .binaryRows(partToRows.getValue())
-                    .requestType(RequestType.RO_GET_ALL)
-                    .readTimestamp(readTimestamp)
-                    .build()
-            );
+            CompletableFuture<Object> fut = new CompletableFuture<>();
+
+            invokeWithRetry(recipientNode,
+                    tableMessagesFactory.readOnlyMultiRowReplicaRequest()
+                            .groupId(partGroupId)
+                            .binaryRows(partToRows.getValue())
+                            .requestType(RequestType.RO_GET_ALL)
+                            .readTimestamp(readTimestamp)
+                            .build(),
+                    fut,
+                    ATTEMPTS_TO_ENLIST_PARTITION);
 
             futures[batchNum++] = fut;
         }
@@ -880,7 +910,14 @@ public class InternalTableImpl implements InternalTable {
                             .readTimestamp(readTimestamp)
                             .build();
 
-                    return replicaSvc.invoke(recipientNode, request);
+                    CompletableFuture<Collection<BinaryRow>> fut = new CompletableFuture<>();
+
+                    invokeWithRetry(recipientNode,
+                            request,
+                            fut,
+                            ATTEMPTS_TO_ENLIST_PARTITION);
+
+                    return fut;
                 },
                 // TODO: IGNITE-17666 Close cursor tx finish.
                 Function.identity());

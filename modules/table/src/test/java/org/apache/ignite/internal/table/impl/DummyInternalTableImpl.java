@@ -27,12 +27,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import javax.naming.OperationNotSupportedException;
 import org.apache.ignite.distributed.TestPartitionDataStorage;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
@@ -54,6 +57,7 @@ import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaL
 import org.apache.ignite.internal.table.distributed.replicator.PlacementDriver;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
@@ -79,6 +83,8 @@ import org.mockito.Mockito;
  * Dummy table storage implementation.
  */
 public class DummyInternalTableImpl extends InternalTableImpl {
+    private static final IgniteLogger LOG = Loggers.forClass(DummyInternalTableImpl.class);
+
     public static final NetworkAddress ADDR = new NetworkAddress("127.0.0.1", 2004);
 
     private static final ReplicationGroupId crossTableGroupId = new TablePartitionId(UUID.randomUUID(), 0);
@@ -154,7 +160,11 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 mock(MvTableStorage.class),
                 new TestTxStateTableStorage(),
                 replicaSvc,
-                new HybridClockImpl()
+                new HybridClockImpl(),
+                new ScheduledThreadPoolExecutor(
+                        Runtime.getRuntime().availableProcessors(),
+                        new NamedThreadFactory("internal-table-scheduled-pool", LOG)
+                )
         );
         RaftGroupService svc = partitionMap.get(0);
 

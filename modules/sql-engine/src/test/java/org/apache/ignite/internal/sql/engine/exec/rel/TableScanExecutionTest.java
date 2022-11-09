@@ -25,6 +25,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadLocalRandom;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.util.ImmutableBitSet;
@@ -45,6 +46,7 @@ import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
@@ -153,7 +155,11 @@ public class TableScanExecutionTest extends AbstractExecutionTest {
                     mock(MvTableStorage.class),
                     mock(TxStateTableStorage.class),
                     replicaSvc,
-                    mock(HybridClock.class)
+                    mock(HybridClock.class),
+                    new ScheduledThreadPoolExecutor(
+                            Runtime.getRuntime().availableProcessors(),
+                            new NamedThreadFactory("internal-table-scheduled-pool", log)
+                    )
             );
 
             processedPerPart = new int[PART_CNT];
