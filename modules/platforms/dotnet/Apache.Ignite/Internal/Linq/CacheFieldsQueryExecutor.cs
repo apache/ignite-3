@@ -91,7 +91,8 @@ internal class CacheFieldsQueryExecutor : IQueryExecutor
         IResultSet<IIgniteTuple> resultSet = _sql.ExecuteAsync(null, statement, qryData.Parameters.ToArray()).GetAwaiter().GetResult();
         var rows = resultSet.ToListAsync().AsTask().GetAwaiter().GetResult();
 
-        // TODO: Mapping
+        // TODO: Compile selector according to result schema and select expression
+        var selector = queryModel.SelectClause.Selector;
         return rows.Select(r => (T)r);
     }
 }
