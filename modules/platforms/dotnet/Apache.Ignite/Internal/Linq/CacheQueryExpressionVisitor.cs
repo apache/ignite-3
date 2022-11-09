@@ -355,20 +355,15 @@ internal class CacheQueryExpressionVisitor : ThrowingExpressionVisitor
     /// <summary>
     /// Gets the name of the field from a member expression, with quotes when necessary.
     /// </summary>
-    private static string GetFieldName(MemberExpression expression, ICacheQueryableInternal queryable, bool ignoreAlias = false) =>
-        GetMemberFieldName(expression.Member);
-
-    /// <summary>
-    /// Gets the name of the member field.
-    /// </summary>
-    private static string GetMemberFieldName(MemberInfo member)
+    private static string GetFieldName(MemberExpression expression, ICacheQueryableInternal queryable, bool ignoreAlias = false)
     {
-        if (FieldNameMap.TryGetValue(member, out var fieldName))
+        // TODO: We need schema to provide adequate mapping. Change extension to AsQueryableAsync() and retrieve the latest schema first.
+        if (FieldNameMap.TryGetValue(expression.Member, out var fieldName))
         {
             return fieldName;
         }
 
-        return FieldNameMap.GetOrAdd(member, member.Name);
+        return FieldNameMap.GetOrAdd(expression.Member, expression.Member.Name);
     }
 
     /// <summary>
