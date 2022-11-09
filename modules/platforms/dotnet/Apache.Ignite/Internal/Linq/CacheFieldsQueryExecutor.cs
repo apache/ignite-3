@@ -92,6 +92,7 @@ internal class CacheFieldsQueryExecutor : IQueryExecutor
         var rows = resultSet.ToListAsync().AsTask().GetAwaiter().GetResult();
 
         // TODO: Compile selector according to result schema and select expression
+        // TODO: Generify ResultSet
         var selector = queryModel.SelectClause.Selector;
         return rows.Select(r => (T)r);
     }
