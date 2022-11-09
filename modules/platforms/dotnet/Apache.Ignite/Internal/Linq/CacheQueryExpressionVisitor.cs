@@ -357,8 +357,9 @@ internal class CacheQueryExpressionVisitor : ThrowingExpressionVisitor
     /// </summary>
     private static string GetFieldName(MemberExpression expression, ICacheQueryableInternal queryable, bool ignoreAlias = false)
     {
-        // TODO: We need schema to provide adequate mapping. Change extension to AsQueryableAsync() and retrieve the latest schema first.
+        // TODO: We need schema to provide adequate mapping. Change extension to AsQueryableAsync() and retrieve the latest schema first?
         // OR use upper-case non-quoted names? We don't care about upper/lower case anyway.
+        // But if there is a whitespace, we must quote. But whitespace can only be present when there is a [Column].
         if (FieldNameMap.TryGetValue(expression.Member, out var fieldName))
         {
             return fieldName;
