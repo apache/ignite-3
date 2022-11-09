@@ -21,6 +21,7 @@ namespace Apache.Ignite.Internal.Linq;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations.Schema;
 using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
@@ -39,7 +40,7 @@ using Remotion.Linq.Parsing;
 internal class CacheQueryExpressionVisitor : ThrowingExpressionVisitor
 {
     /** */
-    private static readonly ConcurrentDictionary<MemberInfo, string> FieldNameMap = new();
+    private static readonly ConcurrentDictionary<MemberInfo, string> ColumnNameMap = new();
 
     /** */
     private readonly bool _useStar;
@@ -268,7 +269,7 @@ internal class CacheQueryExpressionVisitor : ThrowingExpressionVisitor
             return expression;
         }
 
-        return base.Visit(expression);
+        return base.Visit(expression)!;
     }
 
     /** <inheritdoc /> */
@@ -330,9 +331,9 @@ internal class CacheQueryExpressionVisitor : ThrowingExpressionVisitor
             // Find where the projection comes from.
             expression = ExpressionWalker.GetProjectedMember(expression.Expression!, expression.Member) ?? expression;
 
-            var fieldName = GetEscapedFieldName(expression, queryable);
+            var columnName = GetColumnName(expression);
 
-            ResultBuilder.AppendFormat(CultureInfo.InvariantCulture, "{0}.{1}", Aliases.GetTableAlias(expression), fieldName);
+            ResultBuilder.AppendFormat(CultureInfo.InvariantCulture, "{0}.{1}", Aliases.GetTableAlias(expression), columnName);
         }
         else
         {
@@ -345,27 +346,20 @@ internal class CacheQueryExpressionVisitor : ThrowingExpressionVisitor
     /// <summary>
     /// Gets the name of the field from a member expression, with quotes when necessary.
     /// </summary>
-    private static string GetEscapedFieldName(MemberExpression expression, ICacheQueryableInternal queryable)
+    private static string GetColumnName(MemberExpression expression)
     {
-        var fieldName = GetFieldName(expression, queryable);
-
-        return $"\"{fieldName}\"";
-    }
-
-    /// <summary>
-    /// Gets the name of the field from a member expression, with quotes when necessary.
-    /// </summary>
-    private static string GetFieldName(MemberExpression expression, ICacheQueryableInternal queryable, bool ignoreAlias = false)
-    {
-        // TODO: We need schema to provide adequate mapping. Change extension to AsQueryableAsync() and retrieve the latest schema first?
-        // OR use upper-case non-quoted names? We don't care about upper/lower case anyway.
-        // But if there is a whitespace, we must quote. But whitespace can only be present when there is a [Column].
-        if (FieldNameMap.TryGetValue(expression.Member, out var fieldName))
+        if (ColumnNameMap.TryGetValue(expression.Member, out var fieldName))
         {
             return fieldName;
         }
 
-        return FieldNameMap.GetOrAdd(expression.Member, expression.Member.Name);
+        // When there is a [Column] attribute with Name specified, use quoted identifier: exact match, allows whitespace.
+        // Otherwise (most common case), use uppercase non-quoted identifier (case-insensitive).
+        var columnName = expression.Member.GetCustomAttribute<ColumnAttribute>() is { Name: { } columnAttributeName }
+            ? '"' + columnAttributeName + '"'
+            : expression.Member.Name.ToUpperInvariant();
+
+        return ColumnNameMap.GetOrAdd(expression.Member, columnName);
     }
 
     /// <summary>
