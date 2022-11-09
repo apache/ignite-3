@@ -47,6 +47,7 @@ import org.apache.ignite.internal.network.serialization.ClassDescriptorRegistry;
 import org.apache.ignite.internal.network.serialization.SerializationService;
 import org.apache.ignite.internal.network.serialization.UserObjectSerializationContext;
 import org.apache.ignite.internal.network.serialization.marshal.DefaultUserObjectMarshaller;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.AbstractClusterService;
 import org.apache.ignite.network.ClusterLocalConfiguration;
@@ -69,8 +70,9 @@ public class ScaleCubeClusterServiceFactory {
 
     /** Metadata codec. */
     private static final JdkMetadataCodec METADATA_CODEC = new JdkMetadataCodec();
+
     /** Scalecube cluster executor to update metadata.  */
-    private final Scheduler scheduler = Schedulers.fromExecutor(Executors.newSingleThreadExecutor());
+    private final Scheduler scheduler = scheduler("ScaleCubeClusterServiceFactory");
 
     /**
      * Creates a new {@link ClusterService} using the provided context. The created network will not be in the "started" state.
@@ -263,5 +265,9 @@ public class ScaleCubeClusterServiceFactory {
         return addresses.stream()
                 .map(addr -> Address.create(addr.host(), addr.port()))
                 .collect(Collectors.toList());
+    }
+
+    private Scheduler scheduler(String namePrefix) {
+        return Schedulers.fromExecutor(Executors.newSingleThreadExecutor(new NamedThreadFactory(namePrefix, LOG)));
     }
 }
