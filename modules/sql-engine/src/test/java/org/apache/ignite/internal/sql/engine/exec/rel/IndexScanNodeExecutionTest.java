@@ -23,6 +23,7 @@ import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.BitSet;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
@@ -33,7 +34,6 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.IntStream;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory.Builder;
-import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.index.ColumnCollation;
 import org.apache.ignite.internal.index.Index;
@@ -542,7 +542,7 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
 
         @Override
         public <RowT> RowT toRow(ExecutionContext<RowT> ectx, BinaryRow binaryRow, RowFactory<RowT> factory,
-                @Nullable ImmutableBitSet requiredColumns) {
+                @Nullable BitSet requiredColumns) {
             TableDescriptor desc = descriptor();
             Row tableRow = new Row(schemaDesc, binaryRow);
 

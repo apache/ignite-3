@@ -335,7 +335,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
                 ranges,
                 filters,
                 prj,
-                requiredColumns
+                requiredColumns == null ? null : requiredColumns.toBitSet()
         );
     }
 
@@ -370,7 +370,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
                 group.partitions(ctx.localNode().id()),
                 filters,
                 prj,
-                requiredColumns
+                requiredColumns == null ? null : requiredColumns.toBitSet()
         );
     }
 

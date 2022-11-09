@@ -56,7 +56,7 @@ public class ItMetaStorageServicePersistenceTest extends ItAbstractListenerSnaps
 
     /** After each. */
     @AfterEach
-    void tearDown() throws Exception {
+    void tearDown() {
         if (storage != null) {
             storage.close();
         }

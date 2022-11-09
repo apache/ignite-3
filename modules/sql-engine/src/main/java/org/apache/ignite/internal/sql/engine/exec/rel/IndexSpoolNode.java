@@ -152,7 +152,7 @@ public class IndexSpoolNode<RowT> extends AbstractNode<RowT> implements SingleNo
 
         try {
             idx.close();
-        } catch (Exception ex) {
+        } catch (RuntimeException ex) {
             onError(ex);
         }
 

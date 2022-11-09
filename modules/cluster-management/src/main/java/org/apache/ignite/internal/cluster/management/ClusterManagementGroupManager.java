@@ -616,7 +616,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
 
         IgniteUtils.closeAll(
                 () -> raftManager.stopRaftGroup(INSTANCE),
-                clusterStateStorage
+                clusterStateStorage::close
         );
 
         // Fail the future to unblock dependent operations

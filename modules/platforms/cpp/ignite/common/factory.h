@@ -26,7 +26,7 @@ namespace ignite {
  *
  * @tparam T Instances of this type factory builds.
  */
-template <typename T>
+template<typename T>
 class factory {
 public:
     /**
@@ -48,7 +48,7 @@ public:
  * @tparam TB Base type.
  * @tparam TC Concrete type.
  */
-template <typename TB, typename TC>
+template<typename TB, typename TC>
 class basic_factory : public factory<TB> {
 public:
     /**

@@ -38,7 +38,7 @@ import org.jetbrains.annotations.Nullable;
 public class IgniteIndexScan extends AbstractIndexScan implements SourceAwareIgniteRel {
     private final long sourceId;
 
-    /** Index collation. Required only for rewriting index scan to table scan + sort in case of index rebuild. */
+    /** Index collation. Required for proper expanding search bounds and creating index row converter. */
     private final RelCollation collation;
 
     /**

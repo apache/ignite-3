@@ -227,7 +227,7 @@ public class MetaStorageManager implements IgniteComponent {
             IgniteUtils.closeAll(
                     this::stopDeployedWatches,
                     () -> raftMgr.stopRaftGroup(INSTANCE),
-                    storage
+                    storage::close
             );
         }
     }

@@ -23,6 +23,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.ClusterTag;
 import org.apache.ignite.internal.cluster.management.raft.commands.InitCmgStateCommand;
@@ -43,7 +44,7 @@ import org.jetbrains.annotations.Nullable;
  * After the node finishes local recovery procedures, it sends a {@link JoinReadyCommand} containing the validation
  * token. If the local token and the received token match, the node will be added to the logical topology and the token will be invalidated.
  */
-class ValidationManager implements AutoCloseable {
+class ValidationManager implements ManuallyCloseable {
     private static final IgniteLogger LOG = Loggers.forClass(CmgRaftGroupListener.class);
 
     private final ScheduledExecutorService executor =

@@ -33,6 +33,7 @@ struct column_info {
     size_t getFixedSize() const { return get_type_size(dataType); }
 
     bool operator==(const column_info &other) const { return dataType == other.dataType && nullable == other.nullable; }
+
     bool operator!=(const column_info &other) const { return !(operator==(other)); }
 };
 

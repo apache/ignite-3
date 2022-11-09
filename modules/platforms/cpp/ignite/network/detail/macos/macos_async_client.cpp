@@ -17,7 +17,6 @@
 
 #include <ignite/network/detail/linux/linux_async_client.h>
 
-
 #include <algorithm>
 #include <cstring>
 
@@ -31,141 +30,141 @@
 namespace ignite::network::detail {
 
 linux_async_client::linux_async_client(int fd, end_point addr, tcp_range range)
-   : m_state(state::CONNECTED)
-   , m_fd(fd)
-   , m_epoll(-1)
-   , m_id(0)
-   , m_addr(std::move(addr))
-   , m_range(std::move(range))
-   , m_send_packets()
-   , m_send_mutex()
-   , m_recv_packet(BUFFER_SIZE)
-   , m_close_err() {
+    : m_state(state::CONNECTED)
+    , m_fd(fd)
+    , m_epoll(-1)
+    , m_id(0)
+    , m_addr(std::move(addr))
+    , m_range(std::move(range))
+    , m_send_packets()
+    , m_send_mutex()
+    , m_recv_packet(BUFFER_SIZE)
+    , m_close_err() {
 }
 
 linux_async_client::~linux_async_client() {
-   shutdown(std::nullopt);
+    shutdown(std::nullopt);
 
-   close();
+    close();
 }
 
 bool linux_async_client::shutdown(std::optional<ignite_error> err) {
-   std::lock_guard<std::mutex> lock(m_send_mutex);
-   if (m_state != state::CONNECTED)
-       return false;
+    std::lock_guard<std::mutex> lock(m_send_mutex);
+    if (m_state != state::CONNECTED)
+        return false;
 
-   m_close_err = err ? std::move(*err) : ignite_error("Connection closed by application");
-   ::shutdown(m_fd, SHUT_RDWR);
-   m_state = state::SHUTDOWN;
+    m_close_err = err ? std::move(*err) : ignite_error("Connection closed by application");
+    ::shutdown(m_fd, SHUT_RDWR);
+    m_state = state::SHUTDOWN;
 
-   return true;
+    return true;
 }
 
 bool linux_async_client::close() {
-   if (state::CLOSED == m_state)
-       return false;
+    if (state::CLOSED == m_state)
+        return false;
 
-   stop_monitoring();
-   ::close(m_fd);
-   m_fd = -1;
-   m_state = state::CLOSED;
+    stop_monitoring();
+    ::close(m_fd);
+    m_fd = -1;
+    m_state = state::CLOSED;
 
-   return true;
+    return true;
 }
 
 bool linux_async_client::send(std::vector<std::byte> &&data) {
-   std::lock_guard<std::mutex> lock(m_send_mutex);
+    std::lock_guard<std::mutex> lock(m_send_mutex);
 
-   m_send_packets.emplace_back(std::move(data));
-   if (m_send_packets.size() > 1)
-       return true;
+    m_send_packets.emplace_back(std::move(data));
+    if (m_send_packets.size() > 1)
+        return true;
 
-   return send_next_packet_locked();
+    return send_next_packet_locked();
 }
 
 bool linux_async_client::send_next_packet_locked() {
-   if (m_send_packets.empty())
-       return true;
+    if (m_send_packets.empty())
+        return true;
 
-   auto &packet = m_send_packets.front();
-   auto dataView = packet.get_bytes_view();
+    auto &packet = m_send_packets.front();
+    auto dataView = packet.get_bytes_view();
 
-   ssize_t ret = ::send(m_fd, dataView.data(), dataView.size(), 0);
-   if (ret < 0)
-       return false;
+    ssize_t ret = ::send(m_fd, dataView.data(), dataView.size(), 0);
+    if (ret < 0)
+        return false;
 
-   packet.skip(static_cast<int32_t>(ret));
+    packet.skip(static_cast<int32_t>(ret));
 
-   enable_send_notifications();
+    enable_send_notifications();
 
-   return true;
+    return true;
 }
 
 bytes_view linux_async_client::receive() {
-   ssize_t res = recv(m_fd, m_recv_packet.data(), m_recv_packet.size(), 0);
-   if (res < 0)
-       return {};
+    ssize_t res = recv(m_fd, m_recv_packet.data(), m_recv_packet.size(), 0);
+    if (res < 0)
+        return {};
 
-   return {m_recv_packet.data(), size_t(res)};
+    return {m_recv_packet.data(), size_t(res)};
 }
 
 bool linux_async_client::start_monitoring(int epoll0) {
-   if (epoll0 < 0)
-       return false;
+    if (epoll0 < 0)
+        return false;
 
-   epoll_event event{};
-   memset(&event, 0, sizeof(event));
-   event.data.ptr = this;
-   event.events = EPOLLIN | EPOLLOUT | EPOLLRDHUP;
+    epoll_event event{};
+    memset(&event, 0, sizeof(event));
+    event.data.ptr = this;
+    event.events = EPOLLIN | EPOLLOUT | EPOLLRDHUP;
 
-   int res = epoll_ctl(epoll0, EPOLL_CTL_ADD, m_fd, &event);
-   if (res < 0)
-       return false;
+    int res = epoll_ctl(epoll0, EPOLL_CTL_ADD, m_fd, &event);
+    if (res < 0)
+        return false;
 
-   m_epoll = epoll0;
+    m_epoll = epoll0;
 
-   return true;
+    return true;
 }
 
 void linux_async_client::stop_monitoring() // NOLINT(readability-make-member-function-const)
 {
-   epoll_event event{};
-   memset(&event, 0, sizeof(event));
+    epoll_event event{};
+    memset(&event, 0, sizeof(event));
 
-   epoll_ctl(m_epoll, EPOLL_CTL_DEL, m_fd, &event);
+    epoll_ctl(m_epoll, EPOLL_CTL_DEL, m_fd, &event);
 }
 
 void linux_async_client::enable_send_notifications() {
-   epoll_event event{};
-   memset(&event, 0, sizeof(event));
-   event.data.ptr = this;
-   event.events = EPOLLIN | EPOLLOUT | EPOLLRDHUP;
+    epoll_event event{};
+    memset(&event, 0, sizeof(event));
+    event.data.ptr = this;
+    event.events = EPOLLIN | EPOLLOUT | EPOLLRDHUP;
 
-   epoll_ctl(m_epoll, EPOLL_CTL_MOD, m_fd, &event);
+    epoll_ctl(m_epoll, EPOLL_CTL_MOD, m_fd, &event);
 }
 
 void linux_async_client::disable_send_notifications() {
-   epoll_event event{};
-   memset(&event, 0, sizeof(event));
-   event.data.ptr = this;
-   event.events = EPOLLIN | EPOLLRDHUP;
+    epoll_event event{};
+    memset(&event, 0, sizeof(event));
+    event.data.ptr = this;
+    event.events = EPOLLIN | EPOLLRDHUP;
 
-   epoll_ctl(m_epoll, EPOLL_CTL_MOD, m_fd, &event);
+    epoll_ctl(m_epoll, EPOLL_CTL_MOD, m_fd, &event);
 }
 
 bool linux_async_client::process_sent() {
-   std::lock_guard<std::mutex> lock(m_send_mutex);
+    std::lock_guard<std::mutex> lock(m_send_mutex);
 
-   if (m_send_packets.empty()) {
-       disable_send_notifications();
+    if (m_send_packets.empty()) {
+        disable_send_notifications();
 
-       return true;
-   }
+        return true;
+    }
 
-   if (m_send_packets.front().empty())
-       m_send_packets.pop_front();
+    if (m_send_packets.front().empty())
+        m_send_packets.pop_front();
 
-   return send_next_packet_locked();
+    return send_next_packet_locked();
 }
 
 } // namespace ignite::network::detail

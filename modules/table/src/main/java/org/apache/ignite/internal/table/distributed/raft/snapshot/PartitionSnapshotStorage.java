@@ -28,6 +28,7 @@ import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.option.SnapshotCopierOptions;
+import org.apache.ignite.raft.jraft.storage.LogManager;
 import org.apache.ignite.raft.jraft.storage.SnapshotStorage;
 import org.apache.ignite.raft.jraft.storage.SnapshotThrottle;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotCopier;
@@ -56,11 +57,13 @@ public class PartitionSnapshotStorage implements SnapshotStorage {
     /** Instance of partition. */
     private final PartitionAccess partition;
 
-    /** Snapshot meta, constructed from the storage data and raft group configuration. */
-    private final SnapshotMeta snapshotMeta;
+    /** Snapshot meta, constructed from the storage data and raft group configuration at startup. */
+    private final SnapshotMeta startupSnapshotMeta;
 
     /** Incoming snapshots executor. */
     private final Executor incomingSnapshotsExecutor;
+
+    private final LogManager logManager;
 
     /** Snapshot throttle instance. */
     @Nullable
@@ -77,7 +80,7 @@ public class PartitionSnapshotStorage implements SnapshotStorage {
      * @param snapshotUri Snapshot URI.
      * @param raftOptions RAFT options.
      * @param partition Partition.
-     * @param snapshotMeta Snapshot meta.
+     * @param startupSnapshotMeta Snapshot meta at startup.
      * @param incomingSnapshotsExecutor Incoming snapshots executor.
      */
     public PartitionSnapshotStorage(
@@ -86,16 +89,18 @@ public class PartitionSnapshotStorage implements SnapshotStorage {
             String snapshotUri,
             RaftOptions raftOptions,
             PartitionAccess partition,
-            SnapshotMeta snapshotMeta,
-            Executor incomingSnapshotsExecutor
+            SnapshotMeta startupSnapshotMeta,
+            Executor incomingSnapshotsExecutor,
+            LogManager logManager
     ) {
         this.topologyService = topologyService;
         this.outgoingSnapshotsManager = outgoingSnapshotsManager;
         this.snapshotUri = snapshotUri;
         this.raftOptions = raftOptions;
         this.partition = partition;
-        this.snapshotMeta = snapshotMeta;
+        this.startupSnapshotMeta = startupSnapshotMeta;
         this.incomingSnapshotsExecutor = incomingSnapshotsExecutor;
+        this.logManager = logManager;
     }
 
     /**
@@ -134,10 +139,10 @@ public class PartitionSnapshotStorage implements SnapshotStorage {
     }
 
     /**
-     * Returns a snapshot meta, constructed from the storage data and raft group configuration.
+     * Returns a snapshot meta, constructed from the storage data and raft group configuration at startup.
      */
     public SnapshotMeta startupSnapshotMeta() {
-        return snapshotMeta;
+        return startupSnapshotMeta;
     }
 
     /**
@@ -182,7 +187,7 @@ public class PartitionSnapshotStorage implements SnapshotStorage {
             return new StartupPartitionSnapshotReader(this);
         }
 
-        return new OutgoingSnapshotReader(this);
+        return new OutgoingSnapshotReader(this, logManager);
     }
 
     @Override

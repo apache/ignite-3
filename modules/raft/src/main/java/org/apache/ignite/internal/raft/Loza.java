@@ -254,7 +254,14 @@ public class Loza implements IgniteComponent {
         List<Peer> learners = nodesToPeers(learnerNodes);
 
         if (shouldHaveRaftGroupLocally(nodes) || shouldHaveRaftGroupLocally(learnerNodes)) {
-            startRaftGroupNodeInternal(groupId, peers, learners, lsnrSupplier.get(), eventsLsnrSupplier.get(), groupOptions);
+            startRaftGroupNodeInternal(
+                    groupId,
+                    peers,
+                    learners,
+                    lsnrSupplier.get(),
+                    eventsLsnrSupplier.get(),
+                    groupOptions
+            );
         }
 
         return startRaftGroupServiceInternal(groupId, peers, learners);
