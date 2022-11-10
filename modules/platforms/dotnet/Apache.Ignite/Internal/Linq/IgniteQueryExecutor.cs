@@ -18,6 +18,7 @@
 #pragma warning disable SA1615, SA1611, SA1405, SA1202, SA1600, CA2000 // TODO: Fix warnings.
 namespace Apache.Ignite.Internal.Linq;
 
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -58,18 +59,12 @@ internal sealed class IgniteQueryExecutor : IQueryExecutor
     }
 
     /** <inheritdoc /> */
-    public T? ExecuteScalar<T>(QueryModel queryModel)
-    {
-        return ExecuteSingle<T>(queryModel, false);
-    }
+    public T? ExecuteScalar<T>(QueryModel queryModel) =>
+        ExecuteSingle<T>(queryModel, false);
 
     /** <inheritdoc /> */
-    public T? ExecuteSingle<T>(QueryModel queryModel, bool returnDefaultWhenEmpty)
-    {
-        var col = ExecuteCollection<T>(queryModel);
-
-        return returnDefaultWhenEmpty ? col.SingleOrDefault() : col.Single();
-    }
+    public T? ExecuteSingle<T>(QueryModel queryModel, bool returnDefaultWhenEmpty) =>
+        ExecuteSingleAsyncInternal<T>(queryModel, returnDefaultWhenEmpty).GetAwaiter().GetResult();
 
     /** <inheritdoc /> */
     public IEnumerable<T> ExecuteCollection<T>(QueryModel queryModel)
@@ -101,5 +96,31 @@ internal sealed class IgniteQueryExecutor : IQueryExecutor
             .ConfigureAwait(false);
 
         return resultSet;
+    }
+
+    private async Task<T?> ExecuteSingleAsyncInternal<T>(QueryModel queryModel, bool returnDefaultWhenEmpty)
+    {
+        IResultSet<T> resultSet = await ExecuteResultSetAsyncInternal<T>(queryModel).ConfigureAwait(false);
+
+        var res = default(T);
+        var count = 0;
+
+        await foreach (var row in resultSet)
+        {
+            if (count > 0)
+            {
+                throw new InvalidOperationException("ResultSet has more than one element: " + queryModel);
+            }
+
+            res = row;
+            count++;
+        }
+
+        if (count == 0 && !returnDefaultWhenEmpty)
+        {
+            throw new InvalidOperationException("ResultSet is empty: " + queryModel);
+        }
+
+        return res;
     }
 }
