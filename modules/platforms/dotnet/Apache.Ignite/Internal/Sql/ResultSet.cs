@@ -210,8 +210,12 @@ namespace Apache.Ignite.Internal.Sql
             return new ResultSetMetadata(columns);
         }
 
-        private T ReadRow(IReadOnlyList<IColumnMetadata> cols, ref MessagePackReader reader) =>
-            _rowReader!(cols, new BinaryTupleReader(reader.ReadBytesAsMemory(), cols.Count));
+        private T ReadRow(IReadOnlyList<IColumnMetadata> cols, ref MessagePackReader reader)
+        {
+            var tupleReader = new BinaryTupleReader(reader.ReadBytesAsMemory(), cols.Count);
+
+            return _rowReader!(cols, ref tupleReader);
+        }
 
         private async IAsyncEnumerable<T> EnumerateRows()
         {

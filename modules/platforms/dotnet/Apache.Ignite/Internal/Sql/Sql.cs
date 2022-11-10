@@ -34,7 +34,8 @@ namespace Apache.Ignite.Internal.Sql
     /// </summary>
     internal sealed class Sql : ISql
     {
-        private static readonly RowReader<IIgniteTuple> TupleReader = static (cols, reader) => ReadTuple(cols, reader);
+        private static readonly RowReader<IIgniteTuple> TupleReader =
+            static (IReadOnlyList<IColumnMetadata> cols, ref BinaryTupleReader reader) => ReadTuple(cols, ref reader);
 
         private static readonly RowReaderFactory<IIgniteTuple> TupleReaderFactory = static _ => TupleReader;
 
@@ -156,7 +157,7 @@ namespace Apache.Ignite.Internal.Sql
             }
         }
 
-        private static IIgniteTuple ReadTuple(IReadOnlyList<IColumnMetadata> cols, BinaryTupleReader tupleReader)
+        private static IIgniteTuple ReadTuple(IReadOnlyList<IColumnMetadata> cols, ref BinaryTupleReader tupleReader)
         {
             var row = new IgniteTuple(cols.Count);
 

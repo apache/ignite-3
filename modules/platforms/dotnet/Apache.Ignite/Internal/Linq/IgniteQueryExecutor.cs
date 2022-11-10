@@ -19,12 +19,12 @@ namespace Apache.Ignite.Internal.Linq;
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
-using System.Linq;
+using System.Linq.Expressions;
 using System.Threading.Tasks;
 using Ignite.Sql;
 using Ignite.Transactions;
+using Proto.BinaryTuple;
 using Remotion.Linq;
 using Sql;
 
@@ -84,14 +84,31 @@ internal sealed class IgniteQueryExecutor : IQueryExecutor
         var qryData = GetQueryData(queryModel);
         var statement = new SqlStatement(qryData.QueryText);
 
-        IResultSet<T> resultSet = await _sql.ExecuteAsyncInternal<T>(
+        IResultSet<T> resultSet = await _sql.ExecuteAsyncInternal(
             _transaction,
             statement,
-            _ => (cols, reader) => (T)Sql.ReadColumnValue(ref reader, cols[0], 0)!,
+            cols => GetResultSelector<T>(cols, queryModel.SelectClause.Selector),
             qryData.Parameters)
             .ConfigureAwait(false);
 
         return resultSet;
+    }
+
+    /// <summary>
+    /// Gets the result selector.
+    /// </summary>
+    private static RowReader<T> GetResultSelector<T>(IReadOnlyList<IColumnMetadata> columns, Expression selectorExpression)
+    {
+        // var newExpr = selectorExpression as NewExpression;
+        //
+        // if (newExpr != null)
+        //     return GetCompiledCtor<T>(newExpr.Constructor);
+        //
+        // var entryCtor = GetCacheEntryCtorInfo(typeof(T));
+        //
+        // if (entryCtor != null)
+        //     return GetCompiledCtor<T>(entryCtor);
+        return (IReadOnlyList<IColumnMetadata> cols, ref BinaryTupleReader reader) => (T)Sql.ReadColumnValue(ref reader, cols[0], 0)!;
     }
 
     [SuppressMessage("Reliability", "CA2007:Consider calling ConfigureAwait on the awaited task", Justification = "False positive.")]

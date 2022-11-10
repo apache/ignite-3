@@ -28,4 +28,4 @@ using Proto.BinaryTuple;
 /// <param name="tupleReader">Tuple reader.</param>
 /// <typeparam name="T">Result type.</typeparam>
 /// <returns>Resulting row.</returns>
-internal delegate T RowReader<out T>(IReadOnlyList<IColumnMetadata> cols, BinaryTupleReader tupleReader);
+internal delegate T RowReader<out T>(IReadOnlyList<IColumnMetadata> cols, ref BinaryTupleReader tupleReader);
