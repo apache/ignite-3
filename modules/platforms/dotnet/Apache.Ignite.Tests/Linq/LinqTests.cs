@@ -102,6 +102,16 @@ public class LinqTests : IgniteTestsBase
     }
 
     [Test]
+    public void TestLongCount()
+    {
+        long res = PocoView
+            .AsQueryable()
+            .LongCount(x => x.Key < 3);
+
+        Assert.AreEqual(3, res);
+    }
+
+    [Test]
     public void TestSum()
     {
         long res = PocoView.AsQueryable()
