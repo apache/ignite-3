@@ -1,3 +1,20 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.apache.ignite.distributed;
 
 import static org.apache.ignite.distributed.ItTxDistributedTestSingleNode.NODE_PORT_BASE;
@@ -22,7 +39,6 @@ import java.util.concurrent.Flow;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Function;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -79,6 +95,11 @@ public class ItInternalTableImplRetryerTest extends IgniteAbstractTest {
             new Column[]{new Column("value", NativeTypes.INT64, false)}
     );
 
+    private static final Collection<BinaryRowEx> rows = List.of(
+            createKeyValueRow(1L, 1L),
+            createKeyValueRow(2L, 2L)
+    );
+
     private final TestInfo testInfo;
 
     private ReplicaManagerStub replicaManagerStub;
@@ -87,15 +108,10 @@ public class ItInternalTableImplRetryerTest extends IgniteAbstractTest {
 
     private ClusterService clusterService;
 
-    private Collection<BinaryRowEx> rows = List.of(
-            createKeyValueRow(1L, 1L),
-            createKeyValueRow(2L, 2L)
-    );
-
     @BeforeEach
     public void setup() {
         var addr0 = new NetworkAddress(getLocalAddress(), NODE_PORT_BASE + 1);
-        var nodeFinder = new StaticNodeFinder(List.of(addr0/*, addr1*/));
+        var nodeFinder = new StaticNodeFinder(List.of(addr0));
 
         clusterService = startNode(testInfo, "client", NODE_PORT_BASE + 1, nodeFinder);
 
@@ -126,28 +142,16 @@ public class ItInternalTableImplRetryerTest extends IgniteAbstractTest {
 
         RaftGroupService raftGroupService = mock(RaftGroupService.class);
 
-        doAnswer(mock -> CompletableFuture.completedFuture(new IgniteBiTuple<>(new Peer(addr0), 1L)))
+        doAnswer(mock -> CompletableFuture.completedFuture(new IgniteBiTuple<>(new Peer("client"), 1L)))
                 .when(raftGroupService).refreshAndGetLeaderWithTerm();
-
-        ClusterNode clusterNode = clusterService.topologyService().localMember();
-
-        final Function<NetworkAddress, ClusterNode> addressToNode = addr -> {
-            if (clusterNode.address().equals(addr)) {
-                return clusterNode;
-            }
-
-            return null;
-        };
-
-        UUID tableId = UUID.randomUUID();
 
         internalTable = new InternalTableImpl(
                 "",
-                tableId,
+                UUID.randomUUID(),
                 Int2ObjectMaps.singleton(0, raftGroupService),
                 1,
                 null,
-                addressToNode,
+                consistentId -> clusterService.topologyService().localMember(),
                 txManager,
                 null,
                 null,
@@ -233,7 +237,7 @@ public class ItInternalTableImplRetryerTest extends IgniteAbstractTest {
 
         internalTable.scan(0, null).subscribe(new TestSubscriber(e, latch));
 
-        latch.await();
+        latch.await(5, TimeUnit.SECONDS);
 
         assertTrue(e.get() == null, e.toString());
     }
@@ -329,7 +333,7 @@ public class ItInternalTableImplRetryerTest extends IgniteAbstractTest {
                 clusterService.topologyService().localMember()
         ).subscribe(new TestSubscriber(e, latch));
 
-        latch.await();
+        latch.await(5, TimeUnit.SECONDS);
 
         assertTrue(e.get() == null, e.toString());
     }
@@ -403,9 +407,9 @@ public class ItInternalTableImplRetryerTest extends IgniteAbstractTest {
     }
 
     private static class TestSubscriber implements Flow.Subscriber<BinaryRow> {
-        AtomicReference<Throwable> ex;
+        private AtomicReference<Throwable> ex;
 
-        CountDownLatch latch;
+        private CountDownLatch latch;
 
         public TestSubscriber(AtomicReference<Throwable> ex, CountDownLatch latch) {
             this.ex = ex;

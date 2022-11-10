@@ -131,7 +131,7 @@ public class InternalTableImpl implements InternalTable {
     /** A hybrid logical clock. */
     private final HybridClock clock;
 
-    /** Executor for scheduling retries of {@link InternalTableImpl#enlistWithRetry} invocations. */
+    /** Executor for scheduling retries of invocations. */
     private final ScheduledExecutorService executor;
 
     /**
@@ -146,6 +146,7 @@ public class InternalTableImpl implements InternalTable {
      * @param txStateStorage Transaction state storage.
      * @param replicaSvc Replica service.
      * @param clock A hybrid logical clock.
+     * @param executor Executor.
      */
     public InternalTableImpl(
             String tableName,
@@ -435,7 +436,6 @@ public class InternalTableImpl implements InternalTable {
                             } catch (PrimaryReplicaMissException e) {
                                 throw new TransactionException(e);
                             } catch (ReplicaUnavailableException e) {
-                                System.out.println("enlistWithRetry ReplicaUnavailableException 1");
                                 throw new TransactionException(e);
                             } catch (Throwable e) {
                                 throw new TransactionException(
@@ -472,7 +472,7 @@ public class InternalTableImpl implements InternalTable {
     }
 
     /**
-     * Partition enlisting with retrying.
+     * Request invoking with retrying.
      *
      * @param node Replica node.
      * @param request Request.
