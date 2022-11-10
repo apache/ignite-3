@@ -37,7 +37,7 @@ using Remotion.Linq.Parsing;
 /// <summary>
 /// Expression visitor, transforms query subexpressions (such as Where clauses) to SQL.
 /// </summary>
-internal class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
+internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
 {
     /** */
     private static readonly ConcurrentDictionary<MemberInfo, string> ColumnNameMap = new();

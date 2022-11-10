@@ -31,7 +31,7 @@ using Remotion.Linq.Utilities;
 /// <summary>
 /// Query provider for fields queries (projections).
 /// </summary>
-internal class IgniteQueryProvider : IQueryProvider
+internal sealed class IgniteQueryProvider : IQueryProvider
 {
     /** */
     private static readonly MethodInfo GenericCreateQueryMethod =

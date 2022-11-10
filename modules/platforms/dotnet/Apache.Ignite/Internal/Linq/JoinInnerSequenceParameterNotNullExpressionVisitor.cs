@@ -27,7 +27,7 @@ using Remotion.Linq.Parsing;
 /// <summary>
 /// Transforms JoinClause with parameterised inner sequence to .Join(innerSequence ?? new T[0] ...
 /// </summary>
-internal class JoinInnerSequenceParameterNotNullExpressionVisitor : RelinqExpressionVisitor
+internal sealed class JoinInnerSequenceParameterNotNullExpressionVisitor : RelinqExpressionVisitor
 {
     /** */
     private static readonly MethodInfo[] JoinMethods = typeof(Queryable).GetMethods()

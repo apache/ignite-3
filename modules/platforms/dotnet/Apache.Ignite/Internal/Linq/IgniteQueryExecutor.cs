@@ -30,7 +30,7 @@ using Sql;
 /// <summary>
 /// Fields query executor.
 /// </summary>
-internal class IgniteQueryExecutor : IQueryExecutor
+internal sealed class IgniteQueryExecutor : IQueryExecutor
 {
     private readonly Sql _sql;
 

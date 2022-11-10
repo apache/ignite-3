@@ -26,7 +26,7 @@ using System.Linq;
 /// <summary>
 /// Query data holder.
 /// </summary>
-internal class QueryData
+internal sealed class QueryData
 {
     /** */
     private readonly ICollection<object?> _parameters;
@@ -51,18 +51,12 @@ internal class QueryData
     /// <summary>
     /// Gets the parameters.
     /// </summary>
-    public ICollection<object?> Parameters
-    {
-        get { return _parameters; }
-    }
+    public ICollection<object?> Parameters => _parameters;
 
     /// <summary>
     /// Gets the query text.
     /// </summary>
-    public string QueryText
-    {
-        get { return _queryText; }
-    }
+    public string QueryText => _queryText;
 
     /// <summary>
     /// Returns a <see cref="string" /> that represents this instance.
@@ -70,12 +64,10 @@ internal class QueryData
     /// <returns>
     /// A <see cref="string" /> that represents this instance.
     /// </returns>
-    public override string ToString()
-    {
-        return string.Format(
+    public override string ToString() =>
+        string.Format(
             CultureInfo.InvariantCulture,
             "SQL Query [Text={0}, Parameters={1}]",
             QueryText,
             string.Join(", ", Parameters.Select(x => x == null! ? "null" : x.ToString())));
-    }
 }
