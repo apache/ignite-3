@@ -15,11 +15,9 @@
  * limitations under the License.
  */
 
-#pragma warning disable SA1615, SA1611, SA1405, SA1202 // TODO: Fix warnings.
 namespace Apache.Ignite.Internal.Linq;
 
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Linq;
@@ -76,36 +74,56 @@ internal sealed class AliasDictionary
     /// </summary>
     /// <param name="expression">Expression.</param>
     /// <returns>Table alias.</returns>
-    public string GetTableAlias(Expression expression)
-    {
-        Debug.Assert(expression != null, "expression != null");
+    public string GetTableAlias(Expression expression) =>
+        GetTableAlias(ExpressionWalker.GetQuerySource(expression)!);
 
-        return GetTableAlias(ExpressionWalker.GetQuerySource(expression)!);
+    /// <summary>
+    /// Gets the table alias.
+    /// </summary>
+    /// <param name="fromClause">FROM clause.</param>
+    /// <returns>Table alias.</returns>
+    public string GetTableAlias(IFromClause fromClause) =>
+        GetTableAlias(ExpressionWalker.GetQuerySource(fromClause.FromExpression) ?? fromClause);
+
+    /// <summary>
+    /// Gets the table alias.
+    /// </summary>
+    /// <param name="joinClause">JOIN clause.</param>
+    /// <returns>Table alias.</returns>
+    public string GetTableAlias(JoinClause joinClause) =>
+        GetTableAlias(ExpressionWalker.GetQuerySource(joinClause.InnerSequence) ?? joinClause);
+
+    /// <summary>
+    /// Gets the field alias.
+    /// </summary>
+    /// <param name="expression">Expression.</param>
+    /// <returns>Alias.</returns>
+    public string GetFieldAlias(Expression expression)
+    {
+        var referenceExpression = ExpressionWalker.GetQuerySourceReference(expression)!;
+
+        return GetFieldAlias(referenceExpression);
+    }
+
+    /// <summary>
+    /// Appends as clause.
+    /// </summary>
+    /// <param name="builder">Builder.</param>
+    /// <param name="clause">Clause.</param>
+    public void AppendAsClause(StringBuilder builder, IFromClause clause)
+    {
+        var queryable = ExpressionWalker.GetIgniteQueryable(clause)!;
+        var tableName = ExpressionWalker.GetTableNameWithSchema(queryable);
+
+        builder.AppendFormat(CultureInfo.InvariantCulture, "{0} as {1}", tableName, GetTableAlias(clause));
     }
 
     /// <summary>
     /// Gets the table alias.
     /// </summary>
-    public string GetTableAlias(IFromClause fromClause)
-    {
-        return GetTableAlias(ExpressionWalker.GetQuerySource(fromClause.FromExpression) ?? fromClause);
-    }
-
-    /// <summary>
-    /// Gets the table alias.
-    /// </summary>
-    public string GetTableAlias(JoinClause joinClause)
-    {
-        return GetTableAlias(ExpressionWalker.GetQuerySource(joinClause.InnerSequence) ?? joinClause);
-    }
-
-    /// <summary>
-    /// Gets the table alias.
-    /// </summary>
+    /// <returns>Table alias.</returns>
     private string GetTableAlias(IQuerySource querySource)
     {
-        Debug.Assert(querySource != null);
-
         if (!_tableAliases.TryGetValue(querySource, out var alias))
         {
             alias = "_T" + _tableAliasIndex++;
@@ -119,22 +137,8 @@ internal sealed class AliasDictionary
     /// <summary>
     /// Gets the fields alias.
     /// </summary>
-    public string GetFieldAlias(Expression expression)
-    {
-        Debug.Assert(expression != null);
-
-        var referenceExpression = ExpressionWalker.GetQuerySourceReference(expression)!;
-
-        return GetFieldAlias(referenceExpression);
-    }
-
-    /// <summary>
-    /// Gets the fields alias.
-    /// </summary>
     private string GetFieldAlias(QuerySourceReferenceExpression querySource)
     {
-        Debug.Assert(querySource != null);
-
         if (!_fieldAliases.TryGetValue(querySource, out var alias))
         {
             alias = "F" + _fieldAliasIndex++;
@@ -143,21 +147,5 @@ internal sealed class AliasDictionary
         }
 
         return alias;
-    }
-
-    /// <summary>
-    /// Appends as clause.
-    /// </summary>
-    public StringBuilder AppendAsClause(StringBuilder builder, IFromClause clause)
-    {
-        Debug.Assert(builder != null);
-        Debug.Assert(clause != null);
-
-        var queryable = ExpressionWalker.GetIgniteQueryable(clause)!;
-        var tableName = ExpressionWalker.GetTableNameWithSchema(queryable);
-
-        builder.AppendFormat(CultureInfo.InvariantCulture, "{0} as {1}", tableName, GetTableAlias(clause));
-
-        return builder;
     }
 }

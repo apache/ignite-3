@@ -406,7 +406,8 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
         }
 
         ValidateFromClause(fromClause);
-        _aliases.AppendAsClause(_builder, fromClause).Append(' ');
+        _aliases.AppendAsClause(_builder, fromClause);
+        _builder.Append(' ');
 
         var i = 0;
         foreach (var additionalFrom in queryModel.BodyClauses.OfType<AdditionalFromClause>())
@@ -544,7 +545,8 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
         }
         else
         {
-            _aliases.AppendAsClause(_builder, fromClause).Append(' ');
+            _aliases.AppendAsClause(_builder, fromClause);
+            _builder.Append(' ');
         }
     }
 
