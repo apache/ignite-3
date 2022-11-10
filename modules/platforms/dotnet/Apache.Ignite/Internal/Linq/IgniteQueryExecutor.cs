@@ -27,6 +27,7 @@ using Ignite.Transactions;
 using Proto.BinaryTuple;
 using Remotion.Linq;
 using Sql;
+using Table.Serialization;
 
 /// <summary>
 /// Fields query executor.
@@ -121,8 +122,22 @@ internal sealed class IgniteQueryExecutor : IQueryExecutor
                 (T)Sql.ReadColumnValue(ref reader, cols[0], 0)!;
         }
 
-        // TODO: Deserialize into T - how?
-        return null!;
+        // TODO: Compiled reader.
+        return (IReadOnlyList<IColumnMetadata> cols, ref BinaryTupleReader reader) =>
+        {
+            var res = Activator.CreateInstance<T>();
+
+            for (int i = 0; i < cols.Count; i++)
+            {
+                var col = cols[i];
+                var val = Sql.ReadColumnValue(ref reader, col, i);
+                var field = typeof(T).GetFieldByColumnName(col.Name);
+
+                field?.SetValue(res, val);
+            }
+
+            return res;
+        };
     }
 
     [SuppressMessage("Reliability", "CA2007:Consider calling ConfigureAwait on the awaited task", Justification = "False positive.")]

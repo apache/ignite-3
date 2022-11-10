@@ -74,8 +74,8 @@ public class LinqTests : IgniteTestsBase
             .ToArray();
 
         Assert.AreEqual(1, res.Length);
-        Assert.AreEqual(2, res[0].Key);
-        Assert.AreEqual("v-2", res[0].Val);
+        Assert.AreEqual(3, res[0].Key);
+        Assert.AreEqual("v-3", res[0].Val);
     }
 
     [Test]
