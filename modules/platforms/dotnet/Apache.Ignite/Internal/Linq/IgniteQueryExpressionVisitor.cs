@@ -15,14 +15,12 @@
  * limitations under the License.
  */
 
-#pragma warning disable SA1615, SA1611, SA1405, SA1202, SA1600 // TODO: Fix warnings.
 namespace Apache.Ignite.Internal.Linq;
 
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations.Schema;
-using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Linq.Expressions;
@@ -71,8 +69,6 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
     /// </param>
     public IgniteQueryExpressionVisitor(IgniteQueryModelVisitor modelVisitor, bool useStar, bool includeAllFields, bool visitEntireSubQueryModel)
     {
-        Debug.Assert(modelVisitor != null);
-
         _modelVisitor = modelVisitor;
         _useStar = useStar;
         _includeAllFields = includeAllFields;
@@ -95,66 +91,29 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
     private AliasDictionary Aliases => _modelVisitor.Aliases;
 
     /** <inheritdoc /> */
-    protected override Expression VisitUnary(UnaryExpression expression)
+    public override Expression Visit(Expression expression)
     {
-        var closeBracket = false;
+        var paramExpr = expression as ParameterExpression;
 
-        switch (expression.NodeType)
+        if (paramExpr != null)
         {
-            case ExpressionType.Negate:
-                ResultBuilder.Append("(-");
-                closeBracket = true;
-                break;
-
-            case ExpressionType.Not:
-                ResultBuilder.Append("(not ");
-                closeBracket = true;
-                break;
-
-            case ExpressionType.Convert:
-                // Ignore, let the db do the conversion
-                break;
-
-            default:
-                return base.VisitUnary(expression);
+            // This happens only with compiled queries, where parameters come from enclosing lambda.
+            AppendParameter(paramExpr);
+            return expression;
         }
 
-        Visit(expression.Operand);
-
-        if (closeBracket)
-        {
-            ResultBuilder.Append(')');
-        }
-
-        return expression;
+        return base.Visit(expression)!;
     }
 
     /// <summary>
-    /// Visits the binary function.
+    /// Appends a parameter.
     /// </summary>
-    /// <param name="expression">The expression.</param>
-    /// <returns>True if function detected, otherwise false.</returns>
-    private bool VisitBinaryFunc(BinaryExpression expression)
+    /// <param name="value">Parameter value.</param>
+    public void AppendParameter(object? value)
     {
-        if (expression.NodeType == ExpressionType.Add && expression.Left.Type == typeof(string))
-        {
-            ResultBuilder.Append("concat(");
-        }
-        else if (expression.NodeType == ExpressionType.Coalesce)
-        {
-            ResultBuilder.Append("coalesce(");
-        }
-        else
-        {
-            return false;
-        }
+        ResultBuilder.Append('?');
 
-        Visit(expression.Left);
-        ResultBuilder.Append(", ");
-        Visit(expression.Right);
-        ResultBuilder.Append(')');
-
-        return true;
+        _modelVisitor.Parameters.Add(value);
     }
 
     /** <inheritdoc /> */
@@ -249,21 +208,6 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
     }
 
     /** <inheritdoc /> */
-    public override Expression Visit(Expression expression)
-    {
-        var paramExpr = expression as ParameterExpression;
-
-        if (paramExpr != null)
-        {
-            // This happens only with compiled queries, where parameters come from enclosing lambda.
-            AppendParameter(paramExpr);
-            return expression;
-        }
-
-        return base.Visit(expression)!;
-    }
-
-    /** <inheritdoc /> */
     protected override Expression VisitQuerySourceReference(QuerySourceReferenceExpression expression)
     {
         // In some cases of Join clause different handling should be introduced
@@ -332,59 +276,6 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
         return expression;
     }
 
-    /// <summary>
-    /// Gets the name of the field from a member expression, with quotes when necessary.
-    /// </summary>
-    private static string GetColumnName(MemberExpression expression)
-    {
-        if (ColumnNameMap.TryGetValue(expression.Member, out var fieldName))
-        {
-            return fieldName;
-        }
-
-        // When there is a [Column] attribute with Name specified, use quoted identifier: exact match, allows whitespace.
-        // Otherwise (most common case), use uppercase non-quoted identifier (case-insensitive).
-        var columnName = expression.Member.GetCustomAttribute<ColumnAttribute>() is { Name: { } columnAttributeName }
-            ? '"' + columnAttributeName + '"'
-            : expression.Member.Name.ToUpperInvariant();
-
-        return ColumnNameMap.GetOrAdd(expression.Member, columnName);
-    }
-
-    /// <summary>
-    /// Visits the group by member.
-    /// </summary>
-    private bool VisitGroupByMember(Expression? expression)
-    {
-        var srcRef = expression as QuerySourceReferenceExpression;
-        if (srcRef == null)
-        {
-            return false;
-        }
-
-        var from = srcRef.ReferencedQuerySource as IFromClause;
-        if (from == null)
-        {
-            return false;
-        }
-
-        var subQry = from.FromExpression as SubQueryExpression;
-        if (subQry == null)
-        {
-            return false;
-        }
-
-        var grpBy = subQry.QueryModel.ResultOperators.OfType<GroupResultOperator>().FirstOrDefault();
-        if (grpBy == null)
-        {
-            return false;
-        }
-
-        Visit(grpBy.KeySelector);
-
-        return true;
-    }
-
     /** <inheritdoc /> */
     protected override Expression VisitConstant(ConstantExpression expression)
     {
@@ -396,16 +287,6 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
         AppendParameter(expression.Value);
 
         return expression;
-    }
-
-    /// <summary>
-    /// Appends the parameter.
-    /// </summary>
-    public void AppendParameter(object? value)
-    {
-        ResultBuilder.Append('?');
-
-        _modelVisitor.Parameters.Add(value);
     }
 
     /** <inheritdoc /> */
@@ -474,6 +355,64 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
         }
 
         return expression;
+    }
+
+    /** <inheritdoc /> */
+    protected override Exception CreateUnhandledItemException<T>(T unhandledItem, string visitMethod) =>
+        new NotSupportedException($"The expression '{unhandledItem}' (type: {typeof(T)}) is not supported.");
+
+    /** <inheritdoc /> */
+    protected override Expression VisitUnary(UnaryExpression expression)
+    {
+        var closeBracket = false;
+
+        switch (expression.NodeType)
+        {
+            case ExpressionType.Negate:
+                ResultBuilder.Append("(-");
+                closeBracket = true;
+                break;
+
+            case ExpressionType.Not:
+                ResultBuilder.Append("(not ");
+                closeBracket = true;
+                break;
+
+            case ExpressionType.Convert:
+                // Ignore, let the db do the conversion
+                break;
+
+            default:
+                return base.VisitUnary(expression);
+        }
+
+        Visit(expression.Operand);
+
+        if (closeBracket)
+        {
+            ResultBuilder.Append(')');
+        }
+
+        return expression;
+    }
+
+    /// <summary>
+    /// Gets the name of the field from a member expression, with quotes when necessary.
+    /// </summary>
+    private static string GetColumnName(MemberExpression expression)
+    {
+        if (ColumnNameMap.TryGetValue(expression.Member, out var fieldName))
+        {
+            return fieldName;
+        }
+
+        // When there is a [Column] attribute with Name specified, use quoted identifier: exact match, allows whitespace.
+        // Otherwise (most common case), use uppercase non-quoted identifier (case-insensitive).
+        var columnName = expression.Member.GetCustomAttribute<ColumnAttribute>() is { Name: { } columnAttributeName }
+            ? '"' + columnAttributeName + '"'
+            : expression.Member.Name.ToUpperInvariant();
+
+        return ColumnNameMap.GetOrAdd(expression.Member, columnName);
     }
 
     /// <summary>
@@ -556,10 +495,6 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
         }
     }
 
-    /** <inheritdoc /> */
-    protected override Exception CreateUnhandledItemException<T>(T unhandledItem, string visitMethod) =>
-        new NotSupportedException($"The expression '{unhandledItem}' (type: {typeof(T)}) is not supported.");
-
     /// <summary>
     /// Visits multiple arguments.
     /// </summary>
@@ -584,5 +519,67 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
 
             Visit(e);
         }
+    }
+
+    /// <summary>
+    /// Visits the group by member.
+    /// </summary>
+    private bool VisitGroupByMember(Expression? expression)
+    {
+        var srcRef = expression as QuerySourceReferenceExpression;
+        if (srcRef == null)
+        {
+            return false;
+        }
+
+        var from = srcRef.ReferencedQuerySource as IFromClause;
+        if (from == null)
+        {
+            return false;
+        }
+
+        var subQry = from.FromExpression as SubQueryExpression;
+        if (subQry == null)
+        {
+            return false;
+        }
+
+        var grpBy = subQry.QueryModel.ResultOperators.OfType<GroupResultOperator>().FirstOrDefault();
+        if (grpBy == null)
+        {
+            return false;
+        }
+
+        Visit(grpBy.KeySelector);
+
+        return true;
+    }
+
+    /// <summary>
+    /// Visits the binary function.
+    /// </summary>
+    /// <param name="expression">The expression.</param>
+    /// <returns>True if function detected, otherwise false.</returns>
+    private bool VisitBinaryFunc(BinaryExpression expression)
+    {
+        if (expression.NodeType == ExpressionType.Add && expression.Left.Type == typeof(string))
+        {
+            ResultBuilder.Append("concat(");
+        }
+        else if (expression.NodeType == ExpressionType.Coalesce)
+        {
+            ResultBuilder.Append("coalesce(");
+        }
+        else
+        {
+            return false;
+        }
+
+        Visit(expression.Left);
+        ResultBuilder.Append(", ");
+        Visit(expression.Right);
+        ResultBuilder.Append(')');
+
+        return true;
     }
 }
