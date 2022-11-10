@@ -15,11 +15,9 @@
  * limitations under the License.
  */
 
-#pragma warning disable SA1615, SA1611, SA1405, SA1202, SA1600 // TODO: Fix warnings.
 namespace Apache.Ignite.Internal.Linq;
 
 using System;
-using System.Diagnostics;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
@@ -40,59 +38,42 @@ internal sealed class IgniteQueryProvider : IQueryProvider
     /** */
     private readonly IQueryParser _parser;
 
-    /** */
-    private readonly IgniteQueryExecutor _executor;
-
-    /** */
-    private readonly string _tableName;
-
     /// <summary>
     /// Initializes a new instance of the <see cref="IgniteQueryProvider"/> class.
     /// </summary>
+    /// <param name="queryParser">Query parser.</param>
+    /// <param name="executor">Query executor.</param>
+    /// <param name="tableName">Table name.</param>
     public IgniteQueryProvider(
         IQueryParser queryParser,
         IgniteQueryExecutor executor,
-        string tableName,
-        Type cacheValueType)
+        string tableName)
     {
-        Debug.Assert(queryParser != null);
-        Debug.Assert(executor != null);
-        Debug.Assert(cacheValueType != null);
-
         _parser = queryParser;
-        _executor = executor;
-        _tableName = tableName;
+        Executor = executor;
+        TableName = tableName;
     }
 
     /// <summary>
     /// Gets the name of the table.
     /// </summary>
-    public string TableName
-    {
-        get { return _tableName; }
-    }
+    public string TableName { get; }
 
     /// <summary>
     /// Gets the executor.
     /// </summary>
-    public IgniteQueryExecutor Executor
-    {
-        get { return _executor; }
-    }
+    public IgniteQueryExecutor Executor { get; }
 
     /// <summary>
     /// Generates the query model.
     /// </summary>
-    public QueryModel GenerateQueryModel(Expression expression)
-    {
-        return _parser.GetParsedQuery(expression);
-    }
+    /// <param name="expression">Expression.</param>
+    /// <returns>Resulting query model.</returns>
+    public QueryModel GenerateQueryModel(Expression expression) => _parser.GetParsedQuery(expression);
 
     /** <inheritdoc /> */
     public IQueryable CreateQuery(Expression expression)
     {
-        Debug.Assert(expression != null);
-
         var elementType = GetItemTypeOfClosedGenericIEnumerable(expression.Type, "expression");
 
         // Slow, but this method is never called during normal LINQ usage with generics.
@@ -101,22 +82,13 @@ internal sealed class IgniteQueryProvider : IQueryProvider
     }
 
     /** <inheritdoc /> */
-    public IQueryable<T> CreateQuery<T>(Expression expression)
-    {
-        return new IgniteQueryable<T>(this, expression);
-    }
+    public IQueryable<T> CreateQuery<T>(Expression expression) => new IgniteQueryable<T>(this, expression);
 
     /** <inheritdoc /> */
-    object IQueryProvider.Execute(Expression expression)
-    {
-        return Execute(expression);
-    }
+    object IQueryProvider.Execute(Expression expression) => Execute(expression);
 
     /** <inheritdoc /> */
-    public TResult Execute<TResult>(Expression expression)
-    {
-        return (TResult) Execute(expression).Value;
-    }
+    public TResult Execute<TResult>(Expression expression) => (TResult) Execute(expression).Value;
 
     /// <summary>
     /// Gets the item type of closed generic i enumerable.
@@ -140,6 +112,6 @@ internal sealed class IgniteQueryProvider : IQueryProvider
     {
         var model = GenerateQueryModel(expression);
 
-        return model.Execute(_executor);
+        return model.Execute(Executor);
     }
 }
