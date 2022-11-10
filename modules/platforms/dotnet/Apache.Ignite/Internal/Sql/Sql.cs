@@ -113,7 +113,7 @@ namespace Apache.Ignite.Internal.Sql
             ITransaction? transaction,
             SqlStatement statement,
             RowReaderFactory<T> rowReaderFactory,
-            params object?[]? args)
+            ICollection<object?>? args)
         {
             IgniteArgumentCheck.NotNull(statement, nameof(statement));
 
@@ -149,7 +149,7 @@ namespace Apache.Ignite.Internal.Sql
 
                 w.Write(statement.Query);
 
-                w.WriteObjectArrayAsBinaryTuple(args);
+                w.WriteObjectCollectionAsBinaryTuple(args);
 
                 w.Flush();
                 return writer;

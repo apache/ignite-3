@@ -93,12 +93,11 @@ internal class CacheFieldsQueryExecutor : IQueryExecutor
 
         var statement = new SqlStatement(qryData.QueryText);
 
-        // TODO: Avoid ToArray
         IResultSet<T> resultSet = await _sql.ExecuteAsyncInternal<T>(
             _transaction,
             statement,
             _ => (cols, reader) => (T)Sql.ReadColumnValue(ref reader, cols[0], 0)!,
-            qryData.Parameters.ToArray())
+            qryData.Parameters)
             .ConfigureAwait(false);
 
         return resultSet;
