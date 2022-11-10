@@ -33,17 +33,16 @@ using Remotion.Linq.Clauses.Expressions;
 internal sealed class AliasDictionary
 {
     /** */
-    private readonly Dictionary<Expression, string> _fieldAliases = new Dictionary<Expression, string>();
+    private readonly Dictionary<Expression, string> _fieldAliases = new();
 
     /** */
-    private readonly Stack<Dictionary<IQuerySource, string>> _stack
-        = new Stack<Dictionary<IQuerySource, string>>();
+    private readonly Stack<Dictionary<IQuerySource, string>> _stack = new();
 
     /** */
     private int _tableAliasIndex;
 
     /** */
-    private Dictionary<IQuerySource, string> _tableAliases = new Dictionary<IQuerySource, string>();
+    private Dictionary<IQuerySource, string> _tableAliases = new();
 
     /** */
     private int _fieldAliasIndex;

@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 
-#pragma warning disable SA1615, SA1611, SA1405, SA1202, SA1600 // TODO: Fix warnings.
 namespace Apache.Ignite.Internal.Linq;
 
 using System;
@@ -32,10 +31,10 @@ internal static class EnumerableHelper
     /// <summary>
     /// Gets item type of enumerable.
     /// </summary>
+    /// <param name="type">Enumerable type.</param>
+    /// <returns>Item type.</returns>
     public static Type GetIEnumerableItemType(Type type)
     {
-        Debug.Assert(type != null);
-
         if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(IEnumerable<>))
         {
             return type.GetGenericArguments()[0];
