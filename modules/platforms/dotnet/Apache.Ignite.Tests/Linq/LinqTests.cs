@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Tests.Linq;
 
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -64,11 +65,16 @@ public class LinqTests : IgniteTestsBase
     [Test]
     public void TestSelectOneColumnSingleWithMultipleRowsThrows()
     {
-        var res = PocoView.AsQueryable()
+        // ReSharper disable once ReturnValueOfPureMethodIsNotUsed
+        var ex = Assert.Throws<InvalidOperationException>(
+            () => PocoView.AsQueryable()
             .Select(x => x.Val)
-            .Single();
+            .Single());
 
-        Assert.AreEqual("v-3", res);
+        const string expected = "ResultSet is expected to have one row, but has more: " +
+                                "select _T0.VAL from PUBLIC.TBL1 as _T0 limit 2";
+
+        Assert.AreEqual(expected, ex!.Message);
     }
 
     [Test]

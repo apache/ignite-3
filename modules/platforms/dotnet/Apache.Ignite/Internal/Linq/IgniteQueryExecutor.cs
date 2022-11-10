@@ -153,7 +153,8 @@ internal sealed class IgniteQueryExecutor : IQueryExecutor
         {
             if (count > 0)
             {
-                throw new InvalidOperationException("ResultSet has more than one element: " + queryModel);
+                throw new InvalidOperationException(
+                    "ResultSet is expected to have one row, but has more: " + GetQueryData(queryModel).QueryText);
             }
 
             res = row;
@@ -162,7 +163,7 @@ internal sealed class IgniteQueryExecutor : IQueryExecutor
 
         if (count == 0 && !returnDefaultWhenEmpty)
         {
-            throw new InvalidOperationException("ResultSet is empty: " + queryModel);
+            throw new InvalidOperationException("ResultSet is empty: " + GetQueryData(queryModel).QueryText);
         }
 
         return res;
