@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 
-#pragma warning disable SA1615, SA1611, SA1405, SA1202, SA1600 // TODO: Fix warnings.
 namespace Apache.Ignite.Internal.Linq;
 
 using System.Threading;
@@ -76,13 +75,13 @@ internal static class IgniteQueryParser
     /// Creates CompoundExpressionTreeProcessor.
     /// </summary>
     private static CompoundExpressionTreeProcessor CreateCompoundProcessor(
-        IExpressionTranformationProvider tranformationProvider)
+        IExpressionTranformationProvider transformationProvider)
     {
         return new CompoundExpressionTreeProcessor(
             new IExpressionTreeProcessor[]
             {
                 new PartialEvaluatingExpressionTreeProcessor(new NullEvaluatableExpressionFilter()),
-                new TransformingExpressionTreeProcessor(tranformationProvider)
+                new TransformingExpressionTreeProcessor(transformationProvider)
             });
     }
 
