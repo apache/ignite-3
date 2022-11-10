@@ -123,9 +123,16 @@ public class LinqTests : IgniteTestsBase
     }
 
     [Test]
-    public void TestTransaction()
+    public async Task TestTransaction()
     {
-        Assert.Fail("TODO: Update in TX, query with and without TX, observe different results.");
+        await using var tx = await Client.Transactions.BeginAsync();
+        await PocoView.UpsertAsync(tx, new Poco { Key = 5, Val = "new-val" });
+
+        var txRes = PocoView.AsQueryable(tx).Where(x => x.Key == 5).Select(x => x.Val).AsEnumerable().Single();
+        var noTxRes = PocoView.AsQueryable().Where(x => x.Key == 5).Select(x => x.Val).AsEnumerable().Single();
+
+        Assert.AreEqual("new-val", txRes);
+        Assert.AreEqual("v-5", noTxRes);
     }
 
     [Test]
