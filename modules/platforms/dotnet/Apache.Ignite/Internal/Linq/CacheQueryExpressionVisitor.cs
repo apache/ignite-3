@@ -291,18 +291,15 @@ internal class CacheQueryExpressionVisitor : ThrowingExpressionVisitor
         }
         else
         {
+            // TODO: Select only mapped fields according to the expression type (separate ticket?).
             // Count, sum, max, min expect a single field or *
-            // In other cases we need both parts of cache entry
-            // TODO: Select only mapped fields according to the expression type
-            var format = _includeAllFields
-                ? "{0}.*, {0}._KEY, {0}._VAL"
-                : _useStar
-                    ? "{0}.*"
-                    : "{0}._KEY, {0}._VAL";
-
+            // var format = _includeAllFields || _useStar
+            //     ? "{0}.*, {0}._KEY, {0}._VAL"
+            //     : _useStar
+            //         ? "{0}.*"
+            //         : "{0}._KEY, {0}._VAL";
             var tableName = Aliases.GetTableAlias(expression);
-
-            ResultBuilder.AppendFormat(CultureInfo.InvariantCulture, format, tableName);
+            ResultBuilder.Append(tableName).Append(".*");
         }
 
         return expression;
