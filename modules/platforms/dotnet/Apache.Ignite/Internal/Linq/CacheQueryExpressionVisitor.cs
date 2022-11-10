@@ -293,6 +293,7 @@ internal class CacheQueryExpressionVisitor : ThrowingExpressionVisitor
         {
             // Count, sum, max, min expect a single field or *
             // In other cases we need both parts of cache entry
+            // TODO: Select only mapped fields according to the expression type
             var format = _includeAllFields
                 ? "{0}.*, {0}._KEY, {0}._VAL"
                 : _useStar
