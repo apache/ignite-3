@@ -261,7 +261,7 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
                 }
                 else
                 {
-                    // Direct cache union, source is ICacheQueryable
+                    // Direct union, source is IIgniteQueryableInternal
                     var innerExpr = source as ConstantExpression;
 
                     if (innerExpr == null)
@@ -493,7 +493,7 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
     public override void VisitJoinClause(JoinClause joinClause, QueryModel queryModel, int index)
     {
         base.VisitJoinClause(joinClause, queryModel, index);
-        var queryable = ExpressionWalker.GetCacheQueryable(joinClause, false);
+        var queryable = ExpressionWalker.GetIgniteQueryable(joinClause, false);
 
         if (queryable != null)
         {

@@ -56,7 +56,7 @@ internal sealed class IgniteQueryable<T>
     IgniteQueryProvider IIgniteQueryableInternal.Provider => IgniteQueryProvider;
 
     /// <summary>
-    /// Gets the cache query provider.
+    /// Gets the query provider.
     /// </summary>
     private IgniteQueryProvider IgniteQueryProvider => (IgniteQueryProvider)Provider;
 

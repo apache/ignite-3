@@ -26,7 +26,7 @@ using Remotion.Linq.Parsing.Structure.ExpressionTreeProcessors;
 using Remotion.Linq.Parsing.Structure.NodeTypeProviders;
 
 /// <summary>
-/// Cache query parser.
+/// Query parser.
 /// </summary>
 internal static class IgniteQueryParser
 {

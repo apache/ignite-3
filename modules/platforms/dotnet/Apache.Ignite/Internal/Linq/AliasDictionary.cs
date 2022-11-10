@@ -153,7 +153,7 @@ internal sealed class AliasDictionary
         Debug.Assert(builder != null);
         Debug.Assert(clause != null);
 
-        var queryable = ExpressionWalker.GetCacheQueryable(clause)!;
+        var queryable = ExpressionWalker.GetIgniteQueryable(clause)!;
         var tableName = ExpressionWalker.GetTableNameWithSchema(queryable);
 
         builder.AppendFormat(CultureInfo.InvariantCulture, "{0} as {1}", tableName, GetTableAlias(clause));

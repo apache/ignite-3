@@ -48,7 +48,7 @@ internal class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
     /** */
     private readonly IgniteQueryModelVisitor _modelVisitor;
 
-    /** */
+    // ReSharper disable once NotAccessedField.Local
     private readonly bool _includeAllFields;
 
     /** */
@@ -82,26 +82,17 @@ internal class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
     /// <summary>
     /// Gets the result builder.
     /// </summary>
-    public StringBuilder ResultBuilder
-    {
-        get { return _modelVisitor.Builder; }
-    }
+    public StringBuilder ResultBuilder => _modelVisitor.Builder;
 
     /// <summary>
     /// Gets the parameters.
     /// </summary>
-    public IList<object?> Parameters
-    {
-        get { return _modelVisitor.Parameters; }
-    }
+    public IList<object?> Parameters => _modelVisitor.Parameters;
 
     /// <summary>
     /// Gets the aliases.
     /// </summary>
-    private AliasDictionary Aliases
-    {
-        get { return _modelVisitor.Aliases; }
-    }
+    private AliasDictionary Aliases => _modelVisitor.Aliases;
 
     /** <inheritdoc /> */
     protected override Expression VisitUnary(UnaryExpression expression)
@@ -277,7 +268,7 @@ internal class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
     {
         // In some cases of Join clause different handling should be introduced
         var joinClause = expression.ReferencedQuerySource as JoinClause;
-        if (joinClause != null && ExpressionWalker.GetCacheQueryable(expression, false) == null)
+        if (joinClause != null && ExpressionWalker.GetIgniteQueryable(expression, false) == null)
         {
             var tableName = Aliases.GetTableAlias(expression);
             var fieldname = Aliases.GetFieldAlias(expression);
@@ -298,8 +289,8 @@ internal class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
             //     : _useStar
             //         ? "{0}.*"
             //         : "{0}._KEY, {0}._VAL";
-            var tableName = Aliases.GetTableAlias(expression);
-            ResultBuilder.Append(tableName).Append(".*");
+            // var tableName = Aliases.GetTableAlias(expression);
+            ResultBuilder.Append('*');
         }
 
         return expression;
@@ -322,7 +313,7 @@ internal class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
             return expression;
         }
 
-        var queryable = ExpressionWalker.GetCacheQueryable(expression, false);
+        var queryable = ExpressionWalker.GetIgniteQueryable(expression, false);
 
         if (queryable != null)
         {
@@ -494,7 +485,7 @@ internal class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
 
         var fromExpression = subQueryModel.MainFromClause.FromExpression;
 
-        var queryable = ExpressionWalker.GetCacheQueryable(fromExpression, false);
+        var queryable = ExpressionWalker.GetIgniteQueryable(fromExpression, false);
 
         if (queryable != null)
         {

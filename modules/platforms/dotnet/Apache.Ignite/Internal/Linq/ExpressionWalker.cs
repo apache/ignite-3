@@ -38,31 +38,31 @@ internal static class ExpressionWalker
     private static readonly ConcurrentDictionary<MemberInfo, Func<object?, object?>> MemberReaders = new();
 
     /// <summary>
-    /// Gets the cache queryable.
+    /// Gets the queryable.
     /// </summary>
-    public static IIgniteQueryableInternal? GetCacheQueryable(IFromClause fromClause, bool throwWhenNotFound = true)
+    public static IIgniteQueryableInternal? GetIgniteQueryable(IFromClause fromClause, bool throwWhenNotFound = true)
     {
-        return GetCacheQueryable(fromClause.FromExpression, throwWhenNotFound);
+        return GetIgniteQueryable(fromClause.FromExpression, throwWhenNotFound);
     }
 
     /// <summary>
-    /// Gets the cache queryable.
+    /// Gets the queryable.
     /// </summary>
-    public static IIgniteQueryableInternal? GetCacheQueryable(JoinClause joinClause, bool throwWhenNotFound = true)
+    public static IIgniteQueryableInternal? GetIgniteQueryable(JoinClause joinClause, bool throwWhenNotFound = true)
     {
-        return GetCacheQueryable(joinClause.InnerSequence, throwWhenNotFound);
+        return GetIgniteQueryable(joinClause.InnerSequence, throwWhenNotFound);
     }
 
     /// <summary>
-    /// Gets the cache queryable.
+    /// Gets the queryable.
     /// </summary>
-    public static IIgniteQueryableInternal? GetCacheQueryable(Expression expression, bool throwWhenNotFound = true)
+    public static IIgniteQueryableInternal? GetIgniteQueryable(Expression expression, bool throwWhenNotFound = true)
     {
         var subQueryExp = expression as SubQueryExpression;
 
         if (subQueryExp != null)
         {
-            return GetCacheQueryable(subQueryExp.QueryModel.MainFromClause, throwWhenNotFound);
+            return GetIgniteQueryable(subQueryExp.QueryModel.MainFromClause, throwWhenNotFound);
         }
 
         var srcRefExp = expression as QuerySourceReferenceExpression;
@@ -73,14 +73,14 @@ internal static class ExpressionWalker
 
             if (fromSource != null)
             {
-                return GetCacheQueryable(fromSource, throwWhenNotFound);
+                return GetIgniteQueryable(fromSource, throwWhenNotFound);
             }
 
             var joinSource = srcRefExp.ReferencedQuerySource as JoinClause;
 
             if (joinSource != null)
             {
-                return GetCacheQueryable(joinSource, throwWhenNotFound);
+                return GetIgniteQueryable(joinSource, throwWhenNotFound);
             }
 
             throw new NotSupportedException("Unexpected query source: " + srcRefExp.ReferencedQuerySource);
@@ -96,7 +96,7 @@ internal static class ExpressionWalker
                 return EvaluateExpression<IIgniteQueryableInternal>(memberExpr);
             }
 
-            return GetCacheQueryable(memberExpr.Expression!, throwWhenNotFound);
+            return GetIgniteQueryable(memberExpr.Expression!, throwWhenNotFound);
         }
 
         var constExpr = expression as ConstantExpression;
