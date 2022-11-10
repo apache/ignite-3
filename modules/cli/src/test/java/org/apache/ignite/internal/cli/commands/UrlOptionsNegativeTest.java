@@ -273,7 +273,7 @@ public class UrlOptionsNegativeTest {
 
         assertAll(
                 this::assertOutputIsEmpty,
-                () -> assertErrOutputContains("Missing required parameter: '<nodeUrl>'")
+                () -> assertErrOutputContains("Missing required parameter: '<nodeNameOrUrl>'")
         );
     }
 
