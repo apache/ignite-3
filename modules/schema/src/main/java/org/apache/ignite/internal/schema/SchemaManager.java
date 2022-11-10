@@ -458,17 +458,16 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
      * @param tblId Table id.
      * @return Schema representation if schema found, {@code null} otherwise.
      */
-    @Nullable private byte[] schemaByVersion(UUID tblId, int ver) {
+    private byte[] schemaByVersion(UUID tblId, int ver) {
         try {
-            Cursor<Entry> cur = metastorageMgr.prefix(schemaHistPrefix(tblId));
+            Cursor<Entry> cur = metastorageMgr.prefix(schemaWithVerHistKey(tblId, ver));
 
-            for (Entry ent : cur) {
-                String key = ent.key().toString();
-                int descVer = extractVerFromSchemaKey(key);
+            if (cur.hasNext()) {
+                Entry ent = cur.next();
 
-                if (descVer == ver) {
-                    return ent.value();
-                }
+                assert !cur.hasNext();
+
+                return ent.value();
             }
 
             return null;

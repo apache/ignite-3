@@ -486,8 +486,6 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
 
         /** Creates converter for given version of the schema. */
         private VersionedConverter createConverter(int schemaVersion) {
-            assert registry != null : "Registry is not initialized for schema=" + schemaVersion;
-
             SchemaDescriptor descriptor = registry.schema();
 
             if (descriptor.version() < schemaVersion) {

@@ -52,21 +52,6 @@ public class SchemaUtils {
             SchemaDescriptor oldDesc,
             SchemaDescriptor newDesc
     ) {
-        // Rename not supported from standard, thus only deletion.
-        if (newDesc.keyColumns().length() != oldDesc.keyColumns().length()) {
-            Optional<Column> droppedKeyCol = Arrays.stream(oldDesc.keyColumns().columns())
-                    .filter(c -> !newDesc.column(c.schemaIndex()).name().equals(c.name()))
-                    .findAny();
-
-            // TODO: IGNITE-15774 Assertion just in case, proper validation should be implemented with the help of configuration validators.
-            assert droppedKeyCol.isEmpty() :
-                    IgniteStringFormatter.format(
-                            "Dropping of key column is forbidden: [schemaVer={}, col={}]",
-                            newDesc.version(),
-                            droppedKeyCol.get()
-                    );
-        }
-
         Column[] cols = oldDesc.valueColumns().columns();
         Column[] oldCols = Arrays.copyOf(cols, cols.length);
 

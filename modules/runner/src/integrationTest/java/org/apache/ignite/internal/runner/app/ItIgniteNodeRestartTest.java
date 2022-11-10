@@ -681,7 +681,6 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * Restarts the node which stores some data.
      */
     @Test
-
     public void nodeWithDataTest() {
         Ignite ignite = startNode(0);
 
