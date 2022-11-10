@@ -105,7 +105,6 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
      * @return A future.
      */
     private CompletableFuture<?> onSchemaChange(ConfigurationNotificationEvent<NamedListView<ColumnView>> ctx) {
-        // TODO: restore all schemes on recovery https://issues.apache.org/jira/browse/IGNITE-18066
         if (!busyLock.enterBusy()) {
             return failedFuture(new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException()));
         }
@@ -276,8 +275,6 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
 
         SchemaRegistry registry = registriesVv.latest().get(tblId);
 
-        // TODO: We can remove it after: restore all schemes on recovery https://issues.apache.org/jira/browse/IGNITE-18066
-        // Probably all near stuff must be improved too.
         if (registry.lastSchemaVersion() > schemaVer) {
             return getSchemaDescriptor(schemaVer, tblCfg);
         }
