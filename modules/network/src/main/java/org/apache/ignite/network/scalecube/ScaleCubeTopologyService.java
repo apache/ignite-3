@@ -116,13 +116,12 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
     }
 
     /**
-     * Updates info about the local member.
+     * Updates metadata of the local member.
      *
-     * @param member the local member.
      * @param metadata metadata of the local member.
      */
-    void updateLocalMember(Member member, @Nullable NodeMetadata metadata) {
-        ClusterNode node = fromMember(member, metadata);
+    void updateLocalMetadata(@Nullable NodeMetadata metadata) {
+        ClusterNode node = fromMember(cluster.member(), metadata);
         members.put(node.address(), node);
         consistentIdToMemberMap.put(node.name(), node);
     }
@@ -197,7 +196,11 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
      * @param buffer ByteBuffer to deserialize.
      * @return NodeMetadata or null if something goes wrong.
      */
-    private static NodeMetadata deserializeMetadata(ByteBuffer buffer) {
+    @Nullable
+    private static NodeMetadata deserializeMetadata(@Nullable ByteBuffer buffer) {
+        if (buffer == null) {
+            return null;
+        }
         try {
             return (NodeMetadata) METADATA_CODEC.deserialize(buffer);
         } catch (Exception e) {

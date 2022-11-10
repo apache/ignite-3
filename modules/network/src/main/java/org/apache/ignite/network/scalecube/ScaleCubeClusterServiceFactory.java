@@ -17,6 +17,8 @@
 
 package org.apache.ignite.network.scalecube;
 
+import static io.scalecube.cluster.membership.MembershipEvent.createAdded;
+
 import io.scalecube.cluster.ClusterConfig;
 import io.scalecube.cluster.ClusterImpl;
 import io.scalecube.cluster.ClusterMessageHandler;
@@ -27,7 +29,6 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
@@ -44,7 +45,6 @@ import org.apache.ignite.internal.network.serialization.ClassDescriptorRegistry;
 import org.apache.ignite.internal.network.serialization.SerializationService;
 import org.apache.ignite.internal.network.serialization.UserObjectSerializationContext;
 import org.apache.ignite.internal.network.serialization.marshal.DefaultUserObjectMarshaller;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.AbstractClusterService;
 import org.apache.ignite.network.ClusterLocalConfiguration;
@@ -55,8 +55,6 @@ import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NodeFinder;
 import org.apache.ignite.network.NodeFinderFactory;
 import org.apache.ignite.network.NodeMetadata;
-import reactor.core.scheduler.Scheduler;
-import reactor.core.scheduler.Schedulers;
 
 /**
  * Cluster service factory that uses ScaleCube for messaging and topology services.
@@ -151,8 +149,9 @@ public class ScaleCubeClusterServiceFactory {
 
                 cluster.startAwait();
 
-                // update info about the local member (ScaleCube doesn't emit events about local members)
-                topologyService.updateLocalMember(cluster.member(), null);
+                // emit an artificial event as if the local member has joined the topology (ScaleCube doesn't do that)
+                var localMembershipEvent = createAdded(cluster.member(), null, System.currentTimeMillis());
+                topologyService.onMembershipEvent(localMembershipEvent);
             }
 
             /** {@inheritDoc} */
@@ -200,7 +199,7 @@ public class ScaleCubeClusterServiceFactory {
             @Override
             public void updateMetadata(NodeMetadata metadata) {
                 cluster.updateMetadata(metadata).subscribe();
-                topologyService.updateLocalMember(cluster.member(), metadata);
+                topologyService.updateLocalMetadata(metadata);
             }
         };
     }
@@ -252,9 +251,5 @@ public class ScaleCubeClusterServiceFactory {
         return addresses.stream()
                 .map(addr -> Address.create(addr.host(), addr.port()))
                 .collect(Collectors.toList());
-    }
-
-    private Scheduler scheduler(String namePrefix) {
-        return Schedulers.fromExecutor(Executors.newSingleThreadExecutor(new NamedThreadFactory(namePrefix, LOG)));
     }
 }

@@ -47,6 +47,7 @@ import org.junit.jupiter.api.TestInfo;
  * Tests for ScaleCube based {@link ClusterService}.
  */
 public class ItClusterServiceTest {
+
     @Test
     void testShutdown(TestInfo testInfo) {
         var addr = new NetworkAddress("localhost", 10000);
@@ -95,12 +96,14 @@ public class ItClusterServiceTest {
             IgniteUtils.closeAll(service1::stop, service2::stop);
         }
     }
+
     private static void checkLocalMeta(ClusterService service, NodeMetadata expectedMeta) throws InterruptedException {
         assertTrue(waitForCondition(() -> {
             ClusterNode localMember = service.topologyService().localMember();
             return expectedMeta.equals(localMember.nodeMetadata());
         }, 1000));
     }
+
     private static void checkRemoteMeta(
             ClusterService localService, ClusterService remoteService, NodeMetadata expectedMeta
     ) throws InterruptedException {
@@ -114,6 +117,7 @@ public class ItClusterServiceTest {
             return expectedMeta.equals(remoteMember.nodeMetadata());
         }, 1000));
     }
+
     private static void checkAllMeta(ClusterService service, Set<NodeMetadata> expectedMeta) throws InterruptedException {
         assertTrue(waitForCondition(() -> {
             Set<NodeMetadata> actualMeta = service.topologyService().allMembers()
