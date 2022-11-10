@@ -358,12 +358,8 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
             {
                 _builder.Append("distinct ");
             }
-            else if (op is FirstResultOperator || op is SingleResultOperator)
-            {
-                _builder.Append("top 1 ");
-            }
-            else if (op is UnionResultOperator || op is IntersectResultOperator || op is ExceptResultOperator
-                     || op is DefaultIfEmptyResultOperator || op is SkipResultOperator || op is TakeResultOperator)
+            else if (op is UnionResultOperator or IntersectResultOperator or ExceptResultOperator or DefaultIfEmptyResultOperator or
+                     SkipResultOperator or TakeResultOperator or FirstResultOperator or SingleResultOperator)
             {
                 // Will be processed later
                 break;
@@ -458,6 +454,19 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
     /// </summary>
     private void ProcessSkipTake(QueryModel queryModel)
     {
+        if (queryModel.ResultOperators.Any(static x => x is FirstResultOperator))
+        {
+            _builder.Append("limit 1");
+            return;
+        }
+
+        if (queryModel.ResultOperators.Any(static x => x is SingleResultOperator))
+        {
+            // Will fail in IgniteQueryExecutor.ExecuteSingleInternalAsync if there is more than 1 row.
+            _builder.Append("limit 2");
+            return;
+        }
+
         var limit = queryModel.ResultOperators.OfType<TakeResultOperator>().FirstOrDefault();
         var offset = queryModel.ResultOperators.OfType<SkipResultOperator>().FirstOrDefault();
 
@@ -471,6 +480,7 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
 
         if (limit == null)
         {
+            // TODO: Ticket for offset/limit support.
             // Workaround for unlimited offset (IGNITE-2602)
             // H2 allows NULL & -1 for unlimited, but Ignite indexing does not
             // Maximum limit that works is (int.MaxValue - offset)
