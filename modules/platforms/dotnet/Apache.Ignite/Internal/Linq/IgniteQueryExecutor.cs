@@ -79,16 +79,6 @@ internal sealed class IgniteQueryExecutor : IQueryExecutor
     /// <param name="queryModel">Query model.</param>
     /// <typeparam name="T">Result type.</typeparam>
     /// <returns>Result set.</returns>
-    [SuppressMessage("Reliability", "CA2000:Dispose objects before losing scope", Justification = "Disposable is returned.")]
-    internal IResultSet<T> ExecuteResultSetInternal<T>(QueryModel queryModel) =>
-        ExecuteResultSetInternalAsync<T>(queryModel).GetAwaiter().GetResult();
-
-    /// <summary>
-    /// Executes query and returns <see cref="IResultSet{T}"/>.
-    /// </summary>
-    /// <param name="queryModel">Query model.</param>
-    /// <typeparam name="T">Result type.</typeparam>
-    /// <returns>Result set.</returns>
     internal async Task<IResultSet<T>> ExecuteResultSetInternalAsync<T>(QueryModel queryModel)
     {
         var qryData = GetQueryData(queryModel);
@@ -136,4 +126,8 @@ internal sealed class IgniteQueryExecutor : IQueryExecutor
 
         return res;
     }
+
+    [SuppressMessage("Reliability", "CA2000:Dispose objects before losing scope", Justification = "Disposable is returned.")]
+    private IResultSet<T> ExecuteResultSetInternal<T>(QueryModel queryModel) =>
+        ExecuteResultSetInternalAsync<T>(queryModel).GetAwaiter().GetResult();
 }
