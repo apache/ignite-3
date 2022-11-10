@@ -58,7 +58,28 @@ public class LinqTests : IgniteTestsBase
             .Select(x => x.Val)
             .Single();
 
-        CollectionAssert.AreEqual("v-3", res);
+        Assert.AreEqual("v-3", res);
+    }
+
+    [Test]
+    public void TestSelectOneColumnSingleWithMultipleRowsThrows()
+    {
+        var res = PocoView.AsQueryable()
+            .Select(x => x.Val)
+            .Single();
+
+        Assert.AreEqual("v-3", res);
+    }
+
+    [Test]
+    public void TestSelectOneColumnFirst()
+    {
+        var res = PocoView.AsQueryable()
+            .OrderBy(x => x.Key)
+            .Select(x => x.Val)
+            .First();
+
+        Assert.AreEqual("v-0", res);
     }
 
     [Test]
