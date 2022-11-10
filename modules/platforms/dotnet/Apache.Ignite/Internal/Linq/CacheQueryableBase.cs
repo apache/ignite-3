@@ -97,7 +97,7 @@ internal abstract class CacheQueryableBase<T>
 
         sb.Append(']');
 
-        return queryData.QueryText;
+        return sb.ToString();
     }
 
     /// <summary>

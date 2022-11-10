@@ -72,4 +72,21 @@ public class LinqTests : IgniteTestsBase
         Assert.AreEqual(2, res[0].Key);
         Assert.AreEqual("v-2", res[0].Val);
     }
+
+    [Test]
+    public void TestQueryToString()
+    {
+        var query = PocoView.AsQueryable()
+            .Where(x => x.Key == 3 && x.Val != "v-2")
+            .Select(x => new { x.Val, x.Key });
+
+        const string expected =
+            "CacheFieldsQueryable`1 [Query=" +
+            "select _T0.VAL, _T0.KEY " +
+            "from PUBLIC.TBL1 as _T0 " +
+            "where ((_T0.KEY IS NOT DISTINCT FROM ?) and (_T0.VAL IS DISTINCT FROM ?))" +
+            ", Parameters=3, v-2]";
+
+        Assert.AreEqual(expected, query.ToString());
+    }
 }

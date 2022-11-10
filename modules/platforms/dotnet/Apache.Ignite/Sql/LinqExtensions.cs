@@ -49,16 +49,4 @@ public static class LinqExtensions
 
         return await queryableInternal.Provider.Executor.ExecuteResultSetAsyncInternal<T>(model).ConfigureAwait(false);
     }
-
-    /// <summary>
-    /// Converts the query expression represented by <paramref name="queryable"/> to Ignite SQL statement (<see cref="SqlStatement"/>).
-    /// </summary>
-    /// <param name="queryable">Queryable.</param>
-    /// <typeparam name="T">Result type.</typeparam>
-    /// <returns>Resulting SQL statement.</returns>
-    public static SqlStatement ToSqlStatement<T>(this IQueryable<T> queryable)
-    {
-        // TODO
-        throw new NotImplementedException();
-    }
 }
