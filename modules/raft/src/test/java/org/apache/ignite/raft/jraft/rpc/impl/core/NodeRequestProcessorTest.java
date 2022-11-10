@@ -79,7 +79,7 @@ public class NodeRequestProcessorTest {
     @BeforeEach
     public void setup() {
         this.asyncContext = new MockAsyncContext();
-        this.processor = new MockRequestProcessor("localhost:8081", "test");
+        this.processor = new MockRequestProcessor("localhost-8081", "test");
     }
 
     @AfterEach
@@ -92,7 +92,7 @@ public class NodeRequestProcessorTest {
         Node node = Mockito.mock(Node.class, withSettings().extraInterfaces(RaftServerService.class));
 
         Mockito.when(node.getGroupId()).thenReturn("test");
-        PeerId peerId = new PeerId("localhost", 8081);
+        PeerId peerId = new PeerId("localhost-8081");
         Mockito.when(node.getNodeId()).thenReturn(new NodeId("test", peerId));
 
         asyncContext.getNodeManager().add(node);
@@ -105,12 +105,12 @@ public class NodeRequestProcessorTest {
 
     @Test
     public void testInvalidPeerId() {
-        this.processor = new MockRequestProcessor("localhost", "test");
+        this.processor = new MockRequestProcessor("localhost:asd", "test");
         this.processor.handleRequest(asyncContext, TestUtils.createPingRequest());
         ErrorResponse resp = (ErrorResponse) asyncContext.getResponseObject();
         assertNotNull(resp);
         assertEquals(RaftError.EINVAL.getNumber(), resp.errorCode());
-        assertEquals("Fail to parse peerId: localhost", resp.errorMsg());
+        assertEquals("Fail to parse peerId: localhost:asd", resp.errorMsg());
     }
 
     @Test
@@ -119,6 +119,6 @@ public class NodeRequestProcessorTest {
         ErrorResponse resp = (ErrorResponse) asyncContext.getResponseObject();
         assertNotNull(resp);
         assertEquals(RaftError.ENOENT.getNumber(), resp.errorCode());
-        assertEquals("Peer id not found: localhost:8081, group: test", resp.errorMsg());
+        assertEquals("Peer id not found: localhost-8081, group: test", resp.errorMsg());
     }
 }

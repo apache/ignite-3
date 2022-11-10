@@ -19,6 +19,7 @@ package org.apache.ignite.internal.tx.storage.state;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.configuration.storage.StorageException;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
@@ -31,7 +32,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Storage for transaction meta, {@link TxMeta}.
  */
-public interface TxStateStorage extends AutoCloseable {
+public interface TxStateStorage extends ManuallyCloseable {
     /**
      * Get tx meta by tx id.
      *
@@ -108,6 +109,12 @@ public interface TxStateStorage extends AutoCloseable {
      * {@link #lastAppliedIndex()} value consistent with the data, already persisted on the storage.
      */
     long persistedIndex();
+
+    /**
+     * Closes the storage.
+     */
+    @Override
+    void close();
 
     /**
      * Removes all data from the storage.

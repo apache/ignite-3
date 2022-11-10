@@ -101,7 +101,7 @@ public class TestTxStateStorage implements TxStateStorage {
             close();
 
             storage.clear();
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             throw new StorageException("Failed to destroy the transaction state storage", e);
         }
     }
@@ -127,7 +127,7 @@ public class TestTxStateStorage implements TxStateStorage {
     }
 
     @Override
-    public void close() throws Exception {
+    public void close() {
         // No-op.
     }
 }

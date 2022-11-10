@@ -43,7 +43,7 @@ public:
      * @param connection Connection.
      */
     explicit tables_impl(std::shared_ptr<cluster_connection> connection)
-        : m_connection(std::move(connection)) { }
+        : m_connection(std::move(connection)) {}
 
     /**
      * Gets a table by name.

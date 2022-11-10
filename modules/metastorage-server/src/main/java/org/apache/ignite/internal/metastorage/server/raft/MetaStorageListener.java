@@ -418,7 +418,7 @@ public class MetaStorageListener implements RaftGroupListener {
     public void onShutdown() {
         try {
             storage.close();
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             throw new MetaStorageException(CLOSING_STORAGE_ERR, "Failed to close storage: " + e.getMessage(), e);
         }
     }

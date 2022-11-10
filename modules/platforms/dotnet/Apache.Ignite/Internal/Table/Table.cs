@@ -24,6 +24,7 @@ namespace Apache.Ignite.Internal.Table
     using System.Threading.Tasks;
     using Buffers;
     using Ignite.Table;
+    using Ignite.Transactions;
     using MessagePack;
     using Proto;
     using Serialization;
@@ -172,10 +173,26 @@ namespace Apache.Ignite.Internal.Table
         }
 
         /// <summary>
-        /// Gets the latest schema.
+        /// Gets the preferred node by colocation hash.
         /// </summary>
-        /// <returns>Schema.</returns>
-        internal async ValueTask<string[]> GetPartitionAssignmentAsync()
+        /// <param name="colocationHash">Colocation hash.</param>
+        /// <param name="transaction">Transaction.</param>
+        /// <returns>Preferred node.</returns>
+        internal async ValueTask<PreferredNode> GetPreferredNode(int colocationHash, ITransaction? transaction)
+        {
+            if (transaction != null)
+            {
+                return default;
+            }
+
+            var assignment = await GetPartitionAssignmentAsync().ConfigureAwait(false);
+            var partition = Math.Abs(colocationHash % assignment.Length);
+            var nodeId = assignment[partition];
+
+            return PreferredNode.FromId(nodeId);
+        }
+
+        private async ValueTask<string[]> GetPartitionAssignmentAsync()
         {
             var socketVer = _socket.PartitionAssignmentVersion;
             var assignment = _partitionAssignment;

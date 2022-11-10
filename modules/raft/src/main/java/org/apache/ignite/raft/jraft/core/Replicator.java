@@ -586,7 +586,7 @@ public class Replicator implements ThreadId.OnError {
             final long monotonicSendTimeMs = Utils.monotonicMs();
             final int stateVersion = this.version;
             final int seq = getAndIncrementReqSeq();
-            final Future<Message> rpcFuture = this.rpcService.installSnapshot(this.options.getPeerId().getEndpoint(),
+            final Future<Message> rpcFuture = this.rpcService.installSnapshot(this.options.getPeerId(),
                 request, new RpcResponseClosureAdapter<InstallSnapshotResponse>() {
                     @Override
                     public void run(final Status status) {
@@ -702,7 +702,7 @@ public class Replicator implements ThreadId.OnError {
                         }
                     };
                 }
-                this.heartbeatInFly = this.rpcService.appendEntries(this.options.getPeerId().getEndpoint(), request,
+                this.heartbeatInFly = this.rpcService.appendEntries(this.options.getPeerId(), request,
                     this.options.getElectionTimeoutMs() / 2, heartbeatDone);
             }
             else {
@@ -718,7 +718,7 @@ public class Replicator implements ThreadId.OnError {
                 this.state = State.Probe;
                 final int stateVersion = this.version;
                 final int seq = getAndIncrementReqSeq();
-                final Future<Message> rpcFuture = this.rpcService.appendEntries(this.options.getPeerId().getEndpoint(),
+                final Future<Message> rpcFuture = this.rpcService.appendEntries(this.options.getPeerId(),
                     request, -1, new RpcResponseClosureAdapter<AppendEntriesResponse>() {
                         @Override public void run(final Status status) {
                             onRpcReturned(Replicator.this.id, RequestType.AppendEntries, status, request,
@@ -788,7 +788,7 @@ public class Replicator implements ThreadId.OnError {
             throw new IllegalArgumentException("Invalid ReplicatorOptions.");
         }
         final Replicator r = new Replicator(opts, raftOptions);
-        if (!r.rpcService.connect(opts.getPeerId().getEndpoint())) {
+        if (!r.rpcService.connect(opts.getPeerId())) {
             LOG.error("Fail to init sending channel to {}.", opts.getPeerId());
             // Return and it will be retried later.
             return null;
@@ -1608,7 +1608,7 @@ public class Replicator implements ThreadId.OnError {
 
         Future<Message> rpcFuture = null;
         try {
-            rpcFuture = this.rpcService.appendEntries(this.options.getPeerId().getEndpoint(), request, -1,
+            rpcFuture = this.rpcService.appendEntries(this.options.getPeerId(), request, -1,
                 new RpcResponseClosureAdapter<AppendEntriesResponse>() {
                     @Override
                     public void run(final Status status) {
@@ -1691,7 +1691,7 @@ public class Replicator implements ThreadId.OnError {
 
     private Future<Message> timeoutNow(final TimeoutNowRequest request, final boolean stopAfterFinish,
         final int timeoutMs) {
-        return this.rpcService.timeoutNow(this.options.getPeerId().getEndpoint(), request, timeoutMs,
+        return this.rpcService.timeoutNow(this.options.getPeerId(), request, timeoutMs,
             new RpcResponseClosureAdapter<TimeoutNowResponse>() {
 
                 @Override

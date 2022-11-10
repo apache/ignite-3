@@ -22,17 +22,20 @@ import static org.mockito.Mockito.mock;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.Collection;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.function.Function;
 import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
@@ -52,7 +55,6 @@ import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -62,7 +64,7 @@ import org.mockito.Mockito;
 /**
  * Tests execution flow of TableScanNode.
  */
-public class TableScanExecutionTest extends AbstractExecutionTest {
+public class TableScanNodeExecutionTest extends AbstractExecutionTest {
     private static int dataAmount;
 
     // Ensures that all data from TableScanNode is being propagated correctly.
@@ -129,7 +131,7 @@ public class TableScanExecutionTest extends AbstractExecutionTest {
 
         @Override
         public <RowT> RowT toRow(ExecutionContext<RowT> ectx, BinaryRow row, RowFactory<RowT> factory,
-                @Nullable ImmutableBitSet requiredColumns) {
+                @Nullable BitSet requiredColumns) {
             return (RowT) res;
         }
     }
@@ -149,7 +151,7 @@ public class TableScanExecutionTest extends AbstractExecutionTest {
                     UUID.randomUUID(),
                     Int2ObjectMaps.singleton(0, mock(RaftGroupService.class)),
                     PART_CNT,
-                    NetworkAddress::toString,
+                    Function.identity(),
                     addr -> Mockito.mock(ClusterNode.class),
                     new TxManagerImpl(replicaSvc, new HeapLockManager(), new HybridClockImpl()),
                     mock(MvTableStorage.class),
@@ -170,7 +172,13 @@ public class TableScanExecutionTest extends AbstractExecutionTest {
                 @NotNull InternalTransaction tx,
                 int partId,
                 long scanId,
-                int batchSize
+                int batchSize,
+                @Nullable UUID indexId,
+                @Nullable BinaryTuple exactKey,
+                @Nullable BinaryTuplePrefix lowerBound,
+                @Nullable BinaryTuplePrefix upperBound,
+                int flags,
+                @Nullable BitSet columnsToInclude
         ) {
             int fillAmount = Math.min(dataAmount - processedPerPart[partId], Commons.IN_BUFFER_SIZE);
 

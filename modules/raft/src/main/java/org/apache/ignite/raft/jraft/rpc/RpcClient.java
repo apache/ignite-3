@@ -19,9 +19,9 @@ package org.apache.ignite.raft.jraft.rpc;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.network.TopologyEventHandler;
 import org.apache.ignite.raft.jraft.Lifecycle;
+import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.error.RemotingException;
 import org.apache.ignite.raft.jraft.option.RpcOptions;
-import org.apache.ignite.raft.jraft.util.Endpoint;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -31,11 +31,11 @@ public interface RpcClient extends Lifecycle<RpcOptions> {
     /**
      * Check connection for given address.
      *
-     * @param endpoint target address
+     * @param peerId target peer ID.
      * @return true if there is a connection and the connection is active and writable.
      * @deprecated // TODO asch remove IGNITE-14832
      */
-    boolean checkConnection(Endpoint endpoint);
+    boolean checkConnection(PeerId peerId);
 
     /**
      * Register a connect event listener for the handler.
@@ -47,7 +47,7 @@ public interface RpcClient extends Lifecycle<RpcOptions> {
     /**
      * Asynchronous invocation with a callback.
      *
-     * @param endpoint target address
+     * @param peerId target peer ID
      * @param request request object
      * @param ctx invoke context
      * @param callback invoke callback
@@ -56,7 +56,7 @@ public interface RpcClient extends Lifecycle<RpcOptions> {
      * @return The future.
      */
     CompletableFuture<Message> invokeAsync(
-        Endpoint endpoint,
+        PeerId peerId,
         Object request,
         @Nullable InvokeContext ctx,
         InvokeCallback callback,

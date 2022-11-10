@@ -140,7 +140,7 @@ public class IgniteRpcServer implements RpcServer<Void> {
      */
     public class RpcMessageHandler implements NetworkMessageHandler {
         /** {@inheritDoc} */
-        @Override public void onReceived(NetworkMessage message, NetworkAddress senderAddr, @Nullable Long correlationId) {
+        @Override public void onReceived(NetworkMessage message, ClusterNode sender, @Nullable Long correlationId) {
             Class<? extends NetworkMessage> cls = message.getClass();
             RpcProcessor<NetworkMessage> prc = processors.get(cls.getName());
 
@@ -180,15 +180,15 @@ public class IgniteRpcServer implements RpcServer<Void> {
                         }
 
                         @Override public void sendResponse(Object responseObj) {
-                            service.messagingService().respond(senderAddr, (NetworkMessage) responseObj, correlationId);
+                            service.messagingService().respond(sender, (NetworkMessage) responseObj, correlationId);
                         }
 
                         @Override public NetworkAddress getRemoteAddress() {
-                            return senderAddr;
+                            return sender.address();
                         }
 
-                        @Override public NetworkAddress getLocalAddress() {
-                            return service.topologyService().localMember().address();
+                        @Override public String getLocalConsistentId() {
+                            return service.topologyService().localMember().name();
                         }
                     };
 
@@ -196,7 +196,7 @@ public class IgniteRpcServer implements RpcServer<Void> {
                 });
             } catch (RejectedExecutionException e) {
                 // The rejection is ok if an executor has been stopped, otherwise it shouldn't happen.
-                LOG.warn("A request execution was rejected [sender={} req={} reason={}]", senderAddr, S.toString(message), e.getMessage());
+                LOG.warn("A request execution was rejected [sender={} req={} reason={}]", sender, S.toString(message), e.getMessage());
             }
         }
     }
@@ -215,6 +215,10 @@ public class IgniteRpcServer implements RpcServer<Void> {
     /** {@inheritDoc} */
     @Override public int boundPort() {
         return 0;
+    }
+
+    @Override public String consistentId() {
+        return service.topologyService().localMember().name();
     }
 
     /** {@inheritDoc} */

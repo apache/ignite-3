@@ -44,7 +44,6 @@ import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.MessagingService;
-import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -199,11 +198,11 @@ public class ComputeComponentImpl implements ComputeComponent {
                 new NamedThreadFactory(NamedThreadFactory.threadPrefix(ignite.name(), "compute"), LOG)
         );
 
-        messagingService.addMessageHandler(ComputeMessageTypes.class, (message, senderAddr, correlationId) -> {
+        messagingService.addMessageHandler(ComputeMessageTypes.class, (message, sender, correlationId) -> {
             assert correlationId != null;
 
             if (message instanceof ExecuteRequest) {
-                processExecuteRequest((ExecuteRequest) message, senderAddr, correlationId);
+                processExecuteRequest((ExecuteRequest) message, sender, correlationId);
 
                 return;
             }
@@ -216,9 +215,9 @@ public class ComputeComponentImpl implements ComputeComponent {
         return new LinkedBlockingQueue<>();
     }
 
-    private void processExecuteRequest(ExecuteRequest executeRequest, NetworkAddress senderAddr, long correlationId) {
+    private void processExecuteRequest(ExecuteRequest executeRequest, ClusterNode sender, long correlationId) {
         if (!busyLock.enterBusy()) {
-            sendExecuteResponse(null, new NodeStoppingException(), senderAddr, correlationId);
+            sendExecuteResponse(null, new NodeStoppingException(), sender, correlationId);
             return;
         }
 
@@ -226,20 +225,20 @@ public class ComputeComponentImpl implements ComputeComponent {
             Class<ComputeJob<Object>> jobClass = jobClass(executeRequest.jobClassName());
 
             doExecuteLocally(jobClass, executeRequest.args())
-                    .handle((result, ex) -> sendExecuteResponse(result, ex, senderAddr, correlationId));
+                    .handle((result, ex) -> sendExecuteResponse(result, ex, sender, correlationId));
         } finally {
             busyLock.leaveBusy();
         }
     }
 
     @Nullable
-    private Object sendExecuteResponse(Object result, Throwable ex, NetworkAddress senderAddr, Long correlationId) {
+    private Object sendExecuteResponse(Object result, Throwable ex, ClusterNode sender, Long correlationId) {
         ExecuteResponse executeResponse = messagesFactory.executeResponse()
                 .result(result)
                 .throwable(ex)
                 .build();
 
-        messagingService.respond(senderAddr, executeResponse, correlationId);
+        messagingService.respond(sender, executeResponse, correlationId);
 
         return null;
     }

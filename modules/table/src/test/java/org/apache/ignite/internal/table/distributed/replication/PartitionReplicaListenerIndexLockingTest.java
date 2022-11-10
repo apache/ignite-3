@@ -52,6 +52,7 @@ import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexDescriptor.SortedIndexColumnDescriptor;
+import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
 import org.apache.ignite.internal.storage.index.impl.TestSortedIndexStorage;
 import org.apache.ignite.internal.table.distributed.HashIndexLocker;
@@ -125,36 +126,36 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                 new Column("val".toUpperCase(Locale.ROOT), NativeTypes.INT32, false),
         });
 
-        row2HashKeyConverter = tableRow -> new BinaryTuple(
-                tupleSchema,
-                BinaryConverter.forKey(schemaDescriptor).toTuple(tableRow)
-        );
+        row2HashKeyConverter = tableRow -> BinaryConverter.forKey(schemaDescriptor).toTuple(tableRow);
 
-        pkStorage = new Lazy<>(() -> new TableSchemaAwareIndexStorage(
+        TableSchemaAwareIndexStorage hashIndexStorage = new TableSchemaAwareIndexStorage(
                 PK_INDEX_ID,
                 new TestHashIndexStorage(null),
                 row2HashKeyConverter
-        ));
+        );
+        pkStorage = new Lazy<>(() -> hashIndexStorage);
 
         IndexLocker pkLocker = new HashIndexLocker(PK_INDEX_ID, true, LOCK_MANAGER, row2HashKeyConverter);
         IndexLocker hashIndexLocker = new HashIndexLocker(HASH_INDEX_ID, false, LOCK_MANAGER, row2HashKeyConverter);
 
-        row2SortKeyConverter = tableRow -> new BinaryTuple(
-                tupleSchema,
-                BinaryConverter.forValue(schemaDescriptor).toTuple(tableRow)
-        );
+        row2SortKeyConverter = tableRow -> BinaryConverter.forValue(schemaDescriptor).toTuple(tableRow);
 
-        IndexLocker sortedIndexLocker = new SortedIndexLocker(
+        TableSchemaAwareIndexStorage sortedIndexStorage = new TableSchemaAwareIndexStorage(
                 SORTED_INDEX_ID,
-                LOCK_MANAGER,
                 new TestSortedIndexStorage(
                         new SortedIndexDescriptor(
                                 SORTED_INDEX_ID,
                                 List.of(new SortedIndexColumnDescriptor(
                                         "val", NativeTypes.INT32, false, true
                                 ))
-                        )
-                ),
+                        )),
+                row2SortKeyConverter
+        );
+
+        IndexLocker sortedIndexLocker = new SortedIndexLocker(
+                SORTED_INDEX_ID,
+                LOCK_MANAGER,
+                (SortedIndexStorage) sortedIndexStorage.storage(),
                 row2SortKeyConverter
         );
 
@@ -163,6 +164,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                 mockRaftClient,
                 mock(TxManager.class),
                 LOCK_MANAGER,
+                Runnable::run,
                 PART_ID,
                 TABLE_ID,
                 () -> Map.of(
@@ -171,6 +173,10 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                         sortedIndexLocker.id(), sortedIndexLocker
                 ),
                 pkStorage,
+                () -> Map.of(
+                        sortedIndexLocker.id(), sortedIndexStorage,
+                        hashIndexLocker.id(), hashIndexStorage
+                ),
                 CLOCK,
                 new PendingComparableValuesTracker<>(CLOCK.now()),
                 new TestTxStateStorage(),

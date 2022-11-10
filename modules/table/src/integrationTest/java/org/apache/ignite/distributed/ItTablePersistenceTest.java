@@ -60,7 +60,6 @@ import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateStorage;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.client.service.ItAbstractListenerSnapshotTest;
 import org.apache.ignite.raft.client.service.RaftGroupListener;
 import org.apache.ignite.raft.client.service.RaftGroupService;
@@ -95,7 +94,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
 
     private final List<TxManager> managers = new ArrayList<>();
 
-    private final Function<NetworkAddress, ClusterNode> addressToNode = addr -> {
+    private final Function<String, ClusterNode> consistentIdToNode = consistentId -> {
         throw new UnsupportedOperationException();
     };
 
@@ -124,8 +123,8 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                 UUID.randomUUID(),
                 Int2ObjectMaps.singleton(0, service),
                 1,
-                NetworkAddress::toString,
-                addressToNode,
+                Function.identity(),
+                consistentIdToNode,
                 txManager,
                 mock(MvTableStorage.class),
                 mock(TxStateTableStorage.class),
@@ -155,8 +154,8 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                 UUID.randomUUID(),
                 Int2ObjectMaps.singleton(0, service),
                 1,
-                NetworkAddress::toString,
-                addressToNode,
+                Function.identity(),
+                consistentIdToNode,
                 txManager,
                 mock(MvTableStorage.class),
                 mock(TxStateTableStorage.class),
@@ -192,8 +191,8 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                 UUID.randomUUID(),
                 Int2ObjectMaps.singleton(0, service),
                 1,
-                NetworkAddress::toString,
-                addressToNode,
+                Function.identity(),
+                consistentIdToNode,
                 txManager,
                 mock(MvTableStorage.class),
                 mock(TxStateTableStorage.class),

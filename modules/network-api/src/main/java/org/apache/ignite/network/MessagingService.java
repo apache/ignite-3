@@ -66,17 +66,6 @@ public interface MessagingService {
     CompletableFuture<Void> respond(ClusterNode recipient, NetworkMessage msg, long correlationId);
 
     /**
-     * Sends a response to a {@link #invoke} request.
-     * Guarantees are the same as for the {@link #send(ClusterNode, NetworkMessage)}.
-     *
-     * @param addr          Recipient network address.
-     * @param msg           Message which should be delivered.
-     * @param correlationId Correlation id when replying to the request.
-     * @return Future of the send operation.
-     */
-    CompletableFuture<Void> respond(NetworkAddress addr, NetworkMessage msg, long correlationId);
-
-    /**
      * Sends a message asynchronously with same guarantees as {@link #send(ClusterNode, NetworkMessage)} and returns a future that will be
      * completed successfully upon receiving a response.
      *
@@ -86,17 +75,6 @@ public interface MessagingService {
      * @return A future holding the response or error if the expected response was not received.
      */
     CompletableFuture<NetworkMessage> invoke(ClusterNode recipient, NetworkMessage msg, long timeout);
-
-    /**
-     * Sends a message asynchronously with same guarantees as {@link #send(ClusterNode, NetworkMessage)} and returns a future that will be
-     * completed successfully upon receiving a response.
-     *
-     * @param addr    Recipient network address.
-     * @param msg     A message.
-     * @param timeout Waiting for response timeout in milliseconds.
-     * @return A future holding the response or error if the expected response was not received.
-     */
-    CompletableFuture<NetworkMessage> invoke(NetworkAddress addr, NetworkMessage msg, long timeout);
 
     /**
      * Registers a listener for a group of network message events.

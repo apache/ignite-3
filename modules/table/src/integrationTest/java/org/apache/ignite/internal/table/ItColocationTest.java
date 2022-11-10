@@ -160,7 +160,7 @@ public class ItColocationTest {
             RaftGroupService r = Mockito.mock(RaftGroupService.class);
             when(r.leader()).thenReturn(Mockito.mock(Peer.class));
             when(r.groupId()).thenReturn(groupId);
-            when(r.refreshAndGetLeaderWithTerm()).thenReturn(completedFuture(new IgniteBiTuple<>(new Peer(clusterNode.address()), 0L)));
+            when(r.refreshAndGetLeaderWithTerm()).thenReturn(completedFuture(new IgniteBiTuple<>(new Peer(clusterNode.name()), 0L)));
 
             final int part = i;
             doAnswer(invocation -> {
