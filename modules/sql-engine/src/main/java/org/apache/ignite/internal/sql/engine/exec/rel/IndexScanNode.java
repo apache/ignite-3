@@ -323,11 +323,9 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
             );
         } else {
             assert schemaIndex.type() == Type.HASH;
-            BinaryTuple key = null;
+            assert cond != null && cond.lower() != null : "Invalid hash index condition.";
 
-            if (cond != null) {
-                key = toBinaryTuple(cond.lower());
-            }
+            BinaryTuple key = toBinaryTuple(cond.lower());
 
             pub = schemaIndex.index().lookup(
                     part,
