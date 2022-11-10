@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 
-#pragma warning disable SA1615, SA1611, SA1405, SA1202, SA1600 // TODO: Fix warnings.
 namespace Apache.Ignite.Internal.Linq;
 
 using System;
@@ -40,6 +39,9 @@ internal static class ExpressionWalker
     /// <summary>
     /// Gets the queryable.
     /// </summary>
+    /// <param name="fromClause">FROM clause.</param>
+    /// <param name="throwWhenNotFound">Whether to throw when not found or return null.</param>
+    /// <returns>Ignite internal queryable.</returns>
     public static IIgniteQueryableInternal? GetIgniteQueryable(IFromClause fromClause, bool throwWhenNotFound = true)
     {
         return GetIgniteQueryable(fromClause.FromExpression, throwWhenNotFound);
@@ -48,6 +50,9 @@ internal static class ExpressionWalker
     /// <summary>
     /// Gets the queryable.
     /// </summary>
+    /// <param name="joinClause">JOIN clause.</param>
+    /// <param name="throwWhenNotFound">Whether to throw when not found or return null.</param>
+    /// <returns>Ignite internal queryable.</returns>
     public static IIgniteQueryableInternal? GetIgniteQueryable(JoinClause joinClause, bool throwWhenNotFound = true)
     {
         return GetIgniteQueryable(joinClause.InnerSequence, throwWhenNotFound);
@@ -56,29 +61,24 @@ internal static class ExpressionWalker
     /// <summary>
     /// Gets the queryable.
     /// </summary>
+    /// <param name="expression">Expression.</param>
+    /// <param name="throwWhenNotFound">Whether to throw when not found or return null.</param>
+    /// <returns>Ignite internal queryable.</returns>
     public static IIgniteQueryableInternal? GetIgniteQueryable(Expression expression, bool throwWhenNotFound = true)
     {
-        var subQueryExp = expression as SubQueryExpression;
-
-        if (subQueryExp != null)
+        if (expression is SubQueryExpression subQueryExp)
         {
             return GetIgniteQueryable(subQueryExp.QueryModel.MainFromClause, throwWhenNotFound);
         }
 
-        var srcRefExp = expression as QuerySourceReferenceExpression;
-
-        if (srcRefExp != null)
+        if (expression is QuerySourceReferenceExpression srcRefExp)
         {
-            var fromSource = srcRefExp.ReferencedQuerySource as IFromClause;
-
-            if (fromSource != null)
+            if (srcRefExp.ReferencedQuerySource is IFromClause fromSource)
             {
                 return GetIgniteQueryable(fromSource, throwWhenNotFound);
             }
 
-            var joinSource = srcRefExp.ReferencedQuerySource as JoinClause;
-
-            if (joinSource != null)
+            if (srcRefExp.ReferencedQuerySource is JoinClause joinSource)
             {
                 return GetIgniteQueryable(joinSource, throwWhenNotFound);
             }
@@ -86,9 +86,7 @@ internal static class ExpressionWalker
             throw new NotSupportedException("Unexpected query source: " + srcRefExp.ReferencedQuerySource);
         }
 
-        var memberExpr = expression as MemberExpression;
-
-        if (memberExpr != null)
+        if (expression is MemberExpression memberExpr)
         {
             if (memberExpr.Type.IsGenericType &&
                 memberExpr.Type.GetGenericTypeDefinition() == typeof(IQueryable<>))
@@ -99,21 +97,12 @@ internal static class ExpressionWalker
             return GetIgniteQueryable(memberExpr.Expression!, throwWhenNotFound);
         }
 
-        var constExpr = expression as ConstantExpression;
-
-        if (constExpr != null)
+        if (expression is ConstantExpression { Value: IIgniteQueryableInternal queryable })
         {
-            var queryable = constExpr.Value as IIgniteQueryableInternal;
-
-            if (queryable != null)
-            {
-                return queryable;
-            }
+            return queryable;
         }
 
-        var callExpr = expression as MethodCallExpression;
-
-        if (callExpr != null)
+        if (expression is MethodCallExpression callExpr)
         {
             // This is usually a nested query with a call to AsCacheQueryable().
             return (IIgniteQueryableInternal) Expression.Lambda(callExpr).Compile().DynamicInvoke()!;
@@ -133,19 +122,18 @@ internal static class ExpressionWalker
     /// This method finds the original member expression from the given projected expression, e.g finds
     /// <c>Person.Name</c> from <c>Foo</c>.
     /// </summary>
+    /// <param name="expression">Expression.</param>
+    /// <param name="memberHint">Member info.</param>
+    /// <returns>Projected member.</returns>
     public static MemberExpression? GetProjectedMember(Expression expression, MemberInfo memberHint)
     {
-        Debug.Assert(memberHint != null);
-
-        var subQueryExp = expression as SubQueryExpression;
-        if (subQueryExp != null)
+        if (expression is SubQueryExpression subQueryExp)
         {
             var selector = subQueryExp.QueryModel.SelectClause.Selector;
-            var newExpr = selector as NewExpression;
 
-            if (newExpr != null && newExpr.Members != null)
+            if (selector is NewExpression { Members: { } } newExpr)
             {
-                Debug.Assert(newExpr.Members.Count == newExpr.Arguments.Count);
+                Debug.Assert(newExpr.Members.Count == newExpr.Arguments.Count, "newExpr.Members.Count == newExpr.Arguments.Count");
 
                 for (var i = 0; i < newExpr.Members.Count; i++)
                 {
@@ -158,9 +146,7 @@ internal static class ExpressionWalker
                 }
             }
 
-            var initExpr = selector as MemberInitExpression;
-
-            if (initExpr != null)
+            if (selector is MemberInitExpression initExpr)
             {
                 foreach (var binding in initExpr.Bindings)
                 {
@@ -174,15 +160,9 @@ internal static class ExpressionWalker
             return GetProjectedMember(subQueryExp.QueryModel.MainFromClause.FromExpression, memberHint);
         }
 
-        var srcRefExp = expression as QuerySourceReferenceExpression;
-        if (srcRefExp != null)
+        if (expression is QuerySourceReferenceExpression { ReferencedQuerySource: IFromClause fromSource })
         {
-            var fromSource = srcRefExp.ReferencedQuerySource as IFromClause;
-
-            if (fromSource != null)
-            {
-                return GetProjectedMember(fromSource.FromExpression, memberHint);
-            }
+            return GetProjectedMember(fromSource.FromExpression, memberHint);
         }
 
         return null;
