@@ -20,6 +20,7 @@ namespace Apache.Ignite.Internal.Linq;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
 using System.Linq.Expressions;
 using System.Threading.Tasks;
 using Ignite.Sql;
@@ -119,7 +120,7 @@ internal sealed class IgniteQueryExecutor : IQueryExecutor
         if (columns.Count == 1)
         {
             return (IReadOnlyList<IColumnMetadata> cols, ref BinaryTupleReader reader) =>
-                (T)Sql.ReadColumnValue(ref reader, cols[0], 0)!;
+                (T)Convert.ChangeType(Sql.ReadColumnValue(ref reader, cols[0], 0)!, typeof(T), CultureInfo.InvariantCulture);
         }
 
         // TODO: Compiled reader.
