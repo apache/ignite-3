@@ -15,59 +15,11 @@
  * limitations under the License.
  */
 
-#pragma warning disable SA1615, SA1611, SA1405, SA1202, SA1600, CA1711, SA1201 // TODO: Fix warnings.
 namespace Apache.Ignite.Internal.Linq;
 
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.Globalization;
-using System.Linq;
 
 /// <summary>
 /// Query data holder.
 /// </summary>
-internal sealed class QueryData
-{
-    /** */
-    private readonly ICollection<object?> _parameters;
-
-    /** */
-    private readonly string _queryText;
-
-    /// <summary>
-    /// Initializes a new instance of the <see cref="QueryData"/> class.
-    /// </summary>
-    /// <param name="queryText">The query text.</param>
-    /// <param name="parameters">The parameters.</param>
-    public QueryData(string queryText, ICollection<object?> parameters)
-    {
-        Debug.Assert(queryText != null);
-        Debug.Assert(parameters != null);
-
-        _queryText = queryText;
-        _parameters = parameters;
-    }
-
-    /// <summary>
-    /// Gets the parameters.
-    /// </summary>
-    public ICollection<object?> Parameters => _parameters;
-
-    /// <summary>
-    /// Gets the query text.
-    /// </summary>
-    public string QueryText => _queryText;
-
-    /// <summary>
-    /// Returns a <see cref="string" /> that represents this instance.
-    /// </summary>
-    /// <returns>
-    /// A <see cref="string" /> that represents this instance.
-    /// </returns>
-    public override string ToString() =>
-        string.Format(
-            CultureInfo.InvariantCulture,
-            "SQL Query [Text={0}, Parameters={1}]",
-            QueryText,
-            string.Join(", ", Parameters.Select(x => x == null! ? "null" : x.ToString())));
-}
+internal sealed record QueryData(string QueryText, ICollection<object?> Parameters);

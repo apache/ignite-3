@@ -15,12 +15,12 @@
  * limitations under the License.
  */
 
-#pragma warning disable SA1615, SA1611, SA1405, SA1202, SA1600, CA2000 // TODO: Fix warnings.
 namespace Apache.Ignite.Internal.Linq;
 
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Threading.Tasks;
 using Ignite.Sql;
@@ -51,12 +51,10 @@ internal sealed class IgniteQueryExecutor : IQueryExecutor
     /// <summary>
     /// Generates <see cref="QueryData"/> from specified <see cref="QueryModel"/>.
     /// </summary>
-    public static QueryData GetQueryData(QueryModel queryModel)
-    {
-        Debug.Assert(queryModel != null);
-
-        return new IgniteQueryModelVisitor().GenerateQuery(queryModel);
-    }
+    /// <param name="queryModel">Query model.</param>
+    /// <returns>Query data.</returns>
+    public static QueryData GetQueryData(QueryModel queryModel) =>
+        new IgniteQueryModelVisitor().GenerateQuery(queryModel);
 
     /** <inheritdoc /> */
     public T? ExecuteScalar<T>(QueryModel queryModel) =>
@@ -64,20 +62,34 @@ internal sealed class IgniteQueryExecutor : IQueryExecutor
 
     /** <inheritdoc /> */
     public T? ExecuteSingle<T>(QueryModel queryModel, bool returnDefaultWhenEmpty) =>
-        ExecuteSingleAsyncInternal<T>(queryModel, returnDefaultWhenEmpty).GetAwaiter().GetResult();
+        ExecuteSingleInternalAsync<T>(queryModel, returnDefaultWhenEmpty).GetAwaiter().GetResult();
 
     /** <inheritdoc /> */
     public IEnumerable<T> ExecuteCollection<T>(QueryModel queryModel)
     {
-        // TODO: Async execution.
-        // TODO: Async pagination.
-        // TODO: ToResultSetAsync extension will solve all those requirements.
-        IResultSet<T> resultSet = ExecuteResultSetAsyncInternal<T>(queryModel).GetAwaiter().GetResult();
+        // TODO: Log a warning about sync-over-async with recommendation to use async variant?
+        using IResultSet<T> resultSet = ExecuteResultSetInternal<T>(queryModel);
 
         return resultSet.ToListAsync().AsTask().GetAwaiter().GetResult();
     }
 
-    internal async Task<IResultSet<T>> ExecuteResultSetAsyncInternal<T>(QueryModel queryModel)
+    /// <summary>
+    /// Executes query and returns <see cref="IResultSet{T}"/>.
+    /// </summary>
+    /// <param name="queryModel">Query model.</param>
+    /// <typeparam name="T">Result type.</typeparam>
+    /// <returns>Result set.</returns>
+    [SuppressMessage("Reliability", "CA2000:Dispose objects before losing scope", Justification = "Disposable is returned.")]
+    internal IResultSet<T> ExecuteResultSetInternal<T>(QueryModel queryModel) =>
+        ExecuteResultSetInternalAsync<T>(queryModel).GetAwaiter().GetResult();
+
+    /// <summary>
+    /// Executes query and returns <see cref="IResultSet{T}"/>.
+    /// </summary>
+    /// <param name="queryModel">Query model.</param>
+    /// <typeparam name="T">Result type.</typeparam>
+    /// <returns>Result set.</returns>
+    internal async Task<IResultSet<T>> ExecuteResultSetInternalAsync<T>(QueryModel queryModel)
     {
         var qryData = GetQueryData(queryModel);
 
@@ -98,9 +110,10 @@ internal sealed class IgniteQueryExecutor : IQueryExecutor
         return resultSet;
     }
 
-    private async Task<T?> ExecuteSingleAsyncInternal<T>(QueryModel queryModel, bool returnDefaultWhenEmpty)
+    [SuppressMessage("Reliability", "CA2007:Consider calling ConfigureAwait on the awaited task", Justification = "False positive.")]
+    private async Task<T?> ExecuteSingleInternalAsync<T>(QueryModel queryModel, bool returnDefaultWhenEmpty)
     {
-        IResultSet<T> resultSet = await ExecuteResultSetAsyncInternal<T>(queryModel).ConfigureAwait(false);
+        await using IResultSet<T> resultSet = await ExecuteResultSetInternalAsync<T>(queryModel).ConfigureAwait(false);
 
         var res = default(T);
         var count = 0;

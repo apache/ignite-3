@@ -47,6 +47,6 @@ public static class LinqExtensions
 
         var model = queryableInternal.GetQueryModel();
 
-        return await queryableInternal.Provider.Executor.ExecuteResultSetAsyncInternal<T>(model).ConfigureAwait(false);
+        return await queryableInternal.Provider.Executor.ExecuteResultSetInternalAsync<T>(model).ConfigureAwait(false);
     }
 }
