@@ -26,13 +26,36 @@ using NUnit.Framework;
 /// </summary>
 public class LinqTests : IgniteTestsBase
 {
-    [Test]
-    public async Task TestBasicSelect()
+    [OneTimeSetUp]
+    public async Task InsertData()
     {
-        await PocoView.UpsertAsync(null, new() { Key = 2, Val = "22" });
+        for (int i = 0; i < 10; i++)
+        {
+            await PocoView.UpsertAsync(null, new() { Key = i, Val = "v-" + i });
+        }
+    }
 
-        string?[] res = PocoView.AsQueryable().Where(x => x.Key > 1).Select(x => x.Val).ToArray();
+    [Test]
+    public void TestSelectOneColumn()
+    {
+        string?[] res = PocoView.AsQueryable()
+            .Where(x => x.Key == 3)
+            .Select(x => x.Val)
+            .ToArray();
 
-        CollectionAssert.AreEqual(new[] { "22" }, res);
+        CollectionAssert.AreEqual(new[] { "v-3" }, res);
+    }
+
+    [Test]
+    public void TestSelectTwoColumns()
+    {
+        var res = PocoView.AsQueryable()
+            .Where(x => x.Key == 2)
+            .Select(x => new { x.Key, x.Val })
+            .ToArray();
+
+        Assert.AreEqual(1, res.Length);
+        Assert.AreEqual(2, res[0].Key);
+        Assert.AreEqual("v-2", res[0].Val);
     }
 }
