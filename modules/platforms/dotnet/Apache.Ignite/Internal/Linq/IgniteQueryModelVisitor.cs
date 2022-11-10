@@ -15,13 +15,11 @@
  * limitations under the License.
  */
 
-#pragma warning disable SA1615, SA1611, SA1405, SA1202, SA1600 // TODO: Fix warnings.
 namespace Apache.Ignite.Internal.Linq;
 
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Linq;
@@ -44,14 +42,14 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
         .GetGenericTypeDefinition();
 
     /** */
-    private readonly StringBuilder _builder = new StringBuilder();
+    private readonly StringBuilder _builder = new();
 
     /** */
     [SuppressMessage("Microsoft.Design", "CA1002:DoNotExposeGenericLists", Justification = "Private.")]
-    private readonly List<object?> _parameters = new List<object?>();
+    private readonly List<object?> _parameters = new();
 
     /** */
-    private readonly AliasDictionary _aliases = new AliasDictionary();
+    private readonly AliasDictionary _aliases = new();
 
     /// <summary>
     /// Gets the builder.
@@ -80,11 +78,10 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
     /// <summary>
     /// Generates the query.
     /// </summary>
+    /// <param name="queryModel">Query model.</param>
+    /// <returns>Query data.</returns>
     public QueryData GenerateQuery(QueryModel queryModel)
     {
-        Debug.Assert(_builder.Length == 0);
-        Debug.Assert(_parameters.Count == 0);
-
         VisitQueryModel(queryModel);
 
         if (char.IsWhiteSpace(_builder[_builder.Length - 1]))
@@ -103,10 +100,141 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
         VisitQueryModel(queryModel, false);
     }
 
+    /** <inheritdoc /> */
+    public override void VisitWhereClause(WhereClause whereClause, QueryModel queryModel, int index)
+    {
+        base.VisitWhereClause(whereClause, queryModel, index);
+
+        VisitWhereClause(whereClause, index, false);
+    }
+
+    /** <inheritdoc /> */
+    public override void VisitOrderByClause(OrderByClause orderByClause, QueryModel queryModel, int index)
+    {
+        base.VisitOrderByClause(orderByClause, queryModel, index);
+
+        _builder.Append("order by ");
+
+        for (int i = 0; i < orderByClause.Orderings.Count; i++)
+        {
+            var ordering = orderByClause.Orderings[i];
+
+            if (i > 0)
+            {
+                _builder.Append(", ");
+            }
+
+            _builder.Append('(');
+
+            BuildSqlExpression(ordering.Expression);
+
+            _builder.Append(')');
+
+            _builder.Append(ordering.OrderingDirection == OrderingDirection.Asc ? " asc" : " desc");
+        }
+
+        _builder.Append(' ');
+    }
+
+    /** <inheritdoc /> */
+    public override void VisitJoinClause(JoinClause joinClause, QueryModel queryModel, int index)
+    {
+        base.VisitJoinClause(joinClause, queryModel, index);
+        var queryable = ExpressionWalker.GetIgniteQueryable(joinClause, false);
+
+        if (queryable != null)
+        {
+            var subQuery = joinClause.InnerSequence as SubQueryExpression;
+
+            if (subQuery != null)
+            {
+                var isOuter = subQuery.QueryModel.ResultOperators.OfType<DefaultIfEmptyResultOperator>().Any();
+
+                _builder.AppendFormat(CultureInfo.InvariantCulture, "{0} join (", isOuter ? "left outer" : "inner");
+
+                VisitQueryModel(subQuery.QueryModel, true);
+
+                var alias = _aliases.GetTableAlias(subQuery.QueryModel.MainFromClause);
+                _builder.AppendFormat(CultureInfo.InvariantCulture, ") as {0} on (", alias);
+            }
+            else
+            {
+                var tableName = ExpressionWalker.GetTableNameWithSchema(queryable);
+                var alias = _aliases.GetTableAlias(joinClause);
+                _builder.AppendFormat(CultureInfo.InvariantCulture, "inner join {0} as {1} on (", tableName, alias);
+            }
+        }
+        else
+        {
+            VisitJoinWithLocalCollectionClause(joinClause);
+        }
+
+        BuildJoinCondition(joinClause.InnerKeySelector, joinClause.OuterKeySelector);
+
+        _builder.Append(") ");
+    }
+
+    /** <inheritdoc /> */
+    public override void VisitAdditionalFromClause(AdditionalFromClause fromClause, QueryModel queryModel, int index)
+    {
+        base.VisitAdditionalFromClause(fromClause, queryModel, index);
+
+        var subQuery = fromClause.FromExpression as SubQueryExpression;
+        if (subQuery != null)
+        {
+            _builder.Append('(');
+
+            VisitQueryModel(subQuery.QueryModel, true);
+
+            var alias = _aliases.GetTableAlias(subQuery.QueryModel.MainFromClause);
+            _builder.AppendFormat(CultureInfo.InvariantCulture, ") as {0} ", alias);
+        }
+        else
+        {
+            _aliases.AppendAsClause(_builder, fromClause);
+            _builder.Append(' ');
+        }
+    }
+
+    /** <inheritdoc /> */
+    public override void VisitMainFromClause(MainFromClause fromClause, QueryModel queryModel)
+    {
+        base.VisitMainFromClause(fromClause, queryModel);
+
+        // TODO: DML: queryModel.ResultOperators.LastOrDefault() is UpdateAllResultOperator;
+        var isUpdateQuery = false;
+        if (!isUpdateQuery)
+        {
+            _builder.Append("from ");
+        }
+
+        ValidateFromClause(fromClause);
+        _aliases.AppendAsClause(_builder, fromClause);
+        _builder.Append(' ');
+
+        var i = 0;
+        foreach (var additionalFrom in queryModel.BodyClauses.OfType<AdditionalFromClause>())
+        {
+            _builder.Append(", ");
+            ValidateFromClause(additionalFrom);
+
+            VisitAdditionalFromClause(additionalFrom, queryModel, i++);
+        }
+
+        if (isUpdateQuery)
+        {
+            // TODO: DML
+            // BuildSetClauseForUpdateAll(queryModel);
+        }
+    }
+
     /// <summary>
     /// Visits the query model.
     /// </summary>
-    internal void VisitQueryModel(QueryModel queryModel, bool includeAllFields, bool copyAliases = false)
+    /// <param name="queryModel">Query model.</param>
+    /// <param name="includeAllFields">Whether to select all table fields.</param>
+    /// <param name="copyAliases">Whether to copy aliases.</param>
+    public void VisitQueryModel(QueryModel queryModel, bool includeAllFields, bool copyAliases = false)
     {
         _aliases.Push(copyAliases);
 
@@ -139,8 +267,10 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
     }
 
     /// <summary>
-    /// Visits the selectors.
+    /// Visits selectors.
     /// </summary>
+    /// <param name="queryModel">Query model.</param>
+    /// <param name="includeAllFields">Whether to include all fields in the selector.</param>
     public void VisitSelectors(QueryModel queryModel, bool includeAllFields)
     {
         var parenCount = ProcessResultOperatorsBegin(queryModel);
@@ -150,6 +280,43 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
             // FIELD1, FIELD2
             BuildSqlExpression(queryModel.SelectClause.Selector, parenCount > 0, includeAllFields);
             _builder.Append(')', parenCount).Append(' ');
+        }
+    }
+
+    /** <inheritdoc /> */
+    protected override void VisitBodyClauses(ObservableCollection<IBodyClause> bodyClauses, QueryModel queryModel)
+    {
+        var i = 0;
+        foreach (var join in bodyClauses.OfType<JoinClause>())
+        {
+            VisitJoinClause(join, queryModel, i++);
+        }
+
+        var hasGroups = ProcessGroupings(queryModel);
+
+        i = 0;
+        foreach (var where in bodyClauses.OfType<WhereClause>())
+        {
+            VisitWhereClause(where, i++, hasGroups);
+        }
+
+        i = 0;
+        foreach (var orderBy in bodyClauses.OfType<OrderByClause>())
+        {
+            VisitOrderByClause(orderBy, queryModel, i++);
+        }
+    }
+
+    /// <summary>
+    /// Validates from clause.
+    /// </summary>
+    // ReSharper disable once UnusedParameter.Local
+    private static void ValidateFromClause(IFromClause clause)
+    {
+        // Only IQueryable can be used in FROM clause. IEnumerable is not supported.
+        if (!typeof(IQueryable).IsAssignableFrom(clause.FromExpression.Type))
+        {
+            throw new NotSupportedException("FROM clause must be IQueryable: " + clause);
         }
     }
 
@@ -327,30 +494,6 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
         }
     }
 
-    /** <inheritdoc /> */
-    protected override void VisitBodyClauses(ObservableCollection<IBodyClause> bodyClauses, QueryModel queryModel)
-    {
-        var i = 0;
-        foreach (var join in bodyClauses.OfType<JoinClause>())
-        {
-            VisitJoinClause(join, queryModel, i++);
-        }
-
-        var hasGroups = ProcessGroupings(queryModel);
-
-        i = 0;
-        foreach (var where in bodyClauses.OfType<WhereClause>())
-        {
-            VisitWhereClause(where, i++, hasGroups);
-        }
-
-        i = 0;
-        foreach (var orderBy in bodyClauses.OfType<OrderByClause>())
-        {
-            VisitOrderByClause(orderBy, queryModel, i++);
-        }
-    }
-
     /// <summary>
     /// Processes the groupings.
     /// </summary>
@@ -393,59 +536,6 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
         return true;
     }
 
-    /** <inheritdoc /> */
-    public override void VisitMainFromClause(MainFromClause fromClause, QueryModel queryModel)
-    {
-        base.VisitMainFromClause(fromClause, queryModel);
-
-        // TODO: DML: queryModel.ResultOperators.LastOrDefault() is UpdateAllResultOperator;
-        var isUpdateQuery = false;
-        if (!isUpdateQuery)
-        {
-            _builder.Append("from ");
-        }
-
-        ValidateFromClause(fromClause);
-        _aliases.AppendAsClause(_builder, fromClause);
-        _builder.Append(' ');
-
-        var i = 0;
-        foreach (var additionalFrom in queryModel.BodyClauses.OfType<AdditionalFromClause>())
-        {
-            _builder.Append(", ");
-            ValidateFromClause(additionalFrom);
-
-            VisitAdditionalFromClause(additionalFrom, queryModel, i++);
-        }
-
-        if (isUpdateQuery)
-        {
-            // TODO: DML
-            // BuildSetClauseForUpdateAll(queryModel);
-        }
-    }
-
-    /// <summary>
-    /// Validates from clause.
-    /// </summary>
-    // ReSharper disable once UnusedParameter.Local
-    private static void ValidateFromClause(IFromClause clause)
-    {
-        // Only IQueryable can be used in FROM clause. IEnumerable is not supported.
-        if (!typeof(IQueryable).IsAssignableFrom(clause.FromExpression.Type))
-        {
-            throw new NotSupportedException("FROM clause must be IQueryable: " + clause);
-        }
-    }
-
-    /** <inheritdoc /> */
-    public override void VisitWhereClause(WhereClause whereClause, QueryModel queryModel, int index)
-    {
-        base.VisitWhereClause(whereClause, queryModel, index);
-
-        VisitWhereClause(whereClause, index, false);
-    }
-
     /// <summary>
     /// Visits the where clause.
     /// </summary>
@@ -460,94 +550,6 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
         BuildSqlExpression(whereClause.Predicate);
 
         _builder.Append(' ');
-    }
-
-    /** <inheritdoc /> */
-    public override void VisitOrderByClause(OrderByClause orderByClause, QueryModel queryModel, int index)
-    {
-        base.VisitOrderByClause(orderByClause, queryModel, index);
-
-        _builder.Append("order by ");
-
-        for (int i = 0; i < orderByClause.Orderings.Count; i++)
-        {
-            var ordering = orderByClause.Orderings[i];
-
-            if (i > 0)
-            {
-                _builder.Append(", ");
-            }
-
-            _builder.Append('(');
-
-            BuildSqlExpression(ordering.Expression);
-
-            _builder.Append(')');
-
-            _builder.Append(ordering.OrderingDirection == OrderingDirection.Asc ? " asc" : " desc");
-        }
-
-        _builder.Append(' ');
-    }
-
-    /** <inheritdoc /> */
-    public override void VisitJoinClause(JoinClause joinClause, QueryModel queryModel, int index)
-    {
-        base.VisitJoinClause(joinClause, queryModel, index);
-        var queryable = ExpressionWalker.GetIgniteQueryable(joinClause, false);
-
-        if (queryable != null)
-        {
-            var subQuery = joinClause.InnerSequence as SubQueryExpression;
-
-            if (subQuery != null)
-            {
-                var isOuter = subQuery.QueryModel.ResultOperators.OfType<DefaultIfEmptyResultOperator>().Any();
-
-                _builder.AppendFormat(CultureInfo.InvariantCulture, "{0} join (", isOuter ? "left outer" : "inner");
-
-                VisitQueryModel(subQuery.QueryModel, true);
-
-                var alias = _aliases.GetTableAlias(subQuery.QueryModel.MainFromClause);
-                _builder.AppendFormat(CultureInfo.InvariantCulture, ") as {0} on (", alias);
-            }
-            else
-            {
-                var tableName = ExpressionWalker.GetTableNameWithSchema(queryable);
-                var alias = _aliases.GetTableAlias(joinClause);
-                _builder.AppendFormat(CultureInfo.InvariantCulture, "inner join {0} as {1} on (", tableName, alias);
-            }
-        }
-        else
-        {
-            VisitJoinWithLocalCollectionClause(joinClause);
-        }
-
-        BuildJoinCondition(joinClause.InnerKeySelector, joinClause.OuterKeySelector);
-
-        _builder.Append(") ");
-    }
-
-    /** <inheritdoc /> */
-    public override void VisitAdditionalFromClause(AdditionalFromClause fromClause, QueryModel queryModel, int index)
-    {
-        base.VisitAdditionalFromClause(fromClause, queryModel, index);
-
-        var subQuery = fromClause.FromExpression as SubQueryExpression;
-        if (subQuery != null)
-        {
-            _builder.Append('(');
-
-            VisitQueryModel(subQuery.QueryModel, true);
-
-            var alias = _aliases.GetTableAlias(subQuery.QueryModel.MainFromClause);
-            _builder.AppendFormat(CultureInfo.InvariantCulture, ") as {0} ", alias);
-        }
-        else
-        {
-            _aliases.AppendAsClause(_builder, fromClause);
-            _builder.Append(' ');
-        }
     }
 
     /// <summary>
