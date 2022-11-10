@@ -51,7 +51,30 @@ namespace Apache.Ignite.Internal.Sql
         }
 
         /// <inheritdoc/>
-        public async Task<IResultSet<IIgniteTuple>> ExecuteAsync(ITransaction? transaction, SqlStatement statement, params object?[]? args)
+        public async Task<IResultSet<IIgniteTuple>> ExecuteAsync(ITransaction? transaction, SqlStatement statement, params object?[]? args) =>
+            await ExecuteAsyncInternal(transaction, statement, TupleReaderFactory, args).ConfigureAwait(false);
+
+        /// <inheritdoc/>
+        public Task<IResultSet<T>> ExecuteAsync<T>(ITransaction? transaction, SqlStatement statement, params object?[]? args)
+        {
+            // TODO: IGNITE-17333 SQL ResultSet object mapping
+            throw new NotSupportedException();
+        }
+
+        /// <summary>
+        /// Executes single SQL statement and returns rows deserialized with the provided <paramref name="rowReaderFactory"/>.
+        /// </summary>
+        /// <param name="transaction">Optional transaction.</param>
+        /// <param name="statement">Statement to execute.</param>
+        /// <param name="rowReaderFactory">Row reader factory.</param>
+        /// <param name="args">Arguments for the statement.</param>
+        /// <typeparam name="T">Row type.</typeparam>
+        /// <returns>SQL result set.</returns>
+        internal async Task<IResultSet<T>> ExecuteAsyncInternal<T>(
+            ITransaction? transaction,
+            SqlStatement statement,
+            RowReaderFactory<T> rowReaderFactory,
+            params object?[]? args)
         {
             IgniteArgumentCheck.NotNull(statement, nameof(statement));
 
@@ -61,7 +84,7 @@ namespace Apache.Ignite.Internal.Sql
             var (buf, socket) = await _socket.DoOutInOpAndGetSocketAsync(ClientOp.SqlExec, tx, bufferWriter).ConfigureAwait(false);
 
             // ResultSet will dispose the pooled buffer.
-            return new ResultSet<IIgniteTuple>(socket, buf, TupleReaderFactory);
+            return new ResultSet<T>(socket, buf, rowReaderFactory);
 
             PooledArrayBufferWriter Write()
             {
@@ -92,13 +115,6 @@ namespace Apache.Ignite.Internal.Sql
                 w.Flush();
                 return writer;
             }
-        }
-
-        /// <inheritdoc/>
-        public Task<IResultSet<T>> ExecuteAsync<T>(ITransaction? transaction, SqlStatement statement, params object?[]? args)
-        {
-            // TODO: IGNITE-17333 SQL ResultSet object mapping
-            throw new NotSupportedException();
         }
 
         private static IIgniteTuple ReadTuple(IReadOnlyList<IColumnMetadata> cols, BinaryTupleReader tupleReader)
