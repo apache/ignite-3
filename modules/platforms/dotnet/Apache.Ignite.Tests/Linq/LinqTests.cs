@@ -39,10 +39,11 @@ public class LinqTests : IgniteTestsBase
     [Test]
     public void TestSelectOneColumn()
     {
-        string?[] res = PocoView.AsQueryable()
+        var query = PocoView.AsQueryable()
             .Where(x => x.Key == 3)
-            .Select(x => x.Val)
-            .ToArray();
+            .Select(x => x.Val);
+
+        string?[] res = query.ToArray();
 
         CollectionAssert.AreEqual(new[] { "v-3" }, res);
     }

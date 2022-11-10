@@ -20,6 +20,7 @@ namespace Apache.Ignite.Sql;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using Internal.Linq;
 using Table;
 
 /// <summary>
@@ -39,7 +40,15 @@ public static class LinqExtensions
     /// <returns>Result set.</returns>
     public static async Task<IResultSet<T>> ToResultSetAsync<T>(this IQueryable<T> queryable)
     {
-        // TODO
+        if (queryable is not ICacheQueryableInternal queryableInternal)
+        {
+            throw new InvalidOperationException("Provided query does not originate from Ignite table: " + queryable);
+        }
+
+        var model = queryableInternal.GetQueryModel();
+        var queryData = CacheFieldsQueryExecutor.GetQueryData(model);
+
+        // TODO: Access SQL instance, pass query and parameters.
         await Task.Yield();
         throw new NotImplementedException();
     }
