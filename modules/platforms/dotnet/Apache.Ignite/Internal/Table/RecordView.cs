@@ -291,7 +291,7 @@ namespace Apache.Ignite.Internal.Table
             var sql = new Sql(_table.Socket); // TODO: Reuse existing SQL from Ignite
             var executor = new IgniteQueryExecutor(sql, transaction);
             var cacheValueType = typeof(T); // TODO: ???
-            var provider = new CacheFieldsQueryProvider(IgniteQueryParser.Instance, executor, _table.Name, cacheValueType);
+            var provider = new IgniteQueryProvider(IgniteQueryParser.Instance, executor, _table.Name, cacheValueType);
 
 #pragma warning restore CA2000
 

@@ -32,7 +32,7 @@ internal interface IIgniteQueryableInternal // TODO: Better name.
     /// <summary>
     /// Gets the provider.
     /// </summary>
-    CacheFieldsQueryProvider Provider { get; }
+    IgniteQueryProvider Provider { get; }
 
     /// <summary>
     /// Gets the query model.

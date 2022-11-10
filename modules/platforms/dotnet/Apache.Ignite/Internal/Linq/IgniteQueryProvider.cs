@@ -31,11 +31,11 @@ using Remotion.Linq.Utilities;
 /// <summary>
 /// Query provider for fields queries (projections).
 /// </summary>
-internal class CacheFieldsQueryProvider : IQueryProvider
+internal class IgniteQueryProvider : IQueryProvider
 {
     /** */
     private static readonly MethodInfo GenericCreateQueryMethod =
-        typeof(CacheFieldsQueryProvider).GetMethods().Single(m => m.Name == "CreateQuery" && m.IsGenericMethod);
+        typeof(IgniteQueryProvider).GetMethods().Single(m => m.Name == "CreateQuery" && m.IsGenericMethod);
 
     /** */
     private readonly IQueryParser _parser;
@@ -47,9 +47,9 @@ internal class CacheFieldsQueryProvider : IQueryProvider
     private readonly string _tableName;
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="CacheFieldsQueryProvider"/> class.
+    /// Initializes a new instance of the <see cref="IgniteQueryProvider"/> class.
     /// </summary>
-    public CacheFieldsQueryProvider(
+    public IgniteQueryProvider(
         IQueryParser queryParser,
         IgniteQueryExecutor executor,
         string tableName,

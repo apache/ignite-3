@@ -24,7 +24,7 @@ using System.Text;
 using Remotion.Linq;
 
 /// <summary>
-/// Base class for cache queryables.
+/// Ignite queryable.
 /// </summary>
 /// <typeparam name="T">Query result type.</typeparam>
 internal sealed class IgniteQueryable<T>
@@ -51,20 +51,20 @@ internal sealed class IgniteQueryable<T>
         // No-op.
     }
 
-    public string TableName => CacheQueryProvider.TableName;
+    public string TableName => IgniteQueryProvider.TableName;
 
-    CacheFieldsQueryProvider IIgniteQueryableInternal.Provider => CacheQueryProvider;
+    IgniteQueryProvider IIgniteQueryableInternal.Provider => IgniteQueryProvider;
 
     /// <summary>
     /// Gets the cache query provider.
     /// </summary>
-    private CacheFieldsQueryProvider CacheQueryProvider => (CacheFieldsQueryProvider)Provider;
+    private IgniteQueryProvider IgniteQueryProvider => (IgniteQueryProvider)Provider;
 
     /// <summary>
     /// Gets the query model.
     /// </summary>
     /// <returns>Query model.</returns>
-    public QueryModel GetQueryModel() => CacheQueryProvider.GenerateQueryModel(Expression);
+    public QueryModel GetQueryModel() => IgniteQueryProvider.GenerateQueryModel(Expression);
 
     /// <summary>
     /// Returns a <see cref="string" /> that represents this instance.
