@@ -40,7 +40,7 @@ internal static class ExpressionWalker
     /// <summary>
     /// Gets the cache queryable.
     /// </summary>
-    public static ICacheQueryableInternal? GetCacheQueryable(IFromClause fromClause, bool throwWhenNotFound = true)
+    public static IIgniteQueryableInternal? GetCacheQueryable(IFromClause fromClause, bool throwWhenNotFound = true)
     {
         return GetCacheQueryable(fromClause.FromExpression, throwWhenNotFound);
     }
@@ -48,7 +48,7 @@ internal static class ExpressionWalker
     /// <summary>
     /// Gets the cache queryable.
     /// </summary>
-    public static ICacheQueryableInternal? GetCacheQueryable(JoinClause joinClause, bool throwWhenNotFound = true)
+    public static IIgniteQueryableInternal? GetCacheQueryable(JoinClause joinClause, bool throwWhenNotFound = true)
     {
         return GetCacheQueryable(joinClause.InnerSequence, throwWhenNotFound);
     }
@@ -56,7 +56,7 @@ internal static class ExpressionWalker
     /// <summary>
     /// Gets the cache queryable.
     /// </summary>
-    public static ICacheQueryableInternal? GetCacheQueryable(Expression expression, bool throwWhenNotFound = true)
+    public static IIgniteQueryableInternal? GetCacheQueryable(Expression expression, bool throwWhenNotFound = true)
     {
         var subQueryExp = expression as SubQueryExpression;
 
@@ -93,7 +93,7 @@ internal static class ExpressionWalker
             if (memberExpr.Type.IsGenericType &&
                 memberExpr.Type.GetGenericTypeDefinition() == typeof(IQueryable<>))
             {
-                return EvaluateExpression<ICacheQueryableInternal>(memberExpr);
+                return EvaluateExpression<IIgniteQueryableInternal>(memberExpr);
             }
 
             return GetCacheQueryable(memberExpr.Expression!, throwWhenNotFound);
@@ -103,7 +103,7 @@ internal static class ExpressionWalker
 
         if (constExpr != null)
         {
-            var queryable = constExpr.Value as ICacheQueryableInternal;
+            var queryable = constExpr.Value as IIgniteQueryableInternal;
 
             if (queryable != null)
             {
@@ -116,7 +116,7 @@ internal static class ExpressionWalker
         if (callExpr != null)
         {
             // This is usually a nested query with a call to AsCacheQueryable().
-            return (ICacheQueryableInternal) Expression.Lambda(callExpr).Compile().DynamicInvoke()!;
+            return (IIgniteQueryableInternal) Expression.Lambda(callExpr).Compile().DynamicInvoke()!;
         }
 
         if (throwWhenNotFound)
@@ -412,5 +412,5 @@ internal static class ExpressionWalker
     /// <para />
     /// Only PUBLIC schema is supported for now by the SQL engine.
     /// </summary>
-    public static string GetTableNameWithSchema(ICacheQueryableInternal queryable) => $"PUBLIC.{queryable.TableName}";
+    public static string GetTableNameWithSchema(IIgniteQueryableInternal queryable) => $"PUBLIC.{queryable.TableName}";
 }

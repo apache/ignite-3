@@ -22,7 +22,7 @@ using Remotion.Linq;
 /// <summary>
 /// Internal queryable interface.
 /// </summary>
-internal interface ICacheQueryableInternal // TODO: Better name.
+internal interface IIgniteQueryableInternal // TODO: Better name.
 {
     /// <summary>
     /// Gets the table name.

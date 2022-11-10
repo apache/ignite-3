@@ -269,7 +269,7 @@ internal sealed class CacheQueryModelVisitor : QueryModelVisitorBase
                         throw new NotSupportedException("Unexpected UNION inner sequence: " + source);
                     }
 
-                    var queryable = innerExpr.Value as ICacheQueryableInternal;
+                    var queryable = innerExpr.Value as IIgniteQueryableInternal;
 
                     if (queryable == null)
                     {

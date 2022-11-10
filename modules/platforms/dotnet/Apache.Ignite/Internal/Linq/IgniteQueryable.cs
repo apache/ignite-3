@@ -27,25 +27,25 @@ using Remotion.Linq;
 /// Base class for cache queryables.
 /// </summary>
 /// <typeparam name="T">Query result type.</typeparam>
-internal abstract class CacheQueryableBase<T>
-    : QueryableBase<T>, ICacheQueryableInternal
+internal sealed class IgniteQueryable<T>
+    : QueryableBase<T>, IIgniteQueryableInternal
 {
     /// <summary>
-    /// Initializes a new instance of the <see cref="CacheQueryableBase{T}"/> class.
+    /// Initializes a new instance of the <see cref="IgniteQueryable{T}"/> class.
     /// </summary>
     /// <param name="provider">Provider.</param>
-    protected CacheQueryableBase(IQueryProvider provider)
+    public IgniteQueryable(IQueryProvider provider)
         : base(provider)
     {
         // No-op.
     }
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="CacheQueryableBase{T}"/> class.
+    /// Initializes a new instance of the <see cref="IgniteQueryable{T}"/> class.
     /// </summary>
     /// <param name="provider">Provider.</param>
     /// <param name="expression">Expression.</param>
-    protected CacheQueryableBase(IQueryProvider provider, Expression expression)
+    public IgniteQueryable(IQueryProvider provider, Expression expression)
         : base(provider, expression)
     {
         // No-op.
@@ -53,7 +53,7 @@ internal abstract class CacheQueryableBase<T>
 
     public string TableName => CacheQueryProvider.TableName;
 
-    CacheFieldsQueryProvider ICacheQueryableInternal.Provider => CacheQueryProvider;
+    CacheFieldsQueryProvider IIgniteQueryableInternal.Provider => CacheQueryProvider;
 
     /// <summary>
     /// Gets the cache query provider.

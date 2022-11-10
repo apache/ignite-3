@@ -103,7 +103,7 @@ internal class CacheFieldsQueryProvider : IQueryProvider
     /** <inheritdoc /> */
     public IQueryable<T> CreateQuery<T>(Expression expression)
     {
-        return new CacheFieldsQueryable<T>(this, expression);
+        return new IgniteQueryable<T>(this, expression);
     }
 
     /** <inheritdoc /> */

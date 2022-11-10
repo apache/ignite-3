@@ -295,7 +295,7 @@ namespace Apache.Ignite.Internal.Table
 
 #pragma warning restore CA2000
 
-            return new CacheFieldsQueryable<T>(provider);
+            return new IgniteQueryable<T>(provider);
         }
 
         /// <summary>

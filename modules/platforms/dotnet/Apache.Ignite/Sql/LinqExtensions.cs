@@ -40,7 +40,7 @@ public static class LinqExtensions
     /// <returns>Result set.</returns>
     public static async Task<IResultSet<T>> ToResultSetAsync<T>(this IQueryable<T> queryable)
     {
-        if (queryable is not ICacheQueryableInternal queryableInternal)
+        if (queryable is not IIgniteQueryableInternal queryableInternal)
         {
             throw new InvalidOperationException("Provided query does not originate from Ignite table: " + queryable);
         }
