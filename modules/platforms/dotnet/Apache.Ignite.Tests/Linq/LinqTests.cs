@@ -161,6 +161,12 @@ public class LinqTests : IgniteTestsBase
     }
 
     [Test]
+    public void TestCustomColumnNameMapping()
+    {
+        Assert.Fail("TODO: Test that ColumnAttribute is honored.");
+    }
+
+    [Test]
     public async Task TestTransaction()
     {
         await using var tx = await Client.Transactions.BeginAsync();
