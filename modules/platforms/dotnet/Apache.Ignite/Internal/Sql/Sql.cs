@@ -62,6 +62,45 @@ namespace Apache.Ignite.Internal.Sql
         }
 
         /// <summary>
+        /// Reads column value.
+        /// </summary>
+        /// <param name="reader">Reader.</param>
+        /// <param name="col">Column.</param>
+        /// <param name="idx">Index.</param>
+        /// <returns>Value.</returns>
+        internal static object? ReadColumnValue(ref BinaryTupleReader reader, IColumnMetadata col, int idx)
+        {
+            if (reader.IsNull(idx))
+            {
+                return null;
+            }
+
+            return col.Type switch
+            {
+                SqlColumnType.Boolean => reader.GetByte(idx) != 0,
+                SqlColumnType.Int8 => reader.GetByte(idx),
+                SqlColumnType.Int16 => reader.GetShort(idx),
+                SqlColumnType.Int32 => reader.GetInt(idx),
+                SqlColumnType.Int64 => reader.GetLong(idx),
+                SqlColumnType.Float => reader.GetFloat(idx),
+                SqlColumnType.Double => reader.GetDouble(idx),
+                SqlColumnType.Decimal => reader.GetDecimal(idx, col.Scale),
+                SqlColumnType.Date => reader.GetDate(idx),
+                SqlColumnType.Time => reader.GetTime(idx),
+                SqlColumnType.Datetime => reader.GetDateTime(idx),
+                SqlColumnType.Timestamp => reader.GetTimestamp(idx),
+                SqlColumnType.Uuid => reader.GetGuid(idx),
+                SqlColumnType.Bitmask => reader.GetBitmask(idx),
+                SqlColumnType.String => reader.GetString(idx),
+                SqlColumnType.ByteArray => reader.GetBytes(idx),
+                SqlColumnType.Period => reader.GetPeriod(idx),
+                SqlColumnType.Duration => reader.GetDuration(idx),
+                SqlColumnType.Number => reader.GetNumber(idx),
+                _ => throw new ArgumentOutOfRangeException(nameof(col.Type), col.Type, "Unknown SQL column type.")
+            };
+        }
+
+        /// <summary>
         /// Executes single SQL statement and returns rows deserialized with the provided <paramref name="rowReaderFactory"/>.
         /// </summary>
         /// <param name="transaction">Optional transaction.</param>
@@ -124,42 +163,10 @@ namespace Apache.Ignite.Internal.Sql
             for (var i = 0; i < cols.Count; i++)
             {
                 var col = cols[i];
-                row[col.Name] = ReadValue(ref tupleReader, col, i);
+                row[col.Name] = ReadColumnValue(ref tupleReader, col, i);
             }
 
             return row;
-        }
-
-        private static object? ReadValue(ref BinaryTupleReader reader, IColumnMetadata col, int idx)
-        {
-            if (reader.IsNull(idx))
-            {
-                return null;
-            }
-
-            return col.Type switch
-            {
-                SqlColumnType.Boolean => reader.GetByte(idx) != 0,
-                SqlColumnType.Int8 => reader.GetByte(idx),
-                SqlColumnType.Int16 => reader.GetShort(idx),
-                SqlColumnType.Int32 => reader.GetInt(idx),
-                SqlColumnType.Int64 => reader.GetLong(idx),
-                SqlColumnType.Float => reader.GetFloat(idx),
-                SqlColumnType.Double => reader.GetDouble(idx),
-                SqlColumnType.Decimal => reader.GetDecimal(idx, col.Scale),
-                SqlColumnType.Date => reader.GetDate(idx),
-                SqlColumnType.Time => reader.GetTime(idx),
-                SqlColumnType.Datetime => reader.GetDateTime(idx),
-                SqlColumnType.Timestamp => reader.GetTimestamp(idx),
-                SqlColumnType.Uuid => reader.GetGuid(idx),
-                SqlColumnType.Bitmask => reader.GetBitmask(idx),
-                SqlColumnType.String => reader.GetString(idx),
-                SqlColumnType.ByteArray => reader.GetBytes(idx),
-                SqlColumnType.Period => reader.GetPeriod(idx),
-                SqlColumnType.Duration => reader.GetDuration(idx),
-                SqlColumnType.Number => reader.GetNumber(idx),
-                _ => throw new ArgumentOutOfRangeException(nameof(col.Type), col.Type, "Unknown SQL column type.")
-            };
         }
     }
 }

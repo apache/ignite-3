@@ -23,6 +23,7 @@ using System.Diagnostics;
 using System.Linq;
 using Ignite.Sql;
 using Ignite.Table;
+using Proto;
 using Remotion.Linq;
 using Sql;
 using Table;
@@ -88,12 +89,17 @@ internal class CacheFieldsQueryExecutor : IQueryExecutor
         // TODO: Async execution.
         // TODO: Async pagination.
         // TODO: ToResultSetAsync extension will solve all those requirements.
-        IResultSet<IIgniteTuple> resultSet = _sql.ExecuteAsync(null, statement, qryData.Parameters.ToArray()).GetAwaiter().GetResult();
+        IResultSet<T> resultSet = _sql.ExecuteAsyncInternal<T>(
+            null,
+            statement,
+            _ => (cols, reader) => (T)Sql.ReadColumnValue(ref reader, cols[0], 0)!,
+            qryData.Parameters.ToArray()).GetAwaiter().GetResult();
+
         var rows = resultSet.ToListAsync().AsTask().GetAwaiter().GetResult();
 
         // TODO: Compile selector according to result schema and select expression
         // TODO: Generify ResultSet
         var selector = queryModel.SelectClause.Selector;
-        return rows.Select(r => (T)r);
+        return rows;
     }
 }
