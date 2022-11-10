@@ -15,11 +15,11 @@
  * limitations under the License.
  */
 
-#pragma warning disable SA1615, SA1611, SA1405, SA1202, SA1600, CA1711, SA1201 // TODO: Fix warnings.
 namespace Apache.Ignite.Internal.Linq;
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Linq;
 using System.Linq.Expressions;
@@ -32,7 +32,7 @@ using System.Text.RegularExpressions;
 internal static class MethodVisitor
 {
     /// <summary> Property visitors. </summary>
-    private static readonly Dictionary<MemberInfo, string> Properties = new Dictionary<MemberInfo, string>
+    private static readonly Dictionary<MemberInfo, string> Properties = new()
     {
         {typeof(string).GetProperty("Length")!, "length"},
         {typeof(DateTime).GetProperty("Year")!, "year"},
@@ -44,9 +44,6 @@ internal static class MethodVisitor
         {typeof(DateTime).GetProperty("Minute")!, "minute"},
         {typeof(DateTime).GetProperty("Second")!, "second"}
     };
-
-    /// <summary> Method visit delegate. </summary>
-    private delegate void VisitMethodDelegate(MethodCallExpression expression, IgniteQueryExpressionVisitor visitor);
 
     /// <summary>
     /// Delegates dictionary.
@@ -128,15 +125,22 @@ internal static class MethodVisitor
         .ToDictionary(x => x.Key!, x => x.Value);
 
     /// <summary> RegexOptions transformations. </summary>
-    private static readonly Dictionary<RegexOptions, string> RegexOptionFlags = new Dictionary<RegexOptions, string>
+    private static readonly Dictionary<RegexOptions, string> RegexOptionFlags = new()
     {
         { RegexOptions.IgnoreCase, "i" },
         { RegexOptions.Multiline, "m" }
     };
 
+    /// <summary> Method visit delegate. </summary>
+    [SuppressMessage("Naming", "CA1711:Identifiers should not have incorrect suffix", Justification = "Private.")]
+    private delegate void VisitMethodDelegate(MethodCallExpression expression, IgniteQueryExpressionVisitor visitor);
+
     /// <summary>
-    /// Visits the property call expression.
+    /// Visits a property call expression.
     /// </summary>
+    /// <param name="expression">Expression.</param>
+    /// <param name="visitor">Visitor.</param>
+    /// <returns>Success flag.</returns>
     public static bool VisitPropertyCall(MemberExpression expression, IgniteQueryExpressionVisitor visitor)
     {
         if (!Properties.TryGetValue(expression.Member, out var funcName) || expression.Expression == null)
@@ -154,8 +158,10 @@ internal static class MethodVisitor
     }
 
     /// <summary>
-    /// Visits the method call expression.
+    /// Visits a method call expression.
     /// </summary>
+    /// <param name="expression">Expression.</param>
+    /// <param name="visitor">Visitor.</param>
     public static void VisitMethodCall(MethodCallExpression expression, IgniteQueryExpressionVisitor visitor)
     {
         var mtd = expression.Method;
@@ -173,8 +179,11 @@ internal static class MethodVisitor
     }
 
     /// <summary>
-    /// Visits the constant call expression.
+    /// Visits a constant call expression.
     /// </summary>
+    /// <param name="expression">Expression.</param>
+    /// <param name="visitor">Visitor.</param>
+    /// <returns>Success flag.</returns>
     public static bool VisitConstantCall(ConstantExpression expression, IgniteQueryExpressionVisitor visitor)
     {
         if (expression.Type != typeof(RegexOptions))
