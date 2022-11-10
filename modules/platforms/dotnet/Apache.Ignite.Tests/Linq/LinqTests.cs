@@ -20,6 +20,7 @@ namespace Apache.Ignite.Tests.Linq;
 using System.Linq;
 using System.Threading.Tasks;
 using NUnit.Framework;
+using Table;
 
 /// <summary>
 /// Basic LINQ provider tests.
@@ -44,6 +45,18 @@ public class LinqTests : IgniteTestsBase
             .ToArray();
 
         CollectionAssert.AreEqual(new[] { "v-3" }, res);
+    }
+
+    [Test]
+    public void TestSelectEntireObject()
+    {
+        Poco[] res = PocoView.AsQueryable()
+            .Where(x => x.Key == 3)
+            .ToArray();
+
+        Assert.AreEqual(1, res.Length);
+        Assert.AreEqual(2, res[0].Key);
+        Assert.AreEqual("v-2", res[0].Val);
     }
 
     [Test]
