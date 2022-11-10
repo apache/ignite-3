@@ -51,6 +51,17 @@ public class LinqTests : IgniteTestsBase
     }
 
     [Test]
+    public void TestSelectOneColumnSingle()
+    {
+        var res = PocoView.AsQueryable()
+            .Where(x => x.Key == 3)
+            .Select(x => x.Val)
+            .Single();
+
+        CollectionAssert.AreEqual("v-3", res);
+    }
+
+    [Test]
     public async Task TestSelectOneColumnAsResultSet()
     {
         var query = PocoView.AsQueryable()
