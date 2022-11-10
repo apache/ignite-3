@@ -52,7 +52,12 @@ NonTerminal('ENGINE'),
 NonTerminal('engine_name')
 )
 ),
-Optional('WITH')
+Optional(
+Sequence(
+NonTerminal('WITH'),
+OneOrMore('param_name')
+)
+)
 )
 
 
