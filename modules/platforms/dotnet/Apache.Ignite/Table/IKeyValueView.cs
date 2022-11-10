@@ -20,6 +20,7 @@ namespace Apache.Ignite.Table;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Sql;
 using Transactions;
 
 /// <summary>
@@ -205,6 +206,8 @@ public interface IKeyValueView<TK, TV>
     /// <summary>
     /// Gets a <see cref="IQueryable{T}"/> to perform Ignite SQL queries using LINQ
     /// (see <see href="https://learn.microsoft.com/en-us/dotnet/csharp/programming-guide/concepts/linq/" />).
+    /// <para />
+    /// Use <see cref="LinqExtensions.ToResultSetAsync{T}"/> to materialize query results asynchronously.
     /// </summary>
     /// <param name="transaction">Optional transaction.</param>
     /// <returns><see cref="IQueryable{T}"/>.</returns>

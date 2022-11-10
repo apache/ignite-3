@@ -17,8 +17,10 @@
 
 namespace Apache.Ignite.Tests.Linq;
 
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Ignite.Sql;
 using NUnit.Framework;
 using Table;
 
@@ -46,6 +48,22 @@ public class LinqTests : IgniteTestsBase
         string?[] res = query.ToArray();
 
         CollectionAssert.AreEqual(new[] { "v-3" }, res);
+    }
+
+    [Test]
+    public async Task TestSelectOneColumnAsResultSet()
+    {
+        var query = PocoView.AsQueryable()
+            .Where(x => x.Key == 3)
+            .Select(x => x.Val);
+
+        IResultSet<string?> resultSet = await query.ToResultSetAsync();
+        List<string?> rows = await resultSet.ToListAsync();
+
+        CollectionAssert.AreEqual(new[] { "v-3" }, rows);
+        Assert.IsTrue(resultSet.HasRowSet);
+        Assert.IsNotNull(resultSet.Metadata);
+        Assert.AreEqual("VAL", resultSet.Metadata!.Columns.Single().Name);
     }
 
     [Test]
