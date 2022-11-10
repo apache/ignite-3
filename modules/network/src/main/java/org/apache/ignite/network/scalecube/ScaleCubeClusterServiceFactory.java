@@ -17,14 +17,11 @@
 
 package org.apache.ignite.network.scalecube;
 
-import static io.scalecube.cluster.membership.MembershipEvent.createAdded;
-import static io.scalecube.cluster.membership.MembershipEvent.createUpdated;
-
 import io.scalecube.cluster.ClusterConfig;
 import io.scalecube.cluster.ClusterImpl;
 import io.scalecube.cluster.ClusterMessageHandler;
 import io.scalecube.cluster.membership.MembershipEvent;
-import io.scalecube.cluster.metadata.JdkMetadataCodec;
+import io.scalecube.cluster.metadata.MetadataCodec;
 import io.scalecube.net.Address;
 import java.util.List;
 import java.util.UUID;
@@ -69,10 +66,7 @@ public class ScaleCubeClusterServiceFactory {
     private static final IgniteLogger LOG = Loggers.forClass(ScaleCubeClusterServiceFactory.class);
 
     /** Metadata codec. */
-    private static final JdkMetadataCodec METADATA_CODEC = new JdkMetadataCodec();
-
-    /** Scalecube cluster executor to update metadata.  */
-    private final Scheduler scheduler = scheduler("ScaleCubeClusterServiceFactory");
+    private static final MetadataCodec METADATA_CODEC = MetadataCodec.INSTANCE;
 
     /**
      * Creates a new {@link ClusterService} using the provided context. The created network will not be in the "started" state.
@@ -157,10 +151,8 @@ public class ScaleCubeClusterServiceFactory {
 
                 cluster.startAwait();
 
-                // emit an artificial event as if the local member has joined the topology (ScaleCube doesn't do that)
-                var localMembershipEvent = createAdded(cluster.member(), null, System.currentTimeMillis());
-
-                topologyService.onMembershipEvent(localMembershipEvent);
+                // update info about the local member (ScaleCube doesn't emit events about local members)
+                topologyService.updateLocalMember(cluster.member(), null);
             }
 
             /** {@inheritDoc} */
@@ -207,13 +199,8 @@ public class ScaleCubeClusterServiceFactory {
 
             @Override
             public void updateMetadata(NodeMetadata metadata) {
-                cluster.updateMetadata(metadata).subscribeOn(scheduler).subscribe();
-                MembershipEvent membershipEvent = createUpdated(cluster.member(),
-                        cluster.<NodeMetadata>metadata().map(METADATA_CODEC::serialize).orElse(null),
-                        METADATA_CODEC.serialize(metadata),
-                        System.currentTimeMillis()
-                );
-                topologyService.onMembershipEvent(membershipEvent);
+                cluster.updateMetadata(metadata).subscribe();
+                topologyService.updateLocalMember(cluster.member(), metadata);
             }
         };
     }

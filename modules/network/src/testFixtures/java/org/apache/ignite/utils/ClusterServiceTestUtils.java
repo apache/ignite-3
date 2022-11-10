@@ -151,7 +151,9 @@ public class ClusterServiceTestUtils {
             }
 
             @Override
-            public void updateMetadata(NodeMetadata metadata) {}
+            public void updateMetadata(NodeMetadata metadata) {
+                clusterSvc.updateMetadata(metadata);
+            }
 
             @Override
             public void start() {

@@ -42,7 +42,7 @@ public class NodeUrlMixin {
     private Options options;
 
     @Inject
-    NodeNameRegistry nodeNameRegistry;
+    private NodeNameRegistry nodeNameRegistry;
 
     private static class Options {
 

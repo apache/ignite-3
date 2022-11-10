@@ -38,7 +38,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 class NodeNameDynamicCompleterTest {
 
     private static final Set<String> prefixes = Set.of(NODE_NAME_OPTION, NODE_NAME_OPTION_SHORT);
-    private static final List<String> nodeNames = List.of("node1", "node2", "remoteNode");
+    private static final Set<String> nodeNames = Set.of("node1", "node2", "remoteNode");
     private NodeNameDynamicCompleter completer;
 
     @BeforeEach

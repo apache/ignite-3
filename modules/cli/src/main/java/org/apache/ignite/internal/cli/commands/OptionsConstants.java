@@ -58,5 +58,5 @@ public class OptionsConstants {
     public static final String NODE_NAME_OPTION_SHORT = "-n";
 
     /** Node name option description. */
-    public static final String NODE_NAME_DESC = "Name of ignite node";
+    public static final String NODE_NAME_DESC = "Name of an Ignite node";
 }

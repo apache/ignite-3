@@ -21,11 +21,9 @@ import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermin
 
 import jakarta.inject.Singleton;
 import java.net.URL;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -46,7 +44,7 @@ import org.jetbrains.annotations.Nullable;
 public class NodeNameRegistry {
 
     private final IgniteLogger log = Loggers.forClass(getClass());
-    private volatile Map<String, URL> nodeNameToNodeUrl = new HashMap<>();
+    private volatile Map<String, URL> nodeNameToNodeUrl = Map.of();
     private ScheduledExecutorService executor;
 
     /**
@@ -72,8 +70,8 @@ public class NodeNameRegistry {
     /**
      * Gets all node names.
      */
-    public List<String> getAllNames() {
-        return new ArrayList<>(nodeNameToNodeUrl.keySet());
+    public Set<String> getAllNames() {
+        return nodeNameToNodeUrl.keySet();
     }
 
     /**
@@ -82,27 +80,33 @@ public class NodeNameRegistry {
     public synchronized void stopPullingUpdates() {
         if (executor != null) {
             shutdownAndAwaitTermination(executor, 3, TimeUnit.SECONDS);
+            executor = null;
         }
     }
 
     private void updateNodeNames(String nodeUrl) {
         PhysicalTopologyCall topologyCall = new PhysicalTopologyCall();
-        nodeNameToNodeUrl = topologyCall.execute(new UrlCallInput(nodeUrl)).body().stream().map(NodeNameRegistry::toNodeNameAndUrlPair)
-                .filter(it -> it.url != null).collect(Collectors.toMap(it -> it.name, it -> it.url));
+        nodeNameToNodeUrl = topologyCall.execute(new UrlCallInput(nodeUrl))
+                .body()
+                .stream()
+                .map(this::toNodeNameAndUrlPair)
+                .filter(it -> it.url != null)
+                .collect(Collectors.toUnmodifiableMap(it -> it.name, it -> it.url));
     }
 
-    private static NodeNameAndUrlPair toNodeNameAndUrlPair(ClusterNode node) {
+    private NodeNameAndUrlPair toNodeNameAndUrlPair(ClusterNode node) {
         return new NodeNameAndUrlPair(node.getName(), urlFromClusterNode(node.getMetadata()));
     }
 
     @Nullable
-    private static URL urlFromClusterNode(NodeMetadata metadata) {
+    private URL urlFromClusterNode(NodeMetadata metadata) {
         if (metadata == null) {
             return null;
         }
         try {
             return new URL("http://" + metadata.getRestHost() + ":" + metadata.getRestPort());
         } catch (Exception e) {
+            log.warn("Couldn't create URL: {}", e);
             return null;
         }
     }

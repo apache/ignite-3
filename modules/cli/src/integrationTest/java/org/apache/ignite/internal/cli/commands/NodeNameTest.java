@@ -19,6 +19,7 @@ package org.apache.ignite.internal.cli.commands;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.Duration;
 import org.junit.jupiter.api.AfterEach;
@@ -35,7 +36,7 @@ public class NodeNameTest extends CliCommandTestNotInitializedIntegrationBase {
     void setUp() throws InterruptedException {
         nodeNameRegistry.startPullingUpdates("http://localhost:10301");
         // wait to pulling node names
-        waitForCondition(() -> !nodeNameRegistry.getAllNames().isEmpty(), Duration.ofSeconds(5).toMillis());
+        assertTrue(waitForCondition(() -> !nodeNameRegistry.getAllNames().isEmpty(), Duration.ofSeconds(5).toMillis()));
         this.nodeName = nodeNameRegistry.getAllNames().stream()
                 .findFirst()
                 .orElseThrow(() -> new RuntimeException("nodeNameRegistry doesn't contain any nodes"));

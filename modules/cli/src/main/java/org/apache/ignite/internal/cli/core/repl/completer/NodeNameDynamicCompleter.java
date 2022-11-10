@@ -20,6 +20,7 @@ package org.apache.ignite.internal.cli.core.repl.completer;
 import static org.apache.ignite.internal.cli.util.ArrayUtils.findLastNotEmptyWord;
 import static org.apache.ignite.internal.cli.util.ArrayUtils.findLastNotEmptyWordBeforeWordFromEnd;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
@@ -48,7 +49,7 @@ public class NodeNameDynamicCompleter implements DynamicCompleter {
         String lastWord = findLastNotEmptyWord(words);
         String beforeLastWord = findLastNotEmptyWordBeforeWordFromEnd(words, lastWord);
         if (activationPostfixes.contains(lastWord)) {
-            return nodeNameRegistry.getAllNames();
+            return new ArrayList<>(nodeNameRegistry.getAllNames());
         } else if (activationPostfixes.contains(beforeLastWord)) {
             return nodeNameRegistry.getAllNames().stream()
                     .filter(it -> it.startsWith(lastWord))

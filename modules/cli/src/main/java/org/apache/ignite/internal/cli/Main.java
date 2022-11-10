@@ -80,7 +80,7 @@ public class Main {
     }
 
     private static boolean isatty() {
-        return System.console() != null;
+        return true;
     }
 
     private static void enterRepl(MicronautFactory micronautFactory) throws Exception {
