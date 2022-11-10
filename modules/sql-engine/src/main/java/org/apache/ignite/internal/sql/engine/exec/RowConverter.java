@@ -66,12 +66,10 @@ public final class RowConverter {
     ) {
         RowHandler<RowT> handler = factory.handler();
 
-        int prefixColumnsCount = binarySchema.elementCount();
+        int indexedColumnsCount = binarySchema.elementCount();
+        int prefixColumnsCount = handler.columnCount(searchRow);
 
-        //TODO IGNITE-18056: Uncomment. Search row must be a valid index row prefix.
-        // assert handler.columnCount(searchRow) <= binarySchema.elementCount() : "Invalid range condition";
-        //
-        // int specifiedCols = handler.columnCount(searchRow);
+        assert prefixColumnsCount <= indexedColumnsCount : "Invalid range condition";
 
         int specifiedCols = 0;
         for (int i = 0; i < prefixColumnsCount; i++) {
@@ -80,7 +78,7 @@ public final class RowConverter {
             }
         }
 
-        BinaryTuplePrefixBuilder tupleBuilder = new BinaryTuplePrefixBuilder(specifiedCols, prefixColumnsCount);
+        BinaryTuplePrefixBuilder tupleBuilder = new BinaryTuplePrefixBuilder(specifiedCols, indexedColumnsCount);
 
         return new BinaryTuplePrefix(binarySchema, toByteBuffer(ectx, binarySchema, idxColumnMapper, handler, tupleBuilder, searchRow));
     }
@@ -104,12 +102,11 @@ public final class RowConverter {
     ) {
         RowHandler<RowT> handler = factory.handler();
 
-        int prefixColumnsCount = binarySchema.elementCount();
+        int rowColumnsCount = handler.columnCount(searchRow);
 
-        //TODO IGNITE-18056: Uncomment. Search row must be a valid index row.
-        // assert handler.columnCount(searchRow) == binarySchema.elementCount() : "Invalid lookup condition";
+        assert rowColumnsCount == binarySchema.elementCount() : "Invalid lookup condition.";
 
-        BinaryTupleBuilder tupleBuilder = new BinaryTupleBuilder(prefixColumnsCount, binarySchema.hasNullableElements());
+        BinaryTupleBuilder tupleBuilder = new BinaryTupleBuilder(rowColumnsCount, binarySchema.hasNullableElements());
 
         return new BinaryTuple(binarySchema, toByteBuffer(ectx, binarySchema, idxColumnMapper, handler, tupleBuilder, searchRow));
     }
@@ -122,11 +119,13 @@ public final class RowConverter {
             BinaryTupleBuilder tupleBuilder,
             RowT searchRow
     ) {
-        for (int i = 0; i < binarySchema.elementCount(); i++) {
+        int columnsCount = handler.columnCount(searchRow);
+
+        for (int i = 0; i < columnsCount; i++) {
             Object val = handler.get(idxColumnMapper.get(i), searchRow);
 
             if (val == ectx.unspecifiedValue()) {
-                break;
+                break; // No more columns in prefix.
             }
 
             Element element = binarySchema.element(i);
