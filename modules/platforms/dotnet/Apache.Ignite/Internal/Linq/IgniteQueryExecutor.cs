@@ -82,12 +82,6 @@ internal sealed class IgniteQueryExecutor : IQueryExecutor
     internal async Task<IResultSet<T>> ExecuteResultSetInternalAsync<T>(QueryModel queryModel)
     {
         var qryData = GetQueryData(queryModel);
-
-        Debug.WriteLine(
-            "\nFields Query: {0} | {1}",
-            qryData.QueryText,
-            string.Join(", ", qryData.Parameters.Select(x => x == null ? "null" : x.ToString())));
-
         var statement = new SqlStatement(qryData.QueryText);
 
         IResultSet<T> resultSet = await _sql.ExecuteAsyncInternal<T>(

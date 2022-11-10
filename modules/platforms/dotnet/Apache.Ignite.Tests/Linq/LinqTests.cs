@@ -123,6 +123,12 @@ public class LinqTests : IgniteTestsBase
     }
 
     [Test]
+    public void TestTransaction()
+    {
+        Assert.Fail("TODO: Update in TX, query with and without TX, observe different results.");
+    }
+
+    [Test]
     public void TestQueryToString()
     {
         var query = PocoView.AsQueryable()
