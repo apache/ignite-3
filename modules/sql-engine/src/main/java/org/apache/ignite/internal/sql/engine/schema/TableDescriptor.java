@@ -25,6 +25,7 @@ import org.apache.calcite.sql2rel.InitializerExpressionFactory;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * TableDescriptor interface.
@@ -77,7 +78,7 @@ public interface TableDescriptor extends RelProtoDataType, InitializerExpression
      * @param usedColumns Participating columns numeration.
      * @return Row type.
      */
-    RelDataType rowType(IgniteTypeFactory factory, ImmutableBitSet usedColumns);
+    RelDataType rowType(IgniteTypeFactory factory, @Nullable ImmutableBitSet usedColumns);
 
     /**
      * Checks whether is possible to update a column with a given index.

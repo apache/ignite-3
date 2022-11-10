@@ -212,12 +212,12 @@ public class RexUtils {
     /**
      * Builds sorted index search bounds.
      */
-    public static List<SearchBounds> buildSortedIndexConditions(
+    public static @Nullable List<SearchBounds> buildSortedIndexConditions(
             RelOptCluster cluster,
             RelCollation collation,
-            RexNode condition,
+            @Nullable RexNode condition,
             RelDataType rowType,
-            ImmutableBitSet requiredColumns
+            @Nullable ImmutableBitSet requiredColumns
     ) {
         if (condition == null) {
             return null;
@@ -307,7 +307,7 @@ public class RexUtils {
             List<String> indexedColumns,
             RexNode condition,
             RelDataType rowType,
-            ImmutableBitSet requiredColumns
+            @Nullable ImmutableBitSet requiredColumns
     ) {
         if (condition == null) {
             return null;

@@ -64,6 +64,12 @@ public class IgniteLogicalIndexScan extends AbstractIndexScan {
 
         List<SearchBounds> searchBounds;
         if (index.type() == Type.HASH) {
+            //TODO: Hash index doesn't support scans, however, Hash index is used in planing even if 'cond==null' or 'cond'
+            // doesn't meet the requirement "EQUAL condition must be specified for every indexed column".
+            // This may lead to AssertionError during index scan later. Luckily, we haven't seen that in tests yet.
+            //
+            // assert cond != null;
+
             searchBounds = buildHashIndexConditions(cluster, tbl, index.columns(), cond, requiredColumns);
         } else if (index.type() == Type.SORTED) {
             searchBounds = buildSortedIndexConditions(cluster, tbl, collation, cond, requiredColumns);
@@ -110,7 +116,7 @@ public class IgniteLogicalIndexScan extends AbstractIndexScan {
         super(cluster, traits, List.of(), tbl, idxName, type, proj, cond, searchBounds, requiredCols);
     }
 
-    private static List<SearchBounds> buildSortedIndexConditions(
+    private static @Nullable List<SearchBounds> buildSortedIndexConditions(
             RelOptCluster cluster,
             InternalIgniteTable table,
             RelCollation collation,
@@ -134,7 +140,7 @@ public class IgniteLogicalIndexScan extends AbstractIndexScan {
             RelOptCluster cluster,
             InternalIgniteTable table,
             List<String> indexedColumns,
-            @Nullable RexNode cond,
+            RexNode cond,
             @Nullable ImmutableBitSet requiredColumns
     ) {
         return RexUtils.buildHashIndexConditions(cluster, indexedColumns, cond,

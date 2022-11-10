@@ -25,6 +25,7 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.network.ClusterNode;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * An object describing an abstract index.
@@ -41,7 +42,7 @@ public interface Index<DescriptorT extends IndexDescriptor> {
     /** Returns table id index belong to. */
     UUID tableId();
 
-    /** Returns index dewscriptor. */
+    /** Returns index descriptor. */
     DescriptorT descriptor();
 
     /**
@@ -53,7 +54,7 @@ public interface Index<DescriptorT extends IndexDescriptor> {
      * @param columns Columns to include.
      * @return A cursor from resulting rows.
      */
-    Publisher<BinaryRow> lookup(int partId, InternalTransaction tx, BinaryTuple key, BitSet columns);
+    Publisher<BinaryRow> lookup(int partId, @Nullable InternalTransaction tx, BinaryTuple key, @Nullable BitSet columns);
 
     /**
      * Returns cursor for the values corresponding to the given key.
@@ -65,5 +66,11 @@ public interface Index<DescriptorT extends IndexDescriptor> {
      * @param columns Columns to include.
      * @return A cursor from resulting rows.
      */
-    Publisher<BinaryRow> lookup(int partId, HybridTimestamp readTimestamp, ClusterNode recipientNode, BinaryTuple key, BitSet columns);
+    Publisher<BinaryRow> lookup(
+            int partId,
+            HybridTimestamp readTimestamp,
+            ClusterNode recipientNode,
+            BinaryTuple key,
+            @Nullable BitSet columns
+    );
 }

@@ -96,7 +96,7 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
 
     private boolean inLoop;
 
-    private Subscription activeSubscription;
+    private @Nullable Subscription activeSubscription;
 
     private boolean rangeConditionsProcessed;
 
@@ -130,7 +130,7 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
 
         assert !nullOrEmpty(parts);
 
-        assert context().transaction() != null || context().transactionTime() != null : "Transaction not initialized.";
+        assert ctx.transaction() != null || ctx.transactionTime() != null : "Transaction not initialized.";
 
         this.schemaIndex = schemaIndex;
         this.parts = parts;

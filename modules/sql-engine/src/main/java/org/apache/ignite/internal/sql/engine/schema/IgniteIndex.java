@@ -17,13 +17,18 @@
 
 package org.apache.ignite.internal.sql.engine.schema;
 
+import static org.apache.ignite.internal.sql.engine.util.TypeUtils.native2relationalType;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.ignite.internal.index.ColumnCollation;
 import org.apache.ignite.internal.index.Index;
 import org.apache.ignite.internal.index.SortedIndex;
 import org.apache.ignite.internal.index.SortedIndexDescriptor;
+import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -112,6 +117,18 @@ public class IgniteIndex {
 
     public Type type() {
         return type;
+    }
+
+    //TODO: cache rowType as it can't be changed.
+    public RelDataType getRowType(IgniteTypeFactory factory, TableDescriptor desc) {
+        RelDataTypeFactory.Builder b = new RelDataTypeFactory.Builder(factory);
+
+        for (String colName : columns) {
+            ColumnDescriptor colDesc = desc.columnDescriptor(colName);
+            b.add(colName, native2relationalType(factory, colDesc.physicalType(), colDesc.nullable()));
+        }
+
+        return b.build();
     }
 
     private static @Nullable List<Collation> deriveCollations(Index<?> index) {
