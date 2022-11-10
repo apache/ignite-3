@@ -52,7 +52,7 @@ internal static class MethodVisitor
     /// Delegates dictionary.
     /// </summary>
     private static readonly Dictionary<MethodInfo, VisitMethodDelegate> Delegates = new List
-            <KeyValuePair<MethodInfo, VisitMethodDelegate>>
+            <KeyValuePair<MethodInfo?, VisitMethodDelegate>>
             {
                 GetStringMethod("ToLower", Type.EmptyTypes, GetFunc("lower")),
                 GetStringMethod("ToUpper", Type.EmptyTypes, GetFunc("upper")),
@@ -125,7 +125,7 @@ internal static class MethodVisitor
                 GetMathMethod("Truncate", typeof(decimal)),
             }
         .Where(x => x.Key != null)
-        .ToDictionary(x => x.Key, x => x.Value);
+        .ToDictionary(x => x.Key!, x => x.Value);
 
     /// <summary> RegexOptions transformations. </summary>
     private static readonly Dictionary<RegexOptions, string> RegexOptionFlags = new Dictionary<RegexOptions, string>
@@ -403,7 +403,7 @@ internal static class MethodVisitor
     /// <summary>
     /// Gets the method.
     /// </summary>
-    private static KeyValuePair<MethodInfo, VisitMethodDelegate> GetMethod(
+    private static KeyValuePair<MethodInfo?, VisitMethodDelegate> GetMethod(
         Type type,
         string name,
         Type[]? argTypes = null,
@@ -411,13 +411,13 @@ internal static class MethodVisitor
     {
         var method = argTypes == null ? type.GetMethod(name) : type.GetMethod(name, argTypes);
 
-        return new KeyValuePair<MethodInfo, VisitMethodDelegate>(method!, del ?? GetFunc(name));
+        return new KeyValuePair<MethodInfo?, VisitMethodDelegate>(method!, del ?? GetFunc(name));
     }
 
     /// <summary>
     /// Gets the string method.
     /// </summary>
-    private static KeyValuePair<MethodInfo, VisitMethodDelegate> GetStringMethod(
+    private static KeyValuePair<MethodInfo?, VisitMethodDelegate> GetStringMethod(
         string name,
         Type[]? argTypes = null,
         VisitMethodDelegate? del = null)
@@ -428,7 +428,7 @@ internal static class MethodVisitor
     /// <summary>
     /// Gets the string method.
     /// </summary>
-    private static KeyValuePair<MethodInfo, VisitMethodDelegate> GetStringMethod(
+    private static KeyValuePair<MethodInfo?, VisitMethodDelegate> GetStringMethod(
         string name,
         string sqlName,
         params Type[] argTypes)
@@ -439,7 +439,7 @@ internal static class MethodVisitor
     /// <summary>
     /// Gets the Regex method.
     /// </summary>
-    private static KeyValuePair<MethodInfo, VisitMethodDelegate> GetRegexMethod(
+    private static KeyValuePair<MethodInfo?, VisitMethodDelegate> GetRegexMethod(
         string name,
         string sqlName,
         params Type[] argTypes)
@@ -450,7 +450,7 @@ internal static class MethodVisitor
     /// <summary>
     /// Gets string parameterized Trim(TrimStart, TrimEnd) method.
     /// </summary>
-    private static KeyValuePair<MethodInfo, VisitMethodDelegate> GetParameterizedTrimMethod(
+    private static KeyValuePair<MethodInfo?, VisitMethodDelegate> GetParameterizedTrimMethod(
         string name,
         string sqlName)
     {
@@ -464,7 +464,7 @@ internal static class MethodVisitor
     /// <summary>
     /// Gets string parameterized Trim(TrimStart, TrimEnd) method that takes a single char.
     /// </summary>
-    private static KeyValuePair<MethodInfo, VisitMethodDelegate> GetCharTrimMethod(
+    private static KeyValuePair<MethodInfo?, VisitMethodDelegate> GetCharTrimMethod(
         string name,
         string sqlName)
     {
@@ -478,7 +478,7 @@ internal static class MethodVisitor
     /// <summary>
     /// Gets the math method.
     /// </summary>
-    private static KeyValuePair<MethodInfo, VisitMethodDelegate> GetMathMethod(
+    private static KeyValuePair<MethodInfo?, VisitMethodDelegate> GetMathMethod(
         string name,
         string sqlName,
         params Type[] argTypes)
@@ -489,7 +489,7 @@ internal static class MethodVisitor
     /// <summary>
     /// Gets the math method.
     /// </summary>
-    private static KeyValuePair<MethodInfo, VisitMethodDelegate> GetMathMethod(string name, params Type[] argTypes)
+    private static KeyValuePair<MethodInfo?, VisitMethodDelegate> GetMathMethod(string name, params Type[] argTypes)
     {
         return GetMathMethod(name, name, argTypes);
     }

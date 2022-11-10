@@ -20,6 +20,7 @@ namespace Apache.Ignite.Internal.Linq;
 
 using System.Linq;
 using System.Linq.Expressions;
+using System.Text;
 using Remotion.Linq;
 
 /// <summary>
@@ -57,29 +58,13 @@ internal abstract class CacheQueryableBase<T>
     /// <summary>
     /// Gets the cache query provider.
     /// </summary>
-    private CacheFieldsQueryProvider CacheQueryProvider
-    {
-        get { return (CacheFieldsQueryProvider)Provider; }
-    }
-
-    /// <summary>
-    /// Gets the SQL.
-    /// </summary>
-    /// <returns>SQL.</returns>
-    public string GetSql()
-    {
-        var data = GetQueryData();
-        return data.QueryText;
-    }
+    private CacheFieldsQueryProvider CacheQueryProvider => (CacheFieldsQueryProvider)Provider;
 
     /// <summary>
     /// Gets the query model.
     /// </summary>
     /// <returns>Query model.</returns>
-    public QueryModel GetQueryModel()
-    {
-        return CacheQueryProvider.GenerateQueryModel(Expression);
-    }
+    public QueryModel GetQueryModel() => CacheQueryProvider.GenerateQueryModel(Expression);
 
     /// <summary>
     /// Returns a <see cref="string" /> that represents this instance.
@@ -89,7 +74,30 @@ internal abstract class CacheQueryableBase<T>
     /// </returns>
     public override string ToString()
     {
-        return "TODO";
+        var queryData = GetQueryData();
+        var sb = new StringBuilder();
+
+        sb.Append(GetType().Name);
+        sb.Append(" [Query=").Append(queryData.QueryText);
+
+        sb.Append(", Parameters=");
+        var count = 0;
+
+        foreach (var parameter in queryData.Parameters)
+        {
+            if (count > 0)
+            {
+                sb.Append(", ");
+            }
+
+            sb.Append(parameter);
+
+            count++;
+        }
+
+        sb.Append(']');
+
+        return queryData.QueryText;
     }
 
     /// <summary>
