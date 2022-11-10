@@ -115,7 +115,14 @@ internal sealed class IgniteQueryExecutor : IQueryExecutor
             };
         }
 
-        return (IReadOnlyList<IColumnMetadata> cols, ref BinaryTupleReader reader) => (T)Sql.ReadColumnValue(ref reader, cols[0], 0)!;
+        if (columns.Count == 1)
+        {
+            return (IReadOnlyList<IColumnMetadata> cols, ref BinaryTupleReader reader) =>
+                (T)Sql.ReadColumnValue(ref reader, cols[0], 0)!;
+        }
+
+        // TODO: Deserialize into T - how?
+        return null!;
     }
 
     [SuppressMessage("Reliability", "CA2007:Consider calling ConfigureAwait on the awaited task", Justification = "False positive.")]
