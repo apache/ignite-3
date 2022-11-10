@@ -35,7 +35,7 @@ using Remotion.Linq.Clauses.ResultOperators;
 /// <summary>
 /// Query visitor, transforms LINQ expression to SQL.
 /// </summary>
-internal sealed class CacheQueryModelVisitor : QueryModelVisitorBase
+internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
 {
     /** */
     private static readonly Type DefaultIfEmptyEnumeratorType = Array.Empty<object>()
@@ -670,6 +670,6 @@ internal sealed class CacheQueryModelVisitor : QueryModelVisitorBase
     /// </summary>
     private void BuildSqlExpression(Expression expression, bool useStar = false, bool includeAllFields = false, bool visitSubqueryModel = false)
     {
-        new CacheQueryExpressionVisitor(this, useStar, includeAllFields, visitSubqueryModel).Visit(expression);
+        new IgniteQueryExpressionVisitor(this, useStar, includeAllFields, visitSubqueryModel).Visit(expression);
     }
 }

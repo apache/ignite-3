@@ -108,6 +108,6 @@ internal sealed class IgniteQueryable<T>
     {
         var model = GetQueryModel();
 
-        return CacheFieldsQueryExecutor.GetQueryData(model);
+        return IgniteQueryExecutor.GetQueryData(model);
     }
 }

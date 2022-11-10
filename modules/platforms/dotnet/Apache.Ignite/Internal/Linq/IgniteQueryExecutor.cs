@@ -30,18 +30,18 @@ using Sql;
 /// <summary>
 /// Fields query executor.
 /// </summary>
-internal class CacheFieldsQueryExecutor : IQueryExecutor
+internal class IgniteQueryExecutor : IQueryExecutor
 {
     private readonly Sql _sql;
 
     private readonly ITransaction? _transaction;
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="CacheFieldsQueryExecutor" /> class.
+    /// Initializes a new instance of the <see cref="IgniteQueryExecutor" /> class.
     /// </summary>
     /// <param name="sql">SQL.</param>
     /// <param name="transaction">Transaction.</param>
-    public CacheFieldsQueryExecutor(Sql sql, ITransaction? transaction)
+    public IgniteQueryExecutor(Sql sql, ITransaction? transaction)
     {
         _sql = sql;
         _transaction = transaction;
@@ -54,7 +54,7 @@ internal class CacheFieldsQueryExecutor : IQueryExecutor
     {
         Debug.Assert(queryModel != null);
 
-        return new CacheQueryModelVisitor().GenerateQuery(queryModel);
+        return new IgniteQueryModelVisitor().GenerateQuery(queryModel);
     }
 
     /** <inheritdoc /> */

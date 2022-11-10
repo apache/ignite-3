@@ -41,7 +41,7 @@ internal class CacheFieldsQueryProvider : IQueryProvider
     private readonly IQueryParser _parser;
 
     /** */
-    private readonly CacheFieldsQueryExecutor _executor;
+    private readonly IgniteQueryExecutor _executor;
 
     /** */
     private readonly string _tableName;
@@ -51,7 +51,7 @@ internal class CacheFieldsQueryProvider : IQueryProvider
     /// </summary>
     public CacheFieldsQueryProvider(
         IQueryParser queryParser,
-        CacheFieldsQueryExecutor executor,
+        IgniteQueryExecutor executor,
         string tableName,
         Type cacheValueType)
     {
@@ -75,7 +75,7 @@ internal class CacheFieldsQueryProvider : IQueryProvider
     /// <summary>
     /// Gets the executor.
     /// </summary>
-    public CacheFieldsQueryExecutor Executor
+    public IgniteQueryExecutor Executor
     {
         get { return _executor; }
     }

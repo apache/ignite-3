@@ -28,7 +28,7 @@ using Remotion.Linq.Parsing.Structure.NodeTypeProviders;
 /// <summary>
 /// Cache query parser.
 /// </summary>
-internal static class CacheQueryParser
+internal static class IgniteQueryParser
 {
     /** */
     private static readonly ThreadLocal<QueryParser> ThreadLocalInstance = new(CreateParser);

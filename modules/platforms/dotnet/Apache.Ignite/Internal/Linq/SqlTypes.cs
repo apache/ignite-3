@@ -26,7 +26,7 @@ using System.Collections.Generic;
 internal static class SqlTypes
 {
     /** */
-    private static readonly Dictionary<Type, string> NetToSql = new Dictionary<Type, string>
+    private static readonly Dictionary<Type, string> NetToSql = new()
     {
         {typeof(bool), "boolean"},
         {typeof(byte), "smallint"},

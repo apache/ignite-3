@@ -37,7 +37,7 @@ using Remotion.Linq.Parsing;
 /// <summary>
 /// Expression visitor, transforms query subexpressions (such as Where clauses) to SQL.
 /// </summary>
-internal class CacheQueryExpressionVisitor : ThrowingExpressionVisitor
+internal class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
 {
     /** */
     private static readonly ConcurrentDictionary<MemberInfo, string> ColumnNameMap = new();
@@ -46,7 +46,7 @@ internal class CacheQueryExpressionVisitor : ThrowingExpressionVisitor
     private readonly bool _useStar;
 
     /** */
-    private readonly CacheQueryModelVisitor _modelVisitor;
+    private readonly IgniteQueryModelVisitor _modelVisitor;
 
     /** */
     private readonly bool _includeAllFields;
@@ -55,7 +55,7 @@ internal class CacheQueryExpressionVisitor : ThrowingExpressionVisitor
     private readonly bool _visitEntireSubQueryModel;
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="CacheQueryExpressionVisitor" /> class.
+    /// Initializes a new instance of the <see cref="IgniteQueryExpressionVisitor" /> class.
     /// </summary>
     /// <param name="modelVisitor">The _model visitor.</param>
     /// <param name="useStar">
@@ -69,7 +69,7 @@ internal class CacheQueryExpressionVisitor : ThrowingExpressionVisitor
     /// <param name="visitEntireSubQueryModel">
     /// Flag indicating that subquery should be visited as full query.
     /// </param>
-    public CacheQueryExpressionVisitor(CacheQueryModelVisitor modelVisitor, bool useStar, bool includeAllFields, bool visitEntireSubQueryModel)
+    public IgniteQueryExpressionVisitor(IgniteQueryModelVisitor modelVisitor, bool useStar, bool includeAllFields, bool visitEntireSubQueryModel)
     {
         Debug.Assert(modelVisitor != null);
 

@@ -46,7 +46,7 @@ internal static class MethodVisitor
     };
 
     /// <summary> Method visit delegate. </summary>
-    private delegate void VisitMethodDelegate(MethodCallExpression expression, CacheQueryExpressionVisitor visitor);
+    private delegate void VisitMethodDelegate(MethodCallExpression expression, IgniteQueryExpressionVisitor visitor);
 
     /// <summary>
     /// Delegates dictionary.
@@ -137,7 +137,7 @@ internal static class MethodVisitor
     /// <summary>
     /// Visits the property call expression.
     /// </summary>
-    public static bool VisitPropertyCall(MemberExpression expression, CacheQueryExpressionVisitor visitor)
+    public static bool VisitPropertyCall(MemberExpression expression, IgniteQueryExpressionVisitor visitor)
     {
         if (!Properties.TryGetValue(expression.Member, out var funcName) || expression.Expression == null)
         {
@@ -156,7 +156,7 @@ internal static class MethodVisitor
     /// <summary>
     /// Visits the method call expression.
     /// </summary>
-    public static void VisitMethodCall(MethodCallExpression expression, CacheQueryExpressionVisitor visitor)
+    public static void VisitMethodCall(MethodCallExpression expression, IgniteQueryExpressionVisitor visitor)
     {
         var mtd = expression.Method;
 
@@ -175,7 +175,7 @@ internal static class MethodVisitor
     /// <summary>
     /// Visits the constant call expression.
     /// </summary>
-    public static bool VisitConstantCall(ConstantExpression expression, CacheQueryExpressionVisitor visitor)
+    public static bool VisitConstantCall(ConstantExpression expression, IgniteQueryExpressionVisitor visitor)
     {
         if (expression.Type != typeof(RegexOptions))
         {
@@ -216,7 +216,7 @@ internal static class MethodVisitor
     /// </summary>
     private static void VisitFunc(
         MethodCallExpression expression,
-        CacheQueryExpressionVisitor visitor,
+        IgniteQueryExpressionVisitor visitor,
         string func,
         string? suffix,
         params int[] adjust)
@@ -254,7 +254,7 @@ internal static class MethodVisitor
     /// </summary>
     private static void VisitParameterizedTrimFunc(
         MethodCallExpression expression,
-        CacheQueryExpressionVisitor visitor,
+        IgniteQueryExpressionVisitor visitor,
         string func)
     {
         visitor.ResultBuilder.Append(func).Append('(');
@@ -307,7 +307,7 @@ internal static class MethodVisitor
     /// <summary>
     /// Appends the adjustment.
     /// </summary>
-    private static void AppendAdjustment(CacheQueryExpressionVisitor visitor, int[] adjust, int idx)
+    private static void AppendAdjustment(IgniteQueryExpressionVisitor visitor, int[] adjust, int idx)
     {
         if (idx < adjust.Length)
         {
@@ -329,7 +329,7 @@ internal static class MethodVisitor
     /// </summary>
     private static void VisitSqlLike(
         MethodCallExpression expression,
-        CacheQueryExpressionVisitor visitor,
+        IgniteQueryExpressionVisitor visitor,
         string likeFormat)
     {
         visitor.ResultBuilder.Append('(');
@@ -362,7 +362,7 @@ internal static class MethodVisitor
     /// <summary>
     /// Visits string.Compare method.
     /// </summary>
-    private static void VisitStringCompare(MethodCallExpression expression, CacheQueryExpressionVisitor visitor, bool ignoreCase)
+    private static void VisitStringCompare(MethodCallExpression expression, IgniteQueryExpressionVisitor visitor, bool ignoreCase)
     {
         // Ex: nvl2(?, casewhen(_T0.NAME = ?, 0, casewhen(_T0.NAME >= ?, 1, -1)), 1)
         visitor.ResultBuilder.Append("nvl2(");
@@ -382,7 +382,7 @@ internal static class MethodVisitor
     /// Visits member expression argument.
     /// </summary>
     private static void VisitArg(
-        CacheQueryExpressionVisitor visitor,
+        IgniteQueryExpressionVisitor visitor,
         MethodCallExpression expression,
         int idx,
         bool lower)
