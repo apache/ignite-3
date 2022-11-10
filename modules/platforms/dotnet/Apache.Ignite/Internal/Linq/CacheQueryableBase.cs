@@ -52,6 +52,8 @@ internal abstract class CacheQueryableBase<T>
 
     public string TableName => CacheQueryProvider.TableName;
 
+    CacheFieldsQueryProvider ICacheQueryableInternal.Provider => CacheQueryProvider;
+
     /// <summary>
     /// Gets the cache query provider.
     /// </summary>

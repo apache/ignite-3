@@ -46,11 +46,8 @@ public static class LinqExtensions
         }
 
         var model = queryableInternal.GetQueryModel();
-        var queryData = CacheFieldsQueryExecutor.GetQueryData(model);
 
-        // TODO: Access SQL instance, pass query and parameters.
-        await Task.Yield();
-        throw new NotImplementedException();
+        return await queryableInternal.Provider.Executor.ExecuteResultSetAsyncInternal<T>(model).ConfigureAwait(false);
     }
 
     /// <summary>

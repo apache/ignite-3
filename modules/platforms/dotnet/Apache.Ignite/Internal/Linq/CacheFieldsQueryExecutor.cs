@@ -21,13 +21,11 @@ namespace Apache.Ignite.Internal.Linq;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Threading.Tasks;
 using Ignite.Sql;
-using Ignite.Table;
 using Ignite.Transactions;
-using Proto;
 using Remotion.Linq;
 using Sql;
-using Table;
 
 /// <summary>
 /// Fields query executor.
@@ -76,6 +74,16 @@ internal class CacheFieldsQueryExecutor : IQueryExecutor
     /** <inheritdoc /> */
     public IEnumerable<T> ExecuteCollection<T>(QueryModel queryModel)
     {
+        // TODO: Async execution.
+        // TODO: Async pagination.
+        // TODO: ToResultSetAsync extension will solve all those requirements.
+        IResultSet<T> resultSet = ExecuteResultSetAsyncInternal<T>(queryModel).GetAwaiter().GetResult();
+
+        return resultSet.ToListAsync().AsTask().GetAwaiter().GetResult();
+    }
+
+    internal async Task<IResultSet<T>> ExecuteResultSetAsyncInternal<T>(QueryModel queryModel)
+    {
         var qryData = GetQueryData(queryModel);
 
         Debug.WriteLine(
@@ -85,20 +93,14 @@ internal class CacheFieldsQueryExecutor : IQueryExecutor
 
         var statement = new SqlStatement(qryData.QueryText);
 
-        // TODO: Async execution.
-        // TODO: Async pagination.
-        // TODO: ToResultSetAsync extension will solve all those requirements.
-        IResultSet<T> resultSet = _sql.ExecuteAsyncInternal<T>(
+        // TODO: Avoid ToArray
+        IResultSet<T> resultSet = await _sql.ExecuteAsyncInternal<T>(
             _transaction,
             statement,
             _ => (cols, reader) => (T)Sql.ReadColumnValue(ref reader, cols[0], 0)!,
-            qryData.Parameters.ToArray()).GetAwaiter().GetResult();
+            qryData.Parameters.ToArray())
+            .ConfigureAwait(false);
 
-        var rows = resultSet.ToListAsync().AsTask().GetAwaiter().GetResult();
-
-        // TODO: Compile selector according to result schema and select expression
-        // TODO: Generify ResultSet
-        var selector = queryModel.SelectClause.Selector;
-        return rows;
+        return resultSet;
     }
 }

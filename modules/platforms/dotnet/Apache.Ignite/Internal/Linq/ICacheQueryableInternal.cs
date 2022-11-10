@@ -30,6 +30,11 @@ internal interface ICacheQueryableInternal // TODO: Better name.
     string TableName { get; }
 
     /// <summary>
+    /// Gets the provider.
+    /// </summary>
+    CacheFieldsQueryProvider Provider { get; }
+
+    /// <summary>
     /// Gets the query model.
     /// </summary>
     /// <returns>Query model.</returns>
