@@ -44,9 +44,6 @@ internal class CacheFieldsQueryProvider : IQueryProvider
     private readonly CacheFieldsQueryExecutor _executor;
 
     /** */
-    private readonly IIgnite _ignite;
-
-    /** */
     private readonly string _tableName;
 
     /// <summary>
@@ -55,7 +52,6 @@ internal class CacheFieldsQueryProvider : IQueryProvider
     public CacheFieldsQueryProvider(
         IQueryParser queryParser,
         CacheFieldsQueryExecutor executor,
-        IIgnite ignite,
         string tableName,
         Type cacheValueType)
     {
@@ -65,17 +61,7 @@ internal class CacheFieldsQueryProvider : IQueryProvider
 
         _parser = queryParser;
         _executor = executor;
-        _ignite = ignite;
         _tableName = tableName;
-    }
-
-    /// <summary>
-    /// Gets the ignite.
-    /// </summary>
-    [Obsolete("Deprecated, null for thin client, only used for ICacheQueryable.")]
-    public IIgnite Ignite
-    {
-        get { return _ignite; }
     }
 
     /// <summary>

@@ -23,6 +23,7 @@ using System.Diagnostics;
 using System.Linq;
 using Ignite.Sql;
 using Ignite.Table;
+using Ignite.Transactions;
 using Proto;
 using Remotion.Linq;
 using Sql;
@@ -33,21 +34,19 @@ using Table;
 /// </summary>
 internal class CacheFieldsQueryExecutor : IQueryExecutor
 {
-    /** */
-    private readonly Table _table;
-
-    /** */
     private readonly Sql _sql;
+
+    private readonly ITransaction? _transaction;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="CacheFieldsQueryExecutor" /> class.
     /// </summary>
-    /// <param name="table">Table.</param>
     /// <param name="sql">SQL.</param>
-    public CacheFieldsQueryExecutor(Table table, Sql sql)
+    /// <param name="transaction">Transaction.</param>
+    public CacheFieldsQueryExecutor(Sql sql, ITransaction? transaction)
     {
-        _table = table;
         _sql = sql;
+        _transaction = transaction;
     }
 
     /// <summary>
@@ -90,7 +89,7 @@ internal class CacheFieldsQueryExecutor : IQueryExecutor
         // TODO: Async pagination.
         // TODO: ToResultSetAsync extension will solve all those requirements.
         IResultSet<T> resultSet = _sql.ExecuteAsyncInternal<T>(
-            null,
+            _transaction,
             statement,
             _ => (cols, reader) => (T)Sql.ReadColumnValue(ref reader, cols[0], 0)!,
             qryData.Parameters.ToArray()).GetAwaiter().GetResult();

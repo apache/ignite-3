@@ -289,10 +289,9 @@ namespace Apache.Ignite.Internal.Table
 #pragma warning disable CA2000 // TODO: Fix this
 
             var sql = new Sql(_table.Socket); // TODO: Reuse existing SQL from Ignite
-            var executor = new CacheFieldsQueryExecutor(_table, sql);
-            var ignite = new IgniteClientInternal(_table.Socket); // TODO: Reuse existing client.
+            var executor = new CacheFieldsQueryExecutor(sql, transaction);
             var cacheValueType = typeof(T); // TODO: ???
-            var provider = new CacheFieldsQueryProvider(CacheQueryParser.Instance, executor, ignite, _table.Name, cacheValueType);
+            var provider = new CacheFieldsQueryProvider(CacheQueryParser.Instance, executor, _table.Name, cacheValueType);
 
 #pragma warning restore CA2000
 
