@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 
-#pragma warning disable SA1615, SA1611, SA1405, SA1202, SA1600 // TODO: Fix warnings.
 namespace Apache.Ignite.Internal.Linq;
 
 using System.Linq;
@@ -51,8 +50,10 @@ internal sealed class IgniteQueryable<T>
         // No-op.
     }
 
+    /// <inheritdoc/>
     public string TableName => IgniteQueryProvider.TableName;
 
+    /// <inheritdoc/>
     IgniteQueryProvider IIgniteQueryableInternal.Provider => IgniteQueryProvider;
 
     /// <summary>
