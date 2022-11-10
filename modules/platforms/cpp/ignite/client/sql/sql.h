@@ -17,6 +17,9 @@
 
 #pragma once
 
+#include "ignite/client/transaction/transaction.h"
+#include "ignite/client/sql/sql_statement.h"
+#include "ignite/client/primitive.h"
 #include "ignite/common/config.h"
 
 #include <memory>
@@ -36,13 +39,8 @@ class sql {
 public:
     // Default
     sql() = default;
-    ~sql() = default;
-    sql(sql &&) noexcept = default;
-    sql &operator=(sql &&) noexcept = default;
 
-    // Deleted
-    sql(const sql &) = delete;
-    sql &operator=(const sql &) = delete;
+//    IGNITE_API void execute_async(transaction *tx, const sql_statement& statement, std::vector<primitive> args);
 
 private:
     /**

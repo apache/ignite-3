@@ -46,13 +46,6 @@ class tables {
 public:
     // Default
     tables() = default;
-    ~tables() = default;
-    tables(tables &&) = default;
-    tables &operator=(tables &&) = default;
-
-    // Deleted
-    tables(const tables &) = delete;
-    tables &operator=(const tables &) = delete;
 
     /**
      * Gets a table by name, if it was created before.

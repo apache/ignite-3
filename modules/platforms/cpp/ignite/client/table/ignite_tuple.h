@@ -17,10 +17,9 @@
 
 #pragma once
 
-#include "ignite/common/config.h"
+#include "ignite/client/primitive.h"
 #include "ignite/common/ignite_error.h"
 
-#include <any>
 #include <initializer_list>
 #include <string_view>
 #include <unordered_map>
@@ -29,14 +28,10 @@
 
 namespace ignite {
 
-class ignite_tuple_builder;
-
 /**
  * Ignite tuple.
  */
 class ignite_tuple {
-    friend class ignite_tuple_builder;
-
 public:
     // Default
     ignite_tuple() = default;
@@ -53,7 +48,7 @@ public:
      *
      * @param pairs Pairs.
      */
-    ignite_tuple(std::initializer_list<std::pair<std::string, std::any>> pairs)
+    ignite_tuple(std::initializer_list<std::pair<std::string, primitive>> pairs)
         : m_pairs(pairs)
         , m_indices() {
         for (size_t i = 0; i < m_pairs.size(); ++i)
@@ -73,7 +68,7 @@ public:
      * @param idx The column index.
      * @return Column value.
      */
-    [[nodiscard]] const std::any &get(uint32_t idx) const {
+    [[nodiscard]] const primitive &get(uint32_t idx) const {
         if (idx > m_pairs.size()) {
             throw ignite_error(
                 "Index is too large: idx=" + std::to_string(idx) + ", columns_num=" + std::to_string(m_pairs.size()));
@@ -90,7 +85,7 @@ public:
      */
     template<typename T>
     [[nodiscard]] T get(uint32_t idx) const {
-        return std::any_cast<T>(get(idx));
+        return get(idx).template get<T>();
     }
 
     /**
@@ -115,7 +110,7 @@ public:
      * @param name The column name.
      * @return Column value.
      */
-    [[nodiscard]] const std::any &get(std::string_view name) const {
+    [[nodiscard]] const primitive &get(std::string_view name) const {
         auto it = m_indices.find(parse_name(name));
         if (it == m_indices.end())
             throw ignite_error("Can not find column with the name '" + std::string(name) + "' in the tuple");
@@ -132,7 +127,7 @@ public:
      */
     template<typename T>
     [[nodiscard]] T get(std::string_view name) const {
-        return std::any_cast<T>(get(name));
+        return get(name).template get<T>();
     }
 
     /**
@@ -191,7 +186,7 @@ private:
      * @param pairs Pairs.
      * @param indices Indices.
      */
-    ignite_tuple(std::vector<std::pair<std::string, std::any>> &&pairs, std::unordered_map<std::string, size_t> indices)
+    ignite_tuple(std::vector<std::pair<std::string, primitive>> &&pairs, std::unordered_map<std::string, size_t> indices)
         : m_pairs(std::move(pairs))
         , m_indices(std::move(indices)) {}
 
@@ -219,7 +214,7 @@ private:
     }
 
     /** Pairs of column names and values. */
-    std::vector<std::pair<std::string, std::any>> m_pairs;
+    std::vector<std::pair<std::string, primitive>> m_pairs;
 
     /** Indices of the columns corresponding to their names. */
     std::unordered_map<std::string, std::size_t> m_indices;

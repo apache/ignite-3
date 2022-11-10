@@ -59,10 +59,10 @@ void claim_column(binary_tuple_builder &builder, ignite_type typ, std::int32_t i
             builder.claim_uuid(tuple.get<uuid>(index));
             break;
         case ignite_type::STRING:
-            builder.claim(SizeT(tuple.get<const std::string &>(index).size()));
+            builder.claim(SizeT(tuple.get<std::string>(index).size()));
             break;
         case ignite_type::BINARY:
-            builder.claim(SizeT(tuple.get<const std::vector<std::byte> &>(index).size()));
+            builder.claim(SizeT(tuple.get<std::vector<std::byte>>(index).size()));
             break;
         default:
             // TODO: IGNITE-18035 Support other types
@@ -102,13 +102,13 @@ void append_column(binary_tuple_builder &builder, ignite_type typ, std::int32_t 
             builder.append_uuid(tuple.get<uuid>(index));
             break;
         case ignite_type::STRING: {
-            const auto &str = tuple.get<const std::string &>(index);
+            const auto &str = tuple.get<std::string>(index);
             bytes_view view{reinterpret_cast<const std::byte *>(str.data()), str.size()};
             builder.append(typ, view);
             break;
         }
         case ignite_type::BINARY:
-            builder.append(typ, tuple.get<const std::vector<std::byte> &>(index));
+            builder.append(typ, tuple.get<std::vector<std::byte>>(index));
             break;
         default:
             // TODO: IGNITE-18035 Support other types
@@ -123,7 +123,7 @@ void append_column(binary_tuple_builder &builder, ignite_type typ, std::int32_t 
  * @param typ Column type.
  * @return Column value.
  */
-std::any read_next_column(binary_tuple_parser &parser, ignite_type typ) {
+primitive read_next_column(binary_tuple_parser &parser, ignite_type typ) {
     auto val_opt = parser.get_next();
     if (!val_opt)
         return {};
