@@ -19,12 +19,10 @@ package org.apache.ignite.internal.schema;
 
 import java.util.Arrays;
 import java.util.Comparator;
-import java.util.Optional;
 import org.apache.ignite.internal.schema.configuration.ConfigurationToSchemaDescriptorConverter;
 import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.mapping.ColumnMapper;
 import org.apache.ignite.internal.schema.mapping.ColumnMapping;
-import org.apache.ignite.lang.IgniteStringFormatter;
 
 /**
  * Stateless schema utils that produces helper methods for schema preparation.
