@@ -99,15 +99,22 @@ internal sealed class IgniteQueryExecutor : IQueryExecutor
     /// </summary>
     private static RowReader<T> GetResultSelector<T>(IReadOnlyList<IColumnMetadata> columns, Expression selectorExpression)
     {
-        // var newExpr = selectorExpression as NewExpression;
-        //
-        // if (newExpr != null)
-        //     return GetCompiledCtor<T>(newExpr.Constructor);
-        //
-        // var entryCtor = GetCacheEntryCtorInfo(typeof(T));
-        //
-        // if (entryCtor != null)
-        //     return GetCompiledCtor<T>(entryCtor);
+        if (selectorExpression is NewExpression newExpr)
+        {
+            // TODO: Compiled ctor.
+            return (IReadOnlyList<IColumnMetadata> cols, ref BinaryTupleReader reader) =>
+            {
+                var args = new object?[cols.Count];
+
+                for (int i = 0; i < cols.Count; i++)
+                {
+                    args[i] = Sql.ReadColumnValue(ref reader, cols[i], i);
+                }
+
+                return (T)newExpr.Constructor!.Invoke(args);
+            };
+        }
+
         return (IReadOnlyList<IColumnMetadata> cols, ref BinaryTupleReader reader) => (T)Sql.ReadColumnValue(ref reader, cols[0], 0)!;
     }
 
