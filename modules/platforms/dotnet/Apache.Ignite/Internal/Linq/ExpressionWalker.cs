@@ -171,24 +171,24 @@ internal static class ExpressionWalker
     /// <summary>
     /// Gets the original QuerySourceReferenceExpression.
     /// </summary>
+    /// <param name="expression">Expression.</param>
+    /// <param name="throwWhenNotFound">Whether to throw when not found or return null.</param>
+    /// <returns>Query source reference.</returns>
     public static QuerySourceReferenceExpression? GetQuerySourceReference(
         Expression expression,
         bool throwWhenNotFound = true)
     {
-        var reference = expression as QuerySourceReferenceExpression;
-        if (reference != null)
+        if (expression is QuerySourceReferenceExpression reference)
         {
             return reference;
         }
 
-        var unary = expression as UnaryExpression;
-        if (unary != null)
+        if (expression is UnaryExpression unary)
         {
             return GetQuerySourceReference(unary.Operand, false);
         }
 
-        var binary = expression as BinaryExpression;
-        if (binary != null)
+        if (expression is BinaryExpression binary)
         {
             return GetQuerySourceReference(binary.Left, false) ?? GetQuerySourceReference(binary.Right, false);
         }
@@ -204,13 +204,14 @@ internal static class ExpressionWalker
     /// <summary>
     /// Gets the query source.
     /// </summary>
+    /// <param name="expression">Expression.</param>
+    /// <param name="memberHint">Member expression.</param>
+    /// <returns>Query source.</returns>
     public static IQuerySource? GetQuerySource(Expression expression, MemberExpression? memberHint = null)
     {
         if (memberHint != null)
         {
-            var newExpr = expression as NewExpression;
-
-            if (newExpr != null && newExpr.Members != null)
+            if (expression is NewExpression { Members: { } } newExpr)
             {
                 for (var i = 0; i < newExpr.Members.Count; i++)
                 {
@@ -224,9 +225,7 @@ internal static class ExpressionWalker
             }
         }
 
-        var subQueryExp = expression as SubQueryExpression;
-
-        if (subQueryExp != null)
+        if (expression is SubQueryExpression subQueryExp)
         {
             var source = GetQuerySource(subQueryExp.QueryModel.SelectClause.Selector, memberHint);
             if (source != null)
@@ -237,13 +236,9 @@ internal static class ExpressionWalker
             return subQueryExp.QueryModel.MainFromClause;
         }
 
-        var srcRefExp = expression as QuerySourceReferenceExpression;
-
-        if (srcRefExp != null)
+        if (expression is QuerySourceReferenceExpression srcRefExp)
         {
-            var fromSource = srcRefExp.ReferencedQuerySource as IFromClause;
-
-            if (fromSource != null)
+            if (srcRefExp.ReferencedQuerySource is IFromClause fromSource)
             {
                 var source = GetQuerySource(fromSource.FromExpression, memberHint);
                 if (source != null)
@@ -254,9 +249,7 @@ internal static class ExpressionWalker
                 return fromSource;
             }
 
-            var joinSource = srcRefExp.ReferencedQuerySource as JoinClause;
-
-            if (joinSource != null)
+            if (srcRefExp.ReferencedQuerySource is JoinClause joinSource)
             {
                 return GetQuerySource(joinSource.InnerSequence, memberHint) ?? joinSource;
             }
@@ -264,9 +257,7 @@ internal static class ExpressionWalker
             throw new NotSupportedException("Unexpected query source: " + srcRefExp.ReferencedQuerySource);
         }
 
-        var memberExpr = expression as MemberExpression;
-
-        if (memberExpr != null && memberExpr.Expression != null)
+        if (expression is MemberExpression { Expression: { } } memberExpr)
         {
             return GetQuerySource(memberExpr.Expression, memberExpr);
         }
@@ -282,30 +273,26 @@ internal static class ExpressionWalker
     /// <returns>Evaluation result.</returns>
     public static T? EvaluateExpression<T>(Expression expr)
     {
-        var constExpr = expr as ConstantExpression;
-
-        if (constExpr != null)
+        if (expr is ConstantExpression constExpr)
         {
             return (T)constExpr.Value!;
         }
 
-        var memberExpr = expr as MemberExpression;
-
-        if (memberExpr != null)
+        if (expr is MemberExpression memberExpr)
         {
             var targetExpr = memberExpr.Expression as ConstantExpression;
 
             if (memberExpr.Expression == null || targetExpr != null)
             {
                 // Instance or static member
-                var target = targetExpr == null ? null : targetExpr.Value;
+                var target = targetExpr?.Value;
 
                 if (MemberReaders.TryGetValue(memberExpr.Member, out var reader))
                 {
                     return (T) reader(target)!;
                 }
 
-                return (T?) MemberReaders.GetOrAdd(memberExpr.Member, _ => CompileMemberReader(memberExpr))(target);
+                return (T?) MemberReaders.GetOrAdd(memberExpr.Member, static (_, me) => CompileMemberReader(me), memberExpr)(target);
             }
         }
 
@@ -322,6 +309,8 @@ internal static class ExpressionWalker
     /// <summary>
     /// Gets the values from IEnumerable expression.
     /// </summary>
+    /// <param name="fromExpression">FROM expression.</param>
+    /// <returns>Enumerable items.</returns>
     public static IEnumerable<object?> EvaluateEnumerableValues(Expression fromExpression)
     {
         IEnumerable? result;
@@ -363,6 +352,15 @@ internal static class ExpressionWalker
     }
 
     /// <summary>
+    /// Gets the table name with schema.
+    /// <para />
+    /// Only PUBLIC schema is supported for now by the SQL engine.
+    /// </summary>
+    /// <param name="queryable">Queryable.</param>
+    /// <returns>Table name with schema.</returns>
+    public static string GetTableNameWithSchema(IIgniteQueryableInternal queryable) => $"PUBLIC.{queryable.TableName}";
+
+    /// <summary>
     /// Compiles the member reader.
     /// </summary>
     private static Func<object?, object?> CompileMemberReader(MemberExpression memberExpr)
@@ -386,11 +384,4 @@ internal static class ExpressionWalker
 
         throw new NotSupportedException("Expression not supported: " + memberExpr);
     }
-
-    /// <summary>
-    /// Gets the table name with schema.
-    /// <para />
-    /// Only PUBLIC schema is supported for now by the SQL engine.
-    /// </summary>
-    public static string GetTableNameWithSchema(IIgniteQueryableInternal queryable) => $"PUBLIC.{queryable.TableName}";
 }
