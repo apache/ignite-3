@@ -164,6 +164,7 @@ namespace Apache.Ignite.Internal.Sql
 
             if (_resourceId != null && !_resourceClosed)
             {
+                // TODO: Catch exceptions - socket may be disconnected.
                 using var writer = ProtoCommon.GetMessageWriter();
                 WriteId(writer.GetMessageWriter());
 
