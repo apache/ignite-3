@@ -1125,7 +1125,7 @@ public class InternalTableImpl implements InternalTable {
         // TODO asch a leader race is possible when enlisting different keys from the same partition.
         return fut0.handle((primaryPeerAndTerm, e) -> {
             if (e != null) {
-                throw new TransactionException(REPLICA_UNAVAILABLE_ERR, "Failed to get the primary replica.", e);
+                throw withCause(TransactionException::new, REPLICA_UNAVAILABLE_ERR, "Failed to get the primary replica.", e);
             }
             if (primaryPeerAndTerm.get1() == null) {
                 throw new TransactionException(REPLICA_UNAVAILABLE_ERR, "Failed to get the primary replica.");
