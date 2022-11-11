@@ -37,7 +37,6 @@ import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AccumulatorWrapper;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType;
-import org.apache.ignite.internal.sql.engine.rel.agg.IgniteMapHashAggregate;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.junit.jupiter.api.Test;
@@ -52,7 +51,7 @@ public class HashAggregateSingleGroupExecutionTest extends AbstractExecutionTest
         ExecutionContext<Object[]> ctx = executionContext();
         IgniteTypeFactory tf = ctx.getTypeFactory();
         RelDataType rowType = TypeUtils.createRowType(tf, String.class, int.class);
-        ScanNode<Object[]> scan = new ScanNode<>(ctx, rowType, Arrays.asList(
+        ScanNode<Object[]> scan = new ScanNode<>(ctx, Arrays.asList(
                 row("Igor", 200),
                 row("Roman", 300),
                 row("Ivan", 1400),
@@ -73,10 +72,8 @@ public class HashAggregateSingleGroupExecutionTest extends AbstractExecutionTest
 
         List<ImmutableBitSet> grpSets = List.of(ImmutableBitSet.of());
 
-        RelDataType mapType = IgniteMapHashAggregate.rowType(tf, true);
         HashAggregateNode<Object[]> map = new HashAggregateNode<>(
                 ctx,
-                mapType,
                 MAP,
                 grpSets,
                 accFactory(ctx, call, MAP, rowType),
@@ -85,10 +82,8 @@ public class HashAggregateSingleGroupExecutionTest extends AbstractExecutionTest
 
         map.register(scan);
 
-        RelDataType reduceType = TypeUtils.createRowType(tf, double.class);
         HashAggregateNode<Object[]> reduce = new HashAggregateNode<>(
                 ctx,
-                reduceType,
                 REDUCE,
                 grpSets,
                 accFactory(ctx, call, REDUCE, null),
@@ -97,6 +92,7 @@ public class HashAggregateSingleGroupExecutionTest extends AbstractExecutionTest
 
         reduce.register(map);
 
+        RelDataType reduceType = TypeUtils.createRowType(tf, double.class);
         RootNode<Object[]> root = new RootNode<>(ctx, reduceType);
         root.register(reduce);
 
@@ -110,7 +106,7 @@ public class HashAggregateSingleGroupExecutionTest extends AbstractExecutionTest
         ExecutionContext<Object[]> ctx = executionContext();
         IgniteTypeFactory tf = ctx.getTypeFactory();
         RelDataType rowType = TypeUtils.createRowType(tf, String.class, int.class);
-        ScanNode<Object[]> scan = new ScanNode<>(ctx, rowType, Arrays.asList(
+        ScanNode<Object[]> scan = new ScanNode<>(ctx, Arrays.asList(
                 row("Igor", 200),
                 row("Roman", 300),
                 row("Ivan", 1400),
@@ -130,16 +126,15 @@ public class HashAggregateSingleGroupExecutionTest extends AbstractExecutionTest
 
         List<ImmutableBitSet> grpSets = List.of(ImmutableBitSet.of());
 
-        RelDataType mapType = IgniteMapHashAggregate.rowType(tf, true);
-        HashAggregateNode<Object[]> map = new HashAggregateNode<>(ctx, mapType, MAP, grpSets,
+        HashAggregateNode<Object[]> map = new HashAggregateNode<>(ctx, MAP, grpSets,
                 accFactory(ctx, call, MAP, rowType), rowFactory());
         map.register(scan);
 
-        RelDataType reduceType = TypeUtils.createRowType(tf, int.class);
-        HashAggregateNode<Object[]> reduce = new HashAggregateNode<>(ctx, reduceType, REDUCE, grpSets,
+        HashAggregateNode<Object[]> reduce = new HashAggregateNode<>(ctx, REDUCE, grpSets,
                 accFactory(ctx, call, REDUCE, null), rowFactory());
         reduce.register(map);
 
+        RelDataType reduceType = TypeUtils.createRowType(tf, int.class);
         RootNode<Object[]> root = new RootNode<>(ctx, reduceType);
         root.register(reduce);
 
@@ -153,7 +148,7 @@ public class HashAggregateSingleGroupExecutionTest extends AbstractExecutionTest
         ExecutionContext<Object[]> ctx = executionContext();
         IgniteTypeFactory tf = ctx.getTypeFactory();
         RelDataType rowType = TypeUtils.createRowType(tf, String.class, int.class);
-        ScanNode<Object[]> scan = new ScanNode<>(ctx, rowType, Arrays.asList(
+        ScanNode<Object[]> scan = new ScanNode<>(ctx, Arrays.asList(
                 row("Igor", 200),
                 row("Roman", 300),
                 row("Ivan", 1400),
@@ -173,16 +168,15 @@ public class HashAggregateSingleGroupExecutionTest extends AbstractExecutionTest
 
         List<ImmutableBitSet> grpSets = List.of(ImmutableBitSet.of());
 
-        RelDataType mapType = IgniteMapHashAggregate.rowType(tf, true);
-        HashAggregateNode<Object[]> map = new HashAggregateNode<>(ctx, mapType, MAP, grpSets,
+        HashAggregateNode<Object[]> map = new HashAggregateNode<>(ctx, MAP, grpSets,
                 accFactory(ctx, call, MAP, rowType), rowFactory());
         map.register(scan);
 
-        RelDataType reduceType = TypeUtils.createRowType(tf, int.class);
-        HashAggregateNode<Object[]> reduce = new HashAggregateNode<>(ctx, reduceType, REDUCE, grpSets,
+        HashAggregateNode<Object[]> reduce = new HashAggregateNode<>(ctx, REDUCE, grpSets,
                 accFactory(ctx, call, REDUCE, null), rowFactory());
         reduce.register(map);
 
+        RelDataType reduceType = TypeUtils.createRowType(tf, int.class);
         RootNode<Object[]> root = new RootNode<>(ctx, reduceType);
         root.register(reduce);
 
@@ -196,7 +190,7 @@ public class HashAggregateSingleGroupExecutionTest extends AbstractExecutionTest
         ExecutionContext<Object[]> ctx = executionContext();
         IgniteTypeFactory tf = ctx.getTypeFactory();
         RelDataType rowType = TypeUtils.createRowType(tf, String.class, int.class);
-        ScanNode<Object[]> scan = new ScanNode<>(ctx, rowType, Arrays.asList(
+        ScanNode<Object[]> scan = new ScanNode<>(ctx, Arrays.asList(
                 row("Igor", 200),
                 row("Roman", 300),
                 row("Ivan", 1400),
@@ -216,16 +210,15 @@ public class HashAggregateSingleGroupExecutionTest extends AbstractExecutionTest
 
         List<ImmutableBitSet> grpSets = List.of(ImmutableBitSet.of());
 
-        RelDataType mapType = IgniteMapHashAggregate.rowType(tf, true);
-        HashAggregateNode<Object[]> map = new HashAggregateNode<>(ctx, mapType, MAP, grpSets,
+        HashAggregateNode<Object[]> map = new HashAggregateNode<>(ctx, MAP, grpSets,
                 accFactory(ctx, call, MAP, rowType), rowFactory());
         map.register(scan);
 
-        RelDataType reduceType = TypeUtils.createRowType(tf, int.class);
-        HashAggregateNode<Object[]> reduce = new HashAggregateNode<>(ctx, reduceType, REDUCE, grpSets,
+        HashAggregateNode<Object[]> reduce = new HashAggregateNode<>(ctx, REDUCE, grpSets,
                 accFactory(ctx, call, REDUCE, null), rowFactory());
         reduce.register(map);
 
+        RelDataType reduceType = TypeUtils.createRowType(tf, int.class);
         RootNode<Object[]> root = new RootNode<>(ctx, reduceType);
         root.register(reduce);
 
@@ -239,7 +232,7 @@ public class HashAggregateSingleGroupExecutionTest extends AbstractExecutionTest
         ExecutionContext<Object[]> ctx = executionContext();
         IgniteTypeFactory tf = ctx.getTypeFactory();
         RelDataType rowType = TypeUtils.createRowType(tf, String.class, int.class);
-        ScanNode<Object[]> scan = new ScanNode<>(ctx, rowType, Arrays.asList(
+        ScanNode<Object[]> scan = new ScanNode<>(ctx, Arrays.asList(
                 row("Igor", 200),
                 row("Roman", 300),
                 row("Ivan", 1400),
@@ -259,16 +252,15 @@ public class HashAggregateSingleGroupExecutionTest extends AbstractExecutionTest
 
         List<ImmutableBitSet> grpSets = List.of(ImmutableBitSet.of());
 
-        RelDataType mapType = IgniteMapHashAggregate.rowType(tf, true);
-        HashAggregateNode<Object[]> map = new HashAggregateNode<>(ctx, mapType, MAP, grpSets,
+        HashAggregateNode<Object[]> map = new HashAggregateNode<>(ctx, MAP, grpSets,
                 accFactory(ctx, call, MAP, rowType), rowFactory());
         map.register(scan);
 
-        RelDataType reduceType = TypeUtils.createRowType(tf, int.class);
-        HashAggregateNode<Object[]> reduce = new HashAggregateNode<>(ctx, reduceType, REDUCE, grpSets,
+        HashAggregateNode<Object[]> reduce = new HashAggregateNode<>(ctx, REDUCE, grpSets,
                 accFactory(ctx, call, REDUCE, null), rowFactory());
         reduce.register(map);
 
+        RelDataType reduceType = TypeUtils.createRowType(tf, int.class);
         RootNode<Object[]> root = new RootNode<>(ctx, reduceType);
         root.register(reduce);
 
@@ -282,7 +274,7 @@ public class HashAggregateSingleGroupExecutionTest extends AbstractExecutionTest
         ExecutionContext<Object[]> ctx = executionContext();
         IgniteTypeFactory tf = ctx.getTypeFactory();
         RelDataType rowType = TypeUtils.createRowType(tf, String.class, int.class);
-        ScanNode<Object[]> scan = new ScanNode<>(ctx, rowType, Arrays.asList(
+        ScanNode<Object[]> scan = new ScanNode<>(ctx, Arrays.asList(
                 row("Igor", 200),
                 row("Roman", 300),
                 row("Ivan", 1400),
@@ -302,11 +294,11 @@ public class HashAggregateSingleGroupExecutionTest extends AbstractExecutionTest
 
         List<ImmutableBitSet> grpSets = List.of(ImmutableBitSet.of());
 
-        RelDataType aggType = TypeUtils.createRowType(tf, int.class);
-        HashAggregateNode<Object[]> agg = new HashAggregateNode<>(ctx, aggType, SINGLE, grpSets,
+        HashAggregateNode<Object[]> agg = new HashAggregateNode<>(ctx, SINGLE, grpSets,
                 accFactory(ctx, call, SINGLE, rowType), rowFactory());
         agg.register(scan);
 
+        RelDataType aggType = TypeUtils.createRowType(tf, int.class);
         RootNode<Object[]> root = new RootNode<>(ctx, aggType);
         root.register(agg);
 
@@ -320,7 +312,7 @@ public class HashAggregateSingleGroupExecutionTest extends AbstractExecutionTest
         ExecutionContext<Object[]> ctx = executionContext();
         IgniteTypeFactory tf = ctx.getTypeFactory();
         RelDataType rowType = TypeUtils.createRowType(tf, String.class, int.class);
-        ScanNode<Object[]> scan = new ScanNode<>(ctx, rowType, Arrays.asList(
+        ScanNode<Object[]> scan = new ScanNode<>(ctx, Arrays.asList(
                 row("Igor", 200),
                 row("Roman", 300),
                 row("Ivan", 1400),
@@ -340,11 +332,11 @@ public class HashAggregateSingleGroupExecutionTest extends AbstractExecutionTest
 
         List<ImmutableBitSet> grpSets = List.of(ImmutableBitSet.of());
 
-        RelDataType aggType = TypeUtils.createRowType(tf, int.class);
-        HashAggregateNode<Object[]> agg = new HashAggregateNode<>(ctx, aggType, SINGLE, grpSets,
+        HashAggregateNode<Object[]> agg = new HashAggregateNode<>(ctx, SINGLE, grpSets,
                 accFactory(ctx, call, SINGLE, rowType), rowFactory());
         agg.register(scan);
 
+        RelDataType aggType = TypeUtils.createRowType(tf, int.class);
         RootNode<Object[]> root = new RootNode<>(ctx, aggType);
         root.register(agg);
 
@@ -358,7 +350,7 @@ public class HashAggregateSingleGroupExecutionTest extends AbstractExecutionTest
         ExecutionContext<Object[]> ctx = executionContext();
         IgniteTypeFactory tf = ctx.getTypeFactory();
         RelDataType rowType = TypeUtils.createRowType(tf, String.class, int.class);
-        ScanNode<Object[]> scan = new ScanNode<>(ctx, rowType, Arrays.asList(
+        ScanNode<Object[]> scan = new ScanNode<>(ctx, Arrays.asList(
                 row("Igor", 200),
                 row("Roman", 300),
                 row("Ivan", 1400),
@@ -378,11 +370,11 @@ public class HashAggregateSingleGroupExecutionTest extends AbstractExecutionTest
 
         List<ImmutableBitSet> grpSets = List.of(ImmutableBitSet.of());
 
-        RelDataType aggType = TypeUtils.createRowType(tf, int.class);
-        HashAggregateNode<Object[]> agg = new HashAggregateNode<>(ctx, aggType, SINGLE, grpSets,
+        HashAggregateNode<Object[]> agg = new HashAggregateNode<>(ctx, SINGLE, grpSets,
                 accFactory(ctx, call, SINGLE, rowType), rowFactory());
         agg.register(scan);
 
+        RelDataType aggType = TypeUtils.createRowType(tf, int.class);
         RootNode<Object[]> root = new RootNode<>(ctx, aggType);
         root.register(agg);
 
@@ -396,7 +388,7 @@ public class HashAggregateSingleGroupExecutionTest extends AbstractExecutionTest
         ExecutionContext<Object[]> ctx = executionContext();
         IgniteTypeFactory tf = ctx.getTypeFactory();
         RelDataType rowType = TypeUtils.createRowType(tf, String.class, int.class);
-        ScanNode<Object[]> scan = new ScanNode<>(ctx, rowType, Arrays.asList(
+        ScanNode<Object[]> scan = new ScanNode<>(ctx, Arrays.asList(
                 row("Igor", 200),
                 row("Roman", 300),
                 row("Ivan", 1400),
@@ -416,11 +408,11 @@ public class HashAggregateSingleGroupExecutionTest extends AbstractExecutionTest
 
         List<ImmutableBitSet> grpSets = List.of(ImmutableBitSet.of());
 
-        RelDataType aggType = TypeUtils.createRowType(tf, int.class);
-        HashAggregateNode<Object[]> agg = new HashAggregateNode<>(ctx, aggType, SINGLE, grpSets,
+        HashAggregateNode<Object[]> agg = new HashAggregateNode<>(ctx, SINGLE, grpSets,
                 accFactory(ctx, call, SINGLE, rowType), rowFactory());
         agg.register(scan);
 
+        RelDataType aggType = TypeUtils.createRowType(tf, int.class);
         RootNode<Object[]> root = new RootNode<>(ctx, aggType);
         root.register(agg);
 
@@ -434,7 +426,7 @@ public class HashAggregateSingleGroupExecutionTest extends AbstractExecutionTest
         ExecutionContext<Object[]> ctx = executionContext();
         IgniteTypeFactory tf = ctx.getTypeFactory();
         RelDataType rowType = TypeUtils.createRowType(tf, String.class, int.class);
-        ScanNode<Object[]> scan = new ScanNode<>(ctx, rowType, Arrays.asList(
+        ScanNode<Object[]> scan = new ScanNode<>(ctx, Arrays.asList(
                 row("Igor", 200),
                 row("Roman", 300),
                 row("Ivan", 1400),
@@ -455,10 +447,8 @@ public class HashAggregateSingleGroupExecutionTest extends AbstractExecutionTest
 
         List<ImmutableBitSet> grpSets = List.of(ImmutableBitSet.of());
 
-        RelDataType aggType = TypeUtils.createRowType(tf, int.class);
         HashAggregateNode<Object[]> agg = new HashAggregateNode<>(
                 ctx,
-                aggType,
                 SINGLE,
                 grpSets,
                 accFactory(ctx, call, SINGLE, rowType),
@@ -467,6 +457,7 @@ public class HashAggregateSingleGroupExecutionTest extends AbstractExecutionTest
 
         agg.register(scan);
 
+        RelDataType aggType = TypeUtils.createRowType(tf, int.class);
         RootNode<Object[]> root = new RootNode<>(ctx, aggType);
         root.register(agg);
 

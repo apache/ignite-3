@@ -18,13 +18,11 @@
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
-import static org.apache.ignite.lang.ErrorGroups.Sql.OPERATION_INTERRUPTED_ERR;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
-import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionCancelledException;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.util.Commons;
@@ -51,11 +49,9 @@ public abstract class AbstractNode<RowT> implements Node<RowT> {
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      *
      * {@link Inbox} node may not have proper context at creation time in case it creates on first message received from a remote source.
-     * This case the context sets in scope of {@link Inbox#init(ExecutionContext, RelDataType, Collection, Comparator)} method call.
+     * This case the context sets in scope of {@link Inbox#init(ExecutionContext, Collection, Comparator)} method call.
      */
     private ExecutionContext<RowT> ctx;
-
-    private RelDataType rowType;
 
     private Downstream<RowT> downstream;
 
@@ -68,11 +64,9 @@ public abstract class AbstractNode<RowT> implements Node<RowT> {
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      *
      * @param ctx Execution context.
-     * @param rowType Rel data type.
      */
-    protected AbstractNode(ExecutionContext<RowT> ctx, RelDataType rowType) {
+    protected AbstractNode(ExecutionContext<RowT> ctx) {
         this.ctx = ctx;
-        this.rowType = rowType;
     }
 
     /** {@inheritDoc} */
@@ -83,16 +77,6 @@ public abstract class AbstractNode<RowT> implements Node<RowT> {
 
     protected void context(ExecutionContext<RowT> ctx) {
         this.ctx = ctx;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public RelDataType rowType() {
-        return rowType;
-    }
-
-    protected void rowType(RelDataType rowType) {
-        this.rowType = rowType;
     }
 
     /** {@inheritDoc} */
@@ -176,7 +160,7 @@ public abstract class AbstractNode<RowT> implements Node<RowT> {
             throw new ExecutionCancelledException();
         }
         if (Thread.interrupted()) {
-            throw new IgniteInternalCheckedException(OPERATION_INTERRUPTED_ERR, "Thread was interrupted.");
+            throw new IgniteInternalCheckedException("Thread was interrupted.");
         }
         if (!IgniteUtils.assertionsEnabled()) {
             return;

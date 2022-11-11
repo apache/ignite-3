@@ -62,8 +62,8 @@ public class LimitExecutionTest extends AbstractExecutionTest {
         RelDataType rowType = TypeUtils.createRowType(tf, int.class);
 
         RootNode<Object[]> rootNode = new RootNode<>(ctx, rowType);
-        LimitNode<Object[]> limitNode = new LimitNode<>(ctx, rowType, () -> offset, fetch == 0 ? null : () -> fetch);
-        SourceNode srcNode = new SourceNode(ctx, rowType);
+        LimitNode<Object[]> limitNode = new LimitNode<>(ctx, () -> offset, fetch == 0 ? null : () -> fetch);
+        SourceNode srcNode = new SourceNode(ctx);
 
         rootNode.register(limitNode);
         limitNode.register(srcNode);
@@ -87,8 +87,8 @@ public class LimitExecutionTest extends AbstractExecutionTest {
 
         AtomicInteger requested = new AtomicInteger();
 
-        public SourceNode(ExecutionContext<Object[]> ctx, RelDataType rowType) {
-            super(ctx, rowType);
+        public SourceNode(ExecutionContext<Object[]> ctx) {
+            super(ctx);
         }
 
         /** {@inheritDoc} */

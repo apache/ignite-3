@@ -42,14 +42,14 @@ public class TableSpoolExecutionTest extends AbstractExecutionTest {
     @Test
     public void testLazyTableSpool() {
         checkTableSpool(
-                (ctx, rowType) -> new TableSpoolNode<>(ctx, rowType, true)
+                (ctx, rowType) -> new TableSpoolNode<>(ctx, true)
         );
     }
 
     @Test
     public void testEagerTableSpool() {
         checkTableSpool(
-                (ctx, rowType) -> new TableSpoolNode<>(ctx, rowType, false)
+                (ctx, rowType) -> new TableSpoolNode<>(ctx, false)
         );
     }
 
@@ -71,7 +71,7 @@ public class TableSpoolExecutionTest extends AbstractExecutionTest {
 
             AtomicReference<Iterator<Object[]>> itRef = new AtomicReference<>();
 
-            ScanNode<Object[]> scan = new ScanNode<>(ctx, rowType, () -> {
+            ScanNode<Object[]> scan = new ScanNode<>(ctx, () -> {
                 if (itRef.get() != null) {
                     throw new AssertionError();
                 }
@@ -81,7 +81,7 @@ public class TableSpoolExecutionTest extends AbstractExecutionTest {
                 return itRef.get();
             });
 
-            TableSpoolNode<Object[]> spool = new TableSpoolNode<>(ctx, rowType, false);
+            TableSpoolNode<Object[]> spool = new TableSpoolNode<>(ctx, false);
 
             spool.register(singletonList(scan));
 
@@ -114,7 +114,7 @@ public class TableSpoolExecutionTest extends AbstractExecutionTest {
         for (int size : sizes) {
             log.info("Check: size=" + size);
 
-            ScanNode<Object[]> right = new ScanNode<>(ctx, rowType, new TestTable(size, rowType) {
+            ScanNode<Object[]> right = new ScanNode<>(ctx, new TestTable(size, rowType) {
                 boolean first = true;
 
                 @Override

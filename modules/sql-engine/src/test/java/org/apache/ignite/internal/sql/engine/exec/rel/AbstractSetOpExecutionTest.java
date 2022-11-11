@@ -77,10 +77,10 @@ public abstract class AbstractSetOpExecutionTest extends AbstractExecutionTest {
 
         // For single distribution set operations, node should not request rows from the next source if result after
         // the previous source is already empty.
-        ScanNode<Object[]> scan1 = new ScanNode<>(ctx, rowType, data);
-        ScanNode<Object[]> scan2 = new ScanNode<>(ctx, rowType, data);
-        ScanNode<Object[]> scan3 = new ScanNode<>(ctx, rowType, Collections.emptyList());
-        Node<Object[]> node4 = new AbstractNode<>(ctx, rowType) {
+        ScanNode<Object[]> scan1 = new ScanNode<>(ctx, data);
+        ScanNode<Object[]> scan2 = new ScanNode<>(ctx, data);
+        ScanNode<Object[]> scan3 = new ScanNode<>(ctx, Collections.emptyList());
+        Node<Object[]> node4 = new AbstractNode<>(ctx) {
             @Override
             protected void rewindInternal() {
                 // No-op.
@@ -99,7 +99,7 @@ public abstract class AbstractSetOpExecutionTest extends AbstractExecutionTest {
 
         List<Node<Object[]>> inputs = Arrays.asList(scan1, scan2, scan3, node4);
 
-        AbstractSetOpNode<Object[]> setOpNode = setOpNodeFactory(ctx, rowType, SINGLE, false, inputs.size());
+        AbstractSetOpNode<Object[]> setOpNode = setOpNodeFactory(ctx, SINGLE, false, inputs.size());
         setOpNode.register(inputs);
 
         RootNode<Object[]> root = new RootNode<>(ctx, rowType);
@@ -122,21 +122,21 @@ public abstract class AbstractSetOpExecutionTest extends AbstractExecutionTest {
         IgniteTypeFactory tf = ctx.getTypeFactory();
         RelDataType rowType = TypeUtils.createRowType(tf, String.class, int.class);
 
-        List<Node<Object[]>> inputs = dataSets.stream().map(ds -> new ScanNode<>(ctx, rowType, ds))
+        List<Node<Object[]>> inputs = dataSets.stream().map(ds -> new ScanNode<>(ctx, ds))
                 .collect(Collectors.toList());
 
         AbstractSetOpNode<Object[]> setOpNode;
 
         if (single) {
-            setOpNode = setOpNodeFactory(ctx, rowType, SINGLE, all, inputs.size());
+            setOpNode = setOpNodeFactory(ctx, SINGLE, all, inputs.size());
         } else {
-            setOpNode = setOpNodeFactory(ctx, rowType, MAP, all, inputs.size());
+            setOpNode = setOpNodeFactory(ctx, MAP, all, inputs.size());
         }
 
         setOpNode.register(inputs);
 
         if (!single) {
-            AbstractSetOpNode<Object[]> reduceNode = setOpNodeFactory(ctx, rowType, REDUCE, all, 1);
+            AbstractSetOpNode<Object[]> reduceNode = setOpNodeFactory(ctx, REDUCE, all, 1);
 
             reduceNode.register(Collections.singletonList(setOpNode));
 
@@ -146,7 +146,7 @@ public abstract class AbstractSetOpExecutionTest extends AbstractExecutionTest {
         Comparator<Object[]> cmp = ctx.expressionFactory().comparator(RelCollations.of(ImmutableIntList.of(0, 1)));
 
         // Create sort node on the top to check sorted results.
-        SortNode<Object[]> sortNode = new SortNode<>(ctx, rowType, cmp);
+        SortNode<Object[]> sortNode = new SortNode<>(ctx, cmp);
         sortNode.register(setOpNode);
 
         RootNode<Object[]> root = new RootNode<>(ctx, rowType);
@@ -161,6 +161,6 @@ public abstract class AbstractSetOpExecutionTest extends AbstractExecutionTest {
         assertFalse(root.hasNext());
     }
 
-    protected abstract AbstractSetOpNode<Object[]> setOpNodeFactory(ExecutionContext<Object[]> ctx, RelDataType rowType,
+    protected abstract AbstractSetOpNode<Object[]> setOpNodeFactory(ExecutionContext<Object[]> ctx,
             AggregateType type, boolean all, int inputsCnt);
 }

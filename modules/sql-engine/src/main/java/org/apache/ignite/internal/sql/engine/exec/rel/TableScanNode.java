@@ -75,7 +75,6 @@ public class TableScanNode<RowT> extends AbstractNode<RowT> {
      * Constructor.
      *
      * @param ctx             Execution context.
-     * @param rowType         Output type of the current node.
      * @param schemaTable     The table this node should scan.
      * @param parts           Partition numbers to scan.
      * @param filters         Optional filter to filter out rows.
@@ -91,7 +90,7 @@ public class TableScanNode<RowT> extends AbstractNode<RowT> {
             @Nullable Function<RowT, RowT> rowTransformer,
             @Nullable BitSet requiredColumns
     ) {
-        super(ctx, rowType);
+        super(ctx);
 
         assert !nullOrEmpty(parts);
 

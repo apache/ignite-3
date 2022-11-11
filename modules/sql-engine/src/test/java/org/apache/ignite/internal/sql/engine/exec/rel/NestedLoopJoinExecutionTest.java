@@ -308,10 +308,10 @@ public class NestedLoopJoinExecutionTest extends AbstractExecutionTest {
         ExecutionContext<Object[]> ctx = executionContext(true);
 
         RelDataType leftType = TypeUtils.createRowType(ctx.getTypeFactory(), int.class, String.class, Integer.class);
-        ScanNode<Object[]> leftNode = new ScanNode<>(ctx, leftType, Arrays.asList(left));
+        ScanNode<Object[]> leftNode = new ScanNode<>(ctx, Arrays.asList(left));
 
         RelDataType rightType = TypeUtils.createRowType(ctx.getTypeFactory(), int.class, String.class);
-        ScanNode<Object[]> rightNode = new ScanNode<>(ctx, rightType, Arrays.asList(right));
+        ScanNode<Object[]> rightNode = new ScanNode<>(ctx, Arrays.asList(right));
 
         RelDataType outType;
         if (setOf(SEMI, ANTI).contains(joinType)) {
@@ -330,10 +330,10 @@ public class NestedLoopJoinExecutionTest extends AbstractExecutionTest {
         ProjectNode<Object[]> project;
         if (setOf(SEMI, ANTI).contains(joinType)) {
             rowType = TypeUtils.createRowType(ctx.getTypeFactory(), int.class, String.class);
-            project = new ProjectNode<>(ctx, rowType, r -> new Object[]{r[0], r[1]});
+            project = new ProjectNode<>(ctx, r -> new Object[]{r[0], r[1]});
         } else {
             rowType = TypeUtils.createRowType(ctx.getTypeFactory(), int.class, String.class, String.class);
-            project = new ProjectNode<>(ctx, rowType, r -> new Object[]{r[0], r[1], r[4]});
+            project = new ProjectNode<>(ctx, r -> new Object[]{r[0], r[1], r[4]});
         }
         project.register(join);
 

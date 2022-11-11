@@ -67,7 +67,7 @@ public class RootNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
      * @param rowType Rel data type.
      */
     public RootNode(ExecutionContext<RowT> ctx, RelDataType rowType) {
-        super(ctx, rowType);
+        super(ctx);
 
         onClose = this::closeInternal;
         converter = TypeUtils.resultTypeConverter(ctx, rowType);
@@ -82,7 +82,7 @@ public class RootNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
      * @param onClose Runnable.
      */
     public RootNode(ExecutionContext<RowT> ctx, RelDataType rowType, Runnable onClose) {
-        super(ctx, rowType);
+        super(ctx);
 
         this.onClose = onClose;
         converter = TypeUtils.resultTypeConverter(ctx, rowType);

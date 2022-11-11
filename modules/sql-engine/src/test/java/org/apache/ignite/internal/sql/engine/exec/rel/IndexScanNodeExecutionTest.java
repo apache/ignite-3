@@ -407,7 +407,7 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
                 null
         );
 
-        RootNode<Object[]> node = new RootNode<>(ectx, scanNode.rowType());
+        RootNode<Object[]> node = new RootNode<>(ectx, rowType);
         node.register(scanNode);
 
         int n = 0;
