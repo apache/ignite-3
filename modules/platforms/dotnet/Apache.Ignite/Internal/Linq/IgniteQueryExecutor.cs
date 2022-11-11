@@ -81,7 +81,9 @@ internal sealed class IgniteQueryExecutor : IQueryExecutor
             while (true)
             {
                 ValueTask<bool> moveNextTask = enumerator.MoveNextAsync();
-                var moveNextSuccess = moveNextTask.IsCompleted ? moveNextTask.Result : moveNextTask.AsTask().GetAwaiter().GetResult();
+                var moveNextSuccess = moveNextTask.IsCompleted
+                    ? moveNextTask.Result
+                    : moveNextTask.AsTask().GetAwaiter().GetResult();
 
                 if (!moveNextSuccess)
                 {
