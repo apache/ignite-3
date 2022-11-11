@@ -500,7 +500,7 @@ public class FSMCallerImpl implements FSMCaller {
                         ConfigurationEntry configurationEntry = new ConfigurationEntry(
                                 logEntry.getId().copy(),
                                 new Configuration(logEntry.getPeers(), logEntry.getLearners()),
-                                null
+                                new Configuration()
                         );
                         if (logEntry.getOldPeers() != null && !logEntry.getOldPeers().isEmpty()) {
                             configurationEntry.setOldConf(new Configuration(logEntry.getOldPeers(), logEntry.getOldLearners()));
@@ -685,7 +685,7 @@ public class FSMCallerImpl implements FSMCaller {
                             meta.peersList().stream().map(PeerId::parsePeer).collect(toList()),
                             meta.learnersList().stream().map(PeerId::parsePeer).collect(toList())
                     ),
-                    null
+                    new Configuration()
             );
             if (meta.oldPeersList() != null && !meta.oldPeersList().isEmpty()) {
                 configurationEntry.setOldConf(new Configuration(
