@@ -105,6 +105,8 @@ namespace Apache.Ignite.Tests
 
         public string Endpoint => "127.0.0.1:" + Port;
 
+        public string LastSql { get; set; } = string.Empty;
+
         internal IList<ClientOp> ClientOps => _ops?.ToList() ?? throw new Exception("Ops tracking is disabled");
 
         public async Task<IIgniteClient> ConnectClientAsync(IgniteClientConfiguration? cfg = null)
@@ -241,6 +243,7 @@ namespace Apache.Ignite.Tests
             }
 
             var sql = reader.ReadString();
+            LastSql = sql;
             props["sql"] = sql;
 
             using var arrayBufferWriter = new PooledArrayBufferWriter();

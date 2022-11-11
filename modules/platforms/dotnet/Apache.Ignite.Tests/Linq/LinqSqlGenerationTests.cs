@@ -17,8 +17,12 @@
 
 namespace Apache.Ignite.Tests.Linq;
 
+using System;
+using System.Linq;
 using System.Threading.Tasks;
+using Ignite.Table;
 using NUnit.Framework;
+using Table;
 
 /// <summary>
 /// Tests LINQ to SQL conversion.
@@ -27,10 +31,47 @@ using NUnit.Framework;
 /// </summary>
 public class LinqSqlGenerationTests
 {
+    public IIgniteClient Client { get; set; } = null!;
+
+    public FakeServer Server { get; set; } = null!;
+
+    public ITable Table { get; set; } = null!;
+
     [Test]
-    public async Task Test()
+    public void TestSelectOneColumn()
     {
-        await Task.Delay(1);
-        Assert.Fail("TODO: Check generated SQL with FakeServer");
+        AssertSql("select _T0.KEY from PUBLIC.tbl1 as _T0", q => q.Select(x => x.Key).ToList());
+    }
+
+    [OneTimeSetUp]
+    public async Task OneTimeSetUp()
+    {
+        Server = new FakeServer();
+        Client = await Server.ConnectClientAsync();
+        Table = (await Client.Tables.GetTableAsync(FakeServer.ExistingTableName))!;
+    }
+
+    [OneTimeTearDown]
+    public void OneTimeTearDown()
+    {
+        Client.Dispose();
+        Server.Dispose();
+    }
+
+    private void AssertSql(string expectedSql, Func<IQueryable<Poco>, object?> query)
+    {
+        Server.LastSql = string.Empty;
+
+        try
+        {
+            query(Table.GetRecordView<Poco>().AsQueryable());
+        }
+        catch (Exception)
+        {
+            // Ignore.
+            // Result deserialization may fail because FakeServer returns one column always.
+        }
+
+        Assert.AreEqual(expectedSql, Server.LastSql);
     }
 }
