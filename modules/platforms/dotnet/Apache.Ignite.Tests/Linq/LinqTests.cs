@@ -202,6 +202,20 @@ public class LinqTests : IgniteTestsBase
     }
 
     [Test]
+    [Ignore("IGNITE-18123 LINQ: Skip and Take (offset / limit) support")]
+    public void TestOrderBySkipTakeBeforeSelect()
+    {
+        List<long> res = PocoView.AsQueryable()
+            .OrderByDescending(x => x.Key)
+            .Skip(1)
+            .Take(2)
+            .Select(x => x.Key)
+            .ToList();
+
+        Assert.AreEqual(new long[] { 8, 7 }, res);
+    }
+
+    [Test]
     public void TestCustomColumnNameMapping()
     {
         Assert.Fail("TODO: Test that ColumnAttribute is honored.");
