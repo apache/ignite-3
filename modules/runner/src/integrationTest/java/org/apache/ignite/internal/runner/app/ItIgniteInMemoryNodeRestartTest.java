@@ -176,8 +176,8 @@ public class ItIgniteInMemoryNodeRestartTest extends IgniteAbstractTest {
     /**
      * Restarts an in-memory node that is not a leader of the table's partition.
      */
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17959")
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17986")
     public void inMemoryNodeRestartNotLeader(TestInfo testInfo) throws Exception {
         // Start three nodes, the first one is going to be CMG and MetaStorage leader.
         IgniteImpl ignite = startNode(testInfo, 0);
@@ -268,7 +268,6 @@ public class ItIgniteInMemoryNodeRestartTest extends IgniteAbstractTest {
      * Restarts all the nodes with the partition.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17986")
     public void inMemoryNodeFullPartitionRestart(TestInfo testInfo) throws Exception {
         // Start three nodes, the first one is going to be CMG and MetaStorage leader.
         IgniteImpl ignite0 = startNode(testInfo, 0);

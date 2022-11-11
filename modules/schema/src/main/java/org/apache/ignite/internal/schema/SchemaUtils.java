@@ -17,14 +17,12 @@
 
 package org.apache.ignite.internal.schema;
 
-import java.util.Optional;
-import org.apache.ignite.configuration.NamedListView;
-import org.apache.ignite.internal.schema.configuration.ColumnView;
+import java.util.Arrays;
+import java.util.Comparator;
 import org.apache.ignite.internal.schema.configuration.ConfigurationToSchemaDescriptorConverter;
 import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.mapping.ColumnMapper;
 import org.apache.ignite.internal.schema.mapping.ColumnMapping;
-import org.apache.ignite.lang.IgniteStringFormatter;
 
 /**
  * Stateless schema utils that produces helper methods for schema preparation.
@@ -45,30 +43,30 @@ public class SchemaUtils {
      * Prepares column mapper.
      *
      * @param oldDesc Old schema descriptor.
-     * @param oldTblColumns Old columns configuration.
      * @param newDesc New schema descriptor.
-     * @param newTblColumns New columns configuration.
      * @return Column mapper.
      */
     public static ColumnMapper columnMapper(
             SchemaDescriptor oldDesc,
-            NamedListView<? extends ColumnView> oldTblColumns,
-            SchemaDescriptor newDesc,
-            NamedListView<? extends ColumnView> newTblColumns
+            SchemaDescriptor newDesc
     ) {
+        Column[] cols = oldDesc.valueColumns().columns();
+        Column[] oldCols = Arrays.copyOf(cols, cols.length);
+
+        Arrays.sort(oldCols, Comparator.comparingInt(Column::columnOrder));
+
+        cols = newDesc.valueColumns().columns();
+        Column[] newCols = Arrays.copyOf(cols, cols.length);
+
+        Arrays.sort(newCols, Comparator.comparingInt(Column::columnOrder));
+
         ColumnMapper mapper = null;
 
-        for (int i = 0; i < newTblColumns.size(); ++i) {
-            ColumnView newColView = newTblColumns.get(i);
+        for (int i = 0; i < newCols.length; ++i) {
+            Column newCol = newCols[i];
 
-            assert newColView != null;
-
-            Column newCol = newDesc.column(newColView.name());
-
-            if (i < oldTblColumns.size()) {
-                ColumnView oldColView = oldTblColumns.get(i);
-
-                Column oldCol = oldDesc.column(oldColView.name());
+            if (i < oldCols.length) {
+                Column oldCol = oldCols[i];
 
                 if (newCol.schemaIndex() == oldCol.schemaIndex()) {
                     if (!newCol.name().equals(oldCol.name())) {
@@ -76,7 +74,7 @@ public class SchemaUtils {
                             mapper = ColumnMapping.createMapper(newDesc);
                         }
 
-                        Column oldIdx = oldDesc.column(newColView.name());
+                        Column oldIdx = oldDesc.column(newCol.name());
 
                         // rename
                         if (oldIdx != null) {
@@ -91,8 +89,6 @@ public class SchemaUtils {
                     mapper.add(newCol.schemaIndex(), oldCol.schemaIndex());
                 }
             } else {
-                assert !newDesc.isKeyColumn(newCol.schemaIndex());
-
                 if (mapper == null) {
                     mapper = ColumnMapping.createMapper(newDesc);
                 }
@@ -100,22 +96,6 @@ public class SchemaUtils {
                 mapper.add(newCol);
             }
         }
-
-        // since newTblColumns comes from a TableChange, it will contain nulls for removed columns
-        Optional<Column> droppedKeyCol = newTblColumns.namedListKeys().stream()
-                .filter(k -> newTblColumns.get(k) == null)
-                .map(oldDesc::column)
-                .filter(c -> oldDesc.isKeyColumn(c.schemaIndex()))
-                .findAny();
-
-        // TODO: IGNITE-15774 Assertion just in case, proper validation should be implemented with the help of
-        // TODO: configuration validators.
-        assert droppedKeyCol.isEmpty() :
-                IgniteStringFormatter.format(
-                        "Dropping of key column is forbidden: [schemaVer={}, col={}]",
-                        newDesc.version(),
-                        droppedKeyCol.get()
-                );
 
         return mapper == null ? ColumnMapping.identityMapping() : mapper;
     }
