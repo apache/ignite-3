@@ -19,7 +19,7 @@ package org.apache.ignite.internal.table.distributed.raft.snapshot;
 
 import java.util.concurrent.Executor;
 import org.apache.ignite.internal.raft.storage.SnapshotStorageFactory;
-import org.apache.ignite.internal.storage.GroupConfiguration;
+import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.SnapshotMetaUtils;
@@ -60,7 +60,7 @@ public class PartitionSnapshotStorageFactory implements SnapshotStorageFactory {
     private final long lastIncludedRaftTerm;
 
     /** RAFT configuration corresponding to {@link #lastIncludedRaftIndex}. */
-    private final GroupConfiguration lastIncludedConfiguration;
+    private final RaftGroupConfiguration lastIncludedConfiguration;
 
     /** Incoming snapshots executor. */
     private final Executor incomingSnapshotsExecutor;

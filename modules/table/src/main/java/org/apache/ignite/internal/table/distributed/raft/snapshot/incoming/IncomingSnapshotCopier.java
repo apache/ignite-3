@@ -30,7 +30,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
-import org.apache.ignite.internal.storage.GroupConfiguration;
+import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
@@ -405,7 +405,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
             txStatePartitionStorage.lastApplied(meta.lastIncludedIndex(), meta.lastIncludedTerm());
             mvPartitionStorage.lastApplied(meta.lastIncludedIndex(), meta.lastIncludedTerm());
 
-            mvPartitionStorage.committedGroupConfiguration(new GroupConfiguration(
+            mvPartitionStorage.committedGroupConfiguration(new RaftGroupConfiguration(
                     meta.peersList(),
                     meta.learnersList(),
                     meta.oldPeersList(),

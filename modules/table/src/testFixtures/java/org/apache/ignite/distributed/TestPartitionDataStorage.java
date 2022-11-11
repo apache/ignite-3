@@ -23,7 +23,7 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.storage.GroupConfiguration;
+import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.MvPartitionStorage.WriteClosure;
 import org.apache.ignite.internal.storage.RowId;
@@ -81,12 +81,12 @@ public class TestPartitionDataStorage implements PartitionDataStorage {
     }
 
     @Override
-    public @Nullable GroupConfiguration committedGroupConfiguration() {
+    public @Nullable RaftGroupConfiguration committedGroupConfiguration() {
         return partitionStorage.committedGroupConfiguration();
     }
 
     @Override
-    public void committedGroupConfiguration(GroupConfiguration config) {
+    public void committedGroupConfiguration(RaftGroupConfiguration config) {
         partitionStorage.committedGroupConfiguration(config);
     }
 

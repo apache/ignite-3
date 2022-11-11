@@ -323,7 +323,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
             partitionStorage.lastApplied(100, 10);
 
-            partitionStorage.committedGroupConfiguration(new GroupConfiguration(List.of("peer"), List.of("learner"), null, null));
+            partitionStorage.committedGroupConfiguration(new RaftGroupConfiguration(List.of("peer"), List.of("learner"), null, null));
 
             return null;
         });

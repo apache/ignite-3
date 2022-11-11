@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing;
 
-import org.apache.ignite.internal.storage.GroupConfiguration;
+import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 import org.apache.ignite.raft.jraft.entity.SnapshotMetaBuilder;
@@ -34,7 +34,7 @@ public class SnapshotMetaUtils {
      * @param config RAFT group configuration.
      * @return SnapshotMeta corresponding to the given log index.
      */
-    public static SnapshotMeta snapshotMetaAt(long logIndex, long term, GroupConfiguration config) {
+    public static SnapshotMeta snapshotMetaAt(long logIndex, long term, RaftGroupConfiguration config) {
         SnapshotMetaBuilder metaBuilder = new RaftMessagesFactory().snapshotMeta()
                 .lastIncludedIndex(logIndex)
                 .lastIncludedTerm(term)

@@ -38,7 +38,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommand;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.storage.GroupConfiguration;
+import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
@@ -358,7 +358,7 @@ public class PartitionListener implements RaftGroupListener {
         try {
             storage.runConsistently(() -> {
                 storage.committedGroupConfiguration(
-                        new GroupConfiguration(config.peers(), config.learners(), config.oldPeers(), config.oldLearners())
+                        new RaftGroupConfiguration(config.peers(), config.learners(), config.oldPeers(), config.oldLearners())
                 );
                 storage.lastApplied(config.index(), config.term());
 

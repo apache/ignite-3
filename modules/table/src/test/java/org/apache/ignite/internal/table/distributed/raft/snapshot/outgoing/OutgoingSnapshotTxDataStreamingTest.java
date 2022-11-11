@@ -35,7 +35,7 @@ import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
-import org.apache.ignite.internal.storage.GroupConfiguration;
+import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionAccess;
@@ -90,7 +90,7 @@ class OutgoingSnapshotTxDataStreamingTest {
         lenient().when(partitionAccess.mvPartitionStorage()).thenReturn(mvPartitionStorage);
         lenient().when(partitionAccess.txStatePartitionStorage()).thenReturn(txStateStorage);
 
-        lenient().when(mvPartitionStorage.committedGroupConfiguration()).thenReturn(mock(GroupConfiguration.class));
+        lenient().when(mvPartitionStorage.committedGroupConfiguration()).thenReturn(mock(RaftGroupConfiguration.class));
 
         snapshot = new OutgoingSnapshot(UUID.randomUUID(), partitionAccess);
     }

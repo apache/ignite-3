@@ -27,7 +27,7 @@ import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.UUID;
-import org.apache.ignite.internal.storage.GroupConfiguration;
+import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionAccess;
@@ -81,7 +81,7 @@ class OutgoingSnapshotCommonTest {
         when(txStateStorage.lastAppliedIndex()).thenReturn(100L);
         lenient().when(txStateStorage.lastAppliedTerm()).thenReturn(3L);
 
-        when(mvPartitionStorage.committedGroupConfiguration()).thenReturn(new GroupConfiguration(
+        when(mvPartitionStorage.committedGroupConfiguration()).thenReturn(new RaftGroupConfiguration(
                 List.of("peer1:3000", "peer2:3000"),
                 List.of("learner1:3000", "learner2:3000"),
                 List.of("peer1:3000"),
@@ -119,7 +119,7 @@ class OutgoingSnapshotCommonTest {
 
     @Test
     void doesNotSendOldConfigWhenItIsNotThere() {
-        when(mvPartitionStorage.committedGroupConfiguration()).thenReturn(new GroupConfiguration(
+        when(mvPartitionStorage.committedGroupConfiguration()).thenReturn(new RaftGroupConfiguration(
                 List.of(), List.of(), null, null
         ));
 
@@ -136,7 +136,7 @@ class OutgoingSnapshotCommonTest {
         when(mvPartitionStorage.lastAppliedIndex()).thenReturn(100L);
         when(txStateStorage.lastAppliedIndex()).thenReturn(90L);
 
-        when(mvPartitionStorage.committedGroupConfiguration()).thenReturn(mock(GroupConfiguration.class));
+        when(mvPartitionStorage.committedGroupConfiguration()).thenReturn(mock(RaftGroupConfiguration.class));
 
         snapshot.freezeScopeUnderMvLock();
 
@@ -150,7 +150,7 @@ class OutgoingSnapshotCommonTest {
         when(mvPartitionStorage.lastAppliedIndex()).thenReturn(90L);
         when(txStateStorage.lastAppliedIndex()).thenReturn(100L);
 
-        when(mvPartitionStorage.committedGroupConfiguration()).thenReturn(mock(GroupConfiguration.class));
+        when(mvPartitionStorage.committedGroupConfiguration()).thenReturn(mock(RaftGroupConfiguration.class));
 
         snapshot.freezeScopeUnderMvLock();
 

@@ -28,7 +28,7 @@ import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointSt
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTimeoutLock;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
-import org.apache.ignite.internal.storage.GroupConfiguration;
+import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryTableStorage;
@@ -169,12 +169,12 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
 
     @Override
     @Nullable
-    public GroupConfiguration committedGroupConfiguration() {
+    public RaftGroupConfiguration committedGroupConfiguration() {
         return groupConfigFromBytes(meta.lastGroupConfig());
     }
 
     @Override
-    public void committedGroupConfiguration(GroupConfiguration config) {
+    public void committedGroupConfiguration(RaftGroupConfiguration config) {
         assert checkpointTimeoutLock.checkpointLockIsHeldByThread();
 
         CheckpointProgress lastCheckpoint = checkpointManager.lastCheckpointProgress();
@@ -185,7 +185,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     }
 
     @Nullable
-    private static GroupConfiguration groupConfigFromBytes(byte @Nullable [] bytes) {
+    private static RaftGroupConfiguration groupConfigFromBytes(byte @Nullable [] bytes) {
         if (bytes == null) {
             return null;
         }
@@ -193,7 +193,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         return ByteUtils.fromBytes(bytes);
     }
 
-    private static byte[] groupConfigToBytes(GroupConfiguration config) {
+    private static byte[] groupConfigToBytes(RaftGroupConfiguration config) {
         return ByteUtils.toBytes(config);
     }
 

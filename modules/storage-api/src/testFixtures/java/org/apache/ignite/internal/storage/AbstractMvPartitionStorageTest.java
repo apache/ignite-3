@@ -1332,7 +1332,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
 
     @Test
     void groupConfigurationIsUpdated() {
-        GroupConfiguration configToSave = new GroupConfiguration(
+        RaftGroupConfiguration configToSave = new RaftGroupConfiguration(
                 List.of("peer1", "peer2"),
                 List.of("learner1", "learner2"),
                 List.of("old-peer1", "old-peer2"),
@@ -1345,7 +1345,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
             return null;
         });
 
-        GroupConfiguration returnedConfig = storage.committedGroupConfiguration();
+        RaftGroupConfiguration returnedConfig = storage.committedGroupConfiguration();
 
         assertThat(returnedConfig, is(notNullValue()));
         assertThat(returnedConfig.peers(), is(List.of("peer1", "peer2")));

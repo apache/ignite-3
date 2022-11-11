@@ -41,7 +41,7 @@ import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
-import org.apache.ignite.internal.storage.GroupConfiguration;
+import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.ReadResult;
@@ -194,14 +194,14 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
     /** On-heap-cached last committed group configuration. */
     @Nullable
-    private volatile GroupConfiguration lastGroupConfig;
+    private volatile RaftGroupConfiguration lastGroupConfig;
 
     private volatile long pendingAppliedIndex;
 
     private volatile long pendingAppliedTerm;
 
     @Nullable
-    private volatile GroupConfiguration pendingGroupConfig;
+    private volatile RaftGroupConfiguration pendingGroupConfig;
 
     /** The value of {@link #lastAppliedIndex} persisted to the device at this moment. */
     private volatile long persistedIndex;
@@ -322,12 +322,12 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
     @Override
     @Nullable
-    public GroupConfiguration committedGroupConfiguration() {
+    public RaftGroupConfiguration committedGroupConfiguration() {
         return WRITE_BATCH.get() == null ? lastGroupConfig : pendingGroupConfig;
     }
 
     @Override
-    public void committedGroupConfiguration(GroupConfiguration config) {
+    public void committedGroupConfiguration(RaftGroupConfiguration config) {
         WriteBatchWithIndex writeBatch = requireWriteBatch();
 
         try {
@@ -387,7 +387,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
      * @param readOptions Read options to be used for reading.
      * @return Group configuration.
      */
-    private GroupConfiguration readLastGroupConfig(ReadOptions readOptions) {
+    private RaftGroupConfiguration readLastGroupConfig(ReadOptions readOptions) {
         byte[] bytes;
 
         try {

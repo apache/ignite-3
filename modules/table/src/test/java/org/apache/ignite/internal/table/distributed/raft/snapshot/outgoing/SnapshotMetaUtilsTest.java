@@ -22,7 +22,7 @@ import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
 
 import java.util.List;
-import org.apache.ignite.internal.storage.GroupConfiguration;
+import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -32,7 +32,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class SnapshotMetaUtilsTest {
     @Test
     void buildsSnapshotMeta() {
-        GroupConfiguration config = new GroupConfiguration(
+        RaftGroupConfiguration config = new RaftGroupConfiguration(
                 List.of("peer1:3000", "peer2:3000"), List.of("learner1:3000", "learner2:3000"),
                 List.of("peer1:3000"), List.of("learner1:3000")
         );
@@ -49,7 +49,7 @@ class SnapshotMetaUtilsTest {
 
     @Test
     void doesNotIncludeOldConfigWhenItIsNotThere() {
-        SnapshotMeta meta = SnapshotMetaUtils.snapshotMetaAt(100, 3, new GroupConfiguration(List.of(), List.of(), null, null));
+        SnapshotMeta meta = SnapshotMetaUtils.snapshotMetaAt(100, 3, new RaftGroupConfiguration(List.of(), List.of(), null, null));
 
         assertThat(meta.oldPeersList(), is(nullValue()));
         assertThat(meta.oldLearnersList(), is(nullValue()));

@@ -56,7 +56,7 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
-import org.apache.ignite.internal.storage.GroupConfiguration;
+import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
@@ -130,7 +130,7 @@ public class IncomingSnapshotCopierTest {
 
         long expLastAppliedIndex = 100500L;
         long expLastAppliedTerm = 100L;
-        GroupConfiguration expLastGroupConfig = new GroupConfiguration(
+        RaftGroupConfiguration expLastGroupConfig = new RaftGroupConfiguration(
                 List.of("peer"),
                 List.of("learner"),
                 List.of("old-peer"),
@@ -197,7 +197,7 @@ public class IncomingSnapshotCopierTest {
             UUID snapshotId,
             long lastAppliedIndexForSnapshotMeta,
             long lastAppliedTermForSnapshotMeta,
-            GroupConfiguration expCommittedGroupConfig,
+            RaftGroupConfiguration expCommittedGroupConfig,
             MvTableStorage incomingTableStorage,
             TxStateTableStorage incomingTxStateTableStorage,
             MvPartitionStorage outgoingMvPartitionStorage,

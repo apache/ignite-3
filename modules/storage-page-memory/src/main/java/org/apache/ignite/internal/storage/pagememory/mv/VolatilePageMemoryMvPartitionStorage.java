@@ -20,7 +20,7 @@ package org.apache.ignite.internal.storage.pagememory.mv;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
-import org.apache.ignite.internal.storage.GroupConfiguration;
+import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryTableStorage;
@@ -39,7 +39,7 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
 
     /** Last group configuration. */
     @Nullable
-    private volatile GroupConfiguration groupConfig;
+    private volatile RaftGroupConfiguration groupConfig;
 
     /**
      * Constructor.
@@ -99,12 +99,12 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
     }
 
     @Override
-    public @Nullable GroupConfiguration committedGroupConfiguration() {
+    public @Nullable RaftGroupConfiguration committedGroupConfiguration() {
         return groupConfig;
     }
 
     @Override
-    public void committedGroupConfiguration(GroupConfiguration config) {
+    public void committedGroupConfiguration(RaftGroupConfiguration config) {
         this.groupConfig = config;
     }
 }

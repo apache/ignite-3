@@ -27,7 +27,7 @@ import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.storage.GroupConfiguration;
+import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.ReadResult;
@@ -48,7 +48,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     private volatile long lastAppliedTerm;
 
     @Nullable
-    private volatile GroupConfiguration groupConfig;
+    private volatile RaftGroupConfiguration groupConfig;
 
     private final int partitionId;
 
@@ -127,12 +127,12 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
     @Override
     @Nullable
-    public GroupConfiguration committedGroupConfiguration() {
+    public RaftGroupConfiguration committedGroupConfiguration() {
         return groupConfig;
     }
 
     @Override
-    public void committedGroupConfiguration(GroupConfiguration config) {
+    public void committedGroupConfiguration(RaftGroupConfiguration config) {
         this.groupConfig = config;
     }
 

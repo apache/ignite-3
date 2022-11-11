@@ -36,7 +36,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.storage.GroupConfiguration;
+import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionKey;
@@ -126,7 +126,7 @@ class SnapshotAwarePartitionDataStorageTest {
 
     @Test
     void delegatesCommittedGroupConfigurationGetter() {
-        GroupConfiguration config = mock(GroupConfiguration.class);
+        RaftGroupConfiguration config = mock(RaftGroupConfiguration.class);
 
         when(partitionStorage.committedGroupConfiguration()).thenReturn(config);
 
@@ -135,7 +135,7 @@ class SnapshotAwarePartitionDataStorageTest {
 
     @Test
     void delegatesCommittedGroupConfigurationSetter() {
-        GroupConfiguration config = mock(GroupConfiguration.class);
+        RaftGroupConfiguration config = mock(RaftGroupConfiguration.class);
 
         testedStorage.committedGroupConfiguration(config);
 

@@ -95,14 +95,14 @@ public interface MvPartitionStorage extends ManuallyCloseable {
      * {@code null} if it was never saved.
      */
     @Nullable
-    GroupConfiguration committedGroupConfiguration();
+    RaftGroupConfiguration committedGroupConfiguration();
 
     /**
      * Updates RAFT group configuration.
      *
      * @param config Configuration to save.
      */
-    void committedGroupConfiguration(GroupConfiguration config);
+    void committedGroupConfiguration(RaftGroupConfiguration config);
 
     /**
      * Reads the value from the storage as it was at the given timestamp.

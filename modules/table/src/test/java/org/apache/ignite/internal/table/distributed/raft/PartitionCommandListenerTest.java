@@ -65,7 +65,7 @@ import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
-import org.apache.ignite.internal.storage.GroupConfiguration;
+import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.MvPartitionStorage.WriteClosure;
 import org.apache.ignite.internal.storage.ReadResult;
@@ -359,7 +359,7 @@ public class PartitionCommandListenerTest {
         ));
 
         verify(mvPartitionStorage).committedGroupConfiguration(
-                new GroupConfiguration(List.of("peer"), List.of("learner"), List.of("old-peer"), List.of("old-learner"))
+                new RaftGroupConfiguration(List.of("peer"), List.of("learner"), List.of("old-peer"), List.of("old-learner"))
         );
     }
 

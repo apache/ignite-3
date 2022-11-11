@@ -25,7 +25,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.util.concurrent.Executor;
-import org.apache.ignite.internal.storage.GroupConfiguration;
+import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
@@ -61,7 +61,7 @@ public class PartitionSnapshotStorageFactoryTest {
         mvPartitionStorage.lastApplied(10L, 2L);
         txStateStorage.lastApplied(5L, 3L);
 
-        mvPartitionStorage.committedGroupConfiguration(mock(GroupConfiguration.class));
+        mvPartitionStorage.committedGroupConfiguration(mock(RaftGroupConfiguration.class));
 
         PartitionSnapshotStorageFactory partitionSnapshotStorageFactory = new PartitionSnapshotStorageFactory(
                 mock(TopologyService.class),

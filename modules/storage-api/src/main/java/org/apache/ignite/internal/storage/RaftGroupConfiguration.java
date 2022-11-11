@@ -28,7 +28,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * A RAFT group configuration at which it was committed.
  */
-public class GroupConfiguration implements Serializable {
+public class RaftGroupConfiguration implements Serializable {
     private static final long serialVersionUID = 0;
 
     @IgniteToStringInclude
@@ -46,7 +46,7 @@ public class GroupConfiguration implements Serializable {
     /**
      * Creates a new instance.
      */
-    public GroupConfiguration(
+    public RaftGroupConfiguration(
             Collection<String> peers,
             Collection<String> learners,
             @Nullable Collection<String> oldPeers,
@@ -111,7 +111,7 @@ public class GroupConfiguration implements Serializable {
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        GroupConfiguration that = (GroupConfiguration) o;
+        RaftGroupConfiguration that = (RaftGroupConfiguration) o;
         return Objects.equals(peers, that.peers) && Objects.equals(learners, that.learners)
                 && Objects.equals(oldPeers, that.oldPeers) && Objects.equals(oldLearners, that.oldLearners);
     }
@@ -123,6 +123,6 @@ public class GroupConfiguration implements Serializable {
 
     @Override
     public String toString() {
-        return S.toString(GroupConfiguration.class, this);
+        return S.toString(RaftGroupConfiguration.class, this);
     }
 }
