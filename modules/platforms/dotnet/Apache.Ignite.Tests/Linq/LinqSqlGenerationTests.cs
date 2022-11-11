@@ -78,14 +78,12 @@ public class LinqSqlGenerationTests
                 .ToList());
 
     [Test]
-    public void TestSelectOrderDistinctOffsetLimit() =>
+    public void TestSelectOrderDistinct() =>
         AssertSql(
-            "select _T0.KEY from PUBLIC.tbl1 as _T0",
+            "select distinct _T0.KEY, _T0.VAL, (_T0.KEY + ?) from PUBLIC.tbl1 as _T0 order by ((_T0.KEY + ?)) asc",
             q => q.Select(x => new { x.Key, x.Val, Key2 = x.Key + 1})
                 .Distinct()
                 .OrderBy(x => x.Key2)
-                .Skip(2)
-                .Take(3)
                 .ToList());
 
     [OneTimeSetUp]
