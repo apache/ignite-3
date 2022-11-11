@@ -136,7 +136,8 @@ public class IndexManagerTest {
         when(tableManagerMock.tableAsync(anyLong(), any(UUID.class))).thenAnswer(inv -> {
             InternalTable tbl = Mockito.mock(InternalTable.class);
             Mockito.doReturn(inv.getArgument(1)).when(tbl).tableId();
-            return CompletableFuture.completedFuture(new TableImpl(tbl, new HeapLockManager(), () -> List.of()));
+            return CompletableFuture.completedFuture(
+                    new TableImpl(tbl, new HeapLockManager(), () -> CompletableFuture.completedFuture(List.of())));
         });
 
         SchemaManager schManager = mock(SchemaManager.class);
