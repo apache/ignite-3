@@ -19,6 +19,7 @@ package org.apache.ignite.tx;
 
 import java.util.UUID;
 import org.apache.ignite.lang.IgniteException;
+import org.jetbrains.annotations.Nullable;
 
 /** This exception is thrown if a transaction can't be finished by some reasons. */
 public class TransactionException extends IgniteException {
@@ -40,6 +41,17 @@ public class TransactionException extends IgniteException {
     @Deprecated
     public TransactionException(Throwable cause) {
         super(cause);
+    }
+
+    /**
+     * Creates a new transaction exception with a message and cause.
+     *
+     * @param message The message.
+     * @param cause The cause.
+     */
+    @Deprecated
+    public TransactionException(String message, @Nullable Throwable cause) {
+        super(message, cause);
     }
 
     /**
