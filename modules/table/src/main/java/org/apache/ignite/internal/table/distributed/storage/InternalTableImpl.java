@@ -63,6 +63,7 @@ import org.apache.ignite.internal.table.distributed.replicator.action.RequestTyp
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
+import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteFiveFunction;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -1125,10 +1126,10 @@ public class InternalTableImpl implements InternalTable {
         // TODO asch a leader race is possible when enlisting different keys from the same partition.
         return fut0.handle((primaryPeerAndTerm, e) -> {
             if (e != null) {
-                throw new TransactionException("Failed to get the primary replica.", e);
+                throw new TransactionException(REPLICA_UNAVAILABLE_ERR, "Failed to get the primary replica.", e);
             }
             if (primaryPeerAndTerm.get1() == null) {
-                throw new TransactionException("Failed to get the primary replica.");
+                throw new TransactionException(REPLICA_UNAVAILABLE_ERR, "Failed to get the primary replica.");
             }
 
             TablePartitionId partGroupId = new TablePartitionId(tableId, partId);
