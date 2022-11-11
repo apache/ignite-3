@@ -77,7 +77,6 @@ internal sealed class IgniteQueryProvider : IQueryProvider
         var elementType = GetItemTypeOfClosedGenericIEnumerable(expression.Type, "expression");
 
         // Slow, but this method is never called during normal LINQ usage with generics.
-        // TODO: When is this called?
         return (IQueryable) GenericCreateQueryMethod.MakeGenericMethod(elementType).Invoke(this, new object[] {expression})!;
     }
 
