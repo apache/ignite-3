@@ -197,7 +197,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
         assert old == null;
 
-        ctx.cancel().add(() -> queryManager.close(false)); // .join()
+        ctx.cancel().add(() -> queryManager.close(false));
 
         return queryManager.execute(plan);
     }
@@ -617,29 +617,14 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             };
         }
 
-        private CompletableFuture<Void> close0(boolean cancel) {
-            if (!root.completeExceptionally(new ExecutionCancelledException()) && !root.isCompletedExceptionally()) {
-                if (cancel) {
-                    return root.thenAccept(root -> root.onError(new ExecutionCancelledException()));
-                }
-
-                return root.join().closeAsync();
-            }
-
-            return CompletableFuture.completedFuture(null);
-        }
-
         private CompletableFuture<Void> close(boolean cancel) {
             if (!cancelled.compareAndSet(false, true)) {
                 return cancelFut.thenApply(Function.identity());
             }
 
-            CompletableFuture<Void> closeRes = close0(cancel);
-
-            CompletableFuture<Void> start = new CompletableFuture<>();
+            CompletableFuture<Void> start = closeExecNode(cancel);
 
             start
-                    .thenCompose(none -> closeRes)
                     .thenCompose(tmp -> {
                         Map<String, List<CompletableFuture<?>>> requestsPerNode = new HashMap<>();
                         for (Map.Entry<RemoteFragmentKey, CompletableFuture<Void>> entry : remoteFragmentInitCompletion.entrySet()) {
@@ -696,6 +681,30 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             start.completeAsync(() -> null, taskExecutor);
 
             return cancelFut.thenApply(Function.identity());
+        }
+
+        /**
+         * Synchronously closes the tree's execution iterator.
+         *
+         * @param cancel Forces execution to terminate with {@link ExecutionCancelledException}.
+         * @return Completable future that should run asynchronously.
+         */
+        private CompletableFuture<Void> closeExecNode(boolean cancel) {
+            CompletableFuture<Void> fut = new CompletableFuture<>();
+
+            if (!root.completeExceptionally(new ExecutionCancelledException()) && !root.isCompletedExceptionally()) {
+                AsyncRootNode<RowT, List<Object>> node = root.getNow(null);
+
+                if (!cancel) {
+                    CompletableFuture<Void> closeFut = node.closeAsync();
+
+                    return fut.thenCompose(v -> closeFut);
+                }
+
+                node.onError(new ExecutionCancelledException());
+            }
+
+            return fut;
         }
     }
 
