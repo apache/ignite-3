@@ -33,7 +33,6 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.index.SortedIndex;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
@@ -79,8 +78,6 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
 
     private final Function<BinaryRow, RowT> tableRowConverter;
 
-    private final ImmutableIntList idxColumnMapping;
-
     /** Participating columns. */
     private final @Nullable BitSet requiredColumns;
 
@@ -118,7 +115,6 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
             RelDataType rowType,
             IgniteIndex schemaIndex,
             InternalIgniteTable schemaTable,
-            ImmutableIntList idxColumnMapping,
             int[] parts,
             @Nullable Comparator<RowT> comp,
             @Nullable RangeIterable<RowT> rangeConditions,
@@ -138,7 +134,6 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
         this.rowTransformer = rowTransformer;
         this.requiredColumns = requiredColumns;
         this.rangeConditions = rangeConditions;
-        this.idxColumnMapping = idxColumnMapping;
         this.comp = comp;
 
         rangeConditionIterator = rangeConditions == null ? null : rangeConditions.iterator();
@@ -147,7 +142,7 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
 
         tableRowConverter = row -> schemaTable.toRow(context(), row, factory, requiredColumns);
 
-        indexRowSchema = RowConverter.createIndexRowSchema(schemaTable.descriptor(), idxColumnMapping);
+        indexRowSchema = RowConverter.createIndexRowSchema(schemaIndex.columns(), schemaTable.descriptor());
     }
 
     /** {@inheritDoc} */
@@ -412,7 +407,7 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
             return null;
         }
 
-        return RowConverter.toBinaryTuplePrefix(context(), indexRowSchema, idxColumnMapping, factory, condition);
+        return RowConverter.toBinaryTuplePrefix(context(), indexRowSchema, factory, condition);
     }
 
     @Contract("null -> null")
@@ -421,7 +416,7 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
             return null;
         }
 
-        return RowConverter.toBinaryTuple(context(), indexRowSchema, idxColumnMapping, factory, condition);
+        return RowConverter.toBinaryTuple(context(), indexRowSchema, factory, condition);
     }
 
     private RowT convert(BinaryRow binaryRow) {

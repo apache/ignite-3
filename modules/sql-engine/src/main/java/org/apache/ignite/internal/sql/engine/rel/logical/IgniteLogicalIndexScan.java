@@ -70,7 +70,7 @@ public class IgniteLogicalIndexScan extends AbstractIndexScan {
             //
             // assert cond != null;
 
-            searchBounds = buildHashIndexConditions(cluster, tbl, index.columns(), cond, requiredColumns);
+            searchBounds = buildHashIndexConditions(cluster, tbl, collation, cond, requiredColumns);
         } else if (index.type() == Type.SORTED) {
             searchBounds = buildSortedIndexConditions(cluster, tbl, collation, cond, requiredColumns);
         } else {
@@ -139,11 +139,16 @@ public class IgniteLogicalIndexScan extends AbstractIndexScan {
     private static List<SearchBounds> buildHashIndexConditions(
             RelOptCluster cluster,
             InternalIgniteTable table,
-            List<String> indexedColumns,
+            RelCollation collation,
             RexNode cond,
             @Nullable ImmutableBitSet requiredColumns
     ) {
-        return RexUtils.buildHashIndexConditions(cluster, indexedColumns, cond,
-                table.getRowType(Commons.typeFactory(cluster)), requiredColumns);
+        return RexUtils.buildHashIndexConditions(
+                cluster,
+                collation,
+                cond,
+                table.getRowType(Commons.typeFactory(cluster)),
+                requiredColumns
+        );
     }
 }

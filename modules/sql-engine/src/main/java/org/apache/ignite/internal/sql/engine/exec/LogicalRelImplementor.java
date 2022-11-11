@@ -303,9 +303,10 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
         Predicate<RowT> filters = condition == null ? null : expressionFactory.predicate(condition, rowType);
         Function<RowT, RowT> prj = projects == null ? null : expressionFactory.project(projects, rowType);
 
-        //TODO: https://issues.apache.org/jira/browse/IGNITE-18056  Use 'idx.getRowType()' instead of 'tbl.getRowType()'
+        RelCollation boundsCollation = TraitUtils.createCollation(idx.columns(), idx.collations());
+
         RangeIterable<RowT> ranges = searchBounds == null ? null :
-                expressionFactory.ranges(searchBounds, rel.collation(), tbl.getRowType(typeFactory));
+                expressionFactory.ranges(searchBounds, boundsCollation, idx.getRowType(typeFactory, tbl.descriptor()));
 
         RelCollation outputCollation = rel.collation();
 
@@ -329,7 +330,6 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
                 rowType,
                 idx,
                 tbl,
-                rel.collation().getKeys(),
                 group.partitions(ctx.localNode().id()),
                 comp,
                 ranges,

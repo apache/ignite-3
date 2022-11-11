@@ -314,7 +314,6 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
                 searchBounds,
                 rowType,
                 rowFactory,
-                collation.getKeys(),
                 0,
                 Arrays.asList(new RexNode[searchBounds.size()]),
                 Arrays.asList(new RexNode[searchBounds.size()]),
@@ -332,8 +331,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
      * @param searchBounds Search bounds.
      * @param rowType Row type.
      * @param rowFactory Row factory.
-     * @param collationKeys Collation keys.
-     * @param collationKeyIdx Current collation key index (field to process).
+     * @param fieldIdx Current field index (field to process).
      * @param curLower Current lower row.
      * @param curUpper Current upper row.
      * @param lowerInclude Include current lower row.
@@ -344,16 +342,15 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
             List<SearchBounds> searchBounds,
             RelDataType rowType,
             RowFactory<RowT> rowFactory,
-            List<Integer> collationKeys,
-            int collationKeyIdx,
+            int fieldIdx,
             List<RexNode> curLower,
             List<RexNode> curUpper,
             boolean lowerInclude,
             boolean upperInclude
     ) {
-        if ((collationKeyIdx >= collationKeys.size())
+        if ((fieldIdx >= searchBounds.size())
                 || (!lowerInclude && !upperInclude)
-                || searchBounds.get(collationKeys.get(collationKeyIdx)) == null) {
+                || searchBounds.get(fieldIdx) == null) {
             ranges.add(new RangeConditionImpl(
                     scalar(curLower, rowType),
                     scalar(curUpper, rowType),
@@ -365,7 +362,6 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
             return;
         }
 
-        int fieldIdx = collationKeys.get(collationKeyIdx);
         SearchBounds fieldBounds = searchBounds.get(fieldIdx);
 
         Collection<SearchBounds> fieldMultiBounds = fieldBounds instanceof MultiBounds
@@ -405,8 +401,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
                     searchBounds,
                     rowType,
                     rowFactory,
-                    collationKeys,
-                    collationKeyIdx + 1,
+                    fieldIdx + 1,
                     curLower,
                     curUpper,
                     lowerInclude && fieldLowerInclude,
@@ -415,7 +410,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         }
 
         curLower.set(fieldIdx, null);
-        curLower.set(fieldIdx, null);
+        curUpper.set(fieldIdx, null);
     }
 
     /**
