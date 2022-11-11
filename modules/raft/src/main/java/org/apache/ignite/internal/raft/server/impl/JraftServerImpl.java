@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.raft.server.impl;
 
 import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toUnmodifiableList;
 
 import java.io.File;
 import java.io.IOException;
@@ -616,7 +617,7 @@ public class JraftServerImpl implements RaftServer {
         }
 
         private static List<String> peersIdsToStrings(Collection<PeerId> peerIds) {
-            return peerIds.stream().map(PeerId::toString).collect(toList());
+            return peerIds.stream().map(PeerId::toString).collect(toUnmodifiableList());
         }
 
         /** {@inheritDoc} */
