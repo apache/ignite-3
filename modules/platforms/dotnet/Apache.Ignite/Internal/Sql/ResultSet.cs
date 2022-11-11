@@ -158,17 +158,26 @@ namespace Apache.Ignite.Internal.Sql
         }
 
         /// <inheritdoc/>
+        [SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "Dispose should not throw.")]
         public async ValueTask DisposeAsync()
         {
             ReleaseBuffer();
 
             if (_resourceId != null && !_resourceClosed)
             {
-                // TODO: Catch exceptions - socket may be disconnected.
-                using var writer = ProtoCommon.GetMessageWriter();
-                WriteId(writer.GetMessageWriter());
+                try
+                {
+                    using var writer = ProtoCommon.GetMessageWriter();
+                    WriteId(writer.GetMessageWriter());
 
-                await _socket.DoOutInOpAsync(ClientOp.SqlCursorClose, writer).ConfigureAwait(false);
+                    await _socket.DoOutInOpAsync(ClientOp.SqlCursorClose, writer).ConfigureAwait(false);
+                }
+                catch (Exception)
+                {
+                    // Ignore.
+                    // Socket might be disconnected.
+                    // TODO: Find out missing dispose in tests.
+                }
 
                 _resourceClosed = true;
             }
