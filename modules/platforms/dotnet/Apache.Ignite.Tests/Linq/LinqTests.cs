@@ -39,7 +39,7 @@ public class LinqTests : IgniteTestsBase
         }
     }
 
-    [TearDown]
+    [OneTimeTearDown]
     public async Task CleanTable()
     {
         await TupleView.DeleteAllAsync(null, Enumerable.Range(0, 10).Select(x => GetTuple(x)));
