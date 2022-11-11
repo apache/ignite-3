@@ -677,7 +677,7 @@ public class FSMCallerImpl implements FSMCaller {
             return;
         }
 
-        // Tests use such strange metas, so we have to protect... in production, these are never null.
+        // JRaft tests use such strange metas, so we have to protect... in production, these are never null.
         if (meta.peersList() != null && meta.learnersList() != null) {
             ConfigurationEntry configurationEntry = new ConfigurationEntry(
                     snapshotId.copy(),
