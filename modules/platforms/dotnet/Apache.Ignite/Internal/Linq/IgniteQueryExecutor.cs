@@ -36,18 +36,20 @@ using Table.Serialization;
 internal sealed class IgniteQueryExecutor : IQueryExecutor
 {
     private readonly Sql _sql;
-
     private readonly ITransaction? _transaction;
+    private readonly QueryableOptions? _options;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="IgniteQueryExecutor" /> class.
     /// </summary>
     /// <param name="sql">SQL.</param>
     /// <param name="transaction">Transaction.</param>
-    public IgniteQueryExecutor(Sql sql, ITransaction? transaction)
+    /// <param name="options">Options.</param>
+    public IgniteQueryExecutor(Sql sql, ITransaction? transaction, QueryableOptions? options)
     {
         _sql = sql;
         _transaction = transaction;
+        _options = options;
     }
 
     /// <summary>
@@ -84,7 +86,12 @@ internal sealed class IgniteQueryExecutor : IQueryExecutor
     internal async Task<IResultSet<T>> ExecuteResultSetInternalAsync<T>(QueryModel queryModel)
     {
         var qryData = GetQueryData(queryModel);
-        var statement = new SqlStatement(qryData.QueryText);
+
+        var statement = new SqlStatement(qryData.QueryText)
+        {
+            Timeout = _options?.Timeout ?? SqlStatement.DefaultTimeout,
+            PageSize = _options?.PageSize ?? SqlStatement.DefaultPageSize
+        };
 
         IResultSet<T> resultSet = await _sql.ExecuteAsyncInternal(
             _transaction,

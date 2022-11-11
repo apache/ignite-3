@@ -202,7 +202,8 @@ namespace Apache.Ignite.Table
         /// Use <see cref="LinqExtensions.ToResultSetAsync{T}"/> to materialize query results asynchronously.
         /// </summary>
         /// <param name="transaction">Optional transaction.</param>
+        /// <param name="options">Options.</param>
         /// <returns><see cref="IQueryable{T}"/>.</returns>
-        IQueryable<T> AsQueryable(ITransaction? transaction = null);
+        IQueryable<T> AsQueryable(ITransaction? transaction = null, QueryableOptions? options = null);
     }
 }

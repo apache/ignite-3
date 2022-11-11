@@ -23,6 +23,7 @@ namespace Apache.Ignite.Internal.Table
     using System.Threading.Tasks;
     using Buffers;
     using Common;
+    using Ignite.Sql;
     using Ignite.Table;
     using Ignite.Transactions;
     using Linq;
@@ -282,14 +283,11 @@ namespace Apache.Ignite.Internal.Table
             await DeleteAllAsync(transaction, records, exact: true).ConfigureAwait(false);
 
         /// <inheritdoc/>
-        public IQueryable<T> AsQueryable(ITransaction? transaction = null)
+        public IQueryable<T> AsQueryable(ITransaction? transaction = null, QueryableOptions? options = null)
         {
-            // TODO: AsQueryable should be present in all kinds of views - extract a separate interface?
-            // TODO: Accept options with PageSize, Timeout.
 #pragma warning disable CA2000 // TODO: Fix this
-
             var sql = new Sql(_table.Socket); // TODO: Reuse existing SQL from Ignite
-            var executor = new IgniteQueryExecutor(sql, transaction);
+            var executor = new IgniteQueryExecutor(sql, transaction, options);
             var provider = new IgniteQueryProvider(IgniteQueryParser.Instance, executor, _table.Name);
 
 #pragma warning restore CA2000
