@@ -36,6 +36,8 @@
       url: sql-reference/operators-and-functions
 - title: REST API
   url: rest/rest-api
+- title: Thin Clients
+  url: thin-clients/index
 - title: Distributed Computing
   url: compute/compute
 - title: Data Region Configuration
