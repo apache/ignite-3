@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing;
 
-import static java.util.Collections.emptyIterator;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
@@ -47,6 +46,7 @@ import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionKey;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMvDataRequest;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMvDataResponse;
 import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.internal.util.CursorUtils;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -282,7 +282,7 @@ class OutgoingSnapshotMvDataStreamingTest {
 
     @Test
     void doesNotEnqueueMissingRows() {
-        when(mvPartitionStorage.scanVersions(rowIdOutOfOrder)).thenReturn(Cursor.fromIterator(emptyIterator()));
+        when(mvPartitionStorage.scanVersions(rowIdOutOfOrder)).thenReturn(CursorUtils.emptyCursor());
 
         snapshot.acquireMvLock();
 
