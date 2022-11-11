@@ -370,7 +370,7 @@ internal static class ExpressionWalker
 
         if (fld != null)
         {
-            // TODO: Compiled delegate.
+            // TODO: IGNITE-18136 Replace reflection with emitted delegates.
             return o => fld.GetValue(o);
         }
 
@@ -378,7 +378,7 @@ internal static class ExpressionWalker
 
         if (prop != null)
         {
-            // TODO: Compiled delegate.
+            // TODO: IGNITE-18136 Replace reflection with emitted delegates.
             return o => prop.GetValue(o, null);
         }
 

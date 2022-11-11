@@ -110,7 +110,7 @@ internal sealed class IgniteQueryExecutor : IQueryExecutor
     {
         if (selectorExpression is NewExpression newExpr)
         {
-            // TODO: Compiled ctor.
+            // TODO: IGNITE-18136 Replace reflection with emitted delegates.
             return (IReadOnlyList<IColumnMetadata> cols, ref BinaryTupleReader reader) =>
             {
                 var args = new object?[cols.Count];
@@ -130,7 +130,7 @@ internal sealed class IgniteQueryExecutor : IQueryExecutor
                 (T)Convert.ChangeType(Sql.ReadColumnValue(ref reader, cols[0], 0)!, typeof(T), CultureInfo.InvariantCulture);
         }
 
-        // TODO: Compiled reader.
+        // TODO: IGNITE-18136 Replace reflection with emitted delegates.
         return (IReadOnlyList<IColumnMetadata> cols, ref BinaryTupleReader reader) =>
         {
             var res = Activator.CreateInstance<T>();
