@@ -51,7 +51,7 @@ public class CommittedConfiguration {
         this.peers = List.copyOf(peers);
         this.learners = List.copyOf(learners);
         this.oldPeers = oldPeers == null ? null : List.copyOf(oldPeers);
-        this.oldLearners = oldLearners == null ? oldLearners : List.copyOf(oldLearners);
+        this.oldLearners = oldLearners == null ? null : List.copyOf(oldLearners);
     }
 
     /**
