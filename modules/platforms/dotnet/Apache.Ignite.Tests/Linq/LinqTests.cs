@@ -130,6 +130,20 @@ public class LinqTests : IgniteTestsBase
     }
 
     [Test]
+    public void TestSelectComputedColumn()
+    {
+        var res = PocoView.AsQueryable()
+            .Where(x => x.Key == 7)
+            .Select(x => new { x.Key, x.Val, Key2 = x.Key + 1 })
+            .ToArray();
+
+        Assert.AreEqual(1, res.Length);
+        Assert.AreEqual(7, res[0].Key);
+        Assert.AreEqual(8, res[0].Key2);
+        Assert.AreEqual("v-7", res[0].Val);
+    }
+
+    [Test]
     public void TestCount()
     {
         int res = PocoView
