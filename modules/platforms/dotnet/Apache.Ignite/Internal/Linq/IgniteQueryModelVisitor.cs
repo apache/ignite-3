@@ -253,7 +253,7 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
             // SELECT
             _builder.Append("select ");
 
-            // TOP 1 FLD1, FLD2
+            // FLD1, FLD2
             VisitSelectors(queryModel, includeAllFields);
 
             // FROM ... WHERE ... JOIN ...
