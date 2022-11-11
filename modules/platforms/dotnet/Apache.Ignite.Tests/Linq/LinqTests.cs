@@ -95,7 +95,7 @@ public class LinqTests : IgniteTestsBase
             .Where(x => x.Key == 3)
             .Select(x => x.Val);
 
-        IResultSet<string?> resultSet = await query.ToResultSetAsync();
+        await using IResultSet<string?> resultSet = await query.ToResultSetAsync();
         List<string?> rows = await resultSet.ToListAsync();
 
         CollectionAssert.AreEqual(new[] { "v-3" }, rows);
