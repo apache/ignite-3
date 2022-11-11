@@ -218,7 +218,14 @@ public class LinqTests : IgniteTestsBase
     [Test]
     public void TestCustomColumnNameMapping()
     {
-        Assert.Fail("TODO: Test that ColumnAttribute is honored.");
+        var res = Table.GetRecordView<PocoCustomNames>().AsQueryable()
+            .Select(x => new { Key = x.Id, Val = x.Name })
+            .Where(x => x.Key == 3)
+            .ToArray();
+
+        Assert.AreEqual(1, res.Length);
+        Assert.AreEqual(3, res[0].Key);
+        Assert.AreEqual("v-3", res[0].Val);
     }
 
     [Test]
