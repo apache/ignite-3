@@ -99,7 +99,7 @@ public interface StateMachine {
 
     /**
      * Invoked when a configuration has been committed to the group. This is different from
-     * {@link #onConfigurationCommitted( Configuration)} as full configuration entry is provided.
+     * {@link #onConfigurationCommitted(Configuration)} as full configuration entry is provided.
      *
      * @param conf committed configuration
      */
