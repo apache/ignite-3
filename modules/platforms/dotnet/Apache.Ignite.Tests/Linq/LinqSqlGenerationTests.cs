@@ -80,9 +80,9 @@ public class LinqSqlGenerationTests
     [Test]
     public void TestSelectOrderDistinct() =>
         AssertSql(
-            "select distinct _T0.KEY, _T0.VAL, (_T0.KEY + ?) from PUBLIC.tbl1 as _T0 order by ((_T0.KEY + ?)) asc",
-            q => q.Select(x => new { x.Key, x.Val, Key2 = x.Key + 1})
-                .Distinct()
+            "select distinct _T0.KEY, (_T0.KEY + ?) from PUBLIC.tbl1 as _T0 order by ((_T0.KEY + ?)) asc",
+            q => q.Select(x => new { x.Key, Key2 = x.Key + 1})
+                /*.Distinct()*/
                 .OrderBy(x => x.Key2)
                 .ToList());
 
