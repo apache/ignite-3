@@ -29,7 +29,7 @@ using Table;
 /// Use <see cref="IRecordView{T}.AsQueryable"/> and <see cref="IKeyValueView{TK,TV}.AsQueryable"/> to query Ignite with LINQ, then
 /// materialize the query results by calling <see cref="ToResultSetAsync{T}"/>.
 /// </summary>
-public static class LinqExtensions
+public static class IgniteQueryableExtensions
 {
     /// <summary>
     /// Executes the Ignite query represented by the provided <paramref name="queryable"/> and returns the resulting

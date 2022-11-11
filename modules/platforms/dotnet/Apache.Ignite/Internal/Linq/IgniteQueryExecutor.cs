@@ -71,7 +71,6 @@ internal sealed class IgniteQueryExecutor : IQueryExecutor
     /** <inheritdoc /> */
     public IEnumerable<T> ExecuteCollection<T>(QueryModel queryModel)
     {
-        // TODO: Log a warning about sync-over-async with recommendation to use async variant?
         using IResultSet<T> resultSet = ExecuteResultSetInternal<T>(queryModel);
 
         return resultSet.ToListAsync().AsTask().GetAwaiter().GetResult();
