@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.cli.commands.node;
 
+import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.commands.node.config.NodeConfigCommand;
 import org.apache.ignite.internal.cli.commands.node.metric.NodeMetricCommand;
 import org.apache.ignite.internal.cli.commands.node.status.NodeStatusCommand;
@@ -25,7 +26,12 @@ import picocli.CommandLine.Command;
 
 /** Node command. */
 @Command(name = "node",
-        subcommands = {NodeConfigCommand.class, NodeStatusCommand.class, NodeVersionCommand.class, NodeMetricCommand.class},
+        subcommands = {
+                NodeConfigCommand.class,
+                NodeStatusCommand.class,
+                NodeVersionCommand.class,
+                NodeMetricCommand.class
+        },
         description = "Node operations")
-public class NodeCommand {
+public class NodeCommand extends BaseCommand {
 }
