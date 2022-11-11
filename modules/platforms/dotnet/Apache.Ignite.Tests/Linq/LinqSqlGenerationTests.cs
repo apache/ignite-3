@@ -36,10 +36,28 @@ public class LinqSqlGenerationTests
     private ITable _table = null!;
 
     [Test]
-    public void TestSelectOneColumn()
-    {
+    public void TestSelectOneColumn() =>
         AssertSql("select _T0.KEY from PUBLIC.tbl1 as _T0", q => q.Select(x => x.Key).ToList());
-    }
+
+    [Test]
+    public void TestSum() =>
+        AssertSql("select sum (_T0.KEY) from PUBLIC.tbl1 as _T0", q => q.Sum(x => x.Key));
+
+    [Test]
+    public void TestAvg() =>
+        AssertSql("select avg (_T0.KEY) from PUBLIC.tbl1 as _T0", q => q.Average(x => x.Key));
+
+    [Test]
+    public void TestMin() =>
+        AssertSql("select min (_T0.KEY) from PUBLIC.tbl1 as _T0", q => q.Min(x => x.Key));
+
+    [Test]
+    public void TestMax() =>
+        AssertSql("select max (_T0.KEY) from PUBLIC.tbl1 as _T0", q => q.Max(x => x.Key));
+
+    [Test]
+    public void TestCount() =>
+        AssertSql("select count (*) from PUBLIC.tbl1 as _T0", q => q.Count());
 
     [OneTimeSetUp]
     public async Task OneTimeSetUp()
