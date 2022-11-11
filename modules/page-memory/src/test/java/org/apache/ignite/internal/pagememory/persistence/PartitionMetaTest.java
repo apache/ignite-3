@@ -59,11 +59,11 @@ public class PartitionMetaTest {
 
         assertEquals(0, meta.lastAppliedTerm());
 
-        assertDoesNotThrow(() -> meta.lastApplied(null, 100, 10));
+        meta.lastApplied(null, 100, 10);
 
         assertEquals(10, meta.lastAppliedTerm());
 
-        assertDoesNotThrow(() -> meta.lastApplied(UUID.randomUUID(), 500, 50));
+        meta.lastApplied(UUID.randomUUID(), 500, 50);
 
         assertEquals(50, meta.lastAppliedTerm());
     }
@@ -74,11 +74,11 @@ public class PartitionMetaTest {
 
         assertNull(meta.lastGroupConfig());
 
-        assertDoesNotThrow(() -> meta.lastGroupConfig(null, new byte[]{1, 2}));
+        meta.lastGroupConfig(null, new byte[]{1, 2});
 
         assertArrayEquals(new byte[]{1, 2}, meta.lastGroupConfig());
 
-        assertDoesNotThrow(() -> meta.lastGroupConfig(UUID.randomUUID(), new byte[]{3, 4}));
+        meta.lastGroupConfig(UUID.randomUUID(), new byte[]{3, 4});
 
         assertArrayEquals(new byte[]{3, 4}, meta.lastGroupConfig());
     }
