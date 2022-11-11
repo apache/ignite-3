@@ -72,15 +72,10 @@ docker {
 }
 
 // create an uber zip with all distributions
-
-task copyCliAndDbZip(type: Copy) {
-    from(configurations.cliZip)
-    from(configurations.dbZip)
-    into("$buildDir/tmp/zip/")
-}
-
 task allDistZip(type: Zip) {
     archiveBaseName = "ignite3"
+    dependsOn configurations.cliZip, configurations.dbZip
+
     def allZipFiles = configurations.cliZip + configurations.dbZip
     allZipFiles.each {
         from(zipTree(it))
@@ -92,14 +87,10 @@ signing {
 }
 
 task createChecksums(type: Checksum) {
+    //TODO: remove distribution name hard code IGNITE-18092
     files = files(files("${buildDir}/distributions/ignite3-${project.version}.zip"))
     outputDir = new File("${buildDir}/distributions")
     algorithm = Checksum.Algorithm.SHA512
 }
 
 allDistZip.finalizedBy(createChecksums)
-
-// copyCliAndDbZi depends on configurations.cliZip and configurations.dbZip
-// it makes allDistZip be depended on configurations.cliZip and configurations.dbZip
-// https://issues.apache.org/jira/browse/IGNITE-17918
-allDistZip.dependsOn copyCliAndDbZip

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing;
 
+import java.util.UUID;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionKey;
 
 /**
@@ -30,4 +31,18 @@ public interface PartitionsSnapshots {
      * @return PartitionSnapshots instance.
      */
     PartitionSnapshots partitionSnapshots(PartitionKey partitionKey);
+
+    /**
+     * Removes the underlying collection for snapshots of this partition.
+     *
+     * @param partitionKey Partition key.
+     */
+    void removeSnapshots(PartitionKey partitionKey);
+
+    /**
+     * Finishes a snapshot. This closes the snapshot and deregisters it.
+     *
+     * @param snapshotId ID of the snapshot to finish.
+     */
+    void finishOutgoingSnapshot(UUID snapshotId);
 }

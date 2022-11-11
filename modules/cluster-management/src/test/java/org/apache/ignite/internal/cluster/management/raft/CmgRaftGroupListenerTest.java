@@ -54,7 +54,7 @@ public class CmgRaftGroupListenerTest {
     }
 
     @AfterEach
-    void tearDown() throws Exception {
+    void tearDown() {
         storage.close();
     }
 

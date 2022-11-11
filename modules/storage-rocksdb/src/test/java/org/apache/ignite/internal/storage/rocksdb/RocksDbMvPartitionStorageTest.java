@@ -73,7 +73,7 @@ public class RocksDbMvPartitionStorageTest extends AbstractMvPartitionStorageTes
     @AfterEach
     public void tearDown() throws Exception {
         IgniteUtils.closeAll(
-                storage,
+                storage::close,
                 table == null ? null : table::stop,
                 engine == null ? null : engine::stop
         );

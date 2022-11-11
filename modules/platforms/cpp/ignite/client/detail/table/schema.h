@@ -57,11 +57,11 @@ struct column {
      * @param object MsgPack object.
      * @return Column value.
      */
-    [[nodiscard]] static column unpack(const msgpack_object& object) {
+    [[nodiscard]] static column unpack(const msgpack_object &object) {
         if (object.type != MSGPACK_OBJECT_ARRAY)
             throw ignite_error("Schema column expected to be serialized as array");
 
-        const msgpack_object_array& arr = object.via.array;
+        const msgpack_object_array &arr = object.via.array;
 
         constexpr std::uint32_t expectedCount = 6;
         assert(arr.size >= expectedCount);
@@ -95,7 +95,7 @@ struct schema {
      * @param key_column_count Key column count.
      * @param columns Columns.
      */
-    schema(std::int32_t version, std::int32_t key_column_count, std::vector<column>&& columns)
+    schema(std::int32_t version, std::int32_t key_column_count, std::vector<column> &&columns)
         : version(version)
         , key_column_count(key_column_count)
         , columns(std::move(columns)) {}
@@ -106,14 +106,14 @@ struct schema {
      * @param reader Reader to use.
      * @return Schema instance.
      */
-    static std::shared_ptr<schema> read(const msgpack_object_kv& object) {
+    static std::shared_ptr<schema> read(const msgpack_object_kv &object) {
         auto schema_version = protocol::unpack_object<std::int32_t>(object.key);
         std::int32_t key_column_count = 0;
 
         std::vector<column> columns;
         columns.reserve(protocol::unpack_array_size(object.val));
 
-        protocol::unpack_array_raw(object.val, [&columns, &key_column_count](const msgpack_object& object) {
+        protocol::unpack_array_raw(object.val, [&columns, &key_column_count](const msgpack_object &object) {
             auto val = column::unpack(object);
             if (val.is_key)
                 ++key_column_count;

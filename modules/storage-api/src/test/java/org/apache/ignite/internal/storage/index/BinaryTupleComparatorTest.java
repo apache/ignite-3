@@ -353,9 +353,9 @@ public class BinaryTupleComparatorTest {
                 .appendString("foobar")
                 .build();
 
-        assertThat(comparator.compare(tuple1, tuple2), is(lessThanOrEqualTo(-1)));
+        assertThat(comparator.compare(tuple1, tuple2), is(greaterThanOrEqualTo(1)));
         assertThat(comparator.compare(tuple1, tuple1), is(0));
-        assertThat(comparator.compare(tuple2, tuple1), is(greaterThanOrEqualTo(1)));
+        assertThat(comparator.compare(tuple2, tuple1), is(lessThanOrEqualTo(-1)));
 
         tuple2 = new BinaryTupleBuilder(2, true)
                 .appendInt(null)
@@ -370,8 +370,8 @@ public class BinaryTupleComparatorTest {
                 .appendString(null)
                 .build();
 
-        assertThat(comparator.compare(tuple1, tuple2), is(lessThanOrEqualTo(-1)));
-        assertThat(comparator.compare(tuple2, tuple1), is(greaterThanOrEqualTo(1)));
+        assertThat(comparator.compare(tuple1, tuple2), is(greaterThanOrEqualTo(1)));
+        assertThat(comparator.compare(tuple2, tuple1), is(lessThanOrEqualTo(-1)));
         assertThat(comparator.compare(tuple2, tuple2), is(0));
     }
 
@@ -438,8 +438,8 @@ public class BinaryTupleComparatorTest {
                 .appendInt(0)
                 .build();
 
-        assertThat(comparator.compare(tuple1, tuple2), is(lessThanOrEqualTo(-1)));
-        assertThat(comparator.compare(tuple2, tuple1), is(greaterThanOrEqualTo(1)));
+        assertThat(comparator.compare(tuple1, tuple2), is(greaterThanOrEqualTo(1)));
+        assertThat(comparator.compare(tuple2, tuple1), is(lessThanOrEqualTo(-1)));
 
         tuple2 = new BinaryTuplePrefixBuilder(1, 2)
                 .appendInt(null)

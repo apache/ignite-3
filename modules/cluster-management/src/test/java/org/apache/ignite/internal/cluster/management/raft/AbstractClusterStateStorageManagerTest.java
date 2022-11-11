@@ -68,7 +68,7 @@ public abstract class AbstractClusterStateStorageManagerTest {
     }
 
     @AfterEach
-    void tearDown() throws Exception {
+    void tearDown() {
         storage.close();
     }
 

@@ -193,7 +193,7 @@ public class ErrorGroups {
         /** Session expired error. */
         public static final int SESSION_EXPIRED_ERR = SQL_ERR_GROUP.registerErrorCode(32);
 
-        /** Session evaluation error. */
+        /** Schema evaluation error. */
         public static final int SCHEMA_EVALUATION_ERR = SQL_ERR_GROUP.registerErrorCode(33);
 
         /** Execution cancelled. */

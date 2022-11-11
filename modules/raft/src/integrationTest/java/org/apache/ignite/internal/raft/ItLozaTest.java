@@ -85,9 +85,8 @@ public class ItLozaTest {
             return raftGroupListener;
         };
 
-        return loza.prepareRaftGroup(groupId,
-                List.of(node), raftGroupListenerSupplier, defaults()
-        ).get(10, TimeUnit.SECONDS);
+        return loza.prepareRaftGroup(groupId, List.of(node.name()), raftGroupListenerSupplier, defaults())
+                .get(10, TimeUnit.SECONDS);
     }
 
     /**
@@ -141,12 +140,12 @@ public class ItLozaTest {
                         })
                         // finally call the real method
                         .doCallRealMethod()
-                        .when(messagingServiceMock).invoke(any(NetworkAddress.class), any(), anyLong());
+                        .when(messagingServiceMock).invoke(any(ClusterNode.class), any(), anyLong());
 
                 grpSrvcs[i] = startClient(new TestReplicationGroupId(Integer.toString(i)), service.topologyService().localMember(), loza);
 
                 verify(messagingServiceMock, times(3 * (i + 1)))
-                        .invoke(any(NetworkAddress.class), any(), anyLong());
+                        .invoke(any(ClusterNode.class), any(), anyLong());
             }
         } finally {
             for (RaftGroupService srvc : grpSrvcs) {

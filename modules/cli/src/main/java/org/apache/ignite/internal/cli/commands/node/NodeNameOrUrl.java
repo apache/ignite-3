@@ -15,15 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.commands.topology;
+package org.apache.ignite.internal.cli.commands.node;
 
-import org.apache.ignite.internal.cli.commands.BaseCommand;
-import picocli.CommandLine.Command;
+import java.net.URL;
 
-/**
- * Command that prints ignite cluster topology in REPL mode.
- */
-@Command(name = "topology", description = "Prints topology information",
-        subcommands = {PhysicalTopologyReplCommand.class, LogicalTopologyReplCommand.class })
-public class TopologyReplCommand extends BaseCommand {
+/** Node URL. */
+public class NodeNameOrUrl {
+    private final URL nodeUrl;
+
+    public NodeNameOrUrl(URL nodeUrl) {
+        this.nodeUrl = nodeUrl;
+    }
+
+    public String stringUrl() {
+        return nodeUrl.toString();
+    }
 }

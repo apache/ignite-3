@@ -86,6 +86,7 @@ import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.option.SnapshotCopierOptions;
+import org.apache.ignite.raft.jraft.storage.LogManager;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotCopier;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -246,7 +247,8 @@ public class IncomingSnapshotCopierTest {
                         incomingTxStateTableStorage
                 ),
                 mock(SnapshotMeta.class),
-                executorService
+                executorService,
+                mock(LogManager.class)
         );
     }
 

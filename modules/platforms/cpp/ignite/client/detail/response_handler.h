@@ -57,7 +57,7 @@ public:
 /**
  * Response handler implementation for specific type.
  */
-template <typename T>
+template<typename T>
 class response_handler_impl final : public response_handler {
 public:
     // Default
@@ -71,7 +71,7 @@ public:
     explicit response_handler_impl(std::function<T(protocol::reader &)> readFunc, ignite_callback<T> callback)
         : m_read_func(std::move(readFunc))
         , m_callback(std::move(callback))
-        , m_mutex() { }
+        , m_mutex() {}
 
     /**
      * Handle response.

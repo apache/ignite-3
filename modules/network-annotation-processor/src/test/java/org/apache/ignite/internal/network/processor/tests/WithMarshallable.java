@@ -15,15 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.commands.topology;
+package org.apache.ignite.internal.network.processor.tests;
 
-import org.apache.ignite.internal.cli.commands.BaseCommand;
-import picocli.CommandLine.Command;
+import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.annotations.Marshallable;
+import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * Command that prints ignite cluster topology.
+ * A message containing a marshallable field.
  */
-@Command(name = "topology", description = "Prints topology information",
-        subcommands = {PhysicalTopologyCommand.class, LogicalTopologyCommand.class })
-public class TopologyCommand extends BaseCommand {
+@Transferable(2)
+interface WithMarshallable extends NetworkMessage {
+    /** A marshallable field. */
+    @Marshallable
+    Object[] objects();
 }

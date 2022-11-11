@@ -42,7 +42,7 @@ import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.rpc.RpcClientEx;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests;
 import org.apache.ignite.raft.jraft.rpc.impl.core.DefaultRaftClientService;
-import org.apache.ignite.raft.jraft.util.Endpoint;
+import org.junit.jupiter.api.TestInfo;
 import org.mockito.ArgumentCaptor;
 
 import static java.lang.Thread.sleep;
@@ -122,19 +122,17 @@ public class TestUtils {
 
     public static final int INIT_PORT = 5003;
 
-    public static List<PeerId> generatePeers(int n) {
-        List<PeerId> ret = new ArrayList<>();
+    public static List<TestPeer> generatePeers(TestInfo testInfo, int n) {
+        List<TestPeer> ret = new ArrayList<>();
         for (int i = 0; i < n; i++)
-            ret.add(new PeerId(getLocalAddress(), INIT_PORT + i));
+            ret.add(new TestPeer(testInfo, INIT_PORT + i));
         return ret;
     }
 
-    public static List<PeerId> generatePriorityPeers(int n, List<Integer> priorities) {
-        List<PeerId> ret = new ArrayList<>();
+    public static List<TestPeer> generatePriorityPeers(TestInfo testInfo, int n, List<Integer> priorities) {
+        List<TestPeer> ret = new ArrayList<>();
         for (int i = 0; i < n; i++) {
-            Endpoint endpoint = new Endpoint(getLocalAddress(), INIT_PORT + i);
-            PeerId peerId = new PeerId(endpoint, 0, priorities.get(i));
-            ret.add(peerId);
+            ret.add(new TestPeer(testInfo, INIT_PORT + i, priorities.get(i)));
         }
         return ret;
     }

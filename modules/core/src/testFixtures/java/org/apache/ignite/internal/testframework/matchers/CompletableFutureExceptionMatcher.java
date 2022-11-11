@@ -33,24 +33,30 @@ import org.hamcrest.TypeSafeMatcher;
  */
 public class CompletableFutureExceptionMatcher extends TypeSafeMatcher<CompletableFuture<?>> {
     /** Timeout in seconds. */
-    private static final int TIMEOUT_SECONDS = 30;
+    private static final int TIMEOUT_SECONDS = 1;
 
     /** Matcher to forward the exception of the completable future. */
     private final Matcher<? extends Exception> matcher;
+
+    private final int timeout;
+
+    private final TimeUnit timeUnit;
 
     /**
      * Constructor.
      *
      * @param matcher Matcher to forward the exception of the completable future.
      */
-    private CompletableFutureExceptionMatcher(Matcher<? extends Exception> matcher) {
+    private CompletableFutureExceptionMatcher(Matcher<? extends Exception> matcher, int timeout, TimeUnit timeUnit) {
         this.matcher = matcher;
+        this.timeout = timeout;
+        this.timeUnit = timeUnit;
     }
 
     @Override
     protected boolean matchesSafely(CompletableFuture<?> item) {
         try {
-            item.get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
+            item.get(timeout, timeUnit);
 
             return false;
         } catch (Exception e) {
@@ -90,13 +96,27 @@ public class CompletableFutureExceptionMatcher extends TypeSafeMatcher<Completab
      * Creates a matcher that matches a future that completes exceptionally and the exception matches the nested matcher.
      */
     public static CompletableFutureExceptionMatcher willThrow(Matcher<? extends Exception> matcher) {
-        return new CompletableFutureExceptionMatcher(matcher);
+        return new CompletableFutureExceptionMatcher(matcher, TIMEOUT_SECONDS, TimeUnit.SECONDS);
+    }
+
+    /**
+     * Creates a matcher that matches a future that completes exceptionally and the exception matches the nested matcher.
+     */
+    public static CompletableFutureExceptionMatcher willThrow(Matcher<? extends Exception> matcher, int timeout, TimeUnit timeUnit) {
+        return new CompletableFutureExceptionMatcher(matcher, timeout, timeUnit);
     }
 
     /**
      * Creates a matcher that matches a future that completes with an exception of the provided type.
      */
     public static CompletableFutureExceptionMatcher willThrow(Class<? extends Exception> cls) {
-        return willThrow(is(instanceOf(cls)));
+        return willThrow(cls, TIMEOUT_SECONDS, TimeUnit.SECONDS);
+    }
+
+    /**
+     * Creates a matcher that matches a future that completes with an exception of the provided type.
+     */
+    public static CompletableFutureExceptionMatcher willThrow(Class<? extends Exception> cls, int timeout, TimeUnit timeUnit) {
+        return willThrow(is(instanceOf(cls)), timeout, timeUnit);
     }
 }

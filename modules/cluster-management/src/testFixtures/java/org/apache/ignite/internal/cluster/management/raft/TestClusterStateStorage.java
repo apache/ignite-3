@@ -203,7 +203,7 @@ public class TestClusterStateStorage implements ClusterStateStorage {
     }
 
     @Override
-    public void close() throws Exception {
+    public void close() {
         isStarted = false;
     }
 }
