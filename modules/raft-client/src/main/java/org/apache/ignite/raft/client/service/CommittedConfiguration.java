@@ -55,7 +55,7 @@ public class CommittedConfiguration {
     }
 
     /**
-     * Returns RAFT index corresponding to this configuration entry. Never 0.
+     * Returns RAFT index corresponding to this configuration entry. Always positive.
      *
      * @return RAFT index.
      */
@@ -64,7 +64,7 @@ public class CommittedConfiguration {
     }
 
     /**
-     * Returns RAFT term corresponding to this configuration entry. Never 0.
+     * Returns RAFT term corresponding to this configuration entry. Always positive.
      *
      * @return RAFT term.
      */
