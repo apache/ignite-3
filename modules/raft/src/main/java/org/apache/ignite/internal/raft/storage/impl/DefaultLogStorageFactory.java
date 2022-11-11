@@ -30,8 +30,8 @@ import java.util.concurrent.Executors;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
+import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
 import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
@@ -127,10 +127,10 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
 
     /** {@inheritDoc} */
     @Override
-    public void close() throws Exception {
+    public void close() {
         ExecutorServiceHelper.shutdownAndAwaitTermination(executorService);
 
-        IgniteUtils.closeAll(confHandle, dataHandle, db, dbOptions);
+        RocksUtils.closeAll(confHandle, dataHandle, db, dbOptions);
     }
 
     /** {@inheritDoc} */

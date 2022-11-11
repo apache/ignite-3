@@ -36,8 +36,8 @@ import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.NodeStoppingException;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.Peer;
@@ -104,29 +104,29 @@ public class RaftServerImpl implements RaftServer {
     public void start() {
         service.messagingService().addMessageHandler(
                 RaftMessageGroup.class,
-                (message, senderAddr, correlationId) -> {
+                (message, sender, correlationId) -> {
                     if (message instanceof CliRequests.GetLeaderRequest) {
-                        var localPeer = new Peer(service.topologyService().localMember().address());
+                        var localPeer = new Peer(service.topologyService().localMember().name());
 
                         CliRequests.GetLeaderResponse resp = clientMsgFactory.getLeaderResponse()
                                 .leaderId(PeerId.fromPeer(localPeer).toString()).build();
 
-                        service.messagingService().respond(senderAddr, resp, correlationId);
+                        service.messagingService().respond(sender, resp, correlationId);
                     } else if (message instanceof ActionRequest) {
                         ActionRequest req0 = (ActionRequest) message;
 
                         RaftGroupListener lsnr = strListeners.get(req0.groupId());
 
                         if (lsnr == null) {
-                            sendError(senderAddr, correlationId, RaftError.UNKNOWN);
+                            sendError(sender, correlationId, RaftError.UNKNOWN);
 
                             return;
                         }
 
                         if (req0.command() instanceof ReadCommand) {
-                            handleActionRequest(senderAddr, req0, correlationId, readQueue, lsnr);
+                            handleActionRequest(sender, req0, correlationId, readQueue, lsnr);
                         } else {
-                            handleActionRequest(senderAddr, req0, correlationId, writeQueue, lsnr);
+                            handleActionRequest(sender, req0, correlationId, writeQueue, lsnr);
                         }
                     }
                     // TODO https://issues.apache.org/jira/browse/IGNITE-14775
@@ -216,7 +216,7 @@ public class RaftServerImpl implements RaftServer {
     /** {@inheritDoc} */
     @Override
     public @Nullable Peer localPeer(ReplicationGroupId groupId) {
-        return new Peer(service.topologyService().localMember().address());
+        return new Peer(service.topologyService().localMember().name());
     }
 
     /** {@inheritDoc} */
@@ -236,7 +236,7 @@ public class RaftServerImpl implements RaftServer {
      * @param <T>           Command type.
      */
     private <T extends Command> void handleActionRequest(
-            NetworkAddress sender,
+            ClusterNode sender,
             ActionRequest req,
             Long corellationId,
             BlockingQueue<CommandClosureEx<T>> queue,
@@ -308,7 +308,7 @@ public class RaftServerImpl implements RaftServer {
         }
     }
 
-    private void sendError(NetworkAddress sender, Long corellationId, RaftError error) {
+    private void sendError(ClusterNode sender, Long corellationId, RaftError error) {
         RpcRequests.ErrorResponse resp = clientMsgFactory.errorResponse().errorCode(error.getNumber()).build();
 
         service.messagingService().respond(sender, resp, corellationId);

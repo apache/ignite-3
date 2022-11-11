@@ -59,22 +59,22 @@ public class CmgMessageHandlerFactory {
      * @return Handler proxy with added common logic.
      */
     public NetworkMessageHandler wrapHandler(NetworkMessageHandler handler) {
-        return (message, senderAddr, correlationId) -> {
+        return (message, sender, correlationId) -> {
             if (!busyLock.enterBusy()) {
                 if (correlationId != null) {
-                    clusterService.messagingService().respond(senderAddr, initFailed(new NodeStoppingException()), correlationId);
+                    clusterService.messagingService().respond(sender, initFailed(new NodeStoppingException()), correlationId);
                 }
 
                 return;
             }
 
             try {
-                handler.onReceived(message, senderAddr, correlationId);
+                handler.onReceived(message, sender, correlationId);
             } catch (Exception e) {
                 LOG.debug("CMG message handling failed", e);
 
                 if (correlationId != null) {
-                    clusterService.messagingService().respond(senderAddr, initFailed(e), correlationId);
+                    clusterService.messagingService().respond(sender, initFailed(e), correlationId);
                 }
             } finally {
                 busyLock.leaveBusy();

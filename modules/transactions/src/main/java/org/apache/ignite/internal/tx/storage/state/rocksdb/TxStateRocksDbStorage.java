@@ -36,15 +36,16 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.configuration.storage.StorageException;
 import org.apache.ignite.internal.rocksdb.BusyRocksIteratorAdapter;
+import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
+import org.rocksdb.AbstractNativeReference;
 import org.rocksdb.ReadOptions;
 import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
@@ -413,15 +414,15 @@ public class TxStateRocksDbStorage implements TxStateStorage {
     }
 
     @Override
-    public void close() throws Exception {
+    public void close() {
         if (!closeGuard.compareAndSet(false, true)) {
             return;
         }
 
         busyLock.block();
 
-        List<AutoCloseable> resources = new ArrayList<>(iterators);
+        List<AbstractNativeReference> resources = new ArrayList<>(iterators);
 
-        IgniteUtils.closeAll(resources);
+        RocksUtils.closeAll(resources);
     }
 }

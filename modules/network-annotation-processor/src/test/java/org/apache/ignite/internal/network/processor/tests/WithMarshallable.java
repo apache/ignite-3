@@ -15,19 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.lock;
+package org.apache.ignite.internal.network.processor.tests;
+
+import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.annotations.Marshallable;
+import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * Represents a lockup (this is an aquisition and owning of a lock like {@link java.util.concurrent.locks.Lock})
- * that plays nicely with try-with-resources clause. The underlying lock will be acquired on creation (or obtaining)
- * a lockup, and the lock will be released when {@link AutoLockup#close()} method is called.
+ * A message containing a marshallable field.
  */
-@FunctionalInterface
-public interface AutoLockup extends AutoCloseable {
-    /**
-     * Releases the underlying lock.
-     * Does not declare any thrown exception to facilitate usage in try-with-resources clauses.
-     */
-    @Override
-    void close();
+@Transferable(2)
+interface WithMarshallable extends NetworkMessage {
+    /** A marshallable field. */
+    @Marshallable
+    Object[] objects();
 }

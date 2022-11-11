@@ -43,7 +43,6 @@ import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteStringFormatter;
-import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.sql.Session;
@@ -194,11 +193,11 @@ public class ItIgniteInMemoryNodeRestartTest extends IgniteAbstractTest {
         // Find the leader of the table's partition group.
         RaftGroupService raftGroupService = table.internalTable().partitionRaftGroupService(0);
         IgniteBiTuple<Peer, Long> leaderWithTerm = raftGroupService.refreshAndGetLeaderWithTerm().join();
-        NetworkAddress leaderAddress = leaderWithTerm.get1().address();
+        String leaderId = leaderWithTerm.get1().consistentId();
 
         // Find the index of any node that is not a leader of the partition group.
         int idxToStop = IntStream.range(1, 3)
-                .filter(idx -> !leaderAddress.equals(ignite(idx).node().address()))
+                .filter(idx -> !leaderId.equals(ignite(idx).node().name()))
                 .findFirst().getAsInt();
 
         // Restart the node.

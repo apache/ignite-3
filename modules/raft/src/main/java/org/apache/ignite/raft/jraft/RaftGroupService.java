@@ -24,9 +24,7 @@ import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.option.RpcOptions;
 import org.apache.ignite.raft.jraft.rpc.RpcServer;
-import org.apache.ignite.raft.jraft.util.Endpoint;
 import org.apache.ignite.raft.jraft.util.StringUtils;
-import org.apache.ignite.raft.jraft.util.Utils;
 
 /**
  * A raft group service.
@@ -94,8 +92,7 @@ public class RaftGroupService {
         if (this.started) {
             return this.node;
         }
-        if (this.serverId == null || this.serverId.getEndpoint() == null
-            || this.serverId.getEndpoint().equals(new Endpoint(Utils.IP_ANY, 0))) {
+        if (this.serverId == null || this.serverId.isEmpty()) {
             throw new IllegalArgumentException("Blank serverId:" + this.serverId);
         }
         if (StringUtils.isBlank(this.groupId)) {
@@ -223,9 +220,6 @@ public class RaftGroupService {
         }
         if (this.serverId == null) {
             throw new IllegalStateException("Please set serverId at first");
-        }
-        if (rpcServer.boundPort() != this.serverId.getPort()) {
-            throw new IllegalArgumentException("RPC server port mismatch");
         }
         this.rpcServer = rpcServer;
     }

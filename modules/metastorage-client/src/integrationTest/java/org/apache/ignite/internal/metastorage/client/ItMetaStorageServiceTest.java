@@ -80,6 +80,7 @@ import org.apache.ignite.internal.metastorage.server.ValueCondition;
 import org.apache.ignite.internal.metastorage.server.ValueCondition.Type;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
 import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.raft.RaftGroupServiceImpl;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.RaftServerImpl;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -95,7 +96,6 @@ import org.apache.ignite.network.StaticNodeFinder;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
-import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupServiceImpl;
 import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.hamcrest.Description;
 import org.hamcrest.TypeSafeMatcher;
@@ -908,7 +908,7 @@ public class ItMetaStorageServiceTest {
             return cursor;
         });
 
-        List<Peer> peers = List.of(new Peer(cluster.get(0).topologyService().localMember().address()));
+        List<Peer> peers = List.of(new Peer(cluster.get(0).topologyService().localMember().name()));
 
         RaftGroupService metaStorageRaftGrpSvc = RaftGroupServiceImpl.start(
                 INSTANCE,
@@ -1058,7 +1058,7 @@ public class ItMetaStorageServiceTest {
      * @return {@link MetaStorageService} instance.
      */
     private MetaStorageService prepareMetaStorage() throws Exception {
-        List<Peer> peers = List.of(new Peer(cluster.get(0).topologyService().localMember().address()));
+        List<Peer> peers = List.of(new Peer(cluster.get(0).topologyService().localMember().name()));
 
         metaStorageRaftSrv = new RaftServerImpl(cluster.get(0), FACTORY);
 

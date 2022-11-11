@@ -19,8 +19,8 @@ package org.apache.ignite.internal.table.distributed.raft;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.lock.AutoLockup;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.MvPartitionStorage.WriteClosure;
@@ -40,9 +40,9 @@ import org.jetbrains.annotations.TestOnly;
  * <p>Each MvPartitionStorage instance represents exactly one partition. All RowIds within a partition are sorted consistently with the
  * {@link RowId#compareTo} comparison order.
  *
- * @see org.apache.ignite.internal.storage.MvPartitionStorage
+ * @see MvPartitionStorage
  */
-public interface PartitionDataStorage extends AutoCloseable {
+public interface PartitionDataStorage extends ManuallyCloseable {
     /**
      * Executes {@link WriteClosure} atomically, meaning that partial result of an incomplete closure will never be written to the
      * physical device, thus guaranteeing data consistency after restart. Simply runs the closure in case of a volatile storage.
@@ -56,15 +56,18 @@ public interface PartitionDataStorage extends AutoCloseable {
     <V> V runConsistently(WriteClosure<V> closure) throws StorageException;
 
     /**
-     * Acquires a read lock on partition snapshots.
-     *
-     * @return The acquired lockup. It will be released through {@link AutoLockup#close()} invocation.
+     * Acquires the read lock on partition snapshots.
      */
-    AutoLockup acquirePartitionSnapshotsReadLock();
+    void acquirePartitionSnapshotsReadLock();
+
+    /**
+     * Releases the read lock on partition snapshots.
+     */
+    void releasePartitionSnapshotsReadLock();
 
     /**
      * Flushes current state of the data or <i>the state from the nearest future</i> to the storage. It means that the future can be
-     * completed when the underlying storage {@link org.apache.ignite.internal.storage.MvPartitionStorage#persistedIndex()} is higher
+     * completed when the underlying storage {@link MvPartitionStorage#persistedIndex()} is higher
      * than {@link #lastAppliedIndex()} at the moment of the method's call. This feature
      * allows implementing a batch flush for several partitions at once.
      *
@@ -141,4 +144,10 @@ public interface PartitionDataStorage extends AutoCloseable {
      */
     @TestOnly
     MvPartitionStorage getStorage();
+
+    /**
+     * Closes the storage.
+     */
+    @Override
+    void close();
 }
