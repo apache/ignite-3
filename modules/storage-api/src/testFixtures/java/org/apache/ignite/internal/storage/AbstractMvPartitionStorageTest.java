@@ -1348,10 +1348,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
         RaftGroupConfiguration returnedConfig = storage.committedGroupConfiguration();
 
         assertThat(returnedConfig, is(notNullValue()));
-        assertThat(returnedConfig.peers(), is(List.of("peer1", "peer2")));
-        assertThat(returnedConfig.learners(), is(List.of("learner1", "learner2")));
-        assertThat(returnedConfig.oldPeers(), is(List.of("old-peer1", "old-peer2")));
-        assertThat(returnedConfig.oldLearners(), is(List.of("old-learner1", "old-learner2")));
+        assertThat(returnedConfig, is(equalTo(configToSave)));
     }
 
     /**
