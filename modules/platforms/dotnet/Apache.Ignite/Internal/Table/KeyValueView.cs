@@ -23,6 +23,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Apache.Ignite.Transactions;
 using Common;
+using Ignite.Sql;
 using Ignite.Table;
 using Serialization;
 
@@ -146,7 +147,7 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
         .Select(static x => x.Val);
 
     /// <inheritdoc/>
-    public IQueryable<KeyValuePair<TK, TV>> AsQueryable(ITransaction? transaction = null)
+    public IQueryable<KeyValuePair<TK, TV>> AsQueryable(ITransaction? transaction = null, QueryableOptions? options = null)
     {
         // TODO IGNITE-18111 KeyValueView support
         throw new NotImplementedException();

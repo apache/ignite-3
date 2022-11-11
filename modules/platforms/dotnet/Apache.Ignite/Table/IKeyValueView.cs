@@ -210,6 +210,7 @@ public interface IKeyValueView<TK, TV>
     /// Use <see cref="LinqExtensions.ToResultSetAsync{T}"/> to materialize query results asynchronously.
     /// </summary>
     /// <param name="transaction">Optional transaction.</param>
+    /// <param name="options">Options.</param>
     /// <returns><see cref="IQueryable{T}"/>.</returns>
-    IQueryable<KeyValuePair<TK, TV>> AsQueryable(ITransaction? transaction = null);
+    IQueryable<KeyValuePair<TK, TV>> AsQueryable(ITransaction? transaction = null, QueryableOptions? options = null);
 }
