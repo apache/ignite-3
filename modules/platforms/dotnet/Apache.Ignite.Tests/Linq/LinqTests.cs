@@ -248,6 +248,20 @@ public class LinqTests : IgniteTestsBase
     }
 
     [Test]
+    public void TestEnumeration()
+    {
+        var query = PocoView.AsQueryable(options: new QueryableOptions(PageSize: 2)).OrderBy(x => x.Key);
+        int count = 0;
+
+        foreach (var poco in query)
+        {
+            Assert.AreEqual(count++, poco.Key);
+        }
+
+        Assert.AreEqual(10, count);
+    }
+
+    [Test]
     public void TestQueryToString()
     {
         var query = PocoView.AsQueryable()
