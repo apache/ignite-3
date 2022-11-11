@@ -59,40 +59,71 @@ For all the commands going forward:
    rm -rf {dist.dev}/{version}-rc{rc}
    mkdir {dist.dev}/{version}-rc{rc}
    ```
-7. Create zip distributions 
+7. Create a signed src zip:
+   ```
+   ./gradlew buildAndSignAllSrcZip
+   ```
+8. Copy src zip with checksums and signatures
+   ```
+   cp packaging/build/distributions/apache-ignite-3.0.0-beta1-src.zip \
+   packaging/build/distributions/ignite3-{version}.zip.asc \ 
+   packaging/build/distributions/ignite3-{version}.zip.sha512 \
+   {dist.dev}/{version}-rc{rc}
+   ```
+9. Create zip distributions 
    ```
    ./gradlew allDistZip
    ```
-8. Sign zip distributions
-   ```
-   ./gradlew signAllDistZip signCliZip signDbZip
-   ```
-9. Copy ZIP packages along with checksums and signatures to the development distribution directory:
-   ```
-   cp packaging/build/distributions/ignite3-{version}.zip packaging/build/distributions/ignite3-{version}.zip.asc \
-   packaging/build/distributions/ignite3-{version}.zip.sha512 packaging/build/db/distributions/ignite3db-{version}.zip \
-   packaging/build/db/distributions/ignite3db-{version}.zip.asc packaging/build/db/distributions/ignite3db-{version}.zip.sha512 \
-   packaging/build/cli/distributions/ignite3cli-{version}.zip packaging/build/cli/distributions/ignite3cli-{version}.zip.asc \
-   packaging/build/cli/distributions/ignite3cli-{version}.zip.sha512 \
-   /Users/vkulichenko/GridGain/dist-dev/{version}-rc{rc}
-   ```
-10. Create DEB\RPM distributions, they will be signed 
+10. Sign zip distributions
+    ```
+    ./gradlew signAllDistZip signCliZip signDbZip
+    ```
+11. Copy ZIP packages along with checksums and signatures to the development distribution directory:
+    ```
+    cp packaging/build/distributions/ignite3-{version}.zip \
+    packaging/build/distributions/ignite3-{version}.zip.asc \
+    packaging/build/distributions/ignite3-{version}.zip.sha512 \
+    packaging/build/db/distributions/ignite3db-{version}.zip \
+    packaging/build/db/distributions/ignite3db-{version}.zip.asc \
+    packaging/build/db/distributions/ignite3db-{version}.zip.sha512 \
+    packaging/build/cli/distributions/ignite3cli-{version}.zip \
+    packaging/build/cli/distributions/ignite3cli-{version}.zip.asc \
+    packaging/build/cli/distributions/ignite3cli-{version}.zip.sha512 \
+    /Users/vkulichenko/GridGain/dist-dev/{version}-rc{rc}
+    ```
+12. Create DEB\RPM distributions, they will be signed 
    ```
    ./gradlew buildDeb buildRpm
    ```
-11. Copy DEB\RPM packages to the development distribution directory:
+13. Copy DEB\RPM packages to the development distribution directory:
    ```
-   cp packaging/db/build/distributions/*.deb packaging/db/build/distributions/*.changes packaging/db/build/distributions/*.rpm \
-   packaging/cli/build/distributions/*.deb packaging/cli/build/distributions/*.changes packaging/cli/build/distributions/*.rpm \
-   /Users/vkulichenko/GridGain/dist-dev/{version}-rc{rc}
+   cp packaging/db/build/distributions/*.deb packaging/db/build/distributions/*.changes \
+   packaging/db/build/distributions/*.rpm \
+   packaging/cli/build/distributions/*.deb packaging/cli/build/distributions/*.changes \
+   packaging/cli/build/distributions/*.rpm \
+   {dist.dev}/{version}-rc{rc}
    ```
-12. Commit ZIP and DEB\RPM packages:
+14. Create Dotnet and C++ clients 
+   ```
+   ./gradlew buildAndSignCppClient buildAndSignNuGetZip
+   ```
+15. Copy zip with checksums and signatures
+   ```
+   cp modules/platforms/build/distributions/apache-ignite-3.0.0-beta1-cpp.zip \
+   modules/platforms/build/distributions/apache-ignite-3.0.0-beta1-cpp.zip.asc \ 
+   modules/platforms/build/distributions/apache-ignite-3.0.0-beta1-cpp.zip.sha512 \  
+   modules/platforms/build/distributions/apache-ignite-3.0.0-beta1-nuget.zip \
+   modules/platforms/build/distributions/apache-ignite-3.0.0-beta1-nuget.zip.asc \ 
+   modules/platforms/build/distributions/apache-ignite-3.0.0-beta1-nuget.zip.sha512 \ 
+   {dist.dev}/{version}-rc{rc}
+   ```
+16. Commit ZIP and DEB\RPM packages:
    ```
    cd {dist.dev}
    svn add {version}-rc{rc}
    svn commit -m “Apache Ignite {version} RC{rc}”
    ```
-13. Put the release on a vote on the developers mailing list.
+17. Put the release on a vote on the developers mailing list.
 
 ## Finalizing the Release
 

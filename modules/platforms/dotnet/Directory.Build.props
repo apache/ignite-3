@@ -21,7 +21,7 @@
         <WarningsAsErrors>CS8785</WarningsAsErrors>
         <LangVersion>10</LangVersion>
         <Nullable>enable</Nullable>
-        <Version>3.0.0-alpha3</Version>
+        <Version>3.0.0-beta1</Version>
 
         <Company>Apache Software Foundation</Company>
         <Authors>Apache Ignite</Authors>

@@ -87,20 +87,42 @@ task allDistZip(type: Zip) {
     }
 }
 
-signing {
-    sign allDistZip
-}
-
-task createChecksums(type: Checksum) {
+task createDistZipChecksums(type: Checksum) {
     //TODO: remove distribution name hard code IGNITE-18092
     files = files(files("${buildDir}/distributions/ignite3-${project.version}.zip"))
     outputDir = new File("${buildDir}/distributions")
     algorithm = Checksum.Algorithm.SHA512
 }
 
-allDistZip.finalizedBy(createChecksums)
+task createSrcZipChecksums(type: Checksum) {
+    //TODO: remove distribution name hard code IGNITE-18092
+    files = files(files("${buildDir}/distributions/apache-ignite-${project.version}-src.zip"))
+    outputDir = new File("${buildDir}/distributions")
+    algorithm = Checksum.Algorithm.SHA512
+}
 
-// copyCliAndDbZi depends on configurations.cliZip and configurations.dbZip
+allDistZip.finalizedBy(createDistZipChecksums)
+
+task allSrcZip(type: Exec) {
+    workingDir rootDir
+
+    commandLine "git", "archive",
+            "--prefix=apache-ignite-${project.version}-src",
+            "-o", "$buildDir/distributions/apache-ignite-${project.version}-src.zip",
+            "HEAD"
+}
+
+task buildAndSignAllSrcZip(type: Sign) {
+    dependsOn allSrcZip, createSrcZipChecksums
+
+    sign file("$buildDir/distributions/apache-ignite-${project.version}-src.zip")
+}
+
+// copyCliAndDbZip depends on configurations.cliZip and configurations.dbZip
 // it makes allDistZip be depended on configurations.cliZip and configurations.dbZip
 // https://issues.apache.org/jira/browse/IGNITE-17918
 allDistZip.dependsOn copyCliAndDbZip
+
+signing {
+    sign allDistZip
+}
