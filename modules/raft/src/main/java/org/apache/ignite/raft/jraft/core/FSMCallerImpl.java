@@ -677,22 +677,25 @@ public class FSMCallerImpl implements FSMCaller {
             return;
         }
 
-        ConfigurationEntry configurationEntry = new ConfigurationEntry(
-                snapshotId.copy(),
-                new Configuration(
-                        meta.peersList().stream().map(PeerId::parsePeer).collect(toList()),
-                        meta.learnersList().stream().map(PeerId::parsePeer).collect(toList())
-                ),
-                null
-        );
-        if (meta.oldPeersList() != null && !meta.oldPeersList().isEmpty()) {
-            configurationEntry.setOldConf(new Configuration(
-                    meta.oldPeersList().stream().map(PeerId::parsePeer).collect(toList()),
-                    meta.oldLearnersList().stream().map(PeerId::parsePeer).collect(toList())
-            ));
-        }
+        // Tests use such strange metas, so we have to protect... in production, these are never null.
+        if (meta.peersList() != null && meta.learnersList() != null) {
+            ConfigurationEntry configurationEntry = new ConfigurationEntry(
+                    snapshotId.copy(),
+                    new Configuration(
+                            meta.peersList().stream().map(PeerId::parsePeer).collect(toList()),
+                            meta.learnersList().stream().map(PeerId::parsePeer).collect(toList())
+                    ),
+                    null
+            );
+            if (meta.oldPeersList() != null && !meta.oldPeersList().isEmpty()) {
+                configurationEntry.setOldConf(new Configuration(
+                        meta.oldPeersList().stream().map(PeerId::parsePeer).collect(toList()),
+                        meta.oldLearnersList().stream().map(PeerId::parsePeer).collect(toList())
+                ));
+            }
 
-        this.fsm.onRawConfigurationCommitted(configurationEntry);
+            this.fsm.onRawConfigurationCommitted(configurationEntry);
+        }
 
         if (meta.oldPeersList() == null) {
             // Joint stage is not supposed to be noticeable by end users.
