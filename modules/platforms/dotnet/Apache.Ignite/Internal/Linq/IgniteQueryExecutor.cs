@@ -73,7 +73,27 @@ internal sealed class IgniteQueryExecutor : IQueryExecutor
     {
         using IResultSet<T> resultSet = ExecuteResultSetInternal<T>(queryModel);
 
-        return resultSet.ToListAsync().AsTask().GetAwaiter().GetResult();
+        var enumerator = resultSet.GetAsyncEnumerator();
+
+        try
+        {
+            while (true)
+            {
+                ValueTask<bool> moveNextTask = enumerator.MoveNextAsync();
+                var moveNextSuccess = moveNextTask.IsCompleted ? moveNextTask.Result : moveNextTask.AsTask().GetAwaiter().GetResult();
+
+                if (!moveNextSuccess)
+                {
+                    break;
+                }
+
+                yield return enumerator.Current;
+            }
+        }
+        finally
+        {
+            enumerator.DisposeAsync().AsTask().GetAwaiter().GetResult();
+        }
     }
 
     /// <summary>
