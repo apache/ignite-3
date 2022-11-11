@@ -31,11 +31,9 @@ using Table;
 /// </summary>
 public class LinqSqlGenerationTests
 {
-    public IIgniteClient Client { get; set; } = null!;
-
-    public FakeServer Server { get; set; } = null!;
-
-    public ITable Table { get; set; } = null!;
+    private IIgniteClient _client = null!;
+    private FakeServer _server = null!;
+    private ITable _table = null!;
 
     [Test]
     public void TestSelectOneColumn()
@@ -46,32 +44,33 @@ public class LinqSqlGenerationTests
     [OneTimeSetUp]
     public async Task OneTimeSetUp()
     {
-        Server = new FakeServer();
-        Client = await Server.ConnectClientAsync();
-        Table = (await Client.Tables.GetTableAsync(FakeServer.ExistingTableName))!;
+        _server = new FakeServer();
+        _client = await _server.ConnectClientAsync();
+        _table = (await _client.Tables.GetTableAsync(FakeServer.ExistingTableName))!;
     }
 
     [OneTimeTearDown]
     public void OneTimeTearDown()
     {
-        Client.Dispose();
-        Server.Dispose();
+        _client.Dispose();
+        _server.Dispose();
     }
 
     private void AssertSql(string expectedSql, Func<IQueryable<Poco>, object?> query)
     {
-        Server.LastSql = string.Empty;
+        _server.LastSql = string.Empty;
 
         try
         {
-            query(Table.GetRecordView<Poco>().AsQueryable());
+            query(_table.GetRecordView<Poco>().AsQueryable());
         }
         catch (Exception)
         {
             // Ignore.
             // Result deserialization may fail because FakeServer returns one column always.
+            // We are only interested in the generated SQL.
         }
 
-        Assert.AreEqual(expectedSql, Server.LastSql);
+        Assert.AreEqual(expectedSql, _server.LastSql);
     }
 }
