@@ -210,7 +210,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
     @Override
     public BooleanSupplier snapshotCheckClosure(JraftServerImpl restarted, boolean interactedAfterSnapshot) {
         MvPartitionStorage storage = getListener(restarted, raftGroupId()).getMvStorage();
-        Map<ByteBuffer, RowId> primaryIndex = rowIdsToRows(storage);
+        Map<ByteBuffer, RowId> primaryIndex = rowsToRowIds(storage);
 
         Row key = interactedAfterSnapshot ? SECOND_KEY : FIRST_KEY;
         Row value = interactedAfterSnapshot ? SECOND_VALUE : FIRST_VALUE;
@@ -230,7 +230,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
         };
     }
 
-    private static Map<ByteBuffer, RowId> rowIdsToRows(MvPartitionStorage storage) {
+    private static Map<ByteBuffer, RowId> rowsToRowIds(MvPartitionStorage storage) {
         Map<ByteBuffer, RowId> result = new HashMap<>();
 
         RowId rowId = storage.closestRowId(RowId.lowestRowId(0));
