@@ -15,15 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.commands.topology;
+package org.apache.ignite.internal.cli.commands.cluster.topology;
 
 import jakarta.inject.Inject;
+import java.util.concurrent.Callable;
 import org.apache.ignite.internal.cli.call.cluster.topology.PhysicalTopologyCall;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
-import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlMixin;
-import org.apache.ignite.internal.cli.commands.questions.ConnectToClusterQuestion;
+import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlProfileMixin;
+import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
 import org.apache.ignite.internal.cli.core.call.UrlCallInput;
-import org.apache.ignite.internal.cli.core.flow.builder.Flows;
 import org.apache.ignite.internal.cli.decorators.PlainTopologyDecorator;
 import org.apache.ignite.internal.cli.decorators.TopologyDecorator;
 import picocli.CommandLine.Command;
@@ -31,31 +31,31 @@ import picocli.CommandLine.Mixin;
 import picocli.CommandLine.Option;
 
 /**
- * Command that show physical cluster topology in REPL mode.
+ * Command that show physical cluster topology.
  */
 @Command(name = "physical")
-public class PhysicalTopologyReplCommand extends BaseCommand implements Runnable {
+public class PhysicalTopologyCommand extends BaseCommand implements Callable<Integer> {
     /** Cluster endpoint URL option. */
     @Mixin
-    private ClusterUrlMixin clusterUrl;
+    private ClusterUrlProfileMixin clusterUrl;
 
     @Inject
     private PhysicalTopologyCall call;
-
-    @Inject
-    private ConnectToClusterQuestion question;
 
     @Option(names = "--plain", description = "Display output with plain formatting")
     private boolean plain;
 
     /** {@inheritDoc} */
     @Override
-    public void run() {
+    public Integer call() {
         TopologyDecorator topologyDecorator = plain ? new PlainTopologyDecorator() : new TopologyDecorator();
-        question.askQuestionIfNotConnected(clusterUrl.getClusterUrl())
-                .map(UrlCallInput::new)
-                .then(Flows.fromCall(call))
-                .print(topologyDecorator)
-                .start();
+        return CallExecutionPipeline.builder(call)
+                .inputProvider(() -> new UrlCallInput(clusterUrl.getClusterUrl()))
+                .output(spec.commandLine().getOut())
+                .errOutput(spec.commandLine().getErr())
+                .decorator(topologyDecorator)
+                .verbose(verbose)
+                .build()
+                .runPipeline();
     }
 }

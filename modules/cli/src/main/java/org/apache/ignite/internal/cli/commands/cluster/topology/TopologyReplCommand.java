@@ -15,18 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.commands.node.metric;
+package org.apache.ignite.internal.cli.commands.cluster.topology;
 
 import org.apache.ignite.internal.cli.commands.BaseCommand;
 import picocli.CommandLine.Command;
 
-/** Node metric command. */
-@Command(name = "metric",
+/**
+ * Command that prints ignite cluster topology in REPL mode.
+ */
+@Command(name = "topology", description = "Prints topology information",
         subcommands = {
-                NodeMetricEnableCommand.class,
-                NodeMetricDisableCommand.class,
-                NodeMetricListCommand.class
-        },
-        description = "Node metric operations")
-public class NodeMetricCommand extends BaseCommand {
+                PhysicalTopologyReplCommand.class,
+                LogicalTopologyReplCommand.class
+        })
+public class TopologyReplCommand extends BaseCommand {
 }

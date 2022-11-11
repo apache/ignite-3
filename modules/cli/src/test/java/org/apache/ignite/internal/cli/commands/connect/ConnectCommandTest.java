@@ -15,18 +15,30 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.commands.node.metric;
+package org.apache.ignite.internal.cli.commands.connect;
 
-import org.apache.ignite.internal.cli.commands.BaseCommand;
-import picocli.CommandLine.Command;
+import static org.junit.jupiter.api.Assertions.assertAll;
 
-/** Node metric command. */
-@Command(name = "metric",
-        subcommands = {
-                NodeMetricEnableCommand.class,
-                NodeMetricDisableCommand.class,
-                NodeMetricListCommand.class
-        },
-        description = "Node metric operations")
-public class NodeMetricCommand extends BaseCommand {
+import org.apache.ignite.internal.cli.commands.CliCommandTestBase;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+class ConnectCommandTest extends CliCommandTestBase {
+
+    @Override
+    protected Class<?> getCommandClass() {
+        return ConnectCommand.class;
+    }
+
+    @Test
+    @DisplayName("Should throw error if provided an unknown node name")
+    void unknownNodeName() {
+        execute("nodeName");
+
+        assertAll(
+                () -> assertExitCodeIs(2),
+                this::assertOutputIsEmpty,
+                () -> assertErrOutputContains("Node nodeName not found. Provide valid name or use URL")
+        );
+    }
 }
