@@ -22,7 +22,10 @@ import java.nio.file.Paths;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
+import org.apache.ignite.internal.cli.NodeNameRegistry;
+import org.apache.ignite.internal.cli.commands.node.NodeNameOrUrl;
 import org.apache.ignite.internal.cli.config.StateFolderProvider;
+import org.apache.ignite.internal.cli.core.converters.NodeNameOrUrlConverter;
 import org.apache.ignite.internal.cli.core.exception.ExceptionHandlers;
 import org.apache.ignite.internal.cli.core.exception.handler.PicocliExecutionExceptionHandler;
 import org.apache.ignite.internal.cli.core.exception.handler.ReplExceptionHandlers;
@@ -66,15 +69,19 @@ public class ReplExecutor {
 
     private final Terminal terminal;
 
+    private final NodeNameRegistry nodeNameRegistry;
+
     /**
      * Constructor.
      *
      * @param commandsFactory picocli commands factory.
-     * @param terminal        terminal instance.
+     * @param terminal terminal instance.
+     * @param nodeNameRegistry node name registry.
      */
-    public ReplExecutor(PicocliCommandsFactory commandsFactory, Terminal terminal) {
+    public ReplExecutor(PicocliCommandsFactory commandsFactory, Terminal terminal, NodeNameRegistry nodeNameRegistry) {
         this.factory = commandsFactory;
         this.terminal = terminal;
+        this.nodeNameRegistry = nodeNameRegistry;
     }
 
     /**
@@ -160,7 +167,7 @@ public class ReplExecutor {
         }
         CommandLineContextProvider.setCmd(cmd);
         cmd.setExecutionExceptionHandler(new PicocliExecutionExceptionHandler());
-
+        cmd.registerConverter(NodeNameOrUrl.class, new NodeNameOrUrlConverter(nodeNameRegistry));
         DynamicCompleterRegistry completerRegistry = factory.create(DynamicCompleterRegistry.class);
         DynamicCompleterActivationPoint activationPoint = factory.create(DynamicCompleterActivationPoint.class);
         activationPoint.activateDynamicCompleter(completerRegistry);
