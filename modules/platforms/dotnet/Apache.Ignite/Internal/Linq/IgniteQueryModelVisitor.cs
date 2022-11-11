@@ -201,7 +201,7 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
     {
         base.VisitMainFromClause(fromClause, queryModel);
 
-        // TODO: DML: queryModel.ResultOperators.LastOrDefault() is UpdateAllResultOperator;
+        // TODO: IGNITE-18137 DML: queryModel.ResultOperators.LastOrDefault() is UpdateAllResultOperator;
         var isUpdateQuery = false;
         if (!isUpdateQuery)
         {
@@ -223,7 +223,7 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
 
         if (isUpdateQuery)
         {
-            // TODO: DML
+            // TODO: IGNITE-18137 DML
             // BuildSetClauseForUpdateAll(queryModel);
         }
     }
@@ -238,7 +238,7 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
     {
         _aliases.Push(copyAliases);
 
-        // TODO: DML
+        // TODO: IGNITE-18137 DML
         // var lastResultOp = queryModel.ResultOperators.LastOrDefault();
         // if (lastResultOp is RemoveAllResultOperator)
         // {

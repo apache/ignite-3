@@ -351,7 +351,7 @@ internal static class MethodVisitor
             ? arg.Value
             : ExpressionWalker.EvaluateExpression<object>(expression.Arguments[0]);
 
-        visitor.Parameters.Add(paramValue!); // TODO: Nullability
+        visitor.Parameters.Add(paramValue);
     }
 
     /// <summary>
