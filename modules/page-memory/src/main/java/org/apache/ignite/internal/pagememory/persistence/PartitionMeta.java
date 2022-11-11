@@ -400,6 +400,7 @@ public class PartitionMeta {
         void writeTo(PartitionMetaIo metaIo, long pageAddr) {
             metaIo.setLastAppliedIndex(pageAddr, lastAppliedIndex);
             metaIo.setLastAppliedTerm(pageAddr, lastAppliedTerm);
+            metaIo.setLastGroupConfig(pageAddr, lastGroupConfig);
             metaIo.setVersionChainTreeRootPageId(pageAddr, versionChainTreeRootPageId);
             metaIo.setIndexColumnsFreeListRootPageId(pageAddr, indexColumnsFreeListRootPageId);
             metaIo.setRowVersionFreeListRootPageId(pageAddr, rowVersionFreeListRootPageId);
