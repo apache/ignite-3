@@ -20,6 +20,7 @@ namespace Apache.Ignite.Internal.Generators
     using System;
     using System.Collections.Generic;
     using System.Collections.Immutable;
+    using System.Globalization;
     using System.IO;
     using System.Linq;
     using System.Reflection;
@@ -41,7 +42,7 @@ namespace Apache.Ignite.Internal.Generators
             var exclude = new[]
             {
                 "internal",
-                string.Format("{0}target{0}", Path.DirectorySeparatorChar),
+                string.Format(CultureInfo.InvariantCulture, "{0}target{0}", Path.DirectorySeparatorChar),
                 Path.Combine("modules", "cli")
             };
 
