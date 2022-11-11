@@ -107,6 +107,10 @@ namespace Apache.Ignite.Tests
 
         public string LastSql { get; set; } = string.Empty;
 
+        public long? LastSqlTimeoutMs { get; set; }
+
+        public int? LastSqlPageSize { get; set; }
+
         internal IList<ClientOp> ClientOps => _ops?.ToList() ?? throw new Exception("Ops tracking is disabled");
 
         public async Task<IIgniteClient> ConnectClientAsync(IgniteClientConfiguration? cfg = null)
@@ -223,8 +227,13 @@ namespace Apache.Ignite.Tests
             // ReSharper disable RedundantCast (does not build on older SDKs)
             props["txId"] = reader.TryReadNil() ? (long?)null : reader.ReadInt64();
             props["schema"] = reader.TryReadNil() ? null : reader.ReadString();
-            props["pageSize"] = reader.TryReadNil() ? (int?)null : reader.ReadInt32();
-            props["timeoutMs"] = reader.TryReadNil() ? (long?)null : reader.ReadInt64();
+
+            var pageSize = reader.TryReadNil() ? (int?)null : reader.ReadInt32();
+            props["pageSize"] = pageSize;
+
+            var timeoutMs = reader.TryReadNil() ? (long?)null : reader.ReadInt64();
+            props["timeoutMs"] = timeoutMs;
+
             props["sessionTimeoutMs"] = reader.TryReadNil() ? (long?)null : reader.ReadInt64();
 
             // ReSharper restore RedundantCast
@@ -243,8 +252,11 @@ namespace Apache.Ignite.Tests
             }
 
             var sql = reader.ReadString();
-            LastSql = sql;
             props["sql"] = sql;
+
+            LastSql = sql;
+            LastSqlPageSize = pageSize;
+            LastSqlTimeoutMs = timeoutMs;
 
             using var arrayBufferWriter = new PooledArrayBufferWriter();
             var writer = new MessagePackWriter(arrayBufferWriter);

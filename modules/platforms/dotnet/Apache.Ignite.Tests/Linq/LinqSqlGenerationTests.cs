@@ -20,6 +20,7 @@ namespace Apache.Ignite.Tests.Linq;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using Ignite.Sql;
 using Ignite.Table;
 using NUnit.Framework;
 using Table;
@@ -86,6 +87,30 @@ public class LinqSqlGenerationTests
                 .Distinct()
                 .OrderBy(x => x.Key2)
                 .ToList());
+
+    [Test]
+    public void TestDefaultQueryableOptions()
+    {
+        _server.LastSqlTimeoutMs = null;
+        _server.LastSqlPageSize = null;
+
+        _ = _table.GetRecordView<Poco>().AsQueryable().Select(x => x.Key).ToArray();
+
+        Assert.AreEqual(SqlStatement.DefaultTimeout.TotalMilliseconds, _server.LastSqlTimeoutMs);
+        Assert.AreEqual(SqlStatement.DefaultPageSize, _server.LastSqlPageSize);
+    }
+
+    [Test]
+    public void TestCustomQueryableOptions()
+    {
+        _server.LastSqlTimeoutMs = null;
+        _server.LastSqlPageSize = null;
+
+        _ = _table.GetRecordView<Poco>().AsQueryable(options: new(TimeSpan.FromSeconds(25), 128)).Select(x => x.Key).ToArray();
+
+        Assert.AreEqual(25000, _server.LastSqlTimeoutMs);
+        Assert.AreEqual(128, _server.LastSqlPageSize);
+    }
 
     [OneTimeSetUp]
     public async Task OneTimeSetUp()
