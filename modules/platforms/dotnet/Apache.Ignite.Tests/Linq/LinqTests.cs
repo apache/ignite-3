@@ -189,6 +189,19 @@ public class LinqTests : IgniteTestsBase
     }
 
     [Test]
+    public void TestOrderBySkipTake()
+    {
+        List<long> res = PocoView.AsQueryable()
+            .OrderByDescending(x => x.Key)
+            .Select(x => x.Key)
+            .Skip(1)
+            .Take(2)
+            .ToList();
+
+        Assert.AreEqual(new long[] { 8, 7 }, res);
+    }
+
+    [Test]
     public void TestCustomColumnNameMapping()
     {
         Assert.Fail("TODO: Test that ColumnAttribute is honored.");

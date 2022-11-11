@@ -480,7 +480,7 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
 
         if (limit == null)
         {
-            // TODO: Ticket for offset/limit support.
+            // TODO IGNITE-18123 LINQ: Skip and Take (offset / limit) support
             // Workaround for unlimited offset (IGNITE-2602)
             // H2 allows NULL & -1 for unlimited, but Ignite indexing does not
             // Maximum limit that works is (int.MaxValue - offset)
