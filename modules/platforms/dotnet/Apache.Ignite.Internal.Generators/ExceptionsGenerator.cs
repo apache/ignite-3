@@ -38,11 +38,18 @@ namespace Apache.Ignite.Internal.Generators
         {
             var javaModulesDirectory = context.GetJavaModulesDirectory();
 
+            var exclude = new[]
+            {
+                "internal",
+                string.Format("{0}target{0}", Path.DirectorySeparatorChar),
+                Path.Combine("modules", "cli")
+            };
+
             var javaExceptionsWithParents = Directory.EnumerateFiles(
                     javaModulesDirectory,
                     "*Exception.java",
                     SearchOption.AllDirectories)
-                .Where(x => !x.Contains("internal"))
+                .Where(x => !exclude.Any(x.Contains))
                 .Select(File.ReadAllText)
                 .Select(x => (
                     Class: Regex.Match(x, @"public class (\w+) extends (\w+)"),
