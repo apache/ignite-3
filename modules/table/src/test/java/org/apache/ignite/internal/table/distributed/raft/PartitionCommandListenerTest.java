@@ -24,9 +24,11 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
@@ -63,6 +65,7 @@ import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
+import org.apache.ignite.internal.storage.GroupConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.MvPartitionStorage.WriteClosure;
 import org.apache.ignite.internal.storage.ReadResult;
@@ -90,15 +93,20 @@ import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.WriteCommand;
 import org.apache.ignite.raft.client.service.CommandClosure;
+import org.apache.ignite.raft.client.service.CommittedConfiguration;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.Captor;
+import org.mockito.InOrder;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 /**
  * Tests for the table command listener.
  */
 @ExtendWith(WorkDirectoryExtension.class)
+@ExtendWith(MockitoExtension.class)
 public class PartitionCommandListenerTest {
     /** Key count. */
     public static final int KEY_COUNT = 100;
@@ -137,12 +145,17 @@ public class PartitionCommandListenerTest {
     /** Partition storage. */
     private final MvPartitionStorage mvPartitionStorage = spy(new TestMvPartitionStorage(PARTITION_ID));
 
+    private final PartitionDataStorage partitionDataStorage = spy(new TestPartitionDataStorage(mvPartitionStorage));
+
     /** Transaction meta storage. */
     private final TxStateStorage txStateStorage = spy(new TestTxStateStorage());
 
     /** Work directory. */
     @WorkDirectory
     private Path workDir;
+
+    @Captor
+    private ArgumentCaptor<Throwable> commandClosureResultCaptor;
 
     /**
      * Initializes a table listener before tests.
@@ -158,7 +171,7 @@ public class PartitionCommandListenerTest {
         ReplicaService replicaService = mock(ReplicaService.class, RETURNS_DEEP_STUBS);
 
         commandListener = new PartitionListener(
-                new TestPartitionDataStorage(mvPartitionStorage),
+                partitionDataStorage,
                 txStateStorage,
                 new TxManagerImpl(replicaService, new HeapLockManager(), new HybridClockImpl()),
                 () -> Map.of(pkStorage.id(), pkStorage)
@@ -240,7 +253,7 @@ public class PartitionCommandListenerTest {
      * the maximal last applied index among storages to all storages.
      */
     @Test
-    public void testOnSnapshotSavePropagateLastAppliedIndex() {
+    public void testOnSnapshotSavePropagateLastAppliedIndexAndTerm() {
         ReplicaService replicaService = mock(ReplicaService.class, RETURNS_DEEP_STUBS);
 
         TestPartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(mvPartitionStorage);
@@ -252,9 +265,9 @@ public class PartitionCommandListenerTest {
                 () -> Map.of(pkStorage.id(), pkStorage)
         );
 
-        txStateStorage.lastAppliedIndex(3L);
+        txStateStorage.lastApplied(3L, 2L);
 
-        partitionDataStorage.lastAppliedIndex(5L);
+        partitionDataStorage.lastApplied(5L, 1L);
 
         AtomicLong counter = new AtomicLong(0);
 
@@ -263,56 +276,125 @@ public class PartitionCommandListenerTest {
         assertEquals(1L, counter.get());
 
         assertEquals(5L, partitionDataStorage.lastAppliedIndex());
+        assertEquals(1L, partitionDataStorage.lastAppliedTerm());
 
         assertEquals(5L, txStateStorage.lastAppliedIndex());
+        assertEquals(1L, txStateStorage.lastAppliedTerm());
 
-        txStateStorage.lastAppliedIndex(10L);
+        txStateStorage.lastApplied(10L, 2L);
 
-        partitionDataStorage.lastAppliedIndex(7L);
+        partitionDataStorage.lastApplied(7L, 1L);
 
         testCommandListener.onSnapshotSave(workDir, (throwable) -> counter.incrementAndGet());
 
         assertEquals(2L, counter.get());
 
         assertEquals(10L, partitionDataStorage.lastAppliedIndex());
+        assertEquals(2L, partitionDataStorage.lastAppliedTerm());
 
         assertEquals(10L, txStateStorage.lastAppliedIndex());
+        assertEquals(2L, txStateStorage.lastAppliedTerm());
     }
 
     @Test
     void testSkipWriteCommandByAppliedIndex() {
-        mvPartitionStorage.lastAppliedIndex(10L);
-
-        ArgumentCaptor<Throwable> commandClosureResultCaptor = ArgumentCaptor.forClass(Throwable.class);
+        mvPartitionStorage.lastApplied(10L, 1L);
 
         // Checks for MvPartitionStorage.
         commandListener.onWrite(List.of(
-                writeCommandCommandClosure(3, mock(UpdateCommand.class), commandClosureResultCaptor),
-                writeCommandCommandClosure(10, mock(UpdateCommand.class), commandClosureResultCaptor),
-                writeCommandCommandClosure(4, mock(TxCleanupCommand.class), commandClosureResultCaptor),
-                writeCommandCommandClosure(5, mock(SafeTimeSyncCommand.class), commandClosureResultCaptor)
+                writeCommandCommandClosure(3, 1, mock(UpdateCommand.class), commandClosureResultCaptor),
+                writeCommandCommandClosure(10, 1, mock(UpdateCommand.class), commandClosureResultCaptor),
+                writeCommandCommandClosure(4, 1, mock(TxCleanupCommand.class), commandClosureResultCaptor),
+                writeCommandCommandClosure(5, 1, mock(SafeTimeSyncCommand.class), commandClosureResultCaptor)
         ).iterator());
 
         verify(mvPartitionStorage, never()).runConsistently(any(WriteClosure.class));
-        verify(mvPartitionStorage, times(1)).lastAppliedIndex(anyLong());
+        verify(mvPartitionStorage, times(1)).lastApplied(anyLong(), anyLong());
 
         assertThat(commandClosureResultCaptor.getAllValues(), containsInAnyOrder(new Throwable[]{null, null, null, null}));
 
         // Checks for TxStateStorage.
-        mvPartitionStorage.lastAppliedIndex(1L);
-        txStateStorage.lastAppliedIndex(10L);
+        mvPartitionStorage.lastApplied(1L, 1L);
+        txStateStorage.lastApplied(10L, 2L);
 
         commandClosureResultCaptor = ArgumentCaptor.forClass(Throwable.class);
 
         commandListener.onWrite(List.of(
-                writeCommandCommandClosure(2, mock(FinishTxCommand.class), commandClosureResultCaptor),
-                writeCommandCommandClosure(10, mock(FinishTxCommand.class), commandClosureResultCaptor)
+                writeCommandCommandClosure(2, 1, mock(FinishTxCommand.class), commandClosureResultCaptor),
+                writeCommandCommandClosure(10, 1, mock(FinishTxCommand.class), commandClosureResultCaptor)
         ).iterator());
 
-        verify(txStateStorage, never()).compareAndSet(any(UUID.class), any(TxState.class), any(TxMeta.class), anyLong());
-        verify(txStateStorage, times(1)).lastAppliedIndex(anyLong());
+        verify(txStateStorage, never()).compareAndSet(any(UUID.class), any(TxState.class), any(TxMeta.class), anyLong(), anyLong());
+        verify(txStateStorage, times(1)).lastApplied(anyLong(), anyLong());
 
         assertThat(commandClosureResultCaptor.getAllValues(), containsInAnyOrder(new Throwable[]{null, null}));
+    }
+
+    @Test
+    void updatesLastAppliedForSafeTimeSyncCommands() {
+        commandListener.onWrite(List.of(
+                writeCommandCommandClosure(3, 2, new SafeTimeSyncCommand(), commandClosureResultCaptor)
+        ).iterator());
+
+        verify(mvPartitionStorage).lastApplied(3, 2);
+    }
+
+    @Test
+    void locksOnCommandApplication() {
+        commandListener.onWrite(List.of(
+                writeCommandCommandClosure(3, 2, new SafeTimeSyncCommand(), commandClosureResultCaptor)
+        ).iterator());
+
+        InOrder inOrder = inOrder(partitionDataStorage);
+
+        inOrder.verify(partitionDataStorage).acquirePartitionSnapshotsReadLock();
+        inOrder.verify(partitionDataStorage).lastApplied(3, 2);
+        inOrder.verify(partitionDataStorage).releasePartitionSnapshotsReadLock();
+    }
+
+    @Test
+    void updatesGroupConfigurationOnConfigCommit() {
+        commandListener.onConfigurationCommitted(new CommittedConfiguration(
+                1, 2, List.of("peer"), List.of("learner"), List.of("old-peer"), List.of("old-learner")
+        ));
+
+        verify(mvPartitionStorage).committedGroupConfiguration(
+                new GroupConfiguration(List.of("peer"), List.of("learner"), List.of("old-peer"), List.of("old-learner"))
+        );
+    }
+
+    @Test
+    void updatesLastAppliedIndexAndTermOnConfigCommit() {
+        commandListener.onConfigurationCommitted(new CommittedConfiguration(
+                1, 2, List.of("peer"), List.of("learner"), List.of("old-peer"), List.of("old-learner")
+        ));
+
+        verify(mvPartitionStorage).lastApplied(1, 2);
+    }
+
+    @Test
+    void skipsUpdatesOnConfigCommitIfIndexIsStale() {
+        mvPartitionStorage.lastApplied(10, 3);
+
+        commandListener.onConfigurationCommitted(new CommittedConfiguration(
+                1, 2, List.of("peer"), List.of("learner"), List.of("old-peer"), List.of("old-learner")
+        ));
+
+        verify(mvPartitionStorage, never()).committedGroupConfiguration(any());
+        verify(mvPartitionStorage, never()).lastApplied(eq(1L), anyLong());
+    }
+
+    @Test
+    void locksOnConfigCommit() {
+        commandListener.onConfigurationCommitted(new CommittedConfiguration(
+                1, 2, List.of("peer"), List.of("learner"), List.of("old-peer"), List.of("old-learner")
+        ));
+
+        InOrder inOrder = inOrder(partitionDataStorage);
+
+        inOrder.verify(partitionDataStorage).acquirePartitionSnapshotsReadLock();
+        inOrder.verify(partitionDataStorage).lastApplied(1, 2);
+        inOrder.verify(partitionDataStorage).releasePartitionSnapshotsReadLock();
     }
 
     /**
@@ -324,12 +406,14 @@ public class PartitionCommandListenerTest {
      */
     private static CommandClosure<WriteCommand> writeCommandCommandClosure(
             long index,
+            long term,
             WriteCommand writeCommand,
             ArgumentCaptor<Throwable> resultClosureCaptor
     ) {
         CommandClosure<WriteCommand> commandClosure = mock(CommandClosure.class);
 
         when(commandClosure.index()).thenReturn(index);
+        when(commandClosure.term()).thenReturn(term);
         when(commandClosure.command()).thenReturn(writeCommand);
 
         doNothing().when(commandClosure).result(resultClosureCaptor.capture());

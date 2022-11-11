@@ -17,41 +17,27 @@
 
 package org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing;
 
-import static java.util.stream.Collectors.toList;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
-import static org.mockito.Mockito.anyLong;
-import static org.mockito.Mockito.when;
 
 import java.util.List;
-import org.apache.ignite.raft.jraft.conf.Configuration;
-import org.apache.ignite.raft.jraft.conf.ConfigurationEntry;
-import org.apache.ignite.raft.jraft.entity.LogId;
-import org.apache.ignite.raft.jraft.entity.PeerId;
+import org.apache.ignite.internal.storage.GroupConfiguration;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
-import org.apache.ignite.raft.jraft.storage.LogManager;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 class SnapshotMetaUtilsTest {
-    @Mock
-    private LogManager logManager;
-
     @Test
     void buildsSnapshotMeta() {
-        when(logManager.getTerm(100L)).thenReturn(3L);
-
-        ConfigurationEntry configEntry = new ConfigurationEntry(new LogId(100, 3),
-                configuration(List.of("peer1:3000", "peer2:3000"), List.of("learner1:3000", "learner2:3000")),
-                configuration(List.of("peer1:3000"), List.of("learner1:3000"))
+        GroupConfiguration config = new GroupConfiguration(
+                List.of("peer1:3000", "peer2:3000"), List.of("learner1:3000", "learner2:3000"),
+                List.of("peer1:3000"), List.of("learner1:3000")
         );
-        when(logManager.getConfiguration(100L)).thenReturn(configEntry);
 
-        SnapshotMeta meta = SnapshotMetaUtils.snapshotMetaAt(100, logManager);
+        SnapshotMeta meta = SnapshotMetaUtils.snapshotMetaAt(100, 3, config);
 
         assertThat(meta.lastIncludedIndex(), is(100L));
         assertThat(meta.lastIncludedTerm(), is(3L));
@@ -61,20 +47,9 @@ class SnapshotMetaUtilsTest {
         assertThat(meta.oldLearnersList(), is(List.of("learner1:3000")));
     }
 
-    private static Configuration configuration(List<String> peers, List<String> learners) {
-        return new Configuration(
-                peers.stream().map(PeerId::parsePeer).collect(toList()),
-                learners.stream().map(PeerId::parsePeer).collect(toList())
-        );
-    }
-
     @Test
     void doesNotIncludeOldConfigWhenItIsNotThere() {
-        @SuppressWarnings("ConstantConditions")
-        ConfigurationEntry configEntry = new ConfigurationEntry(new LogId(1, 1), new Configuration(), null);
-        when(logManager.getConfiguration(anyLong())).thenReturn(configEntry);
-
-        SnapshotMeta meta = SnapshotMetaUtils.snapshotMetaAt(100, logManager);
+        SnapshotMeta meta = SnapshotMetaUtils.snapshotMetaAt(100, 3, new GroupConfiguration(List.of(), List.of(), null, null));
 
         assertThat(meta.oldPeersList(), is(nullValue()));
         assertThat(meta.oldLearnersList(), is(nullValue()));

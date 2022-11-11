@@ -22,9 +22,14 @@ import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.is;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import java.util.UUID;
+import org.apache.ignite.internal.storage.GroupConfiguration;
+import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionAccess;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionKey;
+import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.network.MessagingService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -39,6 +44,9 @@ class OutgoingSnapshotsManagerTest {
 
     @InjectMocks
     private OutgoingSnapshotsManager manager;
+
+    @Mock
+    private PartitionAccess partitionAccess;
 
     private final PartitionKey partitionKey = new PartitionKey(UUID.randomUUID(), 1);
 
@@ -59,15 +67,22 @@ class OutgoingSnapshotsManagerTest {
     }
 
     @Test
-    void registersSnapshot() {
-        OutgoingSnapshot snapshot = mock(OutgoingSnapshot.class);
-        doReturn(partitionKey).when(snapshot).partitionKey();
+    void startsSnapshot() {
+        MvPartitionStorage mvPartitionStorage = mock(MvPartitionStorage.class);
+
+        when(partitionAccess.partitionKey()).thenReturn(partitionKey);
+        when(partitionAccess.mvPartitionStorage()).thenReturn(mvPartitionStorage);
+        when(partitionAccess.txStatePartitionStorage()).thenReturn(mock(TxStateStorage.class));
+
+        when(mvPartitionStorage.committedGroupConfiguration()).thenReturn(mock(GroupConfiguration.class));
+
+        OutgoingSnapshot snapshot = new OutgoingSnapshot(UUID.randomUUID(), partitionAccess);
 
         manager.startOutgoingSnapshot(UUID.randomUUID(), snapshot);
     }
 
     @Test
-    void unregistersSnapshot() {
+    void finishesSnapshot() {
         UUID snapshotId = startSnapshot();
 
         manager.finishOutgoingSnapshot(snapshotId);

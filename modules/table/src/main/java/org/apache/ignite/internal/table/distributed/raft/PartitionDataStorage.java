@@ -22,6 +22,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.storage.GroupConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.MvPartitionStorage.WriteClosure;
 import org.apache.ignite.internal.storage.RowId;
@@ -84,11 +85,35 @@ public interface PartitionDataStorage extends ManuallyCloseable {
     long lastAppliedIndex();
 
     /**
-     * Sets the last applied index value.
+     * Term of the highest write command applied to the storage. {@code 0} if index is unknown.
      *
-     * @see MvPartitionStorage#lastAppliedIndex(long)
+     * @see MvPartitionStorage#lastAppliedTerm()
      */
-    void lastAppliedIndex(long lastAppliedIndex) throws StorageException;
+    long lastAppliedTerm();
+
+    /**
+     * Sets the last applied index and term.
+     *
+     * @see MvPartitionStorage#lastApplied(long, long)
+     */
+    void lastApplied(long lastAppliedIndex, long lastAppliedTerm) throws StorageException;
+
+    /**
+     * Committed RAFT group configuration corresponding to the highest write command applied to the storage.
+     * {@code null} if it was never saved.
+     *
+     * @see MvPartitionStorage#committedGroupConfiguration()
+     */
+    @Nullable
+    GroupConfiguration committedGroupConfiguration();
+
+    /**
+     * Updates RAFT group configuration.
+     *
+     * @param config Configuration to save.
+     * @see MvPartitionStorage#committedGroupConfiguration(GroupConfiguration)
+     */
+    void committedGroupConfiguration(GroupConfiguration config);
 
     /**
      * Creates (or replaces) an uncommitted (aka pending) version, assigned to the given transaction id.

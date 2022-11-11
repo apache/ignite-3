@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.raft.server.impl;
 
+import static java.util.stream.Collectors.toList;
+
 import java.io.File;
 import java.io.IOException;
 import java.io.Serializable;
@@ -24,6 +26,7 @@ import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
@@ -31,7 +34,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
 import java.util.function.BiPredicate;
-import java.util.stream.Collectors;
 import org.apache.ignite.internal.raft.server.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.RaftServer;
@@ -48,6 +50,7 @@ import org.apache.ignite.raft.client.ElectionPriority;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.WriteCommand;
 import org.apache.ignite.raft.client.service.CommandClosure;
+import org.apache.ignite.raft.client.service.CommittedConfiguration;
 import org.apache.ignite.raft.client.service.RaftGroupListener;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.Iterator;
@@ -56,6 +59,7 @@ import org.apache.ignite.raft.jraft.NodeManager;
 import org.apache.ignite.raft.jraft.RaftGroupService;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.conf.Configuration;
+import org.apache.ignite.raft.jraft.conf.ConfigurationEntry;
 import org.apache.ignite.raft.jraft.core.FSMCallerImpl;
 import org.apache.ignite.raft.jraft.core.NodeImpl;
 import org.apache.ignite.raft.jraft.core.ReadOnlyServiceImpl;
@@ -401,9 +405,9 @@ public class JraftServerImpl implements RaftServer {
 
             nodeOptions.setServiceFactory(serviceFactory);
 
-            List<PeerId> peerIds = peers.stream().map(PeerId::fromPeer).collect(Collectors.toList());
+            List<PeerId> peerIds = peers.stream().map(PeerId::fromPeer).collect(toList());
 
-            List<PeerId> learnerIds = learners.stream().map(PeerId::fromPeer).collect(Collectors.toList());
+            List<PeerId> learnerIds = learners.stream().map(PeerId::fromPeer).collect(toList());
 
             nodeOptions.setInitialConf(new Configuration(peerIds, learnerIds));
 
@@ -545,12 +549,19 @@ public class JraftServerImpl implements RaftServer {
                         WriteCommand command = done == null ? JDKMarshaller.DEFAULT.unmarshall(data.array()) : done.command();
 
                         long commandIndex = iter.getIndex();
+                        long commandTerm = iter.getTerm();
 
                         return new CommandClosure<>() {
                             /** {@inheritDoc} */
                             @Override
                             public long index() {
                                 return commandIndex;
+                            }
+
+                            /** {@inheritDoc} */
+                            @Override
+                            public long term() {
+                                return commandTerm;
                             }
 
                             /** {@inheritDoc} */
@@ -586,6 +597,26 @@ public class JraftServerImpl implements RaftServer {
 
                 iter.setErrorAndRollback(1, st);
             }
+        }
+
+        @Override
+        public void onRawConfigurationCommitted(ConfigurationEntry entry) {
+            boolean hasOldConf = entry.getOldConf() != null && entry.getOldConf().getPeers() != null;
+
+            CommittedConfiguration committedConf = new CommittedConfiguration(
+                    entry.getId().getIndex(),
+                    entry.getId().getTerm(),
+                    peersIdsToStrings(entry.getConf().getPeers()),
+                    peersIdsToStrings(entry.getConf().getLearners()),
+                    hasOldConf ? peersIdsToStrings(entry.getOldConf().getPeers()) : null,
+                    hasOldConf ? peersIdsToStrings(entry.getOldConf().getLearners()) : null
+            );
+
+            listener.onConfigurationCommitted(committedConf);
+        }
+
+        private static List<String> peersIdsToStrings(Collection<PeerId> peerIds) {
+            return peerIds.stream().map(PeerId::toString).collect(toList());
         }
 
         /** {@inheritDoc} */

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing;
 
+import static java.util.Collections.emptyIterator;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
@@ -27,6 +28,8 @@ import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
@@ -44,7 +47,6 @@ import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionKey;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMvDataRequest;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMvDataResponse;
 import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.raft.jraft.storage.LogManager;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -59,9 +61,6 @@ class OutgoingSnapshotMvDataStreamingTest {
 
     @Mock
     private MvPartitionStorage mvPartitionStorage;
-
-    @Mock
-    private LogManager logManager;
 
     private OutgoingSnapshot snapshot;
 
@@ -87,7 +86,7 @@ class OutgoingSnapshotMvDataStreamingTest {
 
         lenient().when(partitionAccess.mvPartitionStorage()).thenReturn(mvPartitionStorage);
 
-        snapshot = new OutgoingSnapshot(UUID.randomUUID(), partitionAccess, logManager);
+        snapshot = new OutgoingSnapshot(UUID.randomUUID(), partitionAccess);
     }
 
     @BeforeEach
@@ -279,6 +278,43 @@ class OutgoingSnapshotMvDataStreamingTest {
 
         assertThat(response.rows().get(0).rowId(), is(rowIdOutOfOrder.uuid()));
         assertThat(response.rows().get(1).rowId(), is(rowId1.uuid()));
+    }
+
+    @Test
+    void doesNotEnqueueMissingRows() {
+        when(mvPartitionStorage.scanVersions(rowIdOutOfOrder)).thenReturn(Cursor.fromIterator(emptyIterator()));
+
+        snapshot.acquireMvLock();
+
+        try {
+            snapshot.enqueueForSending(rowIdOutOfOrder);
+        } finally {
+            snapshot.releaseMvLock();
+        }
+
+        SnapshotMvDataResponse response = getMvDataResponse(Long.MAX_VALUE);
+
+        assertThat(response.rows(), is(empty()));
+    }
+
+    @Test
+    void closesVersionsCursor() throws Exception {
+        @SuppressWarnings("unchecked")
+        Cursor<ReadResult> cursor = mock(Cursor.class);
+
+        when(mvPartitionStorage.scanVersions(rowIdOutOfOrder)).thenReturn(cursor);
+
+        snapshot.acquireMvLock();
+
+        try {
+            snapshot.enqueueForSending(rowIdOutOfOrder);
+        } finally {
+            snapshot.releaseMvLock();
+        }
+
+        getMvDataResponse(Long.MAX_VALUE);
+
+        verify(cursor).close();
     }
 
     @Test

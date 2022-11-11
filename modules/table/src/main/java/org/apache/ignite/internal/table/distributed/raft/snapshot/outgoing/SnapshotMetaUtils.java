@@ -17,16 +17,10 @@
 
 package org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing;
 
-import static java.util.stream.Collectors.toList;
-
-import java.util.Collection;
-import java.util.List;
+import org.apache.ignite.internal.storage.GroupConfiguration;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
-import org.apache.ignite.raft.jraft.conf.ConfigurationEntry;
-import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 import org.apache.ignite.raft.jraft.entity.SnapshotMetaBuilder;
-import org.apache.ignite.raft.jraft.storage.LogManager;
 
 /**
  * Utils to build {@link SnapshotMeta} instances.
@@ -36,28 +30,24 @@ public class SnapshotMetaUtils {
      * Builds a {@link SnapshotMeta} corresponding to RAFT state (term, configuration) at the given log index.
      *
      * @param logIndex RAFT log index.
-     * @param logManager JRaft's LogManager from which to load term and configuration.
+     * @param term Term corresponding to the index.
+     * @param config RAFT group configuration.
      * @return SnapshotMeta corresponding to the given log index.
      */
-    public static SnapshotMeta snapshotMetaAt(long logIndex, LogManager logManager) {
-        ConfigurationEntry configEntry = logManager.getConfiguration(logIndex);
-
+    public static SnapshotMeta snapshotMetaAt(long logIndex, long term, GroupConfiguration config) {
         SnapshotMetaBuilder metaBuilder = new RaftMessagesFactory().snapshotMeta()
                 .lastIncludedIndex(logIndex)
-                .lastIncludedTerm(logManager.getTerm(logIndex))
-                .peersList(peersToStrings(configEntry.getConf().listPeers()))
-                .learnersList(peersToStrings(configEntry.getConf().listLearners()));
+                .lastIncludedTerm(term)
+                .peersList(config.peers())
+                .learnersList(config.learners());
 
-        if (configEntry.getOldConf() != null) {
+        if (!config.isStable()) {
+            //noinspection ConstantConditions
             metaBuilder
-                    .oldPeersList(peersToStrings(configEntry.getOldConf().listPeers()))
-                    .oldLearnersList(peersToStrings(configEntry.getOldConf().listLearners()));
+                    .oldPeersList(config.oldPeers())
+                    .oldLearnersList(config.oldLearners());
         }
 
         return metaBuilder.build();
-    }
-
-    private static Collection<String> peersToStrings(List<PeerId> peers) {
-        return peers.stream().map(PeerId::toString).collect(toList());
     }
 }

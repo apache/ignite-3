@@ -66,7 +66,7 @@ class IncomingSnapshotReader extends SnapshotReader {
 
     @Override
     public String getPath() {
-        throw new UnsupportedOperationException("No path for the rebalance snapshot");
+        return "";
     }
 
     @Override

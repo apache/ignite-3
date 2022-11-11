@@ -19,7 +19,7 @@ package org.apache.ignite.raft.jraft;
 import org.apache.ignite.raft.jraft.entity.codec.LogEntryCodecFactory;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
-import org.apache.ignite.raft.jraft.storage.LogManager;import org.apache.ignite.raft.jraft.storage.LogStorage;
+import org.apache.ignite.raft.jraft.storage.LogStorage;
 import org.apache.ignite.raft.jraft.storage.RaftMetaStorage;
 import org.apache.ignite.raft.jraft.storage.SnapshotStorage;
 import org.apache.ignite.raft.jraft.util.timer.RaftTimerFactory;
@@ -42,10 +42,9 @@ public interface JRaftServiceFactory {
      *
      * @param uri The snapshot storage uri from {@link NodeOptions#getSnapshotUri()}
      * @param raftOptions the raft options.
-     * @param logManager JRaft's LogManager.
      * @return storage to store state machine snapshot.
      */
-    SnapshotStorage createSnapshotStorage(final String uri, final RaftOptions raftOptions, LogManager logManager);
+    SnapshotStorage createSnapshotStorage(final String uri, final RaftOptions raftOptions);
 
     /**
      * Creates a raft meta storage.

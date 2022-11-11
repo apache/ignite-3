@@ -19,6 +19,7 @@ package org.apache.ignite.internal.table.distributed.raft.snapshot;
 
 import java.util.concurrent.Executor;
 import org.apache.ignite.internal.raft.storage.SnapshotStorageFactory;
+import org.apache.ignite.internal.storage.GroupConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.SnapshotMetaUtils;
@@ -26,7 +27,6 @@ import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
-import org.apache.ignite.raft.jraft.storage.LogManager;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotWriter;
 
@@ -56,6 +56,12 @@ public class PartitionSnapshotStorageFactory implements SnapshotStorageFactory {
      */
     private final long lastIncludedRaftIndex;
 
+    /** Term corresponding to {@link #lastIncludedRaftIndex}. */
+    private final long lastIncludedRaftTerm;
+
+    /** RAFT configuration corresponding to {@link #lastIncludedRaftIndex}. */
+    private final GroupConfiguration lastIncludedConfiguration;
+
     /** Incoming snapshots executor. */
     private final Executor incomingSnapshotsExecutor;
 
@@ -82,15 +88,22 @@ public class PartitionSnapshotStorageFactory implements SnapshotStorageFactory {
 
         // We must choose the minimum applied index for local recovery so that we don't skip the raft commands for the storage with the
         // lowest applied index and thus no data loss occurs.
-        lastIncludedRaftIndex = Math.min(
-                partition.mvPartitionStorage().lastAppliedIndex(),
-                partition.txStatePartitionStorage().lastAppliedIndex()
-        );
+        if (partition.mvPartitionStorage().lastAppliedIndex() <= partition.txStatePartitionStorage().lastAppliedIndex()) {
+            lastIncludedRaftIndex = partition.mvPartitionStorage().lastAppliedIndex();
+            lastIncludedRaftTerm = partition.mvPartitionStorage().lastAppliedTerm();
+        } else {
+            lastIncludedRaftIndex = partition.txStatePartitionStorage().lastAppliedIndex();
+            lastIncludedRaftTerm = partition.txStatePartitionStorage().lastAppliedTerm();
+        }
+
+        lastIncludedConfiguration = partition.mvPartitionStorage().committedGroupConfiguration();
     }
 
     @Override
-    public PartitionSnapshotStorage createSnapshotStorage(String uri, RaftOptions raftOptions, LogManager logManager) {
-        SnapshotMeta startupSnapshotMeta = SnapshotMetaUtils.snapshotMetaAt(lastIncludedRaftIndex, logManager);
+    public PartitionSnapshotStorage createSnapshotStorage(String uri, RaftOptions raftOptions) {
+        SnapshotMeta startupSnapshotMeta = lastIncludedRaftIndex == 0 ? null : SnapshotMetaUtils.snapshotMetaAt(
+                lastIncludedRaftIndex, lastIncludedRaftTerm, lastIncludedConfiguration
+        );
 
         return new PartitionSnapshotStorage(
                 topologyService,
@@ -99,8 +112,7 @@ public class PartitionSnapshotStorageFactory implements SnapshotStorageFactory {
                 raftOptions,
                 partition,
                 startupSnapshotMeta,
-                incomingSnapshotsExecutor,
-                logManager
+                incomingSnapshotsExecutor
         );
     }
 }

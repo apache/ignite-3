@@ -30,6 +30,7 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -320,7 +321,9 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
                     clock.now()
             );
 
-            partitionStorage.lastAppliedIndex(100);
+            partitionStorage.lastApplied(100, 10);
+
+            partitionStorage.committedGroupConfiguration(new GroupConfiguration(List.of("peer"), List.of("learner"), null, null));
 
             return null;
         });
@@ -335,6 +338,8 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         assertNotSame(partitionStorage, newPartitionStorage0);
 
         assertEquals(0L, newPartitionStorage0.lastAppliedIndex());
+        assertEquals(0L, newPartitionStorage0.lastAppliedTerm());
+        assertNull(newPartitionStorage0.committedGroupConfiguration());
         assertEquals(0L, newPartitionStorage0.persistedIndex());
         assertEquals(0, newPartitionStorage0.rowsCount());
 

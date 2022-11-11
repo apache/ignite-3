@@ -868,11 +868,13 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
     void testAppliedIndex() {
         storage.runConsistently(() -> {
             assertEquals(0, storage.lastAppliedIndex());
+            assertEquals(0, storage.lastAppliedTerm());
             assertEquals(0, storage.persistedIndex());
 
-            storage.lastAppliedIndex(1);
+            storage.lastApplied(1, 1);
 
             assertEquals(1, storage.lastAppliedIndex());
+            assertEquals(1, storage.lastAppliedTerm());
             assertThat(storage.persistedIndex(), is(lessThanOrEqualTo(1L)));
 
             return null;
@@ -1321,6 +1323,35 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
 
             assertFalse(cursor.hasNext());
         }
+    }
+
+    @Test
+    void groupConfigurationOnEmptyStorageIsNull() {
+        assertThat(storage.committedGroupConfiguration(), is(nullValue()));
+    }
+
+    @Test
+    void groupConfigurationIsUpdated() {
+        GroupConfiguration configToSave = new GroupConfiguration(
+                List.of("peer1", "peer2"),
+                List.of("learner1", "learner2"),
+                List.of("old-peer1", "old-peer2"),
+                List.of("old-learner1", "old-learner2")
+        );
+
+        storage.runConsistently(() -> {
+            storage.committedGroupConfiguration(configToSave);
+
+            return null;
+        });
+
+        GroupConfiguration returnedConfig = storage.committedGroupConfiguration();
+
+        assertThat(returnedConfig, is(notNullValue()));
+        assertThat(returnedConfig.peers(), is(List.of("peer1", "peer2")));
+        assertThat(returnedConfig.learners(), is(List.of("learner1", "learner2")));
+        assertThat(returnedConfig.oldPeers(), is(List.of("old-peer1", "old-peer2")));
+        assertThat(returnedConfig.oldLearners(), is(List.of("old-learner1", "old-learner2")));
     }
 
     /**

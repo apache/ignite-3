@@ -38,6 +38,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommand;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.storage.GroupConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
@@ -54,6 +55,7 @@ import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.ReadCommand;
 import org.apache.ignite.raft.client.WriteCommand;
 import org.apache.ignite.raft.client.service.CommandClosure;
+import org.apache.ignite.raft.client.service.CommittedConfiguration;
 import org.apache.ignite.raft.client.service.RaftGroupListener;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -112,6 +114,7 @@ public class PartitionListener implements RaftGroupListener {
             Command command = clo.command();
 
             long commandIndex = clo.index();
+            long commandTerm = clo.term();
 
             // We choose the minimum applied index, since we choose it (the minimum one) on local recovery so as not to lose the data for
             // one of the storages.
@@ -122,19 +125,28 @@ public class PartitionListener implements RaftGroupListener {
                             + ", mvAppliedIndex=" + storage.lastAppliedIndex()
                             + ", txStateAppliedIndex=" + txStateStorage.lastAppliedIndex() + "]";
 
+            // NB: Make sure that ANY command we accept here updates lastAppliedIndex+term info in one of the underlying
+            // storages!
+            // Otherwise, a gap between lastAppliedIndex from the point of view of JRaft and our storage might appear.
+            // If a leader has such a gap, and does doSnapshot(), it will subsequently truncate its log too aggressively
+            // in comparison with 'snapshot' state stored in our storages; and if we install a snapshot from our storages
+            // to a follower at this point, for a subsequent AppendEntries the leader will not be able to get prevLogTerm
+            // (because it's already truncated in the leader's log), so it will have to install a snapshot again, and then
+            // repeat same thing over and over again.
+
             storage.acquirePartitionSnapshotsReadLock();
 
             try {
                 if (command instanceof UpdateCommand) {
-                    handleUpdateCommand((UpdateCommand) command, commandIndex);
+                    handleUpdateCommand((UpdateCommand) command, commandIndex, commandTerm);
                 } else if (command instanceof UpdateAllCommand) {
-                    handleUpdateAllCommand((UpdateAllCommand) command, commandIndex);
+                    handleUpdateAllCommand((UpdateAllCommand) command, commandIndex, commandTerm);
                 } else if (command instanceof FinishTxCommand) {
-                    handleFinishTxCommand((FinishTxCommand) command, commandIndex);
+                    handleFinishTxCommand((FinishTxCommand) command, commandIndex, commandTerm);
                 } else if (command instanceof TxCleanupCommand) {
-                    handleTxCleanupCommand((TxCleanupCommand) command, commandIndex);
+                    handleTxCleanupCommand((TxCleanupCommand) command, commandIndex, commandTerm);
                 } else if (command instanceof SafeTimeSyncCommand) {
-                    handleSafeTimeSyncCommand((SafeTimeSyncCommand) command);
+                    handleSafeTimeSyncCommand((SafeTimeSyncCommand) command, commandIndex, commandTerm);
                 } else {
                     assert false : "Command was not found [cmd=" + command + ']';
                 }
@@ -153,8 +165,9 @@ public class PartitionListener implements RaftGroupListener {
      *
      * @param cmd Command.
      * @param commandIndex Index of the RAFT command.
+     * @param commandTerm Term of the RAFT command.
      */
-    private void handleUpdateCommand(UpdateCommand cmd, long commandIndex) {
+    private void handleUpdateCommand(UpdateCommand cmd, long commandIndex, long commandTerm) {
         // Skips the write command because the storage has already executed it.
         if (commandIndex <= storage.lastAppliedIndex()) {
             return;
@@ -173,7 +186,7 @@ public class PartitionListener implements RaftGroupListener {
 
             addToIndexes(row, rowId);
 
-            storage.lastAppliedIndex(commandIndex);
+            storage.lastApplied(commandIndex, commandTerm);
 
             return null;
         });
@@ -184,8 +197,9 @@ public class PartitionListener implements RaftGroupListener {
      *
      * @param cmd Command.
      * @param commandIndex Index of the RAFT command.
+     * @param commandTerm Term of the RAFT command.
      */
-    private void handleUpdateAllCommand(UpdateAllCommand cmd, long commandIndex) {
+    private void handleUpdateAllCommand(UpdateAllCommand cmd, long commandIndex, long commandTerm) {
         // Skips the write command because the storage has already executed it.
         if (commandIndex <= storage.lastAppliedIndex()) {
             return;
@@ -210,7 +224,7 @@ public class PartitionListener implements RaftGroupListener {
                 }
             }
 
-            storage.lastAppliedIndex(commandIndex);
+            storage.lastApplied(commandIndex, commandTerm);
 
             return null;
         });
@@ -221,9 +235,10 @@ public class PartitionListener implements RaftGroupListener {
      *
      * @param cmd Command.
      * @param commandIndex Index of the RAFT command.
+     * @param commandTerm Term of the RAFT command.
      * @throws IgniteInternalException if an exception occurred during a transaction state change.
      */
-    private void handleFinishTxCommand(FinishTxCommand cmd, long commandIndex) throws IgniteInternalException {
+    private void handleFinishTxCommand(FinishTxCommand cmd, long commandIndex, long commandTerm) throws IgniteInternalException {
         // Skips the write command because the storage has already executed it.
         if (commandIndex <= txStateStorage.lastAppliedIndex()) {
             return;
@@ -245,7 +260,8 @@ public class PartitionListener implements RaftGroupListener {
                 txId,
                 null,
                 txMetaToSet,
-                commandIndex
+                commandIndex,
+                commandTerm
         );
 
         LOG.debug("Finish the transaction txId = {}, state = {}, txStateChangeRes = {}", txId, txMetaToSet, txStateChangeRes);
@@ -275,8 +291,9 @@ public class PartitionListener implements RaftGroupListener {
      *
      * @param cmd Command.
      * @param commandIndex Index of the RAFT command.
+     * @param commandTerm Term of the RAFT command.
      */
-    private void handleTxCleanupCommand(TxCleanupCommand cmd, long commandIndex) {
+    private void handleTxCleanupCommand(TxCleanupCommand cmd, long commandIndex, long commandTerm) {
         // Skips the write command because the storage has already executed it.
         if (commandIndex <= storage.lastAppliedIndex()) {
             return;
@@ -298,7 +315,7 @@ public class PartitionListener implements RaftGroupListener {
             // TODO: IGNITE-17638 TestOnly code, let's consider using Txn state map instead of states.
             txManager.changeState(txId, null, cmd.commit() ? COMMITED : ABORTED);
 
-            storage.lastAppliedIndex(commandIndex);
+            storage.lastApplied(commandIndex, commandTerm);
 
             return null;
         });
@@ -308,9 +325,48 @@ public class PartitionListener implements RaftGroupListener {
      * Handler for the {@link SafeTimeSyncCommand}.
      *
      * @param cmd Command.
+     * @param commandIndex RAFT index of the command.
+     * @param commandTerm  RAFT term of the command.
      */
-    private void handleSafeTimeSyncCommand(SafeTimeSyncCommand cmd) {
-        // No-op.
+    private void handleSafeTimeSyncCommand(SafeTimeSyncCommand cmd, long commandIndex, long commandTerm) {
+        // Skips the write command because the storage has already executed it.
+        if (commandIndex <= storage.lastAppliedIndex()) {
+            return;
+        }
+
+        // We MUST bump information about last updated index+term.
+        // See a comment in #onWrite() for explanation.
+        storage.runConsistently(() -> {
+            storage.lastApplied(commandIndex, commandTerm);
+
+            return null;
+        });
+    }
+
+    @Override
+    public void onConfigurationCommitted(CommittedConfiguration config) {
+        // Skips the update because the storage has already recorded it.
+        if (config.index() <= storage.lastAppliedIndex()) {
+            return;
+        }
+
+        // Do the update under lock to make sure no snapshot is started concurrently with this update.
+        // Note that we do not need to protect from a concurrent command execution by this listener because
+        // configuration is committed in the same thread in which commands are applied.
+        storage.acquirePartitionSnapshotsReadLock();
+
+        try {
+            storage.runConsistently(() -> {
+                storage.committedGroupConfiguration(
+                        new GroupConfiguration(config.peers(), config.learners(), config.oldPeers(), config.oldLearners())
+                );
+                storage.lastApplied(config.index(), config.term());
+
+                return null;
+            });
+        } finally {
+            storage.releasePartitionSnapshotsReadLock();
+        }
     }
 
     @Override
@@ -327,15 +383,23 @@ public class PartitionListener implements RaftGroupListener {
         //      4) When we try to restore data starting from the minimal lastAppliedIndex, we come to the situation
         //         that a raft node doesn't have such data, because the truncation until the maximal lastAppliedIndex from 1) has happened.
         //      5) Node cannot finish local recovery.
-        long maxLastAppliedIndex = Math.max(storage.lastAppliedIndex(), txStateStorage.lastAppliedIndex());
+        long maxLastAppliedIndex;
+        long maxLastAppliedTerm;
+        if (storage.lastAppliedIndex() >= txStateStorage.lastAppliedIndex()) {
+            maxLastAppliedIndex = storage.lastAppliedIndex();
+            maxLastAppliedTerm = storage.lastAppliedTerm();
+        } else {
+            maxLastAppliedIndex = txStateStorage.lastAppliedIndex();
+            maxLastAppliedTerm = txStateStorage.lastAppliedTerm();
+        }
 
         storage.runConsistently(() -> {
-            storage.lastAppliedIndex(maxLastAppliedIndex);
+            storage.lastApplied(maxLastAppliedIndex, maxLastAppliedTerm);
 
             return null;
         });
 
-        txStateStorage.lastAppliedIndex(maxLastAppliedIndex);
+        txStateStorage.lastApplied(maxLastAppliedIndex, maxLastAppliedTerm);
 
         CompletableFuture.allOf(storage.flush(), txStateStorage.flush())
                 .whenComplete((unused, throwable) -> doneClo.accept(throwable));
