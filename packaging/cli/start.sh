@@ -27,7 +27,7 @@ ARGS="@ARGS@"
 DEFAULT_JVM_OPTS="-Dfile.encoding=UTF-8 \
     -XX:+HeapDumpOnOutOfMemoryError \
     -XX:+ExitOnOutOfMemoryError \
-    -XX:HeapDumpPath=$LOG_DIR"
+    -XX:HeapDumpPath=${LOG_DIR}"
 
 
 CMD="${JAVACMD} \

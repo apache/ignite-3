@@ -20,7 +20,7 @@
 SCRIPT=$(readlink -f "$0")
 SCRIPT_DIR=$(dirname "$SCRIPT")
 
-cd $SCRIPT_DIR || exit
+cd ${SCRIPT_DIR} || exit
 cd .. # SCRIPT_DIR points at bin
 
 # if IGNITE_HOME is not set than it will be parent directory for bin
@@ -28,12 +28,12 @@ if [ -z ${IGNITE_HOME+x} ]; then IGNITE_HOME=$(pwd); fi
 
 
 . @CONF_DIR@/@VARS_FILE_NAME@
-. $IGNITE_HOME/lib/@BOOTSTRAP_FILE_NAME@
+. ${IGNITE_HOME}/lib/@BOOTSTRAP_FILE_NAME@
 
-cd $IGNITE_HOME || exit
+cd ${IGNITE_HOME} || exit
 
 start() {
-  CMD="$JAVA_CMD_WITH_ARGS $APPLICATION_ARGS"
+  CMD="${JAVA_CMD_WITH_ARGS} ${APPLICATION_ARGS}"
   $CMD >>/dev/null 2>&1 </dev/null & echo $! >${IGNITE_HOME}/pid
 }
 

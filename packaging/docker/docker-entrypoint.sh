@@ -21,10 +21,10 @@
 
 LOGGING_JAVA_OPTS="-Djava.util.logging.config.file=@CONF_DIR@/ignite.java.util.logging.properties"
 
-CMD="$JAVACMD \
-  $COMMON_JAVA_OPTS \
-  $LOGGING_JAVA_OPTS \
-  $CLASSPATH \
-  $IGNITE3_EXTRA_JVM_ARGS"
+CMD="${JAVACMD} \
+  ${COMMON_JAVA_OPTS} \
+  ${LOGGING_JAVA_OPTS} \
+  ${CLASSPATH} \
+  ${IGNITE3_EXTRA_JVM_ARGS}"
 
 exec $CMD "$@"
