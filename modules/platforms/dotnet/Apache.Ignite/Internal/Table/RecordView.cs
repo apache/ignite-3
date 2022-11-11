@@ -45,15 +45,20 @@ namespace Apache.Ignite.Internal.Table
         /** Serializer. */
         private readonly RecordSerializer<T> _ser;
 
+        /** SQL. */
+        private readonly Sql _sql;
+
         /// <summary>
         /// Initializes a new instance of the <see cref="RecordView{T}"/> class.
         /// </summary>
         /// <param name="table">Table.</param>
         /// <param name="ser">Serializer.</param>
-        public RecordView(Table table, RecordSerializer<T> ser)
+        /// <param name="sql">SQL.</param>
+        public RecordView(Table table, RecordSerializer<T> ser, Sql sql)
         {
             _table = table;
             _ser = ser;
+            _sql = sql;
         }
 
         /// <summary>
@@ -285,12 +290,8 @@ namespace Apache.Ignite.Internal.Table
         /// <inheritdoc/>
         public IQueryable<T> AsQueryable(ITransaction? transaction = null, QueryableOptions? options = null)
         {
-#pragma warning disable CA2000 // TODO: Fix this
-            var sql = new Sql(_table.Socket); // TODO: Reuse existing SQL from Ignite
-            var executor = new IgniteQueryExecutor(sql, transaction, options);
+            var executor = new IgniteQueryExecutor(_sql, transaction, options);
             var provider = new IgniteQueryProvider(IgniteQueryParser.Instance, executor, _table.Name);
-
-#pragma warning restore CA2000
 
             return new IgniteQueryable<T>(provider);
         }
