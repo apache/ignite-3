@@ -78,14 +78,14 @@ public interface PartitionDataStorage extends ManuallyCloseable {
     CompletableFuture<Void> flush();
 
     /**
-     * Index of the highest write command applied to the storage. {@code 0} if index is unknown.
+     * Index of the write command with the highest index applied to the storage. {@code 0} if index is unknown.
      *
      * @see MvPartitionStorage#lastAppliedIndex()
      */
     long lastAppliedIndex();
 
     /**
-     * Term of the highest write command applied to the storage. {@code 0} if index is unknown.
+     * Term of the write command with the highest index applied to the storage. {@code 0} if index is unknown.
      *
      * @see MvPartitionStorage#lastAppliedTerm()
      */
@@ -99,7 +99,7 @@ public interface PartitionDataStorage extends ManuallyCloseable {
     void lastApplied(long lastAppliedIndex, long lastAppliedTerm) throws StorageException;
 
     /**
-     * Committed RAFT group configuration corresponding to the highest write command applied to the storage.
+     * Committed RAFT group configuration corresponding to the write command with the highest index applied to the storage.
      * {@code null} if it was never saved.
      *
      * @see MvPartitionStorage#committedGroupConfiguration()
