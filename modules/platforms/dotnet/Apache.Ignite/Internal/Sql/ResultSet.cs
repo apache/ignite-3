@@ -176,7 +176,6 @@ namespace Apache.Ignite.Internal.Sql
                 {
                     // Ignore.
                     // Socket might be disconnected.
-                    // TODO: Find out missing dispose in tests.
                 }
 
                 _resourceClosed = true;
