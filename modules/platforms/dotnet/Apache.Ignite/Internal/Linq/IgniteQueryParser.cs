@@ -58,7 +58,7 @@ internal static class IgniteQueryParser
     {
         var methodInfoRegistry = MethodInfoBasedNodeTypeRegistry.CreateFromRelinqAssembly();
 
-        // TODO: DML
+        // TODO: IGNITE-18137 DML
         // methodInfoRegistry.Register(RemoveAllExpressionNode.GetSupportedMethods(),
         //     typeof(RemoveAllExpressionNode));
         //
