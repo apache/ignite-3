@@ -71,8 +71,9 @@ internal sealed class IgniteQueryExecutor : IQueryExecutor
     /** <inheritdoc /> */
     public IEnumerable<T> ExecuteCollection<T>(QueryModel queryModel)
     {
+        // Sync over async lazy enumeration.
+        // Users should prefer async APIs - AsAsyncEnumerable, ToListAsync, etc (TODO IGNITE-18084).
         using IResultSet<T> resultSet = ExecuteResultSetInternal<T>(queryModel);
-
         var enumerator = resultSet.GetAsyncEnumerator();
 
         try
