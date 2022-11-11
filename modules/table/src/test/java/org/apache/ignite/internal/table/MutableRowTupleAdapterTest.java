@@ -30,6 +30,7 @@ import static org.apache.ignite.internal.schema.NativeTypes.STRING;
 import static org.apache.ignite.internal.schema.NativeTypes.datetime;
 import static org.apache.ignite.internal.schema.NativeTypes.time;
 import static org.apache.ignite.internal.schema.NativeTypes.timestamp;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -54,9 +55,11 @@ import java.util.Random;
 import java.util.UUID;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.schema.Column;
+import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaAware;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.SchemaMismatchException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
@@ -66,7 +69,6 @@ import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.NotNull;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -545,38 +547,13 @@ public class MutableRowTupleAdapterTest {
     }
 
     @Test
-    void testTemporalValuesPrecisionWidening() throws Exception {
+    void testTemporalValuesPrecisionConstraint() throws Exception {
         SchemaDescriptor schemaDescriptor = new SchemaDescriptor(1,
                 new Column[]{new Column("key", NativeTypes.INT32, false)},
                 new Column[]{
-                        new Column("time", NativeTypes.time(3), true),
-                        new Column("datetime", NativeTypes.datetime(4), true),
-                        new Column("timestamp", NativeTypes.timestamp(5), true)
-                }
-        );
-
-        TupleMarshaller marshaller = new TupleMarshallerImpl(new DummySchemaManagerImpl(schemaDescriptor));
-
-        Tuple tuple = Tuple.create().set("key", 1)
-                .set("time", LocalTime.of(1, 2))
-                .set("datetime", LocalDateTime.of(2022, 1, 2, 3, 4))
-                .set("timestamp", Instant.ofEpochSecond(123));
-
-        Row row = new Row(schemaDescriptor, new ByteBufferRow(marshaller.marshal(tuple).bytes()));
-
-        Tuple tuple1 = deserializeTuple(serializeTuple(TableRow.tuple(row)));
-
-        assertEquals(tuple, tuple1);
-    }
-
-    @Test
-    void testTemporalValuesPrecisionNarrowing() throws Exception {
-        SchemaDescriptor schemaDescriptor = new SchemaDescriptor(1,
-                new Column[]{new Column("key", NativeTypes.INT32, false)},
-                new Column[]{
-                        new Column("time", NativeTypes.time(3), true),
-                        new Column("datetime", NativeTypes.datetime(3), true),
-                        new Column("timestamp", NativeTypes.timestamp(3), true)
+                        new Column("time", NativeTypes.time(2), true),
+                        new Column("datetime", NativeTypes.datetime(2), true),
+                        new Column("timestamp", NativeTypes.timestamp(2), true)
                 }
         );
 
@@ -585,9 +562,9 @@ public class MutableRowTupleAdapterTest {
                 .set("datetime", LocalDateTime.of(2022, 1, 2, 3, 4, 5, 678_900_000))
                 .set("timestamp", Instant.ofEpochSecond(123, 456_700_000));
         Tuple expected = Tuple.create().set("key", 1)
-                .set("time", LocalTime.of(1, 2, 3, 456_000_000))
-                .set("datetime", LocalDateTime.of(2022, 1, 2, 3, 4, 5, 678_000_000))
-                .set("timestamp", Instant.ofEpochSecond(123, 456_000_000));
+                .set("time", LocalTime.of(1, 2, 3, 450_000_000))
+                .set("datetime", LocalDateTime.of(2022, 1, 2, 3, 4, 5, 670_000_000))
+                .set("timestamp", Instant.ofEpochSecond(123, 450_000_000));
 
         TupleMarshaller marshaller = new TupleMarshallerImpl(new DummySchemaManagerImpl(schemaDescriptor));
 
@@ -599,7 +576,7 @@ public class MutableRowTupleAdapterTest {
     }
 
     @Test
-    void testVarlenValuesLengthWidening() throws Exception {
+    void testVarlenValuesLengthConstraints() throws Exception {
         SchemaDescriptor schemaDescriptor = new SchemaDescriptor(1,
                 new Column[]{new Column("key", NativeTypes.INT32, false)},
                 new Column[]{
@@ -610,43 +587,59 @@ public class MutableRowTupleAdapterTest {
 
         TupleMarshaller marshaller = new TupleMarshallerImpl(new DummySchemaManagerImpl(schemaDescriptor));
 
-        Tuple tuple = Tuple.create().set("key", 1)
+        Tuple tuple1 = Tuple.create().set("key", 1)
+                .set("string", "abcef")
+                .set("bytes", new byte[]{1, 2, 3, 4, 5, 6, 7, 8});
+        Tuple tuple2 = Tuple.create().set("key", 1)
+                .set("string", "abcefghi")
+                .set("bytes", new byte[]{1, 2, 3, 4, 5});
+
+        assertThrowsWithCause(() -> marshaller.marshal(tuple1).bytes(), InvalidTypeException.class, "Column's type mismatch");
+        assertThrowsWithCause(() -> marshaller.marshal(tuple2).bytes(), InvalidTypeException.class, "Column's type mismatch");
+
+        Tuple expected = Tuple.create().set("key", 1)
                 .set("string", "abc")
                 .set("bytes", new byte[]{1, 2, 3});
 
-        Row row = new Row(schemaDescriptor, new ByteBufferRow(marshaller.marshal(tuple).bytes()));
+        Row row = new Row(schemaDescriptor, new ByteBufferRow(marshaller.marshal(expected).bytes()));
 
-        Tuple tuple1 = deserializeTuple(serializeTuple(TableRow.tuple(row)));
-
-        assertEquals(tuple, tuple1);
+        assertEquals(expected, deserializeTuple(serializeTuple(TableRow.tuple(row))));
     }
 
-    //TODO: Fix varlen types truncation.
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17729")
     @Test
-    void testVarlenValuesLengthNarrowing() throws Exception {
+    void testDecimalPrecisionConstraint() throws Exception {
         SchemaDescriptor schemaDescriptor = new SchemaDescriptor(1,
                 new Column[]{new Column("key", NativeTypes.INT32, false)},
                 new Column[]{
-                        new Column("string", NativeTypes.stringOf(5), true),
-                        new Column("bytes", NativeTypes.blobOf(5), true),
+                        new Column("decimal", NativeTypes.decimalOf(7, 2), true),
                 }
         );
 
-        Tuple tuple = Tuple.create().set("key", 1)
-                .set("string", "abcefghi")
-                .set("bytes", new byte[]{1, 2, 3, 4, 5, 6, 7, 8});
-        Tuple expected = Tuple.create().set("key", 1)
-                .set("string", "abcef")
-                .set("bytes", new byte[]{1, 2, 3, 4, 5});
+        TupleMarshaller marshaller = new TupleMarshallerImpl(new DummySchemaManagerImpl(schemaDescriptor));
+
+        Tuple tuple1 = Tuple.create().set("key", 1).set("decimal", new BigDecimal("123456.7"));
+
+        assertThrowsWithCause(() -> marshaller.marshal(tuple1).bytes(), SchemaMismatchException.class,
+                "Failed to set decimal value for column 'decimal' (max precision exceeds allocated precision)");
+    }
+
+    @Test
+    void testDecimalScaleConstraint() throws Exception {
+        SchemaDescriptor schemaDescriptor = new SchemaDescriptor(1,
+                new Column[]{new Column("key", NativeTypes.INT32, false)},
+                new Column[]{
+                        new Column("decimal", NativeTypes.decimalOf(5, 2), true),
+                }
+        );
 
         TupleMarshaller marshaller = new TupleMarshallerImpl(new DummySchemaManagerImpl(schemaDescriptor));
 
+        Tuple tuple = Tuple.create().set("key", 1).set("decimal", new BigDecimal("123.458"));
+        Tuple expected = Tuple.create().set("key", 1).set("decimal", new BigDecimal("123.46")); // Rounded.
+
         Row row = new Row(schemaDescriptor, new ByteBufferRow(marshaller.marshal(tuple).bytes()));
 
-        Tuple tuple1 = deserializeTuple(serializeTuple(TableRow.tuple(row)));
-
-        assertEquals(expected, tuple1);
+        assertEquals(expected, deserializeTuple(serializeTuple(TableRow.tuple(row))));
     }
 
     private <T extends Temporal> T truncateToDefaultPrecision(T temporal) {
