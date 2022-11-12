@@ -395,7 +395,7 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
 
         IndexScanNode<Object[]> scanNode = new IndexScanNode<>(
                 ectx,
-                rowType,
+                ectx.rowHandler().factory(ectx.getTypeFactory(), rowType),
                 index,
                 new TestTable(rowType, schemaDescriptor),
                 idxColMapping,

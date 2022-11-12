@@ -326,7 +326,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
 
         return new IndexScanNode<>(
                 ctx,
-                rowType,
+                ctx.rowHandler().factory(ctx.getTypeFactory(), rowType),
                 idx,
                 tbl,
                 rel.collation().getKeys(),
@@ -365,7 +365,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
 
         return new TableScanNode<>(
                 ctx,
-                rowType,
+                ctx.rowHandler().factory(ctx.getTypeFactory(), rowType),
                 tbl,
                 group.partitions(ctx.localNode().id()),
                 filters,

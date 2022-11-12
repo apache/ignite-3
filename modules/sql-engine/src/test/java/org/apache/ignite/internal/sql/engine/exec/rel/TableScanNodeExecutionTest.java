@@ -86,6 +86,8 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest {
 
         InternalIgniteTable tbl = new TestTable(rowType);
 
+        RowFactory<Object[]> rowFactory = ctx.rowHandler().factory(ctx.getTypeFactory(), rowType);
+
         int i = 0;
 
         for (int size : sizes) {
@@ -93,7 +95,7 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest {
 
             dataAmount = size;
 
-            TableScanNode<Object[]> scanNode = new TableScanNode<>(ctx, rowType, tbl, parts, null, null, null);
+            TableScanNode<Object[]> scanNode = new TableScanNode<>(ctx, rowFactory, tbl, parts, null, null, null);
 
             RootNode<Object[]> root = new RootNode<>(ctx, rowType);
 
