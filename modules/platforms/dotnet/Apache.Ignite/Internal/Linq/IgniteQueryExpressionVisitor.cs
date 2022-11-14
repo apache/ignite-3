@@ -227,6 +227,15 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
         else
         {
             // TODO IGNITE-18138 Avoid over-fetching, select only mapped columns.
+            // There are two way to do that:
+            // 1. Load schema and map only matching columns.
+            //    + Potentially nicer to the user, allows unmapped members in user types.
+            //    - Requires loading schema (worse perf, worse complexity).
+            //    - Can't cache metadata and delegates per type (worse perf, worse complexity).
+            //    - Obstacle for compiled queries.
+            // 2. Do not load schema, map all object columns.
+            //    + Simpler, faster.
+            //    - Requires all columns to be mapped (unless we support some kind of Ignore attribute).
             // Count, sum, max, min expect a single field or *
             // var format = _includeAllFields || _useStar
             //     ? "{0}.*, {0}._KEY, {0}._VAL"
