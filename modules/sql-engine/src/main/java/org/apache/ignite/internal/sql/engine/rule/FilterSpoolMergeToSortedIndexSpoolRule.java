@@ -120,8 +120,8 @@ public class FilterSpoolMergeToSortedIndexSpoolRule extends RelRule<FilterSpoolM
 
             List<RelFieldCollation> collationFields = inCollation.getFieldCollations().subList(0, searchKeys.size());
 
-            assert searchKeys.containsAll(collationFields.stream().map(RelFieldCollation::getFieldIndex)
-                    .collect(Collectors.toSet())) : "Search condition should be a prefix of collation [searchKeys="
+            assert searchKeys.size() == collationFields.size()
+                    : "Search condition should be a prefix of collation [searchKeys="
                     + searchKeys + ", collation=" + inCollation + ']';
 
             searchCollation = RelCollations.of(collationFields);
