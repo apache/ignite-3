@@ -781,4 +781,9 @@ public class IgniteImpl implements Ignite {
     public ClusterNode node() {
         return clusterSvc.topologyService().localMember();
     }
+
+    @TestOnly
+    public DistributionZoneManager distributionZoneManager() {
+        return distributionZoneManager;
+    }
 }

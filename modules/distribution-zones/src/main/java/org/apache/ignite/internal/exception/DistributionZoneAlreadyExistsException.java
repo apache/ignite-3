@@ -17,11 +17,10 @@
 
 package org.apache.ignite.internal.exception;
 
-import org.apache.ignite.lang.IgniteInternalException;
+import static org.apache.ignite.lang.ErrorGroups.DistributionZones.ZONE_ALREADY_EXISTS_ERR;
 
 import java.util.UUID;
-
-import static org.apache.ignite.lang.ErrorGroups.DistributionZones.ZONE_ALREADY_EXISTS_ERR;
+import org.apache.ignite.lang.IgniteInternalException;
 
 /**
  * This exception is thrown when a new distribution zone failed to be created,

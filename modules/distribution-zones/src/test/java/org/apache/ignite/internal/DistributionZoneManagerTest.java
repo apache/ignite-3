@@ -17,6 +17,16 @@
 
 package org.apache.ignite.internal;
 
+import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
+import org.apache.ignite.configuration.ConfigurationChangeException;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.exception.DistributionZoneAlreadyExistsException;
@@ -26,20 +36,13 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.TimeUnit;
-
-import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
+/**
+ * Tests for distribution zone manager.
+ */
 class DistributionZoneManagerTest extends IgniteAbstractTest {
     private static String ZONE_NAME = "zone1";
 
-    static DistributionZoneManager distributionZoneManager;
+    private static DistributionZoneManager distributionZoneManager;
 
     private final ConfigurationRegistry registry = new ConfigurationRegistry(
             List.of(DistributionZonesConfiguration.KEY),
@@ -50,7 +53,7 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
     );
 
     @BeforeEach
-    void setUp() {
+    public void setUp() {
         registry.start();
 
         registry.initializeDefaults();
@@ -60,7 +63,7 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
     }
 
     @AfterEach
-    void tearDown() throws Exception {
+    public void tearDown() throws Exception {
         registry.stop();
     }
 
@@ -145,5 +148,114 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
 
         assertTrue(e != null);
         assertTrue(e.getCause().getCause() instanceof DistributionZoneNotFoundException, e.toString());
+    }
+
+    @Test
+    public void testUpdateZone() throws Exception {
+        distributionZoneManager.createZone(ZONE_NAME, 100)
+                .get(5, TimeUnit.SECONDS);
+
+        DistributionZoneConfiguration zone1 = registry.getConfiguration(DistributionZonesConfiguration.KEY).distributionZones()
+                .get(ZONE_NAME);
+
+        assertNotNull(zone1);
+        assertEquals(ZONE_NAME, zone1.name().value());
+        assertEquals(0, zone1.dataNodesAutoAdjustScaleUp().value());
+        assertEquals(0, zone1.dataNodesAutoAdjustScaleDown().value());
+        assertEquals(100, zone1.dataNodesAutoAdjust().value());
+
+
+        distributionZoneManager.alterZone(ZONE_NAME, 200, 300)
+                .get(5, TimeUnit.SECONDS);
+
+        zone1 = registry.getConfiguration(DistributionZonesConfiguration.KEY).distributionZones()
+                .get(ZONE_NAME);
+
+        assertNotNull(zone1);
+        assertEquals(200, zone1.dataNodesAutoAdjustScaleUp().value());
+        assertEquals(300, zone1.dataNodesAutoAdjustScaleDown().value());
+        assertEquals(0, zone1.dataNodesAutoAdjust().value());
+
+
+        distributionZoneManager.alterZone(ZONE_NAME, 400)
+                .get(5, TimeUnit.SECONDS);
+
+        zone1 = registry.getConfiguration(DistributionZonesConfiguration.KEY).distributionZones()
+                .get(ZONE_NAME);
+
+        assertNotNull(zone1);
+        assertEquals(0, zone1.dataNodesAutoAdjustScaleUp().value());
+        assertEquals(0, zone1.dataNodesAutoAdjustScaleDown().value());
+        assertEquals(400, zone1.dataNodesAutoAdjust().value());
+    }
+
+    @Test
+    public void testAlterZoneIfExists1() {
+        Exception e = null;
+
+        try {
+            distributionZoneManager.alterZone(ZONE_NAME, 100).get(5, TimeUnit.SECONDS);
+        } catch (Exception e0) {
+            e = e0;
+        }
+
+        assertTrue(e != null);
+        assertTrue(e.getCause() instanceof DistributionZoneNotFoundException, e.toString());
+    }
+
+    @Test
+    public void testAlterZoneIfExists2() {
+        Exception e = null;
+
+        try {
+            distributionZoneManager.alterZone(ZONE_NAME, 100, 100).get(5, TimeUnit.SECONDS);
+        } catch (Exception e0) {
+            e = e0;
+        }
+
+        assertTrue(e != null);
+        assertTrue(e.getCause() instanceof DistributionZoneNotFoundException, e.toString());
+    }
+
+    @Test
+    public void testCreateZoneWithWrongAutoAdjust() throws Exception {
+        Exception e = null;
+
+        try {
+            distributionZoneManager.createZone(ZONE_NAME, -10).get(5, TimeUnit.SECONDS);
+        } catch (Exception e0) {
+            e = e0;
+        }
+
+        assertTrue(e != null);
+        assertTrue(e.getCause() instanceof ConfigurationChangeException, e.toString());
+    }
+
+    @Test
+    public void testCreateDropZoneWithWrongSeparatedAutoAdjust1() throws Exception {
+        Exception e = null;
+
+        try {
+            distributionZoneManager.createZone(ZONE_NAME, -100, 1).get(5, TimeUnit.SECONDS);
+        } catch (Exception e0) {
+            e = e0;
+        }
+
+        assertTrue(e != null);
+        assertTrue(e.getCause() instanceof ConfigurationChangeException, e.toString());
+    }
+
+    @Test
+    public void testCreateDropZoneWithWrongSeparatedAutoAdjust2() throws Exception {
+        Exception e = null;
+
+        try {
+            distributionZoneManager.createZone(ZONE_NAME, 1, -100).get(5, TimeUnit.SECONDS);
+        } catch (Exception e0) {
+            e = e0;
+        }
+
+        assertTrue(e != null);
+        assertTrue(e.getCause() instanceof ConfigurationChangeException, e.toString());
     }
 }

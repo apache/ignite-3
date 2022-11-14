@@ -25,80 +25,82 @@ import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NodeStoppingException;
 
+/**
+ * Distribution zones manager.
+ */
 public class DistributionZoneManager implements IgniteComponent {
-    DistributionZonesConfiguration zonesConfiguration;
+    /** Distribution zone configuration. */
+    private final  DistributionZonesConfiguration zonesConfiguration;
 
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
+    /**
+     * Creates a new distribution zone manager.
+     *
+     * @param zonesConfiguration Distribution zones configuration.
+     */
     public DistributionZoneManager(DistributionZonesConfiguration zonesConfiguration) {
         this.zonesConfiguration = zonesConfiguration;
     }
 
-    @Override
-    public void start() {
-
-    }
-
-    @Override
-    public void stop() throws Exception {
-
-    }
-
+    /**
+     * Creates a new distribution zone with the given {@code name} asynchronously. If a distribution zone with the same name already exists,
+     * a future will be completed with {@link DistributionZoneAlreadyExistsException}.
+     *
+     * @param name Distribution zone name.
+     * @param autoAdjustScaleUp Timeout in seconds between node added topology event itself and data nodes switch.
+     * @param autoAdjustScaleDown Timeout in seconds between node left topology event itself and data nodes switch.
+     * @return Future representing pending completion of the operation.
+     */
     public CompletableFuture<Void> createZone(String name, int autoAdjustScaleUp, int autoAdjustScaleDown) {
-        if (!busyLock.enterBusy()) {
-            throw new IgniteException(new NodeStoppingException());
-        }
-        try {
-            return CompletableFuture.supplyAsync(() -> zonesConfiguration.distributionZones().get(name))
-                    .thenCompose(zoneCfg -> {
-                        if (zoneCfg != null) {
-                            return CompletableFuture.failedFuture(new DistributionZoneAlreadyExistsException(name));
-                        } else {
-                            return zonesConfiguration.change(zonesChange -> zonesChange.changeDistributionZones(zonesListChange -> {
-                                zonesListChange.create(name, zoneChange -> {
-                                    zoneChange.changeDataNodesAutoAdjustScaleUp(autoAdjustScaleUp);
-                                    zoneChange.changeDataNodesAutoAdjustScaleDown(autoAdjustScaleDown);
-                                    zoneChange.changeDataNodesAutoAdjust(0);
-
-                                    int intZoneId = zonesChange.globalIdCounter() + 1;
-                                    zonesChange.changeGlobalIdCounter(intZoneId);
-                                });
-                            }));
-                        }
-                    });
-        } finally {
-            busyLock.leaveBusy();
-        }
+        return createZoneInternal(name, autoAdjustScaleUp, autoAdjustScaleDown, 0);
     }
 
+    /**
+     * Creates a new distribution zone with the given {@code name} asynchronously. If a distribution zone with the same name already exists,
+     * a future will be completed with {@link DistributionZoneAlreadyExistsException}.
+     *
+     * @param name Distribution zone name.
+     * @param autoAdjust Timeout in seconds between node added or node left topology event itself and data nodes switch.
+     * @return Future representing pending completion of the operation.
+     */
     public CompletableFuture<Void> createZone(String name, int autoAdjust) {
-        if (!busyLock.enterBusy()) {
-            throw new IgniteException(new NodeStoppingException());
-        }
-        try {
-            return CompletableFuture.supplyAsync(() -> zonesConfiguration.distributionZones().get(name))
-                    .thenCompose(zoneCfg -> {
-                        if (zoneCfg != null) {
-                            return CompletableFuture.failedFuture(new DistributionZoneAlreadyExistsException(name));
-                        } else {
-                            return zonesConfiguration.change(zonesChange -> zonesChange.changeDistributionZones(zonesListChange -> {
-                                zonesListChange.create(name, zoneChange -> {
-                                    zoneChange.changeDataNodesAutoAdjustScaleUp(0);
-                                    zoneChange.changeDataNodesAutoAdjustScaleDown(0);
-                                    zoneChange.changeDataNodesAutoAdjust(autoAdjust);
-
-                                    int intZoneId = zonesChange.globalIdCounter() + 1;
-                                    zonesChange.changeGlobalIdCounter(intZoneId);
-                                });
-                            }));
-                        }
-                    });
-        } finally {
-            busyLock.leaveBusy();
-        }
+        return createZoneInternal(name, 0, 0, autoAdjust);
     }
 
+    /**
+     * Alters a distribution zone. If an appropriate distribution zone does not exist,
+     * a future will be completed with {@link DistributionZoneNotFoundException}.
+     *
+     * @param name Distribution zone name.
+     * @param autoAdjustScaleUp Timeout in seconds between node added topology event itself and data nodes switch.
+     * @param autoAdjustScaleDown Timeout in seconds between node left topology event itself and data nodes switch.
+     * @return Future representing pending completion of the operation.
+     */
+    public CompletableFuture<Void> alterZone(String name, int autoAdjustScaleUp, int autoAdjustScaleDown) {
+        return alterZoneInternal(name, autoAdjustScaleUp, autoAdjustScaleDown, 0);
+    }
+
+    /**
+     * Alters a distribution zone. If an appropriate distribution zone does not exist,
+     * a future will be completed with {@link DistributionZoneNotFoundException}.
+     *
+     * @param name Distribution zone name.
+     * @param autoAdjust Timeout in seconds between node added or node left topology event itself and data nodes switch.
+     * @return Future representing pending completion of the operation.
+     */
+    public CompletableFuture<Void> alterZone(String name, int autoAdjust) {
+        return alterZoneInternal(name, 0, 0, autoAdjust);
+    }
+
+    /**
+     * Drops a distribution zone with the name specified. If appropriate distribution zone does not be found, a future will be
+     * completed with {@link DistributionZoneNotFoundException}.
+     *
+     * @param name Distribution zone name.
+     * @return Future representing pending completion of the operation.
+     */
     public CompletableFuture<Void> dropZone(String name) {
         if (!busyLock.enterBusy()) {
             throw new IgniteException(new NodeStoppingException());
@@ -113,6 +115,69 @@ public class DistributionZoneManager implements IgniteComponent {
 
                 zonesListChange.delete(name);
             }));
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void start() {
+
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void stop() throws Exception {
+
+    }
+
+    private CompletableFuture<Void> createZoneInternal(String name, int autoAdjustScaleUp, int autoAdjustScaleDown, int autoAdjust) {
+        if (!busyLock.enterBusy()) {
+            throw new IgniteException(new NodeStoppingException());
+        }
+        try {
+            return CompletableFuture.supplyAsync(() -> zonesConfiguration.distributionZones().get(name))
+                    .thenCompose(zoneCfg -> {
+                        if (zoneCfg != null) {
+                            return CompletableFuture.failedFuture(new DistributionZoneAlreadyExistsException(name));
+                        } else {
+                            return zonesConfiguration.change(zonesChange -> zonesChange.changeDistributionZones(zonesListChange -> {
+                                zonesListChange.create(name, zoneChange -> {
+                                    zoneChange.changeDataNodesAutoAdjustScaleUp(autoAdjustScaleUp);
+                                    zoneChange.changeDataNodesAutoAdjustScaleDown(autoAdjustScaleDown);
+                                    zoneChange.changeDataNodesAutoAdjust(autoAdjust);
+
+                                    int intZoneId = zonesChange.globalIdCounter() + 1;
+                                    zonesChange.changeGlobalIdCounter(intZoneId);
+                                });
+                            }));
+                        }
+                    });
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    private CompletableFuture<Void> alterZoneInternal(String name, int autoAdjustScaleUp, int autoAdjustScaleDown, int autoAdjust) {
+        if (!busyLock.enterBusy()) {
+            throw new IgniteException(new NodeStoppingException());
+        }
+        try {
+            return CompletableFuture.supplyAsync(() -> zonesConfiguration.distributionZones().get(name))
+                    .thenCompose(zoneCfg -> {
+                        if (zoneCfg == null) {
+                            return CompletableFuture.failedFuture(new DistributionZoneNotFoundException(name));
+                        } else {
+                            return zonesConfiguration.change(zonesChange -> zonesChange.changeDistributionZones(zonesListChange -> {
+                                zonesListChange.update(name, zoneChange -> {
+                                    zoneChange.changeDataNodesAutoAdjustScaleUp(autoAdjustScaleUp);
+                                    zoneChange.changeDataNodesAutoAdjustScaleDown(autoAdjustScaleDown);
+                                    zoneChange.changeDataNodesAutoAdjust(autoAdjust);
+                                });
+                            }));
+                        }
+                    });
         } finally {
             busyLock.leaveBusy();
         }

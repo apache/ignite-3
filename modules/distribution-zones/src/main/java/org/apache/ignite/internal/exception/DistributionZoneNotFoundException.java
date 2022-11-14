@@ -17,11 +17,10 @@
 
 package org.apache.ignite.internal.exception;
 
-import org.apache.ignite.lang.IgniteInternalException;
+import static org.apache.ignite.lang.ErrorGroups.DistributionZones.ZONE_NOT_FOUND_ERR;
 
 import java.util.UUID;
-
-import static org.apache.ignite.lang.ErrorGroups.DistributionZones.ZONE_NOT_FOUND_ERR;
+import org.apache.ignite.lang.IgniteInternalException;
 
 /**
  * Exception is thrown when appropriate distribution zone can`t be found.

@@ -22,6 +22,9 @@ import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.Value;
 
+/**
+ * Distribution zones configuration schema.
+ */
 @ConfigurationRoot(rootName = "zone", type = ConfigurationType.DISTRIBUTED)
 public class DistributionZonesConfigurationSchema {
     /** Global integer id counter. Used as an auto-increment counter to generate integer identifiers for distribution zone. */
