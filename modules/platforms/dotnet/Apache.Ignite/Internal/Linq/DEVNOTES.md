@@ -26,6 +26,15 @@ There are two way to map columns to user type members:
 We take the second approach for the sake of performance, simplicity and clarity.
 
 
+### Type Member to Column Mapping
+
+1. The mapping logic is based on **fields** only.
+2. Backing fields for [automatic properties](https://learn.microsoft.com/en-us/dotnet/csharp/programming-guide/classes-and-structs/auto-implemented-properties) get the column name from the property or its attributes.
+3. When `[Column("CustomName")]` attribute is present with non-zero `Name`, we use the specified name as it is, in quoted form: `select TABLE_NAME."CustomName" from ...`
+4. Otherwise, uppercase type member name is used without quotes (case-insensitive): `select TABLE_NAME.FIELDNAME from ...`
+5. Fields and properties with `[NotMapped]` attribute are ignored.
+
+
 ## Differences with Ignite 2.x provider
 
 This provider is a port of existing Ignite 2.x code. Major differences are:
