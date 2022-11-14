@@ -64,12 +64,6 @@ public class IgniteLogicalIndexScan extends AbstractIndexScan {
 
         List<SearchBounds> searchBounds;
         if (index.type() == Type.HASH) {
-            //TODO: Hash index doesn't support scans, however, Hash index is used in planing even if 'cond==null' or 'cond'
-            // doesn't meet the requirement "EQUAL condition must be specified for every indexed column".
-            // This may lead to AssertionError during index scan later. Luckily, we haven't seen that in tests yet.
-            //
-            // assert cond != null;
-
             searchBounds = buildHashIndexConditions(cluster, tbl, collation, cond, requiredColumns);
         } else if (index.type() == Type.SORTED) {
             searchBounds = buildSortedIndexConditions(cluster, tbl, collation, cond, requiredColumns);
