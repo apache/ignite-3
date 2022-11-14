@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Tests.Linq;
 
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Threading.Tasks;
 using Ignite.Sql;
@@ -45,8 +46,16 @@ public class LinqSqlGenerationTests
         AssertSql("select _T0.KEY, _T0.VAL from PUBLIC.tbl1 as _T0", q => q.ToList());
 
     [Test]
+    public void TestSelectAllColumnsOneColumnPoco() =>
+        AssertSql(
+            "select _T0.KEY from PUBLIC.tbl1 as _T0",
+            tbl => tbl.GetRecordView<OneColumnPoco>().AsQueryable().ToList());
+
+    [Test]
     public void TestSelectAllColumnsCustomNames() =>
-        AssertSql("select _T0.\"KEY\", _T0.\"VAL\" from PUBLIC.tbl1 as _T0", tbl => tbl.GetRecordView<PocoCustomNames>().AsQueryable().ToList());
+        AssertSql(
+            "select _T0.\"KEY\", _T0.\"VAL\" from PUBLIC.tbl1 as _T0",
+            tbl => tbl.GetRecordView<PocoCustomNames>().AsQueryable().ToList());
 
     [Test]
     public void TestSum() =>
@@ -155,4 +164,8 @@ public class LinqSqlGenerationTests
 
         Assert.AreEqual(expectedSql, _server.LastSql);
     }
+
+    // ReSharper disable once NotAccessedPositionalProperty.Local
+    [SuppressMessage("Microsoft.Performance", "CA1812:AvoidUninstantiatedInternalClasses", Justification = "Query tests.")]
+    private record OneColumnPoco(long Key);
 }
