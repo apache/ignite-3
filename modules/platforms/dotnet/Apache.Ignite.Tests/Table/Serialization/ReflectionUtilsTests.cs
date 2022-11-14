@@ -17,11 +17,12 @@
 
 // ReSharper disable InconsistentNaming
 // ReSharper disable UnusedMember.Local
-#pragma warning disable SA1306, SA1401, CS0649, CS0169, CA1823, CA1812
+#pragma warning disable SA1306, SA1401, CS0649, CS0169, CA1823, CA1812, SA1201
 namespace Apache.Ignite.Tests.Table.Serialization
 {
     using System;
     using System.Collections.Generic;
+    using System.ComponentModel.DataAnnotations.Schema;
     using System.Linq;
     using System.Reflection;
     using Internal.Table.Serialization;
@@ -36,7 +37,6 @@ namespace Apache.Ignite.Tests.Table.Serialization
         public void TestGetFieldByColumnNameReturnsFieldByName()
         {
             var res = typeof(Derived).GetFieldByColumnName("BaseFieldPublic");
-
             Assert.AreEqual("BaseFieldPublic", res!.Name);
         }
 
@@ -44,14 +44,21 @@ namespace Apache.Ignite.Tests.Table.Serialization
         public void TestGetFieldByColumnNameReturnsFieldByPropertyName()
         {
             var res = typeof(Derived).GetFieldByColumnName("BaseProp");
-
             Assert.AreEqual("<BaseProp>k__BackingField", res!.Name);
         }
 
         [Test]
         public void TestGetFieldByColumnNameReturnsFieldByColumnAttributeName()
         {
-            Assert.IsNull(typeof(Derived).GetFieldByColumnName("foo"));
+            var res = typeof(Derived).GetFieldByColumnName("FldCol");
+            Assert.AreEqual("BaseFieldCustomColumnName", res!.Name);
+        }
+
+        [Test]
+        public void TestGetFieldByColumnNameReturnsFieldByPropertyColumnAttributeName()
+        {
+            var res = typeof(Derived).GetFieldByColumnName("PropCol");
+            Assert.AreEqual("<BasePropCustomColumnName>k__BackingField", res!.Name);
         }
 
         [Test]
@@ -88,8 +95,10 @@ namespace Apache.Ignite.Tests.Table.Serialization
             var expected = new[]
             {
                 "<BaseProp>k__BackingField",
+                "<BasePropCustomColumnName>k__BackingField",
                 "<BaseTwoProp>k__BackingField",
                 "<DerivedProp>k__BackingField",
+                "BaseFieldCustomColumnName",
                 "BaseFieldInternal",
                 "BaseFieldPrivate",
                 "BaseFieldProtected",
@@ -145,6 +154,12 @@ namespace Apache.Ignite.Tests.Table.Serialization
             private int BaseFieldPrivate;
 
             public int BaseProp { get; set; }
+
+            [Column("PropCol")]
+            public int BasePropCustomColumnName { get; set; }
+
+            [Column("FldCol")]
+            public int BaseFieldCustomColumnName;
         }
 
         private class BaseTwo : Base
