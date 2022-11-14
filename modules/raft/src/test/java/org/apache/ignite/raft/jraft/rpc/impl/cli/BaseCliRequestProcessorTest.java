@@ -131,12 +131,12 @@ public class BaseCliRequestProcessorTest {
 
     @Test
     public void testInvalidPeerId() {
-        this.processor = new MockCliRequestProcessor("localhost", "test");
+        this.processor = new MockCliRequestProcessor("localhost:foo", "test");
         this.processor.handleRequest(asyncContext, TestUtils.createPingRequest());
         ErrorResponse resp = (ErrorResponse) asyncContext.getResponseObject();
         assertNotNull(resp);
         assertEquals(RaftError.EINVAL.getNumber(), resp.errorCode());
-        assertEquals("Fail to parse peer: localhost", resp.errorMsg());
+        assertEquals("Fail to parse peer: localhost:foo", resp.errorMsg());
     }
 
     @Test

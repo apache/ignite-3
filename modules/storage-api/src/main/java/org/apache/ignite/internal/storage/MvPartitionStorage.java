@@ -19,7 +19,7 @@ package org.apache.ignite.internal.storage;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.BiConsumer;
+import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.util.Cursor;
@@ -28,7 +28,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Multi-versioned partition storage. Maps RowId to a structures called "Version Chains". Each version chain is logically a stack of
  * elements with the following structure:
- * <pre><code>[timestamp | transaction state (txId + commitTableId + commitPartitionId), row data]</code></pre>
+ * <pre>{@code [timestamp | transaction state (txId + commitTableId + commitPartitionId), row data]}</pre>
  *
  * <p>Only the chain's head can contain a transaction state, every other element must have a timestamp. Presence of transaction state
  * indicates that the row is not yet committed.
@@ -38,7 +38,7 @@ import org.jetbrains.annotations.Nullable;
  * <p>Each MvPartitionStorage instance represents exactly one partition. All RowIds within a partition are sorted consistently with the
  * {@link RowId#compareTo} comparison order.
  */
-public interface MvPartitionStorage extends AutoCloseable {
+public interface MvPartitionStorage extends ManuallyCloseable {
     /**
      * Closure for executing write operations on the storage.
      *
@@ -193,19 +193,15 @@ public interface MvPartitionStorage extends AutoCloseable {
      *
      * @return Rows count.
      * @throws StorageException If failed to obtain size.
-     * @deprecated It's not yet defined what a "count" is. This value is not easily defined for multiversioned storages.
+     * @deprecated It's not yet defined what a "count" is. This value is not easily defined for multi-versioned storages.
      *      TODO IGNITE-16769 Implement correct PartitionStorage rows count calculation.
      */
     @Deprecated
     long rowsCount() throws StorageException;
 
     /**
-     * Iterates over all versions of all entries, except for tombstones.
-     *
-     * @param consumer Closure to process entries.
-     * @deprecated This method was born out of desperation and isn't well-designed. Implementation is not polished either. Currently, it's
-     *      only usage is to work-around in-memory PK index rebuild on node restart, which shouldn't even exist in the first place.
+     * Closes the storage.
      */
-    @Deprecated
-    void forEach(BiConsumer<RowId, BinaryRow> consumer);
+    @Override
+    void close();
 }

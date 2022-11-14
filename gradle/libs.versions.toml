@@ -85,6 +85,7 @@ cmake = "net.freudasoft.gradle-cmake-plugin:0.0.4"
 modernizer = "com.github.andygoossens.modernizer:1.6.2"
 nebula = "nebula.ospackage:9.1.1"
 docker = "com.palantir.docker:0.34.0"
+checksum = "org.gradle.crypto.checksum:1.4.0"
 
 [libraries]
 assertj-core = { module = "org.assertj:assertj-core", version.ref = "assertj" }
@@ -135,7 +136,7 @@ picocli-annotation-processor = { module = "info.picocli:picocli-codegen", versio
 
 jansi-core = { module = "org.fusesource.jansi:jansi", version.ref = "jansi" }
 
-jackson-core = { module = "com.fasterxml.jackson.core:jackson-core", version = "jackson" }
+jackson-core = { module = "com.fasterxml.jackson.core:jackson-core", version.ref = "jackson" }
 jackson-databind = { module = "com.fasterxml.jackson.core:jackson-databind", version.ref = "jackson" }
 jackson-annotations = { module = "com.fasterxml.jackson.core:jackson-annotations", version.ref = "jackson" }
 

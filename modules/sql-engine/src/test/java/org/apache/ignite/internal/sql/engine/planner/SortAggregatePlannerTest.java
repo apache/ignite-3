@@ -41,7 +41,6 @@ import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -77,7 +76,6 @@ public class SortAggregatePlannerTest extends AbstractAggregatePlannerTest {
 
     /** Checks if already sorted input exist and involved [Map|Reduce]SortAggregate. */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17748")
     public void testNoSortAppendingWithCorrectCollation() throws Exception {
         RelFieldCollation coll = new RelFieldCollation(1, RelFieldCollation.Direction.DESCENDING);
 
@@ -113,7 +111,6 @@ public class SortAggregatePlannerTest extends AbstractAggregatePlannerTest {
      * @throws Exception If failed.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17748")
     public void collationPermuteSingle() throws Exception {
         IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
 
@@ -162,7 +159,6 @@ public class SortAggregatePlannerTest extends AbstractAggregatePlannerTest {
      * @throws Exception If failed.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17748")
     public void collationPermuteMapReduce() throws Exception {
         IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
 

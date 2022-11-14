@@ -34,7 +34,6 @@ import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.BiConsumer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.rocksdb.RocksIteratorAdapter;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
@@ -817,37 +816,6 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         }
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public void forEach(BiConsumer<RowId, BinaryRow> consumer) {
-        try (
-                var upperBound = new Slice(partitionEndPrefix());
-                var options = new ReadOptions().setIterateUpperBound(upperBound);
-                RocksIterator it = db.newIterator(cf, options)
-        ) {
-            it.seek(partitionStartPrefix());
-
-            while (it.isValid()) {
-                byte[] keyBytes = it.key();
-                byte[] valueBytes = it.value();
-
-                boolean valueHasTxId = keyBytes.length == ROW_PREFIX_SIZE;
-
-                if (!isTombstone(valueBytes, valueHasTxId)) {
-                    ByteBuffer keyBuf = ByteBuffer.wrap(keyBytes).order(KEY_BYTE_ORDER);
-
-                    RowId rowId = getRowId(keyBuf);
-
-                    BinaryRow binaryRow = wrapValueIntoBinaryRow(valueBytes, valueHasTxId);
-
-                    consumer.accept(rowId, binaryRow);
-                }
-
-                it.next();
-            }
-        }
-    }
-
     /**
      * Deletes partition data from the storage.
      */
@@ -869,8 +837,8 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
     /** {@inheritDoc} */
     @Override
-    public void close() throws Exception {
-        IgniteUtils.closeAll(persistedTierReadOpts, readOpts, writeOpts, scanReadOptions, upperBound);
+    public void close() {
+        RocksUtils.closeAll(persistedTierReadOpts, readOpts, writeOpts, scanReadOptions, upperBound);
     }
 
     private static WriteBatchWithIndex requireWriteBatch() {

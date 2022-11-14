@@ -26,15 +26,23 @@ import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.hamcrest.Matchers.sameInstance;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
+import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
@@ -76,6 +84,8 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
     private TableIndexView sortedIdx;
 
     private TableIndexView hashIdx;
+
+    private final HybridClock clock = new HybridClockImpl();
 
     /**
      * Initializes the internal structures needed for tests.
@@ -297,6 +307,74 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
                 e.getMessage(),
                 is(String.format("Index \"%s\" is not configured as a Sorted Index. Actual type: HASH", hashIdx.id()))
         );
+    }
+
+    @Test
+    public void testStartRebalanceMvPartition() throws Exception {
+        MvPartitionStorage partitionStorage = tableStorage.getOrCreateMvPartition(PARTITION_ID);
+
+        partitionStorage.runConsistently(() -> {
+            partitionStorage.addWriteCommitted(
+                    new RowId(PARTITION_ID),
+                    binaryRow(new TestKey(0, "0"), new TestValue(1, "1")),
+                    clock.now()
+            );
+
+            partitionStorage.lastAppliedIndex(100);
+
+            return null;
+        });
+
+        partitionStorage.flush().get(1, TimeUnit.SECONDS);
+
+        tableStorage.startRebalanceMvPartition(PARTITION_ID).get(1, TimeUnit.SECONDS);
+
+        MvPartitionStorage newPartitionStorage0 = tableStorage.getMvPartition(PARTITION_ID);
+
+        assertNotNull(newPartitionStorage0);
+        assertNotSame(partitionStorage, newPartitionStorage0);
+
+        assertEquals(0L, newPartitionStorage0.lastAppliedIndex());
+        assertEquals(0L, newPartitionStorage0.persistedIndex());
+        assertEquals(0, newPartitionStorage0.rowsCount());
+
+        tableStorage.startRebalanceMvPartition(PARTITION_ID).get(1, TimeUnit.SECONDS);
+
+        MvPartitionStorage newPartitionStorage1 = tableStorage.getMvPartition(PARTITION_ID);
+
+        assertSame(newPartitionStorage0, newPartitionStorage1);
+    }
+
+    @Test
+    public void testAbortRebalanceMvPartition() throws Exception {
+        assertDoesNotThrow(() -> tableStorage.abortRebalanceMvPartition(PARTITION_ID).get(1, TimeUnit.SECONDS));
+
+        MvPartitionStorage partitionStorage = tableStorage.getOrCreateMvPartition(PARTITION_ID);
+
+        tableStorage.startRebalanceMvPartition(PARTITION_ID).get(1, TimeUnit.SECONDS);
+
+        tableStorage.abortRebalanceMvPartition(PARTITION_ID).get(1, TimeUnit.SECONDS);
+
+        assertSame(partitionStorage, tableStorage.getMvPartition(PARTITION_ID));
+
+        assertDoesNotThrow(() -> tableStorage.abortRebalanceMvPartition(PARTITION_ID).get(1, TimeUnit.SECONDS));
+    }
+
+    @Test
+    public void testFinishRebalanceMvPartition() throws Exception {
+        assertDoesNotThrow(() -> tableStorage.finishRebalanceMvPartition(PARTITION_ID).get(1, TimeUnit.SECONDS));
+
+        tableStorage.getOrCreateMvPartition(PARTITION_ID);
+
+        tableStorage.startRebalanceMvPartition(PARTITION_ID).get(1, TimeUnit.SECONDS);
+
+        MvPartitionStorage newPartitionStorage = tableStorage.getMvPartition(PARTITION_ID);
+
+        tableStorage.finishRebalanceMvPartition(PARTITION_ID).get(1, TimeUnit.SECONDS);
+
+        assertSame(newPartitionStorage, tableStorage.getMvPartition(PARTITION_ID));
+
+        assertDoesNotThrow(() -> tableStorage.finishRebalanceMvPartition(PARTITION_ID).get(1, TimeUnit.SECONDS));
     }
 
     private static void createTestIndexes(TablesConfiguration tablesConfig) {

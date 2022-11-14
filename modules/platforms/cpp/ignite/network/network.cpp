@@ -23,7 +23,7 @@
 
 #ifdef _WIN32
 # include "detail/win/win_async_client_pool.h"
-#else // Other. Assume Linux
+#else
 # include "detail/linux/linux_async_client_pool.h"
 #endif
 

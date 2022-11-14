@@ -31,11 +31,11 @@ import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryFetchRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryFetchResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryMetadataRequest;
 import org.apache.ignite.internal.jdbc.proto.event.Response;
-import org.apache.ignite.internal.sql.SqlColumnTypeConverter;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ResultSetMetadata;
+import org.apache.ignite.sql.SqlColumnType;
 
 /**
  * Jdbc query event handler implementation.
@@ -159,7 +159,7 @@ public class JdbcQueryCursorHandlerImpl implements JdbcQueryCursorHandler {
             schemaName,
             tblName,
             colName,
-            SqlColumnTypeConverter.columnTypeToClass(fldMeta.type()),
+            SqlColumnType.columnTypeToClass(fldMeta.type()),
             fldMeta.precision(),
             fldMeta.scale(),
             fldMeta.nullable()

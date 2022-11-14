@@ -162,4 +162,45 @@ public interface MvTableStorage extends AutoCloseable {
      * @throws StorageException If an error has occurred during the destruction of the storage.
      */
     void destroy() throws StorageException;
+
+    /**
+     * Prepares the partition storage for rebalancing: makes a backup of the current partition storage and creates a new storage.
+     *
+     * <p>This method must be called before every full rebalance of the partition storage, so that in case of errors or cancellation of the
+     * full rebalance, we can restore the partition storage from the backup.
+     *
+     * <p>Full rebalance will be completed when one of the methods is called:
+     * <ol>
+     *     <li>{@link #abortRebalanceMvPartition(int)} - in case of a full rebalance cancellation or failure, so that we can
+     *     restore the partition storage from a backup;</li>
+     *     <li>{@link #finishRebalanceMvPartition(int)} - in case of a successful full rebalance, to remove the backup of the
+     *     partition storage.</li>
+     * </ol>
+     *
+     * @param partitionId Partition ID.
+     * @return Future, if completed without errors, then {@link #getMvPartition} will return a new (empty) partition storage.
+     */
+    CompletableFuture<Void> startRebalanceMvPartition(int partitionId);
+
+    /**
+     * Aborts rebalancing of the partition storage if it was started: restores the partition storage from a backup and deletes the new
+     * storage.
+     *
+     * <p>If a full rebalance has not been {@link #startRebalanceMvPartition(int) started}, then nothing will happen.
+     *
+     * @param partitionId Partition ID.
+     * @return Future, upon completion of which {@link #getMvPartition} will return the partition storage restored from the backup.
+     */
+    CompletableFuture<Void> abortRebalanceMvPartition(int partitionId);
+
+    /**
+     * Finishes a successful partition storage rebalance if it has been started: deletes the backup of the partition storage and saves a new
+     * storage.
+     *
+     * <p>If a full rebalance has not been {@link #startRebalanceMvPartition(int) started}, then nothing will happen.
+     *
+     * @param partitionId Partition ID.
+     * @return Future, if it fails, will abort the partition storage rebalance.
+     */
+    CompletableFuture<Void> finishRebalanceMvPartition(int partitionId);
 }

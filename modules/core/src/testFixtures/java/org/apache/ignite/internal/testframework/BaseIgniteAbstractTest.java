@@ -89,7 +89,7 @@ public abstract class BaseIgniteAbstractTest {
      *
      * @return Logger.
      */
-    protected IgniteLogger logger() {
+    protected static IgniteLogger logger() {
         return log;
     }
 }

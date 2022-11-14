@@ -73,7 +73,6 @@ import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.mockito.Mockito;
 
 /**
  * Dummy table storage implementation.
@@ -148,8 +147,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 UUID.randomUUID(),
                 Int2ObjectMaps.singleton(0, mock(RaftGroupService.class)),
                 1,
-                NetworkAddress::toString,
-                addr -> Mockito.mock(ClusterNode.class),
+                Function.identity(),
+                addr -> mock(ClusterNode.class),
                 txManager == null ? new TxManagerImpl(replicaSvc, new HeapLockManager(), new HybridClockImpl()) : txManager,
                 mock(MvTableStorage.class),
                 new TestTxStateTableStorage(),
@@ -161,7 +160,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         groupId = crossTableUsage ? new TablePartitionId(tableId(), 0) : crossTableGroupId;
 
         lenient().doReturn(groupId).when(svc).groupId();
-        Peer leaderPeer = new Peer(ADDR);
+        Peer leaderPeer = new Peer(UUID.randomUUID().toString());
         lenient().doReturn(leaderPeer).when(svc).leader();
         lenient().doReturn(CompletableFuture.completedFuture(new IgniteBiTuple<>(leaderPeer, 1L))).when(svc).refreshAndGetLeaderWithTerm();
 
@@ -245,10 +244,12 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 partitionMap.get(0),
                 this.txManager,
                 this.txManager.lockManager(),
+                Runnable::run,
                 0,
                 tableId,
                 () -> Map.of(pkLocker.id(), pkLocker),
                 pkStorage,
+                () -> Map.of(),
                 clock,
                 new PendingComparableValuesTracker<>(clock.now()),
                 txStateStorage().getOrCreateTxStateStorage(0),

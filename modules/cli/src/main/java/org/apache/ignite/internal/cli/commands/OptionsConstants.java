@@ -38,6 +38,9 @@ public class OptionsConstants {
     /** Node URL option description. */
     public static final String NODE_URL_DESC = "URL of ignite node";
 
+    /** Node URL or name option description. */
+    public static final String NODE_URL_OR_NAME_DESC = "URL or name of an Ignite node";
+
     /** Profile name option names. */
     public static final String PROFILE_OPTION = "--profile";
     public static final String PROFILE_OPTION_SHORT = "-p";
@@ -47,4 +50,13 @@ public class OptionsConstants {
 
     /** URL option short name. */
     public static final String URL_OPTION_SHORT = "-u";
+
+    /** Node name option long name. */
+    public static final String NODE_NAME_OPTION = "--node-name";
+
+    /** Node name option short name. */
+    public static final String NODE_NAME_OPTION_SHORT = "-n";
+
+    /** Node name option description. */
+    public static final String NODE_NAME_DESC = "Name of an Ignite node";
 }

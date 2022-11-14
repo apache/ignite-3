@@ -217,7 +217,7 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
         this.term = opts.getInitTerm();
         this.msgFactory = node.getRaftOptions().getRaftMessagesFactory();
         this.snapshotStorage = this.node.getServiceFactory().createSnapshotStorage(opts.getUri(),
-            this.node.getRaftOptions());
+            this.node.getRaftOptions(), logManager);
         if (opts.isFilterBeforeCopyRemote()) {
             this.snapshotStorage.setFilterBeforeCopyRemote();
         }
@@ -230,8 +230,8 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
         }
         if (snapshotStorage instanceof LocalSnapshotStorage) {
             final LocalSnapshotStorage tmp = (LocalSnapshotStorage) this.snapshotStorage;
-            if (tmp != null && !tmp.hasServerAddr()) {
-                tmp.setServerAddr(opts.getAddr());
+            if (tmp != null && !tmp.hasServerPeerId()) {
+                tmp.setServerPeerId(opts.getPeerId());
             }
         }
         final SnapshotReader reader = this.snapshotStorage.open();

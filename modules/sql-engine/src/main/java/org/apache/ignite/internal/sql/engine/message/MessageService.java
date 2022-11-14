@@ -23,8 +23,9 @@ import org.apache.ignite.network.NetworkMessage;
 
 /**
  * MessageService interface.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
+// TODO: Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+// TODO: Service should operate with consistent IDs, see https://issues.apache.org/jira/browse/IGNITE-18063
 public interface MessageService extends LifecycleAware {
     /**
      * Sends a message to given node.

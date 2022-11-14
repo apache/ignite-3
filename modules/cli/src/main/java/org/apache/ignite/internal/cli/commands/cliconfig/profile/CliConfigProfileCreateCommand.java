@@ -53,6 +53,7 @@ public class CliConfigProfileCreateCommand extends BaseCommand implements Callab
                         .activate(activate)::build)
                 .errOutput(spec.commandLine().getErr())
                 .output(spec.commandLine().getOut())
+                .verbose(verbose)
                 .build().runPipeline();
     }
 }

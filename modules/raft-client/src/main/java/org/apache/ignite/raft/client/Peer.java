@@ -20,7 +20,6 @@ package org.apache.ignite.raft.client;
 import java.io.Serializable;
 import java.util.Objects;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.network.NetworkAddress;
 
 /**
  * A participant of a replication group.
@@ -28,9 +27,9 @@ import org.apache.ignite.network.NetworkAddress;
 // TODO: IGNITE-15506 Replace it by jraft Peer
 public final class Peer implements Serializable {
     /**
-     * Network address.
+     * Node consistent ID.
      */
-    private final NetworkAddress addr;
+    private final String consistentId;
 
     /**
      * Peer's local priority value, if node don't support priority election, this value is {@link ElectionPriority#DISABLED}.
@@ -43,35 +42,35 @@ public final class Peer implements Serializable {
      * @param peer Peer.
      */
     public Peer(Peer peer) {
-        this.addr = peer.address();
+        this.consistentId = peer.consistentId();
         this.priority = peer.getPriority();
     }
 
     /**
      * Constructor.
      *
-     * @param addr The address.
+     * @param consistentId Consistent ID of a node.
      */
-    public Peer(NetworkAddress addr) {
-        this(addr, ElectionPriority.DISABLED);
+    public Peer(String consistentId) {
+        this(consistentId, ElectionPriority.DISABLED);
     }
 
     /**
      * Constructor.
      *
-     * @param addr     The address.
+     * @param consistentId Consistent ID of a node.
      * @param priority Election priority.
      */
-    public Peer(NetworkAddress addr, int priority) {
-        this.addr = addr;
+    public Peer(String consistentId, int priority) {
+        this.consistentId = consistentId;
         this.priority = priority;
     }
 
     /**
-     * Returns address.
+     * Returns this node's consistent ID.
      */
-    public NetworkAddress address() {
-        return this.addr;
+    public String consistentId() {
+        return consistentId;
     }
 
     /**
@@ -81,7 +80,6 @@ public final class Peer implements Serializable {
         return priority;
     }
 
-    /** {@inheritDoc} */
     @Override
     public boolean equals(Object o) {
         if (this == o) {
@@ -91,16 +89,14 @@ public final class Peer implements Serializable {
             return false;
         }
         Peer peer = (Peer) o;
-        return priority == peer.priority && addr.equals(peer.addr);
+        return priority == peer.priority && consistentId.equals(peer.consistentId);
     }
 
-    /** {@inheritDoc} */
     @Override
     public int hashCode() {
-        return Objects.hash(addr, priority);
+        return Objects.hash(consistentId, priority);
     }
 
-    /** {@inheritDoc} */
     @Override
     public String toString() {
         return S.toString(Peer.class, this);

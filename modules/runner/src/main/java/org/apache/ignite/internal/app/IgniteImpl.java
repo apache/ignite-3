@@ -62,6 +62,7 @@ import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValue
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.configuration.MetricConfiguration;
 import org.apache.ignite.internal.metrics.rest.MetricRestFactory;
+import org.apache.ignite.internal.metrics.sources.JvmMetricSource;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.configuration.NetworkConfigurationSchema;
 import org.apache.ignite.internal.raft.Loza;
@@ -109,6 +110,7 @@ import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessageSerializationRegistryImpl;
 import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.network.NodeMetadata;
 import org.apache.ignite.network.scalecube.ScaleCubeClusterServiceFactory;
 import org.apache.ignite.raft.jraft.RaftMessagesSerializationRegistryInitializer;
 import org.apache.ignite.sql.IgniteSql;
@@ -259,7 +261,6 @@ public class IgniteImpl implements Ignite {
         );
 
         NetworkConfiguration networkConfiguration = nodeCfgMgr.configurationRegistry().getConfiguration(NetworkConfiguration.KEY);
-
         MessageSerializationRegistryImpl serializationRegistry = new MessageSerializationRegistryImpl();
 
         CmgMessagesSerializationRegistryInitializer.registerFactories(serializationRegistry);
@@ -415,7 +416,8 @@ public class IgniteImpl implements Ignite {
                 compute,
                 clusterSvc,
                 nettyBootstrapFactory,
-                sql
+                sql,
+                () -> cmgMgr.clusterState().thenApply(s -> s.clusterTag().clusterId())
         );
     }
 
@@ -476,6 +478,7 @@ public class IgniteImpl implements Ignite {
      */
     public CompletableFuture<Ignite> start(@Language("HOCON") @Nullable String cfg) {
         try {
+            metricManager.registerSource(new JvmMetricSource());
 
             lifecycleManager.startComponent(longJvmPauseDetector);
 
@@ -505,6 +508,8 @@ public class IgniteImpl implements Ignite {
                     raftMgr,
                     cmgMgr
             );
+
+            clusterSvc.updateMetadata(new NodeMetadata(restComponent.host(), restComponent.port()));
 
             LOG.info("Components started, joining the cluster");
 

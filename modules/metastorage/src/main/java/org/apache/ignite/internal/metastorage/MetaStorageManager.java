@@ -23,11 +23,9 @@ import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
 import static org.apache.ignite.lang.ErrorGroups.MetaStorage.CURSOR_CLOSING_ERR;
 import static org.apache.ignite.lang.ErrorGroups.MetaStorage.CURSOR_EXECUTION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.MetaStorage.DEPLOYING_WATCH_ERR;
-import static org.apache.ignite.network.util.ClusterServiceUtils.resolveNodes;
 
 import java.util.Collection;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
@@ -160,11 +158,9 @@ public class MetaStorageManager implements IgniteComponent {
     }
 
     private CompletableFuture<MetaStorageService> initializeMetaStorage(Collection<String> metaStorageNodes) {
-        List<ClusterNode> metastorageNodes = resolveNodes(clusterService, metaStorageNodes);
-
         ClusterNode thisNode = clusterService.topologyService().localMember();
 
-        if (metastorageNodes.contains(thisNode)) {
+        if (metaStorageNodes.contains(thisNode.name())) {
             clusterService.topologyService().addEventHandler(new TopologyEventHandler() {
                 @Override
                 public void onDisappeared(ClusterNode member) {
@@ -178,7 +174,7 @@ public class MetaStorageManager implements IgniteComponent {
         try {
             CompletableFuture<RaftGroupService> raftServiceFuture = raftMgr.prepareRaftGroup(
                     INSTANCE,
-                    metastorageNodes,
+                    metaStorageNodes,
                     () -> new MetaStorageListener(storage),
                     RaftGroupOptions.defaults()
             );
@@ -227,7 +223,7 @@ public class MetaStorageManager implements IgniteComponent {
             IgniteUtils.closeAll(
                     this::stopDeployedWatches,
                     () -> raftMgr.stopRaftGroup(INSTANCE),
-                    storage
+                    storage::close
             );
         }
     }

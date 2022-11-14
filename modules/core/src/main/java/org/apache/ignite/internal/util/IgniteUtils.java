@@ -52,6 +52,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
+import javax.management.MalformedObjectNameException;
+import javax.management.ObjectName;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.util.worker.IgniteWorker;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -102,6 +104,11 @@ public class IgniteUtils {
 
     /** Class cache. */
     private static final ConcurrentMap<ClassLoader, ConcurrentMap<String, Class<?>>> classCache = new ConcurrentHashMap<>();
+
+    /**
+     * Root package for JMX MBeans.
+     */
+    private static final String JMX_MBEAN_PACKAGE = "org.apache";
 
     /**
      * Get JDK version.
@@ -886,5 +893,17 @@ public class IgniteUtils {
         }
 
         return result;
+    }
+
+    /**
+     * Produce new MBean name according to received group and name.
+     *
+     * @param group pkg:group=value part of MBean name.
+     * @param name pkg:name=value part of MBean name.
+     * @return new ObjectName.
+     * @throws MalformedObjectNameException if MBean name can't be formed from the received arguments.
+     */
+    public static ObjectName makeMbeanName(String group, String name) throws MalformedObjectNameException {
+        return new ObjectName(String.format("%s:group=%s,name=%s", JMX_MBEAN_PACKAGE, group, name));
     }
 }

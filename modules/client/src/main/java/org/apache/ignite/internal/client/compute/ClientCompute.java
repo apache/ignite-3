@@ -119,9 +119,8 @@ public class ClientCompute implements IgniteCompute {
         Objects.requireNonNull(key);
         Objects.requireNonNull(jobClassName);
 
-        // TODO: IGNITE-16925 - implement partition awareness.
         return getTable(tableName)
-                .thenCompose(table -> this.<R>executeColocatedTupleKey(table, key, jobClassName, args))
+                .thenCompose(table -> (CompletableFuture<R>) executeColocatedTupleKey(table, key, jobClassName, args))
                 .handle((res, err) -> handleMissingTable(tableName, res, err))
                 .thenCompose(r ->
                         // If a table was dropped, try again: maybe a new table was created with the same name and new id.
@@ -138,9 +137,8 @@ public class ClientCompute implements IgniteCompute {
         Objects.requireNonNull(keyMapper);
         Objects.requireNonNull(jobClassName);
 
-        // TODO: IGNITE-16925 - implement partition awareness.
         return getTable(tableName)
-                .thenCompose(table -> this.<K, R>executeColocatedObjectKey(table, key, keyMapper, jobClassName, args))
+                .thenCompose(table -> (CompletableFuture<R>) executeColocatedObjectKey(table, key, keyMapper, jobClassName, args))
                 .handle((res, err) -> handleMissingTable(tableName, res, err))
                 .thenCompose(r ->
                         // If a table was dropped, try again: maybe a new table was created with the same name and new id.
@@ -186,7 +184,7 @@ public class ClientCompute implements IgniteCompute {
         }, r -> (R) r.in().unpackObjectFromBinaryTuple(), node.name(), null);
     }
 
-    private ClusterNode randomNode(Set<ClusterNode> nodes) {
+    private static ClusterNode randomNode(Set<ClusterNode> nodes) {
         if (nodes.size() == 1) {
             return nodes.iterator().next();
         }
@@ -201,7 +199,7 @@ public class ClientCompute implements IgniteCompute {
         return iterator.next();
     }
 
-    private <K, R> CompletableFuture<R> executeColocatedObjectKey(
+    private static <K, R> CompletableFuture<R> executeColocatedObjectKey(
             ClientTable t,
             K key,
             Mapper<K> keyMapper,
@@ -220,10 +218,11 @@ public class ClientCompute implements IgniteCompute {
                     w.packString(jobClassName);
                     w.packObjectArrayAsBinaryTuple(args);
                 },
-                r -> (R) r.unpackObjectFromBinaryTuple());
+                r -> (R) r.unpackObjectFromBinaryTuple(),
+                ClientTupleSerializer.getHashFunction(null, keyMapper, key));
     }
 
-    private <R> CompletableFuture<R> executeColocatedTupleKey(
+    private static <R> CompletableFuture<R> executeColocatedTupleKey(
             ClientTable t,
             Tuple key,
             String jobClassName,
@@ -241,7 +240,8 @@ public class ClientCompute implements IgniteCompute {
                     w.packString(jobClassName);
                     w.packObjectArrayAsBinaryTuple(args);
                 },
-                r -> (R) r.unpackObjectFromBinaryTuple());
+                r -> (R) r.unpackObjectFromBinaryTuple(),
+                ClientTupleSerializer.getHashFunction(null, key));
     }
 
     private CompletableFuture<ClientTable> getTable(String tableName) {

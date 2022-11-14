@@ -55,6 +55,7 @@ public class ClusterConfigUpdateCommand extends BaseCommand implements Callable<
                 .exceptionHandler(new ClusterNotInitializedExceptionHandler(
                         "Cannot update cluster config", "ignite cluster init"
                 ))
+                .verbose(verbose)
                 .build()
                 .runPipeline();
     }

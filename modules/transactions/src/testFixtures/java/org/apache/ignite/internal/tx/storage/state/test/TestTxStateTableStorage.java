@@ -60,17 +60,17 @@ public class TestTxStateTableStorage implements TxStateTableStorage {
     }
 
     @Override
-    public void stop() throws StorageException {
+    public void stop() {
         // No-op.
     }
 
     @Override
-    public void destroy() throws StorageException {
+    public void destroy() {
         storages.clear();
     }
 
     @Override
-    public void close() throws Exception {
+    public void close() {
         stop();
     }
 }

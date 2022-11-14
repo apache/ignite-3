@@ -10,20 +10,13 @@ This document describes the current procedure for preparing an Ignite 3 release.
    svn checkout https://dist.apache.org/repos/dist/dev/ignite dist-dev
    svn checkout https://dist.apache.org/repos/dist/release/ignite dist-release
    ```
-3. Provide your Apache credentials to Maven (required for uploading to Apache Nexus):
-   ```xml
-   <settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"
-             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-             xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0 https://maven.apache.org/xsd/settings-1.0.0.xsd">
-     <servers>
-       <server>
-         <id>apache.staging</id>
-         <username>USERNAME</username>
-         <password>PASSWORD</password>
-       </server>
-     </servers>
-   </settings>
+3. Provide your Apache credentials to Gradle (required for uploading to Apache Nexus):
    ```
+   staging_user=*INSERT STAGING USERNAME HERE*
+   staging_password=*INSERT STAGING PASSWORD HERE*
+   ```
+   You can specify it in project gradle.property but DO NOT FORGET revert it before push.
+   Better place is gradle.properties in HOME dir, read about it https://docs.gradle.org/current/userguide/build_environment.html
 
 For all the commands going forward:
 * Replace `{version}` with the version number being released.
@@ -40,44 +33,66 @@ For all the commands going forward:
    git tag -a {version}-rc{rc} -m "{version}-rc{rc}"
    git push --tags
    ```
-3. Build the project, sign the artifact and create a staging repository:
+3. Setup properties in gradle.properties  
+   You can specify it in project gradle.property but DO NOT FORGET revert it before push.
+   Better place is gradle.properties in HOME dir, read about it https://docs.gradle.org/current/userguide/build_environment.html
    ```
-   mvn clean verify gpg:sign deploy:deploy -Dgpg.keyname={gpg} [-DskipTests]
+   signing.keyId=*INSERT KEY HERE LAST 8 CHARS*
+   signing.password=*INSERT PASSWORD HERE*
+   signing.secretKeyRingFile=*INSERT KEY RING ABSOLUTE PATH HERE*
    ```
-4. Login to the Apache Nexus and close the new repository: https://repository.apache.org/#stagingRepositories
-5. Create an empty folder under the development distribution directory:
+   For generate secret key ring file please use follow command
+   ```
+   gpg --keyring secring.gpg --export-secret-keys > ~/.gnupg/secring.gpg
+   ```
+   Show key id command (you need only last 8 chars from printed key)
+   ```
+   gpg -K
+   ```
+4. Build the project, sign the artifact and create a staging repository:
+   ```
+   ./gradlew publishAllPublicationsToMavenRepository
+   ```
+5. Login to the Apache Nexus and close the new repository: https://repository.apache.org/#stagingRepositories
+6. Create an empty folder under the development distribution directory:
    ```
    rm -rf {dist.dev}/{version}-rc{rc}
    mkdir {dist.dev}/{version}-rc{rc}
    ```
-6. Create a source code package:
+7. Create zip distributions 
    ```
-   git archive --prefix=apache-ignite-{version}-src/ -o target/apache-ignite-{version}-src.zip HEAD
+   ./gradlew allDistZip
    ```
-7. Switch to the `target` folder:
+8. Sign zip distributions
    ```
-   cd target
-   ```
-8. Create checksums and sign ZIP packages:
-   ```
-   gpg -a -u {gpg} -b apache-ignite-{version}-src.zip
-   gpg -a -u {gpg} -b apache-ignite-{version}.zip
-   gpg --print-md SHA512 apache-ignite-{version}-src.zip > apache-ignite-{version}-src.zip.sha512
-   gpg --print-md SHA512 apache-ignite-{version}.zip > apache-ignite-{version}.zip.sha512
+   ./gradlew signAllDistZip signCliZip signDbZip
    ```
 9. Copy ZIP packages along with checksums and signatures to the development distribution directory:
    ```
-   cp apache-ignite-{version}-src.zip apache-ignite-{version}-src.zip.asc apache-ignite-{version}-src.zip.sha512 \
-      apache-ignite-{version}.zip apache-ignite-{version}.zip.asc apache-ignite-{version}.zip.sha512  \
-      /Users/vkulichenko/GridGain/dist-dev/{version}-rc{rc}
+   cp packaging/build/distributions/ignite3-{version}.zip packaging/build/distributions/ignite3-{version}.zip.asc \
+   packaging/build/distributions/ignite3-{version}.zip.sha512 packaging/build/db/distributions/ignite3db-{version}.zip \
+   packaging/build/db/distributions/ignite3db-{version}.zip.asc packaging/build/db/distributions/ignite3db-{version}.zip.sha512 \
+   packaging/build/cli/distributions/ignite3cli-{version}.zip packaging/build/cli/distributions/ignite3cli-{version}.zip.asc \
+   packaging/build/cli/distributions/ignite3cli-{version}.zip.sha512 \
+   /Users/vkulichenko/GridGain/dist-dev/{version}-rc{rc}
    ```
-10. Commit ZIP packages:
+10. Create DEB\RPM distributions, they will be signed 
+   ```
+   ./gradlew buildDeb buildRpm
+   ```
+11. Copy DEB\RPM packages to the development distribution directory:
+   ```
+   cp packaging/db/build/distributions/*.deb packaging/db/build/distributions/*.changes packaging/db/build/distributions/*.rpm \
+   packaging/cli/build/distributions/*.deb packaging/cli/build/distributions/*.changes packaging/cli/build/distributions/*.rpm \
+   /Users/vkulichenko/GridGain/dist-dev/{version}-rc{rc}
+   ```
+12. Commit ZIP and DEB\RPM packages:
    ```
    cd {dist.dev}
    svn add {version}-rc{rc}
    svn commit -m “Apache Ignite {version} RC{rc}”
    ```
-11. Put the release on a vote on the developers mailing list.
+13. Put the release on a vote on the developers mailing list.
 
 ## Finalizing the Release
 
@@ -99,3 +114,4 @@ Perform the following actions ONLY after the vote is successful and closed.
    svn add {version}
    svn commit -m “Apache Ignite {version}”
    ```
+   
