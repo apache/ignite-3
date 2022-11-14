@@ -235,16 +235,18 @@ public class LinqTests : IgniteTestsBase
     }
 
     [Test]
-    public async Task TestTransaction()
+    public async Task TestTransactionIsPropagatedToServer()
     {
-        await using var tx = await Client.Transactions.BeginAsync();
-        await PocoView.UpsertAsync(tx, new Poco { Key = 5, Val = "new-val" });
+        using var server = new FakeServer();
+        using var client = await server.ConnectClientAsync();
 
-        var txRes = PocoView.AsQueryable(tx).Where(x => x.Key == 5).Select(x => x.Val).AsEnumerable().Single();
-        var noTxRes = PocoView.AsQueryable().Where(x => x.Key == 5).Select(x => x.Val).AsEnumerable().Single();
+        var tx = await client.Transactions.BeginAsync();
+        var tbl = await client.Tables.GetTableAsync(FakeServer.ExistingTableName);
+        var pocoView = tbl!.GetRecordView<Poco>();
 
-        Assert.AreEqual("new-val", txRes);
-        Assert.AreEqual("v-5", noTxRes);
+        _ = pocoView.AsQueryable(tx).Select(x => x.Key).ToArray();
+
+        Assert.AreEqual(0, server.LastSqlTxId);
     }
 
     [Test]
