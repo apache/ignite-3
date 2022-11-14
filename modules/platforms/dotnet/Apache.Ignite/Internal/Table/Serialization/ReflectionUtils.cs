@@ -76,12 +76,12 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
                 foreach (var field in type.GetAllFields())
                 {
-                    if (field.GetCustomAttribute<NotMappedAttribute>() != null)
+                    var columnInfo = field.GetColumnInfo();
+
+                    if (columnInfo == null)
                     {
                         continue;
                     }
-
-                    var columnInfo = field.GetColumnInfo();
 
                     if (res.TryGetValue(columnInfo.Name, out var existingField))
                     {
@@ -138,8 +138,13 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// </summary>
         /// <param name="fieldInfo">Member.</param>
         /// <returns>Clean name.</returns>
-        private static ColumnInfo GetColumnInfo(this FieldInfo fieldInfo)
+        private static ColumnInfo? GetColumnInfo(this FieldInfo fieldInfo)
         {
+            if (fieldInfo.GetCustomAttribute<NotMappedAttribute>() != null)
+            {
+                return null;
+            }
+
             if (fieldInfo.GetCustomAttribute<ColumnAttribute>() is { Name: { } columnAttributeName })
             {
                 return new(columnAttributeName, fieldInfo, HasColumnNameAttribute: true);
@@ -148,11 +153,18 @@ namespace Apache.Ignite.Internal.Table.Serialization
             var cleanName = fieldInfo.GetCleanName();
 
             if (fieldInfo.IsDefined(typeof(CompilerGeneratedAttribute), inherit: true) &&
-                fieldInfo.DeclaringType?.GetProperty(cleanName) is { } property &&
-                property.GetCustomAttribute<ColumnAttribute>() is { Name: { } columnAttributeName2 })
+                fieldInfo.DeclaringType?.GetProperty(cleanName) is { } property)
             {
-                // This is a compiler-generated backing field for an automatic property - get the attribute from the property.
-                return new(columnAttributeName2, fieldInfo, HasColumnNameAttribute: true);
+                if (property.GetCustomAttribute<NotMappedAttribute>() != null)
+                {
+                    return null;
+                }
+
+                if (property.GetCustomAttribute<ColumnAttribute>() is { Name: { } columnAttributeName2 })
+                {
+                    // This is a compiler-generated backing field for an automatic property - get the attribute from the property.
+                    return new(columnAttributeName2, fieldInfo, HasColumnNameAttribute: true);
+                }
             }
 
             return new(cleanName, fieldInfo, HasColumnNameAttribute: false);
