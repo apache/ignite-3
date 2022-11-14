@@ -129,8 +129,8 @@ public interface Node extends Lifecycle<NodeOptions>, Describer {
     List<PeerId> listPeers();
 
     /**
-     * List all alive peers of this raft group, only leader returns.
-     * <p>
+     * List all alive peers of this raft group, only leader returns.</p>
+     *
      * [NOTE] <strong>list_alive_peers is just a transient data (snapshot) and a short-term loss of response by the
      * follower will cause it to temporarily not exist in this list.</strong>
      *
@@ -139,8 +139,8 @@ public interface Node extends Lifecycle<NodeOptions>, Describer {
     List<PeerId> listAlivePeers();
 
     /**
-     * List all learners of this raft group, only leader returns.
-     * <p>
+     * List all learners of this raft group, only leader returns.</p>
+     *
      * [NOTE] <strong>when listLearners concurrency with {@link #addLearners(List, Closure)}/{@link
      * #removeLearners(List, Closure)}/{@link #resetLearners(List, Closure)}, maybe return peers is staled.  Because
      * {@link #addLearners(List, Closure)}/{@link #removeLearners(List, Closure)}/{@link #resetLearners(List, Closure)}
@@ -151,8 +151,8 @@ public interface Node extends Lifecycle<NodeOptions>, Describer {
     List<PeerId> listLearners();
 
     /**
-     * List all alive learners of this raft group, only leader returns.
-     * <p>
+     * List all alive learners of this raft group, only leader returns.</p>
+     *
      * [NOTE] <strong>when listAliveLearners concurrency with {@link #addLearners(List, Closure)}/{@link
      * #removeLearners(List, Closure)}/{@link #resetLearners(List, Closure)}, maybe return peers is staled.  Because
      * {@link #addLearners(List, Closure)}/{@link #removeLearners(List, Closure)}/{@link #resetLearners(List, Closure)}

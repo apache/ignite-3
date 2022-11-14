@@ -104,7 +104,7 @@ public final class AdjustableSemaphore implements Serializable {
     /**
      * Returns if the permits is available of the semaphore.
      *
-     * @return {@code true} if current number of permits more than 0
+     * @return {@code true} if current number of permits > 0
      */
     public boolean isAvailable() {
         return availablePermits() > 0;

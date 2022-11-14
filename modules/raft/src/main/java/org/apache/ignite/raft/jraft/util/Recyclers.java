@@ -24,7 +24,7 @@ import org.apache.ignite.internal.logger.Loggers;
 
 /**
  * Light-weight object pool based on a thread-local stack.
- *
+ * <p/>
  * Forked from <a href="https://github.com/netty/netty">Netty</a>.
  *
  * @param <T> the type of the pooled object
