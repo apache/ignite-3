@@ -42,8 +42,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// </summary>
         public static readonly MethodInfo GetTypeFromHandleMethod = GetMethodInfo(() => Type.GetTypeFromHandle(default));
 
-        private static readonly ConcurrentDictionary<Type, IDictionary<string, (FieldInfo Field, bool NameFromAttribute)>>
-            FieldsByColumnNameCache = new();
+        private static readonly ConcurrentDictionary<Type, IDictionary<string, ColumnInfo>> FieldsByColumnNameCache = new();
 
         /// <summary>
         /// Gets the field by column name. Ignores case, handles <see cref="ColumnAttribute"/> and <see cref="NotMappedAttribute"/>.
@@ -59,22 +58,21 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// </summary>
         /// <param name="type">Type.</param>
         /// <returns>Column names.</returns>
-        public static ICollection<string> GetColumnNames(this Type type) =>
-            GetFieldsByColumnName(type).Keys; // TODO: We need to know if the name comes from field name or attribute.
+        public static ICollection<ColumnInfo> GetColumns(this Type type) => GetFieldsByColumnName(type).Values;
 
         /// <summary>
         /// Gets a map of fields by column name.
         /// </summary>
         /// <param name="type">Type to get the map for.</param>
         /// <returns>Map.</returns>
-        private static IDictionary<string, (FieldInfo Field, bool NameFromAttribute)> GetFieldsByColumnName(Type type)
+        private static IDictionary<string, ColumnInfo> GetFieldsByColumnName(Type type)
         {
             // ReSharper disable once HeapView.CanAvoidClosure, HeapView.ClosureAllocation, HeapView.DelegateAllocation (false positive)
             return FieldsByColumnNameCache.GetOrAdd(type, static t => RetrieveFieldsByColumnName(t));
 
-            static IDictionary<string, (FieldInfo Field, bool NameFromAttribute)> RetrieveFieldsByColumnName(Type type)
+            static IDictionary<string, ColumnInfo> RetrieveFieldsByColumnName(Type type)
             {
-                var res = new Dictionary<string, (FieldInfo Field, bool NameFromAttribute)>(StringComparer.OrdinalIgnoreCase);
+                var res = new Dictionary<string, ColumnInfo>(StringComparer.OrdinalIgnoreCase);
 
                 foreach (var field in type.GetAllFields())
                 {
@@ -83,16 +81,16 @@ namespace Apache.Ignite.Internal.Table.Serialization
                         continue;
                     }
 
-                    var (columnName, fromAttr) = field.GetColumnName();
+                    var columnInfo = field.GetColumnInfo();
 
-                    if (res.TryGetValue(columnName, out var existingField))
+                    if (res.TryGetValue(columnInfo.Name, out var existingField))
                     {
                         throw new IgniteClientException(
                             ErrorGroups.Client.Configuration,
-                            $"Column '{columnName}' maps to more than one field of type {type}: {field} and {existingField}");
+                            $"Column '{columnInfo.Name}' maps to more than one field of type {type}: {field} and {existingField}");
                     }
 
-                    res.Add(columnName, (field, fromAttr));
+                    res.Add(columnInfo.Name, columnInfo);
                 }
 
                 return res;
@@ -140,11 +138,11 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// </summary>
         /// <param name="fieldInfo">Member.</param>
         /// <returns>Clean name.</returns>
-        private static (string Name, bool FromAttribute) GetColumnName(this FieldInfo fieldInfo)
+        private static ColumnInfo GetColumnInfo(this FieldInfo fieldInfo)
         {
             if (fieldInfo.GetCustomAttribute<ColumnAttribute>() is { Name: { } columnAttributeName })
             {
-                return (columnAttributeName, true);
+                return new(columnAttributeName, fieldInfo, HasColumnNameAttribute: true);
             }
 
             var cleanName = fieldInfo.GetCleanName();
@@ -154,10 +152,10 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 property.GetCustomAttribute<ColumnAttribute>() is { Name: { } columnAttributeName2 })
             {
                 // This is a compiler-generated backing field for an automatic property - get the attribute from the property.
-                return (columnAttributeName2, true);
+                return new(columnAttributeName2, fieldInfo, HasColumnNameAttribute: true);
             }
 
-            return (cleanName, false);
+            return new(cleanName, fieldInfo, HasColumnNameAttribute: false);
         }
 
         /// <summary>
@@ -191,5 +189,14 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// <typeparam name="T">Argument type.</typeparam>
         /// <returns>Corresponding MethodInfo.</returns>
         private static MethodInfo GetMethodInfo<T>(Expression<Func<T>> expression) => ((MethodCallExpression)expression.Body).Method;
+
+        /// <summary>
+        /// Column info.
+        /// </summary>
+        /// <param name="Name">Column name.</param>
+        /// <param name="Field">Corresponding field.</param>
+        /// <param name="HasColumnNameAttribute">Whether corresponding field or property has <see cref="ColumnAttribute"/>
+        /// with <see cref="ColumnAttribute.Name"/> set.</param>
+        public record ColumnInfo(string Name, FieldInfo Field, bool HasColumnNameAttribute);
     }
 }
