@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.lang.ErrorGroups.Common.UNEXPECTED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.OPERATION_INTERRUPTED_ERR;
 
+import com.google.common.base.Functions;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.Iterator;
@@ -30,11 +31,9 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Function;
-import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionCancelledException;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.util.Commons;
-import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.lang.IgniteInternalException;
 
 /**
@@ -64,13 +63,12 @@ public class RootNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      *
      * @param ctx Execution context.
-     * @param rowType Rel data type.
      */
-    public RootNode(ExecutionContext<RowT> ctx, RelDataType rowType) {
+    public RootNode(ExecutionContext<RowT> ctx) {
         super(ctx);
 
-        onClose = this::closeInternal;
-        converter = TypeUtils.resultTypeConverter(ctx, rowType);
+        this.onClose = this::closeInternal;
+        this.converter = Functions.identity();
     }
 
     /**
@@ -78,14 +76,28 @@ public class RootNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      *
      * @param ctx Execution context.
-     * @param rowType Rel data type.
+     * @param converter Output rows converter.
+     */
+    public RootNode(ExecutionContext<RowT> ctx, Function<RowT, RowT> converter) {
+        super(ctx);
+
+        this.onClose = this::closeInternal;
+        this.converter = converter;
+    }
+
+    /**
+     * Constructor.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
+     * @param ctx Execution context.
+     * @param converter Output rows converter.
      * @param onClose Runnable.
      */
-    public RootNode(ExecutionContext<RowT> ctx, RelDataType rowType, Runnable onClose) {
+    public RootNode(ExecutionContext<RowT> ctx, Function<RowT, RowT> converter, Runnable onClose) {
         super(ctx);
 
         this.onClose = onClose;
-        converter = TypeUtils.resultTypeConverter(ctx, rowType);
+        this.converter = converter;
     }
 
     public UUID queryId() {

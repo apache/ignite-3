@@ -133,7 +133,7 @@ public class SortedIndexSpoolExecutionTest extends AbstractExecutionTest {
 
             spool.register(singletonList(scan));
 
-            RootRewindable<Object[]> root = new RootRewindable<>(ctx, rowType);
+            RootRewindable<Object[]> root = new RootRewindable<>(ctx);
             root.register(spool);
 
             for (TestParams param : testParams) {
@@ -178,7 +178,7 @@ public class SortedIndexSpoolExecutionTest extends AbstractExecutionTest {
 
         spool.register(scan);
 
-        RootRewindable<Object[]> root = new RootRewindable<>(ctx, rowType);
+        RootRewindable<Object[]> root = new RootRewindable<>(ctx);
         root.register(spool);
 
         Object x = ctx.unspecifiedValue(); // Unspecified filter value.

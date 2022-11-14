@@ -92,8 +92,7 @@ public class HashAggregateSingleGroupExecutionTest extends AbstractExecutionTest
 
         reduce.register(map);
 
-        RelDataType reduceType = TypeUtils.createRowType(tf, double.class);
-        RootNode<Object[]> root = new RootNode<>(ctx, reduceType);
+        RootNode<Object[]> root = new RootNode<>(ctx);
         root.register(reduce);
 
         assertTrue(root.hasNext());
@@ -134,8 +133,7 @@ public class HashAggregateSingleGroupExecutionTest extends AbstractExecutionTest
                 accFactory(ctx, call, REDUCE, null), rowFactory());
         reduce.register(map);
 
-        RelDataType reduceType = TypeUtils.createRowType(tf, int.class);
-        RootNode<Object[]> root = new RootNode<>(ctx, reduceType);
+        RootNode<Object[]> root = new RootNode<>(ctx);
         root.register(reduce);
 
         assertTrue(root.hasNext());
@@ -176,8 +174,7 @@ public class HashAggregateSingleGroupExecutionTest extends AbstractExecutionTest
                 accFactory(ctx, call, REDUCE, null), rowFactory());
         reduce.register(map);
 
-        RelDataType reduceType = TypeUtils.createRowType(tf, int.class);
-        RootNode<Object[]> root = new RootNode<>(ctx, reduceType);
+        RootNode<Object[]> root = new RootNode<>(ctx);
         root.register(reduce);
 
         assertTrue(root.hasNext());
@@ -218,8 +215,7 @@ public class HashAggregateSingleGroupExecutionTest extends AbstractExecutionTest
                 accFactory(ctx, call, REDUCE, null), rowFactory());
         reduce.register(map);
 
-        RelDataType reduceType = TypeUtils.createRowType(tf, int.class);
-        RootNode<Object[]> root = new RootNode<>(ctx, reduceType);
+        RootNode<Object[]> root = new RootNode<>(ctx);
         root.register(reduce);
 
         assertTrue(root.hasNext());
@@ -260,8 +256,7 @@ public class HashAggregateSingleGroupExecutionTest extends AbstractExecutionTest
                 accFactory(ctx, call, REDUCE, null), rowFactory());
         reduce.register(map);
 
-        RelDataType reduceType = TypeUtils.createRowType(tf, int.class);
-        RootNode<Object[]> root = new RootNode<>(ctx, reduceType);
+        RootNode<Object[]> root = new RootNode<>(ctx);
         root.register(reduce);
 
         assertTrue(root.hasNext());
@@ -298,8 +293,7 @@ public class HashAggregateSingleGroupExecutionTest extends AbstractExecutionTest
                 accFactory(ctx, call, SINGLE, rowType), rowFactory());
         agg.register(scan);
 
-        RelDataType aggType = TypeUtils.createRowType(tf, int.class);
-        RootNode<Object[]> root = new RootNode<>(ctx, aggType);
+        RootNode<Object[]> root = new RootNode<>(ctx);
         root.register(agg);
 
         assertTrue(root.hasNext());
@@ -336,8 +330,7 @@ public class HashAggregateSingleGroupExecutionTest extends AbstractExecutionTest
                 accFactory(ctx, call, SINGLE, rowType), rowFactory());
         agg.register(scan);
 
-        RelDataType aggType = TypeUtils.createRowType(tf, int.class);
-        RootNode<Object[]> root = new RootNode<>(ctx, aggType);
+        RootNode<Object[]> root = new RootNode<>(ctx);
         root.register(agg);
 
         assertTrue(root.hasNext());
@@ -374,8 +367,7 @@ public class HashAggregateSingleGroupExecutionTest extends AbstractExecutionTest
                 accFactory(ctx, call, SINGLE, rowType), rowFactory());
         agg.register(scan);
 
-        RelDataType aggType = TypeUtils.createRowType(tf, int.class);
-        RootNode<Object[]> root = new RootNode<>(ctx, aggType);
+        RootNode<Object[]> root = new RootNode<>(ctx);
         root.register(agg);
 
         assertTrue(root.hasNext());
@@ -412,8 +404,7 @@ public class HashAggregateSingleGroupExecutionTest extends AbstractExecutionTest
                 accFactory(ctx, call, SINGLE, rowType), rowFactory());
         agg.register(scan);
 
-        RelDataType aggType = TypeUtils.createRowType(tf, int.class);
-        RootNode<Object[]> root = new RootNode<>(ctx, aggType);
+        RootNode<Object[]> root = new RootNode<>(ctx);
         root.register(agg);
 
         assertTrue(root.hasNext());
@@ -457,8 +448,7 @@ public class HashAggregateSingleGroupExecutionTest extends AbstractExecutionTest
 
         agg.register(scan);
 
-        RelDataType aggType = TypeUtils.createRowType(tf, int.class);
-        RootNode<Object[]> root = new RootNode<>(ctx, aggType);
+        RootNode<Object[]> root = new RootNode<>(ctx);
         root.register(agg);
 
         assertTrue(root.hasNext());

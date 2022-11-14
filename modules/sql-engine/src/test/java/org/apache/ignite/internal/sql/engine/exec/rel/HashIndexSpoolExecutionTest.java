@@ -111,7 +111,7 @@ public class HashIndexSpoolExecutionTest extends AbstractExecutionTest {
 
                 spool.register(singletonList(scan));
 
-                RootRewindable<Object[]> root = new RootRewindable<>(ctx, rowType);
+                RootRewindable<Object[]> root = new RootRewindable<>(ctx);
                 root.register(spool);
 
                 for (TestParams param : params) {
@@ -152,7 +152,7 @@ public class HashIndexSpoolExecutionTest extends AbstractExecutionTest {
 
         spool.register(scan);
 
-        RootRewindable<Object[]> root = new RootRewindable<>(ctx, rowType);
+        RootRewindable<Object[]> root = new RootRewindable<>(ctx);
 
         root.register(spool);
 

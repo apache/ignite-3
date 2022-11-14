@@ -59,8 +59,6 @@ public class TableSpoolExecutionTest extends AbstractExecutionTest {
     @Test
     public void testEagerSpoolReadsWholeInput() {
         ExecutionContext<Object[]> ctx = executionContext();
-        IgniteTypeFactory tf = ctx.getTypeFactory();
-        RelDataType rowType = TypeUtils.createRowType(tf, int.class, String.class, int.class);
 
         int inBufSize = Commons.IN_BUFFER_SIZE;
 
@@ -85,7 +83,7 @@ public class TableSpoolExecutionTest extends AbstractExecutionTest {
 
             spool.register(singletonList(scan));
 
-            RootNode<Object[]> root = new RootNode<>(ctx, rowType);
+            RootNode<Object[]> root = new RootNode<>(ctx);
             root.register(spool);
 
             assertTrue(root.hasNext());
@@ -130,7 +128,7 @@ public class TableSpoolExecutionTest extends AbstractExecutionTest {
 
             spool.register(singletonList(right));
 
-            RootRewindable<Object[]> root = new RootRewindable<>(ctx, rowType);
+            RootRewindable<Object[]> root = new RootRewindable<>(ctx);
             root.register(spool);
 
             for (int i = 0; i < rewindCnts; ++i) {

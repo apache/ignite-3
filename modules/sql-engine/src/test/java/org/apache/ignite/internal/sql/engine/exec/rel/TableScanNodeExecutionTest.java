@@ -97,7 +97,7 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest {
 
             TableScanNode<Object[]> scanNode = new TableScanNode<>(ctx, rowFactory, tbl, parts, null, null, null);
 
-            RootNode<Object[]> root = new RootNode<>(ctx, rowType);
+            RootNode<Object[]> root = new RootNode<>(ctx);
 
             root.register(scanNode);
 

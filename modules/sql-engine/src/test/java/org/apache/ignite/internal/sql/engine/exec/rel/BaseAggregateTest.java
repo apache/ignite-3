@@ -97,7 +97,7 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
                 scan
         );
 
-        RootNode<Object[]> root = new RootNode<>(ctx, aggRowType);
+        RootNode<Object[]> root = new RootNode<>(ctx);
         root.register(aggChain);
 
         assertTrue(root.hasNext());
@@ -151,7 +151,7 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
                 scan
         );
 
-        RootNode<Object[]> root = new RootNode<>(ctx, aggRowType);
+        RootNode<Object[]> root = new RootNode<>(ctx);
         root.register(aggChain);
 
         assertTrue(root.hasNext());
@@ -205,7 +205,7 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
                 scan
         );
 
-        RootNode<Object[]> root = new RootNode<>(ctx, aggRowType);
+        RootNode<Object[]> root = new RootNode<>(ctx);
         root.register(aggChain);
 
         assertTrue(root.hasNext());
@@ -259,7 +259,7 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
                 scan
         );
 
-        RootNode<Object[]> root = new RootNode<>(ctx, aggRowType);
+        RootNode<Object[]> root = new RootNode<>(ctx);
         root.register(aggChain);
 
         assertTrue(root.hasNext());
@@ -359,7 +359,7 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
                 scan
         );
 
-        RootNode<Object[]> root = new RootNode<>(ctx, aggRowType);
+        RootNode<Object[]> root = new RootNode<>(ctx);
         root.register(aggChain);
 
         Runnable r = () -> {
@@ -426,7 +426,7 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
                 scan
         );
 
-        RootNode<Object[]> root = new RootNode<>(ctx, aggRowType);
+        RootNode<Object[]> root = new RootNode<>(ctx);
         root.register(aggChain);
 
         assertTrue(root.hasNext());
@@ -493,7 +493,7 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
                         scan
                 );
 
-                RootNode<Object[]> root = new RootNode<>(ctx, aggRowType);
+                RootNode<Object[]> root = new RootNode<>(ctx);
                 root.register(aggChain);
 
                 IntSet grpId = new IntOpenHashSet(IntStream.range(0, grps).toArray());
@@ -549,7 +549,7 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
                 scan
         );
 
-        RootNode<Object[]> root = new RootNode<>(ctx, aggRowType);
+        RootNode<Object[]> root = new RootNode<>(ctx);
         root.register(aggChain);
 
         assertTrue(root.hasNext());
@@ -596,7 +596,7 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
                 scan
         );
 
-        RootNode<Object[]> root = new RootNode<>(ctx, aggRowType);
+        RootNode<Object[]> root = new RootNode<>(ctx);
         root.register(aggChain);
 
         assertTrue(root.hasNext());

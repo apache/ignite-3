@@ -184,7 +184,7 @@ public class HashAggregateExecutionTest extends BaseAggregateTest {
         );
 
         for (int i = 0; i < 2; i++) {
-            RootNode<Object[]> root = new RootNode<>(ctx, aggRowType) {
+            RootNode<Object[]> root = new RootNode<>(ctx) {
                 /** {@inheritDoc} */
                 @Override public void close() {
                     // NO-OP

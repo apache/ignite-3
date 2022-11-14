@@ -32,12 +32,10 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.apache.calcite.rel.RelCollations;
-import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -67,8 +65,6 @@ public abstract class AbstractSetOpExecutionTest extends AbstractExecutionTest {
     @Test
     public void testSingleWithEmptySet() {
         ExecutionContext<Object[]> ctx = executionContext();
-        IgniteTypeFactory tf = ctx.getTypeFactory();
-        RelDataType rowType = TypeUtils.createRowType(tf, String.class, int.class);
 
         List<Object[]> data = Arrays.asList(
                 row("Igor", 1),
@@ -102,7 +98,7 @@ public abstract class AbstractSetOpExecutionTest extends AbstractExecutionTest {
         AbstractSetOpNode<Object[]> setOpNode = setOpNodeFactory(ctx, SINGLE, false, inputs.size());
         setOpNode.register(inputs);
 
-        RootNode<Object[]> root = new RootNode<>(ctx, rowType);
+        RootNode<Object[]> root = new RootNode<>(ctx);
         root.register(setOpNode);
 
         assertFalse(root.hasNext());
@@ -120,7 +116,6 @@ public abstract class AbstractSetOpExecutionTest extends AbstractExecutionTest {
     protected void checkSetOp(boolean single, boolean all, List<List<Object[]>> dataSets, List<Object[]> expectedResult) {
         ExecutionContext<Object[]> ctx = executionContext();
         IgniteTypeFactory tf = ctx.getTypeFactory();
-        RelDataType rowType = TypeUtils.createRowType(tf, String.class, int.class);
 
         List<Node<Object[]>> inputs = dataSets.stream().map(ds -> new ScanNode<>(ctx, ds))
                 .collect(Collectors.toList());
@@ -149,7 +144,7 @@ public abstract class AbstractSetOpExecutionTest extends AbstractExecutionTest {
         SortNode<Object[]> sortNode = new SortNode<>(ctx, cmp);
         sortNode.register(setOpNode);
 
-        RootNode<Object[]> root = new RootNode<>(ctx, rowType);
+        RootNode<Object[]> root = new RootNode<>(ctx);
         root.register(sortNode);
 
         assertTrue(nullOrEmpty(expectedResult) || root.hasNext());

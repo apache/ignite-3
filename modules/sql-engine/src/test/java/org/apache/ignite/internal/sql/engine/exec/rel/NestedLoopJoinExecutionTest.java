@@ -326,18 +326,15 @@ public class NestedLoopJoinExecutionTest extends AbstractExecutionTest {
                 (r1, r2) -> getFieldFromBiRows(hnd, 2, r1, r2) == getFieldFromBiRows(hnd, 3, r1, r2));
         join.register(asList(leftNode, rightNode));
 
-        RelDataType rowType;
         ProjectNode<Object[]> project;
         if (setOf(SEMI, ANTI).contains(joinType)) {
-            rowType = TypeUtils.createRowType(ctx.getTypeFactory(), int.class, String.class);
             project = new ProjectNode<>(ctx, r -> new Object[]{r[0], r[1]});
         } else {
-            rowType = TypeUtils.createRowType(ctx.getTypeFactory(), int.class, String.class, String.class);
             project = new ProjectNode<>(ctx, r -> new Object[]{r[0], r[1], r[4]});
         }
         project.register(join);
 
-        RootNode<Object[]> node = new RootNode<>(ctx, rowType);
+        RootNode<Object[]> node = new RootNode<>(ctx);
         node.register(project);
 
         ArrayList<Object[]> rows = new ArrayList<>();

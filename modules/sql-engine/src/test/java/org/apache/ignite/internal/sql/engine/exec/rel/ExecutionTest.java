@@ -94,14 +94,13 @@ public class ExecutionTest extends AbstractExecutionTest {
                 (r1, r2) -> getFieldFromBiRows(hnd, 0, r1, r2) == getFieldFromBiRows(hnd, 4, r1, r2));
         join.register(asList(persons, projects));
 
-        RelDataType rowType = TypeUtils.createRowType(tf, int.class, String.class, String.class);
         ProjectNode<Object[]> project = new ProjectNode<>(ctx, r -> new Object[]{r[0], r[1], r[5]});
         project.register(join);
 
         FilterNode<Object[]> filter = new FilterNode<>(ctx, r -> (Integer) r[0] >= 2);
         filter.register(project);
 
-        RootNode<Object[]> node = new RootNode<>(ctx, rowType);
+        RootNode<Object[]> node = new RootNode<>(ctx);
         node.register(filter);
 
         assert node.hasNext();
@@ -122,7 +121,6 @@ public class ExecutionTest extends AbstractExecutionTest {
     public void testUnionAll() {
         ExecutionContext<Object[]> ctx = executionContext(true);
         IgniteTypeFactory tf = ctx.getTypeFactory();
-        RelDataType rowType = TypeUtils.createRowType(tf, String.class, int.class);
 
         ScanNode<Object[]> scan1 = new ScanNode<>(ctx, Arrays.asList(
                 row("Igor", 200),
@@ -148,7 +146,7 @@ public class ExecutionTest extends AbstractExecutionTest {
         UnionAllNode<Object[]> union = new UnionAllNode<>(ctx);
         union.register(asList(scan1, scan2, scan3));
 
-        RootNode<Object[]> root = new RootNode<>(ctx, rowType);
+        RootNode<Object[]> root = new RootNode<>(ctx);
         root.register(union);
 
         assertTrue(root.hasNext());
@@ -196,11 +194,10 @@ public class ExecutionTest extends AbstractExecutionTest {
                 (r1, r2) -> getFieldFromBiRows(hnd, 2, r1, r2) == getFieldFromBiRows(hnd, 3, r1, r2));
         join.register(asList(persons, deps));
 
-        RelDataType rowType = TypeUtils.createRowType(tf, int.class, String.class, String.class);
         ProjectNode<Object[]> project = new ProjectNode<>(ctx, r -> new Object[]{r[0], r[1], r[4]});
         project.register(join);
 
-        RootNode<Object[]> node = new RootNode<>(ctx, rowType);
+        RootNode<Object[]> node = new RootNode<>(ctx);
         node.register(project);
 
         assert node.hasNext();
@@ -253,11 +250,10 @@ public class ExecutionTest extends AbstractExecutionTest {
                 (r1, r2) -> getFieldFromBiRows(hnd, 0, r1, r2) == getFieldFromBiRows(hnd, 4, r1, r2));
         join.register(asList(deps, persons));
 
-        RelDataType rowType = TypeUtils.createRowType(tf, int.class, String.class, String.class);
         ProjectNode<Object[]> project = new ProjectNode<>(ctx, r -> new Object[]{r[2], r[3], r[1]});
         project.register(join);
 
-        RootNode<Object[]> node = new RootNode<>(ctx, rowType);
+        RootNode<Object[]> node = new RootNode<>(ctx);
         node.register(project);
 
         assert node.hasNext();
@@ -310,11 +306,10 @@ public class ExecutionTest extends AbstractExecutionTest {
                 (r1, r2) -> getFieldFromBiRows(hnd, 2, r1, r2) == getFieldFromBiRows(hnd, 3, r1, r2));
         join.register(asList(persons, deps));
 
-        RelDataType rowType = TypeUtils.createRowType(tf, Integer.class, String.class, String.class);
         ProjectNode<Object[]> project = new ProjectNode<>(ctx, r -> new Object[]{r[0], r[1], r[4]});
         project.register(join);
 
-        RootNode<Object[]> node = new RootNode<>(ctx, rowType);
+        RootNode<Object[]> node = new RootNode<>(ctx);
         node.register(project);
 
         assert node.hasNext();
@@ -367,11 +362,10 @@ public class ExecutionTest extends AbstractExecutionTest {
                 (r1, r2) -> getFieldFromBiRows(hnd, 0, r1, r2) == getFieldFromBiRows(hnd, 4, r1, r2));
         join.register(asList(deps, persons));
 
-        RelDataType rowType = TypeUtils.createRowType(tf, String.class);
         ProjectNode<Object[]> project = new ProjectNode<>(ctx, r -> new Object[]{r[1]});
         project.register(join);
 
-        RootNode<Object[]> node = new RootNode<>(ctx, rowType);
+        RootNode<Object[]> node = new RootNode<>(ctx);
         node.register(project);
 
         assert node.hasNext();
@@ -421,11 +415,10 @@ public class ExecutionTest extends AbstractExecutionTest {
                 (r1, r2) -> getFieldFromBiRows(hnd, 0, r1, r2) == getFieldFromBiRows(hnd, 4, r1, r2));
         join.register(asList(deps, persons));
 
-        RelDataType rowType = TypeUtils.createRowType(tf, String.class);
         ProjectNode<Object[]> project = new ProjectNode<>(ctx, r -> new Object[]{r[1]});
         project.register(join);
 
-        RootNode<Object[]> node = new RootNode<>(ctx, rowType);
+        RootNode<Object[]> node = new RootNode<>(ctx);
         node.register(project);
 
         assert node.hasNext();
@@ -476,7 +469,7 @@ public class ExecutionTest extends AbstractExecutionTest {
 
         join.register(Arrays.asList(left, right));
 
-        RootNode<Object[]> root = new RootNode<>(ctx, joinRowType);
+        RootNode<Object[]> root = new RootNode<>(ctx);
         root.register(join);
 
         int cnt = 0;
@@ -511,11 +504,6 @@ public class ExecutionTest extends AbstractExecutionTest {
                 ScanNode<Object[]> left = new ScanNode<>(ctx, new TestTable(leftSize, rowType));
                 ScanNode<Object[]> right = new ScanNode<>(ctx, new TestTable(rightSize, rowType));
 
-                RelDataType joinRowType = TypeUtils.createRowType(
-                        tf,
-                        int.class, String.class, int.class,
-                        int.class, String.class, int.class);
-
                 MergeJoinNode<Object[]> join = MergeJoinNode.create(
                         ctx,
                         null,
@@ -541,7 +529,7 @@ public class ExecutionTest extends AbstractExecutionTest {
 
                 join.register(Arrays.asList(left, right));
 
-                RootNode<Object[]> root = new RootNode<>(ctx, joinRowType);
+                RootNode<Object[]> root = new RootNode<>(ctx);
                 root.register(join);
 
                 int cnt = 0;
@@ -568,11 +556,10 @@ public class ExecutionTest extends AbstractExecutionTest {
     public void assertionHandlingTest() {
         ExecutionContext<Object[]> ctx = executionContext();
         IgniteTypeFactory tf = ctx.getTypeFactory();
-        RelDataType rowType = TypeUtils.createRowType(tf, int.class, String.class);
 
         CorruptedNode<Object[]> node = new CorruptedNode<>();
 
-        RootNode<Object[]> root = new RootNode<>(ctx, rowType);
+        RootNode<Object[]> root = new RootNode<>(ctx);
         root.register(node);
 
         Thread watchDog = new Thread(() -> {
