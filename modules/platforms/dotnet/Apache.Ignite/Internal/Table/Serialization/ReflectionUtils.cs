@@ -83,11 +83,11 @@ namespace Apache.Ignite.Internal.Table.Serialization
                         continue;
                     }
 
-                    if (res.TryGetValue(columnInfo.Name, out var existingField))
+                    if (res.TryGetValue(columnInfo.Name, out var existingColInfo))
                     {
                         throw new IgniteClientException(
                             ErrorGroups.Client.Configuration,
-                            $"Column '{columnInfo.Name}' maps to more than one field of type {type}: {field} and {existingField}");
+                            $"Column '{columnInfo.Name}' maps to more than one field of type {type}: {field} and {existingColInfo.Field}");
                     }
 
                     res.Add(columnInfo.Name, columnInfo);

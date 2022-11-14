@@ -34,38 +34,24 @@ namespace Apache.Ignite.Tests.Table.Serialization
     public class ReflectionUtilsTests
     {
         [Test]
-        public void TestGetFieldByColumnNameReturnsFieldByName()
-        {
-            var res = typeof(Derived).GetFieldByColumnName("BaseFieldPublic");
-            Assert.AreEqual("BaseFieldPublic", res!.Name);
-        }
+        public void TestGetFieldByColumnNameReturnsFieldByName() =>
+            Assert.AreEqual("BaseFieldPublic", typeof(Derived).GetFieldByColumnName("BaseFieldPublic")!.Name);
 
         [Test]
-        public void TestGetFieldByColumnNameReturnsFieldByPropertyName()
-        {
-            var res = typeof(Derived).GetFieldByColumnName("BaseProp");
-            Assert.AreEqual("<BaseProp>k__BackingField", res!.Name);
-        }
+        public void TestGetFieldByColumnNameReturnsFieldByPropertyName() =>
+            Assert.AreEqual("<BaseProp>k__BackingField", typeof(Derived).GetFieldByColumnName("BaseProp")!.Name);
 
         [Test]
-        public void TestGetFieldByColumnNameReturnsFieldByColumnAttributeName()
-        {
-            var res = typeof(Derived).GetFieldByColumnName("FldCol");
-            Assert.AreEqual("BaseFieldCustomColumnName", res!.Name);
-        }
+        public void TestGetFieldByColumnNameReturnsFieldByColumnAttributeName() =>
+            Assert.AreEqual("BaseFieldCustomColumnName", typeof(Derived).GetFieldByColumnName("FldCol")!.Name);
 
         [Test]
-        public void TestGetFieldByColumnNameReturnsFieldByPropertyColumnAttributeName()
-        {
-            var res = typeof(Derived).GetFieldByColumnName("PropCol");
-            Assert.AreEqual("<BasePropCustomColumnName>k__BackingField", res!.Name);
-        }
+        public void TestGetFieldByColumnNameReturnsFieldByPropertyColumnAttributeName() =>
+            Assert.AreEqual("<BasePropCustomColumnName>k__BackingField", typeof(Derived).GetFieldByColumnName("PropCol")!.Name);
 
         [Test]
-        public void TestGetFieldByColumnNameReturnsNullForNonMatchingName()
-        {
+        public void TestGetFieldByColumnNameReturnsNullForNonMatchingName() =>
             Assert.IsNull(typeof(Derived).GetFieldByColumnName("foo"));
-        }
 
         [Test]
         public void TestGetFieldByColumnNameReturnsNullForNotMappedProperty() =>
@@ -78,6 +64,19 @@ namespace Apache.Ignite.Tests.Table.Serialization
         [Test]
         public void TestGetFieldByColumnNameThrowsExceptionForDuplicateColumnName()
         {
+            var ex1 = Assert.Throws<IgniteClientException>(() => typeof(DuplicateColumn1).GetFieldByColumnName("foo"));
+            var ex2 = Assert.Throws<IgniteClientException>(() => typeof(DuplicateColumn2).GetFieldByColumnName("foo"));
+
+            var expected1 = "Column 'MyCol' maps to more than one field of type " +
+                            "Apache.Ignite.Tests.Table.Serialization.ReflectionUtilsTests+DuplicateColumn1: " +
+                            "Int32 <MyCol2>k__BackingField and Int32 <MyCol>k__BackingField";
+
+            var expected2 = "Column 'MyCol' maps to more than one field of type " +
+                            "Apache.Ignite.Tests.Table.Serialization.ReflectionUtilsTests+DuplicateColumn2: " +
+                            "Int32 <MyCol2>k__BackingField and Int32 <MyCol1>k__BackingField";
+
+            Assert.AreEqual(expected1, ex1!.Message);
+            Assert.AreEqual(expected2, ex2!.Message);
         }
 
         [Test]
