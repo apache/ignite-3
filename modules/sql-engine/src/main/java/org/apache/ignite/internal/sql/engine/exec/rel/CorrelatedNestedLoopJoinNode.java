@@ -30,6 +30,7 @@ import org.apache.calcite.rel.core.CorrelationId;
 import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
+import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 
 /**
  * CorrelatedNestedLoopJoinNode.
@@ -77,12 +78,12 @@ public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      *
      * @param ctx  Execution context.
-     * @param rightBlankRow Blank data type.
+     * @param rightRowFactory Right row factory.
      * @param cond Join expression.
      * @param correlationIds Set of collections ids.
      * @param joinType Join rel type.
      */
-    public CorrelatedNestedLoopJoinNode(ExecutionContext<RowT> ctx, RowT rightBlankRow, BiPredicate<RowT, RowT> cond,
+    public CorrelatedNestedLoopJoinNode(ExecutionContext<RowT> ctx, RowFactory<RowT> rightRowFactory, BiPredicate<RowT, RowT> cond,
             Set<CorrelationId> correlationIds, JoinRelType joinType) {
         super(ctx);
 
@@ -95,7 +96,7 @@ public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
         leftInBufferSize = correlationIds.size();
         rightInBufferSize = inBufSize;
 
-        rightEmptyRow = rightBlankRow;
+        rightEmptyRow = rightRowFactory.create();
 
         handler = ctx.rowHandler();
     }

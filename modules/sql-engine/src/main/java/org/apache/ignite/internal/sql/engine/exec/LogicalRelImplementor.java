@@ -248,9 +248,9 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
         assert rel.getJoinType() == JoinRelType.INNER || rel.getJoinType() == JoinRelType.LEFT
                 : CNLJ_NOT_SUPPORTED_JOIN_ASSERTION_MSG;
 
-        RowT rightBlankRow = ctx.rowHandler().factory(ctx.getTypeFactory(), rightType).create();
+        RowFactory<RowT> rightRowFactory = ctx.rowHandler().factory(ctx.getTypeFactory(), rightType);
 
-        Node<RowT> node = new CorrelatedNestedLoopJoinNode<>(ctx, rightBlankRow, cond, rel.getVariablesSet(),
+        Node<RowT> node = new CorrelatedNestedLoopJoinNode<>(ctx, rightRowFactory, cond, rel.getVariablesSet(),
                 rel.getJoinType());
 
         Node<RowT> leftInput = visit(rel.getLeft());

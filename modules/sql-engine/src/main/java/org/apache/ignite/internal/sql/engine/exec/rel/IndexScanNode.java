@@ -143,7 +143,7 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
 
         rangeConditionIterator = rangeConditions == null ? null : rangeConditions.iterator();
 
-        tableRowConverter = row -> schemaTable.toRow(context(), row, rowFactory, requiredColumns);
+        tableRowConverter = row -> schemaTable.toRow(context(), row, factory, requiredColumns);
 
         indexRowSchema = RowConverter.createIndexRowSchema(schemaTable.descriptor(), idxColumnMapping);
     }

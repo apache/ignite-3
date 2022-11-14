@@ -455,11 +455,9 @@ public class ExecutionTest extends AbstractExecutionTest {
 
         RowHandler<Object[]> hnd = ctx.rowHandler();
 
-        Object[] blankRow = hnd.factory(ctx.getTypeFactory(), joinRowType).create();
-
         CorrelatedNestedLoopJoinNode<Object[]> join = new CorrelatedNestedLoopJoinNode<>(
                 ctx,
-                blankRow,
+                hnd.factory(ctx.getTypeFactory(), joinRowType),
                 (r1, r2) -> getFieldFromBiRows(hnd, 0, r1, r2).equals(getFieldFromBiRows(hnd, 3, r1, r2)),
                 Set.of(new CorrelationId(0)),
                 joinType
