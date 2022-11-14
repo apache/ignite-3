@@ -19,12 +19,13 @@ package org.apache.ignite.internal.tx.impl;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.ACQUIRE_LOCK_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Transactions.DOWNGRADE_LOCK_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.RELEASE_LOCK_ERR;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -109,10 +110,12 @@ public class HeapLockManager implements LockManager {
     }
 
     @Override
-    public void downgrade(Lock lock, LockMode lockMode) throws LockException {
-        LockState state = lockState(lock.lockKey());
+    public void release(UUID txId, LockKey lockKey, LockMode lockMode) {
+        LockState state = lockState(lockKey);
 
-        state.tryDowngrade(lock, lockMode);
+        if (state.tryRelease(txId, lockMode)) {
+            locks.remove(lockKey, state);
+        }
     }
 
     @Override
@@ -190,8 +193,12 @@ public class HeapLockManager implements LockManager {
                 // Reenter
                 if (prev != null && prev.locked) {
                     if (prev.lockMode.allowReenter(lockMode)) {
+                        prev.addLock(lockMode, 1);
+
                         return new IgniteBiTuple(CompletableFuture.completedFuture(null), lockMode);
                     } else {
+                        waiter.addLocks(prev.locks);
+
                         waiter.upgraded = true;
 
                         lockMode = LockMode.supremum(prev.lockMode, lockMode);
@@ -262,53 +269,41 @@ public class HeapLockManager implements LockManager {
          * @return {@code True} if the queue is empty.
          */
         public boolean tryRelease(UUID txId) {
-            Collection<WaiterImpl> locked = new ArrayList<>();
-            Collection<WaiterImpl> toFail = new ArrayList<>();
-
-            WaiterImpl removed;
+            Collection<WaiterImpl> locked;
 
             synchronized (waiters) {
-                removed = waiters.remove(txId);
+                locked = release(txId);
+            }
 
-                markedForRemove = waiters.isEmpty();
+            // Notify outside the monitor.
+            for (WaiterImpl waiter : locked) {
+                waiter.notifyLocked();
+            }
 
-                if (markedForRemove) {
-                    return true;
-                }
+            return markedForRemove;
+        }
 
-                Set<LockMode> lockModes = new HashSet<>();
+        /**
+         * Releases a specific lock of the key.
+         *
+         * @param txId Transaction id.
+         * @param lockMode Lock mode.
+         * @return If the value is true, no one waits of any lock of the key, false otherwise.
+         */
+        public boolean tryRelease(UUID txId, LockMode lockMode) {
+            List<WaiterImpl> locked = Collections.emptyList();
+            synchronized (waiters) {
+                WaiterImpl waiter = waiters.get(txId);
 
-                // Grant lock to all adjacent readers.
-                for (Map.Entry<UUID, WaiterImpl> entry : waiters.entrySet()) {
-                    WaiterImpl tmp = entry.getValue();
+                if (waiter != null) {
+                    waiter.removeLock(lockMode);
 
-                    if (tmp.upgraded && !removed.lockMode.isCompatible(tmp.prevLockMode)) {
-                        // Fail upgraded waiters.
-                        assert !tmp.locked;
+                    LockMode modeToDowngrade = waiter.recalculateMode();
 
-                        // Downgrade to acquired lock.
-                        tmp.upgraded = false;
-                        tmp.lockMode = tmp.prevLockMode;
-                        tmp.prevLockMode = null;
-                        tmp.locked = true;
-
-                        toFail.add(tmp);
-                    } else if (lockModes.stream().allMatch(tmp.lockMode::isCompatible)) {
-                        if (tmp.upgraded) {
-                            // Fail upgraded waiters.
-                            assert !tmp.locked;
-
-                            // Upgrade lock.
-                            tmp.upgraded = false;
-                            tmp.prevLockMode = null;
-                            tmp.locked = true;
-                        } else {
-                            tmp.lock();
-                        }
-
-                        lockModes.add(tmp.lockMode);
-
-                        locked.add(tmp);
+                    if (modeToDowngrade == null) {
+                        locked = release(txId);
+                    } else {
+                        locked = downgrade(txId, modeToDowngrade);
                     }
                 }
             }
@@ -318,53 +313,121 @@ public class HeapLockManager implements LockManager {
                 waiter.notifyLocked();
             }
 
+            return markedForRemove;
+        }
+
+        /**
+         * Releases all locks are held by a specific transaction.
+         * This method should be invoked synchronously.
+         *
+         * @param txId Transaction id.
+         * @return List of unlocked waiters.
+         */
+        private List<WaiterImpl> release(UUID txId) {
+            WaiterImpl removed = waiters.remove(txId);
+
+            if (waiters.isEmpty()) {
+                return Collections.emptyList();
+            }
+
+            List<WaiterImpl> locked = unlockCompatibleWaiters(txId, removed, null);
+
+            return locked;
+        }
+
+        /**
+         * Unlock compatible waiters.
+         *
+         * @param txId Transaction id.
+         * @param pickedUpWaiter List of unlocked waiters.
+         * @param downgradeMode Lock mode to downgrade.
+         * @return List of unlocked waiters.
+         */
+        private ArrayList<WaiterImpl> unlockCompatibleWaiters(UUID txId, WaiterImpl pickedUpWaiter, LockMode downgradeMode) {
+            ArrayList<WaiterImpl> locked = new ArrayList<>();
+            ArrayList<WaiterImpl> toFail = new ArrayList<>();
+            Set<LockMode> lockModes = new HashSet<>();
+
+            if (downgradeMode != null) {
+                lockModes.add(downgradeMode);
+            }
+
+            // Grant lock to all adjacent readers.
+            for (Map.Entry<UUID, WaiterImpl> entry : waiters.entrySet()) {
+                WaiterImpl tmp = entry.getValue();
+
+                if (tmp.upgraded && !pickedUpWaiter.lockMode.isCompatible(tmp.prevLockMode)) {
+                    // Fail upgraded waiters.
+                    assert !tmp.locked;
+
+                    // Downgrade to acquired lock.
+                    tmp.upgraded = false;
+                    tmp.lockMode = tmp.prevLockMode;
+                    tmp.prevLockMode = null;
+                    tmp.locked = true;
+
+                    toFail.add(tmp);
+                } else if (lockModes.stream().allMatch(tmp.lockMode::isCompatible)) {
+                    if (tmp.upgraded) {
+                        // Fail upgraded waiters.
+                        assert !tmp.locked;
+
+                        // Upgrade lock.
+                        tmp.upgraded = false;
+                        tmp.prevLockMode = null;
+                        tmp.locked = true;
+                    } else {
+                        tmp.lock();
+                    }
+
+                    lockModes.add(tmp.lockMode);
+
+                    locked.add(tmp);
+                }
+            }
+
+            //TODO: IGNITE-17733 Remove this after correct lock prevention strategy will be implemented.
             for (WaiterImpl waiter : toFail) {
                 waiter.fut.completeExceptionally(
                         new LockException(
                                 RELEASE_LOCK_ERR,
-                                "Failed to acquire a lock due to a conflict [txId=" + txId + ", waiter=" + removed + ']'));
+                                "Failed to acquire a lock due to a conflict [txId=" + txId + ", waiter=" + pickedUpWaiter + ']'));
             }
 
-            return false;
+            return locked;
         }
 
         /**
-         * Attempts to downgrade a lock for the specified {@code key} to a specified lock mode.
+         * Downgrades a lock on a specific key.
+         * This method should be invoked synchronously.
          *
-         * @param lock Lock.
+         * @param txId Transaction id.
          * @param lockMode Lock mode.
-         * @throws LockException If the downgrade operation is invalid.
+         * @return List of unlocked waiters.
          */
-        void tryDowngrade(Lock lock, LockMode lockMode) throws LockException {
-            WaiterImpl waiter = new WaiterImpl(lock.txId(), lockMode);
+        private List<WaiterImpl> downgrade(UUID txId, LockMode lockMode) {
+            WaiterImpl waiter = waiters.remove(txId);
 
-            synchronized (waiters) {
-                WaiterImpl prev = waiters.remove(lock.txId());
+            if (waiter == null || waiter.lockMode == lockMode) {
+                waiters.put(txId, waiter);
 
-                if (prev != null) {
-                    if (prev.lockMode == LockMode.IX && lockMode == LockMode.S
-                            || prev.lockMode == LockMode.S && lockMode == LockMode.IX
-                            || prev.lockMode.compareTo(lockMode) < 0) {
-                        waiters.put(lock.txId(), prev);
-
-                        throw new LockException(DOWNGRADE_LOCK_ERR, "Cannot change lock mode from " + prev.lockMode + " to " + lockMode);
-                    }
-
-                    for (Map.Entry<UUID, WaiterImpl> entry : waiters.entrySet()) {
-                        WaiterImpl tmp = entry.getValue();
-
-                        if (!lockMode.isCompatible(tmp.lockMode)) {
-                            waiters.put(lock.txId(), waiter);
-
-                            throw new LockException(
-                                    DOWNGRADE_LOCK_ERR,
-                                    "Cannot change lock mode from " + prev.lockMode + " to " + lockMode);
-                        }
-                    }
-
-                    waiters.put(lock.txId(), waiter);
-                }
+                return Collections.emptyList();
             }
+
+            assert waiter.lockMode != LockMode.S || lockMode != LockMode.IX :
+                    "Cannot change lock [from=" + waiter.lockMode + ", to=" + lockMode + ']';
+
+            assert waiter.lockMode.compareTo(lockMode) > 0 :
+                    "Held lock mode have to be more strict than mode to downgrade [from=" + waiter.lockMode + ", to=" + lockMode
+                            + ']';
+
+            List<WaiterImpl> locked = unlockCompatibleWaiters(txId, waiter, lockMode);
+
+            waiter.lockMode = lockMode;
+
+            waiters.put(txId, waiter);
+
+            return locked;
         }
 
         /**
@@ -395,6 +458,10 @@ public class HeapLockManager implements LockManager {
      * A waiter implementation.
      */
     private static class WaiterImpl implements Comparable<WaiterImpl>, Waiter {
+
+        /** Holding locks by type. */
+        private final Map<LockMode, Integer> locks = new HashMap<>();
+
         /** Locked future. */
         @IgniteToStringExclude
         private final CompletableFuture<Void> fut;
@@ -424,6 +491,63 @@ public class HeapLockManager implements LockManager {
             this.fut = new CompletableFuture<>();
             this.txId = txId;
             this.lockMode = lockMode;
+
+            locks.put(lockMode, 1);
+        }
+
+        /**
+         * Adds a lock mode.
+         *
+         * @param lockMode Lock mode.
+         * @param increment Value to increment amount.
+         */
+        void addLock(LockMode lockMode, int increment) {
+            locks.merge(lockMode, increment, Integer::sum);
+        }
+
+        /**
+         * Removes a lock mode.
+         *
+         * @param lockMode Lock mode.
+         */
+        void removeLock(LockMode lockMode) {
+            Integer counter = locks.get(lockMode);
+
+            if (counter == null || counter < 2) {
+                locks.remove(lockMode);
+            } else {
+                locks.put(lockMode, counter - 1);
+            }
+        }
+
+        /**
+         * Recalculates lock mode based of all locks which the waiter has took.
+         *
+         * @return Recalculated lock mode.
+         */
+        LockMode recalculateMode() {
+            LockMode mode = null;
+
+            for (LockMode heldMode : locks.keySet()) {
+                assert locks.get(heldMode) > 0 : "Incorrect lock counter [txId=" + txId + ", mode=" + heldMode + "]";
+
+                mode = mode == null ? heldMode : LockMode.supremum(mode, heldMode);
+            }
+
+            return mode;
+        }
+
+        /**
+         * Adds several locks modes to the waiter.
+         *
+         * @param locksToAdd Map with lock modes.
+         */
+        void addLocks(Map<LockMode, Integer> locksToAdd) {
+            for (LockMode mode : locksToAdd.keySet()) {
+                Integer inc = locksToAdd.get(mode);
+
+                addLock(mode, inc);
+            }
         }
 
         /** {@inheritDoc} */

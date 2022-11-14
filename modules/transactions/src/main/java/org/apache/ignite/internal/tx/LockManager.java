@@ -45,13 +45,13 @@ public interface LockManager {
     public void release(Lock lock);
 
     /**
-     * Attempts to downgrade a lock mode for the specified {@code lockKey}.
+     * Release a lock that holds on a specific mode.
      *
-     * @param lock Lock to downgrade.
-     * @param lockMode Lock mode.
-     * @throws LockException If the downgrade operation is invalid.
+     * @param txId Transaction id.
+     * @param lockKey The key.
+     * @param lockMode Lock mode, for example shared, exclusive, intention-shared etc.
      */
-    public void downgrade(Lock lock, LockMode lockMode) throws LockException;
+    void release(UUID txId, LockKey lockKey, LockMode lockMode);
 
     /**
      * Retrieves all locks for the specified transaction id.
