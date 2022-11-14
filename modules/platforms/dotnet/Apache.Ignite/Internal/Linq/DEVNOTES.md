@@ -11,7 +11,16 @@ LINQ provider uses underlying `Sql` API, which is fully async. While users can c
 
 ## User Type Mapping
 
-TODO: Explain schema issues, see comments in code.
+There are two way to map columns to user type members:
+1. Load schema and map only matching columns.
+   - GOOD: Potentially nicer to the user, allows unmapped members in user types.
+   - BAD: Requires loading schema (worse perf, worse complexity).
+   - BAD: Can't cache metadata and delegates per type (worse perf, worse complexity).
+   - BAD: Obstacle for compiled queries, because updated schema won't be picked up.
+2. Do not load schema, map all object columns.
+   - GOOD: Simpler, faster.
+   - BAD: Requires all columns to be mapped (unless we support NotMappedAttribute - IGNITE-18149).
+
 
 ## Differences with Ignite 2.x provider
 
