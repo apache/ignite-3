@@ -65,8 +65,7 @@ public class IgniteLogicalIndexScan extends AbstractIndexScan {
                 searchBounds = (collation.getFieldCollations().size() == outputCollation.getFieldCollations().size())
                         ? buildHashIndexConditions(cluster, tbl, outputCollation, cond, requiredColumns)
                         : null;
-            }
-            else {
+            } else {
                 searchBounds = buildHashIndexConditions(cluster, tbl, collation, cond, requiredColumns);
             }
         } else if (index.type() == Type.SORTED) {
