@@ -250,8 +250,8 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
 
         RowFactory<RowT> rightRowFactory = ctx.rowHandler().factory(ctx.getTypeFactory(), rightType);
 
-        Node<RowT> node = new CorrelatedNestedLoopJoinNode<>(ctx, rightRowFactory, cond, rel.getVariablesSet(),
-                rel.getJoinType());
+        Node<RowT> node = new CorrelatedNestedLoopJoinNode<>(ctx, cond, rel.getVariablesSet(),
+                rel.getJoinType(), rightRowFactory);
 
         Node<RowT> leftInput = visit(rel.getLeft());
         Node<RowT> rightInput = visit(rel.getRight());

@@ -67,8 +67,8 @@ public class RootNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
     public RootNode(ExecutionContext<RowT> ctx) {
         super(ctx);
 
-        this.onClose = this::closeInternal;
-        this.converter = Functions.identity();
+        onClose = this::closeInternal;
+        converter = Functions.identity();
     }
 
     /**
@@ -81,8 +81,8 @@ public class RootNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
     public RootNode(ExecutionContext<RowT> ctx, Function<RowT, RowT> converter) {
         super(ctx);
 
-        this.onClose = this::closeInternal;
         this.converter = converter;
+        this.onClose = this::closeInternal;
     }
 
     /**
@@ -96,8 +96,8 @@ public class RootNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
     public RootNode(ExecutionContext<RowT> ctx, Function<RowT, RowT> converter, Runnable onClose) {
         super(ctx);
 
-        this.onClose = onClose;
         this.converter = converter;
+        this.onClose = onClose;
     }
 
     public UUID queryId() {

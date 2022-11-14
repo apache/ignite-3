@@ -78,13 +78,13 @@ public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      *
      * @param ctx  Execution context.
-     * @param rightRowFactory Right row factory.
      * @param cond Join expression.
      * @param correlationIds Set of collections ids.
      * @param joinType Join rel type.
+     * @param rightRowFactory Right row factory.
      */
-    public CorrelatedNestedLoopJoinNode(ExecutionContext<RowT> ctx, RowFactory<RowT> rightRowFactory, BiPredicate<RowT, RowT> cond,
-            Set<CorrelationId> correlationIds, JoinRelType joinType) {
+    public CorrelatedNestedLoopJoinNode(ExecutionContext<RowT> ctx, BiPredicate<RowT, RowT> cond,
+            Set<CorrelationId> correlationIds, JoinRelType joinType, RowFactory<RowT> rightRowFactory) {
         super(ctx);
 
         assert !nullOrEmpty(correlationIds);

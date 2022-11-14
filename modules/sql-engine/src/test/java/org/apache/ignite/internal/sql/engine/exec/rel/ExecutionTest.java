@@ -120,7 +120,6 @@ public class ExecutionTest extends AbstractExecutionTest {
     @Test
     public void testUnionAll() {
         ExecutionContext<Object[]> ctx = executionContext(true);
-        IgniteTypeFactory tf = ctx.getTypeFactory();
 
         ScanNode<Object[]> scan1 = new ScanNode<>(ctx, Arrays.asList(
                 row("Igor", 200),
@@ -168,8 +167,6 @@ public class ExecutionTest extends AbstractExecutionTest {
         //        on e.depno = d.depno
 
         ExecutionContext<Object[]> ctx = executionContext(true);
-
-        IgniteTypeFactory tf = ctx.getTypeFactory();
 
         ScanNode<Object[]> persons = new ScanNode<>(ctx, Arrays.asList(
                 new Object[]{0, "Igor", 1},
@@ -224,7 +221,6 @@ public class ExecutionTest extends AbstractExecutionTest {
         //         on e.depno = d.depno
 
         ExecutionContext<Object[]> ctx = executionContext(true);
-        IgniteTypeFactory tf = ctx.getTypeFactory();
 
         ScanNode<Object[]> persons = new ScanNode<>(ctx, Arrays.asList(
                 new Object[]{0, "Igor", 1},
@@ -280,7 +276,6 @@ public class ExecutionTest extends AbstractExecutionTest {
         //              on e.depno = d.depno
 
         ExecutionContext<Object[]> ctx = executionContext(true);
-        IgniteTypeFactory tf = ctx.getTypeFactory();
 
         ScanNode<Object[]> persons = new ScanNode<>(ctx, Arrays.asList(
                 new Object[]{0, "Igor", 1},
@@ -337,7 +332,6 @@ public class ExecutionTest extends AbstractExecutionTest {
         //        on e.depno = d.depno
 
         ExecutionContext<Object[]> ctx = executionContext(true);
-        IgniteTypeFactory tf = ctx.getTypeFactory();
 
         ScanNode<Object[]> persons = new ScanNode<>(ctx, Arrays.asList(
                 new Object[]{0, "Igor", 1},
@@ -390,7 +384,6 @@ public class ExecutionTest extends AbstractExecutionTest {
         //        on e.depno = d.depno
 
         ExecutionContext<Object[]> ctx = executionContext(true);
-        IgniteTypeFactory tf = ctx.getTypeFactory();
 
         ScanNode<Object[]> persons = new ScanNode<>(ctx, Arrays.asList(
                 new Object[]{0, "Igor", 1},
@@ -457,10 +450,10 @@ public class ExecutionTest extends AbstractExecutionTest {
 
         CorrelatedNestedLoopJoinNode<Object[]> join = new CorrelatedNestedLoopJoinNode<>(
                 ctx,
-                hnd.factory(ctx.getTypeFactory(), joinRowType),
                 (r1, r2) -> getFieldFromBiRows(hnd, 0, r1, r2).equals(getFieldFromBiRows(hnd, 3, r1, r2)),
                 Set.of(new CorrelationId(0)),
-                joinType
+                joinType,
+                hnd.factory(ctx.getTypeFactory(), joinRowType)
         );
 
         IgniteTestUtils.setFieldValue(join, "rightInBufferSize", rightBufSize);
@@ -553,7 +546,6 @@ public class ExecutionTest extends AbstractExecutionTest {
     @SuppressWarnings({"ResultOfMethodCallIgnored", "ThrowableNotThrown"})
     public void assertionHandlingTest() {
         ExecutionContext<Object[]> ctx = executionContext();
-        IgniteTypeFactory tf = ctx.getTypeFactory();
 
         CorruptedNode<Object[]> node = new CorruptedNode<>();
 
