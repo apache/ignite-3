@@ -31,6 +31,7 @@ using Remotion.Linq.Clauses;
 using Remotion.Linq.Clauses.Expressions;
 using Remotion.Linq.Clauses.ResultOperators;
 using Remotion.Linq.Parsing;
+using Table.Serialization;
 
 /// <summary>
 /// Expression visitor, transforms query subexpressions (such as Where clauses) to SQL.
@@ -226,24 +227,39 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
         }
         else
         {
-            // TODO IGNITE-18138 Avoid over-fetching, select only mapped columns.
-            // There are two way to do that:
-            // 1. Load schema and map only matching columns.
-            //    + Potentially nicer to the user, allows unmapped members in user types.
-            //    - Requires loading schema (worse perf, worse complexity).
-            //    - Can't cache metadata and delegates per type (worse perf, worse complexity).
-            //    - Obstacle for compiled queries.
-            // 2. Do not load schema, map all object columns.
-            //    + Simpler, faster.
-            //    - Requires all columns to be mapped (unless we support NotMappedAttribute - IGNITE-18149).
-            // Count, sum, max, min expect a single field or *
-            // var format = _includeAllFields || _useStar
-            //     ? "{0}.*, {0}._KEY, {0}._VAL"
-            //     : _useStar
-            //         ? "{0}.*"
-            //         : "{0}._KEY, {0}._VAL";
-            // var tableName = Aliases.GetTableAlias(expression);
-            ResultBuilder.Append('*');
+            if (_includeAllFields || _useStar)
+            {
+                ResultBuilder.Append('*');
+            }
+            else
+            {
+                var tableName = Aliases.GetTableAlias(expression);
+                var columns = expression.ReferencedQuerySource.ItemType.GetColumns();
+                var first = true;
+
+                foreach (var col in columns)
+                {
+                    if (!first)
+                    {
+                        ResultBuilder.Append(", ");
+                    }
+
+                    first = false;
+
+                    ResultBuilder.Append(tableName).Append('.');
+
+                    if (col.HasColumnNameAttribute)
+                    {
+                        // Exact quoted name.
+                        ResultBuilder.Append('"').Append(col.Name).Append('"');
+                    }
+                    else
+                    {
+                        // Case-insensitive, unquoted, upper-case name.
+                        ResultBuilder.Append(col.Name.ToUpperInvariant());
+                    }
+                }
+            }
         }
 
         return expression;
