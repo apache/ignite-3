@@ -607,9 +607,9 @@ public class MutableRowTupleAdapterTest {
     }
 
     @Test
-    void testDecimalPrecisionConstraint() throws Exception {
+    void testDecimalPrecisionConstraint() {
         SchemaDescriptor schemaDescriptor = new SchemaDescriptor(1,
-                new Column[]{new Column("key", NativeTypes.INT32, false)},
+                new Column[]{new Column("key", INT32, false)},
                 new Column[]{
                         new Column("decimal", NativeTypes.decimalOf(7, 2), true),
                 }
@@ -626,7 +626,7 @@ public class MutableRowTupleAdapterTest {
     @Test
     void testDecimalScaleConstraint() throws Exception {
         SchemaDescriptor schemaDescriptor = new SchemaDescriptor(1,
-                new Column[]{new Column("key", NativeTypes.INT32, false)},
+                new Column[]{new Column("key", INT32, false)},
                 new Column[]{
                         new Column("decimal", NativeTypes.decimalOf(5, 2), true),
                 }
