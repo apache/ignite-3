@@ -28,6 +28,7 @@ namespace Apache.Ignite.Internal.Table
     using MessagePack;
     using Proto;
     using Serialization;
+    using Sql;
 
     /// <summary>
     /// Table API.
@@ -36,6 +37,9 @@ namespace Apache.Ignite.Internal.Table
     {
         /** Socket. */
         private readonly ClientFailoverSocket _socket;
+
+        /** SQL. */
+        private readonly Sql _sql;
 
         /** Schemas. */
         private readonly ConcurrentDictionary<int, Schema> _schemas = new();
@@ -64,15 +68,19 @@ namespace Apache.Ignite.Internal.Table
         /// <param name="name">Table name.</param>
         /// <param name="id">Table id.</param>
         /// <param name="socket">Socket.</param>
-        public Table(string name, Guid id, ClientFailoverSocket socket)
+        /// <param name="sql">SQL.</param>
+        public Table(string name, Guid id, ClientFailoverSocket socket, Sql sql)
         {
             _socket = socket;
+            _sql = sql;
+
             Name = name;
             Id = id;
 
             RecordBinaryView = new RecordView<IIgniteTuple>(
                 this,
-                new RecordSerializer<IIgniteTuple>(this, TupleSerializerHandler.Instance));
+                new RecordSerializer<IIgniteTuple>(this, TupleSerializerHandler.Instance),
+                _sql);
 
             // RecordView and KeyValueView are symmetric and perform the same operations on the protocol level.
             // Only serialization is different - KeyValueView splits records into two parts.
@@ -81,7 +89,7 @@ namespace Apache.Ignite.Internal.Table
             var pairSerializer = new RecordSerializer<KvPair<IIgniteTuple, IIgniteTuple>>(this, TuplePairSerializerHandler.Instance);
 
             KeyValueBinaryView = new KeyValueView<IIgniteTuple, IIgniteTuple>(
-                new RecordView<KvPair<IIgniteTuple, IIgniteTuple>>(this, pairSerializer));
+                new RecordView<KvPair<IIgniteTuple, IIgniteTuple>>(this, pairSerializer, _sql));
         }
 
         /// <inheritdoc/>
@@ -124,7 +132,7 @@ namespace Apache.Ignite.Internal.Table
             // ReSharper disable once HeapView.CanAvoidClosure (generics prevent this)
             return (RecordView<T>)_recordViews.GetOrAdd(
                 typeof(T),
-                _ => new RecordView<T>(this, new RecordSerializer<T>(this, new ObjectSerializerHandler<T>())));
+                _ => new RecordView<T>(this, new RecordSerializer<T>(this, new ObjectSerializerHandler<T>()), _sql));
         }
 
         /// <summary>
