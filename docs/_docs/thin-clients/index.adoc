@@ -1,10 +1,20 @@
-= Thin Clients
+= Client Configurations
 
-Thin clients are lightweight clients that connect to the cluster via a standard socket connection. It does not become a part of the cluster topology, never holds any data, and is not used as a destination for compute calculations.
+Apache Ignite 3 clients are lightweight clients that connect to the cluster via a standard socket connection. It does not become a part of the cluster topology, never holds any data, and is not used as a destination for compute calculations.
 
-== Building C++ Client
+== Installation
 
-The source code of the C++ thin client comes with the Apache Ignite 3 distribution. To build it, use the following commands:
+=== C# Client
+
+C# client is available via NuGet. To add it, use the `add package` command:
+
+----
+dotnet add package Apache.Ignite --version 3.0.0-beta1
+----
+
+=== C++ Client
+
+The source code of the C++ client comes with the Apache Ignite 3 distribution. To build it, use the following commands:
 
 
 [tabs]
@@ -47,13 +57,13 @@ cmake --build . -j8
 
 == Partition Awareness
 
-In Apache Ignite 3, partition awareness is enabled automatically for all thin clients.
+In Apache Ignite 3, partition awareness is enabled automatically for all clients.
 
 Data in the cluster is distributed between the nodes in a balanced manner for scalability and performance reasons. Each cluster node maintains a subset of the data, and the partition distribution map, which is used to determine the node that keeps the primary/backup copy of requested entries.
 
-Partition awareness allows the thin client to send query requests directly to the node that owns the queried data.
+Partition awareness allows the client to send query requests directly to the node that owns the queried data.
 
-Without partition awareness, an application that is connected to the cluster via a thin client would execute all queries and operations via a single server node that acts as a proxy for the incoming requests.
+Without partition awareness, an application that is connected to the cluster via a client would execute all queries and operations via a single server node that acts as a proxy for the incoming requests.
 These operations would then be re-routed to the node that stores the data that is being requested.
 This would result in a bottleneck that could prevent the application from scaling linearly.
 
@@ -61,7 +71,7 @@ image::images/partitionawareness01.png[Without Partition Awareness]
 
 Notice how queries must pass through the proxy server node, where they are routed to the correct node.
 
-With partition awareness in place, the thin client can directly route queries and operations to the primary nodes that own the data required for the queries.
+With partition awareness in place, the client can directly route queries and operations to the primary nodes that own the data required for the queries.
 This eliminates the bottleneck, allowing the application to scale more easily.
 
 image::images/partitionawareness02.png[With Partition Awareness]
@@ -71,7 +81,7 @@ image::images/partitionawareness02.png[With Partition Awareness]
 
 == Connecting to Cluster
 
-To initialize a thin client, use the IgniteClient class, and provide it with the configuration:
+To initialize a client, use the IgniteClient class, and provide it with the configuration:
 
 [tabs]
 --
@@ -79,10 +89,10 @@ tab:Java[]
 [source, java]
 ----
 try (IgniteClient client = IgniteClient.builder()
-		.addresses("127.0.0.1:10800")
-		.build()
+  .addresses("127.0.0.1:10800")
+  .build()
 ) {
-	// Your code goes here
+  // Your code goes here
 }
 ----
 
@@ -91,7 +101,7 @@ tab:.NET[]
 ----
 var clientCfg = new IgniteClientConfiguration
 {
-	Endpoints = { "127.0.0.1" }
+  Endpoints = { "127.0.0.1" }
 };
 using var client = await IgniteClient.StartAsync(clientCfg);
 ----
@@ -110,14 +120,9 @@ auto client = ignite_client::start(cfg, std::chrono::seconds(5));
 
 
 
-== Using Table API
+== Table API
 
 To execute table operations on a specific table, you need to get a specific view of the table and use one of its methods. Currently, there are 4 kind of views that can be used to operate table in different ways:
-
-* `RecordView<Tuple>` - A binary record view. It can be used to operate table tuples directly.
-* `RecordView<T>` - A record view mapped to a user type. It can be used to operate table using user objects which are mapped to table tuples.
-* `KeyValueView<Tuple, Tuple>` - A binary key-value view. It can be used to operate table using key and value tuples separately.
-* `KeyValueView<K, V>` - A key-value view with user objects. It can be used to operate table using key and value user objects mapped to table tuples.
 
 === Getting a Table Instance
 
@@ -162,7 +167,9 @@ std::optional<table> my_table = table_api.get_table("MY_TABLE);
 
 Once you've got a table you need to get a specific view to choose how you want to operate table records.
 
-==== Binary record view
+==== Binary Record View
+
+A binary record view. It can be used to operate table tuples directly.
 
 [tabs]
 --
@@ -172,8 +179,8 @@ tab:Java[]
 RecordView<Tuple> view = table.recordView();
 
 Tuple fullRecord = Tuple.create()
-	.set("id", 42)
-	.set("name", "John Doe");
+  .set("id", 42)
+  .set("name", "John Doe");
 
 view.upsert(null, fullRecord);
 
@@ -189,7 +196,23 @@ assert resRecord.stringValue("name").equals("John Doe");
 tab:.NET[]
 [source, csharp]
 ----
-// Contact @Pavel Tupitsyn for .NET code snippets
+IRecordView<IIgniteTuple> view = table.RecordBinaryView;
+
+IIgniteTuple fullRecord = new IgniteTuple
+{
+  ["id"] = 42,
+  ["name"] = "John Doe"
+};
+
+await view.UpsertAsync(transaction: null, fullRecord);
+
+IIgniteTuple keyRecord = new IgniteTuple { ["id"] = 42 };
+(IIgniteTuple value, bool hasValue) = await view.GetAsync(transaction: null, keyRecord);
+
+Debug.Assert(hasValue);
+Debug.Assert(value.FieldCount == 2);
+Debug.Assert(value["id"] as int? == 42);
+Debug.Assert(value["name"] as string == "John Doe");
 ----
 
 tab:C++[]
@@ -198,8 +221,8 @@ tab:C++[]
 record_view<ignite_tuple> view = table.record_binary_view();
 
 ignite_tuple full_record{
-	{"id", 42},
-	{"name", "John Doe"}
+  {"id", 42},
+  {"name", "John Doe"}
 };
 
 view.upsert(nullptr, record);
@@ -213,7 +236,9 @@ assert(res_record->get<std::string>("name") == "John Doe");
 
 --
 
-Record view:
+==== Record View
+
+A record view mapped to a user type. It can be used to operate table using user objects which are mapped to table tuples.
 
 [tabs]
 --
@@ -221,19 +246,19 @@ tab:Java[]
 [source, java]
 ----
 protected static class Pojo {
-	public long id;
-	public String name;
+  public long id;
+  public String name;
 
-	public Pojo() {}
+  public Pojo() {}
 
-	public Pojo(long id) {
-		this.id = id;
-	}
+  public Pojo(long id) {
+    this.id = id;
+  }
 
-	public Pojo(long id, String name) {
-		this.id = id;
-		this.name = name;
-	}
+  public Pojo(long id, String name) {
+    this.id = id;
+    this.name = name;
+  }
 }
 
 RecordView<Pojo> pojoView = table.recordView(Mapper.of(Pojo.class));
@@ -248,7 +273,15 @@ assert resRecord.name.equals("John Doe");
 tab:.NET[]
 [source, csharp]
 ----
-// Contact @Pavel Tupitsyn for .NET code snippets
+var pocoView = table.GetRecordView<Poco>();
+
+await pocoView.UpsertAsync(transaction: null, new Poco(42, "John Doe"));
+var (value, hasValue) = await pocoView.GetAsync(transaction: null, new Poco(42));
+
+Debug.Assert(hasValue);
+Debug.Assert(value.Name == "John Doe");
+
+public record Poco(long Id, string? Name = null);
 ----
 
 tab:C++[]
@@ -259,7 +292,9 @@ tab:C++[]
 
 --
 
-Key-Value binary view:
+==== Key-Value Binary View
+
+A binary key-value view. It can be used to operate table using key and value tuples separately.
 
 [tabs]
 --
@@ -281,7 +316,17 @@ assert res.stringValue("name").equals("John Doe");
 tab:.NET[]
 [source, csharp]
 ----
-// Contact @Pavel Tupitsyn for .NET code snippets
+IKeyValueView<IIgniteTuple, IIgniteTuple> kvView = table.KeyValueBinaryView;
+
+IIgniteTuple key = new IgniteTuple { ["id"] = 42 };
+IIgniteTuple val = new IgniteTuple { ["name"] = "John Doe" };
+
+await kvView.PutAsync(transaction: null, key, val);
+(IIgniteTuple? value, bool hasValue) = await kvView.GetAsync(transaction: null, key);
+
+Debug.Assert(hasValue);
+Debug.Assert(value.FieldCount == 1);
+Debug.Assert(value["name"] as string == "John Doe");
 ----
 
 tab:C++[]
@@ -293,7 +338,9 @@ tab:C++[]
 --
 
 
-Key-Value view:
+==== Key-Value View
+
+ A key-value view with user objects. It can be used to operate table using key and value user objects mapped to table tuples.
 
 [tabs]
 --
@@ -301,22 +348,22 @@ tab:Java[]
 [source, java]
 ----
 protected static class Pojo {
-	public long id;
-	public String name;
+  public long id;
+  public String name;
 
-	public Pojo() {}
+  public Pojo() {}
 
-	public Pojo(long id) {
-		this.id = id;
-	}
+  public Pojo(long id) {
+    this.id = id;
+  }
 
-	public Pojo(String name) {
-		this.name = name;
-	}
+  public Pojo(String name) {
+    this.name = name;
+  }
 }
 
 KeyValueView<Long, Pojo> pojoView =
-	table.keyValueView(Mapper.of(Long.class), Mapper.of(Pojo.class));
+  table.keyValueView(Mapper.of(Long.class), Mapper.of(Pojo.class));
 
 pojoView.put(null, 42, new Pojo("John Doe"));
 Pojo val = pojoView.get(null, 42);
@@ -327,7 +374,15 @@ assert val.name.equals("John Doe");
 tab:.NET[]
 [source, csharp]
 ----
-// Contact @Pavel Tupitsyn for .NET code snippets
+IKeyValueView<long, Poco> kvView = table.GetKeyValueView<long, Poco>();
+
+await kvView.PutAsync(transaction: null, 42, new Poco(Id: 0, Name: "John Doe"));
+(Poco? value, bool hasValue) = await kvView.GetAsync(transaction: null, 42);
+
+Debug.Assert(hasValue);
+Debug.Assert(value.Name == "John Doe");
+
+public record Poco(long Id, string? Name = null);
 ----
 
 tab:C++[]
@@ -338,9 +393,9 @@ tab:C++[]
 
 --
 
-== Using SQL API
+== SQL API
 
-Apache Ignite Clients provide a SQL API to execute SQL statements. This API allows query Ignite tables using SQL.
+You Apache Ignite Clients provide a SQL API to execute SQL statements. You can read more about supported SQL statements in the link:sql-reference/ddl[SQL Reference] section.
 
 [tabs]
 --
@@ -348,17 +403,20 @@ tab:Java[]
 [source, java]
 ----
 try (Session session = client.sql().createSession()) {
-	ResultSet resultSet = session.execute(null, "SELECT name from POJO where id = 42");
+  ResultSet resultSet = session.execute(null, "SELECT name from POJO where id = 42");
 
-	SqlRow row = resultSet.next();
-	assert row.stringValue(0).equals("John Doe");
+  SqlRow row = resultSet.next();
+  assert row.stringValue(0).equals("John Doe");
 }
 ----
 
 tab:.NET[]
 [source, csharp]
 ----
-// Contact @Pavel Tupitsyn for .NET code snippets
+IResultSet<IIgniteTuple> resultSet = await client.Sql.ExecuteAsync(transaction: null, "select name from tbl where id = ?", 42);
+List<IIgniteTuple> rows = await resultSet.ToListAsync();
+IIgniteTuple row = rows.Single();
+Debug.Assert(row["name"] as string == "John Doe");
 ----
 
 tab:C++[]
@@ -372,7 +430,7 @@ tab:C++[]
 
 == Transactions
 
-Ignite transactions API allows to perform distributed transactions when working with SQL and tables. 
+You can use Apache Ignite 3 clients to perform distributed transactions when working with SQL and tables.
 
 [tabs]
 --
@@ -380,18 +438,18 @@ tab:Java[]
 [source, java]
 ----
 protected static class Account {
-	public long id;
-	public long balance;
+  public long id;
+  public long balance;
 
-	public Account() {}
+  public Account() {}
 
-	public Account(long balance) {
-		this.balance = balance;
-	}
+  public Account(long balance) {
+    this.balance = balance;
+  }
 }
 
 KeyValueView<Long, Account> accounts =
-	table.keyValueView(Mapper.of(Long.class), Mapper.of(Account.class));
+  table.keyValueView(Mapper.of(Long.class), Mapper.of(Account.class));
 
 accounts.put(null, 42, new Account(16_000));
 
@@ -411,7 +469,23 @@ assert accounts.get(tx, 42).balance == 16_000;
 tab:.NET[]
 [source, csharp]
 ----
-// Contact @Pavel Tupitsyn for .NET code snippets
+var accounts = table.GetKeyValueView<long, Account>();
+await accounts.PutAsync(transaction: null, 42, new Account(16_000));
+
+await using ITransaction tx = await client.Transactions.BeginAsync();
+
+(Account account, bool hasValue) = await accounts.GetAsync(tx, 42);
+account = account with { Balance = account.Balance + 500 };
+
+await accounts.PutAsync(tx, 42, account);
+
+Debug.Assert((await accounts.GetAsync(tx, 42)).Value.Balance == 16_500);
+
+await tx.RollbackAsync();
+
+Debug.Assert((await accounts.GetAsync(null, 42)).Value.Balance == 16_000);
+
+public record Account(decimal Balance);
 ----
 
 tab:C++[]
@@ -425,9 +499,11 @@ tab:C++[]
 
 == Executing Compute Tasks
 
-Presently, the Ignite Clients support basic compute capabilities by letting you execute those compute tasks that are already deployed in the cluster. You can either run a task across all cluster nodes or a specific cluster group. The deployment assumes that you create a JAR file with the compute tasks and add the JAR to the cluster nodes' classpath.
+Apache Ignite 3 clients support basic compute capabilities. You can execute compute tasks that are already deployed in the cluster.
 
-The example below shows how to get access to the compute APIs and execute the compute task named MyTask:
+You can run a task across all cluster nodes or a specific cluster group. The deployment assumes that you create a JAR file with the compute tasks and add the JAR to the cluster nodes' classpath.
+
+The example below shows how to get access to the compute APIs and execute the compute task named `MyTask`:
 
 [tabs]
 --
@@ -435,13 +511,14 @@ tab:Java[]
 [source, java]
 ----
 String result = client.compute().<String>execute(
-	client.clusterNodes(), "MyTask", "Lorem", "ipsum", 42);
+  client.clusterNodes(), "MyTask", "Lorem", "ipsum", 42);
 ----
 
 tab:.NET[]
 [source, csharp]
 ----
-// Contact @Pavel Tupitsyn for .NET code snippets
+IList<IClusterNode> nodes = await client.GetClusterNodesAsync();
+string res = await client.Compute.ExecuteAsync<string>(nodes, "org.foo.bar.MyTask", 42)
 ----
 
 tab:C++[]
