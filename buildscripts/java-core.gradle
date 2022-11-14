@@ -103,6 +103,7 @@ javadoc {
     options.addStringOption("-source-path", sourceDirs + File.pathSeparator + generatedSources)
 
     exclude 'org/apache/ignite/internal/**'
+    exclude 'org/apache/ignite/raft/jraft/**'
     exclude 'com/facebook/presto/**'
 
     enabled = true
