@@ -276,7 +276,6 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
                         new Object[]{1L, executionContext().unspecifiedValue()},
                         EMPTY
                 ), AssertionError.class, "Invalid lookup key");
-//                ), ArrayIndexOutOfBoundsException.class, "Index 2 out of bounds for length 2");
     }
 
     private static Object[][] generateIndexData(int partCnt, int partSize, boolean sorted) {

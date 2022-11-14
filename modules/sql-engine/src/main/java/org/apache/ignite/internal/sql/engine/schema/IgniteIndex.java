@@ -120,12 +120,25 @@ public class IgniteIndex {
     }
 
     //TODO: cache rowType as it can't be changed.
-    public RelDataType getRowType(IgniteTypeFactory factory, TableDescriptor desc) {
-        RelDataTypeFactory.Builder b = new RelDataTypeFactory.Builder(factory);
+
+    /** Returns index row type.
+     *
+     * <p>This is a struct type whose fields describe the names and types of indexed columns.</p>
+     *
+     * <p>The implementer must use the type factory provided. This ensures that
+     * the type is converted into a canonical form; other equal types in the same
+     * query will use the same object.</p>
+     *
+     * @param typeFactory Type factory with which to create the type
+     * @param tableDescriptor Table descriptor.
+     * @return Row type
+     */
+    public RelDataType getRowType(IgniteTypeFactory typeFactory, TableDescriptor tableDescriptor) {
+        RelDataTypeFactory.Builder b = new RelDataTypeFactory.Builder(typeFactory);
 
         for (String colName : columns) {
-            ColumnDescriptor colDesc = desc.columnDescriptor(colName);
-            b.add(colName, native2relationalType(factory, colDesc.physicalType(), colDesc.nullable()));
+            ColumnDescriptor colDesc = tableDescriptor.columnDescriptor(colName);
+            b.add(colName, native2relationalType(typeFactory, colDesc.physicalType(), colDesc.nullable()));
         }
 
         return b.build();
