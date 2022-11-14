@@ -54,6 +54,7 @@ import java.util.function.Supplier;
 import java.util.stream.Stream;
 import javax.management.MalformedObjectNameException;
 import javax.management.ObjectName;
+import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.util.worker.IgniteWorker;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -631,6 +632,43 @@ public class IgniteUtils {
      */
     public static void closeAll(AutoCloseable... closeables) throws Exception {
         closeAll(Arrays.stream(closeables));
+    }
+
+    /**
+     * Closes all provided objects. If any of the {@link ManuallyCloseable#close} methods throw an exception,
+     * only the first thrown exception will be propagated to the caller, after all other objects are closed,
+     * similar to the try-with-resources block.
+     *
+     * @param closeables Stream of objects to close.
+     * @throws Exception If failed to close.
+     */
+    public static void closeAllManually(Stream<? extends ManuallyCloseable> closeables) throws Exception {
+        AtomicReference<Exception> ex = new AtomicReference<>();
+
+        closeables.filter(Objects::nonNull).forEach(closeable -> {
+            try {
+                closeable.close();
+            } catch (Exception e) {
+                if (!ex.compareAndSet(null, e)) {
+                    ex.get().addSuppressed(e);
+                }
+            }
+        });
+
+        if (ex.get() != null) {
+            throw ex.get();
+        }
+    }
+
+    /**
+     * Closes all provided objects.
+     *
+     * @param closeables Array of closeable objects to close.
+     * @throws Exception If failed to close.
+     * @see #closeAll(Collection)
+     */
+    public static void closeAllManually(ManuallyCloseable... closeables) throws Exception {
+        closeAllManually(Arrays.stream(closeables));
     }
 
     /**

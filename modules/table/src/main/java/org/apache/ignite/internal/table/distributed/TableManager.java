@@ -1017,7 +1017,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             }
 
             try {
-                IgniteUtils.closeAll(
+                IgniteUtils.closeAllManually(
                         table.internalTable().storage(),
                         table.internalTable().txStateStorage(),
                         table.internalTable()
