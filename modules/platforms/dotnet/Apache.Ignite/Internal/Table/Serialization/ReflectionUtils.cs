@@ -42,10 +42,10 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// </summary>
         public static readonly MethodInfo GetTypeFromHandleMethod = GetMethodInfo(() => Type.GetTypeFromHandle(default));
 
-        private static readonly ConcurrentDictionary<Type, IReadOnlyDictionary<string, FieldInfo>> FieldsByColumnNameCache = new();
+        private static readonly ConcurrentDictionary<Type, IDictionary<string, FieldInfo>> FieldsByColumnNameCache = new();
 
         /// <summary>
-        /// Gets the field by column name. Ignores case, handles <see cref="ColumnAttribute"/>.
+        /// Gets the field by column name. Ignores case, handles <see cref="ColumnAttribute"/> and <see cref="NotMappedAttribute"/>.
         /// </summary>
         /// <param name="type">Type.</param>
         /// <param name="name">Field name.</param>
@@ -54,16 +54,24 @@ namespace Apache.Ignite.Internal.Table.Serialization
             GetFieldsByColumnName(type).TryGetValue(name, out var fieldInfo) ? fieldInfo : null;
 
         /// <summary>
+        /// Gets column names for all fields in the specified type.
+        /// </summary>
+        /// <param name="type">Type.</param>
+        /// <returns>Column names.</returns>
+        public static ICollection<string> GetColumnNames(this Type type) =>
+            GetFieldsByColumnName(type).Keys; // TODO: We need to know if the name comes from field name or attribute.
+
+        /// <summary>
         /// Gets a map of fields by column name.
         /// </summary>
         /// <param name="type">Type to get the map for.</param>
         /// <returns>Map.</returns>
-        private static IReadOnlyDictionary<string, FieldInfo> GetFieldsByColumnName(Type type)
+        private static IDictionary<string, FieldInfo> GetFieldsByColumnName(Type type)
         {
             // ReSharper disable once HeapView.CanAvoidClosure, HeapView.ClosureAllocation, HeapView.DelegateAllocation (false positive)
             return FieldsByColumnNameCache.GetOrAdd(type, static t => RetrieveFieldsByColumnName(t));
 
-            static IReadOnlyDictionary<string, FieldInfo> RetrieveFieldsByColumnName(Type type)
+            static IDictionary<string, FieldInfo> RetrieveFieldsByColumnName(Type type)
             {
                 var res = new Dictionary<string, FieldInfo>(StringComparer.OrdinalIgnoreCase);
 
