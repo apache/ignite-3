@@ -269,7 +269,7 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
 
                 data[rowNum][0] = uniqueNumList.get(rowNum);
                 data[rowNum][1] = bound1 == 0 ? null : bound1;
-                data[rowNum][2] = bound2 == 0 ? null : bound2;;
+                data[rowNum][2] = bound2 == 0 ? null : bound2;
                 data[rowNum][3] = "row-" + rowNum;
             }
         }
