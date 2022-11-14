@@ -209,6 +209,6 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// <param name="Field">Corresponding field.</param>
         /// <param name="HasColumnNameAttribute">Whether corresponding field or property has <see cref="ColumnAttribute"/>
         /// with <see cref="ColumnAttribute.Name"/> set.</param>
-        public record ColumnInfo(string Name, FieldInfo Field, bool HasColumnNameAttribute);
+        internal record ColumnInfo(string Name, FieldInfo Field, bool HasColumnNameAttribute);
     }
 }
