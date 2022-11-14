@@ -383,15 +383,8 @@ public class PartitionListener implements RaftGroupListener {
         //      4) When we try to restore data starting from the minimal lastAppliedIndex, we come to the situation
         //         that a raft node doesn't have such data, because the truncation until the maximal lastAppliedIndex from 1) has happened.
         //      5) Node cannot finish local recovery.
-        long maxLastAppliedIndex;
-        long maxLastAppliedTerm;
-        if (storage.lastAppliedIndex() >= txStateStorage.lastAppliedIndex()) {
-            maxLastAppliedIndex = storage.lastAppliedIndex();
-            maxLastAppliedTerm = storage.lastAppliedTerm();
-        } else {
-            maxLastAppliedIndex = txStateStorage.lastAppliedIndex();
-            maxLastAppliedTerm = txStateStorage.lastAppliedTerm();
-        }
+        long maxLastAppliedIndex = Math.max(storage.lastAppliedIndex(), txStateStorage.lastAppliedIndex());
+        long maxLastAppliedTerm = Math.max(storage.lastAppliedTerm(), txStateStorage.lastAppliedTerm());
 
         storage.runConsistently(() -> {
             storage.lastApplied(maxLastAppliedIndex, maxLastAppliedTerm);

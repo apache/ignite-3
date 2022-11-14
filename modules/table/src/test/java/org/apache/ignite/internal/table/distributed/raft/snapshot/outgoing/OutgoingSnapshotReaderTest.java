@@ -75,7 +75,7 @@ public class OutgoingSnapshotReaderTest {
         );
 
         mvPartitionStorage.lastApplied(10L, 2L);
-        txStateStorage.lastApplied(5L, 3L);
+        txStateStorage.lastApplied(5L, 1L);
 
         SnapshotMeta meta1 = new OutgoingSnapshotReader(snapshotStorage).load();
         assertEquals(10L, meta1.lastIncludedIndex());

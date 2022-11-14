@@ -155,16 +155,14 @@ public class OutgoingSnapshot {
     }
 
     private SnapshotMeta takeSnapshotMeta() {
-        long lastAppliedIndex;
-        long lastAppliedTerm;
-
-        if (partition.mvPartitionStorage().lastAppliedIndex() >= partition.txStatePartitionStorage().lastAppliedIndex()) {
-            lastAppliedIndex = partition.mvPartitionStorage().lastAppliedIndex();
-            lastAppliedTerm = partition.mvPartitionStorage().lastAppliedTerm();
-        } else {
-            lastAppliedIndex = partition.txStatePartitionStorage().lastAppliedIndex();
-            lastAppliedTerm = partition.txStatePartitionStorage().lastAppliedTerm();
-        }
+        long lastAppliedIndex = Math.max(
+                partition.mvPartitionStorage().lastAppliedIndex(),
+                partition.txStatePartitionStorage().lastAppliedIndex()
+        );
+        long lastAppliedTerm = Math.max(
+                partition.mvPartitionStorage().lastAppliedTerm(),
+                partition.txStatePartitionStorage().lastAppliedTerm()
+        );
 
         RaftGroupConfiguration config = partition.mvPartitionStorage().committedGroupConfiguration();
 

@@ -59,7 +59,7 @@ public class PartitionSnapshotStorageFactoryTest {
     @Test
     void testForChoosingMinimumAppliedIndexForMeta() {
         mvPartitionStorage.lastApplied(10L, 2L);
-        txStateStorage.lastApplied(5L, 3L);
+        txStateStorage.lastApplied(5L, 1L);
 
         mvPartitionStorage.committedGroupConfiguration(mock(RaftGroupConfiguration.class));
 
@@ -73,7 +73,7 @@ public class PartitionSnapshotStorageFactoryTest {
         PartitionSnapshotStorage snapshotStorage = partitionSnapshotStorageFactory.createSnapshotStorage("", mock(RaftOptions.class));
 
         assertEquals(5L, snapshotStorage.startupSnapshotMeta().lastIncludedIndex());
-        assertEquals(3L, snapshotStorage.startupSnapshotMeta().lastIncludedTerm());
+        assertEquals(1L, snapshotStorage.startupSnapshotMeta().lastIncludedTerm());
 
         mvPartitionStorage.lastApplied(1L, 1L);
         txStateStorage.lastApplied(2L, 2L);

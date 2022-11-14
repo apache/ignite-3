@@ -88,13 +88,14 @@ public class PartitionSnapshotStorageFactory implements SnapshotStorageFactory {
 
         // We must choose the minimum applied index for local recovery so that we don't skip the raft commands for the storage with the
         // lowest applied index and thus no data loss occurs.
-        if (partition.mvPartitionStorage().lastAppliedIndex() <= partition.txStatePartitionStorage().lastAppliedIndex()) {
-            lastIncludedRaftIndex = partition.mvPartitionStorage().lastAppliedIndex();
-            lastIncludedRaftTerm = partition.mvPartitionStorage().lastAppliedTerm();
-        } else {
-            lastIncludedRaftIndex = partition.txStatePartitionStorage().lastAppliedIndex();
-            lastIncludedRaftTerm = partition.txStatePartitionStorage().lastAppliedTerm();
-        }
+        lastIncludedRaftIndex = Math.min(
+                partition.mvPartitionStorage().lastAppliedIndex(),
+                partition.txStatePartitionStorage().lastAppliedIndex()
+        );
+        lastIncludedRaftTerm = Math.min(
+                partition.mvPartitionStorage().lastAppliedTerm(),
+                partition.txStatePartitionStorage().lastAppliedTerm()
+        );
 
         lastIncludedConfiguration = partition.mvPartitionStorage().committedGroupConfiguration();
     }
