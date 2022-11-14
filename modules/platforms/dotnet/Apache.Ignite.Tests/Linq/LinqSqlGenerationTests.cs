@@ -41,6 +41,10 @@ public class LinqSqlGenerationTests
         AssertSql("select _T0.KEY from PUBLIC.tbl1 as _T0", q => q.Select(x => x.Key).ToList());
 
     [Test]
+    public void TestSelectAllColumns() =>
+        AssertSql("select _T0.KEY, _T0.VAL from PUBLIC.tbl1 as _T0", q => q.ToList());
+
+    [Test]
     public void TestSum() =>
         AssertSql("select sum (_T0.KEY) from PUBLIC.tbl1 as _T0", q => q.Sum(x => x.Key));
 
