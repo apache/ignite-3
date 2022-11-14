@@ -340,7 +340,7 @@ tab:C++[]
 
 ==== Key-Value View
 
- A key-value view with user objects. It can be used to operate table using key and value user objects mapped to table tuples.
+A key-value view with user objects. It can be used to operate table using key and value user objects mapped to table tuples.
 
 [tabs]
 --
