@@ -107,7 +107,7 @@ task allSrcZip(type: Exec) {
     workingDir rootDir
 
     commandLine "git", "archive",
-            "--prefix=apache-ignite-${project.version}-src",
+            "--prefix=apache-ignite-${project.version}-src/",
             "-o", "$buildDir/distributions/apache-ignite-${project.version}-src.zip",
             "HEAD"
 }
