@@ -56,16 +56,25 @@ public class IgniteLogicalIndexScan extends AbstractIndexScan {
         IgniteIndex index = tbl.getIndex(idxName);
         RelCollation collation = TraitUtils.createCollation(index.columns(), index.collations(), tbl.descriptor());
 
-        if (requiredColumns != null) {
-            Mappings.TargetMapping targetMapping = Commons.mapping(requiredColumns,
-                    tbl.getRowType(typeFactory).getFieldCount());
-            collation = collation.apply(targetMapping);
-        }
-
         List<SearchBounds> searchBounds;
         if (index.type() == Type.HASH) {
-            searchBounds = buildHashIndexConditions(cluster, tbl, collation, cond, requiredColumns);
+            if (requiredColumns != null) {
+                Mappings.TargetMapping targetMapping = Commons.mapping(requiredColumns, tbl.getRowType(typeFactory).getFieldCount());
+                RelCollation outputCollation = collation.apply(targetMapping);
+
+                searchBounds = (collation.getFieldCollations().size() == outputCollation.getFieldCollations().size())
+                        ? buildHashIndexConditions(cluster, tbl, outputCollation, cond, requiredColumns)
+                        : null;
+            }
+            else {
+                searchBounds = buildHashIndexConditions(cluster, tbl, collation, cond, requiredColumns);
+            }
         } else if (index.type() == Type.SORTED) {
+            if (requiredColumns != null) {
+                Mappings.TargetMapping targetMapping = Commons.mapping(requiredColumns, tbl.getRowType(typeFactory).getFieldCount());
+                collation = collation.apply(targetMapping);
+            }
+
             searchBounds = buildSortedIndexConditions(cluster, tbl, collation, cond, requiredColumns);
         } else {
             throw new AssertionError("Unknown index type [type=" + index.type() + "]");
@@ -118,7 +127,7 @@ public class IgniteLogicalIndexScan extends AbstractIndexScan {
             @Nullable ImmutableBitSet requiredColumns
     ) {
         if (collation.getFieldCollations().isEmpty()) {
-            return List.of();
+            return null;
         }
 
         return RexUtils.buildSortedIndexConditions(
