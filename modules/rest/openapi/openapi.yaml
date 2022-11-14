@@ -6,7 +6,7 @@ info:
   license:
     name: Apache 2.0
     url: https://ignite.apache.org
-  version: 3.0.0-alpha
+  version: 3.0.0-beta1
 paths:
   /management/v1/cluster/init:
     post:
