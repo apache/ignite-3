@@ -82,6 +82,7 @@
         <module>modules/table</module>
         <module>modules/transactions</module>
         <module>modules/vault</module>
+        <module>modules/distribution-zones</module>
     </modules>
 
     <profiles>

@@ -33,6 +33,8 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.client.handler.ClientHandlerModule;
 import org.apache.ignite.compute.IgniteCompute;
+import org.apache.ignite.internal.DistributionZoneManager;
+import org.apache.ignite.internal.DistributionZonesConfiguration;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesSerializationRegistryInitializer;
@@ -221,6 +223,8 @@ public class IgniteImpl implements Ignite {
 
     /** Metric manager. */
     private final MetricManager metricManager;
+
+    private final DistributionZoneManager distributionZoneManager;
 
     /** Creator for volatile {@link org.apache.ignite.internal.raft.storage.LogStorageFactory} instances. */
     private final VolatileLogStorageFactoryCreator volatileLogStorageFactoryCreator;
@@ -419,6 +423,11 @@ public class IgniteImpl implements Ignite {
                 sql,
                 () -> cmgMgr.clusterState().thenApply(s -> s.clusterTag().clusterId())
         );
+
+        DistributionZonesConfiguration zonesConfiguration = clusterCfgMgr.configurationRegistry()
+                .getConfiguration(DistributionZonesConfiguration.KEY);
+
+        distributionZoneManager = new DistributionZoneManager(zonesConfiguration);
     }
 
     private RestComponent createRestComponent(String name) {
@@ -522,6 +531,7 @@ public class IgniteImpl implements Ignite {
                                     metaStorageMgr,
                                     clusterCfgMgr,
                                     metricManager,
+                                    distributionZoneManager,
                                     computeComponent,
                                     replicaMgr,
                                     txManager,
