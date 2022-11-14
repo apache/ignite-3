@@ -68,14 +68,12 @@ namespace Apache.Ignite.Tests.Table.Serialization
         }
 
         [Test]
-        public void TestGetFieldByColumnNameReturnsNullForNotMappedProperty()
-        {
-        }
+        public void TestGetFieldByColumnNameReturnsNullForNotMappedProperty() =>
+            Assert.IsNull(typeof(Derived).GetFieldByColumnName("NotMappedProp"));
 
         [Test]
-        public void TestGetFieldByColumnNameReturnsNullForNotMappedField()
-        {
-        }
+        public void TestGetFieldByColumnNameReturnsNullForNotMappedField() =>
+            Assert.IsNull(typeof(Derived).GetFieldByColumnName("NotMappedFld"));
 
         [Test]
         public void TestGetFieldByColumnNameThrowsExceptionForDuplicateColumnName()
@@ -98,6 +96,7 @@ namespace Apache.Ignite.Tests.Table.Serialization
                 "<BasePropCustomColumnName>k__BackingField",
                 "<BaseTwoProp>k__BackingField",
                 "<DerivedProp>k__BackingField",
+                "<NotMappedProp>k__BackingField",
                 "BaseFieldCustomColumnName",
                 "BaseFieldInternal",
                 "BaseFieldPrivate",
@@ -110,7 +109,8 @@ namespace Apache.Ignite.Tests.Table.Serialization
                 "DerivedFieldInternal",
                 "DerivedFieldPrivate",
                 "DerivedFieldProtected",
-                "DerivedFieldPublic"
+                "DerivedFieldPublic",
+                "NotMappedFld"
             };
 
             CollectionAssert.AreEqual(expected, fields);
@@ -160,6 +160,12 @@ namespace Apache.Ignite.Tests.Table.Serialization
 
             [Column("FldCol")]
             public int BaseFieldCustomColumnName;
+
+            [NotMapped]
+            public int NotMappedFld;
+
+            [NotMapped]
+            public int NotMappedProp { get; set; }
         }
 
         private class BaseTwo : Base
@@ -180,6 +186,23 @@ namespace Apache.Ignite.Tests.Table.Serialization
             private int DerivedFieldPrivate;
 
             public int DerivedProp { get; set; }
+        }
+
+        private class DuplicateColumn1
+        {
+            public int MyCol { get; set; }
+
+            [Column("MyCol")]
+            public int MyCol2 { get; set; }
+        }
+
+        private class DuplicateColumn2
+        {
+            [Column("MyCol")]
+            public int MyCol1 { get; set; }
+
+            [Column("MyCol")]
+            public int MyCol2 { get; set; }
         }
     }
 }
