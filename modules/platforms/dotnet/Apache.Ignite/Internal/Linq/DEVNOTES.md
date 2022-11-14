@@ -2,6 +2,7 @@
 
 Translates C# LINQ expressions into Ignite-specific SQL.
 
+
 ## Async
 
 LINQ provider uses underlying `Sql` API, which is fully async. While users can call sync methods like `ToList()`, `First()`, `Sum()`, etc, this will lead to thread blocking, which is not ideal for scalability.
@@ -9,17 +10,20 @@ LINQ provider uses underlying `Sql` API, which is fully async. While users can c
 * Recommended approach is to use `ToResultSetAsync()` async extension method.
 * Later we should also provide `ToListAsync()`, `FirstAsync()`, `SumAsync()` and other extension methods (IGNITE-18084, inspired by EF Core).
 
+
 ## User Type Mapping
 
 There are two way to map columns to user type members:
 1. Load schema and map only matching columns.
-   - GOOD: Potentially nicer to the user, allows unmapped members in user types.
-   - BAD: Requires loading schema (worse perf, worse complexity).
+   - GOOD: Potentially nicer to the user, allows unmapped members in user types without extra steps, more flexible with updated schemas.
+   - BAD: Requires loading schema before query translation (worse perf, worse complexity).
    - BAD: Can't cache metadata and delegates per type (worse perf, worse complexity).
    - BAD: Obstacle for compiled queries, because updated schema won't be picked up.
 2. Do not load schema, map all object columns.
    - GOOD: Simpler, faster.
-   - BAD: Requires all columns to be mapped (unless we support NotMappedAttribute - IGNITE-18149).
+   - BAD: All columns are mapped by default, unmapped columns should be explicitly excluded with `NotMappedAttribute` (IGNITE-18149).
+
+We take the second approach for the sake of performance, simplicity and clarity.
 
 
 ## Differences with Ignite 2.x provider
