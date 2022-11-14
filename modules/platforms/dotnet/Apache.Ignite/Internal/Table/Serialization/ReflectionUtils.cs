@@ -42,7 +42,8 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// </summary>
         public static readonly MethodInfo GetTypeFromHandleMethod = GetMethodInfo(() => Type.GetTypeFromHandle(default));
 
-        private static readonly ConcurrentDictionary<Type, IDictionary<string, FieldInfo>> FieldsByColumnNameCache = new();
+        private static readonly ConcurrentDictionary<Type, IDictionary<string, (FieldInfo Field, bool NameFromAttribute)>>
+            FieldsByColumnNameCache = new();
 
         /// <summary>
         /// Gets the field by column name. Ignores case, handles <see cref="ColumnAttribute"/> and <see cref="NotMappedAttribute"/>.
@@ -51,7 +52,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// <param name="name">Field name.</param>
         /// <returns>Field info, or null when no matching fields exist.</returns>
         public static FieldInfo? GetFieldByColumnName(this Type type, string name) =>
-            GetFieldsByColumnName(type).TryGetValue(name, out var fieldInfo) ? fieldInfo : null;
+            GetFieldsByColumnName(type).TryGetValue(name, out var fieldInfo) ? fieldInfo.Field : null;
 
         /// <summary>
         /// Gets column names for all fields in the specified type.
@@ -66,14 +67,14 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// </summary>
         /// <param name="type">Type to get the map for.</param>
         /// <returns>Map.</returns>
-        private static IDictionary<string, FieldInfo> GetFieldsByColumnName(Type type)
+        private static IDictionary<string, (FieldInfo Field, bool NameFromAttribute)> GetFieldsByColumnName(Type type)
         {
             // ReSharper disable once HeapView.CanAvoidClosure, HeapView.ClosureAllocation, HeapView.DelegateAllocation (false positive)
             return FieldsByColumnNameCache.GetOrAdd(type, static t => RetrieveFieldsByColumnName(t));
 
-            static IDictionary<string, FieldInfo> RetrieveFieldsByColumnName(Type type)
+            static IDictionary<string, (FieldInfo Field, bool NameFromAttribute)> RetrieveFieldsByColumnName(Type type)
             {
-                var res = new Dictionary<string, FieldInfo>(StringComparer.OrdinalIgnoreCase);
+                var res = new Dictionary<string, (FieldInfo Field, bool NameFromAttribute)>(StringComparer.OrdinalIgnoreCase);
 
                 foreach (var field in type.GetAllFields())
                 {
@@ -82,7 +83,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
                         continue;
                     }
 
-                    var columnName = field.GetColumnName();
+                    var (columnName, fromAttr) = field.GetColumnName();
 
                     if (res.TryGetValue(columnName, out var existingField))
                     {
@@ -91,7 +92,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
                             $"Column '{columnName}' maps to more than one field of type {type}: {field} and {existingField}");
                     }
 
-                    res.Add(columnName, field);
+                    res.Add(columnName, (field, fromAttr));
                 }
 
                 return res;
@@ -139,11 +140,11 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// </summary>
         /// <param name="fieldInfo">Member.</param>
         /// <returns>Clean name.</returns>
-        private static string GetColumnName(this FieldInfo fieldInfo)
+        private static (string Name, bool FromAttribute) GetColumnName(this FieldInfo fieldInfo)
         {
             if (fieldInfo.GetCustomAttribute<ColumnAttribute>() is { Name: { } columnAttributeName })
             {
-                return columnAttributeName;
+                return (columnAttributeName, true);
             }
 
             var cleanName = fieldInfo.GetCleanName();
@@ -153,10 +154,10 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 property.GetCustomAttribute<ColumnAttribute>() is { Name: { } columnAttributeName2 })
             {
                 // This is a compiler-generated backing field for an automatic property - get the attribute from the property.
-                return columnAttributeName2;
+                return (columnAttributeName2, true);
             }
 
-            return cleanName;
+            return (cleanName, false);
         }
 
         /// <summary>
