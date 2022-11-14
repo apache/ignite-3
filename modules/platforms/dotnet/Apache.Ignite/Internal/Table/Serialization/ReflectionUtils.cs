@@ -112,7 +112,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// </summary>
         /// <param name="memberInfo">Member.</param>
         /// <returns>Clean name.</returns>
-        public static string GetCleanName(this MemberInfo memberInfo) => CleanFieldName(memberInfo.Name);
+        private static string GetCleanName(this MemberInfo memberInfo) => CleanFieldName(memberInfo.Name);
 
         /// <summary>
         /// Gets column name for the specified field: uses <see cref="ColumnAttribute"/> when available,
@@ -120,7 +120,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// </summary>
         /// <param name="fieldInfo">Member.</param>
         /// <returns>Clean name.</returns>
-        public static string GetColumnName(this FieldInfo fieldInfo)
+        private static string GetColumnName(this FieldInfo fieldInfo)
         {
             if (fieldInfo.GetCustomAttribute<ColumnAttribute>() is { Name: { } columnAttributeName })
             {
@@ -145,7 +145,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// </summary>
         /// <param name="fieldName">Field name to clean.</param>
         /// <returns>Resulting field name.</returns>
-        public static string CleanFieldName(string fieldName)
+        private static string CleanFieldName(string fieldName)
         {
             // C# auto property backing field (<MyProperty>k__BackingField)
             // or anonymous type backing field (<MyProperty>i__Field):
@@ -170,6 +170,6 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// <param name="expression">Expression.</param>
         /// <typeparam name="T">Argument type.</typeparam>
         /// <returns>Corresponding MethodInfo.</returns>
-        public static MethodInfo GetMethodInfo<T>(Expression<Func<T>> expression) => ((MethodCallExpression)expression.Body).Method;
+        private static MethodInfo GetMethodInfo<T>(Expression<Func<T>> expression) => ((MethodCallExpression)expression.Body).Method;
     }
 }

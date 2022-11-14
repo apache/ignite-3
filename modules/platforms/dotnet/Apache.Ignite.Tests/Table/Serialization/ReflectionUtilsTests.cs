@@ -21,6 +21,7 @@
 namespace Apache.Ignite.Tests.Table.Serialization
 {
     using System.Linq;
+    using System.Reflection;
     using Internal.Table.Serialization;
     using NUnit.Framework;
 
@@ -59,7 +60,7 @@ namespace Apache.Ignite.Tests.Table.Serialization
         [Test]
         public void TestCleanFieldNameReturnsPropertyNameForBackingField()
         {
-            var fieldNames = typeof(Derived).GetAllFields().Select(f => ReflectionUtils.CleanFieldName(f.Name)).ToArray();
+            var fieldNames = typeof(Derived).GetAllFields().Select(f => ReflectionUtilsCleanFieldName(f.Name)).ToArray();
 
             CollectionAssert.Contains(fieldNames, nameof(Base.BaseProp));
             CollectionAssert.Contains(fieldNames, nameof(BaseTwo.BaseTwoProp));
@@ -75,8 +76,12 @@ namespace Apache.Ignite.Tests.Table.Serialization
         [TestCase("<AnonTypeProp>i__Field", "AnonTypeProp")]
         public void TestCleanFieldName(string name, string expected)
         {
-            Assert.AreEqual(expected, ReflectionUtils.CleanFieldName(name));
+            Assert.AreEqual(expected, ReflectionUtilsCleanFieldName(name));
         }
+
+        private static string? ReflectionUtilsCleanFieldName(string name) =>
+            typeof(ReflectionUtils).GetMethod("CleanFieldName", BindingFlags.Static | BindingFlags.NonPublic)!
+                .Invoke(null, new object[] { name }) as string;
 
         private class Base
         {
