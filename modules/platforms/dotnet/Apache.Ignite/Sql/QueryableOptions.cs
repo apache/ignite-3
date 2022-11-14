@@ -23,5 +23,5 @@ using System;
 /// Options for LINQ queryables.
 /// </summary>
 /// <param name="Timeout">Timeout, default <see cref="SqlStatement.DefaultTimeout"/>.</param>
-/// <param name="PageSize">Page size to use when fetching results from server, default <see cref="SqlStatement.PageSize"/>.</param>
+/// <param name="PageSize">Page size to use when fetching results from server, default <see cref="SqlStatement.DefaultPageSize"/>.</param>
 public sealed record QueryableOptions(TimeSpan Timeout = default, int PageSize = SqlStatement.DefaultPageSize);
