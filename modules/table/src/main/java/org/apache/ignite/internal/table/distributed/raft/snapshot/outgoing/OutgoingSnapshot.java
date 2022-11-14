@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing;
 
-import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
 import java.nio.ByteBuffer;
@@ -33,6 +32,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
@@ -166,11 +166,11 @@ public class OutgoingSnapshot {
             lastAppliedTerm = partition.txStatePartitionStorage().lastAppliedTerm();
         }
 
-        return SnapshotMetaUtils.snapshotMetaAt(
-                lastAppliedIndex,
-                lastAppliedTerm,
-                requireNonNull(partition.mvPartitionStorage().committedGroupConfiguration())
-        );
+        RaftGroupConfiguration config = partition.mvPartitionStorage().committedGroupConfiguration();
+
+        assert config != null : "Configuration should never be null when installing a snapshot";
+
+        return SnapshotMetaUtils.snapshotMetaAt(lastAppliedIndex, lastAppliedTerm, config);
     }
 
     /**
