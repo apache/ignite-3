@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
+import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.mock;
 
@@ -28,6 +29,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -58,6 +60,7 @@ import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
@@ -66,6 +69,16 @@ import org.mockito.Mockito;
  */
 public class TableScanNodeExecutionTest extends AbstractExecutionTest {
     private static int dataAmount;
+
+    private static final ScheduledThreadPoolExecutor executor = new ScheduledThreadPoolExecutor(
+            Runtime.getRuntime().availableProcessors(),
+                            new NamedThreadFactory("internal-table-scheduled-pool", log)
+                    );
+
+    @AfterAll
+    public static void afterAll() {
+        shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
+    }
 
     // Ensures that all data from TableScanNode is being propagated correctly.
     @Test
@@ -158,10 +171,7 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest {
                     mock(TxStateTableStorage.class),
                     replicaSvc,
                     mock(HybridClock.class),
-                    new ScheduledThreadPoolExecutor(
-                            Runtime.getRuntime().availableProcessors(),
-                            new NamedThreadFactory("internal-table-scheduled-pool", log)
-                    )
+                    executor
             );
 
             processedPerPart = new int[PART_CNT];

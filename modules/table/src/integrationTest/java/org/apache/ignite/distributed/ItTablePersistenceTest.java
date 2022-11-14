@@ -17,6 +17,7 @@
 
 package org.apache.ignite.distributed;
 
+import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.Mockito.mock;
 
@@ -30,6 +31,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
 import java.util.function.Function;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -63,6 +65,7 @@ import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.raft.client.service.ItAbstractListenerSnapshotTest;
 import org.apache.ignite.raft.client.service.RaftGroupListener;
 import org.apache.ignite.raft.client.service.RaftGroupService;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Disabled;
 
@@ -87,6 +90,11 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
 
     private static final Row SECOND_VALUE = createKeyValueRow(1, 1);
 
+    private static final ScheduledThreadPoolExecutor executor = new ScheduledThreadPoolExecutor(
+            Runtime.getRuntime().availableProcessors(),
+            new NamedThreadFactory("internal-table-scheduled-pool", LOG)
+    );
+
     /**
      * Paths for created partition listeners.
      */
@@ -97,6 +105,11 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
     private final Function<String, ClusterNode> consistentIdToNode = consistentId -> {
         throw new UnsupportedOperationException();
     };
+
+    @AfterAll
+    public static void afterAll() {
+        shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
+    }
 
     @AfterEach
     @Override
@@ -130,10 +143,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                 mock(TxStateTableStorage.class),
                 mock(ReplicaService.class),
                 mock(HybridClock.class),
-                new ScheduledThreadPoolExecutor(
-                        Runtime.getRuntime().availableProcessors(),
-                        new NamedThreadFactory("internal-table-scheduled-pool", LOG)
-                )
+                executor
         );
 
         table.upsert(FIRST_VALUE, null).get();
@@ -161,10 +171,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                 mock(TxStateTableStorage.class),
                 mock(ReplicaService.class),
                 mock(HybridClock.class),
-                new ScheduledThreadPoolExecutor(
-                        Runtime.getRuntime().availableProcessors(),
-                        new NamedThreadFactory("internal-table-scheduled-pool", LOG)
-                )
+                executor
         );
 
         // Remove the first key
@@ -198,10 +205,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                 mock(TxStateTableStorage.class),
                 mock(ReplicaService.class),
                 mock(HybridClock.class),
-                new ScheduledThreadPoolExecutor(
-                        Runtime.getRuntime().availableProcessors(),
-                        new NamedThreadFactory("internal-table-scheduled-pool", LOG)
-                )
+                executor
         );
 
         table.upsert(SECOND_VALUE, null).get();

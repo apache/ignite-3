@@ -19,6 +19,7 @@ package org.apache.ignite.distributed;
 
 import static org.apache.ignite.distributed.ItTxDistributedTestSingleNode.NODE_PORT_BASE;
 import static org.apache.ignite.distributed.ItTxDistributedTestSingleNode.startNode;
+import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 import static org.apache.ignite.raft.jraft.test.TestUtils.getLocalAddress;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -78,6 +79,7 @@ import org.apache.ignite.network.NetworkMessageHandler;
 import org.apache.ignite.network.StaticNodeFinder;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.service.RaftGroupService;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -100,6 +102,11 @@ public class ItInternalTableImplRetryerTest extends IgniteAbstractTest {
             createKeyValueRow(2L, 2L)
     );
 
+    private static final ScheduledThreadPoolExecutor executor = new ScheduledThreadPoolExecutor(
+            Runtime.getRuntime().availableProcessors(),
+            new NamedThreadFactory("internal-table-scheduled-pool", log)
+    );
+
     private final TestInfo testInfo;
 
     private ReplicaManagerStub replicaManagerStub;
@@ -107,6 +114,11 @@ public class ItInternalTableImplRetryerTest extends IgniteAbstractTest {
     private InternalTable internalTable;
 
     private ClusterService clusterService;
+
+    @AfterAll
+    public static void afterAll() {
+        shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
+    }
 
     @BeforeEach
     public void setup() {
@@ -157,10 +169,7 @@ public class ItInternalTableImplRetryerTest extends IgniteAbstractTest {
                 null,
                 replicaService,
                 clock,
-                new ScheduledThreadPoolExecutor(
-                        Runtime.getRuntime().availableProcessors(),
-                        new NamedThreadFactory("internal-table-scheduled-pool", LOG)
-                )
+                executor
         );
 
         replicaManagerStub = new ReplicaManagerStub();

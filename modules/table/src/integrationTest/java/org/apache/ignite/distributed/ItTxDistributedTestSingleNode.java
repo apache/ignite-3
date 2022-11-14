@@ -251,7 +251,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
         txManagers = new HashMap<>(nodes);
 
         executor = new ScheduledThreadPoolExecutor(20,
-                new NamedThreadFactory(Loza.CLIENT_POOL_NAME, LOG));
+                new NamedThreadFactory(ItTxDistributedTestSingleNode.class.getName() + "_Executor", LOG));
 
         for (int i = 0; i < nodes; i++) {
             ClusterNode node = cluster.get(i).topologyService().localMember();
@@ -340,10 +340,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 Mockito.mock(TxStateTableStorage.class),
                 startClient() ? clientReplicaSvc : replicaServices.get(localNode),
                 startClient() ? clientClock : clocks.get(localNode),
-                new ScheduledThreadPoolExecutor(
-                        Runtime.getRuntime().availableProcessors(),
-                        new NamedThreadFactory("internal-table-scheduled-pool", LOG)
-                )
+                executor
         ), new DummySchemaManagerImpl(ACCOUNTS_SCHEMA), txMgr.lockManager());
 
         this.customers = new TableImpl(new InternalTableImpl(
@@ -358,10 +355,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 Mockito.mock(TxStateTableStorage.class),
                 startClient() ? clientReplicaSvc : replicaServices.get(localNode),
                 startClient() ? clientClock : clocks.get(localNode),
-                new ScheduledThreadPoolExecutor(
-                        Runtime.getRuntime().availableProcessors(),
-                        new NamedThreadFactory("internal-table-scheduled-pool", LOG)
-                )
+                executor
         ), new DummySchemaManagerImpl(CUSTOMERS_SCHEMA), txMgr.lockManager());
 
         log.info("Tables have been started");

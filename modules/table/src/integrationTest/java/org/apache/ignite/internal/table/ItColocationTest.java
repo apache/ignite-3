@@ -19,6 +19,7 @@ package org.apache.ignite.internal.table;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toMap;
+import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
@@ -49,6 +50,7 @@ import java.util.TimeZone;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -95,6 +97,7 @@ import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.table.Tuple;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -118,6 +121,11 @@ public class ItColocationTest {
 
     /** Map of the Raft commands are set by table operation. */
     private static final Int2ObjectMap<Set<Command>> CMDS_MAP = new Int2ObjectOpenHashMap<>();
+
+    private static final ScheduledThreadPoolExecutor executor = new ScheduledThreadPoolExecutor(
+            Runtime.getRuntime().availableProcessors(),
+            new NamedThreadFactory("internal-table-scheduled-pool", LOG)
+    );
 
     private SchemaDescriptor schema;
 
@@ -219,11 +227,13 @@ public class ItColocationTest {
                 new TestTxStateTableStorage(),
                 replicaService,
                 Mockito.mock(HybridClock.class),
-                new ScheduledThreadPoolExecutor(
-                        Runtime.getRuntime().availableProcessors(),
-                        new NamedThreadFactory("internal-table-scheduled-pool", LOG)
-                )
+                executor
         );
+    }
+
+    @AfterAll
+    public static void afterAll() {
+        shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
     }
 
     @BeforeEach
