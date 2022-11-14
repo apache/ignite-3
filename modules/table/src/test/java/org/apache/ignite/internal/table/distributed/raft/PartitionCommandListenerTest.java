@@ -109,10 +109,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 public class PartitionCommandListenerTest {
     /** Key count. */
-    public static final int KEY_COUNT = 100;
+    private static final int KEY_COUNT = 100;
 
     /** Partition id. */
-    public static final int PARTITION_ID = 0;
+    private static final int PARTITION_ID = 0;
 
     /** Schema. */
     public static SchemaDescriptor SCHEMA = new SchemaDescriptor(
@@ -265,9 +265,9 @@ public class PartitionCommandListenerTest {
                 () -> Map.of(pkStorage.id(), pkStorage)
         );
 
-        txStateStorage.lastApplied(3L, 2L);
+        txStateStorage.lastApplied(3L, 1L);
 
-        partitionDataStorage.lastApplied(5L, 1L);
+        partitionDataStorage.lastApplied(5L, 2L);
 
         AtomicLong counter = new AtomicLong(0);
 
@@ -276,10 +276,10 @@ public class PartitionCommandListenerTest {
         assertEquals(1L, counter.get());
 
         assertEquals(5L, partitionDataStorage.lastAppliedIndex());
-        assertEquals(1L, partitionDataStorage.lastAppliedTerm());
+        assertEquals(2L, partitionDataStorage.lastAppliedTerm());
 
         assertEquals(5L, txStateStorage.lastAppliedIndex());
-        assertEquals(1L, txStateStorage.lastAppliedTerm());
+        assertEquals(2L, txStateStorage.lastAppliedTerm());
 
         txStateStorage.lastApplied(10L, 2L);
 
