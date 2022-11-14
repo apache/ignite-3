@@ -5,7 +5,7 @@ Apache Ignite is a distributed database for high-performance computing with in-m
 Ignite 3 is the next generation of the platform that will support a modernized modular architecture,
 along with improved usability and developer experience.
 
-The current alpha version includes the following features:
+The current beta version includes the following features:
 * RPM and DEB packages: simplified installation and node management 
 with system services.
 * Client's Partition Awareness: Clients are now aware of data distribution over the cluster nodes which helps avoid 
