@@ -33,6 +33,36 @@ namespace Apache.Ignite.Tests.Table.Serialization
     public class ReflectionUtilsTests
     {
         [Test]
+        public void TestGetFieldByColumnNameReturnsNullForNonMatchingName()
+        {
+
+        }
+
+        [Test]
+        public void TestGetFieldByColumnNameReturnsNullForNotMappedProperty()
+        {
+
+        }
+
+        [Test]
+        public void TestGetFieldByColumnNameReturnsNullForNotMappedField()
+        {
+
+        }
+
+        [Test]
+        public void TestGetFieldByColumnNameThrowsExceptionForDuplicateColumnName()
+        {
+
+        }
+
+        [Test]
+        public void TestGetColumns()
+        {
+
+        }
+
+        [Test]
         public void TestGetAllFieldsIncludesPrivatePublicAndInherited()
         {
             var fields = ReflectionUtilsGetAllFields(typeof(Derived)).Select(f => f.Name).OrderBy(x => x).ToArray();
