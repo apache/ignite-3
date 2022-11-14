@@ -33,33 +33,51 @@ namespace Apache.Ignite.Tests.Table.Serialization
     public class ReflectionUtilsTests
     {
         [Test]
+        public void TestGetFieldByColumnNameReturnsFieldByName()
+        {
+            var res = typeof(Derived).GetFieldByColumnName("BaseFieldPublic");
+
+            Assert.AreEqual("BaseFieldPublic", res!.Name);
+        }
+
+        [Test]
+        public void TestGetFieldByColumnNameReturnsFieldByPropertyName()
+        {
+            var res = typeof(Derived).GetFieldByColumnName("BaseProp");
+
+            Assert.AreEqual("<BaseProp>k__BackingField", res!.Name);
+        }
+
+        [Test]
+        public void TestGetFieldByColumnNameReturnsFieldByColumnAttributeName()
+        {
+            Assert.IsNull(typeof(Derived).GetFieldByColumnName("foo"));
+        }
+
+        [Test]
         public void TestGetFieldByColumnNameReturnsNullForNonMatchingName()
         {
-
+            Assert.IsNull(typeof(Derived).GetFieldByColumnName("foo"));
         }
 
         [Test]
         public void TestGetFieldByColumnNameReturnsNullForNotMappedProperty()
         {
-
         }
 
         [Test]
         public void TestGetFieldByColumnNameReturnsNullForNotMappedField()
         {
-
         }
 
         [Test]
         public void TestGetFieldByColumnNameThrowsExceptionForDuplicateColumnName()
         {
-
         }
 
         [Test]
         public void TestGetColumns()
         {
-
         }
 
         [Test]
