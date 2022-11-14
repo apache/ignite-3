@@ -17,14 +17,13 @@
 
 package org.apache.ignite.internal;
 
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.exception.DistributionZoneAlreadyExistsException;
 import org.apache.ignite.internal.exception.DistributionZoneNotFoundException;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NodeStoppingException;
-
-import java.util.concurrent.CompletableFuture;
 
 public class DistributionZoneManager implements IgniteComponent {
     DistributionZonesConfiguration zonesConfiguration;
@@ -50,24 +49,24 @@ public class DistributionZoneManager implements IgniteComponent {
         if (!busyLock.enterBusy()) {
             throw new IgniteException(new NodeStoppingException());
         }
-
         try {
-            DistributionZoneConfiguration cfg = zonesConfiguration.distributionZones().get(name);
+            return CompletableFuture.supplyAsync(() -> zonesConfiguration.distributionZones().get(name))
+                    .thenCompose(zoneCfg -> {
+                        if (zoneCfg != null) {
+                            return CompletableFuture.failedFuture(new DistributionZoneAlreadyExistsException(name));
+                        } else {
+                            return zonesConfiguration.change(zonesChange -> zonesChange.changeDistributionZones(zonesListChange -> {
+                                zonesListChange.create(name, zoneChange -> {
+                                    zoneChange.changeDataNodesAutoAdjustScaleUp(autoAdjustScaleUp);
+                                    zoneChange.changeDataNodesAutoAdjustScaleDown(autoAdjustScaleDown);
+                                    zoneChange.changeDataNodesAutoAdjust(0);
 
-            if (cfg != null) {
-                return CompletableFuture.failedFuture(new DistributionZoneAlreadyExistsException(name));
-            }
-
-            return zonesConfiguration.change(zonesChange -> zonesChange.changeDistributionZones(zonesListChange -> {
-                zonesListChange.create(name, zoneChange -> {
-                    zoneChange.changeDataNodesAutoAdjustScaleUp(autoAdjustScaleUp);
-                    zoneChange.changeDataNodesAutoAdjustScaleDown(autoAdjustScaleDown);
-                    zoneChange.changeDataNodesAutoAdjust(0);
-
-                    int intZoneId = zonesChange.globalIdCounter() + 1;
-                    zonesChange.changeGlobalIdCounter(intZoneId);
-                });
-            }));
+                                    int intZoneId = zonesChange.globalIdCounter() + 1;
+                                    zonesChange.changeGlobalIdCounter(intZoneId);
+                                });
+                            }));
+                        }
+                    });
         } finally {
             busyLock.leaveBusy();
         }
@@ -78,22 +77,23 @@ public class DistributionZoneManager implements IgniteComponent {
             throw new IgniteException(new NodeStoppingException());
         }
         try {
-            DistributionZoneConfiguration cfg = zonesConfiguration.distributionZones().get(name);
+            return CompletableFuture.supplyAsync(() -> zonesConfiguration.distributionZones().get(name))
+                    .thenCompose(zoneCfg -> {
+                        if (zoneCfg != null) {
+                            return CompletableFuture.failedFuture(new DistributionZoneAlreadyExistsException(name));
+                        } else {
+                            return zonesConfiguration.change(zonesChange -> zonesChange.changeDistributionZones(zonesListChange -> {
+                                zonesListChange.create(name, zoneChange -> {
+                                    zoneChange.changeDataNodesAutoAdjustScaleUp(0);
+                                    zoneChange.changeDataNodesAutoAdjustScaleDown(0);
+                                    zoneChange.changeDataNodesAutoAdjust(autoAdjust);
 
-            if (cfg != null) {
-                return CompletableFuture.failedFuture(new DistributionZoneAlreadyExistsException(name));
-            }
-
-            return zonesConfiguration.change(zonesChange -> zonesChange.changeDistributionZones(zonesListChange -> {
-                zonesListChange.create(name, zoneChange -> {
-                    zoneChange.changeDataNodesAutoAdjustScaleUp(0);
-                    zoneChange.changeDataNodesAutoAdjustScaleDown(0);
-                    zoneChange.changeDataNodesAutoAdjust(autoAdjust);
-
-                    int intZoneId = zonesChange.globalIdCounter() + 1;
-                    zonesChange.changeGlobalIdCounter(intZoneId);
-                });
-            }));
+                                    int intZoneId = zonesChange.globalIdCounter() + 1;
+                                    zonesChange.changeGlobalIdCounter(intZoneId);
+                                });
+                            }));
+                        }
+                    });
         } finally {
             busyLock.leaveBusy();
         }
@@ -104,12 +104,6 @@ public class DistributionZoneManager implements IgniteComponent {
             throw new IgniteException(new NodeStoppingException());
         }
         try {
-            DistributionZoneConfiguration cfg = zonesConfiguration.distributionZones().get(name);
-
-            if (cfg == null) {
-                return CompletableFuture.failedFuture(new DistributionZoneNotFoundException(name));
-            }
-
             return zonesConfiguration.change(zonesChange -> zonesChange.changeDistributionZones(zonesListChange -> {
                 DistributionZoneView view = zonesListChange.get(name);
 

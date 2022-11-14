@@ -144,6 +144,6 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
         }
 
         assertTrue(e != null);
-        assertTrue(e.getCause() instanceof DistributionZoneNotFoundException, e.toString());
+        assertTrue(e.getCause().getCause() instanceof DistributionZoneNotFoundException, e.toString());
     }
 }
