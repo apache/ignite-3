@@ -45,6 +45,10 @@ public class LinqSqlGenerationTests
         AssertSql("select _T0.KEY, _T0.VAL from PUBLIC.tbl1 as _T0", q => q.ToList());
 
     [Test]
+    public void TestSelectAllColumnsCustomNames() =>
+        AssertSql("select _T0.\"KEY\", _T0.\"VAL\" from PUBLIC.tbl1 as _T0", tbl => tbl.GetRecordView<PocoCustomNames>().AsQueryable().ToList());
+
+    [Test]
     public void TestSum() =>
         AssertSql("select sum (_T0.KEY) from PUBLIC.tbl1 as _T0", q => q.Sum(x => x.Key));
 
@@ -131,13 +135,16 @@ public class LinqSqlGenerationTests
         _server.Dispose();
     }
 
-    private void AssertSql(string expectedSql, Func<IQueryable<Poco>, object?> query)
+    private void AssertSql(string expectedSql, Func<IQueryable<Poco>, object?> query) =>
+        AssertSql(expectedSql, t => query(t.GetRecordView<Poco>().AsQueryable()));
+
+    private void AssertSql(string expectedSql, Func<ITable, object?> query)
     {
         _server.LastSql = string.Empty;
 
         try
         {
-            query(_table.GetRecordView<Poco>().AsQueryable());
+            query(_table);
         }
         catch (Exception)
         {
