@@ -50,19 +50,30 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// <param name="type">Type.</param>
         /// <param name="name">Field name.</param>
         /// <returns>Field info, or null when no matching fields exist.</returns>
-        public static FieldInfo? GetFieldByColumnName(this Type type, string name)
-        {
-            // ReSharper disable once HeapView.CanAvoidClosure, ConvertClosureToMethodGroup
-            return FieldsByColumnNameCache.GetOrAdd(type, static t => GetFieldsByColumnName(t)).TryGetValue(name, out var fieldInfo)
-                ? fieldInfo
-                : null;
+        public static FieldInfo? GetFieldByColumnName(this Type type, string name) =>
+            GetFieldsByColumnName(type).TryGetValue(name, out var fieldInfo) ? fieldInfo : null;
 
-            static IReadOnlyDictionary<string, FieldInfo> GetFieldsByColumnName(Type type)
+        /// <summary>
+        /// Gets a map of fields by column name.
+        /// </summary>
+        /// <param name="type">Type to get the map for.</param>
+        /// <returns>Map.</returns>
+        private static IReadOnlyDictionary<string, FieldInfo> GetFieldsByColumnName(Type type)
+        {
+            // ReSharper disable once HeapView.CanAvoidClosure, HeapView.ClosureAllocation, HeapView.DelegateAllocation (false positive)
+            return FieldsByColumnNameCache.GetOrAdd(type, static t => RetrieveFieldsByColumnName(t));
+
+            static IReadOnlyDictionary<string, FieldInfo> RetrieveFieldsByColumnName(Type type)
             {
                 var res = new Dictionary<string, FieldInfo>(StringComparer.OrdinalIgnoreCase);
 
                 foreach (var field in type.GetAllFields())
                 {
+                    if (field.GetCustomAttribute<NotMappedAttribute>() != null)
+                    {
+                        continue;
+                    }
+
                     var columnName = field.GetColumnName();
 
                     if (res.TryGetValue(columnName, out var existingField))
