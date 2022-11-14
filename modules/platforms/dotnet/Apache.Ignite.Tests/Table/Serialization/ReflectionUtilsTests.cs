@@ -20,6 +20,8 @@
 #pragma warning disable SA1306, SA1401, CS0649, CS0169, CA1823, CA1812
 namespace Apache.Ignite.Tests.Table.Serialization
 {
+    using System;
+    using System.Collections.Generic;
     using System.Linq;
     using System.Reflection;
     using Internal.Table.Serialization;
@@ -33,7 +35,7 @@ namespace Apache.Ignite.Tests.Table.Serialization
         [Test]
         public void TestGetAllFieldsIncludesPrivatePublicAndInherited()
         {
-            var fields = typeof(Derived).GetAllFields().Select(f => f.Name).OrderBy(x => x).ToArray();
+            var fields = ReflectionUtilsGetAllFields(typeof(Derived)).Select(f => f.Name).OrderBy(x => x).ToArray();
 
             var expected = new[]
             {
@@ -60,7 +62,7 @@ namespace Apache.Ignite.Tests.Table.Serialization
         [Test]
         public void TestCleanFieldNameReturnsPropertyNameForBackingField()
         {
-            var fieldNames = typeof(Derived).GetAllFields().Select(f => ReflectionUtilsCleanFieldName(f.Name)).ToArray();
+            var fieldNames = ReflectionUtilsGetAllFields(typeof(Derived)).Select(f => ReflectionUtilsCleanFieldName(f.Name)).ToArray();
 
             CollectionAssert.Contains(fieldNames, nameof(Base.BaseProp));
             CollectionAssert.Contains(fieldNames, nameof(BaseTwo.BaseTwoProp));
@@ -82,6 +84,10 @@ namespace Apache.Ignite.Tests.Table.Serialization
         private static string? ReflectionUtilsCleanFieldName(string name) =>
             typeof(ReflectionUtils).GetMethod("CleanFieldName", BindingFlags.Static | BindingFlags.NonPublic)!
                 .Invoke(null, new object[] { name }) as string;
+
+        private static IEnumerable<FieldInfo> ReflectionUtilsGetAllFields(Type type) =>
+            (IEnumerable<FieldInfo>)typeof(ReflectionUtils).GetMethod("GetAllFields", BindingFlags.Static | BindingFlags.NonPublic)!
+                .Invoke(null, new object[] { type })!;
 
         private class Base
         {

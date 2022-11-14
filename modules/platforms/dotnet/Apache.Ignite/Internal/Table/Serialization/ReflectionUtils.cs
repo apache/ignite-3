@@ -45,34 +45,6 @@ namespace Apache.Ignite.Internal.Table.Serialization
         private static readonly ConcurrentDictionary<Type, IReadOnlyDictionary<string, FieldInfo>> FieldsByColumnNameCache = new();
 
         /// <summary>
-        /// Gets all fields from the type, including non-public and inherited.
-        /// </summary>
-        /// <param name="type">Type.</param>
-        /// <returns>Fields.</returns>
-        public static IEnumerable<FieldInfo> GetAllFields(this Type type)
-        {
-            if (type.IsPrimitive)
-            {
-                yield break;
-            }
-
-            const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public |
-                                       BindingFlags.NonPublic | BindingFlags.DeclaredOnly;
-
-            var t = type;
-
-            while (t != null)
-            {
-                foreach (var field in t.GetFields(flags))
-                {
-                    yield return field;
-                }
-
-                t = t.BaseType;
-            }
-        }
-
-        /// <summary>
         /// Gets the field by column name. Ignores case, handles <see cref="ColumnAttribute"/>.
         /// </summary>
         /// <param name="type">Type.</param>
@@ -81,7 +53,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
         public static FieldInfo? GetFieldByColumnName(this Type type, string name)
         {
             // ReSharper disable once HeapView.CanAvoidClosure, ConvertClosureToMethodGroup
-            return FieldsByColumnNameCache.GetOrAdd(type, t => GetFieldsByColumnName(t)).TryGetValue(name, out var fieldInfo)
+            return FieldsByColumnNameCache.GetOrAdd(type, static t => GetFieldsByColumnName(t)).TryGetValue(name, out var fieldInfo)
                 ? fieldInfo
                 : null;
 
@@ -104,6 +76,34 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 }
 
                 return res;
+            }
+        }
+
+        /// <summary>
+        /// Gets all fields from the type, including non-public and inherited.
+        /// </summary>
+        /// <param name="type">Type.</param>
+        /// <returns>Fields.</returns>
+        private static IEnumerable<FieldInfo> GetAllFields(this Type type)
+        {
+            if (type.IsPrimitive)
+            {
+                yield break;
+            }
+
+            const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public |
+                                       BindingFlags.NonPublic | BindingFlags.DeclaredOnly;
+
+            var t = type;
+
+            while (t != null)
+            {
+                foreach (var field in t.GetFields(flags))
+                {
+                    yield return field;
+                }
+
+                t = t.BaseType;
             }
         }
 
