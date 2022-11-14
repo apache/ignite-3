@@ -15,8 +15,7 @@
  * limitations under the License.
  */
 
-// ReSharper disable InconsistentNaming
-// ReSharper disable UnusedMember.Local
+// ReSharper disable InconsistentNaming, UnusedMember.Local
 #pragma warning disable SA1306, SA1401, CS0649, CS0169, CA1823, CA1812, SA1201
 namespace Apache.Ignite.Tests.Table.Serialization
 {
@@ -82,6 +81,21 @@ namespace Apache.Ignite.Tests.Table.Serialization
         [Test]
         public void TestGetColumns()
         {
+            var columns = typeof(Columns).GetColumns().ToArray();
+
+            Assert.AreEqual(4, columns.Length);
+
+            Assert.AreEqual("Col1", columns[0].Name);
+            Assert.IsFalse(columns[0].HasColumnNameAttribute);
+
+            Assert.AreEqual("Column 2", columns[1].Name);
+            Assert.IsTrue(columns[1].HasColumnNameAttribute);
+
+            Assert.AreEqual("Col3", columns[2].Name);
+            Assert.IsFalse(columns[2].HasColumnNameAttribute);
+
+            Assert.AreEqual("Column 4", columns[3].Name);
+            Assert.IsTrue(columns[3].HasColumnNameAttribute);
         }
 
         [Test]
@@ -202,6 +216,22 @@ namespace Apache.Ignite.Tests.Table.Serialization
 
             [Column("MyCol")]
             public int MyCol2 { get; set; }
+        }
+
+        private class Columns
+        {
+            public int Col1;
+
+            [Column("Column 2")]
+            public int Col2;
+
+            public int Col3 { get; set; }
+
+            [Column("Column 4")]
+            public int Col4 { get; set; }
+
+            [NotMapped]
+            public int Col5 { get; set; }
         }
     }
 }
