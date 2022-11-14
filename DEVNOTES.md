@@ -321,7 +321,7 @@ After opening the project in IntelliJ, double check that the Java SDK is properl
 * In the `Project` section, make sure the project language level is set to 11.0 as Ignite makes use of several Java 11
   language features
 
-Ignite uses machine code generation for some of it's modules. To generate necessary production code, build the project using maven (see [Building Ignite](#building-ignite)).
+Ignite uses machine code generation for some of it's modules. To generate necessary production code, build the project using gradle.
 
 Configure Idea code style (for IntelliJ Idea >= 2019):
 * File -> Settings -> Editor -> Code Style -> Scheme -> gear (Show Scheme Actions) -> Import Scheme -> IntelliJ IDEA code style XML
