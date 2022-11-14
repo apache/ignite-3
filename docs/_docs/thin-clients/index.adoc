@@ -175,7 +175,7 @@ Tuple fullRecord = Tuple.create()
 	.set("id", 42)
 	.set("name", "John Doe");
 
-view.upsert(null, record);
+view.upsert(null, fullRecord);
 
 Tuple keyRecord = Tuple.create().set("id", 42);
 
@@ -183,7 +183,7 @@ Tuple resRecord = view.get(null, keyRecord);
 
 assert resRecord.columnCount() == 2;
 assert resRecord.intValue("id") == 42;
-assert resRecord.stringValue("name") == "John Doe";
+assert resRecord.stringValue("name").equals("John Doe");
 ----
 
 tab:.NET[]
@@ -209,6 +209,245 @@ assert(res_record.has_value());
 assert(res_record->column_count() == 2);
 assert(res_record->get<std::int64_t>("id") == 42);
 assert(res_record->get<std::string>("name") == "John Doe");
+----
+
+--
+
+Record view:
+
+[tabs]
+--
+tab:Java[]
+[source, java]
+----
+protected static class Pojo {
+	public long id;
+	public String name;
+
+	public Pojo() {}
+
+	public Pojo(long id) {
+		this.id = id;
+	}
+
+	public Pojo(long id, String name) {
+		this.id = id;
+		this.name = name;
+	}
+}
+
+RecordView<Pojo> pojoView = table.recordView(Mapper.of(Pojo.class));
+
+pojoView.upsert(null, new Pojo(42, "John Doe"));
+Pojo resRecord = pojoView.get(null, new Pojo(42));
+
+assert resRecord.id == 42;
+assert resRecord.name.equals("John Doe");
+----
+
+tab:.NET[]
+[source, csharp]
+----
+// Contact @Pavel Tupitsyn for .NET code snippets
+----
+
+tab:C++[]
+[source, cpp]
+----
+// Record view is not yet supported in C++
+----
+
+--
+
+Key-Value binary view:
+
+[tabs]
+--
+tab:Java[]
+[source, java]
+----
+KeyValueView<Tuple, Tuple> kvView = table.keyValueView();
+
+Tuple key = Tuple.create().set("id", 42)
+Tuple val = Tuple.create().set("name", "John Doe");
+
+kvView.put(null, key, val);
+Tuple res = kvView.get(null, key);
+
+assert res.columnCount() == 1;
+assert res.stringValue("name").equals("John Doe");
+----
+
+tab:.NET[]
+[source, csharp]
+----
+// Contact @Pavel Tupitsyn for .NET code snippets
+----
+
+tab:C++[]
+[source, cpp]
+----
+// Key-value binary view is not yet supported in C++
+----
+
+--
+
+
+Key-Value view:
+
+[tabs]
+--
+tab:Java[]
+[source, java]
+----
+protected static class Pojo {
+	public long id;
+	public String name;
+
+	public Pojo() {}
+
+	public Pojo(long id) {
+		this.id = id;
+	}
+
+	public Pojo(String name) {
+		this.name = name;
+	}
+}
+
+KeyValueView<Long, Pojo> pojoView =
+	table.keyValueView(Mapper.of(Long.class), Mapper.of(Pojo.class));
+
+pojoView.put(null, 42, new Pojo("John Doe"));
+Pojo val = pojoView.get(null, 42);
+
+assert val.name.equals("John Doe");
+----
+
+tab:.NET[]
+[source, csharp]
+----
+// Contact @Pavel Tupitsyn for .NET code snippets
+----
+
+tab:C++[]
+[source, cpp]
+----
+// Key-value view is not yet supported in C++
+----
+
+--
+
+== Using SQL API
+
+Apache Ignite Clients provide a SQL API to execute SQL statements. This API allows query Ignite tables using SQL.
+
+[tabs]
+--
+tab:Java[]
+[source, java]
+----
+try (Session session = client.sql().createSession()) {
+	ResultSet resultSet = session.execute(null, "SELECT name from POJO where id = 42");
+
+	SqlRow row = resultSet.next();
+	assert row.stringValue(0).equals("John Doe");
+}
+----
+
+tab:.NET[]
+[source, csharp]
+----
+// Contact @Pavel Tupitsyn for .NET code snippets
+----
+
+tab:C++[]
+[source, cpp]
+----
+// SQL API is not yet supported in C++
+----
+
+--
+
+
+== Transactions
+
+Ignite transactions API allows to perform distributed transactions when working with SQL and tables. 
+
+[tabs]
+--
+tab:Java[]
+[source, java]
+----
+protected static class Account {
+	public long id;
+	public long balance;
+
+	public Account() {}
+
+	public Account(long balance) {
+		this.balance = balance;
+	}
+}
+
+KeyValueView<Long, Account> accounts =
+	table.keyValueView(Mapper.of(Long.class), Mapper.of(Account.class));
+
+accounts.put(null, 42, new Account(16_000));
+
+var tx = client.transactions().begin();
+
+Account account = accounts.get(tx, 42);
+account.balance += 500;
+accounts.put(tx, 42, account);
+
+assert accounts.get(tx, 42).balance == 16_500;
+
+tx.rollback();
+
+assert accounts.get(tx, 42).balance == 16_000;
+----
+
+tab:.NET[]
+[source, csharp]
+----
+// Contact @Pavel Tupitsyn for .NET code snippets
+----
+
+tab:C++[]
+[source, cpp]
+----
+// Transactions are not yet supported in C++
+----
+
+--
+
+
+== Executing Compute Tasks
+
+Presently, the Ignite Clients support basic compute capabilities by letting you execute those compute tasks that are already deployed in the cluster. You can either run a task across all cluster nodes or a specific cluster group. The deployment assumes that you create a JAR file with the compute tasks and add the JAR to the cluster nodes' classpath.
+
+The example below shows how to get access to the compute APIs and execute the compute task named MyTask:
+
+[tabs]
+--
+tab:Java[]
+[source, java]
+----
+String result = client.compute().<String>execute(
+	client.clusterNodes(), "MyTask", "Lorem", "ipsum", 42);
+----
+
+tab:.NET[]
+[source, csharp]
+----
+// Contact @Pavel Tupitsyn for .NET code snippets
+----
+
+tab:C++[]
+[source, cpp]
+----
+// Compute is not yet supported in C++
 ----
 
 --
