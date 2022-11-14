@@ -216,11 +216,11 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
         if (joinClause != null && ExpressionWalker.GetIgniteQueryable(expression, false) == null)
         {
             var tableName = Aliases.GetTableAlias(expression);
-            var fieldname = Aliases.GetFieldAlias(expression);
+            var fieldName = Aliases.GetFieldAlias(expression);
 
-            ResultBuilder.AppendFormat(CultureInfo.InvariantCulture, "{0}.{1}", tableName, fieldname);
+            ResultBuilder.AppendFormat(CultureInfo.InvariantCulture, "{0}.{1}", tableName, fieldName);
         }
-        else if (joinClause != null && joinClause.InnerSequence is SubQueryExpression)
+        else if (joinClause is { InnerSequence: SubQueryExpression })
         {
             var subQueryExpression = (SubQueryExpression) joinClause.InnerSequence;
             base.Visit(subQueryExpression.QueryModel.SelectClause.Selector);
