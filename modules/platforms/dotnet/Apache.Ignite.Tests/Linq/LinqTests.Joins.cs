@@ -26,7 +26,6 @@ using NUnit.Framework;
 /// TestOuterJoin
 /// TestSubqueryJoin
 /// TestInvalidJoin
-/// TestMultipleFrom
 /// TestTwoFromSubquery
 /// TestMultipleFromSubquery.
 /// </summary>
@@ -82,7 +81,29 @@ public partial class LinqTests
     }
 
     [Test]
-    public void TestTwoTableJoinQueryComprehensionSyntax()
+    public void TestTwoTableJoinQuerySyntax()
+    {
+        var query1 = PocoView.AsQueryable();
+        var query2 = PocoIntView.AsQueryable();
+
+        var joinQuery =
+            from a in query1
+            join b in query2
+            on a.Key equals b.Key
+            where b.Key > 3
+            orderby b.Key
+            select new { Id = a.Key, Price = b.Val };
+
+        var res = joinQuery.Take(1).ToList();
+
+        Assert.AreEqual(1, res.Count);
+
+        Assert.AreEqual(4, res[0].Id);
+        Assert.AreEqual(400, res[0].Price);
+    }
+
+    [Test]
+    public void TestJoinAsMultipleFrom()
     {
         var query1 = PocoView.AsQueryable();
         var query2 = PocoIntView.AsQueryable();
