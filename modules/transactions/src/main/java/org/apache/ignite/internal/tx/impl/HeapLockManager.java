@@ -269,14 +269,14 @@ public class HeapLockManager implements LockManager {
          * @return {@code True} if the queue is empty.
          */
         public boolean tryRelease(UUID txId) {
-            Collection<WaiterImpl> locked;
+            Collection<WaiterImpl> toNotify;
 
             synchronized (waiters) {
-                locked = release(txId);
+                toNotify = release(txId);
             }
 
             // Notify outside the monitor.
-            for (WaiterImpl waiter : locked) {
+            for (WaiterImpl waiter : toNotify) {
                 waiter.notifyLocked();
             }
 
@@ -291,7 +291,7 @@ public class HeapLockManager implements LockManager {
          * @return If the value is true, no one waits of any lock of the key, false otherwise.
          */
         public boolean tryRelease(UUID txId, LockMode lockMode) {
-            List<WaiterImpl> locked = Collections.emptyList();
+            List<WaiterImpl> toNotify = Collections.emptyList();
             synchronized (waiters) {
                 WaiterImpl waiter = waiters.get(txId);
 
@@ -301,15 +301,15 @@ public class HeapLockManager implements LockManager {
                     LockMode modeToDowngrade = waiter.recalculateMode();
 
                     if (modeToDowngrade == null) {
-                        locked = release(txId);
+                        toNotify = release(txId);
                     } else {
-                        locked = downgrade(txId, modeToDowngrade);
+                        toNotify = downgrade(txId, modeToDowngrade);
                     }
                 }
             }
 
             // Notify outside the monitor.
-            for (WaiterImpl waiter : locked) {
+            for (WaiterImpl waiter : toNotify) {
                 waiter.notifyLocked();
             }
 
@@ -321,7 +321,7 @@ public class HeapLockManager implements LockManager {
          * This method should be invoked synchronously.
          *
          * @param txId Transaction id.
-         * @return List of unlocked waiters.
+         * @return List of waiters to notify.
          */
         private List<WaiterImpl> release(UUID txId) {
             WaiterImpl removed = waiters.remove(txId);
@@ -332,9 +332,9 @@ public class HeapLockManager implements LockManager {
                 return Collections.emptyList();
             }
 
-            List<WaiterImpl> locked = unlockCompatibleWaiters(txId, removed, null);
+            List<WaiterImpl> toNotify = unlockCompatibleWaiters(txId, removed, null);
 
-            return locked;
+            return toNotify;
         }
 
         /**
@@ -343,11 +343,10 @@ public class HeapLockManager implements LockManager {
          * @param txId Transaction id.
          * @param pickedUpWaiter List of unlocked waiters.
          * @param downgradeMode Lock mode to downgrade.
-         * @return List of unlocked waiters.
+         * @return List of waiters to notify.
          */
         private ArrayList<WaiterImpl> unlockCompatibleWaiters(UUID txId, WaiterImpl pickedUpWaiter, LockMode downgradeMode) {
-            ArrayList<WaiterImpl> locked = new ArrayList<>();
-            ArrayList<WaiterImpl> toFail = new ArrayList<>();
+            ArrayList<WaiterImpl> toNotify = new ArrayList<>();
             Set<LockMode> lockModes = new HashSet<>();
 
             if (downgradeMode != null) {
@@ -368,7 +367,10 @@ public class HeapLockManager implements LockManager {
                     tmp.prevLockMode = null;
                     tmp.locked = true;
 
-                    toFail.add(tmp);
+                    tmp.fail(new LockException(RELEASE_LOCK_ERR,
+                            "Failed to acquire a lock due to a conflict [txId=" + txId + ", waiter=" + pickedUpWaiter + ']'));
+
+                    toNotify.add(tmp);
                 } else if (lockModes.stream().allMatch(tmp.lockMode::isCompatible)) {
                     if (tmp.upgraded) {
                         // Fail upgraded waiters.
@@ -384,19 +386,11 @@ public class HeapLockManager implements LockManager {
 
                     lockModes.add(tmp.lockMode);
 
-                    locked.add(tmp);
+                    toNotify.add(tmp);
                 }
             }
 
-            //TODO: IGNITE-17733 Remove this after correct lock prevention strategy will be implemented.
-            for (WaiterImpl waiter : toFail) {
-                waiter.fut.completeExceptionally(
-                        new LockException(
-                                RELEASE_LOCK_ERR,
-                                "Failed to acquire a lock due to a conflict [txId=" + txId + ", waiter=" + pickedUpWaiter + ']'));
-            }
-
-            return locked;
+            return toNotify;
         }
 
         /**
@@ -405,7 +399,7 @@ public class HeapLockManager implements LockManager {
          *
          * @param txId Transaction id.
          * @param lockMode Lock mode.
-         * @return List of unlocked waiters.
+         * @return List of waiters to notify.
          */
         private List<WaiterImpl> downgrade(UUID txId, LockMode lockMode) {
             WaiterImpl waiter = waiters.remove(txId);
@@ -423,13 +417,13 @@ public class HeapLockManager implements LockManager {
                     "Held lock mode have to be more strict than mode to downgrade [from=" + waiter.lockMode + ", to=" + lockMode
                             + ']';
 
-            List<WaiterImpl> locked = unlockCompatibleWaiters(txId, waiter, lockMode);
+            List<WaiterImpl> toNotify = unlockCompatibleWaiters(txId, waiter, lockMode);
 
             waiter.lockMode = lockMode;
 
             waiters.put(txId, waiter);
 
-            return locked;
+            return toNotify;
         }
 
         /**
@@ -482,6 +476,11 @@ public class HeapLockManager implements LockManager {
 
         /** The state. */
         private boolean locked = false;
+
+        /**
+         * The filed has a value when the waiter couldn't lock a key.
+         */
+        private LockException ex;
 
         /**
          * The constructor.
@@ -560,9 +559,13 @@ public class HeapLockManager implements LockManager {
 
         /** Notifies a future listeners. */
         private void notifyLocked() {
-            assert locked;
+            if (ex != null) {
+                fut.completeExceptionally(ex);
+            } else {
+                assert locked;
 
-            fut.complete(null);
+                fut.complete(null);
+            }
         }
 
         /** {@inheritDoc} */
@@ -580,6 +583,15 @@ public class HeapLockManager implements LockManager {
         /** Grant a lock. */
         private void lock() {
             locked = true;
+        }
+
+        /**
+         * Fails the lock waiter.
+         *
+         * @param e Lock exception.
+         */
+        private void fail(LockException e) {
+            ex = e;
         }
 
         /** {@inheritDoc} */
