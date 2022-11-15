@@ -28,7 +28,7 @@ using Table;
 /// <summary>
 /// Basic LINQ provider tests.
 /// </summary>
-public class LinqTests : IgniteTestsBase
+public partial class LinqTests : IgniteTestsBase
 {
     [OneTimeSetUp]
     public async Task InsertData()
