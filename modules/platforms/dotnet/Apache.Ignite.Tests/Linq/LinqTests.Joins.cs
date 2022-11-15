@@ -61,17 +61,25 @@ public partial class LinqTests
         var query1 = PocoView.AsQueryable();
         var query2 = PocoIntView.AsQueryable();
 
-        var joinQuery = query1.Join(query2, a => a.Key, b => b.Key, (a, b) => new
-            {
-                Id = a.Key,
-                Price = b.Val
-            })
+        var joinQuery = query1.Join(
+                inner: query2,
+                outerKeySelector: a => a.Key,
+                innerKeySelector: b => b.Key,
+                resultSelector: (a, b) => new
+                {
+                    Id = a.Key,
+                    Price = b.Val
+                })
+            .Where(x => x.Id > 3)
             .OrderBy(x => x.Id)
             .Take(2);
 
         var res = joinQuery.ToList();
 
         Assert.AreEqual(2, res.Count);
+
+        Assert.AreEqual(4, res[0].Id);
+        Assert.AreEqual(400, res[0].Price);
     }
 
     [Test]
