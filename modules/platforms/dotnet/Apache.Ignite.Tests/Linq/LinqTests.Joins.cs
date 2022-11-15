@@ -126,7 +126,25 @@ public partial class LinqTests
     [Test]
     public void TestMultiKeyJoin()
     {
-        Assert.Fail("TODO");
+        var query1 = PocoIntView.AsQueryable();
+        var query2 = PocoIntView.AsQueryable();
+
+        var joinQuery = query1.Join(
+                inner: query2,
+                outerKeySelector: a => new { a.Key, a.Val },
+                innerKeySelector: b => new { b.Key, b.Val },
+                resultSelector: (a, b) => new
+                {
+                    Id = b.Key,
+                    Price = a.Val
+                })
+            .Where(x => x.Id > 1 && x.Price > 0)
+            .OrderBy(x => x.Id);
+
+        var res = joinQuery.First();
+
+        Assert.AreEqual(2, res.Id);
+        Assert.AreEqual(200, res.Price);
     }
 
     private record PocoInt(int Key, int Val);
