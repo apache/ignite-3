@@ -82,6 +82,27 @@ public partial class LinqTests
     }
 
     [Test]
+    public void TestTwoTableJoinQueryComprehensionSyntax()
+    {
+        var query1 = PocoView.AsQueryable();
+        var query2 = PocoIntView.AsQueryable();
+
+        var joinQuery =
+            from a in query1
+            from b in query2
+            where a.Key == b.Key && a.Key > 3
+            orderby b.Key
+            select new { Id = a.Key, Price = b.Val };
+
+        var res = joinQuery.Take(1).ToList();
+
+        Assert.AreEqual(1, res.Count);
+
+        Assert.AreEqual(4, res[0].Id);
+        Assert.AreEqual(400, res[0].Price);
+    }
+
+    [Test]
     public void TestMultiKeyJoin()
     {
         Assert.Fail("TODO");
