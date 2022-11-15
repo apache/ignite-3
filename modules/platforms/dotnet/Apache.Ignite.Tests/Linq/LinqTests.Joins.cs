@@ -60,6 +60,7 @@ public partial class LinqTests
         var query1 = PocoView.AsQueryable();
         var query2 = PocoAllColumnsView.AsQueryable();
 
+        // TODO: Error is "UUID is not supported yet", use different table.
         var joinQuery = query1.Join(query2, a => a.Key, b => b.Key, (a, b) => new
             {
                 Id = a.Key,
