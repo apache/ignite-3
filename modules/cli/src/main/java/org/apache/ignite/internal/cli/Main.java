@@ -20,6 +20,9 @@ package org.apache.ignite.internal.cli;
 import static org.apache.ignite.internal.cli.config.ConfigConstants.IGNITE_CLI_LOGS_DIR;
 
 import io.micronaut.configuration.picocli.MicronautFactory;
+import io.micronaut.context.ApplicationContext;
+import io.micronaut.context.ApplicationContextBuilder;
+import io.micronaut.context.env.Environment;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -58,7 +61,8 @@ public class Main {
         initJavaLoggerProps();
 
         int exitCode = 0;
-        try (MicronautFactory micronautFactory = new MicronautFactory()) {
+        ApplicationContextBuilder builder = ApplicationContext.builder(Environment.CLI).deduceEnvironment(false);
+        try (MicronautFactory micronautFactory = new MicronautFactory(builder.start())) {
             AnsiConsole.systemInstall();
             if (args.length != 0 || !isatty()) { // do not enter REPL if input or output is redirected
                 try {
