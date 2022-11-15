@@ -18,7 +18,6 @@
 namespace Apache.Ignite.Tests.Linq;
 
 using System.Linq;
-using System.Threading.Tasks;
 using NUnit.Framework;
 
 /// <summary>

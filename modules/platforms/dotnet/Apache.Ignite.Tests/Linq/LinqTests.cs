@@ -18,14 +18,12 @@
 namespace Apache.Ignite.Tests.Linq;
 
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Threading.Tasks;
 using Ignite.Sql;
 using Ignite.Table;
-using NodaTime;
 using NUnit.Framework;
 using Table;
 
