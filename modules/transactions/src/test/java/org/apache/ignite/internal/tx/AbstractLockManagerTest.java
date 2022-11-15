@@ -763,6 +763,8 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
 
             assertFalse(lockManager.locks(txId).hasNext());
         }
+
+        assertTrue(lockManager.isEmpty());
     }
 
     @Test
@@ -788,6 +790,8 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
 
             assertFalse(lockManager.locks(txId).hasNext());
         }
+
+        assertTrue(lockManager.isEmpty());
     }
 
     @Test

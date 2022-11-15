@@ -327,6 +327,8 @@ public class HeapLockManager implements LockManager {
             WaiterImpl removed = waiters.remove(txId);
 
             if (waiters.isEmpty()) {
+                markedForRemove = true;
+
                 return Collections.emptyList();
             }
 
