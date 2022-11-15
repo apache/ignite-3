@@ -43,11 +43,8 @@ public partial class LinqTests : IgniteTestsBase
     [OneTimeSetUp]
     public async Task InsertData()
     {
-        var tblInt = await Client.Tables.GetTableAsync("TBL_INT32"); // TODO: Extract table name constant.
-        PocoIntView = tblInt!.GetRecordView<PocoInt>();
-
-        var tblLong = await Client.Tables.GetTableAsync("TBL_INT64"); // TODO: Extract table name constant.
-        PocoLongView = tblLong!.GetRecordView<PocoLong>();
+        PocoIntView = (await Client.Tables.GetTableAsync(TableInt32Name))!.GetRecordView<PocoInt>();
+        PocoLongView = (await Client.Tables.GetTableAsync(TableInt64Name))!.GetRecordView<PocoLong>();
 
         for (int i = 0; i < Count; i++)
         {
