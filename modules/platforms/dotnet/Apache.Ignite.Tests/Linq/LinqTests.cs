@@ -31,6 +31,7 @@ using Table;
 /// Basic LINQ provider tests.
 /// </summary>
 [SuppressMessage("ReSharper", "PossibleLossOfFraction", Justification = "Tests")]
+[SuppressMessage("ReSharper", "NotAccessedPositionalProperty.Local", Justification = "Tests")]
 public partial class LinqTests : IgniteTestsBase
 {
     private const int Count = 10;
