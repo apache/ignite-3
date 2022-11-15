@@ -51,6 +51,12 @@ public partial class LinqTests
         Assert.AreEqual(5, res.Key2);
         Assert.AreEqual("v-5", res.Val1);
         Assert.AreEqual("v-5", res.Val2);
+
+        StringAssert.Contains(
+            "select _T0.KEY, _T0.VAL, _T1.KEY, _T1.VAL " +
+            "from PUBLIC.TBL1 as _T0 " +
+            "inner join (select * from PUBLIC.TBL1 as _T2 where (_T2.KEY < ?) ) as _T1 on (_T1.KEY = _T0.KEY)",
+            joinQuery.ToString());
     }
 
     [Test]
@@ -78,6 +84,15 @@ public partial class LinqTests
 
         Assert.AreEqual(4, res[0].Id);
         Assert.AreEqual(400, res[0].Price);
+
+        StringAssert.Contains(
+            "select _T0.KEY, _T1.VAL " +
+            "from PUBLIC.TBL1 as _T0 " +
+            "inner join PUBLIC.TBL_INT32 as _T1 on (_T1.KEY = _T0.KEY) " +
+            "where (_T0.KEY > ?) " +
+            "order by (_T0.KEY) asc " +
+            "limit ?",
+            joinQuery.ToString());
     }
 
     [Test]
@@ -100,6 +115,12 @@ public partial class LinqTests
 
         Assert.AreEqual(4, res[0].Id);
         Assert.AreEqual(400, res[0].Price);
+
+        StringAssert.Contains(
+            "select _T0.KEY, _T1.VAL " +
+            "from PUBLIC.TBL_INT32 as _T1 " +
+            "inner join PUBLIC.TBL_INT32 as _T0 on (_T0.KEY = _T1.KEY and _T0.VAL = _T1.VAL)",
+            joinQuery.ToString());
     }
 
     [Test]
@@ -121,6 +142,11 @@ public partial class LinqTests
 
         Assert.AreEqual(4, res[0].Id);
         Assert.AreEqual(8, res[0].Price);
+
+        StringAssert.Contains(
+            "select _T0.KEY, _T1.VAL from PUBLIC.TBL1 as _T0 , PUBLIC.TBL_INT64 as _T1 " +
+            "where ((_T0.KEY IS NOT DISTINCT FROM _T1.KEY) and (_T0.KEY > ?))",
+            joinQuery.ToString());
     }
 
     [Test]
