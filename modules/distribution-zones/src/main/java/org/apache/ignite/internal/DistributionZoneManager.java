@@ -150,6 +150,8 @@ public class DistributionZoneManager implements IgniteComponent {
 
                                     int intZoneId = zonesChange.globalIdCounter() + 1;
                                     zonesChange.changeGlobalIdCounter(intZoneId);
+
+                                    zoneChange.changeZoneId(intZoneId);
                                 });
                             }));
                         }
