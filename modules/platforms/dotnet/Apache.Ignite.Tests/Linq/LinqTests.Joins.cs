@@ -28,7 +28,7 @@ using NUnit.Framework;
 /// TestInvalidJoin
 /// TestMultipleFrom
 /// TestTwoFromSubquery
-/// TestMultipleFromSubquery
+/// TestMultipleFromSubquery.
 /// </summary>
 public partial class LinqTests
 {

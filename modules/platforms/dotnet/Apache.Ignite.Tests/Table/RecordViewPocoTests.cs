@@ -607,8 +607,7 @@ namespace Apache.Ignite.Tests.Table
         [Test]
         public async Task TestAllColumnsPoco()
         {
-            var table = await Client.Tables.GetTableAsync(TableAllColumnsName);
-            var pocoView = table!.GetRecordView<PocoAllColumns>();
+            var pocoView = PocoAllColumnsView;
 
             var dt = LocalDateTime.FromDateTime(DateTime.UtcNow);
             var poco = new PocoAllColumns(

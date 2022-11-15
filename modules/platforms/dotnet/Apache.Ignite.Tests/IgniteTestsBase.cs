@@ -60,6 +60,8 @@ namespace Apache.Ignite.Tests
 
         protected IRecordView<Poco> PocoView { get; private set; } = null!;
 
+        protected IRecordView<PocoAllColumns> PocoAllColumnsView { get; private set; } = null!;
+
         [OneTimeSetUp]
         public async Task OneTimeSetUp()
         {
@@ -70,6 +72,7 @@ namespace Apache.Ignite.Tests
             Table = (await Client.Tables.GetTableAsync(TableName))!;
             TupleView = Table.RecordBinaryView;
             PocoView = Table.GetRecordView<Poco>();
+            PocoAllColumnsView = (await Client.Tables.GetTableAsync(TableAllColumnsName))!.GetRecordView<PocoAllColumns>();
         }
 
         [OneTimeTearDown]
