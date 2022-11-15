@@ -27,7 +27,6 @@ import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.function.Function;
 import java.util.function.Predicate;
-import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
@@ -75,7 +74,7 @@ public class TableScanNode<RowT> extends AbstractNode<RowT> {
      * Constructor.
      *
      * @param ctx             Execution context.
-     * @param rowType         Output type of the current node.
+     * @param rowFactory      Row factory.
      * @param schemaTable     The table this node should scan.
      * @param parts           Partition numbers to scan.
      * @param filters         Optional filter to filter out rows.
@@ -84,14 +83,14 @@ public class TableScanNode<RowT> extends AbstractNode<RowT> {
      */
     public TableScanNode(
             ExecutionContext<RowT> ctx,
-            RelDataType rowType,
+            RowHandler.RowFactory<RowT> rowFactory,
             InternalIgniteTable schemaTable,
             int[] parts,
             @Nullable Predicate<RowT> filters,
             @Nullable Function<RowT, RowT> rowTransformer,
             @Nullable BitSet requiredColumns
     ) {
-        super(ctx, rowType);
+        super(ctx);
 
         assert !nullOrEmpty(parts);
 
@@ -103,8 +102,7 @@ public class TableScanNode<RowT> extends AbstractNode<RowT> {
         this.filters = filters;
         this.rowTransformer = rowTransformer;
         this.requiredColumns = requiredColumns;
-
-        factory = ctx.rowHandler().factory(ctx.getTypeFactory(), rowType);
+        this.factory = rowFactory;
     }
 
     /** {@inheritDoc} */
