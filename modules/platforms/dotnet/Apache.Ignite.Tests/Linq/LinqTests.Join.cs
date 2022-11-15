@@ -225,6 +225,7 @@ public partial class LinqTests
     [Test]
     public void TestLocalCollectionJoin()
     {
+        // TODO: Test this on Java side - possible or not? Can we do Contains instead?
         var query1 = PocoIntView.AsQueryable(); // Sequential keys.
         var query2 = new[] { 2, 4, 6 };
 
