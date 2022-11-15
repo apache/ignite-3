@@ -17,16 +17,36 @@
 
 namespace Apache.Ignite.Tests.Linq;
 
+using System.Linq;
 using NUnit.Framework;
 
 /// <summary>
 /// Linq JOINs tests.
+/// TODO:
+/// TestOuterJoin
+/// TestSubqueryJoin
+/// TestInvalidJoin
+/// TestMultipleFrom
+/// TestTwoFromSubquery
+/// TestMultipleFromSubquery
 /// </summary>
 public partial class LinqTests
 {
     [Test]
     public void TestSelfJoin()
     {
+        var query1 = PocoView.AsQueryable().Where(x => x.Key > 5);
+        var query2 = PocoView.AsQueryable().Where(x => x.Key < 5);
+
+        var joinQuery = query1.Join(query2, a => a.Key, b => b.Key + 5, (a, b) => new
+        {
+            Key1 = a.Key,
+            Val1 = a.Val,
+            Key2 = b.Key,
+            Val2 = b.Val
+        });
+
+        var res = joinQuery.ToList();
         Assert.Fail("TODO");
     }
 
