@@ -23,6 +23,7 @@ import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryTableStorage;
+import org.apache.ignite.internal.storage.pagememory.index.hash.AbstractPageMemoryHashIndexStorage;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
 
 /**
@@ -74,16 +75,34 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
 
     @Override
     public long lastAppliedIndex() {
+        checkClosed();
+
         return lastAppliedIndex;
     }
 
     @Override
     public void lastAppliedIndex(long lastAppliedIndex) throws StorageException {
+        checkClosed();
+
         this.lastAppliedIndex = lastAppliedIndex;
     }
 
     @Override
     public long persistedIndex() {
+        checkClosed();
+
         return lastAppliedIndex;
+    }
+
+    @Override
+    void close0(boolean destroy) throws StorageException {
+        versionChainTree.close();
+        indexMetaTree.close();
+
+        // TODO: IGNITE-17132 реализовать
+
+        for (AbstractPageMemoryHashIndexStorage value : hashIndexes.values()) {
+            //value.
+        }
     }
 }

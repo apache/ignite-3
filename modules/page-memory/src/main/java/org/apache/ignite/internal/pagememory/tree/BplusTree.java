@@ -2052,7 +2052,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
 
     /** {@inheritDoc} */
     @Override
-    public void invoke(L row, Object z, InvokeClosure<T> c) throws IgniteInternalCheckedException {
+    public void invoke(L row, @Nullable Object z, InvokeClosure<T> c) throws IgniteInternalCheckedException {
         checkDestroyed();
 
         Invoke x = new Invoke(row, z, c);
@@ -4037,9 +4037,10 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
      * Invoke operation.
      */
     public final class Invoke extends Get {
-        Object arg;
+        @Nullable
+        final Object arg;
 
-        InvokeClosure<T> clo;
+        final InvokeClosure<T> clo;
 
         Bool closureInvoked = FALSE;
 
@@ -4054,7 +4055,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
          * @param arg Implementation specific argument.
          * @param clo Closure.
          */
-        private Invoke(L row, Object arg, InvokeClosure<T> clo) {
+        private Invoke(L row, @Nullable Object arg, InvokeClosure<T> clo) {
             super(row, false);
 
             assert clo != null;
@@ -5649,7 +5650,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
      * @return Data row.
      * @throws IgniteInternalCheckedException If failed.
      */
-    public abstract T getRow(BplusIo<L> io, long pageAddr, int idx, Object x) throws IgniteInternalCheckedException;
+    public abstract T getRow(BplusIo<L> io, long pageAddr, int idx, @Nullable Object x) throws IgniteInternalCheckedException;
 
     /**
      * Abstract forward cursor.

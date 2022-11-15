@@ -34,7 +34,7 @@ import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryTableSt
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineView;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumnsFreeList;
-import org.apache.ignite.internal.storage.pagememory.index.hash.PageMemoryHashIndexStorage;
+import org.apache.ignite.internal.storage.pagememory.index.hash.AbstractPageMemoryHashIndexStorage;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
 import org.apache.ignite.internal.storage.pagememory.index.sorted.PageMemorySortedIndexStorage;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
@@ -171,7 +171,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     }
 
     @Override
-    public PageMemoryHashIndexStorage getOrCreateHashIndex(UUID indexId) {
+    public AbstractPageMemoryHashIndexStorage getOrCreateHashIndex(UUID indexId) {
         return runConsistently(() -> super.getOrCreateHashIndex(indexId));
     }
 
@@ -181,11 +181,18 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     }
 
     @Override
-    public void close() {
+    void close0(boolean destroy) throws StorageException {
         checkpointManager.removeCheckpointListener(checkpointListener);
+
+        versionChainTree.close();
+        indexMetaTree.close();
 
         rowVersionFreeList.close();
         indexFreeList.close();
+
+        if (destroy) {
+            // TODO: IGNITE-17132 реализовать
+        }
     }
 
     /**

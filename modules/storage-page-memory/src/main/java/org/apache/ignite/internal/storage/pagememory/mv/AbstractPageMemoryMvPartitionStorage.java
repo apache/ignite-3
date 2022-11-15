@@ -56,8 +56,8 @@ import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.storage.pagememory.AbstractPageMemoryTableStorage;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumnsFreeList;
+import org.apache.ignite.internal.storage.pagememory.index.hash.AbstractPageMemoryHashIndexStorage;
 import org.apache.ignite.internal.storage.pagememory.index.hash.HashIndexTree;
-import org.apache.ignite.internal.storage.pagememory.index.hash.PageMemoryHashIndexStorage;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMeta;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
 import org.apache.ignite.internal.storage.pagememory.index.sorted.PageMemorySortedIndexStorage;
@@ -68,7 +68,7 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Abstract implementation of {@link MvPartitionStorage} using Page Memory.
+ * Abstract implementation of partition storage using Page Memory.
  */
 public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitionStorage {
     private static final byte[] TOMBSTONE_PAYLOAD = new byte[0];
@@ -103,7 +103,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
     protected final DataPageReader rowVersionDataPageReader;
 
-    protected final ConcurrentMap<UUID, PageMemoryHashIndexStorage> hashIndexes = new ConcurrentHashMap<>();
+    protected final ConcurrentMap<UUID, AbstractPageMemoryHashIndexStorage> hashIndexes = new ConcurrentHashMap<>();
 
     protected final ConcurrentMap<UUID, PageMemorySortedIndexStorage> sortedIndexes = new ConcurrentHashMap<>();
 
@@ -180,7 +180,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
      *
      * @param indexId Index UUID.
      */
-    public PageMemoryHashIndexStorage getOrCreateHashIndex(UUID indexId) {
+    public AbstractPageMemoryHashIndexStorage getOrCreateHashIndex(UUID indexId) {
         checkClosed();
 
         return hashIndexes.computeIfAbsent(indexId, uuid -> createOrRestoreHashIndex(new IndexMeta(indexId, 0L)));
@@ -197,7 +197,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         return sortedIndexes.computeIfAbsent(indexId, uuid -> createOrRestoreSortedIndex(new IndexMeta(indexId, 0L)));
     }
 
-    private PageMemoryHashIndexStorage createOrRestoreHashIndex(IndexMeta indexMeta) {
+    private AbstractPageMemoryHashIndexStorage createOrRestoreHashIndex(IndexMeta indexMeta) {
         var indexDescriptor = new HashIndexDescriptor(indexMeta.id(), tablesConfiguration.value());
 
         try {
@@ -230,7 +230,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
                 assert !replaced;
             }
 
-            return new PageMemoryHashIndexStorage(indexDescriptor, indexFreeList, hashIndexTree);
+            return new AbstractPageMemoryHashIndexStorage(indexDescriptor, indexFreeList, hashIndexTree);
         } catch (IgniteInternalCheckedException e) {
             throw new RuntimeException(e);
         }
@@ -721,9 +721,15 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
     @Override
     public void close() {
-        versionChainTree.close();
+        close(false);
+    }
 
-        indexMetaTree.close();
+    private void close(boolean destroy) throws StorageException {
+        if (!STARTED.compareAndSet(this, true, false)) {
+            return;
+        }
+
+        close0(destroy);
     }
 
     /**
@@ -732,8 +738,16 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
      * @throws StorageException If failed to destroy the data or storage is already stopped.
      */
     public void destroy() throws StorageException {
-        // TODO: IGNITE-17132 Implement it
+        close(true);
     }
+
+    /**
+     * Closing the partition store of its indexes and their associated resources.
+     *
+     * @param destroy Whether to destroy data in storages.
+     * @throws StorageException If there will be an error on closing/destroying the storages.
+     */
+    abstract void close0(boolean destroy) throws StorageException;
 
     private abstract class BasePartitionTimestampCursor implements PartitionTimestampCursor {
         protected final Cursor<VersionChain> treeCursor;

@@ -168,7 +168,7 @@ public class ItBplusTreeReplaceRemoveRaceTest extends BaseIgniteAbstractTest {
 
         /** {@inheritDoc} */
         @Override
-        public Pair getRow(BplusIo<Pair> io, long pageAddr, int idx, Object ignore) throws IgniteInternalCheckedException {
+        public Pair getRow(BplusIo<Pair> io, long pageAddr, int idx, @Nullable Object ignore) throws IgniteInternalCheckedException {
             return io.getLookupRow(this, pageAddr, idx);
         }
     }

@@ -122,7 +122,12 @@ public class SortedIndexTree extends BplusTree<SortedIndexRowKey, SortedIndexRow
     }
 
     @Override
-    public SortedIndexRow getRow(BplusIo<SortedIndexRowKey> io, long pageAddr, int idx, Object x) throws IgniteInternalCheckedException {
+    public SortedIndexRow getRow(
+            BplusIo<SortedIndexRowKey> io,
+            long pageAddr,
+            int idx,
+            @Nullable Object x
+    ) throws IgniteInternalCheckedException {
         SortedIndexTreeIo sortedIndexTreeIo = (SortedIndexTreeIo) io;
 
         return sortedIndexTreeIo.getRow(dataPageReader, partId, pageAddr, idx);

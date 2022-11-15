@@ -30,9 +30,9 @@ import org.apache.ignite.internal.util.CursorUtils;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
- * Hash index storage implementation.
+ * Abstract implementation of Hash index storage using Page Memory.
  */
-public class PageMemoryHashIndexStorage implements HashIndexStorage {
+public class AbstractPageMemoryHashIndexStorage implements HashIndexStorage {
     /** Index descriptor. */
     private final HashIndexDescriptor descriptor;
 
@@ -58,7 +58,7 @@ public class PageMemoryHashIndexStorage implements HashIndexStorage {
      * @param freeList Free list to store index columns.
      * @param hashIndexTree Hash index tree instance.
      */
-    public PageMemoryHashIndexStorage(HashIndexDescriptor descriptor, IndexColumnsFreeList freeList, HashIndexTree hashIndexTree) {
+    public AbstractPageMemoryHashIndexStorage(HashIndexDescriptor descriptor, IndexColumnsFreeList freeList, HashIndexTree hashIndexTree) {
         this.descriptor = descriptor;
         this.freeList = freeList;
         this.hashIndexTree = hashIndexTree;
