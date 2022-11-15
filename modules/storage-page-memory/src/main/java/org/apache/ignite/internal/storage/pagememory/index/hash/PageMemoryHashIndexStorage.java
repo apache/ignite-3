@@ -17,8 +17,11 @@
 
 package org.apache.ignite.internal.storage.pagememory.index.hash;
 
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.VarHandle;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.StorageClosedException;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.index.HashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
@@ -26,13 +29,22 @@ import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumnsFreeList;
 import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.internal.util.CursorUtils;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
- * Abstract implementation of Hash index storage using Page Memory.
+ * Implementation of Hash index storage using Page Memory.
  */
-public class AbstractPageMemoryHashIndexStorage implements HashIndexStorage {
+public class PageMemoryHashIndexStorage implements HashIndexStorage {
+    private static final VarHandle STARTED;
+
+    static {
+        try {
+            STARTED = MethodHandles.lookup().findVarHandle(PageMemoryHashIndexStorage.class, "started", boolean.class);
+        } catch (ReflectiveOperationException e) {
+            throw new ExceptionInInitializerError(e);
+        }
+    }
+
     /** Index descriptor. */
     private final HashIndexDescriptor descriptor;
 
@@ -51,6 +63,8 @@ public class AbstractPageMemoryHashIndexStorage implements HashIndexStorage {
     /** Highest possible RowId according to signed long ordering. */
     private final RowId highestRowId;
 
+    private volatile boolean started = true;
+
     /**
      * Constructor.
      *
@@ -58,7 +72,7 @@ public class AbstractPageMemoryHashIndexStorage implements HashIndexStorage {
      * @param freeList Free list to store index columns.
      * @param hashIndexTree Hash index tree instance.
      */
-    public AbstractPageMemoryHashIndexStorage(HashIndexDescriptor descriptor, IndexColumnsFreeList freeList, HashIndexTree hashIndexTree) {
+    public PageMemoryHashIndexStorage(HashIndexDescriptor descriptor, IndexColumnsFreeList freeList, HashIndexTree hashIndexTree) {
         this.descriptor = descriptor;
         this.freeList = freeList;
         this.hashIndexTree = hashIndexTree;
@@ -77,6 +91,8 @@ public class AbstractPageMemoryHashIndexStorage implements HashIndexStorage {
 
     @Override
     public Cursor<RowId> get(BinaryTuple key) throws StorageException {
+        checkClosed();
+
         IndexColumns indexColumns = new IndexColumns(partitionId, key.byteBuffer());
 
         HashIndexRow lowerBound = new HashIndexRow(indexColumns, lowestRowId);
@@ -90,11 +106,32 @@ public class AbstractPageMemoryHashIndexStorage implements HashIndexStorage {
             throw new StorageException("Failed to create scan cursor", e);
         }
 
-        return CursorUtils.map(cursor, HashIndexRow::rowId);
+        return new Cursor<>() {
+            @Override
+            public void close() throws Exception {
+                cursor.close();
+            }
+
+            @Override
+            public boolean hasNext() {
+                checkClosed();
+
+                return cursor.hasNext();
+            }
+
+            @Override
+            public RowId next() {
+                checkClosed();
+
+                return cursor.next().rowId();
+            }
+        };
     }
 
     @Override
     public void put(IndexRow row) throws StorageException {
+        checkClosed();
+
         IndexColumns indexColumns = new IndexColumns(partitionId, row.indexColumns().byteBuffer());
 
         try {
@@ -110,6 +147,8 @@ public class AbstractPageMemoryHashIndexStorage implements HashIndexStorage {
 
     @Override
     public void remove(IndexRow row) throws StorageException {
+        checkClosed();
+
         IndexColumns indexColumns = new IndexColumns(partitionId, row.indexColumns().byteBuffer());
 
         try {
@@ -128,6 +167,36 @@ public class AbstractPageMemoryHashIndexStorage implements HashIndexStorage {
 
     @Override
     public void destroy() throws StorageException {
-        //TODO IGNITE-17626 Implement.
+        close0(true);
+    }
+
+    /**
+     * Closes the hash index storage.
+     */
+    public void close() {
+        close0(false);
+    }
+
+    /**
+     * Closes the hash index storage.
+     *
+     * @param destroy Whether to destroy data in storage.
+     */
+    private void close0(boolean destroy) {
+        if (!STARTED.compareAndSet(this, true, false)) {
+            return;
+        }
+
+        hashIndexTree.close();
+
+        if (destroy) {
+            //TODO IGNITE-17626 Implement.
+        }
+    }
+
+    private void checkClosed() {
+        if (!started) {
+            throw new StorageClosedException("Storage is already closed");
+        }
     }
 }

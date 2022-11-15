@@ -23,8 +23,9 @@ import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryTableStorage;
-import org.apache.ignite.internal.storage.pagememory.index.hash.AbstractPageMemoryHashIndexStorage;
+import org.apache.ignite.internal.storage.pagememory.index.hash.PageMemoryHashIndexStorage;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
+import org.apache.ignite.internal.storage.pagememory.index.sorted.PageMemorySortedIndexStorage;
 
 /**
  * Implementation of {@link MvPartitionStorage} based on a {@link BplusTree} for in-memory case.
@@ -99,10 +100,27 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
         versionChainTree.close();
         indexMetaTree.close();
 
-        // TODO: IGNITE-17132 реализовать
-
-        for (AbstractPageMemoryHashIndexStorage value : hashIndexes.values()) {
-            //value.
+        if (destroy) {
+            // TODO: IGNITE-17833 Implement
         }
+
+        for (PageMemoryHashIndexStorage hashIndexStorage : hashIndexes.values()) {
+            if (destroy) {
+                hashIndexStorage.destroy();
+            } else {
+                hashIndexStorage.close();
+            }
+        }
+
+        for (PageMemorySortedIndexStorage sortedIndexStorage : sortedIndexes.values()) {
+            if (destroy) {
+                sortedIndexStorage.destroy();
+            } else {
+                sortedIndexStorage.close();
+            }
+        }
+
+        hashIndexes.clear();
+        sortedIndexes.clear();
     }
 }

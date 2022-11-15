@@ -38,7 +38,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Base class for testing {@link HashIndexStorage} based on {@link PageMemory}.
  */
-abstract class AbstractPageMemoryHashIndexStorageTest extends AbstractHashIndexStorageTest {
+abstract class PageMemoryHashIndexStorageTest extends AbstractHashIndexStorageTest {
     protected BasePageMemoryStorageEngineConfiguration<?, ?> baseEngineConfig;
 
     private final Random random = new Random();

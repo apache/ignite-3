@@ -34,7 +34,7 @@ import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryTableSt
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineView;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumnsFreeList;
-import org.apache.ignite.internal.storage.pagememory.index.hash.AbstractPageMemoryHashIndexStorage;
+import org.apache.ignite.internal.storage.pagememory.index.hash.PageMemoryHashIndexStorage;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
 import org.apache.ignite.internal.storage.pagememory.index.sorted.PageMemorySortedIndexStorage;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
@@ -152,9 +152,9 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
 
     @Override
     public void lastAppliedIndex(long lastAppliedIndex) throws StorageException {
-        assert checkpointTimeoutLock.checkpointLockIsHeldByThread();
-
         checkClosed();
+
+        assert checkpointTimeoutLock.checkpointLockIsHeldByThread();
 
         CheckpointProgress lastCheckpoint = checkpointManager.lastCheckpointProgress();
 
@@ -171,7 +171,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     }
 
     @Override
-    public AbstractPageMemoryHashIndexStorage getOrCreateHashIndex(UUID indexId) {
+    public PageMemoryHashIndexStorage getOrCreateHashIndex(UUID indexId) {
         return runConsistently(() -> super.getOrCreateHashIndex(indexId));
     }
 
@@ -190,8 +190,22 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         rowVersionFreeList.close();
         indexFreeList.close();
 
+        // If we need to destroy a partition, then we do not need to destroy its indexes separately.
+        // We will be deleting everything at once, so we only need to close all indexes.
+
+        for (PageMemoryHashIndexStorage hashIndexStorage : hashIndexes.values()) {
+            hashIndexStorage.close();
+        }
+
+        for (PageMemorySortedIndexStorage sortedIndexStorage : sortedIndexes.values()) {
+            sortedIndexStorage.close();
+        }
+
+        hashIndexes.clear();
+        sortedIndexes.clear();
+
         if (destroy) {
-            // TODO: IGNITE-17132 реализовать
+            // TODO: IGNITE-17132 реализовать?
         }
     }
 

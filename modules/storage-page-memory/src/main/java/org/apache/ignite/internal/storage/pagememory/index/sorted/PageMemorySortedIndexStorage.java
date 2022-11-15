@@ -17,13 +17,14 @@
 
 package org.apache.ignite.internal.storage.pagememory.index.sorted;
 
-import static org.apache.ignite.internal.util.CursorUtils.map;
-
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.VarHandle;
 import java.nio.ByteBuffer;
 import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.StorageClosedException;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexRowImpl;
@@ -36,9 +37,19 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Sorted index storage implementation.
+ * Implementation of Sorted index storage using Page Memory.
  */
 public class PageMemorySortedIndexStorage implements SortedIndexStorage {
+    private static final VarHandle STARTED;
+
+    static {
+        try {
+            STARTED = MethodHandles.lookup().findVarHandle(PageMemorySortedIndexStorage.class, "started", boolean.class);
+        } catch (ReflectiveOperationException e) {
+            throw new ExceptionInInitializerError(e);
+        }
+    }
+
     /** Index descriptor. */
     private final SortedIndexDescriptor descriptor;
 
@@ -56,6 +67,8 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
 
     /** Highest possible RowId according to signed long ordering. */
     private final RowId highestRowId;
+
+    private volatile boolean started = true;
 
     /**
      * Constructor.
@@ -83,12 +96,35 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
 
     @Override
     public Cursor<RowId> get(BinaryTuple key) throws StorageException {
+        checkClosed();
+
         SortedIndexRowKey lowerBound = toSortedIndexRow(key, lowestRowId);
 
         SortedIndexRowKey upperBound = toSortedIndexRow(key, highestRowId);
 
         try {
-            return map(sortedIndexTree.find(lowerBound, upperBound), SortedIndexRow::rowId);
+            Cursor<SortedIndexRow> cursor = sortedIndexTree.find(lowerBound, upperBound);
+
+            return new Cursor<>() {
+                @Override
+                public void close() throws Exception {
+                    cursor.close();
+                }
+
+                @Override
+                public boolean hasNext() {
+                    checkClosed();
+
+                    return cursor.hasNext();
+                }
+
+                @Override
+                public RowId next() {
+                    checkClosed();
+
+                    return cursor.next().rowId();
+                }
+            };
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException("Failed to create scan cursor", e);
         }
@@ -96,6 +132,8 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
 
     @Override
     public void put(IndexRow row) {
+        checkClosed();
+
         try {
             SortedIndexRow sortedIndexRow = toSortedIndexRow(row.indexColumns(), row.rowId());
 
@@ -109,6 +147,8 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
 
     @Override
     public void remove(IndexRow row) {
+        checkClosed();
+
         try {
             SortedIndexRow sortedIndexRow = toSortedIndexRow(row.indexColumns(), row.rowId());
 
@@ -125,6 +165,8 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
 
     @Override
     public Cursor<IndexRow> scan(@Nullable BinaryTuplePrefix lowerBound, @Nullable BinaryTuplePrefix upperBound, int flags) {
+        checkClosed();
+
         boolean includeLower = (flags & GREATER_OR_EQUAL) != 0;
         boolean includeUpper = (flags & LESS_OR_EQUAL) != 0;
 
@@ -133,7 +175,28 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
         SortedIndexRowKey upper = createBound(upperBound, includeUpper);
 
         try {
-            return map(sortedIndexTree.find(lower, upper), this::toIndexRowImpl);
+            Cursor<SortedIndexRow> cursor = sortedIndexTree.find(lower, upper);
+
+            return new Cursor<>() {
+                @Override
+                public void close() throws Exception {
+                    cursor.close();
+                }
+
+                @Override
+                public boolean hasNext() {
+                    checkClosed();
+
+                    return cursor.hasNext();
+                }
+
+                @Override
+                public IndexRow next() {
+                    checkClosed();
+
+                    return toIndexRowImpl(cursor.next());
+                }
+            };
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException("Failed to create scan cursor", e);
         }
@@ -165,5 +228,42 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
                 new BinaryTuple(descriptor.binaryTupleSchema(), sortedIndexRow.indexColumns().valueBuffer()),
                 sortedIndexRow.rowId()
         );
+    }
+
+    /**
+     * Destroys the sorted index storage and its data in it.
+     */
+    public void destroy() {
+        close0(true);
+    }
+
+    /**
+     * Closes the sorted index storage.
+     */
+    public void close() {
+        close0(false);
+    }
+
+    /**
+     * Closes the sorted index storage.
+     *
+     * @param destroy Whether to destroy data in storage.
+     */
+    private void close0(boolean destroy) {
+        if (!STARTED.compareAndSet(this, true, false)) {
+            return;
+        }
+
+        sortedIndexTree.close();
+
+        if (destroy) {
+            //TODO IGNITE-17626 Implement.
+        }
+    }
+
+    private void checkClosed() {
+        if (!started) {
+            throw new StorageClosedException("Storage is already closed");
+        }
     }
 }

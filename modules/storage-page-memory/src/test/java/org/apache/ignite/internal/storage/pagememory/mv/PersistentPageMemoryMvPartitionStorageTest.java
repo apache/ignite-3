@@ -73,6 +73,8 @@ class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPar
         table.start();
 
         storage = table.createMvPartitionStorage(PARTITION_ID);
+
+        ((PersistentPageMemoryMvPartitionStorage) storage).start();
     }
 
     @AfterEach
@@ -85,7 +87,6 @@ class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPar
         );
     }
 
-    /** {@inheritDoc} */
     @Override
     int pageSize() {
         return engineConfig.pageSize().value();
