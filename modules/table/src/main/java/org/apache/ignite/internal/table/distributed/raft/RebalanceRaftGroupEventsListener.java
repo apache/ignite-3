@@ -62,7 +62,6 @@ import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.entity.PeerId;
@@ -182,7 +181,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
 
                     Entry pendingEntry = metaStorageMgr.get(pendingPartAssignmentsKey(partId)).get();
 
-                    if (!pendingEntry.empty()) {
+                    if (pendingEntry.value() != null) {
                         Set<ClusterNode> pendingNodes = ByteUtils.fromBytes(pendingEntry.value());
 
                         LOG.info("New leader elected. Going to reconfigure peers [group={}, partition={}, table={}, peers={}]",
@@ -494,7 +493,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
         List<Peer> peers = new ArrayList<>(nodes.size());
 
         for (ClusterNode node : nodes) {
-            peers.add(new Peer(node.address()));
+            peers.add(new Peer(node.name()));
         }
 
         return peers;
@@ -510,7 +509,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
         List<Peer> peers = new ArrayList<>(peerIds.size());
 
         for (PeerId peerId : peerIds) {
-            peers.add(new Peer(NetworkAddress.from(peerId.getEndpoint().toString())));
+            peers.add(new Peer(peerId.getConsistentId()));
         }
 
         return peers;

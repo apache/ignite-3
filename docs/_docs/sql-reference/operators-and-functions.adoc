@@ -50,7 +50,7 @@ Returns the sum of numeric across all input values.
 MIN( [ ALL | DISTINCT ] value)
 ----
 
-Returns the minimum value of value across all input values.
+Returns the minimum value across all input values.
 
 === MAX
 
@@ -59,25 +59,25 @@ Returns the minimum value of value across all input values.
 MAX( [ ALL | DISTINCT ] value)
 ----
 
-Returns the maximum value of value across all input values.
+Returns the maximum value across all input values.
 
-=== STRING_AGG
+//=== STRING_AGG
 
-[source,sql]
-----
-STRING_AGG( value [, separator ] [ ORDER BY ...])
-----
+//[source,sql]
+//----
+//STRING_AGG( value [, separator ] [ ORDER BY ...])
+//----
 
-Concatenates the values of string expressions and places separator values between them.
+//Concatenates the values of string expressions and places separator values between them.
 
-=== STRING_CONCAT
+//=== STRING_CONCAT
 
-[source,sql]
-----
-STRING_CONCAT(string1, string2, ... stringN)
-----
+//[source,sql]
+//----
+//STRING_CONCAT(string1, string2, ... stringN)
+//----
 
-Concatenates the text values in the specified data ranges.
+//Concatenates the text values in the specified data ranges.
 
 
 == Functions
@@ -169,4 +169,3 @@ Concatenates the text values in the specified data ranges.
 * TIMESTAMP_DIFF
 * EXTRACT
 * LAST_DAY
-* For more information on functions supported by Apache Calcite, see the link:https://calcite.apache.org/docs/reference.html#operators-and-functions[product documentation,window=_blank].

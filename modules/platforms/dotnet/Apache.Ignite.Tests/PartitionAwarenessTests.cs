@@ -23,7 +23,6 @@ using System.Threading.Tasks;
 using Ignite.Table;
 using Internal.Proto;
 using NUnit.Framework;
-using Table;
 
 /// <summary>
 /// Tests partition awareness.

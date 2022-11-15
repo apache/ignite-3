@@ -38,7 +38,7 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
-import java.util.stream.Stream;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -59,8 +59,8 @@ import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.rpc.TestIgniteRpcServer;
 import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcClient;
 import org.apache.ignite.raft.jraft.storage.SnapshotThrottle;
+import org.apache.ignite.raft.jraft.test.TestPeer;
 import org.apache.ignite.raft.jraft.test.TestUtils;
-import org.apache.ignite.raft.jraft.util.Endpoint;
 import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
 import org.apache.ignite.raft.jraft.util.ExponentialBackoffTimeoutStrategy;
 import org.apache.ignite.raft.jraft.util.Utils;
@@ -82,10 +82,10 @@ public class TestCluster {
 
     private final String dataPath;
     private final String name;
-    private final List<PeerId> peers;
+    private final List<TestPeer> peers;
     private final List<NodeImpl> nodes;
     private final LinkedHashMap<PeerId, MockStateMachine> fsms;
-    private final ConcurrentMap<Endpoint, RaftGroupService> serverMap = new ConcurrentHashMap<>();
+    private final ConcurrentMap<PeerId, RaftGroupService> serverMap = new ConcurrentHashMap<>();
     private final int electionTimeoutMs;
     private final Lock lock = new ReentrantLock();
     private final Consumer<NodeOptions> optsClo;
@@ -111,22 +111,18 @@ public class TestCluster {
         return this.learners;
     }
 
-    public void setLearners(LinkedHashSet<PeerId> learners) {
-        this.learners = learners;
+    public void setLearners(LinkedHashSet<TestPeer> learners) {
+        this.learners = learners.stream().map(TestPeer::getPeerId).collect(Collectors.toCollection(LinkedHashSet::new));
     }
 
-    public List<PeerId> getPeers() {
-        return this.peers;
-    }
-
-    public TestCluster(String name, String dataPath, List<PeerId> peers, TestInfo testInfo) {
+    public TestCluster(String name, String dataPath, List<TestPeer> peers, TestInfo testInfo) {
         this(name, dataPath, peers, ELECTION_TIMEOUT_MILLIS, testInfo);
     }
 
     public TestCluster(
         String name,
         String dataPath,
-        List<PeerId> peers,
+        List<TestPeer> peers,
         int electionTimeoutMs,
         TestInfo testInfo
     ) {
@@ -136,8 +132,8 @@ public class TestCluster {
     public TestCluster(
         String name,
         String dataPath,
-        List<PeerId> peers,
-        LinkedHashSet<PeerId> learners,
+        List<TestPeer> peers,
+        LinkedHashSet<TestPeer> learners,
         int electionTimeoutMs,
         TestInfo testInfo
     ) {
@@ -147,8 +143,8 @@ public class TestCluster {
     public TestCluster(
         String name,
         String dataPath,
-        List<PeerId> peers,
-        LinkedHashSet<PeerId> learners,
+        List<TestPeer> peers,
+        LinkedHashSet<TestPeer> learners,
         int electionTimeoutMs,
         @Nullable Consumer<NodeOptions> optsClo,
         TestInfo testInfo
@@ -159,69 +155,56 @@ public class TestCluster {
         this.nodes = new ArrayList<>(this.peers.size());
         this.fsms = new LinkedHashMap<>(this.peers.size());
         this.electionTimeoutMs = electionTimeoutMs;
-        this.learners = learners;
+        this.learners = learners.stream().map(TestPeer::getPeerId).collect(Collectors.toCollection(LinkedHashSet::new));
         this.optsClo = optsClo;
         this.testInfo = testInfo;
     }
 
-    public boolean start(Endpoint addr) throws Exception {
-        return this.start(addr, false, 300);
+    public boolean start(TestPeer peer) throws Exception {
+        return start(peer, false, 300);
     }
 
-    public boolean start(Endpoint addr, int priority) throws Exception {
-        return this.start(addr, false, 300, false, null, null, priority, null);
+    public boolean startLearner(TestPeer peer) throws Exception {
+        this.learners.add(peer.getPeerId());
+        return this.start(peer, false, 300);
     }
 
-    public boolean startLearner(PeerId peer) throws Exception {
-        this.learners.add(peer);
-        return this.start(peer.getEndpoint(), false, 300);
-    }
-
-    public boolean start(Endpoint listenAddr, boolean emptyPeers, int snapshotIntervalSecs)
+    public boolean start(TestPeer peer, boolean emptyPeers, int snapshotIntervalSecs)
         throws IOException {
-        return this.start(listenAddr, emptyPeers, snapshotIntervalSecs, false);
+        return this.start(peer, emptyPeers, snapshotIntervalSecs, false);
     }
 
-    public boolean start(Endpoint listenAddr, boolean emptyPeers, int snapshotIntervalSecs,
+    public boolean start(TestPeer peer, boolean emptyPeers, int snapshotIntervalSecs,
         boolean enableMetrics) throws IOException {
-        return this.start(listenAddr, emptyPeers, snapshotIntervalSecs, enableMetrics, null, null);
+        return this.start(peer, emptyPeers, snapshotIntervalSecs, enableMetrics, null, null);
     }
 
-    public boolean start(Endpoint listenAddr, boolean emptyPeers, int snapshotIntervalSecs,
+    public boolean start(TestPeer peer, boolean emptyPeers, int snapshotIntervalSecs,
         boolean enableMetrics, SnapshotThrottle snapshotThrottle) throws IOException {
-        return this.start(listenAddr, emptyPeers, snapshotIntervalSecs, enableMetrics, snapshotThrottle, null);
+        return this.start(peer, emptyPeers, snapshotIntervalSecs, enableMetrics, snapshotThrottle, null);
     }
 
-    public boolean start(Endpoint listenAddr, boolean emptyPeers, int snapshotIntervalSecs,
+    public boolean start(TestPeer peer, boolean emptyPeers, int snapshotIntervalSecs,
         boolean enableMetrics, SnapshotThrottle snapshotThrottle,
         RaftOptions raftOptions) throws IOException {
 
-        return this.start(listenAddr, emptyPeers, snapshotIntervalSecs, enableMetrics, snapshotThrottle, raftOptions,
-            ElectionPriority.Disabled, null);
+        return this.start(peer, emptyPeers, snapshotIntervalSecs, enableMetrics, snapshotThrottle, raftOptions, null);
     }
 
-    public boolean start(Endpoint listenAddr, boolean emptyPeers, int snapshotIntervalSecs,
+    public boolean start(TestPeer peer, boolean emptyPeers, int snapshotIntervalSecs,
         boolean enableMetrics, SnapshotThrottle snapshotThrottle,
         RaftOptions raftOptions, HybridClock clock) throws IOException {
 
-        return this.start(listenAddr, emptyPeers, snapshotIntervalSecs, enableMetrics, snapshotThrottle, raftOptions,
-            ElectionPriority.Disabled, clock);
-    }
-
-    public boolean start(Endpoint listenAddr, boolean emptyPeers, int snapshotIntervalSecs,
-        boolean enableMetrics, SnapshotThrottle snapshotThrottle,
-        RaftOptions raftOptions, int priority, HybridClock clock) throws IOException {
-
         this.lock.lock();
         try {
-            if (this.serverMap.get(listenAddr) != null) {
+            if (this.serverMap.get(peer.getPeerId()) != null) {
                 return true;
             }
 
             // Start node in non shared pools mode. Pools will be managed by node itself.
             NodeOptions nodeOptions = new NodeOptions();
 
-            nodeOptions.setServerName(listenAddr.toString());
+            nodeOptions.setServerName(peer.getPeerId().toString());
 
             nodeOptions.setElectionTimeoutMs(this.electionTimeoutMs);
             nodeOptions.setEnableMetrics(enableMetrics);
@@ -234,12 +217,12 @@ public class TestCluster {
             if (raftOptions != null) {
                 nodeOptions.setRaftOptions(raftOptions);
             }
-            String serverDataPath = this.dataPath + File.separator + listenAddr.toString().replace(':', '_');
+            String serverDataPath = this.dataPath + File.separator + peer.getPeerId().toString().replace(':', '_');
             new File(serverDataPath).mkdirs();
             nodeOptions.setLogUri(serverDataPath + File.separator + "logs");
             nodeOptions.setRaftMetaUri(serverDataPath + File.separator + "meta");
             nodeOptions.setSnapshotUri(serverDataPath + File.separator + "snapshot");
-            nodeOptions.setElectionPriority(priority);
+            nodeOptions.setElectionPriority(peer.getPeerId().getPriority());
 
             // Align rpc options with election timeout.
             nodeOptions.setRpcConnectTimeoutMs(this.electionTimeoutMs / 3);
@@ -252,22 +235,27 @@ public class TestCluster {
 
             nodeOptions.setElectionTimeoutStrategy(new ExponentialBackoffTimeoutStrategy());
 
-            MockStateMachine fsm = new MockStateMachine(listenAddr);
+            MockStateMachine fsm = new MockStateMachine(peer.getPeerId());
             nodeOptions.setFsm(fsm);
 
             nodeOptions.setRaftGrpEvtsLsnr(raftGrpEvtsLsnr);
 
-            if (!emptyPeers)
-                nodeOptions.setInitialConf(new Configuration(this.peers, this.learners));
+            List<NetworkAddress> addressList = List.of();
 
-            List<NetworkAddress> addressList = (emptyPeers ? Stream.<PeerId>empty() : peers.stream())
-                    .map(PeerId::getEndpoint)
-                    .map(JRaftUtils::addressFromEndpoint)
-                    .collect(toList());
+            if (!emptyPeers) {
+                addressList = peers.stream()
+                        .map(p -> new NetworkAddress(TestUtils.getLocalAddress(), p.getPort()))
+                        .collect(toList());
+
+                nodeOptions.setInitialConf(new Configuration(
+                        peers.stream().map(TestPeer::getPeerId).collect(toList()),
+                        learners
+                ));
+            }
 
             NodeManager nodeManager = new NodeManager();
 
-            ClusterService clusterService = clusterService(testInfo, listenAddr.getPort(), new StaticNodeFinder(addressList));
+            ClusterService clusterService = clusterService(testInfo, peer.getPort(), new StaticNodeFinder(addressList));
 
             var rpcClient = new IgniteRpcClient(clusterService);
 
@@ -282,7 +270,7 @@ public class TestCluster {
             if (optsClo != null)
                 optsClo.accept(nodeOptions);
 
-            RaftGroupService server = new RaftGroupService(this.name, new PeerId(listenAddr, 0, priority),
+            RaftGroupService server = new RaftGroupService(this.name, peer.getPeerId(),
                 nodeOptions, rpcServer, nodeManager) {
                 @Override public synchronized void shutdown() {
                     // This stop order is consistent with JRaftServerImpl
@@ -298,11 +286,11 @@ public class TestCluster {
                 }
             };
 
-            this.serverMap.put(listenAddr, server);
+            this.serverMap.put(peer.getPeerId(), server);
 
             Node node = server.start();
 
-            this.fsms.put(new PeerId(listenAddr, 0), fsm);
+            this.fsms.put(peer.getPeerId(), fsm);
             this.nodes.add((NodeImpl) node);
             return true;
         }
@@ -311,11 +299,11 @@ public class TestCluster {
         }
     }
 
-    public Node getNode(Endpoint endpoint) {
+    public Node getNode(PeerId peerId) {
         this.lock.lock();
         try {
             for (NodeImpl node : nodes) {
-                if (node.getServerId().getEndpoint().equals(endpoint))
+                if (node.getServerId().equals(peerId))
                     return node;
             }
         }
@@ -326,8 +314,8 @@ public class TestCluster {
         return null;
     }
 
-    public RaftGroupService getServer(Endpoint endpoint) {
-        return serverMap.get(endpoint);
+    public RaftGroupService getServer(PeerId peerId) {
+        return serverMap.get(peerId);
     }
 
     public MockStateMachine getFsmByPeer(PeerId peer) {
@@ -350,7 +338,7 @@ public class TestCluster {
         }
     }
 
-    public boolean stop(Endpoint listenAddr) throws InterruptedException {
+    public boolean stop(PeerId listenAddr) throws InterruptedException {
         removeNode(listenAddr);
         RaftGroupService raftGroupService = this.serverMap.remove(listenAddr);
         raftGroupService.shutdown();
@@ -358,12 +346,12 @@ public class TestCluster {
     }
 
     public void stopAll() throws InterruptedException {
-        List<Endpoint> addrs = getAllNodes();
-        for (Endpoint addr : addrs)
+        List<PeerId> addrs = getAllNodes();
+        for (PeerId addr : addrs)
             stop(addr);
     }
 
-    public void clean(Endpoint listenAddr) {
+    public void clean(PeerId listenAddr) {
         Path path = Paths.get(this.dataPath, listenAddr.toString().replace(':', '_'));
         LOG.info("Clean dir: {}", path);
         IgniteUtils.deleteIfExists(path);
@@ -482,10 +470,10 @@ public class TestCluster {
         }
     }
 
-    public List<Endpoint> getAllNodes() {
+    public List<PeerId> getAllNodes() {
         this.lock.lock();
         try {
-            return this.nodes.stream().map(node -> node.getNodeId().getPeerId().getEndpoint())
+            return this.nodes.stream().map(node -> node.getNodeId().getPeerId())
                 .collect(toList());
         }
         finally {
@@ -493,12 +481,12 @@ public class TestCluster {
         }
     }
 
-    public Node removeNode(Endpoint addr) {
+    public Node removeNode(PeerId addr) {
         Node ret = null;
         this.lock.lock();
         try {
             for (int i = 0; i < this.nodes.size(); i++) {
-                if (this.nodes.get(i).getNodeId().getPeerId().getEndpoint().equals(addr)) {
+                if (this.nodes.get(i).getNodeId().getPeerId().equals(addr)) {
                     ret = this.nodes.remove(i);
                     this.fsms.remove(ret.getNodeId().getPeerId());
                     break;
@@ -520,7 +508,7 @@ public class TestCluster {
      * @return {@code True} if all FSM state are the same.
      * @throws InterruptedException
      */
-    public void ensureSame(Predicate<Endpoint> filter) throws InterruptedException {
+    public void ensureSame(Predicate<PeerId> filter) throws InterruptedException {
         this.lock.lock();
 
         List<MockStateMachine> fsmList = new ArrayList<>(this.fsms.values());
@@ -547,7 +535,7 @@ public class TestCluster {
                     for (int i = 0; i < fsmList.size(); i++) {
                         MockStateMachine fsm = fsmList.get(i);
 
-                        if (fsm == first || filter.test(fsm.getAddress()))
+                        if (fsm == first || filter.test(fsm.getPeerId()))
                             continue;
 
                         fsm.lock();

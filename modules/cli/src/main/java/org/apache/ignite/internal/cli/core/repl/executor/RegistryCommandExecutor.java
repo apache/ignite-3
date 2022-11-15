@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.cli.core.repl.executor;
 
 
+import java.util.function.Supplier;
 import org.apache.ignite.internal.cli.core.call.Call;
 import org.apache.ignite.internal.cli.core.call.CallOutput;
 import org.apache.ignite.internal.cli.core.call.DefaultCallOutput;
@@ -35,15 +36,19 @@ public class RegistryCommandExecutor implements Call<StringCallInput, Object> {
 
     private final Parser parser;
 
+    private final Supplier<String> usageMessage;
+
     /**
      * Constructor.
      *
      * @param systemRegistry {@link SystemRegistry} instance.
      * @param parser A {@link Parser} used to create {@code systemRegistry}.
+     * @param usage A {@link Supplier} used to provide help message.
      */
-    public RegistryCommandExecutor(SystemRegistry systemRegistry, Parser parser) {
+    public RegistryCommandExecutor(SystemRegistry systemRegistry, Parser parser, Supplier<String> usage) {
         this.systemRegistry = systemRegistry;
         this.parser = parser;
+        this.usageMessage = usage;
     }
 
     /**
@@ -55,7 +60,11 @@ public class RegistryCommandExecutor implements Call<StringCallInput, Object> {
     @Override
     public CallOutput<Object> execute(StringCallInput input) {
         try {
-            Object executionResult = systemRegistry.execute(input.getString());
+            String line = input.getString();
+            if (line.trim().equals("help")) {
+                return DefaultCallOutput.success(usageMessage.get());
+            }
+            Object executionResult = systemRegistry.execute(line);
             if (executionResult == null) {
                 return DefaultCallOutput.empty();
             }

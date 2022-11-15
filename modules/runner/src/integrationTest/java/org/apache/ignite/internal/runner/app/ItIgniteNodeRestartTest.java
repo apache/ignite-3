@@ -619,7 +619,6 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * Restarts a node with changing configuration.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16865")
     public void changeConfigurationOnStartTest() {
         IgniteImpl ignite = startNode(0);
 
@@ -681,7 +680,6 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * Restarts the node which stores some data.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17986")
     public void nodeWithDataTest() {
         Ignite ignite = startNode(0);
 
@@ -698,7 +696,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * Starts two nodes and checks that the data are storing through restarts. Nodes restart in the same order when they started at first.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17986")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18044")
     public void testTwoNodesRestartDirect() {
         twoNodesRestart(true);
     }
@@ -824,8 +822,8 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     /**
      * Checks that the table created in cluster of 2 nodes, is recovered on a node after restart of this node.
      */
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17959")
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17986 ")
     public void testRecoveryOnOneNode() {
         Ignite ignite = startNode(0);
 
@@ -847,8 +845,8 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     /**
      * Checks that a cluster is able to restart when some changes were made in configuration.
      */
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17959")
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17986")
     public void testRestartDiffConfig() {
         List<IgniteImpl> ignites = startNodes(2);
 
@@ -877,6 +875,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     /**
      * The test for node restart when there is a gap between the node local configuration and distributed configuration.
      */
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17959")
     @Test
     @WithSystemProperty(key = CONFIGURATION_CATCH_UP_DIFFERENCE_PROPERTY, value = "0")
     public void testCfgGapWithoutData() {
@@ -906,6 +905,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * group stops for some time while restarting node is being recovered. The recovery process should continue and eventually succeed after
      * metastorage group starts again.
      */
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17959")
     @Test
     @WithSystemProperty(key = CONFIGURATION_CATCH_UP_DIFFERENCE_PROPERTY, value = "0")
     public void testMetastorageStop() {
