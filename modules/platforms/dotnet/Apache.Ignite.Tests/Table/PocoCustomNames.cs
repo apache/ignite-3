@@ -31,7 +31,9 @@ public class PocoCustomNames
     [Column("VAL")]
     public string? Name { get; set; }
 
+    [NotMapped]
     public Guid UnmappedId { get; set; }
 
+    [NotMapped]
     public string? UnmappedStr { get; set; }
 }

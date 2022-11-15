@@ -31,6 +31,7 @@ using Remotion.Linq.Clauses;
 using Remotion.Linq.Clauses.Expressions;
 using Remotion.Linq.Clauses.ResultOperators;
 using Remotion.Linq.Parsing;
+using Table.Serialization;
 
 /// <summary>
 /// Expression visitor, transforms query subexpressions (such as Where clauses) to SQL.
@@ -215,26 +216,50 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
         if (joinClause != null && ExpressionWalker.GetIgniteQueryable(expression, false) == null)
         {
             var tableName = Aliases.GetTableAlias(expression);
-            var fieldname = Aliases.GetFieldAlias(expression);
+            var fieldName = Aliases.GetFieldAlias(expression);
 
-            ResultBuilder.AppendFormat(CultureInfo.InvariantCulture, "{0}.{1}", tableName, fieldname);
+            ResultBuilder.AppendFormat(CultureInfo.InvariantCulture, "{0}.{1}", tableName, fieldName);
         }
-        else if (joinClause != null && joinClause.InnerSequence is SubQueryExpression)
+        else if (joinClause is { InnerSequence: SubQueryExpression })
         {
             var subQueryExpression = (SubQueryExpression) joinClause.InnerSequence;
             base.Visit(subQueryExpression.QueryModel.SelectClause.Selector);
         }
         else
         {
-            // TODO IGNITE-18138 Avoid over-fetching, select only mapped columns.
-            // Count, sum, max, min expect a single field or *
-            // var format = _includeAllFields || _useStar
-            //     ? "{0}.*, {0}._KEY, {0}._VAL"
-            //     : _useStar
-            //         ? "{0}.*"
-            //         : "{0}._KEY, {0}._VAL";
-            // var tableName = Aliases.GetTableAlias(expression);
-            ResultBuilder.Append('*');
+            if (_includeAllFields || _useStar)
+            {
+                ResultBuilder.Append('*');
+            }
+            else
+            {
+                var tableName = Aliases.GetTableAlias(expression);
+                var columns = expression.ReferencedQuerySource.ItemType.GetColumns();
+                var first = true;
+
+                foreach (var col in columns)
+                {
+                    if (!first)
+                    {
+                        ResultBuilder.Append(", ");
+                    }
+
+                    first = false;
+
+                    ResultBuilder.Append(tableName).Append('.');
+
+                    if (col.HasColumnNameAttribute)
+                    {
+                        // Exact quoted name.
+                        ResultBuilder.Append('"').Append(col.Name).Append('"');
+                    }
+                    else
+                    {
+                        // Case-insensitive, unquoted, upper-case name.
+                        ResultBuilder.Append(col.Name.ToUpperInvariant());
+                    }
+                }
+            }
         }
 
         return expression;

@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Tests.Linq;
 
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Threading.Tasks;
 using Ignite.Sql;
@@ -39,6 +40,22 @@ public class LinqSqlGenerationTests
     [Test]
     public void TestSelectOneColumn() =>
         AssertSql("select _T0.KEY from PUBLIC.tbl1 as _T0", q => q.Select(x => x.Key).ToList());
+
+    [Test]
+    public void TestSelectAllColumns() =>
+        AssertSql("select _T0.KEY, _T0.VAL from PUBLIC.tbl1 as _T0", q => q.ToList());
+
+    [Test]
+    public void TestSelectAllColumnsOneColumnPoco() =>
+        AssertSql(
+            "select _T0.KEY from PUBLIC.tbl1 as _T0",
+            tbl => tbl.GetRecordView<OneColumnPoco>().AsQueryable().ToList());
+
+    [Test]
+    public void TestSelectAllColumnsCustomNames() =>
+        AssertSql(
+            "select _T0.\"KEY\", _T0.\"VAL\" from PUBLIC.tbl1 as _T0",
+            tbl => tbl.GetRecordView<PocoCustomNames>().AsQueryable().ToList());
 
     [Test]
     public void TestSum() =>
@@ -127,13 +144,16 @@ public class LinqSqlGenerationTests
         _server.Dispose();
     }
 
-    private void AssertSql(string expectedSql, Func<IQueryable<Poco>, object?> query)
+    private void AssertSql(string expectedSql, Func<IQueryable<Poco>, object?> query) =>
+        AssertSql(expectedSql, t => query(t.GetRecordView<Poco>().AsQueryable()));
+
+    private void AssertSql(string expectedSql, Func<ITable, object?> query)
     {
         _server.LastSql = string.Empty;
 
         try
         {
-            query(_table.GetRecordView<Poco>().AsQueryable());
+            query(_table);
         }
         catch (Exception)
         {
@@ -144,4 +164,8 @@ public class LinqSqlGenerationTests
 
         Assert.AreEqual(expectedSql, _server.LastSql);
     }
+
+    // ReSharper disable once NotAccessedPositionalProperty.Local
+    [SuppressMessage("Microsoft.Performance", "CA1812:AvoidUninstantiatedInternalClasses", Justification = "Query tests.")]
+    private record OneColumnPoco(long Key);
 }
