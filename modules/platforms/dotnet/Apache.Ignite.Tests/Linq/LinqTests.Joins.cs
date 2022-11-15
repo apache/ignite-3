@@ -23,10 +23,8 @@ using NUnit.Framework;
 /// <summary>
 /// Linq JOINs tests.
 /// TODO:
-/// TestOuterJoin
-/// TestInvalidJoin
-/// TestTwoFromSubquery
-/// TestMultipleFromSubquery.
+/// TestLocalCollectionJoin
+/// TestInvalidJoin.
 /// </summary>
 public partial class LinqTests
 {
