@@ -65,10 +65,7 @@ public class RootNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
      * @param ctx Execution context.
      */
     public RootNode(ExecutionContext<RowT> ctx) {
-        super(ctx);
-
-        onClose = this::closeInternal;
-        converter = Functions.identity();
+        this(ctx, Functions.identity());
     }
 
     /**
