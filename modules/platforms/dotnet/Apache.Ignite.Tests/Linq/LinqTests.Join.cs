@@ -215,4 +215,48 @@ public partial class LinqTests
             "on (_T1.KEY = _T0.KEY)",
             joinQuery.ToString());
     }
+
+    [Test]
+    public void TestInvalidJoin()
+    {
+        Assert.Fail("TODO");
+    }
+
+    [Test]
+    public void TestLocalCollectionJoin()
+    {
+        var query1 = PocoIntView.AsQueryable(); // Sequential keys.
+        var query2 = new[] { 2, 4, 6 };
+
+        var joinQuery = query1.Join(
+                inner: query2,
+                outerKeySelector: a => a.Key,
+                innerKeySelector: b => b,
+                resultSelector: (a, b) => new
+                {
+                    Id = a.Key,
+                    Price = a.Val
+                })
+            .OrderBy(x => x.Id);
+
+        var res = joinQuery.ToList();
+
+        Assert.AreEqual(3, res.Count);
+
+        Assert.AreEqual(2, res[0].Id);
+        Assert.AreEqual(200, res[0].Price);
+
+        Assert.AreEqual(4, res[1].Id);
+        Assert.AreEqual(400, res[1].Price);
+
+        Assert.AreEqual(6, res[2].Id);
+        Assert.AreEqual(600, res[2].Price);
+
+        StringAssert.Contains(
+            "select _T0.KEY, _T1.VAL " +
+            "from PUBLIC.TBL_INT32 as _T0 " +
+            "left outer join (select * from PUBLIC.TBL_INT16 as _T2 ) as _T1 " +
+            "on (_T1.KEY = _T0.KEY)",
+            joinQuery.ToString());
+    }
 }
