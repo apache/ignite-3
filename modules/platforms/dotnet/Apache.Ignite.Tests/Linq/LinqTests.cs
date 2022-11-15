@@ -37,16 +37,22 @@ public partial class LinqTests : IgniteTestsBase
 
     private IRecordView<PocoInt> PocoIntView { get; set; } = null!;
 
+    private IRecordView<PocoLong> PocoLongView { get; set; } = null!;
+
     [OneTimeSetUp]
     public async Task InsertData()
     {
         var tblInt = await Client.Tables.GetTableAsync("TBL_INT32"); // TODO: Extract table name constant.
         PocoIntView = tblInt!.GetRecordView<PocoInt>();
 
+        var tblLong = await Client.Tables.GetTableAsync("TBL_INT64"); // TODO: Extract table name constant.
+        PocoLongView = tblLong!.GetRecordView<PocoLong>();
+
         for (int i = 0; i < Count; i++)
         {
             await PocoView.UpsertAsync(null, new Poco { Key = i, Val = "v-" + i });
             await PocoIntView.UpsertAsync(null, new PocoInt(i, i * 100));
+            await PocoLongView.UpsertAsync(null, new PocoLong(i, i * 2));
         }
     }
 
@@ -291,4 +297,8 @@ public partial class LinqTests : IgniteTestsBase
 
         Assert.AreEqual(expected, query.ToString());
     }
+
+    private record PocoInt(int Key, int Val);
+
+    private record PocoLong(long Key, long Val);
 }

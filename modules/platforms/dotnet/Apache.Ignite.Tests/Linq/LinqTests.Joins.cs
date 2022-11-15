@@ -106,7 +106,7 @@ public partial class LinqTests
     public void TestJoinAsMultipleFrom()
     {
         var query1 = PocoView.AsQueryable();
-        var query2 = PocoIntView.AsQueryable();
+        var query2 = PocoLongView.AsQueryable();
 
         var joinQuery =
             from a in query1
@@ -120,7 +120,7 @@ public partial class LinqTests
         Assert.AreEqual(1, res.Count);
 
         Assert.AreEqual(4, res[0].Id);
-        Assert.AreEqual(400, res[0].Price);
+        Assert.AreEqual(8, res[0].Price);
     }
 
     [Test]
@@ -146,6 +146,4 @@ public partial class LinqTests
         Assert.AreEqual(2, res.Id);
         Assert.AreEqual(200, res.Price);
     }
-
-    private record PocoInt(int Key, int Val);
 }
