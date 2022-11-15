@@ -19,13 +19,17 @@ namespace Apache.Ignite.Internal.Table
 {
     using System;
     using System.Collections.Generic;
+    using System.Linq;
     using System.Threading.Tasks;
     using Buffers;
     using Common;
+    using Ignite.Sql;
     using Ignite.Table;
     using Ignite.Transactions;
+    using Linq;
     using Proto;
     using Serialization;
+    using Sql;
     using Transactions;
 
     /// <summary>
@@ -41,15 +45,20 @@ namespace Apache.Ignite.Internal.Table
         /** Serializer. */
         private readonly RecordSerializer<T> _ser;
 
+        /** SQL. */
+        private readonly Sql _sql;
+
         /// <summary>
         /// Initializes a new instance of the <see cref="RecordView{T}"/> class.
         /// </summary>
         /// <param name="table">Table.</param>
         /// <param name="ser">Serializer.</param>
-        public RecordView(Table table, RecordSerializer<T> ser)
+        /// <param name="sql">SQL.</param>
+        public RecordView(Table table, RecordSerializer<T> ser, Sql sql)
         {
             _table = table;
             _ser = ser;
+            _sql = sql;
         }
 
         /// <summary>
@@ -277,6 +286,15 @@ namespace Apache.Ignite.Internal.Table
         /// <inheritdoc/>
         public async Task<IList<T>> DeleteAllExactAsync(ITransaction? transaction, IEnumerable<T> records) =>
             await DeleteAllAsync(transaction, records, exact: true).ConfigureAwait(false);
+
+        /// <inheritdoc/>
+        public IQueryable<T> AsQueryable(ITransaction? transaction = null, QueryableOptions? options = null)
+        {
+            var executor = new IgniteQueryExecutor(_sql, transaction, options);
+            var provider = new IgniteQueryProvider(IgniteQueryParser.Instance, executor, _table.Name);
+
+            return new IgniteQueryable<T>(provider);
+        }
 
         /// <summary>
         /// Deletes multiple records. If one or more keys do not exist, other records are still deleted.

@@ -56,7 +56,6 @@ public class HashAggregateExecutionTest extends BaseAggregateTest {
             List<ImmutableBitSet> grpSets,
             AggregateCall call,
             RelDataType inRowType,
-            RelDataType aggRowType,
             RowHandler.RowFactory<Object[]> rowFactory,
             ScanNode<Object[]> scan
     ) {
@@ -64,7 +63,6 @@ public class HashAggregateExecutionTest extends BaseAggregateTest {
 
         HashAggregateNode<Object[]> agg = new HashAggregateNode<>(
                 ctx,
-                aggRowType,
                 SINGLE,
                 grpSets,
                 accFactory(ctx, call, SINGLE, inRowType),
@@ -78,7 +76,7 @@ public class HashAggregateExecutionTest extends BaseAggregateTest {
         Comparator<Object[]> cmp = ctx.expressionFactory().comparator(collation);
 
         // Create sort node on the top to check sorted results
-        SortNode<Object[]> sort = new SortNode<>(ctx, inRowType, cmp);
+        SortNode<Object[]> sort = new SortNode<>(ctx, cmp);
 
         sort.register(agg);
 
@@ -115,7 +113,6 @@ public class HashAggregateExecutionTest extends BaseAggregateTest {
 
         HashAggregateNode<Object[]> aggMap = new HashAggregateNode<>(
                 ctx,
-                aggRowType,
                 MAP,
                 grpSets,
                 accFactory(ctx, call, MAP, inRowType),
@@ -126,7 +123,6 @@ public class HashAggregateExecutionTest extends BaseAggregateTest {
 
         HashAggregateNode<Object[]> aggRdc = new HashAggregateNode<>(
                 ctx,
-                aggRowType,
                 REDUCE,
                 grpSets,
                 accFactory(ctx, call, REDUCE, aggRowType),
@@ -140,7 +136,7 @@ public class HashAggregateExecutionTest extends BaseAggregateTest {
         Comparator<Object[]> cmp = ctx.expressionFactory().comparator(collation);
 
         // Create sort node on the top to check sorted results
-        SortNode<Object[]> sort = new SortNode<>(ctx, aggRowType, cmp);
+        SortNode<Object[]> sort = new SortNode<>(ctx, cmp);
 
         sort.register(aggRdc);
 
@@ -157,7 +153,7 @@ public class HashAggregateExecutionTest extends BaseAggregateTest {
         ExecutionContext<Object[]> ctx = executionContext();
         IgniteTypeFactory tf = ctx.getTypeFactory();
         RelDataType rowType = TypeUtils.createRowType(tf, int.class, int.class);
-        ScanNode<Object[]> scan = new ScanNode<>(ctx, rowType, Collections.emptyList());
+        ScanNode<Object[]> scan = new ScanNode<>(ctx, Collections.emptyList());
 
         AggregateCall call = AggregateCall.create(
                 SqlStdOperatorTable.COUNT,
@@ -188,7 +184,7 @@ public class HashAggregateExecutionTest extends BaseAggregateTest {
         );
 
         for (int i = 0; i < 2; i++) {
-            RootNode<Object[]> root = new RootNode<>(ctx, aggRowType) {
+            RootNode<Object[]> root = new RootNode<>(ctx) {
                 /** {@inheritDoc} */
                 @Override public void close() {
                     // NO-OP

@@ -424,7 +424,7 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
 
         IndexScanNode<Object[]> scanNode = new IndexScanNode<>(
                 ectx,
-                rowType,
+                ectx.rowHandler().factory(ectx.getTypeFactory(), rowType),
                 index,
                 new TestTable(rowType, schemaDescriptor),
                 new int[]{0, 2},
@@ -435,7 +435,7 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
                 null
         );
 
-        RootNode<Object[]> node = new RootNode<>(ectx, scanNode.rowType());
+        RootNode<Object[]> node = new RootNode<>(ectx);
         node.register(scanNode);
 
         int n = 0;

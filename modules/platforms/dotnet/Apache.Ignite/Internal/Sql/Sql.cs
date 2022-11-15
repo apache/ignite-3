@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Internal.Sql
 {
     using System;
+    using System.Collections.Generic;
     using System.Threading.Tasks;
     using Buffers;
     using Common;
@@ -33,6 +34,11 @@ namespace Apache.Ignite.Internal.Sql
     /// </summary>
     internal sealed class Sql : ISql
     {
+        private static readonly RowReader<IIgniteTuple> TupleReader =
+            static (IReadOnlyList<IColumnMetadata> cols, ref BinaryTupleReader reader) => ReadTuple(cols, ref reader);
+
+        private static readonly RowReaderFactory<IIgniteTuple> TupleReaderFactory = static _ => TupleReader;
+
         /** Underlying connection. */
         private readonly ClientFailoverSocket _socket;
 
@@ -46,7 +52,69 @@ namespace Apache.Ignite.Internal.Sql
         }
 
         /// <inheritdoc/>
-        public async Task<IResultSet<IIgniteTuple>> ExecuteAsync(ITransaction? transaction, SqlStatement statement, params object?[]? args)
+        public async Task<IResultSet<IIgniteTuple>> ExecuteAsync(ITransaction? transaction, SqlStatement statement, params object?[]? args) =>
+            await ExecuteAsyncInternal(transaction, statement, TupleReaderFactory, args).ConfigureAwait(false);
+
+        /// <inheritdoc/>
+        public Task<IResultSet<T>> ExecuteAsync<T>(ITransaction? transaction, SqlStatement statement, params object?[]? args)
+        {
+            // TODO: IGNITE-17333 SQL ResultSet object mapping
+            throw new NotSupportedException();
+        }
+
+        /// <summary>
+        /// Reads column value.
+        /// </summary>
+        /// <param name="reader">Reader.</param>
+        /// <param name="col">Column.</param>
+        /// <param name="idx">Index.</param>
+        /// <returns>Value.</returns>
+        internal static object? ReadColumnValue(ref BinaryTupleReader reader, IColumnMetadata col, int idx)
+        {
+            if (reader.IsNull(idx))
+            {
+                return null;
+            }
+
+            return col.Type switch
+            {
+                SqlColumnType.Boolean => reader.GetByte(idx) != 0,
+                SqlColumnType.Int8 => reader.GetByte(idx),
+                SqlColumnType.Int16 => reader.GetShort(idx),
+                SqlColumnType.Int32 => reader.GetInt(idx),
+                SqlColumnType.Int64 => reader.GetLong(idx),
+                SqlColumnType.Float => reader.GetFloat(idx),
+                SqlColumnType.Double => reader.GetDouble(idx),
+                SqlColumnType.Decimal => reader.GetDecimal(idx, col.Scale),
+                SqlColumnType.Date => reader.GetDate(idx),
+                SqlColumnType.Time => reader.GetTime(idx),
+                SqlColumnType.Datetime => reader.GetDateTime(idx),
+                SqlColumnType.Timestamp => reader.GetTimestamp(idx),
+                SqlColumnType.Uuid => reader.GetGuid(idx),
+                SqlColumnType.Bitmask => reader.GetBitmask(idx),
+                SqlColumnType.String => reader.GetString(idx),
+                SqlColumnType.ByteArray => reader.GetBytes(idx),
+                SqlColumnType.Period => reader.GetPeriod(idx),
+                SqlColumnType.Duration => reader.GetDuration(idx),
+                SqlColumnType.Number => reader.GetNumber(idx),
+                _ => throw new ArgumentOutOfRangeException(nameof(col.Type), col.Type, "Unknown SQL column type.")
+            };
+        }
+
+        /// <summary>
+        /// Executes single SQL statement and returns rows deserialized with the provided <paramref name="rowReaderFactory"/>.
+        /// </summary>
+        /// <param name="transaction">Optional transaction.</param>
+        /// <param name="statement">Statement to execute.</param>
+        /// <param name="rowReaderFactory">Row reader factory.</param>
+        /// <param name="args">Arguments for the statement.</param>
+        /// <typeparam name="T">Row type.</typeparam>
+        /// <returns>SQL result set.</returns>
+        internal async Task<IResultSet<T>> ExecuteAsyncInternal<T>(
+            ITransaction? transaction,
+            SqlStatement statement,
+            RowReaderFactory<T> rowReaderFactory,
+            ICollection<object?>? args)
         {
             IgniteArgumentCheck.NotNull(statement, nameof(statement));
 
@@ -56,7 +124,7 @@ namespace Apache.Ignite.Internal.Sql
             var (buf, socket) = await _socket.DoOutInOpAndGetSocketAsync(ClientOp.SqlExec, tx, bufferWriter).ConfigureAwait(false);
 
             // ResultSet will dispose the pooled buffer.
-            return new ResultSet(socket, buf);
+            return new ResultSet<T>(socket, buf, rowReaderFactory);
 
             PooledArrayBufferWriter Write()
             {
@@ -82,18 +150,24 @@ namespace Apache.Ignite.Internal.Sql
 
                 w.Write(statement.Query);
 
-                w.WriteObjectArrayAsBinaryTuple(args);
+                w.WriteObjectCollectionAsBinaryTuple(args);
 
                 w.Flush();
                 return writer;
             }
         }
 
-        /// <inheritdoc/>
-        public Task<IResultSet<T>> ExecuteAsync<T>(ITransaction? transaction, SqlStatement statement, params object?[]? args)
+        private static IIgniteTuple ReadTuple(IReadOnlyList<IColumnMetadata> cols, ref BinaryTupleReader tupleReader)
         {
-            // TODO: IGNITE-17333 SQL ResultSet object mapping
-            throw new NotSupportedException();
+            var row = new IgniteTuple(cols.Count);
+
+            for (var i = 0; i < cols.Count; i++)
+            {
+                var col = cols[i];
+                row[col.Name] = ReadColumnValue(ref tupleReader, col, i);
+            }
+
+            return row;
         }
     }
 }

@@ -73,6 +73,11 @@ public class IgnitePicocliCommands implements CommandRegistry {
         }
     }
 
+    /** Returns the usage help message as a String. */
+    public String usageMessage() {
+        return cmd.getUsageMessage();
+    }
+
     /** {@inheritDoc} */
     @Override
     public boolean hasCommand(String command) {

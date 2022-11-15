@@ -15,15 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.commands.topology;
+namespace Apache.Ignite.Tests.Table;
 
-import org.apache.ignite.internal.cli.commands.BaseCommand;
-import picocli.CommandLine.Command;
+using System;
+using System.ComponentModel.DataAnnotations.Schema;
 
-/**
- * Command that prints ignite cluster topology in REPL mode.
- */
-@Command(name = "topology", description = "Prints topology information",
-        subcommands = {PhysicalTopologyReplCommand.class, LogicalTopologyReplCommand.class })
-public class TopologyReplCommand extends BaseCommand {
+/// <summary>
+/// Test user object.
+/// </summary>
+public class PocoCustomNames
+{
+    [Column("KEY")]
+    public long Id { get; set; }
+
+    [Column("VAL")]
+    public string? Name { get; set; }
+
+    [NotMapped]
+    public Guid UnmappedId { get; set; }
+
+    [NotMapped]
+    public string? UnmappedStr { get; set; }
 }

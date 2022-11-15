@@ -27,6 +27,7 @@ import java.util.Collection;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.function.Function;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -52,7 +53,6 @@ import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -86,6 +86,8 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest {
 
         InternalIgniteTable tbl = new TestTable(rowType);
 
+        RowFactory<Object[]> rowFactory = ctx.rowHandler().factory(ctx.getTypeFactory(), rowType);
+
         int i = 0;
 
         for (int size : sizes) {
@@ -93,9 +95,9 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest {
 
             dataAmount = size;
 
-            TableScanNode<Object[]> scanNode = new TableScanNode<>(ctx, rowType, tbl, parts, null, null, null);
+            TableScanNode<Object[]> scanNode = new TableScanNode<>(ctx, rowFactory, tbl, parts, null, null, null);
 
-            RootNode<Object[]> root = new RootNode<>(ctx, rowType);
+            RootNode<Object[]> root = new RootNode<>(ctx);
 
             root.register(scanNode);
 
@@ -149,7 +151,7 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest {
                     UUID.randomUUID(),
                     Int2ObjectMaps.singleton(0, mock(RaftGroupService.class)),
                     PART_CNT,
-                    NetworkAddress::toString,
+                    Function.identity(),
                     addr -> Mockito.mock(ClusterNode.class),
                     new TxManagerImpl(replicaSvc, new HeapLockManager(), new HybridClockImpl()),
                     mock(MvTableStorage.class),

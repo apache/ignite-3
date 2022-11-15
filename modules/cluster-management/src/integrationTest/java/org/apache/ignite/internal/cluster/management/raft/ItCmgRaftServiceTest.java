@@ -39,6 +39,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.ClusterTag;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
@@ -103,9 +104,13 @@ public class ItCmgRaftServiceTest {
 
                 raftStorage.start();
 
+                List<String> nodeIds = clusterService.topologyService().allMembers().stream()
+                        .map(ClusterNode::name)
+                        .collect(Collectors.toList());
+
                 CompletableFuture<RaftGroupService> raftService = raftManager.prepareRaftGroup(
                         INSTANCE,
-                        List.copyOf(clusterService.topologyService().allMembers()),
+                        nodeIds,
                         () -> new CmgRaftGroupListener(raftStorage),
                         defaults()
                 );

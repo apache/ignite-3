@@ -22,7 +22,6 @@ import io.scalecube.cluster.transport.api.Transport;
 import io.scalecube.net.Address;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
-import java.net.SocketAddress;
 import java.util.Map;
 import java.util.Objects;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -75,7 +74,7 @@ class ScaleCubeDirectMarshallerTransport implements Transport {
     private final ScaleCubeTopologyService topologyService;
 
     /** Node address. */
-    private Address address;
+    private final Address address;
 
     /**
      * Constructor.
@@ -86,7 +85,7 @@ class ScaleCubeDirectMarshallerTransport implements Transport {
      * @param messageFactory  Message factory.
      */
     ScaleCubeDirectMarshallerTransport(
-            SocketAddress localAddress,
+            InetSocketAddress localAddress,
             MessagingService messagingService,
             ScaleCubeTopologyService topologyService,
             NetworkMessagesFactory messageFactory
@@ -96,7 +95,7 @@ class ScaleCubeDirectMarshallerTransport implements Transport {
         this.topologyService = topologyService;
         this.messageFactory = messageFactory;
 
-        this.messagingService.addMessageHandler(NetworkMessageTypes.class, (message, senderAddr, correlationId) -> onMessage(message));
+        this.messagingService.addMessageHandler(NetworkMessageTypes.class, (message, sender, correlationId) -> onMessage(message));
         // Setup cleanup
         stop.then(doStop())
                 .doFinally(s -> onStop.onComplete())
@@ -112,18 +111,12 @@ class ScaleCubeDirectMarshallerTransport implements Transport {
      * @param addr Address.
      * @return ScaleCube address.
      */
-    private static Address prepareAddress(SocketAddress addr) {
-        InetSocketAddress inetSocketAddress = (InetSocketAddress) addr;
+    private static Address prepareAddress(InetSocketAddress addr) {
+        InetAddress address = addr.getAddress();
 
-        InetAddress address = inetSocketAddress.getAddress();
+        String host = address.isAnyLocalAddress() ? Address.getLocalIpAddress().getHostAddress() : address.getHostAddress();
 
-        int port = inetSocketAddress.getPort();
-
-        if (address.isAnyLocalAddress()) {
-            return Address.create(Address.getLocalIpAddress().getHostAddress(), port);
-        } else {
-            return Address.create(address.getHostAddress(), port);
-        }
+        return Address.create(host, addr.getPort());
     }
 
     /**
@@ -172,14 +165,14 @@ class ScaleCubeDirectMarshallerTransport implements Transport {
     /** {@inheritDoc} */
     @Override
     public Mono<Void> send(Address address, Message message) {
-        var addr = InetSocketAddress.createUnresolved(address.host(), address.port());
+        var addr = new NetworkAddress(address.host(), address.port());
 
         return Mono.fromFuture(() -> {
-            NetworkAddress networkAddress = NetworkAddress.from(addr);
-            ClusterNode node = topologyService.getByAddress(networkAddress);
+            ClusterNode node = topologyService.getByAddress(addr);
 
+            // Create a fake node for nodes that are not in the topology yet
             if (node == null) {
-                node = new ClusterNode(null, null, networkAddress);
+                node = new ClusterNode(null, null, addr);
             }
 
             return messagingService.send(node, fromMessage(message));
@@ -187,7 +180,7 @@ class ScaleCubeDirectMarshallerTransport implements Transport {
     }
 
     /**
-     * Handles new network messages from {@link #connectionManager}.
+     * Handles new network messages.
      *
      * @param msg    Network message.
      */
@@ -232,7 +225,7 @@ class ScaleCubeDirectMarshallerTransport implements Transport {
      * @throws IgniteInternalException If failed to read ScaleCube message byte array.
      */
     @Nullable
-    private Message fromNetworkMessage(NetworkMessage networkMessage) throws IgniteInternalException {
+    private static Message fromNetworkMessage(NetworkMessage networkMessage) throws IgniteInternalException {
         if (networkMessage instanceof ScaleCubeMessage) {
             ScaleCubeMessage msg = (ScaleCubeMessage) networkMessage;
 

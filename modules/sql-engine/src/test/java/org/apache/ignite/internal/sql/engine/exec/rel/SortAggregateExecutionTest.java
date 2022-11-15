@@ -47,7 +47,6 @@ public class SortAggregateExecutionTest extends BaseAggregateTest {
             List<ImmutableBitSet> grpSets,
             AggregateCall call,
             RelDataType inRowType,
-            RelDataType aggRowType,
             RowHandler.RowFactory<Object[]> rowFactory,
             ScanNode<Object[]> scan
     ) {
@@ -61,13 +60,12 @@ public class SortAggregateExecutionTest extends BaseAggregateTest {
 
         Comparator<Object[]> cmp = ctx.expressionFactory().comparator(collation);
 
-        SortNode<Object[]> sort = new SortNode<>(ctx, inRowType, cmp);
+        SortNode<Object[]> sort = new SortNode<>(ctx, cmp);
 
         sort.register(scan);
 
         SortAggregateNode<Object[]> agg = new SortAggregateNode<>(
                 ctx,
-                aggRowType,
                 SINGLE,
                 grpSet,
                 accFactory(ctx, call, SINGLE, inRowType),
@@ -101,13 +99,12 @@ public class SortAggregateExecutionTest extends BaseAggregateTest {
 
         Comparator<Object[]> cmp = ctx.expressionFactory().comparator(collation);
 
-        SortNode<Object[]> sort = new SortNode<>(ctx, inRowType, cmp);
+        SortNode<Object[]> sort = new SortNode<>(ctx, cmp);
 
         sort.register(scan);
 
         SortAggregateNode<Object[]> aggMap = new SortAggregateNode<>(
                 ctx,
-                aggRowType,
                 MAP,
                 grpSet,
                 accFactory(ctx, call, MAP, inRowType),
@@ -130,7 +127,6 @@ public class SortAggregateExecutionTest extends BaseAggregateTest {
 
         SortAggregateNode<Object[]> aggRdc = new SortAggregateNode<>(
                 ctx,
-                aggRowType,
                 REDUCE,
                 ImmutableBitSet.of(reduceGrpFields),
                 accFactory(ctx, call, REDUCE, aggRowType),

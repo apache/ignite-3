@@ -57,6 +57,8 @@ import org.apache.ignite.internal.schema.configuration.ExtendedTableChange;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableConfigurationSchema;
 import org.apache.ignite.internal.schema.configuration.TableChange;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
+import org.apache.ignite.internal.schema.configuration.TableValidator;
+import org.apache.ignite.internal.schema.configuration.TableValidatorImpl;
 import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.configuration.defaultvalue.ConstantValueDefaultConfigurationSchema;
@@ -109,7 +111,8 @@ public class IndexManagerTest {
     public static void setUp() throws Exception {
         confRegistry = new ConfigurationRegistry(
                 List.of(TablesConfiguration.KEY),
-                Map.of(IndexValidator.class, Set.of(IndexValidatorImpl.INSTANCE)),
+                Map.of(IndexValidator.class, Set.of(IndexValidatorImpl.INSTANCE),
+                        TableValidator.class, Set.of(TableValidatorImpl.INSTANCE)),
                 new TestConfigurationStorage(DISTRIBUTED),
                 List.of(ExtendedTableConfigurationSchema.class),
                 List.of(
@@ -133,10 +136,14 @@ public class IndexManagerTest {
         when(tableManagerMock.tableAsync(anyLong(), any(UUID.class))).thenAnswer(inv -> {
             InternalTable tbl = Mockito.mock(InternalTable.class);
             Mockito.doReturn(inv.getArgument(1)).when(tbl).tableId();
-            return CompletableFuture.completedFuture(new TableImpl(tbl, new HeapLockManager(), () -> List.of()));
+            return CompletableFuture.completedFuture(
+                    new TableImpl(tbl, new HeapLockManager(), () -> CompletableFuture.completedFuture(List.of())));
         });
 
-        indexManager = new IndexManager(tablesConfig, mock(SchemaManager.class), tableManagerMock);
+        SchemaManager schManager = mock(SchemaManager.class);
+        when(schManager.schemaRegistry(anyLong(), any())).thenReturn(CompletableFuture.completedFuture(null));
+
+        indexManager = new IndexManager(tablesConfig, schManager, tableManagerMock);
         indexManager.start();
 
         tablesConfig.tables().change(tableChange -> tableChange.create("tName", chg -> {
@@ -324,6 +331,54 @@ public class IndexManagerTest {
 
         assertThat(holder.get(), notNullValue());
         assertThat(holder.get().indexId(), equalTo(indexId));
+    }
+
+    @Test
+    public void createIndexWithExistingTableName() {
+        CompletableFuture<Boolean> createIdxFut = indexManager.createIndexAsync("sName", "tName", "tName", true, indexChange ->
+                indexChange.convert(SortedIndexChange.class).changeColumns(columns ->
+                        columns.create("c2", columnChange -> columnChange.changeAsc(true))));
+
+        CompletionException completionException = assertThrows(CompletionException.class, createIdxFut::join);
+
+        assertTrue(IgniteTestUtils.hasCause(completionException, ConfigurationValidationException.class,
+                "Table with the same name already exists."));
+    }
+
+    @Test
+    public void createTableWithExistingIndexName() {
+        String indexName = "idx" + index.incrementAndGet();
+
+        List<UUID> ids = ((NamedListConfiguration<TableConfiguration, ?, ?>) tablesConfig.tables()).internalIds();
+        assertEquals(1, ids.size());
+
+        UUID tableId = ids.get(0);
+
+        boolean created = indexManager.createIndexAsync("sName", indexName, "tName", true, indexChange -> {
+            SortedIndexChange sortedIndexChange = indexChange.convert(SortedIndexChange.class);
+
+            sortedIndexChange.changeColumns(columns -> {
+                columns.create("c2", columnChange -> columnChange.changeAsc(true));
+            });
+
+            sortedIndexChange.changeTableId(tableId);
+        }).join();
+
+        assertTrue(created);
+
+        try {
+            CompletableFuture<Void> createTblFut = tablesConfig.tables().change(tableChange -> tableChange.create(indexName, chg -> {
+                chg.changeColumns(cols -> cols.create("c1", col -> col.changeType(t -> t.changeType("STRING"))))
+                        .changePrimaryKey(pk -> pk.changeColumns("c1").changeColocationColumns("c1"));
+            }));
+
+            CompletionException completionException = assertThrows(CompletionException.class, createTblFut::join);
+
+            assertTrue(IgniteTestUtils.hasCause(completionException, ConfigurationValidationException.class,
+                    "Index with the same name already exists."));
+        } finally {
+            indexManager.dropIndexAsync("sName", indexName, true).join();
+        }
     }
 
     private static Object toMap(Object obj) {

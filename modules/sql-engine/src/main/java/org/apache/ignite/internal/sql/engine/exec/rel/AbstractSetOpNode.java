@@ -25,7 +25,6 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
@@ -49,9 +48,9 @@ public abstract class AbstractSetOpNode<RowT> extends AbstractNode<RowT> {
 
     private boolean inLoop;
 
-    protected AbstractSetOpNode(ExecutionContext<RowT> ctx, RelDataType rowType, AggregateType type, boolean all,
+    protected AbstractSetOpNode(ExecutionContext<RowT> ctx, AggregateType type, boolean all,
             RowFactory<RowT> rowFactory, Grouping<RowT> grouping) {
-        super(ctx, rowType);
+        super(ctx);
 
         this.type = type;
         this.grouping = grouping;

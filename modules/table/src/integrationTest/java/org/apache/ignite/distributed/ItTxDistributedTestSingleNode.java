@@ -17,6 +17,8 @@
 
 package org.apache.ignite.distributed;
 
+import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.raft.jraft.test.TestUtils.waitForTopology;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.findLocalAddresses;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -38,8 +40,6 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
-import java.util.stream.Collectors;
-import org.apache.ignite.distributed.TestPartitionDataStorage;
 import org.apache.ignite.internal.affinity.RendezvousAffinityFunction;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -49,6 +49,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.raft.RaftGroupServiceImpl;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
@@ -97,7 +98,6 @@ import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
-import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupServiceImpl;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.utils.ClusterServiceTestUtils;
@@ -148,11 +148,11 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
     private ScheduledThreadPoolExecutor executor;
 
-    private final Function<NetworkAddress, ClusterNode> addressToNode = addr -> {
+    private final Function<String, ClusterNode> consistentIdToNode = consistentId -> {
         for (ClusterService service : cluster) {
             ClusterNode clusterNode = service.topologyService().localMember();
 
-            if (clusterNode.address().equals(addr)) {
+            if (clusterNode.name().equals(consistentId)) {
                 return clusterNode;
             }
         }
@@ -333,8 +333,8 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 accTblId,
                 accRaftClients,
                 1,
-                NetworkAddress::toString,
-                addressToNode,
+                Function.identity(),
+                consistentIdToNode,
                 txMgr,
                 Mockito.mock(MvTableStorage.class),
                 Mockito.mock(TxStateTableStorage.class),
@@ -347,8 +347,8 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 custTblId,
                 custRaftClients,
                 1,
-                NetworkAddress::toString,
-                addressToNode,
+                Function.identity(),
+                consistentIdToNode,
                 txMgr,
                 Mockito.mock(MvTableStorage.class),
                 Mockito.mock(TxStateTableStorage.class),
@@ -370,23 +370,19 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
             throws Exception {
         List<List<ClusterNode>> assignment = RendezvousAffinityFunction.assignPartitions(
                 cluster.stream().map(node -> node.topologyService().localMember())
-                        .collect(Collectors.toList()),
+                        .collect(toList()),
                 1,
                 replicas(),
                 false,
                 null
         );
 
-        Map<ClusterNode, Function<Peer, Boolean>> isLocalPeerCheckerList = cluster.stream().collect(Collectors.toMap(
-                node -> node.topologyService().localMember(),
-                node -> {
-                    TopologyService ts = node.topologyService();
-
-                    Function<Peer, Boolean> f = peer -> ts.getByAddress(peer.address()).equals(ts.localMember());
-
-                    return f;
-                }
-        ));
+        Map<ClusterNode, Function<Peer, Boolean>> isLocalPeerCheckerList = cluster.stream()
+                .map(ClusterService::topologyService)
+                .collect(toMap(
+                        TopologyService::localMember,
+                        ts -> peer -> ts.getByConsistentId(peer.consistentId()).equals(ts.localMember())
+                ));
 
         Int2ObjectOpenHashMap<RaftGroupService> clients = new Int2ObjectOpenHashMap<>();
 
@@ -397,8 +393,8 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
             TablePartitionId grpId = new TablePartitionId(tblId, p);
 
-            List<Peer> conf = partNodes.stream().map(n -> n.address()).map(Peer::new)
-                    .collect(Collectors.toList());
+            List<Peer> conf = partNodes.stream().map(n -> new Peer(n.name()))
+                    .collect(toList());
 
             for (ClusterNode node : partNodes) {
                 var testMpPartStorage = new TestMvPartitionStorage(0);
@@ -432,7 +428,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
                 CompletableFuture<Void> partitionReadyFuture = raftServers.get(node).prepareRaftGroup(
                         grpId,
-                        partNodes,
+                        partNodes.stream().map(ClusterNode::name).collect(toList()),
                         () -> {
                             return new PartitionListener(
                                     new TestPartitionDataStorage(testMpPartStorage),
@@ -497,7 +493,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 service.shutdown();
 
                 Loza leaderSrv = raftServers
-                        .get(tmpSvc.topologyService().getByAddress(leader.address()));
+                        .get(tmpSvc.topologyService().getByConsistentId(leader.consistentId()));
 
                 RaftGroupService leaderClusterSvc = RaftGroupServiceImpl
                         .start(grpId, leaderSrv.service(), FACTORY,
@@ -523,7 +519,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
         assertNotNull(leader);
 
-        return raftServers.get(svc.clusterService().topologyService().getByAddress(leader.address()));
+        return raftServers.get(svc.clusterService().topologyService().getByConsistentId(leader.consistentId()));
     }
 
     /**
@@ -610,7 +606,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
         }
 
         TxManager manager = txManagers
-                .get(clients.get(0).clusterService().topologyService().getByAddress(clients.get(0).leader().address()));
+                .get(clients.get(0).clusterService().topologyService().getByConsistentId(clients.get(0).leader().consistentId()));
 
         assertNotNull(manager);
 
