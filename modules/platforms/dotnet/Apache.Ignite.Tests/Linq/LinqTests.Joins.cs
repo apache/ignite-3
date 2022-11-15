@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Tests.Linq;
 
 using System.Linq;
+using System.Threading.Tasks;
 using NUnit.Framework;
 
 /// <summary>
@@ -58,15 +59,12 @@ public partial class LinqTests
     public void TestTwoTableJoin()
     {
         var query1 = PocoView.AsQueryable();
-        var query2 = PocoAllColumnsView.AsQueryable();
+        var query2 = PocoIntView.AsQueryable();
 
-        // TODO: Error is "UUID is not supported yet", use different table.
         var joinQuery = query1.Join(query2, a => a.Key, b => b.Key, (a, b) => new
             {
                 Id = a.Key,
-                Price = b.Decimal,
-                Name = b.Str,
-                Time = b.Timestamp
+                Price = b.Val
             })
             .OrderBy(x => x.Id)
             .Take(2);
@@ -81,4 +79,6 @@ public partial class LinqTests
     {
         Assert.Fail("TODO");
     }
+
+    private record PocoInt(int Key, int Val);
 }

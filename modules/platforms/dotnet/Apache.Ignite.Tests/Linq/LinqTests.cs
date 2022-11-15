@@ -24,6 +24,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Threading.Tasks;
 using Ignite.Sql;
+using Ignite.Table;
 using NodaTime;
 using NUnit.Framework;
 using Table;
@@ -34,43 +35,28 @@ using Table;
 [SuppressMessage("ReSharper", "PossibleLossOfFraction", Justification = "Tests")]
 public partial class LinqTests : IgniteTestsBase
 {
+    private const int Count = 10;
+
+    private IRecordView<PocoInt> PocoIntView { get; set; } = null!;
+
     [OneTimeSetUp]
     public async Task InsertData()
     {
-        for (int i = 0; i < 10; i++)
+        var tblInt = await Client.Tables.GetTableAsync("TBL_INT32"); // TODO: Extract table name constant.
+        PocoIntView = tblInt!.GetRecordView<PocoInt>();
+
+        for (int i = 0; i < Count; i++)
         {
-            var rec1 = new Poco { Key = i, Val = "v-" + i };
-
-            var rec2 = new PocoAllColumns(
-                Key: i,
-                Str: "v-" + i,
-                Int8: (sbyte)i,
-                Int16: (short)i,
-                Int32: i,
-                Int64: i,
-                Float: i / 100,
-                Double: i / 100,
-                Uuid: Guid.NewGuid(),
-                Date: default,
-                BitMask: new BitArray(i, true),
-                Time: default,
-                DateTime: default,
-                Timestamp: Instant.FromUnixTimeSeconds(i),
-                Blob: new byte[] { 1, 2 },
-                Decimal: 1.2m);
-
-            await PocoView.UpsertAsync(null, rec1);
-            await PocoAllColumnsView.UpsertAsync(null, rec2);
+            await PocoView.UpsertAsync(null, new Poco { Key = i, Val = "v-" + i });
+            await PocoIntView.UpsertAsync(null, new PocoInt(i, i * 100));
         }
     }
 
     [OneTimeTearDown]
-    public async Task CleanTable()
+    public async Task CleanTables()
     {
-        await TupleView.DeleteAllAsync(null, Enumerable.Range(0, 10).Select(x => GetTuple(x)));
-
-        var tbl = await Client.Tables.GetTableAsync(TableAllColumnsName);
-        await tbl!.RecordBinaryView.DeleteAllAsync(null, Enumerable.Range(0, 10).Select(x => GetTuple(x)));
+        await TupleView.DeleteAllAsync(null, Enumerable.Range(0, Count).Select(x => GetTuple(x)));
+        await PocoIntView.DeleteAllAsync(null, Enumerable.Range(0, Count).Select(x => new PocoInt(x, 0)));
     }
 
     [Test]
