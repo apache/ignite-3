@@ -19,7 +19,6 @@ package org.apache.ignite.internal.sql.engine.exec.rel;
 
 import java.util.Iterator;
 import java.util.List;
-import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 
@@ -40,11 +39,10 @@ public class ScanNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      *
      * @param ctx Execution context.
-     * @param rowType Rel data type.
      * @param src Source.
      */
-    public ScanNode(ExecutionContext<RowT> ctx, RelDataType rowType, Iterable<RowT> src) {
-        super(ctx, rowType);
+    public ScanNode(ExecutionContext<RowT> ctx, Iterable<RowT> src) {
+        super(ctx);
 
         this.src = src;
     }
