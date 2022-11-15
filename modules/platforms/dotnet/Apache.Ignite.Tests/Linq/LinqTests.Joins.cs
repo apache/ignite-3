@@ -57,7 +57,22 @@ public partial class LinqTests
     [Test]
     public void TestTwoTableJoin()
     {
-        Assert.Fail("TODO");
+        var query1 = PocoView.AsQueryable();
+        var query2 = PocoAllColumnsView.AsQueryable();
+
+        var joinQuery = query1.Join(query2, a => a.Key, b => b.Key, (a, b) => new
+            {
+                Id = a.Key,
+                Price = b.Decimal,
+                Name = b.Str,
+                Time = b.Timestamp
+            })
+            .OrderBy(x => x.Id)
+            .Take(2);
+
+        var res = joinQuery.ToList();
+
+        Assert.AreEqual(2, res.Count);
     }
 
     [Test]

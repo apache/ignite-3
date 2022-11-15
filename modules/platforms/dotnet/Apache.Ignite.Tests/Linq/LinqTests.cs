@@ -18,16 +18,20 @@
 namespace Apache.Ignite.Tests.Linq;
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Threading.Tasks;
 using Ignite.Sql;
+using NodaTime;
 using NUnit.Framework;
 using Table;
 
 /// <summary>
 /// Basic LINQ provider tests.
 /// </summary>
+[SuppressMessage("ReSharper", "PossibleLossOfFraction", Justification = "Tests")]
 public partial class LinqTests : IgniteTestsBase
 {
     [OneTimeSetUp]
@@ -35,7 +39,28 @@ public partial class LinqTests : IgniteTestsBase
     {
         for (int i = 0; i < 10; i++)
         {
-            await PocoView.UpsertAsync(null, new() { Key = i, Val = "v-" + i });
+            var rec1 = new Poco { Key = i, Val = "v-" + i };
+
+            var rec2 = new PocoAllColumns(
+                Key: i,
+                Str: "v-" + i,
+                Int8: (sbyte)i,
+                Int16: (short)i,
+                Int32: i,
+                Int64: i,
+                Float: i / 100,
+                Double: i / 100,
+                Uuid: Guid.NewGuid(),
+                Date: default,
+                BitMask: new BitArray(i, true),
+                Time: default,
+                DateTime: default,
+                Timestamp: Instant.FromUnixTimeSeconds(i),
+                Blob: new byte[] { 1, 2 },
+                Decimal: 1.2m);
+
+            await PocoView.UpsertAsync(null, rec1);
+            await PocoAllColumnsView.UpsertAsync(null, rec2);
         }
     }
 
@@ -43,6 +68,9 @@ public partial class LinqTests : IgniteTestsBase
     public async Task CleanTable()
     {
         await TupleView.DeleteAllAsync(null, Enumerable.Range(0, 10).Select(x => GetTuple(x)));
+
+        var tbl = await Client.Tables.GetTableAsync(TableAllColumnsName);
+        await tbl!.RecordBinaryView.DeleteAllAsync(null, Enumerable.Range(0, 10).Select(x => GetTuple(x)));
     }
 
     [Test]
