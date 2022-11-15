@@ -24,7 +24,6 @@ using NUnit.Framework;
 /// Linq JOINs tests.
 /// TODO:
 /// TestOuterJoin
-/// TestSubqueryJoin
 /// TestInvalidJoin
 /// TestTwoFromSubquery
 /// TestMultipleFromSubquery.
@@ -118,8 +117,10 @@ public partial class LinqTests
 
         StringAssert.Contains(
             "select _T0.KEY, _T1.VAL " +
-            "from PUBLIC.TBL_INT32 as _T1 " +
-            "inner join PUBLIC.TBL_INT32 as _T0 on (_T0.KEY = _T1.KEY and _T0.VAL = _T1.VAL)",
+            "from PUBLIC.TBL1 as _T0 " +
+            "inner join PUBLIC.TBL_INT32 as _T1 on (_T1.KEY = _T0.KEY) " +
+            "where (_T1.KEY > ?) " +
+            "order by (_T1.KEY) asc",
             joinQuery.ToString());
     }
 
@@ -176,6 +177,44 @@ public partial class LinqTests
             "select _T0.KEY, _T1.VAL " +
             "from PUBLIC.TBL_INT32 as _T1 " +
             "inner join PUBLIC.TBL_INT32 as _T0 on (_T0.KEY = _T1.KEY and _T0.VAL = _T1.VAL)",
+            joinQuery.ToString());
+    }
+
+    [Test]
+    public void TestOuterJoin()
+    {
+        var query1 = PocoIntView.AsQueryable(); // Sequential keys.
+        var query2 = PocoShortView.AsQueryable(); // Sequential keys times 2.
+
+        var joinQuery = query1.Join(
+                inner: query2.DefaultIfEmpty(),
+                outerKeySelector: a => a.Key,
+                innerKeySelector: b => b.Key,
+                resultSelector: (a, b) => new
+                {
+                    Id = a.Key,
+                    Price = b.Val
+                })
+            .OrderBy(x => x.Id);
+
+        var res = joinQuery.ToList();
+
+        Assert.AreEqual(Count, res.Count);
+
+        Assert.AreEqual(1, res[1].Id);
+        Assert.AreEqual(0, res[1].Price);
+
+        Assert.AreEqual(2, res[2].Id);
+        Assert.AreEqual(2, res[2].Price);
+
+        Assert.AreEqual(3, res[3].Id);
+        Assert.AreEqual(0, res[3].Price);
+
+        StringAssert.Contains(
+            "select _T0.KEY, _T1.VAL " +
+            "from PUBLIC.TBL_INT32 as _T0 " +
+            "left outer join (select * from PUBLIC.TBL_INT16 as _T2 ) as _T1 " +
+            "on (_T1.KEY = _T0.KEY)",
             joinQuery.ToString());
     }
 }
