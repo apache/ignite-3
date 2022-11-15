@@ -702,7 +702,6 @@ public class PartitionReplicaListener implements ReplicaListener {
                                     lowerBound,
                                     // We need upperBound next value for correct range lock.
                                     upperBound,
-                                    // TODO IGNITE-18055: Add support null-bounds.
                                     flags
                             );
                         });
