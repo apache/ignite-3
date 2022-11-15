@@ -145,5 +145,11 @@ public partial class LinqTests
 
         Assert.AreEqual(2, res.Id);
         Assert.AreEqual(200, res.Price);
+
+        StringAssert.Contains(
+            "select _T0.KEY, _T1.VAL " +
+            "from PUBLIC.TBL_INT32 as _T1 " +
+            "inner join PUBLIC.TBL_INT32 as _T0 on (_T0.KEY = _T1.KEY and _T0.VAL = _T1.VAL)",
+            joinQuery.ToString());
     }
 }
