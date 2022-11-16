@@ -473,11 +473,19 @@ public class SqlQueryProcessor implements QueryProcessor {
             throw new IgniteInternalException(SCHEMA_NOT_FOUND_ERR, format("Schema not found [schemaName={}]", schemaName));
         }
 
-        SqlNodeList nodes = Commons.parse(sql, FRAMEWORK_CONFIG.getParserConfig());
+        CompletableFuture<Void> start = new CompletableFuture<>();
+
+        SqlNodeList nodes = SqlNodeList.EMPTY;
 
         var res = new ArrayList<CompletableFuture<AsyncSqlCursor<List<Object>>>>(nodes.size());
 
-        CompletableFuture<Void> start = new CompletableFuture<>();
+        try {
+            nodes = Commons.parse(sql, FRAMEWORK_CONFIG.getParserConfig());
+        } catch (Throwable th) {
+            start.completeExceptionally(th);
+
+            res.add(CompletableFuture.completedFuture(failedCursor(th)));
+        }
 
         for (SqlNode sqlNode : nodes) {
             boolean needStartTx = SqlKind.DML.contains(sqlNode.getKind()) || SqlKind.QUERY.contains(sqlNode.getKind());
@@ -524,6 +532,23 @@ public class SqlQueryProcessor implements QueryProcessor {
         start.completeAsync(() -> null, taskExecutor);
 
         return res;
+    }
+
+    private static <T> AsyncSqlCursor<T> failedCursor(Throwable th) {
+        return new AsyncSqlCursorImpl<>(
+                null, null, null,
+                new AsyncCursor<>() {
+                    @Override
+                    public CompletableFuture<BatchedResult<T>> requestNextAsync(int rows) {
+                        return CompletableFuture.failedFuture(th);
+                    }
+
+                    @Override
+                    public CompletableFuture<Void> closeAsync() {
+                        return CompletableFuture.completedFuture(null);
+                    }
+                }
+        );
     }
 
     private abstract static class AbstractTableEventListener implements EventListener<TableEventParameters> {
