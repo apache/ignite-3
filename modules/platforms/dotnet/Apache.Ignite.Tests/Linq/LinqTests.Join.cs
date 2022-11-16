@@ -240,6 +240,7 @@ public partial class LinqTests
                 })
             .OrderBy(x => x.Id);
 
+        // ReSharper disable once ReturnValueOfPureMethodIsNotUsed
         var ex = Assert.Throws<NotSupportedException>(() => joinQuery.ToList());
         StringAssert.Contains("Local collection joins are not supported, try `.Contains()` instead:", ex!.Message);
     }
