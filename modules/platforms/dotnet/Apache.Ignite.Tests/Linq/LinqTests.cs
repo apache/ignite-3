@@ -144,6 +144,15 @@ public partial class LinqTests : IgniteTestsBase
     }
 
     [Test]
+    public void TestSelectEntireRecordObject()
+    {
+        PocoInt res = PocoIntView.AsQueryable().Single(x => x.Key == 3);
+
+        Assert.AreEqual(3, res.Key);
+        Assert.AreEqual(300, res.Val);
+    }
+
+    [Test]
     public void TestSelectTwoColumns()
     {
         var res = PocoView.AsQueryable()

@@ -22,6 +22,7 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Linq.Expressions;
+using System.Runtime.Serialization;
 using System.Threading.Tasks;
 using Ignite.Sql;
 using Ignite.Transactions;
@@ -155,7 +156,7 @@ internal sealed class IgniteQueryExecutor : IQueryExecutor
         // TODO: IGNITE-18136 Replace reflection with emitted delegates.
         return (IReadOnlyList<IColumnMetadata> cols, ref BinaryTupleReader reader) =>
         {
-            var res = Activator.CreateInstance<T>();
+            var res = (T)FormatterServices.GetUninitializedObject(typeof(T));
 
             for (int i = 0; i < cols.Count; i++)
             {
