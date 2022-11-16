@@ -495,7 +495,8 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         assertThrows(StorageClosedException.class, storage::flush);
 
         assertThrows(StorageClosedException.class, storage::lastAppliedIndex);
-        assertThrows(StorageClosedException.class, () -> storage.lastAppliedIndex(100));
+        assertThrows(StorageClosedException.class, storage::lastAppliedTerm);
+        assertThrows(StorageClosedException.class, () -> storage.lastApplied(100, 500));
         assertThrows(StorageClosedException.class, storage::persistedIndex);
 
         RowId rowId = new RowId(partId);

@@ -963,8 +963,8 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         if (destroy) {
             try (WriteBatch writeBatch = new WriteBatch()) {
                 writeBatch.delete(meta, lastAppliedIndexKey);
-            writeBatch.delete(meta, lastAppliedTermKey);
-            writeBatch.delete(meta, lastGroupConfigKey);
+                writeBatch.delete(meta, lastAppliedTermKey);
+                writeBatch.delete(meta, lastGroupConfigKey);
 
                 writeBatch.delete(meta, RocksDbMetaStorage.partitionIdKey(partitionId));
 
