@@ -17,6 +17,16 @@
 
 package org.apache.ignite.internal.cli.commands.cluster.init;
 
+import static org.apache.ignite.internal.cli.commands.Options.Constants.CLUSTER_NAME_OPTION;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.CLUSTER_NAME_OPTION_DESC;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.CLUSTER_NAME_OPTION_SHORT;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.CMG_NODE_NAME_OPTION;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.CMG_NODE_NAME_OPTION_DESC;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.CMG_NODE_NAME_OPTION_SHORT;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.META_STORAGE_NODE_NAME_OPTION;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.META_STORAGE_NODE_NAME_OPTION_DESC;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.META_STORAGE_NODE_NAME_OPTION_SHORT;
+
 import java.util.ArrayList;
 import java.util.List;
 import picocli.CommandLine.Option;
@@ -29,25 +39,19 @@ public class ClusterInitOptions {
      * List of names of the nodes (each represented by a separate command line argument) that will host the Meta Storage. If the
      * "--cmg-nodes" parameter is omitted, the same nodes will also host the Cluster Management Group.
      */
-    @Option(names = {"-m", "--meta-storage-node"}, required = true, description = {
-            "Name of the node (repeat like '--meta-storage-node node1 --meta-storage-node node2' to specify more than one node)",
-            "that will host the Meta Storage.",
-            "If the --cmg-node parameter is omitted, the same nodes will also host the Cluster Management Group."
-    })
+    @Option(names = {META_STORAGE_NODE_NAME_OPTION, META_STORAGE_NODE_NAME_OPTION_SHORT},
+            required = true,
+            description = META_STORAGE_NODE_NAME_OPTION_DESC)
     private List<String> metaStorageNodes;
 
     /**
      * List of names of the nodes (each represented by a separate command line argument) that will host the Cluster Management Group.
      */
-    @Option(names = {"-c", "--cmg-node"}, description = {
-            "Name of the node (repeat like '--cmg-node node1 --cmg-node node2' to specify more than one node)",
-            "that will host the Cluster Management Group.",
-            "If omitted, then --meta-storage-node values will also supply the nodes for the Cluster Management Group."
-    })
+    @Option(names = {CMG_NODE_NAME_OPTION, CMG_NODE_NAME_OPTION_SHORT}, description = CMG_NODE_NAME_OPTION_DESC)
     private List<String> cmgNodes = new ArrayList<>();
 
     /** Name of the cluster. */
-    @Option(names = {"-n", "--cluster-name"}, required = true, description = "Human-readable name of the cluster")
+    @Option(names = {CLUSTER_NAME_OPTION, CLUSTER_NAME_OPTION_SHORT}, required = true, description = CLUSTER_NAME_OPTION_DESC)
     private String clusterName;
 
     public List<String> getMetaStorageNodes() {

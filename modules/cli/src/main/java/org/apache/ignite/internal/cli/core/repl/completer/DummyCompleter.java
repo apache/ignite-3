@@ -19,15 +19,10 @@ package org.apache.ignite.internal.cli.core.repl.completer;
 
 import java.util.List;
 
-/**
- * Dynamic completer returns completions that can be fetched in real time from Ignite 3 node, file, or cached.
- *
- * <p>The lifecycle of {@link DynamicCompleter} is determined by {@link DynamicCompleterFactory},
- * use the factory to create an instance of {@link DynamicCompleter}.
- */
-@FunctionalInterface
-public interface DynamicCompleter {
-
-    /** Given typed words returns list of candidates that can be autocompleted. */
-    List<String> complete(String[] words);
+/** Dummy completer that returns empty list on any input. */
+public class DummyCompleter implements DynamicCompleter {
+    @Override
+    public List<String> complete(String[] words) {
+        return List.of();
+    }
 }

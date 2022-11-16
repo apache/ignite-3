@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.cli.commands.cluster.topology;
 
+import static org.apache.ignite.internal.cli.commands.Options.Constants.PLAIN_OPTION;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.PLAIN_OPTION_DESC;
+
 import jakarta.inject.Inject;
 import java.util.concurrent.Callable;
 import org.apache.ignite.internal.cli.call.cluster.topology.PhysicalTopologyCall;
@@ -42,7 +45,7 @@ public class PhysicalTopologyCommand extends BaseCommand implements Callable<Int
     @Inject
     private PhysicalTopologyCall call;
 
-    @Option(names = "--plain", description = "Display output with plain formatting")
+    @Option(names = PLAIN_OPTION, description = PLAIN_OPTION_DESC)
     private boolean plain;
 
     /** {@inheritDoc} */

@@ -23,7 +23,7 @@ import static org.hamcrest.Matchers.hasSize;
 
 import com.typesafe.config.ConfigFactory;
 import java.util.List;
-import java.util.Set;
+import org.apache.ignite.internal.cli.core.repl.completer.hocon.HoconDynamicCompleter;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
@@ -31,8 +31,7 @@ class HoconDynamicCompleterTest {
     HoconDynamicCompleter completer;
 
     private static HoconDynamicCompleter completerFrom(String configString) {
-        Set<String> activationPostfixes = Set.of("");
-        return new HoconDynamicCompleter(activationPostfixes, ConfigFactory.parseString(configString));
+        return new HoconDynamicCompleter(ConfigFactory.parseString(configString));
     }
 
     @Test

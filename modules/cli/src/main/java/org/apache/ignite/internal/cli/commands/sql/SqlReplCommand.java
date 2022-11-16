@@ -17,6 +17,14 @@
 
 package org.apache.ignite.internal.cli.commands.sql;
 
+import static org.apache.ignite.internal.cli.commands.Options.Constants.JDBC_URL_OPTION;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.JDBC_URL_OPTION_DESC;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.JDBC_URL_OPTION_SHORT;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.PLAIN_OPTION;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.PLAIN_OPTION_DESC;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.SCRIPT_FILE_OPTION;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.SCRIPT_FILE_OPTION_SHORT;
+
 import jakarta.inject.Inject;
 import java.io.File;
 import java.io.IOException;
@@ -50,11 +58,11 @@ import picocli.CommandLine.Parameters;
  */
 @Command(name = "sql", description = "Executes SQL query")
 public class SqlReplCommand extends BaseCommand implements Runnable {
-    @Option(names = {"-u", "--jdbc-url"}, required = true,
-            descriptionKey = "ignite.jdbc-url", description = "JDBC url to ignite cluster")
+    @Option(names = {JDBC_URL_OPTION, JDBC_URL_OPTION_SHORT}, required = true,
+            descriptionKey = "ignite.jdbc-url", description = JDBC_URL_OPTION_DESC)
     private String jdbc;
 
-    @Option(names = "--plain", description = "Display output with plain formatting")
+    @Option(names = PLAIN_OPTION, description = PLAIN_OPTION_DESC)
     private boolean plain;
 
     @ArgGroup
@@ -64,7 +72,7 @@ public class SqlReplCommand extends BaseCommand implements Runnable {
         @Parameters(index = "0", description = "SQL query to execute")
         private String command;
 
-        @Option(names = {"-f", "--script-file"}, description = "Path to file with SQL commands to execute")
+        @Option(names = {SCRIPT_FILE_OPTION, SCRIPT_FILE_OPTION_SHORT}, description = SCRIPT_FILE_OPTION_SHORT)
         private File file;
     }
 
