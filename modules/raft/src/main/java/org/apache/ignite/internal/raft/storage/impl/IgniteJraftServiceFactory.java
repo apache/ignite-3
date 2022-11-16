@@ -22,7 +22,6 @@ import org.apache.ignite.internal.raft.storage.RaftMetaStorageFactory;
 import org.apache.ignite.internal.raft.storage.SnapshotStorageFactory;
 import org.apache.ignite.raft.jraft.core.DefaultJRaftServiceFactory;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
-import org.apache.ignite.raft.jraft.storage.LogManager;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
 import org.apache.ignite.raft.jraft.storage.RaftMetaStorage;
 import org.apache.ignite.raft.jraft.storage.SnapshotStorage;
@@ -39,8 +38,7 @@ public class IgniteJraftServiceFactory extends DefaultJRaftServiceFactory {
     private final LogStorageFactory logStorageFactory;
 
     /** Snapshot storage factory. */
-    private volatile SnapshotStorageFactory snapshotStorageFactory = (path, raftOptions, logManager) ->
-            new LocalSnapshotStorage(path, raftOptions);
+    private volatile SnapshotStorageFactory snapshotStorageFactory = LocalSnapshotStorage::new;
 
     /** Raft meta storage factory. */
     private volatile RaftMetaStorageFactory raftMetaStorageFactory = LocalRaftMetaStorage::new;
@@ -75,10 +73,10 @@ public class IgniteJraftServiceFactory extends DefaultJRaftServiceFactory {
     }
 
     @Override
-    public SnapshotStorage createSnapshotStorage(final String uri, final RaftOptions raftOptions, LogManager logManager) {
+    public SnapshotStorage createSnapshotStorage(final String uri, final RaftOptions raftOptions) {
         Requires.requireTrue(!StringUtils.isBlank(uri), "Blank snapshot storage uri.");
 
-        return snapshotStorageFactory.createSnapshotStorage(uri, raftOptions, logManager);
+        return snapshotStorageFactory.createSnapshotStorage(uri, raftOptions);
     }
 
     @Override

@@ -21,11 +21,13 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryTableStorage;
 import org.apache.ignite.internal.storage.pagememory.index.hash.PageMemoryHashIndexStorage;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
 import org.apache.ignite.internal.storage.pagememory.index.sorted.PageMemorySortedIndexStorage;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Implementation of {@link MvPartitionStorage} based on a {@link BplusTree} for in-memory case.
@@ -33,6 +35,13 @@ import org.apache.ignite.internal.storage.pagememory.index.sorted.PageMemorySort
 public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPartitionStorage {
     /** Last applied index value. */
     private volatile long lastAppliedIndex;
+
+    /** Last applied term value. */
+    private volatile long lastAppliedTerm;
+
+    /** Last group configuration. */
+    @Nullable
+    private volatile RaftGroupConfiguration groupConfig;
 
     /**
      * Constructor.
@@ -82,10 +91,15 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
     }
 
     @Override
-    public void lastAppliedIndex(long lastAppliedIndex) throws StorageException {
-        checkClosed();
+    public long lastAppliedTerm() {
+        return lastAppliedTerm;
+    }
 
+    @Override
+    public void lastApplied(long lastAppliedIndex, long lastAppliedTerm) throws StorageException {
+        checkClosed();
         this.lastAppliedIndex = lastAppliedIndex;
+        this.lastAppliedTerm = lastAppliedTerm;
     }
 
     @Override
@@ -93,6 +107,16 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
         checkClosed();
 
         return lastAppliedIndex;
+    }
+
+    @Override
+    public @Nullable RaftGroupConfiguration committedGroupConfiguration() {
+        return groupConfig;
+    }
+
+    @Override
+    public void committedGroupConfiguration(RaftGroupConfiguration config) {
+        this.groupConfig = config;
     }
 
     @Override

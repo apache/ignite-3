@@ -29,6 +29,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
+import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageClosedException;
@@ -44,6 +45,11 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     private final ConcurrentNavigableMap<RowId, VersionChain> map = new ConcurrentSkipListMap<>();
 
     private volatile long lastAppliedIndex;
+
+    private volatile long lastAppliedTerm;
+
+    @Nullable
+    private volatile RaftGroupConfiguration groupConfig;
 
     private final int partitionId;
 
@@ -108,10 +114,19 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     }
 
     @Override
-    public void lastAppliedIndex(long lastAppliedIndex) throws StorageException {
+    public long lastAppliedTerm() {
+        checkClosed();
+
+        return lastAppliedTerm;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void lastApplied(long lastAppliedIndex, long lastAppliedTerm) throws StorageException {
         checkClosed();
 
         this.lastAppliedIndex = lastAppliedIndex;
+        this.lastAppliedTerm = lastAppliedTerm;
     }
 
     @Override
@@ -121,6 +136,18 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         return lastAppliedIndex;
     }
 
+    @Override
+    @Nullable
+    public RaftGroupConfiguration committedGroupConfiguration() {
+        return groupConfig;
+    }
+
+    @Override
+    public void committedGroupConfiguration(RaftGroupConfiguration config) {
+        this.groupConfig = config;
+    }
+
+    /** {@inheritDoc} */
     @Override
     public @Nullable BinaryRow addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, UUID commitTableId, int commitPartitionId)
             throws TxIdMismatchException {
