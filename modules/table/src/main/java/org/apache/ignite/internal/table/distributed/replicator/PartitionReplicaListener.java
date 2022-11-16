@@ -290,7 +290,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     private CompletableFuture<Object> processTxStateReplicaRequest(TxStateReplicaRequest request) {
         return raftClient.refreshAndGetLeaderWithTerm()
                 .thenCompose(replicaAndTerm -> {
-                            String leaderId = replicaAndTerm.get1().consistentId();
+                            String leaderId = replicaAndTerm.leader().consistentId();
 
                             if (topologyService.localMember().name().equals(leaderId)) {
 
@@ -1661,9 +1661,9 @@ public class PartitionReplicaListener implements ReplicaListener {
         if (expectedTerm != null) {
             return raftClient.refreshAndGetLeaderWithTerm()
                     .thenCompose(replicaAndTerm -> {
-                                Long currentTerm = replicaAndTerm.get2();
+                                long currentTerm = replicaAndTerm.term();
 
-                                if (expectedTerm.equals(currentTerm)) {
+                                if (expectedTerm == currentTerm) {
                                     return completedFuture(null);
                                 } else {
                                     return failedFuture(new PrimaryReplicaMissException(expectedTerm, currentTerm));
@@ -1671,7 +1671,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                             }
                     );
         } else if (request instanceof ReadOnlyReplicaRequest) {
-            return raftClient.refreshAndGetLeaderWithTerm().thenApply(replicaAndTerm -> isLocalPeerChecker.apply(replicaAndTerm.get1()));
+            return raftClient.refreshAndGetLeaderWithTerm().thenApply(replicaAndTerm -> isLocalPeerChecker.apply(replicaAndTerm.leader()));
         } else {
             return completedFuture(null);
         }
