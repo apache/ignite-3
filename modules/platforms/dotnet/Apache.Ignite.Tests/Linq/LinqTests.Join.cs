@@ -94,6 +94,49 @@ public partial class LinqTests
     }
 
     [Test]
+    public void TestThreeTableJoin()
+    {
+        var query1 = PocoView.AsQueryable();
+        var query2 = PocoIntView.AsQueryable();
+        var query3 = PocoLongView.AsQueryable();
+
+        var joinQuery = query1.Join(
+                inner: query2,
+                outerKeySelector: a => a.Key,
+                innerKeySelector: b => b.Key,
+                resultSelector: (a, b) => new
+                {
+                    Id = a.Key,
+                    Price = b.Val
+                })
+            .Join(
+                inner: query3,
+                outerKeySelector: a => a.Id,
+                innerKeySelector: b => b.Key,
+                resultSelector: (a, b) => new
+                {
+                    a.Id,
+                    a.Price,
+                    Price2 = b.Val
+                })
+            .Where(x => x.Id > 3)
+            .OrderBy(x => x.Id);
+
+        var res = joinQuery.First();
+
+        Assert.AreEqual(4, res.Id);
+        Assert.AreEqual(400, res.Price);
+        Assert.AreEqual(8, res.Price2);
+
+        StringAssert.Contains(
+            "select _T0.KEY, _T1.VAL, _T2.VAL " +
+            "from PUBLIC.TBL1 as _T0 " +
+            "inner join PUBLIC.TBL_INT32 as _T1 on (_T1.KEY = _T0.KEY) " +
+            "inner join PUBLIC.TBL_INT64 as _T2 on (_T2.KEY = _T0.KEY)",
+            joinQuery.ToString());
+    }
+
+    [Test]
     public void TestTwoTableJoinQuerySyntax()
     {
         var query1 = PocoView.AsQueryable();
