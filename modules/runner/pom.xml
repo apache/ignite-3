@@ -253,6 +253,7 @@
         <dependency>
             <groupId>org.apache.ignite</groupId>
             <artifactId>ignite-distribution-zones</artifactId>
+            <type>test-jar</type>
             <scope>test</scope>
         </dependency>
     </dependencies>
