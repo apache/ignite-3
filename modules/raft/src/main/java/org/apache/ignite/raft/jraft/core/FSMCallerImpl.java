@@ -497,6 +497,17 @@ public class FSMCallerImpl implements FSMCaller {
                 final LogEntry logEntry = iterImpl.entry();
                 if (logEntry.getType() != EnumOutter.EntryType.ENTRY_TYPE_DATA) {
                     if (logEntry.getType() == EnumOutter.EntryType.ENTRY_TYPE_CONFIGURATION) {
+                        ConfigurationEntry configurationEntry = new ConfigurationEntry(
+                                logEntry.getId().copy(),
+                                new Configuration(logEntry.getPeers(), logEntry.getLearners()),
+                                new Configuration()
+                        );
+                        if (logEntry.getOldPeers() != null && !logEntry.getOldPeers().isEmpty()) {
+                            configurationEntry.setOldConf(new Configuration(logEntry.getOldPeers(), logEntry.getOldLearners()));
+                        }
+
+                        this.fsm.onRawConfigurationCommitted(configurationEntry);
+
                         if (logEntry.getOldPeers() != null && !logEntry.getOldPeers().isEmpty()) {
                             // Joint stage is not supposed to be noticeable by end users.
                             this.fsm.onConfigurationCommitted(new Configuration(iterImpl.entry().getPeers()));
@@ -665,6 +676,28 @@ public class FSMCallerImpl implements FSMCaller {
             setError(e);
             return;
         }
+
+        // JRaft tests (FSMCallerTest) use metas where any of peersList() and learnersList() might be null,
+        // so we have to protect from this. In production, these methods never return null.
+        if (meta.peersList() != null && meta.learnersList() != null) {
+            ConfigurationEntry configurationEntry = new ConfigurationEntry(
+                    snapshotId.copy(),
+                    new Configuration(
+                            meta.peersList().stream().map(PeerId::parsePeer).collect(toList()),
+                            meta.learnersList().stream().map(PeerId::parsePeer).collect(toList())
+                    ),
+                    new Configuration()
+            );
+            if (meta.oldPeersList() != null && !meta.oldPeersList().isEmpty()) {
+                configurationEntry.setOldConf(new Configuration(
+                        meta.oldPeersList().stream().map(PeerId::parsePeer).collect(toList()),
+                        meta.oldLearnersList().stream().map(PeerId::parsePeer).collect(toList())
+                ));
+            }
+
+            this.fsm.onRawConfigurationCommitted(configurationEntry);
+        }
+
         if (meta.oldPeersList() == null) {
             // Joint stage is not supposed to be noticeable by end users.
             final Configuration conf = new Configuration();

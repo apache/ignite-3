@@ -71,19 +71,38 @@ public interface MvPartitionStorage extends ManuallyCloseable {
     CompletableFuture<Void> flush();
 
     /**
-     * Index of the highest write command applied to the storage. {@code 0} if index is unknown.
+     * Index of the write command with the highest index applied to the storage. {@code 0} if the index is unknown.
      */
     long lastAppliedIndex();
 
     /**
-     * Sets the last applied index value.
+     * Term of the write command with the highest index applied to the storage. {@code 0} if the term is unknown.
      */
-    void lastAppliedIndex(long lastAppliedIndex) throws StorageException;
+    long lastAppliedTerm();
+
+    /**
+     * Sets the last applied index and term.
+     */
+    void lastApplied(long lastAppliedIndex, long lastAppliedTerm) throws StorageException;
 
     /**
      * {@link #lastAppliedIndex()} value consistent with the data, already persisted on the storage.
      */
     long persistedIndex();
+
+    /**
+     * Committed RAFT group configuration corresponding to the write command with the highest index applied to the storage.
+     * {@code null} if it was never saved.
+     */
+    @Nullable
+    RaftGroupConfiguration committedGroupConfiguration();
+
+    /**
+     * Updates RAFT group configuration.
+     *
+     * @param config Configuration to save.
+     */
+    void committedGroupConfiguration(RaftGroupConfiguration config);
 
     /**
      * Reads the value from the storage as it was at the given timestamp.
