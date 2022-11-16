@@ -15,11 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal;
+package org.apache.ignite;
 
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.exception.DistributionZoneAlreadyExistsException;
-import org.apache.ignite.internal.exception.DistributionZoneNotFoundException;
+import org.apache.ignite.DistributionZoneView;
+import org.apache.ignite.DistributionZonesConfiguration;
+import org.apache.ignite.exception.DistributionZoneAlreadyExistsException;
+import org.apache.ignite.exception.DistributionZoneNotFoundException;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.IgniteException;
@@ -30,7 +32,7 @@ import org.apache.ignite.lang.NodeStoppingException;
  */
 public class DistributionZoneManager implements IgniteComponent {
     /** Distribution zone configuration. */
-    private final  DistributionZonesConfiguration zonesConfiguration;
+    private final DistributionZonesConfiguration zonesConfiguration;
 
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
