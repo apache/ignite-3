@@ -159,7 +159,9 @@ public class ItNotInitializedClusterRestTest extends AbstractRestTestBase {
                 () -> assertThat(response.body(), hasJsonPath("$[0:2].name")),
                 () -> assertThat(response.body(), hasJsonPath("$[0:2].id")),
                 () -> assertThat(response.body(), hasJsonPath("$[0:2].address.host")),
-                () -> assertThat(response.body(), hasJsonPath("$[0:2].address.port"))
+                () -> assertThat(response.body(), hasJsonPath("$[0:2].address.port")),
+                () -> assertThat(response.body(), hasJsonPath("$[0:2].metadata.restPort")),
+                () -> assertThat(response.body(), hasJsonPath("$[0:2].metadata.restHost"))
         );
     }
 

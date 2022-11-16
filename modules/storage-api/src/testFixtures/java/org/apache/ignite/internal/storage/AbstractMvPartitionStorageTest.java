@@ -868,11 +868,13 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
     void testAppliedIndex() {
         storage.runConsistently(() -> {
             assertEquals(0, storage.lastAppliedIndex());
+            assertEquals(0, storage.lastAppliedTerm());
             assertEquals(0, storage.persistedIndex());
 
-            storage.lastAppliedIndex(1);
+            storage.lastApplied(1, 1);
 
             assertEquals(1, storage.lastAppliedIndex());
+            assertEquals(1, storage.lastAppliedTerm());
             assertThat(storage.persistedIndex(), is(lessThanOrEqualTo(1L)));
 
             return null;
@@ -1321,6 +1323,32 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
 
             assertFalse(cursor.hasNext());
         }
+    }
+
+    @Test
+    void groupConfigurationOnEmptyStorageIsNull() {
+        assertThat(storage.committedGroupConfiguration(), is(nullValue()));
+    }
+
+    @Test
+    void groupConfigurationIsUpdated() {
+        RaftGroupConfiguration configToSave = new RaftGroupConfiguration(
+                List.of("peer1", "peer2"),
+                List.of("learner1", "learner2"),
+                List.of("old-peer1", "old-peer2"),
+                List.of("old-learner1", "old-learner2")
+        );
+
+        storage.runConsistently(() -> {
+            storage.committedGroupConfiguration(configToSave);
+
+            return null;
+        });
+
+        RaftGroupConfiguration returnedConfig = storage.committedGroupConfiguration();
+
+        assertThat(returnedConfig, is(notNullValue()));
+        assertThat(returnedConfig, is(equalTo(configToSave)));
     }
 
     /**

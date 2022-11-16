@@ -29,7 +29,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.PriorityQueue;
 import java.util.stream.Collectors;
-import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeService;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
@@ -78,7 +77,7 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
             long exchangeId,
             long srcFragmentId
     ) {
-        super(ctx, ctx.getTypeFactory().createUnknownType());
+        super(ctx);
         this.exchange = exchange;
         this.registry = registry;
 
@@ -99,12 +98,11 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      *
      * @param ctx        Execution context.
-     * @param rowType    Rel data type.
      * @param srcNodeIds Source node IDs.
      * @param comp       Optional comparator for merge exchange.
      */
     public void init(
-            ExecutionContext<RowT> ctx, RelDataType rowType, Collection<String> srcNodeIds, @Nullable Comparator<RowT> comp) {
+            ExecutionContext<RowT> ctx, Collection<String> srcNodeIds, @Nullable Comparator<RowT> comp) {
         assert srcNodeIds != null : "Collection srcNodeIds not found for exchangeId: " + exchangeId;
         assert context().fragmentId() == ctx.fragmentId() : "different fragments unsupported: previous=" + context().fragmentId()
                 + " current=" + ctx.fragmentId();
@@ -113,7 +111,6 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
         // the one, that is created on a first message
         // received doesn't have all context variables in place.
         context(ctx);
-        rowType(rowType);
 
         this.comp = comp;
 

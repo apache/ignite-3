@@ -15,15 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.commands.topology;
+namespace Apache.Ignite.Internal.Linq;
 
-import org.apache.ignite.internal.cli.commands.BaseCommand;
-import picocli.CommandLine.Command;
+using Remotion.Linq;
 
-/**
- * Command that prints ignite cluster topology.
- */
-@Command(name = "topology", description = "Prints topology information",
-        subcommands = {PhysicalTopologyCommand.class, LogicalTopologyCommand.class })
-public class TopologyCommand extends BaseCommand {
+/// <summary>
+/// Internal queryable interface.
+/// </summary>
+internal interface IIgniteQueryableInternal
+{
+    /// <summary>
+    /// Gets the table name.
+    /// </summary>
+    string TableName { get; }
+
+    /// <summary>
+    /// Gets the provider.
+    /// </summary>
+    IgniteQueryProvider Provider { get; }
+
+    /// <summary>
+    /// Gets the query model.
+    /// </summary>
+    /// <returns>Query model.</returns>
+    QueryModel GetQueryModel();
 }

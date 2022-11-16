@@ -15,16 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.commands.topology;
+package org.apache.ignite.internal.cli.commands.cluster.topology;
 
 import jakarta.inject.Inject;
-import java.util.concurrent.Callable;
-import org.apache.ignite.internal.cli.call.cluster.topology.LogicalTopologyCall;
+import org.apache.ignite.internal.cli.call.cluster.topology.PhysicalTopologyCall;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
-import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlProfileMixin;
-import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
+import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlMixin;
+import org.apache.ignite.internal.cli.commands.questions.ConnectToClusterQuestion;
 import org.apache.ignite.internal.cli.core.call.UrlCallInput;
-import org.apache.ignite.internal.cli.core.exception.handler.ClusterNotInitializedExceptionHandler;
+import org.apache.ignite.internal.cli.core.flow.builder.Flows;
 import org.apache.ignite.internal.cli.decorators.PlainTopologyDecorator;
 import org.apache.ignite.internal.cli.decorators.TopologyDecorator;
 import picocli.CommandLine.Command;
@@ -32,34 +31,31 @@ import picocli.CommandLine.Mixin;
 import picocli.CommandLine.Option;
 
 /**
- * Command that show logical cluster topology.
+ * Command that show physical cluster topology in REPL mode.
  */
-@Command(name = "logical")
-public class LogicalTopologyCommand extends BaseCommand implements Callable<Integer> {
+@Command(name = "physical")
+public class PhysicalTopologyReplCommand extends BaseCommand implements Runnable {
     /** Cluster endpoint URL option. */
     @Mixin
-    private ClusterUrlProfileMixin clusterUrl;
+    private ClusterUrlMixin clusterUrl;
 
     @Inject
-    private LogicalTopologyCall call;
+    private PhysicalTopologyCall call;
+
+    @Inject
+    private ConnectToClusterQuestion question;
 
     @Option(names = "--plain", description = "Display output with plain formatting")
     private boolean plain;
 
     /** {@inheritDoc} */
     @Override
-    public Integer call() {
+    public void run() {
         TopologyDecorator topologyDecorator = plain ? new PlainTopologyDecorator() : new TopologyDecorator();
-        return CallExecutionPipeline.builder(call)
-                .inputProvider(() -> new UrlCallInput(clusterUrl.getClusterUrl()))
-                .output(spec.commandLine().getOut())
-                .errOutput(spec.commandLine().getErr())
-                .decorator(topologyDecorator)
-                .exceptionHandler(new ClusterNotInitializedExceptionHandler(
-                        "Cannot show logical topology", "ignite cluster init"
-                ))
-                .verbose(verbose)
-                .build()
-                .runPipeline();
+        question.askQuestionIfNotConnected(clusterUrl.getClusterUrl())
+                .map(UrlCallInput::new)
+                .then(Flows.fromCall(call))
+                .print(topologyDecorator)
+                .start();
     }
 }

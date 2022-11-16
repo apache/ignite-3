@@ -1,0 +1,100 @@
+// Licensed to the Apache Software Foundation (ASF) under one or more
+// contributor license agreements.  See the NOTICE file distributed with
+// this work for additional information regarding copyright ownership.
+// The ASF licenses this file to You under the Apache License, Version 2.0
+// (the "License"); you may not use this file except in compliance with
+// the License.  You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+= Installing Using ZIP Archive
+
+== Prerequisites
+
+Ignite was tested on:
+
+include::../includes/prereqs.adoc[]
+
+
+== Installing Using ZIP Archive
+
+
+. Download the archive with the Ignite CLI tool:
++
+[tabs]
+--
+tab:Unix[]
+[source,shell]
+----
+curl -L "https://www.apache.org/dyn/mirrors/mirrors.cgi?action=download&filename=ignite/3.0.0-beta1/ignite3-3.0.0-beta1.zip" -o ignite3-3.0.0-beta1.zip
+----
+
+tab:Windows (PowerShell)[]
+[source,shell]
+----
+include::../includes/ignite-cli-download-windows.adoc[tag=command,indent=0]
+----
+
+tab:Windows (CMD)[]
+[source,shell]
+----
+include::../includes/ignite-cli-download-windows.adoc[tag=command,indent=0]
+----
+--
+
+. Unpack the archive:
++
+[tabs]
+--
+tab:Unix[]
+[source,shell]
+----
+unzip ignite3-3.0.0-beta1.zip && cd ignite3-3.0.0-beta1
+----
+
+
+tab:Windows (PowerShell)[]
+[source,shell]
+----
+Expand-Archive ignite3-3.0.0-beta1.zip -DestinationPath . ; cd ignite3-3.0.0-beta1
+----
+
+tab:Windows (CMD)[]
+[source,shell]
+----
+tar -xf ignite3-3.0.0-beta1.zip & cd ignite3-3.0.0-beta1
+----
+--
+
+. Add your installation directory to the PATH environment variable:
++
+[tabs]
+--
+tab:Unix[]
+[source,shell]
+----
+export IGNITE_HOME=$(pwd)
+----
+
+//tab:Windows (PowerShell)[]
+//[source,shell]
+//----
+//$ENV:PATH += ";."
+//----
+
+//tab:Windows (CMD)[]
+//[source,text]
+//----
+//set PATH=%cd%;%PATH%
+//----
+--
+
+//NOTE: On Windows, this latter change is not permanent and only affects the current terminal session. If you want the
+//`ignite` command to be available after terminal or system restart, use the `System Properties` dialog to
+//permanently update the `PATH` environment variable by adding a full path to the Ignite installation directory.
+

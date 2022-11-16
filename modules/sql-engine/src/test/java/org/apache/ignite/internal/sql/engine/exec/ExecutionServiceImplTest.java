@@ -45,7 +45,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
-import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.sql.SqlNodeList;
@@ -518,9 +517,7 @@ public class ExecutionServiceImplTest {
                 return new LogicalRelImplementor<>(ctx, cacheId -> Objects::hashCode, mailboxRegistry, exchangeService) {
                     @Override
                     public Node<Object[]> visit(IgniteTableScan rel) {
-                        RelDataType rowType = rel.getRowType();
-
-                        return new ScanNode<>(ctx, rowType, dataset) {
+                        return new ScanNode<>(ctx, dataset) {
                             @Override
                             public void request(int rowsCnt) {
                                 RunnableX task = () -> super.request(rowsCnt);

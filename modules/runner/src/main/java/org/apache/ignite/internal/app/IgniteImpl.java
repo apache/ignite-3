@@ -112,6 +112,7 @@ import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessageSerializationRegistryImpl;
 import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.network.NodeMetadata;
 import org.apache.ignite.network.scalecube.ScaleCubeClusterServiceFactory;
 import org.apache.ignite.raft.jraft.RaftMessagesSerializationRegistryInitializer;
 import org.apache.ignite.sql.IgniteSql;
@@ -264,7 +265,6 @@ public class IgniteImpl implements Ignite {
         );
 
         NetworkConfiguration networkConfiguration = nodeCfgMgr.configurationRegistry().getConfiguration(NetworkConfiguration.KEY);
-
         MessageSerializationRegistryImpl serializationRegistry = new MessageSerializationRegistryImpl();
 
         CmgMessagesSerializationRegistryInitializer.registerFactories(serializationRegistry);
@@ -517,6 +517,8 @@ public class IgniteImpl implements Ignite {
                     raftMgr,
                     cmgMgr
             );
+
+            clusterSvc.updateMetadata(new NodeMetadata(restComponent.host(), restComponent.port()));
 
             LOG.info("Components started, joining the cluster");
 

@@ -94,10 +94,22 @@ jacoco {
 }
 
 javadoc {
-    source = sourceSets.main.java
+    source = sourceSets.main.allJava
     classpath = configurations.compileClasspath
-    enabled = false
+
+    def sourceDirs = sourceSets.main.java.sourceDirectories.join(":")
+    def generatedSources = "$buildDir/generated/sources/annotationProcessor/java/main"
+
+    options.addStringOption("-source-path", sourceDirs + File.pathSeparator + generatedSources)
+
+    exclude 'org/apache/ignite/internal/**'
+    exclude 'org/apache/ignite/raft/jraft/**'
+    exclude 'com/facebook/presto/**'
+
+    enabled = true
 }
+
+javadoc.dependsOn compileJava
 
 jacocoTestReport {
     reports {

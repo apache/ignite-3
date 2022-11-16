@@ -20,7 +20,6 @@ package org.apache.ignite.internal.sql.engine.exec.rel;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import java.util.function.Supplier;
-import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.jetbrains.annotations.Nullable;
 
@@ -45,15 +44,13 @@ public class LimitNode<RowT> extends AbstractNode<RowT> implements SingleNode<Ro
      * Constructor.
      *
      * @param ctx     Execution context.
-     * @param rowType Row type.
      */
     public LimitNode(
             ExecutionContext<RowT> ctx,
-            RelDataType rowType,
             Supplier<Integer> offsetNode,
             Supplier<Integer> fetchNode
     ) {
-        super(ctx, rowType);
+        super(ctx);
 
         offset = offsetNode == null ? 0 : offsetNode.get();
         fetch = fetchNode == null ? 0 : fetchNode.get();

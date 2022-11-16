@@ -269,7 +269,7 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
 
                 data[rowNum][0] = uniqueNumList.get(rowNum);
                 data[rowNum][1] = bound1 == 0 ? null : bound1;
-                data[rowNum][2] = bound2 == 0 ? null : bound2;;
+                data[rowNum][2] = bound2 == 0 ? null : bound2;
                 data[rowNum][3] = "row-" + rowNum;
             }
         }
@@ -395,7 +395,7 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
 
         IndexScanNode<Object[]> scanNode = new IndexScanNode<>(
                 ectx,
-                rowType,
+                ectx.rowHandler().factory(ectx.getTypeFactory(), rowType),
                 index,
                 new TestTable(rowType, schemaDescriptor),
                 idxColMapping,
@@ -407,7 +407,7 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
                 null
         );
 
-        RootNode<Object[]> node = new RootNode<>(ectx, scanNode.rowType());
+        RootNode<Object[]> node = new RootNode<>(ectx);
         node.register(scanNode);
 
         int n = 0;

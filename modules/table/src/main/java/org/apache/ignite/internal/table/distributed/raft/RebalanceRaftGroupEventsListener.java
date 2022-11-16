@@ -181,7 +181,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
 
                     Entry pendingEntry = metaStorageMgr.get(pendingPartAssignmentsKey(partId)).get();
 
-                    if (!pendingEntry.empty()) {
+                    if (pendingEntry.value() != null) {
                         Set<ClusterNode> pendingNodes = ByteUtils.fromBytes(pendingEntry.value());
 
                         LOG.info("New leader elected. Going to reconfigure peers [group={}, partition={}, table={}, peers={}]",
