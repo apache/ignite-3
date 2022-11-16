@@ -24,6 +24,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.MvPartitionStorage.WriteClosure;
+import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.TxIdMismatchException;
@@ -77,18 +78,42 @@ public interface PartitionDataStorage extends ManuallyCloseable {
     CompletableFuture<Void> flush();
 
     /**
-     * Index of the highest write command applied to the storage. {@code 0} if index is unknown.
+     * Index of the write command with the highest index applied to the storage. {@code 0} if index is unknown.
      *
      * @see MvPartitionStorage#lastAppliedIndex()
      */
     long lastAppliedIndex();
 
     /**
-     * Sets the last applied index value.
+     * Term of the write command with the highest index applied to the storage. {@code 0} if index is unknown.
      *
-     * @see MvPartitionStorage#lastAppliedIndex(long)
+     * @see MvPartitionStorage#lastAppliedTerm()
      */
-    void lastAppliedIndex(long lastAppliedIndex) throws StorageException;
+    long lastAppliedTerm();
+
+    /**
+     * Sets the last applied index and term.
+     *
+     * @see MvPartitionStorage#lastApplied(long, long)
+     */
+    void lastApplied(long lastAppliedIndex, long lastAppliedTerm) throws StorageException;
+
+    /**
+     * Committed RAFT group configuration corresponding to the write command with the highest index applied to the storage.
+     * {@code null} if it was never saved.
+     *
+     * @see MvPartitionStorage#committedGroupConfiguration()
+     */
+    @Nullable
+    RaftGroupConfiguration committedGroupConfiguration();
+
+    /**
+     * Updates RAFT group configuration.
+     *
+     * @param config Configuration to save.
+     * @see MvPartitionStorage#committedGroupConfiguration(RaftGroupConfiguration)
+     */
+    void committedGroupConfiguration(RaftGroupConfiguration config);
 
     /**
      * Creates (or replaces) an uncommitted (aka pending) version, assigned to the given transaction id.

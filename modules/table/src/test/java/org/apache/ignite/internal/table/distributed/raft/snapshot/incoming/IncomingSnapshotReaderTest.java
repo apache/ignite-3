@@ -15,20 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.raft.storage;
+package org.apache.ignite.internal.table.distributed.raft.snapshot.incoming;
 
-import org.apache.ignite.raft.jraft.option.RaftOptions;
-import org.apache.ignite.raft.jraft.storage.SnapshotStorage;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
+import static org.mockito.Mockito.mock;
 
-/** Snapshot storage factory interface. */
-@FunctionalInterface
-public interface SnapshotStorageFactory {
-    /**
-     * Creates a snapshot storage.
-     *
-     * @param uri Snapshot URI.
-     * @param raftOptions Raft options.
-     * @return Snapshot storage.
-     */
-    SnapshotStorage createSnapshotStorage(String uri, RaftOptions raftOptions);
+import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
+import org.junit.jupiter.api.Test;
+
+class IncomingSnapshotReaderTest {
+    @Test
+    void returnsEmptyPath() {
+        try (var reader = new IncomingSnapshotReader(mock(SnapshotMeta.class))) {
+            assertThat(reader.getPath(), is(""));
+        }
+    }
 }
