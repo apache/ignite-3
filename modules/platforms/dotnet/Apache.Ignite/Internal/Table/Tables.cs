@@ -25,6 +25,7 @@ namespace Apache.Ignite.Internal.Table
     using Ignite.Table;
     using MessagePack;
     using Proto;
+    using Sql;
 
     /// <summary>
     /// Tables API.
@@ -34,6 +35,9 @@ namespace Apache.Ignite.Internal.Table
         /** Socket. */
         private readonly ClientFailoverSocket _socket;
 
+        /** SQL. */
+        private readonly Sql _sql;
+
         /** Cached tables. Caching here is required to retain schema and serializer caches in <see cref="Table"/>. */
         private readonly ConcurrentDictionary<Guid, Table> _tables = new();
 
@@ -41,9 +45,11 @@ namespace Apache.Ignite.Internal.Table
         /// Initializes a new instance of the <see cref="Tables"/> class.
         /// </summary>
         /// <param name="socket">Socket.</param>
-        public Tables(ClientFailoverSocket socket)
+        /// <param name="sql">Sql.</param>
+        public Tables(ClientFailoverSocket socket, Sql sql)
         {
             _socket = socket;
+            _sql = sql;
         }
 
         /// <inheritdoc/>
@@ -71,8 +77,9 @@ namespace Apache.Ignite.Internal.Table
 
                     var table = _tables.GetOrAdd(
                         id,
-                        static (Guid id0, (string Name, ClientFailoverSocket Socket) arg) => new Table(arg.Name, id0, arg.Socket),
-                        (name, _socket));
+                        static (Guid id0, (string Name, Tables Tables) arg) =>
+                            new Table(arg.Name, id0, arg.Tables._socket, arg.Tables._sql),
+                        (name, this));
 
                     res.Add(table);
                 }
@@ -108,8 +115,8 @@ namespace Apache.Ignite.Internal.Table
                     ? null
                     : _tables.GetOrAdd(
                         r.ReadGuid(),
-                        (Guid id, (string Name, ClientFailoverSocket Socket) arg) => new Table(arg.Name, id, arg.Socket),
-                        (name, _socket));
+                        (Guid id, (string Name, Tables Tables) arg) => new Table(arg.Name, id, arg.Tables._socket, arg.Tables._sql),
+                        (name, this));
         }
     }
 }

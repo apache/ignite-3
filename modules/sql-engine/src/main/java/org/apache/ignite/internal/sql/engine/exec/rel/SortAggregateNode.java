@@ -26,7 +26,6 @@ import java.util.Deque;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Supplier;
-import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
@@ -70,14 +69,13 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
      */
     public SortAggregateNode(
             ExecutionContext<RowT> ctx,
-            RelDataType rowType,
             AggregateType type,
             ImmutableBitSet grpSet,
             Supplier<List<AccumulatorWrapper<RowT>>> accFactory,
             RowFactory<RowT> rowFactory,
             Comparator<RowT> comp
     ) {
-        super(ctx, rowType);
+        super(ctx);
         assert Objects.nonNull(comp);
 
         this.type = type;

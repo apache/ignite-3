@@ -20,7 +20,10 @@
 plugins {
     alias(libs.plugins.javacc) apply false
     alias(libs.plugins.modernizer) apply false
+    alias(libs.plugins.aggregateJavadoc)
 }
+
+apply from: "$rootDir/buildscripts/javadoc.gradle"
 
 repositories {
     mavenLocal()
@@ -76,6 +79,10 @@ allprojects {
 
     tasks.withType(JavaCompile) {
         options.encoding = 'UTF-8'
+    }
+
+    tasks.withType(Javadoc) {
+        options.addStringOption('bottom', javadocFooter())
     }
 }
 

@@ -18,7 +18,9 @@
 namespace Apache.Ignite.Table;
 
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
+using Sql;
 using Transactions;
 
 /// <summary>
@@ -200,4 +202,15 @@ public interface IKeyValueView<TK, TV>
     /// The task result contains the previous value for the given key, or empty <see cref="Option{T}"/> if it did not exist.
     /// </returns>
     Task<Option<TV>> GetAndReplaceAsync(ITransaction? transaction, TK key, TV val);
+
+    /// <summary>
+    /// Gets a <see cref="IQueryable{T}"/> to perform Ignite SQL queries using LINQ
+    /// (see <see href="https://learn.microsoft.com/en-us/dotnet/csharp/programming-guide/concepts/linq/" />).
+    /// <para />
+    /// Use <see cref="IgniteQueryableExtensions.ToResultSetAsync{T}"/> to materialize query results asynchronously.
+    /// </summary>
+    /// <param name="transaction">Optional transaction.</param>
+    /// <param name="options">Options.</param>
+    /// <returns><see cref="IQueryable{T}"/>.</returns>
+    IQueryable<KeyValuePair<TK, TV>> AsQueryable(ITransaction? transaction = null, QueryableOptions? options = null);
 }

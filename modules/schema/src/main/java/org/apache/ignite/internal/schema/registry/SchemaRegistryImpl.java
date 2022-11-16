@@ -45,9 +45,6 @@ public class SchemaRegistryImpl implements SchemaRegistry {
     /** Column mappers cache. */
     private final Map<Long, ColumnMapper> mappingCache = new ConcurrentHashMap<>();
 
-    /** Last registered version. */
-    private volatile int lastVer;
-
     /** Schema store. */
     private final Function<Integer, CompletableFuture<SchemaDescriptor>> history;
 
@@ -66,7 +63,6 @@ public class SchemaRegistryImpl implements SchemaRegistry {
             IntSupplier latestVersionStore,
             SchemaDescriptor initialSchema
     ) {
-        this.lastVer = initialSchema.version();
         this.history = history;
         this.latestVersionStore = latestVersionStore;
 
@@ -77,8 +73,8 @@ public class SchemaRegistryImpl implements SchemaRegistry {
     @Override
     public SchemaDescriptor schema(int ver) {
         if (ver == 0) {
-            // Use last version (any version may be used) for 0 version, that mean row doens't contain value.
-            ver = lastVer;
+            // Use last version (any version may be used) for 0 version, that mean row doesn't contain value.
+            ver = schemaCache.lastKey();
         }
 
         SchemaDescriptor desc = schemaCache.get(ver);
@@ -90,6 +86,7 @@ public class SchemaRegistryImpl implements SchemaRegistry {
         CompletableFuture<SchemaDescriptor> descFut = history.apply(ver);
 
         if (descFut != null) {
+            // TODO: remove blocking code https://issues.apache.org/jira/browse/IGNITE-17931
             desc = descFut.join();
         }
 
@@ -99,7 +96,7 @@ public class SchemaRegistryImpl implements SchemaRegistry {
             return desc;
         }
 
-        if (lastVer < ver || ver <= 0) {
+        if (schemaCache.lastKey() < ver || ver <= 0) {
             throw new SchemaRegistryException("Incorrect schema version requested: ver=" + ver);
         } else {
             throw new SchemaRegistryException("Failed to find schema: ver=" + ver);
@@ -109,17 +106,22 @@ public class SchemaRegistryImpl implements SchemaRegistry {
     /** {@inheritDoc} */
     @Override
     public @Nullable SchemaDescriptor schema() {
-        final int lastVer0 = lastVer;
+        return schema(schemaCache.lastKey());
+    }
 
-        return schema(lastVer0);
+    /** {@inheritDoc} */
+    @Override
+    public @Nullable SchemaDescriptor schemaCached(int ver) {
+        return schemaCache.get(ver);
     }
 
     /** {@inheritDoc} */
     @Override
     public SchemaDescriptor waitLatestSchema() {
         int lastVer0 = latestVersionStore.getAsInt();
+        Integer lastLocalVer = schemaCache.lastKey();
 
-        assert lastVer <= lastVer0 : "Cached schema is earlier than consensus [lastVer=" + lastVer
+        assert lastLocalVer <= lastVer0 : "Cached schema is earlier than consensus [lastVer=" + lastLocalVer
             + ", consLastVer=" + lastVer0 + ']';
 
         return schema(lastVer0);
@@ -128,7 +130,7 @@ public class SchemaRegistryImpl implements SchemaRegistry {
     /** {@inheritDoc} */
     @Override
     public int lastSchemaVersion() {
-        return lastVer;
+        return schemaCache.lastKey();
     }
 
     /** {@inheritDoc} */
@@ -224,6 +226,8 @@ public class SchemaRegistryImpl implements SchemaRegistry {
      * @throws SchemaRegistryException If schema of incorrect version provided.
      */
     public void onSchemaRegistered(SchemaDescriptor desc) {
+        int lastVer = schemaCache.lastKey();
+
         if (desc.version() != lastVer + 1) {
             if (desc.version() > 0 && desc.version() <= lastVer) {
                 throw new SchemaRegistrationConflictException("Schema with given version has been already registered: " + desc.version());
@@ -233,8 +237,6 @@ public class SchemaRegistryImpl implements SchemaRegistry {
         }
 
         schemaCache.put(desc.version(), desc);
-
-        lastVer = desc.version();
     }
 
     /**
@@ -244,6 +246,8 @@ public class SchemaRegistryImpl implements SchemaRegistry {
      * @throws SchemaRegistryException If incorrect schema version provided.
      */
     public void onSchemaDropped(int ver) {
+        int lastVer = schemaCache.lastKey();
+
         if (ver >= lastVer || ver <= 0 || schemaCache.keySet().first() < ver) {
             throw new SchemaRegistryException("Incorrect schema version to clean up to: " + ver);
         }

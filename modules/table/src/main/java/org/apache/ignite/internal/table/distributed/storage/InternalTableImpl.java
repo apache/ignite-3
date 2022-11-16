@@ -1124,8 +1124,11 @@ public class InternalTableImpl implements InternalTable {
         // TODO asch IGNITE-15091 fixme need to map to the same leaseholder.
         // TODO asch a leader race is possible when enlisting different keys from the same partition.
         return fut0.handle((primaryPeerAndTerm, e) -> {
-            if (primaryPeerAndTerm.get1() == null || e != null) {
-                throw new TransactionException("Failed to get the primary replica.");
+            if (e != null) {
+                throw withCause(TransactionException::new, REPLICA_UNAVAILABLE_ERR, "Failed to get the primary replica.", e);
+            }
+            if (primaryPeerAndTerm.get1() == null) {
+                throw new TransactionException(REPLICA_UNAVAILABLE_ERR, "Failed to get the primary replica.");
             }
 
             TablePartitionId partGroupId = new TablePartitionId(tableId, partId);

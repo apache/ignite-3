@@ -26,7 +26,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import org.apache.calcite.rel.core.TableModify;
-import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -75,19 +74,17 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      *
      * @param ctx  Execution context.
-     * @param rowType Rel data type.
      * @param table Table object.
      * @param op Operation/
      * @param cols Update column list.
      */
     public ModifyNode(
             ExecutionContext<RowT> ctx,
-            RelDataType rowType,
             InternalIgniteTable table,
             TableModify.Operation op,
             List<String> cols
     ) {
-        super(ctx, rowType);
+        super(ctx);
 
         this.table = table;
         this.modifyOp = op;

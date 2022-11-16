@@ -43,6 +43,7 @@ import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NodeFinder;
+import org.apache.ignite.network.NodeMetadata;
 import org.apache.ignite.network.StaticNodeFinder;
 import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
@@ -120,11 +121,11 @@ public class ClusterServiceTestUtils {
                 List.of()
         );
 
-        NetworkConfiguration configuration = nodeConfigurationMgr.configurationRegistry().getConfiguration(NetworkConfiguration.KEY);
+        NetworkConfiguration networkConfiguration = nodeConfigurationMgr.configurationRegistry().getConfiguration(NetworkConfiguration.KEY);
 
-        var bootstrapFactory = new NettyBootstrapFactory(configuration, ctx.getName());
+        var bootstrapFactory = new NettyBootstrapFactory(networkConfiguration, ctx.getName());
 
-        ClusterService clusterSvc = SERVICE_FACTORY.createClusterService(ctx, configuration, bootstrapFactory);
+        ClusterService clusterSvc = SERVICE_FACTORY.createClusterService(ctx, networkConfiguration, bootstrapFactory);
 
         assert nodeFinder instanceof StaticNodeFinder : "Only StaticNodeFinder is supported at the moment";
 
@@ -147,6 +148,11 @@ public class ClusterServiceTestUtils {
             @Override
             public boolean isStopped() {
                 return clusterSvc.isStopped();
+            }
+
+            @Override
+            public void updateMetadata(NodeMetadata metadata) {
+                clusterSvc.updateMetadata(metadata);
             }
 
             @Override

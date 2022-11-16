@@ -69,17 +69,15 @@ public class ExecutionTest extends AbstractExecutionTest {
 
         ExecutionContext<Object[]> ctx = executionContext(true);
         IgniteTypeFactory tf = ctx.getTypeFactory();
-        RelDataType rowType = TypeUtils.createRowType(tf, int.class, String.class, String.class);
 
-        ScanNode<Object[]> persons = new ScanNode<>(ctx, rowType, Arrays.asList(
+        ScanNode<Object[]> persons = new ScanNode<>(ctx, Arrays.asList(
                 new Object[]{0, "Igor", "Seliverstov"},
                 new Object[]{1, "Roman", "Kondakov"},
                 new Object[]{2, "Ivan", "Pavlukhin"},
                 new Object[]{3, "Alexey", "Goncharuk"}
         ));
 
-        rowType = TypeUtils.createRowType(tf, int.class, int.class, String.class);
-        ScanNode<Object[]> projects = new ScanNode<>(ctx, rowType, Arrays.asList(
+        ScanNode<Object[]> projects = new ScanNode<>(ctx, Arrays.asList(
                 new Object[]{0, 2, "Calcite"},
                 new Object[]{1, 1, "SQL"},
                 new Object[]{2, 2, "Ignite"},
@@ -96,14 +94,13 @@ public class ExecutionTest extends AbstractExecutionTest {
                 (r1, r2) -> getFieldFromBiRows(hnd, 0, r1, r2) == getFieldFromBiRows(hnd, 4, r1, r2));
         join.register(asList(persons, projects));
 
-        rowType = TypeUtils.createRowType(tf, int.class, String.class, String.class);
-        ProjectNode<Object[]> project = new ProjectNode<>(ctx, rowType, r -> new Object[]{r[0], r[1], r[5]});
+        ProjectNode<Object[]> project = new ProjectNode<>(ctx, r -> new Object[]{r[0], r[1], r[5]});
         project.register(join);
 
-        FilterNode<Object[]> filter = new FilterNode<>(ctx, rowType, r -> (Integer) r[0] >= 2);
+        FilterNode<Object[]> filter = new FilterNode<>(ctx, r -> (Integer) r[0] >= 2);
         filter.register(project);
 
-        RootNode<Object[]> node = new RootNode<>(ctx, rowType);
+        RootNode<Object[]> node = new RootNode<>(ctx);
         node.register(filter);
 
         assert node.hasNext();
@@ -123,34 +120,32 @@ public class ExecutionTest extends AbstractExecutionTest {
     @Test
     public void testUnionAll() {
         ExecutionContext<Object[]> ctx = executionContext(true);
-        IgniteTypeFactory tf = ctx.getTypeFactory();
-        RelDataType rowType = TypeUtils.createRowType(tf, String.class, int.class);
 
-        ScanNode<Object[]> scan1 = new ScanNode<>(ctx, rowType, Arrays.asList(
+        ScanNode<Object[]> scan1 = new ScanNode<>(ctx, Arrays.asList(
                 row("Igor", 200),
                 row("Roman", 300),
                 row("Ivan", 1400),
                 row("Alexey", 1000)
         ));
 
-        ScanNode<Object[]> scan2 = new ScanNode<>(ctx, rowType, Arrays.asList(
+        ScanNode<Object[]> scan2 = new ScanNode<>(ctx, Arrays.asList(
                 row("Igor", 200),
                 row("Roman", 300),
                 row("Ivan", 1400),
                 row("Alexey", 1000)
         ));
 
-        ScanNode<Object[]> scan3 = new ScanNode<>(ctx, rowType, Arrays.asList(
+        ScanNode<Object[]> scan3 = new ScanNode<>(ctx, Arrays.asList(
                 row("Igor", 200),
                 row("Roman", 300),
                 row("Ivan", 1400),
                 row("Alexey", 1000)
         ));
 
-        UnionAllNode<Object[]> union = new UnionAllNode<>(ctx, rowType);
+        UnionAllNode<Object[]> union = new UnionAllNode<>(ctx);
         union.register(asList(scan1, scan2, scan3));
 
-        RootNode<Object[]> root = new RootNode<>(ctx, rowType);
+        RootNode<Object[]> root = new RootNode<>(ctx);
         root.register(union);
 
         assertTrue(root.hasNext());
@@ -173,18 +168,14 @@ public class ExecutionTest extends AbstractExecutionTest {
 
         ExecutionContext<Object[]> ctx = executionContext(true);
 
-        IgniteTypeFactory tf = ctx.getTypeFactory();
-        RelDataType rowType = TypeUtils.createRowType(tf, int.class, String.class, Integer.class);
-
-        ScanNode<Object[]> persons = new ScanNode<>(ctx, rowType, Arrays.asList(
+        ScanNode<Object[]> persons = new ScanNode<>(ctx, Arrays.asList(
                 new Object[]{0, "Igor", 1},
                 new Object[]{1, "Roman", 2},
                 new Object[]{2, "Ivan", null},
                 new Object[]{3, "Alexey", 1}
         ));
 
-        rowType = TypeUtils.createRowType(tf, int.class, String.class);
-        ScanNode<Object[]> deps = new ScanNode<>(ctx, rowType, Arrays.asList(
+        ScanNode<Object[]> deps = new ScanNode<>(ctx, Arrays.asList(
                 new Object[]{1, "Core"},
                 new Object[]{2, "SQL"}
         ));
@@ -200,11 +191,10 @@ public class ExecutionTest extends AbstractExecutionTest {
                 (r1, r2) -> getFieldFromBiRows(hnd, 2, r1, r2) == getFieldFromBiRows(hnd, 3, r1, r2));
         join.register(asList(persons, deps));
 
-        rowType = TypeUtils.createRowType(tf, int.class, String.class, String.class);
-        ProjectNode<Object[]> project = new ProjectNode<>(ctx, rowType, r -> new Object[]{r[0], r[1], r[4]});
+        ProjectNode<Object[]> project = new ProjectNode<>(ctx, r -> new Object[]{r[0], r[1], r[4]});
         project.register(join);
 
-        RootNode<Object[]> node = new RootNode<>(ctx, rowType);
+        RootNode<Object[]> node = new RootNode<>(ctx);
         node.register(project);
 
         assert node.hasNext();
@@ -231,18 +221,15 @@ public class ExecutionTest extends AbstractExecutionTest {
         //         on e.depno = d.depno
 
         ExecutionContext<Object[]> ctx = executionContext(true);
-        IgniteTypeFactory tf = ctx.getTypeFactory();
-        RelDataType rowType = TypeUtils.createRowType(tf, int.class, String.class, Integer.class);
 
-        ScanNode<Object[]> persons = new ScanNode<>(ctx, rowType, Arrays.asList(
+        ScanNode<Object[]> persons = new ScanNode<>(ctx, Arrays.asList(
                 new Object[]{0, "Igor", 1},
                 new Object[]{1, "Roman", 2},
                 new Object[]{2, "Ivan", null},
                 new Object[]{3, "Alexey", 1}
         ));
 
-        rowType = TypeUtils.createRowType(tf, int.class, String.class);
-        ScanNode<Object[]> deps = new ScanNode<>(ctx, rowType, Arrays.asList(
+        ScanNode<Object[]> deps = new ScanNode<>(ctx, Arrays.asList(
                 new Object[]{1, "Core"},
                 new Object[]{2, "SQL"},
                 new Object[]{3, "QA"}
@@ -259,11 +246,10 @@ public class ExecutionTest extends AbstractExecutionTest {
                 (r1, r2) -> getFieldFromBiRows(hnd, 0, r1, r2) == getFieldFromBiRows(hnd, 4, r1, r2));
         join.register(asList(deps, persons));
 
-        rowType = TypeUtils.createRowType(tf, int.class, String.class, String.class);
-        ProjectNode<Object[]> project = new ProjectNode<>(ctx, rowType, r -> new Object[]{r[2], r[3], r[1]});
+        ProjectNode<Object[]> project = new ProjectNode<>(ctx, r -> new Object[]{r[2], r[3], r[1]});
         project.register(join);
 
-        RootNode<Object[]> node = new RootNode<>(ctx, rowType);
+        RootNode<Object[]> node = new RootNode<>(ctx);
         node.register(project);
 
         assert node.hasNext();
@@ -290,18 +276,15 @@ public class ExecutionTest extends AbstractExecutionTest {
         //              on e.depno = d.depno
 
         ExecutionContext<Object[]> ctx = executionContext(true);
-        IgniteTypeFactory tf = ctx.getTypeFactory();
-        RelDataType rowType = TypeUtils.createRowType(tf, int.class, String.class, Integer.class);
 
-        ScanNode<Object[]> persons = new ScanNode<>(ctx, rowType, Arrays.asList(
+        ScanNode<Object[]> persons = new ScanNode<>(ctx, Arrays.asList(
                 new Object[]{0, "Igor", 1},
                 new Object[]{1, "Roman", 2},
                 new Object[]{2, "Ivan", null},
                 new Object[]{3, "Alexey", 1}
         ));
 
-        rowType = TypeUtils.createRowType(tf, int.class, String.class);
-        ScanNode<Object[]> deps = new ScanNode<>(ctx, rowType, Arrays.asList(
+        ScanNode<Object[]> deps = new ScanNode<>(ctx, Arrays.asList(
                 new Object[]{1, "Core"},
                 new Object[]{2, "SQL"},
                 new Object[]{3, "QA"}
@@ -318,11 +301,10 @@ public class ExecutionTest extends AbstractExecutionTest {
                 (r1, r2) -> getFieldFromBiRows(hnd, 2, r1, r2) == getFieldFromBiRows(hnd, 3, r1, r2));
         join.register(asList(persons, deps));
 
-        rowType = TypeUtils.createRowType(tf, Integer.class, String.class, String.class);
-        ProjectNode<Object[]> project = new ProjectNode<>(ctx, rowType, r -> new Object[]{r[0], r[1], r[4]});
+        ProjectNode<Object[]> project = new ProjectNode<>(ctx, r -> new Object[]{r[0], r[1], r[4]});
         project.register(join);
 
-        RootNode<Object[]> node = new RootNode<>(ctx, rowType);
+        RootNode<Object[]> node = new RootNode<>(ctx);
         node.register(project);
 
         assert node.hasNext();
@@ -350,18 +332,15 @@ public class ExecutionTest extends AbstractExecutionTest {
         //        on e.depno = d.depno
 
         ExecutionContext<Object[]> ctx = executionContext(true);
-        IgniteTypeFactory tf = ctx.getTypeFactory();
-        RelDataType rowType = TypeUtils.createRowType(tf, int.class, String.class, Integer.class);
 
-        ScanNode<Object[]> persons = new ScanNode<>(ctx, rowType, Arrays.asList(
+        ScanNode<Object[]> persons = new ScanNode<>(ctx, Arrays.asList(
                 new Object[]{0, "Igor", 1},
                 new Object[]{1, "Roman", 2},
                 new Object[]{2, "Ivan", null},
                 new Object[]{3, "Alexey", 1}
         ));
 
-        rowType = TypeUtils.createRowType(tf, int.class, String.class);
-        ScanNode<Object[]> deps = new ScanNode<>(ctx, rowType, Arrays.asList(
+        ScanNode<Object[]> deps = new ScanNode<>(ctx, Arrays.asList(
                 new Object[]{1, "Core"},
                 new Object[]{2, "SQL"},
                 new Object[]{3, "QA"}
@@ -377,11 +356,10 @@ public class ExecutionTest extends AbstractExecutionTest {
                 (r1, r2) -> getFieldFromBiRows(hnd, 0, r1, r2) == getFieldFromBiRows(hnd, 4, r1, r2));
         join.register(asList(deps, persons));
 
-        rowType = TypeUtils.createRowType(tf, String.class);
-        ProjectNode<Object[]> project = new ProjectNode<>(ctx, rowType, r -> new Object[]{r[1]});
+        ProjectNode<Object[]> project = new ProjectNode<>(ctx, r -> new Object[]{r[1]});
         project.register(join);
 
-        RootNode<Object[]> node = new RootNode<>(ctx, rowType);
+        RootNode<Object[]> node = new RootNode<>(ctx);
         node.register(project);
 
         assert node.hasNext();
@@ -406,18 +384,15 @@ public class ExecutionTest extends AbstractExecutionTest {
         //        on e.depno = d.depno
 
         ExecutionContext<Object[]> ctx = executionContext(true);
-        IgniteTypeFactory tf = ctx.getTypeFactory();
-        RelDataType rowType = TypeUtils.createRowType(tf, int.class, String.class, Integer.class);
 
-        ScanNode<Object[]> persons = new ScanNode<>(ctx, rowType, Arrays.asList(
+        ScanNode<Object[]> persons = new ScanNode<>(ctx, Arrays.asList(
                 new Object[]{0, "Igor", 1},
                 new Object[]{1, "Roman", 2},
                 new Object[]{2, "Ivan", null},
                 new Object[]{3, "Alexey", 1}
         ));
 
-        rowType = TypeUtils.createRowType(tf, int.class, String.class);
-        ScanNode<Object[]> deps = new ScanNode<>(ctx, rowType, Arrays.asList(
+        ScanNode<Object[]> deps = new ScanNode<>(ctx, Arrays.asList(
                 new Object[]{1, "Core"},
                 new Object[]{2, "SQL"},
                 new Object[]{3, "QA"}
@@ -433,11 +408,10 @@ public class ExecutionTest extends AbstractExecutionTest {
                 (r1, r2) -> getFieldFromBiRows(hnd, 0, r1, r2) == getFieldFromBiRows(hnd, 4, r1, r2));
         join.register(asList(deps, persons));
 
-        rowType = TypeUtils.createRowType(tf, String.class);
-        ProjectNode<Object[]> project = new ProjectNode<>(ctx, rowType, r -> new Object[]{r[1]});
+        ProjectNode<Object[]> project = new ProjectNode<>(ctx, r -> new Object[]{r[1]});
         project.register(join);
 
-        RootNode<Object[]> node = new RootNode<>(ctx, rowType);
+        RootNode<Object[]> node = new RootNode<>(ctx);
         node.register(project);
 
         assert node.hasNext();
@@ -464,8 +438,8 @@ public class ExecutionTest extends AbstractExecutionTest {
         IgniteTypeFactory tf = ctx.getTypeFactory();
         RelDataType rowType = TypeUtils.createRowType(tf, int.class, String.class, int.class);
 
-        ScanNode<Object[]> left = new ScanNode<>(ctx, rowType, new TestTable(leftSize, rowType));
-        ScanNode<Object[]> right = new ScanNode<>(ctx, rowType, new TestTable(rightSize, rowType));
+        ScanNode<Object[]> left = new ScanNode<>(ctx, new TestTable(leftSize, rowType));
+        ScanNode<Object[]> right = new ScanNode<>(ctx, new TestTable(rightSize, rowType));
 
         RelDataType joinRowType = TypeUtils.createRowType(
                 tf,
@@ -476,17 +450,17 @@ public class ExecutionTest extends AbstractExecutionTest {
 
         CorrelatedNestedLoopJoinNode<Object[]> join = new CorrelatedNestedLoopJoinNode<>(
                 ctx,
-                joinRowType,
                 (r1, r2) -> getFieldFromBiRows(hnd, 0, r1, r2).equals(getFieldFromBiRows(hnd, 3, r1, r2)),
                 Set.of(new CorrelationId(0)),
-                joinType
+                joinType,
+                hnd.factory(ctx.getTypeFactory(), joinRowType)
         );
 
         IgniteTestUtils.setFieldValue(join, "rightInBufferSize", rightBufSize);
 
         join.register(Arrays.asList(left, right));
 
-        RootNode<Object[]> root = new RootNode<>(ctx, joinRowType);
+        RootNode<Object[]> root = new RootNode<>(ctx);
         root.register(join);
 
         int cnt = 0;
@@ -518,17 +492,11 @@ public class ExecutionTest extends AbstractExecutionTest {
             for (int rightSize : sizes) {
                 log.info("Check: leftSize=" + leftSize + ", rightSize=" + rightSize);
 
-                ScanNode<Object[]> left = new ScanNode<>(ctx, rowType, new TestTable(leftSize, rowType));
-                ScanNode<Object[]> right = new ScanNode<>(ctx, rowType, new TestTable(rightSize, rowType));
-
-                RelDataType joinRowType = TypeUtils.createRowType(
-                        tf,
-                        int.class, String.class, int.class,
-                        int.class, String.class, int.class);
+                ScanNode<Object[]> left = new ScanNode<>(ctx, new TestTable(leftSize, rowType));
+                ScanNode<Object[]> right = new ScanNode<>(ctx, new TestTable(rightSize, rowType));
 
                 MergeJoinNode<Object[]> join = MergeJoinNode.create(
                         ctx,
-                        joinRowType,
                         null,
                         null,
                         INNER,
@@ -552,7 +520,7 @@ public class ExecutionTest extends AbstractExecutionTest {
 
                 join.register(Arrays.asList(left, right));
 
-                RootNode<Object[]> root = new RootNode<>(ctx, joinRowType);
+                RootNode<Object[]> root = new RootNode<>(ctx);
                 root.register(join);
 
                 int cnt = 0;
@@ -578,12 +546,10 @@ public class ExecutionTest extends AbstractExecutionTest {
     @SuppressWarnings({"ResultOfMethodCallIgnored", "ThrowableNotThrown"})
     public void assertionHandlingTest() {
         ExecutionContext<Object[]> ctx = executionContext();
-        IgniteTypeFactory tf = ctx.getTypeFactory();
-        RelDataType rowType = TypeUtils.createRowType(tf, int.class, String.class);
 
         CorruptedNode<Object[]> node = new CorruptedNode<>();
 
-        RootNode<Object[]> root = new RootNode<>(ctx, rowType);
+        RootNode<Object[]> root = new RootNode<>(ctx);
         root.register(node);
 
         Thread watchDog = new Thread(() -> {
@@ -618,12 +584,6 @@ public class ExecutionTest extends AbstractExecutionTest {
         /** {@inheritDoc} */
         @Override
         public ExecutionContext<T> context() {
-            throw new AssertionError();
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public RelDataType rowType() {
             throw new AssertionError();
         }
 

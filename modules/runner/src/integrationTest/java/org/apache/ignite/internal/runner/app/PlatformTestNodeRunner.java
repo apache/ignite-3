@@ -52,6 +52,7 @@ import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.table.Tuple;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Helper class for non-Java platform tests (.NET, C++, Python, ...). Starts nodes, populates tables and data for tests.
@@ -413,6 +414,11 @@ public class PlatformTestNodeRunner {
 
         @Override
         public SchemaDescriptor schema(int ver) throws SchemaRegistryException {
+            return schema;
+        }
+
+        @Override
+        public @Nullable SchemaDescriptor schemaCached(int ver) {
             return schema;
         }
 
