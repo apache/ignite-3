@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Tests.Linq;
 
+using System;
 using System.Linq;
 using NUnit.Framework;
 
@@ -223,9 +224,8 @@ public partial class LinqTests
     }
 
     [Test]
-    public void TestLocalCollectionJoin()
+    public void TestLocalCollectionJoinThrowsNotSupportedException()
     {
-        // TODO: Test this on Java side - possible or not? Can we do Contains instead?
         var query1 = PocoIntView.AsQueryable(); // Sequential keys.
         var query2 = new[] { 2, 4, 6 };
 
@@ -240,24 +240,7 @@ public partial class LinqTests
                 })
             .OrderBy(x => x.Id);
 
-        var res = joinQuery.ToList();
-
-        Assert.AreEqual(3, res.Count);
-
-        Assert.AreEqual(2, res[0].Id);
-        Assert.AreEqual(200, res[0].Price);
-
-        Assert.AreEqual(4, res[1].Id);
-        Assert.AreEqual(400, res[1].Price);
-
-        Assert.AreEqual(6, res[2].Id);
-        Assert.AreEqual(600, res[2].Price);
-
-        StringAssert.Contains(
-            "select _T0.KEY, _T0.VAL from PUBLIC.TBL_INT32 as _T0 " +
-            "inner join table (F0 int = ?) _T1 on (_T1.F0 = _T0.KEY) " +
-            "order by (_T0.KEY) asc, " +
-            "Parameters=System.Object[]",
-            joinQuery.ToString());
+        var ex = Assert.Throws<NotSupportedException>(() => joinQuery.ToList());
+        StringAssert.Contains("Local collection joins are not supported, try `.Contains()` instead:", ex!.Message);
     }
 }
