@@ -133,6 +133,7 @@ public class SortedIndexLocker implements IndexLocker {
     @Override
     public CompletableFuture<?> locksForInsert(UUID txId, BinaryRow tableRow, RowId rowId) {
         BinaryTuple key = indexRowResolver.apply(tableRow);
+        // TODO https://issues.apache.org/jira/browse/IGNITE-18165
         // BinaryTuplePrefix prefix = BinaryTuplePrefix.fromBinaryTuple(key);
 
         // find next key

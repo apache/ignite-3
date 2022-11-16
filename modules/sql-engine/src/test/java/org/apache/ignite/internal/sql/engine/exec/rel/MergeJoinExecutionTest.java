@@ -367,19 +367,12 @@ public class MergeJoinExecutionTest extends AbstractExecutionTest {
         ExecutionContext<Object[]> ctx = executionContext(true);
 
         RelDataType leftType = TypeUtils.createRowType(ctx.getTypeFactory(), int.class, String.class, Integer.class);
-        ScanNode<Object[]> leftNode = new ScanNode<>(ctx, leftType, Arrays.asList(left));
+        ScanNode<Object[]> leftNode = new ScanNode<>(ctx, Arrays.asList(left));
 
         RelDataType rightType = TypeUtils.createRowType(ctx.getTypeFactory(), int.class, String.class);
-        ScanNode<Object[]> rightNode = new ScanNode<>(ctx, rightType, Arrays.asList(right));
+        ScanNode<Object[]> rightNode = new ScanNode<>(ctx, Arrays.asList(right));
 
-        RelDataType outType;
-        if (setOf(SEMI, ANTI).contains(joinType)) {
-            outType = TypeUtils.createRowType(ctx.getTypeFactory(), int.class, String.class, Integer.class);
-        } else {
-            outType = TypeUtils.createRowType(ctx.getTypeFactory(), int.class, String.class, Integer.class, int.class, String.class);
-        }
-
-        MergeJoinNode<Object[]> join = MergeJoinNode.create(ctx, outType, leftType, rightType, joinType, (r1, r2) -> {
+        MergeJoinNode<Object[]> join = MergeJoinNode.create(ctx, leftType, rightType, joinType, (r1, r2) -> {
             Object o1 = r1[2];
             Object o2 = r2[0];
 
@@ -398,18 +391,15 @@ public class MergeJoinExecutionTest extends AbstractExecutionTest {
 
         join.register(asList(leftNode, rightNode));
 
-        RelDataType rowType;
         ProjectNode<Object[]> project;
         if (setOf(SEMI, ANTI).contains(joinType)) {
-            rowType = TypeUtils.createRowType(ctx.getTypeFactory(), int.class, String.class);
-            project = new ProjectNode<>(ctx, rowType, r -> new Object[]{r[0], r[1]});
+            project = new ProjectNode<>(ctx, r -> new Object[]{r[0], r[1]});
         } else {
-            rowType = TypeUtils.createRowType(ctx.getTypeFactory(), int.class, String.class, String.class);
-            project = new ProjectNode<>(ctx, rowType, r -> new Object[]{r[0], r[1], r[4]});
+            project = new ProjectNode<>(ctx, r -> new Object[]{r[0], r[1], r[4]});
         }
         project.register(join);
 
-        RootNode<Object[]> node = new RootNode<>(ctx, rowType);
+        RootNode<Object[]> node = new RootNode<>(ctx);
         node.register(project);
 
         ArrayList<Object[]> rows = new ArrayList<>();
