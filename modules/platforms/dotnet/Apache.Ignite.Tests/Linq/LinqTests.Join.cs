@@ -254,10 +254,10 @@ public partial class LinqTests
         Assert.AreEqual(600, res[2].Price);
 
         StringAssert.Contains(
-            "select _T0.KEY, _T1.VAL " +
-            "from PUBLIC.TBL_INT32 as _T0 " +
-            "left outer join (select * from PUBLIC.TBL_INT16 as _T2 ) as _T1 " +
-            "on (_T1.KEY = _T0.KEY)",
+            "select _T0.KEY, _T0.VAL from PUBLIC.TBL_INT32 as _T0 " +
+            "inner join table (F0 int = ?) _T1 on (_T1.F0 = _T0.KEY) " +
+            "order by (_T0.KEY) asc, " +
+            "Parameters=System.Object[]",
             joinQuery.ToString());
     }
 }
