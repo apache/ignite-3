@@ -173,6 +173,10 @@ namespace Apache.Ignite.Tests
             Assert.AreEqual(8, ErrorGroups.Replicator.GroupCode);
             Assert.AreEqual("REP", ErrorGroups.Replicator.GroupName);
             Assert.AreEqual("REP", ErrorGroups.GetGroupName(8));
+
+            Assert.AreEqual(10, ErrorGroups.Replicator.DistributionZones);
+            Assert.AreEqual("DISTRIBUTION_ZONES", ErrorGroups.DistributionZones.GroupName);
+            Assert.AreEqual("DISTRIBUTION_ZONES", ErrorGroups.GetGroupName(10));
         }
 
         [Test]
