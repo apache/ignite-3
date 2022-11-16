@@ -23,9 +23,6 @@ using NUnit.Framework;
 
 /// <summary>
 /// Linq JOINs tests.
-/// TODO:
-/// TestLocalCollectionJoin
-/// TestInvalidJoin.
 /// </summary>
 public partial class LinqTests
 {
@@ -258,12 +255,6 @@ public partial class LinqTests
             "left outer join (select * from PUBLIC.TBL_INT16 as _T2 ) as _T1 " +
             "on (_T1.KEY = _T0.KEY)",
             joinQuery.ToString());
-    }
-
-    [Test]
-    public void TestInvalidJoin()
-    {
-        Assert.Fail("TODO");
     }
 
     [Test]
