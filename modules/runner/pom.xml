@@ -123,6 +123,11 @@
             <artifactId>ignite-metrics</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>org.apache.ignite</groupId>
+            <artifactId>ignite-distribution-zones</artifactId>
+        </dependency>
+
         <!-- 3rd party dependencies -->
         <dependency>
             <groupId>org.slf4j</groupId>
@@ -247,13 +252,6 @@
         <dependency>
             <groupId>com.jayway.jsonpath</groupId>
             <artifactId>json-path-assert</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.ignite</groupId>
-            <artifactId>ignite-distribution-zones</artifactId>
-            <type>test-jar</type>
             <scope>test</scope>
         </dependency>
     </dependencies>
