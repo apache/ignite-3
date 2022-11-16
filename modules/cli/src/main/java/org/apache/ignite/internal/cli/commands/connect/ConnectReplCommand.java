@@ -21,7 +21,6 @@ import static org.apache.ignite.internal.cli.commands.OptionsConstants.CLUSTER_U
 import static org.apache.ignite.internal.cli.commands.OptionsConstants.NODE_URL_OR_NAME_DESC;
 
 import jakarta.inject.Inject;
-import org.apache.ignite.internal.cli.ReplManager;
 import org.apache.ignite.internal.cli.call.connect.ConnectCall;
 import org.apache.ignite.internal.cli.call.connect.ConnectCallInput;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
@@ -31,10 +30,10 @@ import picocli.CommandLine.Command;
 import picocli.CommandLine.Parameters;
 
 /**
- * Connects to the Ignite 3 node.
+ * Connects to the Ignite 3 node in REPL mode.
  */
 @Command(name = "connect", description = "Connects to Ignite 3 node")
-public class ConnectCommand extends BaseCommand implements Runnable {
+public class ConnectReplCommand extends BaseCommand implements Runnable {
 
     /** Node URL option. */
     @Parameters(description = NODE_URL_OR_NAME_DESC, descriptionKey = CLUSTER_URL_KEY)
@@ -43,21 +42,15 @@ public class ConnectCommand extends BaseCommand implements Runnable {
     @Inject
     private ConnectCall connectCall;
 
-    @Inject
-    private ReplManager replManager;
-
     /** {@inheritDoc} */
     @Override
     public void run() {
-        int exitCode = CallExecutionPipeline.builder(connectCall)
+        CallExecutionPipeline.builder(connectCall)
                 .inputProvider(() -> new ConnectCallInput(nodeNameOrUrl.stringUrl()))
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())
                 .verbose(verbose)
                 .build()
                 .runPipeline();
-        if (exitCode == 0) {
-            replManager.startReplMode();
-        }
     }
 }
