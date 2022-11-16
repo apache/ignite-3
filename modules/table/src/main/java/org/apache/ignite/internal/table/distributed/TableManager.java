@@ -984,15 +984,23 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
             AtomicReference<Exception> exception = new AtomicReference<>();
 
+            AtomicBoolean nodeStoppingEx = new AtomicBoolean();
+
             for (int p = 0; p < table.internalTable().partitions(); p++) {
                 TablePartitionId replicationGroupId = new TablePartitionId(table.tableId(), p);
 
                 stopping.add(() -> {
                     try {
                         raftMgr.stopRaftGroup(replicationGroupId);
-                    } catch (NodeStoppingException e) {
+                    } catch (Exception e) {
                         if (!exception.compareAndSet(null, e)) {
-                            exception.get().addSuppressed(e);
+                            if (!(e instanceof NodeStoppingException) || !nodeStoppingEx.get()) {
+                                exception.get().addSuppressed(e);
+                            }
+                        }
+
+                        if (e instanceof NodeStoppingException) {
+                            nodeStoppingEx.set(true);
                         }
                     }
                 });
@@ -1000,21 +1008,21 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 stopping.add(() -> {
                     try {
                         replicaMgr.stopReplica(replicationGroupId);
-                    } catch (NodeStoppingException e) {
+                    } catch (Exception e) {
                         if (!exception.compareAndSet(null, e)) {
-                            exception.get().addSuppressed(e);
+                            if (!(e instanceof NodeStoppingException) || !nodeStoppingEx.get()) {
+                                exception.get().addSuppressed(e);
+                            }
+                        }
+
+                        if (e instanceof NodeStoppingException) {
+                            nodeStoppingEx.set(true);
                         }
                     }
                 });
             }
 
-            try {
-                IgniteUtils.runAll(stopping.stream());
-            } catch (Exception e) {
-                if (!exception.compareAndSet(null, e)) {
-                    exception.get().addSuppressed(e);
-                }
-            }
+            stopping.forEach(Runnable::run);
 
             try {
                 IgniteUtils.closeAllManually(

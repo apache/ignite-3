@@ -672,31 +672,6 @@ public class IgniteUtils {
     }
 
     /**
-     * Run all provided objects. If any of the runnable throw an exception, only the first thrown exception
-     * will be propagated to the caller.
-     *
-     * @param runnables Stream of objects to run.
-     * @throws Exception If failed.
-     */
-    public static void runAll(Stream<? extends Runnable> runnables) throws Exception {
-        AtomicReference<Exception> ex = new AtomicReference<>();
-
-        runnables.filter(Objects::nonNull).forEach(runnable -> {
-            try {
-                runnable.run();
-            } catch (Exception e) {
-                if (!ex.compareAndSet(null, e)) {
-                    ex.get().addSuppressed(e);
-                }
-            }
-        });
-
-        if (ex.get() != null) {
-            throw ex.get();
-        }
-    }
-
-    /**
      * Short date format pattern for log messages in "quiet" mode. Only time is included since we don't expect "quiet" mode to be used for
      * longer runs.
      */
