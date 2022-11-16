@@ -64,6 +64,7 @@ include(':packaging-cli')
 include(':packaging-db')
 include(':packaging')
 include(':ignite-replicator')
+include(':ignite-distribution-zones')
 
 project(":ignite-examples").projectDir = file('examples')
 project(":ignite-page-memory").projectDir = file('modules/page-memory')
@@ -113,6 +114,7 @@ project(":ignite-replicator").projectDir = file('modules/replicator')
 project(":packaging-cli").projectDir = file('packaging/cli')
 project(":packaging-db").projectDir = file('packaging/db')
 project(":packaging").projectDir = file('packaging')
+project(":ignite-distribution-zones").projectDir = file('modules/distribution-zones')
 
 ext.isCiServer = System.getenv().containsKey("IGNITE_CI")
 
