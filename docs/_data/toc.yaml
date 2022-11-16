@@ -12,7 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-- title: Documentation Overview
+- title: About Apache Ignite 3
   url: index
 - title: Getting Started Guide
   url: quick-start/getting-started-guide
