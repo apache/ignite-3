@@ -20,7 +20,7 @@ import org.apache.ignite.raft.jraft.JRaftServiceFactory;
 import org.apache.ignite.raft.jraft.entity.codec.LogEntryCodecFactory;
 import org.apache.ignite.raft.jraft.entity.codec.v1.LogEntryV1CodecFactory;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
-import org.apache.ignite.raft.jraft.storage.LogManager;import org.apache.ignite.raft.jraft.storage.LogStorage;
+import org.apache.ignite.raft.jraft.storage.LogStorage;
 import org.apache.ignite.raft.jraft.storage.RaftMetaStorage;
 import org.apache.ignite.raft.jraft.storage.SnapshotStorage;
 import org.apache.ignite.raft.jraft.storage.impl.LocalRaftMetaStorage;
@@ -40,7 +40,7 @@ public class DefaultJRaftServiceFactory implements JRaftServiceFactory {
         return new RocksDBLogStorage(uri, raftOptions);
     }
 
-    @Override public SnapshotStorage createSnapshotStorage(final String uri, final RaftOptions raftOptions, LogManager logManager) {
+    @Override public SnapshotStorage createSnapshotStorage(final String uri, final RaftOptions raftOptions) {
         Requires.requireTrue(!StringUtils.isBlank(uri), "Blank snapshot storage uri.");
         return new LocalSnapshotStorage(uri, raftOptions);
     }

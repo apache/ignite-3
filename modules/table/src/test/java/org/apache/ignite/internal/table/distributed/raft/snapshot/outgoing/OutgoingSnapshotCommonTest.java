@@ -17,29 +17,24 @@
 
 package org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing;
 
-import static java.util.stream.Collectors.toList;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionAccess;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionKey;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMetaRequest;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMetaResponse;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
-import org.apache.ignite.raft.jraft.conf.Configuration;
-import org.apache.ignite.raft.jraft.conf.ConfigurationEntry;
-import org.apache.ignite.raft.jraft.entity.LogId;
-import org.apache.ignite.raft.jraft.entity.PeerId;
-import org.apache.ignite.raft.jraft.storage.LogManager;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -58,9 +53,6 @@ class OutgoingSnapshotCommonTest {
     @Mock
     private TxStateStorage txStateStorage;
 
-    @Mock
-    private LogManager logManager;
-
     private OutgoingSnapshot snapshot;
 
     private final TableMessagesFactory messagesFactory = new TableMessagesFactory();
@@ -74,7 +66,7 @@ class OutgoingSnapshotCommonTest {
         lenient().when(partitionAccess.mvPartitionStorage()).thenReturn(mvPartitionStorage);
         lenient().when(partitionAccess.txStatePartitionStorage()).thenReturn(txStateStorage);
 
-        snapshot = new OutgoingSnapshot(UUID.randomUUID(), partitionAccess, logManager);
+        snapshot = new OutgoingSnapshot(UUID.randomUUID(), partitionAccess);
     }
 
     @Test
@@ -85,17 +77,18 @@ class OutgoingSnapshotCommonTest {
     @Test
     void sendsSnapshotMeta() {
         when(mvPartitionStorage.lastAppliedIndex()).thenReturn(100L);
+        lenient().when(mvPartitionStorage.lastAppliedTerm()).thenReturn(3L);
         when(txStateStorage.lastAppliedIndex()).thenReturn(100L);
+        lenient().when(txStateStorage.lastAppliedTerm()).thenReturn(3L);
 
-        when(logManager.getTerm(100L)).thenReturn(3L);
+        when(mvPartitionStorage.committedGroupConfiguration()).thenReturn(new RaftGroupConfiguration(
+                List.of("peer1:3000", "peer2:3000"),
+                List.of("learner1:3000", "learner2:3000"),
+                List.of("peer1:3000"),
+                List.of("learner1:3000")
+        ));
 
-        ConfigurationEntry configEntry = new ConfigurationEntry(new LogId(100, 3),
-                configuration(List.of("peer1:3000", "peer2:3000"), List.of("learner1:3000", "learner2:3000")),
-                configuration(List.of("peer1:3000"), List.of("learner1:3000"))
-        );
-        when(logManager.getConfiguration(100L)).thenReturn(configEntry);
-
-        freezeSnapshot();
+        snapshot.freezeScopeUnderMvLock();
 
         SnapshotMetaResponse response = getSnapshotMetaResponse();
 
@@ -105,23 +98,6 @@ class OutgoingSnapshotCommonTest {
         assertThat(response.meta().learnersList(), is(List.of("learner1:3000", "learner2:3000")));
         assertThat(response.meta().oldPeersList(), is(List.of("peer1:3000")));
         assertThat(response.meta().oldLearnersList(), is(List.of("learner1:3000")));
-    }
-
-    private static Configuration configuration(List<String> peers, List<String> learners) {
-        return new Configuration(
-                peers.stream().map(PeerId::parsePeer).collect(toList()),
-                learners.stream().map(PeerId::parsePeer).collect(toList())
-        );
-    }
-
-    private void freezeSnapshot() {
-        snapshot.acquireMvLock();
-
-        try {
-            snapshot.freezeScope();
-        } finally {
-            snapshot.releaseMvLock();
-        }
     }
 
     private SnapshotMetaResponse getSnapshotMetaResponse() {
@@ -143,11 +119,11 @@ class OutgoingSnapshotCommonTest {
 
     @Test
     void doesNotSendOldConfigWhenItIsNotThere() {
-        @SuppressWarnings("ConstantConditions")
-        ConfigurationEntry configEntry = new ConfigurationEntry(new LogId(1, 1), new Configuration(), null);
-        when(logManager.getConfiguration(anyLong())).thenReturn(configEntry);
+        when(mvPartitionStorage.committedGroupConfiguration()).thenReturn(new RaftGroupConfiguration(
+                List.of(), List.of(), null, null
+        ));
 
-        freezeSnapshot();
+        snapshot.freezeScopeUnderMvLock();
 
         SnapshotMetaResponse response = getSnapshotMetaResponse();
 
@@ -160,9 +136,9 @@ class OutgoingSnapshotCommonTest {
         when(mvPartitionStorage.lastAppliedIndex()).thenReturn(100L);
         when(txStateStorage.lastAppliedIndex()).thenReturn(90L);
 
-        when(logManager.getConfiguration(anyLong())).thenReturn(new ConfigurationEntry());
+        when(mvPartitionStorage.committedGroupConfiguration()).thenReturn(mock(RaftGroupConfiguration.class));
 
-        freezeSnapshot();
+        snapshot.freezeScopeUnderMvLock();
 
         SnapshotMetaResponse response = getSnapshotMetaResponse();
 
@@ -174,9 +150,9 @@ class OutgoingSnapshotCommonTest {
         when(mvPartitionStorage.lastAppliedIndex()).thenReturn(90L);
         when(txStateStorage.lastAppliedIndex()).thenReturn(100L);
 
-        when(logManager.getConfiguration(anyLong())).thenReturn(new ConfigurationEntry());
+        when(mvPartitionStorage.committedGroupConfiguration()).thenReturn(mock(RaftGroupConfiguration.class));
 
-        freezeSnapshot();
+        snapshot.freezeScopeUnderMvLock();
 
         SnapshotMetaResponse response = getSnapshotMetaResponse();
 

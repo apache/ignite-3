@@ -29,6 +29,7 @@ import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTi
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryTableStorage;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineView;
@@ -37,6 +38,7 @@ import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns
 import org.apache.ignite.internal.storage.pagememory.index.hash.PageMemoryHashIndexStorage;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
 import org.apache.ignite.internal.storage.pagememory.index.sorted.PageMemorySortedIndexStorage;
+import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
@@ -145,19 +147,54 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     }
 
     @Override
-    public void lastAppliedIndex(long lastAppliedIndex) throws StorageException {
+    public long lastAppliedTerm() {
+        return meta.lastAppliedTerm();
+    }
+
+    @Override
+    public void lastApplied(long lastAppliedIndex, long lastAppliedTerm) throws StorageException {
         assert checkpointTimeoutLock.checkpointLockIsHeldByThread();
 
         CheckpointProgress lastCheckpoint = checkpointManager.lastCheckpointProgress();
 
         UUID lastCheckpointId = lastCheckpoint == null ? null : lastCheckpoint.id();
 
-        meta.lastAppliedIndex(lastCheckpointId, lastAppliedIndex);
+        meta.lastApplied(lastCheckpointId, lastAppliedIndex, lastAppliedTerm);
     }
 
     @Override
     public long persistedIndex() {
         return persistedIndex;
+    }
+
+    @Override
+    @Nullable
+    public RaftGroupConfiguration committedGroupConfiguration() {
+        return groupConfigFromBytes(meta.lastGroupConfig());
+    }
+
+    @Override
+    public void committedGroupConfiguration(RaftGroupConfiguration config) {
+        assert checkpointTimeoutLock.checkpointLockIsHeldByThread();
+
+        CheckpointProgress lastCheckpoint = checkpointManager.lastCheckpointProgress();
+
+        UUID lastCheckpointId = lastCheckpoint == null ? null : lastCheckpoint.id();
+
+        meta.lastGroupConfig(lastCheckpointId, groupConfigToBytes(config));
+    }
+
+    @Nullable
+    private static RaftGroupConfiguration groupConfigFromBytes(byte @Nullable [] bytes) {
+        if (bytes == null) {
+            return null;
+        }
+
+        return ByteUtils.fromBytes(bytes);
+    }
+
+    private static byte[] groupConfigToBytes(RaftGroupConfiguration config) {
+        return ByteUtils.toBytes(config);
     }
 
     @Override

@@ -17,24 +17,25 @@
 
 package org.apache.ignite.internal.util;
 
-import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runMultiThreaded;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Iterator;
+import java.util.Collections;
 import java.util.List;
+import java.util.NavigableMap;
+import java.util.SortedMap;
+import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.lang.IgniteBiTuple;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -78,57 +79,76 @@ public class PendingComparableValuesTrackerTest {
 
         PendingComparableValuesTracker<HybridTimestamp> tracker = new PendingComparableValuesTracker<>(clock.now());
 
-        int threads = Runtime.getRuntime().availableProcessors() * 2;
+        int threads = Runtime.getRuntime().availableProcessors();
 
-        Collection<IgniteBiTuple<CompletableFuture<Void>, HybridTimestamp>> allFutures = new ConcurrentLinkedDeque<>();
+        List<CompletableFuture<Void>> allFutures = Collections.synchronizedList(new ArrayList<>());
 
-        int iterations = 10_000;
+        int iterations = 1_000;
 
-        runMultiThreaded(
-                () -> {
-                    List<IgniteBiTuple<CompletableFuture<Void>, HybridTimestamp>> prevFutures = new ArrayList<>();
-                    ThreadLocalRandom random = ThreadLocalRandom.current();
+        runMultiThreaded(() -> {
+            NavigableMap<HybridTimestamp, CompletableFuture<Void>> prevFutures = new TreeMap<>();
 
-                    for (int i = 0; i < iterations; i++) {
-                        HybridTimestamp now = clock.now();
-                        tracker.update(now);
-                        HybridTimestamp timestampToWait =
-                            new HybridTimestamp(now.getPhysical() + 1, now.getLogical() + random.nextInt(1000));
+            ThreadLocalRandom random = ThreadLocalRandom.current();
 
-                        CompletableFuture<Void> future = tracker.waitFor(timestampToWait);
+            for (int i = 0; i < iterations; i++) {
+                HybridTimestamp now = clock.now();
 
-                        IgniteBiTuple<CompletableFuture<Void>, HybridTimestamp> pair = new IgniteBiTuple<>(future, timestampToWait);
+                tracker.update(now);
 
-                        prevFutures.add(pair);
-                        allFutures.add(pair);
+                HybridTimestamp timestampToWait =
+                        new HybridTimestamp(now.getPhysical() + 1, now.getLogical() + random.nextInt(1000));
 
-                        if (i % 10 == 0) {
-                            for (Iterator<IgniteBiTuple<CompletableFuture<Void>, HybridTimestamp>> it = prevFutures.iterator();
-                                    it.hasNext();) {
-                                IgniteBiTuple<CompletableFuture<Void>, HybridTimestamp> t = it.next();
+                CompletableFuture<Void> future = tracker.waitFor(timestampToWait);
 
-                                if (t.get2().compareTo(now) <= 0) {
-                                    assertTrue(t.get1().isDone(), "now=" + now + ", ts=" + t.get2() + ", trackerTs=" + tracker.current());
+                prevFutures.put(timestampToWait, future);
 
-                                    it.remove();
-                                }
-                            }
-                        }
-                    }
+                allFutures.add(future);
 
-                    return null;
-                },
-                threads,
-                "trackableHybridClockTest"
-        );
+                if (i % 10 == 0) {
+                    SortedMap<HybridTimestamp, CompletableFuture<Void>> beforeNow = prevFutures.headMap(now, true);
 
-        Thread.sleep(5);
+                    beforeNow.forEach((t, f) -> assertThat(
+                            "now=" + now + ", ts=" + t + ", trackerTs=" + tracker.current(),
+                            f, willCompleteSuccessfully())
+                    );
 
-        tracker.update(clock.now());
+                    beforeNow.clear();
+                }
+            }
 
-        List<IgniteBiTuple<CompletableFuture<Void>, HybridTimestamp>> uncompleted =
-                allFutures.stream().filter(f -> !f.get1().isDone()).collect(toList());
+            return null;
+        }, threads, "trackableHybridClockTest");
 
-        assertTrue(uncompleted.isEmpty());
+        tracker.update(HybridTimestamp.MAX_VALUE);
+
+        assertThat(CompletableFuture.allOf(allFutures.toArray(CompletableFuture[]::new)), willCompleteSuccessfully());
+    }
+
+    @RepeatedTest(100)
+    void testConcurrentAccess() {
+        var tracker = new PendingComparableValuesTracker<>(1);
+
+        var barrier = new CyclicBarrier(2);
+
+        CompletableFuture<Void> writerFuture = CompletableFuture.runAsync(() -> {
+            try {
+                barrier.await();
+                tracker.update(2);
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        });
+
+        CompletableFuture<Void> readerFuture = CompletableFuture.runAsync(() -> {
+            try {
+                barrier.await();
+                tracker.waitFor(2).get(1, TimeUnit.SECONDS);
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        });
+
+        assertThat(writerFuture, willCompleteSuccessfully());
+        assertThat(readerFuture, willCompleteSuccessfully());
     }
 }

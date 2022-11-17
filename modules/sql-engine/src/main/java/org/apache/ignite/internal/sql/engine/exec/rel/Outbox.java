@@ -28,7 +28,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeService;
@@ -65,7 +64,6 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      *
      * @param ctx              Execution context.
-     * @param rowType          Rel data type.
      * @param exchange         Exchange service.
      * @param registry         Mailbox registry.
      * @param exchangeId       Exchange ID.
@@ -74,14 +72,13 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
      */
     public Outbox(
             ExecutionContext<RowT> ctx,
-            RelDataType rowType,
             ExchangeService exchange,
             MailboxRegistry registry,
             long exchangeId,
             long targetFragmentId,
             Destination<RowT> dest
     ) {
-        super(ctx, rowType);
+        super(ctx);
         this.exchange = exchange;
         this.registry = registry;
         this.targetFragmentId = targetFragmentId;

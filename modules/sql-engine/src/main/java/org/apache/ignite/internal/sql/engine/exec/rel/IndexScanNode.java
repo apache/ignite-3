@@ -32,7 +32,6 @@ import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.function.Function;
 import java.util.function.Predicate;
-import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.index.SortedIndex;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -104,7 +103,7 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
      * Constructor.
      *
      * @param ctx Execution context.
-     * @param rowType Output type of the current node.
+     * @param rowFactory Row factory.
      * @param schemaTable The table this node should scan.
      * @param parts Partition numbers to scan.
      * @param comp Rows comparator.
@@ -115,7 +114,7 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
      */
     public IndexScanNode(
             ExecutionContext<RowT> ctx,
-            RelDataType rowType,
+            RowHandler.RowFactory<RowT> rowFactory,
             IgniteIndex schemaIndex,
             InternalIgniteTable schemaTable,
             ImmutableIntList idxColumnMapping,
@@ -126,7 +125,7 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
             @Nullable Function<RowT, RowT> rowTransformer,
             @Nullable BitSet requiredColumns
     ) {
-        super(ctx, rowType);
+        super(ctx);
 
         assert !nullOrEmpty(parts);
 
@@ -140,10 +139,9 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
         this.rangeConditions = rangeConditions;
         this.idxColumnMapping = idxColumnMapping;
         this.comp = comp;
+        this.factory = rowFactory;
 
         rangeConditionIterator = rangeConditions == null ? null : rangeConditions.iterator();
-
-        factory = ctx.rowHandler().factory(ctx.getTypeFactory(), rowType);
 
         tableRowConverter = row -> schemaTable.toRow(context(), row, factory, requiredColumns);
 
