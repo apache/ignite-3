@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite;
+package org.apache.ignite.internal;
 
 import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -26,13 +26,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
-import org.apache.ignite.DistributionZoneConfiguration;
-import org.apache.ignite.DistributionZonesConfiguration;
+
 import org.apache.ignite.configuration.ConfigurationChangeException;
-import org.apache.ignite.exception.DistributionZoneAlreadyExistsException;
-import org.apache.ignite.exception.DistributionZoneNotFoundException;
+import org.apache.ignite.internal.DistributionZoneConfiguration;
+import org.apache.ignite.internal.DistributionZonesConfiguration;
+import org.apache.ignite.internal.DistributionZoneManager;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
+import org.apache.ignite.internal.exception.DistributionZoneAlreadyExistsException;
+import org.apache.ignite.internal.exception.DistributionZoneNotFoundException;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;

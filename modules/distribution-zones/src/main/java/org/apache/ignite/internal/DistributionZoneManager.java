@@ -15,13 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite;
+package org.apache.ignite.internal;
 
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.DistributionZoneView;
-import org.apache.ignite.DistributionZonesConfiguration;
-import org.apache.ignite.exception.DistributionZoneAlreadyExistsException;
-import org.apache.ignite.exception.DistributionZoneNotFoundException;
+
+import org.apache.ignite.internal.DistributionZoneView;
+import org.apache.ignite.internal.DistributionZonesConfiguration;
+import org.apache.ignite.internal.exception.DistributionZoneAlreadyExistsException;
+import org.apache.ignite.internal.exception.DistributionZoneNotFoundException;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.IgniteException;

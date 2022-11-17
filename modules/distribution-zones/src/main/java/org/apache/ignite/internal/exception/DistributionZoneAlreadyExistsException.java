@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.exception;
+package org.apache.ignite.internal.exception;
 
 import static org.apache.ignite.lang.ErrorGroups.DistributionZones.ZONE_ALREADY_EXISTS_ERR;
 
