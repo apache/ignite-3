@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.storage.pagememory;
 
-import java.lang.invoke.MethodHandles;
-import java.lang.invoke.VarHandle;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -29,6 +27,7 @@ import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
+import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
@@ -42,16 +41,6 @@ import org.jetbrains.annotations.Nullable;
  * Abstract table storage implementation based on {@link PageMemory}.
  */
 public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
-    private static final VarHandle STARTED;
-
-    static {
-        try {
-            STARTED = MethodHandles.lookup().findVarHandle(AbstractPageMemoryTableStorage.class, "started", boolean.class);
-        } catch (ReflectiveOperationException e) {
-            throw new ExceptionInInitializerError(e);
-        }
-    }
-
     protected final TableConfiguration tableCfg;
 
     protected TablesConfiguration tablesConfiguration;
@@ -67,7 +56,7 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
      */
     protected AbstractPageMemoryTableStorage(TableConfiguration tableCfg, TablesConfiguration tablesCfg) {
         this.tableCfg = tableCfg;
-        this.tablesConfiguration = tablesCfg;
+        tablesConfiguration = tablesCfg;
     }
 
     @Override
@@ -102,10 +91,18 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
     /**
      * Returns a new instance of {@link AbstractPageMemoryMvPartitionStorage}.
      *
-     * @param partitionId Partition id.
+     * @param partitionId Partition ID.
      * @throws StorageException If there is an error while creating the mv partition storage.
      */
     public abstract AbstractPageMemoryMvPartitionStorage createMvPartitionStorage(int partitionId) throws StorageException;
+
+    /**
+     * Destroys the partition multi-version storage and all its indexes.
+     *
+     * @param partitionId Partition ID.
+     * @param mvPartitionStorage Multi-versioned partition storage.
+     */
+    public abstract void destroyMvPartitionStorage(int partitionId, AbstractPageMemoryMvPartitionStorage mvPartitionStorage);
 
     @Override
     public AbstractPageMemoryMvPartitionStorage getOrCreateMvPartition(int partitionId) throws StorageException {
@@ -139,10 +136,10 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
 
         checkPartitionId(partitionId);
 
-        AbstractPageMemoryMvPartitionStorage partition = mvPartitions.getAndSet(partitionId, null);
+        MvPartitionStorage partition = mvPartitions.getAndSet(partitionId, null);
 
         if (partition != null) {
-            partition.destroy();
+            destroyMvPartitionStorage(partitionId, ((AbstractPageMemoryMvPartitionStorage) partition));
         }
     }
 
@@ -180,9 +177,7 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
      * @throws StorageException If failed.
      */
     protected void close(boolean destroy) throws StorageException {
-        if (!STARTED.compareAndSet(this, true, false)) {
-            return;
-        }
+        started = false;
 
         List<AutoCloseable> closeables = new ArrayList<>();
 
@@ -202,11 +197,11 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
     }
 
     /**
-     * Checks that a passed partition id is within the proper bounds.
+     * Checks that the partition ID is within the scope of the configuration.
      *
-     * @param partitionId Partition id.
+     * @param partitionId Partition ID.
      */
-    protected void checkPartitionId(int partitionId) {
+    private void checkPartitionId(int partitionId) {
         int partitions = mvPartitions.length();
 
         if (partitionId < 0 || partitionId >= partitions) {

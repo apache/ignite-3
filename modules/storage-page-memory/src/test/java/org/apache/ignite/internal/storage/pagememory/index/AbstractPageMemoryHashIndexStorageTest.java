@@ -32,7 +32,6 @@ import org.apache.ignite.internal.storage.index.AbstractHashIndexStorageTest;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.BasePageMemoryStorageEngineConfiguration;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -58,14 +57,8 @@ abstract class AbstractPageMemoryHashIndexStorageTest extends AbstractHashIndexS
         initialize(tableStorage, tablesCfg);
     }
 
-    //TODO IGNITE-17626 Enable the test.
-    @Disabled
-    @Override
-    public void testDestroy() {
-    }
-
     @Test
-    void testWithStringsLargerThanMaximumInlineSize() throws Exception {
+    void testWithStringsLargerThanMaximumInlineSize() {
         IndexRow indexRow0 = createIndexRow(1, randomString(random, MAX_BINARY_TUPLE_INLINE_SIZE), new RowId(TEST_PARTITION));
         IndexRow indexRow1 = createIndexRow(1, randomString(random, MAX_BINARY_TUPLE_INLINE_SIZE), new RowId(TEST_PARTITION));
 
@@ -79,7 +72,7 @@ abstract class AbstractPageMemoryHashIndexStorageTest extends AbstractHashIndexS
     }
 
     @Test
-    void testFragmentedIndexColumns() throws Exception {
+    void testFragmentedIndexColumns() {
         IndexRow indexRow0 = createIndexRow(1, randomString(random, baseEngineConfig.pageSize().value() * 2), new RowId(TEST_PARTITION));
         IndexRow indexRow1 = createIndexRow(1, randomString(random, baseEngineConfig.pageSize().value() * 2), new RowId(TEST_PARTITION));
 

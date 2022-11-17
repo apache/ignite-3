@@ -39,6 +39,7 @@ import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumnsFreeList;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
+import org.apache.ignite.internal.storage.pagememory.mv.AbstractPageMemoryMvPartitionStorage;
 import org.apache.ignite.internal.storage.pagememory.mv.PersistentPageMemoryMvPartitionStorage;
 import org.apache.ignite.internal.storage.pagememory.mv.RowVersionFreeList;
 import org.apache.ignite.internal.storage.pagememory.mv.VersionChainTree;
@@ -86,13 +87,11 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
         return dataRegion;
     }
 
-    /** {@inheritDoc} */
     @Override
     public boolean isVolatile() {
         return false;
     }
 
-    /** {@inheritDoc} */
     @Override
     public void start() throws StorageException {
         super.start();
@@ -112,13 +111,11 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
         }
     }
 
-    /** {@inheritDoc} */
     @Override
     public void destroy() throws StorageException {
         close(true);
     }
 
-    /** {@inheritDoc} */
     @Override
     public PersistentPageMemoryMvPartitionStorage createMvPartitionStorage(int partitionId) {
         TableView tableView = tableCfg.value();
@@ -417,5 +414,12 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
     public CompletableFuture<Void> finishRebalanceMvPartition(int partitionId) {
         // TODO: IGNITE-18029 Implement
         throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void destroyMvPartitionStorage(int partitionId, AbstractPageMemoryMvPartitionStorage mvPartitionStorage) {
+        mvPartitionStorage.close();
+
+        // TODO: IGNITE-17132 реализуй!
     }
 }

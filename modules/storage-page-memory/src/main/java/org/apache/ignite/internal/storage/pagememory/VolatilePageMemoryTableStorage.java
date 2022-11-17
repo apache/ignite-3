@@ -27,6 +27,7 @@ import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
+import org.apache.ignite.internal.storage.pagememory.mv.AbstractPageMemoryMvPartitionStorage;
 import org.apache.ignite.internal.storage.pagememory.mv.VersionChainTree;
 import org.apache.ignite.internal.storage.pagememory.mv.VolatilePageMemoryMvPartitionStorage;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
@@ -58,7 +59,6 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
         return dataRegion;
     }
 
-    /** {@inheritDoc} */
     @Override
     public VolatilePageMemoryMvPartitionStorage createMvPartitionStorage(int partitionId) throws StorageException {
         VersionChainTree versionChainTree = createVersionChainTree(partitionId, tableCfg.value());
@@ -96,13 +96,11 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
         }
     }
 
-    /** {@inheritDoc} */
     @Override
     public boolean isVolatile() {
         return true;
     }
 
-    /** {@inheritDoc} */
     @Override
     public void destroy() throws StorageException {
         stop();
@@ -156,5 +154,12 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
     public CompletableFuture<Void> finishRebalanceMvPartition(int partitionId) {
         // TODO: IGNITE-18028 Implement
         throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void destroyMvPartitionStorage(int partitionId, AbstractPageMemoryMvPartitionStorage mvPartitionStorage) {
+        mvPartitionStorage.close();
+
+        // TODO: IGNITE-17833 Implement
     }
 }

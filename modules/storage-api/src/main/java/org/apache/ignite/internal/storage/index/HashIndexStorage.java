@@ -19,7 +19,6 @@ package org.apache.ignite.internal.storage.index;
 
 import java.util.UUID;
 import org.apache.ignite.internal.storage.RowId;
-import org.apache.ignite.internal.storage.StorageClosedException;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 
@@ -36,11 +35,9 @@ public interface HashIndexStorage extends IndexStorage {
     HashIndexDescriptor indexDescriptor();
 
     /**
-     * Destroys the index storage and its data in it.
+     * Removes all data from this index.
      *
-     * <p>After calling this method, all other read or write methods will throw exception {@link StorageClosedException}.
-     *
-     * @throws StorageException If failed to destroy index.
+     * @throws StorageException If failed to destory index.
      * @deprecated IGNITE-17626 Synchronous API should be removed. {@link MvTableStorage#destroyIndex(UUID)} must be the only public option.
      */
     @Deprecated

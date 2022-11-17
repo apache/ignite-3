@@ -30,13 +30,13 @@ import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Tests for the {@link RocksDbHashIndexStorage} class.
  */
-@ExtendWith({ConfigurationExtension.class, WorkDirectoryExtension.class})
+@ExtendWith(WorkDirectoryExtension.class)
+@ExtendWith(ConfigurationExtension.class)
 public class RocksDbHashIndexStorageTest extends AbstractHashIndexStorageTest {
     private RocksDbStorageEngine engine;
 
@@ -69,11 +69,5 @@ public class RocksDbHashIndexStorageTest extends AbstractHashIndexStorageTest {
                 tableStorage == null ? null : tableStorage::stop,
                 engine == null ? null : engine::stop
         );
-    }
-
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18180")
-    @Override
-    public void testDestroy() {
-        super.testDestroy();
     }
 }
