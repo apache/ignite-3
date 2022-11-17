@@ -84,6 +84,12 @@ allprojects {
     tasks.withType(Javadoc) {
         options.addStringOption('bottom', javadocFooter())
     }
+
+    //Temporary hack to disable caching of Test tasks.
+    //https://github.com/gradle/gradle/issues/9210
+    tasks.withType(Test).configureEach {
+        outputs.upToDateWhen { false }
+    }
 }
 
 subprojects {
