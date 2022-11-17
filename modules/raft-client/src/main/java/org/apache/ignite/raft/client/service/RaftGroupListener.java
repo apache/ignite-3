@@ -50,6 +50,15 @@ public interface RaftGroupListener {
     void onWrite(Iterator<CommandClosure<WriteCommand>> iterator);
 
     /**
+     * Called when a configuration is committed (that is, written to a majority of the group).
+     *
+     * @param config Configuration that was committed.
+     */
+    default void onConfigurationCommitted(CommittedConfiguration config) {
+        // No-op
+    }
+
+    /**
      * The callback to save a snapshot. The execution should be asynchronous to avoid blocking of STM updates.
      * But the snapshot coordinates (or copy-of-data-to-include-in-snapshot) must be taken synchronously before starting the asynchronous
      * snapshotting process.

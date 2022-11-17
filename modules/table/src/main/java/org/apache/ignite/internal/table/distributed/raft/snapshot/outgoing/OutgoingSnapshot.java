@@ -32,6 +32,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
@@ -41,13 +42,13 @@ import org.apache.ignite.internal.table.distributed.raft.snapshot.message.Snapsh
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMetaResponse;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMvDataRequest;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMvDataResponse;
+import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMvDataResponse.ResponseEntry;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotTxDataRequest;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotTxDataResponse;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
-import org.apache.ignite.raft.jraft.storage.LogManager;
 import org.apache.ignite.raft.jraft.util.concurrent.ConcurrentHashSet;
 import org.jetbrains.annotations.Nullable;
 
@@ -64,8 +65,6 @@ public class OutgoingSnapshot {
     private final UUID id;
 
     private final PartitionAccess partition;
-
-    private final LogManager logManager;
 
     /**
      * Lock that is used for mutual exclusion of MV snapshot reading (by this class) and threads that write MV data to the same
@@ -117,10 +116,9 @@ public class OutgoingSnapshot {
     /**
      * Creates a new instance.
      */
-    public OutgoingSnapshot(UUID id, PartitionAccess partition, LogManager logManager) {
+    public OutgoingSnapshot(UUID id, PartitionAccess partition) {
         this.id = id;
         this.partition = partition;
-        this.logManager = logManager;
 
         lastRowId = RowId.lowestRowId(partition.partitionKey().partitionId());
     }
@@ -143,15 +141,17 @@ public class OutgoingSnapshot {
 
     /**
      * Freezes the scope of this snapshot. This includes taking snapshot metadata and opening TX data cursor.
-     *
-     * <p>Must be called under snapshot lock.
      */
-    void freezeScope() {
-        assert mvOperationsLock.isLocked() : "MV operations lock must be acquired!";
+    void freezeScopeUnderMvLock() {
+        acquireMvLock();
 
-        frozenMeta = takeSnapshotMeta();
+        try {
+            frozenMeta = takeSnapshotMeta();
 
-        txDataCursor = partition.txStatePartitionStorage().scan();
+            txDataCursor = partition.txStatePartitionStorage().scan();
+        } finally {
+            releaseMvLock();
+        }
     }
 
     private SnapshotMeta takeSnapshotMeta() {
@@ -159,8 +159,16 @@ public class OutgoingSnapshot {
                 partition.mvPartitionStorage().lastAppliedIndex(),
                 partition.txStatePartitionStorage().lastAppliedIndex()
         );
+        long lastAppliedTerm = Math.max(
+                partition.mvPartitionStorage().lastAppliedTerm(),
+                partition.txStatePartitionStorage().lastAppliedTerm()
+        );
 
-        return SnapshotMetaUtils.snapshotMetaAt(lastAppliedIndex, logManager);
+        RaftGroupConfiguration config = partition.mvPartitionStorage().committedGroupConfiguration();
+
+        assert config != null : "Configuration should never be null when installing a snapshot";
+
+        return SnapshotMetaUtils.snapshotMetaAt(lastAppliedIndex, lastAppliedTerm, config);
     }
 
     /**
@@ -295,6 +303,8 @@ public class OutgoingSnapshot {
             if (!rowIdsToSkip.remove(lastRowId)) {
                 SnapshotMvDataResponse.ResponseEntry rowEntry = rowEntry(lastRowId);
 
+                assert rowEntry != null;
+
                 batch.add(rowEntry);
 
                 totalBatchSize += rowSizeInBytes(rowEntry.rowVersions());
@@ -308,8 +318,13 @@ public class OutgoingSnapshot {
         return totalBatchSize >= request.batchSizeHint();
     }
 
+    @Nullable
     private SnapshotMvDataResponse.ResponseEntry rowEntry(RowId rowId) {
-        List<ReadResult> rowVersionsN2O = partition.mvPartitionStorage().scanVersions(rowId).stream().collect(toList());
+        List<ReadResult> rowVersionsN2O = readRowVersionsN2O(rowId);
+
+        if (rowVersionsN2O.isEmpty()) {
+            return null;
+        }
 
         List<ByteBuffer> buffers = new ArrayList<>(rowVersionsN2O.size());
         List<HybridTimestamp> commitTimestamps = new ArrayList<>(rowVersionsN2O.size());
@@ -340,6 +355,15 @@ public class OutgoingSnapshot {
                 .commitTableId(commitTableId)
                 .commitPartitionId(commitPartitionId)
                 .build();
+    }
+
+    private List<ReadResult> readRowVersionsN2O(RowId rowId) {
+        try (Cursor<ReadResult> versions = partition.mvPartitionStorage().scanVersions(rowId)) {
+            return versions.stream().collect(toList());
+        } catch (Exception e) {
+            // TODO: IGNITE-18049 - remove this catch block when Cursor#close() throws declaration is removed.
+            throw new RuntimeException(e);
+        }
     }
 
     /**
@@ -462,7 +486,11 @@ public class OutgoingSnapshot {
     public void enqueueForSending(RowId rowId) {
         assert mvOperationsLock.isLocked() : "MV operations lock must be acquired!";
 
-        outOfOrderMvData.add(rowEntry(rowId));
+        ResponseEntry entry = rowEntry(rowId);
+
+        if (entry != null) {
+            outOfOrderMvData.add(entry);
+        }
     }
 
     /**

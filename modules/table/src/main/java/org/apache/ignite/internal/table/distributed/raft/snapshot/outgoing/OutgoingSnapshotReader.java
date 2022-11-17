@@ -24,7 +24,6 @@ import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionSnaps
 import org.apache.ignite.internal.table.distributed.raft.snapshot.SnapshotUri;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 import org.apache.ignite.raft.jraft.rpc.Message;
-import org.apache.ignite.raft.jraft.storage.LogManager;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
 
 /**
@@ -43,12 +42,11 @@ public class OutgoingSnapshotReader extends SnapshotReader {
      * Constructor.
      *
      * @param snapshotStorage Snapshot storage.
-     * @param logManager Log manager to use.
      */
-    public OutgoingSnapshotReader(PartitionSnapshotStorage snapshotStorage, LogManager logManager) {
+    public OutgoingSnapshotReader(PartitionSnapshotStorage snapshotStorage) {
         this.snapshotStorage = snapshotStorage;
 
-        snapshot = new OutgoingSnapshot(id, snapshotStorage.partition(), logManager);
+        snapshot = new OutgoingSnapshot(id, snapshotStorage.partition());
 
         snapshotStorage.outgoingSnapshotsManager().startOutgoingSnapshot(id, snapshot);
     }

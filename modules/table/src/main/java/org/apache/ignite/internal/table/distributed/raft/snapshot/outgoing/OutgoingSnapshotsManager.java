@@ -112,6 +112,7 @@ public class OutgoingSnapshotsManager implements PartitionsSnapshots, IgniteComp
         snapshots.put(snapshotId, outgoingSnapshot);
 
         PartitionSnapshotsImpl partitionSnapshots = getPartitionSnapshots(outgoingSnapshot.partitionKey());
+
         partitionSnapshots.freezeAndAddUnderLock(outgoingSnapshot);
     }
 
@@ -221,7 +222,7 @@ public class OutgoingSnapshotsManager implements PartitionsSnapshots, IgniteComp
 
             try {
                 // Cut consistent view of TX data and take snapshot metadata.
-                snapshot.freezeScope();
+                snapshot.freezeScopeUnderMvLock();
 
                 // Install the snapshot in the collection of snapshots on this partition, effectively establishing
                 // a consistent view over MV data.
