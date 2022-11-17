@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.deprecated;
+package org.apache.ignite.internal.cli.commands;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
@@ -25,14 +25,13 @@ import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
-import io.micronaut.context.ApplicationContext;
-import io.micronaut.context.env.Environment;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.cli.AbstractCliTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.junit.jupiter.api.AfterEach;
@@ -45,10 +44,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * Integration test for {@code ignite node/cluster config} commands.
  */
 @ExtendWith(WorkDirectoryExtension.class)
-public class ItConfigCommandTest extends AbstractCliIntegrationTest {
-    /** DI context. */
-    private ApplicationContext ctx;
-
+public class ItConfigCommandTest extends AbstractCliTest {
     /** Node. */
     private IgniteImpl node;
 
@@ -63,20 +59,16 @@ public class ItConfigCommandTest extends AbstractCliIntegrationTest {
         assertThat(future, willCompleteSuccessfully());
 
         node = (IgniteImpl) future.join();
-
-        ctx = ApplicationContext.run(Environment.TEST);
     }
 
     @AfterEach
     void tearDown(TestInfo testInfo) {
         IgnitionManager.stop(testNodeName(testInfo, 0));
-
-        ctx.stop();
     }
 
     @Test
     public void setAndGetWithManualHost() {
-        int exitCode = cmd(ctx).execute(
+        int exitCode = execute(
                 "node",
                 "config",
                 "update",
@@ -94,7 +86,7 @@ public class ItConfigCommandTest extends AbstractCliIntegrationTest {
 
         resetStreams();
 
-        exitCode = cmd(ctx).execute(
+        exitCode = execute(
                 "node",
                 "config",
                 "show",
@@ -112,7 +104,7 @@ public class ItConfigCommandTest extends AbstractCliIntegrationTest {
 
     @Test
     public void setWithWrongData() {
-        int exitCode = cmd(ctx).execute(
+        int exitCode = execute(
                 "node",
                 "config",
                 "update",
@@ -129,7 +121,7 @@ public class ItConfigCommandTest extends AbstractCliIntegrationTest {
 
         resetStreams();
 
-        exitCode = cmd(ctx).execute(
+        exitCode = execute(
                 "node",
                 "config",
                 "update",
@@ -147,7 +139,7 @@ public class ItConfigCommandTest extends AbstractCliIntegrationTest {
 
     @Test
     public void partialGet() {
-        int exitCode = cmd(ctx).execute(
+        int exitCode = execute(
                 "node",
                 "config",
                 "show",
@@ -164,14 +156,6 @@ public class ItConfigCommandTest extends AbstractCliIntegrationTest {
         );
 
         assertFalse(out.toString(UTF_8).contains("\"node\""));
-    }
-
-    /**
-     * Reset stderr and stdout streams.
-     */
-    private void resetStreams() {
-        err.reset();
-        out.reset();
     }
 
     /**
