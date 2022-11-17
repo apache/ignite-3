@@ -25,28 +25,27 @@ import org.apache.ignite.network.NetworkMessage;
  * MessageService interface.
  */
 // TODO: Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-// TODO: Service should operate with consistent IDs, see https://issues.apache.org/jira/browse/IGNITE-18063
 public interface MessageService extends LifecycleAware {
     /**
      * Sends a message to given node.
      *
-     * @param nodeId Node ID.
-     * @param msg    Message.
+     * @param nodeName Node consistent ID.
+     * @param msg Message.
      */
-    void send(String nodeId, NetworkMessage msg) throws IgniteInternalCheckedException;
+    void send(String nodeName, NetworkMessage msg) throws IgniteInternalCheckedException;
 
     /**
      * Checks whether a node with given ID is alive.
      *
-     * @param nodeId Node ID.
+     * @param nodeName Node consistent ID.
      * @return {@code True} if node is alive.
      */
-    boolean alive(String nodeId);
+    boolean alive(String nodeName);
 
     /**
      * Registers a listener for messages of a given type.
      *
-     * @param lsnr  Listener.
+     * @param lsnr Listener.
      * @param msgId Message id.
      */
     void register(MessageListener lsnr, short msgId);
