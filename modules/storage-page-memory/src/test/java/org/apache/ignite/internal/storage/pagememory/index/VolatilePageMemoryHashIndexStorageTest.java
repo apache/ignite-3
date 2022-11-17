@@ -33,7 +33,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * Hash index test implementation for volatile page memory storage.
  */
 @ExtendWith(ConfigurationExtension.class)
-class VolatilePageMemoryHashIndexStorageTest extends PageMemoryHashIndexStorageTest {
+class VolatilePageMemoryHashIndexStorageTest extends AbstractPageMemoryHashIndexStorageTest {
     private VolatilePageMemoryStorageEngine engine;
 
     private VolatilePageMemoryTableStorage table;

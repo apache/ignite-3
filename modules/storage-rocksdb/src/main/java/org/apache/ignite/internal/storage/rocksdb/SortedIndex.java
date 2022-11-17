@@ -60,26 +60,13 @@ class SortedIndex implements ManuallyCloseable {
     }
 
     /**
-     * Destroys the storage and the data in it.
+     * Removes all data associated with the index.
      */
     void destroy() {
         try {
             indexCf.destroy();
         } catch (RocksDBException e) {
             throw new StorageException("Unable to destroy index " + descriptor.id(), e);
-        }
-    }
-
-    /**
-     * Destroys the storage and the data in it for partition.
-     *
-     * @param partitionId Partition ID.
-     */
-    void destroy(int partitionId) {
-        RocksDbSortedIndexStorage removed = (RocksDbSortedIndexStorage) storages.remove(partitionId);
-
-        if (removed != null) {
-            removed.destroy();
         }
     }
 

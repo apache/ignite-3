@@ -28,8 +28,6 @@ import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.ByteUtils.putUuidToBytes;
 import static org.rocksdb.ReadTier.PERSISTED_TIER;
 
-import java.lang.invoke.MethodHandles;
-import java.lang.invoke.VarHandle;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
@@ -48,7 +46,6 @@ import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
-import org.apache.ignite.internal.storage.StorageClosedException;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.TxIdMismatchException;
 import org.apache.ignite.internal.util.ByteUtils;
@@ -146,16 +143,6 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
             () -> ByteBuffer.allocate(MAX_KEY_SIZE).order(KEY_BYTE_ORDER)
     );
 
-    private static final VarHandle STARTED;
-
-    static {
-        try {
-            STARTED = MethodHandles.lookup().findVarHandle(RocksDbMvPartitionStorage.class, "started", boolean.class);
-        } catch (ReflectiveOperationException e) {
-            throw new ExceptionInInitializerError(e);
-        }
-    }
-
     /** Table storage instance. */
     private final RocksDbTableStorage tableStorage;
 
@@ -219,8 +206,6 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     /** The value of {@link #lastAppliedIndex} persisted to the device at this moment. */
     private volatile long persistedIndex;
 
-    private volatile boolean started = true;
-
     /**
      * Constructor.
      *
@@ -249,10 +234,9 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         persistedIndex = lastAppliedIndex;
     }
 
+    /** {@inheritDoc} */
     @Override
     public <V> V runConsistently(WriteClosure<V> closure) throws StorageException {
-        checkClosed();
-
         if (WRITE_BATCH.get() != null) {
             return closure.execute();
         } else {
@@ -282,10 +266,9 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         }
     }
 
+    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> flush() {
-        checkClosed();
-
         return tableStorage.awaitFlush(true);
     }
 
@@ -304,23 +287,20 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         return requireWriteBatch();
     }
 
+    /** {@inheritDoc} */
     @Override
     public long lastAppliedIndex() {
-        checkClosed();
-
         return WRITE_BATCH.get() == null ? lastAppliedIndex : pendingAppliedIndex;
     }
 
     @Override
     public long lastAppliedTerm() {
-        checkClosed();
-
         return WRITE_BATCH.get() == null ? lastAppliedTerm : pendingAppliedTerm;
     }
 
+    /** {@inheritDoc} */
     @Override
     public void lastApplied(long lastAppliedIndex, long lastAppliedTerm) throws StorageException {
-        checkClosed();
         WriteBatchWithIndex writeBatch = requireWriteBatch();
 
         try {
@@ -334,10 +314,9 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         }
     }
 
+    /** {@inheritDoc} */
     @Override
     public long persistedIndex() {
-        checkClosed();
-
         return persistedIndex;
     }
 
@@ -420,11 +399,10 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         return bytes == null ? null : fromBytes(bytes);
     }
 
+    /** {@inheritDoc} */
     @Override
     public @Nullable BinaryRow addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, UUID commitTableId, int commitPartitionId)
             throws TxIdMismatchException, StorageException {
-        checkClosed();
-
         @SuppressWarnings("resource") WriteBatchWithIndex writeBatch = requireWriteBatch();
 
         ByteBuffer keyBuf = prepareHeapKeyBuf(rowId);
@@ -502,10 +480,9 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         return row.bytes();
     }
 
+    /** {@inheritDoc} */
     @Override
     public @Nullable BinaryRow abortWrite(RowId rowId) throws StorageException {
-        checkClosed();
-
         WriteBatchWithIndex writeBatch = requireWriteBatch();
 
         ByteBuffer keyBuf = prepareHeapKeyBuf(rowId);
@@ -529,10 +506,9 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         }
     }
 
+    /** {@inheritDoc} */
     @Override
     public void commitWrite(RowId rowId, HybridTimestamp timestamp) throws StorageException {
-        checkClosed();
-
         WriteBatchWithIndex writeBatch = requireWriteBatch();
 
         ByteBuffer keyBuf = prepareHeapKeyBuf(rowId);
@@ -562,8 +538,6 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
     @Override
     public void addWriteCommitted(RowId rowId, BinaryRow row, HybridTimestamp commitTimestamp) throws StorageException {
-        checkClosed();
-
         @SuppressWarnings("resource") WriteBatchWithIndex writeBatch = requireWriteBatch();
 
         ByteBuffer keyBuf = prepareHeapKeyBuf(rowId);
@@ -579,10 +553,9 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         }
     }
 
+    /** {@inheritDoc} */
     @Override
     public ReadResult read(RowId rowId, HybridTimestamp timestamp) throws StorageException {
-        checkClosed();
-
         if (rowId.partitionId() != partitionId) {
             throw new IllegalArgumentException(
                     String.format("RowId partition [%d] is not equal to storage partition [%d].", rowId.partitionId(), partitionId));
@@ -797,8 +770,6 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
     @Override
     public Cursor<ReadResult> scanVersions(RowId rowId) throws StorageException {
-        checkClosed();
-
         ByteBuffer keyBuf = prepareHeapKeyBuf(rowId);
 
         byte[] lowerBound = copyOf(keyBuf.array(), ROW_PREFIX_SIZE);
@@ -814,13 +785,6 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         it.seek(lowerBound);
 
         return new RocksIteratorAdapter<>(it) {
-            @Override
-            public boolean hasNext() {
-                checkClosed();
-
-                return super.hasNext();
-            }
-
             @Override
             protected ReadResult decodeEntry(byte[] key, byte[] value) {
                 int keyLength = key.length;
@@ -840,9 +804,10 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     }
 
     // TODO: IGNITE-16914 Play with prefix settings and benchmark results.
+    /** {@inheritDoc} */
     @Override
     public PartitionTimestampCursor scan(HybridTimestamp timestamp) throws StorageException {
-        checkClosed();
+        Objects.requireNonNull(timestamp, "timestamp is null");
 
         if (lookingForLatestVersions(timestamp)) {
             return new ScanLatestVersionsCursor();
@@ -864,8 +829,6 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
     @Override
     public @Nullable RowId closestRowId(RowId lowerBound) throws StorageException {
-        checkClosed();
-
         ByteBuffer keyBuf = prepareHeapKeyBuf(lowerBound).position(0).limit(ROW_PREFIX_SIZE);
 
         try (RocksIterator it = db.newIterator(cf, scanReadOptions)) {
@@ -921,8 +884,6 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
     @Override
     public long rowsCount() {
-        checkClosed();
-
         try (
                 var upperBound = new Slice(partitionEndPrefix());
                 var options = new ReadOptions().setIterateUpperBound(upperBound);
@@ -933,8 +894,6 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
             long size = 0;
 
             while (it.isValid()) {
-                checkClosed();
-
                 ++size;
                 it.next();
             }
@@ -944,40 +903,29 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     }
 
     /**
-     * Destroys the storage and the data in it.
+     * Deletes partition data from the storage.
      */
     public void destroy() {
-        close(true);
+        try (WriteBatch writeBatch = new WriteBatch()) {
+            writeBatch.delete(meta, lastAppliedIndexKey);
+            writeBatch.delete(meta, lastAppliedTermKey);
+            writeBatch.delete(meta, lastGroupConfigKey);
+
+            writeBatch.delete(meta, RocksDbMetaStorage.partitionIdKey(partitionId));
+
+            writeBatch.deleteRange(cf, partitionStartPrefix(), partitionEndPrefix());
+
+            db.write(writeOpts, writeBatch);
+        } catch (RocksDBException e) {
+            TableConfiguration tableCfg = tableStorage.configuration();
+
+            throw new StorageException("Failed to destroy partition " + partitionId + " of table " + tableCfg.name(), e);
+        }
     }
 
+    /** {@inheritDoc} */
     @Override
     public void close() {
-        close(false);
-    }
-
-    private void close(boolean destroy) {
-        if (!STARTED.compareAndSet(this, true, false)) {
-            return;
-        }
-
-        if (destroy) {
-            try (WriteBatch writeBatch = new WriteBatch()) {
-                writeBatch.delete(meta, lastAppliedIndexKey);
-                writeBatch.delete(meta, lastAppliedTermKey);
-                writeBatch.delete(meta, lastGroupConfigKey);
-
-                writeBatch.delete(meta, RocksDbMetaStorage.partitionIdKey(partitionId));
-
-                writeBatch.deleteRange(cf, partitionStartPrefix(), partitionEndPrefix());
-
-                db.write(writeOpts, writeBatch);
-            } catch (RocksDBException e) {
-                TableConfiguration tableCfg = tableStorage.configuration();
-
-                throw new StorageException("Failed to destroy partition " + partitionId + " of table " + tableCfg.name(), e);
-            }
-        }
-
         RocksUtils.closeAll(persistedTierReadOpts, readOpts, writeOpts, scanReadOptions, upperBound);
     }
 
@@ -1210,8 +1158,6 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     private final class ScanLatestVersionsCursor extends BasePartitionTimestampCursor {
         @Override
         public boolean hasNext() {
-            checkClosed();
-
             // Fast-path for consecutive invocations.
             if (next != null) {
                 return true;
@@ -1228,8 +1174,6 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
             ByteBuffer currentKeyBuffer = MV_KEY_BUFFER.get().position(0);
 
             while (true) {
-                checkClosed();
-
                 currentKeyBuffer.position(0);
 
                 // At this point, seekKeyBuf should contain row id that's above the one we already scanned, but not greater than any
@@ -1331,8 +1275,6 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
         @Override
         public boolean hasNext() {
-            checkClosed();
-
             // Fast-path for consecutive invocations.
             if (next != null) {
                 return true;
@@ -1349,8 +1291,6 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
             ByteBuffer directBuffer = MV_KEY_BUFFER.get().position(0);
 
             while (true) {
-                checkClosed();
-
                 it.seek(seekKeyBuf.array());
 
                 if (invalid(it)) {
@@ -1381,12 +1321,6 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
                 return true;
             }
-        }
-    }
-
-    private void checkClosed() {
-        if (!started) {
-            throw new StorageClosedException("Storage is already closed");
         }
     }
 }

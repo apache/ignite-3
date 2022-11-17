@@ -86,16 +86,18 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
         return dataRegion;
     }
 
+    /** {@inheritDoc} */
     @Override
     public boolean isVolatile() {
         return false;
     }
 
+    /** {@inheritDoc} */
     @Override
     public void start() throws StorageException {
         super.start();
 
-        TableView tableView = tableConfig.value();
+        TableView tableView = tableCfg.value();
 
         try {
             dataRegion.filePageStoreManager().initialize(tableView.name(), tableView.tableId(), tableView.partitions());
@@ -110,14 +112,16 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
         }
     }
 
+    /** {@inheritDoc} */
     @Override
     public void destroy() throws StorageException {
         close(true);
     }
 
+    /** {@inheritDoc} */
     @Override
     public PersistentPageMemoryMvPartitionStorage createMvPartitionStorage(int partitionId) {
-        TableView tableView = tableConfig.value();
+        TableView tableView = tableCfg.value();
 
         FilePageStore filePageStore = ensurePartitionFilePageStore(tableView, partitionId);
 
@@ -165,7 +169,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
                     indexColumnsFreeList,
                     versionChainTree,
                     indexMetaTree,
-                    tablesConfig
+                    tablesConfiguration
             );
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException(

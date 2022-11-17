@@ -63,6 +63,7 @@ public class VolatilePageMemoryStorageEngine implements StorageEngine {
         this.ioRegistry = ioRegistry;
     }
 
+    /** {@inheritDoc} */
     @Override
     public void start() throws StorageException {
         addDataRegion(engineConfig.defaultRegion());
@@ -79,6 +80,7 @@ public class VolatilePageMemoryStorageEngine implements StorageEngine {
         });
     }
 
+    /** {@inheritDoc} */
     @Override
     public void stop() throws StorageException {
         try {
@@ -88,6 +90,7 @@ public class VolatilePageMemoryStorageEngine implements StorageEngine {
         }
     }
 
+    /** {@inheritDoc} */
     @Override
     public VolatilePageMemoryTableStorage createMvTable(TableConfiguration tableCfg, TablesConfiguration tablesCfg)
             throws StorageException {

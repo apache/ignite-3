@@ -2599,7 +2599,7 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
 
         /** {@inheritDoc} */
         @Override
-        public Long getRow(BplusIo<Long> io, long pageAddr, int idx, @Nullable Object ignore) throws IgniteInternalCheckedException {
+        public Long getRow(BplusIo<Long> io, long pageAddr, int idx, Object ignore) throws IgniteInternalCheckedException {
             assert io.canGetRow() : io;
 
             return io.getLookupRow(this, pageAddr, idx);

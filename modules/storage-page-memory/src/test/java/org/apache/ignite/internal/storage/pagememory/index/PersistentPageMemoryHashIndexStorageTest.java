@@ -36,7 +36,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * Hash index test implementation for persistent page memory storage.
  */
 @ExtendWith({ConfigurationExtension.class, WorkDirectoryExtension.class})
-class PersistentPageMemoryHashIndexStorageTest extends PageMemoryHashIndexStorageTest {
+class PersistentPageMemoryHashIndexStorageTest extends AbstractPageMemoryHashIndexStorageTest {
     private PersistentPageMemoryStorageEngine engine;
 
     private PersistentPageMemoryTableStorage table;

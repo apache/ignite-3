@@ -384,14 +384,13 @@ public class RocksDbTableStorage implements MvTableStorage {
         RocksDbMvPartitionStorage mvPartition = partitions.getAndSet(partitionId, null);
 
         if (mvPartition != null) {
+            //TODO IGNITE-17626 Destroy indexes as well...
             mvPartition.destroy();
 
-            for (HashIndex hashIndex : hashIndices.values()) {
-                hashIndex.destroy(partitionId);
-            }
-
-            for (SortedIndex sortedIndex : sortedIndices.values()) {
-                sortedIndex.destroy(partitionId);
+            try {
+                mvPartition.close();
+            } catch (RuntimeException e) {
+                throw new StorageException("Error when closing partition storage for the partition: " + partitionId, e);
             }
         }
     }
@@ -477,17 +476,15 @@ public class RocksDbTableStorage implements MvTableStorage {
     /**
      * Checks that a passed partition id is within the proper bounds.
      *
-     * @param partitionId Partition id.
+     * @param partId Partition id.
      */
-    private void checkPartitionId(int partitionId) {
-        int partitions = this.partitions.length();
-
-        if (partitionId < 0 || partitionId >= partitions) {
+    private void checkPartitionId(int partId) {
+        if (partId < 0 || partId >= partitions.length()) {
             throw new IllegalArgumentException(S.toString(
                     "Unable to access partition with id outside of configured range",
                     "table", tableCfg.value().name(), false,
-                    "partitionId", partitionId, false,
-                    "partitions", partitions, false
+                    "partitionId", partId, false,
+                    "partitions", partitions.length(), false
             ));
         }
     }

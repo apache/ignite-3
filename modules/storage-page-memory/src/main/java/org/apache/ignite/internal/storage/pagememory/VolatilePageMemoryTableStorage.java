@@ -61,13 +61,13 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
     /** {@inheritDoc} */
     @Override
     public VolatilePageMemoryMvPartitionStorage createMvPartitionStorage(int partitionId) throws StorageException {
-        VersionChainTree versionChainTree = createVersionChainTree(partitionId, tableConfig.value());
+        VersionChainTree versionChainTree = createVersionChainTree(partitionId, tableCfg.value());
 
-        IndexMetaTree indexMetaTree = createIndexMetaTree(partitionId, tableConfig.value());
+        IndexMetaTree indexMetaTree = createIndexMetaTree(partitionId, tableCfg.value());
 
         return new VolatilePageMemoryMvPartitionStorage(
                 this,
-                tablesConfig,
+                tablesConfiguration,
                 partitionId,
                 versionChainTree,
                 indexMetaTree

@@ -50,24 +50,9 @@ class HashIndex {
     }
 
     /**
-     * Destroys the storages and the data in it.
+     * Removes all data associated with the index.
      */
     void destroy() {
         storages.forEach((partitionId, storage) -> storage.destroy());
-
-        storages.clear();
-    }
-
-    /**
-     * Destroys the storage and the data in it for partition.
-     *
-     * @param partitionId Partition ID.
-     */
-    void destroy(int partitionId) {
-        HashIndexStorage removed = storages.remove(partitionId);
-
-        if (removed != null) {
-            removed.destroy();
-        }
     }
 }

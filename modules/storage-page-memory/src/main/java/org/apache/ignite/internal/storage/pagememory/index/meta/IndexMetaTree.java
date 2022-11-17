@@ -74,7 +74,7 @@ public class IndexMetaTree extends BplusTree<IndexMeta, IndexMeta> {
     }
 
     @Override
-    public IndexMeta getRow(BplusIo<IndexMeta> io, long pageAddr, int idx, @Nullable Object x) {
+    public IndexMeta getRow(BplusIo<IndexMeta> io, long pageAddr, int idx, Object x) {
         IndexMetaIo indexMetaIo = (IndexMetaIo) io;
 
         return indexMetaIo.getRow(pageAddr, idx);

@@ -1253,12 +1253,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
      * @return Cursor.
      * @throws IgniteInternalCheckedException If failed.
      */
-    public Cursor<T> find(
-            @Nullable L lower,
-            @Nullable L upper,
-            @Nullable TreeRowClosure<L, T> c,
-            @Nullable Object x
-    ) throws IgniteInternalCheckedException {
+    public Cursor<T> find(@Nullable L lower, @Nullable L upper, TreeRowClosure<L, T> c, Object x) throws IgniteInternalCheckedException {
         return find(lower, upper, true, true, c, x);
     }
 
@@ -2057,7 +2052,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
 
     /** {@inheritDoc} */
     @Override
-    public void invoke(L row, @Nullable Object z, InvokeClosure<T> c) throws IgniteInternalCheckedException {
+    public void invoke(L row, Object z, InvokeClosure<T> c) throws IgniteInternalCheckedException {
         checkDestroyed();
 
         Invoke x = new Invoke(row, z, c);
@@ -4042,10 +4037,9 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
      * Invoke operation.
      */
     public final class Invoke extends Get {
-        @Nullable
-        final Object arg;
+        Object arg;
 
-        final InvokeClosure<T> clo;
+        InvokeClosure<T> clo;
 
         Bool closureInvoked = FALSE;
 
@@ -4060,7 +4054,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
          * @param arg Implementation specific argument.
          * @param clo Closure.
          */
-        private Invoke(L row, @Nullable Object arg, InvokeClosure<T> clo) {
+        private Invoke(L row, Object arg, InvokeClosure<T> clo) {
             super(row, false);
 
             assert clo != null;
@@ -5655,7 +5649,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
      * @return Data row.
      * @throws IgniteInternalCheckedException If failed.
      */
-    public abstract T getRow(BplusIo<L> io, long pageAddr, int idx, @Nullable Object x) throws IgniteInternalCheckedException;
+    public abstract T getRow(BplusIo<L> io, long pageAddr, int idx, Object x) throws IgniteInternalCheckedException;
 
     /**
      * Abstract forward cursor.

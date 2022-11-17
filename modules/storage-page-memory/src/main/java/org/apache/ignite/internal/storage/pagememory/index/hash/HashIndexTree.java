@@ -115,12 +115,7 @@ public class HashIndexTree extends BplusTree<HashIndexRowKey, HashIndexRow> {
     }
 
     @Override
-    public HashIndexRow getRow(
-            BplusIo<HashIndexRowKey> io,
-            long pageAddr,
-            int idx,
-            @Nullable Object x
-    ) throws IgniteInternalCheckedException {
+    public HashIndexRow getRow(BplusIo<HashIndexRowKey> io, long pageAddr, int idx, Object x) throws IgniteInternalCheckedException {
         HashIndexTreeIo hashIndexTreeIo = (HashIndexTreeIo) io;
 
         return hashIndexTreeIo.getRow(dataPageReader, partId, pageAddr, idx);

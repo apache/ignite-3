@@ -128,6 +128,7 @@ class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory>
         }
     }
 
+    /** {@inheritDoc} */
     @Override
     public PersistentPageMemory pageMemory() {
         checkDataRegionStarted();

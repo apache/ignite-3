@@ -52,9 +52,9 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
         }
     }
 
-    protected final TableConfiguration tableConfig;
+    protected final TableConfiguration tableCfg;
 
-    protected TablesConfiguration tablesConfig;
+    protected TablesConfiguration tablesConfiguration;
 
     protected volatile boolean started;
 
@@ -63,21 +63,21 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
     /**
      * Constructor.
      *
-     * @param tableConfig Table configuration.
+     * @param tableCfg Table configuration.
      */
-    protected AbstractPageMemoryTableStorage(TableConfiguration tableConfig, TablesConfiguration tablesCfg) {
-        this.tableConfig = tableConfig;
-        this.tablesConfig = tablesCfg;
+    protected AbstractPageMemoryTableStorage(TableConfiguration tableCfg, TablesConfiguration tablesCfg) {
+        this.tableCfg = tableCfg;
+        this.tablesConfiguration = tablesCfg;
     }
 
     @Override
     public TableConfiguration configuration() {
-        return tableConfig;
+        return tableCfg;
     }
 
     @Override
     public TablesConfiguration tablesConfiguration() {
-        return tablesConfig;
+        return tablesConfiguration;
     }
 
     /**
@@ -87,7 +87,7 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
 
     @Override
     public void start() throws StorageException {
-        TableView tableView = tableConfig.value();
+        TableView tableView = tableCfg.value();
 
         mvPartitions = new AtomicReferenceArray<>(tableView.partitions());
 
@@ -212,7 +212,7 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
         if (partitionId < 0 || partitionId >= partitions) {
             throw new IllegalArgumentException(S.toString(
                     "Unable to access partition with id outside of configured range",
-                    "table", tableConfig.value().name(), false,
+                    "table", tableCfg.value().name(), false,
                     "partitionId", partitionId, false,
                     "partitions", partitions, false
             ));

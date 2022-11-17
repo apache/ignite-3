@@ -86,7 +86,7 @@ public class VersionChainTree extends BplusTree<VersionChainKey, VersionChain> {
 
     /** {@inheritDoc} */
     @Override
-    public VersionChain getRow(BplusIo<VersionChainKey> io, long pageAddr, int idx, @Nullable Object x) {
+    public VersionChain getRow(BplusIo<VersionChainKey> io, long pageAddr, int idx, Object x) {
         VersionChainIo versionChainIo = (VersionChainIo) io;
 
         return versionChainIo.getRow(pageAddr, idx, partId);
