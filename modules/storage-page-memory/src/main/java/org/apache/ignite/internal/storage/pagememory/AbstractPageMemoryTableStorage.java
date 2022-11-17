@@ -99,10 +99,9 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
     /**
      * Destroys the partition multi-version storage and all its indexes.
      *
-     * @param partitionId Partition ID.
      * @param mvPartitionStorage Multi-versioned partition storage.
      */
-    public abstract void destroyMvPartitionStorage(int partitionId, AbstractPageMemoryMvPartitionStorage mvPartitionStorage);
+    public abstract void destroyMvPartitionStorage(AbstractPageMemoryMvPartitionStorage mvPartitionStorage);
 
     @Override
     public AbstractPageMemoryMvPartitionStorage getOrCreateMvPartition(int partitionId) throws StorageException {
@@ -139,7 +138,7 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
         MvPartitionStorage partition = mvPartitions.getAndSet(partitionId, null);
 
         if (partition != null) {
-            destroyMvPartitionStorage(partitionId, ((AbstractPageMemoryMvPartitionStorage) partition));
+            destroyMvPartitionStorage((AbstractPageMemoryMvPartitionStorage) partition);
         }
     }
 
@@ -185,7 +184,7 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
             AbstractPageMemoryMvPartitionStorage partition = mvPartitions.getAndUpdate(i, p -> null);
 
             if (partition != null) {
-                closeables.add(destroy ? partition::destroy : partition::close);
+                closeables.add(destroy ? () -> destroyMvPartitionStorage(partition) : partition::close);
             }
         }
 

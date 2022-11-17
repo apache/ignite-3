@@ -71,22 +71,16 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
 
     @Override
     public <V> V runConsistently(WriteClosure<V> closure) throws StorageException {
-        checkClosed();
-
         return closure.execute();
     }
 
     @Override
     public CompletableFuture<Void> flush() {
-        checkClosed();
-
         return CompletableFuture.completedFuture(null);
     }
 
     @Override
     public long lastAppliedIndex() {
-        checkClosed();
-
         return lastAppliedIndex;
     }
 
@@ -97,15 +91,12 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
 
     @Override
     public void lastApplied(long lastAppliedIndex, long lastAppliedTerm) throws StorageException {
-        checkClosed();
         this.lastAppliedIndex = lastAppliedIndex;
         this.lastAppliedTerm = lastAppliedTerm;
     }
 
     @Override
     public long persistedIndex() {
-        checkClosed();
-
         return lastAppliedIndex;
     }
 
@@ -120,28 +111,22 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
     }
 
     @Override
-    void close0(boolean destroy) throws StorageException {
+    public void close() {
+        if (!STARTED.compareAndSet(this, true, false)) {
+            return;
+        }
+
+        closeBusyLock.block();
+
         versionChainTree.close();
         indexMetaTree.close();
 
-        if (destroy) {
-            // TODO: IGNITE-17833 Implement
-        }
-
         for (PageMemoryHashIndexStorage hashIndexStorage : hashIndexes.values()) {
-            if (destroy) {
-                hashIndexStorage.destroy();
-            } else {
-                hashIndexStorage.close();
-            }
+            hashIndexStorage.close();
         }
 
         for (PageMemorySortedIndexStorage sortedIndexStorage : sortedIndexes.values()) {
-            if (destroy) {
-                sortedIndexStorage.destroy();
-            } else {
-                sortedIndexStorage.close();
-            }
+            sortedIndexStorage.close();
         }
 
         hashIndexes.clear();

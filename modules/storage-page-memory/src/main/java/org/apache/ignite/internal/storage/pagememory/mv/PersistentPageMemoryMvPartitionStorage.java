@@ -112,56 +112,79 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
 
     @Override
     public <V> V runConsistently(WriteClosure<V> closure) throws StorageException {
-        checkClosed();
-
-        checkpointTimeoutLock.checkpointReadLock();
+        if (!closeBusyLock.enterBusy()) {
+            throwStorageClosedException();
+        }
 
         try {
-            return closure.execute();
+            checkpointTimeoutLock.checkpointReadLock();
+
+            try {
+                return closure.execute();
+            } finally {
+                checkpointTimeoutLock.checkpointReadUnlock();
+            }
         } finally {
-            checkpointTimeoutLock.checkpointReadUnlock();
+            closeBusyLock.leaveBusy();
         }
     }
 
     @Override
     public CompletableFuture<Void> flush() {
-        checkClosed();
-
-        CheckpointProgress lastCheckpoint = checkpointManager.lastCheckpointProgress();
-
-        CheckpointProgress scheduledCheckpoint;
-
-        if (lastCheckpoint != null && meta.metaSnapshot(lastCheckpoint.id()).lastAppliedIndex() == meta.lastAppliedIndex()) {
-            scheduledCheckpoint = lastCheckpoint;
-        } else {
-            var persistentTableStorage = (PersistentPageMemoryTableStorage) tableStorage;
-
-            PersistentPageMemoryStorageEngineView engineCfg = persistentTableStorage.engine().configuration().value();
-
-            int checkpointDelayMillis = engineCfg.checkpoint().checkpointDelayMillis();
-            scheduledCheckpoint = checkpointManager.scheduleCheckpoint(checkpointDelayMillis, "Triggered by replicator");
+        if (!closeBusyLock.enterBusy()) {
+            throwStorageClosedException();
         }
 
-        return scheduledCheckpoint.futureFor(CheckpointState.FINISHED).thenApply(res -> null);
+        try {
+            CheckpointProgress lastCheckpoint = checkpointManager.lastCheckpointProgress();
+
+            CheckpointProgress scheduledCheckpoint;
+
+            if (lastCheckpoint != null && meta.metaSnapshot(lastCheckpoint.id()).lastAppliedIndex() == meta.lastAppliedIndex()) {
+                scheduledCheckpoint = lastCheckpoint;
+            } else {
+                var persistentTableStorage = (PersistentPageMemoryTableStorage) tableStorage;
+
+                PersistentPageMemoryStorageEngineView engineCfg = persistentTableStorage.engine().configuration().value();
+
+                int checkpointDelayMillis = engineCfg.checkpoint().checkpointDelayMillis();
+                scheduledCheckpoint = checkpointManager.scheduleCheckpoint(checkpointDelayMillis, "Triggered by replicator");
+            }
+
+            return scheduledCheckpoint.futureFor(CheckpointState.FINISHED).thenApply(res -> null);
+        } finally {
+            closeBusyLock.leaveBusy();
+        }
     }
 
     @Override
     public long lastAppliedIndex() {
-        checkClosed();
+        if (!closeBusyLock.enterBusy()) {
+            throwStorageClosedException();
+        }
 
-        return meta.lastAppliedIndex();
+        try {
+            return meta.lastAppliedIndex();
+        } finally {
+            closeBusyLock.leaveBusy();
+        }
     }
 
     @Override
     public long lastAppliedTerm() {
-        checkClosed();
+        if (!closeBusyLock.enterBusy()) {
+            throwStorageClosedException();
+        }
 
-        return meta.lastAppliedTerm();
+        try {
+            return meta.lastAppliedTerm();
+        } finally {
+            closeBusyLock.leaveBusy();
+        }
     }
 
     @Override
     public void lastApplied(long lastAppliedIndex, long lastAppliedTerm) throws StorageException {
-        checkClosed();
         assert checkpointTimeoutLock.checkpointLockIsHeldByThread();
 
         CheckpointProgress lastCheckpoint = checkpointManager.lastCheckpointProgress();
@@ -173,9 +196,15 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
 
     @Override
     public long persistedIndex() {
-        checkClosed();
+        if (!closeBusyLock.enterBusy()) {
+            throwStorageClosedException();
+        }
 
-        return persistedIndex;
+        try {
+            return persistedIndex;
+        } finally {
+            closeBusyLock.leaveBusy();
+        }
     }
 
     @Override
@@ -219,17 +248,20 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     }
 
     @Override
-    void close0(boolean destroy) throws StorageException {
-        checkpointManager.removeCheckpointListener(checkpointListener);
+    public void close() {
+        if (!STARTED.compareAndSet(this, true, false)) {
+            return;
+        }
 
-        versionChainTree.close();
-        indexMetaTree.close();
+        closeBusyLock.block();
+
+        checkpointManager.removeCheckpointListener(checkpointListener);
 
         rowVersionFreeList.close();
         indexFreeList.close();
 
-        // If we need to destroy a partition, then we do not need to destroy its indexes separately.
-        // We will be deleting everything at once, so we only need to close all indexes.
+        versionChainTree.close();
+        indexMetaTree.close();
 
         for (PageMemoryHashIndexStorage hashIndexStorage : hashIndexes.values()) {
             hashIndexStorage.close();
@@ -241,10 +273,6 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
 
         hashIndexes.clear();
         sortedIndexes.clear();
-
-        if (destroy) {
-            // TODO: IGNITE-17132 реализовать?
-        }
     }
 
     /**
