@@ -20,6 +20,7 @@ package org.apache.ignite.internal.cli.commands;
 import org.apache.ignite.internal.cli.VersionProvider;
 import org.apache.ignite.internal.cli.commands.cliconfig.CliCommand;
 import org.apache.ignite.internal.cli.commands.cluster.ClusterCommand;
+import org.apache.ignite.internal.cli.commands.connect.ConnectCommand;
 import org.apache.ignite.internal.cli.commands.node.NodeCommand;
 import org.apache.ignite.internal.cli.commands.sql.SqlCommand;
 import picocli.CommandLine;
@@ -39,6 +40,7 @@ import picocli.CommandLine.Option;
                 SqlCommand.class,
                 CommandLine.HelpCommand.class,
                 CliCommand.class,
+                ConnectCommand.class,
                 NodeCommand.class,
                 ClusterCommand.class
         })
