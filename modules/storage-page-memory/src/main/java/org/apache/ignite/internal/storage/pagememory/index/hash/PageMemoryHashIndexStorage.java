@@ -29,6 +29,7 @@ import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumnsFreeList;
 import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
@@ -63,6 +64,10 @@ public class PageMemoryHashIndexStorage implements HashIndexStorage {
     /** Highest possible RowId according to signed long ordering. */
     private final RowId highestRowId;
 
+    /** Busy lock for synchronous closing. */
+    private final IgniteSpinBusyLock closeBusyLock = new IgniteSpinBusyLock();
+
+    /** To avoid double closure. */
     private volatile boolean started = true;
 
     /**
@@ -91,50 +96,66 @@ public class PageMemoryHashIndexStorage implements HashIndexStorage {
 
     @Override
     public Cursor<RowId> get(BinaryTuple key) throws StorageException {
-        checkClosed();
-
-        IndexColumns indexColumns = new IndexColumns(partitionId, key.byteBuffer());
-
-        HashIndexRow lowerBound = new HashIndexRow(indexColumns, lowestRowId);
-        HashIndexRow upperBound = new HashIndexRow(indexColumns, highestRowId);
-
-        Cursor<HashIndexRow> cursor;
-
-        try {
-            cursor = hashIndexTree.find(lowerBound, upperBound);
-        } catch (IgniteInternalCheckedException e) {
-            throw new StorageException("Failed to create scan cursor", e);
+        if (!closeBusyLock.enterBusy()) {
+            throwStorageClosedException();
         }
 
-        return new Cursor<>() {
-            @Override
-            public void close() throws Exception {
-                cursor.close();
-            }
+        try {
+            IndexColumns indexColumns = new IndexColumns(partitionId, key.byteBuffer());
 
-            @Override
-            public boolean hasNext() {
-                checkClosed();
+            HashIndexRow lowerBound = new HashIndexRow(indexColumns, lowestRowId);
+            HashIndexRow upperBound = new HashIndexRow(indexColumns, highestRowId);
 
-                return cursor.hasNext();
-            }
+            Cursor<HashIndexRow> cursor = hashIndexTree.find(lowerBound, upperBound);
 
-            @Override
-            public RowId next() {
-                checkClosed();
+            return new Cursor<>() {
+                @Override
+                public void close() throws Exception {
+                    cursor.close();
+                }
 
-                return cursor.next().rowId();
-            }
-        };
+                @Override
+                public boolean hasNext() {
+                    if (!closeBusyLock.enterBusy()) {
+                        throwStorageClosedException();
+                    }
+
+                    try {
+                        return cursor.hasNext();
+                    } finally {
+                        closeBusyLock.leaveBusy();
+                    }
+                }
+
+                @Override
+                public RowId next() {
+                    if (!closeBusyLock.enterBusy()) {
+                        throwStorageClosedException();
+                    }
+
+                    try {
+                        return cursor.next().rowId();
+                    } finally {
+                        closeBusyLock.leaveBusy();
+                    }
+                }
+            };
+        } catch (IgniteInternalCheckedException e) {
+            throw new StorageException("Failed to create scan cursor", e);
+        } finally {
+            closeBusyLock.leaveBusy();
+        }
     }
 
     @Override
     public void put(IndexRow row) throws StorageException {
-        checkClosed();
-
-        IndexColumns indexColumns = new IndexColumns(partitionId, row.indexColumns().byteBuffer());
+        if (!closeBusyLock.enterBusy()) {
+            throwStorageClosedException();
+        }
 
         try {
+            IndexColumns indexColumns = new IndexColumns(partitionId, row.indexColumns().byteBuffer());
+
             HashIndexRow hashIndexRow = new HashIndexRow(indexColumns, row.rowId());
 
             var insert = new InsertHashIndexRowInvokeClosure(hashIndexRow, freeList, hashIndexTree.inlineSize());
@@ -142,16 +163,20 @@ public class PageMemoryHashIndexStorage implements HashIndexStorage {
             hashIndexTree.invoke(hashIndexRow, null, insert);
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException("Failed to put value into index", e);
+        } finally {
+            closeBusyLock.leaveBusy();
         }
     }
 
     @Override
     public void remove(IndexRow row) throws StorageException {
-        checkClosed();
-
-        IndexColumns indexColumns = new IndexColumns(partitionId, row.indexColumns().byteBuffer());
+        if (!closeBusyLock.enterBusy()) {
+            throwStorageClosedException();
+        }
 
         try {
+            IndexColumns indexColumns = new IndexColumns(partitionId, row.indexColumns().byteBuffer());
+
             HashIndexRow hashIndexRow = new HashIndexRow(indexColumns, row.rowId());
 
             var remove = new RemoveHashIndexRowInvokeClosure(hashIndexRow, freeList);
@@ -162,41 +187,34 @@ public class PageMemoryHashIndexStorage implements HashIndexStorage {
             remove.afterCompletion();
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException("Failed to remove value from index", e);
+        } finally {
+            closeBusyLock.leaveBusy();
         }
     }
 
     @Override
     public void destroy() throws StorageException {
-        close0(true);
+        // TODO: IGNITE-17626 Remove it
+        throw new UnsupportedOperationException();
     }
 
     /**
      * Closes the hash index storage.
      */
     public void close() {
-        close0(false);
-    }
-
-    /**
-     * Closes the hash index storage.
-     *
-     * @param destroy Whether to destroy data in storage.
-     */
-    private void close0(boolean destroy) {
         if (!STARTED.compareAndSet(this, true, false)) {
             return;
         }
 
-        hashIndexTree.close();
+        closeBusyLock.block();
 
-        if (destroy) {
-            //TODO IGNITE-17626 Implement.
-        }
+        hashIndexTree.close();
     }
 
-    private void checkClosed() {
-        if (!started) {
-            throw new StorageClosedException("Storage is already closed");
-        }
+    /**
+     * Throws an exception that the storage is already closed.
+     */
+    private void throwStorageClosedException() {
+        throw new StorageClosedException("Storage is already closed");
     }
 }
