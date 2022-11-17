@@ -98,22 +98,13 @@ namespace Apache.Ignite.Tests
 
             Assert.Greater(_eventListener.BuffersRented, 0);
 
-            // Use WaitForCondition to check rented/returned buffers equality:
-            // Buffer pools are used by everything, including testing framework, internal .NET needs, etc.
-            var listener = _eventListener;
-            TestUtils.WaitForCondition(
-                condition: () => listener.BuffersReturned == listener.BuffersRented,
-                timeoutMs: 1000,
-                messageFactory: () => $"rented = {listener.BuffersRented}, returned = {listener.BuffersReturned}");
+            CheckPooledBufferLeak();
 
             _eventListener.Dispose();
         }
 
         [TearDown]
-        public void TearDown()
-        {
-            Assert.AreEqual(_eventListener.BuffersReturned, _eventListener.BuffersRented);
-        }
+        public void TearDown() => CheckPooledBufferLeak();
 
         protected static IIgniteTuple GetTuple(long id) => new IgniteTuple { [KeyCol] = id };
 
@@ -130,5 +121,16 @@ namespace Apache.Ignite.Tests
             Endpoints = { "127.0.0.1:" + ServerNode.Port },
             Logger = new ConsoleLogger { MinLevel = LogLevel.Trace }
         };
+
+        private void CheckPooledBufferLeak()
+        {
+            // Use WaitForCondition to check rented/returned buffers equality:
+            // Buffer pools are used by everything, including testing framework, internal .NET needs, etc.
+            var listener = _eventListener;
+            TestUtils.WaitForCondition(
+                condition: () => listener.BuffersReturned == listener.BuffersRented,
+                timeoutMs: 1000,
+                messageFactory: () => $"rented = {listener.BuffersRented}, returned = {listener.BuffersReturned}");
+        }
     }
 }
