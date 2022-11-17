@@ -995,7 +995,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     /**
      * Returns the partition ID.
      */
-    int partitionId() {
+    public int partitionId() {
         return partitionId;
     }
 }

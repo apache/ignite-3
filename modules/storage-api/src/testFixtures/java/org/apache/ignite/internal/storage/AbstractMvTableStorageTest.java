@@ -20,6 +20,7 @@ package org.apache.ignite.internal.storage;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
@@ -66,6 +67,7 @@ import org.apache.ignite.internal.storage.index.IndexRowImpl;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.util.Cursor;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -202,6 +204,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
     /**
      * Tests destroying an index.
      */
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17626")
     @Test
     public void testDestroyIndex() {
         MvPartitionStorage partitionStorage = tableStorage.getOrCreateMvPartition(PARTITION_ID);
@@ -442,6 +445,27 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
         // Let's check that nothing will happen if we try to destroy a non-existing partition.
         tableStorage.destroyPartition(PARTITION_ID);
+    }
+
+    @Test
+    public void testReCreatePartition() throws Exception {
+        MvPartitionStorage mvPartitionStorage = tableStorage.getOrCreateMvPartition(PARTITION_ID);
+
+        RowId rowId = new RowId(PARTITION_ID);
+
+        BinaryRow binaryRow = binaryRow(new TestKey(0, "0"), new TestValue(1, "1"));
+
+        mvPartitionStorage.runConsistently(() -> {
+            mvPartitionStorage.addWriteCommitted(rowId, binaryRow, clock.now());
+
+            return null;
+        });
+
+        tableStorage.destroyPartition(PARTITION_ID);
+
+        MvPartitionStorage newMvPartitionStorage = tableStorage.getOrCreateMvPartition(PARTITION_ID);
+
+        assertThat(getAll(newMvPartitionStorage.scanVersions(rowId)), empty());
     }
 
     private static void createTestIndexes(TablesConfiguration tablesConfig) {

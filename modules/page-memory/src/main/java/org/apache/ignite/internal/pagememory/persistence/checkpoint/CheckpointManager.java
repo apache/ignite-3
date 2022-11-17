@@ -314,4 +314,15 @@ public class CheckpointManager {
     public void addDeltaFileCountForCompaction(int count) {
         compactor.addDeltaFiles(count);
     }
+
+
+    /**
+     * Callback on destruction of the partition of the corresponding group.
+     *
+     * @param groupId Group ID.
+     * @param partitionId Partition ID.
+     */
+    public void onPartitionDestruction(int groupId, int partitionId) {
+        // TODO: IGNITE-17132 реализовать и протестировать?
+    }
 }

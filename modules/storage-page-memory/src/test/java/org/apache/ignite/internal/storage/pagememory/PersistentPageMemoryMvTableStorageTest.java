@@ -79,13 +79,6 @@ public class PersistentPageMemoryMvTableStorageTest extends AbstractMvTableStora
         );
     }
 
-    // TODO: Enable this test after index destruction is implemented.
-    @Disabled
-    @Override
-    public void testDestroyIndex() {
-        super.testDestroyIndex();
-    }
-
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-18029")
     @Override
     public void testStartRebalanceMvPartition() throws Exception {
@@ -114,8 +107,5 @@ public class PersistentPageMemoryMvTableStorageTest extends AbstractMvTableStora
                 .forceCheckpoint("after-test-destroy-partition")
                 .futureFor(CheckpointState.FINISHED)
                 .get(1, TimeUnit.SECONDS);
-
-        // TODO: IGNITE-17132 убедиться что файлы отсутствуют ?
-        // TODO: IGNITE-17132 убедиться что в регионе нет страниц?
     }
 }
