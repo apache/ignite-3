@@ -18,7 +18,6 @@
 package org.apache.ignite.internal;
 
 import java.util.concurrent.CompletableFuture;
-
 import org.apache.ignite.internal.DistributionZoneView;
 import org.apache.ignite.internal.DistributionZonesConfiguration;
 import org.apache.ignite.internal.exception.DistributionZoneAlreadyExistsException;

@@ -26,11 +26,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
-
 import org.apache.ignite.configuration.ConfigurationChangeException;
 import org.apache.ignite.internal.DistributionZoneConfiguration;
-import org.apache.ignite.internal.DistributionZonesConfiguration;
 import org.apache.ignite.internal.DistributionZoneManager;
+import org.apache.ignite.internal.DistributionZonesConfiguration;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.exception.DistributionZoneAlreadyExistsException;
