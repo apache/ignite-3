@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal;
 
-import java.util.Objects;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Distribution zone configuration.
@@ -27,21 +27,21 @@ public class DistributionZoneCfg {
     private final String name;
 
     /** Data nodes auto adjust timeout. */
-    private final int dataNodesAutoAdjust;
+    private final Integer dataNodesAutoAdjust;
 
     /** Data nodes auto adjust scale up timeout. */
-    private final int dataNodesAutoAdjustScaleUp;
+    private final Integer dataNodesAutoAdjustScaleUp;
 
     /** Data nodes auto adjust scale down timeout. */
-    private final int dataNodesAutoAdjustScaleDown;
+    private final Integer dataNodesAutoAdjustScaleDown;
 
     /**
      * The constructor.
      */
     public DistributionZoneCfg(String name,
-                               int dataNodesAutoAdjust,
-                               int dataNodesAutoAdjustScaleUp,
-                               int dataNodesAutoAdjustScaleDown) {
+                               Integer dataNodesAutoAdjust,
+                               Integer dataNodesAutoAdjustScaleUp,
+                               Integer dataNodesAutoAdjustScaleDown) {
         this.name = name;
         this.dataNodesAutoAdjust = dataNodesAutoAdjust;
         this.dataNodesAutoAdjustScaleUp = dataNodesAutoAdjustScaleUp;
@@ -53,6 +53,7 @@ public class DistributionZoneCfg {
      *
      * @return The zone name.
      */
+    @Nullable
     public String name() {
         return name;
     }
@@ -62,7 +63,8 @@ public class DistributionZoneCfg {
      *
      * @return Data nodes auto adjust timeout.
      */
-    public int dataNodesAutoAdjust() {
+    @Nullable
+    public Integer dataNodesAutoAdjust() {
         return dataNodesAutoAdjust;
     }
 
@@ -71,7 +73,8 @@ public class DistributionZoneCfg {
      *
      * @return Data nodes auto adjust scale up timeout.
      */
-    public int dataNodesAutoAdjustScaleUp() {
+    @Nullable
+    public Integer dataNodesAutoAdjustScaleUp() {
         return dataNodesAutoAdjustScaleUp;
     }
 
@@ -80,7 +83,8 @@ public class DistributionZoneCfg {
      *
      * @return Data nodes auto adjust scale down timeout.
      */
-    public int dataNodesAutoAdjustScaleDown() {
+    @Nullable
+    public Integer dataNodesAutoAdjustScaleDown() {
         return dataNodesAutoAdjustScaleDown;
     }
 
@@ -92,13 +96,13 @@ public class DistributionZoneCfg {
         private String name;
 
         /** Data nodes auto adjust timeout. */
-        private int dataNodesAutoAdjust = Integer.MAX_VALUE;
+        private Integer dataNodesAutoAdjust;
 
         /** Data nodes auto adjust scale up timeout. */
-        private int dataNodesAutoAdjustScaleUp = Integer.MAX_VALUE;
+        private Integer dataNodesAutoAdjustScaleUp;
 
         /** Data nodes auto adjust scale down timeout. */
-        private int dataNodesAutoAdjustScaleDown = Integer.MAX_VALUE;
+        private Integer dataNodesAutoAdjustScaleDown;
 
         /**
          * The constructor.
@@ -162,10 +166,8 @@ public class DistributionZoneCfg {
          * @return Distribution zone configuration.
          */
         public DistributionZoneCfg build() {
-            Objects.requireNonNull(name, "name is null");
-
-            if (dataNodesAutoAdjust != Integer.MAX_VALUE
-                    && (dataNodesAutoAdjustScaleUp != Integer.MAX_VALUE || dataNodesAutoAdjustScaleDown != Integer.MAX_VALUE)
+            if (dataNodesAutoAdjust != null
+                    && (dataNodesAutoAdjustScaleUp != null || dataNodesAutoAdjustScaleDown != null)
                 ) {
                 throw new IllegalArgumentException(
                         String.format("Not compatible parameters [dataNodesAutoAdjust=%s, "

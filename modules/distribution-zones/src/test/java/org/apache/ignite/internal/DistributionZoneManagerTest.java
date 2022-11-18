@@ -87,10 +87,10 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
     }
 
     @Test
-    public void testCreateDropZoneWithSeparatedAutoAdjust() throws Exception {
+    public void testCreateZoneWithAutoAdjustScaleUp() throws Exception {
         distributionZoneManager.createZone(
                 new DistributionZoneCfg.Builder().name(ZONE_NAME)
-                        .dataNodesAutoAdjustScaleUp(100).dataNodesAutoAdjustScaleDown(200).build()
+                        .dataNodesAutoAdjustScaleUp(100).build()
                 )
                 .get(5, TimeUnit.SECONDS);
 
@@ -100,6 +100,31 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
         assertNotNull(zone1);
         assertEquals(ZONE_NAME, zone1.name().value());
         assertEquals(100, zone1.dataNodesAutoAdjustScaleUp().value());
+        assertEquals(Integer.MAX_VALUE, zone1.dataNodesAutoAdjustScaleDown().value());
+        assertEquals(Integer.MAX_VALUE, zone1.dataNodesAutoAdjust().value());
+
+        distributionZoneManager.dropZone(ZONE_NAME).get(5, TimeUnit.SECONDS);
+
+        zone1 = registry.getConfiguration(DistributionZonesConfiguration.KEY).distributionZones()
+                .get(ZONE_NAME);
+
+        assertNull(zone1);
+    }
+
+    @Test
+    public void testCreateZoneWithAutoAdjustScaleDown() throws Exception {
+        distributionZoneManager.createZone(
+                new DistributionZoneCfg.Builder().name(ZONE_NAME)
+                        .dataNodesAutoAdjustScaleDown(200).build()
+                )
+                .get(5, TimeUnit.SECONDS);
+
+        DistributionZoneConfiguration zone1 = registry.getConfiguration(DistributionZonesConfiguration.KEY).distributionZones()
+                .get(ZONE_NAME);
+
+        assertNotNull(zone1);
+        assertEquals(ZONE_NAME, zone1.name().value());
+        assertEquals(Integer.MAX_VALUE, zone1.dataNodesAutoAdjustScaleUp().value());
         assertEquals(200, zone1.dataNodesAutoAdjustScaleDown().value());
         assertEquals(Integer.MAX_VALUE, zone1.dataNodesAutoAdjust().value());
 
@@ -112,7 +137,7 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
     }
 
     @Test
-    public void testCreateZoneIfExists1() throws Exception {
+    public void testCreateZoneIfExists() throws Exception {
         Exception e = null;
 
         distributionZoneManager.createZone(
@@ -123,25 +148,6 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
             distributionZoneManager.createZone(
                     new DistributionZoneCfg.Builder().name(ZONE_NAME).dataNodesAutoAdjust(100).build()
             ).get(5, TimeUnit.SECONDS);
-        } catch (Exception e0) {
-            e = e0;
-        }
-
-        assertTrue(e != null);
-        assertTrue(e.getCause() instanceof DistributionZoneAlreadyExistsException, e.toString());
-    }
-
-    @Test
-    public void testCreateZoneIfExists2() throws Exception {
-        Exception e = null;
-
-        distributionZoneManager.createZone(
-                new DistributionZoneCfg.Builder().name(ZONE_NAME).dataNodesAutoAdjust(100).build()
-        ).get(5, TimeUnit.SECONDS);
-
-        try {
-            distributionZoneManager.createZone(new DistributionZoneCfg.Builder().name(ZONE_NAME)
-                    .dataNodesAutoAdjustScaleUp(100).dataNodesAutoAdjustScaleDown(100).build()).get(5, TimeUnit.SECONDS);
         } catch (Exception e0) {
             e = e0;
         }
@@ -192,6 +198,58 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
         assertEquals(200, zone1.dataNodesAutoAdjustScaleUp().value());
         assertEquals(300, zone1.dataNodesAutoAdjustScaleDown().value());
         assertEquals(Integer.MAX_VALUE, zone1.dataNodesAutoAdjust().value());
+
+
+        distributionZoneManager.alterZone(ZONE_NAME, new DistributionZoneCfg.Builder().name(ZONE_NAME)
+                        .dataNodesAutoAdjustScaleUp(400).build())
+                .get(5, TimeUnit.SECONDS);
+
+        zone1 = registry.getConfiguration(DistributionZonesConfiguration.KEY).distributionZones()
+                .get(ZONE_NAME);
+
+        assertNotNull(zone1);
+        assertEquals(400, zone1.dataNodesAutoAdjustScaleUp().value());
+        assertEquals(300, zone1.dataNodesAutoAdjustScaleDown().value());
+        assertEquals(Integer.MAX_VALUE, zone1.dataNodesAutoAdjust().value());
+
+
+        distributionZoneManager.alterZone(ZONE_NAME, new DistributionZoneCfg.Builder().name(ZONE_NAME)
+                        .dataNodesAutoAdjust(500).build())
+                .get(5, TimeUnit.SECONDS);
+
+        zone1 = registry.getConfiguration(DistributionZonesConfiguration.KEY).distributionZones()
+                .get(ZONE_NAME);
+
+        assertNotNull(zone1);
+        assertEquals(Integer.MAX_VALUE, zone1.dataNodesAutoAdjustScaleUp().value());
+        assertEquals(Integer.MAX_VALUE, zone1.dataNodesAutoAdjustScaleDown().value());
+        assertEquals(500, zone1.dataNodesAutoAdjust().value());
+    }
+
+    @Test
+    public void testRenameZone() throws Exception {
+        distributionZoneManager.createZone(
+                        new DistributionZoneCfg.Builder().name(ZONE_NAME).dataNodesAutoAdjust(100).build()
+                )
+                .get(5, TimeUnit.SECONDS);
+
+        distributionZoneManager.alterZone(ZONE_NAME,
+                        new DistributionZoneCfg.Builder().name(NEW_ZONE_NAME).build())
+                .get(5, TimeUnit.SECONDS);
+
+        DistributionZoneConfiguration zone1 = registry.getConfiguration(DistributionZonesConfiguration.KEY).distributionZones()
+                .get(ZONE_NAME);
+
+        DistributionZoneConfiguration zone2 = registry.getConfiguration(DistributionZonesConfiguration.KEY)
+                .distributionZones()
+                .get(NEW_ZONE_NAME);
+
+        assertNull(zone1);
+        assertNotNull(zone2);
+        assertEquals(NEW_ZONE_NAME, zone2.name().value());
+        assertEquals(Integer.MAX_VALUE, zone2.dataNodesAutoAdjustScaleUp().value());
+        assertEquals(Integer.MAX_VALUE, zone2.dataNodesAutoAdjustScaleDown().value());
+        assertEquals(100, zone2.dataNodesAutoAdjust().value());
     }
 
     @Test
@@ -200,7 +258,6 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
                         new DistributionZoneCfg.Builder().name(ZONE_NAME).dataNodesAutoAdjust(100).build()
                 )
                 .get(5, TimeUnit.SECONDS);
-
 
         distributionZoneManager.alterZone(ZONE_NAME,
                         new DistributionZoneCfg.Builder().name(NEW_ZONE_NAME).dataNodesAutoAdjust(400).build())
@@ -222,27 +279,12 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
     }
 
     @Test
-    public void testAlterZoneIfExists1() {
+    public void testAlterZoneIfExists() {
         Exception e = null;
 
         try {
             distributionZoneManager.alterZone(ZONE_NAME, new DistributionZoneCfg.Builder()
                     .name(ZONE_NAME).dataNodesAutoAdjust(100).build()).get(5, TimeUnit.SECONDS);
-        } catch (Exception e0) {
-            e = e0;
-        }
-
-        assertTrue(e != null);
-        assertTrue(e.getCause() instanceof DistributionZoneNotFoundException, e.toString());
-    }
-
-    @Test
-    public void testAlterZoneIfExists2() {
-        Exception e = null;
-
-        try {
-            distributionZoneManager.alterZone(ZONE_NAME, new DistributionZoneCfg.Builder().name(ZONE_NAME)
-                    .dataNodesAutoAdjustScaleUp(100).dataNodesAutoAdjustScaleDown(100).build()).get(5, TimeUnit.SECONDS);
         } catch (Exception e0) {
             e = e0;
         }
@@ -294,5 +336,79 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
 
         assertTrue(e != null);
         assertTrue(e.getCause() instanceof ConfigurationChangeException, e.toString());
+    }
+
+    @Test
+    public void testCreateZoneWithNullName() throws Exception {
+        Exception e = null;
+
+        try {
+            distributionZoneManager.createZone(new DistributionZoneCfg.Builder()
+                    .dataNodesAutoAdjustScaleUp(1).dataNodesAutoAdjustScaleDown(-100).build()).get(5, TimeUnit.SECONDS);
+        } catch (Exception e0) {
+            e = e0;
+        }
+
+        assertTrue(e != null);
+        assertTrue(e.getCause() instanceof NullPointerException, e.toString());
+    }
+
+    @Test
+    public void testCreateZoneWithNullConfiguration() throws Exception {
+        Exception e = null;
+
+        try {
+            distributionZoneManager.createZone(null).get(5, TimeUnit.SECONDS);
+        } catch (Exception e0) {
+            e = e0;
+        }
+
+        assertTrue(e != null);
+        assertTrue(e.getCause() instanceof NullPointerException, e.toString());
+    }
+
+    @Test
+    public void testAlterZoneWithNullName() throws Exception {
+        Exception e = null;
+
+        try {
+            distributionZoneManager.alterZone(null, new DistributionZoneCfg.Builder().build())
+                    .get(5, TimeUnit.SECONDS);
+        } catch (Exception e0) {
+            e = e0;
+        }
+
+        assertTrue(e != null);
+        assertTrue(e.getCause() instanceof NullPointerException, e.toString());
+    }
+
+    @Test
+    public void testAlterZoneWithNullConfiguration() throws Exception {
+        Exception e = null;
+
+        try {
+            distributionZoneManager.alterZone(ZONE_NAME, null)
+                    .get(5, TimeUnit.SECONDS);
+        } catch (Exception e0) {
+            e = e0;
+        }
+
+        assertTrue(e != null);
+        assertTrue(e.getCause() instanceof NullPointerException, e.toString());
+    }
+
+    @Test
+    public void testDropZoneWithNullName() throws Exception {
+        Exception e = null;
+
+        try {
+            distributionZoneManager.dropZone(null)
+                    .get(5, TimeUnit.SECONDS);
+        } catch (Exception e0) {
+            e = e0;
+        }
+
+        assertTrue(e != null);
+        assertTrue(e.getCause().getCause() instanceof NullPointerException, e.toString());
     }
 }

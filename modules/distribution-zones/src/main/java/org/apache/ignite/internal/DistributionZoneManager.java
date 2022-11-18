@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal;
 
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.configuration.NamedListChange;
 import org.apache.ignite.internal.DistributionZoneView;
@@ -59,17 +60,37 @@ public class DistributionZoneManager implements IgniteComponent {
         if (!busyLock.enterBusy()) {
             throw new IgniteException(new NodeStoppingException());
         }
+
         try {
-            return CompletableFuture.supplyAsync(() -> zonesConfiguration.distributionZones().get(distributionZoneCfg.name()))
+            return CompletableFuture.supplyAsync(() -> {
+                Objects.requireNonNull(distributionZoneCfg, "Distribution zone configuration is null.");
+                Objects.requireNonNull(distributionZoneCfg.name(), "Distribution zone name is null.");
+
+                return zonesConfiguration.distributionZones().get(distributionZoneCfg.name());
+            })
                     .thenCompose(zoneCfg -> {
                         if (zoneCfg != null) {
                             return CompletableFuture.failedFuture(new DistributionZoneAlreadyExistsException(distributionZoneCfg.name()));
                         } else {
                             return zonesConfiguration.change(zonesChange -> zonesChange.changeDistributionZones(zonesListChange -> {
                                 zonesListChange.create(distributionZoneCfg.name(), zoneChange -> {
-                                    zoneChange.changeDataNodesAutoAdjust(distributionZoneCfg.dataNodesAutoAdjust());
-                                    zoneChange.changeDataNodesAutoAdjustScaleUp(distributionZoneCfg.dataNodesAutoAdjustScaleUp());
-                                    zoneChange.changeDataNodesAutoAdjustScaleDown(distributionZoneCfg.dataNodesAutoAdjustScaleDown());
+                                    if (distributionZoneCfg.dataNodesAutoAdjust() == null) {
+                                        zoneChange.changeDataNodesAutoAdjust(Integer.MAX_VALUE);
+                                    } else {
+                                        zoneChange.changeDataNodesAutoAdjust(distributionZoneCfg.dataNodesAutoAdjust());
+                                    }
+
+                                    if (distributionZoneCfg.dataNodesAutoAdjustScaleUp() == null) {
+                                        zoneChange.changeDataNodesAutoAdjustScaleUp(Integer.MAX_VALUE);
+                                    } else {
+                                        zoneChange.changeDataNodesAutoAdjustScaleUp(distributionZoneCfg.dataNodesAutoAdjustScaleUp());
+                                    }
+
+                                    if (distributionZoneCfg.dataNodesAutoAdjustScaleDown() == null) {
+                                        zoneChange.changeDataNodesAutoAdjustScaleDown(Integer.MAX_VALUE);
+                                    } else {
+                                        zoneChange.changeDataNodesAutoAdjustScaleDown(distributionZoneCfg.dataNodesAutoAdjustScaleDown());
+                                    }
 
                                     int intZoneId = zonesChange.globalIdCounter() + 1;
                                     zonesChange.changeGlobalIdCounter(intZoneId);
@@ -96,8 +117,14 @@ public class DistributionZoneManager implements IgniteComponent {
         if (!busyLock.enterBusy()) {
             throw new IgniteException(new NodeStoppingException());
         }
+
         try {
-            return CompletableFuture.supplyAsync(() -> zonesConfiguration.distributionZones().get(name))
+            return CompletableFuture.supplyAsync(() -> {
+                Objects.requireNonNull(distributionZoneCfg, "Distribution zone configuration is null.");
+                Objects.requireNonNull(name, "Distribution zone name is null.");
+
+                return zonesConfiguration.distributionZones().get(name);
+            })
                     .thenCompose(zoneCfg -> {
                         if (zoneCfg == null) {
                             return CompletableFuture.failedFuture(new DistributionZoneNotFoundException(name));
@@ -106,7 +133,8 @@ public class DistributionZoneManager implements IgniteComponent {
                                 NamedListChange<DistributionZoneView, DistributionZoneChange> change;
 
                                 String nameForUpdate;
-                                if (!name.equals(distributionZoneCfg.name())) {
+
+                                if (!name.equals(distributionZoneCfg.name()) && distributionZoneCfg.name() != null) {
                                     nameForUpdate = distributionZoneCfg.name();
 
                                     change = zonesListChange.rename(name, distributionZoneCfg.name());
@@ -117,9 +145,21 @@ public class DistributionZoneManager implements IgniteComponent {
                                 }
 
                                 change.update(nameForUpdate, zoneChange -> {
-                                    zoneChange.changeDataNodesAutoAdjust(distributionZoneCfg.dataNodesAutoAdjust());
-                                    zoneChange.changeDataNodesAutoAdjustScaleUp(distributionZoneCfg.dataNodesAutoAdjustScaleUp());
-                                    zoneChange.changeDataNodesAutoAdjustScaleDown(distributionZoneCfg.dataNodesAutoAdjustScaleDown());
+                                    if (distributionZoneCfg.dataNodesAutoAdjust() != null) {
+                                        zoneChange.changeDataNodesAutoAdjust(distributionZoneCfg.dataNodesAutoAdjust());
+                                        zoneChange.changeDataNodesAutoAdjustScaleUp(Integer.MAX_VALUE);
+                                        zoneChange.changeDataNodesAutoAdjustScaleDown(Integer.MAX_VALUE);
+                                    }
+
+                                    if (distributionZoneCfg.dataNodesAutoAdjustScaleUp() != null) {
+                                        zoneChange.changeDataNodesAutoAdjustScaleUp(distributionZoneCfg.dataNodesAutoAdjustScaleUp());
+                                        zoneChange.changeDataNodesAutoAdjust(Integer.MAX_VALUE);
+                                    }
+
+                                    if (distributionZoneCfg.dataNodesAutoAdjustScaleDown() != null) {
+                                        zoneChange.changeDataNodesAutoAdjustScaleDown(distributionZoneCfg.dataNodesAutoAdjustScaleDown());
+                                        zoneChange.changeDataNodesAutoAdjust(Integer.MAX_VALUE);
+                                    }
                                 });
                             }));
                         }
@@ -140,8 +180,11 @@ public class DistributionZoneManager implements IgniteComponent {
         if (!busyLock.enterBusy()) {
             throw new IgniteException(new NodeStoppingException());
         }
+
         try {
             return zonesConfiguration.change(zonesChange -> zonesChange.changeDistributionZones(zonesListChange -> {
+                Objects.requireNonNull(name, "Distribution zone name is null.");
+
                 DistributionZoneView view = zonesListChange.get(name);
 
                 if (view == null) {

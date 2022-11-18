@@ -33,62 +33,51 @@ class DistributionZoneCfgTest {
         DistributionZoneCfg zoneCfg = new DistributionZoneCfg.Builder().name(ZONE_NAME).build();
 
         assertEquals(ZONE_NAME, zoneCfg.name());
-        assertEquals(Integer.MAX_VALUE, zoneCfg.dataNodesAutoAdjust());
-        assertEquals(Integer.MAX_VALUE, zoneCfg.dataNodesAutoAdjustScaleUp());
-        assertEquals(Integer.MAX_VALUE, zoneCfg.dataNodesAutoAdjustScaleDown());
+        assertEquals(null, zoneCfg.dataNodesAutoAdjust());
+        assertEquals(null, zoneCfg.dataNodesAutoAdjustScaleUp());
+        assertEquals(null, zoneCfg.dataNodesAutoAdjustScaleDown());
     }
 
     @Test
     public void testAutoAdjust() {
         DistributionZoneCfg zoneCfg = new DistributionZoneCfg.Builder()
-                .name(ZONE_NAME)
                 .dataNodesAutoAdjust(100)
                 .build();
 
-        assertEquals(ZONE_NAME, zoneCfg.name());
+        assertEquals(null, zoneCfg.name());
         assertEquals(100, zoneCfg.dataNodesAutoAdjust());
-        assertEquals(Integer.MAX_VALUE, zoneCfg.dataNodesAutoAdjustScaleUp());
-        assertEquals(Integer.MAX_VALUE, zoneCfg.dataNodesAutoAdjustScaleDown());
+        assertEquals(null, zoneCfg.dataNodesAutoAdjustScaleUp());
+        assertEquals(null, zoneCfg.dataNodesAutoAdjustScaleDown());
     }
 
     @Test
     public void testAutoAdjustScaleUp() {
         DistributionZoneCfg zoneCfg = new DistributionZoneCfg.Builder()
-                .name(ZONE_NAME)
                 .dataNodesAutoAdjustScaleUp(100)
                 .build();
 
-        assertEquals(ZONE_NAME, zoneCfg.name());
-        assertEquals(Integer.MAX_VALUE, zoneCfg.dataNodesAutoAdjust());
+        assertEquals(null, zoneCfg.name());
+        assertEquals(null, zoneCfg.dataNodesAutoAdjust());
         assertEquals(100, zoneCfg.dataNodesAutoAdjustScaleUp());
-        assertEquals(Integer.MAX_VALUE, zoneCfg.dataNodesAutoAdjustScaleDown());
+        assertEquals(null, zoneCfg.dataNodesAutoAdjustScaleDown());
     }
 
     @Test
     public void testAutoAdjustScaleDown() {
         DistributionZoneCfg zoneCfg = new DistributionZoneCfg.Builder()
-                .name(ZONE_NAME)
                 .dataNodesAutoAdjustScaleDown(100)
                 .build();
 
-        assertEquals(ZONE_NAME, zoneCfg.name());
-        assertEquals(Integer.MAX_VALUE, zoneCfg.dataNodesAutoAdjust());
-        assertEquals(Integer.MAX_VALUE, zoneCfg.dataNodesAutoAdjustScaleUp());
+        assertEquals(null, zoneCfg.name());
+        assertEquals(null, zoneCfg.dataNodesAutoAdjust());
+        assertEquals(null, zoneCfg.dataNodesAutoAdjustScaleUp());
         assertEquals(100, zoneCfg.dataNodesAutoAdjustScaleDown());
-    }
-
-    @Test
-    public void testNullZoneName() {
-        assertThrows(NullPointerException.class,
-                () -> new DistributionZoneCfg.Builder().build(),
-                "name is null");
     }
 
     @Test
     public void testIncompatibleValues1() {
         assertThrows(IllegalArgumentException.class,
                 () -> new DistributionZoneCfg.Builder()
-                        .name(ZONE_NAME)
                         .dataNodesAutoAdjust(1)
                         .dataNodesAutoAdjustScaleUp(1)
                         .build());
@@ -98,7 +87,6 @@ class DistributionZoneCfgTest {
     public void testIncompatibleValues2() {
         assertThrows(IllegalArgumentException.class,
                 () -> new DistributionZoneCfg.Builder()
-                        .name(ZONE_NAME)
                         .dataNodesAutoAdjust(1)
                         .dataNodesAutoAdjustScaleDown(1)
                         .build());
