@@ -84,10 +84,10 @@ public partial class LinqTests
         Assert.AreEqual(3, res[1].Count);
 
         StringAssert.Contains(
-            "select _T0.VAL, count (*) , sum (_T0.KEY) , avg (_T0.KEY)  " +
+            "select (_T0.VAL * ?), count (*)  " +
             "from PUBLIC.TBL_INT8 as _T0 " +
-            "group by (_T0.VAL) " +
-            "order by (_T0.VAL) asc",
+            "group by ((_T0.VAL * ?)) " +
+            "order by ((_T0.VAL * ?)) asc",
             query.ToString());
     }
 
