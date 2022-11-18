@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal;
+package org.apache.ignite.internal.distributionzones;
 
 import org.jetbrains.annotations.Nullable;
 
