@@ -69,7 +69,6 @@ import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.IgniteTetraFunction;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.service.LeaderWithTerm;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.tx.TransactionException;
