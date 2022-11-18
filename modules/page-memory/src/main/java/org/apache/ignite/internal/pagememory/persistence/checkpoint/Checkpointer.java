@@ -187,7 +187,6 @@ public class Checkpointer extends IgniteWorker {
         }
     }
 
-    /** {@inheritDoc} */
     @Override
     protected void body() {
         try {
@@ -585,7 +584,6 @@ public class Checkpointer extends IgniteWorker {
         }
     }
 
-    /** {@inheritDoc} */
     @Override
     public void cancel() {
         if (log.isDebugEnabled()) {
@@ -774,5 +772,17 @@ public class Checkpointer extends IgniteWorker {
      */
     void updateLastProgressAfterReleaseWriteLock() {
         afterReleaseWriteLockCheckpointProgress = currentCheckpointProgress;
+    }
+
+    /**
+     * Callback on destruction of the partition of the corresponding group.
+     *
+     * <p>TODO: IGNITE-17132 не забудь расширить описание
+     *
+     * @param groupId Group ID.
+     * @param partitionId Partition ID.
+     */
+    void onPartitionDestruction(int groupId, int partitionId) {
+        // TODO: IGNITE-17132 реализовать
     }
 }

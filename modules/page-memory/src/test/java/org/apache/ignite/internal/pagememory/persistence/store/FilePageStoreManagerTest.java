@@ -49,8 +49,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.fileio.RandomAccessFileIoFactory;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
@@ -62,8 +60,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(WorkDirectoryExtension.class)
 public class FilePageStoreManagerTest {
-    private final IgniteLogger log = Loggers.forClass(FilePageStoreManagerTest.class);
-
     @WorkDirectory
     private Path workDir;
 
@@ -371,6 +367,6 @@ public class FilePageStoreManagerTest {
     }
 
     private FilePageStoreManager createManager() throws Exception {
-        return new FilePageStoreManager(log, "test", workDir, new RandomAccessFileIoFactory(), 1024);
+        return new FilePageStoreManager("test", workDir, new RandomAccessFileIoFactory(), 1024);
     }
 }

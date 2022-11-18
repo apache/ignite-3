@@ -118,7 +118,6 @@ public class Compactor extends IgniteWorker {
         }
     }
 
-    /** {@inheritDoc} */
     @Override
     protected void body() throws InterruptedException {
         try {
@@ -277,7 +276,6 @@ public class Compactor extends IgniteWorker {
         }
     }
 
-    /** {@inheritDoc} */
     @Override
     public void cancel() {
         if (log.isDebugEnabled()) {
@@ -366,5 +364,17 @@ public class Compactor extends IgniteWorker {
         deltaFilePageStore.stop(true);
 
         deltaFileCount.decrementAndGet();
+    }
+
+    /**
+     * Callback on destruction of the partition of the corresponding group.
+     *
+     * <p>TODO: IGNITE-17132 не забудь расширить описание
+     *
+     * @param groupId Group ID.
+     * @param partitionId Partition ID.
+     */
+    public void onPartitionDestruction(int groupId, int partitionId) {
+        // TODO: IGNITE-17132 реализовать
     }
 }

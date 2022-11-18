@@ -453,9 +453,11 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
 
         dataRegion.pageMemory().invalidate(tableId, partitionId);
 
-        engine.checkpointManager().onPartitionDestruction(tableId, partitionId);
+        dataRegion.checkpointManager().onPartitionDestruction(tableId, partitionId);
 
-        // TODO: IGNITE-17132 реализуй!,?
+        dataRegion.partitionMetaManager().removeMeta(new GroupPartitionId(tableId, partitionId));
+
+        dataRegion.filePageStoreManager().onPartitionDestruction(tableId, partitionId);
 
         destroyFutureByPartitionId.remove(partitionId).complete(null);
     }

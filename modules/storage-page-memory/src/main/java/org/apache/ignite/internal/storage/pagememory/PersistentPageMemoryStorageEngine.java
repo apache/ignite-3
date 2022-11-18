@@ -31,7 +31,6 @@ import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.fileio.AsyncFileIoFactory;
 import org.apache.ignite.internal.fileio.FileIoFactory;
 import org.apache.ignite.internal.fileio.RandomAccessFileIoFactory;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryDataRegionConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryDataRegionView;
@@ -117,7 +116,6 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
                     : new RandomAccessFileIoFactory();
 
             filePageStoreManager = new FilePageStoreManager(
-                    Loggers.forClass(FilePageStoreManager.class),
                     igniteInstanceName,
                     storagePath,
                     fileIoFactory,
@@ -153,7 +151,6 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
 
         // TODO: IGNITE-17066 Add handling deleting/updating data regions configuration
         engineConfig.regions().listenElements(new ConfigurationNamedListListener<>() {
-            /** {@inheritDoc} */
             @Override
             public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<PersistentPageMemoryDataRegionView> ctx) {
                 addDataRegion(ctx.config(PersistentPageMemoryDataRegionConfiguration.class));

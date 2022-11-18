@@ -38,6 +38,7 @@ import java.util.stream.Stream;
 import org.apache.ignite.internal.fileio.FileIo;
 import org.apache.ignite.internal.fileio.FileIoFactory;
 import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.PageIdAllocator;
 import org.apache.ignite.internal.pagememory.persistence.PageReadWriteManager;
 import org.apache.ignite.internal.util.IgniteStripedLock;
@@ -51,11 +52,17 @@ import org.jetbrains.annotations.Nullable;
  */
 // TODO: IGNITE-17132 Don't forget to delete partition files
 public class FilePageStoreManager implements PageReadWriteManager {
+    /** Logger. */
+    private static final IgniteLogger LOG = Loggers.forClass(FilePageStoreManager.class);
+
     /** File suffix. */
     public static final String FILE_SUFFIX = ".bin";
 
     /** Suffix of the temporary file. */
     public static final String TMP_FILE_SUFFIX = ".tmp";
+
+    /** File suffix to delete. */
+    public static final String DEL_FILE_SUFFIX = ".del";
 
     /** Partition file prefix. */
     public static final String PART_FILE_PREFIX = "part-";
@@ -75,18 +82,13 @@ public class FilePageStoreManager implements PageReadWriteManager {
     /** Group directory prefix. */
     public static final String GROUP_DIR_PREFIX = "table-";
 
-    /** Logger. */
-    private final IgniteLogger log;
-
     /** Starting directory for all file page stores, for example: 'db/group-123/index.bin'. */
     private final Path dbDir;
 
     /** Page size in bytes. */
     private final int pageSize;
 
-    /**
-     * Executor to disallow running code that modifies data in {@link #groupPageStores} concurrently with cleanup of file page store.
-     */
+    /** Executor to disallow running code that modifies data in {@link #groupPageStores} concurrently with cleanup of file page store. */
     private final LongOperationAsyncExecutor cleanupAsyncExecutor;
 
     /** Mapping: group ID -> page store list. */
@@ -101,7 +103,6 @@ public class FilePageStoreManager implements PageReadWriteManager {
     /**
      * Constructor.
      *
-     * @param log Logger.
      * @param igniteInstanceName Name of the Ignite instance.
      * @param storagePath Storage path.
      * @param filePageStoreFileIoFactory {@link FileIo} factory for file page store.
@@ -109,18 +110,16 @@ public class FilePageStoreManager implements PageReadWriteManager {
      * @throws IgniteInternalCheckedException If failed.
      */
     public FilePageStoreManager(
-            IgniteLogger log,
             String igniteInstanceName,
             Path storagePath,
             FileIoFactory filePageStoreFileIoFactory,
             // TODO: IGNITE-17017 Move to common config
             int pageSize
     ) throws IgniteInternalCheckedException {
-        this.log = log;
         this.dbDir = storagePath.resolve("db");
         this.pageSize = pageSize;
 
-        cleanupAsyncExecutor = new LongOperationAsyncExecutor(igniteInstanceName, log);
+        cleanupAsyncExecutor = new LongOperationAsyncExecutor(igniteInstanceName, LOG);
 
         groupPageStores = new GroupPageStoresMap<>(cleanupAsyncExecutor);
 
@@ -139,11 +138,11 @@ public class FilePageStoreManager implements PageReadWriteManager {
             throw new IgniteInternalCheckedException("Could not create work directory for page stores: " + dbDir, e);
         }
 
-        if (log.isWarnEnabled()) {
+        if (LOG.isWarnEnabled()) {
             String tmpDir = System.getProperty("java.io.tmpdir");
 
             if (tmpDir != null && this.dbDir.startsWith(tmpDir)) {
-                log.warn("Persistence store directory is in the temp directory and may be cleaned. "
+                LOG.warn("Persistence store directory is in the temp directory and may be cleaned. "
                         + "To avoid this change location of persistence directories [currentDir={}]", this.dbDir);
             }
         }
@@ -156,8 +155,8 @@ public class FilePageStoreManager implements PageReadWriteManager {
             List<Path> tmpFiles = tmpFileStream.collect(toList());
 
             if (!tmpFiles.isEmpty()) {
-                if (log.isInfoEnabled()) {
-                    log.info("Temporary files to be deleted: {}", tmpFiles.size());
+                if (LOG.isInfoEnabled()) {
+                    LOG.info("Temporary files to be deleted: {}", tmpFiles.size());
                 }
 
                 tmpFiles.forEach(IgniteUtils::deleteIfExists);
@@ -176,7 +175,6 @@ public class FilePageStoreManager implements PageReadWriteManager {
         cleanupAsyncExecutor.awaitAsyncTaskCompletion(false);
     }
 
-    /** {@inheritDoc} */
     @Override
     public void read(int grpId, long pageId, ByteBuffer pageBuf, boolean keepCrc) throws IgniteInternalCheckedException {
         FilePageStore pageStore = getStore(grpId, partitionId(pageId));
@@ -190,7 +188,6 @@ public class FilePageStoreManager implements PageReadWriteManager {
         }
     }
 
-    /** {@inheritDoc} */
     @Override
     public PageStore write(
             int grpId,
@@ -211,7 +208,6 @@ public class FilePageStoreManager implements PageReadWriteManager {
         return pageStore;
     }
 
-    /** {@inheritDoc} */
     @Override
     public long allocatePage(int grpId, int partId, byte flags) throws IgniteInternalCheckedException {
         assert partId >= 0 && partId <= MAX_PARTITION_ID : partId;
@@ -320,9 +316,9 @@ public class FilePageStoreManager implements PageReadWriteManager {
             try {
                 stopGroupFilePageStores(partitionPageStores, cleanFiles);
 
-                log.info("Cleanup cache stores [total={}, cleanFiles={}]", partitionPageStores.size(), cleanFiles);
+                LOG.info("Cleanup cache stores [total={}, cleanFiles={}]", partitionPageStores.size(), cleanFiles);
             } catch (Exception e) {
-                log.info("Failed to gracefully stop page store managers", e);
+                LOG.info("Failed to gracefully stop page store managers", e);
             }
         };
 
@@ -442,5 +438,17 @@ public class FilePageStoreManager implements PageReadWriteManager {
      */
     public Path deltaFilePageStorePath(int groupId, int partitionId, int index) {
         return dbDir.resolve(GROUP_DIR_PREFIX + groupId).resolve(String.format(PART_DELTA_FILE_TEMPLATE, partitionId, index));
+    }
+
+    /**
+     * Callback on destruction of the partition of the corresponding group.
+     *
+     * <p>TODO: IGNITE-17132 добавить описание
+     *
+     * @param groupId Group ID.
+     * @param partitionId Partition ID.
+     */
+    public void onPartitionDestruction(int groupId, int partitionId) {
+        // TODO: IGNITE-17132 реализовать, аккуратно
     }
 }

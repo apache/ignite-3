@@ -486,7 +486,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
     }
 
     private static FilePageStoreManager createFilePageStoreManager(Path storagePath) throws Exception {
-        return new FilePageStoreManager(log, "test", storagePath, new RandomAccessFileIoFactory(), PAGE_SIZE);
+        return new FilePageStoreManager("test", storagePath, new RandomAccessFileIoFactory(), PAGE_SIZE);
     }
 
     private static void initGroupFilePageStores(
