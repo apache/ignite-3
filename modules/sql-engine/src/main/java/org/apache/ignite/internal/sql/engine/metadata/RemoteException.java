@@ -33,9 +33,9 @@ public class RemoteException extends RuntimeException {
     /**
      * Constructor.
      *
-     * @param cause      Cause.
-     * @param nodeName     Node consistent ID.
-     * @param queryId    Query ID.
+     * @param cause Cause.
+     * @param nodeName Node consistent ID.
+     * @param queryId Query ID.
      * @param fragmentId Fragment ID.
      */
     public RemoteException(String nodeName, UUID queryId, long fragmentId, Throwable cause) {

@@ -63,12 +63,12 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
      * Constructor.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      *
-     * @param ctx              Execution context.
-     * @param exchange         Exchange service.
-     * @param registry         Mailbox registry.
-     * @param exchangeId       Exchange ID.
+     * @param ctx Execution context.
+     * @param exchange Exchange service.
+     * @param registry Mailbox registry.
+     * @param exchangeId Exchange ID.
      * @param targetFragmentId Target fragment ID.
-     * @param dest             Destination.
+     * @param dest Destination.
      */
     public Outbox(
             ExecutionContext<RowT> ctx,
@@ -95,7 +95,7 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
     /**
      * Callback method.
      *
-     * @param nodeName  Target consistent ID.
+     * @param nodeName Target consistent ID.
      * @param batchId Batch ID.
      */
     public void onAcknowledge(String nodeName, int batchId) throws Exception {
@@ -153,7 +153,8 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
     }
 
     /** {@inheritDoc} */
-    @Override public void onError(Throwable e) {
+    @Override
+    public void onError(Throwable e) {
         try {
             sendError(e);
         } catch (IgniteInternalCheckedException ex) {
