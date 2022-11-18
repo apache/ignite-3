@@ -45,7 +45,6 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.junit.jupiter.api.Test;
@@ -143,7 +142,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
      * Creates a new transaction id.
      */
     private static UUID newTransactionId() {
-        return Timestamp.nextVersion().toUuid();
+        return UUID.randomUUID();
     }
 
     /**
