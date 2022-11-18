@@ -72,7 +72,23 @@ public partial class LinqTests
     [Test]
     public void TestGroupBySubQuery()
     {
-        Assert.Fail("TODO");
+        var query = PocoByteView.AsQueryable()
+            .Select(x => new {Id = x.Key + 1, Price = x.Val * 10})
+            .GroupBy(x => x.Price)
+            .Select(x => new { x.Key, Count = x.Count() })
+            .OrderBy(x => x.Key);
+
+        var res = query.ToList();
+
+        Assert.AreEqual(1, res[1].Key);
+        Assert.AreEqual(3, res[1].Count);
+
+        StringAssert.Contains(
+            "select _T0.VAL, count (*) , sum (_T0.KEY) , avg (_T0.KEY)  " +
+            "from PUBLIC.TBL_INT8 as _T0 " +
+            "group by (_T0.VAL) " +
+            "order by (_T0.VAL) asc",
+            query.ToString());
     }
 
     [Test]
