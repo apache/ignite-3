@@ -17,7 +17,7 @@
 
 namespace Apache.Ignite.Tests.Linq;
 
-using System;
+using System.Collections.Generic;
 using System.Linq;
 using NUnit.Framework;
 
@@ -29,6 +29,21 @@ public partial class LinqTests
     [Test]
     public void TestGroupBy()
     {
+        var query = PocoByteView.AsQueryable()
+            .GroupBy(x => x.Val)
+            .Select(x => x.Key)
+            .OrderBy(x => x);
+
+        List<sbyte> res = query.ToList();
+
+        Assert.AreEqual(new[] { 0, 1, 2, 3 }, res);
+
+        StringAssert.Contains(
+            "select _T0.VAL " +
+            "from PUBLIC.TBL_INT8 as _T0 " +
+            "group by (_T0.VAL) " +
+            "order by (_T0.VAL) asc",
+            query.ToString());
     }
 
     [Test]
