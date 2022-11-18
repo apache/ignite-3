@@ -15,8 +15,20 @@
  * limitations under the License.
  */
 
-/**
- * Contains classes and packages for Ignite CLI tool.
- */
+package org.apache.ignite.internal.table.distributed.raft.snapshot.incoming;
 
-package org.apache.ignite.internal.cli.deprecated;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
+import static org.mockito.Mockito.mock;
+
+import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
+import org.junit.jupiter.api.Test;
+
+class IncomingSnapshotReaderTest {
+    @Test
+    void returnsEmptyPath() {
+        try (var reader = new IncomingSnapshotReader(mock(SnapshotMeta.class))) {
+            assertThat(reader.getPath(), is(""));
+        }
+    }
+}

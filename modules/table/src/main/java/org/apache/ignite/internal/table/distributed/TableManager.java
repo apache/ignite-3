@@ -246,9 +246,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      */
     private final Map<UUID, TableImpl> tablesToStopInCaseOfError = new ConcurrentHashMap<>();
 
-    /** Resolver that resolves a node consistent ID to node id. */
-    private final Function<String, String> nodeIdResolver;
-
     /** Resolver that resolves a node consistent ID to cluster node. */
     private final Function<String, ClusterNode> clusterNodeResolver;
 
@@ -350,16 +347,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         this.outgoingSnapshotsManager = outgoingSnapshotsManager;
 
         placementDriver = new PlacementDriver(replicaSvc);
-
-        nodeIdResolver = consistentId -> {
-            ClusterNode node = topologyService.getByConsistentId(consistentId);
-
-            if (node == null) {
-                throw new IllegalStateException("Can't resolve ClusterNode by its consistent ID =" + consistentId);
-            }
-
-            return node.id();
-        };
 
         clusterNodeResolver = topologyService::getByConsistentId;
 
@@ -677,6 +664,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         int partitions = newAssignments.size();
 
         CompletableFuture<?>[] futures = new CompletableFuture<?>[partitions];
+        for (int i = 0; i < futures.length; i++) {
+            futures[i] = new CompletableFuture<>();
+        }
 
         // TODO: IGNITE-16288 directAssignments should use async configuration API
         CompletableFuture<List<Set<ClusterNode>>> assignmentsLatestFut = CompletableFuture.supplyAsync(() -> inBusyLock(busyLock, () ->
@@ -807,7 +797,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             }), ioExecutor);
                 }
 
-                futures[partId] = startGroupFut
+                startGroupFut
                         .thenComposeAsync((v) -> {
                             try {
                                 return raftMgr.startRaftGroupService(replicaGrpId, newPartAssignmentIds);
@@ -848,8 +838,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                                         txStatePartitionStorage,
                                                                         topologyService,
                                                                         placementDriver,
-                                                                        peer -> clusterNodeResolver.apply(peer.consistentId())
-                                                                                .equals(topologyService.localMember())
+                                                                        this::isLocalPeer
                                                                 )
                                                         );
                                                     } catch (NodeStoppingException ex) {
@@ -866,13 +855,24 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             LOG.warn("Unable to update raft groups on the node", th);
 
                             return null;
+                        })
+                        .whenComplete((res, ex) -> {
+                            if (ex != null) {
+                                futures[partId].completeExceptionally(ex);
+                            } else {
+                                futures[partId].complete(null);
+                            }
                         });
 
-                return completedFuture(tablesById);
+                return futures[partId].thenApply(unused -> tablesById);
             });
         }
 
         allOf(futures).join();
+    }
+
+    private boolean isLocalPeer(Peer peer) {
+        return peer.consistentId().equals(raftMgr.topologyService().localMember().name());
     }
 
     private PartitionDataStorage partitionDataStorage(MvPartitionStorage partitionStorage, InternalTable internalTbl, int partId) {
@@ -1039,7 +1039,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         TxStateTableStorage txStateStorage = createTxStateTableStorage(tableCfg);
 
         InternalTableImpl internalTable = new InternalTableImpl(name, tblId, new Int2ObjectOpenHashMap<>(partitions),
-                partitions, nodeIdResolver, clusterNodeResolver, txManager, tableStorage, txStateStorage, replicaSvc, clock);
+                partitions, clusterNodeResolver, txManager, tableStorage, txStateStorage, replicaSvc, clock);
 
         // TODO: IGNITE-16288 directIndexIds should use async configuration API
         var table = new TableImpl(internalTable, lockMgr,  () -> CompletableFuture.supplyAsync(() -> directIndexIds()));
@@ -1868,8 +1868,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                             txStatePartitionStorage,
                                             raftMgr.topologyService(),
                                             placementDriver,
-                                            peer -> clusterNodeResolver.apply(peer.consistentId())
-                                                    .equals(raftMgr.topologyService().localMember())
+                                            peer -> isLocalPeer(peer)
                                     )
                             );
                         }

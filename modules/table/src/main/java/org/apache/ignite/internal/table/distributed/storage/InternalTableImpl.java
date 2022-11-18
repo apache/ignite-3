@@ -99,9 +99,6 @@ public class InternalTableImpl implements InternalTable {
     /** Table identifier. */
     private final UUID tableId;
 
-    /** Resolver that resolves a node consistent ID to node ID. */
-    private final Function<String, String> nodeIdResolver;
-
     /** Resolver that resolves a node consistent ID to cluster node. */
     private final Function<String, ClusterNode> clusterNodeResolver;
 
@@ -144,7 +141,6 @@ public class InternalTableImpl implements InternalTable {
             UUID tableId,
             Int2ObjectMap<RaftGroupService> partMap,
             int partitions,
-            Function<String, String> nodeIdResolver,
             Function<String, ClusterNode> clusterNodeResolver,
             TxManager txManager,
             MvTableStorage tableStorage,
@@ -156,7 +152,6 @@ public class InternalTableImpl implements InternalTable {
         this.tableId = tableId;
         this.partitionMap = partMap;
         this.partitions = partitions;
-        this.nodeIdResolver = nodeIdResolver;
         this.clusterNodeResolver = clusterNodeResolver;
         this.txManager = txManager;
         this.tableStorage = tableStorage;
@@ -997,9 +992,7 @@ public class InternalTableImpl implements InternalTable {
         return partitionMap.int2ObjectEntrySet().stream()
                 .sorted(Comparator.comparingInt(Int2ObjectOpenHashMap.Entry::getIntKey))
                 .map(Map.Entry::getValue)
-                .map(RaftGroupService::leader)
-                .map(Peer::consistentId)
-                .map(nodeIdResolver)
+                .map(service -> service.leader().consistentId())
                 .collect(Collectors.toList());
     }
 

@@ -36,12 +36,6 @@ using Remotion.Linq.Clauses.ResultOperators;
 internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
 {
     /** */
-    private static readonly Type DefaultIfEmptyEnumeratorType = Array.Empty<object>()
-        .DefaultIfEmpty()
-        .GetType()
-        .GetGenericTypeDefinition();
-
-    /** */
     private readonly StringBuilder _builder = new();
 
     /** */
@@ -567,61 +561,8 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
     /// </summary>
     private void VisitJoinWithLocalCollectionClause(JoinClause joinClause)
     {
-        var type = joinClause.InnerSequence.Type;
-
-        var itemType = EnumerableHelper.GetIEnumerableItemType(type);
-
-        var sqlTypeName = SqlTypes.GetSqlTypeName(itemType);
-
-        if (string.IsNullOrWhiteSpace(sqlTypeName))
-        {
-            throw new NotSupportedException("Not supported item type for Join with local collection: " + type.Name);
-        }
-
-        var isOuter = false;
-        var sequenceExpression = joinClause.InnerSequence;
-        object? values;
-
-        var subQuery = sequenceExpression as SubQueryExpression;
-        if (subQuery != null)
-        {
-            isOuter = subQuery.QueryModel.ResultOperators.OfType<DefaultIfEmptyResultOperator>().Any();
-            sequenceExpression = subQuery.QueryModel.MainFromClause.FromExpression;
-        }
-
-        switch (sequenceExpression.NodeType)
-        {
-            case ExpressionType.Constant:
-                var constantValueType = ((ConstantExpression)sequenceExpression).Value!.GetType();
-                if (constantValueType.IsGenericType)
-                {
-                    isOuter = constantValueType.GetGenericTypeDefinition() == DefaultIfEmptyEnumeratorType;
-                }
-
-                values = ExpressionWalker.EvaluateEnumerableValues(sequenceExpression);
-                break;
-
-            case ExpressionType.Parameter:
-                values = ExpressionWalker.EvaluateExpression<object>(sequenceExpression);
-                break;
-
-            default:
-                throw new NotSupportedException("Expression not supported for Join with local collection: "
-                                                + sequenceExpression);
-        }
-
-        var tableAlias = _aliases.GetTableAlias(joinClause);
-        var fieldAlias = _aliases.GetFieldAlias(joinClause.InnerKeySelector);
-
-        _builder.AppendFormat(
-            CultureInfo.InvariantCulture,
-            "{0} join table ({1} {2} = ?) {3} on (",
-            isOuter ? "left outer" : "inner",
-            fieldAlias,
-            sqlTypeName,
-            tableAlias);
-
-        Parameters.Add(values);
+        // Unlike Ignite 2.x, SQL engine does not support local collection joins.
+        throw new NotSupportedException("Local collection joins are not supported, try `.Contains()` instead: " + joinClause);
     }
 
     /// <summary>

@@ -134,30 +134,30 @@ public abstract class TxStateStorageAbstractTest {
         TxMeta txMeta1 = new TxMeta(TxState.COMMITED, new ArrayList<>(), generateTimestamp(txId));
         TxMeta txMeta2 = new TxMeta(TxState.COMMITED, new ArrayList<>(), generateTimestamp(UUID.randomUUID()));
 
-        assertTrue(storage.compareAndSet(txId, null, txMeta1, 1));
+        assertTrue(storage.compareAndSet(txId, null, txMeta1, 1, 1));
         // Checking idempotency.
-        assertTrue(storage.compareAndSet(txId, null, txMeta1, 1));
-        assertTrue(storage.compareAndSet(txId, TxState.ABORTED, txMeta1, 1));
+        assertTrue(storage.compareAndSet(txId, null, txMeta1, 1, 1));
+        assertTrue(storage.compareAndSet(txId, TxState.ABORTED, txMeta1, 1, 1));
 
         TxMeta txMetaWrongTimestamp0 =
                 new TxMeta(txMeta1.txState(), txMeta1.enlistedPartitions(), generateTimestamp(UUID.randomUUID()));
-        assertFalse(storage.compareAndSet(txId, TxState.ABORTED, txMetaWrongTimestamp0, 1));
+        assertFalse(storage.compareAndSet(txId, TxState.ABORTED, txMetaWrongTimestamp0, 1, 1));
 
         TxMeta txMetaNullTimestamp0 = new TxMeta(txMeta1.txState(), txMeta1.enlistedPartitions(), null);
-        assertFalse(storage.compareAndSet(txId, TxState.ABORTED, txMetaNullTimestamp0, 3));
+        assertFalse(storage.compareAndSet(txId, TxState.ABORTED, txMetaNullTimestamp0, 3, 2));
 
         assertTxMetaEquals(storage.get(txId), txMeta1);
 
-        assertTrue(storage.compareAndSet(txId, txMeta1.txState(), txMeta2, 3));
+        assertTrue(storage.compareAndSet(txId, txMeta1.txState(), txMeta2, 3, 2));
         // Checking idempotency.
-        assertTrue(storage.compareAndSet(txId, txMeta1.txState(), txMeta2, 3));
-        assertTrue(storage.compareAndSet(txId, TxState.ABORTED, txMeta2, 3));
+        assertTrue(storage.compareAndSet(txId, txMeta1.txState(), txMeta2, 3, 2));
+        assertTrue(storage.compareAndSet(txId, TxState.ABORTED, txMeta2, 3, 2));
 
         TxMeta txMetaWrongTimestamp2 =
                 new TxMeta(txMeta2.txState(), txMeta2.enlistedPartitions(), generateTimestamp(UUID.randomUUID()));
 
         TxMeta txMetaNullTimestamp2 = new TxMeta(txMeta2.txState(), txMeta2.enlistedPartitions(), null);
-        assertFalse(storage.compareAndSet(txId, TxState.ABORTED, txMetaNullTimestamp2, 3));
+        assertFalse(storage.compareAndSet(txId, TxState.ABORTED, txMetaNullTimestamp2, 3, 2));
 
         assertTxMetaEquals(storage.get(txId), txMeta2);
 
@@ -264,11 +264,11 @@ public abstract class TxStateStorageAbstractTest {
     }
 
     @Test
-    void lastAppliedIndexGetterIsConsistentWithSetter() throws Exception {
+    void lastAppliedIndexGetterIsConsistentWithSetter() {
         TxStateStorage partitionStorage = tableStorage.getOrCreateTxStateStorage(0);
 
         try {
-            partitionStorage.lastAppliedIndex(10);
+            partitionStorage.lastApplied(10, 2);
 
             assertThat(partitionStorage.lastAppliedIndex(), is(10L));
         } finally {
@@ -277,14 +277,28 @@ public abstract class TxStateStorageAbstractTest {
     }
 
     @Test
-    void compareAndSetMakesVisibleLastAppliedIndexChange() throws Exception {
+    void lastAppliedTermGetterIsConsistentWithSetter() {
+        TxStateStorage partitionStorage = tableStorage.getOrCreateTxStateStorage(0);
+
+        try {
+            partitionStorage.lastApplied(10, 2);
+
+            assertThat(partitionStorage.lastAppliedTerm(), is(2L));
+        } finally {
+            partitionStorage.close();
+        }
+    }
+
+    @Test
+    void compareAndSetMakesLastAppliedChangeVisible() {
         TxStateStorage partitionStorage = tableStorage.getOrCreateTxStateStorage(0);
 
         try {
             UUID txId = UUID.randomUUID();
-            partitionStorage.compareAndSet(txId, null, randomTxMeta(1, txId), 10);
+            partitionStorage.compareAndSet(txId, null, randomTxMeta(1, txId), 10, 2);
 
             assertThat(partitionStorage.lastAppliedIndex(), is(10L));
+            assertThat(partitionStorage.lastAppliedTerm(), is(2L));
         } finally {
             partitionStorage.close();
         }
@@ -293,7 +307,7 @@ public abstract class TxStateStorageAbstractTest {
     private IgniteBiTuple<UUID, TxMeta> putRandomTxMetaWithCommandIndex(TxStateStorage storage, int enlistedPartsCount, long commandIndex) {
         UUID txId = UUID.randomUUID();
         TxMeta txMeta = randomTxMeta(enlistedPartsCount, txId);
-        storage.compareAndSet(txId, null, txMeta, commandIndex);
+        storage.compareAndSet(txId, null, txMeta, commandIndex, 1);
 
         return new IgniteBiTuple<>(txId, txMeta);
     }
