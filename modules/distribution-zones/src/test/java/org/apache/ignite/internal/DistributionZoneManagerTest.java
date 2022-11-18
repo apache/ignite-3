@@ -27,9 +27,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.configuration.ConfigurationChangeException;
-import org.apache.ignite.internal.DistributionZoneConfiguration;
-import org.apache.ignite.internal.DistributionZoneManager;
-import org.apache.ignite.internal.DistributionZonesConfiguration;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.exception.DistributionZoneAlreadyExistsException;
@@ -43,9 +40,9 @@ import org.junit.jupiter.api.Test;
  * Tests for distribution zone manager.
  */
 class DistributionZoneManagerTest extends IgniteAbstractTest {
-    private static String ZONE_NAME = "zone1";
+    private static final String ZONE_NAME = "zone1";
 
-    private static DistributionZoneManager distributionZoneManager;
+    private static final String NEW_ZONE_NAME = "zone2";
 
     private final ConfigurationRegistry registry = new ConfigurationRegistry(
             List.of(DistributionZonesConfiguration.KEY),
@@ -54,6 +51,8 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
             List.of(),
             List.of()
     );
+
+    private DistributionZoneManager distributionZoneManager;
 
     @BeforeEach
     public void setUp() {
@@ -72,7 +71,9 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
 
     @Test
     public void testCreateZoneWithAutoAdjust() throws Exception {
-        distributionZoneManager.createZone(ZONE_NAME, 100)
+        distributionZoneManager.createZone(
+                        new DistributionZoneCfg.Builder().name(ZONE_NAME).dataNodesAutoAdjust(100).build()
+                )
                 .get(5, TimeUnit.SECONDS);
 
         DistributionZoneConfiguration zone1 = registry.getConfiguration(DistributionZonesConfiguration.KEY).distributionZones()
@@ -80,14 +81,17 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
 
         assertNotNull(zone1);
         assertEquals(ZONE_NAME, zone1.name().value());
-        assertEquals(0, zone1.dataNodesAutoAdjustScaleUp().value());
-        assertEquals(0, zone1.dataNodesAutoAdjustScaleDown().value());
+        assertEquals(Integer.MAX_VALUE, zone1.dataNodesAutoAdjustScaleUp().value());
+        assertEquals(Integer.MAX_VALUE, zone1.dataNodesAutoAdjustScaleDown().value());
         assertEquals(100, zone1.dataNodesAutoAdjust().value());
     }
 
     @Test
     public void testCreateDropZoneWithSeparatedAutoAdjust() throws Exception {
-        distributionZoneManager.createZone(ZONE_NAME, 100, 200)
+        distributionZoneManager.createZone(
+                new DistributionZoneCfg.Builder().name(ZONE_NAME)
+                        .dataNodesAutoAdjustScaleUp(100).dataNodesAutoAdjustScaleDown(200).build()
+                )
                 .get(5, TimeUnit.SECONDS);
 
         DistributionZoneConfiguration zone1 = registry.getConfiguration(DistributionZonesConfiguration.KEY).distributionZones()
@@ -97,7 +101,7 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
         assertEquals(ZONE_NAME, zone1.name().value());
         assertEquals(100, zone1.dataNodesAutoAdjustScaleUp().value());
         assertEquals(200, zone1.dataNodesAutoAdjustScaleDown().value());
-        assertEquals(0, zone1.dataNodesAutoAdjust().value());
+        assertEquals(Integer.MAX_VALUE, zone1.dataNodesAutoAdjust().value());
 
         distributionZoneManager.dropZone(ZONE_NAME).get(5, TimeUnit.SECONDS);
 
@@ -111,10 +115,14 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
     public void testCreateZoneIfExists1() throws Exception {
         Exception e = null;
 
-        distributionZoneManager.createZone(ZONE_NAME, 100).get(5, TimeUnit.SECONDS);
+        distributionZoneManager.createZone(
+                new DistributionZoneCfg.Builder().name(ZONE_NAME).dataNodesAutoAdjust(100).build()
+        ).get(5, TimeUnit.SECONDS);
 
         try {
-            distributionZoneManager.createZone(ZONE_NAME, 100).get(5, TimeUnit.SECONDS);
+            distributionZoneManager.createZone(
+                    new DistributionZoneCfg.Builder().name(ZONE_NAME).dataNodesAutoAdjust(100).build()
+            ).get(5, TimeUnit.SECONDS);
         } catch (Exception e0) {
             e = e0;
         }
@@ -127,10 +135,13 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
     public void testCreateZoneIfExists2() throws Exception {
         Exception e = null;
 
-        distributionZoneManager.createZone(ZONE_NAME, 100).get(5, TimeUnit.SECONDS);
+        distributionZoneManager.createZone(
+                new DistributionZoneCfg.Builder().name(ZONE_NAME).dataNodesAutoAdjust(100).build()
+        ).get(5, TimeUnit.SECONDS);
 
         try {
-            distributionZoneManager.createZone(ZONE_NAME, 100, 100).get(5, TimeUnit.SECONDS);
+            distributionZoneManager.createZone(new DistributionZoneCfg.Builder().name(ZONE_NAME)
+                    .dataNodesAutoAdjustScaleUp(100).dataNodesAutoAdjustScaleDown(100).build()).get(5, TimeUnit.SECONDS);
         } catch (Exception e0) {
             e = e0;
         }
@@ -155,7 +166,9 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
 
     @Test
     public void testUpdateZone() throws Exception {
-        distributionZoneManager.createZone(ZONE_NAME, 100)
+        distributionZoneManager.createZone(
+                        new DistributionZoneCfg.Builder().name(ZONE_NAME).dataNodesAutoAdjust(100).build()
+                )
                 .get(5, TimeUnit.SECONDS);
 
         DistributionZoneConfiguration zone1 = registry.getConfiguration(DistributionZonesConfiguration.KEY).distributionZones()
@@ -163,12 +176,13 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
 
         assertNotNull(zone1);
         assertEquals(ZONE_NAME, zone1.name().value());
-        assertEquals(0, zone1.dataNodesAutoAdjustScaleUp().value());
-        assertEquals(0, zone1.dataNodesAutoAdjustScaleDown().value());
+        assertEquals(Integer.MAX_VALUE, zone1.dataNodesAutoAdjustScaleUp().value());
+        assertEquals(Integer.MAX_VALUE, zone1.dataNodesAutoAdjustScaleDown().value());
         assertEquals(100, zone1.dataNodesAutoAdjust().value());
 
 
-        distributionZoneManager.alterZone(ZONE_NAME, 200, 300)
+        distributionZoneManager.alterZone(ZONE_NAME, new DistributionZoneCfg.Builder().name(ZONE_NAME)
+                        .dataNodesAutoAdjustScaleUp(200).dataNodesAutoAdjustScaleDown(300).build())
                 .get(5, TimeUnit.SECONDS);
 
         zone1 = registry.getConfiguration(DistributionZonesConfiguration.KEY).distributionZones()
@@ -177,19 +191,34 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
         assertNotNull(zone1);
         assertEquals(200, zone1.dataNodesAutoAdjustScaleUp().value());
         assertEquals(300, zone1.dataNodesAutoAdjustScaleDown().value());
-        assertEquals(0, zone1.dataNodesAutoAdjust().value());
+        assertEquals(Integer.MAX_VALUE, zone1.dataNodesAutoAdjust().value());
+    }
 
-
-        distributionZoneManager.alterZone(ZONE_NAME, 400)
+    @Test
+    public void testUpdateAndRenameZone() throws Exception {
+        distributionZoneManager.createZone(
+                        new DistributionZoneCfg.Builder().name(ZONE_NAME).dataNodesAutoAdjust(100).build()
+                )
                 .get(5, TimeUnit.SECONDS);
 
-        zone1 = registry.getConfiguration(DistributionZonesConfiguration.KEY).distributionZones()
+
+        distributionZoneManager.alterZone(ZONE_NAME,
+                        new DistributionZoneCfg.Builder().name(NEW_ZONE_NAME).dataNodesAutoAdjust(400).build())
+                .get(5, TimeUnit.SECONDS);
+
+        DistributionZoneConfiguration zone1 = registry.getConfiguration(DistributionZonesConfiguration.KEY).distributionZones()
                 .get(ZONE_NAME);
 
-        assertNotNull(zone1);
-        assertEquals(0, zone1.dataNodesAutoAdjustScaleUp().value());
-        assertEquals(0, zone1.dataNodesAutoAdjustScaleDown().value());
-        assertEquals(400, zone1.dataNodesAutoAdjust().value());
+        DistributionZoneConfiguration zone2 = registry.getConfiguration(DistributionZonesConfiguration.KEY)
+                .distributionZones()
+                .get(NEW_ZONE_NAME);
+
+        assertNull(zone1);
+        assertNotNull(zone2);
+        assertEquals(NEW_ZONE_NAME, zone2.name().value());
+        assertEquals(Integer.MAX_VALUE, zone2.dataNodesAutoAdjustScaleUp().value());
+        assertEquals(Integer.MAX_VALUE, zone2.dataNodesAutoAdjustScaleDown().value());
+        assertEquals(400, zone2.dataNodesAutoAdjust().value());
     }
 
     @Test
@@ -197,7 +226,8 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
         Exception e = null;
 
         try {
-            distributionZoneManager.alterZone(ZONE_NAME, 100).get(5, TimeUnit.SECONDS);
+            distributionZoneManager.alterZone(ZONE_NAME, new DistributionZoneCfg.Builder()
+                    .name(ZONE_NAME).dataNodesAutoAdjust(100).build()).get(5, TimeUnit.SECONDS);
         } catch (Exception e0) {
             e = e0;
         }
@@ -211,7 +241,8 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
         Exception e = null;
 
         try {
-            distributionZoneManager.alterZone(ZONE_NAME, 100, 100).get(5, TimeUnit.SECONDS);
+            distributionZoneManager.alterZone(ZONE_NAME, new DistributionZoneCfg.Builder().name(ZONE_NAME)
+                    .dataNodesAutoAdjustScaleUp(100).dataNodesAutoAdjustScaleDown(100).build()).get(5, TimeUnit.SECONDS);
         } catch (Exception e0) {
             e = e0;
         }
@@ -225,7 +256,8 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
         Exception e = null;
 
         try {
-            distributionZoneManager.createZone(ZONE_NAME, -10).get(5, TimeUnit.SECONDS);
+            distributionZoneManager.createZone(new DistributionZoneCfg.Builder()
+                    .name(ZONE_NAME).dataNodesAutoAdjust(-10).build()).get(5, TimeUnit.SECONDS);
         } catch (Exception e0) {
             e = e0;
         }
@@ -235,11 +267,12 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
     }
 
     @Test
-    public void testCreateDropZoneWithWrongSeparatedAutoAdjust1() throws Exception {
+    public void testCreateZoneWithWrongSeparatedAutoAdjust1() throws Exception {
         Exception e = null;
 
         try {
-            distributionZoneManager.createZone(ZONE_NAME, -100, 1).get(5, TimeUnit.SECONDS);
+            distributionZoneManager.createZone(new DistributionZoneCfg.Builder().name(ZONE_NAME)
+                    .dataNodesAutoAdjustScaleUp(-100).dataNodesAutoAdjustScaleDown(1).build()).get(5, TimeUnit.SECONDS);
         } catch (Exception e0) {
             e = e0;
         }
@@ -249,11 +282,12 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
     }
 
     @Test
-    public void testCreateDropZoneWithWrongSeparatedAutoAdjust2() throws Exception {
+    public void testCreateZoneWithWrongSeparatedAutoAdjust2() throws Exception {
         Exception e = null;
 
         try {
-            distributionZoneManager.createZone(ZONE_NAME, 1, -100).get(5, TimeUnit.SECONDS);
+            distributionZoneManager.createZone(new DistributionZoneCfg.Builder().name(ZONE_NAME)
+                    .dataNodesAutoAdjustScaleUp(1).dataNodesAutoAdjustScaleDown(-100).build()).get(5, TimeUnit.SECONDS);
         } catch (Exception e0) {
             e = e0;
         }
