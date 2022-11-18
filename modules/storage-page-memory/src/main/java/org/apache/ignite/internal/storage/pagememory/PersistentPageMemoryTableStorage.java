@@ -442,7 +442,10 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
 
         CompletableFuture<Void> previousFuture = destroyFutureByPartitionId.put(partitionId, new CompletableFuture<>());
 
-        assert previousFuture == null : "Parallel destruction of partition: " + partitionId;
+        assert previousFuture == null : "Previous destruction of the partition has not completed: " + partitionId;
+
+        // It is enough for us to close the partition storage and its indexes (do not destroy), perform some actions, and then simply
+        // delete the partition file (along with additional files).
 
         mvPartitionStorage.close();
 

@@ -113,6 +113,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     protected final IgniteSpinBusyLock closeBusyLock = new IgniteSpinBusyLock();
 
     /** To avoid double closure. */
+    @SuppressWarnings("unused")
     private volatile boolean started;
 
     /**

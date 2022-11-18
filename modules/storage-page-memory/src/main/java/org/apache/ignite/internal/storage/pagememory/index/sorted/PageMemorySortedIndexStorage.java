@@ -73,6 +73,7 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
     private final IgniteSpinBusyLock closeBusyLock = new IgniteSpinBusyLock();
 
     /** To avoid double closure. */
+    @SuppressWarnings("unused")
     private volatile boolean started = true;
 
     /**
