@@ -83,10 +83,10 @@ public class ExchangeServiceImpl implements ExchangeService {
 
     /** {@inheritDoc} */
     @Override
-    public <RowT> void sendBatch(String nodeId, UUID qryId, long fragmentId, long exchangeId, int batchId,
+    public <RowT> void sendBatch(String nodeName, UUID qryId, long fragmentId, long exchangeId, int batchId,
             boolean last, List<RowT> rows) throws IgniteInternalCheckedException {
         msgSrvc.send(
-                nodeId,
+                nodeName,
                 FACTORY.queryBatchMessage()
                         .queryId(qryId)
                         .fragmentId(fragmentId)
@@ -100,10 +100,10 @@ public class ExchangeServiceImpl implements ExchangeService {
 
     /** {@inheritDoc} */
     @Override
-    public void acknowledge(String nodeId, UUID qryId, long fragmentId, long exchangeId, int batchId)
+    public void acknowledge(String nodeName, UUID qryId, long fragmentId, long exchangeId, int batchId)
             throws IgniteInternalCheckedException {
         msgSrvc.send(
-                nodeId,
+                nodeName,
                 FACTORY.queryBatchAcknowledgeMessage()
                         .queryId(qryId)
                         .fragmentId(fragmentId)
@@ -115,9 +115,9 @@ public class ExchangeServiceImpl implements ExchangeService {
 
     /** {@inheritDoc} */
     @Override
-    public void closeQuery(String nodeId, UUID qryId) throws IgniteInternalCheckedException {
+    public void closeQuery(String nodeName, UUID qryId) throws IgniteInternalCheckedException {
         msgSrvc.send(
-                nodeId,
+                nodeName,
                 FACTORY.queryCloseMessage()
                         .queryId(qryId)
                         .build()
@@ -126,9 +126,9 @@ public class ExchangeServiceImpl implements ExchangeService {
 
     /** {@inheritDoc} */
     @Override
-    public void closeInbox(String nodeId, UUID qryId, long fragmentId, long exchangeId) throws IgniteInternalCheckedException {
+    public void closeInbox(String nodeName, UUID qryId, long fragmentId, long exchangeId) throws IgniteInternalCheckedException {
         msgSrvc.send(
-                nodeId,
+                nodeName,
                 FACTORY.inboxCloseMessage()
                         .queryId(qryId)
                         .fragmentId(fragmentId)
@@ -139,9 +139,9 @@ public class ExchangeServiceImpl implements ExchangeService {
 
     /** {@inheritDoc} */
     @Override
-    public void sendError(String nodeId, UUID qryId, long fragmentId, Throwable err) throws IgniteInternalCheckedException {
+    public void sendError(String nodeName, UUID qryId, long fragmentId, Throwable err) throws IgniteInternalCheckedException {
         msgSrvc.send(
-                nodeId,
+                nodeName,
                 FACTORY.errorMessage()
                         .queryId(qryId)
                         .fragmentId(fragmentId)
@@ -152,11 +152,11 @@ public class ExchangeServiceImpl implements ExchangeService {
 
     /** {@inheritDoc} */
     @Override
-    public boolean alive(String nodeId) {
-        return msgSrvc.alive(nodeId);
+    public boolean alive(String nodeName) {
+        return msgSrvc.alive(nodeName);
     }
 
-    protected void onMessage(String nodeId, InboxCloseMessage msg) {
+    private void onMessage(String nodeName, InboxCloseMessage msg) {
         Collection<Inbox<?>> inboxes = mailboxRegistry.inboxes(msg.queryId(), msg.fragmentId(), msg.exchangeId());
 
         if (!nullOrEmpty(inboxes)) {
@@ -164,35 +164,35 @@ public class ExchangeServiceImpl implements ExchangeService {
                 inbox.context().execute(inbox::close, inbox::onError);
             }
         } else if (LOG.isDebugEnabled()) {
-            LOG.debug("Stale inbox cancel message received [nodeId={}, queryId={}, fragmentId={}, exchangeId={}]",
-                    nodeId, msg.queryId(), msg.fragmentId(), msg.exchangeId());
+            LOG.debug("Stale inbox cancel message received [nodeName={}, queryId={}, fragmentId={}, exchangeId={}]",
+                    nodeName, msg.queryId(), msg.fragmentId(), msg.exchangeId());
         }
     }
 
-    protected void onMessage(String nodeId, QueryBatchAcknowledgeMessage msg) {
+    private void onMessage(String nodeName, QueryBatchAcknowledgeMessage msg) {
         Outbox<?> outbox = mailboxRegistry.outbox(msg.queryId(), msg.exchangeId());
 
         if (outbox != null) {
             try {
-                outbox.onAcknowledge(nodeId, msg.batchId());
+                outbox.onAcknowledge(nodeName, msg.batchId());
             } catch (Throwable e) {
                 outbox.onError(e);
 
                 throw new IgniteInternalException(UNEXPECTED_ERR, "Unexpected exception", e);
             }
         } else if (LOG.isDebugEnabled()) {
-            LOG.debug("Stale acknowledge message received: [nodeId={}, queryId={}, fragmentId={}, exchangeId={}, batchId={}]",
-                    nodeId, msg.queryId(), msg.fragmentId(), msg.exchangeId(), msg.batchId());
+            LOG.debug("Stale acknowledge message received: [nodeName={}, queryId={}, fragmentId={}, exchangeId={}, batchId={}]",
+                    nodeName, msg.queryId(), msg.fragmentId(), msg.exchangeId(), msg.batchId());
         }
     }
 
-    protected void onMessage(String nodeId, QueryBatchMessage msg) {
+    private void onMessage(String nodeName, QueryBatchMessage msg) {
         Inbox<?> inbox = mailboxRegistry.inbox(msg.queryId(), msg.exchangeId());
 
         if (inbox == null && msg.batchId() == 0) {
             // first message sent before a fragment is built
             // note that an inbox source fragment id is also used as an exchange id
-            Inbox<?> newInbox = new Inbox<>(baseInboxContext(nodeId, msg.queryId(), msg.fragmentId()),
+            Inbox<?> newInbox = new Inbox<>(baseInboxContext(nodeName, msg.queryId(), msg.fragmentId()),
                     this, mailboxRegistry, msg.exchangeId(), msg.exchangeId());
 
             inbox = mailboxRegistry.register(newInbox);
@@ -200,22 +200,22 @@ public class ExchangeServiceImpl implements ExchangeService {
 
         if (inbox != null) {
             try {
-                inbox.onBatchReceived(nodeId, msg.batchId(), msg.last(), Commons.cast(msg.rows()));
+                inbox.onBatchReceived(nodeName, msg.batchId(), msg.last(), Commons.cast(msg.rows()));
             } catch (Throwable e) {
                 inbox.onError(e);
 
                 throw new IgniteInternalException(UNEXPECTED_ERR, "Unexpected exception", e);
             }
         } else if (LOG.isDebugEnabled()) {
-            LOG.debug("Stale batch message received: [nodeId={}, queryId={}, fragmentId={}, exchangeId={}, batchId={}]",
-                    nodeId, msg.queryId(), msg.fragmentId(), msg.exchangeId(), msg.batchId());
+            LOG.debug("Stale batch message received: [nodeName={}, queryId={}, fragmentId={}, exchangeId={}, batchId={}]",
+                    nodeName, msg.queryId(), msg.fragmentId(), msg.exchangeId(), msg.batchId());
         }
     }
 
     /**
      * Get minimal execution context to meet Inbox needs.
      */
-    private ExecutionContext<?> baseInboxContext(String nodeId, UUID qryId, long fragmentId) {
+    private ExecutionContext<?> baseInboxContext(String nodeName, UUID qryId, long fragmentId) {
         return new ExecutionContext<>(
                 BaseQueryContext.builder()
                         .logger(LOG)
@@ -223,7 +223,7 @@ public class ExchangeServiceImpl implements ExchangeService {
                 taskExecutor,
                 qryId,
                 localNode,
-                nodeId,
+                nodeName,
                 new FragmentDescription(
                         fragmentId,
                         null,
