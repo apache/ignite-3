@@ -41,11 +41,6 @@ namespace ignite {
 std::string resolveIgniteHome(const std::string &path = "");
 
 /**
- * Get path to maven executable.
- */
-std::string getMavenPath();
-
-/**
  * Check async operation result and propagate error to the promise if there is
  * any.
  *

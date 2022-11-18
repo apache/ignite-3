@@ -42,7 +42,6 @@ namespace Apache.Ignite.Internal.Generators
             var exclude = new[]
             {
                 "internal",
-                string.Format(CultureInfo.InvariantCulture, "{0}target{0}", Path.DirectorySeparatorChar), // Maven
                 string.Format(CultureInfo.InvariantCulture, "{0}build{0}", Path.DirectorySeparatorChar), // Gradle
                 Path.Combine("modules", "cli")
             };
