@@ -776,7 +776,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                                     partitionDataStorage(mvPartitionStorage, internalTbl, partId),
                                                                     txStatePartitionStorage,
                                                                     txManager,
-                                                                    table.indexStorageAdapters(partId)
+                                                                    table.indexStorageAdapters(partId),
+                                                                    partId
                                                             ),
                                                             new RebalanceRaftGroupEventsListener(
                                                                     metaStorageMgr,
@@ -1824,7 +1825,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                     partitionDataStorage(mvPartitionStorage, internalTable, partId),
                                     txStatePartitionStorage,
                                     txManager,
-                                    tbl.indexStorageAdapters(partId)
+                                    tbl.indexStorageAdapters(partId),
+                                    partId
                             );
 
                             RaftGroupEventsListener raftGrpEvtsLsnr = new RebalanceRaftGroupEventsListener(

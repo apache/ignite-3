@@ -261,7 +261,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 new TestPartitionDataStorage(mvPartStorage),
                 txStateStorage().getOrCreateTxStateStorage(0),
                 this.txManager,
-                () -> Map.of(pkStorage.get().id(), pkStorage.get())
+                () -> Map.of(pkStorage.get().id(), pkStorage.get()),
+                0
         );
     }
 
