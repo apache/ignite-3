@@ -693,7 +693,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         ClusterNode localMember = topologyService.localMember();
 
         // Create new raft nodes according to new assignments.
-        tablesByIdVv.update(causalityToken, (tablesById, e) -> inBusyLock(() -> {
+        return tablesByIdVv.update(causalityToken, (tablesById, e) -> inBusyLock(() -> {
             if (e != null) {
                 return failedFuture(e);
             }
@@ -893,8 +893,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
             return allOf(futures).thenApply(unused -> tablesById);
         }));
-
-        return allOf(futures);
     }
 
     private void inBusyLock(Runnable task) {
