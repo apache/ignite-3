@@ -27,7 +27,7 @@ using NUnit.Framework;
 public partial class LinqTests
 {
     [Test]
-    public void TestGroupBy()
+    public void TestGroupBySimple()
     {
         var query = PocoByteView.AsQueryable()
             .GroupBy(x => x.Val)
@@ -40,6 +40,29 @@ public partial class LinqTests
 
         StringAssert.Contains(
             "select _T0.VAL " +
+            "from PUBLIC.TBL_INT8 as _T0 " +
+            "group by (_T0.VAL) " +
+            "order by (_T0.VAL) asc",
+            query.ToString());
+    }
+
+    [Test]
+    public void TestGroupByWithAggregates()
+    {
+        // TODO IGNITE-18196 Remove cast to long for Sum and Count
+        var query = PocoByteView.AsQueryable()
+            .GroupBy(x => x.Val)
+            .Select(x => new { x.Key, Count = (long)x.Count(), Sum = (long)x.Sum(e => e.Key), Avg = x.Average(e => e.Key) })
+            .OrderBy(x => x.Key);
+
+        var res = query.ToList();
+
+        Assert.AreEqual(1, res[1].Key);
+        Assert.AreEqual(3, res[1].Count);
+        Assert.AreEqual(4.0d, res[1].Avg);
+
+        StringAssert.Contains(
+            "select _T0.VAL, count (*) , sum (_T0.KEY) , avg (_T0.KEY)  " +
             "from PUBLIC.TBL_INT8 as _T0 " +
             "group by (_T0.VAL) " +
             "order by (_T0.VAL) asc",
