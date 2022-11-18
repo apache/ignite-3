@@ -72,6 +72,7 @@ public partial class LinqTests
     [Test]
     public void TestGroupBySubQuery()
     {
+        // TODO: Use field aliases for all selectors to fix this.
         var query = PocoByteView.AsQueryable()
             .Select(x => new {Id = x.Key + 1, Price = x.Val * 10})
             .GroupBy(x => x.Price)
