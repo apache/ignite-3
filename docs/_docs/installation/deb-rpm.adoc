@@ -41,22 +41,42 @@ Apache Ignite can be installed from the official link:https://www.apache.org/dis
 +
 [tabs]
 --
-tab:Unix[]
+tab:deb[]
 [source,shell]
 ----
-curl -L "https://www.apache.org/dyn/mirrors/mirrors.cgi?action=download&filename=ignite/3.0.0-beta1/ignite3-cli_3.0.0-beta1_all.deb" -o ignite3-cli_3.0.0-beta1_all.deb
+curl -L "https://www.apache.org/dyn/mirrors/mirrors.cgi?action=download&filename=ignite/3.0.0-beta1/ignite3-cli_3.0.0~beta1_all.deb" -o ignite3-cli_3.0.0-beta1_all.deb
 
-curl -L "https://www.apache.org/dyn/mirrors/mirrors.cgi?action=download&filename=ignite/3.0.0-beta1/ignite3-db_3.0.0-beta1_all.deb" -o ignite3-db_3.0.0-beta1_all.deb
+curl -L "https://www.apache.org/dyn/mirrors/mirrors.cgi?action=download&filename=ignite/3.0.0-beta1/ignite3-db_3.0.0~beta1_all.deb" -o ignite3-db_3.0.0-beta1_all.deb
+----
+
+tab:RPM[]
+[source,shell]
+----
+curl -L "https://www.apache.org/dyn/mirrors/mirrors.cgi?action=download&filename=ignite/3.0.0-beta1/ignite3-cli-3.0.0~beta1.noarch.rpm" -o ignite3-cli-3.0.0~beta1.noarch.rpm
+
+curl -L "https://www.apache.org/dyn/mirrors/mirrors.cgi?action=download&filename=ignite/3.0.0-beta1/ignite3-db-3.0.0~beta1.noarch.rpm" -o ignite3-db-3.0.0~beta1.noarch.rpm
 ----
 --
 
-NOTE: RPM packages are available as `ignite3-cli-3.0.0-beta1.noarch.rpm` and `ignite3-db-3.0.0-beta1.noarch.rpm`.
 
 
 Install the Apache Ignite 3 package:
 
+[tabs]
+--
+tab:deb[]
 [source, shell]
 ----
 sudo apt install ignite3-db_3.0.0-beta1_all.deb --no-install-recommends
 sudo apt install ignite3-cli_3.0.0-beta1_all.deb --no-install-recommends
 ----
+
+tab:RPM[]
+[source,shell]
+----
+sudo rpm -i ignite3-db-3.0.0~beta1.noarch.rpm
+
+sudo rpm -i ignite3-cli-3.0.0~beta1.noarch.rpm
+----
+
+--

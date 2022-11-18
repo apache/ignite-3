@@ -680,6 +680,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         int partitions = newAssignments.size();
 
         CompletableFuture<?>[] futures = new CompletableFuture<?>[partitions];
+        for (int i = 0; i < futures.length; i++) {
+            futures[i] = new CompletableFuture<>();
+        }
 
         // TODO: IGNITE-16288 directAssignments should use async configuration API
         CompletableFuture<List<Set<ClusterNode>>> assignmentsLatestFut = CompletableFuture.supplyAsync(() -> inBusyLock(busyLock, () ->
@@ -811,7 +814,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             }), ioExecutor);
                 }
 
-                futures[partId] = startGroupFut
+                startGroupFut
                         .thenComposeAsync((v) -> {
                             try {
                                 return raftMgr.startRaftGroupService(replicaGrpId, newPartAssignmentIds);
@@ -870,9 +873,16 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             LOG.warn("Unable to update raft groups on the node", th);
 
                             return null;
+                        })
+                        .whenComplete((res, ex) -> {
+                            if (ex != null) {
+                                futures[partId].completeExceptionally(ex);
+                            } else {
+                                futures[partId].complete(null);
+                            }
                         });
 
-                return completedFuture(tablesById);
+                return futures[partId].thenApply(unused -> tablesById);
             });
         }
 
