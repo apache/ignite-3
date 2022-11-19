@@ -48,7 +48,6 @@ import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -374,7 +373,7 @@ public class CheckpointerTest {
 
         verify(dirtyPages, times(1)).toDirtyPageIdQueue();
         verify(checkpointer, times(1)).startCheckpointProgress();
-        verify(compactor, times(1)).addDeltaFiles(eq(1));
+        verify(compactor, times(1)).onAddingDeltaFiles();
 
         assertEquals(checkpointer.lastCheckpointProgress().currentCheckpointPagesCount(), 3);
 
@@ -402,7 +401,7 @@ public class CheckpointerTest {
 
         verify(dirtyPages, never()).toDirtyPageIdQueue();
         verify(checkpointer, times(1)).startCheckpointProgress();
-        verify(compactor, never()).addDeltaFiles(anyInt());
+        verify(compactor, never()).onAddingDeltaFiles();
 
         assertEquals(checkpointer.lastCheckpointProgress().currentCheckpointPagesCount(), 0);
 

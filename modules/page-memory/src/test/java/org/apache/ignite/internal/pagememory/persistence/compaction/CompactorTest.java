@@ -42,6 +42,7 @@ import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -120,9 +121,9 @@ public class CompactorTest {
     void testDoCompaction() throws Throwable {
         FilePageStore filePageStore = mock(FilePageStore.class);
 
-        DeltaFilePageStoreIo deltaFilePageStoreIo = mock(DeltaFilePageStoreIo.class);
+        AtomicReference<DeltaFilePageStoreIo> deltaFilePageStoreIoRef = new AtomicReference<>(mock(DeltaFilePageStoreIo.class));
 
-        when(filePageStore.getDeltaFileToCompaction()).thenReturn(deltaFilePageStoreIo);
+        when(filePageStore.getDeltaFileToCompaction()).then(answer -> deltaFilePageStoreIoRef.get());
 
         FilePageStoreManager filePageStoreManager = mock(FilePageStoreManager.class);
 
@@ -132,7 +133,9 @@ public class CompactorTest {
 
         doAnswer(answer -> {
             assertSame(filePageStore, answer.getArgument(0));
-            assertSame(deltaFilePageStoreIo, answer.getArgument(1));
+            assertSame(deltaFilePageStoreIoRef.get(), answer.getArgument(1));
+
+            deltaFilePageStoreIoRef.set(null);
 
             return null;
         })
@@ -141,7 +144,7 @@ public class CompactorTest {
 
         compactor.doCompaction();
 
-        verify(filePageStore, times(1)).getDeltaFileToCompaction();
+        verify(filePageStore, times(2)).getDeltaFileToCompaction();
 
         verify(compactor, times(1)).mergeDeltaFileToMainFile(any(FilePageStore.class), any(DeltaFilePageStoreIo.class));
     }
@@ -173,7 +176,7 @@ public class CompactorTest {
 
         assertThrows(TimeoutException.class, () -> waitDeltaFilesFuture.get(100, MILLISECONDS));
 
-        compactor.addDeltaFiles(1);
+        compactor.onAddingDeltaFiles();
 
         waitDeltaFilesFuture.get(100, MILLISECONDS);
     }

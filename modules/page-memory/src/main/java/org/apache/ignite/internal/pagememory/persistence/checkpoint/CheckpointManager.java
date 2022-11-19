@@ -312,12 +312,10 @@ public class CheckpointManager {
     }
 
     /**
-     * Adds the number of delta files to compact.
-     *
-     * @param count Number of delta files.
+     * Callback on adding delta files so we can start compacting them.
      */
-    public void addDeltaFileCountForCompaction(int count) {
-        compactor.addDeltaFiles(count);
+    public void onAddingDeltaFiles() {
+        compactor.onAddingDeltaFiles();
     }
 
     /**

@@ -433,8 +433,7 @@ public class Checkpointer extends IgniteWorker {
 
         syncUpdatedPageStores(updatedPartitions, currentCheckpointProgress);
 
-        // TODO: IGNITE-17132 вот тут надо переделать
-        compactor.addDeltaFiles(updatedPartitions.size());
+        compactor.onAddingDeltaFiles();
 
         if (shutdownNow.getAsBoolean()) {
             currentCheckpointProgress.fail(new NodeStoppingException("Node is stopping."));
