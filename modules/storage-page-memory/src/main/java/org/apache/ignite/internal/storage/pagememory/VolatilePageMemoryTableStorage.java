@@ -157,7 +157,7 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
     }
 
     @Override
-    public void destroyMvPartitionStorage(AbstractPageMemoryMvPartitionStorage mvPartitionStorage) {
+    public void destroyMvPartitionStorage(AbstractPageMemoryMvPartitionStorage mvPartitionStorage) throws StorageException {
         // TODO: IGNITE-17833 Implement
         throw new UnsupportedOperationException();
     }

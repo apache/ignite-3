@@ -47,6 +47,7 @@ import org.apache.ignite.internal.storage.pagememory.mv.PersistentPageMemoryMvPa
 import org.apache.ignite.internal.storage.pagememory.mv.RowVersionFreeList;
 import org.apache.ignite.internal.storage.pagememory.mv.VersionChainTree;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
+import org.apache.ignite.lang.IgniteStringFormatter;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -437,7 +438,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
     }
 
     @Override
-    public void destroyMvPartitionStorage(AbstractPageMemoryMvPartitionStorage mvPartitionStorage) {
+    public void destroyMvPartitionStorage(AbstractPageMemoryMvPartitionStorage mvPartitionStorage) throws StorageException {
         int partitionId = mvPartitionStorage.partitionId();
 
         CompletableFuture<Void> previousFuture = destroyFutureByPartitionId.put(partitionId, new CompletableFuture<>());
@@ -453,9 +454,22 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
 
         dataRegion.pageMemory().invalidate(tableId, partitionId);
 
-        dataRegion.checkpointManager().onPartitionDestruction(tableId, partitionId);
+        dataRegion.filePageStoreManager().getStore(tableId, partitionId).markToDestroy();
 
         dataRegion.partitionMetaManager().removeMeta(new GroupPartitionId(tableId, partitionId));
+
+        try {
+            dataRegion.checkpointManager().onPartitionDestruction(tableId, partitionId);
+        } catch (IgniteInternalCheckedException e) {
+            throw new StorageException(
+                    IgniteStringFormatter.format(
+                            "Error while processing callback on partition destruction: [tableId={}, partitionId={}]",
+                            tableId,
+                            partitionId
+                    ),
+                    e
+            );
+        }
 
         dataRegion.filePageStoreManager().onPartitionDestruction(tableId, partitionId);
 

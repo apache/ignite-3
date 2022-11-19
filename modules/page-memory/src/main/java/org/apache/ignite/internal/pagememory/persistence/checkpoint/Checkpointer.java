@@ -22,6 +22,7 @@ import static java.lang.System.nanoTime;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointReadWriteLock.CHECKPOINT_RUNNER_THREAD_PREFIX;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.LOCK_TAKEN;
 import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
@@ -43,6 +44,7 @@ import java.util.concurrent.atomic.LongAdder;
 import java.util.function.BooleanSupplier;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointView;
@@ -61,6 +63,7 @@ import org.apache.ignite.internal.util.worker.WorkProgressDispatcher;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.jetbrains.annotations.Nullable;
 
@@ -99,6 +102,9 @@ public class Checkpointer extends IgniteWorker {
             + "%s"
             + "pages=%d, "
             + "reason='%s']";
+
+    /** Logger. */
+    private static final IgniteLogger LOG = Loggers.forClass(Checkpointer.class);
 
     /** Pause detector. */
     private final @Nullable LongJvmPauseDetector pauseDetector;
@@ -139,7 +145,6 @@ public class Checkpointer extends IgniteWorker {
     /**
      * Constructor.
      *
-     * @param log Logger.
      * @param igniteInstanceName Name of the Ignite instance.
      * @param workerListener Listener for life-cycle worker events.
      * @param detector Long JVM pause detector.
@@ -150,7 +155,6 @@ public class Checkpointer extends IgniteWorker {
      * @param checkpointConfig Checkpoint configuration.
      */
     Checkpointer(
-            IgniteLogger log,
             String igniteInstanceName,
             @Nullable IgniteWorkerListener workerListener,
             @Nullable LongJvmPauseDetector detector,
@@ -160,7 +164,7 @@ public class Checkpointer extends IgniteWorker {
             Compactor compactor,
             PageMemoryCheckpointConfiguration checkpointConfig
     ) {
-        super(log, igniteInstanceName, "checkpoint-thread", workerListener);
+        super(LOG, igniteInstanceName, "checkpoint-thread", workerListener);
 
         this.pauseDetector = detector;
         this.checkpointConfig = checkpointConfig;
@@ -427,8 +431,9 @@ public class Checkpointer extends IgniteWorker {
 
         tracker.onFsyncStart();
 
-        syncUpdatedPageStores(updatedPartitions);
+        syncUpdatedPageStores(updatedPartitions, currentCheckpointProgress);
 
+        // TODO: IGNITE-17132 вот тут надо переделать
         compactor.addDeltaFiles(updatedPartitions.size());
 
         if (shutdownNow.getAsBoolean()) {
@@ -441,7 +446,8 @@ public class Checkpointer extends IgniteWorker {
     }
 
     private void syncUpdatedPageStores(
-            ConcurrentMap<GroupPartitionId, LongAdder> updatedPartitions
+            ConcurrentMap<GroupPartitionId, LongAdder> updatedPartitions,
+            CheckpointProgressImpl currentCheckpointProgress
     ) throws IgniteInternalCheckedException {
         ThreadPoolExecutor pageWritePool = checkpointWritePagesPool;
 
@@ -451,9 +457,21 @@ public class Checkpointer extends IgniteWorker {
                     return;
                 }
 
-                fsyncDeltaFilePageStoreOnCheckpointThread(entry.getKey(), entry.getValue());
+                GroupPartitionId partitionId = entry.getKey();
 
-                renameDeltaFileOnCheckpointThread(entry.getKey());
+                FilePageStore filePageStore = filePageStoreManager.getStore(partitionId.getGroupId(), partitionId.getPartitionId());
+
+                if (filePageStore == null || filePageStore.isMarkedToDestroy()) {
+                    continue;
+                }
+
+                currentCheckpointProgress.onStartPartitionProcessing(partitionId.getGroupId(), partitionId.getPartitionId());
+
+                fsyncDeltaFilePageStoreOnCheckpointThread(filePageStore, entry.getValue());
+
+                renameDeltaFileOnCheckpointThread(filePageStore, partitionId);
+
+                currentCheckpointProgress.onFinishPartitionProcessing(partitionId.getGroupId(), partitionId.getPartitionId());
             }
         } else {
             int checkpointThreads = pageWritePool.getMaximumPoolSize();
@@ -478,9 +496,19 @@ public class Checkpointer extends IgniteWorker {
                                 return;
                             }
 
-                            fsyncDeltaFilePageStoreOnCheckpointThread(entry.getKey(), entry.getValue());
+                            GroupPartitionId partId = entry.getKey();
 
-                            renameDeltaFileOnCheckpointThread(entry.getKey());
+                            FilePageStore filePageStore = filePageStoreManager.getStore(partId.getGroupId(), partId.getPartitionId());
+
+                            if (filePageStore != null && !filePageStore.isMarkedToDestroy()) {
+                                currentCheckpointProgress.onStartPartitionProcessing(partId.getGroupId(), partId.getPartitionId());
+
+                                fsyncDeltaFilePageStoreOnCheckpointThread(filePageStore, entry.getValue());
+
+                                renameDeltaFileOnCheckpointThread(filePageStore, partId);
+
+                                currentCheckpointProgress.onFinishPartitionProcessing(partId.getGroupId(), partId.getPartitionId());
+                            }
 
                             entry = queue.poll();
                         }
@@ -717,14 +745,12 @@ public class Checkpointer extends IgniteWorker {
     }
 
     private void fsyncDeltaFilePageStoreOnCheckpointThread(
-            GroupPartitionId partitionId,
+            FilePageStore filePageStore,
             LongAdder pagesWritten
     ) throws IgniteInternalCheckedException {
         blockingSectionBegin();
 
         try {
-            FilePageStore filePageStore = filePageStoreManager.getStore(partitionId.getGroupId(), partitionId.getPartitionId());
-
             CompletableFuture<DeltaFilePageStoreIo> deltaFilePageStoreFuture = filePageStore.getNewDeltaFile();
 
             assert deltaFilePageStoreFuture != null;
@@ -737,12 +763,13 @@ public class Checkpointer extends IgniteWorker {
         currentCheckpointProgress.syncedPagesCounter().addAndGet(pagesWritten.intValue());
     }
 
-    private void renameDeltaFileOnCheckpointThread(GroupPartitionId partitionId) throws IgniteInternalCheckedException {
+    private void renameDeltaFileOnCheckpointThread(
+            FilePageStore filePageStore,
+            GroupPartitionId partitionId
+    ) throws IgniteInternalCheckedException {
         blockingSectionBegin();
 
         try {
-            FilePageStore filePageStore = filePageStoreManager.getStore(partitionId.getGroupId(), partitionId.getPartitionId());
-
             CompletableFuture<DeltaFilePageStoreIo> deltaFilePageStoreFuture = filePageStore.getNewDeltaFile();
 
             assert deltaFilePageStoreFuture != null;
@@ -777,12 +804,37 @@ public class Checkpointer extends IgniteWorker {
     /**
      * Callback on destruction of the partition of the corresponding group.
      *
-     * <p>TODO: IGNITE-17132 не забудь расширить описание
+     * <p>If the checkpoint is in progress, then wait until it finishes processing the partition that we are going to destroy, in order to
+     * prevent the situation when we want to destroy the partition file along with its delta files, and at this time the checkpoint performs
+     * I/O operations on them.
      *
      * @param groupId Group ID.
      * @param partitionId Partition ID.
+     * @throws IgniteInternalCheckedException If there are errors while processing the callback.
      */
-    void onPartitionDestruction(int groupId, int partitionId) {
-        // TODO: IGNITE-17132 реализовать
+    void onPartitionDestruction(int groupId, int partitionId) throws IgniteInternalCheckedException {
+        CheckpointProgressImpl currentCheckpointProgress = this.currentCheckpointProgress;
+
+        if (currentCheckpointProgress == null || !currentCheckpointProgress.inProgress()) {
+            return;
+        }
+
+        CompletableFuture<Void> processedPartitionFuture = currentCheckpointProgress.getProcessedPartition(groupId, partitionId);
+
+        if (processedPartitionFuture != null) {
+            try {
+                // Time is taken arbitrarily, but long enough to allow time for the future to complete.
+                processedPartitionFuture.get(10, SECONDS);
+            } catch (Exception e) {
+                throw new IgniteInternalCheckedException(
+                        IgniteStringFormatter.format(
+                                "Error waiting for partition processing to complete at checkpoint: [groupId={}, partitionId={}]",
+                                groupId,
+                                partitionId
+                        ),
+                        e
+                );
+            }
+        }
     }
 }

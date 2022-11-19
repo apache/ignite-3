@@ -59,6 +59,9 @@ public class IgniteConcurrentMultiPairQueue<K, V> {
     /** Keys array. */
     private final K[] keysArr;
 
+    /** Thread that read the last item in the queue. */
+    private Thread readLastItemThread;
+
     /**
      * Constructor.
      *
@@ -140,6 +143,10 @@ public class IgniteConcurrentMultiPairQueue<K, V> {
             return false;
         }
 
+        if (absPos == maxPos - 1) {
+            readLastItemThread = Thread.currentThread();
+        }
+
         int segment = res.getSegment();
 
         if (absPos > lenSeq[segment]) {
@@ -178,6 +185,13 @@ public class IgniteConcurrentMultiPairQueue<K, V> {
         int currentPosition = pos.get();
 
         return currentPosition >= maxPos ? 0 : maxPos - currentPosition;
+    }
+
+    /**
+     * Checks if the current thread has read the last item in the queue.
+     */
+    public boolean isCurrentThreadReadLastItem() {
+        return Thread.currentThread() == readLastItemThread;
     }
 
     /**
@@ -227,7 +241,6 @@ public class IgniteConcurrentMultiPairQueue<K, V> {
             return val;
         }
 
-        /** {@inheritDoc} */
         @Override
         public String toString() {
             return S.toString(Result.class, this);

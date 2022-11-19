@@ -59,7 +59,7 @@ public class ItBplusTreeReuseListPersistentPageMemoryTest extends AbstractBplusT
                 },
                 (fullPageId, buf, tag) -> {
                 },
-                mockCheckpointTimeoutLock(log, true),
+                mockCheckpointTimeoutLock(true),
                 PAGE_SIZE
         );
     }

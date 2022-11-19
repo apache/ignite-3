@@ -44,6 +44,7 @@ import org.apache.ignite.internal.pagememory.persistence.PageReadWriteManager;
 import org.apache.ignite.internal.util.IgniteStripedLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.jetbrains.annotations.Nullable;
 
@@ -278,19 +279,21 @@ public class FilePageStoreManager implements PageReadWriteManager {
      * @param partId Partition ID, from {@code 0} to {@link PageIdAllocator#MAX_PARTITION_ID} (inclusive).
      * @throws IgniteInternalCheckedException If group or partition with the given ID was not created.
      */
-    public FilePageStore getStore(int grpId, int partId) throws IgniteInternalCheckedException {
+    public FilePageStore getStore(int grpId, int partId) {
+        // TODO: IGNITE-17132 не забудь переделать что мы можем нуль вернуть
+
         assert partId >= 0 && partId <= MAX_PARTITION_ID : partId;
 
         List<FilePageStore> holder = groupPageStores.get(grpId);
 
         if (holder == null) {
-            throw new IgniteInternalCheckedException(
+            throw new IgniteInternalException(
                     "Failed to get file page store for the given group ID (group has not been started): " + grpId
             );
         }
 
         if (partId >= holder.size()) {
-            throw new IgniteInternalCheckedException(String.format(
+            throw new IgniteInternalException(String.format(
                     "Failed to get file page store for the given partition ID (partition has not been created) [grpId=%s, partId=%s]",
                     grpId,
                     partId

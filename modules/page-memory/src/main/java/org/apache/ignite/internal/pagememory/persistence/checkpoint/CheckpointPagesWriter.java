@@ -41,6 +41,7 @@ import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PageStoreWriter;
+import org.apache.ignite.internal.pagememory.persistence.PartitionMeta;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMeta.PartitionMetaSnapshot;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
@@ -140,7 +141,6 @@ public class CheckpointPagesWriter implements Runnable {
         this.shutdownNow = shutdownNow;
     }
 
-    /** {@inheritDoc} */
     @Override
     public void run() {
         try {
@@ -190,24 +190,41 @@ public class CheckpointPagesWriter implements Runnable {
             PersistentPageMemory pageMemory = queueResult.getKey();
 
             if (hasPartitionChanged(partitionId, fullId)) {
-                updatedPartitions.computeIfAbsent(partitionId = toPartitionId(fullId), partId -> {
+                GroupPartitionId newPartitionId = toPartitionId(fullId);
+
+                updatedPartitions.computeIfAbsent(newPartitionId, partId -> {
                     writeMetaPage.set(true);
 
                     return new LongAdder();
                 });
 
                 if (writeMetaPage.get()) {
-                    writePartitionMeta(pageMemory, partitionId, tmpWriteBuf.rewind());
+                    if (partitionId != null) {
+                        // Finishing for the previous partition.
+                        checkpointProgress.onFinishPartitionProcessing(partitionId.getGroupId(), partitionId.getPartitionId());
+                    }
+
+                    // Starting for the new partition.
+                    checkpointProgress.onStartPartitionProcessing(newPartitionId.getGroupId(), newPartitionId.getPartitionId());
+
+                    writePartitionMeta(pageMemory, newPartitionId, tmpWriteBuf.rewind());
 
                     writeMetaPage.set(false);
                 }
+
+                partitionId = newPartitionId;
             }
 
             tmpWriteBuf.rewind();
 
             PageStoreWriter pageStoreWriter = pageStoreWriters.computeIfAbsent(pageMemory, pm -> createPageStoreWriter(pm, pageIdsToRetry));
 
+            // Should also be done for partitions that will be destroyed to remove their pages from the data region.
             pageMemory.checkpointWritePage(fullId, tmpWriteBuf, pageStoreWriter, tracker);
+        }
+
+        if (partitionId != null && writePageIds.isCurrentThreadReadLastItem()) {
+            checkpointProgress.onFinishPartitionProcessing(partitionId.getGroupId(), partitionId.getPartitionId());
         }
 
         return pageIdsToRetry.isEmpty() ? EMPTY : new IgniteConcurrentMultiPairQueue<>(pageIdsToRetry);
@@ -223,33 +240,29 @@ public class CheckpointPagesWriter implements Runnable {
             PersistentPageMemory pageMemory,
             Map<PersistentPageMemory, List<FullPageId>> pagesToRetry
     ) {
-        return new PageStoreWriter() {
-            /** {@inheritDoc} */
-            @Override
-            public void writePage(FullPageId fullPageId, ByteBuffer buf, int tag) throws IgniteInternalCheckedException {
-                if (tag == TRY_AGAIN_TAG) {
-                    pagesToRetry.computeIfAbsent(pageMemory, k -> new ArrayList<>()).add(fullPageId);
+        return (fullPageId, buf, tag) -> {
+            if (tag == TRY_AGAIN_TAG) {
+                pagesToRetry.computeIfAbsent(pageMemory, k -> new ArrayList<>()).add(fullPageId);
 
-                    return;
-                }
-
-                long pageId = fullPageId.pageId();
-
-                assert getType(buf) != 0 : "Invalid state. Type is 0! pageId = " + hexLong(pageId);
-                assert getVersion(buf) != 0 : "Invalid state. Version is 0! pageId = " + hexLong(pageId);
-                assert fullPageId.pageIdx() != 0 : "Invalid pageIdx. Index is 0! pageId = " + hexLong(pageId);
-                assert !(ioRegistry.resolve(buf) instanceof PartitionMetaIo) : "Invalid IO type. pageId = " + hexLong(pageId);
-
-                if (flag(pageId) == FLAG_DATA) {
-                    tracker.onDataPageWritten();
-                }
-
-                checkpointProgress.writtenPagesCounter().incrementAndGet();
-
-                pageWriter.write(pageMemory, fullPageId, buf);
-
-                updatedPartitions.get(toPartitionId(fullPageId)).increment();
+                return;
             }
+
+            long pageId = fullPageId.pageId();
+
+            assert getType(buf) != 0 : "Invalid state. Type is 0! pageId = " + hexLong(pageId);
+            assert getVersion(buf) != 0 : "Invalid state. Version is 0! pageId = " + hexLong(pageId);
+            assert fullPageId.pageIdx() != 0 : "Invalid pageIdx. Index is 0! pageId = " + hexLong(pageId);
+            assert !(ioRegistry.resolve(buf) instanceof PartitionMetaIo) : "Invalid IO type. pageId = " + hexLong(pageId);
+
+            if (flag(pageId) == FLAG_DATA) {
+                tracker.onDataPageWritten();
+            }
+
+            checkpointProgress.writtenPagesCounter().incrementAndGet();
+
+            pageWriter.write(pageMemory, fullPageId, buf);
+
+            updatedPartitions.get(toPartitionId(fullPageId)).increment();
         };
     }
 
@@ -258,7 +271,14 @@ public class CheckpointPagesWriter implements Runnable {
             GroupPartitionId partitionId,
             ByteBuffer buffer
     ) throws IgniteInternalCheckedException {
-        PartitionMetaSnapshot partitionMetaSnapshot = partitionMetaManager.getMeta(partitionId).metaSnapshot(checkpointProgress.id());
+        PartitionMeta partitionMeta = partitionMetaManager.getMeta(partitionId);
+
+        // If this happens, then the partition is destroyed.
+        if (partitionMeta == null) {
+            return;
+        }
+
+        PartitionMetaSnapshot partitionMetaSnapshot = partitionMeta.metaSnapshot(checkpointProgress.id());
 
         partitionMetaManager.writeMetaToBuffer(partitionId, partitionMetaSnapshot, buffer.rewind());
 

@@ -94,6 +94,9 @@ public class FilePageStore implements PageStore {
     /** Future with a new delta file page store. */
     private volatile @Nullable CompletableFuture<DeltaFilePageStoreIo> newDeltaFilePageStoreIoFuture;
 
+    /** Flag that the file and its delta files will be destroyed. */
+    private volatile boolean toDestroy;
+
     /**
      * Constructor.
      *
@@ -374,5 +377,19 @@ public class FilePageStore implements PageStore {
      */
     public boolean removeDeltaFile(DeltaFilePageStoreIo deltaFilePageStoreIo) {
         return deltaFilePageStoreIos.remove(deltaFilePageStoreIo);
+    }
+
+    /**
+     * Marks that the file page store and its delta files will be destroyed.
+     */
+    public void markToDestroy() {
+        toDestroy = true;
+    }
+
+    /**
+     * Checks if the file page store and its delta files are marked for destruction.
+     */
+    public boolean isMarkedToDestroy() {
+        return toDestroy;
     }
 }

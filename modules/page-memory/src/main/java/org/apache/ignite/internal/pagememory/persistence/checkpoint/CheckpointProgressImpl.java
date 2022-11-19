@@ -25,9 +25,11 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -68,6 +70,9 @@ class CheckpointProgressImpl implements CheckpointProgress {
     /** Sorted dirty pages to be written on the checkpoint. */
     private volatile @Nullable CheckpointDirtyPages pageToWrite;
 
+    /** Partitions currently being processed, for example, writing dirty pages or doing fsync. */
+    private final ConcurrentMap<GroupPartitionId, CompletableFuture<Void>> processedPartitions = new ConcurrentHashMap<>();
+
     /**
      * Constructor.
      *
@@ -77,13 +82,11 @@ class CheckpointProgressImpl implements CheckpointProgress {
         nextCheckpointNanos(delay);
     }
 
-    /** {@inheritDoc} */
     @Override
     public UUID id() {
         return id;
     }
 
-    /** {@inheritDoc} */
     @Override
     public @Nullable String reason() {
         return reason;
@@ -98,13 +101,11 @@ class CheckpointProgressImpl implements CheckpointProgress {
         this.reason = reason;
     }
 
-    /** {@inheritDoc} */
     @Override
     public boolean inProgress() {
         return greaterOrEqualTo(LOCK_RELEASED) && !greaterOrEqualTo(FINISHED);
     }
 
-    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> futureFor(CheckpointState state) {
         CompletableFuture<Void> stateFut = stateFutures.computeIfAbsent(state, (k) -> new CompletableFuture<>());
@@ -116,7 +117,6 @@ class CheckpointProgressImpl implements CheckpointProgress {
         return stateFut;
     }
 
-    /** {@inheritDoc} */
     @Override
     public int currentCheckpointPagesCount() {
         return currCheckpointPagesCnt;
@@ -258,7 +258,6 @@ class CheckpointProgressImpl implements CheckpointProgress {
         }
     }
 
-    /** {@inheritDoc} */
     @Override
     public @Nullable CheckpointDirtyPages pagesToWrite() {
         return pageToWrite;
@@ -271,5 +270,50 @@ class CheckpointProgressImpl implements CheckpointProgress {
      */
     void pagesToWrite(@Nullable CheckpointDirtyPages pageToWrite) {
         this.pageToWrite = pageToWrite;
+    }
+
+    /**
+     * Callback at the beginning of checkpoint processing of a partition, for example, when writing dirty pages or executing a fsync.
+     *
+     * @param groupId Group ID.
+     * @param partitionId Partition ID.
+     */
+    public void onStartPartitionProcessing(int groupId, int partitionId) {
+        GroupPartitionId groupPartitionId = new GroupPartitionId(groupId, partitionId);
+
+        CompletableFuture<Void> previous = processedPartitions.put(groupPartitionId, new CompletableFuture<>());
+
+        assert previous == null : "Previous processing has not completed: " + groupPartitionId;
+    }
+
+    /**
+     * Callback on completion of partition processing, for example, when writing dirty pages or executing a fsync.
+     *
+     * @param groupId Group ID.
+     * @param partitionId Partition ID.
+     */
+    public void onFinishPartitionProcessing(int groupId, int partitionId) {
+        GroupPartitionId groupPartitionId = new GroupPartitionId(groupId, partitionId);
+
+        CompletableFuture<Void> removed = processedPartitions.remove(groupPartitionId);
+
+        assert removed != null : "Partition processing either did not start or finished again: " + groupPartitionId;
+
+        removed.complete(null);
+    }
+
+    /**
+     * Returns the future if the partition according to the given parameters is currently being processed, for example, dirty pages are
+     * being written or fsync is being done, {@code null} if the partition is not currently being processed.
+     *
+     * <p>Future is added when {@link #onStartPartitionProcessing(int, int)} is called and completed when
+     * {@link #onFinishPartitionProcessing(int, int)} is called.
+     *
+     * @param groupId Group ID.
+     * @param partitionId Partition ID.
+     */
+    @Nullable
+    public CompletableFuture<Void> getProcessedPartition(int groupId, int partitionId) {
+        return processedPartitions.get(new GroupPartitionId(groupId, partitionId));
     }
 }

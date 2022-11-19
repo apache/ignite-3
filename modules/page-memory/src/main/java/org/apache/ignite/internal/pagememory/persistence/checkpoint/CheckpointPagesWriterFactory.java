@@ -24,6 +24,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.function.BooleanSupplier;
 import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
@@ -39,7 +40,7 @@ import org.apache.ignite.internal.util.IgniteConcurrentMultiPairQueue;
  */
 public class CheckpointPagesWriterFactory {
     /** Logger. */
-    private final IgniteLogger log;
+    private static final IgniteLogger LOG = Loggers.forClass(CheckpointPagesWriterFactory.class);
 
     /** Thread local with buffers for the checkpoint threads. Each buffer represent one page for durable memory. */
     private final ThreadLocal<ByteBuffer> threadBuf;
@@ -56,21 +57,18 @@ public class CheckpointPagesWriterFactory {
     /**
      * Constructor.
      *
-     * @param log Logger.
      * @param dirtyPageWriter Checkpoint page writer.
      * @param ioRegistry Page IO registry.
      * @param partitionMetaManager Partition meta information manager.
      * @param pageSize Page size in bytes.
      */
     CheckpointPagesWriterFactory(
-            IgniteLogger log,
             WriteDirtyPage dirtyPageWriter,
             PageIoRegistry ioRegistry,
             PartitionMetaManager partitionMetaManager,
             // TODO: IGNITE-17017 Move to common config
             int pageSize
     ) {
-        this.log = log;
         this.dirtyPageWriter = dirtyPageWriter;
         this.ioRegistry = ioRegistry;
         this.partitionMetaManager = partitionMetaManager;
@@ -106,7 +104,7 @@ public class CheckpointPagesWriterFactory {
             BooleanSupplier shutdownNow
     ) {
         return new CheckpointPagesWriter(
-                log,
+                LOG,
                 tracker,
                 dirtyPageIdQueue,
                 updatedPartitions,

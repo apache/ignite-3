@@ -38,6 +38,7 @@ import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreMana
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.worker.IgniteWorkerListener;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
+import org.apache.ignite.lang.IgniteStringFormatter;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -122,7 +123,6 @@ public class CheckpointManager {
         );
 
         checkpointPagesWriterFactory = new CheckpointPagesWriterFactory(
-                Loggers.forClass(CheckpointPagesWriterFactory.class),
                 (pageMemory, fullPageId, pageBuf) -> writePageToDeltaFilePageStore(pageMemory, fullPageId, pageBuf, true),
                 ioRegistry,
                 partitionMetaManager,
@@ -139,7 +139,6 @@ public class CheckpointManager {
         );
 
         checkpointer = new Checkpointer(
-                Loggers.forClass(Checkpoint.class),
                 igniteInstanceName,
                 workerListener,
                 longJvmPauseDetector,
@@ -151,7 +150,6 @@ public class CheckpointManager {
         );
 
         checkpointTimeoutLock = new CheckpointTimeoutLock(
-                Loggers.forClass(CheckpointTimeoutLock.class),
                 checkpointReadWriteLock,
                 checkpointConfigView.readLockTimeout(),
                 () -> safeToUpdateAllPageMemories(dataRegions),
@@ -273,6 +271,13 @@ public class CheckpointManager {
     ) throws IgniteInternalCheckedException {
         FilePageStore filePageStore = filePageStoreManager.getStore(pageId.groupId(), pageId.partitionId());
 
+        // We should not get a destroyed partition, since the pages for it should be outdated and skipped for writing.
+        assert filePageStore != null && !filePageStore.isMarkedToDestroy() : IgniteStringFormatter.format(
+                "Partition destroyed: [groupId={}, partitionId={}]",
+                pageId.groupId(),
+                pageId.partitionId()
+        );
+
         CheckpointProgress lastCheckpointProgress = lastCheckpointProgress();
 
         assert lastCheckpointProgress != null : "Checkpoint has not happened yet";
@@ -322,8 +327,9 @@ public class CheckpointManager {
      *
      * @param groupId Group ID.
      * @param partitionId Partition ID.
+     * @throws IgniteInternalCheckedException If there are errors while processing the callback.
      */
-    public void onPartitionDestruction(int groupId, int partitionId) {
+    public void onPartitionDestruction(int groupId, int partitionId) throws IgniteInternalCheckedException {
         checkpointer.onPartitionDestruction(groupId, partitionId);
         compactor.onPartitionDestruction(groupId, partitionId);
     }

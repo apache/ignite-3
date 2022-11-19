@@ -365,4 +365,27 @@ public class CheckpointProgressImplTest {
 
         assertNull(progressImpl.pagesToWrite());
     }
+
+    @Test
+    void testProcessedPartition() throws Exception {
+        CheckpointProgressImpl progressImpl = new CheckpointProgressImpl(0);
+
+        int groupId = 0;
+        int partitionId = 0;
+
+        assertNull(progressImpl.getProcessedPartition(groupId, partitionId));
+
+        progressImpl.onStartPartitionProcessing(groupId, partitionId);
+
+        CompletableFuture<Void> processedPartition = progressImpl.getProcessedPartition(groupId, partitionId);
+
+        assertNotNull(processedPartition);
+        assertFalse(processedPartition.isDone());
+
+        progressImpl.onFinishPartitionProcessing(groupId, partitionId);
+
+        assertNull(progressImpl.getProcessedPartition(groupId, partitionId));
+
+        processedPartition.get(1, TimeUnit.SECONDS);
+    }
 }

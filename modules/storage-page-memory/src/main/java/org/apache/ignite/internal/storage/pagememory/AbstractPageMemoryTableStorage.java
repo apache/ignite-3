@@ -100,8 +100,9 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
      * Destroys the partition multi-version storage and all its indexes.
      *
      * @param mvPartitionStorage Multi-versioned partition storage.
+     * @throws StorageException If there are errors on the destruction of the partition.
      */
-    public abstract void destroyMvPartitionStorage(AbstractPageMemoryMvPartitionStorage mvPartitionStorage);
+    public abstract void destroyMvPartitionStorage(AbstractPageMemoryMvPartitionStorage mvPartitionStorage) throws StorageException;
 
     @Override
     public AbstractPageMemoryMvPartitionStorage getOrCreateMvPartition(int partitionId) throws StorageException {
