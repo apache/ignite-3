@@ -34,6 +34,7 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -42,6 +43,9 @@ import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.ignite.internal.causality.VersionedValue;
 import org.apache.ignite.internal.index.Index;
+import org.apache.ignite.internal.index.IndexManager;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.DefaultValueProvider;
 import org.apache.ignite.internal.schema.DefaultValueProvider.Type;
@@ -61,6 +65,8 @@ import org.jetbrains.annotations.Nullable;
  * Holds actual schema and mutates it on schema change, requested by Ignite.
  */
 public class SqlSchemaManagerImpl implements SqlSchemaManager {
+    private static final IgniteLogger LOG = Loggers.forClass(SqlSchemaManagerImpl.class);
+
     private final VersionedValue<Map<String, IgniteSchema>> schemasVv;
 
     private final VersionedValue<Map<UUID, InternalIgniteTable>> tablesVv;
@@ -68,6 +74,8 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
     private final VersionedValue<Map<UUID, IgniteIndex>> indicesVv;
 
     private final TableManager tableManager;
+
+    private final IndexManager indexManager;
 
     private final SchemaManager schemaManager;
 
@@ -84,21 +92,91 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
      */
     public SqlSchemaManagerImpl(
             TableManager tableManager,
+            IndexManager indexManager,
             SchemaManager schemaManager,
             Consumer<Function<Long, CompletableFuture<?>>> registry,
             IgniteSpinBusyLock busyLock
     ) {
         this.tableManager = tableManager;
+        this.indexManager = indexManager;
         this.schemaManager = schemaManager;
-        schemasVv = new VersionedValue<>(registry, HashMap::new);
-        tablesVv = new VersionedValue<>(registry, HashMap::new);
-        indicesVv = new VersionedValue<>(registry, HashMap::new);
         this.busyLock = busyLock;
+
+        schemasVv = new VersionedValue<>(null, HashMap::new);
+        tablesVv = new VersionedValue<>(null, HashMap::new);
+        indicesVv = new VersionedValue<>(null, HashMap::new);
 
         calciteSchemaVv = new VersionedValue<>(null, () -> {
             SchemaPlus newCalciteSchema = Frameworks.createRootSchema(false);
             newCalciteSchema.add(DEFAULT_SCHEMA_NAME, new IgniteSchema(DEFAULT_SCHEMA_NAME));
             return newCalciteSchema;
+        });
+
+        registry.accept(token -> {
+            LOG.info("DDD Beginning completion in SqlSchemaManager, token={}", token);
+
+            return indexManager.revisionCompletion(token)
+                    .whenComplete((v, e) -> {
+                        if (!busyLock.enterBusy()) {
+                            if (e != null) {
+                                LOG.warn("Error occurred while updating sql schemas and stopping components.", e);
+                                // Stop of the components has been started, so we do nothing and resources of schemasVv will be
+                                // freed in the logic of SqlSchemaManagerManagerImpl stop. We cannot complete schemasVv exceptionally
+                                // because we will lose a context.
+                            }
+                            return;
+                        }
+
+                        try {
+                            if (e != null) {
+                                LOG.warn("Error occurred while updating SQL schemas.", e);
+                                if (e instanceof CompletionException) {
+                                    Throwable th = e.getCause();
+                                    // Case when stopping of the previous component has been started and related futures completed
+                                    // exceptionally
+                                    if (th instanceof NodeStoppingException || (th.getCause() != null
+                                            && th.getCause() instanceof NodeStoppingException)) {
+                                        // Stop of the components has been started so we do nothing and resources will be freed in the
+                                        // logic of SqlSchemaManagerImpl stop
+                                        return;
+                                    }
+                                }
+                                // TODO: https://issues.apache.org/jira/browse/IGNITE-17515
+                                schemasVv.completeExceptionally(token, e);
+                            }
+
+                            LOG.info("DDD Completing schemasVv, token={}", token);
+
+                            //Normal scenario, when all related futures for schemasVv are completed and we can complete it
+                            schemasVv.complete(token);
+
+                            schemasVv.get(token).thenRun(() -> LOG.info("DDD Completed schemasVv, token={}", token));
+                        } finally {
+                            busyLock.leaveBusy();
+                        }
+                    });
+        });
+
+        registry.accept(token -> {
+            return schemasVv.get(token)
+                    .whenComplete((res, ex) -> {
+                        if (ex != null) {
+                            tablesVv.completeExceptionally(token, ex);
+                        } else {
+                            tablesVv.complete(token);
+                        }
+                    });
+        });
+
+        registry.accept(token -> {
+            return tablesVv.get(token)
+                    .whenComplete((res, ex) -> {
+                        if (ex != null) {
+                            indicesVv.completeExceptionally(token, ex);
+                        } else {
+                            indicesVv.complete(token);
+                        }
+                    });
         });
 
         schemasVv.whenComplete((token, stringIgniteSchemaMap, throwable) -> {
@@ -204,7 +282,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
             return failedFuture(new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException()));
         }
         try {
-            schemasVv.update(causalityToken, (schemas, e) -> inBusyLock(busyLock, () -> {
+            return schemasVv.update(causalityToken, (schemas, e) -> inBusyLock(busyLock, () -> {
                 if (e != null) {
                     return failedFuture(e);
                 }
@@ -244,8 +322,6 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                             return res;
                         });
             }));
-
-            return calciteSchemaVv.get(causalityToken);
         } finally {
             busyLock.leaveBusy();
         }
@@ -382,7 +458,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
             return failedFuture(new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException()));
         }
         try {
-            schemasVv.update(causalityToken, (schemas, e) -> inBusyLock(busyLock, () -> {
+            return schemasVv.update(causalityToken, (schemas, e) -> inBusyLock(busyLock, () -> {
                 if (e != null) {
                     return failedFuture(e);
                 }
@@ -433,8 +509,6 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                         })
                 ).thenCompose(v -> completedFuture(res));
             }));
-
-            return calciteSchemaVv.get(causalityToken);
         } finally {
             busyLock.leaveBusy();
         }

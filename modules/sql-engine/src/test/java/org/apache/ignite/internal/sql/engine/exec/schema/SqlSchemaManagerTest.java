@@ -47,6 +47,7 @@ import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.schema.Table;
 import org.apache.ignite.internal.index.Index;
 import org.apache.ignite.internal.index.IndexDescriptor;
+import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -92,6 +93,9 @@ public class SqlSchemaManagerTest {
     private TableManager tableManager;
 
     @Mock
+    private IndexManager indexManager;
+
+    @Mock
     private SchemaManager schemaManager;
 
     @Mock
@@ -118,6 +122,7 @@ public class SqlSchemaManagerTest {
 
         sqlSchemaManager = new SqlSchemaManagerImpl(
                 tableManager,
+                indexManager,
                 schemaManager,
                 testRevisionRegister,
                 busyLock

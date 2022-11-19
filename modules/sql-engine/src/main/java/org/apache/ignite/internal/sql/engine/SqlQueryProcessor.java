@@ -198,7 +198,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                 msgSrvc
         ));
 
-        SqlSchemaManagerImpl sqlSchemaManager = new SqlSchemaManagerImpl(tableManager, schemaManager, registry, busyLock);
+        SqlSchemaManagerImpl sqlSchemaManager = new SqlSchemaManagerImpl(tableManager, indexManager, schemaManager, registry, busyLock);
 
         sqlSchemaManager.registerListener(prepareSvc);
 

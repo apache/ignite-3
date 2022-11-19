@@ -17,21 +17,27 @@
 
 package org.apache.ignite.internal.index;
 
+import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.ArrayUtils.STRING_EMPTY_ARRAY;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
+import org.apache.ignite.internal.causality.VersionedValue;
 import org.apache.ignite.internal.index.event.IndexEvent;
 import org.apache.ignite.internal.index.event.IndexEventParameters;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -68,6 +74,7 @@ import org.apache.ignite.lang.IndexAlreadyExistsException;
 import org.apache.ignite.lang.IndexNotFoundException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.lang.TableNotFoundException;
+import org.apache.ignite.raft.jraft.util.concurrent.ConcurrentHashSet;
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -92,6 +99,10 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
     /** Prevents double stopping of the component. */
     private final AtomicBoolean stopGuard = new AtomicBoolean();
 
+    private final VersionedValue<Map<UUID, Index<?>>> indicesVv;
+
+    private final Set<CompletableFuture<?>> beforeIndicesVvComplete = new ConcurrentHashSet<>();
+
     /**
      * Constructor.
      *
@@ -99,10 +110,65 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
      * @param schemaManager Schema manager.
      * @param tableManager Table manager.
      */
-    public IndexManager(TablesConfiguration tablesCfg, SchemaManager schemaManager, TableManager tableManager) {
+    public IndexManager(
+            TablesConfiguration tablesCfg,
+            SchemaManager schemaManager,
+            TableManager tableManager,
+            Consumer<Function<Long, CompletableFuture<?>>> registry
+    ) {
         this.tablesCfg = Objects.requireNonNull(tablesCfg, "tablesCfg");
         this.schemaManager = Objects.requireNonNull(schemaManager, "schemaManager");
         this.tableManager = tableManager;
+
+        indicesVv = new VersionedValue<>(null, HashMap::new);
+
+        registry.accept(token -> {
+            LOG.info("DDD Beginning completion in IndexManager, token={}", token);
+
+            CompletableFuture[] futures = beforeIndicesVvComplete.toArray(new CompletableFuture[0]);
+
+            beforeIndicesVvComplete.clear();
+
+            return allOf(futures).whenComplete((v, e) -> {
+                if (!busyLock.enterBusy()) {
+                    if (e != null) {
+                        LOG.warn("Error occurred while updating indices and stopping components.", e);
+                        // Stop of the components has been started, so we do nothing and resources of indicesVv will be
+                        // freed in the logic of IndexManager stop. We cannot complete indicesVv exceptionally because
+                        // we will lose a context of indices.
+                    }
+                    return;
+                }
+
+                try {
+                    if (e != null) {
+                        LOG.warn("Error occurred while updating indices.", e);
+                        if (e instanceof CompletionException) {
+                            Throwable th = e.getCause();
+                            // Case when stopping of the previous component has been started and related futures completed
+                            // exceptionally
+                            if (th instanceof NodeStoppingException || (th.getCause() != null
+                                    && th.getCause() instanceof NodeStoppingException)) {
+                                // Stop of the components has been started so we do nothing and resources will be freed in the
+                                // logic of IndexManager stop
+                                return;
+                            }
+                        }
+                        // TODO: https://issues.apache.org/jira/browse/IGNITE-17515
+                        indicesVv.completeExceptionally(token, e);
+                    }
+
+                    LOG.info("DDD Completing indicesVv, token={}", token);
+
+                    //Normal scenario, when all related futures for verticesVv are completed and we can complete it
+                    indicesVv.complete(token);
+
+                    indicesVv.get(token).thenRun(() -> LOG.info("DDD Completed indicesVv, token={}", token));
+                } finally {
+                    busyLock.leaveBusy();
+                }
+            });
+        });
     }
 
     /** {@inheritDoc} */
@@ -301,6 +367,10 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         }
     }
 
+    public CompletableFuture<Void> revisionCompletion(long causalityToken) {
+        return indicesVv.get(causalityToken).thenApply(unused -> null);
+    }
+
     private void validateName(String indexName) {
         if (StringUtils.nullOrEmpty(indexName)) {
             throw new IgniteInternalException(
@@ -376,11 +446,11 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
     private CompletableFuture<?> createIndexLocally(long causalityToken, UUID tableId, TableIndexView tableIndexView) {
         assert tableIndexView != null;
 
-        LOG.trace("Creating local index: name={}, id={}, tableId={}, token={}",
+        LOG.info("Creating local index: name={}, id={}, tableId={}, token={}",
                 tableIndexView.name(), tableIndexView.id(), tableId, causalityToken);
 
         return tableManager.tableAsync(causalityToken, tableId)
-                .thenAccept(table -> {
+                .thenCompose(table -> {
                     Index<?> index = newIndex(table, tableIndexView);
 
                     TableRowToIndexKeyConverter tableRowConverter = new TableRowToIndexKeyConverter(
@@ -400,7 +470,9 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
                         throw new AssertionError("Unknown index type [type=" + index.getClass() + ']');
                     }
 
-                    fireEvent(IndexEvent.CREATE, new IndexEventParameters(causalityToken, index), null);
+                    LOG.info("DDD Firing index created event, token={}", causalityToken);
+
+                    return fireEvent(IndexEvent.CREATE, new IndexEventParameters(causalityToken, index), null);
                 });
     }
 
@@ -544,7 +616,11 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         /** {@inheritDoc} */
         @Override
         public @NotNull CompletableFuture<?> onCreate(@NotNull ConfigurationNotificationEvent<TableIndexView> ctx) {
-            return onIndexCreate(ctx);
+            CompletableFuture<?> future = onIndexCreate(ctx);
+
+            beforeIndicesVvComplete.add(future);
+
+            return future;
         }
 
         /** {@inheritDoc} */
@@ -560,7 +636,11 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         /** {@inheritDoc} */
         @Override
         public @NotNull CompletableFuture<?> onDelete(@NotNull ConfigurationNotificationEvent<TableIndexView> ctx) {
-            return onIndexDrop(ctx);
+            CompletableFuture<?> future = onIndexDrop(ctx);
+
+            beforeIndicesVvComplete.add(future);
+
+            return future;
         }
 
         /** {@inheritDoc} */

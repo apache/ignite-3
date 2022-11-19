@@ -369,6 +369,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         tablesByIdVv = new VersionedValue<>(null, HashMap::new);
 
         registry.accept(token -> {
+            LOG.info("DDD Beginning completion in TableManager, token={}", token);
+
             List<CompletableFuture<?>> futures = new ArrayList<>(beforeTablesVvComplete);
 
             beforeTablesVvComplete.clear();
@@ -403,8 +405,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                 tablesByIdVv.completeExceptionally(token, e);
                             }
 
+                            LOG.info("DDD Completing tablesByIdVv, token={}", token);
+
                             //Normal scenario, when all related futures for tablesByIdVv are completed and we can complete tablesByIdVv
                             tablesByIdVv.complete(token);
+
+                            tablesByIdVv.get(token).thenRun(() -> LOG.info("DDD Completed tablesByIdVv, token={}", token));
 
                             tablesToStopInCaseOfError.clear();
                         } finally {

@@ -390,7 +390,7 @@ public class IgniteImpl implements Ignite {
                 outgoingSnapshotsManager
         );
 
-        indexManager = new IndexManager(tablesConfiguration, schemaManager, distributedTblMgr);
+        indexManager = new IndexManager(tablesConfiguration, schemaManager, distributedTblMgr, registry);
 
         qryEngine = new SqlQueryProcessor(
                 registry,
