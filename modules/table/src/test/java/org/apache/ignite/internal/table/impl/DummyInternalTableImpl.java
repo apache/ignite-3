@@ -147,8 +147,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 UUID.randomUUID(),
                 Int2ObjectMaps.singleton(0, mock(RaftGroupService.class)),
                 1,
-                Function.identity(),
-                addr -> mock(ClusterNode.class),
+                name -> mock(ClusterNode.class),
                 txManager == null ? new TxManagerImpl(replicaSvc, new HeapLockManager(), new HybridClockImpl()) : txManager,
                 mock(MvTableStorage.class),
                 new TestTxStateTableStorage(),
@@ -262,7 +261,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 new TestPartitionDataStorage(mvPartStorage),
                 txStateStorage().getOrCreateTxStateStorage(0),
                 this.txManager,
-                () -> Map.of(pkStorage.get().id(), pkStorage.get())
+                () -> Map.of(pkStorage.get().id(), pkStorage.get()),
+                0
         );
     }
 

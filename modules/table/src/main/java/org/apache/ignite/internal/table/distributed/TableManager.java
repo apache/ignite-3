@@ -249,9 +249,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      */
     private final Map<UUID, TableImpl> tablesToStopInCaseOfError = new ConcurrentHashMap<>();
 
-    /** Resolver that resolves a node consistent ID to node id. */
-    private final Function<String, String> nodeIdResolver;
-
     /** Resolver that resolves a node consistent ID to cluster node. */
     private final Function<String, ClusterNode> clusterNodeResolver;
 
@@ -353,16 +350,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         this.outgoingSnapshotsManager = outgoingSnapshotsManager;
 
         placementDriver = new PlacementDriver(replicaSvc);
-
-        nodeIdResolver = consistentId -> {
-            ClusterNode node = topologyService.getByConsistentId(consistentId);
-
-            if (node == null) {
-                throw new IllegalStateException("Can't resolve ClusterNode by its consistent ID =" + consistentId);
-            }
-
-            return node.id();
-        };
 
         clusterNodeResolver = topologyService::getByConsistentId;
 
@@ -789,7 +776,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                                     partitionDataStorage(mvPartitionStorage, internalTbl, partId),
                                                                     txStatePartitionStorage,
                                                                     txManager,
-                                                                    table.indexStorageAdapters(partId)
+                                                                    table.indexStorageAdapters(partId),
+                                                                    partId
                                                             ),
                                                             new RebalanceRaftGroupEventsListener(
                                                                     metaStorageMgr,
@@ -855,8 +843,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                                         txStatePartitionStorage,
                                                                         topologyService,
                                                                         placementDriver,
-                                                                        peer -> clusterNodeResolver.apply(peer.consistentId())
-                                                                                .equals(topologyService.localMember())
+                                                                        this::isLocalPeer
                                                                 )
                                                         );
                                                     } catch (NodeStoppingException ex) {
@@ -887,6 +874,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
 
         allOf(futures).join();
+    }
+
+    private boolean isLocalPeer(Peer peer) {
+        return peer.consistentId().equals(raftMgr.topologyService().localMember().name());
     }
 
     private PartitionDataStorage partitionDataStorage(MvPartitionStorage partitionStorage, InternalTable internalTbl, int partId) {
@@ -1053,7 +1044,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         TxStateTableStorage txStateStorage = createTxStateTableStorage(tableCfg);
 
         InternalTableImpl internalTable = new InternalTableImpl(name, tblId, new Int2ObjectOpenHashMap<>(partitions),
-                partitions, nodeIdResolver, clusterNodeResolver, txManager, tableStorage, txStateStorage, replicaSvc, clock);
+                partitions, clusterNodeResolver, txManager, tableStorage, txStateStorage, replicaSvc, clock);
 
         // TODO: IGNITE-16288 directIndexIds should use async configuration API
         var table = new TableImpl(internalTable, lockMgr,  () -> CompletableFuture.supplyAsync(() -> directIndexIds()));
@@ -1834,7 +1825,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                     partitionDataStorage(mvPartitionStorage, internalTable, partId),
                                     txStatePartitionStorage,
                                     txManager,
-                                    tbl.indexStorageAdapters(partId)
+                                    tbl.indexStorageAdapters(partId),
+                                    partId
                             );
 
                             RaftGroupEventsListener raftGrpEvtsLsnr = new RebalanceRaftGroupEventsListener(
@@ -1882,8 +1874,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                             txStatePartitionStorage,
                                             raftMgr.topologyService(),
                                             placementDriver,
-                                            peer -> clusterNodeResolver.apply(peer.consistentId())
-                                                    .equals(raftMgr.topologyService().localMember())
+                                            peer -> isLocalPeer(peer)
                                     )
                             );
                         }

@@ -24,24 +24,24 @@ package org.apache.ignite.internal.sql.engine.exec;
  * fragment id only to distinguish between remote fragments, the node id should be attached.
  */
 public class RemoteFragmentKey {
-    private final String nodeId;
+    private final String nodeName;
 
     private final long fragmentId;
 
     /**
      * Creates an object.
      *
-     * @param nodeId Id of the node that own a fragment.
+     * @param nodeName Consistent id of the node that own a fragment.
      * @param fragmentId Id of the particular fragment owned by a remote node.
      */
-    public RemoteFragmentKey(String nodeId, long fragmentId) {
-        this.nodeId = nodeId;
+    public RemoteFragmentKey(String nodeName, long fragmentId) {
+        this.nodeName = nodeName;
         this.fragmentId = fragmentId;
     }
 
-    /** Returns an id of the remote node. */
-    public String nodeId() {
-        return nodeId;
+    /** Returns the consistent id of a remote node. */
+    public String nodeName() {
+        return nodeName;
     }
 
     /** Returns an id os the fragment. */
@@ -63,12 +63,12 @@ public class RemoteFragmentKey {
         if (fragmentId != that.fragmentId) {
             return false;
         }
-        return nodeId.equals(that.nodeId);
+        return nodeName.equals(that.nodeName);
     }
 
     /** {@inheritDoc} */
     @Override public int hashCode() {
-        int res = nodeId.hashCode();
+        int res = nodeName.hashCode();
         res = 31 * res + (int) (fragmentId ^ (fragmentId >>> 32));
         return res;
     }

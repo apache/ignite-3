@@ -130,7 +130,6 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                 UUID.randomUUID(),
                 Int2ObjectMaps.singleton(0, service),
                 1,
-                Function.identity(),
                 consistentIdToNode,
                 txManager,
                 mock(MvTableStorage.class),
@@ -157,7 +156,6 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                 UUID.randomUUID(),
                 Int2ObjectMaps.singleton(0, service),
                 1,
-                Function.identity(),
                 consistentIdToNode,
                 txManager,
                 mock(MvTableStorage.class),
@@ -190,7 +188,6 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                 UUID.randomUUID(),
                 Int2ObjectMaps.singleton(0, service),
                 1,
-                Function.identity(),
                 consistentIdToNode,
                 txManager,
                 mock(MvTableStorage.class),
@@ -277,7 +274,8 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                             new TestPartitionDataStorage(testMpPartStorage),
                             new TestTxStateStorage(),
                             txManager,
-                            Map::of
+                            Map::of,
+                            0
                     );
 
                     paths.put(listener, workDir);

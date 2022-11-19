@@ -190,9 +190,9 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
 
         IgniteDistribution distr = rel.distribution();
         Destination<RowT> dest = distr.destination(ctx, affSrvc, ctx.group(rel.sourceId()));
-        String localNodeId = ctx.localNode().id();
+        String localNodeName = ctx.localNode().name();
 
-        FilterNode<RowT> node = new FilterNode<>(ctx, r -> Objects.equals(localNodeId, first(dest.targets(r))));
+        FilterNode<RowT> node = new FilterNode<>(ctx, r -> Objects.equals(localNodeName, first(dest.targets(r))));
 
         Node<RowT> input = visit(rel.getInput());
 
@@ -320,7 +320,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
         ColocationGroup group = ctx.group(rel.sourceId());
         Comparator<RowT> comp = idx.type() == Type.SORTED ? ctx.expressionFactory().comparator(outputCollation) : null;
 
-        if (!group.nodeIds().contains(ctx.localNode().id())) {
+        if (!group.nodeNames().contains(ctx.localNode().name())) {
             return new ScanNode<>(ctx, Collections.emptyList());
         }
 
@@ -330,7 +330,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
                 idx,
                 tbl,
                 rel.collation().getKeys(),
-                group.partitions(ctx.localNode().id()),
+                group.partitions(ctx.localNode().name()),
                 comp,
                 ranges,
                 filters,
@@ -359,7 +359,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
 
         ColocationGroup group = ctx.group(rel.sourceId());
 
-        if (!group.nodeIds().contains(ctx.localNode().id())) {
+        if (!group.nodeNames().contains(ctx.localNode().name())) {
             return new ScanNode<>(ctx, Collections.emptyList());
         }
 
@@ -367,7 +367,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
                 ctx,
                 ctx.rowHandler().factory(ctx.getTypeFactory(), rowType),
                 tbl,
-                group.partitions(ctx.localNode().id()),
+                group.partitions(ctx.localNode().name()),
                 filters,
                 prj,
                 requiredColumns == null ? null : requiredColumns.toBitSet()
