@@ -30,6 +30,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
+import org.apache.ignite.internal.pagememory.persistence.PartitionProcessingCounter;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -71,7 +72,7 @@ class CheckpointProgressImpl implements CheckpointProgress {
     private volatile @Nullable CheckpointDirtyPages pageToWrite;
 
     /** Partitions currently being processed, for example, writing dirty pages or doing fsync. */
-    private final ConcurrentMap<GroupPartitionId, CompletableFuture<Void>> processedPartitions = new ConcurrentHashMap<>();
+    private final ConcurrentMap<GroupPartitionId, PartitionProcessingCounter> processedPartitions = new ConcurrentHashMap<>();
 
     /**
      * Constructor.
@@ -281,9 +282,19 @@ class CheckpointProgressImpl implements CheckpointProgress {
     public void onStartPartitionProcessing(int groupId, int partitionId) {
         GroupPartitionId groupPartitionId = new GroupPartitionId(groupId, partitionId);
 
-        CompletableFuture<Void> previous = processedPartitions.put(groupPartitionId, new CompletableFuture<>());
+        processedPartitions.compute(groupPartitionId, (id, partitionProcessingCounter) -> {
+            if (partitionProcessingCounter == null || partitionProcessingCounter.future().isDone()) {
+                PartitionProcessingCounter counter = new PartitionProcessingCounter();
 
-        assert previous == null : "Previous processing has not completed: " + groupPartitionId;
+                counter.onStartPartitionProcessing();
+
+                return counter;
+            }
+
+            partitionProcessingCounter.onStartPartitionProcessing();
+
+            return partitionProcessingCounter;
+        });
     }
 
     /**
@@ -295,25 +306,30 @@ class CheckpointProgressImpl implements CheckpointProgress {
     public void onFinishPartitionProcessing(int groupId, int partitionId) {
         GroupPartitionId groupPartitionId = new GroupPartitionId(groupId, partitionId);
 
-        CompletableFuture<Void> removed = processedPartitions.remove(groupPartitionId);
+        processedPartitions.compute(groupPartitionId, (id, partitionProcessingCounter) -> {
+            assert partitionProcessingCounter != null : id;
+            assert !partitionProcessingCounter.future().isDone() : id;
 
-        assert removed != null : "Partition processing either did not start or finished again: " + groupPartitionId;
+            partitionProcessingCounter.onFinishPartitionProcessing();
 
-        removed.complete(null);
+            return partitionProcessingCounter.future().isDone() ? null : partitionProcessingCounter;
+        });
     }
 
     /**
      * Returns the future if the partition according to the given parameters is currently being processed, for example, dirty pages are
      * being written or fsync is being done, {@code null} if the partition is not currently being processed.
      *
-     * <p>Future is added when {@link #onStartPartitionProcessing(int, int)} is called and completed when
-     * {@link #onFinishPartitionProcessing(int, int)} is called.
+     * <p>Future will be added on {@link #onStartPartitionProcessing(int, int)} call and completed on
+     * {@link #onFinishPartitionProcessing(int, int)} call (equal to the number of {@link #onFinishPartitionProcessing(int, int)} calls).
      *
      * @param groupId Group ID.
      * @param partitionId Partition ID.
      */
     @Nullable
-    public CompletableFuture<Void> getProcessedPartition(int groupId, int partitionId) {
-        return processedPartitions.get(new GroupPartitionId(groupId, partitionId));
+    public CompletableFuture<Void> getProcessedPartitionFuture(int groupId, int partitionId) {
+        PartitionProcessingCounter partitionProcessingCounter = processedPartitions.get(new GroupPartitionId(groupId, partitionId));
+
+        return partitionProcessingCounter == null ? null : partitionProcessingCounter.future();
     }
 }

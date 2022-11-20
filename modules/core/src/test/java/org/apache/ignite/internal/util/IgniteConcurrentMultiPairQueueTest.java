@@ -19,7 +19,6 @@ package org.apache.ignite.internal.util;
 
 import static java.util.Collections.synchronizedCollection;
 import static java.util.concurrent.ThreadLocalRandom.current;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runMultiThreaded;
 import static org.apache.ignite.internal.util.IgniteConcurrentMultiPairQueue.EMPTY;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -34,7 +33,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.util.IgniteConcurrentMultiPairQueue.Result;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.junit.jupiter.api.BeforeEach;
@@ -176,43 +174,5 @@ public class IgniteConcurrentMultiPairQueueTest {
 
         assertFalse(pairQueue.next(new Result()));
         assertEquals(0, pairQueue.size());
-    }
-
-    @Test
-    void testIsCurrentThreadReadLastItem() throws Exception {
-        assertFalse(EMPTY.isCurrentThreadReadLastItem());
-
-        IgniteConcurrentMultiPairQueue queue0 = new IgniteConcurrentMultiPairQueue<>(Map.of(0, List.of(1, 2)));
-
-        assertFalse(queue0.isCurrentThreadReadLastItem());
-
-        Result result = new Result();
-
-        queue0.next(result);
-
-        assertFalse(queue0.isCurrentThreadReadLastItem());
-
-        queue0.next(result);
-
-        assertTrue(queue0.isCurrentThreadReadLastItem());
-
-        IgniteConcurrentMultiPairQueue queue1 = new IgniteConcurrentMultiPairQueue<>(Map.of(0, List.of(1, 2)));
-
-        queue1.next(result);
-
-        runAsync(() -> {
-            assertFalse(queue1.isCurrentThreadReadLastItem());
-
-            queue1.next(result);
-
-            assertTrue(queue1.isCurrentThreadReadLastItem());
-
-        }).get(1, TimeUnit.SECONDS);
-
-        assertFalse(queue1.isCurrentThreadReadLastItem());
-
-        queue1.next(result);
-
-        assertFalse(queue1.isCurrentThreadReadLastItem());
     }
 }

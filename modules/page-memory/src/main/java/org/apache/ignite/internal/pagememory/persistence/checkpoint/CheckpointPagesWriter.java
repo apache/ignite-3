@@ -192,6 +192,14 @@ public class CheckpointPagesWriter implements Runnable {
             if (hasPartitionChanged(partitionId, fullId)) {
                 GroupPartitionId newPartitionId = toPartitionId(fullId);
 
+                // Starting for the new partition.
+                checkpointProgress.onStartPartitionProcessing(newPartitionId.getGroupId(), newPartitionId.getPartitionId());
+
+                if (partitionId != null) {
+                    // Finishing for the previous partition.
+                    checkpointProgress.onFinishPartitionProcessing(partitionId.getGroupId(), partitionId.getPartitionId());
+                }
+
                 updatedPartitions.computeIfAbsent(newPartitionId, partId -> {
                     writeMetaPage.set(true);
 
@@ -199,14 +207,6 @@ public class CheckpointPagesWriter implements Runnable {
                 });
 
                 if (writeMetaPage.get()) {
-                    if (partitionId != null) {
-                        // Finishing for the previous partition.
-                        checkpointProgress.onFinishPartitionProcessing(partitionId.getGroupId(), partitionId.getPartitionId());
-                    }
-
-                    // Starting for the new partition.
-                    checkpointProgress.onStartPartitionProcessing(newPartitionId.getGroupId(), newPartitionId.getPartitionId());
-
                     writePartitionMeta(pageMemory, newPartitionId, tmpWriteBuf.rewind());
 
                     writeMetaPage.set(false);
@@ -223,7 +223,7 @@ public class CheckpointPagesWriter implements Runnable {
             pageMemory.checkpointWritePage(fullId, tmpWriteBuf, pageStoreWriter, tracker);
         }
 
-        if (partitionId != null && writePageIds.isCurrentThreadReadLastItem()) {
+        if (partitionId != null) {
             checkpointProgress.onFinishPartitionProcessing(partitionId.getGroupId(), partitionId.getPartitionId());
         }
 

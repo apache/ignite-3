@@ -818,7 +818,7 @@ public class Checkpointer extends IgniteWorker {
             return;
         }
 
-        CompletableFuture<Void> processedPartitionFuture = currentCheckpointProgress.getProcessedPartition(groupId, partitionId);
+        CompletableFuture<Void> processedPartitionFuture = currentCheckpointProgress.getProcessedPartitionFuture(groupId, partitionId);
 
         if (processedPartitionFuture != null) {
             try {
