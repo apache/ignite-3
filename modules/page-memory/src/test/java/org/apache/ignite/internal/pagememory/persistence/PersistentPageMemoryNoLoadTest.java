@@ -73,8 +73,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 /**
  * Tests {@link PersistentPageMemory}.
  */
-@ExtendWith(WorkDirectoryExtension.class)
-@ExtendWith(ConfigurationExtension.class)
+@ExtendWith({WorkDirectoryExtension.class, ConfigurationExtension.class})
 public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelfTest {
     private static PageIoRegistry ioRegistry;
 
@@ -496,17 +495,17 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
     ) throws Exception {
         int partitions = PARTITION_ID + 1;
 
-        filePageStoreManager.initialize("Test", GRP_ID, partitions);
-
         checkpointManager.checkpointTimeoutLock().checkpointReadLock();
 
         try {
-            for (int i = 0; i < partitions; i++) {
-                FilePageStore filePageStore = filePageStoreManager.getStore(GRP_ID, i);
+            for (int partition = 0; partition < partitions; partition++) {
+                filePageStoreManager.initialize("Test", GRP_ID, partition);
+
+                FilePageStore filePageStore = filePageStoreManager.getStore(GRP_ID, partition);
 
                 filePageStore.ensure();
 
-                GroupPartitionId groupPartitionId = new GroupPartitionId(GRP_ID, i);
+                GroupPartitionId groupPartitionId = new GroupPartitionId(GRP_ID, partition);
 
                 CheckpointProgress lastCheckpointProgress = checkpointManager.lastCheckpointProgress();
 

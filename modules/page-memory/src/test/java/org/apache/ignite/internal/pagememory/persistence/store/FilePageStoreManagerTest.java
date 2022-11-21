@@ -35,6 +35,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.spy;
@@ -44,9 +45,7 @@ import static org.mockito.Mockito.verify;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.fileio.RandomAccessFileIoFactory;
 import org.apache.ignite.internal.pagememory.persistence.store.GroupPageStoresMap.GroupPageStores;
@@ -112,14 +111,15 @@ public class FilePageStoreManagerTest {
 
             IgniteInternalCheckedException exception = assertThrows(
                     IgniteInternalCheckedException.class,
-                    () -> manager.initialize("test", 0, 2)
+                    () -> manager.initialize("test", 0, 0)
             );
 
             assertThat(exception.getMessage(), containsString("Failed to initialize group working directory"));
 
             Files.delete(testGroupDir);
 
-            assertDoesNotThrow(() -> manager.initialize("test", 0, 2));
+            assertDoesNotThrow(() -> manager.initialize("test", 0, 0));
+            assertDoesNotThrow(() -> manager.initialize("test", 0, 1));
 
             assertTrue(Files.isDirectory(testGroupDir));
 
@@ -147,49 +147,35 @@ public class FilePageStoreManagerTest {
         FilePageStoreManager manager = createManager();
 
         try {
-            manager.initialize("test", 0, 2);
+            manager.initialize("test", 0, 0);
+            manager.initialize("test", 0, 1);
 
             // Checks getStores.
 
             assertNull(manager.getStores(1));
 
-            Collection<PartitionPageStore<FilePageStore>> stores = manager.getStores(0).getAll();
+            GroupPageStores<FilePageStore> groupPageStores = manager.getStores(0);
 
-            assertNotNull(stores);
-            assertEquals(2, stores.size());
-            assertDoesNotThrow(() -> Set.copyOf(stores));
+            assertNotNull(groupPageStores);
+            assertEquals(2, groupPageStores.getAll().size());
+            assertEquals(2, groupPageStores.getAll().stream().map(PartitionPageStore::pageStore).collect(toSet()).size());
 
             // Checks getStore.
 
-            Set<FilePageStore> pageStores = new HashSet<>();
-
             FilePageStore partitionPageStore0 = manager.getStore(0, 0);
 
-            assertTrue(pageStores.add(partitionPageStore0));
-            assertTrue(stores.contains(partitionPageStore0));
+            assertSame(partitionPageStore0, groupPageStores.get(0).pageStore());
 
             assertTrue(partitionPageStore0.filePath().endsWith("db/table-0/part-0.bin"));
 
             FilePageStore partitionPageStore1 = manager.getStore(0, 1);
 
-            assertTrue(pageStores.add(partitionPageStore1));
-            assertTrue(stores.contains(partitionPageStore1));
+            assertSame(partitionPageStore1, groupPageStores.get(1).pageStore());
 
             assertTrue(partitionPageStore1.filePath().endsWith("db/table-0/part-1.bin"));
 
-            IgniteInternalCheckedException exception = assertThrows(IgniteInternalCheckedException.class, () -> manager.getStore(1, 0));
-
-            assertThat(
-                    exception.getMessage(),
-                    containsString("Failed to get file page store for the given group ID (group has not been started)")
-            );
-
-            exception = assertThrows(IgniteInternalCheckedException.class, () -> manager.getStore(0, 2));
-
-            assertThat(
-                    exception.getMessage(),
-                    containsString("Failed to get file page store for the given partition ID (partition has not been created)")
-            );
+            assertNull(manager.getStore(1, 0));
+            assertNull(manager.getStore(0, 2));
         } finally {
             manager.stop();
         }
@@ -202,7 +188,7 @@ public class FilePageStoreManagerTest {
         FilePageStoreManager manager0 = createManager();
 
         try {
-            manager0.initialize("test0", 0, 1);
+            manager0.initialize("test0", 0, 0);
 
             for (PartitionPageStore<FilePageStore> filePageStore : manager0.getStores(0).getAll()) {
                 filePageStore.pageStore().ensure();
@@ -226,7 +212,7 @@ public class FilePageStoreManagerTest {
         FilePageStoreManager manager1 = createManager();
 
         try {
-            manager1.initialize("test1", 1, 1);
+            manager1.initialize("test1", 1, 0);
 
             for (PartitionPageStore<FilePageStore> filePageStore : manager1.getStores(1).getAll()) {
                 filePageStore.pageStore().ensure();
@@ -247,8 +233,8 @@ public class FilePageStoreManagerTest {
 
         manager.start();
 
-        manager.initialize("test0", 1, 1);
-        manager.initialize("test1", 2, 1);
+        manager.initialize("test0", 1, 0);
+        manager.initialize("test1", 2, 0);
 
         Path grpDir0 = workDir.resolve("db/table-1");
         Path grpDir1 = workDir.resolve("db/table-2");
@@ -275,8 +261,8 @@ public class FilePageStoreManagerTest {
 
         manager.start();
 
-        manager.initialize("test0", 1, 1);
-        manager.initialize("test1", 2, 1);
+        manager.initialize("test0", 1, 0);
+        manager.initialize("test1", 2, 0);
 
         Path grpDir0 = workDir.resolve("db/table-1");
         Path grpDir1 = workDir.resolve("db/table-2");
@@ -356,8 +342,8 @@ public class FilePageStoreManagerTest {
 
         manager.start();
 
-        manager.initialize("test0", 1, 1);
-        manager.initialize("test1", 2, 1);
+        manager.initialize("test0", 1, 0);
+        manager.initialize("test1", 2, 0);
 
         List<Path> allPageStoreFiles = manager.allPageStores().stream()
                 .map(GroupPageStores::getAll)

@@ -135,27 +135,28 @@ public class GroupPageStoresMapTest {
 
     @Test
     void testContainsPageStores() {
-        assertFalse(groupPageStoresMap.containsPageStores(0));
-        assertFalse(groupPageStoresMap.containsPageStores(1));
+        assertFalse(groupPageStoresMap.contains(0, 0));
+        assertFalse(groupPageStoresMap.contains(1, 0));
 
         FilePageStore filePageStore0 = mock(FilePageStore.class);
 
         groupPageStoresMap.put(0, 0, filePageStore0);
 
-        assertTrue(groupPageStoresMap.containsPageStores(0));
-        assertFalse(groupPageStoresMap.containsPageStores(1));
+        assertTrue(groupPageStoresMap.contains(0, 0));
+        assertFalse(groupPageStoresMap.contains(1, 0));
+        assertFalse(groupPageStoresMap.contains(0, 1));
 
         FilePageStore filePageStore1 = mock(FilePageStore.class);
 
         groupPageStoresMap.put(1, 0, filePageStore1);
 
-        assertTrue(groupPageStoresMap.containsPageStores(0));
-        assertTrue(groupPageStoresMap.containsPageStores(1));
+        assertTrue(groupPageStoresMap.contains(0, 0));
+        assertTrue(groupPageStoresMap.contains(1, 0));
 
         groupPageStoresMap.clear();
 
-        assertFalse(groupPageStoresMap.containsPageStores(0));
-        assertFalse(groupPageStoresMap.containsPageStores(1));
+        assertFalse(groupPageStoresMap.contains(0, 0));
+        assertFalse(groupPageStoresMap.contains(1, 0));
     }
 
     @Test
@@ -193,13 +194,11 @@ public class GroupPageStoresMapTest {
 
         groupPageStoresMap.put(0, 0, mock(FilePageStore.class));
 
-        GroupPageStores<PageStore> groupPageStores = groupPageStoresMap.get(0);
-
         assertDoesNotThrow(groupPageStoresMap::clear);
         assertEquals(0, groupPageStoresMap.groupCount());
 
         assertNull(groupPageStoresMap.get(0));
-        assertFalse(groupPageStoresMap.containsPageStores(0));
+        assertFalse(groupPageStoresMap.contains(0, 0));
     }
 
     @Test
@@ -220,7 +219,7 @@ public class GroupPageStoresMapTest {
         assertNull(groupPageStoresMap.get(0));
         assertNull(groupPageStores.get(0));
 
-        assertFalse(groupPageStoresMap.containsPageStores(0));
+        assertFalse(groupPageStoresMap.contains(0, 0));
         assertEquals(0, groupPageStoresMap.groupCount());
     }
 

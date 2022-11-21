@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.pagememory.persistence.store;
 
 import static java.nio.file.Files.createDirectories;
-import static java.util.Collections.unmodifiableList;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.MAX_PARTITION_ID;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageId;
@@ -31,7 +30,6 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.stream.Stream;
@@ -46,7 +44,6 @@ import org.apache.ignite.internal.pagememory.persistence.store.GroupPageStoresMa
 import org.apache.ignite.internal.util.IgniteStripedLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.jetbrains.annotations.Nullable;
 
@@ -94,11 +91,11 @@ public class FilePageStoreManager implements PageReadWriteManager {
     /** Executor to disallow running code that modifies data in {@link #groupPageStores} concurrently with cleanup of file page store. */
     private final LongOperationAsyncExecutor cleanupAsyncExecutor;
 
-    /** Mapping: group ID -> page store list. */
+    /** Mapping: group ID -> group page stores. */
     private final GroupPageStoresMap<FilePageStore> groupPageStores;
 
-    /** Group directory initialization lock. */
-    private final IgniteStripedLock initGroupDirLock = new IgniteStripedLock(Math.max(Runtime.getRuntime().availableProcessors(), 8));
+    /** Striped lock. */
+    private final IgniteStripedLock stripedLock = new IgniteStripedLock(Math.max(Runtime.getRuntime().availableProcessors(), 8));
 
     /** {@link FilePageStore} factory. */
     private final FilePageStoreFactory filePageStoreFactory;
@@ -229,36 +226,49 @@ public class FilePageStoreManager implements PageReadWriteManager {
     }
 
     /**
-     * Initializing the file page stores for a group.
+     * Initialization of the page storage for the group partition.
      *
      * @param tableName Table name.
      * @param tableId Integer table id.
-     * @param partitions Partition number, must be greater than {@code 0} and less {@link PageIdAllocator#MAX_PARTITION_ID}.
+     * @param partitionId Partition ID, must be between {@code 0} (inclusive) and {@link PageIdAllocator#MAX_PARTITION_ID} (inclusive).
      * @throws IgniteInternalCheckedException If failed.
      */
-    public void initialize(String tableName, int tableId, int partitions) throws IgniteInternalCheckedException {
-        assert partitions > 0 && partitions < MAX_PARTITION_ID : partitions;
+    public void initialize(String tableName, int tableId, int partitionId) throws IgniteInternalCheckedException {
+        assert partitionId >= 0 && partitionId <= MAX_PARTITION_ID : partitionId;
 
-        initGroupDirLock.lock(tableId);
+        stripedLock.lock(tableId + partitionId);
 
         try {
-            if (!groupPageStores.containsPageStores(tableId)) {
-                List<FilePageStore> partitionFilePageStores = createFilePageStores(tableId, partitions);
+            if (!groupPageStores.contains(tableId, partitionId)) {
+                Path tableWorkDir = ensureGroupWorkDir(tableId);
 
-                // TODO: IGNITE-17132 починить
+                ByteBuffer buffer = allocateBuffer(pageSize);
 
-                System.out.println(partitionFilePageStores);
+                try {
+                    Path partFilePath = tableWorkDir.resolve(String.format(PART_FILE_TEMPLATE, partitionId));
 
-                //List<FilePageStore> old = groupPageStores.put(tableId, partitionFilePageStores);
-                //
-                //assert old == null : tableName;
+                    Path[] partDeltaFiles = findPartitionDeltaFiles(tableWorkDir, partitionId);
+
+                    FilePageStore filePageStore = filePageStoreFactory.createPageStore(buffer.rewind(), partFilePath, partDeltaFiles);
+
+                    FilePageStore previous = groupPageStores.put(tableId, partitionId, filePageStore);
+
+                    assert previous == null : IgniteStringFormatter.format(
+                            "Parallel creation is not allowed: [tableName={}, tableId={}, partitionId={}]",
+                            tableName,
+                            tableId,
+                            partitionId
+                    );
+                } finally {
+                    freeBuffer(buffer);
+                }
             }
         } catch (IgniteInternalCheckedException e) {
             // TODO: IGNITE-16899 By analogy with 2.0, fail a node
 
             throw e;
         } finally {
-            initGroupDirLock.unlock(tableId);
+            stripedLock.unlock(tableId + partitionId);
         }
     }
 
@@ -282,34 +292,20 @@ public class FilePageStoreManager implements PageReadWriteManager {
      * Returns partition file page store for the corresponding parameters.
      *
      * @param groupId Group ID.
-     * @param partitionId Partition ID, from {@code 0} to {@link PageIdAllocator#MAX_PARTITION_ID} (inclusive).
-     * @throws IgniteInternalCheckedException If group or partition with the given ID was not created.
+     * @param partitionId Partition ID, from {@code 0} (inclusive) to {@link PageIdAllocator#MAX_PARTITION_ID} (inclusive).
      */
-    public FilePageStore getStore(int groupId, int partitionId) {
-        // TODO: IGNITE-17132 не забудь переделать что мы можем нуль вернуть
-
+    public @Nullable FilePageStore getStore(int groupId, int partitionId) {
         assert partitionId >= 0 && partitionId <= MAX_PARTITION_ID : partitionId;
 
         GroupPageStores<FilePageStore> groupPageStores = this.groupPageStores.get(groupId);
 
         if (groupPageStores == null) {
-            throw new IgniteInternalException(
-                    "Failed to get file page store for the given group ID (group has not been started): " + groupId
-            );
+            return null;
         }
 
         PartitionPageStore<FilePageStore> partitionPageStore = groupPageStores.get(partitionId);
 
-        if (partitionPageStore == null) {
-            throw new IgniteInternalException(IgniteStringFormatter.format(
-                    "Failed to get file page store for the given partition ID (partition has not been created): "
-                            + "[groupId={}, partitionId={}]",
-                    groupId,
-                    partitionId
-            ));
-        }
-
-        return partitionPageStore.pageStore();
+        return partitionPageStore == null ? null : partitionPageStore.pageStore();
     }
 
     /**
@@ -364,7 +360,7 @@ public class FilePageStoreManager implements PageReadWriteManager {
         Path groupWorkDir = dbDir.resolve(GROUP_DIR_PREFIX + groupId);
 
         try {
-            Files.createDirectories(groupWorkDir);
+            createDirectories(groupWorkDir);
         } catch (IOException e) {
             throw new IgniteInternalCheckedException("Failed to initialize group working directory "
                     + "(failed to create, make sure the work folder has correct permissions): "
@@ -372,35 +368,6 @@ public class FilePageStoreManager implements PageReadWriteManager {
         }
 
         return groupWorkDir;
-    }
-
-    private List<FilePageStore> createFilePageStores(
-            int groupId,
-            int partitions
-    ) throws IgniteInternalCheckedException {
-        Path groupWorkDir = ensureGroupWorkDir(groupId);
-
-        List<FilePageStore> partitionFilePageStores = new ArrayList<>(partitions);
-
-        ByteBuffer buffer = allocateBuffer(pageSize);
-
-        try {
-            for (int i = 0; i < partitions; i++) {
-                int part = i;
-
-                Path partFilePath = groupWorkDir.resolve(String.format(PART_FILE_TEMPLATE, part));
-
-                Path[] partDeltaFiles = findPartitionDeltaFiles(groupWorkDir, part);
-
-                FilePageStore filePageStore = filePageStoreFactory.createPageStore(buffer.rewind(), partFilePath, partDeltaFiles);
-
-                partitionFilePageStores.add(filePageStore);
-            }
-
-            return unmodifiableList(partitionFilePageStores);
-        } finally {
-            freeBuffer(buffer);
-        }
     }
 
     /**

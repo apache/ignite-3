@@ -34,7 +34,6 @@ import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointMa
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointProgress;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTimeoutLock;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
-import org.apache.ignite.internal.pagememory.persistence.store.GroupPageStoresMap.PartitionPageStore;
 import org.apache.ignite.internal.pagememory.reuse.ReuseList;
 import org.apache.ignite.internal.pagememory.util.PageLockListenerNoOp;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
@@ -101,27 +100,6 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
     @Override
     public boolean isVolatile() {
         return false;
-    }
-
-    @Override
-    public void start() throws StorageException {
-        super.start();
-
-        TableView tableView = tableCfg.value();
-
-        try {
-            dataRegion.filePageStoreManager().initialize(tableView.name(), tableView.tableId(), tableView.partitions());
-
-            boolean deltaFileExists = dataRegion.filePageStoreManager().getStores(tableView.tableId()).getAll().stream()
-                    .map(PartitionPageStore::pageStore)
-                    .anyMatch(filePageStore -> !filePageStore.isMarkedToDestroy() && filePageStore.deltaFileCount() > 0);
-
-            if (deltaFileExists) {
-                dataRegion.checkpointManager().onAddingDeltaFiles();
-            }
-        } catch (IgniteInternalCheckedException e) {
-            throw new StorageException("Error initializing file page stores for table: " + tableView.name(), e);
-        }
     }
 
     @Override
@@ -206,20 +184,33 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
      * Initializes the partition file page store if it hasn't already.
      *
      * @param tableView Table configuration.
-     * @param partId Partition ID.
+     * @param partitionId Partition ID.
      * @return Partition file page store.
      * @throws StorageException If failed.
      */
-    private FilePageStore ensurePartitionFilePageStore(TableView tableView, int partId) throws StorageException {
+    private FilePageStore ensurePartitionFilePageStore(TableView tableView, int partitionId) throws StorageException {
         try {
-            FilePageStore filePageStore = dataRegion.filePageStoreManager().getStore(tableView.tableId(), partId);
+            dataRegion.filePageStoreManager().initialize(tableView.name(), tableView.tableId(), partitionId);
+
+            FilePageStore filePageStore = dataRegion.filePageStoreManager().getStore(tableView.tableId(), partitionId);
+
+            assert !filePageStore.isMarkedToDestroy() : IgniteStringFormatter.format(
+                    "Should not be marked for deletion: [tableName={}, tableId={}, partitionId={}]",
+                    tableView.name(),
+                    tableView.tableId(),
+                    partitionId
+            );
 
             filePageStore.ensure();
+
+            if (filePageStore.deltaFileCount() > 0) {
+                dataRegion.checkpointManager().onAddingDeltaFiles();
+            }
 
             return filePageStore;
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException(
-                    String.format("Error initializing file page store [tableName=%s, partitionId=%s]", tableView.name(), partId),
+                    String.format("Error initializing file page store [tableName=%s, partitionId=%s]", tableView.name(), partitionId),
                     e
             );
         }

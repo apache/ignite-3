@@ -108,12 +108,15 @@ public class GroupPageStoresMap<T extends PageStore> {
     }
 
     /**
-     * Returns {@code true} if a page stores exists for the group.
+     * Returns {@code true} if a page store exists for the group partition.
      *
      * @param groupId Group ID.
+     * @param partitionId Partition ID.
      */
-    public boolean containsPageStores(Integer groupId) {
-        return groupIdPageStores.containsKey(groupId);
+    public boolean contains(Integer groupId, Integer partitionId) {
+        GroupPageStores<T> groupPageStores = groupIdPageStores.get(groupId);
+
+        return groupPageStores != null && groupPageStores.partitionIdPageStore.containsKey(partitionId);
     }
 
     /**
