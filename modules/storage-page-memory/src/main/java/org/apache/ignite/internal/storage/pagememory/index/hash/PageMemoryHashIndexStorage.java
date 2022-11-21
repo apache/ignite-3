@@ -111,7 +111,7 @@ public class PageMemoryHashIndexStorage implements HashIndexStorage {
 
             return new Cursor<>() {
                 @Override
-                public void close() throws Exception {
+                public void close() {
                     cursor.close();
                 }
 

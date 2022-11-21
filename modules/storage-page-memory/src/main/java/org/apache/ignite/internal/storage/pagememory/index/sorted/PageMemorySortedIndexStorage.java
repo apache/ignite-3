@@ -115,7 +115,7 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
 
             return new Cursor<>() {
                 @Override
-                public void close() throws Exception {
+                public void close() {
                     cursor.close();
                 }
 
@@ -211,7 +211,7 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
 
             return new Cursor<>() {
                 @Override
-                public void close() throws Exception {
+                public void close() {
                     cursor.close();
                 }
 
