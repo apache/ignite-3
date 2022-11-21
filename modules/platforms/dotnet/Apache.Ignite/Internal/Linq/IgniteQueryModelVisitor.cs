@@ -531,9 +531,11 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
         }
 
         // Append grouping
-        _builder.Append("group by ");
-        _builder.Append(Aliases.GetGroupByAlias(groupBy.KeySelector));
-        _builder.Append(' ');
+        _builder.Append("group by (");
+
+        BuildSqlExpression(groupBy.KeySelector);
+
+        _builder.Append(") ");
 
         return true;
     }

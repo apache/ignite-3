@@ -17,7 +17,6 @@
 
 namespace Apache.Ignite.Internal.Linq;
 
-using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
@@ -35,9 +34,6 @@ internal sealed class AliasDictionary
 {
     /** */
     private readonly Dictionary<Expression, string> _fieldAliases = new();
-
-    /** */
-    private readonly Dictionary<Expression, string> _groupByAliases = new();
 
     /** */
     private readonly Stack<Dictionary<IQuerySource, string>> _stack = new();
@@ -120,36 +116,6 @@ internal sealed class AliasDictionary
 
         builder.AppendFormat(CultureInfo.InvariantCulture, "{0} as {1}", tableName, GetTableAlias(clause));
     }
-
-    /// <summary>
-    /// Creates an alias for GROUP BY clause.
-    /// </summary>
-    /// <param name="expression">Expression.</param>
-    /// <param name="alias">Alias.</param>
-    /// <returns><c>True</c> when a new alias has been created; <c>false</c> otherwise.</returns>
-    public bool GetOrCreateGroupByAlias(Expression expression, out string alias)
-    {
-        if (_groupByAliases.TryGetValue(expression, out alias!))
-        {
-            return false;
-        }
-
-        // TODO: Create 2.x ticket for this.
-        alias = "_G" + _groupByAliases.Count;
-
-        _groupByAliases.Add(expression, alias);
-
-        return true;
-    }
-
-    /// <summary>
-    /// Gets an alias for GROUP BY clause.
-    /// </summary>
-    /// <param name="expression">Expression.</param>
-    /// <returns>Alias.</returns>
-    public string GetGroupByAlias(Expression expression) => _groupByAliases.TryGetValue(expression, out var alias)
-        ? alias
-        : throw new InvalidOperationException("GroupBy expression is not in Select: " + expression);
 
     /// <summary>
     /// Gets the table alias.
