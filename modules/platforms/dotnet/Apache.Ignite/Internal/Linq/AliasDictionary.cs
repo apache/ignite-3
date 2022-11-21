@@ -127,6 +127,7 @@ internal sealed class AliasDictionary
     /// <returns>Alias.</returns>
     public string CreateGroupByAlias(Expression expression)
     {
+        // TODO: Create 2.x ticket for this.
         var alias = "G" + _groupByAliases.Count;
 
         _groupByAliases.Add(expression, alias);
