@@ -91,9 +91,9 @@ public partial class LinqTests
     }
 
     [Test]
+    [Ignore("IGNITE-18215 Group by calculated value")]
     public void TestGroupBySubQuery()
     {
-        // TODO: Use field aliases for all selectors to fix this.
         var query = PocoByteView.AsQueryable()
             .Select(x => new {Id = x.Key + 1, Price = x.Val * 10})
             .GroupBy(x => x.Price)
@@ -106,10 +106,10 @@ public partial class LinqTests
         Assert.AreEqual(3, res[1].Count);
 
         StringAssert.Contains(
-            "select (_T0.VAL * ?), count (*)  " +
+            "select (_T0.VAL * ?) as _G0, count (*)  " +
             "from PUBLIC.TBL_INT8 as _T0 " +
-            "group by ((_T0.VAL * ?)) " +
-            "order by ((_T0.VAL * ?)) asc",
+            "group by _G0 " +
+            "order by _G0 asc",
             query.ToString());
     }
 
