@@ -575,11 +575,9 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
             return false;
         }
 
-        // TODO: Put an alias here, specific for groupings?
+        // TODO: If alias exists, do not visit again.
         var alias = Aliases.CreateGroupByAlias(grpBy.KeySelector);
-
         Visit(grpBy.KeySelector);
-
         ResultBuilder.Append(" as ").Append(alias);
 
         return true;
