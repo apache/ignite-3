@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Internal.Linq;
 
+using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
@@ -134,6 +135,15 @@ internal sealed class AliasDictionary
 
         return alias;
     }
+
+    /// <summary>
+    /// Gets an alias for GROUP BY clause.
+    /// </summary>
+    /// <param name="expression">Expression.</param>
+    /// <returns>Alias.</returns>
+    public string GetGroupByAlias(Expression expression) => _groupByAliases.TryGetValue(expression, out var alias)
+        ? alias
+        : throw new InvalidOperationException("GroupBy expression is not in Select: " + expression);
 
     /// <summary>
     /// Gets the table alias.
