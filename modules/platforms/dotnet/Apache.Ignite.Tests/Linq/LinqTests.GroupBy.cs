@@ -116,7 +116,37 @@ public partial class LinqTests
     [Test]
     public void TestGroupByWithJoin()
     {
-        Assert.Fail("TODO");
+        // TODO IGNITE-18196 Remove cast to long for Sum and Count
+        var query1 = PocoView.AsQueryable();
+        var query2 = PocoIntView.AsQueryable();
+
+        var query = query1.Join(
+                inner: query2,
+                outerKeySelector: a => a.Key,
+                innerKeySelector: b => b.Key,
+                resultSelector: (a, b) => new
+                {
+                    Id = a.Key,
+                    Category = b.Val,
+                    Price = a.Val
+                })
+            .GroupBy(x => x.Category)
+            .Select(g => new {Cat = g.Key, Count = (long)g.Count()})
+            .OrderBy(x => x.Cat);
+
+        var res = query.ToList();
+
+        Assert.AreEqual(0, res[0].Cat);
+        Assert.AreEqual(1, res[0].Count);
+        Assert.AreEqual(10, res.Count);
+
+        StringAssert.Contains(
+            "select _T0.VAL, count (*)  " +
+            "from PUBLIC.TBL1 as _T1 " +
+            "inner join PUBLIC.TBL_INT32 as _T0 on (_T0.KEY = _T1.KEY) " +
+            "group by (_T0.VAL) " +
+            "order by (_T0.VAL) asc",
+            query.ToString());
     }
 
     [Test]
