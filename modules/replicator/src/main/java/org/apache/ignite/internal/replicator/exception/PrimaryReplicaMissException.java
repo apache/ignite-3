@@ -32,7 +32,7 @@ public class PrimaryReplicaMissException extends IgniteInternalException {
      * @param expectedPrimaryReplicaTerm Expected term from.
      * @param currentPrimaryReplicaTerm Current raft term.
      */
-    public PrimaryReplicaMissException(Long expectedPrimaryReplicaTerm, Long currentPrimaryReplicaTerm) {
+    public PrimaryReplicaMissException(Long expectedPrimaryReplicaTerm, long currentPrimaryReplicaTerm) {
         this(expectedPrimaryReplicaTerm, currentPrimaryReplicaTerm, null);
     }
 
@@ -43,7 +43,7 @@ public class PrimaryReplicaMissException extends IgniteInternalException {
      * @param currentPrimaryReplicaTerm Current raft term.
      * @param cause Cause exception.
      */
-    public PrimaryReplicaMissException(Long expectedPrimaryReplicaTerm, Long currentPrimaryReplicaTerm, Throwable cause) {
+    public PrimaryReplicaMissException(Long expectedPrimaryReplicaTerm, long currentPrimaryReplicaTerm, Throwable cause) {
         super(Replicator.REPLICA_MISS_ERR,
                 IgniteStringFormatter.format(
                         "The primary replica has changed because the term has been changed "

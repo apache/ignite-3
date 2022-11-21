@@ -90,6 +90,7 @@ import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.Peer;
+import org.apache.ignite.raft.client.service.LeaderWithTerm;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.raft.jraft.util.ByteString;
 import org.apache.ignite.table.Tuple;
@@ -159,7 +160,7 @@ public class ItColocationTest {
             RaftGroupService r = Mockito.mock(RaftGroupService.class);
             when(r.leader()).thenReturn(Mockito.mock(Peer.class));
             when(r.groupId()).thenReturn(groupId);
-            when(r.refreshAndGetLeaderWithTerm()).thenReturn(completedFuture(new IgniteBiTuple<>(new Peer(clusterNode.name()), 0L)));
+            when(r.refreshAndGetLeaderWithTerm()).thenReturn(completedFuture(new LeaderWithTerm(new Peer(clusterNode.name()), 0L)));
 
             final int part = i;
             doAnswer(invocation -> {

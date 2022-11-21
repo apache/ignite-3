@@ -444,7 +444,8 @@ public class NodeImpl implements Node, RaftServerService {
             }
 
             // must be copied before clearing
-            final List<PeerId> resultPeerIds = new ArrayList<>(this.newPeers);
+            List<PeerId> resultPeerIds = List.copyOf(this.newPeers);
+            List<PeerId> resultLearnerIds = List.copyOf(this.newLearners);
 
             clearPeers();
             clearLearners();
@@ -458,9 +459,9 @@ public class NodeImpl implements Node, RaftServerService {
             if (this.done != null) {
                 Closure newDone = (Status status) -> {
                     if (status.isOk()) {
-                        node.getOptions().getRaftGrpEvtsLsnr().onNewPeersConfigurationApplied(resultPeerIds);
+                        node.getOptions().getRaftGrpEvtsLsnr().onNewPeersConfigurationApplied(resultPeerIds, resultLearnerIds);
                     } else {
-                        node.getOptions().getRaftGrpEvtsLsnr().onReconfigurationError(status, resultPeerIds, node.getCurrentTerm());
+                        node.getOptions().getRaftGrpEvtsLsnr().onReconfigurationError(status, resultPeerIds, resultLearnerIds, node.getCurrentTerm());
                     }
                     oldDoneClosure.run(status);
                 };
@@ -2623,7 +2624,7 @@ public class NodeImpl implements Node, RaftServerService {
             Closure newDone = (Status status) -> {
                 // doOnNewPeersConfigurationApplied should be called, otherwise we could lose the callback invocation.
                 // For example, old leader failed just before an invocation of doOnNewPeersConfigurationApplied
-                this.getOptions().getRaftGrpEvtsLsnr().onNewPeersConfigurationApplied(newConf.getPeers());
+                this.getOptions().getRaftGrpEvtsLsnr().onNewPeersConfigurationApplied(newConf.getPeers(), newConf.getLearners());
                 done.run(status);
             };
             Utils.runClosureInThread(this.getOptions().getCommonExecutor(), newDone);
@@ -3336,9 +3337,9 @@ public class NodeImpl implements Node, RaftServerService {
     }
 
     @Override
-    public void changePeersAsync(final Configuration newPeers, long term, Closure done) {
-        Requires.requireNonNull(newPeers, "Null new peers");
-        Requires.requireTrue(!newPeers.isEmpty(), "Empty new peers");
+    public void changePeersAsync(final Configuration newConf, long term, Closure done) {
+        Requires.requireNonNull(newConf, "Null new peers");
+        Requires.requireTrue(!newConf.isEmpty(), "Empty new peers");
         this.writeLock.lock();
         try {
             long currentTerm = getCurrentTerm();
@@ -3352,9 +3353,9 @@ public class NodeImpl implements Node, RaftServerService {
                 return;
             }
 
-            LOG.info("Node {} change peers from {} to {}.", getNodeId(), this.conf.getConf(), newPeers);
+            LOG.info("Node {} change peers from {} to {}.", getNodeId(), this.conf.getConf(), newConf);
 
-            unsafeRegisterConfChange(this.conf.getConf(), newPeers, done, true);
+            unsafeRegisterConfChange(this.conf.getConf(), newConf, done, true);
         }
         finally {
             this.writeLock.unlock();
