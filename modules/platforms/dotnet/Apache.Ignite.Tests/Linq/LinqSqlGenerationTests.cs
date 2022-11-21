@@ -96,14 +96,14 @@ public class LinqSqlGenerationTests
                 .ToList());
 
     [Test]
-    [Ignore("IGNITE-18131 Distinct support")]
     public void TestSelectOrderDistinct() =>
         AssertSql(
             "select distinct _T0.KEY, (_T0.KEY + ?) from PUBLIC.tbl1 as _T0 order by ((_T0.KEY + ?)) asc",
-            q => q.Select(x => new { x.Key, Key2 = x.Key + 1})
-                .Distinct()
-                .OrderBy(x => x.Key2)
-                .ToList());
+            q => q.Select(x => new { x.Key, Key2 = x.Key + 1 })
+                .GroupBy(x => x.Key2)
+                .OrderBy(x => x.Key)
+                .Select(x => x.Key)
+                .First());
 
     [Test]
     public void TestDefaultQueryableOptions()
@@ -127,6 +127,17 @@ public class LinqSqlGenerationTests
 
         Assert.AreEqual(25000, _server.LastSqlTimeoutMs);
         Assert.AreEqual(128, _server.LastSqlPageSize);
+    }
+
+    [Test]
+    public void TestGroupBySubQuery()
+    {
+        AssertSql(
+            "select (_T0.KEY + ?) AS F0, count (*)  from PUBLIC.tbl1 as _T0 group by F0",
+            q => q.Select(x => new { x.Key, Key2 = x.Key + 1 })
+                .GroupBy(x => x.Key2)
+                .Select(g => new { g.Key, Count = g.Count() })
+                .ToList());
     }
 
     [OneTimeSetUp]
