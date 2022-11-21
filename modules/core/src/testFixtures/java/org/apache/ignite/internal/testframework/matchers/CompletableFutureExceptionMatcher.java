@@ -147,7 +147,7 @@ public class CompletableFutureExceptionMatcher extends TypeSafeMatcher<Completab
     /**
      * Creates a matcher that matches a future that completes with an exception that has a given {@code cause} in the exception stacktrace.
      */
-    public static CompletableFutureExceptionMatcher willThrowWithCause(Class<? extends Exception> cause) {
+    public static CompletableFutureExceptionMatcher willThrowWithCauseOrSuppressed(Class<? extends Exception> cause) {
         return new CompletableFutureExceptionMatcher(is(instanceOf(cause)), true, TIMEOUT_SECONDS, TimeUnit.SECONDS);
     }
 }

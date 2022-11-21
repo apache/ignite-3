@@ -1895,7 +1895,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         LOG.info("Current node={} is the leader of partition raft group={}. "
                                         + "Initiate rebalance process for partition={}, table={}",
                                 localMember.address(), replicaGrpId, partId, tbl.name());
-
+                        // TODO: Provide learners during rebalance, see https://issues.apache.org/jira/browse/IGNITE-18172
                         partGrpSvc.changePeersAsync(newNodes, List.of(), leaderWithTerm.term()).join();
                     }
 

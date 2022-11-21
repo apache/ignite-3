@@ -20,7 +20,7 @@ package org.apache.ignite.internal.table.distributed;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowWithCause;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowWithCauseOrSuppressed;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -84,6 +84,6 @@ class PartitionMoverTest {
 
         var partitionMover = new PartitionMover(lock, () -> raftService);
 
-        assertThat(partitionMover.movePartition(List.of(), List.of(), 1), willThrowWithCause(NodeStoppingException.class));
+        assertThat(partitionMover.movePartition(List.of(), List.of(), 1), willThrowWithCauseOrSuppressed(NodeStoppingException.class));
     }
 }
