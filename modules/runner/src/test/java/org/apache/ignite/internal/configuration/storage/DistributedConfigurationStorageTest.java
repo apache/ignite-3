@@ -182,7 +182,7 @@ public class DistributedConfigurationStorageTest extends ConfigurationStorageTes
 
         /** {@inheritDoc} */
         @Override
-        public void close() throws Exception {
+        public void close() {
             internalCursor.close();
         }
 

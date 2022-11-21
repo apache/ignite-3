@@ -291,7 +291,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
                 }
 
                 @Override
-                public void close() throws Exception {
+                public void close() {
                     iterators.remove(rocksIterator);
 
                     super.close();

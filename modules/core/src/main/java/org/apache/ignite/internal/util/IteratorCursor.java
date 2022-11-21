@@ -17,30 +17,30 @@
 
 package org.apache.ignite.internal.util;
 
-import static org.apache.ignite.internal.util.CursorUtils.map;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.contains;
-import static org.hamcrest.Matchers.emptyIterable;
-import static org.hamcrest.Matchers.is;
-
-import java.util.Arrays;
-import org.junit.jupiter.api.Test;
+import java.util.Iterator;
+import java.util.Objects;
 
 /**
- * Class for testing {@link CursorUtils}.
+ * An adapter of an {@link Iterator} to {@link Cursor}.
+ *
+ * @param <T> Element type.
  */
-public class CursorUtilsTest {
-    @Test
-    public void testMap() {
-        Cursor<String> actual = map(cursor(1, 2, 5, 14, 20), i -> "foo" + i);
+abstract class IteratorCursor<T> implements Cursor<T> {
+    private final Iterator<? extends T> it;
 
-        assertThat(actual, contains("foo1", "foo2", "foo5", "foo14", "foo20"));
+    IteratorCursor(Iterator<? extends T> it) {
+        Objects.requireNonNull(it, "Iterator is null");
 
-        assertThat(map(cursor(), Object::toString), is(emptyIterable()));
+        this.it = it;
     }
 
-    @SafeVarargs
-    private static <T> Cursor<T> cursor(T... elements) {
-        return Cursor.fromBareIterator(Arrays.asList(elements).iterator());
+    @Override
+    public boolean hasNext() {
+        return it.hasNext();
+    }
+
+    @Override
+    public T next() {
+        return it.next();
     }
 }
