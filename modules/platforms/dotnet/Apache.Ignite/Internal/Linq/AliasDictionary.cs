@@ -135,7 +135,7 @@ internal sealed class AliasDictionary
         }
 
         // TODO: Create 2.x ticket for this.
-        alias = "G" + _groupByAliases.Count;
+        alias = "_G" + _groupByAliases.Count;
 
         _groupByAliases.Add(expression, alias);
 
