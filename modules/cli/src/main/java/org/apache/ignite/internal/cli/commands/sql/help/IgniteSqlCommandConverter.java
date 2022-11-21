@@ -15,23 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.commands.sql;
+package org.apache.ignite.internal.cli.commands.sql.help;
 
-import jakarta.inject.Singleton;
-import org.apache.ignite.internal.cli.commands.sql.help.SqlHelpCommand;
-import picocli.CommandLine.Command;
-import picocli.shell.jline3.PicocliCommands.ClearScreen;
+import picocli.CommandLine;
+import picocli.CommandLine.TypeConversionException;
 
-/**
- * Top level SQL REPL command.
- */
-@Command(name = "",
-        description = {""},
-        subcommands = {
-                ClearScreen.class,
-                SqlHelpCommand.class
-        }
-)
-@Singleton
-public class SqlReplTopLevelCliCommand {
+/** Converter to convert user input into {@link org.apache.ignite.internal.cli.commands.sql.help.IgniteSqlCommand}. */
+public class IgniteSqlCommandConverter implements CommandLine.ITypeConverter<IgniteSqlCommand> {
+    @Override
+    public IgniteSqlCommand convert(String s) throws Exception {
+        return IgniteSqlCommand.find(s)
+                .orElseThrow(() -> new TypeConversionException("Unknown SQL command: " + s));
+    }
 }

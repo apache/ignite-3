@@ -104,7 +104,7 @@ public class ReplExecutor {
                 reader.variable(LineReader.HISTORY_FILE, StateFolderProvider.getStateFile(repl.getHistoryFileName()));
             }
 
-            RegistryCommandExecutor executor = new RegistryCommandExecutor(registry, parser, picocliCommands::usageMessage);
+            RegistryCommandExecutor executor = new RegistryCommandExecutor(parser, picocliCommands.getCmd());
             TailTipWidgets widgets = repl.isTailTipWidgetsEnabled() ? createWidgets(registry, reader) : null;
 
             QuestionAskerFactory.setReadWriter(new JlineQuestionWriterReader(reader, widgets));

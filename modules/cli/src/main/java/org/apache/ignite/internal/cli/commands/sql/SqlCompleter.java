@@ -33,6 +33,9 @@ class SqlCompleter implements Completer {
 
     @Override
     public void complete(LineReader reader, ParsedLine commandLine, List<Candidate> candidates) {
+        if (commandLine.line().startsWith("help")) {
+            return;
+        }
         if (commandLine.wordIndex() == 0) {
             addCandidatesFromArray(SqlMetaData.STARTING_KEYWORDS, candidates);
         } else {
