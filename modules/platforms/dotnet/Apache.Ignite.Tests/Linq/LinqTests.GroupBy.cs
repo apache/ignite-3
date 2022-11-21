@@ -47,6 +47,27 @@ public partial class LinqTests
     }
 
     [Test]
+    public void TestGroupByMultiple()
+    {
+        var query = PocoByteView.AsQueryable()
+            .GroupBy(x => new {x.Val, x.Key})
+            .Select(x => x.Key.Key)
+            .OrderBy(x => x)
+            .Take(3);
+
+        List<sbyte> res = query.ToList();
+
+        Assert.AreEqual(new[] { 0, 1, 2 }, res);
+
+        StringAssert.Contains(
+            "select _T0.KEY " +
+            "from PUBLIC.TBL_INT8 as _T0 " +
+            "group by (_T0.VAL, _T0.KEY) " +
+            "order by (_T0.KEY) asc",
+            query.ToString());
+    }
+
+    [Test]
     public void TestGroupByWithAggregates()
     {
         // TODO IGNITE-18196 Remove cast to long for Sum and Count
