@@ -125,15 +125,21 @@ internal sealed class AliasDictionary
     /// Creates an alias for GROUP BY clause.
     /// </summary>
     /// <param name="expression">Expression.</param>
-    /// <returns>Alias.</returns>
-    public string CreateGroupByAlias(Expression expression)
+    /// <param name="alias">Alias.</param>
+    /// <returns><c>True</c> when a new alias has been created; <c>false</c> otherwise.</returns>
+    public bool GetOrCreateGroupByAlias(Expression expression, out string alias)
     {
+        if (_groupByAliases.TryGetValue(expression, out alias!))
+        {
+            return false;
+        }
+
         // TODO: Create 2.x ticket for this.
-        var alias = "G" + _groupByAliases.Count;
+        alias = "G" + _groupByAliases.Count;
 
         _groupByAliases.Add(expression, alias);
 
-        return alias;
+        return true;
     }
 
     /// <summary>

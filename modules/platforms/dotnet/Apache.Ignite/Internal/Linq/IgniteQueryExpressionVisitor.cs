@@ -575,10 +575,15 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
             return false;
         }
 
-        // TODO: If alias exists, do not visit again.
-        var alias = Aliases.CreateGroupByAlias(grpBy.KeySelector);
-        Visit(grpBy.KeySelector);
-        ResultBuilder.Append(" as ").Append(alias);
+        if (Aliases.GetOrCreateGroupByAlias(grpBy.KeySelector, out var alias))
+        {
+            // Visit the expression only when alias is initially created in GetOrCreateGroupByAlias.
+            // We can encounter the same GroupBy expression multiple times if it is also used in OrderBy.
+            Visit(grpBy.KeySelector);
+            ResultBuilder.Append(" as ");
+        }
+
+        ResultBuilder.Append(alias);
 
         return true;
     }
