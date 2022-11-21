@@ -575,7 +575,9 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
             return false;
         }
 
+        // TODO: Put an alias here, specific for groupings?
         Visit(grpBy.KeySelector);
+        ResultBuilder.Append(" as G0");
 
         return true;
     }
