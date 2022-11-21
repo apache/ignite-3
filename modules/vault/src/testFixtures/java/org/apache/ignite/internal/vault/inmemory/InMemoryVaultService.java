@@ -100,7 +100,7 @@ public class InMemoryVaultService implements VaultService {
             }
         }
 
-        return Cursor.fromIterator(it);
+        return Cursor.fromBareIterator(it);
     }
 
     /** {@inheritDoc} */

@@ -51,7 +51,6 @@ import org.apache.ignite.internal.storage.TxIdMismatchException;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.GridUnsafe;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
 import org.rocksdb.ColumnFamilyHandle;
 import org.rocksdb.ReadOptions;
@@ -795,10 +794,10 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
             }
 
             @Override
-            public void close() throws Exception {
+            public void close() {
                 super.close();
 
-                IgniteUtils.closeAll(options, upperBound);
+                RocksUtils.closeAll(options, upperBound);
             }
         };
     }
@@ -1150,7 +1149,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         }
 
         @Override
-        public final void close() throws Exception {
+        public final void close() {
             it.close();
         }
     }

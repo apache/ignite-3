@@ -56,7 +56,7 @@ public class TestHashIndexStorage implements HashIndexStorage {
     public Cursor<RowId> get(BinaryTuple key) {
         Collection<RowId> rowIds = index.getOrDefault(key.byteBuffer(), Set.of());
 
-        return Cursor.fromIterator(rowIds.iterator());
+        return Cursor.fromBareIterator(rowIds.iterator());
     }
 
     @Override
