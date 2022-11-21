@@ -17,21 +17,23 @@
 
 package org.apache.ignite.internal.table.distributed.command;
 
+import java.io.Serializable;
 import java.util.UUID;
-import org.apache.ignite.internal.table.distributed.TableMessageGroup;
-import org.apache.ignite.network.annotations.Marshallable;
+import org.apache.ignite.internal.table.distributed.TableMessageGroup.Commands;
+import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
+import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
-import org.apache.ignite.raft.jraft.util.ByteString;
 
 /**
- * State machine command to update a row specified by a row id.
+ * Network Message interface to transfer {@link TablePartitionId} as part of {@link NetworkMessage}.
  */
-@Transferable(TableMessageGroup.Commands.UPDATE)
-public interface UpdateCommand extends PartitionCommand {
-    TablePartitionIdMessage tablePartitionId();
+@Transferable(Commands.TABLE_PARTITION_ID)
+public interface TablePartitionIdMessage extends NetworkMessage, Serializable {
+    UUID tableId();
 
-    UUID rowUuid();
+    int partitionId();
 
-    @Marshallable
-    ByteString rowBuffer();
+    default TablePartitionId asTablePartitionId() {
+        return new TablePartitionId(tableId(), partitionId());
+    }
 }

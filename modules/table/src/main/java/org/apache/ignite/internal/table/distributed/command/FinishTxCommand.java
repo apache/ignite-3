@@ -18,68 +18,26 @@
 package org.apache.ignite.internal.table.distributed.command;
 
 import java.util.List;
-import java.util.UUID;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.table.distributed.TableMessageGroup;
+import org.apache.ignite.network.annotations.Transferable;
 
 /**
  * State machine command to finish a transaction on a commit or a rollback.
  */
-public class FinishTxCommand extends PartitionCommand {
-    /**
-     * A commit or a rollback state.
-     */
-    private final boolean commit;
-
-    /**
-     * Transaction commit timestamp.
-     */
-    private final HybridTimestamp commitTimestamp;
-
-    /**
-     * Replication groups ids.
-     */
-    private final List<ReplicationGroupId> replicationGroupIds;
-
-    /**
-     * The constructor.
-     *
-     * @param txId The txId.
-     * @param commit Commit or rollback state {@code True} to commit.
-     * @param commitTimestamp Transaction commit timestamp.
-     * @param replicationGroupIds Set of replication groups ids.
-     */
-    public FinishTxCommand(UUID txId, boolean commit, HybridTimestamp commitTimestamp, List<ReplicationGroupId> replicationGroupIds) {
-        super(txId);
-        this.commit = commit;
-        this.commitTimestamp = commitTimestamp;
-        this.replicationGroupIds = replicationGroupIds;
-    }
-
+@Transferable(TableMessageGroup.Commands.FINISH_TX)
+public interface FinishTxCommand extends PartitionCommand {
     /**
      * Returns a commit or a rollback state.
-     *
-     * @return A commit or a rollback state.
      */
-    public boolean commit() {
-        return commit;
-    }
+    boolean commit();
 
     /**
      * Returns a transaction commit timestamp.
-     *
-     * @return A transaction commit timestamp.
      */
-    public HybridTimestamp commitTimestamp() {
-        return commitTimestamp;
-    }
+    HybridTimestampMessage commitTimestamp();
 
     /**
      * Returns an ordered replication groups ids.
-     *
-     * @return An ordered replication groups ids.
      */
-    public List<ReplicationGroupId> replicationGroupIds() {
-        return replicationGroupIds;
-    }
+    List<TablePartitionIdMessage> tablePartitionIds();
 }

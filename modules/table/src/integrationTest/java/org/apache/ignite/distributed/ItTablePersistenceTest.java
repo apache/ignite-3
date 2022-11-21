@@ -274,7 +274,8 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                             new TestPartitionDataStorage(testMpPartStorage),
                             new TestTxStateStorage(),
                             txManager,
-                            Map::of
+                            Map::of,
+                            0
                     );
 
                     paths.put(listener, workDir);

@@ -17,21 +17,22 @@
 
 package org.apache.ignite.internal.table.distributed.command;
 
-import java.util.UUID;
+import java.io.Serializable;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
-import org.apache.ignite.network.annotations.Marshallable;
+import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
-import org.apache.ignite.raft.jraft.util.ByteString;
 
 /**
- * State machine command to update a row specified by a row id.
+ * Interface to represent {@link HybridTimestamp} as a {@link NetworkMessage}.
  */
-@Transferable(TableMessageGroup.Commands.UPDATE)
-public interface UpdateCommand extends PartitionCommand {
-    TablePartitionIdMessage tablePartitionId();
+@Transferable(TableMessageGroup.Commands.HYBRID_TIMESTAMP)
+public interface HybridTimestampMessage extends NetworkMessage, Serializable {
+    long physical();
 
-    UUID rowUuid();
+    int logical();
 
-    @Marshallable
-    ByteString rowBuffer();
+    default HybridTimestamp asHybridTimestamp() {
+        return new HybridTimestamp(physical(), logical());
+    }
 }

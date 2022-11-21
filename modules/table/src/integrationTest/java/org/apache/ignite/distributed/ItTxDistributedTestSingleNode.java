@@ -432,7 +432,8 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                                     new TestPartitionDataStorage(testMpPartStorage),
                                     new TestTxStateStorage(),
                                     txManagers.get(node),
-                                    () -> Map.of(pkStorage.get().id(), pkStorage.get())
+                                    () -> Map.of(pkStorage.get().id(), pkStorage.get()),
+                                    partId
                             );
                         },
                         RaftGroupOptions.defaults()
