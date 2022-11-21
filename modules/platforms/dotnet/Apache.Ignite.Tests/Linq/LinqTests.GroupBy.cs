@@ -114,7 +114,7 @@ public partial class LinqTests
     }
 
     [Test]
-    public void TestGroupByWithJoin()
+    public void TestGroupByWithJoinAndProjection()
     {
         // TODO IGNITE-18196 Remove cast to long for Sum and Count
         var query1 = PocoView.AsQueryable();
@@ -147,17 +147,5 @@ public partial class LinqTests
             "group by (_T0.VAL) " +
             "order by (_T0.VAL) asc",
             query.ToString());
-    }
-
-    [Test]
-    public void TestGroupByWithReverseJoin()
-    {
-        Assert.Fail("TODO");
-    }
-
-    [Test]
-    public void TestGroupByWithReverseJoinAndProjection()
-    {
-        Assert.Fail("TODO");
     }
 }
