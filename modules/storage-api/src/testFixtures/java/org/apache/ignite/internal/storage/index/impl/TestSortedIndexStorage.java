@@ -162,9 +162,7 @@ public class TestSortedIndexStorage implements SortedIndexStorage {
         return new Cursor<>() {
             @Override
             public void close() {
-                if (iterator instanceof AutoCloseable) {
-                    ((AutoCloseable) iterator).close();
-                }
+                // No-op.
             }
 
             @Override
