@@ -94,6 +94,7 @@ import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.raft.client.Peer;
+import org.apache.ignite.raft.client.service.LeaderWithTerm;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -173,10 +174,10 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     private static void beforeAll() {
         when(mockRaftClient.refreshAndGetLeaderWithTerm()).thenAnswer(invocationOnMock -> {
             if (!localLeader) {
-                return CompletableFuture.completedFuture(new IgniteBiTuple<>(new Peer(anotherNode.name()), 1L));
+                return CompletableFuture.completedFuture(new LeaderWithTerm(new Peer(anotherNode.name()), 1L));
             }
 
-            return CompletableFuture.completedFuture(new IgniteBiTuple<>(new Peer(localNode.name()), 1L));
+            return CompletableFuture.completedFuture(new LeaderWithTerm(new Peer(localNode.name()), 1L));
         });
 
         when(topologySrv.getByConsistentId(any())).thenAnswer(invocationOnMock -> {
