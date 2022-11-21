@@ -67,14 +67,14 @@ public class ChangePeersAsyncRequestProcessor extends BaseCliRequestProcessor<Ch
             }
         }
 
-        for (final String peerIdStr : request.newLearnersList()) {
-            final PeerId peer = new PeerId();
-            if (peer.parse(peerIdStr)) {
-                conf.addLearner(peer);
+        for (final String learnerIdStr : request.newLearnersList()) {
+            final PeerId learner = new PeerId();
+            if (learner.parse(learnerIdStr)) {
+                conf.addLearner(learner);
             }
             else {
                 return RaftRpcFactory.DEFAULT //
-                        .newResponse(msgFactory(), RaftError.EINVAL, "Fail to parse peer id %s", peerIdStr);
+                        .newResponse(msgFactory(), RaftError.EINVAL, "Fail to parse learner id %s", learnerIdStr);
             }
         }
 

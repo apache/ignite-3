@@ -32,7 +32,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 
 public class ChangePeersAsyncRequestProcessorTest extends AbstractCliRequestProcessorTest<ChangePeersAsyncRequest>{
-    private static final List<String> FOLLOWERS = List.of("follower1", "follower2");
+    private static final List<String> PEERS = List.of("follower1", "follower2");
     private static final List<String> LEARNERS = List.of("learner1", "learner2", "learner3");
 
     @Override
@@ -40,7 +40,7 @@ public class ChangePeersAsyncRequestProcessorTest extends AbstractCliRequestProc
         return msgFactory.changePeersAsyncRequest()
                 .groupId(groupId)
                 .leaderId(peerId.toString())
-                .newPeersList(FOLLOWERS)
+                .newPeersList(PEERS)
                 .newLearnersList(LEARNERS)
                 .term(1)
                 .build();
@@ -56,7 +56,7 @@ public class ChangePeersAsyncRequestProcessorTest extends AbstractCliRequestProc
         assertEquals(ChangePeersAsyncRequest.class.getName(), interest);
 
         Configuration expectedConf = new Configuration();
-        FOLLOWERS.stream().map(PeerId::parsePeer).forEach(expectedConf::addPeer);
+        PEERS.stream().map(PeerId::parsePeer).forEach(expectedConf::addPeer);
         LEARNERS.stream().map(PeerId::parsePeer).forEach(expectedConf::addLearner);
 
         Mockito.verify(node).changePeersAsync(eq(expectedConf), eq(1L), doneArg.capture());
@@ -68,7 +68,7 @@ public class ChangePeersAsyncRequestProcessorTest extends AbstractCliRequestProc
         ChangePeersAsyncResponse response = this.asyncContext.as(ChangePeersAsyncResponse.class);
 
         assertEquals(List.of("localhost:8081", "localhost:8082", "localhost:8083"), response.oldPeersList());
-        assertEquals(FOLLOWERS, response.newPeersList());
+        assertEquals(PEERS, response.newPeersList());
         assertEquals(List.of("learner:8081", "learner:8082", "learner:8083"), response.oldLearnersList());
         assertEquals(LEARNERS, response.newLearnersList());
     }

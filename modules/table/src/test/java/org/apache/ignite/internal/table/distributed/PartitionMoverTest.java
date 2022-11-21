@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -36,6 +37,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.raft.RaftGroupServiceImpl;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.NodeStoppingException;
+import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.junit.jupiter.api.Test;
 
@@ -57,9 +59,13 @@ class PartitionMoverTest {
 
         var partitionMover = new PartitionMover(new IgniteSpinBusyLock(), () -> raftService);
 
-        assertThat(partitionMover.movePartition(List.of(), List.of(), 1), willCompleteSuccessfully());
+        List<Peer> peers = List.of(new Peer("peer1"), new Peer("peer2"));
+        List<Peer> learners = List.of(new Peer("learner1"), new Peer("learner2"), new Peer("learner3"));
+        long term = 123;
 
-        verify(raftService, times(3)).changePeersAsync(any(), any(), anyLong());
+        assertThat(partitionMover.movePartition(peers, learners, term), willCompleteSuccessfully());
+
+        verify(raftService, times(3)).changePeersAsync(eq(peers), eq(learners), eq(term));
     }
 
     @Test
