@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.pagememory.persistence.store;
 
 import static java.nio.file.Files.createDirectories;
+import static java.nio.file.Files.createFile;
+import static java.nio.file.Files.delete;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.MAX_PARTITION_ID;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageId;
@@ -30,8 +32,11 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.fileio.FileIo;
 import org.apache.ignite.internal.fileio.FileIoFactory;
@@ -44,13 +49,13 @@ import org.apache.ignite.internal.pagememory.persistence.store.GroupPageStoresMa
 import org.apache.ignite.internal.util.IgniteStripedLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Partition file page store manager.
  */
-// TODO: IGNITE-17132 Don't forget to delete partition files
 public class FilePageStoreManager implements PageReadWriteManager {
     /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(FilePageStoreManager.class);
@@ -72,6 +77,12 @@ public class FilePageStoreManager implements PageReadWriteManager {
 
     /** Partition file template, example "part-1.bin". */
     public static final String PART_FILE_TEMPLATE = PART_FILE_PREFIX + "%d" + FILE_SUFFIX;
+
+    /** Partition file template to be removed, example "part-1.del". */
+    public static final String DEL_PART_FILE_TEMPLATE = PART_FILE_PREFIX + "%d" + DEL_FILE_SUFFIX;
+
+    /** Regexp for the partition file to be deleted, example "part-1.del". */
+    public static final String DEL_PART_FILE_REGEXP = PART_FILE_PREFIX + "(\\d+)" + DEL_FILE_SUFFIX;
 
     /** Partition temporary delta file template, example "part-1-delta-1.bin". */
     public static final String PART_DELTA_FILE_TEMPLATE = PART_DELTA_FILE_PREFIX + "%d" + FILE_SUFFIX;
@@ -147,22 +158,54 @@ public class FilePageStoreManager implements PageReadWriteManager {
             }
         }
 
+        List<Path> toDelete = new ArrayList<>();
+
         try (Stream<Path> tmpFileStream = Files.find(
                 dbDir,
                 Integer.MAX_VALUE,
-                (path, basicFileAttributes) -> path.getFileName().toString().endsWith(TMP_FILE_SUFFIX)
-        )) {
-            List<Path> tmpFiles = tmpFileStream.collect(toList());
+                (path, basicFileAttributes) -> path.getFileName().toString().endsWith(TMP_FILE_SUFFIX))
+        ) {
+            toDelete.addAll(tmpFileStream.collect(toList()));
+        } catch (IOException e) {
+            throw new IgniteInternalCheckedException("Error while searching temporary files:" + dbDir, e);
+        }
 
-            if (!tmpFiles.isEmpty()) {
-                if (LOG.isInfoEnabled()) {
-                    LOG.info("Temporary files to be deleted: {}", tmpFiles.size());
+        Pattern delPartitionFilePatter = Pattern.compile(DEL_PART_FILE_REGEXP);
+
+        try (Stream<Path> delFileStream = Files.find(
+                dbDir,
+                Integer.MAX_VALUE,
+                (path, basicFileAttributes) -> path.getFileName().toString().endsWith(DEL_FILE_SUFFIX))
+        ) {
+            delFileStream.forEach(delFilePath -> {
+                Matcher matcher = delPartitionFilePatter.matcher(delFilePath.getFileName().toString());
+
+                if (!matcher.matches()) {
+                    throw new IgniteInternalException("Unknown file: " + delFilePath);
                 }
 
-                tmpFiles.forEach(IgniteUtils::deleteIfExists);
-            }
+                Path tableWorkDir = delFilePath.getParent();
+
+                int partitionId = Integer.parseInt(matcher.group(1));
+
+                toDelete.add(tableWorkDir.resolve(String.format(PART_FILE_TEMPLATE, partitionId)));
+
+                try {
+                    toDelete.addAll(List.of(findPartitionDeltaFiles(tableWorkDir, partitionId)));
+                } catch (IgniteInternalCheckedException e) {
+                    throw new IgniteInternalException("Error when searching delta files for partition:" + delFilePath, e);
+                }
+
+                toDelete.add(delFilePath);
+            });
         } catch (IOException e) {
-            throw new IgniteInternalCheckedException("Could not create work directory for page stores: " + dbDir, e);
+            throw new IgniteInternalCheckedException("Error while searching temporary files:" + dbDir, e);
+        }
+
+        if (!toDelete.isEmpty()) {
+            LOG.info("Files to be deleted: {}", toDelete);
+
+            toDelete.forEach(IgniteUtils::deleteIfExists);
         }
     }
 
@@ -374,12 +417,10 @@ public class FilePageStoreManager implements PageReadWriteManager {
      * Returns paths (unsorted) to delta files for the requested partition.
      *
      * @param groupWorkDir Group directory.
-     * @param partition Partition number.
+     * @param partitionId Partition ID.
      */
-    Path[] findPartitionDeltaFiles(Path groupWorkDir, int partition) throws IgniteInternalCheckedException {
-        assert partition >= 0 : partition;
-
-        String partitionDeltaFilePrefix = String.format(PART_DELTA_FILE_PREFIX, partition);
+    Path[] findPartitionDeltaFiles(Path groupWorkDir, int partitionId) throws IgniteInternalCheckedException {
+        String partitionDeltaFilePrefix = String.format(PART_DELTA_FILE_PREFIX, partitionId);
 
         try (Stream<Path> deltaFileStream = Files.find(
                 groupWorkDir,
@@ -392,7 +433,7 @@ public class FilePageStoreManager implements PageReadWriteManager {
                     IgniteStringFormatter.format(
                             "Error while searching delta partition files [groupDir={}, partition={}]",
                             groupWorkDir,
-                            partition
+                            partitionId
                     ),
                     e
             );
@@ -424,12 +465,46 @@ public class FilePageStoreManager implements PageReadWriteManager {
     /**
      * Callback on destruction of the partition of the corresponding group.
      *
-     * <p>TODO: IGNITE-17132 добавить описание
+     * <p>Deletes the partition pages tore and all its delta files. Before that, it creates a marker file (for example,
+     * "table-1/part-1.del") so as not to get into the situation that we deleted only part of the data/files, the node restarted and we have
+     * something left. At the start, we will delete all partition files with delta files that will have a marker.
      *
      * @param groupId Group ID.
      * @param partitionId Partition ID.
+     * @throws IgniteInternalCheckedException If there are errors in deleting the partition file and its delta files.
      */
-    public void onPartitionDestruction(int groupId, int partitionId) {
-        // TODO: IGNITE-17132 реализовать, аккуратно
+    public void onPartitionDestruction(int groupId, int partitionId) throws IgniteInternalCheckedException {
+        FilePageStore removed = groupPageStores.remove(groupId, partitionId);
+
+        assert removed != null : IgniteStringFormatter.format(
+                "Parallel deletion is not allowed: [groupId={}, partitionId={}]",
+                groupId,
+                partitionId
+        );
+
+        assert removed.isMarkedToDestroy() : IgniteStringFormatter.format(
+                "Wasn't marked for deletion: [groupId={}, partitionId={}]",
+                groupId,
+                partitionId
+        );
+
+        try {
+            Path partitionDeleteFilePath = createFile(
+                    dbDir.resolve(GROUP_DIR_PREFIX + groupId).resolve(String.format(DEL_PART_FILE_TEMPLATE, partitionId))
+            );
+
+            removed.stop(true);
+
+            delete(partitionDeleteFilePath);
+        } catch (IOException e) {
+            throw new IgniteInternalCheckedException(
+                    IgniteStringFormatter.format(
+                            "Error when deleting partition file and its delta files: [groupId={}, partitionId={}]",
+                            groupId,
+                            partitionId
+                    ),
+                    e
+            );
+        }
     }
 }

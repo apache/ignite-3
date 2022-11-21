@@ -454,18 +454,18 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
 
         try {
             dataRegion.checkpointManager().onPartitionDestruction(tableId, partitionId);
+
+            dataRegion.filePageStoreManager().onPartitionDestruction(tableId, partitionId);
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException(
                     IgniteStringFormatter.format(
-                            "Error while processing callback on partition destruction: [tableId={}, partitionId={}]",
+                            "Error while deleting partition: [tableId={}, partitionId={}]",
                             tableId,
                             partitionId
                     ),
                     e
             );
         }
-
-        dataRegion.filePageStoreManager().onPartitionDestruction(tableId, partitionId);
 
         destroyFutureByPartitionId.remove(partitionId).complete(null);
     }
