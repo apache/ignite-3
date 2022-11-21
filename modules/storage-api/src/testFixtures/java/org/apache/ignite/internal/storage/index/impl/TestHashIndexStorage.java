@@ -63,7 +63,7 @@ public class TestHashIndexStorage implements HashIndexStorage {
                 .peek(rowId -> checkClosed())
                 .iterator();
 
-        return Cursor.fromIterator(iterator);
+        return Cursor.fromBareIterator(iterator);
     }
 
     @Override

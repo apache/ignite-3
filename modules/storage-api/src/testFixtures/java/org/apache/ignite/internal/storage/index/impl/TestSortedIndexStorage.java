@@ -72,7 +72,7 @@ public class TestSortedIndexStorage implements SortedIndexStorage {
                 .peek(rowId -> checkClosed())
                 .iterator();
 
-        return Cursor.fromIterator(iterator);
+        return Cursor.fromBareIterator(iterator);
     }
 
     @Override
@@ -161,7 +161,7 @@ public class TestSortedIndexStorage implements SortedIndexStorage {
 
         return new Cursor<>() {
             @Override
-            public void close() throws Exception {
+            public void close() {
                 if (iterator instanceof AutoCloseable) {
                     ((AutoCloseable) iterator).close();
                 }

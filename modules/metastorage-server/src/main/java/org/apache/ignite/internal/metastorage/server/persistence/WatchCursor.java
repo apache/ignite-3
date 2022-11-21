@@ -35,7 +35,6 @@ import org.apache.ignite.internal.metastorage.server.Value;
 import org.apache.ignite.internal.metastorage.server.WatchEvent;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.rocksdb.ReadOptions;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
@@ -180,7 +179,7 @@ class WatchCursor implements Cursor<WatchEvent> {
 
     /** {@inheritDoc} */
     @Override
-    public void close() throws Exception {
-        IgniteUtils.closeAll(options, nativeIterator);
+    public void close() {
+        RocksUtils.closeAll(options, nativeIterator);
     }
 }

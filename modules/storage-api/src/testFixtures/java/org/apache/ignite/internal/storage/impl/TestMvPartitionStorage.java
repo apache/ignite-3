@@ -337,7 +337,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     public Cursor<ReadResult> scanVersions(RowId rowId) throws StorageException {
         checkClosed();
 
-        return Cursor.fromIterator(
+        return Cursor.fromBareIterator(
                 Stream.iterate(map.get(rowId), Objects::nonNull, vc -> vc.next)
                         .peek(versionChain -> checkClosed())
                         .map((VersionChain versionChain) -> versionChainToReadResult(versionChain, false))

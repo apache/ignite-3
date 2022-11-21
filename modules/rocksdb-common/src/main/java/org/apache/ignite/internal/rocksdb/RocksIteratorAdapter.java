@@ -41,7 +41,7 @@ public abstract class RocksIteratorAdapter<T> implements Cursor<T> {
 
     /** {@inheritDoc} */
     @Override
-    public void close() throws Exception {
+    public void close() {
         it.close();
     }
 

@@ -741,7 +741,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
                     .map(rowVersion -> rowVersionToResultNotFillingLastCommittedTs(versionChain, rowVersion))
                     .iterator();
 
-            return Cursor.fromIterator(iterator);
+            return Cursor.fromBareIterator(iterator);
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException(e);
         } finally {
@@ -849,7 +849,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         }
 
         @Override
-        public void close() throws Exception {
+        public void close() {
             treeCursor.close();
         }
 

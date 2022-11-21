@@ -92,7 +92,7 @@ class RangeCursor implements Cursor<Entry> {
 
     /** {@inheritDoc} */
     @Override
-    public void close() throws Exception {
+    public void close() {
         // No-op.
     }
 
