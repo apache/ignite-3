@@ -25,12 +25,10 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
-import org.apache.ignite.internal.pagememory.persistence.PartitionProcessingCounter;
+import org.apache.ignite.internal.pagememory.persistence.PartitionProcessingCounterMap;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -72,7 +70,7 @@ class CheckpointProgressImpl implements CheckpointProgress {
     private volatile @Nullable CheckpointDirtyPages pageToWrite;
 
     /** Partitions currently being processed, for example, writing dirty pages or doing fsync. */
-    private final ConcurrentMap<GroupPartitionId, PartitionProcessingCounter> processedPartitions = new ConcurrentHashMap<>();
+    private final PartitionProcessingCounterMap processedPartitionMap = new PartitionProcessingCounterMap();
 
     /**
      * Constructor.
@@ -280,21 +278,7 @@ class CheckpointProgressImpl implements CheckpointProgress {
      * @param partitionId Partition ID.
      */
     public void onStartPartitionProcessing(int groupId, int partitionId) {
-        GroupPartitionId groupPartitionId = new GroupPartitionId(groupId, partitionId);
-
-        processedPartitions.compute(groupPartitionId, (id, partitionProcessingCounter) -> {
-            if (partitionProcessingCounter == null || partitionProcessingCounter.future().isDone()) {
-                PartitionProcessingCounter counter = new PartitionProcessingCounter();
-
-                counter.onStartPartitionProcessing();
-
-                return counter;
-            }
-
-            partitionProcessingCounter.onStartPartitionProcessing();
-
-            return partitionProcessingCounter;
-        });
+        processedPartitionMap.onStartPartitionProcessing(groupId, partitionId);
     }
 
     /**
@@ -304,16 +288,7 @@ class CheckpointProgressImpl implements CheckpointProgress {
      * @param partitionId Partition ID.
      */
     public void onFinishPartitionProcessing(int groupId, int partitionId) {
-        GroupPartitionId groupPartitionId = new GroupPartitionId(groupId, partitionId);
-
-        processedPartitions.compute(groupPartitionId, (id, partitionProcessingCounter) -> {
-            assert partitionProcessingCounter != null : id;
-            assert !partitionProcessingCounter.future().isDone() : id;
-
-            partitionProcessingCounter.onFinishPartitionProcessing();
-
-            return partitionProcessingCounter.future().isDone() ? null : partitionProcessingCounter;
-        });
+        processedPartitionMap.onFinishPartitionProcessing(groupId, partitionId);
     }
 
     /**
@@ -328,8 +303,6 @@ class CheckpointProgressImpl implements CheckpointProgress {
      */
     @Nullable
     public CompletableFuture<Void> getProcessedPartitionFuture(int groupId, int partitionId) {
-        PartitionProcessingCounter partitionProcessingCounter = processedPartitions.get(new GroupPartitionId(groupId, partitionId));
-
-        return partitionProcessingCounter == null ? null : partitionProcessingCounter.future();
+        return processedPartitionMap.getProcessedPartitionFuture(groupId, partitionId);
     }
 }

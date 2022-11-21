@@ -18,14 +18,10 @@
 package org.apache.ignite.internal.pagememory.persistence.compaction;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static java.util.function.Predicate.not;
-import static java.util.stream.Collectors.toCollection;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.util.List;
-import java.util.Objects;
-import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -34,17 +30,21 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.pagememory.io.PageIo;
+import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
+import org.apache.ignite.internal.pagememory.persistence.PartitionProcessingCounterMap;
 import org.apache.ignite.internal.pagememory.persistence.store.DeltaFilePageStoreIo;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
+import org.apache.ignite.internal.pagememory.persistence.store.GroupPageStoresMap.GroupPageStores;
+import org.apache.ignite.internal.pagememory.persistence.store.GroupPageStoresMap.PartitionPageStore;
 import org.apache.ignite.internal.thread.IgniteThread;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.worker.IgniteWorker;
 import org.apache.ignite.internal.util.worker.IgniteWorkerListener;
-import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.lang.IgniteStringFormatter;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -73,6 +73,9 @@ public class Compactor extends IgniteWorker {
 
     /** Thread local with buffers for the compaction threads. */
     private final ThreadLocal<ByteBuffer> threadBuf;
+
+    /** Partitions currently being processed, for example, writes dirty pages to delta file. */
+    private final PartitionProcessingCounterMap processedPartitionMap = new PartitionProcessingCounterMap();
 
     /**
      * Creates new ignite worker with given parameters.
@@ -183,16 +186,24 @@ public class Compactor extends IgniteWorker {
     void doCompaction() {
         while (true) {
             // Let's collect one delta file for each partition.
-            Queue<IgniteBiTuple<FilePageStore, DeltaFilePageStoreIo>> queue = filePageStoreManager.allPageStores().stream()
-                    .flatMap(List::stream)
-                    .filter(not(FilePageStore::isMarkedToDestroy))
-                    .map(filePageStore -> {
-                        DeltaFilePageStoreIo deltaFileToCompaction = filePageStore.getDeltaFileToCompaction();
+            ConcurrentLinkedQueue<DeltaFileToCompaction> queue = new ConcurrentLinkedQueue<>();
 
-                        return deltaFileToCompaction == null ? null : new IgniteBiTuple<>(filePageStore, deltaFileToCompaction);
-                    })
-                    .filter(Objects::nonNull)
-                    .collect(toCollection(ConcurrentLinkedQueue::new));
+            for (GroupPageStores<FilePageStore> groupPageStores : filePageStoreManager.allPageStores()) {
+                for (PartitionPageStore<FilePageStore> partitionPageStore : groupPageStores.getAll()) {
+                    FilePageStore filePageStore = partitionPageStore.pageStore();
+
+                    DeltaFilePageStoreIo deltaFileToCompaction = filePageStore.getDeltaFileToCompaction();
+
+                    if (!filePageStore.isMarkedToDestroy() && deltaFileToCompaction != null) {
+                        queue.add(new DeltaFileToCompaction(
+                                groupPageStores.groupId(),
+                                partitionPageStore.partitionId(),
+                                filePageStore,
+                                deltaFileToCompaction
+                        ));
+                    }
+                }
+            }
 
             if (queue.isEmpty()) {
                 break;
@@ -208,11 +219,17 @@ public class Compactor extends IgniteWorker {
                 CompletableFuture<?> future = futures[i] = new CompletableFuture<>();
 
                 Runnable merger = () -> {
-                    IgniteBiTuple<FilePageStore, DeltaFilePageStoreIo> toMerge;
+                    DeltaFileToCompaction toMerge;
 
                     try {
                         while ((toMerge = queue.poll()) != null) {
-                            mergeDeltaFileToMainFile(toMerge.get1(), toMerge.get2());
+                            GroupPartitionId partitionId = new GroupPartitionId(toMerge.groupId, toMerge.partitionId);
+
+                            processedPartitionMap.onStartPartitionProcessing(partitionId.getGroupId(), partitionId.getPartitionId());
+
+                            mergeDeltaFileToMainFile(toMerge.filePageStore, toMerge.deltaFilePageStoreIo);
+
+                            processedPartitionMap.onFinishPartitionProcessing(partitionId.getGroupId(), partitionId.getPartitionId());
                         }
                     } catch (Throwable ex) {
                         future.completeExceptionally(ex);
@@ -321,6 +338,10 @@ public class Compactor extends IgniteWorker {
                 return;
             }
 
+            if (filePageStore.isMarkedToDestroy()) {
+                return;
+            }
+
             long pageOffset = deltaFilePageStore.pageOffset(pageIndex);
 
             // pageIndex instead of pageId, only for debugging in case of errors
@@ -339,6 +360,10 @@ public class Compactor extends IgniteWorker {
                 return;
             }
 
+            if (filePageStore.isMarkedToDestroy()) {
+                return;
+            }
+
             filePageStore.write(pageId, buffer.rewind(), true);
         }
 
@@ -349,12 +374,20 @@ public class Compactor extends IgniteWorker {
             return;
         }
 
+        if (filePageStore.isMarkedToDestroy()) {
+            return;
+        }
+
         filePageStore.sync();
 
         // Removing the delta file page store from a file page store.
         updateHeartbeat();
 
         if (isCancelled()) {
+            return;
+        }
+
+        if (filePageStore.isMarkedToDestroy()) {
             return;
         }
 
@@ -370,12 +403,54 @@ public class Compactor extends IgniteWorker {
     /**
      * Callback on destruction of the partition of the corresponding group.
      *
-     * <p>TODO: IGNITE-17132 не забудь расширить описание
+     * <p>If the partition compaction is in progress, then we will wait until it is completed so that there are no errors when we want to
+     * destroy the partition file and its delta file, and at this time its compaction occurs.
      *
      * @param groupId Group ID.
      * @param partitionId Partition ID.
      */
     public void onPartitionDestruction(int groupId, int partitionId) throws IgniteInternalCheckedException {
-        // TODO: IGNITE-17132 реализовать
+        CompletableFuture<Void> partitionProcessingFuture = processedPartitionMap.getProcessedPartitionFuture(groupId, partitionId);
+
+        if (partitionProcessingFuture != null) {
+            try {
+                // Time is taken arbitrarily, but long enough to allow time for the future to complete.
+                partitionProcessingFuture.get(10, SECONDS);
+            } catch (Exception e) {
+                throw new IgniteInternalCheckedException(
+                        IgniteStringFormatter.format(
+                                "Error waiting for partition processing to complete on compaction: [groupId={}, partitionId={}]",
+                                groupId,
+                                partitionId
+                        ),
+                        e
+                );
+            }
+        }
+    }
+
+    /**
+     * Delta file for compaction.
+     */
+    private static class DeltaFileToCompaction {
+        private final int groupId;
+
+        private final int partitionId;
+
+        private final FilePageStore filePageStore;
+
+        private final DeltaFilePageStoreIo deltaFilePageStoreIo;
+
+        private DeltaFileToCompaction(
+                int groupId,
+                int partitionId,
+                FilePageStore filePageStore,
+                DeltaFilePageStoreIo deltaFilePageStoreIo
+        ) {
+            this.groupId = groupId;
+            this.partitionId = partitionId;
+            this.filePageStore = filePageStore;
+            this.deltaFilePageStoreIo = deltaFilePageStoreIo;
+        }
     }
 }

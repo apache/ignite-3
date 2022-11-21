@@ -34,6 +34,7 @@ import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointMa
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointProgress;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTimeoutLock;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
+import org.apache.ignite.internal.pagememory.persistence.store.GroupPageStoresMap.PartitionPageStore;
 import org.apache.ignite.internal.pagememory.reuse.ReuseList;
 import org.apache.ignite.internal.pagememory.util.PageLockListenerNoOp;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
@@ -111,7 +112,8 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
         try {
             dataRegion.filePageStoreManager().initialize(tableView.name(), tableView.tableId(), tableView.partitions());
 
-            boolean deltaFileExists = dataRegion.filePageStoreManager().getStores(tableView.tableId()).stream()
+            boolean deltaFileExists = dataRegion.filePageStoreManager().getStores(tableView.tableId()).getAll().stream()
+                    .map(PartitionPageStore::pageStore)
                     .anyMatch(filePageStore -> !filePageStore.isMarkedToDestroy() && filePageStore.deltaFileCount() > 0);
 
             if (deltaFileExists) {

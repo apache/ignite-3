@@ -49,6 +49,8 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.fileio.RandomAccessFileIoFactory;
+import org.apache.ignite.internal.pagememory.persistence.store.GroupPageStoresMap.GroupPageStores;
+import org.apache.ignite.internal.pagememory.persistence.store.GroupPageStoresMap.PartitionPageStore;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
@@ -125,8 +127,8 @@ public class FilePageStoreManagerTest {
                 assertThat(files.count(), is(0L));
             }
 
-            for (FilePageStore filePageStore : manager.getStores(0)) {
-                filePageStore.ensure();
+            for (PartitionPageStore<FilePageStore> filePageStore : manager.getStores(0).getAll()) {
+                filePageStore.pageStore().ensure();
             }
 
             try (Stream<Path> files = Files.list(testGroupDir)) {
@@ -151,7 +153,7 @@ public class FilePageStoreManagerTest {
 
             assertNull(manager.getStores(1));
 
-            Collection<FilePageStore> stores = manager.getStores(0);
+            Collection<PartitionPageStore<FilePageStore>> stores = manager.getStores(0).getAll();
 
             assertNotNull(stores);
             assertEquals(2, stores.size());
@@ -202,8 +204,8 @@ public class FilePageStoreManagerTest {
         try {
             manager0.initialize("test0", 0, 1);
 
-            for (FilePageStore filePageStore : manager0.getStores(0)) {
-                filePageStore.ensure();
+            for (PartitionPageStore<FilePageStore> filePageStore : manager0.getStores(0).getAll()) {
+                filePageStore.pageStore().ensure();
             }
 
             manager0.stopAllGroupFilePageStores(false);
@@ -226,8 +228,8 @@ public class FilePageStoreManagerTest {
         try {
             manager1.initialize("test1", 1, 1);
 
-            for (FilePageStore filePageStore : manager1.getStores(1)) {
-                filePageStore.ensure();
+            for (PartitionPageStore<FilePageStore> filePageStore : manager1.getStores(1).getAll()) {
+                filePageStore.pageStore().ensure();
             }
 
             manager1.stopAllGroupFilePageStores(true);
@@ -357,8 +359,15 @@ public class FilePageStoreManagerTest {
         manager.initialize("test0", 1, 1);
         manager.initialize("test1", 2, 1);
 
+        List<Path> allPageStoreFiles = manager.allPageStores().stream()
+                .map(GroupPageStores::getAll)
+                .flatMap(Collection::stream)
+                .map(PartitionPageStore::pageStore)
+                .map(FilePageStore::filePath)
+                .collect(toList());
+
         assertThat(
-                manager.allPageStores().stream().flatMap(List::stream).map(FilePageStore::filePath).collect(toList()),
+                allPageStoreFiles,
                 containsInAnyOrder(
                         workDir.resolve("db/table-1").resolve("part-0.bin"),
                         workDir.resolve("db/table-2").resolve("part-0.bin")

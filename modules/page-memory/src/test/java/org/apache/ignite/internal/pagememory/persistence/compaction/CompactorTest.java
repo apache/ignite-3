@@ -39,7 +39,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.nio.ByteBuffer;
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
@@ -50,6 +49,8 @@ import org.apache.ignite.internal.pagememory.io.PageIo;
 import org.apache.ignite.internal.pagememory.persistence.store.DeltaFilePageStoreIo;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
+import org.apache.ignite.internal.pagememory.persistence.store.GroupPageStoresMap;
+import org.apache.ignite.internal.pagememory.persistence.store.LongOperationAsyncExecutor;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -127,7 +128,11 @@ public class CompactorTest {
 
         FilePageStoreManager filePageStoreManager = mock(FilePageStoreManager.class);
 
-        when(filePageStoreManager.allPageStores()).thenReturn(List.of(List.of(filePageStore)));
+        GroupPageStoresMap<FilePageStore> groupPageStoresMap = new GroupPageStoresMap<>(new LongOperationAsyncExecutor("test", log));
+
+        groupPageStoresMap.put(0, 0, filePageStore);
+
+        when(filePageStoreManager.allPageStores()).then(answer -> groupPageStoresMap.getAll());
 
         Compactor compactor = spy(new Compactor(log, "test", null, threadsConfig(1), filePageStoreManager, PAGE_SIZE));
 

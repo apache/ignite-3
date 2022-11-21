@@ -35,7 +35,7 @@ import org.apache.ignite.internal.util.worker.IgniteWorker;
  *
  * <p>Uses {@link ReadWriteLock} to provide such synchronization scenario.
  */
-class LongOperationAsyncExecutor {
+public class LongOperationAsyncExecutor {
     private final ReadWriteLock readWriteLock = new ReentrantReadWriteLock();
 
     private final String igniteInstanceName;

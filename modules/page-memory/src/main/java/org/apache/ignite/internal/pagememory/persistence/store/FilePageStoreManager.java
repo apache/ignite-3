@@ -41,6 +41,8 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.PageIdAllocator;
 import org.apache.ignite.internal.pagememory.persistence.PageReadWriteManager;
+import org.apache.ignite.internal.pagememory.persistence.store.GroupPageStoresMap.GroupPageStores;
+import org.apache.ignite.internal.pagememory.persistence.store.GroupPageStoresMap.PartitionPageStore;
 import org.apache.ignite.internal.util.IgniteStripedLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
@@ -243,9 +245,13 @@ public class FilePageStoreManager implements PageReadWriteManager {
             if (!groupPageStores.containsPageStores(tableId)) {
                 List<FilePageStore> partitionFilePageStores = createFilePageStores(tableId, partitions);
 
-                List<FilePageStore> old = groupPageStores.put(tableId, partitionFilePageStores);
+                // TODO: IGNITE-17132 починить
 
-                assert old == null : tableName;
+                System.out.println(partitionFilePageStores);
+
+                //List<FilePageStore> old = groupPageStores.put(tableId, partitionFilePageStores);
+                //
+                //assert old == null : tableName;
             }
         } catch (IgniteInternalCheckedException e) {
             // TODO: IGNITE-16899 By analogy with 2.0, fail a node
@@ -257,50 +263,53 @@ public class FilePageStoreManager implements PageReadWriteManager {
     }
 
     /**
-     * Returns collection of related partition file page stores for group.
+     * Returns the group partition page stores.
      *
      * @param grpId Group ID.
      */
-    public @Nullable List<FilePageStore> getStores(int grpId) {
+    public @Nullable GroupPageStores<FilePageStore> getStores(int grpId) {
         return groupPageStores.get(grpId);
     }
 
     /**
-     * Returns all page stores of all groups.
+     * Returns view for all page stores of all groups.
      */
-    public Collection<List<FilePageStore>> allPageStores() {
-        return groupPageStores.allPageStores();
+    public Collection<GroupPageStores<FilePageStore>> allPageStores() {
+        return groupPageStores.getAll();
     }
 
     /**
      * Returns partition file page store for the corresponding parameters.
      *
-     * @param grpId Group ID.
-     * @param partId Partition ID, from {@code 0} to {@link PageIdAllocator#MAX_PARTITION_ID} (inclusive).
+     * @param groupId Group ID.
+     * @param partitionId Partition ID, from {@code 0} to {@link PageIdAllocator#MAX_PARTITION_ID} (inclusive).
      * @throws IgniteInternalCheckedException If group or partition with the given ID was not created.
      */
-    public FilePageStore getStore(int grpId, int partId) {
+    public FilePageStore getStore(int groupId, int partitionId) {
         // TODO: IGNITE-17132 не забудь переделать что мы можем нуль вернуть
 
-        assert partId >= 0 && partId <= MAX_PARTITION_ID : partId;
+        assert partitionId >= 0 && partitionId <= MAX_PARTITION_ID : partitionId;
 
-        List<FilePageStore> holder = groupPageStores.get(grpId);
+        GroupPageStores<FilePageStore> groupPageStores = this.groupPageStores.get(groupId);
 
-        if (holder == null) {
+        if (groupPageStores == null) {
             throw new IgniteInternalException(
-                    "Failed to get file page store for the given group ID (group has not been started): " + grpId
+                    "Failed to get file page store for the given group ID (group has not been started): " + groupId
             );
         }
 
-        if (partId >= holder.size()) {
-            throw new IgniteInternalException(String.format(
-                    "Failed to get file page store for the given partition ID (partition has not been created) [grpId=%s, partId=%s]",
-                    grpId,
-                    partId
+        PartitionPageStore<FilePageStore> partitionPageStore = groupPageStores.get(partitionId);
+
+        if (partitionPageStore == null) {
+            throw new IgniteInternalException(IgniteStringFormatter.format(
+                    "Failed to get file page store for the given partition ID (partition has not been created): "
+                            + "[groupId={}, partitionId={}]",
+                    groupId,
+                    partitionId
             ));
         }
 
-        return holder.get(partId);
+        return partitionPageStore.pageStore();
     }
 
     /**
@@ -309,8 +318,10 @@ public class FilePageStoreManager implements PageReadWriteManager {
      * @param cleanFiles Delete files.
      */
     void stopAllGroupFilePageStores(boolean cleanFiles) {
-        List<FilePageStore> partitionPageStores = groupPageStores.allPageStores().stream()
+        List<FilePageStore> partitionPageStores = groupPageStores.getAll().stream()
+                .map(GroupPageStores::getAll)
                 .flatMap(Collection::stream)
+                .map(PartitionPageStore::pageStore)
                 .collect(toList());
 
         groupPageStores.clear();
