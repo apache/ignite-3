@@ -39,8 +39,49 @@ public partial class LinqTests
     [Test]
     public void TestSumAllTypes()
     {
-        // TODO: All types
-        Assert.AreEqual(45, PocoView.AsQueryable().Sum(x => x.Key));
+        Assert.AreEqual(45, PocoAllColumnsView.AsQueryable().Sum(x => x.Int8));
+        Assert.AreEqual(45, PocoAllColumnsView.AsQueryable().Sum(x => x.Int16));
+        Assert.AreEqual(45, PocoAllColumnsView.AsQueryable().Sum(x => x.Int32));
+        Assert.AreEqual(45, PocoAllColumnsView.AsQueryable().Sum(x => x.Int64));
+        Assert.AreEqual(45, PocoAllColumnsView.AsQueryable().Sum(x => x.Float));
+        Assert.AreEqual(45, PocoAllColumnsView.AsQueryable().Sum(x => x.Double));
+        Assert.AreEqual(45, PocoAllColumnsView.AsQueryable().Sum(x => x.Decimal));
+    }
+
+    [Test]
+    public void TestMinAllTypes()
+    {
+        Assert.AreEqual(45, PocoAllColumnsView.AsQueryable().Min(x => x.Int8));
+        Assert.AreEqual(45, PocoAllColumnsView.AsQueryable().Min(x => x.Int16));
+        Assert.AreEqual(45, PocoAllColumnsView.AsQueryable().Min(x => x.Int32));
+        Assert.AreEqual(45, PocoAllColumnsView.AsQueryable().Min(x => x.Int64));
+        Assert.AreEqual(45, PocoAllColumnsView.AsQueryable().Min(x => x.Float));
+        Assert.AreEqual(45, PocoAllColumnsView.AsQueryable().Min(x => x.Double));
+        Assert.AreEqual(45, PocoAllColumnsView.AsQueryable().Min(x => x.Decimal));
+    }
+
+    [Test]
+    public void TestMaxAllTypes()
+    {
+        Assert.AreEqual(45, PocoAllColumnsView.AsQueryable().Max(x => x.Int8));
+        Assert.AreEqual(45, PocoAllColumnsView.AsQueryable().Max(x => x.Int16));
+        Assert.AreEqual(45, PocoAllColumnsView.AsQueryable().Max(x => x.Int32));
+        Assert.AreEqual(45, PocoAllColumnsView.AsQueryable().Max(x => x.Int64));
+        Assert.AreEqual(45, PocoAllColumnsView.AsQueryable().Max(x => x.Float));
+        Assert.AreEqual(45, PocoAllColumnsView.AsQueryable().Max(x => x.Double));
+        Assert.AreEqual(45, PocoAllColumnsView.AsQueryable().Max(x => x.Decimal));
+    }
+
+    [Test]
+    public void TestAverageAllTypes()
+    {
+        Assert.AreEqual(45, PocoAllColumnsView.AsQueryable().Average(x => x.Int8));
+        Assert.AreEqual(45, PocoAllColumnsView.AsQueryable().Average(x => x.Int16));
+        Assert.AreEqual(45, PocoAllColumnsView.AsQueryable().Average(x => x.Int32));
+        Assert.AreEqual(45, PocoAllColumnsView.AsQueryable().Average(x => x.Int64));
+        Assert.AreEqual(45, PocoAllColumnsView.AsQueryable().Average(x => x.Float));
+        Assert.AreEqual(45, PocoAllColumnsView.AsQueryable().Average(x => x.Double));
+        Assert.AreEqual(45, PocoAllColumnsView.AsQueryable().Average(x => x.Decimal));
     }
 
     [Test]
