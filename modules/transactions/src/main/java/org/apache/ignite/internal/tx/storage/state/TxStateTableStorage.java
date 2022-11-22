@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.tx.storage.state;
 
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.configuration.storage.StorageException;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.jetbrains.annotations.Nullable;
@@ -25,7 +26,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Transaction state storage for a table.
  */
-public interface TxStateTableStorage extends AutoCloseable {
+public interface TxStateTableStorage extends ManuallyCloseable {
     /**
      * Returns or creates transaction state storage for partition.
      *
@@ -68,6 +69,12 @@ public interface TxStateTableStorage extends AutoCloseable {
      * @throws StorageException In case when the operation has failed.
      */
     void stop() throws StorageException;
+
+    /**
+     * Closes the storage.
+     */
+    @Override
+    void close();
 
     /**
      * Removes all data from the storage and frees all resources.

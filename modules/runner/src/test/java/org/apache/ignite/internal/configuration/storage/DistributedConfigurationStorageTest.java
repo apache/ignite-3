@@ -30,6 +30,7 @@ import org.apache.ignite.internal.metastorage.client.Entry;
 import org.apache.ignite.internal.metastorage.client.Operation;
 import org.apache.ignite.internal.metastorage.client.SimpleCondition;
 import org.apache.ignite.internal.metastorage.common.OperationType;
+import org.apache.ignite.internal.metastorage.server.Condition;
 import org.apache.ignite.internal.metastorage.server.ExistenceCondition;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.RevisionCondition;
@@ -115,9 +116,9 @@ public class DistributedConfigurationStorageTest extends ConfigurationStorageTes
     }
 
     /**
-     * Converts a {@link SimpleCondition} to a {@link org.apache.ignite.internal.metastorage.server.Condition}.
+     * Converts a {@link SimpleCondition} to a {@link Condition}.
      */
-    private static org.apache.ignite.internal.metastorage.server.Condition toServerCondition(SimpleCondition condition) {
+    private static Condition toServerCondition(SimpleCondition condition) {
         switch (condition.type()) {
             case REV_LESS_OR_EQUAL:
                 return new RevisionCondition(
@@ -181,7 +182,7 @@ public class DistributedConfigurationStorageTest extends ConfigurationStorageTes
 
         /** {@inheritDoc} */
         @Override
-        public void close() throws Exception {
+        public void close() {
             internalCursor.close();
         }
 

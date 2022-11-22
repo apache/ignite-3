@@ -167,7 +167,7 @@ public class MetaStorageRangeCursorTest {
             this.iterator = iterator;
         }
 
-        @Override public void close() throws Exception {
+        @Override public void close() {
             // No-op.
         }
 

@@ -6,7 +6,7 @@ info:
   license:
     name: Apache 2.0
     url: https://ignite.apache.org
-  version: 3.0.0-alpha
+  version: 3.0.0-SNAPSHOT
 paths:
   /management/v1/cluster/init:
     post:
@@ -424,6 +424,7 @@ components:
       required:
       - address
       - id
+      - metadata
       - name
       type: object
       properties:
@@ -433,6 +434,8 @@ components:
           type: string
         address:
           $ref: '#/components/schemas/NetworkAddress'
+        metadata:
+          $ref: '#/components/schemas/NodeMetadata'
     ClusterState:
       required:
       - clusterTag
@@ -502,7 +505,6 @@ components:
           type: boolean
     NetworkAddress:
       required:
-      - consistentId
       - host
       - port
       type: object
@@ -512,9 +514,17 @@ components:
         port:
           type: integer
           format: int32
-        consistentId:
+    NodeMetadata:
+      required:
+      - restHost
+      - restPort
+      type: object
+      properties:
+        restHost:
           type: string
-          nullable: true
+        restPort:
+          type: integer
+          format: int32
     NodeState:
       required:
       - name

@@ -22,10 +22,10 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.lock.AutoLockup;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.MvPartitionStorage.WriteClosure;
+import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.TxIdMismatchException;
@@ -49,11 +49,15 @@ public class TestPartitionDataStorage implements PartitionDataStorage {
         return partitionStorage.runConsistently(closure);
     }
 
+    @SuppressWarnings("LockAcquiredButNotSafelyReleased")
     @Override
-    public AutoLockup acquirePartitionSnapshotsReadLock() {
+    public void acquirePartitionSnapshotsReadLock() {
         partitionSnapshotsLock.lock();
+    }
 
-        return partitionSnapshotsLock::unlock;
+    @Override
+    public void releasePartitionSnapshotsReadLock() {
+        partitionSnapshotsLock.unlock();
     }
 
     @Override
@@ -67,8 +71,23 @@ public class TestPartitionDataStorage implements PartitionDataStorage {
     }
 
     @Override
-    public void lastAppliedIndex(long lastAppliedIndex) throws StorageException {
-        partitionStorage.lastAppliedIndex(lastAppliedIndex);
+    public long lastAppliedTerm() {
+        return partitionStorage.lastAppliedTerm();
+    }
+
+    @Override
+    public void lastApplied(long lastAppliedIndex, long lastAppliedTerm) throws StorageException {
+        partitionStorage.lastApplied(lastAppliedIndex, lastAppliedTerm);
+    }
+
+    @Override
+    public @Nullable RaftGroupConfiguration committedGroupConfiguration() {
+        return partitionStorage.committedGroupConfiguration();
+    }
+
+    @Override
+    public void committedGroupConfiguration(RaftGroupConfiguration config) {
+        partitionStorage.committedGroupConfiguration(config);
     }
 
     @Override
@@ -93,7 +112,7 @@ public class TestPartitionDataStorage implements PartitionDataStorage {
     }
 
     @Override
-    public void close() throws Exception {
+    public void close() {
         partitionStorage.close();
     }
 }

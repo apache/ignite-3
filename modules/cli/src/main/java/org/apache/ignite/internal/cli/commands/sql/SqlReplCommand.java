@@ -30,6 +30,7 @@ import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
 import org.apache.ignite.internal.cli.core.call.StringCallInput;
 import org.apache.ignite.internal.cli.core.exception.ExceptionHandlers;
 import org.apache.ignite.internal.cli.core.exception.ExceptionWriter;
+import org.apache.ignite.internal.cli.core.exception.IgniteCliException;
 import org.apache.ignite.internal.cli.core.exception.handler.SqlExceptionHandler;
 import org.apache.ignite.internal.cli.core.repl.Repl;
 import org.apache.ignite.internal.cli.core.repl.executor.RegistryCommandExecutor;
@@ -37,7 +38,6 @@ import org.apache.ignite.internal.cli.core.repl.executor.ReplExecutorProvider;
 import org.apache.ignite.internal.cli.decorators.PlainTableDecorator;
 import org.apache.ignite.internal.cli.decorators.SqlQueryResultDecorator;
 import org.apache.ignite.internal.cli.decorators.TableDecorator;
-import org.apache.ignite.internal.cli.deprecated.IgniteCliException;
 import org.apache.ignite.internal.cli.sql.SqlManager;
 import org.apache.ignite.internal.cli.sql.SqlSchemaProvider;
 import picocli.CommandLine.ArgGroup;
@@ -86,7 +86,7 @@ public class SqlReplCommand extends BaseCommand implements Runnable {
     public void run() {
         try (SqlManager sqlManager = new SqlManager(jdbc)) {
             // When passing white space to this command, picocli will treat it as a positional argument
-            if (execOptions == null || execOptions.command.isBlank()) {
+            if (execOptions == null || (execOptions.command != null && execOptions.command.isBlank())) {
                 replExecutorProvider.get().execute(Repl.builder()
                         .withPromptProvider(() -> "sql-cli> ")
                         .withCompleter(new SqlCompleter(new SqlSchemaProvider(sqlManager::getMetadata)))

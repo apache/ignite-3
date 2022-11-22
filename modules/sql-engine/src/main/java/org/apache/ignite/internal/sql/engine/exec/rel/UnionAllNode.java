@@ -19,7 +19,6 @@ package org.apache.ignite.internal.sql.engine.exec.rel;
 
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
-import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 
 /**
@@ -36,10 +35,9 @@ public class UnionAllNode<RowT> extends AbstractNode<RowT> implements Downstream
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      *
      * @param ctx Execution context.
-     * @param rowType Rel data type.
      */
-    public UnionAllNode(ExecutionContext<RowT> ctx, RelDataType rowType) {
-        super(ctx, rowType);
+    public UnionAllNode(ExecutionContext<RowT> ctx) {
+        super(ctx);
     }
 
     /** {@inheritDoc} */

@@ -16,8 +16,12 @@
  */
 
 plugins {
+    id 'signing'
+    alias(libs.plugins.checksum)
     alias(libs.plugins.cmake)
 }
+
+import org.gradle.crypto.checksum.Checksum
 
 task copyNativeLibs(type: Copy) {
     include "**/*.so"
@@ -31,4 +35,54 @@ cmake {
     generator='Unix Makefiles'
     buildConfig='Release'
     buildTarget='install'
+}
+
+task buildNuGet(type: Exec) {
+    workingDir "$rootDir/modules/platforms/dotnet"
+
+    commandLine "dotnet", "pack", "Apache.Ignite",
+            "--configuration", "Release",
+            "--include-source",
+            "--output", "$buildDir/nupkg"
+            "/p:Version=${project.version}"
+}
+
+task zipNuGet(type: Zip) {
+    archiveName "apache-ignite-${project.version}-nuget.zip"
+
+    from ("$buildDir/nupkg") {
+        include "*.nupkg"
+        include "*.snupkg"
+    }
+
+    dependsOn buildNuGet
+}
+
+task zipCppClient(type: Zip) {
+    archiveName "apache-ignite-${project.version}-cpp.zip"
+
+    from ("$projectDir/cpp") {
+        exclude "CMakeFiles"
+        exclude "pom.xml"
+        exclude "StyleGuide.md"
+        exclude ".clang-tidy"
+    }
+}
+
+task createChecksums(type: Checksum) {
+    dependsOn zipCppClient, zipNuGet
+    //TODO: remove distribution name hard code IGNITE-18092
+    files = files("${buildDir}/distributions/apache-ignite-${project.version}-cpp.zip",
+            "${buildDir}/distributions/apache-ignite-${project.version}-nuget.zip")
+    outputDir = new File("${buildDir}/distributions")
+    algorithm = Checksum.Algorithm.SHA512
+}
+
+task buildAndSignNuGetZip(type: Sign) {
+    sign zipNuGet
+}
+
+task buildAndSignCppClient(type: Sign) {
+    dependsOn createChecksums
+    sign zipCppClient
 }

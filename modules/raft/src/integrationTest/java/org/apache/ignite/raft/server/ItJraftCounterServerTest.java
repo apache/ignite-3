@@ -49,10 +49,8 @@ import java.util.function.Supplier;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
-import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.ReadCommand;
 import org.apache.ignite.raft.client.WriteCommand;
@@ -72,15 +70,11 @@ import org.apache.ignite.raft.server.snasphot.SnapshotInMemoryStorageFactory;
 import org.apache.ignite.raft.server.snasphot.TestWriteCommand;
 import org.apache.ignite.raft.server.snasphot.UpdateCountRaftListener;
 import org.jetbrains.annotations.NotNull;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Jraft server.
  */
-@ExtendWith(WorkDirectoryExtension.class)
 class ItJraftCounterServerTest extends JraftAbstractTest {
     /**
      * Counter group name 0.
@@ -98,28 +92,6 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
     private Supplier<CounterListener> listenerFactory = CounterListener::new;
 
     /**
-     * Before each.
-     */
-    @BeforeEach
-    @Override
-    void before() {
-        LOG.info(">>>>>>>>>>>>>>> Start test method: {}", testInfo.getTestMethod().orElseThrow().getName());
-
-        super.before();
-    }
-
-    /**
-     * After each.
-     */
-    @AfterEach
-    @Override
-    protected void after() throws Exception {
-        super.after();
-
-        LOG.info(">>>>>>>>>>>>>>> End test method: {}", testInfo.getTestMethod().orElseThrow().getName());
-    }
-
-    /**
      * Starts a cluster for the test.
      *
      * @throws Exception If failed.
@@ -127,8 +99,8 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
     private void startCluster() throws Exception {
         for (int i = 0; i < 3; i++) {
             startServer(i, raftServer -> {
-                raftServer.startRaftGroup(COUNTER_GROUP_0, listenerFactory.get(), INITIAL_CONF, defaults());
-                raftServer.startRaftGroup(COUNTER_GROUP_1, listenerFactory.get(), INITIAL_CONF, defaults());
+                raftServer.startRaftGroup(COUNTER_GROUP_0, listenerFactory.get(), initialConf, defaults());
+                raftServer.startRaftGroup(COUNTER_GROUP_1, listenerFactory.get(), initialConf, defaults());
             }, opts -> {});
         }
 
@@ -142,7 +114,7 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
     @Test
     public void testDisruptorThreadsCount() {
         startServer(0, raftServer -> {
-            raftServer.startRaftGroup(new TestReplicationGroupId("test_raft_group"), listenerFactory.get(), INITIAL_CONF, defaults());
+            raftServer.startRaftGroup(new TestReplicationGroupId("test_raft_group"), listenerFactory.get(), initialConf, defaults());
         }, opts -> {});
 
         Set<Thread> threads = getAllDisruptorCurrentThreads();
@@ -155,7 +127,7 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
 
         servers.forEach(srv -> {
             for (int i = 0; i < 10; i++) {
-                srv.startRaftGroup(new TestReplicationGroupId("test_raft_group_" + i), listenerFactory.get(), INITIAL_CONF, defaults());
+                srv.startRaftGroup(new TestReplicationGroupId("test_raft_group_" + i), listenerFactory.get(), initialConf, defaults());
             }
         });
 
@@ -417,7 +389,7 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
             boolean isValid = e.getCause() instanceof TimeoutException;
 
             if (!isValid) {
-                LOG.error("Got unexpected exception", e);
+                logger().error("Got unexpected exception", e);
             }
 
             assertTrue(isValid, "Expecting the timeout");
@@ -538,9 +510,9 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
                     public void run() {
                         TestReplicationGroupId grp = new TestReplicationGroupId("counter" + finalI);
 
-                        srv0.startRaftGroup(grp, listenerFactory.get(), INITIAL_CONF, defaults());
-                        srv1.startRaftGroup(grp, listenerFactory.get(), INITIAL_CONF, defaults());
-                        srv2.startRaftGroup(grp, listenerFactory.get(), INITIAL_CONF, defaults());
+                        srv0.startRaftGroup(grp, listenerFactory.get(), initialConf, defaults());
+                        srv1.startRaftGroup(grp, listenerFactory.get(), initialConf, defaults());
+                        srv2.startRaftGroup(grp, listenerFactory.get(), initialConf, defaults());
                     }
                 }));
             }
@@ -564,7 +536,7 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
 
         Set<Thread> threads = Thread.getAllStackTraces().keySet();
 
-        LOG.info("RAFT threads count {}", threads.stream().filter(t -> t.getName().contains("JRaft")).count());
+        logger().info("RAFT threads count {}", threads.stream().filter(t -> t.getName().contains("JRaft")).count());
 
         List<Thread> timerThreads = threads.stream().filter(this::isTimer).sorted(comparing(Thread::getName)).collect(toList());
 
@@ -591,7 +563,7 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
             counters.put(i, counter = new AtomicInteger());
 
             startServer(i, raftServer -> {
-                raftServer.startRaftGroup(grpId, new UpdateCountRaftListener(counter, snapshotDataStorage), INITIAL_CONF,
+                raftServer.startRaftGroup(grpId, new UpdateCountRaftListener(counter, snapshotDataStorage), initialConf,
                         defaults().snapshotStorageFactory(new SnapshotInMemoryStorageFactory(snapshotMetaStorage)));
             }, opts -> {});
         }
@@ -621,9 +593,9 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
 
         shutdownCluster();
 
-        Path peer0SnapPath = snapshotPath(peers.get(0).address());
-        Path peer1SnapPath = snapshotPath(peers.get(1).address());
-        Path peer2SnapPath = snapshotPath(peers.get(2).address());
+        Path peer0SnapPath = snapshotPath(peers, 0);
+        Path peer1SnapPath = snapshotPath(peers, 1);
+        Path peer2SnapPath = snapshotPath(peers, 2);
 
         assertEquals(1, snapshotDataStorage.get(peer0SnapPath));
         assertEquals(2, snapshotDataStorage.get(peer1SnapPath));
@@ -639,7 +611,7 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
             startServer(i, raftServer -> {
                 counter.set(0);
 
-                raftServer.startRaftGroup(grpId, new UpdateCountRaftListener(counter, snapshotDataStorage), INITIAL_CONF,
+                raftServer.startRaftGroup(grpId, new UpdateCountRaftListener(counter, snapshotDataStorage), initialConf,
                         defaults().snapshotStorageFactory(new SnapshotInMemoryStorageFactory(snapshotMetaStorage)));
             }, opts -> {});
         }
@@ -652,13 +624,14 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
     /**
      * Builds a snapshot path by the peer address of RAFT node.
      *
-     * @param peerAddress Raft node peer address.
+     * @param peers Raft node peers.
+     * @param index Raft node peer index.
      * @return Path to snapshot.
      */
-    private Path snapshotPath(NetworkAddress peerAddress) {
-        int nodeId = peerAddress.port() - PORT;
-
-        return dataPath.resolve("node" + nodeId).resolve("test_raft_group" + "_" + peerAddress.toString().replace(':', '_'))
+    private Path snapshotPath(List<Peer> peers, int index) {
+        return workDir
+                .resolve("node" + index)
+                .resolve("test_raft_group" + "_" + peers.get(index).consistentId())
                 .resolve("snapshot");
     }
 
@@ -758,8 +731,8 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
         }
 
         var svc2 = startServer(stopIdx, r -> {
-            r.startRaftGroup(COUNTER_GROUP_0, listenerFactory.get(), INITIAL_CONF, defaults());
-            r.startRaftGroup(COUNTER_GROUP_1, listenerFactory.get(), INITIAL_CONF, defaults());
+            r.startRaftGroup(COUNTER_GROUP_0, listenerFactory.get(), initialConf, defaults());
+            r.startRaftGroup(COUNTER_GROUP_1, listenerFactory.get(), initialConf, defaults());
         }, opts -> {});
 
         waitForCondition(() -> validateStateMachine(sum(20), svc2, COUNTER_GROUP_0), 5_000);
@@ -773,8 +746,8 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
         svc2.stop();
 
         var svc3 = startServer(stopIdx, r -> {
-            r.startRaftGroup(COUNTER_GROUP_0, listenerFactory.get(), INITIAL_CONF, defaults());
-            r.startRaftGroup(COUNTER_GROUP_1, listenerFactory.get(), INITIAL_CONF, defaults());
+            r.startRaftGroup(COUNTER_GROUP_0, listenerFactory.get(), initialConf, defaults());
+            r.startRaftGroup(COUNTER_GROUP_1, listenerFactory.get(), initialConf, defaults());
         }, opts -> {});
 
         waitForCondition(() -> validateStateMachine(sum(20), svc3, COUNTER_GROUP_0), 5_000);
@@ -796,7 +769,7 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
         for (int i = start; i <= stop; i++) {
             val = client.<Long>run(new IncrementAndGetCommand(i)).get();
 
-            LOG.info("Val={}, i={}", val, i);
+            logger().info("Val={}, i={}", val, i);
         }
 
         return val;

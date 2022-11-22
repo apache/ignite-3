@@ -57,6 +57,7 @@ import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
@@ -128,12 +129,20 @@ public class IncomingSnapshotCopierTest {
         TxStateStorage outgoingTxStatePartitionStorage = new TestTxStateStorage();
 
         long expLastAppliedIndex = 100500L;
+        long expLastAppliedTerm = 100L;
+        RaftGroupConfiguration expLastGroupConfig = new RaftGroupConfiguration(
+                List.of("peer"),
+                List.of("learner"),
+                List.of("old-peer"),
+                List.of("old-learner")
+        );
 
         List<RowId> rowIds = fillMvPartitionStorage(outgoingMvPartitionStorage);
         List<UUID> txIds = fillTxStatePartitionStorage(outgoingTxStatePartitionStorage);
 
-        outgoingMvPartitionStorage.lastAppliedIndex(expLastAppliedIndex);
-        outgoingTxStatePartitionStorage.lastAppliedIndex(expLastAppliedIndex);
+        outgoingMvPartitionStorage.lastApplied(expLastAppliedIndex, expLastAppliedTerm);
+        outgoingMvPartitionStorage.committedGroupConfiguration(expLastGroupConfig);
+        outgoingTxStatePartitionStorage.lastApplied(expLastAppliedIndex, expLastAppliedTerm);
 
         UUID snapshotId = UUID.randomUUID();
 
@@ -146,6 +155,8 @@ public class IncomingSnapshotCopierTest {
         PartitionSnapshotStorage partitionSnapshotStorage = createPartitionSnapshotStorage(
                 snapshotId,
                 expLastAppliedIndex,
+                expLastAppliedTerm,
+                expLastGroupConfig,
                 incomingMvTableStorage,
                 incomingTxStateTableStorage,
                 outgoingMvPartitionStorage,
@@ -166,8 +177,11 @@ public class IncomingSnapshotCopierTest {
         MvPartitionStorage incomingMvPartitionStorage = incomingMvTableStorage.getMvPartition(TEST_PARTITION);
         TxStateStorage incomingTxStatePartitionStorage = incomingTxStateTableStorage.getTxStateStorage(TEST_PARTITION);
 
-        assertEquals(outgoingMvPartitionStorage.lastAppliedIndex(), expLastAppliedIndex);
-        assertEquals(outgoingTxStatePartitionStorage.lastAppliedIndex(), expLastAppliedIndex);
+        assertEquals(expLastAppliedIndex, outgoingMvPartitionStorage.lastAppliedIndex());
+        assertEquals(expLastAppliedTerm, outgoingMvPartitionStorage.lastAppliedTerm());
+        assertEquals(expLastGroupConfig, outgoingMvPartitionStorage.committedGroupConfiguration());
+        assertEquals(expLastAppliedIndex, outgoingTxStatePartitionStorage.lastAppliedIndex());
+        assertEquals(expLastAppliedTerm, outgoingTxStatePartitionStorage.lastAppliedTerm());
 
         assertEqualsMvRows(outgoingMvPartitionStorage, incomingMvPartitionStorage, rowIds);
         assertEqualsTxStates(outgoingTxStatePartitionStorage, incomingTxStatePartitionStorage, txIds);
@@ -182,6 +196,8 @@ public class IncomingSnapshotCopierTest {
     private PartitionSnapshotStorage createPartitionSnapshotStorage(
             UUID snapshotId,
             long lastAppliedIndexForSnapshotMeta,
+            long lastAppliedTermForSnapshotMeta,
+            RaftGroupConfiguration expCommittedGroupConfig,
             MvTableStorage incomingTableStorage,
             TxStateTableStorage incomingTxStateTableStorage,
             MvPartitionStorage outgoingMvPartitionStorage,
@@ -206,7 +222,16 @@ public class IncomingSnapshotCopierTest {
 
             return completedFuture(
                     TABLE_MSG_FACTORY.snapshotMetaResponse()
-                            .meta(RAFT_MSG_FACTORY.snapshotMeta().lastIncludedIndex(lastAppliedIndexForSnapshotMeta).build())
+                            .meta(
+                                    RAFT_MSG_FACTORY.snapshotMeta()
+                                            .lastIncludedIndex(lastAppliedIndexForSnapshotMeta)
+                                            .lastIncludedTerm(lastAppliedTermForSnapshotMeta)
+                                            .peersList(expCommittedGroupConfig.peers())
+                                            .learnersList(expCommittedGroupConfig.learners())
+                                            .oldPeersList(expCommittedGroupConfig.oldPeers())
+                                            .oldLearnersList(expCommittedGroupConfig.oldLearners())
+                                            .build()
+                            )
                             .build()
             );
         });

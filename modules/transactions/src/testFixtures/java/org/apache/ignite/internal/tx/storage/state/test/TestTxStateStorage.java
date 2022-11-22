@@ -42,6 +42,8 @@ public class TestTxStateStorage implements TxStateStorage {
 
     private volatile long lastAppliedIndex;
 
+    private volatile long lastAppliedTerm;
+
     @Override
     public TxMeta get(UUID txId) {
         return storage.get(txId);
@@ -53,7 +55,7 @@ public class TestTxStateStorage implements TxStateStorage {
     }
 
     @Override
-    public boolean compareAndSet(UUID txId, @Nullable TxState txStateExpected, TxMeta txMeta, long commandIndex) {
+    public boolean compareAndSet(UUID txId, @Nullable TxState txStateExpected, TxMeta txMeta, long commandIndex, long commandTerm) {
         TxMeta old = storage.get(txId);
 
         boolean result;
@@ -77,6 +79,7 @@ public class TestTxStateStorage implements TxStateStorage {
         }
 
         lastAppliedIndex = commandIndex;
+        lastAppliedTerm = commandTerm;
 
         return result;
     }
@@ -101,7 +104,7 @@ public class TestTxStateStorage implements TxStateStorage {
             close();
 
             storage.clear();
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             throw new StorageException("Failed to destroy the transaction state storage", e);
         }
     }
@@ -117,8 +120,14 @@ public class TestTxStateStorage implements TxStateStorage {
     }
 
     @Override
-    public void lastAppliedIndex(long lastAppliedIndex) {
+    public long lastAppliedTerm() {
+        return lastAppliedTerm;
+    }
+
+    @Override
+    public void lastApplied(long lastAppliedIndex, long lastAppliedTerm) {
         this.lastAppliedIndex = lastAppliedIndex;
+        this.lastAppliedTerm = lastAppliedTerm;
     }
 
     @Override
@@ -127,7 +136,7 @@ public class TestTxStateStorage implements TxStateStorage {
     }
 
     @Override
-    public void close() throws Exception {
+    public void close() {
         // No-op.
     }
 }

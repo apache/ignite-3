@@ -19,7 +19,6 @@ package org.apache.ignite.internal.cli.commands;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 
-import java.util.concurrent.ExecutionException;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestInfo;
 
@@ -30,7 +29,7 @@ public class CliCommandTestInitializedIntegrationBase extends CliCommandTestNotI
 
     @BeforeAll
     @Override
-    void beforeAll(TestInfo testInfo) throws ExecutionException, InterruptedException {
+    void beforeAll(TestInfo testInfo) {
         startNodes(testInfo);
         super.initializeCluster(metaStorageNodeName(testInfo));
     }

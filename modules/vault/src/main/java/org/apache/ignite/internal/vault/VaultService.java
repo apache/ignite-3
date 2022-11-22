@@ -19,6 +19,7 @@ package org.apache.ignite.internal.vault;
 
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.ByteArray;
 import org.jetbrains.annotations.Nullable;
@@ -26,7 +27,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Defines interface for accessing to the Vault service.
  */
-public interface VaultService extends AutoCloseable {
+public interface VaultService extends ManuallyCloseable {
     /**
      * Starts the service.
      */
@@ -76,4 +77,10 @@ public interface VaultService extends AutoCloseable {
      * @return Future representing pending completion of the operation. Cannot be {@code null}.
      */
     CompletableFuture<Void> putAll(Map<ByteArray, byte[]> vals);
+
+    /**
+     * Closes the service.
+     */
+    @Override
+    void close();
 }

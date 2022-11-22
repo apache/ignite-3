@@ -43,6 +43,8 @@ import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.IgniteBiTuple;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -54,44 +56,58 @@ public abstract class TxStateStorageAbstractTest {
     @WorkDirectory
     protected Path workDir;
 
+    private TxStateTableStorage tableStorage;
+
+    @BeforeEach
+    void initStorage() {
+        tableStorage = createStorage();
+    }
+
+    @AfterEach
+    void closeStorage() {
+        if (tableStorage != null) {
+            tableStorage.close();
+        }
+    }
+
     @Test
-    public void testPutGetRemove() throws Exception {
-        try (TxStateTableStorage tableStorage = createStorage()) {
-            TxStateStorage storage = tableStorage.getOrCreateTxStateStorage(0);
+    public void testPutGetRemove() {
+        TxStateStorage storage = tableStorage.getOrCreateTxStateStorage(0);
 
-            List<UUID> txIds = new ArrayList<>();
+        List<UUID> txIds = new ArrayList<>();
 
-            for (int i = 0; i < 100; i++) {
-                UUID txId = UUID.randomUUID();
+        for (int i = 0; i < 100; i++) {
+            UUID txId = UUID.randomUUID();
 
-                txIds.add(txId);
+            txIds.add(txId);
 
-                storage.put(txId, new TxMeta(TxState.COMMITED, generateEnlistedPartitions(i), generateTimestamp(txId)));
+            storage.put(txId, new TxMeta(TxState.COMMITED, generateEnlistedPartitions(i), generateTimestamp(txId)));
+        }
+
+        for (int i = 0; i < 100; i++) {
+            TxMeta txMeta = storage.get(txIds.get(i));
+            TxMeta txMetaExpected = new TxMeta(TxState.COMMITED, generateEnlistedPartitions(i), generateTimestamp(txIds.get(i)));
+            assertTxMetaEquals(txMetaExpected, txMeta);
+        }
+
+        for (int i = 0; i < 100; i++) {
+            if (i % 2 == 0) {
+                storage.remove(txIds.get(i));
             }
+        }
 
-            for (int i = 0; i < 100; i++) {
+        for (int i = 0; i < 100; i++) {
+            if (i % 2 == 0) {
+                TxMeta txMeta = storage.get(txIds.get(i));
+                assertNull(txMeta);
+            } else {
                 TxMeta txMeta = storage.get(txIds.get(i));
                 TxMeta txMetaExpected = new TxMeta(TxState.COMMITED, generateEnlistedPartitions(i), generateTimestamp(txIds.get(i)));
                 assertTxMetaEquals(txMetaExpected, txMeta);
             }
-
-            for (int i = 0; i < 100; i++) {
-                if (i % 2 == 0) {
-                    storage.remove(txIds.get(i));
-                }
-            }
-
-            for (int i = 0; i < 100; i++) {
-                if (i % 2 == 0) {
-                    TxMeta txMeta = storage.get(txIds.get(i));
-                    assertNull(txMeta);
-                } else {
-                    TxMeta txMeta = storage.get(txIds.get(i));
-                    TxMeta txMetaExpected = new TxMeta(TxState.COMMITED, generateEnlistedPartitions(i), generateTimestamp(txIds.get(i)));
-                    assertTxMetaEquals(txMetaExpected, txMeta);
-                }
-            }
         }
+
+        storage.close();
     }
 
     private List<ReplicationGroupId> generateEnlistedPartitions(int c) {
@@ -110,146 +126,188 @@ public abstract class TxStateStorageAbstractTest {
     }
 
     @Test
-    public void testCas() throws Exception {
-        try (TxStateTableStorage tableStorage = createStorage()) {
-            TxStateStorage storage = tableStorage.getOrCreateTxStateStorage(0);
+    public void testCas() {
+        TxStateStorage storage = tableStorage.getOrCreateTxStateStorage(0);
 
-            UUID txId = UUID.randomUUID();
+        UUID txId = UUID.randomUUID();
 
-            TxMeta txMeta1 = new TxMeta(TxState.COMMITED, new ArrayList<>(), generateTimestamp(txId));
-            TxMeta txMeta2 = new TxMeta(TxState.COMMITED, new ArrayList<>(), generateTimestamp(UUID.randomUUID()));
+        TxMeta txMeta1 = new TxMeta(TxState.COMMITED, new ArrayList<>(), generateTimestamp(txId));
+        TxMeta txMeta2 = new TxMeta(TxState.COMMITED, new ArrayList<>(), generateTimestamp(UUID.randomUUID()));
 
-            assertTrue(storage.compareAndSet(txId, null, txMeta1, 1));
-            // Checking idempotency.
-            assertTrue(storage.compareAndSet(txId, null, txMeta1, 1));
-            assertTrue(storage.compareAndSet(txId, TxState.ABORTED, txMeta1, 1));
+        assertTrue(storage.compareAndSet(txId, null, txMeta1, 1, 1));
+        // Checking idempotency.
+        assertTrue(storage.compareAndSet(txId, null, txMeta1, 1, 1));
+        assertTrue(storage.compareAndSet(txId, TxState.ABORTED, txMeta1, 1, 1));
 
-            TxMeta txMetaWrongTimestamp0 =
-                    new TxMeta(txMeta1.txState(), txMeta1.enlistedPartitions(), generateTimestamp(UUID.randomUUID()));
-            assertFalse(storage.compareAndSet(txId, TxState.ABORTED, txMetaWrongTimestamp0, 1));
+        TxMeta txMetaWrongTimestamp0 =
+                new TxMeta(txMeta1.txState(), txMeta1.enlistedPartitions(), generateTimestamp(UUID.randomUUID()));
+        assertFalse(storage.compareAndSet(txId, TxState.ABORTED, txMetaWrongTimestamp0, 1, 1));
 
-            TxMeta txMetaNullTimestamp0 = new TxMeta(txMeta1.txState(), txMeta1.enlistedPartitions(), null);
-            assertFalse(storage.compareAndSet(txId, TxState.ABORTED, txMetaNullTimestamp0, 3));
+        TxMeta txMetaNullTimestamp0 = new TxMeta(txMeta1.txState(), txMeta1.enlistedPartitions(), null);
+        assertFalse(storage.compareAndSet(txId, TxState.ABORTED, txMetaNullTimestamp0, 3, 2));
 
-            assertTxMetaEquals(storage.get(txId), txMeta1);
+        assertTxMetaEquals(storage.get(txId), txMeta1);
 
-            assertTrue(storage.compareAndSet(txId, txMeta1.txState(), txMeta2, 3));
-            // Checking idempotency.
-            assertTrue(storage.compareAndSet(txId, txMeta1.txState(), txMeta2, 3));
-            assertTrue(storage.compareAndSet(txId, TxState.ABORTED, txMeta2, 3));
+        assertTrue(storage.compareAndSet(txId, txMeta1.txState(), txMeta2, 3, 2));
+        // Checking idempotency.
+        assertTrue(storage.compareAndSet(txId, txMeta1.txState(), txMeta2, 3, 2));
+        assertTrue(storage.compareAndSet(txId, TxState.ABORTED, txMeta2, 3, 2));
 
-            TxMeta txMetaWrongTimestamp2 =
-                    new TxMeta(txMeta2.txState(), txMeta2.enlistedPartitions(), generateTimestamp(UUID.randomUUID()));
+        TxMeta txMetaWrongTimestamp2 =
+                new TxMeta(txMeta2.txState(), txMeta2.enlistedPartitions(), generateTimestamp(UUID.randomUUID()));
 
-            TxMeta txMetaNullTimestamp2 = new TxMeta(txMeta2.txState(), txMeta2.enlistedPartitions(), null);
-            assertFalse(storage.compareAndSet(txId, TxState.ABORTED, txMetaNullTimestamp2, 3));
+        TxMeta txMetaNullTimestamp2 = new TxMeta(txMeta2.txState(), txMeta2.enlistedPartitions(), null);
+        assertFalse(storage.compareAndSet(txId, TxState.ABORTED, txMetaNullTimestamp2, 3, 2));
 
-            assertTxMetaEquals(storage.get(txId), txMeta2);
-        }
+        assertTxMetaEquals(storage.get(txId), txMeta2);
+
+        storage.close();
     }
 
     @Test
     public void testScan() throws Exception {
-        try (TxStateTableStorage tableStorage = createStorage()) {
-            TxStateStorage storage0 = tableStorage.getOrCreateTxStateStorage(0);
-            TxStateStorage storage1 = tableStorage.getOrCreateTxStateStorage(1);
-            TxStateStorage storage2 = tableStorage.getOrCreateTxStateStorage(2);
+        TxStateStorage storage0 = tableStorage.getOrCreateTxStateStorage(0);
+        TxStateStorage storage1 = tableStorage.getOrCreateTxStateStorage(1);
+        TxStateStorage storage2 = tableStorage.getOrCreateTxStateStorage(2);
 
-            Map<UUID, TxMeta> txs = new HashMap<>();
+        Map<UUID, TxMeta> txs = new HashMap<>();
 
-            putRandomTxMetaWithCommandIndex(storage0, 1, 0);
-            putRandomTxMetaWithCommandIndex(storage2, 1, 0);
+        putRandomTxMetaWithCommandIndex(storage0, 1, 0);
+        putRandomTxMetaWithCommandIndex(storage2, 1, 0);
 
-            for (int i = 0; i < 100; i++) {
-                IgniteBiTuple<UUID, TxMeta> txData = putRandomTxMetaWithCommandIndex(storage1, i, i);
-                txs.put(txData.get1(), txData.get2());
-            }
-
-            try (Cursor<IgniteBiTuple<UUID, TxMeta>> scanCursor = storage1.scan()) {
-                assertTrue(scanCursor.hasNext());
-
-                while (scanCursor.hasNext()) {
-                    IgniteBiTuple<UUID, TxMeta> txData = scanCursor.next();
-                    TxMeta txMeta = txs.remove(txData.getKey());
-
-                    assertNotNull(txMeta);
-                    assertNotNull(txData);
-                    assertNotNull(txData.getValue());
-                    assertTxMetaEquals(txMeta, txData.getValue());
-                }
-
-                assertTrue(txs.isEmpty());
-            }
+        for (int i = 0; i < 100; i++) {
+            IgniteBiTuple<UUID, TxMeta> txData = putRandomTxMetaWithCommandIndex(storage1, i, i);
+            txs.put(txData.get1(), txData.get2());
         }
+
+        try (Cursor<IgniteBiTuple<UUID, TxMeta>> scanCursor = storage1.scan()) {
+            assertTrue(scanCursor.hasNext());
+
+            while (scanCursor.hasNext()) {
+                IgniteBiTuple<UUID, TxMeta> txData = scanCursor.next();
+                TxMeta txMeta = txs.remove(txData.getKey());
+
+                assertNotNull(txMeta);
+                assertNotNull(txData);
+                assertNotNull(txData.getValue());
+                assertTxMetaEquals(txMeta, txData.getValue());
+            }
+
+            assertTrue(txs.isEmpty());
+        }
+
+        List.of(storage0, storage1, storage2).forEach(TxStateStorage::close);
     }
 
     @Test
-    public void testDestroy() throws Exception {
-        try (TxStateTableStorage tableStorage = createStorage()) {
-            TxStateStorage storage0 = tableStorage.getOrCreateTxStateStorage(0);
-            TxStateStorage storage1 = tableStorage.getOrCreateTxStateStorage(1);
+    public void testDestroy() {
+        TxStateStorage storage0 = tableStorage.getOrCreateTxStateStorage(0);
+        TxStateStorage storage1 = tableStorage.getOrCreateTxStateStorage(1);
 
-            UUID txId0 = UUID.randomUUID();
-            storage0.put(txId0, new TxMeta(TxState.COMMITED, generateEnlistedPartitions(1), generateTimestamp(txId0)));
+        UUID txId0 = UUID.randomUUID();
+        storage0.put(txId0, new TxMeta(TxState.COMMITED, generateEnlistedPartitions(1), generateTimestamp(txId0)));
 
-            UUID txId1 = UUID.randomUUID();
-            storage1.put(txId1, new TxMeta(TxState.COMMITED, generateEnlistedPartitions(1), generateTimestamp(txId1)));
+        UUID txId1 = UUID.randomUUID();
+        storage1.put(txId1, new TxMeta(TxState.COMMITED, generateEnlistedPartitions(1), generateTimestamp(txId1)));
 
-            storage0.destroy();
+        storage0.destroy();
 
-            assertNotNull(storage1.get(txId1));
-        }
+        assertNotNull(storage1.get(txId1));
+
+        storage0.close();
+        storage1.close();
     }
 
     @Test
     public void scansInOrderDefinedByTxIds() throws Exception {
-        try (TxStateTableStorage tableStorage = createStorage()) {
-            TxStateStorage partitionStorage = tableStorage.getOrCreateTxStateStorage(0);
+        TxStateStorage partitionStorage = tableStorage.getOrCreateTxStateStorage(0);
 
-            for (int i = 0; i < 100; i++) {
-                putRandomTxMetaWithCommandIndex(partitionStorage, i, i);
-            }
-
-            try (Cursor<IgniteBiTuple<UUID, TxMeta>> scanCursor = partitionStorage.scan()) {
-                List<UUID> txIds = new ArrayList<>();
-
-                while (scanCursor.hasNext()) {
-                    IgniteBiTuple<UUID, TxMeta> txData = scanCursor.next();
-
-                    txIds.add(txData.getKey());
-                }
-
-                assertThat(txIds, equalTo(txIds.stream().sorted(new UnsignedUuidComparator()).collect(toList())));
-            }
+        for (int i = 0; i < 100; i++) {
+            putRandomTxMetaWithCommandIndex(partitionStorage, i, i);
         }
+
+        try (Cursor<IgniteBiTuple<UUID, TxMeta>> scanCursor = partitionStorage.scan()) {
+            List<UUID> txIds = new ArrayList<>();
+
+            while (scanCursor.hasNext()) {
+                IgniteBiTuple<UUID, TxMeta> txData = scanCursor.next();
+
+                txIds.add(txData.getKey());
+            }
+
+            assertThat(txIds, equalTo(txIds.stream().sorted(new UnsignedUuidComparator()).collect(toList())));
+        }
+
+        partitionStorage.close();
     }
 
     @Test
     public void scanOnlySeesDataExistingAtTheMomentOfCreation() throws Exception {
-        try (TxStateTableStorage tableStorage = createStorage()) {
-            TxStateStorage partitionStorage = tableStorage.getOrCreateTxStateStorage(0);
+        TxStateStorage partitionStorage = tableStorage.getOrCreateTxStateStorage(0);
 
-            UUID existingBeforeScan = new UUID(2, 0);
-            partitionStorage.put(existingBeforeScan, randomTxMeta(1, existingBeforeScan));
+        UUID existingBeforeScan = new UUID(2, 0);
+        partitionStorage.put(existingBeforeScan, randomTxMeta(1, existingBeforeScan));
 
-            try (Cursor<IgniteBiTuple<UUID, TxMeta>> cursor = partitionStorage.scan()) {
-                UUID prependedDuringScan = new UUID(1, 0);
-                partitionStorage.put(prependedDuringScan, randomTxMeta(1, prependedDuringScan));
-                UUID appendedDuringScan = new UUID(3, 0);
-                partitionStorage.put(appendedDuringScan, randomTxMeta(1, appendedDuringScan));
+        try (Cursor<IgniteBiTuple<UUID, TxMeta>> cursor = partitionStorage.scan()) {
+            UUID prependedDuringScan = new UUID(1, 0);
+            partitionStorage.put(prependedDuringScan, randomTxMeta(1, prependedDuringScan));
+            UUID appendedDuringScan = new UUID(3, 0);
+            partitionStorage.put(appendedDuringScan, randomTxMeta(1, appendedDuringScan));
 
-                List<UUID> txIdsReturnedByScan = cursor.stream()
-                        .map(IgniteBiTuple::getKey)
-                        .collect(toList());
-                assertThat(txIdsReturnedByScan, is(List.of(existingBeforeScan)));
-            }
+            List<UUID> txIdsReturnedByScan = cursor.stream()
+                    .map(IgniteBiTuple::getKey)
+                    .collect(toList());
+            assertThat(txIdsReturnedByScan, is(List.of(existingBeforeScan)));
+        }
+
+        partitionStorage.close();
+    }
+
+    @Test
+    void lastAppliedIndexGetterIsConsistentWithSetter() {
+        TxStateStorage partitionStorage = tableStorage.getOrCreateTxStateStorage(0);
+
+        try {
+            partitionStorage.lastApplied(10, 2);
+
+            assertThat(partitionStorage.lastAppliedIndex(), is(10L));
+        } finally {
+            partitionStorage.close();
+        }
+    }
+
+    @Test
+    void lastAppliedTermGetterIsConsistentWithSetter() {
+        TxStateStorage partitionStorage = tableStorage.getOrCreateTxStateStorage(0);
+
+        try {
+            partitionStorage.lastApplied(10, 2);
+
+            assertThat(partitionStorage.lastAppliedTerm(), is(2L));
+        } finally {
+            partitionStorage.close();
+        }
+    }
+
+    @Test
+    void compareAndSetMakesLastAppliedChangeVisible() {
+        TxStateStorage partitionStorage = tableStorage.getOrCreateTxStateStorage(0);
+
+        try {
+            UUID txId = UUID.randomUUID();
+            partitionStorage.compareAndSet(txId, null, randomTxMeta(1, txId), 10, 2);
+
+            assertThat(partitionStorage.lastAppliedIndex(), is(10L));
+            assertThat(partitionStorage.lastAppliedTerm(), is(2L));
+        } finally {
+            partitionStorage.close();
         }
     }
 
     private IgniteBiTuple<UUID, TxMeta> putRandomTxMetaWithCommandIndex(TxStateStorage storage, int enlistedPartsCount, long commandIndex) {
         UUID txId = UUID.randomUUID();
         TxMeta txMeta = randomTxMeta(enlistedPartsCount, txId);
-        storage.compareAndSet(txId, null, txMeta, commandIndex);
+        storage.compareAndSet(txId, null, txMeta, commandIndex, 1);
 
         return new IgniteBiTuple<>(txId, txMeta);
     }

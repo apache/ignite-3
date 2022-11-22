@@ -23,11 +23,9 @@ import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
 import static org.apache.ignite.lang.ErrorGroups.MetaStorage.CURSOR_CLOSING_ERR;
 import static org.apache.ignite.lang.ErrorGroups.MetaStorage.CURSOR_EXECUTION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.MetaStorage.DEPLOYING_WATCH_ERR;
-import static org.apache.ignite.network.util.ClusterServiceUtils.resolveNodes;
 
 import java.util.Collection;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
@@ -60,6 +58,7 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteBiTuple;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
@@ -160,11 +159,9 @@ public class MetaStorageManager implements IgniteComponent {
     }
 
     private CompletableFuture<MetaStorageService> initializeMetaStorage(Collection<String> metaStorageNodes) {
-        List<ClusterNode> metastorageNodes = resolveNodes(clusterService, metaStorageNodes);
-
         ClusterNode thisNode = clusterService.topologyService().localMember();
 
-        if (metastorageNodes.contains(thisNode)) {
+        if (metaStorageNodes.contains(thisNode.name())) {
             clusterService.topologyService().addEventHandler(new TopologyEventHandler() {
                 @Override
                 public void onDisappeared(ClusterNode member) {
@@ -178,7 +175,7 @@ public class MetaStorageManager implements IgniteComponent {
         try {
             CompletableFuture<RaftGroupService> raftServiceFuture = raftMgr.prepareRaftGroup(
                     INSTANCE,
-                    metastorageNodes,
+                    metaStorageNodes,
                     () -> new MetaStorageListener(storage),
                     RaftGroupOptions.defaults()
             );
@@ -227,7 +224,7 @@ public class MetaStorageManager implements IgniteComponent {
             IgniteUtils.closeAll(
                     this::stopDeployedWatches,
                     () -> raftMgr.stopRaftGroup(INSTANCE),
-                    storage
+                    storage::close
             );
         }
     }
@@ -902,21 +899,21 @@ public class MetaStorageManager implements IgniteComponent {
 
         /** {@inheritDoc} */
         @Override
-        public void close() throws Exception {
-            if (!busyLock.enterBusy()) {
-                throw new NodeStoppingException();
-            }
-
+        public void close() {
             try {
                 innerCursorFut.thenAccept(cursor -> {
                     try {
                         cursor.close();
-                    } catch (Exception e) {
+                    } catch (RuntimeException e) {
                         throw new MetaStorageException(CURSOR_CLOSING_ERR, e);
                     }
                 }).get();
-            } finally {
-                busyLock.leaveBusy();
+            } catch (ExecutionException e) {
+                throw new IgniteInternalException("Exception while closing a cursor", e);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+
+                throw new IgniteInternalException("Interrupted while closing a cursor", e);
             }
         }
 

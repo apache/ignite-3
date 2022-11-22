@@ -22,7 +22,7 @@
 
 using namespace ignite;
 
-template <typename T>
+template<typename T>
 void CheckOutputSimple(int64_t val) {
     T dec(val);
 
@@ -35,7 +35,7 @@ void CheckOutputSimple(int64_t val) {
     EXPECT_EQ(ss1.str(), ss2.str());
 }
 
-template <typename T>
+template<typename T>
 void CheckInputOutput(const std::string &val) {
     T dec;
     std::string res;
@@ -51,7 +51,7 @@ void CheckInputOutput(const std::string &val) {
     EXPECT_EQ(val, res);
 }
 
-template <typename T>
+template<typename T>
 void CheckOutputInput(const T &val) {
     T dec;
     std::stringstream ss;
@@ -544,6 +544,7 @@ TEST(bignum, TestOutputSimpleDecimal) {
     CheckOutputSimple<big_decimal>(-1000000005000000000L);
     CheckOutputSimple<big_decimal>(INT64_MIN);
 }
+
 TEST(bignum, TestInputOutputSimpleBigInteger) {
     CheckInputOutput<big_integer>("0");
     CheckInputOutput<big_integer>("1");

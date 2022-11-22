@@ -39,7 +39,7 @@ dependencies {
 // Common for ZIP and RPM/DEB
 
 def tokens = [
-        PRODUCT_NAME        : 'ignite3cli',
+        PRODUCT_NAME        : 'ignite3-cli',
         PRODUCT_DISPLAY_NAME: 'Apache Ignite CLI',
         INSTALL_DIR         : '/usr/bin',
         LIB_DIR             : '/usr/lib/ignite3',
@@ -72,7 +72,8 @@ distTar.dependsOn replaceScriptVars
 distZip.dependsOn replaceScriptVars
 
 task createChecksums(type: Checksum) {
-    files = files(file("${buildDir}/distributions/ignite3cli-${project.version}.zip"))
+    //TODO: remove distribution name hard code IGNITE-18092
+    files = files(file("${buildDir}/distributions/ignite3-cli-${project.version}.zip"))
     outputDir = new File("${buildDir}/distributions")
     algorithm = Checksum.Algorithm.SHA512
 }
@@ -96,7 +97,7 @@ task cliStartScript(type: CreateStartScripts) {
 
 distributions {
     main {
-        distributionBaseName = 'ignite3cli'
+        distributionBaseName = 'ignite3-cli'
         contents {
             into('') {
                 from("$rootDir/LICENSE")

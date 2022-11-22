@@ -23,7 +23,6 @@ import static java.util.stream.Collectors.toSet;
 import static java.util.stream.Collectors.toUnmodifiableSet;
 import static org.apache.ignite.internal.cluster.management.ClusterTag.clusterTag;
 import static org.apache.ignite.internal.cluster.management.CmgGroupId.INSTANCE;
-import static org.apache.ignite.network.util.ClusterServiceUtils.resolveNodes;
 
 import java.util.Collection;
 import java.util.List;
@@ -64,7 +63,6 @@ import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.TopologyEventHandler;
 import org.apache.ignite.network.TopologyService;
@@ -176,17 +174,17 @@ public class ClusterManagementGroupManager implements IgniteComponent {
 
         clusterService.messagingService().addMessageHandler(
                 CmgMessageGroup.class,
-                messageHandlerFactory.wrapHandler((message, senderAddr, correlationId) -> {
+                messageHandlerFactory.wrapHandler((message, sender, correlationId) -> {
                     if (message instanceof ClusterStateMessage) {
                         assert correlationId != null;
 
-                        handleClusterState((ClusterStateMessage) message, senderAddr, correlationId);
+                        handleClusterState((ClusterStateMessage) message, sender, correlationId);
                     } else if (message instanceof CancelInitMessage) {
                         handleCancelInit((CancelInitMessage) message);
                     } else if (message instanceof CmgInitMessage) {
                         assert correlationId != null;
 
-                        handleInit((CmgInitMessage) message, senderAddr, correlationId);
+                        handleInit((CmgInitMessage) message, sender, correlationId);
                     }
                 })
         );
@@ -246,7 +244,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
      *     we simply check that the Raft state and the received message are the same.</li>
      * </ol>
      */
-    private void handleInit(CmgInitMessage msg, NetworkAddress addr, long correlationId) {
+    private void handleInit(CmgInitMessage msg, ClusterNode sender, long correlationId) {
         synchronized (raftServiceLock) {
             if (raftService == null) {
                 // Raft service has not been started
@@ -283,7 +281,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                                             .build();
                                 }
 
-                                clusterService.messagingService().respond(addr, response, correlationId);
+                                clusterService.messagingService().respond(sender, response, correlationId);
 
                                 return service;
                             }));
@@ -398,8 +396,8 @@ public class ClusterManagementGroupManager implements IgniteComponent {
     /**
      * Handler for the {@link ClusterStateMessage}.
      */
-    private void handleClusterState(ClusterStateMessage msg, NetworkAddress addr, long correlationId) {
-        clusterService.messagingService().respond(addr, msgFactory.successResponseMessage().build(), correlationId);
+    private void handleClusterState(ClusterStateMessage msg, ClusterNode sender, long correlationId) {
+        clusterService.messagingService().respond(sender, msgFactory.successResponseMessage().build(), correlationId);
 
         ClusterState state = msg.clusterState();
 
@@ -471,7 +469,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
             return raftManager
                     .prepareRaftGroup(
                             INSTANCE,
-                            resolveNodes(clusterService, nodeNames),
+                            nodeNames,
                             List.of(),
                             () -> {
                                 clusterStateStorage.start();
@@ -495,12 +493,12 @@ public class ClusterManagementGroupManager implements IgniteComponent {
             }
 
             @Override
-            public void onNewPeersConfigurationApplied(List<PeerId> peers) {
+            public void onNewPeersConfigurationApplied(Collection<PeerId> peers, Collection<PeerId> learners) {
                 // No-op.
             }
 
             @Override
-            public void onReconfigurationError(Status status, List<PeerId> peers, long term) {
+            public void onReconfigurationError(Status status, Collection<PeerId> peers, Collection<PeerId> learners, long term) {
                 // No-op.
             }
         };
@@ -616,7 +614,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
 
         IgniteUtils.closeAll(
                 () -> raftManager.stopRaftGroup(INSTANCE),
-                clusterStateStorage
+                clusterStateStorage::close
         );
 
         // Fail the future to unblock dependent operations

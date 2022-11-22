@@ -51,7 +51,6 @@ public:
      */
     big_decimal(const int8_t *mag, int32_t len, int32_t scale, int8_t sign, bool bigEndian = true);
 
-
     /**
      * Integer constructor.
      *

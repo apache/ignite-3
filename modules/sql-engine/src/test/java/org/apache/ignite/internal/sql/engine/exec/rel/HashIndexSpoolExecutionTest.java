@@ -81,7 +81,7 @@ public class HashIndexSpoolExecutionTest extends AbstractExecutionTest {
 
                 log.info("Check: size=" + size);
 
-                ScanNode<Object[]> scan = new ScanNode<>(ctx, rowType, new TestTable(
+                ScanNode<Object[]> scan = new ScanNode<>(ctx, new TestTable(
                         size * eqCnt,
                         rowType,
                         (rowId) -> rowId / eqCnt,
@@ -104,7 +104,6 @@ public class HashIndexSpoolExecutionTest extends AbstractExecutionTest {
 
                 IndexSpoolNode<Object[]> spool = IndexSpoolNode.createHashSpool(
                         ctx,
-                        rowType,
                         ImmutableBitSet.of(0),
                         testFilter,
                         () -> searchRow
@@ -112,7 +111,7 @@ public class HashIndexSpoolExecutionTest extends AbstractExecutionTest {
 
                 spool.register(singletonList(scan));
 
-                RootRewindable<Object[]> root = new RootRewindable<>(ctx, rowType);
+                RootRewindable<Object[]> root = new RootRewindable<>(ctx);
                 root.register(spool);
 
                 for (TestParams param : params) {
@@ -135,7 +134,7 @@ public class HashIndexSpoolExecutionTest extends AbstractExecutionTest {
         ExecutionContext<Object[]> ctx = executionContext(true);
         RelDataType rowType = TypeUtils.createRowType(ctx.getTypeFactory(), int.class, int.class);
 
-        ScanNode<Object[]> scan = new ScanNode<>(ctx, rowType, new TestTable(
+        ScanNode<Object[]> scan = new ScanNode<>(ctx, new TestTable(
                 4,
                 rowType,
                 (rowId) -> (rowId & 1) == 0 ? null : 1,
@@ -146,7 +145,6 @@ public class HashIndexSpoolExecutionTest extends AbstractExecutionTest {
 
         IndexSpoolNode<Object[]> spool = IndexSpoolNode.createHashSpool(
                 ctx,
-                rowType,
                 ImmutableBitSet.of(0, 1),
                 null,
                 () -> searchRow
@@ -154,7 +152,7 @@ public class HashIndexSpoolExecutionTest extends AbstractExecutionTest {
 
         spool.register(scan);
 
-        RootRewindable<Object[]> root = new RootRewindable<>(ctx, rowType);
+        RootRewindable<Object[]> root = new RootRewindable<>(ctx);
 
         root.register(spool);
 

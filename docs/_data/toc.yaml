@@ -12,10 +12,19 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-- title: Documentation Overview
+- title: About Apache Ignite 3
   url: index
 - title: Getting Started Guide
   url: quick-start/getting-started-guide
+- title: Installation
+  url: installation
+  items:
+    - title: Installing Using ZIP Archive
+      url: installation/installing-using-zip
+    - title: Installing Using Docker
+      url: installation/installing-using-docker
+    - title: Installing DEB or RPM package
+      url: installation/deb-rpm
 - title: Ignite CLI Tool
   url: ignite-cli-tool
 - title: Working with SQL
@@ -36,6 +45,8 @@
       url: sql-reference/operators-and-functions
 - title: REST API
   url: rest/rest-api
+- title: Thin Clients
+  url: thin-clients/index
 - title: Distributed Computing
   url: compute/compute
 - title: Data Region Configuration

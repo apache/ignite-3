@@ -26,12 +26,12 @@ import static org.apache.ignite.internal.metastorage.client.If.iif;
 import static org.apache.ignite.internal.metastorage.client.Operations.ops;
 import static org.apache.ignite.internal.metastorage.client.Operations.put;
 import static org.apache.ignite.internal.metastorage.client.Operations.remove;
+import static org.apache.ignite.internal.util.IgniteUtils.capacity;
 
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -51,7 +51,6 @@ import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.jetbrains.annotations.NotNull;
 
@@ -415,33 +414,33 @@ public class RebalanceUtil {
 
     /**
      * Builds a list of cluster nodes based on a list of peers, pending and stable assignments.
-     * A peer will be added to the result list iff peer's address is present in pending or stable assignments.
+     * A peer will be added to the result list iff peer's consistent ID is present in pending or stable assignments.
      *
      * @param peers List of peers.
      * @param pendingAssignments Byte array that contains serialized list of pending assignments.
      * @param stableAssignments Byte array that contains serialized list of stable assignments.
      * @return Resolved cluster nodes.
      */
-    public static Set<ClusterNode> resolveClusterNodes(List<PeerId> peers, byte[] pendingAssignments, byte[] stableAssignments) {
-        Map<NetworkAddress, ClusterNode> resolveRegistry = new HashMap<>();
+    public static Set<ClusterNode> resolveClusterNodes(Collection<PeerId> peers, byte[] pendingAssignments, byte[] stableAssignments) {
+        Map<String, ClusterNode> resolveRegistry = new HashMap<>();
 
         if (pendingAssignments != null) {
             Set<ClusterNode> pending = ByteUtils.fromBytes(pendingAssignments);
-            pending.forEach(n -> resolveRegistry.put(n.address(), n));
+            pending.forEach(n -> resolveRegistry.put(n.name(), n));
         }
 
         if (stableAssignments != null) {
             Set<ClusterNode> stable = ByteUtils.fromBytes(stableAssignments);
-            stable.forEach(n -> resolveRegistry.put(n.address(), n));
+            stable.forEach(n -> resolveRegistry.put(n.name(), n));
         }
 
-        Set<ClusterNode> resolvedNodes = new HashSet<>(peers.size());
+        var resolvedNodes = new HashSet<ClusterNode>(capacity(peers.size()));
 
         for (PeerId p : peers) {
-            var addr = NetworkAddress.from(p.getEndpoint().getIp() + ":" + p.getEndpoint().getPort());
+            ClusterNode resolvedNode = resolveRegistry.get(p.getConsistentId());
 
-            if (resolveRegistry.containsKey(addr)) {
-                resolvedNodes.add(resolveRegistry.get(addr));
+            if (resolvedNode != null) {
+                resolvedNodes.add(resolvedNode);
             } else {
                 throw new IgniteInternalException("Can't find appropriate cluster node for raft group peer: " + p);
             }

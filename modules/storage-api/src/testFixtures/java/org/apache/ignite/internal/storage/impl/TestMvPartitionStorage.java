@@ -29,6 +29,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
+import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
@@ -43,6 +44,11 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     private final ConcurrentNavigableMap<RowId, VersionChain> map = new ConcurrentSkipListMap<>();
 
     private volatile long lastAppliedIndex;
+
+    private volatile long lastAppliedTerm;
+
+    @Nullable
+    private volatile RaftGroupConfiguration groupConfig;
 
     private final int partitionId;
 
@@ -101,16 +107,33 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         return lastAppliedIndex;
     }
 
+    @Override
+    public long lastAppliedTerm() {
+        return lastAppliedTerm;
+    }
+
     /** {@inheritDoc} */
     @Override
-    public void lastAppliedIndex(long lastAppliedIndex) throws StorageException {
+    public void lastApplied(long lastAppliedIndex, long lastAppliedTerm) throws StorageException {
         this.lastAppliedIndex = lastAppliedIndex;
+        this.lastAppliedTerm = lastAppliedTerm;
     }
 
     /** {@inheritDoc} */
     @Override
     public long persistedIndex() {
         return lastAppliedIndex;
+    }
+
+    @Override
+    @Nullable
+    public RaftGroupConfiguration committedGroupConfiguration() {
+        return groupConfig;
+    }
+
+    @Override
+    public void committedGroupConfiguration(RaftGroupConfiguration config) {
+        this.groupConfig = config;
     }
 
     /** {@inheritDoc} */
@@ -295,7 +318,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
     @Override
     public Cursor<ReadResult> scanVersions(RowId rowId) throws StorageException {
-        return Cursor.fromIterator(
+        return Cursor.fromBareIterator(
                 Stream.iterate(map.get(rowId), Objects::nonNull, vc -> vc.next)
                         .map((VersionChain versionChain) -> versionChainToReadResult(versionChain, false))
                         .iterator()
@@ -386,7 +409,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
     /** {@inheritDoc} */
     @Override
-    public void close() throws Exception {
+    public void close() {
         // No-op.
     }
 

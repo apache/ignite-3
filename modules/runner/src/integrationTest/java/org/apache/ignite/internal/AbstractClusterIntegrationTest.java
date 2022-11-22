@@ -73,7 +73,7 @@ public abstract class AbstractClusterIntegrationTest extends BaseIgniteAbstractT
     protected static Path WORK_DIR;
 
     /**
-     * Before all.
+     * Starts nodes before each test.
      *
      * @param testInfo Test information object.
      */

@@ -20,12 +20,17 @@ package org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import java.util.UUID;
-import org.apache.ignite.internal.lock.AutoLockup;
+import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.RaftGroupConfiguration;
+import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionAccess;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionKey;
+import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.network.MessagingService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -41,6 +46,9 @@ class OutgoingSnapshotsManagerTest {
     @InjectMocks
     private OutgoingSnapshotsManager manager;
 
+    @Mock
+    private PartitionAccess partitionAccess;
+
     private final PartitionKey partitionKey = new PartitionKey(UUID.randomUUID(), 1);
 
     @SuppressWarnings("EmptyTryBlock")
@@ -48,9 +56,8 @@ class OutgoingSnapshotsManagerTest {
     void readLockOnPartitionSnapshotsWorks() {
         PartitionSnapshots snapshots = manager.partitionSnapshots(partitionKey);
 
-        try (AutoLockup ignored = snapshots.acquireReadLock()) {
-            // Do nothing.
-        }
+        snapshots.acquireReadLock();
+        snapshots.releaseReadLock();
     }
 
     @Test
@@ -61,21 +68,42 @@ class OutgoingSnapshotsManagerTest {
     }
 
     @Test
-    void registersSnapshot() {
-        OutgoingSnapshot snapshot = mock(OutgoingSnapshot.class);
-        doReturn(partitionKey).when(snapshot).partitionKey();
+    void startsSnapshot() {
+        MvPartitionStorage mvPartitionStorage = mock(MvPartitionStorage.class);
 
-        manager.startOutgoingSnapshot(UUID.randomUUID(), snapshot);
+        when(partitionAccess.partitionKey()).thenReturn(partitionKey);
+        when(partitionAccess.mvPartitionStorage()).thenReturn(mvPartitionStorage);
+        when(partitionAccess.txStatePartitionStorage()).thenReturn(mock(TxStateStorage.class));
+
+        when(mvPartitionStorage.committedGroupConfiguration()).thenReturn(mock(RaftGroupConfiguration.class));
+
+        OutgoingSnapshot snapshot = new OutgoingSnapshot(UUID.randomUUID(), partitionAccess);
+
+        assertDoesNotThrow(() -> manager.startOutgoingSnapshot(UUID.randomUUID(), snapshot));
     }
 
     @Test
-    void unregistersSnapshot() {
+    void finishesSnapshot() {
+        UUID snapshotId = startSnapshot();
+
+        manager.finishOutgoingSnapshot(snapshotId);
+    }
+
+    private UUID startSnapshot() {
         UUID snapshotId = UUID.randomUUID();
         OutgoingSnapshot snapshot = mock(OutgoingSnapshot.class);
         doReturn(partitionKey).when(snapshot).partitionKey();
 
         manager.startOutgoingSnapshot(snapshotId, snapshot);
+        return snapshotId;
+    }
 
-        manager.finishOutgoingSnapshot(snapshotId);
+    @Test
+    void removesPartitionsCollection() {
+        startSnapshot();
+
+        manager.removeSnapshots(partitionKey);
+
+        assertThat(manager.partitionSnapshots(partitionKey).ongoingSnapshots(), is(empty()));
     }
 }

@@ -20,7 +20,7 @@ package org.apache.ignite.internal.tx.storage.state.rocksdb;
 import static java.util.Objects.requireNonNull;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
-import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
+import static org.apache.ignite.internal.util.ByteUtils.putLongToBytes;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_STOPPED_ERR;
@@ -36,15 +36,16 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.configuration.storage.StorageException;
 import org.apache.ignite.internal.rocksdb.BusyRocksIteratorAdapter;
+import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
+import org.rocksdb.AbstractNativeReference;
 import org.rocksdb.ReadOptions;
 import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
@@ -58,7 +59,7 @@ import org.rocksdb.WriteOptions;
  */
 public class TxStateRocksDbStorage implements TxStateStorage {
     /** RocksDB database. */
-    private volatile RocksDB db;
+    private final RocksDB db;
 
     /** Write options. */
     private final WriteOptions writeOptions;
@@ -87,11 +88,14 @@ public class TxStateRocksDbStorage implements TxStateStorage {
     /** On-heap-cached last applied index value. */
     private volatile long lastAppliedIndex;
 
+    /** On-heap-cached last applied term value. */
+    private volatile long lastAppliedTerm;
+
     /** The value of {@link #lastAppliedIndex} persisted to the device at this moment. */
     private volatile long persistedIndex;
 
-    /** Database key for the last applied index. */
-    private final byte[] lastAppliedIndexKey;
+    /** Database key for the last applied index+term. */
+    private final byte[] lastAppliedIndexAndTermKey;
 
     /**
      * The constructor.
@@ -114,11 +118,13 @@ public class TxStateRocksDbStorage implements TxStateStorage {
         this.persistedTierReadOptions = persistedTierReadOptions;
         this.partitionId = partitionId;
         this.tableStorage = tableStorage;
-        this.lastAppliedIndexKey = ByteBuffer.allocate(Short.BYTES).order(ByteOrder.BIG_ENDIAN)
+        this.lastAppliedIndexAndTermKey = ByteBuffer.allocate(Short.BYTES).order(ByteOrder.BIG_ENDIAN)
                 .putShort((short) partitionId)
                 .array();
 
-        lastAppliedIndex = readLastAppliedIndex(readOptions);
+        byte[] indexAndTermBytes = readLastAppliedIndexAndTerm(readOptions);
+        lastAppliedIndex = indexAndTermBytes == null ? 0 : bytesToLong(indexAndTermBytes);
+        lastAppliedTerm = indexAndTermBytes == null ? 0 : bytesToLong(indexAndTermBytes, Long.BYTES);
 
         persistedIndex = lastAppliedIndex;
     }
@@ -166,16 +172,16 @@ public class TxStateRocksDbStorage implements TxStateStorage {
     }
 
     @Override
-    public boolean compareAndSet(UUID txId, @Nullable TxState txStateExpected, TxMeta txMeta, long commandIndex) {
+    public boolean compareAndSet(UUID txId, @Nullable TxState txStateExpected, TxMeta txMeta, long commandIndex, long commandTerm) {
         requireNonNull(txMeta);
 
         if (!busyLock.enterBusy()) {
             throwStorageStoppedException();
         }
 
-        byte[] txIdBytes = txIdToKey(txId);
-
         try (WriteBatch writeBatch = new WriteBatch()) {
+            byte[] txIdBytes = txIdToKey(txId);
+
             byte[] txMetaExistingBytes = db.get(readOptions, txIdToKey(txId));
 
             boolean result;
@@ -202,11 +208,12 @@ public class TxStateRocksDbStorage implements TxStateStorage {
                 }
             }
 
-            writeBatch.put(lastAppliedIndexKey, longToBytes(commandIndex));
+            writeBatch.put(lastAppliedIndexAndTermKey, indexAndTermToBytes(commandIndex, commandTerm));
 
             db.write(writeOptions, writeBatch);
 
             lastAppliedIndex = commandIndex;
+            lastAppliedTerm = commandTerm;
 
             return result;
         } catch (RocksDBException e) {
@@ -284,7 +291,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
                 }
 
                 @Override
-                public void close() throws Exception {
+                public void close() {
                     iterators.remove(rocksIterator);
 
                     super.close();
@@ -306,15 +313,21 @@ public class TxStateRocksDbStorage implements TxStateStorage {
     }
 
     @Override
-    public void lastAppliedIndex(long lastAppliedIndex) {
+    public long lastAppliedTerm() {
+        return lastAppliedTerm;
+    }
+
+    @Override
+    public void lastApplied(long lastAppliedIndex, long lastAppliedTerm) {
         if (!busyLock.enterBusy()) {
             throwStorageStoppedException();
         }
 
         try {
-            db.put(lastAppliedIndexKey, longToBytes(lastAppliedIndex));
+            db.put(lastAppliedIndexAndTermKey, indexAndTermToBytes(lastAppliedIndex, lastAppliedTerm));
 
             this.lastAppliedIndex = lastAppliedIndex;
+            this.lastAppliedTerm = lastAppliedTerm;
         } catch (RocksDBException e) {
             throw new IgniteInternalException(
                     TX_STATE_STORAGE_ERR,
@@ -325,6 +338,15 @@ public class TxStateRocksDbStorage implements TxStateStorage {
         } finally {
             busyLock.leaveBusy();
         }
+    }
+
+    private static byte[] indexAndTermToBytes(long lastAppliedIndex, long lastAppliedTerm) {
+        byte[] bytes = new byte[2 * Long.BYTES];
+
+        putLongToBytes(lastAppliedIndex, bytes, 0);
+        putLongToBytes(lastAppliedTerm, bytes, Long.BYTES);
+
+        return bytes;
     }
 
     @Override
@@ -351,20 +373,26 @@ public class TxStateRocksDbStorage implements TxStateStorage {
      * @return The value of last applied index.
      */
     private long readLastAppliedIndex(ReadOptions readOptions) {
-        byte[] appliedIndexBytes;
+        byte[] bytes = readLastAppliedIndexAndTerm(readOptions);
 
-        try {
-            appliedIndexBytes = db.get(readOptions, lastAppliedIndexKey);
-        } catch (RocksDBException e) {
-            throw new IgniteInternalException(
-                TX_STATE_STORAGE_ERR,
-                "Failed to read applied index value from transaction state storage, partition " + partitionId
-                    + " of table " + tableStorage.configuration().value().name(),
-                e
-            );
+        if (bytes == null) {
+            return 0;
         }
 
-        return appliedIndexBytes == null ? 0 : bytesToLong(appliedIndexBytes);
+        return bytesToLong(bytes);
+    }
+
+    private byte @Nullable [] readLastAppliedIndexAndTerm(ReadOptions readOptions) {
+        try {
+            return db.get(readOptions, lastAppliedIndexAndTermKey);
+        } catch (RocksDBException e) {
+            throw new IgniteInternalException(
+                    TX_STATE_STORAGE_ERR,
+                    "Failed to read applied term value from transaction state storage, partition " + partitionId
+                            + " of table " + tableStorage.configuration().value().name(),
+                    e
+            );
+        }
     }
 
     @Override
@@ -413,15 +441,15 @@ public class TxStateRocksDbStorage implements TxStateStorage {
     }
 
     @Override
-    public void close() throws Exception {
+    public void close() {
         if (!closeGuard.compareAndSet(false, true)) {
             return;
         }
 
         busyLock.block();
 
-        List<AutoCloseable> resources = new ArrayList<>(iterators);
+        List<AbstractNativeReference> resources = new ArrayList<>(iterators);
 
-        IgniteUtils.closeAll(resources);
+        RocksUtils.closeAll(resources);
     }
 }

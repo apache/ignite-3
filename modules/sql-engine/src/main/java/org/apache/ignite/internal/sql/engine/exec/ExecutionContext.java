@@ -54,8 +54,14 @@ import org.jetbrains.annotations.Nullable;
  * Runtime context allowing access to the tables in a database.
  */
 public class ExecutionContext<RowT> extends AbstractQueryContext implements DataContext {
-    /** Placeholder for values, which expressions is not specified. */
-    private static final Object UNSPECIFIED_VALUE = new Object();
+    /** Placeholder for values, which expressions are not specified. */
+    private static final Object UNSPECIFIED_VALUE = new Object() {
+        /** {@inheritDoc} */
+        @Override
+        public String toString() {
+            return "<unspecified_value>";
+        }
+    };
 
     private static final IgniteLogger LOG = Loggers.forClass(ExecutionContext.class);
 
@@ -78,7 +84,7 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
 
     private final ClusterNode localNode;
 
-    private final String originatingNodeId;
+    private final String originatingNodeName;
 
     private final RowHandler<RowT> handler;
 
@@ -100,13 +106,13 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
     /**
      * Constructor.
      *
-     * @param executor     Task executor.
-     * @param qctx         Base query context.
-     * @param qryId        Query ID.
+     * @param executor Task executor.
+     * @param qctx Base query context.
+     * @param qryId Query ID.
      * @param fragmentDesc Partitions information.
-     * @param handler      Row handler.
-     * @param params       Parameters.
-     * @param tx           Transaction.
+     * @param handler Row handler.
+     * @param params Parameters.
+     * @param tx Transaction.
      */
     @SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType")
     public ExecutionContext(
@@ -114,7 +120,7 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
             QueryTaskExecutor executor,
             UUID qryId,
             ClusterNode localNode,
-            String originatingNodeId,
+            String originatingNodeName,
             FragmentDescription fragmentDesc,
             RowHandler<RowT> handler,
             Map<String, Object> params,
@@ -129,7 +135,7 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
         this.handler = handler;
         this.params = params;
         this.localNode = localNode;
-        this.originatingNodeId = originatingNodeId;
+        this.originatingNodeName = originatingNodeName;
         this.tx = tx;
 
         expressionFactory = new ExpressionFactoryImpl<>(
@@ -214,10 +220,10 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
     }
 
     /**
-     * Get originating node ID.
+     * Get originating node consistent ID.
      */
-    public String originatingNodeId() {
-        return originatingNodeId;
+    public String originatingNodeName() {
+        return originatingNodeName;
     }
 
     /**
@@ -284,7 +290,7 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
     /**
      * Sets correlated value.
      *
-     * @param id    Correlation ID.
+     * @param id Correlation ID.
      * @param value Correlated value.
      */
     public void setCorrelated(@NotNull Object value, int id) {
@@ -317,8 +323,8 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
     }
 
     /**
-     * Submits a Runnable task for execution and returns a Future representing that task. The Future's {@code get} method will return {@code
-     * null} upon <em>successful</em> completion.
+     * Submits a Runnable task for execution and returns a Future representing that task. The Future's {@code get} method will return
+     * {@code null} upon <em>successful</em> completion.
      *
      * @param task the task to submit.
      * @return a {@link CompletableFuture} representing pending task

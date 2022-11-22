@@ -21,6 +21,7 @@ import java.nio.file.Path;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -28,7 +29,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Defines key/value storage interface.
  */
-public interface KeyValueStorage extends AutoCloseable {
+public interface KeyValueStorage extends ManuallyCloseable {
     /**
      * Starts the given storage, allocating the necessary resources.
      */
@@ -237,4 +238,10 @@ public interface KeyValueStorage extends AutoCloseable {
      * @param snapshotPath Path to the snapshot's directory.
      */
     void restoreSnapshot(Path snapshotPath);
+
+    /**
+     * Closes the storage.
+     */
+    @Override
+    void close();
 }

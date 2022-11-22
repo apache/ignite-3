@@ -28,6 +28,7 @@ import org.apache.ignite.internal.future.InFlightFutures;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.rocksdb.RocksIteratorAdapter;
+import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -110,12 +111,12 @@ public class PersistentVaultService implements VaultService {
 
     /** {@inheritDoc} */
     @Override
-    public void close() throws Exception {
+    public void close() {
         IgniteUtils.shutdownAndAwaitTermination(threadPool, 10, TimeUnit.SECONDS);
 
         futureTracker.cancelInFlightFutures();
 
-        IgniteUtils.closeAll(options, db);
+        RocksUtils.closeAll(options, db);
     }
 
     /** {@inheritDoc} */
@@ -180,10 +181,10 @@ public class PersistentVaultService implements VaultService {
             }
 
             @Override
-            public void close() throws Exception {
+            public void close() {
                 super.close();
 
-                IgniteUtils.closeAll(upperBound, readOpts);
+                RocksUtils.closeAll(upperBound, readOpts);
             }
         };
     }

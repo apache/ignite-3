@@ -61,8 +61,8 @@ class IgniteComputeImplTest {
     @Mock
     private TableImpl table;
 
-    private final ClusterNode localNode = new ClusterNode("local", "local", new NetworkAddress("local-host", 1, "local"));
-    private final ClusterNode remoteNode = new ClusterNode("remote", "remote", new NetworkAddress("remote-host", 1, "remote"));
+    private final ClusterNode localNode = new ClusterNode("local", "local", new NetworkAddress("local-host", 1));
+    private final ClusterNode remoteNode = new ClusterNode("remote", "remote", new NetworkAddress("remote-host", 1));
 
     @BeforeEach
     void setupMocks() {

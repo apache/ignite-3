@@ -24,12 +24,14 @@ import io.micronaut.context.ApplicationContext;
 import jakarta.inject.Inject;
 import java.io.PrintWriter;
 import java.io.StringWriter;
-import java.util.concurrent.ExecutionException;
 import org.apache.ignite.internal.cli.IntegrationTestBase;
+import org.apache.ignite.internal.cli.NodeNameRegistry;
 import org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerHelper;
 import org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerProvider;
+import org.apache.ignite.internal.cli.commands.node.NodeNameOrUrl;
 import org.apache.ignite.internal.cli.config.ConfigDefaultValueProvider;
 import org.apache.ignite.internal.cli.config.ini.IniConfigManager;
+import org.apache.ignite.internal.cli.core.converters.NodeNameOrUrlConverter;
 import org.apache.ignite.internal.cli.core.repl.context.CommandLineContextProvider;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -54,6 +56,9 @@ public class CliCommandTestNotInitializedIntegrationBase extends IntegrationTest
     @Inject
     private ApplicationContext context;
 
+    @Inject
+    protected NodeNameRegistry nodeNameRegistry;
+
     private CommandLine cmd;
 
     private StringWriter sout;
@@ -73,7 +78,8 @@ public class CliCommandTestNotInitializedIntegrationBase extends IntegrationTest
     public void setUp(TestInfo testInfo) throws Exception {
         super.setUp(testInfo);
         configManagerProvider.configManager = new IniConfigManager(TestConfigManagerHelper.createIntegrationTests());
-        cmd = new CommandLine(getCommandClass(), new MicronautFactory(context));
+        cmd = new CommandLine(getCommandClass(), new MicronautFactory(context))
+                .registerConverter(NodeNameOrUrl.class, new NodeNameOrUrlConverter(nodeNameRegistry));
         cmd.setDefaultValueProvider(configDefaultValueProvider);
         sout = new StringWriter();
         serr = new StringWriter();
@@ -83,7 +89,7 @@ public class CliCommandTestNotInitializedIntegrationBase extends IntegrationTest
     }
 
     @BeforeAll
-    void beforeAll(TestInfo testInfo) throws ExecutionException, InterruptedException {
+    void beforeAll(TestInfo testInfo) {
         startNodes(testInfo);
     }
 

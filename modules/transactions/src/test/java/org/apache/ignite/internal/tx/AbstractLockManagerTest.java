@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.tx.LockMode.X;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -687,7 +688,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
     }
 
     @Test
-    public void testPossibleDowngradeLockModes() throws Exception {
+    public void testPossibleDowngradeLockModes() {
         UUID txId0 = Timestamp.nextVersion().toUuid();
 
         LockKey key = new LockKey("test");
@@ -701,13 +702,15 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
         LockMode lastLockMode;
 
         for (LockMode lockMode : lockModes) {
+            var lockFut = lockManager.acquire(txId0, key, lockMode);
+
             Waiter waiter = lockManager.waiter(fut0.join().lockKey(), txId0);
 
             lastLockMode = waiter.lockMode();
 
             assertEquals(lastLockMode, waiter.lockMode());
 
-            lockManager.downgrade(fut0.join(), lockMode);
+            lockManager.release(txId0, key, X);
 
             assertTrue(lockManager.queue(key).size() == 1);
 
@@ -716,10 +719,9 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
             assertEquals(lockMode, waiter.lockMode());
 
             assertTrue(lockManager.queue(key).size() == 1);
+
+            lockManager.release(lockFut.join());
         }
-
-        lockManager.release(fut0.join());
-
 
         fut0 = lockManager.acquire(txId0, key, X);
 
@@ -728,13 +730,15 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
         lockModes = List.of(SIX, IX, IS);
 
         for (LockMode lockMode : lockModes) {
+            var lockFut = lockManager.acquire(txId0, key, lockMode);
+
             Waiter waiter = lockManager.waiter(fut0.join().lockKey(), txId0);
 
             lastLockMode = waiter.lockMode();
 
             assertEquals(lastLockMode, waiter.lockMode());
 
-            lockManager.downgrade(fut0.join(), lockMode);
+            lockManager.release(txId0, key, X);
 
             assertTrue(lockManager.queue(key).size() == 1);
 
@@ -743,81 +747,111 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
             assertEquals(lockMode, waiter.lockMode());
 
             assertTrue(lockManager.queue(key).size() == 1);
-        }
 
-        lockManager.release(fut0.join());
+            lockManager.release(lockFut.join());
+        }
     }
 
     @Test
-    public void testImpossibleDowngradeLockModes1() {
-        UUID txId0 = Timestamp.nextVersion().toUuid();
-
+    public void testAcquireRelease() {
+        UUID txId = Timestamp.nextVersion().toUuid();
         LockKey key = new LockKey("test");
 
-        List<List<LockMode>> lockModes = new ArrayList<>();
+        for (LockMode lockMode : LockMode.values()) {
+            lockManager.acquire(txId, key, lockMode);
+            lockManager.release(txId, key, lockMode);
 
-        lockModes.add(List.of(S, IX));
-        lockModes.add(List.of(IX, S));
+            assertFalse(lockManager.locks(txId).hasNext());
+        }
 
-        for (List<LockMode> lockModes0 : lockModes) {
-            CompletableFuture<Lock> fut = lockManager.acquire(txId0, key, lockModes0.get(0));
+        assertTrue(lockManager.isEmpty());
+    }
 
-            try {
-                lockManager.downgrade(fut.join(), lockModes0.get(1));
+    @Test
+    public void testAcquireReleaseWhenHoldOther() {
+        UUID txId = Timestamp.nextVersion().toUuid();
+        LockKey key = new LockKey("test");
 
-                fail();
-            } catch (LockException e) {
-                // Expected.
+        for (LockMode holdLockMode : LockMode.values()) {
+            lockManager.acquire(txId, key, holdLockMode);
+
+            assertTrue(lockManager.locks(txId).hasNext());
+            assertSame(holdLockMode, lockManager.locks(txId).next().lockMode());
+
+            for (LockMode lockMode : LockMode.values()) {
+                lockManager.acquire(txId, key, lockMode);
+                lockManager.release(txId, key, lockMode);
             }
 
-            assertEquals(1, lockManager.queue(key).size());
-            assertEquals(lockModes0.get(0), lockManager.waiter(fut.join().lockKey(), txId0).lockMode());
+            assertTrue(lockManager.locks(txId).hasNext());
+            assertSame(holdLockMode, lockManager.locks(txId).next().lockMode());
 
-            lockManager.release(fut.join());
+            lockManager.release(txId, key, holdLockMode);
+
+            assertFalse(lockManager.locks(txId).hasNext());
         }
 
+        assertTrue(lockManager.isEmpty());
     }
 
     @Test
-    public void testImpossibleDowngradeLockModes2() {
-        UUID txId0 = Timestamp.nextVersion().toUuid();
-
+    public void testReleaseThenReleaseWeakerInHierarchy() {
         LockKey key = new LockKey("test");
 
-        CompletableFuture<Lock> fut = lockManager.acquire(txId0, key, IS);
-
-        try {
-            lockManager.downgrade(fut.join(), X);
-
-            fail();
-        } catch (LockException e) {
-            // Expected.
-        }
-
-        assertEquals(1, lockManager.queue(key).size());
-
-        lockManager.release(fut.join());
-    }
-
-    @Test
-    public void testImpossibleDowngradeLockModes3() {
-        UUID txId0 = Timestamp.nextVersion().toUuid();
         UUID txId1 = Timestamp.nextVersion().toUuid();
+        UUID txId2 = Timestamp.nextVersion().toUuid();
 
+        var tx1SharedLock = lockManager.acquire(txId1, key, S);
+
+        assertTrue(tx1SharedLock.isDone());
+
+        var tx1ExclusiveLock = lockManager.acquire(txId1, key, X);
+
+        assertTrue(tx1ExclusiveLock.isDone());
+
+        var tx2SharedLock = lockManager.acquire(txId2, key, S);
+
+        assertFalse(tx2SharedLock.isDone());
+
+        lockManager.release(txId1, key, X);
+
+        assertTrue(lockManager.locks(txId1).hasNext());
+
+        var lock = lockManager.locks(txId1).next();
+
+        assertSame(S, lock.lockMode());
+
+        assertTrue(tx2SharedLock.isDone());
+    }
+
+    @Test
+    public void testReleaseThenNoReleaseWeakerInHierarchy() {
         LockKey key = new LockKey("test");
 
-        CompletableFuture<Lock> fut0 = lockManager.acquire(txId0, key, S);
-        lockManager.acquire(txId1, key, S);
+        UUID txId1 = Timestamp.nextVersion().toUuid();
+        UUID txId2 = Timestamp.nextVersion().toUuid();
 
-        try {
-            lockManager.downgrade(fut0.join(), IX);
+        var tx1SharedLock = lockManager.acquire(txId1, key, S);
 
-            fail();
-        } catch (LockException e) {
-            // Expected.
-        }
+        assertTrue(tx1SharedLock.isDone());
 
-        assertEquals(2, lockManager.queue(key).size());
+        var tx1ExclusiveLock = lockManager.acquire(txId1, key, X);
+
+        assertTrue(tx1ExclusiveLock.isDone());
+
+        var tx2SharedLock = lockManager.acquire(txId2, key, S);
+
+        assertFalse(tx2SharedLock.isDone());
+
+        lockManager.release(txId1, key, S);
+
+        assertTrue(lockManager.locks(txId1).hasNext());
+
+        var lock = lockManager.locks(txId1).next();
+
+        assertSame(X, lock.lockMode());
+
+        assertFalse(tx2SharedLock.isDone());
     }
 
     /**

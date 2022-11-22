@@ -19,11 +19,12 @@ package org.apache.ignite.internal.table.distributed.raft;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.lock.AutoLockup;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.MvPartitionStorage.WriteClosure;
+import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.TxIdMismatchException;
@@ -40,9 +41,9 @@ import org.jetbrains.annotations.TestOnly;
  * <p>Each MvPartitionStorage instance represents exactly one partition. All RowIds within a partition are sorted consistently with the
  * {@link RowId#compareTo} comparison order.
  *
- * @see org.apache.ignite.internal.storage.MvPartitionStorage
+ * @see MvPartitionStorage
  */
-public interface PartitionDataStorage extends AutoCloseable {
+public interface PartitionDataStorage extends ManuallyCloseable {
     /**
      * Executes {@link WriteClosure} atomically, meaning that partial result of an incomplete closure will never be written to the
      * physical device, thus guaranteeing data consistency after restart. Simply runs the closure in case of a volatile storage.
@@ -56,15 +57,18 @@ public interface PartitionDataStorage extends AutoCloseable {
     <V> V runConsistently(WriteClosure<V> closure) throws StorageException;
 
     /**
-     * Acquires a read lock on partition snapshots.
-     *
-     * @return The acquired lockup. It will be released through {@link AutoLockup#close()} invocation.
+     * Acquires the read lock on partition snapshots.
      */
-    AutoLockup acquirePartitionSnapshotsReadLock();
+    void acquirePartitionSnapshotsReadLock();
+
+    /**
+     * Releases the read lock on partition snapshots.
+     */
+    void releasePartitionSnapshotsReadLock();
 
     /**
      * Flushes current state of the data or <i>the state from the nearest future</i> to the storage. It means that the future can be
-     * completed when the underlying storage {@link org.apache.ignite.internal.storage.MvPartitionStorage#persistedIndex()} is higher
+     * completed when the underlying storage {@link MvPartitionStorage#persistedIndex()} is higher
      * than {@link #lastAppliedIndex()} at the moment of the method's call. This feature
      * allows implementing a batch flush for several partitions at once.
      *
@@ -74,18 +78,42 @@ public interface PartitionDataStorage extends AutoCloseable {
     CompletableFuture<Void> flush();
 
     /**
-     * Index of the highest write command applied to the storage. {@code 0} if index is unknown.
+     * Index of the write command with the highest index applied to the storage. {@code 0} if index is unknown.
      *
      * @see MvPartitionStorage#lastAppliedIndex()
      */
     long lastAppliedIndex();
 
     /**
-     * Sets the last applied index value.
+     * Term of the write command with the highest index applied to the storage. {@code 0} if index is unknown.
      *
-     * @see MvPartitionStorage#lastAppliedIndex(long)
+     * @see MvPartitionStorage#lastAppliedTerm()
      */
-    void lastAppliedIndex(long lastAppliedIndex) throws StorageException;
+    long lastAppliedTerm();
+
+    /**
+     * Sets the last applied index and term.
+     *
+     * @see MvPartitionStorage#lastApplied(long, long)
+     */
+    void lastApplied(long lastAppliedIndex, long lastAppliedTerm) throws StorageException;
+
+    /**
+     * Committed RAFT group configuration corresponding to the write command with the highest index applied to the storage.
+     * {@code null} if it was never saved.
+     *
+     * @see MvPartitionStorage#committedGroupConfiguration()
+     */
+    @Nullable
+    RaftGroupConfiguration committedGroupConfiguration();
+
+    /**
+     * Updates RAFT group configuration.
+     *
+     * @param config Configuration to save.
+     * @see MvPartitionStorage#committedGroupConfiguration(RaftGroupConfiguration)
+     */
+    void committedGroupConfiguration(RaftGroupConfiguration config);
 
     /**
      * Creates (or replaces) an uncommitted (aka pending) version, assigned to the given transaction id.
@@ -141,4 +169,10 @@ public interface PartitionDataStorage extends AutoCloseable {
      */
     @TestOnly
     MvPartitionStorage getStorage();
+
+    /**
+     * Closes the storage.
+     */
+    @Override
+    void close();
 }

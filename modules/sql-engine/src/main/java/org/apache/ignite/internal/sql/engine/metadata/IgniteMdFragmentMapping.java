@@ -40,6 +40,7 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteTableFunctionScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTrimExchange;
 import org.apache.ignite.internal.sql.engine.rel.IgniteValues;
+import org.apache.ignite.internal.sql.engine.rel.ProjectableFilterableTableScan;
 import org.apache.ignite.internal.sql.engine.schema.InternalIgniteTable;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
@@ -199,33 +200,14 @@ public class IgniteMdFragmentMapping implements MetadataHandler<FragmentMappingM
      * See {@link IgniteMdFragmentMapping#fragmentMapping(RelNode, RelMetadataQuery, MappingQueryContext)}.
      */
     public FragmentMapping fragmentMapping(IgniteIndexScan rel, RelMetadataQuery mq, MappingQueryContext ctx) {
-        return FragmentMapping.create(rel.sourceId(),
-                rel.getTable().unwrap(InternalIgniteTable.class).colocationGroup(ctx));
+        return getFragmentMapping(rel.sourceId(), rel, ctx);
     }
 
     /**
      * See {@link IgniteMdFragmentMapping#fragmentMapping(RelNode, RelMetadataQuery, MappingQueryContext)}.
      */
     public FragmentMapping fragmentMapping(IgniteTableScan rel, RelMetadataQuery mq, MappingQueryContext ctx) {
-        ColocationGroup group = rel.getTable().unwrap(InternalIgniteTable.class).colocationGroup(ctx);
-
-        // This condition is kinda workaround to make transactional scan works.
-        //
-        // For now, scan should be invoked on the node that coordinates the transaction.
-        // If someone disables distribution trait (another part of this workaround), we
-        // will need to replace actual distribution with fake one where every partition
-        // is owned by a local node.
-        if (!TraitUtils.distributionEnabled(rel)) {
-            List<List<String>> fakeAssignments = new ArrayList<>(group.assignments().size());
-
-            for (int i = 0; i < group.assignments().size(); i++) {
-                fakeAssignments.add(List.of(ctx.localNodeId()));
-            }
-
-            group = ColocationGroup.forAssignments(fakeAssignments);
-        }
-
-        return FragmentMapping.create(rel.sourceId(), group);
+        return getFragmentMapping(rel.sourceId(), rel, ctx);
     }
 
     /**
@@ -240,5 +222,27 @@ public class IgniteMdFragmentMapping implements MetadataHandler<FragmentMappingM
      */
     public FragmentMapping fragmentMapping(IgniteTableFunctionScan rel, RelMetadataQuery mq, MappingQueryContext ctx) {
         return FragmentMapping.create();
+    }
+
+    private static FragmentMapping getFragmentMapping(long sourceId, ProjectableFilterableTableScan rel, MappingQueryContext ctx) {
+        ColocationGroup group = rel.getTable().unwrap(InternalIgniteTable.class).colocationGroup(ctx);
+
+        // This condition is kinda workaround to make transactional scan works.
+        //
+        // For now, scan should be invoked on the node that coordinates the transaction.
+        // If someone disables distribution trait (another part of this workaround), we
+        // will need to replace actual distribution with fake one where every partition
+        // is owned by a local node.
+        if (!TraitUtils.distributionEnabled(rel)) {
+            List<List<String>> fakeAssignments = new ArrayList<>(group.assignments().size());
+
+            for (int i = 0; i < group.assignments().size(); i++) {
+                fakeAssignments.add(List.of(ctx.locNodeName()));
+            }
+
+            group = ColocationGroup.forAssignments(fakeAssignments);
+        }
+
+        return FragmentMapping.create(sourceId, group);
     }
 }

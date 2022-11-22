@@ -129,7 +129,7 @@ public class TestClusterStateStorage implements ClusterStateStorage {
             return map.entrySet().stream()
                     .filter(e -> startsWith(e.getKey().bytes(), prefix))
                     .map(e -> entryTransformer.apply(e.getKey().bytes(), e.getValue()))
-                    .collect(collectingAndThen(toList(), data -> Cursor.fromIterator(data.iterator())));
+                    .collect(collectingAndThen(toList(), data -> Cursor.fromBareIterator(data.iterator())));
         } finally {
             lock.readLock().unlock();
         }
@@ -203,7 +203,7 @@ public class TestClusterStateStorage implements ClusterStateStorage {
     }
 
     @Override
-    public void close() throws Exception {
+    public void close() {
         isStarted = false;
     }
 }

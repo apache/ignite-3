@@ -25,9 +25,7 @@
 namespace ignite {
 
 std::optional<table> tables::get_table(std::string_view name) {
-    return sync<std::optional<table>>([this, name] (auto callback) {
-        get_table_async(name, std::move(callback));
-    });
+    return sync<std::optional<table>>([this, name](auto callback) { get_table_async(name, std::move(callback)); });
 }
 
 void tables::get_table_async(std::string_view name, ignite_callback<std::optional<table>> callback) {
@@ -35,9 +33,7 @@ void tables::get_table_async(std::string_view name, ignite_callback<std::optiona
 }
 
 std::vector<table> tables::get_tables() {
-    return sync<std::vector<table>>([this] (auto callback) {
-        get_tables_async(std::move(callback));
-    });
+    return sync<std::vector<table>>([this](auto callback) { get_tables_async(std::move(callback)); });
 }
 
 void tables::get_tables_async(ignite_callback<std::vector<table>> callback) {

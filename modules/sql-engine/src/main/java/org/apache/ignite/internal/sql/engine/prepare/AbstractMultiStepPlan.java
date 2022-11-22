@@ -96,7 +96,7 @@ public abstract class AbstractMultiStepPlan implements MultiStepPlan {
         Long2ObjectOpenHashMap<List<String>> res = new Long2ObjectOpenHashMap<>(capacity(remotes.size()));
 
         for (IgniteReceiver remote : remotes) {
-            res.put(remote.exchangeId(), mapping(remote.sourceFragmentId()).nodeIds());
+            res.put(remote.exchangeId(), mapping(remote.sourceFragmentId()).nodeNames());
         }
 
         return res;

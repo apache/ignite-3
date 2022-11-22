@@ -17,12 +17,20 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
+import org.apache.ignite.internal.close.ManuallyCloseable;
+
 /**
  * Runtime index interface. The temporary index is built and available only on query execution. Not stored at the schema.
  */
-public interface RuntimeIndex<RowT> extends AutoCloseable {
+public interface RuntimeIndex<RowT> extends ManuallyCloseable {
     /**
      * Add row to index.
      */
     void push(RowT r);
+
+    /**
+     * Closes the index.
+     */
+    @Override
+    void close();
 }

@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.raft.server;
 
-import java.util.List;
+import java.util.Collection;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 
@@ -26,7 +26,7 @@ import org.apache.ignite.raft.jraft.entity.PeerId;
  */
 public interface RaftGroupEventsListener {
     /**
-     * Invoked, when new leader is elected (if it is the first leader of group ever - will be invoked too).
+     * Invoked, when a new leader is elected (if it is the first leader of group ever - will be invoked too).
      *
      * @param term Raft term of the current leader.
      */
@@ -35,18 +35,20 @@ public interface RaftGroupEventsListener {
     /**
      * Invoked on the leader, when new peers' configuration applied to raft group.
      *
-     * @param peers list of peers, which was applied by raft group membership configuration.
+     * @param peers Collection of peers, which was applied by raft group membership configuration.
+     * @param learners Collection of learners, which was applied by raft group membership configuration.
      */
-    void onNewPeersConfigurationApplied(List<PeerId> peers);
+    void onNewPeersConfigurationApplied(Collection<PeerId> peers, Collection<PeerId> learners);
 
     /**
-     * Invoked on the leader, when membership reconfiguration was failed, because of {@link Status}.
+     * Invoked on the leader if membership reconfiguration failed, because of {@link Status}.
      *
-     * @param status with description of failure.
-     * @param peers List of peers, which was tried as a target of reconfiguration.
+     * @param status Description of failure.
+     * @param peers Collection of peers, which was as a target of reconfiguration.
+     * @param learners Collection of learners, which was as a target of reconfiguration.
      * @param term Raft term of the current leader.
      */
-    void onReconfigurationError(Status status, List<PeerId> peers, long term);
+    void onReconfigurationError(Status status, Collection<PeerId> peers, Collection<PeerId> learners, long term);
 
     /**
      * No-op raft group events listener.
@@ -58,11 +60,11 @@ public interface RaftGroupEventsListener {
 
         /** {@inheritDoc} */
         @Override
-        public void onNewPeersConfigurationApplied(List<PeerId> peers) { }
+        public void onNewPeersConfigurationApplied(Collection<PeerId> peers, Collection<PeerId> learners) { }
 
         /** {@inheritDoc} */
         @Override
-        public void onReconfigurationError(Status status, List<PeerId> peers, long term) {}
+        public void onReconfigurationError(Status status, Collection<PeerId> peers, Collection<PeerId> learners, long term) {}
     };
 
 }

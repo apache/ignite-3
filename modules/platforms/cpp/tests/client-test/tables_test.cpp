@@ -31,7 +31,7 @@ using namespace ignite;
 /**
  * Test suite.
  */
-class tables_test : public ignite_runner_suite { };
+class tables_test : public ignite_runner_suite {};
 
 TEST_F(tables_test, tables_get_table) {
     ignite_client_configuration cfg{NODE_ADDRS};

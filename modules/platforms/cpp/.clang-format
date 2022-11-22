@@ -16,7 +16,7 @@
 #
 
 #
-# This requires clang-format-13 or later
+# This requires clang-format-14 or later
 #
 
 BasedOnStyle: WebKit
@@ -30,9 +30,17 @@ BreakBeforeBinaryOperators: NonAssignment
 BreakBeforeBraces: Custom
 ColumnLimit: 120
 Cpp11BracedListStyle: true
+EmptyLineBeforeAccessModifier: Always
+FixNamespaceComments: true
 IndentCaseLabels: true
 IndentPPDirectives: AfterHash
 PPIndentWidth: 1
 NamespaceIndentation: None
 PointerAlignment: Right
+SeparateDefinitionBlocks: Always
+ShortNamespaceLines: 5
+SpaceAfterCStyleCast: true
+SpaceAfterTemplateKeyword: false
 SpaceBeforeCpp11BracedList: false
+SpaceInEmptyBlock: false
+
