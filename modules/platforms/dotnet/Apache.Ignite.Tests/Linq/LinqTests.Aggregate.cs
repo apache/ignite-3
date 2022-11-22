@@ -39,7 +39,8 @@ public partial class LinqTests
     [Test]
     public void TestSumAllTypes()
     {
-        Assert.AreEqual(1, PocoView.AsQueryable().Sum(x => x.Key));
+        // TODO: All types
+        Assert.AreEqual(45, PocoView.AsQueryable().Sum(x => x.Key));
     }
 
     [Test]
@@ -100,6 +101,9 @@ public partial class LinqTests
     {
         Assert.IsFalse(PocoView.AsQueryable().All(x => x.Key > 5));
         Assert.IsTrue(PocoView.AsQueryable().All(x => x.Key < 500));
+
+        // Additional Where.
+        Assert.IsTrue(PocoView.AsQueryable().Where(x => x.Key > 8).All(x => x.Key > 5));
     }
 
     [Test]
@@ -107,5 +111,8 @@ public partial class LinqTests
     {
         Assert.IsFalse(PocoView.AsQueryable().Any(x => x.Key > 500));
         Assert.IsTrue(PocoView.AsQueryable().Any(x => x.Key < 5));
+
+        // Additional Where.
+        Assert.IsFalse(PocoView.AsQueryable().Where(x => x.Key > 7).Any(x => x.Key < 5));
     }
 }
