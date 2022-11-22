@@ -675,24 +675,25 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         TopologyService topologyService = raftMgr.topologyService();
         ClusterNode localMember = topologyService.localMember();
 
-        // TODO: IGNITE-15554 Add logic for assignment recalculation in case of partitions or replicas changes
-        // TODO: Until IGNITE-15554 is implemented it's safe to iterate over partitions and replicas cause there will
-        // TODO: be exact same amount of partitions and replicas for both old and new assignments
-        for (int i = 0; i < partitions; i++) {
-            int partId = i;
+        // Create new raft nodes according to new assignments.
+        tablesByIdVv.update(causalityToken, (tablesById, e) -> {
+            if (e != null) {
+                return failedFuture(e);
+            }
 
-            Set<ClusterNode> oldPartAssignment = oldAssignments == null ? Collections.emptySet() :
-                    oldAssignments.get(partId);
+            // TODO: IGNITE-15554 Add logic for assignment recalculation in case of partitions or replicas changes
+            // TODO: Until IGNITE-15554 is implemented it's safe to iterate over partitions and replicas cause there will
+            // TODO: be exact same amount of partitions and replicas for both old and new assignments
+            for (int i = 0; i < partitions; i++) {
+                int partId = i;
 
-            Set<ClusterNode> newPartAssignment = newAssignments.get(partId);
+                Set<ClusterNode> oldPartAssignment = oldAssignments == null ? Collections.emptySet() :
+                        oldAssignments.get(partId);
 
-            List<String> newPartAssignmentIds = newPartAssignment.stream().map(ClusterNode::name).collect(toList());
+                Set<ClusterNode> newPartAssignment = newAssignments.get(partId);
 
-            // Create new raft nodes according to new assignments.
-            tablesByIdVv.update(causalityToken, (tablesById, e) -> {
-                if (e != null) {
-                    return failedFuture(e);
-                }
+                List<String> newPartAssignmentIds = newPartAssignment.stream().map(ClusterNode::name).collect(toList());
+
 
                 TableImpl table = tablesById.get(tblId);
                 InternalTable internalTbl = table.internalTable();
@@ -858,18 +859,13 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             return null;
                         })
                         .whenComplete((res, ex) -> {
-                            if (ex != null) {
-                                futures[partId].completeExceptionally(ex);
-                            } else {
-                                futures[partId].complete(null);
-                            }
+                            // Only successful completion is possible here due to .exceptionally() just above.
+                            futures[partId].complete(null);
                         });
+            }
 
-                return futures[partId].thenApply(unused -> tablesById);
-            });
-        }
-
-        allOf(futures).join();
+            return allOf(futures).thenApply(unused -> tablesById);
+        }).join();
     }
 
     private boolean isLocalPeer(Peer peer) {

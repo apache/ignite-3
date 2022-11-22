@@ -82,6 +82,22 @@ public class LinqSqlGenerationTests
         AssertSql("select distinct _T0.VAL from PUBLIC.tbl1 as _T0", q => q.Select(x => x.Val).Distinct().ToArray());
 
     [Test]
+    public void TestAll() =>
+        AssertSql(
+            "select not exists (select 1 from PUBLIC.tbl1 as _T0 where not (_T0.KEY > ?))",
+            q => q.All(x => x.Key > 10));
+
+    [Test]
+    public void TestAllWithWhere() =>
+        AssertSql(
+            "select not exists (select 1 from PUBLIC.tbl1 as _T0 where (_T0.VAL IS DISTINCT FROM ?) and not (_T0.KEY > ?))",
+            q => q.Where(x => x.Val != "1").All(x => x.Key > 10));
+
+    [Test]
+    public void TestAny() =>
+        AssertSql("select exists (select 1 from PUBLIC.tbl1 as _T0 where (_T0.KEY > ?))", q => q.Any(x => x.Key > 10));
+
+    [Test]
     public void TestSelectOrderByOffsetLimit() =>
         AssertSql(
             "select _T0.KEY, _T0.VAL, (_T0.KEY + ?) " +
@@ -111,7 +127,7 @@ public class LinqSqlGenerationTests
         _server.LastSqlTimeoutMs = null;
         _server.LastSqlPageSize = null;
 
-        _ = _table.GetRecordView<Poco>().AsQueryable().Select(x => x.Key).ToArray();
+        _ = _table.GetRecordView<Poco>().AsQueryable().Select(x => (int)x.Key).ToArray();
 
         Assert.AreEqual(SqlStatement.DefaultTimeout.TotalMilliseconds, _server.LastSqlTimeoutMs);
         Assert.AreEqual(SqlStatement.DefaultPageSize, _server.LastSqlPageSize);
@@ -123,10 +139,22 @@ public class LinqSqlGenerationTests
         _server.LastSqlTimeoutMs = null;
         _server.LastSqlPageSize = null;
 
-        _ = _table.GetRecordView<Poco>().AsQueryable(options: new(TimeSpan.FromSeconds(25), 128)).Select(x => x.Key).ToArray();
+        _ = _table.GetRecordView<Poco>().AsQueryable(options: new(TimeSpan.FromSeconds(25), 128)).Select(x => (int)x.Key).ToArray();
 
         Assert.AreEqual(25000, _server.LastSqlTimeoutMs);
         Assert.AreEqual(128, _server.LastSqlPageSize);
+    }
+
+    [Test]
+    [Ignore("IGNITE-18215 Group by calculated value")]
+    public void TestGroupBySubQuery()
+    {
+        AssertSql(
+            "select (_T0.KEY + ?) as _G0, count (*)  from PUBLIC.tbl1 as _T0 group by G0",
+            q => q.Select(x => new { x.Key, Key2 = x.Key + 1 })
+                .GroupBy(x => x.Key2)
+                .Select(g => new { g.Key, Count = g.Count() })
+                .ToList());
     }
 
     [OneTimeSetUp]
@@ -150,19 +178,21 @@ public class LinqSqlGenerationTests
     private void AssertSql(string expectedSql, Func<ITable, object?> query)
     {
         _server.LastSql = string.Empty;
+        Exception? ex = null;
 
         try
         {
             query(_table);
         }
-        catch (Exception)
+        catch (Exception e)
         {
             // Ignore.
             // Result deserialization may fail because FakeServer returns one column always.
             // We are only interested in the generated SQL.
+            ex = e;
         }
 
-        Assert.AreEqual(expectedSql, _server.LastSql);
+        Assert.AreEqual(expectedSql, _server.LastSql, string.IsNullOrEmpty(_server.LastSql) ? ex?.ToString() : null);
     }
 
     // ReSharper disable once NotAccessedPositionalProperty.Local

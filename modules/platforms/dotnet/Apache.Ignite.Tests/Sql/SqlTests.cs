@@ -122,6 +122,16 @@ namespace Apache.Ignite.Tests.Sql
         }
 
         [Test]
+        public async Task TestExists()
+        {
+            await using var resultSet = await Client.Sql.ExecuteAsync(null, "SELECT EXISTS (SELECT 1 FROM TEST WHERE ID > 1)");
+            var rows = await resultSet.ToListAsync();
+
+            Assert.AreEqual(1, rows.Count);
+            Assert.AreEqual(true, rows[0][0]);
+        }
+
+        [Test]
         public async Task TestEnumerateMultiplePages()
         {
             var statement = new SqlStatement("SELECT ID, VAL FROM TEST ORDER BY VAL", pageSize: 4);
