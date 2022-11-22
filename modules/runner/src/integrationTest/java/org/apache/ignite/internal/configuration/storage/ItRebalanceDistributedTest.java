@@ -38,6 +38,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
+import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
@@ -98,7 +99,6 @@ import org.apache.ignite.internal.util.ReverseIterator;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.StaticNodeFinder;
@@ -278,7 +278,7 @@ public class ItRebalanceDistributedTest {
                         .changePartitions(1)));
 
         Set<String> partitionNodesConsistentIds = getPartitionClusterNodes(0, 0).stream()
-                .map(ClusterNode::name)
+                .map(Assignment::consistentId)
                 .collect(Collectors.toSet());
 
         Node newNode = nodes.stream().filter(n -> !partitionNodesConsistentIds.contains(n.name)).findFirst().orElseThrow();
@@ -390,15 +390,15 @@ public class ItRebalanceDistributedTest {
         return nodes.stream().filter(n -> n.name.equals(consistentId)).findFirst().orElseThrow();
     }
 
-    private Set<ClusterNode> getPartitionClusterNodes(int nodeNum, int partNum) {
+    private Set<Assignment> getPartitionClusterNodes(int nodeNum, int partNum) {
         var table = ((ExtendedTableConfiguration) nodes.get(nodeNum).clusterCfgMgr.configurationRegistry()
                 .getConfiguration(TablesConfiguration.KEY).tables().get("TBL1"));
 
         if (table != null) {
-            var assignments = table.assignments().value();
+            byte[] assignments = table.assignments().value();
 
             if (assignments != null) {
-                return ((List<Set<ClusterNode>>) ByteUtils.fromBytes(assignments)).get(partNum);
+                return ((List<Set<Assignment>>) ByteUtils.fromBytes(assignments)).get(partNum);
             }
         }
 

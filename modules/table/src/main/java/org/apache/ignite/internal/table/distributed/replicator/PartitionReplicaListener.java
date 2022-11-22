@@ -108,7 +108,6 @@ import org.apache.ignite.lang.ErrorGroups.Replicator;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteUuid;
-import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.service.RaftGroupService;
@@ -160,9 +159,6 @@ public class PartitionReplicaListener implements ReplicaListener {
     /** Tx state storage. */
     private final TxStateStorage txStateStorage;
 
-    /** Topology service. */
-    private final TopologyService topologyService;
-
     /** Hybrid clock. */
     private final HybridClock hybridClock;
 
@@ -203,7 +199,6 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param hybridClock Hybrid clock.
      * @param safeTime Safe time clock.
      * @param txStateStorage Transaction state storage.
-     * @param topologyService Topology services.
      * @param placementDriver Placement driver.
      * @param isLocalPeerChecker Function for checking that the given peer is local.
      */
@@ -221,7 +216,6 @@ public class PartitionReplicaListener implements ReplicaListener {
             HybridClock hybridClock,
             PendingComparableValuesTracker<HybridTimestamp> safeTime,
             TxStateStorage txStateStorage,
-            TopologyService topologyService,
             PlacementDriver placementDriver,
             Function<Peer, Boolean> isLocalPeerChecker
     ) {
@@ -238,7 +232,6 @@ public class PartitionReplicaListener implements ReplicaListener {
         this.hybridClock = hybridClock;
         this.safeTime = safeTime;
         this.txStateStorage = txStateStorage;
-        this.topologyService = topologyService;
         this.placementDriver = placementDriver;
         this.isLocalPeerChecker = isLocalPeerChecker;
 
@@ -310,7 +303,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                         return txStateFut.thenApply(txMeta -> new LeaderOrTxState(null, txMeta));
                     } else {
-                        return completedFuture(new LeaderOrTxState(topologyService.getByConsistentId(leader.consistentId()), null));
+                        return completedFuture(new LeaderOrTxState(leader.consistentId(), null));
                     }
                 });
     }

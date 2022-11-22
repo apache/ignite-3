@@ -54,6 +54,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.internal.affinity.AffinityUtils;
+import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.notifications.ConfigurationStorageRevisionListenerHolder;
@@ -90,7 +91,6 @@ import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.table.event.TableEvent;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
-import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.util.ByteUtils;
@@ -98,7 +98,6 @@ import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.TopologyService;
@@ -160,12 +159,8 @@ public class TableManagerTest extends IgniteAbstractTest {
     private ReplicaManager replicaMgr;
 
     /** TX manager. */
-    @Mock(lenient = true)
+    @Mock
     private TxManager tm;
-
-    /** TX manager. */
-    @Mock(lenient = true)
-    private LockManager lm;
 
     /** Meta storage manager. */
     @Mock
@@ -174,10 +169,6 @@ public class TableManagerTest extends IgniteAbstractTest {
     /** Mock messaging service. */
     @Mock
     private MessagingService messagingService;
-
-    /** Mock cluster. */
-    @Mock
-    private ClusterService cluster;
 
     /**
      * Revision listener holder. It uses for the test configurations:
@@ -219,8 +210,12 @@ public class TableManagerTest extends IgniteAbstractTest {
     /** Before all test scenarios. */
     @BeforeEach
     void before() {
-        when(rm.messagingService()).thenReturn(mock(MessagingService.class));
-        when(rm.topologyService()).thenReturn(mock(TopologyService.class));
+        when(rm.messagingService()).thenReturn(messagingService);
+
+        TopologyService topologyService = mock(TopologyService.class);
+
+        when(rm.topologyService()).thenReturn(topologyService);
+        when(topologyService.localMember()).thenReturn(node);
 
         revisionUpdater = (Function<Long, CompletableFuture<?>> function) -> {
             function.apply(0L).join();
@@ -232,7 +227,7 @@ public class TableManagerTest extends IgniteAbstractTest {
             });
         };
 
-        when(msm.registerWatch(any(ByteArray.class), any())).thenReturn(CompletableFuture.completedFuture(1L));
+        when(msm.registerWatch(any(ByteArray.class), any())).thenReturn(completedFuture(1L));
 
         tblManagerFut = new CompletableFuture<>();
     }
@@ -257,8 +252,7 @@ public class TableManagerTest extends IgniteAbstractTest {
      */
     @Test
     public void testPreconfiguredTable() throws Exception {
-        when(rm.startRaftGroupService(any(), any())).thenAnswer(mock ->
-                CompletableFuture.completedFuture(mock(RaftGroupService.class)));
+        when(rm.startRaftGroupService(any(), any(), any())).thenAnswer(mock -> completedFuture(mock(RaftGroupService.class)));
 
         TableManager tableManager = createTableManager(tblManagerFut, false);
 
@@ -281,10 +275,10 @@ public class TableManagerTest extends IgniteAbstractTest {
 
                 var extConfCh = ((ExtendedTableChange) tableChange);
 
-                ArrayList<Set<ClusterNode>> assignment = new ArrayList<>(PARTITIONS);
+                var assignment = new ArrayList<Set<Assignment>>(PARTITIONS);
 
                 for (int part = 0; part < PARTITIONS; part++) {
-                    assignment.add(new HashSet<>(Collections.singleton(node)));
+                    assignment.add(new HashSet<>(Collections.singleton(Assignment.forPeer(node.name()))));
                 }
 
                 extConfCh.changeAssignments(ByteUtils.toBytes(assignment)).changeSchemaId(1);
@@ -426,7 +420,7 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         mockManagersAndCreateTable(scmTbl, tblManagerFut);
 
-        verify(rm, times(PARTITIONS)).startRaftGroupService(any(), any());
+        verify(rm, times(PARTITIONS)).startRaftGroupService(any(), any(), any());
 
         TableManager tableManager = tblManagerFut.join();
 
@@ -550,7 +544,7 @@ public class TableManagerTest extends IgniteAbstractTest {
     ) throws Exception {
         String consistentId = "node0";
 
-        when(rm.startRaftGroupService(any(), any())).thenAnswer(mock -> {
+        when(rm.startRaftGroupService(any(), any(), any())).thenAnswer(mock -> {
             RaftGroupService raftGrpSrvcMock = mock(RaftGroupService.class);
 
             when(raftGrpSrvcMock.leader()).thenReturn(new Peer(consistentId));

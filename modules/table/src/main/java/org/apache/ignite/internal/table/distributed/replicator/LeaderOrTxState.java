@@ -20,18 +20,17 @@ package org.apache.ignite.internal.table.distributed.replicator;
 import java.io.Serializable;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.message.TxStateReplicaRequest;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Response for the {@link TxStateReplicaRequest}. Can contain either the Partition Group leader, which should be
+ * Response for the {@link TxStateReplicaRequest}. Can contain either the consistent ID of the Partition Group leader, which should be
  * queried for the TX Meta, or the TX Meta itself.
  */
 public class LeaderOrTxState implements Serializable {
     private static final long serialVersionUID = -3555591755828355117L;
 
     @Nullable
-    private final ClusterNode leader;
+    private final String leaderName;
 
     @Nullable
     private final TxMeta txMeta;
@@ -39,16 +38,16 @@ public class LeaderOrTxState implements Serializable {
     /**
      * Creates a response.
      *
-     * @param leader Leader node.
+     * @param leaderName Leader consistent ID.
      * @param txMeta TX meta.
      */
-    public LeaderOrTxState(@Nullable ClusterNode leader, @Nullable TxMeta txMeta) {
-        this.leader = leader;
+    public LeaderOrTxState(@Nullable String leaderName, @Nullable TxMeta txMeta) {
+        this.leaderName = leaderName;
         this.txMeta = txMeta;
     }
 
-    public @Nullable ClusterNode leader() {
-        return leader;
+    public @Nullable String leaderName() {
+        return leaderName;
     }
 
     public @Nullable TxMeta txMeta() {
