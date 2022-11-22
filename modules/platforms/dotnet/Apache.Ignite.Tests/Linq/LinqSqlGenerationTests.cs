@@ -127,7 +127,7 @@ public class LinqSqlGenerationTests
         _server.LastSqlTimeoutMs = null;
         _server.LastSqlPageSize = null;
 
-        _ = _table.GetRecordView<Poco>().AsQueryable().Select(x => x.Key).ToArray();
+        _ = _table.GetRecordView<Poco>().AsQueryable().Select(x => (int)x.Key).ToArray();
 
         Assert.AreEqual(SqlStatement.DefaultTimeout.TotalMilliseconds, _server.LastSqlTimeoutMs);
         Assert.AreEqual(SqlStatement.DefaultPageSize, _server.LastSqlPageSize);
@@ -139,7 +139,7 @@ public class LinqSqlGenerationTests
         _server.LastSqlTimeoutMs = null;
         _server.LastSqlPageSize = null;
 
-        _ = _table.GetRecordView<Poco>().AsQueryable(options: new(TimeSpan.FromSeconds(25), 128)).Select(x => x.Key).ToArray();
+        _ = _table.GetRecordView<Poco>().AsQueryable(options: new(TimeSpan.FromSeconds(25), 128)).Select(x => (int)x.Key).ToArray();
 
         Assert.AreEqual(25000, _server.LastSqlTimeoutMs);
         Assert.AreEqual(128, _server.LastSqlPageSize);
