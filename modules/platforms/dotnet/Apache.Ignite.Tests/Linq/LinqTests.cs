@@ -36,6 +36,8 @@ public partial class LinqTests : IgniteTestsBase
 {
     private const int Count = 10;
 
+    private IRecordView<PocoByte> PocoByteView { get; set; } = null!;
+
     private IRecordView<PocoShort> PocoShortView { get; set; } = null!;
 
     private IRecordView<PocoInt> PocoIntView { get; set; } = null!;
@@ -45,6 +47,7 @@ public partial class LinqTests : IgniteTestsBase
     [OneTimeSetUp]
     public async Task InsertData()
     {
+        PocoByteView = (await Client.Tables.GetTableAsync(TableInt8Name))!.GetRecordView<PocoByte>();
         PocoShortView = (await Client.Tables.GetTableAsync(TableInt16Name))!.GetRecordView<PocoShort>();
         PocoIntView = (await Client.Tables.GetTableAsync(TableInt32Name))!.GetRecordView<PocoInt>();
         PocoLongView = (await Client.Tables.GetTableAsync(TableInt64Name))!.GetRecordView<PocoLong>();
@@ -53,6 +56,7 @@ public partial class LinqTests : IgniteTestsBase
         {
             await PocoView.UpsertAsync(null, new Poco { Key = i, Val = "v-" + i });
 
+            await PocoByteView.UpsertAsync(null, new PocoByte((sbyte)i, (sbyte)(i / 3)));
             await PocoShortView.UpsertAsync(null, new PocoShort((short)(i * 2), (short)(i * 2)));
             await PocoIntView.UpsertAsync(null, new PocoInt(i, i * 100));
             await PocoLongView.UpsertAsync(null, new PocoLong(i, i * 2));
@@ -327,6 +331,8 @@ public partial class LinqTests : IgniteTestsBase
 
         Assert.AreEqual(expected, query.ToString());
     }
+
+    private record PocoByte(sbyte Key, sbyte Val);
 
     private record PocoShort(short Key, short Val);
 
