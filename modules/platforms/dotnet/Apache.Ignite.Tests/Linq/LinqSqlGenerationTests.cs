@@ -82,6 +82,14 @@ public class LinqSqlGenerationTests
         AssertSql("select distinct _T0.VAL from PUBLIC.tbl1 as _T0", q => q.Select(x => x.Val).Distinct().ToArray());
 
     [Test]
+    public void TestAll() =>
+        AssertSql("select distinct _T0.VAL from PUBLIC.tbl1 as _T0", q => q.All(x => x.Key > 10));
+
+    [Test]
+    public void TestAny() => // TODO Can we use a better approach than COUNT?
+        AssertSql("select count (*) from PUBLIC.tbl1 as _T0 where (_T0.KEY > ?)", q => q.Any(x => x.Key > 10));
+
+    [Test]
     public void TestSelectOrderByOffsetLimit() =>
         AssertSql(
             "select _T0.KEY, _T0.VAL, (_T0.KEY + ?) " +

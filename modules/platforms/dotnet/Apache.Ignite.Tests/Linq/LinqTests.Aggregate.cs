@@ -94,4 +94,18 @@ public partial class LinqTests
 
         Assert.AreEqual(3, res);
     }
+
+    [Test]
+    public void TestAll()
+    {
+        Assert.IsFalse(PocoView.AsQueryable().All(x => x.Key > 5));
+        Assert.IsTrue(PocoView.AsQueryable().All(x => x.Key < 500));
+    }
+
+    [Test]
+    public void TestAny()
+    {
+        Assert.IsFalse(PocoView.AsQueryable().Any(x => x.Key > 500));
+        Assert.IsTrue(PocoView.AsQueryable().Any(x => x.Key < 5));
+    }
 }
