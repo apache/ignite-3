@@ -25,6 +25,7 @@ using System.Globalization;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Text;
+using Common;
 using Remotion.Linq;
 using Remotion.Linq.Clauses;
 using Remotion.Linq.Clauses.Expressions;
@@ -48,26 +49,17 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
     /// <summary>
     /// Gets the builder.
     /// </summary>
-    public StringBuilder Builder
-    {
-        get { return _builder; }
-    }
+    public StringBuilder Builder => _builder;
 
     /// <summary>
     /// Gets the parameters.
     /// </summary>
-    public IList<object?> Parameters
-    {
-        get { return _parameters; }
-    }
+    public IList<object?> Parameters => _parameters;
 
     /// <summary>
     /// Gets the aliases.
     /// </summary>
-    public AliasDictionary Aliases
-    {
-        get { return _aliases; }
-    }
+    public AliasDictionary Aliases => _aliases;
 
     /// <summary>
     /// Generates the query.
@@ -78,12 +70,7 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
     {
         VisitQueryModel(queryModel);
 
-        if (char.IsWhiteSpace(_builder[_builder.Length - 1]))
-        {
-            _builder.Remove(_builder.Length - 1, 1);  // TrimEnd
-        }
-
-        var qryText = _builder.ToString();
+        var qryText = _builder.TrimEnd().ToString();
 
         return new QueryData(qryText, _parameters);
     }
@@ -232,8 +219,6 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
     {
         _aliases.Push(copyAliases);
 
-        // TODO: Handle Any as SELECT EXISTS (SELECT 1 ...)
-        // TODO: Handle All as SELECT NOT EXISTS (SELECT 1 ...)
         // TODO: IGNITE-18137 DML
         // var lastResultOp = queryModel.ResultOperators.LastOrDefault();
         // if (lastResultOp is RemoveAllResultOperator)
@@ -245,6 +230,35 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
         //     VisitUpdateAllOperator(queryModel);
         // }
         // else
+        if (queryModel.ResultOperators.Count == 1 && queryModel.ResultOperators[0] is AnyResultOperator)
+        {
+            // SELECT
+            _builder.Append("select exists (select 1 ");
+
+            // FROM ... WHERE ... JOIN ...
+            base.VisitQueryModel(queryModel);
+
+            // UNION ...
+            ProcessResultOperatorsEnd(queryModel);
+
+            _builder.TrimEnd().Append(')');
+        }
+        else if (queryModel.ResultOperators.Count == 1 && queryModel.ResultOperators[0] is AllResultOperator)
+        {
+            // TODO: Combine with above?
+            // SELECT
+            _builder.Append("select not exists (select 1 ");
+
+            // FROM ... WHERE ... JOIN ...
+            // TODO: Negate WHERE
+            base.VisitQueryModel(queryModel);
+
+            // UNION ...
+            ProcessResultOperatorsEnd(queryModel);
+
+            _builder.Append(')');
+        }
+        else
         {
             // SELECT
             _builder.Append("select ");
