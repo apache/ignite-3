@@ -87,8 +87,9 @@ public interface TxStateTableStorage extends ManuallyCloseable {
      * Prepares the transaction state storage for rebalancing: makes a backup of the current transaction state storage and creates a new
      * storage.
      *
-     * <p>This method must be called before every full rebalance of the transaction state storage, so that in case of errors or cancellation
-     * of the full rebalance, we can restore the transaction state storage from the backup.
+     * <p>This method must be called before every full rebalance of the transaction state storage, so that in case of errors or
+     * cancellation of the full rebalance, we can restore the transaction state storage from the backup. A new full rebalance can only start
+     * if the previous one has been completed.
      *
      * <p>Full rebalance will be completed when one of the methods is called:
      * <ol>
@@ -98,10 +99,13 @@ public interface TxStateTableStorage extends ManuallyCloseable {
      *     storage.</li>
      * </ol>
      *
-     * <p>Only modification of data in transaction state storage is allowed.
+     * <p>During a full rebalance, data will be written to the new storage and read from the backup. If the full rebalance succeeds, then
+     * all writes and reads will occur in the new storage, and all current cursors (which are currently running) will switch to reading from
+     * the new storage. At the same time, at all stages, external storage replacement does not occur, i.e. the instance received from
+     * {@link #getTxStateStorage(int)} or {@link #getOrCreateTxStateStorage(int)} will not change.
      *
      * @param partitionId Partition ID.
-     * @return Future, if completed without errors, then {@link #getTxStateStorage} will return a new (empty) transaction state storage.
+     * @return Future to indicate the completion of preparing the transaction state storage for full rebalance.
      * @throws StorageException If the given partition does not exist, or fail the start of rebalancing.
      */
     CompletableFuture<Void> startRebalance(int partitionId) throws StorageException;
@@ -113,7 +117,7 @@ public interface TxStateTableStorage extends ManuallyCloseable {
      * <p>If a full rebalance has not been {@link #startRebalance(int) started}, then nothing will happen.
      *
      * @param partitionId Partition ID.
-     * @return Future, upon completion of which {@link #getTxStateStorage} will return the transaction state storage restored from backup.
+     * @return Future to indicate the completion of the abort of a full rebalance for transaction state storage.
      */
     CompletableFuture<Void> abortRebalance(int partitionId);
 
@@ -124,7 +128,7 @@ public interface TxStateTableStorage extends ManuallyCloseable {
      * <p>If a full rebalance has not been {@link #startRebalance(int) started}, then nothing will happen.
      *
      * @param partitionId Partition ID.
-     * @return Future, if it fails, will abort the transaction state storage rebalance.
+     * @return Future to indicate the completion of a full rebalance for transaction state storage.
      */
     CompletableFuture<Void> finishRebalance(int partitionId);
 }

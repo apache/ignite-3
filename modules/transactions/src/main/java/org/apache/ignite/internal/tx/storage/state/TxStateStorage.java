@@ -34,27 +34,24 @@ import org.jetbrains.annotations.Nullable;
  */
 public interface TxStateStorage extends ManuallyCloseable {
     /**
-     * Get tx meta by tx id.
+     * Returns tx meta by tx id.
      *
      * @param txId Tx id.
-     * @return Tx meta.
-     * @throws IgniteInternalException with {@link Transactions#TX_STATE_STORAGE_ERR} error code in case when
-     *                                 the operation has failed.
+     * @throws IgniteInternalException with {@link Transactions#TX_STATE_STORAGE_ERR} error code in case when the operation has failed.
      */
     TxMeta get(UUID txId);
 
     /**
-     * Put the tx meta into the storage.
+     * Puts the tx meta into the storage.
      *
      * @param txId Tx id.
      * @param txMeta Tx meta.
-     * @throws IgniteInternalException with {@link Transactions#TX_STATE_STORAGE_ERR} error code in case when
-     *                                 the operation has failed.
+     * @throws IgniteInternalException with {@link Transactions#TX_STATE_STORAGE_ERR} error code in case when the operation has failed.
      */
     void put(UUID txId, TxMeta txMeta);
 
     /**
-     * Atomically change the tx meta in the storage. If transaction meta that is already in the storage, is equal to {@code txMeta}, the
+     * Atomically changes the tx meta in the storage. If transaction meta that is already in the storage, is equal to {@code txMeta}, the
      * operation also succeeds.
      *
      * @param txId Tx id.
@@ -68,11 +65,10 @@ public interface TxStateStorage extends ManuallyCloseable {
     boolean compareAndSet(UUID txId, @Nullable TxState txStateExpected, TxMeta txMeta, long commandIndex, long commandTerm);
 
     /**
-     * Remove the tx meta from the storage.
+     * Removes the tx meta from the storage.
      *
      * @param txId Tx id.
-     * @throws IgniteInternalException with {@link Transactions#TX_STATE_STORAGE_ERR} error code in case when
-     *                                 the operation has failed.
+     * @throws IgniteInternalException with {@link Transactions#TX_STATE_STORAGE_ERR} error code in case when the operation has failed.
      */
     void remove(UUID txId);
 
@@ -96,12 +92,12 @@ public interface TxStateStorage extends ManuallyCloseable {
     CompletableFuture<Void> flush();
 
     /**
-     * Index of the highest write command applied to the storage. {@code 0} if index is unknown.
+     * Returns index of the highest write command applied to the storage, {@code 0} if index is unknown.
      */
     long lastAppliedIndex();
 
     /**
-     * Term of the highest write command applied to the storage. {@code 0} if term is unknown.
+     * Returns term of the highest write command applied to the storage, {@code 0} if term is unknown.
      */
     long lastAppliedTerm();
 
@@ -111,7 +107,7 @@ public interface TxStateStorage extends ManuallyCloseable {
     void lastApplied(long lastAppliedIndex, long lastAppliedTerm);
 
     /**
-     * {@link #lastAppliedIndex()} value consistent with the data, already persisted on the storage.
+     * Returns {@link #lastAppliedIndex()} value consistent with the data, already persisted on the storage.
      */
     long persistedIndex();
 

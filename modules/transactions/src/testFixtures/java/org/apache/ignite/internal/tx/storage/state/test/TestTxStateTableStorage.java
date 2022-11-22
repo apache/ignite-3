@@ -82,12 +82,20 @@ public class TestTxStateTableStorage implements TxStateTableStorage {
     }
 
     @Override
-    public CompletableFuture<Void> startRebalance(int partitionId) {
+    public CompletableFuture<Void> startRebalance(int partitionId) throws StorageException {
         TxStateStorageDecorator oldStorage = storageByPartitionId.get(partitionId);
 
         checkPartitionStoragesExists(oldStorage, partitionId);
 
-        backupStoragesByPartitionId.computeIfAbsent(partitionId, partId -> oldStorage.replaceDelegate(new TestTxStateStorage()));
+        // TODO: IGNITE-18022 думаю тут еще работы надо будет
+
+        backupStoragesByPartitionId.compute(partitionId, (partId, txStateStorage) -> {
+            if (txStateStorage != null) {
+                throw new StorageException("Previous full rebalance did not complete for the partition: " + partitionId);
+            }
+
+            return oldStorage.replaceDelegate(new TestTxStateStorage());
+        });
 
         return completedFuture(null);
     }
@@ -95,6 +103,8 @@ public class TestTxStateTableStorage implements TxStateTableStorage {
     @Override
     public CompletableFuture<Void> abortRebalance(int partitionId) {
         TxStateStorage backupStorage = backupStoragesByPartitionId.remove(partitionId);
+
+        // TODO: IGNITE-18022 думаю тут еще работы надо будет
 
         if (backupStorage != null) {
             TxStateStorageDecorator storage = storageByPartitionId.get(partitionId);
@@ -110,6 +120,8 @@ public class TestTxStateTableStorage implements TxStateTableStorage {
     @Override
     public CompletableFuture<Void> finishRebalance(int partitionId) {
         backupStoragesByPartitionId.remove(partitionId);
+
+        // TODO: IGNITE-18022 думаю тут еще работы надо будет
 
         return completedFuture(null);
     }
