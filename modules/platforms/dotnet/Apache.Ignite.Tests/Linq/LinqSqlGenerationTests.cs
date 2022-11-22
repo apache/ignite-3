@@ -158,19 +158,21 @@ public class LinqSqlGenerationTests
     private void AssertSql(string expectedSql, Func<ITable, object?> query)
     {
         _server.LastSql = string.Empty;
+        Exception? ex = null;
 
         try
         {
             query(_table);
         }
-        catch (Exception)
+        catch (Exception e)
         {
             // Ignore.
             // Result deserialization may fail because FakeServer returns one column always.
             // We are only interested in the generated SQL.
+            ex = e;
         }
 
-        Assert.AreEqual(expectedSql, _server.LastSql);
+        Assert.AreEqual(expectedSql, _server.LastSql, ex?.ToString());
     }
 
     // ReSharper disable once NotAccessedPositionalProperty.Local
