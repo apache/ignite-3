@@ -17,14 +17,18 @@
 
 package org.apache.ignite.internal.cli.commands.sql.help;
 
-import picocli.CommandLine;
 import picocli.CommandLine.TypeConversionException;
 
-/** Converter to convert user input into {@link org.apache.ignite.internal.cli.commands.sql.help.IgniteSqlCommand}. */
-public class IgniteSqlCommandConverter implements CommandLine.ITypeConverter<IgniteSqlCommand> {
-    @Override
-    public IgniteSqlCommand convert(String s) throws Exception {
-        return IgniteSqlCommand.find(s)
-                .orElseThrow(() -> new TypeConversionException("Unknown SQL command: " + s));
+/** Converter to convert user input into {@link IgniteSqlCommand}. */
+public class IgniteSqlCommandConverter {
+    public IgniteSqlCommand convert(String[] s) throws Exception {
+        String topic;
+        if (s.length == 1) {
+            topic = s[0];
+        } else {
+            topic = s[0] + " " + s[1];
+        }
+        return IgniteSqlCommand.find(topic)
+                .orElseThrow(() -> new TypeConversionException("Unknown SQL command: " + topic));
     }
 }

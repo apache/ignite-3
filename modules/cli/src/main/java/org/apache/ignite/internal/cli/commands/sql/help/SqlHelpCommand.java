@@ -38,10 +38,9 @@ import picocli.CommandLine.Parameters;
 )
 public final class SqlHelpCommand implements IHelpCommandInitializable2, Runnable {
     @Parameters(paramLabel = "Ignite SQL command",
-            arity = "0..1",
-            description = "The SQL command to display the usage help message for.",
-            converter = IgniteSqlCommandConverter.class)
-    private IgniteSqlCommand command;
+            arity = "0..2",
+            description = "The SQL command to display the usage help message for.")
+    private String[] command;
     private CommandLine self;
     private PrintWriter outWriter;
     private ColorScheme colorScheme;
@@ -49,7 +48,11 @@ public final class SqlHelpCommand implements IHelpCommandInitializable2, Runnabl
     @Override
     public void run() {
         if (command != null) {
-            outWriter.println(command.getSyntax());
+            try {
+                outWriter.println(new IgniteSqlCommandConverter().convert(command).getSyntax());
+            } catch (Exception e) {
+                throw new RuntimeException(e); // todo
+            }
         } else {
             String helpMessage = self.getParent().getUsageMessage(colorScheme)
                     + System.lineSeparator()

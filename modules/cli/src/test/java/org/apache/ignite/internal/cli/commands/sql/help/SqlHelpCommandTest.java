@@ -19,11 +19,20 @@ package org.apache.ignite.internal.cli.commands.sql.help;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 
+import java.util.stream.Stream;
 import org.apache.ignite.internal.cli.commands.CliCommandTestBase;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 class SqlHelpCommandTest extends CliCommandTestBase {
+
+    private static Stream<Arguments> sqlCommands() {
+        return Stream.of(IgniteSqlCommand.values())
+                .map(command -> Arguments.of(command.getTopic(), command.getSyntax()));
+    }
 
     @Override
     protected Class<?> getCommandClass() {
@@ -42,14 +51,19 @@ class SqlHelpCommandTest extends CliCommandTestBase {
         );
     }
 
-    @Test
+    @ParameterizedTest
+    @MethodSource("sqlCommands")
     @DisplayName("Should display a command syntax if provided a valid command")
-    void validSqlCommand() {
-        execute(IgniteSqlCommand.SELECT.getTopic());
+    void validSqlCommand(String commandToShowHelpFor, String expectedHelpMessage) {
+        execute(commandToShowHelpFor);
 
         assertAll(
                 () -> assertExitCodeIs(0),
-                () -> assertOutputContains(IgniteSqlCommand.SELECT.getSyntax()),
+                () -> assertOutputContains(expectedHelpMessage),
                 this::assertErrOutputIsEmpty);
     }
+
+    //todo: error handling for help exit
+    //todo: lost exit
+    //todo: clear garbage from help completions
 }

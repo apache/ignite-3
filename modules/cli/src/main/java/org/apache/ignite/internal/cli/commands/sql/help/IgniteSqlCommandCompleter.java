@@ -36,8 +36,8 @@ public class IgniteSqlCommandCompleter implements Completer {
                     .skip(1)
                     .collect(Collectors.joining(" "));
             Arrays.stream(IgniteSqlCommand.values())
-                    .filter(topic -> topic.getTopic().startsWith(args.toUpperCase(Locale.ROOT)))
-                    .map(Enum::toString)
+                    .map(IgniteSqlCommand::getTopic)
+                    .filter(topic -> topic.startsWith(args.toUpperCase(Locale.ROOT)))
                     .map(Candidate::new)
                     .forEach(candidates::add);
         }
