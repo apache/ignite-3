@@ -140,7 +140,14 @@ internal sealed class IgniteQueryExecutor : IQueryExecutor
 
                 for (int i = 0; i < cols.Count; i++)
                 {
-                    args[i] = Sql.ReadColumnValue(ref reader, cols[i], i);
+                    var val = Sql.ReadColumnValue(ref reader, cols[i], i);
+
+                    if (val != null)
+                    {
+                        val = Convert.ChangeType(val, newExpr.Arguments[i].Type, CultureInfo.InvariantCulture);
+                    }
+
+                    args[i] = val;
                 }
 
                 return (T)newExpr.Constructor!.Invoke(args);
@@ -149,7 +156,8 @@ internal sealed class IgniteQueryExecutor : IQueryExecutor
 
         if (columns.Count == 1)
         {
-            return (IReadOnlyList<IColumnMetadata> cols, ref BinaryTupleReader reader) => (T)Sql.ReadColumnValue(ref reader, cols[0], 0)!;
+            return (IReadOnlyList<IColumnMetadata> cols, ref BinaryTupleReader reader) =>
+                (T)Convert.ChangeType(Sql.ReadColumnValue(ref reader, cols[0], 0)!, typeof(T), CultureInfo.InvariantCulture);
         }
 
         // TODO: IGNITE-18136 Replace reflection with emitted delegates.
@@ -163,7 +171,15 @@ internal sealed class IgniteQueryExecutor : IQueryExecutor
                 var val = Sql.ReadColumnValue(ref reader, col, i);
                 var field = typeof(T).GetFieldByColumnName(col.Name);
 
-                field?.SetValue(res, val);
+                if (field != null)
+                {
+                    if (val != null)
+                    {
+                        val = Convert.ChangeType(val, field.FieldType, CultureInfo.InvariantCulture);
+                    }
+
+                    field.SetValue(res, val);
+                }
             }
 
             return res;
