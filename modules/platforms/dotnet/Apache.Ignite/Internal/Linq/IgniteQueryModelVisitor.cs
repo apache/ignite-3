@@ -344,10 +344,6 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
                 _builder.Append("count (");
                 parenCount++;
             }
-            else if (op is AllResultOperator or AnyResultOperator)
-            {
-                _builder.Append('1');
-            }
             else if (op is SumResultOperator)
             {
                 _builder.Append("sum (");
