@@ -230,26 +230,14 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
         //     VisitUpdateAllOperator(queryModel);
         // }
         // else
-        if (queryModel.ResultOperators.Count == 1 && queryModel.ResultOperators[0] is AnyResultOperator)
+        if (queryModel.ResultOperators.Count == 1 && queryModel.ResultOperators[0] is AnyResultOperator or AllResultOperator)
         {
-            // SELECT
-            _builder.Append("select exists (select 1 ");
-
-            // FROM ... WHERE ... JOIN ...
-            base.VisitQueryModel(queryModel);
-
-            // UNION ...
-            ProcessResultOperatorsEnd(queryModel);
-
-            _builder.TrimEnd().Append(')');
-        }
-        else if (queryModel.ResultOperators.Count == 1 && queryModel.ResultOperators[0] is AllResultOperator)
-        {
-            // TODO: Combine with the above?
             // All is different from Any: it always has a predicate inside.
             // We use NOT EXISTS with reverted predicate to implement All.
             // Reverted predicate is added in VisitBodyClauses.
-            _builder.Append("select not exists (select 1 ");
+            _builder.Append(queryModel.ResultOperators[0] is AllResultOperator
+                ? "select not exists (select 1 "
+                : "select exists (select 1 ");
 
             // FROM ... WHERE ... JOIN ...
             base.VisitQueryModel(queryModel);
