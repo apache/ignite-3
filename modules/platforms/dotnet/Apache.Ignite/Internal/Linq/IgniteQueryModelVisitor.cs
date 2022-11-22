@@ -232,6 +232,8 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
     {
         _aliases.Push(copyAliases);
 
+        // TODO: Handle Any as SELECT EXISTS (SELECT 1 ...)
+        // TODO: Handle All as SELECT NOT EXISTS (SELECT 1 ...)
         // TODO: IGNITE-18137 DML
         // var lastResultOp = queryModel.ResultOperators.LastOrDefault();
         // if (lastResultOp is RemoveAllResultOperator)
@@ -323,10 +325,14 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
 
         foreach (var op in queryModel.ResultOperators.Reverse())
         {
-            if (op is CountResultOperator || op is AnyResultOperator || op is LongCountResultOperator)
+            if (op is CountResultOperator or LongCountResultOperator)
             {
                 _builder.Append("count (");
                 parenCount++;
+            }
+            else if (op is AllResultOperator or AnyResultOperator)
+            {
+                _builder.Append('1');
             }
             else if (op is SumResultOperator)
             {
