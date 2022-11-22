@@ -256,7 +256,7 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
             // UNION ...
             ProcessResultOperatorsEnd(queryModel);
 
-            _builder.Append(')');
+            _builder.TrimEnd().Append(')');
         }
         else
         {

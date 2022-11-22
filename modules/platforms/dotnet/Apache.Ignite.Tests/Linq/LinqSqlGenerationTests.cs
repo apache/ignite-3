@@ -184,7 +184,7 @@ public class LinqSqlGenerationTests
             ex = e;
         }
 
-        Assert.AreEqual(expectedSql, _server.LastSql, ex?.ToString());
+        Assert.AreEqual(expectedSql, _server.LastSql, string.IsNullOrEmpty(_server.LastSql) ? ex?.ToString() : null);
     }
 
     // ReSharper disable once NotAccessedPositionalProperty.Local
