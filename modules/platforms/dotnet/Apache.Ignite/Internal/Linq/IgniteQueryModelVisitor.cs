@@ -245,7 +245,8 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
         }
         else if (queryModel.ResultOperators.Count == 1 && queryModel.ResultOperators[0] is AllResultOperator)
         {
-            // TODO: Combine with above?
+            // All is different from Any: it always has a predicate inside/
+
             // SELECT
             _builder.Append("select not exists (select 1 ");
 

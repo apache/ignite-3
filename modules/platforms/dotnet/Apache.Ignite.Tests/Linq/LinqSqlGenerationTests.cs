@@ -86,6 +86,12 @@ public class LinqSqlGenerationTests
         AssertSql("select not exists (select 1 from PUBLIC.tbl1 as _T0 where not (_T0.KEY > ?))", q => q.All(x => x.Key > 10));
 
     [Test]
+    public void TestAllWithWhere() =>
+        AssertSql(
+            "select not exists (select 1 from PUBLIC.tbl1 as _T0 where not (_T0.KEY > ?))",
+            q => q.Where(x => x.Val != "1").All(x => x.Key > 10));
+
+    [Test]
     public void TestAny() =>
         AssertSql("select exists (select 1 from PUBLIC.tbl1 as _T0 where (_T0.KEY > ?))", q => q.Any(x => x.Key > 10));
 
