@@ -32,8 +32,11 @@ import org.apache.ignite.internal.cli.core.repl.completer.NodeUrlProvider;
 /** Factory for cluster config show/update command. */
 @Singleton
 public class ClusterConfigDynamicCompleterFactory implements DynamicCompleterFactory {
+
     private final NodeUrlProvider urlProvider;
+
     private final ClusterConfigShowCall clusterConfigShowCall;
+
     private final AtomicReference<DynamicCompleter> cachedCompleter = new AtomicReference<>(null);
 
     public ClusterConfigDynamicCompleterFactory(NodeUrlProvider urlProvider, ClusterConfigShowCall clusterConfigShowCall) {
@@ -62,7 +65,7 @@ public class ClusterConfigDynamicCompleterFactory implements DynamicCompleterFac
             });
         }
 
-        // return dummy completer
+        // return dummy completer this time, but hope the next call will return cached completer
         return new DummyCompleter();
     }
 }

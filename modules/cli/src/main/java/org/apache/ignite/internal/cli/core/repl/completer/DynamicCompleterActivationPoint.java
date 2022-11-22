@@ -77,8 +77,5 @@ public class DynamicCompleterActivationPoint {
                         .build(),
                 nodeNameDynamicCompleterFactory
         );
-        // todo: list completors
-        // todo: non-repitable options filter out
-        // todo: integration tests for completers
     }
 }

@@ -22,17 +22,17 @@ import static org.hamcrest.Matchers.containsInAnyOrder;
 
 import java.util.Set;
 import java.util.stream.Stream;
-import org.apache.ignite.internal.cli.core.repl.completer.node.ListDynamicCompleter;
+import org.apache.ignite.internal.cli.core.repl.completer.node.StringDynamicCompleter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 
-/** Tests for {@link ListDynamicCompleter}. */
-class ListDynamicCompleterTest {
+/** Tests for {@link StringDynamicCompleter}. */
+class StringDynamicCompleterTest {
     private static final Set<String> candidates = Set.of("node1", "node2", "remoteNode");
-    private ListDynamicCompleter completer;
+    private StringDynamicCompleter completer;
 
     private static Stream<Arguments> words() {
         return Stream.of(
@@ -46,7 +46,7 @@ class ListDynamicCompleterTest {
 
     @BeforeEach
     void setUp() {
-        completer = new ListDynamicCompleter(candidates);
+        completer = new StringDynamicCompleter(candidates);
     }
 
     @ParameterizedTest

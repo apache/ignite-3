@@ -213,7 +213,7 @@ public class IgnitePicocliCommands implements CommandRegistry {
                 }
             }
 
-            if (!candidates.isEmpty()) { // todo filtering logic should be moved to the separate place
+            if (!candidates.isEmpty()) {
                 return;
             }
 

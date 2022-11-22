@@ -49,7 +49,7 @@ public class DynamicCompleterFilter implements CompleterFilter {
 
     @Override
     public String[] filter(String[] words, String[] candidates) {
-        List<String> notOptionsCandidates = Arrays.stream(candidates) //todo: add test for that
+        List<String> notOptionsCandidates = Arrays.stream(candidates)
                 .filter(candidate -> !candidate.startsWith("-"))
                 .collect(Collectors.toList());
 

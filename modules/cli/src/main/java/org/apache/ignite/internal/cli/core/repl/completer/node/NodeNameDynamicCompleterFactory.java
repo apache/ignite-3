@@ -34,6 +34,6 @@ public class NodeNameDynamicCompleterFactory implements DynamicCompleterFactory 
 
     @Override
     public DynamicCompleter getDynamicCompleter(String[] words) {
-        return new ListDynamicCompleter(nodeNameRegistry.getAllNames());
+        return new StringDynamicCompleter(nodeNameRegistry.getAllNames());
     }
 }

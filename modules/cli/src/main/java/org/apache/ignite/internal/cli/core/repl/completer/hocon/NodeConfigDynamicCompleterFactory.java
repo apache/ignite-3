@@ -33,7 +33,9 @@ import org.apache.ignite.internal.cli.core.repl.completer.NodeUrlProvider;
 @Singleton
 public class NodeConfigDynamicCompleterFactory implements DynamicCompleterFactory {
     private final NodeUrlProvider urlProvider;
+
     private final NodeConfigShowCall nodeConfigShowCall;
+
     private final AtomicReference<DynamicCompleter> cachedCompleter = new AtomicReference<>(null);
 
     public NodeConfigDynamicCompleterFactory(NodeUrlProvider urlProvider, NodeConfigShowCall nodeConfigShowCall) {
@@ -62,7 +64,7 @@ public class NodeConfigDynamicCompleterFactory implements DynamicCompleterFactor
             });
         }
 
-        // return dummy completer
+        // return dummy completer this time, but hope the next call will return cached completer
         return new DummyCompleter();
     }
 }

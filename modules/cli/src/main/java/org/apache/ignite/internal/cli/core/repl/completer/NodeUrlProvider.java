@@ -55,7 +55,7 @@ public class NodeUrlProvider {
 
     private String findClusterUrlIn(String[] words) {
         for (String word : words) {
-            String prefix = CLUSTER_URL_OPTION + "="; // todo: might be without = or short
+            String prefix = CLUSTER_URL_OPTION + "=";
             if (word.startsWith(prefix)) {
                 return word.substring(prefix.length());
             }

@@ -28,13 +28,13 @@ import org.apache.ignite.internal.cli.core.repl.completer.DynamicCompleter;
 /**
  * Completes typed words with provided list of strings.
  */
-public class ListDynamicCompleter implements DynamicCompleter {
+public class StringDynamicCompleter implements DynamicCompleter {
 
-    /** Node names. */
+    /** Values that will ve suggested. */
     private final Set<String> values;
 
-    /** Default constructor that creates an instance from a given set of postfixes that trigger the completion. */
-    public ListDynamicCompleter(Set<String> values) {
+    /** Default constructor. */
+    public StringDynamicCompleter(Set<String> values) {
         this.values = values;
     }
 
