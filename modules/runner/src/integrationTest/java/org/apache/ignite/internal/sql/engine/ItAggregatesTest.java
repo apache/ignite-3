@@ -64,6 +64,18 @@ public class ItAggregatesTest extends AbstractBasicIntegrationTest {
                 .returns(15d, 1L)
                 .check();
 
+        // same query, but grouping by alias
+        assertQuery("select salary as sal, count(name) from person group by sal order by salary")
+                .returns(10d, 3L)
+                .returns(15d, 1L)
+                .check();
+
+        // same query, but grouping by ordinal
+        assertQuery("select salary, count(name) from person group by 1 order by salary")
+                .returns(10d, 3L)
+                .returns(15d, 1L)
+                .check();
+
         assertQuery("select salary, count(*) from person group by salary order by salary")
                 .returns(10d, 3L)
                 .returns(15d, 2L)
