@@ -28,83 +28,97 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Decorator for {@link TxStateStorage} on full rebalance.
  *
- * <p>Allows you to use methods to change data, throws {@link IllegalStateException} when reading data.
+ * <p>All readings will be from the old storage, and modifications in the new storage.
+ *
+ * <p>TODO: IGNITE-18022 не забудь про курсоры
  */
 public class TxStateStorageOnRebalance implements TxStateStorage {
-    private static final String ERROR_MESSAGE = "Transaction state storage is in full rebalancing, data reading is not available.";
+    private final TxStateStorage oldStorage;
 
-    private final TxStateStorage delegate;
+    private final TxStateStorage newStorage;
 
     /**
      * Constructor.
      *
-     * @param delegate Delegate.
+     * @param oldStorage Old transaction state storage to read from.
+     * @param newStorage New transaction state storage to write into.
      */
-    public TxStateStorageOnRebalance(TxStateStorage delegate) {
-        this.delegate = delegate;
+    public TxStateStorageOnRebalance(TxStateStorage oldStorage, TxStateStorage newStorage) {
+        this.oldStorage = oldStorage;
+        this.newStorage = newStorage;
+    }
+
+    /**
+     * Returns old transaction state storage.
+     */
+    public TxStateStorage getOldStorage() {
+        return oldStorage;
+    }
+
+    /**
+     * New transaction state storage.
+     */
+    public TxStateStorage getNewStorage() {
+        return newStorage;
     }
 
     @Override
     public TxMeta get(UUID txId) {
-        throw createDataWriteOnlyException();
+        return oldStorage.get(txId);
     }
 
     @Override
     public void put(UUID txId, TxMeta txMeta) {
-        delegate.put(txId, txMeta);
+        newStorage.put(txId, txMeta);
     }
 
     @Override
     public boolean compareAndSet(UUID txId, @Nullable TxState txStateExpected, TxMeta txMeta, long commandIndex, long commandTerm) {
-        return delegate.compareAndSet(txId, txStateExpected, txMeta, commandIndex, commandTerm);
+        return newStorage.compareAndSet(txId, txStateExpected, txMeta, commandIndex, commandTerm);
     }
 
     @Override
     public void remove(UUID txId) {
-        delegate.remove(txId);
+        newStorage.remove(txId);
     }
 
     @Override
     public Cursor<IgniteBiTuple<UUID, TxMeta>> scan() {
-        throw createDataWriteOnlyException();
+        return oldStorage.scan();
     }
 
     @Override
     public CompletableFuture<Void> flush() {
-        return delegate.flush();
+        return newStorage.flush();
     }
 
     @Override
     public long lastAppliedIndex() {
-        return delegate.lastAppliedIndex();
+        return oldStorage.lastAppliedIndex();
     }
 
     @Override
     public long lastAppliedTerm() {
-        return delegate.lastAppliedTerm();
+        return oldStorage.lastAppliedTerm();
     }
 
     @Override
     public void lastApplied(long lastAppliedIndex, long lastAppliedTerm) {
-        delegate.lastApplied(lastAppliedIndex, lastAppliedTerm);
+        newStorage.lastApplied(lastAppliedIndex, lastAppliedTerm);
     }
 
     @Override
     public long persistedIndex() {
-        return delegate.persistedIndex();
+        return oldStorage.persistedIndex();
     }
 
     @Override
     public void destroy() {
-        delegate.destroy();
+        throw new UnsupportedOperationException();
     }
 
     @Override
     public void close() {
-        delegate.close();
-    }
-
-    private IllegalStateException createDataWriteOnlyException() {
-        return new IllegalStateException(ERROR_MESSAGE);
+        throw new UnsupportedOperationException();
     }
 }

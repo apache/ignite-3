@@ -238,8 +238,8 @@ public abstract class AbstractTxStateTableStorageTest {
         TxMeta txMeta2 = mock(TxMeta.class);
         TxMeta txMeta3 = mock(TxMeta.class);
 
-        storage.put(txId0, txMeta2);
-        storage.put(txId1, txMeta2);
+        storage.put(txId0, txMeta0);
+        storage.put(txId1, txMeta1);
         storage.put(txId2, txMeta2);
         storage.put(txId3, txMeta3);
 

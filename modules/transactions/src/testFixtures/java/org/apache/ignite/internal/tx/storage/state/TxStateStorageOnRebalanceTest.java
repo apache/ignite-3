@@ -44,7 +44,7 @@ public class TxStateStorageOnRebalanceTest {
 
     @BeforeEach
     void setUp() {
-        txStateStorageOnRebalance = new TxStateStorageOnRebalance(txStateStorage);
+        txStateStorageOnRebalance = new TxStateStorageOnRebalance(txStateStorage, null);
     }
 
     @Test

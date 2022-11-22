@@ -62,6 +62,13 @@ public class TxStateStorageDecorator implements TxStateStorage {
         return (TxStateStorage) DELEGATE.getAndSet(this, newDelegate);
     }
 
+    /**
+     * Returns delegate.
+     */
+    public TxStateStorage getDelegate() {
+        return delegate;
+    }
+
     @Override
     public TxMeta get(UUID txId) {
         return delegate.get(txId);
