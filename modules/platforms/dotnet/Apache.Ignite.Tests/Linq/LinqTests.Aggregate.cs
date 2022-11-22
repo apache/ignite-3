@@ -37,39 +37,33 @@ public partial class LinqTests
     }
 
     [Test]
-    public void TestSumAllTypes()
+    public void TestSum()
     {
-        Assert.AreEqual(45, PocoAllColumnsView.AsQueryable().Sum(x => x.Int8));
-        Assert.AreEqual(45, PocoAllColumnsView.AsQueryable().Sum(x => x.Int16));
-        Assert.AreEqual(45, PocoAllColumnsView.AsQueryable().Sum(x => x.Int32));
-        Assert.AreEqual(45, PocoAllColumnsView.AsQueryable().Sum(x => x.Int64));
-        Assert.AreEqual(45, PocoAllColumnsView.AsQueryable().Sum(x => x.Float));
-        Assert.AreEqual(45, PocoAllColumnsView.AsQueryable().Sum(x => x.Double));
-        Assert.AreEqual(45, PocoAllColumnsView.AsQueryable().Sum(x => x.Decimal));
+        Assert.AreEqual(12, PocoByteView.AsQueryable().Sum(x => x.Val));
+        Assert.AreEqual(90, PocoShortView.AsQueryable().Sum(x => x.Val));
+        Assert.AreEqual(45, PocoIntView.AsQueryable().Sum(x => x.Val));
+        Assert.AreEqual(45, PocoLongView.AsQueryable().Sum(x => x.Val));
+        Assert.AreEqual(45, PocoFloatView.AsQueryable().Sum(x => x.Val));
+        Assert.AreEqual(45, PocoDecimalView.AsQueryable().Sum(x => x.Val));
+        Assert.AreEqual(45, PocoDoubleView.AsQueryable().Sum(x => x.Val));
     }
 
     [Test]
-    public void TestMinAllTypes()
+    public void TestMin()
     {
-        Assert.AreEqual(45, PocoAllColumnsView.AsQueryable().Min(x => x.Int8));
-        Assert.AreEqual(45, PocoAllColumnsView.AsQueryable().Min(x => x.Int16));
-        Assert.AreEqual(45, PocoAllColumnsView.AsQueryable().Min(x => x.Int32));
-        Assert.AreEqual(45, PocoAllColumnsView.AsQueryable().Min(x => x.Int64));
-        Assert.AreEqual(45, PocoAllColumnsView.AsQueryable().Min(x => x.Float));
-        Assert.AreEqual(45, PocoAllColumnsView.AsQueryable().Min(x => x.Double));
-        Assert.AreEqual(45, PocoAllColumnsView.AsQueryable().Min(x => x.Decimal));
+        Assert.AreEqual(0, PocoByteView.AsQueryable().Min(x => x.Val));
+        Assert.AreEqual(0, PocoShortView.AsQueryable().Min(x => x.Val));
+        Assert.AreEqual(0, PocoIntView.AsQueryable().Min(x => x.Val));
+        Assert.AreEqual(0, PocoLongView.AsQueryable().Min(x => x.Val));
+        Assert.AreEqual(0, PocoFloatView.AsQueryable().Min(x => x.Val));
+        Assert.AreEqual(0, PocoDecimalView.AsQueryable().Min(x => x.Val));
+        Assert.AreEqual(0, PocoDoubleView.AsQueryable().Min(x => x.Val));
     }
 
     [Test]
-    public void TestMaxAllTypes()
+    public void TestMax()
     {
-        Assert.AreEqual(45, PocoAllColumnsView.AsQueryable().Max(x => x.Int8));
-        Assert.AreEqual(45, PocoAllColumnsView.AsQueryable().Max(x => x.Int16));
-        Assert.AreEqual(45, PocoAllColumnsView.AsQueryable().Max(x => x.Int32));
-        Assert.AreEqual(45, PocoAllColumnsView.AsQueryable().Max(x => x.Int64));
-        Assert.AreEqual(45, PocoAllColumnsView.AsQueryable().Max(x => x.Float));
-        Assert.AreEqual(45, PocoAllColumnsView.AsQueryable().Max(x => x.Double));
-        Assert.AreEqual(45, PocoAllColumnsView.AsQueryable().Max(x => x.Decimal));
+        Assert.Fail("TODO");
     }
 
     [Test]
