@@ -73,8 +73,8 @@ public class TxStateStorageDecorator implements TxStateStorage {
     }
 
     @Override
-    public boolean compareAndSet(UUID txId, @Nullable TxState txStateExpected, TxMeta txMeta, long commandIndex) {
-        return delegate.compareAndSet(txId, txStateExpected, txMeta, commandIndex);
+    public boolean compareAndSet(UUID txId, @Nullable TxState txStateExpected, TxMeta txMeta, long commandIndex, long commandTerm) {
+        return delegate.compareAndSet(txId, txStateExpected, txMeta, commandIndex, commandTerm);
     }
 
     @Override
@@ -98,8 +98,13 @@ public class TxStateStorageDecorator implements TxStateStorage {
     }
 
     @Override
-    public void lastAppliedIndex(long lastAppliedIndex) {
-        delegate.lastAppliedIndex(lastAppliedIndex);
+    public long lastAppliedTerm() {
+        return delegate.lastAppliedTerm();
+    }
+
+    @Override
+    public void lastApplied(long lastAppliedIndex, long lastAppliedTerm) {
+        delegate.lastApplied(lastAppliedIndex, lastAppliedTerm);
     }
 
     @Override
@@ -113,7 +118,7 @@ public class TxStateStorageDecorator implements TxStateStorage {
     }
 
     @Override
-    public void close() throws Exception {
+    public void close() {
         delegate.close();
     }
 }

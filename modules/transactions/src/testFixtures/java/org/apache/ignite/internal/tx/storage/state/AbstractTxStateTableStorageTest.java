@@ -70,7 +70,7 @@ public abstract class AbstractTxStateTableStorageTest {
 
         storage.put(txId, txMeta);
 
-        storage.lastAppliedIndex(100);
+        storage.lastApplied(100, 500);
 
         storage.flush().get(1, TimeUnit.SECONDS);
 
@@ -105,7 +105,7 @@ public abstract class AbstractTxStateTableStorageTest {
 
         storage.put(oldTxId, oldTxMeta);
 
-        storage.lastAppliedIndex(100);
+        storage.lastApplied(100, 500);
 
         tableStorage.startRebalance(PARTITION_ID).get(1, TimeUnit.SECONDS);
 
@@ -114,7 +114,7 @@ public abstract class AbstractTxStateTableStorageTest {
 
         storage.put(newTxId, newTxMeta);
 
-        storage.lastAppliedIndex(500);
+        storage.lastApplied(500, 1000);
 
         tableStorage.abortRebalance(PARTITION_ID).get(1, TimeUnit.SECONDS);
 
@@ -138,7 +138,7 @@ public abstract class AbstractTxStateTableStorageTest {
 
         storage.put(oldTxId, oldTxMeta);
 
-        storage.lastAppliedIndex(100);
+        storage.lastApplied(100, 500);
 
         tableStorage.startRebalance(PARTITION_ID).get(1, TimeUnit.SECONDS);
 
@@ -147,7 +147,7 @@ public abstract class AbstractTxStateTableStorageTest {
 
         storage.put(newTxId, newTxMeta);
 
-        storage.lastAppliedIndex(500);
+        storage.lastApplied(500, 1000);
 
         tableStorage.finishRebalance(PARTITION_ID).get(1, TimeUnit.SECONDS);
 

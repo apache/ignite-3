@@ -68,10 +68,11 @@ public class TxStateStorageOnRebalanceTest {
         TxState txStateExpected = TxState.ABORTED;
         TxMeta txMeta = mock(TxMeta.class);
         long commandIndex = 100;
+        long commandTerm = 500;
 
-        txStateStorageOnRebalance.compareAndSet(txId, txStateExpected, txMeta, commandIndex);
+        txStateStorageOnRebalance.compareAndSet(txId, txStateExpected, txMeta, commandIndex, commandTerm);
 
-        verify(txStateStorage, times(1)).compareAndSet(eq(txId), eq(txStateExpected), eq(txMeta), eq(commandIndex));
+        verify(txStateStorage, times(1)).compareAndSet(eq(txId), eq(txStateExpected), eq(txMeta), eq(commandIndex), eq(commandTerm));
     }
 
     @Test
@@ -101,9 +102,9 @@ public class TxStateStorageOnRebalanceTest {
 
         verify(txStateStorage, times(1)).lastAppliedIndex();
 
-        txStateStorageOnRebalance.lastAppliedIndex(100);
+        txStateStorageOnRebalance.lastApplied(100, 500);
 
-        verify(txStateStorage, times(1)).lastAppliedIndex(eq(100L));
+        verify(txStateStorage, times(1)).lastApplied(eq(100L), eq(500L));
 
         txStateStorageOnRebalance.persistedIndex();
 
