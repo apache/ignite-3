@@ -63,19 +63,25 @@ public partial class LinqTests
     [Test]
     public void TestMax()
     {
-        Assert.Fail("TODO");
+        Assert.AreEqual(3, PocoByteView.AsQueryable().Max(x => x.Val));
+        Assert.AreEqual(18, PocoShortView.AsQueryable().Max(x => x.Val));
+        Assert.AreEqual(900, PocoIntView.AsQueryable().Max(x => x.Val));
+        Assert.AreEqual(18, PocoLongView.AsQueryable().Max(x => x.Val));
+        Assert.AreEqual(9.0f, PocoFloatView.AsQueryable().Max(x => x.Val));
+        Assert.AreEqual(9m, PocoDecimalView.AsQueryable().Max(x => x.Val));
+        Assert.AreEqual(9.0d, PocoDoubleView.AsQueryable().Max(x => x.Val));
     }
 
     [Test]
-    public void TestAverageAllTypes()
+    public void TestAverage()
     {
-        Assert.AreEqual(45, PocoAllColumnsView.AsQueryable().Average(x => x.Int8));
-        Assert.AreEqual(45, PocoAllColumnsView.AsQueryable().Average(x => x.Int16));
-        Assert.AreEqual(45, PocoAllColumnsView.AsQueryable().Average(x => x.Int32));
-        Assert.AreEqual(45, PocoAllColumnsView.AsQueryable().Average(x => x.Int64));
-        Assert.AreEqual(45, PocoAllColumnsView.AsQueryable().Average(x => x.Float));
-        Assert.AreEqual(45, PocoAllColumnsView.AsQueryable().Average(x => x.Double));
-        Assert.AreEqual(45, PocoAllColumnsView.AsQueryable().Average(x => x.Decimal));
+        Assert.AreEqual(1.0d, PocoByteView.AsQueryable().Average(x => x.Val));
+        Assert.AreEqual(9.0d, PocoShortView.AsQueryable().Average(x => x.Val));
+        Assert.AreEqual(450d, PocoIntView.AsQueryable().Average(x => x.Val));
+        Assert.AreEqual(9.0d, PocoLongView.AsQueryable().Average(x => x.Val));
+        Assert.AreEqual(4.5f, PocoFloatView.AsQueryable().Average(x => x.Val));
+        Assert.AreEqual(4.5m, PocoDecimalView.AsQueryable().Average(x => x.Val));
+        Assert.AreEqual(4.5d, PocoDoubleView.AsQueryable().Average(x => x.Val));
     }
 
     [Test]
