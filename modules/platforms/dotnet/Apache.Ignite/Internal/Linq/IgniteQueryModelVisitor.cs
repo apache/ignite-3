@@ -245,8 +245,11 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
         }
         else if (queryModel.ResultOperators.Count == 1 && queryModel.ResultOperators[0] is AllResultOperator allOp)
         {
-            // SELECT
-            _builder.Append("select not exists (select 1 from (select * ");
+            // TODO: Combine with the above?
+            // All is different from Any: it always has a predicate inside.
+            // We use NOT EXISTS with reverted predicate to implement All.
+            // Reverted predicate is added in VisitBodyClauses.
+            _builder.Append("select not exists (select 1 ");
 
             // FROM ... WHERE ... JOIN ...
             base.VisitQueryModel(queryModel);
@@ -254,13 +257,7 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
             // UNION ...
             ProcessResultOperatorsEnd(queryModel);
 
-            _builder.TrimEnd().Append(") where not (");
-
-            // All is different from Any: it always has a predicate inside.
-            // We use NOT EXISTS with reverted predicate to implement All.
-            BuildSqlExpression(allOp.Predicate);
-
-            _builder.TrimEnd().Append("))");
+            _builder.TrimEnd().Append(')');
         }
         else
         {
@@ -312,6 +309,15 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
         foreach (var where in bodyClauses.OfType<WhereClause>())
         {
             VisitWhereClause(where, i++, hasGroups);
+        }
+
+        if (queryModel.ResultOperators.Count == 1 && queryModel.ResultOperators[0] is AllResultOperator allOp)
+        {
+            _builder.Append(i > 0
+                ? "and not "
+                : "where not ");
+
+            BuildSqlExpression(allOp.Predicate);
         }
 
         i = 0;
