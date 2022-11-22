@@ -149,6 +149,7 @@ internal sealed class IgniteQueryExecutor : IQueryExecutor
 
         if (columns.Count == 1)
         {
+            // TODO: Get rid of ChangeType
             return (IReadOnlyList<IColumnMetadata> cols, ref BinaryTupleReader reader) =>
                 (T)Convert.ChangeType(Sql.ReadColumnValue(ref reader, cols[0], 0)!, typeof(T), CultureInfo.InvariantCulture);
         }
