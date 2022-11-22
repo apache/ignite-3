@@ -263,7 +263,7 @@ public partial class LinqTests : IgniteTestsBase
 
         var tx = await client.Transactions.BeginAsync();
         var tbl = await client.Tables.GetTableAsync(FakeServer.ExistingTableName);
-        var pocoView = tbl!.GetRecordView<Poco>();
+        var pocoView = tbl!.GetRecordView<PocoInt>();
 
         _ = pocoView.AsQueryable(tx).Select(x => x.Key).ToArray();
 
