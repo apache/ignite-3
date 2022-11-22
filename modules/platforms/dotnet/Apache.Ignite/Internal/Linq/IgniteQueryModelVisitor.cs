@@ -243,21 +243,24 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
 
             _builder.TrimEnd().Append(')');
         }
-        else if (queryModel.ResultOperators.Count == 1 && queryModel.ResultOperators[0] is AllResultOperator)
+        else if (queryModel.ResultOperators.Count == 1 && queryModel.ResultOperators[0] is AllResultOperator allOp)
         {
-            // All is different from Any: it always has a predicate inside/
-
             // SELECT
-            _builder.Append("select not exists (select 1 ");
+            _builder.Append("select not exists (select 1 from (select * ");
 
             // FROM ... WHERE ... JOIN ...
-            // TODO: Negate WHERE
             base.VisitQueryModel(queryModel);
 
             // UNION ...
             ProcessResultOperatorsEnd(queryModel);
 
-            _builder.TrimEnd().Append(')');
+            _builder.TrimEnd().Append(") where not (");
+
+            // All is different from Any: it always has a predicate inside.
+            // We use NOT EXISTS with reverted predicate to implement All.
+            BuildSqlExpression(allOp.Predicate);
+
+            _builder.TrimEnd().Append("))");
         }
         else
         {
