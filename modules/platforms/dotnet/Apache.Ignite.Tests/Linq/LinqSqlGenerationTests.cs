@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Tests.Linq;
 
 using System;
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Threading.Tasks;
@@ -31,7 +32,7 @@ using Table;
 /// <para />
 /// Uses <see cref="FakeServer"/> to get the actual SQL sent from the client.
 /// </summary>
-public class LinqSqlGenerationTests
+public partial class LinqSqlGenerationTests
 {
     private IIgniteClient _client = null!;
     private FakeServer _server = null!;
@@ -174,6 +175,9 @@ public class LinqSqlGenerationTests
 
     private void AssertSql(string expectedSql, Func<IQueryable<Poco>, object?> query) =>
         AssertSql(expectedSql, t => query(t.GetRecordView<Poco>().AsQueryable()));
+
+    private void AssertSqlKv(string expectedSql, Func<IQueryable<KeyValuePair<int, Poco>>, object?> query) =>
+        AssertSql(expectedSql, t => query(t.GetKeyValueView<int, Poco>().AsQueryable()));
 
     private void AssertSql(string expectedSql, Func<ITable, object?> query)
     {
