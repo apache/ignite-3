@@ -20,9 +20,13 @@ package org.apache.ignite.internal.replicator;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 
 import java.util.Collection;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -35,6 +39,7 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.replicator.exception.ReplicaIsAlreadyStartedException;
 import org.apache.ignite.internal.replicator.exception.ReplicaUnavailableException;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
+import org.apache.ignite.internal.replicator.message.AwaitReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaMessageGroup;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
@@ -82,6 +87,8 @@ public class ReplicaManager implements IgniteComponent {
     /** Replicas. */
     private final ConcurrentHashMap<ReplicationGroupId, Replica> replicas = new ConcurrentHashMap<>();
 
+    private final Map<ReplicationGroupId, CompletableFuture<Void>> pendingReplicas = new ConcurrentHashMap<>();
+
     /** A hybrid logical clock. */
     private final HybridClock clock;
 
@@ -107,6 +114,7 @@ public class ReplicaManager implements IgniteComponent {
         this.clock = clock;
         this.messageGroupsToHandle = messageGroupsToHandle;
         this.handler = (message, sender, correlationId) -> {
+//            System.out.println("in_handler");
             if (!busyLock.enterBusy()) {
                 throw new IgniteException(new NodeStoppingException());
             }
@@ -120,6 +128,45 @@ public class ReplicaManager implements IgniteComponent {
 
                 HybridTimestamp requestTimestamp = extractTimestamp(request);
 
+                if (request instanceof AwaitReplicaRequest) {
+//                    System.out.println("request instanceof AwaitReplicaRequest");
+                    replicas.compute(request.groupId(), (replicationGroupId, replica0) -> {
+                        pendingReplicas.compute(request.groupId(), (clusterNode, fut) -> {
+                            if (replica0 == null) {
+                                if (fut == null) {
+                                    fut = new CompletableFuture<>();
+                                }
+
+                                fut.thenCompose(ignore -> {
+                                    if (!busyLock.enterBusy()) {
+                                        throw new IgniteException(new NodeStoppingException());
+                                    }
+
+                                    try {
+//                                        System.out.println("sendAwaitReplicaResponse1");
+                                        sendAwaitReplicaResponse(sender, correlationId);
+                                    } finally {
+                                        busyLock.leaveBusy();
+                                    }
+
+                                    return null;
+                                });
+
+                                return fut;
+                            } else {
+//                                System.out.println("sendAwaitReplicaResponse2");
+                                sendAwaitReplicaResponse(sender, correlationId);
+
+                                return fut;
+                            }
+                        });
+
+                        return replica0;
+                    });
+
+                    return;
+                }
+
                 Replica replica = replicas.get(request.groupId());
 
                 if (replica == null) {
@@ -128,12 +175,15 @@ public class ReplicaManager implements IgniteComponent {
                     return;
                 }
 
+//                System.out.println("replica is not null");
+
                 CompletableFuture<Object> result = replica.processRequest(request);
 
                 result.handle((res, ex) -> {
                     NetworkMessage msg;
 
                     if (ex == null) {
+//                        System.out.println("prepareReplicaResponse");
                         msg = prepareReplicaResponse(requestTimestamp, res);
                     } else {
                         LOG.warn("Failed to process replica request [request={}]", ex, request);
@@ -205,9 +255,21 @@ public class ReplicaManager implements IgniteComponent {
             ReplicationGroupId replicaGrpId,
             ReplicaListener listener
     ) {
+//        System.out.println("startReplicaInternal");
         var replica = new Replica(replicaGrpId, listener);
 
         Replica previous = replicas.putIfAbsent(replicaGrpId, replica);
+
+        pendingReplicas.forEach((id, responsesFut) -> {
+//            System.out.println("startReplicaInternal pendingReplicas.forEach");
+            if (id.equals(replicaGrpId)) {
+//                System.out.println("startReplicaInternal responsesFut.join()");
+
+                responsesFut.complete(null);
+            }
+        });
+
+        pendingReplicas.remove(replicaGrpId);
 
         if (previous != null) {
             throw new ReplicaIsAlreadyStartedException(replicaGrpId);
@@ -328,6 +390,21 @@ public class ReplicaManager implements IgniteComponent {
                             .build(),
                     correlationId);
         }
+    }
+
+    /**
+     * Sends replica unavailable error response.
+     */
+    private void sendAwaitReplicaResponse(
+            ClusterNode sender,
+            @Nullable Long correlationId
+    ) {
+        clusterNetSvc.messagingService().respond(
+                sender,
+                REPLICA_MESSAGES_FACTORY
+                        .awaitReplicaResponse()
+                        .build(),
+                correlationId);
     }
 
     /**

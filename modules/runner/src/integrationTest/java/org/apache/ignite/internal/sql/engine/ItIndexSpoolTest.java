@@ -70,7 +70,6 @@ public class ItIndexSpoolTest extends AbstractBasicIntegrationTest {
     /**
      * Test.
      */
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17959")
     @ParameterizedTest(name = "tableSize={0}, partitions={1}")
     @MethodSource("rowsWithPartitionsArgs")
     public void test(int rows, int partitions) {

@@ -112,6 +112,7 @@ import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -905,8 +906,8 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * group stops for some time while restarting node is being recovered. The recovery process should continue and eventually succeed after
      * metastorage group starts again.
      */
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17959")
     @Test
+    @RepeatedTest(3)
     @WithSystemProperty(key = CONFIGURATION_CATCH_UP_DIFFERENCE_PROPERTY, value = "0")
     public void testMetastorageStop() {
         int cfgGap = 4;
