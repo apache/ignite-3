@@ -19,7 +19,6 @@ plugins {
     id 'java'
     id 'signing'
     alias(libs.plugins.docker)
-    alias(libs.plugins.nebula)
     alias(libs.plugins.checksum)
 }
 
