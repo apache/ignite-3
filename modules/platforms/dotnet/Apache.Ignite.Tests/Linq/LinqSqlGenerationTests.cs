@@ -84,13 +84,13 @@ public class LinqSqlGenerationTests
     [Test]
     public void TestAll() =>
         AssertSql(
-            "select not exists (select 1 from (select * from PUBLIC.tbl1 as _T0) where not ((_T0.KEY > ?)))",
+            "select not exists (select 1 from PUBLIC.tbl1 as _T0 where not (_T0.KEY > ?))",
             q => q.All(x => x.Key > 10));
 
     [Test]
     public void TestAllWithWhere() =>
         AssertSql(
-            "select not exists (select 1 from PUBLIC.tbl1 as _T0 where not (_T0.KEY > ?))",
+            "select not exists (select 1 from PUBLIC.tbl1 as _T0 where (_T0.VAL IS DISTINCT FROM ?) and not (_T0.KEY > ?))",
             q => q.Where(x => x.Val != "1").All(x => x.Key > 10));
 
     [Test]

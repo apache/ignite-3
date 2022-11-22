@@ -243,7 +243,7 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
 
             _builder.TrimEnd().Append(')');
         }
-        else if (queryModel.ResultOperators.Count == 1 && queryModel.ResultOperators[0] is AllResultOperator allOp)
+        else if (queryModel.ResultOperators.Count == 1 && queryModel.ResultOperators[0] is AllResultOperator)
         {
             // TODO: Combine with the above?
             // All is different from Any: it always has a predicate inside.
