@@ -161,6 +161,71 @@ SqlNodeList TableElementList() :
     }
 }
 
+SqlCreate SqlCreateZone(Span s, boolean replace) :
+{
+        final boolean ifNotExists;
+        final SqlIdentifier id;
+        SqlNodeList optionList = null;
+}
+{
+    <ZONE>
+        ifNotExists = IfNotExistsOpt()
+        id = CompoundIdentifier()
+    [
+        <WITH> { s.add(this); } optionList = CreateZoneOptionList()
+    ]
+    {
+        return new IgniteSqlCreateZone(s.end(this), ifNotExists, id, optionList);
+    }
+}
+
+void CreateZoneOption(List<SqlNode> list) :
+{
+    final Span s;
+    final SqlIdentifier key;
+    final SqlNode val;
+}
+{
+    key = SimpleIdentifier() { s = span(); }
+    <EQ>
+    (
+        val = SimpleIdentifier()
+    |
+        val = Literal()
+    )
+    {
+        IgniteSqlCreateZoneOption.validate(list, key, getPos());
+
+        list.add(new IgniteSqlCreateZoneOption(key, val, s.end(this)));
+    }
+}
+
+SqlNodeList CreateZoneOptionList() :
+{
+    List<SqlNode> list = new ArrayList<SqlNode>();
+    final Span s = Span.of();
+}
+{
+    CreateZoneOption(list)
+    (
+        <COMMA> { s.add(this); } CreateZoneOption(list)
+    )*
+    {
+        return new SqlNodeList(list, s.end(this));
+    }
+}
+
+SqlDrop SqlDropZone(Span s, boolean replace) :
+{
+    final boolean ifExists;
+    final SqlIdentifier zoneId;
+}
+{
+    <ZONE> ifExists = IfExistsOpt() zoneId = SimpleIdentifier() {
+        return new IgniteSqlDropZone(s.end(this), ifExists, zoneId);
+    }
+}
+
 SqlCreate SqlCreateTable(Span s, boolean replace) :
 {
     final boolean ifNotExists;

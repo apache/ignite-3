@@ -26,6 +26,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.nullValue;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -53,6 +54,72 @@ import org.junit.jupiter.api.Test;
  * Test suite to verify parsing of the DDL command.
  */
 public class SqlDdlParserTest {
+    /**
+     * Parsing CREATE ZONE statement.
+     */
+    @Test
+    public void createZone() throws SqlParseException {
+        String query = "create zone test_zone";
+
+        SqlNode node = parse(query);
+
+        assertThat(node, instanceOf(IgniteSqlCreateZone.class));
+
+        IgniteSqlCreateZone createZone = (IgniteSqlCreateZone) node;
+
+        assertThat(createZone.name().names, is(List.of("TEST_ZONE")));
+        assertNull(createZone.createOptionList());
+
+        query = "create zone test_zone with replicas=2, partitions=3, data_nodes_filter=nodes_filter, "
+                + "affinity_function=test_Affinity,data_nodes_auto_adjust=1";
+
+        createZone = (IgniteSqlCreateZone) parse(query);
+
+        assertNotNull(createZone.createOptionList());
+        assertThatZoneOptionPresent(createZone.createOptionList().getList(), "REPLICAS", 2);
+        assertThatZoneOptionPresent(createZone.createOptionList().getList(), "PARTITIONS", 3);
+        assertThatZoneOptionPresent(createZone.createOptionList().getList(), "AFFINITY_FUNCTION", "TEST_AFFINITY");
+        assertThatZoneOptionPresent(createZone.createOptionList().getList(), "DATA_NODES_FILTER", "NODES_FILTER");
+        assertThatZoneOptionPresent(createZone.createOptionList().getList(), "DATA_NODES_AUTO_ADJUST", 1);
+    }
+
+    @Test
+    public void createZoneAutoAdjustmentOption() throws SqlParseException {
+        String query = "create zone test_zone with data_nodes_auto_adjust_scale_up=1, data_nodes_auto_adjust_scale_down=2";
+
+        SqlNode node = parse(query);
+
+        assertThat(node, instanceOf(IgniteSqlCreateZone.class));
+
+        IgniteSqlCreateZone createZone = (IgniteSqlCreateZone) node;
+
+        assertThat(createZone.name().names, is(List.of("TEST_ZONE")));
+
+        assertThatZoneOptionPresent(createZone.createOptionList().getList(), "DATA_NODES_AUTO_ADJUST_SCALE_UP", 1);
+        assertThatZoneOptionPresent(createZone.createOptionList().getList(), "DATA_NODES_AUTO_ADJUST_SCALE_DOWN", 2);
+
+        // Invalid combination.
+        String invalidQuery = "create zone test_zone with data_nodes_auto_adjust=1, data_nodes_auto_adjust_scale_up=1";
+
+        var ex = assertThrows(SqlParseException.class, () -> parse(invalidQuery));
+        assertThat(ex.getMessage(), containsString("Encountered \"DATA_NODES_AUTO_ADJUST_SCALE_UP\""));
+    }
+
+    /**
+     * Parsing DROP ZONE statement.
+     */
+    @Test
+    public void dropZone() throws SqlParseException {
+        String query = "drop zone test_zone";
+        SqlNode node = parse(query);
+
+        assertThat(node, instanceOf(IgniteSqlDropZone.class));
+
+        IgniteSqlDropZone dropZone = (IgniteSqlDropZone) node;
+
+        assertThat(dropZone.zoneName().names, is(List.of("TEST_ZONE")));
+    }
+
     /**
      * Very simple case where only table name and a few columns are presented.
      */
@@ -589,6 +656,26 @@ public class SqlDdlParserTest {
                 return item != null && cls.isAssignableFrom(item.getClass()) && pred.test((T) item);
             }
         };
+    }
+
+    private static void assertThatZoneOptionPresent(List<SqlNode> optionList, String option, Object expVal) {
+        assertThat(optionList, hasItem(ofTypeMatching(
+                option + "=" + expVal,
+                IgniteSqlCreateZoneOption.class,
+                opt -> {
+                    if (opt.key().getSimple().equals(option)) {
+                        if (opt.value() instanceof SqlLiteral) {
+                            return Objects.equals(expVal, ((SqlLiteral) opt.value()).getValueAs(expVal.getClass()));
+                        }
+
+                        if (opt.value() instanceof SqlIdentifier) {
+                            return Objects.equals(expVal, ((SqlIdentifier) opt.value()).getSimple());
+                        }
+                    }
+
+                    return false;
+                }
+        )));
     }
 
     private static void assertThatOptionPresent(List<SqlNode> optionList, String option, Object expVal) {
