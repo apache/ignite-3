@@ -41,8 +41,8 @@ public partial class LinqTests
     {
         Assert.AreEqual(12, PocoByteView.AsQueryable().Sum(x => x.Val));
         Assert.AreEqual(90, PocoShortView.AsQueryable().Sum(x => x.Val));
-        Assert.AreEqual(45, PocoIntView.AsQueryable().Sum(x => x.Val));
-        Assert.AreEqual(45, PocoLongView.AsQueryable().Sum(x => x.Val));
+        Assert.AreEqual(4500, PocoIntView.AsQueryable().Sum(x => x.Val));
+        Assert.AreEqual(90, PocoLongView.AsQueryable().Sum(x => x.Val));
         Assert.AreEqual(45, PocoFloatView.AsQueryable().Sum(x => x.Val));
         Assert.AreEqual(45, PocoDecimalView.AsQueryable().Sum(x => x.Val));
         Assert.AreEqual(45, PocoDoubleView.AsQueryable().Sum(x => x.Val));
