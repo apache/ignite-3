@@ -45,10 +45,14 @@ public partial class LinqSqlGenerationTests
             q => q.Select(x => new { Key = x.Key.Key + 1, x.Value.Val }).ToList());
 
     [Test]
-    public void TestSelectSameColumnFromPairKeyAndValKv() =>
+    public void TestSelectSameColumnFromPairKeyAndValKv()
+    {
+        // We avoid selecting same column twice if it is included in both Key and Value parts,
+        // but if the user requests it explicitly, we keep it.
         AssertSqlKv(
             "select _T0.KEY, _T0.KEY from PUBLIC.tbl1 as _T0",
             q => q.Select(x => new { Key1 = x.Key.Key, Key2 = x.Value.Key }).ToList());
+    }
 
     [Test]
     public void TestSelectEntirePairKv() =>
