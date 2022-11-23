@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.raft.storage;
 
 import org.apache.ignite.raft.jraft.option.RaftOptions;
-import org.apache.ignite.raft.jraft.storage.LogManager;
 import org.apache.ignite.raft.jraft.storage.SnapshotStorage;
 
 /** Snapshot storage factory interface. */
@@ -29,8 +28,7 @@ public interface SnapshotStorageFactory {
      *
      * @param uri Snapshot URI.
      * @param raftOptions Raft options.
-     * @param logManager JRaft's LogManager.
      * @return Snapshot storage.
      */
-    SnapshotStorage createSnapshotStorage(String uri, RaftOptions raftOptions, LogManager logManager);
+    SnapshotStorage createSnapshotStorage(String uri, RaftOptions raftOptions);
 }

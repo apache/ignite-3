@@ -23,7 +23,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
-import org.apache.ignite.network.annotations.Transferable;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.messages.TestRaftMessagesFactory;
 import org.junit.jupiter.api.AfterEach;
@@ -98,18 +97,18 @@ public abstract class AbstractRpcTest {
         RpcClient client = createClient();
 
         CountDownLatch l1 = new CountDownLatch(1);
-        AtomicReference<Response1> resp1 = new AtomicReference<>();
+        AtomicReference<TestMessages.Response1> resp1 = new AtomicReference<>();
         client.invokeAsync(peerId, msgFactory.request1().build(), new InvokeContext(), (result, err) -> {
-            resp1.set((Response1) result);
+            resp1.set((TestMessages.Response1) result);
             l1.countDown();
         }, 5000);
         l1.await(5_000, TimeUnit.MILLISECONDS);
         assertNotNull(resp1);
 
         CountDownLatch l2 = new CountDownLatch(1);
-        AtomicReference<Response2> resp2 = new AtomicReference<>();
+        AtomicReference<TestMessages.Response2> resp2 = new AtomicReference<>();
         client.invokeAsync(peerId, msgFactory.request2().build(), new InvokeContext(), (result, err) -> {
-            resp2.set((Response2) result);
+            resp2.set((TestMessages.Response2) result);
             l2.countDown();
         }, 5000);
         l2.await(5_000, TimeUnit.MILLISECONDS);
@@ -160,7 +159,7 @@ public abstract class AbstractRpcTest {
         assertTrue(client1.checkConnection(peerId));
 
         try {
-            Request1 request = msgFactory.request1().val(10_000).build();
+            TestMessages.Request1 request = msgFactory.request1().val(10_000).build();
 
             CompletableFuture<Object> fut = new CompletableFuture<>();
 
@@ -182,13 +181,13 @@ public abstract class AbstractRpcTest {
         Queue<Object[]> recorded = client1.recordedMessages();
 
         assertEquals(1, recorded.size());
-        assertTrue(recorded.poll()[0] instanceof Request1);
+        assertTrue(recorded.poll()[0] instanceof TestMessages.Request1);
     }
 
     @Test
     public void testBlockedAsync() throws Exception {
         RpcClientEx client1 = (RpcClientEx) createClient();
-        client1.blockMessages((msg, id) -> msg instanceof Request1);
+        client1.blockMessages((msg, id) -> msg instanceof TestMessages.Request1);
 
         assertTrue(client1.checkConnection(peerId));
 
@@ -210,9 +209,9 @@ public abstract class AbstractRpcTest {
     }
 
     /** */
-    private class Request1RpcProcessor implements RpcProcessor<Request1> {
+    private class Request1RpcProcessor implements RpcProcessor<TestMessages.Request1> {
         /** {@inheritDoc} */
-        @Override public void handleRequest(RpcContext rpcCtx, Request1 request) {
+        @Override public void handleRequest(RpcContext rpcCtx, TestMessages.Request1 request) {
             if (request.val() == 10_000)
                 try {
                     Thread.sleep(1000);
@@ -221,56 +220,28 @@ public abstract class AbstractRpcTest {
                     // No-op.
                 }
 
-            Response1 resp1 = msgFactory.response1().val(request.val() + 1).build();
+            TestMessages.Response1 resp1 = msgFactory.response1().val(request.val() + 1).build();
             rpcCtx.sendResponse(resp1);
         }
 
         /** {@inheritDoc} */
         @Override public String interest() {
-            return Request1.class.getName();
+            return TestMessages.Request1.class.getName();
         }
     }
 
     /** */
-    private class Request2RpcProcessor implements RpcProcessor<Request2> {
+    private class Request2RpcProcessor implements RpcProcessor<TestMessages.Request2> {
         /** {@inheritDoc} */
-        @Override public void handleRequest(RpcContext rpcCtx, Request2 request) {
-            Response2 resp2 = msgFactory.response2().val(request.val() + 1).build();
+        @Override public void handleRequest(RpcContext rpcCtx, TestMessages.Request2 request) {
+            TestMessages.Response2 resp2 = msgFactory.response2().val(request.val() + 1).build();
             rpcCtx.sendResponse(resp2);
         }
 
         /** {@inheritDoc} */
         @Override public String interest() {
-            return Request2.class.getName();
+            return TestMessages.Request2.class.getName();
         }
-    }
-
-    /** */
-    @Transferable(value = 0)
-    public static interface Request1 extends Message {
-        /** */
-        int val();
-    }
-
-    /** */
-    @Transferable(value = 1)
-    public static interface Request2 extends Message {
-        /** */
-        int val();
-    }
-
-    /** */
-    @Transferable(value = 2)
-    public static interface Response1 extends Message {
-        /** */
-        int val();
-    }
-
-    /** */
-    @Transferable(value = 3)
-    public static interface Response2 extends Message {
-        /** */
-        int val();
     }
 
     /**

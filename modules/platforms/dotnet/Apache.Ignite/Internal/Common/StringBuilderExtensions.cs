@@ -15,31 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.deprecated;
+namespace Apache.Ignite.Internal.Common;
 
-/**
- * Top level runtime exception for throwing the error message to user.
- */
-public class IgniteCliException extends RuntimeException {
-    /** Serial version uid. */
-    private static final long serialVersionUID = 0L;
+using System.Text;
 
-    /**
-     * Creates a new instance of {@code IgniteCliException} with the given {@code msg}.
-     *
-     * @param msg Detailed message.
-     */
-    public IgniteCliException(String msg) {
-        super(msg);
-    }
+/// <summary>
+/// Extension methods for <see cref="StringBuilder"/> class.
+/// </summary>
+internal static class StringBuilderExtensions
+{
+    /// <summary>
+    /// Removes all the trailing white-space characters from the current string builder.
+    /// </summary>
+    /// <param name="sb">String builder.</param>
+    /// <returns>Same instance for chaining.</returns>
+    public static StringBuilder TrimEnd(this StringBuilder sb)
+    {
+        while (sb.Length > 0 && char.IsWhiteSpace(sb[^1]))
+        {
+            sb.Length--;
+        }
 
-    /**
-     * Creates a new instance of {@code IgniteCliException} with the given {@code msg} and {@code cause}.
-     *
-     * @param msg   Detailed message.
-     * @param cause Cause.
-     */
-    public IgniteCliException(String msg, Throwable cause) {
-        super(msg, cause);
+        return sb;
     }
 }

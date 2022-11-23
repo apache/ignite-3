@@ -27,8 +27,8 @@ public interface MessageListener {
     /**
      * OnMessage.
      *
-     * @param nodeId Sender node ID.
-     * @param msg    Message.
+     * @param nodeName Sender node consistent ID.
+     * @param msg Message.
      */
-    void onMessage(String nodeId, NetworkMessage msg);
+    void onMessage(String nodeName, NetworkMessage msg);
 }

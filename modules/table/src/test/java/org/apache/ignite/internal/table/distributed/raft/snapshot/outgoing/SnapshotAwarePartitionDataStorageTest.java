@@ -37,6 +37,7 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionKey;
 import org.junit.jupiter.api.BeforeEach;
@@ -110,10 +111,35 @@ class SnapshotAwarePartitionDataStorageTest {
     }
 
     @Test
-    void delegatesLastAppliedIndexSetter() {
-        testedStorage.lastAppliedIndex(42L);
+    void delegatesLastAppliedTermGetter() {
+        when(partitionStorage.lastAppliedTerm()).thenReturn(42L);
 
-        verify(partitionStorage).lastAppliedIndex(42L);
+        assertThat(testedStorage.lastAppliedTerm(), is(42L));
+    }
+
+    @Test
+    void delegatesLastAppliedSetter() {
+        testedStorage.lastApplied(42L, 10L);
+
+        verify(partitionStorage).lastApplied(42L, 10L);
+    }
+
+    @Test
+    void delegatesCommittedGroupConfigurationGetter() {
+        RaftGroupConfiguration config = mock(RaftGroupConfiguration.class);
+
+        when(partitionStorage.committedGroupConfiguration()).thenReturn(config);
+
+        assertThat(testedStorage.committedGroupConfiguration(), is(sameInstance(config)));
+    }
+
+    @Test
+    void delegatesCommittedGroupConfigurationSetter() {
+        RaftGroupConfiguration config = mock(RaftGroupConfiguration.class);
+
+        testedStorage.committedGroupConfiguration(config);
+
+        verify(partitionStorage).committedGroupConfiguration(config);
     }
 
     @Test
@@ -242,7 +268,7 @@ class SnapshotAwarePartitionDataStorageTest {
     }
 
     @Test
-    void finishesSnapshotsOnStop() throws Exception {
+    void finishesSnapshotsOnStop() {
         when(partitionSnapshots.ongoingSnapshots()).thenReturn(singletonList(snapshot));
 
         testedStorage.close();
@@ -251,7 +277,7 @@ class SnapshotAwarePartitionDataStorageTest {
     }
 
     @Test
-    void removesSnapshotsCollectionOnStop() throws Exception {
+    void removesSnapshotsCollectionOnStop() {
         when(partitionSnapshots.ongoingSnapshots()).thenReturn(singletonList(snapshot));
 
         testedStorage.close();

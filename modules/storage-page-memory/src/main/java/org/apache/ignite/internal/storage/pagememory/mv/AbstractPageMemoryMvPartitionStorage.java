@@ -636,7 +636,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
                     rowVersion.nextLink() == 0 ? null : readRowVersion(rowVersion.nextLink(), ALWAYS_LOAD_VALUE)
             );
 
-            return Cursor.fromIterator(
+            return Cursor.fromBareIterator(
                     stream.map(rowVersion -> rowVersionToResultNotFillingLastCommittedTs(versionChain, rowVersion))
                             .iterator()
             );
@@ -742,7 +742,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         }
 
         @Override
-        public void close() throws Exception {
+        public void close() {
             treeCursor.close();
         }
 

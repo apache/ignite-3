@@ -15,8 +15,31 @@
  * limitations under the License.
  */
 
-/**
- * Contains classes and packages for Ignite CLI tool.
- */
+package org.apache.ignite.internal.cli.core.exception;
 
-package org.apache.ignite.internal.cli.deprecated;
+/**
+ * Top level runtime exception for throwing the error message to user.
+ */
+public class IgniteCliException extends RuntimeException {
+    /** Serial version uid. */
+    private static final long serialVersionUID = 0L;
+
+    /**
+     * Creates a new instance of {@code IgniteCliException} with the given {@code msg}.
+     *
+     * @param msg Detailed message.
+     */
+    public IgniteCliException(String msg) {
+        super(msg);
+    }
+
+    /**
+     * Creates a new instance of {@code IgniteCliException} with the given {@code msg} and {@code cause}.
+     *
+     * @param msg   Detailed message.
+     * @param cause Cause.
+     */
+    public IgniteCliException(String msg, Throwable cause) {
+        super(msg, cause);
+    }
+}

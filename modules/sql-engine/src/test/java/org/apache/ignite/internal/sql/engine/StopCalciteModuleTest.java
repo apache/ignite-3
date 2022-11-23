@@ -36,7 +36,6 @@ import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadInfo;
 import java.lang.management.ThreadMXBean;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -45,8 +44,6 @@ import java.util.concurrent.Flow;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import org.apache.ignite.configuration.ConfigurationValue;
-import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
-import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -59,7 +56,6 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.registry.SchemaRegistryImpl;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionCancelledException;
@@ -91,7 +87,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 /**
  * Stop Calcite module test.
  */
-@ExtendWith(ConfigurationExtension.class)
 @ExtendWith(MockitoExtension.class)
 public class StopCalciteModuleTest {
     /** The logger. */
@@ -102,41 +97,38 @@ public class StopCalciteModuleTest {
     private static final String NODE_NAME = "mock-node-name";
 
     @Mock
-    ClusterService clusterSrvc;
+    private ClusterService clusterSrvc;
 
     @Mock
-    TableManager tableManager;
+    private TableManager tableManager;
 
     @Mock
-    IndexManager indexManager;
+    private IndexManager indexManager;
 
     @Mock
-    SchemaManager schemaManager;
+    private SchemaManager schemaManager;
 
     @Mock
-    DataStorageManager dataStorageManager;
+    private DataStorageManager dataStorageManager;
 
     @Mock
-    MessagingService msgSrvc;
+    private MessagingService msgSrvc;
 
     @Mock
-    TxManager txManager;
+    private TxManager txManager;
 
     @Mock
-    TopologyService topologySrvc;
+    private TopologyService topologySrvc;
 
     @Mock
-    InternalTable tbl;
+    private InternalTable tbl;
 
     @Mock
-    HybridClock clock;
+    private HybridClock clock;
 
-    SchemaRegistry schemaReg;
+    private SchemaRegistry schemaReg;
 
-    TestRevisionRegister testRevisionRegister = new TestRevisionRegister();
-
-    @InjectConfiguration
-    TablesConfiguration tablesConfig;
+    private final TestRevisionRegister testRevisionRegister = new TestRevisionRegister();
 
     /**
      * Before.
@@ -149,7 +141,6 @@ public class StopCalciteModuleTest {
 
         ClusterNode node = new ClusterNode("mock-node-id", NODE_NAME, null);
         when(topologySrvc.localMember()).thenReturn(node);
-        when(topologySrvc.allMembers()).thenReturn(Collections.singleton(node));
 
         SchemaDescriptor schemaDesc = new SchemaDescriptor(
                 1,

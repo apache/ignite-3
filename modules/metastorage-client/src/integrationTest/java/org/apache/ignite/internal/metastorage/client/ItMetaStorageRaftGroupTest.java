@@ -231,7 +231,7 @@ public class ItMetaStorageRaftGroupTest {
             List<org.apache.ignite.internal.metastorage.server.Entry> entries = new ArrayList<>(
                     List.of(EXPECTED_SRV_RESULT_ENTRY1, EXPECTED_SRV_RESULT_ENTRY2));
 
-            return Cursor.fromIterator(entries.iterator());
+            return Cursor.fromBareIterator(entries.iterator());
         });
 
         List<Pair<RaftServer, RaftGroupService>> raftServersRaftGroups = prepareJraftMetaStorages(replicatorStartedCounter,
