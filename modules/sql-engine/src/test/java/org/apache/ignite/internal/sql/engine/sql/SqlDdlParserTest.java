@@ -26,17 +26,12 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.nullValue;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
-import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import org.apache.calcite.sql.SqlBasicCall;
 import org.apache.calcite.sql.SqlIdentifier;
@@ -46,9 +41,7 @@ import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.ddl.SqlColumnDeclaration;
 import org.apache.calcite.sql.ddl.SqlKeyConstraint;
 import org.apache.calcite.sql.parser.SqlParseException;
-import org.apache.calcite.sql.parser.SqlParser;
 import org.apache.calcite.sql.pretty.SqlPrettyWriter;
-import org.apache.ignite.internal.generated.query.calcite.sql.IgniteSqlParserImpl;
 import org.hamcrest.CustomMatcher;
 import org.hamcrest.Matcher;
 import org.junit.jupiter.api.Test;
@@ -56,77 +49,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Test suite to verify parsing of the DDL command.
  */
-public class SqlDdlParserTest {
-    @Test
-    public void createZoneMoOptions() throws SqlParseException {
-        IgniteSqlCreateZone createZone = parseCreateZone("create zone test_zone");
-
-        assertThat(createZone.name().names, is(List.of("TEST_ZONE")));
-        assertFalse(createZone.ifNotExists());
-        assertNull(createZone.createOptionList());
-
-        createZone = parseCreateZone("create zone public.test_zone");
-        assertThat(createZone.name().names, is(List.of("PUBLIC", "TEST_ZONE")));
-        assertNull(createZone.createOptionList());
-    }
-
-    @Test
-    public void createZoneIfNotExists() throws SqlParseException {
-        IgniteSqlCreateZone createZone = parseCreateZone("create zone if not exists test_zone");
-
-        assertTrue(createZone.ifNotExists());
-        assertNull(createZone.createOptionList());
-    }
-
-    @Test
-    public void createZoneWithOptions() throws SqlParseException {
-        IgniteSqlCreateZone createZone = parseCreateZone(
-                "create zone test_zone with "
-                        + "replicas=2, "
-                        + "partitions=3, "
-                        + "data_nodes_filter=nodes_filter, "
-                        + "affinity_function=test_Affinity, "
-                        + "data_nodes_auto_adjust=1, "
-                        + "data_nodes_auto_adjust_scale_up=2, "
-                        + "data_nodes_auto_adjust_scale_down=3"
-        );
-
-        assertNotNull(createZone.createOptionList());
-        assertThatZoneOptionPresent(createZone.createOptionList().getList(), "REPLICAS", 2);
-        assertThatZoneOptionPresent(createZone.createOptionList().getList(), "PARTITIONS", 3);
-        assertThatZoneOptionPresent(createZone.createOptionList().getList(), "AFFINITY_FUNCTION", "TEST_AFFINITY");
-        assertThatZoneOptionPresent(createZone.createOptionList().getList(), "DATA_NODES_FILTER", "NODES_FILTER");
-        assertThatZoneOptionPresent(createZone.createOptionList().getList(), "DATA_NODES_AUTO_ADJUST", 1);
-
-        SqlPrettyWriter w = new SqlPrettyWriter();
-        createZone.unparse(w, 0, 0);
-
-        assertThat(w.toString(), endsWith("WITH replicas=2"));
-    }
-
-    private IgniteSqlCreateZone parseCreateZone(String query) throws SqlParseException {
-        SqlNode node = parse(query);
-
-        assertThat(node, instanceOf(IgniteSqlCreateZone.class));
-
-        return (IgniteSqlCreateZone) node;
-    }
-
-    /**
-     * Parsing DROP ZONE statement.
-     */
-    @Test
-    public void dropZone() throws SqlParseException {
-        String query = "drop zone test_zone";
-        SqlNode node = parse(query);
-
-        assertThat(node, instanceOf(IgniteSqlDropZone.class));
-
-        IgniteSqlDropZone dropZone = (IgniteSqlDropZone) node;
-
-        assertThat(dropZone.zoneName().names, is(List.of("TEST_ZONE")));
-    }
-
+public class SqlDdlParserTest extends AbstractDdlParserTest {
     /**
      * Very simple case where only table name and a few columns are presented.
      */
@@ -619,18 +542,6 @@ public class SqlDdlParserTest {
     }
 
     /**
-     * Parses a given statement and returns a resulting AST.
-     *
-     * @param stmt Statement to parse.
-     * @return An AST.
-     */
-    private static SqlNode parse(String stmt) throws SqlParseException {
-        SqlParser parser = SqlParser.create(stmt, SqlParser.config().withParserFactory(IgniteSqlParserImpl.FACTORY));
-
-        return parser.parseStmt();
-    }
-
-    /**
      * Matcher to verify name in the column declaration.
      *
      * @param name Expected name.
@@ -647,45 +558,7 @@ public class SqlDdlParserTest {
         };
     }
 
-    /**
-     * Matcher to verify that an object of the expected type and matches the given predicate.
-     *
-     * @param desc Description for this matcher.
-     * @param cls  Expected class to verify the object is instance of.
-     * @param pred Addition check that would be applied to the object.
-     * @return {@code true} in case the object if instance of the given class and matches the predicat.
-     */
-    private static <T> Matcher<T> ofTypeMatching(String desc, Class<T> cls, Predicate<T> pred) {
-        return new CustomMatcher<T>(desc) {
-            /** {@inheritDoc} */
-            @Override
-            public boolean matches(Object item) {
-                return item != null && cls.isAssignableFrom(item.getClass()) && pred.test((T) item);
-            }
-        };
-    }
-
-    private static void assertThatZoneOptionPresent(List<SqlNode> optionList, String option, Object expVal) {
-        assertThat(optionList, hasItem(ofTypeMatching(
-                option + "=" + expVal,
-                IgniteSqlCreateZoneOption.class,
-                opt -> {
-                    if (opt.key().getSimple().equals(option)) {
-                        if (opt.value() instanceof SqlLiteral) {
-                            return Objects.equals(expVal, ((SqlLiteral) opt.value()).getValueAs(expVal.getClass()));
-                        }
-
-                        if (opt.value() instanceof SqlIdentifier) {
-                            return Objects.equals(expVal, ((SqlIdentifier) opt.value()).getSimple());
-                        }
-                    }
-
-                    return false;
-                }
-        )));
-    }
-
-    private static void assertThatOptionPresent(List<SqlNode> optionList, String option, Object expVal) {
+    private void assertThatOptionPresent(List<SqlNode> optionList, String option, Object expVal) {
         assertThat(optionList, hasItem(ofTypeMatching(
                 option + "=" + expVal,
                 IgniteSqlCreateTableOption.class,

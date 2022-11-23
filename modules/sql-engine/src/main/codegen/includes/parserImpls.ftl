@@ -179,7 +179,7 @@ SqlCreate SqlCreateZone(Span s, boolean replace) :
     }
 }
 
-void CreateZoneOption(Set<SqlNode> list) :
+void CreateZoneOption(List<SqlNode> list) :
 {
     final Span s;
     final SqlIdentifier key;
@@ -200,7 +200,7 @@ void CreateZoneOption(Set<SqlNode> list) :
 
 SqlNodeList CreateZoneOptionList() :
 {
-    Set<SqlNode> list = new HashSet<SqlNode>();
+    List<SqlNode> list = new ArrayList<SqlNode>();
     final Span s = Span.of();
 }
 {
@@ -219,7 +219,7 @@ SqlDrop SqlDropZone(Span s, boolean replace) :
     final SqlIdentifier zoneId;
 }
 {
-    <ZONE> ifExists = IfExistsOpt() zoneId = SimpleIdentifier() {
+    <ZONE> ifExists = IfExistsOpt() zoneId = CompoundIdentifier() {
         return new IgniteSqlDropZone(s.end(this), ifExists, zoneId);
     }
 }
