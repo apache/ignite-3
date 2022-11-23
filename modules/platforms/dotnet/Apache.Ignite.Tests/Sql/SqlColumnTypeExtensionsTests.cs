@@ -34,6 +34,10 @@ public class SqlColumnTypeExtensionsTests
         Assert.IsNotNull(sqlColumnType.ToClrType(), sqlColumnType.ToString());
 
     [TestCaseSource(nameof(SqlColumnTypes))]
+    public void TestToSqlColumnType(SqlColumnType sqlColumnType) =>
+        Assert.AreEqual(sqlColumnType, sqlColumnType.ToClrType().ToSqlColumnType());
+
+    [TestCaseSource(nameof(SqlColumnTypes))]
     public void TestToSqlTypeName(SqlColumnType sqlColumnType)
     {
         if (sqlColumnType is SqlColumnType.Duration or SqlColumnType.Period)
