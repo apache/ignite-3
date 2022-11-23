@@ -19,6 +19,8 @@ namespace Apache.Ignite.Internal.Sql;
 
 using System;
 using System.Collections;
+using System.Collections.Generic;
+using System.Linq;
 using System.Numerics;
 using Ignite.Sql;
 using NodaTime;
@@ -28,12 +30,15 @@ using NodaTime;
 /// </summary>
 internal static class SqlColumnTypeExtensions
 {
+    private static readonly IReadOnlyDictionary<Type, SqlColumnType> ClrToSql =
+        Enum.GetValues<SqlColumnType>().ToDictionary(x => x.ToClrType(), x => x);
+
     /// <summary>
     /// Gets corresponding .NET type.
     /// </summary>
     /// <param name="sqlColumnType">SQL column type.</param>
     /// <returns>CLR type.</returns>
-    public static Type? ToClrType(this SqlColumnType sqlColumnType) => sqlColumnType switch
+    public static Type ToClrType(this SqlColumnType sqlColumnType) => sqlColumnType switch
     {
         SqlColumnType.Boolean => typeof(bool),
         SqlColumnType.Int8 => typeof(sbyte),
@@ -54,6 +59,13 @@ internal static class SqlColumnTypeExtensions
         SqlColumnType.Period => typeof(Period),
         SqlColumnType.Duration => typeof(Duration),
         SqlColumnType.Number => typeof(BigInteger),
-        _ => null
+        _ => throw new InvalidOperationException($"Invalid {nameof(SqlColumnType)}: {sqlColumnType}")
     };
+
+    /// <summary>
+    /// Gets corresponding <see cref="SqlColumnType"/>.
+    /// </summary>
+    /// <param name="type">Type.</param>
+    /// <returns>SQL column type, or null.</returns>
+    public static SqlColumnType? ToSqlColumnType(this Type type) => ClrToSql.TryGetValue(type, out var sqlType) ? sqlType : null;
 }
