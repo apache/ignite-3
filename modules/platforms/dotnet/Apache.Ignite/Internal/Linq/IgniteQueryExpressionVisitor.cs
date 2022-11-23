@@ -31,6 +31,7 @@ using Remotion.Linq.Clauses;
 using Remotion.Linq.Clauses.Expressions;
 using Remotion.Linq.Clauses.ResultOperators;
 using Remotion.Linq.Parsing;
+using Sql;
 using Table.Serialization;
 
 /// <summary>
@@ -322,7 +323,10 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
         // Explicit type specification is required when all arguments of CASEWHEN are parameters
         ResultBuilder.Append(", cast(");
         Visit(expression.IfTrue);
-        ResultBuilder.AppendFormat(CultureInfo.InvariantCulture, " as {0}), ", SqlTypes.GetSqlTypeName(expression.Type) ?? "other");
+
+        ResultBuilder.Append(" as ");
+        ResultBuilder.Append(expression.Type.ToSqlColumnType() ?? throw new NotSupportedException("Unsupported type: " + expression.Type));
+        ResultBuilder.Append(')');
 
         Visit(expression.IfFalse);
         ResultBuilder.Append(')');
