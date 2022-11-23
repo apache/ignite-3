@@ -237,7 +237,7 @@ public partial class LinqSqlGenerationTests
         Assert.AreEqual(expectedSql, _server.LastSql, string.IsNullOrEmpty(_server.LastSql) ? ex?.ToString() : null);
     }
 
-    // ReSharper disable once NotAccessedPositionalProperty.Local
+    // ReSharper disable NotAccessedPositionalProperty.Local, ClassNeverInstantiated.Local
     [SuppressMessage("Microsoft.Performance", "CA1812:AvoidUninstantiatedInternalClasses", Justification = "Query tests.")]
     private record OneColumnPoco(long Key);
 
