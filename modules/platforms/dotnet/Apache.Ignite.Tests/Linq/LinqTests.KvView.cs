@@ -29,7 +29,7 @@ public partial class LinqTests
     private IKeyValueView<KeyPoco, ValPoco> KvView { get; set; } = null!;
 
     [Test]
-    public void TestSelectKeyValuePair()
+    public void TestSelectPairKv()
     {
         var query = KvView.AsQueryable()
             .Where(x => x.Key.Key > 3 && x.Value.Val != null)
@@ -46,6 +46,52 @@ public partial class LinqTests
             "where ((_T0.KEY > ?) and (_T0.VAL IS DISTINCT FROM ?)) " +
             "order by (_T0.KEY) asc",
             query.ToString());
+    }
+
+    [Test]
+    public void TestSelectKeyKv()
+    {
+        var query = KvView.AsQueryable()
+            .Select(x => x.Key)
+            .Where(x => x.Key > 5)
+            .OrderBy(x => x.Key);
+
+        var res = query.ToList();
+
+        Assert.AreEqual(6, res[0].Key);
+
+        StringAssert.Contains(
+            "select _T0.KEY, _T0.VAL " +
+            "from PUBLIC.TBL1 as _T0 " +
+            "where ((_T0.KEY > ?) and (_T0.VAL IS DISTINCT FROM ?)) " +
+            "order by (_T0.KEY) asc",
+            query.ToString());
+    }
+
+    [Test]
+    public void TestSelectValKv()
+    {
+        var query = KvView.AsQueryable()
+            .Select(x => x.Value)
+            .Where(x => x.Val != "foo")
+            .OrderBy(x => x.Val);
+
+        var res = query.ToList();
+
+        Assert.AreEqual("v-0", res[0].Val);
+
+        StringAssert.Contains(
+            "select _T0.KEY, _T0.VAL " +
+            "from PUBLIC.TBL1 as _T0 " +
+            "where ((_T0.KEY > ?) and (_T0.VAL IS DISTINCT FROM ?)) " +
+            "order by (_T0.KEY) asc",
+            query.ToString());
+    }
+
+    [Test]
+    public void TestJoinRecordWithKv()
+    {
+        Assert.Fail("TODO");
     }
 
     [OneTimeSetUp]
