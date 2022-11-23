@@ -20,18 +20,17 @@ package org.apache.ignite.internal.distributionzones;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import org.apache.ignite.internal.distributionzones.DistributionZoneCfg;
 import org.junit.jupiter.api.Test;
 
 /**
- * Tests for {@link DistributionZoneCfg}.
+ * Tests for {@link DistributionZoneConfigurationParameters}.
  */
-class DistributionZoneCfgTest {
+class DistributionZoneConfigurationParametersTest {
     private static final String ZONE_NAME = "zone1";
 
     @Test
     public void testDefaultValues() {
-        DistributionZoneCfg zoneCfg = new DistributionZoneCfg.Builder().name(ZONE_NAME).build();
+        DistributionZoneConfigurationParameters zoneCfg = new DistributionZoneConfigurationParameters.Builder().name(ZONE_NAME).build();
 
         assertEquals(ZONE_NAME, zoneCfg.name());
         assertEquals(null, zoneCfg.dataNodesAutoAdjust());
@@ -41,11 +40,12 @@ class DistributionZoneCfgTest {
 
     @Test
     public void testAutoAdjust() {
-        DistributionZoneCfg zoneCfg = new DistributionZoneCfg.Builder()
+        DistributionZoneConfigurationParameters zoneCfg = new DistributionZoneConfigurationParameters.Builder()
+                .name(ZONE_NAME)
                 .dataNodesAutoAdjust(100)
                 .build();
 
-        assertEquals(null, zoneCfg.name());
+        assertEquals(ZONE_NAME, zoneCfg.name());
         assertEquals(100, zoneCfg.dataNodesAutoAdjust());
         assertEquals(null, zoneCfg.dataNodesAutoAdjustScaleUp());
         assertEquals(null, zoneCfg.dataNodesAutoAdjustScaleDown());
@@ -53,11 +53,12 @@ class DistributionZoneCfgTest {
 
     @Test
     public void testAutoAdjustScaleUp() {
-        DistributionZoneCfg zoneCfg = new DistributionZoneCfg.Builder()
+        DistributionZoneConfigurationParameters zoneCfg = new DistributionZoneConfigurationParameters.Builder()
+                .name(ZONE_NAME)
                 .dataNodesAutoAdjustScaleUp(100)
                 .build();
 
-        assertEquals(null, zoneCfg.name());
+        assertEquals(ZONE_NAME, zoneCfg.name());
         assertEquals(null, zoneCfg.dataNodesAutoAdjust());
         assertEquals(100, zoneCfg.dataNodesAutoAdjustScaleUp());
         assertEquals(null, zoneCfg.dataNodesAutoAdjustScaleDown());
@@ -65,11 +66,12 @@ class DistributionZoneCfgTest {
 
     @Test
     public void testAutoAdjustScaleDown() {
-        DistributionZoneCfg zoneCfg = new DistributionZoneCfg.Builder()
+        DistributionZoneConfigurationParameters zoneCfg = new DistributionZoneConfigurationParameters.Builder()
+                .name(ZONE_NAME)
                 .dataNodesAutoAdjustScaleDown(100)
                 .build();
 
-        assertEquals(null, zoneCfg.name());
+        assertEquals(ZONE_NAME, zoneCfg.name());
         assertEquals(null, zoneCfg.dataNodesAutoAdjust());
         assertEquals(null, zoneCfg.dataNodesAutoAdjustScaleUp());
         assertEquals(100, zoneCfg.dataNodesAutoAdjustScaleDown());
@@ -78,7 +80,7 @@ class DistributionZoneCfgTest {
     @Test
     public void testIncompatibleValues1() {
         assertThrows(IllegalArgumentException.class,
-                () -> new DistributionZoneCfg.Builder()
+                () -> new DistributionZoneConfigurationParameters.Builder()
                         .dataNodesAutoAdjust(1)
                         .dataNodesAutoAdjustScaleUp(1)
                         .build());
@@ -87,9 +89,24 @@ class DistributionZoneCfgTest {
     @Test
     public void testIncompatibleValues2() {
         assertThrows(IllegalArgumentException.class,
-                () -> new DistributionZoneCfg.Builder()
+                () -> new DistributionZoneConfigurationParameters.Builder()
                         .dataNodesAutoAdjust(1)
                         .dataNodesAutoAdjustScaleDown(1)
+                        .build());
+    }
+
+    @Test
+    public void testNullName() {
+        assertThrows(IllegalArgumentException.class,
+                () -> new DistributionZoneConfigurationParameters.Builder()
+                        .build());
+    }
+
+    @Test
+    public void testEmptyName() {
+        assertThrows(IllegalArgumentException.class,
+                () -> new DistributionZoneConfigurationParameters.Builder()
+                        .name("")
                         .build());
     }
 }

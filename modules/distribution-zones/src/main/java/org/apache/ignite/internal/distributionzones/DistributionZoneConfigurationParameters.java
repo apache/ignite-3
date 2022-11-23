@@ -22,7 +22,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Distribution zone configuration.
  */
-public class DistributionZoneCfg {
+public class DistributionZoneConfigurationParameters {
     /** Zone name. */
     private final String name;
 
@@ -38,10 +38,12 @@ public class DistributionZoneCfg {
     /**
      * The constructor.
      */
-    public DistributionZoneCfg(String name,
-                               Integer dataNodesAutoAdjust,
-                               Integer dataNodesAutoAdjustScaleUp,
-                               Integer dataNodesAutoAdjustScaleDown) {
+    private DistributionZoneConfigurationParameters(
+            String name,
+            Integer dataNodesAutoAdjust,
+            Integer dataNodesAutoAdjustScaleUp,
+            Integer dataNodesAutoAdjustScaleDown
+    ) {
         this.name = name;
         this.dataNodesAutoAdjust = dataNodesAutoAdjust;
         this.dataNodesAutoAdjustScaleUp = dataNodesAutoAdjustScaleUp;
@@ -53,7 +55,6 @@ public class DistributionZoneCfg {
      *
      * @return The zone name.
      */
-    @Nullable
     public String name() {
         return name;
     }
@@ -63,8 +64,7 @@ public class DistributionZoneCfg {
      *
      * @return Data nodes auto adjust timeout.
      */
-    @Nullable
-    public Integer dataNodesAutoAdjust() {
+    @Nullable public Integer dataNodesAutoAdjust() {
         return dataNodesAutoAdjust;
     }
 
@@ -73,8 +73,7 @@ public class DistributionZoneCfg {
      *
      * @return Data nodes auto adjust scale up timeout.
      */
-    @Nullable
-    public Integer dataNodesAutoAdjustScaleUp() {
+    @Nullable public Integer dataNodesAutoAdjustScaleUp() {
         return dataNodesAutoAdjustScaleUp;
     }
 
@@ -83,8 +82,7 @@ public class DistributionZoneCfg {
      *
      * @return Data nodes auto adjust scale down timeout.
      */
-    @Nullable
-    public Integer dataNodesAutoAdjustScaleDown() {
+    @Nullable public Integer dataNodesAutoAdjustScaleDown() {
         return dataNodesAutoAdjustScaleDown;
     }
 
@@ -151,7 +149,7 @@ public class DistributionZoneCfg {
          * Sets timeout in seconds between node left topology event itself and data nodes switch.
          *
          * @param dataNodesAutoAdjustScaleDown Timeout in seconds between node left topology event itself
-         *                                     and data nodes switch.
+         *     and data nodes switch.
          * @return This instance.
          */
         public Builder dataNodesAutoAdjustScaleDown(int dataNodesAutoAdjustScaleDown) {
@@ -165,18 +163,22 @@ public class DistributionZoneCfg {
          *
          * @return Distribution zone configuration.
          */
-        public DistributionZoneCfg build() {
+        public DistributionZoneConfigurationParameters build() {
+            if (name == null || name.isEmpty()) {
+                throw new IllegalArgumentException("Illegal distribution zone name [name=" + name + ']');
+            }
+
             if (dataNodesAutoAdjust != null
                     && (dataNodesAutoAdjustScaleUp != null || dataNodesAutoAdjustScaleDown != null)
-                ) {
+            ) {
                 throw new IllegalArgumentException(
-                        String.format("Not compatible parameters [dataNodesAutoAdjust=%s, "
-                                        + "dataNodesAutoAdjustScaleUp=%s, dataNodesAutoAdjustScaleDown=%s]",
-                                dataNodesAutoAdjust, dataNodesAutoAdjustScaleUp, dataNodesAutoAdjustScaleDown)
+                        "Not compatible parameters [dataNodesAutoAdjust=" + dataNodesAutoAdjust
+                                + ", dataNodesAutoAdjustScaleUp=" + dataNodesAutoAdjustScaleUp
+                                + ", dataNodesAutoAdjustScaleDown=" + dataNodesAutoAdjustScaleDown + ']'
                 );
             }
 
-            return new DistributionZoneCfg(
+            return new DistributionZoneConfigurationParameters(
                     name,
                     dataNodesAutoAdjust,
                     dataNodesAutoAdjustScaleUp,
