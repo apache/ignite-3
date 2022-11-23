@@ -41,7 +41,7 @@ public class IgniteSqlCreateZone extends SqlCreate {
 
     private static final SqlOperator OPERATOR = new SqlSpecialOperator("CREATE ZONE", SqlKind.OTHER);
 
-    /** Creates a SqlCreateTable. */
+    /** Creates a SqlCreateZone. */
     public IgniteSqlCreateZone(
             SqlParserPos pos,
             boolean ifNotExists,
@@ -80,14 +80,14 @@ public class IgniteSqlCreateZone extends SqlCreate {
     }
 
     /**
-     * Get name of the table.
+     * Get name of the distributed zone.
      */
     public SqlIdentifier name() {
         return name;
     }
 
     /**
-     * Get list of the specified options to create table with.
+     * Get list of the specified options to create distributed zone with.
      */
     public SqlNodeList createOptionList() {
         return createOptionList;

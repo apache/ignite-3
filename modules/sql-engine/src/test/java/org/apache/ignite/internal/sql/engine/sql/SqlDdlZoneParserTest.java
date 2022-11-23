@@ -126,13 +126,13 @@ public class SqlDdlZoneParserTest extends AbstractDdlParserTest {
 
         IgniteSqlDropZone dropZone = (IgniteSqlDropZone) node;
 
-        assertThat(dropZone.zoneName().names, is(List.of("TEST_ZONE")));
+        assertThat(dropZone.name().names, is(List.of("TEST_ZONE")));
         assertFalse(dropZone.ifExists());
 
         // Fully qualified name.
         dropZone = ((IgniteSqlDropZone) parse("drop zone public.test_zone"));
 
-        assertThat(dropZone.zoneName().names, is(List.of("PUBLIC", "TEST_ZONE")));
+        assertThat(dropZone.name().names, is(List.of("PUBLIC", "TEST_ZONE")));
     }
 
     /**

@@ -33,21 +33,22 @@ import org.apache.calcite.util.ImmutableNullableList;
  * Parse tree for {@code DROP ZONE} statement.
  */
 public class IgniteSqlDropZone extends SqlDrop {
-    /** Index name. */
-    private final SqlIdentifier zoneName;
+    /** Zone name. */
+    private final SqlIdentifier name;
 
     /** Sql operator. */
     private static final SqlOperator OPERATOR = new SqlSpecialOperator("DROP ZONE", SqlKind.OTHER);
 
     /** Constructor. */
-    public IgniteSqlDropZone(SqlParserPos pos, boolean ifExists, SqlIdentifier zoneName) {
+    public IgniteSqlDropZone(SqlParserPos pos, boolean ifExists, SqlIdentifier name) {
         super(OPERATOR, pos, ifExists);
-        this.zoneName = Objects.requireNonNull(zoneName, "zone name");
+
+        this.name = Objects.requireNonNull(name, "zone name");
     }
 
     /** {@inheritDoc} */
     @Override public List<SqlNode> getOperandList() {
-        return ImmutableNullableList.of(zoneName);
+        return ImmutableNullableList.of(name);
     }
 
     /** {@inheritDoc} */
@@ -58,11 +59,11 @@ public class IgniteSqlDropZone extends SqlDrop {
             writer.keyword("IF EXISTS");
         }
 
-        zoneName.unparse(writer, leftPrec, rightPrec);
+        name.unparse(writer, leftPrec, rightPrec);
     }
 
-    public SqlIdentifier zoneName() {
-        return zoneName;
+    public SqlIdentifier name() {
+        return name;
     }
 
     public boolean ifExists() {
