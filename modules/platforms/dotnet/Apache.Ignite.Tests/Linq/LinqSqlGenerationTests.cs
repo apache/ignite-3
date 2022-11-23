@@ -19,6 +19,7 @@ namespace Apache.Ignite.Tests.Linq;
 
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations.Schema;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Threading.Tasks;
@@ -171,6 +172,30 @@ public partial class LinqSqlGenerationTests
             ex!.Message);
     }
 
+    [Test]
+    public void TestEmptyTypeMappingNotSupported()
+    {
+        // ReSharper disable once ReturnValueOfPureMethodIsNotUsed
+        var ex = Assert.Throws<NotSupportedException>(() => _table.GetRecordView<EmptyPoco>().AsQueryable().ToList());
+
+        Assert.AreEqual(
+            "Type 'Apache.Ignite.Tests.Linq.LinqSqlGenerationTests+EmptyPoco' can not be mapped to SQL columns: " +
+            "it has no fields, or all fields are [NotMapped].",
+            ex!.Message);
+    }
+
+    [Test]
+    public void TestAllNotMappedTypeMappingNotSupported()
+    {
+        // ReSharper disable once ReturnValueOfPureMethodIsNotUsed
+        var ex = Assert.Throws<NotSupportedException>(() => _table.GetRecordView<UnmappedPoco>().AsQueryable().ToList());
+
+        Assert.AreEqual(
+            "Type 'Apache.Ignite.Tests.Linq.LinqSqlGenerationTests+UnmappedPoco' can not be mapped to SQL columns: " +
+            "it has no fields, or all fields are [NotMapped].",
+            ex!.Message);
+    }
+
     [OneTimeSetUp]
     public async Task OneTimeSetUp()
     {
@@ -215,4 +240,10 @@ public partial class LinqSqlGenerationTests
     // ReSharper disable once NotAccessedPositionalProperty.Local
     [SuppressMessage("Microsoft.Performance", "CA1812:AvoidUninstantiatedInternalClasses", Justification = "Query tests.")]
     private record OneColumnPoco(long Key);
+
+    [SuppressMessage("Microsoft.Performance", "CA1812:AvoidUninstantiatedInternalClasses", Justification = "Query tests.")]
+    private record EmptyPoco;
+
+    [SuppressMessage("Microsoft.Performance", "CA1812:AvoidUninstantiatedInternalClasses", Justification = "Query tests.")]
+    private record UnmappedPoco([property: NotMapped] long Key, [field: NotMapped] string Val);
 }
