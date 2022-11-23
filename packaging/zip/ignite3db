@@ -42,7 +42,7 @@ start() {
   while [ ! -f "$rest_address_file" ]; do sleep 0.5; done
     rest_address=$(cat "$rest_address_file")
 
-  echo "${NODE_NAME} has started successfully. You can connect to it with ignite3 cli by using this address: http://$rest_address"
+  echo "Node named ${NODE_NAME} started successfully. REST address is http://$rest_address"
 }
 
 stop() {
