@@ -176,8 +176,8 @@ public partial class LinqSqlGenerationTests
     private void AssertSql(string expectedSql, Func<IQueryable<Poco>, object?> query) =>
         AssertSql(expectedSql, t => query(t.GetRecordView<Poco>().AsQueryable()));
 
-    private void AssertSqlKv(string expectedSql, Func<IQueryable<KeyValuePair<int, Poco>>, object?> query) =>
-        AssertSql(expectedSql, t => query(t.GetKeyValueView<int, Poco>().AsQueryable()));
+    private void AssertSqlKv(string expectedSql, Func<IQueryable<KeyValuePair<OneColumnPoco, Poco>>, object?> query) =>
+        AssertSql(expectedSql, t => query(t.GetKeyValueView<OneColumnPoco, Poco>().AsQueryable()));
 
     private void AssertSql(string expectedSql, Func<ITable, object?> query)
     {

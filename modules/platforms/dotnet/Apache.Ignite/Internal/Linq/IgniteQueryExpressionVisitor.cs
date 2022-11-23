@@ -465,11 +465,10 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
         {
             var genericArguments = type.GetGenericArguments();
 
-            // TODO: What if it is a primitive? How do we map it - we don't know the column name? Use column ordinals!
-            // But column ordinals are not valid in SELECT. Disallow primitive KeyValuePair in LINQ?
             var keyColumns = GetColumns(genericArguments[0]);
             var valColumns = GetColumns(genericArguments[1]);
 
+            // TODO: Skip duplicates. Refactor this method to return column names.
             return keyColumns.Concat(valColumns);
         }
 

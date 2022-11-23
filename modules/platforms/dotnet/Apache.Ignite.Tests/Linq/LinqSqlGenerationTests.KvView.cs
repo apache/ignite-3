@@ -46,5 +46,5 @@ public partial class LinqSqlGenerationTests
 
     [Test]
     public void TestSelectEntireObjectKv() =>
-        AssertSqlKv("select _T0.KEY, _T0.VAL from PUBLIC.tbl1 as _T0 where (_T0.KEY > ?)", q => q.Where(x => x.Key > 1).ToList());
+        AssertSqlKv("select _T0.KEY, _T0.VAL from PUBLIC.tbl1 as _T0 where (_T0.KEY > ?)", q => q.Where(x => x.Key.Key > 1).ToList());
 }
