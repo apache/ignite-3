@@ -44,11 +44,12 @@ public partial class LinqTests
     }
 
     [OneTimeSetUp]
-    private void InitKvView()
+    protected void InitKvView()
     {
         KvView = Table.GetKeyValueView<KeyPoco, ValPoco>();
     }
 
+    // ReSharper disable ClassNeverInstantiated.Local
     private record KeyPoco(long Key);
 
     private record ValPoco(string? Val);

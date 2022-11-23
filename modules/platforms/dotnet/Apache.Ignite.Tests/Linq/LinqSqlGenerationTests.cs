@@ -20,7 +20,6 @@ namespace Apache.Ignite.Tests.Linq;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations.Schema;
-using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Threading.Tasks;
 using Ignite.Sql;
@@ -238,12 +237,9 @@ public partial class LinqSqlGenerationTests
     }
 
     // ReSharper disable NotAccessedPositionalProperty.Local, ClassNeverInstantiated.Local
-    [SuppressMessage("Microsoft.Performance", "CA1812:AvoidUninstantiatedInternalClasses", Justification = "Query tests.")]
     private record OneColumnPoco(long Key);
 
-    [SuppressMessage("Microsoft.Performance", "CA1812:AvoidUninstantiatedInternalClasses", Justification = "Query tests.")]
     private record EmptyPoco;
 
-    [SuppressMessage("Microsoft.Performance", "CA1812:AvoidUninstantiatedInternalClasses", Justification = "Query tests.")]
     private record UnmappedPoco([property: NotMapped] long Key, [field: NotMapped] string Val);
 }

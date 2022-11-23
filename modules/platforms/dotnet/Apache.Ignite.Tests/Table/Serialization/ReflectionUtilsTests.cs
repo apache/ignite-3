@@ -16,7 +16,7 @@
  */
 
 // ReSharper disable InconsistentNaming, UnusedMember.Local
-#pragma warning disable SA1306, SA1401, CS0649, CS0169, CA1823, CA1812, SA1201
+#pragma warning disable SA1306, SA1401, CS0649, CS0169, CA1823, SA1201
 namespace Apache.Ignite.Tests.Table.Serialization
 {
     using System;
