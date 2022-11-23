@@ -22,7 +22,7 @@ publishing {
     maven {
       credentials {
         username = project.properties["staging_user"]
-        password = project.properties["staging_pass"]
+        password = project.properties["staging_password"]
       }
       url repos['apache-staging']
     }
