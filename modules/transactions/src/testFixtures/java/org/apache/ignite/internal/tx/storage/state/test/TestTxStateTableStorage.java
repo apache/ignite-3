@@ -84,17 +84,19 @@ public class TestTxStateTableStorage implements TxStateTableStorage {
 
     @Override
     public CompletableFuture<Void> startRebalance(int partitionId) throws StorageException {
-        TxStateStorageDecorator oldStorage = storageByPartitionId.get(partitionId);
+        TxStateStorageDecorator oldStorageDecorator = storageByPartitionId.get(partitionId);
 
-        checkPartitionStoragesExists(oldStorage, partitionId);
+        checkPartitionStoragesExists(oldStorageDecorator, partitionId);
 
-        backupStoragesByPartitionId.compute(partitionId, (partId, txStateStorage) -> {
-            if (txStateStorage != null) {
-                throw new StorageException("Previous full rebalance did not complete for the partition: " + partitionId);
-            }
+        TxStateStorage oldStorage = oldStorageDecorator.getDelegate();
 
-            return oldStorage.replaceDelegate(new TxStateStorageOnRebalance(oldStorage.getDelegate(), new TestTxStateStorage()));
-        });
+        TxStateStorage previousOldStorage = backupStoragesByPartitionId.put(partitionId, oldStorage);
+
+        if (previousOldStorage != null) {
+            throw new StorageException("Previous full rebalance did not complete for the partition: " + partitionId);
+        }
+
+        oldStorageDecorator.replaceDelegate(new TxStateStorageOnRebalance(oldStorage, new TestTxStateStorage()));
 
         return completedFuture(null);
     }
@@ -104,11 +106,11 @@ public class TestTxStateTableStorage implements TxStateTableStorage {
         TxStateStorage backupStorage = backupStoragesByPartitionId.remove(partitionId);
 
         if (backupStorage != null) {
-            TxStateStorageDecorator storage = storageByPartitionId.get(partitionId);
+            TxStateStorageDecorator storageDecorator = storageByPartitionId.get(partitionId);
 
-            checkPartitionStoragesExists(storage, partitionId);
+            checkPartitionStoragesExists(storageDecorator, partitionId);
 
-            storage.replaceDelegate(backupStorage);
+            storageDecorator.replaceDelegate(backupStorage);
         }
 
         return completedFuture(null);
@@ -119,13 +121,15 @@ public class TestTxStateTableStorage implements TxStateTableStorage {
         TxStateStorage backupStorage = backupStoragesByPartitionId.remove(partitionId);
 
         if (backupStorage != null) {
-            TxStateStorageDecorator storage = storageByPartitionId.get(partitionId);
+            TxStateStorageDecorator storageDecorator = storageByPartitionId.get(partitionId);
 
-            checkPartitionStoragesExists(storage, partitionId);
+            checkPartitionStoragesExists(storageDecorator, partitionId);
 
-            TxStateStorageOnRebalance txStateStorageOnRebalance = (TxStateStorageOnRebalance) storage.getDelegate();
+            TxStateStorageOnRebalance txStateStorageOnRebalance = (TxStateStorageOnRebalance) storageDecorator.getDelegate();
 
-            storage.replaceDelegate(txStateStorageOnRebalance.getNewStorage());
+            txStateStorageOnRebalance.finishRebalance();
+
+            storageDecorator.replaceDelegate(txStateStorageOnRebalance.getNewStorage());
         }
 
         return completedFuture(null);

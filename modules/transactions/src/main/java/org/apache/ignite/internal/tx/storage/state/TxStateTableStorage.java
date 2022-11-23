@@ -100,8 +100,8 @@ public interface TxStateTableStorage extends ManuallyCloseable {
      * </ol>
      *
      * <p>During a full rebalance, data will be written to the new storage and read from the backup. If the full rebalance succeeds, then
-     * all writes and reads will occur in the new storage, and all current cursors (which are currently running) will switch to reading from
-     * the new storage. At the same time, at all stages, external storage replacement does not occur, i.e. the instance received from
+     * all writes and reads and scans will occur in the new storage. All cursors that were open before the full rebalance was completed will
+     * read from the old storage.. Also, at all stages, external storage replacement does not occur, i.e. the instance received from
      * {@link #getTxStateStorage(int)} or {@link #getOrCreateTxStateStorage(int)} will not change.
      *
      * @param partitionId Partition ID.

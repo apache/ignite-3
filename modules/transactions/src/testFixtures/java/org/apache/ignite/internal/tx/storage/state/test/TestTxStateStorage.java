@@ -45,6 +45,7 @@ public class TestTxStateStorage implements TxStateStorage {
     private volatile long lastAppliedTerm;
 
     @Override
+    @Nullable
     public TxMeta get(UUID txId) {
         return storage.get(txId);
     }

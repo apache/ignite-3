@@ -130,6 +130,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
     }
 
     @Override
+    @Nullable
     public TxMeta get(UUID txId) {
         if (!busyLock.enterBusy()) {
             throwStorageStoppedException();

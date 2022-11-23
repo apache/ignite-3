@@ -26,7 +26,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 
 import java.util.ArrayList;
@@ -228,8 +227,7 @@ public abstract class AbstractTxStateTableStorageTest {
 
         Cursor<IgniteBiTuple<UUID, TxMeta>> scanAfterStartRebalance = storage.scan();
 
-        // Let's skip first element in cursor to check that after completion of started rebalance, we will read data before start of
-        // rebalance and then new data.
+        // Let's skip first element in cursor to check that after completion of started rebalance, we will read data until rebalance starts.
         scanAfterStartRebalance.next();
 
         UUID txId2 = UUID.randomUUID();
@@ -278,11 +276,7 @@ public abstract class AbstractTxStateTableStorageTest {
 
         assertThat(
                 getAllRemaining(scanAfterStartRebalance),
-                containsInAnyOrder(
-                        is(oneOf(new IgniteBiTuple<>(txId0, txMeta0), new IgniteBiTuple<>(txId1, txMeta1))),
-                        eq(new IgniteBiTuple<>(txId2, txMeta2)),
-                        eq(new IgniteBiTuple<>(txId3, txMeta3))
-                )
+                containsInAnyOrder(is(oneOf(new IgniteBiTuple<>(txId0, txMeta0), new IgniteBiTuple<>(txId1, txMeta1))))
         );
     }
 

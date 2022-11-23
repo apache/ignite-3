@@ -39,7 +39,7 @@ public interface TxStateStorage extends ManuallyCloseable {
      * @param txId Tx id.
      * @throws IgniteInternalException with {@link Transactions#TX_STATE_STORAGE_ERR} error code in case when the operation has failed.
      */
-    TxMeta get(UUID txId);
+    @Nullable TxMeta get(UUID txId);
 
     /**
      * Puts the tx meta into the storage.
@@ -73,13 +73,11 @@ public interface TxStateStorage extends ManuallyCloseable {
     void remove(UUID txId);
 
     /**
-     * Create a cursor to scan all data in the storage.
+     * Creates a cursor to scan all data in the storage.
      *
      * <p>The cursor yields exactly the data that was existing in the storage at the moment when the method was called.
      *
      * <p>The cursor yields data ordered by transaction ID interpreted as an unsigned 128 bit integer.
-     *
-     * @return Cursor.
      */
     Cursor<IgniteBiTuple<UUID, TxMeta>> scan();
 

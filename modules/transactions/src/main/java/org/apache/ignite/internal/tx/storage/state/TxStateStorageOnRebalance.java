@@ -22,20 +22,23 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Decorator for {@link TxStateStorage} on full rebalance.
  *
- * <p>All readings will be from the old storage, and modifications in the new storage.
- *
- * <p>TODO: IGNITE-18022 не забудь про курсоры
+ * <p>Until the full rebalance is completed, all readings (including the cursor) will be from the old transaction state storage, after the
+ * full rebalancing is completed ({@link #finishRebalance()}), all readings and new cursors will be switched to the new
+ * transaction state storage. All modifications take place on the new transaction state storage.
  */
 public class TxStateStorageOnRebalance implements TxStateStorage {
     private final TxStateStorage oldStorage;
 
     private final TxStateStorage newStorage;
+
+    private final IgniteSpinBusyLock finishRebalanceBusyLock = new IgniteSpinBusyLock();
 
     /**
      * Constructor.
@@ -56,15 +59,24 @@ public class TxStateStorageOnRebalance implements TxStateStorage {
     }
 
     /**
-     * New transaction state storage.
+     * Returns new transaction state storage.
      */
     public TxStateStorage getNewStorage() {
         return newStorage;
     }
 
     @Override
+    @Nullable
     public TxMeta get(UUID txId) {
-        return oldStorage.get(txId);
+        if (!finishRebalanceBusyLock.enterBusy()) {
+            return newStorage.get(txId);
+        }
+
+        try {
+            return oldStorage.get(txId);
+        } finally {
+            finishRebalanceBusyLock.leaveBusy();
+        }
     }
 
     @Override
@@ -84,7 +96,15 @@ public class TxStateStorageOnRebalance implements TxStateStorage {
 
     @Override
     public Cursor<IgniteBiTuple<UUID, TxMeta>> scan() {
-        return oldStorage.scan();
+        if (!finishRebalanceBusyLock.enterBusy()) {
+            return newStorage.scan();
+        }
+
+        try {
+            return oldStorage.scan();
+        } finally {
+            finishRebalanceBusyLock.leaveBusy();
+        }
     }
 
     @Override
@@ -94,12 +114,28 @@ public class TxStateStorageOnRebalance implements TxStateStorage {
 
     @Override
     public long lastAppliedIndex() {
-        return oldStorage.lastAppliedIndex();
+        if (!finishRebalanceBusyLock.enterBusy()) {
+            return newStorage.lastAppliedIndex();
+        }
+
+        try {
+            return oldStorage.lastAppliedIndex();
+        } finally {
+            finishRebalanceBusyLock.leaveBusy();
+        }
     }
 
     @Override
     public long lastAppliedTerm() {
-        return oldStorage.lastAppliedTerm();
+        if (!finishRebalanceBusyLock.enterBusy()) {
+            return newStorage.lastAppliedTerm();
+        }
+
+        try {
+            return oldStorage.lastAppliedTerm();
+        } finally {
+            finishRebalanceBusyLock.leaveBusy();
+        }
     }
 
     @Override
@@ -109,16 +145,33 @@ public class TxStateStorageOnRebalance implements TxStateStorage {
 
     @Override
     public long persistedIndex() {
-        return oldStorage.persistedIndex();
+        if (!finishRebalanceBusyLock.enterBusy()) {
+            return newStorage.persistedIndex();
+        }
+
+        try {
+            return oldStorage.persistedIndex();
+        } finally {
+            finishRebalanceBusyLock.leaveBusy();
+        }
     }
 
     @Override
     public void destroy() {
-        throw new UnsupportedOperationException();
+        oldStorage.destroy();
+        newStorage.destroy();
     }
 
     @Override
     public void close() {
-        throw new UnsupportedOperationException();
+        oldStorage.close();
+        newStorage.close();
+    }
+
+    /**
+     * Switches all reads and new cursors to read from the new transaction state storage.
+     */
+    public void finishRebalance() {
+        finishRebalanceBusyLock.block();
     }
 }

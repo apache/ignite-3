@@ -70,6 +70,7 @@ public class TxStateStorageDecorator implements TxStateStorage {
     }
 
     @Override
+    @Nullable
     public TxMeta get(UUID txId) {
         return delegate.get(txId);
     }
