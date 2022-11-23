@@ -96,20 +96,6 @@ public partial class LinqTests : IgniteTestsBase
     }
 
     [Test]
-    public void TestOneColumnPrimitiveMapping()
-    {
-        var query = Table.GetRecordView<long>().AsQueryable()
-            .Where(x => x > 5)
-            .OrderBy(x => x);
-
-        long[] res = query.ToArray();
-
-        Assert.AreEqual(6, res[0]);
-
-        StringAssert.Contains("TODO", query.ToString());
-    }
-
-    [Test]
     public void TestSelectOneColumnSingle()
     {
         var res = PocoView.AsQueryable()
