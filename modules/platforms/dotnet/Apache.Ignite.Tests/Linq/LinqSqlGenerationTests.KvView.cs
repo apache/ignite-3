@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Tests.Linq;
 
+using System;
 using System.Linq;
 using NUnit.Framework;
 
@@ -65,4 +66,17 @@ public partial class LinqSqlGenerationTests
     [Test]
     public void TestSelectPairValKv() =>
         AssertSqlKv("select _T0.KEY, _T0.VAL from PUBLIC.tbl1 as _T0", q => q.Select(x => x.Value).ToList());
+
+    [Test]
+    public void TestPrimitiveKeyValTypesNotSupported()
+    {
+        // ReSharper disable once ReturnValueOfPureMethodIsNotUsed
+        var ex = Assert.Throws<NotSupportedException>(
+            () => _table.GetKeyValueView<long, string>().AsQueryable().Select(x => x.Key).ToList());
+
+        Assert.AreEqual(
+            "Primitive types are not supported in LINQ queries: System.Int64. " +
+            "Use a custom type (class, record, struct) with a single field instead.",
+            ex!.Message);
+    }
 }
