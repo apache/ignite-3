@@ -422,10 +422,12 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
         if (expression.Member.DeclaringType is {IsGenericType: true} declaringType &&
             declaringType.GetGenericTypeDefinition() == typeof(KeyValuePair<,>))
         {
-            // TODO: Select mapped properties from KeyValuePair. See GetColumns logic below.
-            return "VAL";
+            // TODO: handle multiple columns here.
+            var columnNames = GetColumnNames(((PropertyInfo)expression.Member).PropertyType);
+            return columnNames.Single();
         }
 
+        // TODO: This logic is very similar to the one below. Somehow unify.
         // When there is a [Column] attribute with Name specified, use quoted identifier: exact match, allows whitespace.
         // Otherwise (most common case), use uppercase non-quoted identifier (case-insensitive).
         var columnName = expression.Member.GetCustomAttribute<ColumnAttribute>() is { Name: { } columnAttributeName }
