@@ -179,7 +179,7 @@ SqlCreate SqlCreateZone(Span s, boolean replace) :
     }
 }
 
-void CreateZoneOption(List<SqlNode> list) :
+void CreateZoneOption(Set<SqlNode> list) :
 {
     final Span s;
     final SqlIdentifier key;
@@ -189,20 +189,18 @@ void CreateZoneOption(List<SqlNode> list) :
     key = SimpleIdentifier() { s = span(); }
     <EQ>
     (
-        val = SimpleIdentifier()
-    |
         val = Literal()
+    |
+        val = SimpleIdentifier()
     )
     {
-        IgniteSqlCreateZoneOption.validate(list, key, getPos());
-
         list.add(new IgniteSqlCreateZoneOption(key, val, s.end(this)));
     }
 }
 
 SqlNodeList CreateZoneOptionList() :
 {
-    List<SqlNode> list = new ArrayList<SqlNode>();
+    Set<SqlNode> list = new HashSet<SqlNode>();
     final Span s = Span.of();
 }
 {

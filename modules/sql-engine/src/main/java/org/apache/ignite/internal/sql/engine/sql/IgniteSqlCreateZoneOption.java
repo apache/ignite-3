@@ -25,7 +25,6 @@ import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlOperator;
 import org.apache.calcite.sql.SqlSpecialOperator;
 import org.apache.calcite.sql.SqlWriter;
-import org.apache.calcite.sql.parser.SqlParseException;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.util.SqlVisitor;
 import org.apache.calcite.sql.validate.SqlValidator;
@@ -81,32 +80,6 @@ public class IgniteSqlCreateZoneOption extends SqlCall {
     @Override
     public void validate(SqlValidator validator, SqlValidatorScope scope) {
         throw new UnsupportedOperationException();
-    }
-
-    /**
-     * Validation.
-     *
-     * @param nodes Sql nodes list.
-     * @param key Current sql node key.
-     * @param pos Parser position.
-     */
-    public static void validate(List<SqlNode> nodes, SqlNode key, SqlParserPos pos) {
-        String strKey = ((SqlIdentifier) key).getSimple();
-        String autoAdjust = "DATA_NODES_AUTO_ADJUST";
-
-        if (!strKey.startsWith(autoAdjust)) {
-            return;
-        }
-
-        boolean searchAutoAdjust = !autoAdjust.equals(strKey);
-
-        for (SqlNode node : nodes) {
-            String nodeKey = ((IgniteSqlCreateZoneOption) node).key().getSimple();
-
-            if (searchAutoAdjust ? nodeKey.equals(autoAdjust) : nodeKey.startsWith(autoAdjust)) {
-                throw new RuntimeException(new SqlParseException("Encountered \"" + strKey + "\"", pos, null, null, null));
-            }
-        }
     }
 
     /** {@inheritDoc} */

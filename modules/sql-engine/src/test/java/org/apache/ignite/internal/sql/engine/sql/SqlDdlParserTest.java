@@ -26,9 +26,12 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.nullValue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.Objects;
@@ -54,26 +57,39 @@ import org.junit.jupiter.api.Test;
  * Test suite to verify parsing of the DDL command.
  */
 public class SqlDdlParserTest {
-    /**
-     * Parsing CREATE ZONE statement.
-     */
     @Test
-    public void createZone() throws SqlParseException {
-        String query = "create zone test_zone";
-
-        SqlNode node = parse(query);
-
-        assertThat(node, instanceOf(IgniteSqlCreateZone.class));
-
-        IgniteSqlCreateZone createZone = (IgniteSqlCreateZone) node;
+    public void createZoneMoOptions() throws SqlParseException {
+        IgniteSqlCreateZone createZone = parseCreateZone("create zone test_zone");
 
         assertThat(createZone.name().names, is(List.of("TEST_ZONE")));
+        assertFalse(createZone.ifNotExists());
         assertNull(createZone.createOptionList());
 
-        query = "create zone test_zone with replicas=2, partitions=3, data_nodes_filter=nodes_filter, "
-                + "affinity_function=test_Affinity,data_nodes_auto_adjust=1";
+        createZone = parseCreateZone("create zone public.test_zone");
+        assertThat(createZone.name().names, is(List.of("PUBLIC", "TEST_ZONE")));
+        assertNull(createZone.createOptionList());
+    }
 
-        createZone = (IgniteSqlCreateZone) parse(query);
+    @Test
+    public void createZoneIfNotExists() throws SqlParseException {
+        IgniteSqlCreateZone createZone = parseCreateZone("create zone if not exists test_zone");
+
+        assertTrue(createZone.ifNotExists());
+        assertNull(createZone.createOptionList());
+    }
+
+    @Test
+    public void createZoneWithOptions() throws SqlParseException {
+        IgniteSqlCreateZone createZone = parseCreateZone(
+                "create zone test_zone with "
+                        + "replicas=2, "
+                        + "partitions=3, "
+                        + "data_nodes_filter=nodes_filter, "
+                        + "affinity_function=test_Affinity, "
+                        + "data_nodes_auto_adjust=1, "
+                        + "data_nodes_auto_adjust_scale_up=2, "
+                        + "data_nodes_auto_adjust_scale_down=3"
+        );
 
         assertNotNull(createZone.createOptionList());
         assertThatZoneOptionPresent(createZone.createOptionList().getList(), "REPLICAS", 2);
@@ -81,28 +97,19 @@ public class SqlDdlParserTest {
         assertThatZoneOptionPresent(createZone.createOptionList().getList(), "AFFINITY_FUNCTION", "TEST_AFFINITY");
         assertThatZoneOptionPresent(createZone.createOptionList().getList(), "DATA_NODES_FILTER", "NODES_FILTER");
         assertThatZoneOptionPresent(createZone.createOptionList().getList(), "DATA_NODES_AUTO_ADJUST", 1);
+
+        SqlPrettyWriter w = new SqlPrettyWriter();
+        createZone.unparse(w, 0, 0);
+
+        assertThat(w.toString(), endsWith("WITH replicas=2"));
     }
 
-    @Test
-    public void createZoneAutoAdjustmentOption() throws SqlParseException {
-        String query = "create zone test_zone with data_nodes_auto_adjust_scale_up=1, data_nodes_auto_adjust_scale_down=2";
-
+    private IgniteSqlCreateZone parseCreateZone(String query) throws SqlParseException {
         SqlNode node = parse(query);
 
         assertThat(node, instanceOf(IgniteSqlCreateZone.class));
 
-        IgniteSqlCreateZone createZone = (IgniteSqlCreateZone) node;
-
-        assertThat(createZone.name().names, is(List.of("TEST_ZONE")));
-
-        assertThatZoneOptionPresent(createZone.createOptionList().getList(), "DATA_NODES_AUTO_ADJUST_SCALE_UP", 1);
-        assertThatZoneOptionPresent(createZone.createOptionList().getList(), "DATA_NODES_AUTO_ADJUST_SCALE_DOWN", 2);
-
-        // Invalid combination.
-        String invalidQuery = "create zone test_zone with data_nodes_auto_adjust=1, data_nodes_auto_adjust_scale_up=1";
-
-        var ex = assertThrows(SqlParseException.class, () -> parse(invalidQuery));
-        assertThat(ex.getMessage(), containsString("Encountered \"DATA_NODES_AUTO_ADJUST_SCALE_UP\""));
+        return (IgniteSqlCreateZone) node;
     }
 
     /**
