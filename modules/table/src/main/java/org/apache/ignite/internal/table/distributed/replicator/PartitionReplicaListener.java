@@ -27,6 +27,7 @@ import static org.apache.ignite.lang.IgniteStringFormatter.format;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -88,6 +89,7 @@ import org.apache.ignite.internal.table.distributed.replication.request.ReadWrit
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSingleRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSwapRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
+import org.apache.ignite.internal.tx.Lock;
 import org.apache.ignite.internal.tx.LockKey;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.LockMode;
@@ -812,8 +814,6 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param indexId Index id.
      * @param indexLocker Index locker.
      * @param indexCursor Index cursor.
-     * @param upperBound Upper bound.
-     * @param includeBound Include upper bound flag.
      * @param batchSize Batch size.
      * @param result Result collection.
      * @return Future.
@@ -1173,7 +1173,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                             return completedFuture(null);
                         }
 
-                        return takeLocksForDelete(searchRow, rowId, txId);
+                        return takeLocksForDelete(row, rowId, txId);
                     });
                 }
 
@@ -1274,7 +1274,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                         return completedFuture(result);
                     }
 
-                    CompletableFuture<RowId>[] insertLockFuts = new CompletableFuture[rowsToInsert.size()];
+                    CompletableFuture<IgniteBiTuple<RowId, Collection<Lock>>>[] insertLockFuts = new CompletableFuture[rowsToInsert.size()];
 
                     int idx = 0;
 
@@ -1289,11 +1289,20 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     return allOf(insertLockFuts)
                             .thenCompose(ignored -> applyCmdWithExceptionHandling(
-                                    updateAllCommand(committedPartitionId, convertedMap, txId))).thenApply(ignored -> result);
+                                    updateAllCommand(committedPartitionId, convertedMap, txId)))
+                            .thenApply(ignored -> {
+                                // Release short term locks.
+                                for (CompletableFuture<IgniteBiTuple<RowId, Collection<Lock>>> insertLockFut : insertLockFuts) {
+                                    insertLockFut.join().get2()
+                                            .forEach(lock -> lockManager.release(lock.txId(), lock.lockKey(), lock.lockMode()));
+                                }
+
+                                return result;
+                            });
                 });
             }
             case RW_UPSERT_ALL: {
-                CompletableFuture<RowId>[] rowIdFuts = new CompletableFuture[request.binaryRows().size()];
+                CompletableFuture<IgniteBiTuple<RowId, Collection<Lock>>>[] rowIdFuts = new CompletableFuture[request.binaryRows().size()];
 
                 int i = 0;
 
@@ -1315,7 +1324,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     int futNum = 0;
 
                     for (BinaryRow row : request.binaryRows()) {
-                        RowId lockedRow = rowIdFuts[futNum++].join();
+                        RowId lockedRow = rowIdFuts[futNum++].join().get1();
 
                         rowsToUpdate.put(lockedRow.uuid(), new ByteString(row.byteBuffer()));
                     }
@@ -1325,7 +1334,15 @@ public class PartitionReplicaListener implements ReplicaListener {
                     }
 
                     return applyCmdWithExceptionHandling(updateAllCommand(committedPartitionId, rowsToUpdate, txId))
-                            .thenApply(ignored -> null);
+                            .thenApply(ignored -> {
+                                // Release short term locks.
+                                for (CompletableFuture<IgniteBiTuple<RowId, Collection<Lock>>> rowIdFut : rowIdFuts) {
+                                    rowIdFut.join().get2()
+                                            .forEach(lock -> lockManager.release(lock.txId(), lock.lockKey(), lock.lockMode()));
+                                }
+
+                                return null;
+                            });
                 });
             }
             default: {
@@ -1435,9 +1452,15 @@ public class PartitionReplicaListener implements ReplicaListener {
                     RowId rowId0 = new RowId(partId);
 
                     return takeLocksForInsert(searchRow, rowId0, txId)
-                            .thenCompose(ignored -> applyCmdWithExceptionHandling(
-                                    updateCommand(commitPartitionId, rowId0.uuid(), searchRow.byteBuffer(), txId)))
-                            .thenApply(ignored -> true);
+                            .thenCompose(rowIdLock -> applyCmdWithExceptionHandling(
+                                    updateCommand(commitPartitionId, rowId0.uuid(), searchRow.byteBuffer(), txId))
+                                    .thenApply(ignored -> rowIdLock))
+                            .thenApply(rowIdLock -> {
+                                // Release short term locks.
+                                rowIdLock.get2().forEach(lock -> lockManager.release(lock.txId(), lock.lockKey(), lock.lockMode()));
+
+                                return true;
+                            });
                 });
             }
             case RW_UPSERT: {
@@ -1446,14 +1469,20 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     RowId rowId0 = insert ? new RowId(partId) : rowId;
 
-                    CompletableFuture<?> lockFut = insert
+                    CompletableFuture<IgniteBiTuple<RowId, Collection<Lock>>> lockFut = insert
                             ? takeLocksForInsert(searchRow, rowId0, txId)
                             : takeLocksForUpdate(searchRow, rowId0, txId);
 
                     return lockFut
-                            .thenCompose(ignored -> applyCmdWithExceptionHandling(
-                                    updateCommand(commitPartitionId, rowId0.uuid(), searchRow.byteBuffer(), txId)))
-                            .thenApply(ignored -> null);
+                            .thenCompose(rowIdLock -> applyCmdWithExceptionHandling(
+                                    updateCommand(commitPartitionId, rowId0.uuid(), searchRow.byteBuffer(), txId))
+                                    .thenApply(ignored -> rowIdLock))
+                            .thenApply(rowIdLock -> {
+                                // Release short term locks.
+                                rowIdLock.get2().forEach(lock -> lockManager.release(lock.txId(), lock.lockKey(), lock.lockMode()));
+
+                                return null;
+                            });
                 });
             }
             case RW_GET_AND_UPSERT: {
@@ -1462,14 +1491,20 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     RowId rowId0 = insert ? new RowId(partId) : rowId;
 
-                    CompletableFuture<?> lockFut = insert
+                    CompletableFuture<IgniteBiTuple<RowId, Collection<Lock>>> lockFut = insert
                             ? takeLocksForInsert(searchRow, rowId0, txId)
                             : takeLocksForUpdate(searchRow, rowId0, txId);
 
                     return lockFut
-                            .thenCompose(ignored -> applyCmdWithExceptionHandling(
-                                    updateCommand(commitPartitionId, rowId0.uuid(), searchRow.byteBuffer(), txId)))
-                            .thenApply(ignored -> row);
+                            .thenCompose(rowIdLock -> applyCmdWithExceptionHandling(
+                                    updateCommand(commitPartitionId, rowId0.uuid(), searchRow.byteBuffer(), txId))
+                                    .thenApply(ignored -> rowIdLock))
+                            .thenApply(rowIdLock -> {
+                                // Release short term locks.
+                                rowIdLock.get2().forEach(lock -> lockManager.release(lock.txId(), lock.lockKey(), lock.lockMode()));
+
+                                return row;
+                            });
                 });
             }
             case RW_GET_AND_REPLACE: {
@@ -1479,9 +1514,15 @@ public class PartitionReplicaListener implements ReplicaListener {
                     }
 
                     return takeLocksForUpdate(searchRow, rowId, txId)
-                            .thenCompose(ignored -> applyCmdWithExceptionHandling(
-                                    updateCommand(commitPartitionId, rowId.uuid(), searchRow.byteBuffer(), txId)))
-                            .thenApply(ignored0 -> row);
+                            .thenCompose(rowIdLock -> applyCmdWithExceptionHandling(
+                                    updateCommand(commitPartitionId, rowId.uuid(), searchRow.byteBuffer(), txId))
+                                    .thenApply(ignored -> rowIdLock))
+                            .thenApply(rowIdLock -> {
+                                // Release short term locks.
+                                rowIdLock.get2().forEach(lock -> lockManager.release(lock.txId(), lock.lockKey(), lock.lockMode()));
+
+                                return row;
+                            });
                 });
             }
             case RW_REPLACE_IF_EXIST: {
@@ -1491,9 +1532,15 @@ public class PartitionReplicaListener implements ReplicaListener {
                     }
 
                     return takeLocksForUpdate(searchRow, rowId, txId)
-                            .thenCompose(ignored -> applyCmdWithExceptionHandling(
-                                    updateCommand(commitPartitionId, rowId.uuid(), searchRow.byteBuffer(), txId)))
-                            .thenApply(ignored -> true);
+                            .thenCompose(rowLock -> applyCmdWithExceptionHandling(
+                                    updateCommand(commitPartitionId, rowId.uuid(), searchRow.byteBuffer(), txId))
+                                    .thenApply(ignored -> rowLock))
+                            .thenApply(rowIdLock -> {
+                                // Release short term locks.
+                                rowIdLock.get2().forEach(lock -> lockManager.release(lock.txId(), lock.lockKey(), lock.lockMode()));
+
+                                return true;
+                            });
                 });
             }
             default: {
@@ -1507,13 +1554,13 @@ public class PartitionReplicaListener implements ReplicaListener {
      * Takes all required locks on a key, before upserting.
      *
      * @param txId      Transaction id.
-     * @return Future completes with {@link RowId} or {@code null} if there is no value.
+     * @return Future completes with tuple {@link RowId} and collection of {@link Lock}.
      */
-    private CompletableFuture<RowId> takeLocksForUpdate(BinaryRow tableRow, RowId rowId, UUID txId) {
+    private CompletableFuture<IgniteBiTuple<RowId, Collection<Lock>>> takeLocksForUpdate(BinaryRow tableRow, RowId rowId, UUID txId) {
         return lockManager.acquire(txId, new LockKey(tableId), LockMode.IX)
                 .thenCompose(ignored -> lockManager.acquire(txId, new LockKey(tableId, rowId), LockMode.X))
                 .thenCompose(ignored -> takePutLockOnIndexes(tableRow, rowId, txId))
-                .thenApply(ignored -> rowId);
+                .thenApply(shortTermLocks -> new IgniteBiTuple<>(rowId, shortTermLocks));
     }
 
     /**
@@ -1521,29 +1568,41 @@ public class PartitionReplicaListener implements ReplicaListener {
      *
      * @param tableRow Table row.
      * @param txId Transaction id.
-     * @return Future completes with {@link RowId} or {@code null} if there is no value.
+     * @return Future completes with tuple {@link RowId} and collection of {@link Lock}.
      */
-    private CompletableFuture<RowId> takeLocksForInsert(BinaryRow tableRow, RowId rowId, UUID txId) {
+    private CompletableFuture<IgniteBiTuple<RowId, Collection<Lock>>> takeLocksForInsert(BinaryRow tableRow, RowId rowId, UUID txId) {
         return lockManager.acquire(txId, new LockKey(tableId), LockMode.IX) // IX lock on table
                 .thenCompose(ignored -> takePutLockOnIndexes(tableRow, rowId, txId))
-                .thenApply(tblLock -> rowId);
+                .thenApply(shortTermLocks -> new IgniteBiTuple<>(rowId, shortTermLocks));
     }
 
-    private CompletableFuture<?> takePutLockOnIndexes(BinaryRow tableRow, RowId rowId, UUID txId) {
+    private CompletableFuture<Collection<Lock>> takePutLockOnIndexes(BinaryRow tableRow, RowId rowId, UUID txId) {
         Collection<IndexLocker> indexes = indexesLockers.get().values();
 
         if (nullOrEmpty(indexes)) {
-            return completedFuture(null);
+            return completedFuture(Collections.emptyList());
         }
 
-        CompletableFuture<?>[] locks = new CompletableFuture[indexes.size()];
+        CompletableFuture<Lock>[] locks = new CompletableFuture[indexes.size()];
         int idx = 0;
 
         for (IndexLocker locker : indexes) {
             locks[idx++] = locker.locksForInsert(txId, tableRow, rowId);
         }
 
-        return allOf(locks);
+        return allOf(locks).thenApply(unused -> {
+            ArrayList<Lock> shortTermLocks = new ArrayList<>();
+
+            for (CompletableFuture<Lock> lockFut : locks) {
+                Lock shortTermLock = lockFut.join();
+
+                if (shortTermLock != null) {
+                    shortTermLocks.add(shortTermLock);
+                }
+            }
+
+            return shortTermLocks;
+        });
     }
 
     private CompletableFuture<?> takeRemoveLockOnIndexes(BinaryRow tableRow, RowId rowId, UUID txId) {
@@ -1636,8 +1695,14 @@ public class PartitionReplicaListener implements ReplicaListener {
                             }
 
                             return applyCmdWithExceptionHandling(
-                                    updateCommand(commitPartitionId, validatedRowId.uuid(), newRow.byteBuffer(), txId))
-                                    .thenApply(ignored -> true);
+                                    updateCommand(commitPartitionId, validatedRowId.get1().uuid(), newRow.byteBuffer(), txId))
+                                    .thenApply(ignored -> validatedRowId)
+                                    .thenApply(rowIdLock -> {
+                                        // Release short term locks.
+                                        rowIdLock.get2().forEach(lock -> lockManager.release(lock.txId(), lock.lockKey(), lock.lockMode()));
+
+                                        return true;
+                                    });
                         });
             });
         }
@@ -1650,9 +1715,9 @@ public class PartitionReplicaListener implements ReplicaListener {
      * Takes all required locks on a key, before updating the value.
      *
      * @param txId      Transaction id.
-     * @return Future completes with {@link RowId} or {@code null} if there is no suitable row.
+     * @return Future completes with tuple {@link RowId} and collection of {@link Lock} or {@code null} if there is no suitable row.
      */
-    private CompletableFuture<RowId> takeLocksForReplace(BinaryRow expectedRow, BinaryRow oldRow,
+    private CompletableFuture<IgniteBiTuple<RowId, Collection<Lock>>> takeLocksForReplace(BinaryRow expectedRow, BinaryRow oldRow,
             BinaryRow newRow, RowId rowId, UUID txId) {
         return lockManager.acquire(txId, new LockKey(tableId), LockMode.IX)
                 .thenCompose(ignored -> lockManager.acquire(txId, new LockKey(tableId, rowId), LockMode.S))
@@ -1660,7 +1725,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     if (oldRow != null && equalValues(oldRow, expectedRow)) {
                         return lockManager.acquire(txId, new LockKey(tableId, rowId), LockMode.X) // X lock on RowId
                                 .thenCompose(ignored1 -> takePutLockOnIndexes(newRow, rowId, txId))
-                                .thenApply(rowLock -> rowId);
+                                .thenApply(shortTermLocks -> new IgniteBiTuple<>(rowId, shortTermLocks));
                     }
 
                     return completedFuture(null);
