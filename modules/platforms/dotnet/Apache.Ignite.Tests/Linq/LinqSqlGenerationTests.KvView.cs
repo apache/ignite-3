@@ -28,8 +28,12 @@ using NUnit.Framework;
 public partial class LinqSqlGenerationTests
 {
     [Test]
-    public void TestSelectOneColumnKv() =>
+    public void TestSelectPrimitiveKeyColumnKv() =>
         AssertSqlKv("select _T0.VAL from PUBLIC.tbl1 as _T0", q => q.Select(x => x.Value.Val).ToList());
+
+    [Test]
+    public void TestSelectPocoValColumnKv() =>
+        AssertSqlKv("select _T0.VAL from PUBLIC.tbl1 as _T0", q => q.Select(x => x.Value).ToList());
 
     [Test]
     public void TestSelectTwoColumnsKv() =>
