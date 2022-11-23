@@ -30,4 +30,14 @@ public partial class LinqSqlGenerationTests
     [Test]
     public void TestSelectOneColumnKv() =>
         AssertSqlKv("select _T0.VAL from PUBLIC.tbl1 as _T0", q => q.Select(x => x.Value.Val).ToList());
+
+    [Test]
+    public void TestSelectTwoColumnsKv() =>
+        AssertSqlKv(
+            "select _T0.KEY, _T0.VAL + 1 from PUBLIC.tbl1 as _T0",
+            q => q.Select(x => new { x.Key, Val = x.Value.Val + 1 }).ToList());
+
+    [Test]
+    public void TestSelectEntireObjectKv() =>
+        AssertSqlKv("select _T0.KEY, _T0.VAL from PUBLIC.tbl1 as _T0 where (_T0.KEY > ?)", q => q.Where(x => x.Key > 1).ToList());
 }
