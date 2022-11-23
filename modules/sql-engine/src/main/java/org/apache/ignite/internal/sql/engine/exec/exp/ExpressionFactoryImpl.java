@@ -77,6 +77,7 @@ import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.IgniteMethod;
 import org.apache.ignite.internal.sql.engine.util.Primitives;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Implements rex expression into a function object. Uses JaninoRexCompiler under the hood. Each expression compiles into a class and a
@@ -141,7 +142,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
             @Override
             public int compare(RowT o1, RowT o2) {
                 RowHandler<RowT> hnd = ctx.rowHandler();
-                Object unspecifiedVal = ctx.unspecifiedValue();
+                Object unspecifiedVal = RexImpTable.UNSPECIFIED_VALUE_PLACEHOLDER;
 
                 for (RelFieldCollation field : collation.getFieldCollations()) {
                     int fieldIdx = field.getFieldIndex();
@@ -302,8 +303,8 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
     @Override
     public RangeIterable<RowT> ranges(
             List<SearchBounds> searchBounds,
-            RelCollation collation,
-            RelDataType rowType
+            RelDataType rowType,
+            @Nullable Comparator<RowT> comparator
     ) {
         RowFactory<RowT> rowFactory = ctx.rowHandler().factory(typeFactory, rowType);
 
@@ -321,7 +322,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
                 true
         );
 
-        return new RangeIterableImpl(ranges, comparator(collation));
+        return new RangeIterableImpl(ranges, comparator);
     }
 
     /**
@@ -427,7 +428,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
     /**
      * Creates {@link SingleScalar}, a code-generated expressions evaluator.
      *
-     * @param nodes Expressions. {@code Null} expressions will be evaluated to {@link ExecutionContext#unspecifiedValue()}.
+     * @param nodes Expressions. {@code Null} expressions will be evaluated to {@link RexImpTable#UNSPECIFIED_VALUE_PLACEHOLDER}.
      * @param type Row type.
      * @return SingleScalar.
      */
@@ -506,8 +507,9 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         assert nodes.size() == projects.size();
 
         for (int i = 0; i < projects.size(); i++) {
-            Expression val = unspecifiedValues.get(i) ? Expressions.call(ctx,
-                    IgniteMethod.CONTEXT_UNSPECIFIED_VALUE.method()) : projects.get(i);
+            Expression val = unspecifiedValues.get(i)
+                    ? Expressions.field(null, RexImpTable.class, "UNSPECIFIED_VALUE_PLACEHOLDER")
+                    : projects.get(i);
 
             builder.add(
                     Expressions.statement(
@@ -711,10 +713,10 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         private final boolean upperInclude;
 
         /** Lower row. */
-        private RowT lowerRow;
+        private @Nullable RowT lowerRow;
 
         /** Upper row. */
-        private RowT upperRow;
+        private @Nullable RowT upperRow;
 
         /** Row factory. */
         private final RowFactory<RowT> factory;
@@ -766,7 +768,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         }
 
         /** Clear cached rows. */
-        public void clearCache() {
+        void clearCache() {
             lowerRow = upperRow = null;
         }
     }
@@ -774,11 +776,14 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
     private class RangeIterableImpl implements RangeIterable<RowT> {
         private final List<RangeCondition<RowT>> ranges;
 
-        private final Comparator<RowT> comparator;
+        private final @Nullable Comparator<RowT> comparator;
 
         private boolean sorted;
 
-        public RangeIterableImpl(List<RangeCondition<RowT>> ranges, Comparator<RowT> comparator) {
+        RangeIterableImpl(
+                List<RangeCondition<RowT>> ranges,
+                @Nullable Comparator<RowT> comparator
+        ) {
             this.ranges = ranges;
             this.comparator = comparator;
         }
@@ -802,7 +807,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
             // intersection.
             // Do not sort again if ranges already were sorted before, different values of correlated variables
             // should not affect ordering.
-            if (!sorted) {
+            if (!sorted && comparator != null) {
                 ranges.sort((o1, o2) -> comparator.compare(o1.lower(), o2.lower()));
                 sorted = true;
             }

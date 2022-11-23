@@ -53,6 +53,7 @@ import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.RangeCondition;
 import org.apache.ignite.internal.sql.engine.exec.exp.RangeIterable;
+import org.apache.ignite.internal.sql.engine.exec.exp.RexImpTable;
 import org.apache.ignite.internal.sql.engine.planner.AbstractPlannerTest;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
@@ -169,13 +170,13 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
     public void sortedIndexScanWithPrefixBound() {
         validateSortedIndexScan(
                 sortedIndexData,
-                new Object[]{2L, executionContext().unspecifiedValue()},
+                new Object[]{2L, RexImpTable.UNSPECIFIED_VALUE_PLACEHOLDER},
                 null,
                 sortedScanResult
         );
         validateSortedIndexScan(
                 sortedIndexData,
-                new Object[]{null, executionContext().unspecifiedValue()},
+                new Object[]{null, RexImpTable.UNSPECIFIED_VALUE_PLACEHOLDER},
                 null,
                 sortedScanResult
         );
@@ -183,13 +184,13 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
         validateSortedIndexScan(
                 sortedIndexData,
                 null,
-                new Object[]{4L, executionContext().unspecifiedValue()},
+                new Object[]{4L, RexImpTable.UNSPECIFIED_VALUE_PLACEHOLDER},
                 sortedScanResult
         );
         validateSortedIndexScan(
                 sortedIndexData,
                 null,
-                new Object[]{null, executionContext().unspecifiedValue()},
+                new Object[]{null, RexImpTable.UNSPECIFIED_VALUE_PLACEHOLDER},
                 sortedScanResult
         );
     }
@@ -273,7 +274,7 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
         assertThrowsWithCause(() ->
                 validateHashIndexScan(
                         sortedIndexData,
-                        new Object[]{1L, executionContext().unspecifiedValue()},
+                        new Object[]{1L, RexImpTable.UNSPECIFIED_VALUE_PLACEHOLDER},
                         EMPTY
                 ), AssertionError.class, "Invalid lookup key");
     }

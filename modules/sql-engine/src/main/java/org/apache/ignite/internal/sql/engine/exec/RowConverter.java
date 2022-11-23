@@ -27,6 +27,7 @@ import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
+import org.apache.ignite.internal.sql.engine.exec.exp.RexImpTable;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -72,9 +73,11 @@ public final class RowConverter {
 
         int specifiedCols = 0;
         for (int i = 0; i < prefixColumnsCount; i++) {
-            if (handler.get(i, searchRow) != ectx.unspecifiedValue()) {
-                specifiedCols++;
+            if (handler.get(i, searchRow) == RexImpTable.UNSPECIFIED_VALUE_PLACEHOLDER) {
+                break;
             }
+
+            specifiedCols++;
         }
 
         BinaryTuplePrefixBuilder tupleBuilder = new BinaryTuplePrefixBuilder(specifiedCols, indexedColumnsCount);
@@ -106,7 +109,7 @@ public final class RowConverter {
 
         if (IgniteUtils.assertionsEnabled()) {
             for (int i = 0; i < rowColumnsCount; i++) {
-                if (handler.get(i, searchRow) == ectx.unspecifiedValue()) {
+                if (handler.get(i, searchRow) == RexImpTable.UNSPECIFIED_VALUE_PLACEHOLDER) {
                     throw new AssertionError("Invalid lookup key.");
                 }
             }
@@ -129,7 +132,7 @@ public final class RowConverter {
         for (int i = 0; i < columnsCount; i++) {
             Object val = handler.get(i, searchRow);
 
-            if (val == ectx.unspecifiedValue()) {
+            if (val == RexImpTable.UNSPECIFIED_VALUE_PLACEHOLDER) {
                 break; // No more columns in prefix.
             }
 

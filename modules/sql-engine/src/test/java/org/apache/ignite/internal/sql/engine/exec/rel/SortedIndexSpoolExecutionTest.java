@@ -33,6 +33,7 @@ import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.exp.RangeCondition;
 import org.apache.ignite.internal.sql.engine.exec.exp.RangeIterable;
+import org.apache.ignite.internal.sql.engine.exec.exp.RexImpTable;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
@@ -181,7 +182,7 @@ public class SortedIndexSpoolExecutionTest extends AbstractExecutionTest {
         RootRewindable<Object[]> root = new RootRewindable<>(ctx);
         root.register(spool);
 
-        Object x = ctx.unspecifiedValue(); // Unspecified filter value.
+        Object x = RexImpTable.UNSPECIFIED_VALUE_PLACEHOLDER; // Unspecified filter value.
 
         // Test tuple (lower, upper, expected result size).
         List<TestParams> testBounds = Arrays.asList(

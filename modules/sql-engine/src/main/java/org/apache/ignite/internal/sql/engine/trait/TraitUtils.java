@@ -505,23 +505,13 @@ public class TraitUtils {
     /**
      * Creates {@link RelCollation} object from a given collations.
      *
-     * @param indexedColumns List of columns names.
      * @param collations List of collations.
      * @return a {@link RelCollation} object.
      */
-    // TODO: Cache collations in index descriptor?
-    public static RelCollation createCollation(List<String> indexedColumns, List<Collation> collations) {
-        List<RelFieldCollation> fieldCollations = new ArrayList<>(indexedColumns.size());
+    public static RelCollation createCollation(List<Collation> collations) {
+        List<RelFieldCollation> fieldCollations = new ArrayList<>(collations.size());
 
-        if (collations == null) { // Build collation for Hash index.
-            for (int i = 0; i < indexedColumns.size(); i++) {
-                fieldCollations.add(new RelFieldCollation(i, Direction.CLUSTERED, NullDirection.UNSPECIFIED));
-            }
-
-            return RelCollations.of(fieldCollations);
-        }
-
-        for (int i = 0; i < indexedColumns.size(); i++) {
+        for (int i = 0; i < collations.size(); i++) {
             fieldCollations.add(createFieldCollation(i,  collations.get(i)));
         }
 
@@ -530,7 +520,6 @@ public class TraitUtils {
 
     /**
      * Creates {@link RelCollation} object from a given collations.
-     * TODO: replace method usage with {@link TraitUtils#createCollation(List, List)} + mapping?
      *
      * @param indexedColumns List of columns names.
      * @param collations List of collations.

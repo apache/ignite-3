@@ -131,7 +131,7 @@ public class IgniteIndex {
      *
      * @param typeFactory Type factory with which to create the type
      * @param tableDescriptor Table descriptor.
-     * @return Row type
+     * @return Row type.
      */
     public RelDataType getRowType(IgniteTypeFactory typeFactory, TableDescriptor tableDescriptor) {
         RelDataTypeFactory.Builder b = new RelDataTypeFactory.Builder(typeFactory);
