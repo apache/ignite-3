@@ -21,7 +21,7 @@ import jakarta.inject.Singleton;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Properties;
-import org.apache.ignite.internal.cli.deprecated.IgniteCliException;
+import org.apache.ignite.internal.cli.core.exception.IgniteCliException;
 
 /**
  * Provider of current Ignite CLI version info from the builtin properties file.

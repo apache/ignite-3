@@ -15,32 +15,32 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.deprecated;
+package org.apache.ignite.internal.util;
 
-import io.micronaut.context.ApplicationContext;
-import java.util.Optional;
-import picocli.CommandLine;
+import java.util.Iterator;
+import java.util.Objects;
 
 /**
- * Picocli command factory for initialize commands and DI dependencies.
+ * An adapter of an {@link Iterator} to {@link Cursor}.
+ *
+ * @param <T> Element type.
  */
-public class CommandFactory implements CommandLine.IFactory {
-    /** DI application context. */
-    private final ApplicationContext applicationCtx;
+abstract class IteratorCursor<T> implements Cursor<T> {
+    private final Iterator<? extends T> it;
 
-    /**
-     * Creates new command factory.
-     *
-     * @param applicationCtx DI application context.
-     */
-    public CommandFactory(ApplicationContext applicationCtx) {
-        this.applicationCtx = applicationCtx;
+    IteratorCursor(Iterator<? extends T> it) {
+        Objects.requireNonNull(it, "Iterator is null");
+
+        this.it = it;
     }
 
-    /** {@inheritDoc} */
     @Override
-    public <K> K create(Class<K> cls) throws Exception {
-        Optional<K> bean = applicationCtx.findOrInstantiateBean(cls);
-        return bean.isPresent() ? bean.get() : CommandLine.defaultFactory().create(cls);
+    public boolean hasNext() {
+        return it.hasNext();
+    }
+
+    @Override
+    public T next() {
+        return it.next();
     }
 }

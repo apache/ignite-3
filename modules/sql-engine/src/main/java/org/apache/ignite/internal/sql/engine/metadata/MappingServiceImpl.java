@@ -58,6 +58,6 @@ public class MappingServiceImpl implements MappingService {
             throw new IllegalStateException("failed to map query to execution nodes. Nodes list is empty.");
         }
 
-        return Commons.transform(nodes, ClusterNode::id);
+        return Commons.transform(nodes, ClusterNode::name);
     }
 }

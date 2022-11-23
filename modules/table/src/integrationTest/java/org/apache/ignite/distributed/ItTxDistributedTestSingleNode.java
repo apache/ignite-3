@@ -333,7 +333,6 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 accTblId,
                 accRaftClients,
                 1,
-                Function.identity(),
                 consistentIdToNode,
                 txMgr,
                 Mockito.mock(MvTableStorage.class),
@@ -347,7 +346,6 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 custTblId,
                 custRaftClients,
                 1,
-                Function.identity(),
                 consistentIdToNode,
                 txMgr,
                 Mockito.mock(MvTableStorage.class),
@@ -434,7 +432,8 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                                     new TestPartitionDataStorage(testMpPartStorage),
                                     new TestTxStateStorage(),
                                     txManagers.get(node),
-                                    () -> Map.of(pkStorage.get().id(), pkStorage.get())
+                                    () -> Map.of(pkStorage.get().id(), pkStorage.get()),
+                                    partId
                             );
                         },
                         RaftGroupOptions.defaults()

@@ -181,10 +181,10 @@ public class PersistentVaultService implements VaultService {
             }
 
             @Override
-            public void close() throws Exception {
+            public void close() {
                 super.close();
 
-                IgniteUtils.closeAll(upperBound, readOpts);
+                RocksUtils.closeAll(upperBound, readOpts);
             }
         };
     }

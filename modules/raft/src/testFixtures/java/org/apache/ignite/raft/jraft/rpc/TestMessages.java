@@ -14,20 +14,37 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.ignite.raft.jraft.rpc;
 
-package org.apache.ignite.internal.cli.deprecated;
+import org.apache.ignite.network.annotations.Transferable;
 
-import org.junit.jupiter.api.BeforeAll;
+/** Messages used in AbstractRpcTest. */
+public class TestMessages {
+    /**  */
+    @Transferable(value = 0)
+    public interface Request1 extends Message {
+        /**  */
+        int val();
+    }
 
-/**
- * Base class for any CLI tests.
- */
-public abstract class AbstractCliTest {
-    /**
-     * Sets up a dumb terminal before tests.
-     */
-    @BeforeAll
-    static void beforeAll() {
-        System.setProperty("org.jline.terminal.dumb", "true");
+    /**  */
+    @Transferable(value = 1)
+    public interface Request2 extends Message {
+        /**  */
+        int val();
+    }
+
+    /**  */
+    @Transferable(value = 2)
+    public interface Response1 extends Message {
+        /**  */
+        int val();
+    }
+
+    /**  */
+    @Transferable(value = 3)
+    public interface Response2 extends Message {
+        /**  */
+        int val();
     }
 }

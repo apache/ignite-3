@@ -173,10 +173,10 @@ public class RocksDbClusterStateStorage implements ClusterStateStorage {
             }
 
             @Override
-            public void close() throws Exception {
+            public void close() {
                 super.close();
 
-                IgniteUtils.closeAll(readOptions, upperBoundSlice);
+                RocksUtils.closeAll(readOptions, upperBoundSlice);
             }
         };
     }

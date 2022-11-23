@@ -51,7 +51,7 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
 
     private final Map<String, Buffer> perNodeBuffers;
 
-    private volatile Collection<String> srcNodeIds;
+    private volatile Collection<String> srcNodeNames;
 
     private Comparator<RowT> comp;
 
@@ -64,10 +64,10 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
     /**
      * Constructor.
      *
-     * @param ctx           Execution context.
-     * @param exchange      Exchange service.
-     * @param registry      Mailbox registry.
-     * @param exchangeId    Exchange ID.
+     * @param ctx Execution context.
+     * @param exchange Exchange service.
+     * @param registry Mailbox registry.
+     * @param exchangeId Exchange ID.
      * @param srcFragmentId Source fragment ID.
      */
     public Inbox(
@@ -97,13 +97,13 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
      * Inits this Inbox.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      *
-     * @param ctx        Execution context.
-     * @param srcNodeIds Source node IDs.
-     * @param comp       Optional comparator for merge exchange.
+     * @param ctx Execution context.
+     * @param srcNodeNames Source nodes' consistent IDs.
+     * @param comp Optional comparator for merge exchange.
      */
     public void init(
-            ExecutionContext<RowT> ctx, Collection<String> srcNodeIds, @Nullable Comparator<RowT> comp) {
-        assert srcNodeIds != null : "Collection srcNodeIds not found for exchangeId: " + exchangeId;
+            ExecutionContext<RowT> ctx, Collection<String> srcNodeNames, @Nullable Comparator<RowT> comp) {
+        assert srcNodeNames != null : "Collection srcNodeNames not found for exchangeId: " + exchangeId;
         assert context().fragmentId() == ctx.fragmentId() : "different fragments unsupported: previous=" + context().fragmentId()
                 + " current=" + ctx.fragmentId();
 
@@ -115,13 +115,13 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
         this.comp = comp;
 
         // memory barier
-        this.srcNodeIds = new HashSet<>(srcNodeIds);
+        this.srcNodeNames = new HashSet<>(srcNodeNames);
     }
 
     /** {@inheritDoc} */
     @Override
     public void request(int rowsCnt) throws Exception {
-        assert srcNodeIds != null;
+        assert srcNodeNames != null;
         assert rowsCnt > 0 && requested == 0;
 
         checkState();
@@ -162,13 +162,13 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
     /**
      * Pushes a batch into a buffer.
      *
-     * @param srcNodeId Source node id.
-     * @param batchId   Batch ID.
-     * @param last      Last batch flag.
-     * @param rows      Rows.
+     * @param srcNodeName Source node consistent id.
+     * @param batchId Batch ID.
+     * @param last Last batch flag.
+     * @param rows Rows.
      */
-    public void onBatchReceived(String srcNodeId, int batchId, boolean last, List<RowT> rows) throws Exception {
-        Buffer buf = getOrCreateBuffer(srcNodeId);
+    public void onBatchReceived(String srcNodeName, int batchId, boolean last, List<RowT> rows) throws Exception {
+        Buffer buf = getOrCreateBuffer(srcNodeName);
 
         boolean waitingBefore = buf.check() == State.WAITING;
 
@@ -187,11 +187,11 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
 
     private void push() throws Exception {
         if (buffers == null) {
-            for (String node : srcNodeIds) {
+            for (String node : srcNodeNames) {
                 checkNode(node);
             }
 
-            buffers = srcNodeIds.stream()
+            buffers = srcNodeNames.stream()
                     .map(this::getOrCreateBuffer)
                     .collect(Collectors.toList());
 
@@ -328,41 +328,41 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
         }
     }
 
-    private void acknowledge(String nodeId, int batchId) throws IgniteInternalCheckedException {
-        exchange.acknowledge(nodeId, queryId(), srcFragmentId, exchangeId, batchId);
+    private void acknowledge(String nodeName, int batchId) throws IgniteInternalCheckedException {
+        exchange.acknowledge(nodeName, queryId(), srcFragmentId, exchangeId, batchId);
     }
 
-    private Buffer getOrCreateBuffer(String nodeId) {
-        return perNodeBuffers.computeIfAbsent(nodeId, this::createBuffer);
+    private Buffer getOrCreateBuffer(String nodeName) {
+        return perNodeBuffers.computeIfAbsent(nodeName, this::createBuffer);
     }
 
-    private Buffer createBuffer(String nodeId) {
-        return new Buffer(nodeId);
+    private Buffer createBuffer(String nodeName) {
+        return new Buffer(nodeName);
     }
 
     /**
      * OnNodeLeft.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public void onNodeLeft(String nodeId) {
-        if (context().originatingNodeId().equals(nodeId) && srcNodeIds == null) {
+    public void onNodeLeft(String nodeName) {
+        if (context().originatingNodeName().equals(nodeName) && srcNodeNames == null) {
             context().execute(this::close, this::onError);
-        } else if (srcNodeIds != null && srcNodeIds.contains(nodeId)) {
-            context().execute(() -> onNodeLeft0(nodeId), this::onError);
+        } else if (srcNodeNames != null && srcNodeNames.contains(nodeName)) {
+            context().execute(() -> onNodeLeft0(nodeName), this::onError);
         }
     }
 
-    private void onNodeLeft0(String nodeId) throws Exception {
+    private void onNodeLeft0(String nodeName) throws Exception {
         checkState();
 
-        if (getOrCreateBuffer(nodeId).check() != State.END) {
-            throw new IgniteInternalCheckedException(NODE_LEFT_ERR, "Failed to execute query, node left [nodeId=" + nodeId + ']');
+        if (getOrCreateBuffer(nodeName).check() != State.END) {
+            throw new IgniteInternalCheckedException(NODE_LEFT_ERR, "Failed to execute query, node left [nodeName=" + nodeName + ']');
         }
     }
 
-    private void checkNode(String nodeId) throws IgniteInternalCheckedException {
-        if (!exchange.alive(nodeId)) {
-            throw new IgniteInternalCheckedException(NODE_LEFT_ERR, "Failed to execute query, node left [nodeId=" + nodeId + ']');
+    private void checkNode(String nodeName) throws IgniteInternalCheckedException {
+        if (!exchange.alive(nodeName)) {
+            throw new IgniteInternalCheckedException(NODE_LEFT_ERR, "Failed to execute query, node left [nodeName=" + nodeName + ']');
         }
     }
 
@@ -422,7 +422,7 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
     private static final Batch<?> END = new Batch<>(0, false, null);
 
     private final class Buffer {
-        private final String nodeId;
+        private final String nodeName;
 
         private int lastEnqueued = -1;
 
@@ -430,8 +430,8 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
 
         private Batch<RowT> curr = waitingMark();
 
-        private Buffer(String nodeId) {
-            this.nodeId = nodeId;
+        private Buffer(String nodeName) {
+            this.nodeName = nodeName;
         }
 
         private void offer(int id, boolean last, List<RowT> rows) {
@@ -488,7 +488,7 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
             RowT row = curr.rows.set(curr.idx++, null);
 
             if (curr.idx == curr.rows.size()) {
-                acknowledge(nodeId, curr.batchId);
+                acknowledge(nodeName, curr.batchId);
 
                 if (!isEnd()) {
                     curr = pollBatch();

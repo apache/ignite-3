@@ -81,6 +81,8 @@ public final class CliRequests {
 
         Collection<String> newPeersList();
 
+        Collection<String> newLearnersList();
+
         long term();
     }
 
@@ -89,6 +91,10 @@ public final class CliRequests {
         Collection<String> oldPeersList();
 
         Collection<String> newPeersList();
+
+        Collection<String> oldLearnersList();
+
+        Collection<String> newLearnersList();
     }
 
     @Transferable(value = RaftMessageGroup.RpcClientMessageGroup.SNAPSHOT_REQUEST)
