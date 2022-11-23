@@ -266,9 +266,7 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
             // Find where the projection comes from.
             expression = ExpressionWalker.GetProjectedMember(expression.Expression!, expression.Member) ?? expression;
 
-            var columnName = GetColumnName(expression);
-
-            ResultBuilder.AppendFormat(CultureInfo.InvariantCulture, "{0}.{1}", Aliases.GetTableAlias(expression), columnName);
+            AppendColumnName(expression, Aliases.GetTableAlias(expression));
         }
         else
         {
@@ -399,31 +397,34 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
     }
 
     /// <summary>
-    /// Gets the name of the field from a member expression, with quotes when necessary.
+    /// Appends the name of the column from a member expression, with quotes when necessary.
     /// </summary>
-    private static string GetColumnName(MemberExpression expression)
+    private void AppendColumnName(MemberExpression expression, string tableName)
     {
-        if (ColumnNameMap.TryGetValue(expression.Member, out var fieldName))
+        if (ColumnNameMap.TryGetValue(expression.Member, out var columnName))
         {
-            return fieldName;
+            ResultBuilder.Append(tableName).Append('.').Append(columnName);
+            return;
         }
 
         if (expression.Member.DeclaringType is {IsGenericType: true} declaringType &&
             declaringType.GetGenericTypeDefinition() == typeof(KeyValuePair<,>))
         {
-            // TODO: handle multiple columns here.
-            var columnNames = GetColumnNames(((PropertyInfo)expression.Member).PropertyType);
-            return columnNames.Single();
+            // TODO: Cache this?
+            AppendColumnNames(((PropertyInfo)expression.Member).PropertyType, tableName);
+            return;
         }
 
         // TODO: This logic is very similar to the one below. Somehow unify.
         // When there is a [Column] attribute with Name specified, use quoted identifier: exact match, allows whitespace.
         // Otherwise (most common case), use uppercase non-quoted identifier (case-insensitive).
-        var columnName = expression.Member.GetCustomAttribute<ColumnAttribute>() is { Name: { } columnAttributeName }
+        columnName = expression.Member.GetCustomAttribute<ColumnAttribute>() is { Name: { } columnAttributeName }
             ? '"' + columnAttributeName + '"'
             : expression.Member.Name.ToUpperInvariant();
 
-        return ColumnNameMap.GetOrAdd(expression.Member, columnName);
+        ColumnNameMap.GetOrAdd(expression.Member, columnName);
+
+        ResultBuilder.Append(tableName).Append('.').Append(columnName);
     }
 
     /// <summary>
