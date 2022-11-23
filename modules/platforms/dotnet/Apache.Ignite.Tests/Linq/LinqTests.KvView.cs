@@ -40,7 +40,12 @@ public partial class LinqTests
         Assert.AreEqual(4, res[0].Key.Key);
         Assert.AreEqual("v-4", res[0].Value.Val);
 
-        StringAssert.Contains("TODO", query.ToString());
+        StringAssert.Contains(
+            "select _T0.KEY, _T0.VAL " +
+            "from PUBLIC.TBL1 as _T0 " +
+            "where ((_T0.KEY > ?) and (_T0.VAL IS DISTINCT FROM ?)) " +
+            "order by (_T0.KEY) asc",
+            query.ToString());
     }
 
     [OneTimeSetUp]

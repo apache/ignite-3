@@ -163,26 +163,35 @@ internal sealed class IgniteQueryExecutor : IQueryExecutor
         // TODO: IGNITE-18136 Replace reflection with emitted delegates.
         return (IReadOnlyList<IColumnMetadata> cols, ref BinaryTupleReader reader) =>
         {
-            if (typeof(T).IsGenericType && typeof(T).GetGenericTypeDefinition() == typeof(KeyValuePair<,>))
+            if (typeof(T).GetKeyValuePairTypes() is var (keyType, valType))
             {
-                var kvTypes = typeof(T).GetGenericArguments();
-                var key = FormatterServices.GetUninitializedObject(kvTypes[0]);
-                var val = FormatterServices.GetUninitializedObject(kvTypes[1]);
+                var key = FormatterServices.GetUninitializedObject(keyType);
+                var val = FormatterServices.GetUninitializedObject(valType);
 
                 for (int i = 0; i < cols.Count; i++)
                 {
                     var col = cols[i];
                     var colVal = Sql.ReadColumnValue(ref reader, col, i);
-                    var field = typeof(T).GetFieldByColumnName(col.Name);
 
-                    if (field != null)
+                    // TODO: Deduplicate code below.
+                    if (keyType.GetFieldByColumnName(col.Name) is {} keyField)
                     {
-                        if (val != null)
+                        if (colVal != null)
                         {
-                            val = Convert.ChangeType(val, field.FieldType, CultureInfo.InvariantCulture);
+                            colVal = Convert.ChangeType(colVal, keyField.FieldType, CultureInfo.InvariantCulture);
                         }
 
-                        field.SetValue(res, val);
+                        keyField.SetValue(key, colVal);
+                    }
+
+                    if (valType.GetFieldByColumnName(col.Name) is {} valField)
+                    {
+                        if (colVal != null)
+                        {
+                            colVal = Convert.ChangeType(colVal, valField.FieldType, CultureInfo.InvariantCulture);
+                        }
+
+                        valField.SetValue(val, colVal);
                     }
                 }
 

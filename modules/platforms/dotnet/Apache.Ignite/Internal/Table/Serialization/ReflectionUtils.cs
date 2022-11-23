@@ -61,6 +61,23 @@ namespace Apache.Ignite.Internal.Table.Serialization
         public static ICollection<ColumnInfo> GetColumns(this Type type) => GetFieldsByColumnName(type).Values;
 
         /// <summary>
+        /// Gets a pair of types for <see cref="KeyValuePair{TKey,TValue}"/>.
+        /// </summary>
+        /// <param name="type">Type.</param>
+        /// <returns>Resulting pair, or null when specified type is not <see cref="KeyValuePair{TKey,TValue}"/>.</returns>
+        public static (Type KeyType, Type ValType)? GetKeyValuePairTypes(this Type type)
+        {
+            if (!type.IsGenericType || type.GetGenericTypeDefinition() != typeof(KeyValuePair<,>))
+            {
+                return null;
+            }
+
+            var types = type.GetGenericArguments();
+
+            return (types[0], types[1]);
+        }
+
+        /// <summary>
         /// Gets a map of fields by column name.
         /// </summary>
         /// <param name="type">Type to get the map for.</param>
