@@ -158,6 +158,19 @@ public partial class LinqSqlGenerationTests
                 .ToList());
     }
 
+    [Test]
+    public void TestPrimitiveTypeMappingNotSupported()
+    {
+        // ReSharper disable once ReturnValueOfPureMethodIsNotUsed
+        var ex = Assert.Throws<NotSupportedException>(
+            () => _table.GetRecordView<int>().AsQueryable().Where(x => x > 0).ToList());
+
+        Assert.AreEqual(
+            "Primitive types are not supported in LINQ queries: System.Int32. " +
+            "Use a custom type (class, record, struct) with a single field instead.",
+            ex!.Message);
+    }
+
     [OneTimeSetUp]
     public async Task OneTimeSetUp()
     {

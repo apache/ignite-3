@@ -68,7 +68,7 @@ public partial class LinqSqlGenerationTests
         AssertSqlKv("select _T0.KEY, _T0.VAL from PUBLIC.tbl1 as _T0", q => q.Select(x => x.Value).ToList());
 
     [Test]
-    public void TestPrimitiveKeyValTypesNotSupported()
+    public void TestPrimitiveTypeMappingNotSupportedKv()
     {
         // ReSharper disable once ReturnValueOfPureMethodIsNotUsed
         var ex = Assert.Throws<NotSupportedException>(
