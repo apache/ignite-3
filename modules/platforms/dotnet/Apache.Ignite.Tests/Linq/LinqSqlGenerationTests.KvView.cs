@@ -36,7 +36,7 @@ public partial class LinqSqlGenerationTests
 
     [Test]
     public void TestSelectPocoValColumnKv() =>
-        AssertSqlKv("select _T0.VAL from PUBLIC.tbl1 as _T0", q => q.Select(x => x.Value).ToList());
+        AssertSqlKv("select _T0.KEY, _T0.VAL from PUBLIC.tbl1 as _T0", q => q.Select(x => x.Value).ToList());
 
     [Test]
     public void TestSelectTwoColumnsKv() =>
