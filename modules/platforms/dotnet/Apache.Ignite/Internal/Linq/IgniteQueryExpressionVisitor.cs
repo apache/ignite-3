@@ -434,7 +434,8 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
     /// <param name="tableName">Table name.</param>
     /// <param name="first">Whether this is the first column and does not need a comma before.</param>
     /// <param name="toSkip">Names to skip.</param>
-    private void AppendColumnNames(Type type, string tableName, bool first = true, ISet<string>? toSkip = null)
+    /// <param name="populateToSkip">Whether to populate provided toSkip set.</param>
+    private void AppendColumnNames(Type type, string tableName, bool first = true, ISet<string>? toSkip = null, bool populateToSkip = false)
     {
         if (type.IsPrimitive)
         {
@@ -443,12 +444,15 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
                 "Use a custom type (class, record, struct) with a single field instead.");
         }
 
+        // TODO: This check will cause incorrect behavior when user starts with IRecordView<KeyValuePair<,>> - what to do?
         if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(KeyValuePair<,>))
         {
             var genericArguments = type.GetGenericArguments();
 
-            AppendColumnNames(genericArguments[0], tableName);
-            AppendColumnNames(genericArguments[1], tableName, first: false); // TODO: skip existing names from above.
+            var keyColumnNames = new HashSet<string>();
+
+            AppendColumnNames(genericArguments[0], tableName, first: true, toSkip: keyColumnNames, populateToSkip: true);
+            AppendColumnNames(genericArguments[1], tableName, first: false, toSkip: keyColumnNames);
 
             return;
         }
@@ -463,6 +467,18 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
 
         foreach (var col in columns)
         {
+            if (toSkip != null)
+            {
+                if (populateToSkip)
+                {
+                    toSkip.Add(col.Name);
+                }
+                else if (toSkip.Contains(col.Name))
+                {
+                    continue;
+                }
+            }
+
             if (!first)
             {
                 ResultBuilder.Append(", ");
