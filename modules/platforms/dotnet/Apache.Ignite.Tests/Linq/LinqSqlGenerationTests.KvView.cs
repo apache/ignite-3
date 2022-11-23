@@ -41,10 +41,24 @@ public partial class LinqSqlGenerationTests
     [Test]
     public void TestSelectTwoColumnsKv() =>
         AssertSqlKv(
-            "select _T0.KEY, _T0.VAL + 1 from PUBLIC.tbl1 as _T0",
-            q => q.Select(x => new { x.Key, Val = x.Value.Val + 1 }).ToList());
+            "select (_T0.KEY + ?), _T0.VAL from PUBLIC.tbl1 as _T0",
+            q => q.Select(x => new { Key = x.Key.Key + 1, x.Value.Val }).ToList());
 
     [Test]
-    public void TestSelectEntireObjectKv() =>
+    public void TestSelectSameColumnFromPairKeyAndValKv() =>
+        AssertSqlKv(
+            "select _T0.KEY, _T0.KEY from PUBLIC.tbl1 as _T0",
+            q => q.Select(x => new { Key1 = x.Key.Key, Key2 = x.Value.Key }).ToList());
+
+    [Test]
+    public void TestSelectEntirePairKv() =>
         AssertSqlKv("select _T0.KEY, _T0.VAL from PUBLIC.tbl1 as _T0 where (_T0.KEY > ?)", q => q.Where(x => x.Key.Key > 1).ToList());
+
+    [Test]
+    public void TestSelectPairKeyKv() =>
+        AssertSqlKv("select _T0.KEY from PUBLIC.tbl1 as _T0", q => q.Select(x => x.Key).ToList());
+
+    [Test]
+    public void TestSelectPairValKv() =>
+        AssertSqlKv("select _T0.KEY, _T0.VAL from PUBLIC.tbl1 as _T0", q => q.Select(x => x.Value).ToList());
 }
