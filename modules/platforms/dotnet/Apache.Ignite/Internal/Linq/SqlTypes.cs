@@ -23,7 +23,7 @@ using System.Collections.Generic;
 /// <summary>
 /// SQL type mapping.
 /// </summary>
-internal static class SqlTypes
+internal static class SqlTypes // TODO: Replace with SqlColumnTypeExtensions.
 {
     /** */
     private static readonly Dictionary<Type, string> NetToSql = new()
