@@ -234,19 +234,8 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
             else
             {
                 var tableName = Aliases.GetTableAlias(expression);
-                var first = true;
 
-                foreach (var colName in GetColumnNames(expression.ReferencedQuerySource.ItemType))
-                {
-                    if (!first)
-                    {
-                        ResultBuilder.Append(", ");
-                    }
-
-                    first = false;
-
-                    ResultBuilder.Append(tableName).Append('.').Append(colName);
-                }
+                AppendColumnNames(expression.ReferencedQuerySource.ItemType, tableName);
             }
         }
 
@@ -438,11 +427,13 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
     }
 
     /// <summary>
-    /// Gets column names for all fields in the specified type.
+    /// Appends column names for all fields in the specified type.
     /// </summary>
     /// <param name="type">Type.</param>
-    /// <returns>Columns.</returns>
-    private static IEnumerable<string> GetColumnNames(Type type)
+    /// <param name="tableName">Table name.</param>
+    /// <param name="first">Whether this is the first column and does not need a comma before.</param>
+    /// <param name="toSkip">Names to skip.</param>
+    private void AppendColumnNames(Type type, string tableName, bool first = true, ISet<string>? toSkip = null)
     {
         if (type.IsPrimitive)
         {
@@ -455,28 +446,10 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
         {
             var genericArguments = type.GetGenericArguments();
 
-            var keyColNames = GetColumnNames(genericArguments[0]);
-            var valColNames = GetColumnNames(genericArguments[1]);
+            AppendColumnNames(genericArguments[0], tableName);
+            AppendColumnNames(genericArguments[1], tableName, first: false); // TODO: skip existing names from above.
 
-            var existingCols = new HashSet<string>();
-
-            foreach (var col in keyColNames)
-            {
-                existingCols.Add(col);
-
-                yield return col;
-            }
-
-            foreach (var col in valColNames)
-            {
-                // Value columns can intersect with key columns - do not select same column more than once.
-                if (!existingCols.Contains(col))
-                {
-                    yield return col;
-                }
-            }
-
-            yield break;
+            return;
         }
 
         var columns = type.GetColumns();
@@ -489,15 +462,24 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
 
         foreach (var col in columns)
         {
+            if (!first)
+            {
+                ResultBuilder.Append(", ");
+            }
+
+            first = false;
+
+            ResultBuilder.Append(tableName).Append('.');
+
             if (col.HasColumnNameAttribute)
             {
                 // Exact quoted name.
-                yield return '"' + col.Name + '"';
+                ResultBuilder.Append('"').Append(col.Name).Append('"');
             }
             else
             {
                 // Case-insensitive, unquoted, upper-case name.
-                yield return col.Name.ToUpperInvariant();
+                ResultBuilder.Append(col.Name.ToUpperInvariant());
             }
         }
     }
