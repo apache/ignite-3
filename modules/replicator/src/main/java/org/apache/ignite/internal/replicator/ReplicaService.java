@@ -89,6 +89,7 @@ public class ReplicaService {
 
         // TODO: IGNITE-17824 Use named executor instead of default one in order to process replica Response.
         messagingService.invoke(node, req, RPC_TIMEOUT).whenCompleteAsync((response, throwable) -> {
+//            System.out.println("sendToReplica");
             if (throwable != null) {
                 if (throwable instanceof CompletionException) {
                     throwable = throwable.getCause();
@@ -141,6 +142,8 @@ public class ReplicaService {
                                 CompletableFuture<R> retryFut = sendToReplica(node, req);
 
                                 resultFut.set(retryFut);
+                                res.get().thenCompose(ignore0 -> retryFut);
+                                res.get().complete(null);
 
                                 return retryFut;
                             });
@@ -149,19 +152,22 @@ public class ReplicaService {
                         });
 
 //                        System.out.println("before resultFut.get()");
-                        res.set(resultFut.get());
+//                        res.set(resultFut.get());
+//                        res.get().thenCompose(ignore -> resultFut.get());
 //                        System.out.println("after resultFut.get()");
 
                         return;
+                    } else {
+                        res.get().completeExceptionally(errResp.throwable());
                     }
-
-                    res.get().completeExceptionally(errResp.throwable());
                 } else {
 //                    System.out.println("before res.get().complete((R) ((ReplicaResponse) response).result());");
                     res.get().complete((R) ((ReplicaResponse) response).result());
                 }
             }
         });
+
+//        System.out.println("res.get() " + res.get());
 
         return res.get();
     }

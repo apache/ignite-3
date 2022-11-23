@@ -235,7 +235,9 @@ public class ItInternalTableImplRetryer1Test extends IgniteAbstractTest {
                 }
         );
 
-        replicaService.invoke(clusterNode, request).join();
+        CompletableFuture<Object> invoke = replicaService.invoke(clusterNode, request);
+        System.out.println("invoke future " + invoke);
+        invoke.join();
     }
 
     //@Test
