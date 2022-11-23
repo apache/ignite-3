@@ -473,6 +473,8 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
                     yield return col;
                 }
             }
+
+            yield break;
         }
 
         var columns = type.GetColumns();
