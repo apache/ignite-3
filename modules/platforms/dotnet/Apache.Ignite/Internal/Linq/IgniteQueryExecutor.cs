@@ -131,9 +131,9 @@ internal sealed class IgniteQueryExecutor : IQueryExecutor
     /// </summary>
     private static RowReader<T> GetResultSelector<T>(IReadOnlyList<IColumnMetadata> columns, Expression selectorExpression)
     {
+        // TODO: IGNITE-18136 Replace reflection with emitted delegates.
         if (selectorExpression is NewExpression newExpr)
         {
-            // TODO: IGNITE-18136 Replace reflection with emitted delegates.
             return (IReadOnlyList<IColumnMetadata> cols, ref BinaryTupleReader reader) =>
             {
                 var args = new object?[cols.Count];
@@ -160,10 +160,9 @@ internal sealed class IgniteQueryExecutor : IQueryExecutor
                 (T)Convert.ChangeType(Sql.ReadColumnValue(ref reader, cols[0], 0)!, typeof(T), CultureInfo.InvariantCulture);
         }
 
-        // TODO: IGNITE-18136 Replace reflection with emitted delegates.
-        return (IReadOnlyList<IColumnMetadata> cols, ref BinaryTupleReader reader) =>
+        if (typeof(T).GetKeyValuePairTypes() is var (keyType, valType))
         {
-            if (typeof(T).GetKeyValuePairTypes() is var (keyType, valType))
+            return (IReadOnlyList<IColumnMetadata> cols, ref BinaryTupleReader reader) =>
             {
                 var key = FormatterServices.GetUninitializedObject(keyType);
                 var val = FormatterServices.GetUninitializedObject(valType);
@@ -173,52 +172,41 @@ internal sealed class IgniteQueryExecutor : IQueryExecutor
                     var col = cols[i];
                     var colVal = Sql.ReadColumnValue(ref reader, col, i);
 
-                    // TODO: Deduplicate code below.
-                    if (keyType.GetFieldByColumnName(col.Name) is {} keyField)
-                    {
-                        if (colVal != null)
-                        {
-                            colVal = Convert.ChangeType(colVal, keyField.FieldType, CultureInfo.InvariantCulture);
-                        }
-
-                        keyField.SetValue(key, colVal);
-                    }
-
-                    if (valType.GetFieldByColumnName(col.Name) is {} valField)
-                    {
-                        if (colVal != null)
-                        {
-                            colVal = Convert.ChangeType(colVal, valField.FieldType, CultureInfo.InvariantCulture);
-                        }
-
-                        valField.SetValue(val, colVal);
-                    }
+                    SetColumnValue(col, colVal, key, keyType);
+                    SetColumnValue(col, colVal, val, valType);
                 }
 
                 return (T)Activator.CreateInstance(typeof(T), key, val)!;
-            }
+            };
+        }
 
+        return (IReadOnlyList<IColumnMetadata> cols, ref BinaryTupleReader reader) =>
+        {
             var res = (T)FormatterServices.GetUninitializedObject(typeof(T));
 
             for (int i = 0; i < cols.Count; i++)
             {
                 var col = cols[i];
                 var val = Sql.ReadColumnValue(ref reader, col, i);
-                var field = typeof(T).GetFieldByColumnName(col.Name);
 
-                if (field != null)
-                {
-                    if (val != null)
-                    {
-                        val = Convert.ChangeType(val, field.FieldType, CultureInfo.InvariantCulture);
-                    }
-
-                    field.SetValue(res, val);
-                }
+                SetColumnValue(col, val, res, typeof(T));
             }
 
             return res;
         };
+    }
+
+    private static void SetColumnValue<T>(IColumnMetadata col, object? val, T res, Type type)
+    {
+        if (type.GetFieldByColumnName(col.Name) is {} field)
+        {
+            if (val != null)
+            {
+                val = Convert.ChangeType(val, field.FieldType, CultureInfo.InvariantCulture);
+            }
+
+            field.SetValue(res, val);
+        }
     }
 
     [SuppressMessage("Reliability", "CA2007:Consider calling ConfigureAwait on the awaited task", Justification = "False positive.")]
