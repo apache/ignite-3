@@ -61,9 +61,8 @@ public partial class LinqTests
         Assert.AreEqual(6, res[0].Key);
 
         StringAssert.Contains(
-            "select _T0.KEY, _T0.VAL " +
-            "from PUBLIC.TBL1 as _T0 " +
-            "where ((_T0.KEY > ?) and (_T0.VAL IS DISTINCT FROM ?)) " +
+            "select _T0.KEY from PUBLIC.TBL1 as _T0 " +
+            "where (_T0.KEY > ?) " +
             "order by (_T0.KEY) asc",
             query.ToString());
     }
@@ -81,10 +80,9 @@ public partial class LinqTests
         Assert.AreEqual("v-0", res[0].Val);
 
         StringAssert.Contains(
-            "select _T0.KEY, _T0.VAL " +
-            "from PUBLIC.TBL1 as _T0 " +
-            "where ((_T0.KEY > ?) and (_T0.VAL IS DISTINCT FROM ?)) " +
-            "order by (_T0.KEY) asc",
+            "select _T0.VAL from PUBLIC.TBL1 as _T0 " +
+            "where (_T0.VAL IS DISTINCT FROM ?) " +
+            "order by (_T0.VAL) asc",
             query.ToString());
     }
 

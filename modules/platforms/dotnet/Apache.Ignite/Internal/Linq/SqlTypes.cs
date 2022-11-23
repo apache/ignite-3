@@ -29,14 +29,10 @@ internal static class SqlTypes
     private static readonly Dictionary<Type, string> NetToSql = new()
     {
         {typeof(bool), "boolean"},
-        {typeof(byte), "smallint"},
         {typeof(sbyte), "tinyint"},
         {typeof(short), "smallint"},
-        {typeof(ushort), "int"},
         {typeof(int), "int"},
-        {typeof(uint), "bigint"},
         {typeof(long), "bigint"},
-        {typeof(ulong), "bigint"},
         {typeof(float), "real"},
         {typeof(double), "double"},
         {typeof(string), "nvarchar"},
@@ -46,7 +42,14 @@ internal static class SqlTypes
     };
 
     /** */
-    private static readonly HashSet<Type> NotSupportedTypes = new(new[] { typeof(char) });
+    private static readonly HashSet<Type> NotSupportedTypes = new()
+    {
+        typeof(char),
+        typeof(byte),
+        typeof(ushort),
+        typeof(uint),
+        typeof(ulong)
+    };
 
     /// <summary>
     /// Gets the corresponding Java type name.
