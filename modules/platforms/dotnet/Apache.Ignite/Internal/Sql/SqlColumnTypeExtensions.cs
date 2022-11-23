@@ -63,9 +63,37 @@ internal static class SqlColumnTypeExtensions
     };
 
     /// <summary>
+    /// Gets corresponding SQL type name.
+    /// </summary>
+    /// <param name="sqlColumnType">SQL column type.</param>
+    /// <returns>CLR type.</returns>
+    public static string ToSqlTypeName(this SqlColumnType sqlColumnType) => sqlColumnType switch
+    {
+        SqlColumnType.Boolean => "boolean",
+        SqlColumnType.Int8 => "tinyint",
+        SqlColumnType.Int16 => "smallint",
+        SqlColumnType.Int32 => "int",
+        SqlColumnType.Int64 => "bigint",
+        SqlColumnType.Float => "real",
+        SqlColumnType.Double => "double",
+        SqlColumnType.Decimal => "decimal",
+        SqlColumnType.Date => "date",
+        SqlColumnType.Time => "time",
+        SqlColumnType.Datetime => "timestamp",
+        SqlColumnType.Timestamp => "timestamp_tz",
+        SqlColumnType.Uuid => "uuid",
+        SqlColumnType.Bitmask => "bitmap",
+        SqlColumnType.String => "varchar",
+        SqlColumnType.ByteArray => "varbinary",
+        SqlColumnType.Number => "number",
+        _ => throw new InvalidOperationException($"Unsupported {nameof(SqlColumnType)}: {sqlColumnType}")
+    };
+
+    /// <summary>
     /// Gets corresponding <see cref="SqlColumnType"/>.
     /// </summary>
     /// <param name="type">Type.</param>
     /// <returns>SQL column type, or null.</returns>
-    public static SqlColumnType? ToSqlColumnType(this Type type) => ClrToSql.TryGetValue(type, out var sqlType) ? sqlType : null;
+    public static SqlColumnType? ToSqlColumnType(this Type type) =>
+        ClrToSql.TryGetValue(type, out var sqlType) ? sqlType : null;
 }
