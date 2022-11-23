@@ -163,6 +163,32 @@ internal sealed class IgniteQueryExecutor : IQueryExecutor
         // TODO: IGNITE-18136 Replace reflection with emitted delegates.
         return (IReadOnlyList<IColumnMetadata> cols, ref BinaryTupleReader reader) =>
         {
+            if (typeof(T).IsGenericType && typeof(T).GetGenericTypeDefinition() == typeof(KeyValuePair<,>))
+            {
+                var kvTypes = typeof(T).GetGenericArguments();
+                var key = FormatterServices.GetUninitializedObject(kvTypes[0]);
+                var val = FormatterServices.GetUninitializedObject(kvTypes[1]);
+
+                for (int i = 0; i < cols.Count; i++)
+                {
+                    var col = cols[i];
+                    var colVal = Sql.ReadColumnValue(ref reader, col, i);
+                    var field = typeof(T).GetFieldByColumnName(col.Name);
+
+                    if (field != null)
+                    {
+                        if (val != null)
+                        {
+                            val = Convert.ChangeType(val, field.FieldType, CultureInfo.InvariantCulture);
+                        }
+
+                        field.SetValue(res, val);
+                    }
+                }
+
+                return (T)Activator.CreateInstance(typeof(T), key, val)!;
+            }
+
             var res = (T)FormatterServices.GetUninitializedObject(typeof(T));
 
             for (int i = 0; i < cols.Count; i++)
