@@ -434,7 +434,7 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
         if (expression.Member.DeclaringType is {IsGenericType: true} declaringType &&
             declaringType.GetGenericTypeDefinition() == typeof(KeyValuePair<,>))
         {
-            // TODO: Select mapped properties from KeyValuePair.
+            // TODO: Select mapped properties from KeyValuePair. See GetColumns logic below.
             return "VAL";
         }
 
@@ -454,18 +454,34 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
     /// <returns>Columns.</returns>
     private static IEnumerable<ReflectionUtils.ColumnInfo> GetColumns(Type type)
     {
+        if (type.IsPrimitive)
+        {
+            throw new NotSupportedException(
+                $"Primitive types are not supported in LINQ queries: {type}. " +
+                $"Use a custom type (class, record, struct) with a single field instead.");
+        }
+
         if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(KeyValuePair<,>))
         {
             var genericArguments = type.GetGenericArguments();
 
-            // TODO: What if it is a primitive? How do we map it - we don't know the column name?
+            // TODO: What if it is a primitive? How do we map it - we don't know the column name? Use column ordinals!
+            // But column ordinals are not valid in SELECT. Disallow primitive KeyValuePair in LINQ?
             var keyColumns = GetColumns(genericArguments[0]);
             var valColumns = GetColumns(genericArguments[1]);
 
             return keyColumns.Concat(valColumns);
         }
 
-        return type.GetColumns();
+        var columns = type.GetColumns();
+
+        if (columns.Count == 0)
+        {
+            throw new NotSupportedException(
+                $"Type '{type}' can not be mapped to SQL columns: it has no fields, or all fields are [NotMapped].");
+        }
+
+        return columns;
     }
 
     /// <summary>

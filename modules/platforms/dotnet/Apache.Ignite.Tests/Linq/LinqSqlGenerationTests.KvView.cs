@@ -27,6 +27,9 @@ using NUnit.Framework;
 /// </summary>
 public partial class LinqSqlGenerationTests
 {
+    // TODO:
+    // * Test everything in KV mode, every test should be run in both modes.
+    // * Test different combinations of primitive/poco mappings.
     [Test]
     public void TestSelectPrimitiveKeyColumnKv() =>
         AssertSqlKv("select _T0.VAL from PUBLIC.tbl1 as _T0", q => q.Select(x => x.Value.Val).ToList());
