@@ -234,7 +234,7 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
             else
             {
                 var tableName = Aliases.GetTableAlias(expression);
-                var columns = expression.ReferencedQuerySource.ItemType.GetColumns();
+                var columns = GetColumns(expression.ReferencedQuerySource.ItemType);
                 var first = true;
 
                 foreach (var col in columns)
@@ -431,6 +431,13 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
             return fieldName;
         }
 
+        if (expression.Member.DeclaringType is {IsGenericType: true} declaringType &&
+            declaringType.GetGenericTypeDefinition() == typeof(KeyValuePair<,>))
+        {
+            // TODO: Select mapped properties from KeyValuePair.
+            return "VAL";
+        }
+
         // When there is a [Column] attribute with Name specified, use quoted identifier: exact match, allows whitespace.
         // Otherwise (most common case), use uppercase non-quoted identifier (case-insensitive).
         var columnName = expression.Member.GetCustomAttribute<ColumnAttribute>() is { Name: { } columnAttributeName }
@@ -438,6 +445,27 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
             : expression.Member.Name.ToUpperInvariant();
 
         return ColumnNameMap.GetOrAdd(expression.Member, columnName);
+    }
+
+    /// <summary>
+    /// Gets column names for all fields in the specified type.
+    /// </summary>
+    /// <param name="type">Type.</param>
+    /// <returns>Columns.</returns>
+    private static IEnumerable<ReflectionUtils.ColumnInfo> GetColumns(Type type)
+    {
+        if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(KeyValuePair<,>))
+        {
+            var genericArguments = type.GetGenericArguments();
+
+            // TODO: What if it is a primitive? How do we map it - we don't know the column name?
+            var keyColumns = GetColumns(genericArguments[0]);
+            var valColumns = GetColumns(genericArguments[1]);
+
+            return keyColumns.Concat(valColumns);
+        }
+
+        return type.GetColumns();
     }
 
     /// <summary>

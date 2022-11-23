@@ -57,7 +57,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// Gets column names for all fields in the specified type.
         /// </summary>
         /// <param name="type">Type.</param>
-        /// <returns>Column names.</returns>
+        /// <returns>Columns.</returns>
         public static ICollection<ColumnInfo> GetColumns(this Type type) => GetFieldsByColumnName(type).Values;
 
         /// <summary>
