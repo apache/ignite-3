@@ -27,6 +27,7 @@ import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.exception.ReplicaUnavailableException;
+import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
 import org.apache.ignite.internal.replicator.message.ErrorReplicaResponse;
 import org.apache.ignite.internal.replicator.message.ReplicaMessageGroup;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
@@ -76,9 +77,11 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Flow;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.apache.ignite.distributed.ItTxDistributedTestSingleNode.NODE_PORT_BASE;
@@ -213,8 +216,8 @@ public class ItInternalTableImplRetryer1Test extends IgniteAbstractTest {
         this.testInfo = testInfo;
     }
 
-    //@Test
-    public void test1() {
+//    @Test
+    public void test1() throws Exception {
         ClusterNode clusterNode = new ClusterNode(name, name, networkAddress);
 
         TablePartitionId tablePartitionId = new TablePartitionId(UUID.randomUUID(), 1);
@@ -235,9 +238,41 @@ public class ItInternalTableImplRetryer1Test extends IgniteAbstractTest {
                 }
         );
 
-        CompletableFuture<Object> invoke = replicaService.invoke(clusterNode, request);
-        System.out.println("invoke future " + invoke);
-        invoke.join();
+        replicaService.invoke(clusterNode, request).get(10, TimeUnit.SECONDS);
+    }
+
+//    @Test
+    public void test2() {
+        ClusterNode clusterNode = new ClusterNode(name, name, networkAddress);
+
+        TablePartitionId tablePartitionId = new TablePartitionId(UUID.randomUUID(), 1);
+
+        ReadWriteSingleRowReplicaRequest request = tableMessagesFactory.readWriteSingleRowReplicaRequest()
+                .groupId(tablePartitionId)
+                .binaryRow(createKeyValueRow(1L, 1L))
+                .requestType(RequestType.RW_GET)
+                .build();
+
+        Exception e0 = null;
+        Exception e1 = null;
+
+        try {
+            replicaService.invoke(clusterNode, request).get(10, TimeUnit.SECONDS);
+        } catch (Exception e) {
+            e0 = e;
+        }
+
+        try {
+            replicaService.invoke(clusterNode, request).get(10, TimeUnit.SECONDS);
+        } catch (Exception e) {
+            e1 = e;
+        }
+
+        assertTrue(e0 != null);
+        assertTrue(e0.getCause() instanceof ReplicationTimeoutException, e0.toString());
+
+        assertTrue(e1 != null);
+        assertTrue(e1.getCause() instanceof ReplicationTimeoutException, e1.toString());
     }
 
     //@Test

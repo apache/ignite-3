@@ -117,8 +117,6 @@ public class ReplicaService {
                     if (errResp.throwable() instanceof ReplicaUnavailableException) {
 //                        System.out.println("ReplicaUnavailableException qwer");
 
-                        AtomicReference<CompletableFuture<R>> resultFut = new AtomicReference<>();
-
                         pendingInvokes.compute(node, (clusterNode, fut) -> {
                             AwaitReplicaRequest awaitReplicaRequest = REPLICA_MESSAGES_FACTORY.awaitReplicaRequest()
                                     .groupId(req.groupId())
@@ -128,35 +126,41 @@ public class ReplicaService {
 
                             if (fut == null) {
                                 awaitReplicaRequestFut.set(messagingService.invoke(node, awaitReplicaRequest, RPC_TIMEOUT)
-                                        .whenCompleteAsync((response0, throwable0) -> {
-                                            if (throwable0 != null) {
-//                                                System.out.println("qwer1");
-                                            } else {
-//                                                System.out.println("asdf1");
-                                            }
+                                        .whenComplete((response0, throwable0) -> {
+                                            pendingInvokes.remove(node);
                                         }));
                             }
 
-                            awaitReplicaRequestFut.get().thenCompose(ignore -> {
+                            awaitReplicaRequestFut.get().handle((response0, throwable0) -> {
+                                if (throwable0 != null) {
+                                    if (throwable0 instanceof CompletionException) {
+                                        throwable0 = throwable0.getCause();
+                                    }
+
+                                    if (throwable0 instanceof TimeoutException) {
+                                        res.get().completeExceptionally(new ReplicationTimeoutException(req.groupId()));
+                                    }
+
+                                    res.get().completeExceptionally(withCause(
+                                            ReplicationException::new,
+                                            REPLICA_COMMON_ERR,
+                                            "Failed to process replica request [replicaGroupId=" + req.groupId() + ']',
+                                            throwable0));
+                                } else {
 //                                System.out.println("retryFut");
-                                CompletableFuture<R> retryFut = sendToReplica(node, req);
+                                    CompletableFuture<R> retryFut = sendToReplica(node, req);
 
-                                resultFut.set(retryFut);
-                                res.get().thenCompose(ignore0 -> retryFut);
-                                res.get().complete(null);
+                                    res.get().thenCompose(ignore0 -> retryFut);
 
-                                return retryFut;
+                                    res.get().complete(null);
+                                }
+
+                                return null;
                             });
 
                             return awaitReplicaRequestFut.get();
                         });
 
-//                        System.out.println("before resultFut.get()");
-//                        res.set(resultFut.get());
-//                        res.get().thenCompose(ignore -> resultFut.get());
-//                        System.out.println("after resultFut.get()");
-
-                        return;
                     } else {
                         res.get().completeExceptionally(errResp.throwable());
                     }
@@ -170,6 +174,22 @@ public class ReplicaService {
 //        System.out.println("res.get() " + res.get());
 
         return res.get();
+    }
+
+    public static void main(String[] args) {
+        CompletableFuture<Object> fut = new CompletableFuture<>();
+
+        fut = fut.thenCompose(x -> {
+            System.out.println("111");
+            return null;
+        });
+
+        fut = fut.thenCompose(x -> {
+            System.out.println("222");
+            return null;
+        });
+
+        fut.complete(null);
     }
 
     /**
