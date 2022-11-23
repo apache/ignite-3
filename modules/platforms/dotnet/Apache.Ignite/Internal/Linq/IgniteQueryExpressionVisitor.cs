@@ -325,7 +325,8 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
         Visit(expression.IfTrue);
 
         ResultBuilder.Append(" as ");
-        ResultBuilder.Append(expression.Type.ToSqlColumnType() ?? throw new NotSupportedException("Unsupported type: " + expression.Type));
+        var sqlColumnType = expression.Type.ToSqlColumnType() ?? throw new NotSupportedException("Unsupported type: " + expression.Type);
+        ResultBuilder.Append(sqlColumnType.ToSqlTypeName());
         ResultBuilder.Append(')');
 
         Visit(expression.IfFalse);
