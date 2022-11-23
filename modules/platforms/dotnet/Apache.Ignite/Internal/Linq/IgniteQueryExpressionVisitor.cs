@@ -234,10 +234,9 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
             else
             {
                 var tableName = Aliases.GetTableAlias(expression);
-                var columns = GetColumns(expression.ReferencedQuerySource.ItemType);
                 var first = true;
 
-                foreach (var col in columns)
+                foreach (var colName in GetColumnNames(expression.ReferencedQuerySource.ItemType))
                 {
                     if (!first)
                     {
@@ -246,18 +245,7 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
 
                     first = false;
 
-                    ResultBuilder.Append(tableName).Append('.');
-
-                    if (col.HasColumnNameAttribute)
-                    {
-                        // Exact quoted name.
-                        ResultBuilder.Append('"').Append(col.Name).Append('"');
-                    }
-                    else
-                    {
-                        // Case-insensitive, unquoted, upper-case name.
-                        ResultBuilder.Append(col.Name.ToUpperInvariant());
-                    }
+                    ResultBuilder.Append(tableName).Append('.').Append(colName);
                 }
             }
         }
@@ -452,24 +440,39 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
     /// </summary>
     /// <param name="type">Type.</param>
     /// <returns>Columns.</returns>
-    private static IEnumerable<ReflectionUtils.ColumnInfo> GetColumns(Type type)
+    private static IEnumerable<string> GetColumnNames(Type type)
     {
         if (type.IsPrimitive)
         {
             throw new NotSupportedException(
                 $"Primitive types are not supported in LINQ queries: {type}. " +
-                $"Use a custom type (class, record, struct) with a single field instead.");
+                "Use a custom type (class, record, struct) with a single field instead.");
         }
 
         if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(KeyValuePair<,>))
         {
             var genericArguments = type.GetGenericArguments();
 
-            var keyColumns = GetColumns(genericArguments[0]);
-            var valColumns = GetColumns(genericArguments[1]);
+            var keyColNames = GetColumnNames(genericArguments[0]);
+            var valColNames = GetColumnNames(genericArguments[1]);
 
-            // TODO: Skip duplicates. Refactor this method to return column names.
-            return keyColumns.Concat(valColumns);
+            var existingCols = new HashSet<string>();
+
+            foreach (var col in keyColNames)
+            {
+                existingCols.Add(col);
+
+                yield return col;
+            }
+
+            foreach (var col in valColNames)
+            {
+                // Value columns can intersect with key columns - do not select same column more than once.
+                if (!existingCols.Contains(col))
+                {
+                    yield return col;
+                }
+            }
         }
 
         var columns = type.GetColumns();
@@ -480,7 +483,19 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
                 $"Type '{type}' can not be mapped to SQL columns: it has no fields, or all fields are [NotMapped].");
         }
 
-        return columns;
+        foreach (var col in columns)
+        {
+            if (col.HasColumnNameAttribute)
+            {
+                // Exact quoted name.
+                yield return '"' + col.Name + '"';
+            }
+            else
+            {
+                // Case-insensitive, unquoted, upper-case name.
+                yield return col.Name.ToUpperInvariant();
+            }
+        }
     }
 
     /// <summary>
