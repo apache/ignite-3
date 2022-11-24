@@ -433,7 +433,7 @@ public class Checkpointer extends IgniteWorker {
 
         syncUpdatedPageStores(updatedPartitions, currentCheckpointProgress);
 
-        compactor.onAddingDeltaFiles();
+        compactor.triggerCompaction();
 
         if (shutdownNow.getAsBoolean()) {
             currentCheckpointProgress.fail(new NodeStoppingException("Node is stopping."));
@@ -464,13 +464,15 @@ public class Checkpointer extends IgniteWorker {
                     continue;
                 }
 
-                currentCheckpointProgress.onStartPartitionProcessing(partitionId.getGroupId(), partitionId.getPartitionId());
+                currentCheckpointProgress.onStartPartitionProcessing(partitionId);
 
-                fsyncDeltaFilePageStoreOnCheckpointThread(filePageStore, entry.getValue());
+                try {
+                    fsyncDeltaFilePageStoreOnCheckpointThread(filePageStore, entry.getValue());
 
-                renameDeltaFileOnCheckpointThread(filePageStore, partitionId);
-
-                currentCheckpointProgress.onFinishPartitionProcessing(partitionId.getGroupId(), partitionId.getPartitionId());
+                    renameDeltaFileOnCheckpointThread(filePageStore, partitionId);
+                } finally {
+                    currentCheckpointProgress.onFinishPartitionProcessing(partitionId);
+                }
             }
         } else {
             int checkpointThreads = pageWritePool.getMaximumPoolSize();
@@ -500,13 +502,13 @@ public class Checkpointer extends IgniteWorker {
                             FilePageStore filePageStore = filePageStoreManager.getStore(partId.getGroupId(), partId.getPartitionId());
 
                             if (filePageStore != null && !filePageStore.isMarkedToDestroy()) {
-                                currentCheckpointProgress.onStartPartitionProcessing(partId.getGroupId(), partId.getPartitionId());
+                                currentCheckpointProgress.onStartPartitionProcessing(partId);
 
                                 fsyncDeltaFilePageStoreOnCheckpointThread(filePageStore, entry.getValue());
 
                                 renameDeltaFileOnCheckpointThread(filePageStore, partId);
 
-                                currentCheckpointProgress.onFinishPartitionProcessing(partId.getGroupId(), partId.getPartitionId());
+                                currentCheckpointProgress.onFinishPartitionProcessing(partId);
                             }
 
                             entry = queue.poll();
@@ -807,18 +809,19 @@ public class Checkpointer extends IgniteWorker {
      * prevent the situation when we want to destroy the partition file along with its delta files, and at this time the checkpoint performs
      * I/O operations on them.
      *
-     * @param groupId Group ID.
-     * @param partitionId Partition ID.
+     * @param groupPartitionId Pair of group ID with partition ID.
      * @throws IgniteInternalCheckedException If there are errors while processing the callback.
      */
-    void onPartitionDestruction(int groupId, int partitionId) throws IgniteInternalCheckedException {
+    void onPartitionDestruction(GroupPartitionId groupPartitionId) throws IgniteInternalCheckedException {
         CheckpointProgressImpl currentCheckpointProgress = this.currentCheckpointProgress;
 
         if (currentCheckpointProgress == null || !currentCheckpointProgress.inProgress()) {
             return;
         }
 
-        CompletableFuture<Void> processedPartitionFuture = currentCheckpointProgress.getProcessedPartitionFuture(groupId, partitionId);
+        // If the checkpoint starts after this line, then the data region will already know that we want to destroy the partition, and when
+        // reading the page for writing to the delta file, we will receive an "outdated" page that we will not write to disk.
+        CompletableFuture<Void> processedPartitionFuture = currentCheckpointProgress.getProcessedPartitionFuture(groupPartitionId);
 
         if (processedPartitionFuture != null) {
             try {
@@ -828,8 +831,8 @@ public class Checkpointer extends IgniteWorker {
                 throw new IgniteInternalCheckedException(
                         IgniteStringFormatter.format(
                                 "Error waiting for partition processing to complete at checkpoint: [groupId={}, partitionId={}]",
-                                groupId,
-                                partitionId
+                                groupPartitionId.getGroupId(),
+                                groupPartitionId.getPartitionId()
                         ),
                         e
                 );

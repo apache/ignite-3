@@ -20,6 +20,7 @@ package org.apache.ignite.internal.storage.pagememory.index.sorted;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
 import java.nio.ByteBuffer;
+import java.util.function.Function;
 import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
@@ -41,11 +42,11 @@ import org.jetbrains.annotations.Nullable;
  * Implementation of Sorted index storage using Page Memory.
  */
 public class PageMemorySortedIndexStorage implements SortedIndexStorage {
-    private static final VarHandle STARTED;
+    private static final VarHandle CLOSED;
 
     static {
         try {
-            STARTED = MethodHandles.lookup().findVarHandle(PageMemorySortedIndexStorage.class, "started", boolean.class);
+            CLOSED = MethodHandles.lookup().findVarHandle(PageMemorySortedIndexStorage.class, "closed", boolean.class);
         } catch (ReflectiveOperationException e) {
             throw new ExceptionInInitializerError(e);
         }
@@ -74,7 +75,7 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
 
     /** To avoid double closure. */
     @SuppressWarnings("unused")
-    private volatile boolean started = true;
+    private volatile boolean closed;
 
     /**
      * Constructor.
@@ -111,40 +112,7 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
 
             SortedIndexRowKey upperBound = toSortedIndexRow(key, highestRowId);
 
-            Cursor<SortedIndexRow> cursor = sortedIndexTree.find(lowerBound, upperBound);
-
-            return new Cursor<>() {
-                @Override
-                public void close() {
-                    cursor.close();
-                }
-
-                @Override
-                public boolean hasNext() {
-                    if (!closeBusyLock.enterBusy()) {
-                        throwStorageClosedException();
-                    }
-
-                    try {
-                        return cursor.hasNext();
-                    } finally {
-                        closeBusyLock.leaveBusy();
-                    }
-                }
-
-                @Override
-                public RowId next() {
-                    if (!closeBusyLock.enterBusy()) {
-                        throwStorageClosedException();
-                    }
-
-                    try {
-                        return cursor.next().rowId();
-                    } finally {
-                        closeBusyLock.leaveBusy();
-                    }
-                }
-            };
+            return convertCursor(sortedIndexTree.find(lowerBound, upperBound), SortedIndexRow::rowId);
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException("Failed to create scan cursor", e);
         } finally {
@@ -207,40 +175,7 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
 
             SortedIndexRowKey upper = createBound(upperBound, includeUpper);
 
-            Cursor<SortedIndexRow> cursor = sortedIndexTree.find(lower, upper);
-
-            return new Cursor<>() {
-                @Override
-                public void close() {
-                    cursor.close();
-                }
-
-                @Override
-                public boolean hasNext() {
-                    if (!closeBusyLock.enterBusy()) {
-                        throwStorageClosedException();
-                    }
-
-                    try {
-                        return cursor.hasNext();
-                    } finally {
-                        closeBusyLock.leaveBusy();
-                    }
-                }
-
-                @Override
-                public IndexRow next() {
-                    if (!closeBusyLock.enterBusy()) {
-                        throwStorageClosedException();
-                    }
-
-                    try {
-                        return toIndexRowImpl(cursor.next());
-                    } finally {
-                        closeBusyLock.leaveBusy();
-                    }
-                }
-            };
+            return convertCursor(sortedIndexTree.find(lower, upper), this::toIndexRowImpl);
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException("Failed to create scan cursor", e);
         } finally {
@@ -280,7 +215,7 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
      * Closes the sorted index storage.
      */
     public void close() {
-        if (!STARTED.compareAndSet(this, true, false)) {
+        if (!CLOSED.compareAndSet(this, false, true)) {
             return;
         }
 
@@ -294,5 +229,47 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
      */
     private void throwStorageClosedException() {
         throw new StorageClosedException("Storage is already closed");
+    }
+
+    /**
+     * Returns a new cursor that converts elements to another type, and also throws {@link StorageClosedException} on
+     * {@link Cursor#hasNext()} and {@link Cursor#next()} when the sorted index storage is {@link #close()}.
+     *
+     * @param cursor Cursor.
+     * @param mapper Conversion function.
+     */
+    private <T, R> Cursor<R> convertCursor(Cursor<T> cursor, Function<T, R> mapper) {
+        return new Cursor<>() {
+            @Override
+            public void close() {
+                cursor.close();
+            }
+
+            @Override
+            public boolean hasNext() {
+                if (!closeBusyLock.enterBusy()) {
+                    throwStorageClosedException();
+                }
+
+                try {
+                    return cursor.hasNext();
+                } finally {
+                    closeBusyLock.leaveBusy();
+                }
+            }
+
+            @Override
+            public R next() {
+                if (!closeBusyLock.enterBusy()) {
+                    throwStorageClosedException();
+                }
+
+                try {
+                    return mapper.apply(cursor.next());
+                } finally {
+                    closeBusyLock.leaveBusy();
+                }
+            }
+        };
     }
 }

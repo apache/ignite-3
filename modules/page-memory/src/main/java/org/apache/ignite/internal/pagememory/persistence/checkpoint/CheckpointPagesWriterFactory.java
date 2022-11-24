@@ -23,8 +23,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.function.BooleanSupplier;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
@@ -39,9 +37,6 @@ import org.apache.ignite.internal.util.IgniteConcurrentMultiPairQueue;
  * <p>It holds all dependency which is needed for creation of checkpoint writer.
  */
 public class CheckpointPagesWriterFactory {
-    /** Logger. */
-    private static final IgniteLogger LOG = Loggers.forClass(CheckpointPagesWriterFactory.class);
-
     /** Thread local with buffers for the checkpoint threads. Each buffer represent one page for durable memory. */
     private final ThreadLocal<ByteBuffer> threadBuf;
 
@@ -104,7 +99,6 @@ public class CheckpointPagesWriterFactory {
             BooleanSupplier shutdownNow
     ) {
         return new CheckpointPagesWriter(
-                LOG,
                 tracker,
                 dirtyPageIdQueue,
                 updatedPartitions,

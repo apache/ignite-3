@@ -24,7 +24,6 @@ import static org.apache.ignite.internal.util.GridUnsafe.allocateBuffer;
 import static org.apache.ignite.internal.util.GridUnsafe.bufferAddress;
 import static org.apache.ignite.internal.util.GridUnsafe.freeBuffer;
 import static org.apache.ignite.internal.util.GridUnsafe.zeroMemory;
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -195,7 +194,7 @@ public class PartitionMetaManagerTest {
 
         GroupPartitionId id = new GroupPartitionId(0, 0);
 
-        assertDoesNotThrow(() -> manager.removeMeta(id));
+        manager.removeMeta(id);
 
         PartitionMeta meta = mock(PartitionMeta.class);
 

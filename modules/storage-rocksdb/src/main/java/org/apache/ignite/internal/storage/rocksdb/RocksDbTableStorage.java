@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.storage.rocksdb;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.HASH_INDEX_CF_NAME;
 import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.META_CF_NAME;
@@ -462,7 +463,7 @@ public class RocksDbTableStorage implements MvTableStorage {
         }
 
         if (hashIdx == null) {
-            return CompletableFuture.completedFuture(null);
+            return completedFuture(null);
         } else {
             return awaitFlush(false);
         }

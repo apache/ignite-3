@@ -36,11 +36,11 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
  * Implementation of Hash index storage using Page Memory.
  */
 public class PageMemoryHashIndexStorage implements HashIndexStorage {
-    private static final VarHandle STARTED;
+    private static final VarHandle CLOSED;
 
     static {
         try {
-            STARTED = MethodHandles.lookup().findVarHandle(PageMemoryHashIndexStorage.class, "started", boolean.class);
+            CLOSED = MethodHandles.lookup().findVarHandle(PageMemoryHashIndexStorage.class, "closed", boolean.class);
         } catch (ReflectiveOperationException e) {
             throw new ExceptionInInitializerError(e);
         }
@@ -69,7 +69,7 @@ public class PageMemoryHashIndexStorage implements HashIndexStorage {
 
     /** To avoid double closure. */
     @SuppressWarnings("unused")
-    private volatile boolean started = true;
+    private volatile boolean closed;
 
     /**
      * Constructor.
@@ -203,7 +203,7 @@ public class PageMemoryHashIndexStorage implements HashIndexStorage {
      * Closes the hash index storage.
      */
     public void close() {
-        if (!STARTED.compareAndSet(this, true, false)) {
+        if (!CLOSED.compareAndSet(this, false, true)) {
             return;
         }
 

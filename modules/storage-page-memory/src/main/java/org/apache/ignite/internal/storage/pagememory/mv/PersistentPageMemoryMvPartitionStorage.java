@@ -210,7 +210,15 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     @Override
     @Nullable
     public RaftGroupConfiguration committedGroupConfiguration() {
-        return groupConfigFromBytes(meta.lastGroupConfig());
+        if (!closeBusyLock.enterBusy()) {
+            throwStorageClosedException();
+        }
+
+        try {
+            return groupConfigFromBytes(meta.lastGroupConfig());
+        } finally {
+            closeBusyLock.leaveBusy();
+        }
     }
 
     @Override

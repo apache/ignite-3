@@ -90,7 +90,7 @@ public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
      * Tests that dropping a partition does not remove extra data.
      */
     @Test
-    void testDropPartition() {
+    void testDropPartition() throws Exception {
         var testData = binaryRow(new TestKey(1, "1"), new TestValue(10, "10"));
 
         UUID txId = UUID.randomUUID();

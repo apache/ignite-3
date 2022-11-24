@@ -52,8 +52,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.LongAdder;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.TestPageIoModule.TestPageIo;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
@@ -75,8 +73,6 @@ import org.mockito.ArgumentCaptor;
  */
 public class CheckpointPagesWriterTest {
     private static final int PAGE_SIZE = 1024;
-
-    private final IgniteLogger log = Loggers.forClass(CheckpointPagesWriterTest.class);
 
     private static PageIoRegistry ioRegistry;
 
@@ -130,7 +126,6 @@ public class CheckpointPagesWriterTest {
         PartitionMeta partitionMeta1 = mock(PartitionMeta.class);
 
         CheckpointPagesWriter pagesWriter = new CheckpointPagesWriter(
-                log,
                 tracker,
                 writePageIds,
                 updatedPartitions,
@@ -198,7 +193,6 @@ public class CheckpointPagesWriterTest {
         GroupPartitionId groupPartId = groupPartId(0, 0);
 
         CheckpointPagesWriter pagesWriter = new CheckpointPagesWriter(
-                log,
                 new CheckpointMetricsTracker(),
                 new IgniteConcurrentMultiPairQueue<>(Map.of(pageMemory, List.of(fullPageId(0, 0, 1)))),
                 new ConcurrentHashMap<>(),
@@ -249,7 +243,6 @@ public class CheckpointPagesWriterTest {
         ConcurrentMap<GroupPartitionId, LongAdder> updatedPartitions = new ConcurrentHashMap<>();
 
         CheckpointPagesWriter pagesWriter = new CheckpointPagesWriter(
-                log,
                 new CheckpointMetricsTracker(),
                 writePageIds,
                 updatedPartitions,

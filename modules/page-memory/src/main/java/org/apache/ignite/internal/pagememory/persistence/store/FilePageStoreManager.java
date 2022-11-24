@@ -105,8 +105,10 @@ public class FilePageStoreManager implements PageReadWriteManager {
     /** Mapping: group ID -> group page stores. */
     private final GroupPageStoresMap<FilePageStore> groupPageStores;
 
-    /** Striped lock. */
-    private final IgniteStripedLock stripedLock = new IgniteStripedLock(Math.max(Runtime.getRuntime().availableProcessors(), 8));
+    /** Striped lock for partition initialization. */
+    private final IgniteStripedLock initPartitionStripedLock = new IgniteStripedLock(
+            Math.max(Runtime.getRuntime().availableProcessors(), 8)
+    );
 
     /** {@link FilePageStore} factory. */
     private final FilePageStoreFactory filePageStoreFactory;
@@ -170,7 +172,7 @@ public class FilePageStoreManager implements PageReadWriteManager {
             throw new IgniteInternalCheckedException("Error while searching temporary files:" + dbDir, e);
         }
 
-        Pattern delPartitionFilePatter = Pattern.compile(DEL_PART_FILE_REGEXP);
+        Pattern delPartitionFilePattern = Pattern.compile(DEL_PART_FILE_REGEXP);
 
         try (Stream<Path> delFileStream = Files.find(
                 dbDir,
@@ -178,7 +180,7 @@ public class FilePageStoreManager implements PageReadWriteManager {
                 (path, basicFileAttributes) -> path.getFileName().toString().endsWith(DEL_FILE_SUFFIX))
         ) {
             delFileStream.forEach(delFilePath -> {
-                Matcher matcher = delPartitionFilePatter.matcher(delFilePath.getFileName().toString());
+                Matcher matcher = delPartitionFilePattern.matcher(delFilePath.getFileName().toString());
 
                 if (!matcher.matches()) {
                     throw new IgniteInternalException("Unknown file: " + delFilePath);
@@ -220,9 +222,9 @@ public class FilePageStoreManager implements PageReadWriteManager {
 
     @Override
     public void read(int grpId, long pageId, ByteBuffer pageBuf, boolean keepCrc) throws IgniteInternalCheckedException {
-        FilePageStore pageStore = getStore(grpId, partitionId(pageId));
-
         try {
+            FilePageStore pageStore = getStoreWithCheckExists(grpId, partitionId(pageId));
+
             pageStore.read(pageId, pageBuf, keepCrc);
         } catch (IgniteInternalCheckedException e) {
             // TODO: IGNITE-16899 By analogy with 2.0, fail a node
@@ -238,26 +240,26 @@ public class FilePageStoreManager implements PageReadWriteManager {
             ByteBuffer pageBuf,
             boolean calculateCrc
     ) throws IgniteInternalCheckedException {
-        FilePageStore pageStore = getStore(grpId, partitionId(pageId));
-
         try {
+            FilePageStore pageStore = getStoreWithCheckExists(grpId, partitionId(pageId));
+
             pageStore.write(pageId, pageBuf, calculateCrc);
+
+            return pageStore;
         } catch (IgniteInternalCheckedException e) {
             // TODO: IGNITE-16899 By analogy with 2.0, fail a node
 
             throw e;
         }
-
-        return pageStore;
     }
 
     @Override
     public long allocatePage(int grpId, int partId, byte flags) throws IgniteInternalCheckedException {
         assert partId >= 0 && partId <= MAX_PARTITION_ID : partId;
 
-        FilePageStore pageStore = getStore(grpId, partId);
-
         try {
+            FilePageStore pageStore = getStoreWithCheckExists(grpId, partId);
+
             int pageIdx = pageStore.allocatePage();
 
             return pageId(partId, flags, pageIdx);
@@ -279,7 +281,7 @@ public class FilePageStoreManager implements PageReadWriteManager {
     public void initialize(String tableName, int tableId, int partitionId) throws IgniteInternalCheckedException {
         assert partitionId >= 0 && partitionId <= MAX_PARTITION_ID : partitionId;
 
-        stripedLock.lock(tableId + partitionId);
+        initPartitionStripedLock.lock(tableId + partitionId);
 
         try {
             if (!groupPageStores.contains(tableId, partitionId)) {
@@ -311,7 +313,7 @@ public class FilePageStoreManager implements PageReadWriteManager {
 
             throw e;
         } finally {
-            stripedLock.unlock(tableId + partitionId);
+            initPartitionStripedLock.unlock(tableId + partitionId);
         }
     }
 
@@ -336,6 +338,7 @@ public class FilePageStoreManager implements PageReadWriteManager {
      *
      * @param groupId Group ID.
      * @param partitionId Partition ID, from {@code 0} (inclusive) to {@link PageIdAllocator#MAX_PARTITION_ID} (inclusive).
+     * @return Partition file page, {@code null} if not initialized or has been removed.
      */
     public @Nullable FilePageStore getStore(int groupId, int partitionId) {
         assert partitionId >= 0 && partitionId <= MAX_PARTITION_ID : partitionId;
@@ -349,6 +352,27 @@ public class FilePageStoreManager implements PageReadWriteManager {
         PartitionPageStore<FilePageStore> partitionPageStore = groupPageStores.get(partitionId);
 
         return partitionPageStore == null ? null : partitionPageStore.pageStore();
+    }
+
+    /**
+     * Returns partition file page store for the corresponding parameters.
+     *
+     * @param groupId Group ID.
+     * @param partitionId Partition ID.
+     * @throws IgniteInternalCheckedException If the partition file page store does not exist.
+     */
+    private FilePageStore getStoreWithCheckExists(int groupId, int partitionId) throws IgniteInternalCheckedException {
+        FilePageStore filePageStore = getStore(groupId, partitionId);
+
+        if (filePageStore == null) {
+            throw new IgniteInternalCheckedException(IgniteStringFormatter.format(
+                    "Partition file page store is either not initialized or deleted: [groupId={}, partitioId={}]",
+                    groupId,
+                    partitionId
+            ));
+        }
+
+        return filePageStore;
     }
 
     /**
@@ -465,7 +489,7 @@ public class FilePageStoreManager implements PageReadWriteManager {
     /**
      * Callback on destruction of the partition of the corresponding group.
      *
-     * <p>Deletes the partition pages tore and all its delta files. Before that, it creates a marker file (for example,
+     * <p>Deletes the partition pages store and all its delta files. Before that, it creates a marker file (for example,
      * "table-1/part-1.del") so as not to get into the situation that we deleted only part of the data/files, the node restarted and we have
      * something left. At the start, we will delete all partition files with delta files that will have a marker.
      *

@@ -444,7 +444,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         assertThrows(StorageClosedException.class, () -> getAll(scanFromSortedIndexCursor));
 
         // Let's check that nothing will happen if we try to destroy a non-existing partition.
-        tableStorage.destroyPartition(PARTITION_ID);
+        assertDoesNotThrow(() -> tableStorage.destroyPartition(PARTITION_ID));
     }
 
     @Test
@@ -521,12 +521,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         assertThrows(StorageClosedException.class, storage::lastAppliedIndex);
         assertThrows(StorageClosedException.class, storage::lastAppliedTerm);
         assertThrows(StorageClosedException.class, storage::persistedIndex);
-
-        assertThrows(StorageClosedException.class, () -> storage.runConsistently(() -> {
-            storage.lastApplied(100, 500);
-
-            return null;
-        }));
+        assertThrows(StorageClosedException.class, storage::committedGroupConfiguration);
 
         RowId rowId = new RowId(partId);
 

@@ -102,7 +102,7 @@ public class PersistentPageMemoryMvTableStorageTest extends AbstractMvTableStora
     public void testDestroyPartition() throws Exception {
         super.testDestroyPartition();
 
-        // Let's make sure that the checkpoint doesn't failed.
+        // Let's make sure that the checkpoint doesn't fail.
         engine.checkpointManager()
                 .forceCheckpoint("after-test-destroy-partition")
                 .futureFor(CheckpointState.FINISHED)

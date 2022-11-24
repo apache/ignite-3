@@ -24,13 +24,15 @@ import java.util.concurrent.CompletableFuture;
 /**
  * Helper class for tracking the completion of partition processing.
  *
- * <p>At the start of partition processing, you need to call {@link #onStartPartitionProcessing()}, at the end
- * {@link #onFinishPartitionProcessing()}. When all partition processing is completed, the {@link #future()} will be completed.
+ * <p>At the start of partition processing, you need to call {@link #incrementPartitionProcessingCounter()}, at the end
+ * {@link #decrementPartitionProcessingCounter()}. When all partition processing is completed, the {@link #future()} will be completed.
  *
- * <p>It is recommended to use external synchronization for the correct operation of the {@link #counter partition processing counter} and
- * the {@link #future future}.
+ * <p>If the {@link #future()} is completed, then subsequent calls to {@link #incrementPartitionProcessingCounter()} and
+ * {@link #decrementPartitionProcessingCounter()} on this instance do not make sense, since we will not be able to wait for the completion
+ * of the partition processing (we will not be able to reset the current future), in order not to get into such a situation, we need to
+ * delete the current instance at the completion of the current future, and this may require external synchronization.
  */
-public class PartitionProcessingCounter {
+class PartitionProcessingCounter {
     private static final VarHandle COUNTER;
 
     static {
@@ -49,9 +51,9 @@ public class PartitionProcessingCounter {
     private final CompletableFuture<Void> future = new CompletableFuture<>();
 
     /**
-     * Callback at the start of partition processing.
+     * Atomically increments the partition processing counter.
      */
-    public void onStartPartitionProcessing() {
+    void incrementPartitionProcessingCounter() {
         assert !future.isDone();
 
         int updatedValue = (int) COUNTER.getAndAdd(this, 1) + 1;
@@ -60,9 +62,9 @@ public class PartitionProcessingCounter {
     }
 
     /**
-     * Callback at the finish of partition processing.
+     * Atomically decrements the partition processing counter.
      */
-    public void onFinishPartitionProcessing() {
+    void decrementPartitionProcessingCounter() {
         assert !future.isDone();
 
         int updatedValue = (int) COUNTER.getAndAdd(this, -1) - 1;
@@ -77,7 +79,7 @@ public class PartitionProcessingCounter {
     /**
      * Returns a future that will be completed when all partition processing has finished.
      */
-    public CompletableFuture<Void> future() {
+    CompletableFuture<Void> future() {
         return future;
     }
 }

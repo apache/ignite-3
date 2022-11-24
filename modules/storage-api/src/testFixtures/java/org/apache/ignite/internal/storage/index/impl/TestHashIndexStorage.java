@@ -41,7 +41,7 @@ public class TestHashIndexStorage implements HashIndexStorage {
 
     private final HashIndexDescriptor descriptor;
 
-    private volatile boolean started = true;
+    private volatile boolean closed;
 
     /**
      * Constructor.
@@ -109,7 +109,7 @@ public class TestHashIndexStorage implements HashIndexStorage {
 
     @Override
     public void destroy() {
-        started = false;
+        closed = true;
 
         index.clear();
     }
@@ -122,7 +122,7 @@ public class TestHashIndexStorage implements HashIndexStorage {
     }
 
     private void checkClosed() {
-        if (!started) {
+        if (closed) {
             throw new StorageClosedException("Storage is already closed");
         }
     }

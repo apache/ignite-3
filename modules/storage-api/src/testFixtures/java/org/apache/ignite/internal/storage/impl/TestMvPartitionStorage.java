@@ -53,7 +53,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
     private final int partitionId;
 
-    private volatile boolean started = true;
+    private volatile boolean closed;
 
     public TestMvPartitionStorage(int partitionId) {
         this.partitionId = partitionId;
@@ -435,7 +435,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
     @Override
     public void close() {
-        started = false;
+        closed = true;
     }
 
     public void destroy() {
@@ -448,7 +448,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     }
 
     private void checkClosed() {
-        if (!started) {
+        if (closed) {
             throw new StorageClosedException("Storage is already closed");
         }
     }

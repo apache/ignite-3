@@ -181,7 +181,7 @@ public class CompactorTest {
 
         assertThrows(TimeoutException.class, () -> waitDeltaFilesFuture.get(100, MILLISECONDS));
 
-        compactor.onAddingDeltaFiles();
+        compactor.triggerCompaction();
 
         waitDeltaFilesFuture.get(100, MILLISECONDS);
     }

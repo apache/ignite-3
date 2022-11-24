@@ -49,6 +49,8 @@ public class TestMvTableStorage implements MvTableStorage {
 
     private final Map<UUID, HashIndices> hashIndicesById = new ConcurrentHashMap<>();
 
+    private final Map<Integer, CompletableFuture<Void>> partitionIdDestroyFuture = new ConcurrentHashMap<>();
+
     private final TableConfiguration tableCfg;
 
     private final TablesConfiguration tablesCfg;

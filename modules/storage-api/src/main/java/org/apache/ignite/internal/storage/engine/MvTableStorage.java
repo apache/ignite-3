@@ -60,7 +60,7 @@ public interface MvTableStorage {
     /**
      * Destroys a partition and all associated indices.
      *
-     * <p>This method will do nothing if there is no partition by ID, when trying to call methods to read or write (as well as all previous
+     * <p>This method will do nothing if there is no partition by ID. When trying to call methods to read or write (as well as all previous
      * open cursors) for {@link MvPartitionStorage}, {@link HashIndexStorage} and {@link SortedIndexStorage}, {@link StorageClosedException}
      * will be thrown.
      *

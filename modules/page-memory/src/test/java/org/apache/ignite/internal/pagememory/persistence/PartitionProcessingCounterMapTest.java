@@ -35,46 +35,45 @@ public class PartitionProcessingCounterMapTest {
     void test() {
         PartitionProcessingCounterMap processingCounterMap = new PartitionProcessingCounterMap();
 
-        int groupId = 0;
-        int partitionId = 0;
+        GroupPartitionId groupPartitionId = new GroupPartitionId(0, 0);
 
-        assertNull(processingCounterMap.getProcessedPartitionFuture(groupId, partitionId));
+        assertNull(processingCounterMap.getProcessedPartitionFuture(groupPartitionId));
 
-        processingCounterMap.onStartPartitionProcessing(groupId, partitionId);
+        processingCounterMap.incrementPartitionProcessingCounter(groupPartitionId);
 
-        CompletableFuture<Void> processedPartitionFuture0 = processingCounterMap.getProcessedPartitionFuture(groupId, partitionId);
+        CompletableFuture<Void> processedPartitionFuture0 = processingCounterMap.getProcessedPartitionFuture(groupPartitionId);
 
         assertNotNull(processedPartitionFuture0);
         assertFalse(processedPartitionFuture0.isDone());
 
-        processingCounterMap.onStartPartitionProcessing(groupId, partitionId);
+        processingCounterMap.incrementPartitionProcessingCounter(groupPartitionId);
 
-        assertSame(processedPartitionFuture0, processingCounterMap.getProcessedPartitionFuture(groupId, partitionId));
+        assertSame(processedPartitionFuture0, processingCounterMap.getProcessedPartitionFuture(groupPartitionId));
         assertFalse(processedPartitionFuture0.isDone());
 
-        processingCounterMap.onFinishPartitionProcessing(groupId, partitionId);
+        processingCounterMap.decrementPartitionProcessingCounter(groupPartitionId);
 
-        assertSame(processedPartitionFuture0, processingCounterMap.getProcessedPartitionFuture(groupId, partitionId));
+        assertSame(processedPartitionFuture0, processingCounterMap.getProcessedPartitionFuture(groupPartitionId));
         assertFalse(processedPartitionFuture0.isDone());
 
-        processingCounterMap.onFinishPartitionProcessing(groupId, partitionId);
+        processingCounterMap.decrementPartitionProcessingCounter(groupPartitionId);
 
-        assertNull(processingCounterMap.getProcessedPartitionFuture(groupId, partitionId));
+        assertNull(processingCounterMap.getProcessedPartitionFuture(groupPartitionId));
         assertTrue(processedPartitionFuture0.isDone());
 
         // Let's check the reprocessing of the partition.
 
-        processingCounterMap.onStartPartitionProcessing(groupId, partitionId);
+        processingCounterMap.incrementPartitionProcessingCounter(groupPartitionId);
 
-        CompletableFuture<Void> processedPartitionFuture1 = processingCounterMap.getProcessedPartitionFuture(groupId, partitionId);
+        CompletableFuture<Void> processedPartitionFuture1 = processingCounterMap.getProcessedPartitionFuture(groupPartitionId);
 
         assertNotNull(processedPartitionFuture1);
         assertFalse(processedPartitionFuture1.isDone());
         assertNotSame(processedPartitionFuture0, processedPartitionFuture1);
 
-        processingCounterMap.onFinishPartitionProcessing(groupId, partitionId);
+        processingCounterMap.decrementPartitionProcessingCounter(groupPartitionId);
 
-        assertNull(processingCounterMap.getProcessedPartitionFuture(groupId, partitionId));
+        assertNull(processingCounterMap.getProcessedPartitionFuture(groupPartitionId));
         assertTrue(processedPartitionFuture1.isDone());
     }
 }

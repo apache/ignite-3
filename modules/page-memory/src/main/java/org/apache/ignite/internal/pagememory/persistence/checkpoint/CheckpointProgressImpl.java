@@ -28,6 +28,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PartitionProcessingCounterMap;
 import org.jetbrains.annotations.Nullable;
 
@@ -274,35 +275,33 @@ class CheckpointProgressImpl implements CheckpointProgress {
     /**
      * Callback at the beginning of checkpoint processing of a partition, for example, when writing dirty pages or executing a fsync.
      *
-     * @param groupId Group ID.
-     * @param partitionId Partition ID.
+     * @param groupPartitionId Pair of group ID with partition ID.
      */
-    public void onStartPartitionProcessing(int groupId, int partitionId) {
-        processedPartitionMap.onStartPartitionProcessing(groupId, partitionId);
+    public void onStartPartitionProcessing(GroupPartitionId groupPartitionId) {
+        processedPartitionMap.incrementPartitionProcessingCounter(groupPartitionId);
     }
 
     /**
      * Callback on completion of partition processing, for example, when writing dirty pages or executing a fsync.
      *
-     * @param groupId Group ID.
-     * @param partitionId Partition ID.
+     * @param groupPartitionId Pair of group ID with partition ID.
      */
-    public void onFinishPartitionProcessing(int groupId, int partitionId) {
-        processedPartitionMap.onFinishPartitionProcessing(groupId, partitionId);
+    public void onFinishPartitionProcessing(GroupPartitionId groupPartitionId) {
+        processedPartitionMap.decrementPartitionProcessingCounter(groupPartitionId);
     }
 
     /**
      * Returns the future if the partition according to the given parameters is currently being processed, for example, dirty pages are
      * being written or fsync is being done, {@code null} if the partition is not currently being processed.
      *
-     * <p>Future will be added on {@link #onStartPartitionProcessing(int, int)} call and completed on
-     * {@link #onFinishPartitionProcessing(int, int)} call (equal to the number of {@link #onFinishPartitionProcessing(int, int)} calls).
+     * <p>Future will be added on {@link #onStartPartitionProcessing(GroupPartitionId)} call and completed on
+     * {@link #onFinishPartitionProcessing(GroupPartitionId)} call (equal to the number of
+     * {@link #onFinishPartitionProcessing(GroupPartitionId)} calls).
      *
-     * @param groupId Group ID.
-     * @param partitionId Partition ID.
+     * @param groupPartitionId Pair of group ID with partition ID.
      */
     @Nullable
-    public CompletableFuture<Void> getProcessedPartitionFuture(int groupId, int partitionId) {
-        return processedPartitionMap.getProcessedPartitionFuture(groupId, partitionId);
+    public CompletableFuture<Void> getProcessedPartitionFuture(GroupPartitionId groupPartitionId) {
+        return processedPartitionMap.getProcessedPartitionFuture(groupPartitionId);
     }
 }

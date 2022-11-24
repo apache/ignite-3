@@ -29,43 +29,37 @@ public class PartitionProcessingCounterMap {
     private final ConcurrentMap<GroupPartitionId, PartitionProcessingCounter> processedPartitions = new ConcurrentHashMap<>();
 
     /**
-     * Callback at the beginning of checkpoint processing of a partition, for example, when writing dirty pages or executing a fsync.
+     * Atomically increments the partition processing counter.
      *
-     * @param groupId Group ID.
-     * @param partitionId Partition ID.
+     * @param groupPartitionId Pair of group ID with partition ID.
      */
-    public void onStartPartitionProcessing(int groupId, int partitionId) {
-        GroupPartitionId groupPartitionId = new GroupPartitionId(groupId, partitionId);
-
+    public void incrementPartitionProcessingCounter(GroupPartitionId groupPartitionId) {
         processedPartitions.compute(groupPartitionId, (id, partitionProcessingCounter) -> {
             if (partitionProcessingCounter == null) {
                 PartitionProcessingCounter counter = new PartitionProcessingCounter();
 
-                counter.onStartPartitionProcessing();
+                counter.incrementPartitionProcessingCounter();
 
                 return counter;
             }
 
-            partitionProcessingCounter.onStartPartitionProcessing();
+            partitionProcessingCounter.incrementPartitionProcessingCounter();
 
             return partitionProcessingCounter;
         });
     }
 
     /**
-     * Callback on completion of partition processing, for example, when writing dirty pages or executing a fsync.
+     * Atomically decrements the partition processing counter.
      *
-     * @param groupId Group ID.
-     * @param partitionId Partition ID.
+     * @param groupPartitionId Pair of group ID with partition ID.
      */
-    public void onFinishPartitionProcessing(int groupId, int partitionId) {
-        GroupPartitionId groupPartitionId = new GroupPartitionId(groupId, partitionId);
-
+    public void decrementPartitionProcessingCounter(GroupPartitionId groupPartitionId) {
         processedPartitions.compute(groupPartitionId, (id, partitionProcessingCounter) -> {
             assert partitionProcessingCounter != null : id;
             assert !partitionProcessingCounter.future().isDone() : id;
 
-            partitionProcessingCounter.onFinishPartitionProcessing();
+            partitionProcessingCounter.decrementPartitionProcessingCounter();
 
             return partitionProcessingCounter.future().isDone() ? null : partitionProcessingCounter;
         });
@@ -75,15 +69,15 @@ public class PartitionProcessingCounterMap {
      * Returns the future if the partition according to the given parameters is currently being processed, for example, dirty pages are
      * being written or fsync is being done, {@code null} if the partition is not currently being processed.
      *
-     * <p>Future will be added on {@link #onStartPartitionProcessing(int, int)} call and completed on
-     * {@link #onFinishPartitionProcessing(int, int)} call (equal to the number of {@link #onFinishPartitionProcessing(int, int)} calls).
+     * <p>Future will be added on {@link #incrementPartitionProcessingCounter(GroupPartitionId)} call and completed on
+     * {@link #incrementPartitionProcessingCounter(GroupPartitionId)} call (equal to the number of
+     * {@link #decrementPartitionProcessingCounter(GroupPartitionId)} calls).
      *
-     * @param groupId Group ID.
-     * @param partitionId Partition ID.
+     * @param groupPartitionId Pair of group ID with partition ID.
      */
     @Nullable
-    public CompletableFuture<Void> getProcessedPartitionFuture(int groupId, int partitionId) {
-        PartitionProcessingCounter partitionProcessingCounter = processedPartitions.get(new GroupPartitionId(groupId, partitionId));
+    public CompletableFuture<Void> getProcessedPartitionFuture(GroupPartitionId groupPartitionId) {
+        PartitionProcessingCounter partitionProcessingCounter = processedPartitions.get(groupPartitionId);
 
         return partitionProcessingCounter == null ? null : partitionProcessingCounter.future();
     }

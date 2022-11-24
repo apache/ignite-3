@@ -39,6 +39,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -371,46 +372,45 @@ public class CheckpointProgressImplTest {
     void testProcessedPartition() {
         CheckpointProgressImpl progressImpl = new CheckpointProgressImpl(0);
 
-        int groupId = 0;
-        int partitionId = 0;
+        GroupPartitionId groupPartitionId = new GroupPartitionId(0, 0);
 
-        assertNull(progressImpl.getProcessedPartitionFuture(groupId, partitionId));
+        assertNull(progressImpl.getProcessedPartitionFuture(groupPartitionId));
 
-        progressImpl.onStartPartitionProcessing(groupId, partitionId);
+        progressImpl.onStartPartitionProcessing(groupPartitionId);
 
-        CompletableFuture<Void> processedPartitionFuture0 = progressImpl.getProcessedPartitionFuture(groupId, partitionId);
+        CompletableFuture<Void> processedPartitionFuture0 = progressImpl.getProcessedPartitionFuture(groupPartitionId);
 
         assertNotNull(processedPartitionFuture0);
         assertFalse(processedPartitionFuture0.isDone());
 
-        progressImpl.onStartPartitionProcessing(groupId, partitionId);
+        progressImpl.onStartPartitionProcessing(groupPartitionId);
 
-        assertSame(processedPartitionFuture0, progressImpl.getProcessedPartitionFuture(groupId, partitionId));
+        assertSame(processedPartitionFuture0, progressImpl.getProcessedPartitionFuture(groupPartitionId));
         assertFalse(processedPartitionFuture0.isDone());
 
-        progressImpl.onFinishPartitionProcessing(groupId, partitionId);
+        progressImpl.onFinishPartitionProcessing(groupPartitionId);
 
-        assertSame(processedPartitionFuture0, progressImpl.getProcessedPartitionFuture(groupId, partitionId));
+        assertSame(processedPartitionFuture0, progressImpl.getProcessedPartitionFuture(groupPartitionId));
         assertFalse(processedPartitionFuture0.isDone());
 
-        progressImpl.onFinishPartitionProcessing(groupId, partitionId);
+        progressImpl.onFinishPartitionProcessing(groupPartitionId);
 
-        assertNull(progressImpl.getProcessedPartitionFuture(groupId, partitionId));
+        assertNull(progressImpl.getProcessedPartitionFuture(groupPartitionId));
         assertTrue(processedPartitionFuture0.isDone());
 
         // Let's check the reprocessing of the partition.
 
-        progressImpl.onStartPartitionProcessing(groupId, partitionId);
+        progressImpl.onStartPartitionProcessing(groupPartitionId);
 
-        CompletableFuture<Void> processedPartitionFuture1 = progressImpl.getProcessedPartitionFuture(groupId, partitionId);
+        CompletableFuture<Void> processedPartitionFuture1 = progressImpl.getProcessedPartitionFuture(groupPartitionId);
 
         assertNotNull(processedPartitionFuture1);
         assertFalse(processedPartitionFuture1.isDone());
         assertNotSame(processedPartitionFuture0, processedPartitionFuture1);
 
-        progressImpl.onFinishPartitionProcessing(groupId, partitionId);
+        progressImpl.onFinishPartitionProcessing(groupPartitionId);
 
-        assertNull(progressImpl.getProcessedPartitionFuture(groupId, partitionId));
+        assertNull(progressImpl.getProcessedPartitionFuture(groupPartitionId));
         assertTrue(processedPartitionFuture1.isDone());
     }
 }

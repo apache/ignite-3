@@ -303,7 +303,7 @@ public class GroupPageStoresMapTest {
             if (obj instanceof TestPartitionPageStore) {
                 TestPartitionPageStore that = (TestPartitionPageStore) obj;
 
-                return partitionId == that.partitionId && filePageStore == that.filePageStore;
+                return partitionId == that.partitionId && filePageStore.equals(that.filePageStore);
             }
 
             return false;

@@ -28,6 +28,7 @@ import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointView;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
+import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointDirtyPages.CheckpointDirtyPagesView;
@@ -38,7 +39,6 @@ import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreMana
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.worker.IgniteWorkerListener;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
-import org.apache.ignite.lang.IgniteStringFormatter;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -271,12 +271,10 @@ public class CheckpointManager {
     ) throws IgniteInternalCheckedException {
         FilePageStore filePageStore = filePageStoreManager.getStore(pageId.groupId(), pageId.partitionId());
 
-        // We should not get a destroyed partition, since the pages for it should be outdated and skipped for writing.
-        assert filePageStore != null && !filePageStore.isMarkedToDestroy() : IgniteStringFormatter.format(
-                "Partition destroyed: [groupId={}, partitionId={}]",
-                pageId.groupId(),
-                pageId.partitionId()
-        );
+        // If the partition is deleted (or will be soon), then such writes to the disk should be skipped.
+        if (filePageStore == null || filePageStore.isMarkedToDestroy()) {
+            return;
+        }
 
         CheckpointProgress lastCheckpointProgress = lastCheckpointProgress();
 
@@ -312,10 +310,10 @@ public class CheckpointManager {
     }
 
     /**
-     * Callback on adding delta files so we can start compacting them.
+     * Triggers compacting for new delta files.
      */
-    public void onAddingDeltaFiles() {
-        compactor.onAddingDeltaFiles();
+    public void triggerCompaction() {
+        compactor.triggerCompaction();
     }
 
     /**
@@ -323,12 +321,11 @@ public class CheckpointManager {
      *
      * <p>Prepares the checkpointer and compactor for partition destruction.
      *
-     * @param groupId Group ID.
-     * @param partitionId Partition ID.
+     * @param groupPartitionId Pair of group ID with partition ID.
      * @throws IgniteInternalCheckedException If there are errors while processing the callback.
      */
-    public void onPartitionDestruction(int groupId, int partitionId) throws IgniteInternalCheckedException {
-        checkpointer.onPartitionDestruction(groupId, partitionId);
-        compactor.onPartitionDestruction(groupId, partitionId);
+    public void onPartitionDestruction(GroupPartitionId groupPartitionId) throws IgniteInternalCheckedException {
+        checkpointer.onPartitionDestruction(groupPartitionId);
+        compactor.onPartitionDestruction(groupPartitionId);
     }
 }

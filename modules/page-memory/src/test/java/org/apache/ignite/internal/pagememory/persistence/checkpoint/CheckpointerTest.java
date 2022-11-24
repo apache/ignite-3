@@ -373,7 +373,7 @@ public class CheckpointerTest {
 
         verify(dirtyPages, times(1)).toDirtyPageIdQueue();
         verify(checkpointer, times(1)).startCheckpointProgress();
-        verify(compactor, times(1)).onAddingDeltaFiles();
+        verify(compactor, times(1)).triggerCompaction();
 
         assertEquals(checkpointer.lastCheckpointProgress().currentCheckpointPagesCount(), 3);
 
@@ -401,7 +401,7 @@ public class CheckpointerTest {
 
         verify(dirtyPages, never()).toDirtyPageIdQueue();
         verify(checkpointer, times(1)).startCheckpointProgress();
-        verify(compactor, never()).onAddingDeltaFiles();
+        verify(compactor, never()).triggerCompaction();
 
         assertEquals(checkpointer.lastCheckpointProgress().currentCheckpointPagesCount(), 0);
 
@@ -461,29 +461,28 @@ public class CheckpointerTest {
                 checkpointConfig
         );
 
-        int groupId = 0;
-        int partitionId = 0;
+        GroupPartitionId groupPartitionId = new GroupPartitionId(0, 0);
 
         // Everything should be fine as there is no current running checkpoint.
-        checkpointer.onPartitionDestruction(groupId, partitionId);
+        checkpointer.onPartitionDestruction(groupPartitionId);
 
         CheckpointProgressImpl checkpointProgress = (CheckpointProgressImpl) checkpointer.scheduledProgress();
 
         checkpointer.startCheckpointProgress();
 
-        checkpointer.onPartitionDestruction(groupId, partitionId);
+        checkpointer.onPartitionDestruction(groupPartitionId);
 
         checkpointProgress.transitTo(LOCK_RELEASED);
         assertTrue(checkpointProgress.inProgress());
 
-        // Everything should be fine so on a "working" checkpoint we don't process the partition anything.
-        checkpointer.onPartitionDestruction(groupId, partitionId);
+        // Everything should be fine so on a "working" checkpoint we don't process the partition anyhow.
+        checkpointer.onPartitionDestruction(groupPartitionId);
 
         // Let's emulate that we are processing a partition and check that everything will be fine after processing is completed.
-        checkpointProgress.onStartPartitionProcessing(groupId, partitionId);
+        checkpointProgress.onStartPartitionProcessing(groupPartitionId);
 
-        CompletableFuture<?> future0 = runAsync(() -> checkpointer.onPartitionDestruction(groupId, partitionId));
-        CompletableFuture<?> future1 = runAsync(() -> checkpointProgress.onFinishPartitionProcessing(groupId, partitionId));
+        CompletableFuture<?> future0 = runAsync(() -> checkpointer.onPartitionDestruction(groupPartitionId));
+        CompletableFuture<?> future1 = runAsync(() -> checkpointProgress.onFinishPartitionProcessing(groupPartitionId));
 
         future1.get(1, SECONDS);
         future0.get(1, SECONDS);

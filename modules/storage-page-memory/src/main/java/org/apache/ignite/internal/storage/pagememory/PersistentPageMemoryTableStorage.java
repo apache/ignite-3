@@ -204,7 +204,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
             filePageStore.ensure();
 
             if (filePageStore.deltaFileCount() > 0) {
-                dataRegion.checkpointManager().onAddingDeltaFiles();
+                dataRegion.checkpointManager().triggerCompaction();
             }
 
             return filePageStore;
@@ -439,21 +439,23 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
 
         assert previousFuture == null : "Previous destruction of the partition has not completed: " + partitionId;
 
-        // It is enough for us to close the partition storage and its indexes (do not destroy), perform some actions, and then simply
-        // delete the partition file (along with additional files).
+        // It is enough for us to close the partition storage and its indexes (do not destroy). Prepare the data region, checkpointer, and
+        // compactor to remove the partition, and then simply delete the partition file and its delta files.
 
         mvPartitionStorage.close();
 
         int tableId = tableCfg.tableId().value();
 
-        dataRegion.pageMemory().invalidate(tableId, partitionId);
-
         dataRegion.filePageStoreManager().getStore(tableId, partitionId).markToDestroy();
 
-        dataRegion.partitionMetaManager().removeMeta(new GroupPartitionId(tableId, partitionId));
+        dataRegion.pageMemory().invalidate(tableId, partitionId);
+
+        GroupPartitionId groupPartitionId = new GroupPartitionId(tableId, partitionId);
 
         try {
-            dataRegion.checkpointManager().onPartitionDestruction(tableId, partitionId);
+            dataRegion.checkpointManager().onPartitionDestruction(groupPartitionId);
+
+            dataRegion.partitionMetaManager().removeMeta(groupPartitionId);
 
             dataRegion.filePageStoreManager().onPartitionDestruction(tableId, partitionId);
         } catch (IgniteInternalCheckedException e) {

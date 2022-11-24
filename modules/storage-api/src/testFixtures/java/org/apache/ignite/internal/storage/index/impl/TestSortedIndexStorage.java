@@ -49,7 +49,7 @@ public class TestSortedIndexStorage implements SortedIndexStorage {
 
     private final SortedIndexDescriptor descriptor;
 
-    private volatile boolean started = true;
+    private volatile boolean closed;
 
     /**
      * Constructor.
@@ -191,7 +191,7 @@ public class TestSortedIndexStorage implements SortedIndexStorage {
      * Destroys the storage and the data in it.
      */
     public void destroy() {
-        started = false;
+        closed = true;
 
         index.clear();
     }
@@ -204,7 +204,7 @@ public class TestSortedIndexStorage implements SortedIndexStorage {
     }
 
     private void checkClosed() {
-        if (!started) {
+        if (closed) {
             throw new StorageClosedException("Storage is already closed");
         }
     }

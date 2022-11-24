@@ -189,6 +189,13 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     }
 
     /**
+     * Returns the partition ID.
+     */
+    public int partitionId() {
+        return partitionId;
+    }
+
+    /**
      * Returns a hash index instance, creating index it if necessary.
      *
      * @param indexId Index UUID.
@@ -879,8 +886,8 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     }
 
     /**
-     * Implementation of the {@link PartitionTimestampCursor} over the page memory storage.
-     * See {@link PartitionTimestampCursor} for the details on the API.
+     * Implementation of the {@link PartitionTimestampCursor} over the page memory storage. See {@link PartitionTimestampCursor} for the
+     * details on the API.
      */
     private class TimestampCursor extends BasePartitionTimestampCursor {
         private final HybridTimestamp timestamp;
@@ -936,9 +943,9 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     }
 
     /**
-     * Implementation of the cursor that iterates over the page memory storage with the respect to the transaction id.
-     * Scans the partition and returns a cursor of values. All filtered values must either be uncommitted in the current transaction
-     * or already committed in a different transaction.
+     * Implementation of the cursor that iterates over the page memory storage with the respect to the transaction id. Scans the partition
+     * and returns a cursor of values. All filtered values must either be uncommitted in the current transaction or already committed in a
+     * different transaction.
      */
     private class LatestVersionsCursor extends BasePartitionTimestampCursor {
         private boolean iterationExhausted = false;
@@ -991,12 +998,5 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
      */
     protected void throwStorageClosedException() {
         throw new StorageClosedException("Storage is already closed");
-    }
-
-    /**
-     * Returns the partition ID.
-     */
-    public int partitionId() {
-        return partitionId;
     }
 }

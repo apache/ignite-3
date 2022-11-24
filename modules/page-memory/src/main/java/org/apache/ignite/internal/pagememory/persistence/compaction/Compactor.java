@@ -22,6 +22,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -50,7 +51,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Entity to compact delta files.
  *
- * <p>To start compacting delta files, you need to notify about the appearance of {@link #onAddingDeltaFiles() delta files ready for
+ * <p>To start compacting delta files, you need to notify about the appearance of {@link #triggerCompaction() delta files ready for
  * compaction}. Then all delta files {@link FilePageStore#getDeltaFileToCompaction() ready for compaction} will be collected and merged with
  * their {@link FilePageStore file page stores} until all delta files are compacted.
  *
@@ -74,8 +75,8 @@ public class Compactor extends IgniteWorker {
     /** Thread local with buffers for the compaction threads. */
     private final ThreadLocal<ByteBuffer> threadBuf;
 
-    /** Partitions currently being processed, for example, writes dirty pages to delta file. */
-    private final PartitionProcessingCounterMap processedPartitionMap = new PartitionProcessingCounterMap();
+    /** Partitions for which delta files are currently compacted. */
+    private final PartitionProcessingCounterMap partitionCompactionInProgressMap = new PartitionProcessingCounterMap();
 
     /**
      * Creates new ignite worker with given parameters.
@@ -146,6 +147,8 @@ public class Compactor extends IgniteWorker {
 
     /**
      * Waiting for delta files.
+     *
+     * <p>It is expected that only the compactor will call it.
      */
     void waitDeltaFiles() {
         try {
@@ -170,9 +173,9 @@ public class Compactor extends IgniteWorker {
     }
 
     /**
-     * Callback on adding delta files so we can start compacting them.
+     * Triggers compacting for new delta files.
      */
-    public void onAddingDeltaFiles() {
+    public void triggerCompaction() {
         synchronized (mux) {
             addedDeltaFiles = true;
 
@@ -182,11 +185,16 @@ public class Compactor extends IgniteWorker {
 
     /**
      * Merges delta files with partition files.
+     *
+     * <p>Only compactor is expected to call this method. When compaction is {@link #triggerCompaction() triggered} by other threads, we
+     * need to compact all delta files for all partitions as long as the delta files exist. Delta files are compacted in batches (one for
+     * each partition file) into several threads, which evenly reduces the load for all partition files on reading pages, since when reading
+     * pages, we must look for it from the oldest delta file.
      */
     void doCompaction() {
         while (true) {
             // Let's collect one delta file for each partition.
-            ConcurrentLinkedQueue<DeltaFileToCompaction> queue = new ConcurrentLinkedQueue<>();
+            Queue<DeltaFileForCompaction> queue = new ConcurrentLinkedQueue<>();
 
             for (GroupPageStores<FilePageStore> groupPageStores : filePageStoreManager.allPageStores()) {
                 for (PartitionPageStore<FilePageStore> partitionPageStore : groupPageStores.getAll()) {
@@ -195,7 +203,7 @@ public class Compactor extends IgniteWorker {
                     DeltaFilePageStoreIo deltaFileToCompaction = filePageStore.getDeltaFileToCompaction();
 
                     if (!filePageStore.isMarkedToDestroy() && deltaFileToCompaction != null) {
-                        queue.add(new DeltaFileToCompaction(
+                        queue.add(new DeltaFileForCompaction(
                                 groupPageStores.groupId(),
                                 partitionPageStore.partitionId(),
                                 filePageStore,
@@ -219,17 +227,25 @@ public class Compactor extends IgniteWorker {
                 CompletableFuture<?> future = futures[i] = new CompletableFuture<>();
 
                 Runnable merger = () -> {
-                    DeltaFileToCompaction toMerge;
+                    DeltaFileForCompaction toMerge;
 
                     try {
-                        while ((toMerge = queue.poll()) != null) {
+                        while (true) {
+                            toMerge = queue.poll();
+
+                            if (toMerge == null) {
+                                break;
+                            }
+
                             GroupPartitionId partitionId = new GroupPartitionId(toMerge.groupId, toMerge.partitionId);
 
-                            processedPartitionMap.onStartPartitionProcessing(partitionId.getGroupId(), partitionId.getPartitionId());
+                            partitionCompactionInProgressMap.incrementPartitionProcessingCounter(partitionId);
 
-                            mergeDeltaFileToMainFile(toMerge.filePageStore, toMerge.deltaFilePageStoreIo);
-
-                            processedPartitionMap.onFinishPartitionProcessing(partitionId.getGroupId(), partitionId.getPartitionId());
+                            try {
+                                mergeDeltaFileToMainFile(toMerge.filePageStore, toMerge.deltaFilePageStoreIo);
+                            } finally {
+                                partitionCompactionInProgressMap.decrementPartitionProcessingCounter(partitionId);
+                            }
                         }
                     } catch (Throwable ex) {
                         future.completeExceptionally(ex);
@@ -406,11 +422,10 @@ public class Compactor extends IgniteWorker {
      * <p>If the partition compaction is in progress, then we will wait until it is completed so that there are no errors when we want to
      * destroy the partition file and its delta file, and at this time its compaction occurs.
      *
-     * @param groupId Group ID.
-     * @param partitionId Partition ID.
+     * @param groupPartitionId Pair of group ID with partition ID.
      */
-    public void onPartitionDestruction(int groupId, int partitionId) throws IgniteInternalCheckedException {
-        CompletableFuture<Void> partitionProcessingFuture = processedPartitionMap.getProcessedPartitionFuture(groupId, partitionId);
+    public void onPartitionDestruction(GroupPartitionId groupPartitionId) throws IgniteInternalCheckedException {
+        CompletableFuture<Void> partitionProcessingFuture = partitionCompactionInProgressMap.getProcessedPartitionFuture(groupPartitionId);
 
         if (partitionProcessingFuture != null) {
             try {
@@ -420,8 +435,8 @@ public class Compactor extends IgniteWorker {
                 throw new IgniteInternalCheckedException(
                         IgniteStringFormatter.format(
                                 "Error waiting for partition processing to complete on compaction: [groupId={}, partitionId={}]",
-                                groupId,
-                                partitionId
+                                groupPartitionId.getGroupId(),
+                                groupPartitionId.getPartitionId()
                         ),
                         e
                 );
@@ -432,7 +447,7 @@ public class Compactor extends IgniteWorker {
     /**
      * Delta file for compaction.
      */
-    private static class DeltaFileToCompaction {
+    private static class DeltaFileForCompaction {
         private final int groupId;
 
         private final int partitionId;
@@ -441,7 +456,7 @@ public class Compactor extends IgniteWorker {
 
         private final DeltaFilePageStoreIo deltaFilePageStoreIo;
 
-        private DeltaFileToCompaction(
+        private DeltaFileForCompaction(
                 int groupId,
                 int partitionId,
                 FilePageStore filePageStore,

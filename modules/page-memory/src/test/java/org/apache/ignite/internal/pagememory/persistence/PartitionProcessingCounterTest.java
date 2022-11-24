@@ -35,19 +35,19 @@ public class PartitionProcessingCounterTest {
 
         assertFalse(future.isDone());
 
-        counter.onStartPartitionProcessing();
+        counter.incrementPartitionProcessingCounter();
 
         assertFalse(future.isDone());
 
-        counter.onStartPartitionProcessing();
+        counter.incrementPartitionProcessingCounter();
 
         assertFalse(future.isDone());
 
-        counter.onFinishPartitionProcessing();
+        counter.decrementPartitionProcessingCounter();
 
         assertFalse(future.isDone());
 
-        counter.onFinishPartitionProcessing();
+        counter.decrementPartitionProcessingCounter();
 
         assertTrue(future.isDone());
     }
