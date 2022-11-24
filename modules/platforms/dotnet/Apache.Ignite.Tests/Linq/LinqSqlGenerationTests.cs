@@ -195,6 +195,18 @@ public partial class LinqSqlGenerationTests
             ex!.Message);
     }
 
+    [Test]
+    public void TestRecordViewKeyValuePairNotSupported()
+    {
+        // ReSharper disable once ReturnValueOfPureMethodIsNotUsed
+        var ex = Assert.Throws<NotSupportedException>(() => _table.GetRecordView<KeyValuePair<int, int>>().AsQueryable().ToList());
+
+        Assert.AreEqual(
+            "Can't use System.Collections.Generic.KeyValuePair`2[TKey,TValue] for LINQ queries: " +
+            "it is reserved for Apache.Ignite.Table.IKeyValueView`2[TK,TV].AsQueryable. Use a custom type instead.",
+            ex!.Message);
+    }
+
     [OneTimeSetUp]
     public async Task OneTimeSetUp()
     {
