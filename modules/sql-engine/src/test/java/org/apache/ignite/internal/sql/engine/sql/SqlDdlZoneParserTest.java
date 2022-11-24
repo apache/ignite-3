@@ -27,6 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import org.apache.calcite.sql.SqlLiteral;
@@ -118,8 +119,18 @@ public class SqlDdlZoneParserTest extends AbstractDdlParserTest {
      * Parse CREATE ZONE WITH unknown option.
      */
     @Test
-    public void createZoneWithUnknownOptions() {
+    public void createZoneWithInvalidOptions() {
+        // Unknown option.
         assertThrows(SqlParseException.class, () -> parseCreateZone("create zone test_zone with foo=bar"));
+
+        // Invalid option type.
+        List<String> optNames = Arrays.asList("PARTITIONS", "REPLICAS", "AFFINITY_FUNCTION", "DATA_NODES_FILTER", "DATA_NODES_AUTO_ADJUST",
+                "DATA_NODES_AUTO_ADJUST_SCALE_UP", "DATA_NODES_AUTO_ADJUST_SCALE_DOWN");
+
+        for (String optName : optNames) {
+            assertThrows(SqlParseException.class,
+                    () -> parseCreateZone(String.format("create zone test_zone with %s=bar", optName)));
+        }
     }
 
     /**
