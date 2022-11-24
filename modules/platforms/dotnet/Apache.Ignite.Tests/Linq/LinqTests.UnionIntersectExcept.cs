@@ -28,15 +28,41 @@ public partial class LinqTests
     [Test]
     public void TestUnion()
     {
-        var subQuery = PocoView.AsQueryable().Select(x => new { Id = x.Key });
+        var subQuery = PocoView.AsQueryable()
+            .Where(x => x.Key < 2)
+            .Select(x => new { Id = x.Key });
 
         var query = PocoLongView.AsQueryable()
+            .Where(x => x.Key > 8)
             .Select(x => new { Id = x.Key })
             .Union(subQuery);
 
         var res = query.ToList();
 
-        Assert.AreEqual(new[] { 0, 1, 2, 3 }, res);
+        CollectionAssert.AreEquivalent(new[] { 0, 1, 9 }, res.Select(x => x.Id));
+
+        StringAssert.Contains(
+            "select _T0.KEY from PUBLIC.TBL_INT64 as _T0 where (_T0.KEY > ?) " +
+            "union (select _T1.KEY from PUBLIC.TBL1 as _T1 where (_T1.KEY < ?)",
+            query.ToString());
+    }
+
+    [Test]
+    public void TestUnionWithOrderBy()
+    {
+        var subQuery = PocoView.AsQueryable()
+            .Where(x => x.Key < 2)
+            .Select(x => new { Id = x.Key });
+
+        var query = PocoLongView.AsQueryable()
+            .Where(x => x.Key > 8)
+            .Select(x => new { Id = x.Key })
+            .Union(subQuery)
+            .OrderBy(x => x.Id);
+
+        var res = query.ToList();
+
+        Assert.AreEqual(new[] { 0, 1, 9 }, res.Select(x => x.Id));
 
         StringAssert.Contains(
             "select _T0.KEY from PUBLIC.TBL_INT8 as _T0 " +
