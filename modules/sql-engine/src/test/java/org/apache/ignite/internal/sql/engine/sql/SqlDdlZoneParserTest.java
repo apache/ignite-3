@@ -84,7 +84,7 @@ public class SqlDdlZoneParserTest extends AbstractDdlParserTest {
                 "create zone test_zone with "
                         + "replicas=2, "
                         + "partitions=3, "
-                        + "data_nodes_filter=nodes_filter, "
+                        + "data_nodes_filter='(\"US\" || \"EU\") && \"SSD\"', "
                         + "affinity_function=test_Affinity, "
                         + "data_nodes_auto_adjust=1, "
                         + "data_nodes_auto_adjust_scale_up=2, "
@@ -98,7 +98,7 @@ public class SqlDdlZoneParserTest extends AbstractDdlParserTest {
         assertThatZoneOptionPresent(optList, "REPLICAS", 2);
         assertThatZoneOptionPresent(optList, "PARTITIONS", 3);
         assertThatZoneOptionPresent(optList, "AFFINITY_FUNCTION", "TEST_AFFINITY");
-        assertThatZoneOptionPresent(optList, "DATA_NODES_FILTER", "NODES_FILTER");
+        assertThatZoneOptionPresent(optList, "DATA_NODES_FILTER", "(\"US\" || \"EU\") && \"SSD\"");
         assertThatZoneOptionPresent(optList, "DATA_NODES_AUTO_ADJUST", 1);
 
         SqlPrettyWriter w = new SqlPrettyWriter();
@@ -107,7 +107,7 @@ public class SqlDdlZoneParserTest extends AbstractDdlParserTest {
         assertThat(w.toString(), equalTo("CREATE ZONE \"TEST_ZONE\" WITH "
                 + "\"REPLICAS\" = 2, "
                 + "\"PARTITIONS\" = 3, "
-                + "\"DATA_NODES_FILTER\" = \"NODES_FILTER\", "
+                + "\"DATA_NODES_FILTER\" = '(\"US\" || \"EU\") && \"SSD\"', "
                 + "\"AFFINITY_FUNCTION\" = \"TEST_AFFINITY\", "
                 + "\"DATA_NODES_AUTO_ADJUST\" = 1, "
                 + "\"DATA_NODES_AUTO_ADJUST_SCALE_UP\" = 2, "
