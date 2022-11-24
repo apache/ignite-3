@@ -70,6 +70,7 @@ import org.apache.ignite.internal.table.distributed.IndexLocker;
 import org.apache.ignite.internal.table.distributed.SortedIndexLocker;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
+import org.apache.ignite.internal.table.distributed.replicator.LeaderOrTxState;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.PlacementDriver;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
@@ -87,7 +88,6 @@ import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateStorage;
 import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
-import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
@@ -266,7 +266,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 txStateStorage,
                 topologySrv,
                 placementDriver,
-                peer -> true
+                peer -> localNode.name().equals(peer.consistentId())
         );
 
         marshallerFactory = new ReflectionMarshallerFactory();
@@ -295,16 +295,16 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
     @Test
     public void testTxStateReplicaRequestEmptyState() {
-        CompletableFuture fut = partitionReplicaListener.invoke(TX_MESSAGES_FACTORY.txStateReplicaRequest()
+        CompletableFuture<Object> fut = partitionReplicaListener.invoke(TX_MESSAGES_FACTORY.txStateReplicaRequest()
                 .groupId(grpId)
                 .commitTimestamp(clock.now())
                 .txId(Timestamp.nextVersion().toUuid())
                 .build());
 
-        IgniteBiTuple<Peer, Long> tuple = (IgniteBiTuple<Peer, Long>) fut.join();
+        LeaderOrTxState tuple = (LeaderOrTxState) fut.join();
 
-        assertNull(tuple.get1());
-        assertNull(tuple.get2());
+        assertNull(tuple.leader());
+        assertNull(tuple.txMeta());
     }
 
     @Test
@@ -315,33 +315,33 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
         HybridTimestamp readTimestamp = clock.now();
 
-        CompletableFuture fut = partitionReplicaListener.invoke(TX_MESSAGES_FACTORY.txStateReplicaRequest()
+        CompletableFuture<Object> fut = partitionReplicaListener.invoke(TX_MESSAGES_FACTORY.txStateReplicaRequest()
                 .groupId(grpId)
                 .commitTimestamp(readTimestamp)
                 .txId(txId)
                 .build());
 
-        IgniteBiTuple<TxMeta, ClusterNode> tuple = (IgniteBiTuple<TxMeta, ClusterNode>) fut.join();
+        LeaderOrTxState tuple = (LeaderOrTxState) fut.join();
 
-        assertEquals(TxState.COMMITED, tuple.get1().txState());
-        assertTrue(readTimestamp.compareTo(tuple.get1().commitTimestamp()) > 0);
-        assertNull(tuple.get2());
+        assertEquals(TxState.COMMITED, tuple.txMeta().txState());
+        assertTrue(readTimestamp.compareTo(tuple.txMeta().commitTimestamp()) > 0);
+        assertNull(tuple.leader());
     }
 
     @Test
     public void testTxStateReplicaRequestMissLeaderMiss() {
         localLeader = false;
 
-        CompletableFuture fut = partitionReplicaListener.invoke(TX_MESSAGES_FACTORY.txStateReplicaRequest()
+        CompletableFuture<Object> fut = partitionReplicaListener.invoke(TX_MESSAGES_FACTORY.txStateReplicaRequest()
                 .groupId(grpId)
                 .commitTimestamp(clock.now())
                 .txId(Timestamp.nextVersion().toUuid())
                 .build());
 
-        IgniteBiTuple<Peer, Long> tuple = (IgniteBiTuple<Peer, Long>) fut.join();
+        LeaderOrTxState tuple = (LeaderOrTxState) fut.join();
 
-        assertNull(tuple.get1());
-        assertNotNull(tuple.get2());
+        assertNull(tuple.txMeta());
+        assertNotNull(tuple.leader());
     }
 
     @Test

@@ -131,7 +131,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     private final int partId;
 
     /** Primary key index. */
-    public final Lazy<TableSchemaAwareIndexStorage> pkIndexStorage;
+    private final Lazy<TableSchemaAwareIndexStorage> pkIndexStorage;
 
     /** Secondary indices. */
     private final Supplier<Map<UUID, TableSchemaAwareIndexStorage>> secondaryIndexStorages;
@@ -303,19 +303,16 @@ public class PartitionReplicaListener implements ReplicaListener {
     private CompletableFuture<Object> processTxStateReplicaRequest(TxStateReplicaRequest request) {
         return raftClient.refreshAndGetLeaderWithTerm()
                 .thenCompose(replicaAndTerm -> {
-                            String leaderId = replicaAndTerm.leader().consistentId();
+                    Peer leader = replicaAndTerm.leader();
 
-                            if (topologyService.localMember().name().equals(leaderId)) {
+                    if (isLocalPeerChecker.apply(leader)) {
+                        CompletableFuture<TxMeta> txStateFut = getTxStateConcurrently(request);
 
-                                CompletableFuture<TxMeta> txStateFut = getTxStateConcurrently(request);
-
-                                return txStateFut.thenApply(txMeta -> new IgniteBiTuple<>(txMeta, null));
-                            } else {
-                                return completedFuture(
-                                        new IgniteBiTuple<>(null, topologyService.getByConsistentId(leaderId)));
-                            }
-                        }
-                );
+                        return txStateFut.thenApply(txMeta -> new LeaderOrTxState(null, txMeta));
+                    } else {
+                        return completedFuture(new LeaderOrTxState(topologyService.getByConsistentId(leader.consistentId()), null));
+                    }
+                });
     }
 
     /**
