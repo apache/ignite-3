@@ -210,9 +210,27 @@ public partial class LinqSqlGenerationTests
     [Test]
     public void TestUnion() =>
         AssertSql(
-            "select (_T0.KEY + ?), _T0.VAL from PUBLIC.tbl1 as _T0 union (select (_T1.KEY + ?), _T1.VAL from PUBLIC.tbl1 as _T1 )",
+            "select (_T0.KEY + ?), _T0.VAL from PUBLIC.tbl1 as _T0 " +
+            "union (select (_T1.KEY + ?), _T1.VAL from PUBLIC.tbl1 as _T1 )",
             q => q.Select(x => new { Key = x.Key + 1, x.Val })
                 .Union(q.Select(x => new { Key = x.Key + 100, x.Val }))
+                .ToList());
+
+    [Test]
+    public void TestIntersect() =>
+        AssertSql(
+            "select (_T0.KEY + ?), concat(_T0.VAL, ?) from PUBLIC.tbl1 as _T0 " +
+            "intersect (select (_T1.KEY + ?), concat(_T1.VAL, ?) from PUBLIC.tbl1 as _T1 )",
+            q => q.Select(x => new { Key = x.Key + 1, Val = x.Val + "_" })
+                .Intersect(q.Select(x => new { Key = x.Key + 100, Val = x.Val + "!" }))
+                .ToList());
+
+    [Test]
+    public void TestExcept() =>
+        AssertSql(
+            "select (_T0.KEY + ?) from PUBLIC.tbl1 as _T0 except (select (_T1.KEY + ?) from PUBLIC.tbl1 as _T1 )",
+            q => q.Select(x => x.Key + 1)
+                .Except(q.Select(x => x.Key + 5))
                 .ToList());
 
     [OneTimeSetUp]
