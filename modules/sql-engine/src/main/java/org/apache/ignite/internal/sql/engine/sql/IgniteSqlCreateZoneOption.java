@@ -31,7 +31,7 @@ import org.apache.calcite.sql.validate.SqlValidator;
 import org.apache.calcite.sql.validate.SqlValidatorScope;
 import org.apache.calcite.util.Litmus;
 
-/** An AST node representing option to create distributed zone with. */
+/** An AST node representing option to create distribution zone with. */
 public class IgniteSqlCreateZoneOption extends SqlCall {
     private static final SqlOperator OPERATOR =
             new SqlSpecialOperator("ZoneOption", SqlKind.OTHER);
