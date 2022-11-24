@@ -18,10 +18,7 @@
 package org.apache.ignite.internal.table.distributed;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
-import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
-import static org.apache.ignite.raft.jraft.test.TestUtils.peersToIds;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -55,16 +52,9 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Phaser;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.baseline.BaselineManager;
@@ -78,7 +68,6 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.raft.Loza;
-import org.apache.ignite.internal.raft.RaftGroupServiceImpl;
 import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -102,10 +91,8 @@ import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDa
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
-import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.event.TableEvent;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
@@ -122,10 +109,6 @@ import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.service.RaftGroupService;
-import org.apache.ignite.raft.jraft.RaftMessagesFactory;
-import org.apache.ignite.raft.jraft.entity.PeerId;
-import org.apache.ignite.raft.jraft.error.RaftError;
-import org.apache.ignite.raft.jraft.rpc.CliRequests;
 import org.apache.ignite.table.Table;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -727,131 +710,6 @@ public class TableManagerTest extends IgniteAbstractTest {
         assertEquals(tablesBeforeCreation + 1, tableManager.tables().size());
 
         return tbl2;
-    }
-
-    /**
-     * Tests that {@link RaftGroupServiceImpl#changePeersAsync(java.util.List, long)} was retried after some exceptions.
-     *
-     * @throws Exception If failed.
-     */
-    @Test
-    public void testChangePeersAsyncRetryLogic() throws Exception {
-        RaftMessagesFactory factory = new RaftMessagesFactory();
-
-        List<ClusterNode> clusterNodes = IntStream.of(20000, 20001, 20002)
-                .mapToObj(port -> new NetworkAddress("localhost", port))
-                .map(addr -> {
-                    String id = UUID.randomUUID().toString();
-
-                    return new ClusterNode(id, id, addr);
-                })
-                .collect(Collectors.toUnmodifiableList());
-
-        List<Peer> nodes = clusterNodes.stream()
-                .map(n -> new Peer(n.name()))
-                .collect(Collectors.toUnmodifiableList());
-
-        int timeout = 1000;
-
-        int delay = 200;
-
-        Peer leader = nodes.get(0);
-
-        when(cluster.messagingService()).thenReturn(messagingService);
-
-        TopologyService topologyService = mock(TopologyService.class);
-
-        when(cluster.topologyService()).thenReturn(topologyService);
-
-        when(topologyService.getByConsistentId(any()))
-                .thenAnswer(invocation -> {
-                    String consistentId = invocation.getArgument(0);
-
-                    return clusterNodes.stream().filter(n -> n.name().equals(consistentId)).findAny().orElseThrow();
-                });
-
-        TableManager tableManager = createTableManager(tblManagerFut, false);
-
-        ScheduledExecutorService executor = new ScheduledThreadPoolExecutor(20, new NamedThreadFactory(Loza.CLIENT_POOL_NAME, LOG));
-
-        TablePartitionId groupId = new TablePartitionId(UUID.randomUUID(), 0);
-
-        List<String> shrunkPeers = peersToIds(nodes.subList(0, 1));
-
-        List<String> extendedPeers = peersToIds(nodes);
-
-        AtomicLong firstInvocationOfChangePeersAsync = new AtomicLong(0L);
-
-        AtomicInteger counter = new AtomicInteger(0);
-
-        when(messagingService.invoke(any(),
-                eq(factory.changePeersAsyncRequest()
-                        .newPeersList(shrunkPeers)
-                        .term(1L)
-                        .groupId(groupId.toString()).build()), anyLong()))
-                .then(invocation -> {
-                    if (firstInvocationOfChangePeersAsync.get() == 0) {
-                        firstInvocationOfChangePeersAsync.set(System.currentTimeMillis());
-                        return failedFuture(new TimeoutException());
-                    } else {
-                        if (firstInvocationOfChangePeersAsync.get() + timeout < System.currentTimeMillis()) {
-                            //retry happened, new changePeersAsync was called
-                            counter.incrementAndGet();
-
-                            return completedFuture(factory.changePeersAsyncResponse().newPeersList(extendedPeers).build());
-                        }
-                    }
-
-                    return failedFuture(new TimeoutException());
-                });
-
-        when(messagingService.invoke(any(), any(CliRequests.GetLeaderRequest.class), anyLong()))
-                .then(invocation -> {
-                    PeerId leader0 = PeerId.fromPeer(leader);
-
-                    Object resp = leader0 == null
-                            ? factory.errorResponse().errorCode(RaftError.EPERM.getNumber()).build()
-                            : factory.getLeaderResponse().leaderId(leader0.toString()).currentTerm(1L).build();
-
-                    return completedFuture(resp);
-                });
-
-        RaftGroupService service = RaftGroupServiceImpl.start(groupId, cluster, factory, timeout, nodes.subList(0, 2),
-                true, delay, executor).get(3, TimeUnit.SECONDS);
-
-        tableManager.movePartition(() -> service).apply(nodes.subList(0, 1), 1L).join();
-
-        assertEquals(counter.get(), 1);
-
-        AtomicLong secondInvocationOfChangePeersAsync = new AtomicLong(0L);
-
-        when(messagingService.invoke(any(),
-                eq(factory.changePeersAsyncRequest()
-                        .newPeersList(shrunkPeers)
-                        .term(1L)
-                        .groupId(groupId.toString()).build()), anyLong()))
-                .then(invocation -> {
-                    if (secondInvocationOfChangePeersAsync.get() == 0) {
-                        secondInvocationOfChangePeersAsync.set(System.currentTimeMillis());
-
-                        return failedFuture(new NullPointerException());
-                    } else {
-                        if (secondInvocationOfChangePeersAsync.get() + timeout < System.currentTimeMillis()) {
-                            //retry happened, new changePeersAsync was called
-                            counter.incrementAndGet();
-
-                            return completedFuture(factory.changePeersAsyncResponse().newPeersList(extendedPeers).build());
-                        }
-                    }
-
-                    return failedFuture(new NullPointerException());
-                });
-
-        tableManager.movePartition(() -> service).apply(nodes.subList(0, 1), 1L).join();
-
-        assertEquals(2, counter.get());
-
-        shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
     }
 
     /**

@@ -15,8 +15,24 @@
  * limitations under the License.
  */
 
-/**
- * Contains tests for Ignite CLI UI elements.
- */
+package org.apache.ignite.internal.table.distributed.command;
 
-package org.apache.ignite.internal.cli.deprecated.ui;
+import java.io.Serializable;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.table.distributed.TableMessageGroup;
+import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.annotations.Transferable;
+
+/**
+ * Interface to represent {@link HybridTimestamp} as a {@link NetworkMessage}.
+ */
+@Transferable(TableMessageGroup.Commands.HYBRID_TIMESTAMP)
+public interface HybridTimestampMessage extends NetworkMessage, Serializable {
+    long physical();
+
+    int logical();
+
+    default HybridTimestamp asHybridTimestamp() {
+        return new HybridTimestamp(physical(), logical());
+    }
+}

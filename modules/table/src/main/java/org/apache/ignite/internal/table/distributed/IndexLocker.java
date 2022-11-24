@@ -21,6 +21,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.tx.Lock;
 
 /**
  * A decorator interface to hide all tx-protocol-related things.
@@ -38,17 +39,18 @@ public interface IndexLocker {
      * @param tableRow A table row to lookup.
      * @return A future representing a result.
      */
-    CompletableFuture<?> locksForLookup(UUID txId, BinaryRow tableRow);
+    CompletableFuture<Void> locksForLookup(UUID txId, BinaryRow tableRow);
 
     /**
      * Acquires the lock for insert operation.
+     * If index required a short term lock to insert, the lock is returned as a future result, otherwise future result is {@code null}.
      *
      * @param txId An identifier of the transaction in which the row is inserted.
      * @param tableRow A table row to insert.
      * @param rowId An identifier of the row in the main storage.
      * @return A future representing a result.
      */
-    CompletableFuture<?> locksForInsert(UUID txId, BinaryRow tableRow, RowId rowId);
+    CompletableFuture<Lock> locksForInsert(UUID txId, BinaryRow tableRow, RowId rowId);
 
     /**
      * Acquires the lock for remove operation.
@@ -58,5 +60,5 @@ public interface IndexLocker {
      * @param rowId An identifier of the row to remove.
      * @return A future representing a result.
      */
-    CompletableFuture<?> locksForRemove(UUID txId, BinaryRow tableRow, RowId rowId);
+    CompletableFuture<Void> locksForRemove(UUID txId, BinaryRow tableRow, RowId rowId);
 }

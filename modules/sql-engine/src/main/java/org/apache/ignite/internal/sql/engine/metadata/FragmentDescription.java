@@ -63,8 +63,8 @@ public class FragmentDescription implements Serializable {
     /**
      * Get node ids.
      */
-    public List<String> nodeIds() {
-        return mapping.nodeIds();
+    public List<String> nodeNames() {
+        return mapping.nodeNames();
     }
 
     /**

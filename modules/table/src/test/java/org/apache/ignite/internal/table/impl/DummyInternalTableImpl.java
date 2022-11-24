@@ -61,7 +61,6 @@ import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateTableStorage;
 import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
-import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
@@ -69,6 +68,7 @@ import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.WriteCommand;
 import org.apache.ignite.raft.client.service.CommandClosure;
+import org.apache.ignite.raft.client.service.LeaderWithTerm;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.NotNull;
@@ -147,8 +147,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 UUID.randomUUID(),
                 Int2ObjectMaps.singleton(0, mock(RaftGroupService.class)),
                 1,
-                Function.identity(),
-                addr -> mock(ClusterNode.class),
+                name -> mock(ClusterNode.class),
                 txManager == null ? new TxManagerImpl(replicaSvc, new HeapLockManager(), new HybridClockImpl()) : txManager,
                 mock(MvTableStorage.class),
                 new TestTxStateTableStorage(),
@@ -162,7 +161,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         lenient().doReturn(groupId).when(svc).groupId();
         Peer leaderPeer = new Peer(UUID.randomUUID().toString());
         lenient().doReturn(leaderPeer).when(svc).leader();
-        lenient().doReturn(CompletableFuture.completedFuture(new IgniteBiTuple<>(leaderPeer, 1L))).when(svc).refreshAndGetLeaderWithTerm();
+        lenient().doReturn(CompletableFuture.completedFuture(new LeaderWithTerm(leaderPeer, 1L))).when(svc).refreshAndGetLeaderWithTerm();
 
         if (!crossTableUsage) {
             // Delegate replica requests directly to replica listener.
@@ -262,7 +261,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 new TestPartitionDataStorage(mvPartStorage),
                 txStateStorage().getOrCreateTxStateStorage(0),
                 this.txManager,
-                () -> Map.of(pkStorage.get().id(), pkStorage.get())
+                () -> Map.of(pkStorage.get().id(), pkStorage.get()),
+                0
         );
     }
 

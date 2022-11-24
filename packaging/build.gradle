@@ -24,6 +24,7 @@ plugins {
 }
 
 import org.gradle.crypto.checksum.Checksum
+import org.apache.tools.ant.filters.ReplaceTokens
 
 configurations {
     dbArtifacts
@@ -39,6 +40,23 @@ dependencies {
     cliScripts(project(path: ':ignite-cli', configuration: 'cliScripts'))
     cliZip(project(path: ':packaging-cli', configuration: 'cliZip'))
     dbZip(project(path: ':packaging-db', configuration: 'dbZip'))
+}
+
+def tokens = [
+        INSTALL_DIR         : '${IGNITE_HOME}',
+        CONF_DIR            : '${IGNITE_HOME}/etc',
+        LIB_DIR             : '${IGNITE_HOME}/lib',
+        APP_JAR             : "${project(':ignite-runner').name}-${project(':ignite-runner').version}.jar".toString(),
+        MAIN_CLASS          : 'org.apache.ignite.app.IgniteRunner',
+        BOOTSTRAP_FILE_NAME : 'bootstrap-functions.sh',
+        SETUP_JAVA_FILE_NAME: 'setup-java.sh'
+]
+
+task replaceVars(type: Copy) {
+    from("$rootDir/packaging/common")
+    from("$rootDir/packaging/docker/docker-entrypoint.sh")
+    filter(ReplaceTokens, tokens: tokens)
+    into("$buildDir/docker")
 }
 
 docker {
@@ -63,13 +81,17 @@ docker {
         }
         into('bin') {
             fileMode 0755
-            from('docker/docker-entrypoint.sh')
+            from("$buildDir/docker/docker-entrypoint.sh")
         }
         into('lib') {
             from(configurations.dbArtifacts)
+            from("$buildDir/docker/$tokens.BOOTSTRAP_FILE_NAME")
+            from("$buildDir/docker/$tokens.SETUP_JAVA_FILE_NAME")
         }
     }
 }
+
+dockerPrepare.dependsOn replaceVars
 
 // create an uber zip with all distributions
 task allDistZip(type: Zip) {

@@ -58,6 +58,7 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteBiTuple;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
@@ -898,21 +899,21 @@ public class MetaStorageManager implements IgniteComponent {
 
         /** {@inheritDoc} */
         @Override
-        public void close() throws Exception {
-            if (!busyLock.enterBusy()) {
-                throw new NodeStoppingException();
-            }
-
+        public void close() {
             try {
                 innerCursorFut.thenAccept(cursor -> {
                     try {
                         cursor.close();
-                    } catch (Exception e) {
+                    } catch (RuntimeException e) {
                         throw new MetaStorageException(CURSOR_CLOSING_ERR, e);
                     }
                 }).get();
-            } finally {
-                busyLock.leaveBusy();
+            } catch (ExecutionException e) {
+                throw new IgniteInternalException("Exception while closing a cursor", e);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+
+                throw new IgniteInternalException("Interrupted while closing a cursor", e);
             }
         }
 

@@ -115,7 +115,7 @@ class OutgoingSnapshotTxDataStreamingTest {
     }
 
     private void configureStorageToHaveExactly(UUID txId1, TxMeta meta1, UUID txId2, TxMeta meta2) {
-        when(txStateStorage.scan()).thenReturn(Cursor.fromIterator(
+        when(txStateStorage.scan()).thenReturn(Cursor.fromBareIterator(
                 List.of(new IgniteBiTuple<>(txId1, meta1), new IgniteBiTuple<>(txId2, meta2)).iterator())
         );
 
@@ -140,7 +140,7 @@ class OutgoingSnapshotTxDataStreamingTest {
     }
 
     private void configureStorageToBeEmpty() {
-        when(txStateStorage.scan()).thenReturn(Cursor.fromIterator(emptyIterator()));
+        when(txStateStorage.scan()).thenReturn(Cursor.fromBareIterator(emptyIterator()));
 
         snapshot.freezeScopeUnderMvLock();
     }
@@ -174,7 +174,7 @@ class OutgoingSnapshotTxDataStreamingTest {
 
     @Test
     void closesCursorWhenTxDataIsExhaustedInPartition() throws Exception {
-        Cursor<IgniteBiTuple<UUID, TxMeta>> cursor = spy(Cursor.fromIterator(emptyIterator()));
+        Cursor<IgniteBiTuple<UUID, TxMeta>> cursor = spy(Cursor.fromBareIterator(emptyIterator()));
 
         when(txStateStorage.scan()).thenReturn(cursor);
         snapshot.freezeScopeUnderMvLock();

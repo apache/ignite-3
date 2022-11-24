@@ -318,7 +318,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
     @Override
     public Cursor<ReadResult> scanVersions(RowId rowId) throws StorageException {
-        return Cursor.fromIterator(
+        return Cursor.fromBareIterator(
                 Stream.iterate(map.get(rowId), Objects::nonNull, vc -> vc.next)
                         .map((VersionChain versionChain) -> versionChainToReadResult(versionChain, false))
                         .iterator()

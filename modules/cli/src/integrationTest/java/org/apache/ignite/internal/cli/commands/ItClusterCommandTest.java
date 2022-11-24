@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.deprecated;
+package org.apache.ignite.internal.cli.commands;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -25,8 +25,6 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import io.micronaut.context.ApplicationContext;
-import io.micronaut.context.env.Environment;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -36,6 +34,7 @@ import java.util.logging.Handler;
 import java.util.logging.LogRecord;
 import java.util.logging.Logger;
 import org.apache.ignite.IgnitionManager;
+import org.apache.ignite.internal.cli.AbstractCliTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.testframework.jul.NoOpHandler;
@@ -49,7 +48,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * Integration test for {@code ignite cluster} commands.
  */
 @ExtendWith(WorkDirectoryExtension.class)
-class ItClusterCommandTest extends AbstractCliIntegrationTest {
+class ItClusterCommandTest extends AbstractCliTest {
     private static final String TOPOLOGY_SNAPSHOT_LOG_RECORD_PREFIX = "Topology snapshot [nodes=";
 
     private static final Node FIRST_NODE = new Node(0, 10100, 10300);
@@ -66,9 +65,6 @@ class ItClusterCommandTest extends AbstractCliIntegrationTest {
 
     private static final Logger topologyLogger = Logger.getLogger("org.apache.ignite.network.scalecube.ScaleCubeTopologyService");
 
-    /** DI context. */
-    private ApplicationContext ctx;
-
     @BeforeEach
     void setup(@WorkDirectory Path workDir, TestInfo testInfo) throws Exception {
         CountDownLatch allNodesAreInPhysicalTopology = new CountDownLatch(1);
@@ -83,8 +79,6 @@ class ItClusterCommandTest extends AbstractCliIntegrationTest {
         } finally {
             topologyLogger.removeHandler(physicalTopologyWaiter);
         }
-
-        ctx = ApplicationContext.run(Environment.TEST);
     }
 
     private Handler physicalTopologyWaiter(CountDownLatch physicalTopologyIsFull) {
@@ -154,10 +148,6 @@ class ItClusterCommandTest extends AbstractCliIntegrationTest {
         for (int i = 0; i < NODES.size(); i++) {
             IgnitionManager.stop(testNodeName(testInfo, i));
         }
-
-        if (ctx != null) {
-            ctx.stop();
-        }
     }
 
     /**
@@ -169,7 +159,7 @@ class ItClusterCommandTest extends AbstractCliIntegrationTest {
      */
     @Test
     void initClusterWithNodesOfDifferentRoles(TestInfo testInfo) {
-        int exitCode = cmd(ctx).execute(
+        int exitCode = execute(
                 "cluster", "init",
                 "--cluster-endpoint-url", FIRST_NODE.restHostPort(),
                 "--meta-storage-node", SECOND_NODE.nodeName(testInfo),

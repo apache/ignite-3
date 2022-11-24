@@ -15,35 +15,60 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.deprecated;
+package org.apache.ignite.internal.cli;
 
+import io.micronaut.configuration.picocli.MicronautFactory;
 import io.micronaut.context.ApplicationContext;
+import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
+import jakarta.inject.Inject;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintWriter;
 import org.apache.ignite.internal.cli.commands.TopLevelCliCommand;
+import org.junit.jupiter.api.BeforeAll;
 import picocli.CommandLine;
 
 /**
- * Base class for CLI-related integration tests.
+ * Base class for any CLI tests.
  */
-public abstract class AbstractCliIntegrationTest extends AbstractCliTest {
+@MicronautTest(rebuildContext = true)
+public abstract class AbstractCliTest {
+    @Inject
+    private ApplicationContext ctx;
+
     /** stderr. */
-    protected final ByteArrayOutputStream err = new ByteArrayOutputStream();
+    protected ByteArrayOutputStream err = new ByteArrayOutputStream();
 
     /** stdout. */
-    protected final ByteArrayOutputStream out = new ByteArrayOutputStream();
+    protected ByteArrayOutputStream out = new ByteArrayOutputStream();
 
     /**
      * Creates a new command line interpreter.
      *
-     * @param applicationCtx DI context.
      * @return New command line instance.
      */
-    protected final CommandLine cmd(ApplicationContext applicationCtx) {
-        CommandLine.IFactory factory = new CommandFactory(applicationCtx);
-
-        return new CommandLine(TopLevelCliCommand.class, factory)
+    private CommandLine cmd() {
+        return new CommandLine(TopLevelCliCommand.class, new MicronautFactory(ctx))
                 .setErr(new PrintWriter(err, true))
                 .setOut(new PrintWriter(out, true));
+    }
+
+    protected final int execute(String... args) {
+        return cmd().execute(args);
+    }
+
+    /**
+     * Sets up a dumb terminal before tests.
+     */
+    @BeforeAll
+    static void beforeAll() {
+        System.setProperty("org.jline.terminal.dumb", "true");
+    }
+
+    /**
+     * Reset stderr and stdout streams.
+     */
+    protected void resetStreams() {
+        err.reset();
+        out.reset();
     }
 }

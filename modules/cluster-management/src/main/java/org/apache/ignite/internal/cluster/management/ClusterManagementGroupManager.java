@@ -493,12 +493,12 @@ public class ClusterManagementGroupManager implements IgniteComponent {
             }
 
             @Override
-            public void onNewPeersConfigurationApplied(List<PeerId> peers) {
+            public void onNewPeersConfigurationApplied(Collection<PeerId> peers, Collection<PeerId> learners) {
                 // No-op.
             }
 
             @Override
-            public void onReconfigurationError(Status status, List<PeerId> peers, long term) {
+            public void onReconfigurationError(Status status, Collection<PeerId> peers, Collection<PeerId> learners, long term) {
                 // No-op.
             }
         };

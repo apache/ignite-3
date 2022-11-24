@@ -54,6 +54,7 @@ dependencies {
     testImplementation libs.classgraph
     testImplementation libs.slf4j.jdk14
 
+    testFixturesAnnotationProcessor project(":ignite-network-annotation-processor")
     testFixturesImplementation project(':ignite-core')
     testFixturesImplementation project(':ignite-network')
     testFixturesImplementation project(':ignite-raft-client')

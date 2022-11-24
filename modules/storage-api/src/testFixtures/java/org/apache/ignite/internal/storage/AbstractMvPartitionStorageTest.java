@@ -45,9 +45,9 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.IgniteBiTuple;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -95,7 +95,14 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
      * Inserts a row inside of consistency closure.
      */
     protected RowId insert(BinaryRow binaryRow, UUID txId) {
-        RowId rowId = new RowId(PARTITION_ID);
+        return insert(binaryRow, txId, null);
+    }
+
+    /**
+     * Inserts a row inside of consistency closure.
+     */
+    protected RowId insert(BinaryRow binaryRow, UUID txId, @Nullable UUID explicitRowId) {
+        RowId rowId = explicitRowId == null ? new RowId(PARTITION_ID) : new RowId(PARTITION_ID, explicitRowId);
 
         storage.runConsistently(() -> storage.addWrite(rowId, binaryRow, txId, UUID.randomUUID(), 0));
 
@@ -143,7 +150,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
      * Creates a new transaction id.
      */
     private static UUID newTransactionId() {
-        return Timestamp.nextVersion().toUuid();
+        return UUID.randomUUID();
     }
 
     /**
@@ -1307,11 +1314,11 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
     @ParameterizedTest
     @EnumSource(ScanTimestampProvider.class)
     void committedMethodCallDoesNotInterfereWithIteratingOverScanCursor(ScanTimestampProvider scanTsProvider) throws Exception {
-        RowId rowId1 = insert(binaryRow, txId);
+        RowId rowId1 = insert(binaryRow, txId, new UUID(0, 0));
         HybridTimestamp commitTs1 = clock.now();
         commitWrite(rowId1, commitTs1);
 
-        insert(binaryRow2, txId);
+        insert(binaryRow2, txId, new UUID(0, 1));
 
         try (PartitionTimestampCursor cursor = scan(scanTsProvider.scanTimestamp(clock))) {
             cursor.next();

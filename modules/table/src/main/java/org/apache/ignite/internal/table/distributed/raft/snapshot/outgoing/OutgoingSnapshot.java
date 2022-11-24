@@ -360,9 +360,6 @@ public class OutgoingSnapshot {
     private List<ReadResult> readRowVersionsN2O(RowId rowId) {
         try (Cursor<ReadResult> versions = partition.mvPartitionStorage().scanVersions(rowId)) {
             return versions.stream().collect(toList());
-        } catch (Exception e) {
-            // TODO: IGNITE-18049 - remove this catch block when Cursor#close() throws declaration is removed.
-            throw new RuntimeException(e);
         }
     }
 
@@ -394,7 +391,7 @@ public class OutgoingSnapshot {
     private static void closeLoggingProblems(Cursor<?> cursor) {
         try {
             cursor.close();
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             LOG.error("Problem while closing a cursor", e);
         }
     }

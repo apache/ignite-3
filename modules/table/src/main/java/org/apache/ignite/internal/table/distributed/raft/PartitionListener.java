@@ -34,15 +34,18 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommand;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
 import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
+import org.apache.ignite.internal.table.distributed.command.TablePartitionIdMessage;
 import org.apache.ignite.internal.table.distributed.command.TxCleanupCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateAllCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
@@ -57,6 +60,7 @@ import org.apache.ignite.raft.client.WriteCommand;
 import org.apache.ignite.raft.client.service.CommandClosure;
 import org.apache.ignite.raft.client.service.CommittedConfiguration;
 import org.apache.ignite.raft.client.service.RaftGroupListener;
+import org.apache.ignite.raft.jraft.util.ByteString;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -78,6 +82,9 @@ public class PartitionListener implements RaftGroupListener {
 
     private final Supplier<Map<UUID, TableSchemaAwareIndexStorage>> indexes;
 
+    /** Partition ID. */
+    private int partitionId;
+
     /** Rows that were inserted, updated or removed. */
     private final HashMap<UUID, Set<RowId>> txsPendingRowIds = new HashMap<>();
 
@@ -86,17 +93,20 @@ public class PartitionListener implements RaftGroupListener {
      *
      * @param partitionDataStorage  The storage.
      * @param txManager Transaction manager.
+     * @param partitionId Partition ID this listener serves.
      */
     public PartitionListener(
             PartitionDataStorage partitionDataStorage,
             TxStateStorage txStateStorage,
             TxManager txManager,
-            Supplier<Map<UUID, TableSchemaAwareIndexStorage>> indexes
+            Supplier<Map<UUID, TableSchemaAwareIndexStorage>> indexes,
+            int partitionId
     ) {
         this.storage = partitionDataStorage;
         this.txStateStorage = txStateStorage;
         this.txManager = txManager;
         this.indexes = indexes;
+        this.partitionId = partitionId;
     }
 
     @Override
@@ -174,11 +184,12 @@ public class PartitionListener implements RaftGroupListener {
         }
 
         storage.runConsistently(() -> {
-            BinaryRow row = cmd.getRow();
-            RowId rowId = cmd.getRowId();
+            BinaryRow row = cmd.rowBuffer() != null ? new ByteBufferRow(cmd.rowBuffer().toByteArray()) : null;
+            UUID rowUuid = cmd.rowUuid();
+            RowId rowId = new RowId(partitionId, rowUuid);
             UUID txId = cmd.txId();
-            UUID commitTblId = cmd.getCommitReplicationGroupId().getTableId();
-            int commitPartId = cmd.getCommitReplicationGroupId().getPartId();
+            UUID commitTblId = cmd.tablePartitionId().tableId();
+            int commitPartId = cmd.tablePartitionId().partitionId();
 
             storage.addWrite(rowId, row, txId, commitTblId, commitPartId);
 
@@ -207,14 +218,14 @@ public class PartitionListener implements RaftGroupListener {
 
         storage.runConsistently(() -> {
             UUID txId = cmd.txId();
-            Map<RowId, BinaryRow> rowsToUpdate = cmd.getRowsToUpdate();
-            UUID commitTblId = cmd.getReplicationGroupId().getTableId();
-            int commitPartId = cmd.getReplicationGroupId().getPartId();
+            Map<UUID, ByteString> rowsToUpdate = cmd.rowsToUpdate();
+            UUID commitTblId = cmd.tablePartitionId().tableId();
+            int commitPartId = cmd.tablePartitionId().partitionId();
 
             if (!nullOrEmpty(rowsToUpdate)) {
-                for (Map.Entry<RowId, BinaryRow> entry : rowsToUpdate.entrySet()) {
-                    RowId rowId = entry.getKey();
-                    BinaryRow row = entry.getValue();
+                for (Map.Entry<UUID, ByteString> entry : rowsToUpdate.entrySet()) {
+                    RowId rowId = new RowId(partitionId, entry.getKey());
+                    BinaryRow row = entry.getValue() != null ? new ByteBufferRow(entry.getValue().toByteArray()) : null;
 
                     storage.addWrite(rowId, row, txId, commitTblId, commitPartId);
 
@@ -246,12 +257,15 @@ public class PartitionListener implements RaftGroupListener {
 
         UUID txId = cmd.txId();
 
-        TxState stateToSet = cmd.commit() ? TxState.COMMITED : TxState.ABORTED;
+        TxState stateToSet = cmd.commit() ? COMMITED : ABORTED;
 
         TxMeta txMetaToSet = new TxMeta(
                 stateToSet,
-                cmd.replicationGroupIds(),
-                cmd.commitTimestamp()
+                cmd.tablePartitionIds()
+                        .stream()
+                        .map(TablePartitionIdMessage::asTablePartitionId)
+                        .collect(Collectors.toList()),
+                cmd.commitTimestamp() != null ? cmd.commitTimestamp().asHybridTimestamp() : null
         );
 
         TxMeta txMetaBeforeCas = txStateStorage.get(txId);
@@ -305,7 +319,7 @@ public class PartitionListener implements RaftGroupListener {
             Set<RowId> pendingRowIds = txsPendingRowIds.getOrDefault(txId, Collections.emptySet());
 
             if (cmd.commit()) {
-                pendingRowIds.forEach(rowId -> storage.commitWrite(rowId, cmd.commitTimestamp()));
+                pendingRowIds.forEach(rowId -> storage.commitWrite(rowId, cmd.commitTimestamp().asHybridTimestamp()));
             } else {
                 pendingRowIds.forEach(storage::abortWrite);
             }

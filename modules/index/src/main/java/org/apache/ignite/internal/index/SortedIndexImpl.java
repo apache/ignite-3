@@ -78,13 +78,19 @@ public class SortedIndexImpl implements SortedIndex {
 
     /** {@inheritDoc} */
     @Override
-    public Publisher<BinaryRow> lookup(int partId, InternalTransaction tx, BinaryTuple key, BitSet columns) {
+    public Publisher<BinaryRow> lookup(int partId, @Nullable InternalTransaction tx, BinaryTuple key, @Nullable BitSet columns) {
         return table.lookup(partId, tx, id, key, columns);
     }
 
     /** {@inheritDoc} */
     @Override
-    public Publisher<BinaryRow> lookup(int partId, HybridTimestamp timestamp, ClusterNode recipientNode, BinaryTuple key, BitSet columns) {
+    public Publisher<BinaryRow> lookup(
+            int partId,
+            HybridTimestamp timestamp,
+            ClusterNode recipientNode,
+            BinaryTuple key,
+            @Nullable BitSet columns
+    ) {
         return table.lookup(partId, timestamp, recipientNode, id, key, columns);
     }
 
@@ -92,11 +98,11 @@ public class SortedIndexImpl implements SortedIndex {
     @Override
     public Publisher<BinaryRow> scan(
             int partId,
-            InternalTransaction tx,
-            BinaryTuplePrefix leftBound,
-            BinaryTuplePrefix rightBound,
+            @Nullable InternalTransaction tx,
+            @Nullable BinaryTuplePrefix leftBound,
+            @Nullable BinaryTuplePrefix rightBound,
             int flags,
-            BitSet columnsToInclude
+            @Nullable BitSet columnsToInclude
     ) {
         return table.scan(partId, tx, id, leftBound, rightBound, flags, columnsToInclude);
     }
@@ -110,7 +116,7 @@ public class SortedIndexImpl implements SortedIndex {
             @Nullable BinaryTuplePrefix leftBound,
             @Nullable BinaryTuplePrefix rightBound,
             int flags,
-            BitSet columnsToInclude
+            @Nullable BitSet columnsToInclude
     ) {
         return table.scan(partId, readTimestamp, recipientNode, id, leftBound, rightBound, flags, columnsToInclude);
     }

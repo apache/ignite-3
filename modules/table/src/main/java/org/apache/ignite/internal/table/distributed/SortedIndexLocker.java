@@ -23,11 +23,13 @@ import java.util.function.Function;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
+import org.apache.ignite.internal.tx.Lock;
 import org.apache.ignite.internal.tx.LockKey;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.LockMode;
@@ -48,7 +50,11 @@ public class SortedIndexLocker implements IndexLocker {
 
     private final UUID indexId;
     private final LockManager lockManager;
-    // private final SortedIndexStorage storage;
+
+
+    /** Index storage. */
+    private final SortedIndexStorage storage;
+
     private final Function<BinaryRow, BinaryTuple> indexRowResolver;
 
     /**
@@ -63,7 +69,7 @@ public class SortedIndexLocker implements IndexLocker {
             Function<BinaryRow, BinaryTuple> indexRowResolver) {
         this.indexId = indexId;
         this.lockManager = lockManager;
-        // this.storage = storage;
+        this.storage = storage;
         this.indexRowResolver = indexRowResolver;
     }
 
@@ -75,10 +81,10 @@ public class SortedIndexLocker implements IndexLocker {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<?> locksForLookup(UUID txId, BinaryRow tableRow) {
+    public CompletableFuture<Void> locksForLookup(UUID txId, BinaryRow tableRow) {
         BinaryTuple key = indexRowResolver.apply(tableRow);
 
-        return lockManager.acquire(txId, new LockKey(indexId, key.byteBuffer()), LockMode.S);
+        return lockManager.acquire(txId, new LockKey(indexId, key.byteBuffer()), LockMode.S).thenApply(lock -> null);
     }
 
     /**
@@ -131,39 +137,34 @@ public class SortedIndexLocker implements IndexLocker {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<?> locksForInsert(UUID txId, BinaryRow tableRow, RowId rowId) {
+    public CompletableFuture<Lock> locksForInsert(UUID txId, BinaryRow tableRow, RowId rowId) {
         BinaryTuple key = indexRowResolver.apply(tableRow);
-        // TODO https://issues.apache.org/jira/browse/IGNITE-18165
-        // BinaryTuplePrefix prefix = BinaryTuplePrefix.fromBinaryTuple(key);
+
+        BinaryTuplePrefix prefix = BinaryTuplePrefix.fromBinaryTuple(key);
 
         // find next key
-        // Cursor<IndexRow> cursor = storage.scan(prefix, null, SortedIndexStorage.GREATER);
+        Cursor<IndexRow> cursor = storage.scan(prefix, null, SortedIndexStorage.GREATER);
 
-        // BinaryTuple nexKey;
-        // if (cursor.hasNext()) {
-        //     nextKey = cursor.next().indexColumns();
-        // } else { // otherwise INF
-        //     nextKey = POSITIVE_INF;
-        // }
+        BinaryTuple nextKey;
+        if (cursor.hasNext()) {
+            nextKey = cursor.next().indexColumns();
+        } else { // otherwise INF
+            nextKey = POSITIVE_INF;
+        }
 
-        // var nextLockKey = new LockKey(indexId, nextKey.byteBuffer());
+        var nextLockKey = new LockKey(indexId, nextKey.byteBuffer());
 
-        // return lockManager.acquire(txId, nextLockKey, LockMode.IX)
-        //         .thenCompose(shortLock ->
-        return lockManager.acquire(txId, new LockKey(indexId, key.byteBuffer()), LockMode.X);
-        //                         .thenRun(() -> {
-        //                             storage.put(new IndexRowImpl(key, rowId));
-
-        //                             lockManager.release(shortLock);
-        //                         })
-        //         );
+        return lockManager.acquire(txId, nextLockKey, LockMode.IX).thenCompose(shortLock ->
+                lockManager.acquire(txId, new LockKey(indexId, key.byteBuffer()), LockMode.X).thenApply((lock) ->
+                        new Lock(nextLockKey, LockMode.IX, txId)
+                ));
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<?> locksForRemove(UUID txId, BinaryRow tableRow, RowId rowId) {
+    public CompletableFuture<Void> locksForRemove(UUID txId, BinaryRow tableRow, RowId rowId) {
         BinaryTuple key = indexRowResolver.apply(tableRow);
 
-        return lockManager.acquire(txId, new LockKey(indexId, key.byteBuffer()), LockMode.IX);
+        return lockManager.acquire(txId, new LockKey(indexId, key.byteBuffer()), LockMode.IX).thenApply(lock -> null);
     }
 }

@@ -32,7 +32,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -422,7 +421,7 @@ public class RebalanceUtil {
      * @param stableAssignments Byte array that contains serialized list of stable assignments.
      * @return Resolved cluster nodes.
      */
-    public static Set<ClusterNode> resolveClusterNodes(List<PeerId> peers, byte[] pendingAssignments, byte[] stableAssignments) {
+    public static Set<ClusterNode> resolveClusterNodes(Collection<PeerId> peers, byte[] pendingAssignments, byte[] stableAssignments) {
         Map<String, ClusterNode> resolveRegistry = new HashMap<>();
 
         if (pendingAssignments != null) {

@@ -29,20 +29,20 @@ include::../includes/prereqs.adoc[]
 
 == Starting Ignite Node
 
-In this guide we will use a link:../installation/installing-using-zip[zip] archive installation. To start an Ignite node,
+In this guide we will use a link:../installation/installing-using-zip[zip] archive installation. To start an Ignite node, go to the `ignite3-db-3.0.0-beta1` folder and run the following command:
 
 
 [tabs]
 --
 tab:Linux[]
 ----
-ignite3-db-3.0.0-beta1/bin/ignite3db start
+bin/ignite3db start
 ----
 
 tab:Windows[]
 NOTE: You need to install Java in Bash environment to run Ignite on Windows.
 ----
-bash ignite3-db-3.0.0-beta1/bin/ignite3db start
+bash bin\ignite3db start
 ----
 --
 
@@ -61,7 +61,7 @@ Ignite CLI is a single entry point for all the Ignite operations. In this guide 
 --
 tab:Linux[]
 ----
-ignite3-cli-3.0.0-beta1\bin\ignite3
+ignite3-cli-3.0.0-beta1/bin/ignite3
 ----
 
 tab:Windows[]
@@ -76,19 +76,19 @@ After you start the node, you can start working on it. For example, you can perf
 
 == Stopping the Cluster
 
-After you are done working on the cluster, you need to stop the node. Use the command below:
+After you are done working on the cluster, you need to stop the node. Go to the `ignite3-db-3.0.0-beta1` folder and run the following command:
 
 
 [tabs]
 --
 tab:Linux[]
 ----
-ignite3-db-3.0.0-beta1/bin/ignite3db stop
+bin/ignite3db stop
 ----
 
 tab:Windows[]
 ----
-bash ignite3-db-3.0.0-beta1/bin/ignite3db stop
+bash bin\ignite3db stop
 ----
 --
 
@@ -97,6 +97,7 @@ bash ignite3-db-3.0.0-beta1/bin/ignite3db stop
 From here, you may want to:
 
 * Check out the link:ignite-cli-tool[Ignite CLI Tool] page for more detail on supported commands.
+* Try out our link:https://github.com/apache/ignite-3/tree/main/examples[examples].
 
 //== Apache Ignite Configuration
 //

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.deprecated;
+package org.apache.ignite.internal.cli;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.stream.Collectors.toList;
@@ -30,12 +30,6 @@ import static org.mockserver.model.HttpStatusCode.INTERNAL_SERVER_ERROR_500;
 import static org.mockserver.model.HttpStatusCode.OK_200;
 import static org.mockserver.model.JsonBody.json;
 
-import io.micronaut.context.ApplicationContext;
-import io.micronaut.context.env.Environment;
-import java.io.ByteArrayOutputStream;
-import java.io.PrintWriter;
-import org.apache.ignite.internal.cli.commands.TopLevelCliCommand;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -45,7 +39,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockserver.integration.ClientAndServer;
 import org.mockserver.junit.jupiter.MockServerExtension;
 import org.mockserver.model.MediaType;
-import picocli.CommandLine;
 
 /**
  * Smoke test for Ignite CLI features and its UI. Structure of tests should be self-documented and repeat the structure of Ignite CLI
@@ -55,15 +48,6 @@ import picocli.CommandLine;
 @ExtendWith(MockitoExtension.class)
 @ExtendWith(MockServerExtension.class)
 public class IgniteCliInterfaceTest extends AbstractCliTest {
-    /** DI application context. */
-    ApplicationContext ctx;
-
-    /** stderr. */
-    ByteArrayOutputStream err;
-
-    /** stdout. */
-    ByteArrayOutputStream out;
-
     private final ClientAndServer clientAndServer;
 
     private final String mockUrl;
@@ -78,37 +62,13 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
      */
     @BeforeEach
     void setup() {
-        ctx = ApplicationContext.run(Environment.TEST);
-
-        err = new ByteArrayOutputStream();
-        out = new ByteArrayOutputStream();
+        resetStreams();
 
         clientAndServer.reset();
     }
 
-    /**
-     * Stops application context after a test.
-     */
-    @AfterEach
-    void tearDown() {
-        ctx.stop();
-    }
-
-    /**
-     * Creates a new command line interpreter with the given application context.
-     *
-     * @return New {@code CommandLine} interpreter.
-     */
-    CommandLine cmd(ApplicationContext applicationCtx) {
-        CommandLine.IFactory factory = new CommandFactory(applicationCtx);
-
-        return new CommandLine(TopLevelCliCommand.class, factory)
-                .setErr(new PrintWriter(err, true))
-                .setOut(new PrintWriter(out, true));
-    }
-
     private int execute(String cmdLine) {
-        return cmd(ctx).execute(cmdLine.split(" "));
+        return execute(cmdLine.split(" "));
     }
 
     /**
@@ -276,7 +236,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
                     .respond(response(null));
 
 
-            int exitCode = cmd(ctx).execute(
+            int exitCode = execute(
                     "cluster", "init",
                     "--cluster-endpoint-url", mockUrl,
                     "--meta-storage-node", "node1ConsistentId",
@@ -304,7 +264,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
                             .withBody("{\"status\":500, \"detail\":\"Oops\"}")
                     );
 
-            int exitCode = cmd(ctx).execute(
+            int exitCode = execute(
                     "cluster", "init",
                     "--cluster-endpoint-url", mockUrl,
                     "--meta-storage-node", "node1ConsistentId",
@@ -323,7 +283,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
         @Test
         @DisplayName("init --cluster-endpoint-url http://localhost:10300 --cmg-node node2ConsistentId --cmg-node node3ConsistentId")
         void metastorageNodesAreMandatoryForInit() {
-            int exitCode = cmd(ctx).execute(
+            int exitCode = execute(
                     "cluster", "init",
                     "--cluster-endpoint-url", mockUrl,
                     "--cmg-node", "node2ConsistentId",
@@ -347,7 +307,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
                     )
                     .respond(response().withStatusCode(OK_200.code()));
 
-            int exitCode = cmd(ctx).execute(
+            int exitCode = execute(
                     "cluster", "init",
                     "--cluster-endpoint-url", mockUrl,
                     "--meta-storage-node", "node1ConsistentId",
@@ -364,7 +324,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
         @Test
         @DisplayName("init --cluster-endpoint-url http://localhost:10300 --meta-storage-node node1ConsistentId --cmg-node node2ConsistentId")
         void clusterNameIsMandatoryForInit() {
-            int exitCode = cmd(ctx).execute(
+            int exitCode = execute(
                     "cluster", "init",
                     "--cluster-endpoint-url", mockUrl,
                     "--meta-storage-node", "node1ConsistentId",

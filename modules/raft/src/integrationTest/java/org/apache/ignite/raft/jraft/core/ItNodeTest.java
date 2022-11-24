@@ -3080,7 +3080,7 @@ public class ItNodeTest {
         Node leader = cluster.getLeader();
         sendTestTaskAndWait(leader);
 
-        verify(raftGrpEvtsLsnr, never()).onNewPeersConfigurationApplied(any());
+        verify(raftGrpEvtsLsnr, never()).onNewPeersConfigurationApplied(any(), any());
 
         PeerId newPeer = new TestPeer(testInfo, TestUtils.INIT_PORT + 1).getPeerId();
 
@@ -3091,7 +3091,7 @@ public class ItNodeTest {
         assertEquals(done.await(), Status.OK());
 
         verify(raftGrpEvtsLsnr, timeout(10_000))
-                .onReconfigurationError(argThat(st -> st.getRaftError() == RaftError.ECATCHUP), any(), anyLong());
+                .onReconfigurationError(argThat(st -> st.getRaftError() == RaftError.ECATCHUP), any(), any(), anyLong());
     }
 
     @Test
@@ -3112,13 +3112,20 @@ public class ItNodeTest {
         List<TestPeer> peers = new ArrayList<>();
         peers.add(peer0);
 
-        for (int i = 1; i < 5; i++) {
+        List<TestPeer> learners = new ArrayList<>();
+
+        int numPeers = 5;
+
+        for (int i = 1; i < numPeers; i++) {
             TestPeer peer = new TestPeer(testInfo, TestUtils.INIT_PORT + i);
             peers.add(peer);
             assertTrue(cluster.start(peer, false, 300));
+
+            TestPeer learner = new TestPeer(testInfo, TestUtils.INIT_PORT + i + numPeers);
+            learners.add(learner);
         }
 
-        verify(raftGrpEvtsLsnr, never()).onNewPeersConfigurationApplied(any());
+        verify(raftGrpEvtsLsnr, never()).onNewPeersConfigurationApplied(any(), any());
 
         for (int i = 0; i < 4; i++) {
             leader = cluster.getLeader();
@@ -3126,10 +3133,10 @@ public class ItNodeTest {
             PeerId peer = peers.get(i).getPeerId();
             assertEquals(peer, leader.getNodeId().getPeerId());
             PeerId newPeer = peers.get(i + 1).getPeerId();
+            PeerId newLearner = learners.get(i).getPeerId();
 
             SynchronizedClosure done = new SynchronizedClosure();
-            leader.changePeersAsync(new Configuration(Collections.singletonList(newPeer)),
-                    leader.getCurrentTerm(), done);
+            leader.changePeersAsync(new Configuration(List.of(newPeer), List.of(newLearner)), leader.getCurrentTerm(), done);
             assertEquals(done.await(), Status.OK());
             assertTrue(waitForCondition(() -> {
                 if (cluster.getLeader() != null) {
@@ -3138,7 +3145,7 @@ public class ItNodeTest {
                 return false;
             }, 10_000));
 
-            verify(raftGrpEvtsLsnr, times(1)).onNewPeersConfigurationApplied(Collections.singletonList(newPeer));
+            verify(raftGrpEvtsLsnr, times(1)).onNewPeersConfigurationApplied(List.of(newPeer), List.of(newLearner));
         }
     }
 

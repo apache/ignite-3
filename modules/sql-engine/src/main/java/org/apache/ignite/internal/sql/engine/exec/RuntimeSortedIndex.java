@@ -188,7 +188,7 @@ public class RuntimeSortedIndex<RowT> implements RuntimeIndex<RowT>, TreeIndex<R
 
         /** {@inheritDoc} */
         @Override
-        public void close() throws Exception {
+        public void close() {
             // No-op.
         }
     }
