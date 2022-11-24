@@ -28,15 +28,15 @@ public partial class LinqTests
     [Test]
     public void TestProjectionWithCastIntoAnonymousType()
     {
+        // TODO IGNITE-18258 decimal, BigInteger.
         var query = PocoIntView.AsQueryable()
             .Select(x => new
             {
-                // TODO: Decimal = (decimal)x.Val / 3000
                 Byte = (sbyte)x.Val,
                 Short = (short)x.Val,
                 Long = (long)x.Val,
                 Float = (float)x.Val / 1000,
-                Double = (double)x.Val / 2000
+                Double = (double)x.Val / 2000,
             })
             .OrderByDescending(x => x.Long);
 
