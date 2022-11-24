@@ -21,7 +21,6 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.ACQUIRE_LOCK_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.RELEASE_LOCK_ERR;
 
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -35,7 +34,6 @@ import java.util.TreeMap;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Collectors;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.tx.Lock;
@@ -46,7 +44,6 @@ import org.apache.ignite.internal.tx.LockMode;
 import org.apache.ignite.internal.tx.Waiter;
 import org.apache.ignite.internal.util.FilteringIterator;
 import org.apache.ignite.lang.IgniteBiTuple;
-import org.apache.ignite.lang.IgniteSystemProperties;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -74,19 +71,8 @@ import org.jetbrains.annotations.Nullable;
 public class HeapLockManager implements LockManager {
     private ConcurrentHashMap<LockKey, LockState> locks = new ConcurrentHashMap<>();
 
-    /**
-     * It is a test only property which is removing after IGNITE-17733.
-     * We are forced to avoid all locks types except key lock in production code.
-     */
-    private final boolean allLockTypesAreUsed = IgniteSystemProperties.getBoolean("IGNITE_ALL_LOCK_TYPES_ARE_USED");
-
     @Override
     public CompletableFuture<Lock> acquire(UUID txId, LockKey lockKey, LockMode lockMode) {
-        //TODO: IGNITE-17733 Resume honest index lock
-        if (! (lockKey.key() instanceof ByteBuffer) && !allLockTypesAreUsed) { // Takes a lock on keys only.
-            lockMode = LockMode.NL;
-        }
-
         while (true) {
             LockState state = lockState(lockKey);
 
@@ -233,6 +219,7 @@ public class HeapLockManager implements LockManager {
                             lockMode);
                 }
 
+                // TODO IGNITE-18043 git rid of try-catch
                 try {
                     locked = compatibleWithLocked(txId, lockMode);
                 } catch (LockException e) {
@@ -358,7 +345,6 @@ public class HeapLockManager implements LockManager {
             }
 
             // Grant lock to all adjacent readers.
-            // TODO add setting to fix testNonFair
             for (Map.Entry<UUID, WaiterImpl> entry : waiters.entrySet()) {
                 WaiterImpl tmp = entry.getValue();
 
@@ -371,10 +357,6 @@ public class HeapLockManager implements LockManager {
                     tmp.lockMode = tmp.prevLockMode;
                     tmp.prevLockMode = null;
                     tmp.locked = true;
-
-                    // TODO why is this here?
-                    /*tmp.fail(new LockException(RELEASE_LOCK_ERR,
-                            "Failed to acquire a lock due to a conflict [txId=" + txId + ", waiter=" + pickedUpWaiter + ']'));*/
 
                     toNotify.add(tmp);
                 } else if (lockModes.stream().allMatch(tmp.lockMode::isCompatible)) {
@@ -393,9 +375,6 @@ public class HeapLockManager implements LockManager {
                     lockModes.add(tmp.lockMode);
 
                     toNotify.add(tmp);
-                } else {
-                    // TODO add setting
-                    //break;
                 }
             }
 
@@ -403,7 +382,8 @@ public class HeapLockManager implements LockManager {
         }
 
         /**
-         *
+         * Aborts waiters that are incompatible with those which hold a lock. Some waiters may be aborted after lock release because of a conflict
+         * with every waiter that are remaining.
          */
         private void abortIncompatibleWaiters() {
             Iterator<Map.Entry<UUID, WaiterImpl>> iterWaiting = new FilteringIterator<>(waiters.entrySet().iterator(), w -> !w.getValue().locked);
@@ -454,6 +434,13 @@ public class HeapLockManager implements LockManager {
             }
         }
 
+        /**
+         * Whether the given lock mode is compatible with already locked.
+         * @param txId Transaction id.
+         * @param lockMode Lock mode.
+         * @return Whether the given lock mode is compatible with already locked.
+         * @throws LockException In case of conflict.
+         */
         private boolean compatibleWithLocked(UUID txId, LockMode lockMode) throws LockException {
             for (Map.Entry<UUID, WaiterImpl> w : waiters.descendingMap().entrySet()) {
                 if (!w.getValue().lockMode.isCompatible(lockMode) && (w.getValue().locked() || w.getValue().upgraded)) {

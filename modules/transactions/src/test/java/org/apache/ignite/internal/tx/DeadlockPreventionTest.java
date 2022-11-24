@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.tx.LockMode.S;
 import static org.apache.ignite.internal.tx.LockMode.X;
+import static org.apache.ignite.raft.jraft.util.internal.ThrowUtil.hasCause;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -40,6 +41,9 @@ import java.util.function.Supplier;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.junit.jupiter.api.Test;
 
+/**
+ * Tests for deadlock prevention scenarios.
+ */
 public class DeadlockPreventionTest {
     private LockManager lockManager = new HeapLockManager();
     private Map<UUID, List<CompletableFuture<Lock>>> locks = new HashMap<>();
@@ -53,7 +57,7 @@ public class DeadlockPreventionTest {
 
         assertThat(xlock(tx1, key1), willCompleteSuccessfully());
 
-        assertThrowsException(() -> xlock(tx2, key1));
+        assertThrowsLockException(() -> xlock(tx2, key1));
     }
 
     @Test
@@ -82,7 +86,7 @@ public class DeadlockPreventionTest {
         assertThat(slock(tx1, key1), willSucceedFast());
         assertThat(slock(tx2, key1), willSucceedFast());
 
-        assertThrowsException(() -> xlock(tx2, key1));
+        assertThrowsLockException(() -> xlock(tx2, key1));
     }
 
     @Test
@@ -98,7 +102,7 @@ public class DeadlockPreventionTest {
         CompletableFuture<?> xlockTx1 = xlock(tx1, key1);
         assertFalse(xlockTx1.isDone());
 
-        assertThrowsException(() -> xlock(tx2, key1));
+        assertThrowsLockException(() -> xlock(tx2, key1));
 
         rollbackTx(tx2);
 
@@ -126,7 +130,7 @@ public class DeadlockPreventionTest {
         // TODO correctness
         assertThat(futTx1, willSucceedFast());
 
-        assertThrowsException(() -> futTx2);
+        assertThrowsLockException(() -> futTx2);
     }
 
     @Test
@@ -157,7 +161,7 @@ public class DeadlockPreventionTest {
         assertThat(slock(tx2, k), willSucceedFast());
         assertThat(slock(tx1, k), willSucceedFast());
 
-        assertThrowsException(() -> xlock(tx2, k));
+        assertThrowsLockException(() -> xlock(tx2, k));
     }
 
     @Test
@@ -205,7 +209,7 @@ public class DeadlockPreventionTest {
 
         commitTx(tx3);
 
-        assertThrowsException(() -> futTx2);
+        assertThrowsLockException(() -> futTx2);
     }
 
     @Test
@@ -351,7 +355,7 @@ public class DeadlockPreventionTest {
         assertThrows(CompletionException.class, fut::join);
     }
 
-    private static void assertThrowsException(Supplier<CompletableFuture<?>> s) {
+    private static void assertThrowsLockException(Supplier<CompletableFuture<?>> s) {
         try {
             CompletableFuture<?> f = s.get();
 
@@ -360,7 +364,9 @@ public class DeadlockPreventionTest {
 
             fail();
         } catch (Exception e) {
-            // No-op.
+            if (!hasCause(e, null, LockException.class)) {
+                fail();
+            }
         }
     }
 }
