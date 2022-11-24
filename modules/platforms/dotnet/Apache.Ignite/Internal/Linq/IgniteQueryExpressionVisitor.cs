@@ -352,7 +352,7 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
         {
             ResultBuilder.Append('(');
             _modelVisitor.VisitQueryModel(subQueryModel, false, true);
-            ResultBuilder.Append(')');
+            ResultBuilder.TrimEnd().Append(')');
         }
         else
         {
