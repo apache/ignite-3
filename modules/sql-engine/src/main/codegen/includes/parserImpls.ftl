@@ -188,11 +188,7 @@ void CreateZoneOption(List<SqlNode> list) :
 {
     key = SimpleIdentifier() { s = span(); }
     <EQ>
-    (
-        val = Literal()
-    |
-        val = SimpleIdentifier()
-    )
+    val = Literal()
     {
         list.add(new IgniteSqlCreateZoneOption(key, val, s.end(this)));
     }

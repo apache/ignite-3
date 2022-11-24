@@ -85,7 +85,7 @@ public class SqlDdlZoneParserTest extends AbstractDdlParserTest {
                         + "replicas=2, "
                         + "partitions=3, "
                         + "data_nodes_filter='(\"US\" || \"EU\") && \"SSD\"', "
-                        + "affinity_function=test_Affinity, "
+                        + "affinity_function='test_Affinity', "
                         + "data_nodes_auto_adjust=1, "
                         + "data_nodes_auto_adjust_scale_up=2, "
                         + "data_nodes_auto_adjust_scale_down=3"
@@ -97,7 +97,7 @@ public class SqlDdlZoneParserTest extends AbstractDdlParserTest {
 
         assertThatZoneOptionPresent(optList, "REPLICAS", 2);
         assertThatZoneOptionPresent(optList, "PARTITIONS", 3);
-        assertThatZoneOptionPresent(optList, "AFFINITY_FUNCTION", "TEST_AFFINITY");
+        assertThatZoneOptionPresent(optList, "AFFINITY_FUNCTION", "test_Affinity");
         assertThatZoneOptionPresent(optList, "DATA_NODES_FILTER", "(\"US\" || \"EU\") && \"SSD\"");
         assertThatZoneOptionPresent(optList, "DATA_NODES_AUTO_ADJUST", 1);
 
@@ -108,7 +108,7 @@ public class SqlDdlZoneParserTest extends AbstractDdlParserTest {
                 + "\"REPLICAS\" = 2, "
                 + "\"PARTITIONS\" = 3, "
                 + "\"DATA_NODES_FILTER\" = '(\"US\" || \"EU\") && \"SSD\"', "
-                + "\"AFFINITY_FUNCTION\" = \"TEST_AFFINITY\", "
+                + "\"AFFINITY_FUNCTION\" = 'test_Affinity', "
                 + "\"DATA_NODES_AUTO_ADJUST\" = 1, "
                 + "\"DATA_NODES_AUTO_ADJUST_SCALE_UP\" = 2, "
                 + "\"DATA_NODES_AUTO_ADJUST_SCALE_DOWN\" = 3"));
