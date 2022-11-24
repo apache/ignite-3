@@ -75,9 +75,9 @@ import org.apache.ignite.internal.tx.storage.state.test.TestTxStateStorage;
 import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.Pair;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
-import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.TopologyService;
+import org.apache.ignite.raft.client.service.LeaderWithTerm;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.hamcrest.CustomMatcher;
 import org.hamcrest.Matcher;
@@ -112,7 +112,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
         RaftGroupService mockRaftClient = mock(RaftGroupService.class);
 
         when(mockRaftClient.refreshAndGetLeaderWithTerm())
-                .thenAnswer(invocationOnMock -> CompletableFuture.completedFuture(new IgniteBiTuple<>(null, 1L)));
+                .thenAnswer(invocationOnMock -> CompletableFuture.completedFuture(new LeaderWithTerm(null, 1L)));
         when(mockRaftClient.run(any()))
                 .thenAnswer(invocationOnMock -> CompletableFuture.completedFuture(null));
 

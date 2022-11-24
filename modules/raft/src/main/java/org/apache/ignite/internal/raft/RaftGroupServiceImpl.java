@@ -55,13 +55,13 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.Peer;
+import org.apache.ignite.raft.client.service.LeaderWithTerm;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.entity.PeerId;
@@ -262,7 +262,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     }
 
     @Override
-    public CompletableFuture<IgniteBiTuple<Peer, Long>> refreshAndGetLeaderWithTerm() {
+    public CompletableFuture<LeaderWithTerm> refreshAndGetLeaderWithTerm() {
         GetLeaderRequest req = factory.getLeaderRequest().groupId(groupId).build();
 
         return this.<GetLeaderResponse>sendWithRetry(randomNode(), req)
@@ -271,7 +271,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
                     this.leader = respLeader;
 
-                    return new IgniteBiTuple<>(respLeader, resp.currentTerm());
+                    return new LeaderWithTerm(respLeader, resp.currentTerm());
                 });
     }
 
@@ -321,7 +321,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     }
 
     @Override
-    public CompletableFuture<Void> changePeers(List<Peer> peers) {
+    public CompletableFuture<Void> changePeers(Collection<Peer> peers) {
         Peer leader = this.leader;
 
         if (leader == null) {
@@ -335,21 +335,22 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     }
 
     @Override
-    public CompletableFuture<Void> changePeersAsync(List<Peer> peers, long term) {
+    public CompletableFuture<Void> changePeersAsync(Collection<Peer> peers, Collection<Peer> learners, long term) {
         Peer leader = this.leader;
 
         if (leader == null) {
-            return refreshLeader().thenCompose(res -> changePeersAsync(peers, term));
+            return refreshLeader().thenCompose(res -> changePeersAsync(peers, learners, term));
         }
 
         ChangePeersAsyncRequest req = factory.changePeersAsyncRequest()
                 .groupId(groupId)
                 .term(term)
                 .newPeersList(peerIds(peers))
+                .newLearnersList(peerIds(learners))
                 .build();
 
-        LOG.info("Sending changePeersAsync request for group={} to peers={} with leader term={}",
-                groupId, peers, term);
+        LOG.info("Sending changePeersAsync request for group={} to peers={} and learners={} with leader term={}",
+                groupId, peers, learners, term);
 
         return this.<ChangePeersAsyncResponse>sendWithRetry(leader, req)
                 .thenAccept(resp -> {

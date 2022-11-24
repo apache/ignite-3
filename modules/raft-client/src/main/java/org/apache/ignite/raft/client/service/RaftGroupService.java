@@ -17,11 +17,11 @@
 
 package org.apache.ignite.raft.client.service;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeoutException;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.Peer;
@@ -98,7 +98,7 @@ public interface RaftGroupService {
      *
      * @return A future, with (leader, term) tuple.
      */
-    CompletableFuture<IgniteBiTuple<Peer, Long>> refreshAndGetLeaderWithTerm();
+    CompletableFuture<LeaderWithTerm> refreshAndGetLeaderWithTerm();
 
     /**
      * Refreshes replication group members.
@@ -140,7 +140,7 @@ public interface RaftGroupService {
     CompletableFuture<Void> removePeer(Peer peer);
 
     /**
-     * Changes peers of the replication group.
+     * Changes peers of a replication group.
      *
      * <p>After the future completion methods like {@link #peers()} and {@link #learners()} can be used to retrieve current members of a
      * group.
@@ -150,25 +150,26 @@ public interface RaftGroupService {
      * @param peers Peers.
      * @return A future.
      */
-    CompletableFuture<Void> changePeers(List<Peer> peers);
+    CompletableFuture<Void> changePeers(Collection<Peer> peers);
 
     /**
-     * Changes peers of the replication group.
+     * Changes peers and learners of a replication group.
      *
      * <p>Asynchronous variant of the previous method.
-     * When the future completed, it just means, that changePeers process successfully started.
+     * When the future completed, it just means, that {@code changePeers} process has successfully started.
      *
-     * <p>The results of rebalance itself will be processed by the listener of raft reconfiguration event
+     * <p>The results of rebalance itself will be processed by the listener of Raft reconfiguration event
      * (from raft/server module).
      *
      * <p>This operation is executed on a group leader.
      *
-     * @param peers Peers.
+     * @param peers New peers.
+     * @param learners New learners.
      * @param term Current known leader term.
      *             If real raft group term will be different - changePeers will be skipped.
      * @return A future.
      */
-    CompletableFuture<Void> changePeersAsync(List<Peer> peers, long term);
+    CompletableFuture<Void> changePeersAsync(Collection<Peer> peers, Collection<Peer> learners, long term);
 
     /**
      * Adds learners (non-voting members).

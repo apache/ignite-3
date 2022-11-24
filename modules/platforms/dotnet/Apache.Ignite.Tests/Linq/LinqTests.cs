@@ -19,30 +19,68 @@ namespace Apache.Ignite.Tests.Linq;
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Threading.Tasks;
 using Ignite.Sql;
+using Ignite.Table;
 using NUnit.Framework;
 using Table;
 
 /// <summary>
 /// Basic LINQ provider tests.
 /// </summary>
-public class LinqTests : IgniteTestsBase
+[SuppressMessage("ReSharper", "PossibleLossOfFraction", Justification = "Tests")]
+[SuppressMessage("ReSharper", "NotAccessedPositionalProperty.Local", Justification = "Tests")]
+public partial class LinqTests : IgniteTestsBase
 {
+    private const int Count = 10;
+
+    private IRecordView<PocoByte> PocoByteView { get; set; } = null!;
+
+    private IRecordView<PocoShort> PocoShortView { get; set; } = null!;
+
+    private IRecordView<PocoInt> PocoIntView { get; set; } = null!;
+
+    private IRecordView<PocoLong> PocoLongView { get; set; } = null!;
+
+    private IRecordView<PocoFloat> PocoFloatView { get; set; } = null!;
+
+    private IRecordView<PocoDouble> PocoDoubleView { get; set; } = null!;
+
+    private IRecordView<PocoDecimal> PocoDecimalView { get; set; } = null!;
+
     [OneTimeSetUp]
     public async Task InsertData()
     {
-        for (int i = 0; i < 10; i++)
+        PocoByteView = (await Client.Tables.GetTableAsync(TableInt8Name))!.GetRecordView<PocoByte>();
+        PocoShortView = (await Client.Tables.GetTableAsync(TableInt16Name))!.GetRecordView<PocoShort>();
+        PocoIntView = (await Client.Tables.GetTableAsync(TableInt32Name))!.GetRecordView<PocoInt>();
+        PocoLongView = (await Client.Tables.GetTableAsync(TableInt64Name))!.GetRecordView<PocoLong>();
+        PocoFloatView = (await Client.Tables.GetTableAsync(TableFloatName))!.GetRecordView<PocoFloat>();
+        PocoDoubleView = (await Client.Tables.GetTableAsync(TableDoubleName))!.GetRecordView<PocoDouble>();
+        PocoDecimalView = (await Client.Tables.GetTableAsync(TableDecimalName))!.GetRecordView<PocoDecimal>();
+
+        for (int i = 0; i < Count; i++)
         {
-            await PocoView.UpsertAsync(null, new() { Key = i, Val = "v-" + i });
+            await PocoView.UpsertAsync(null, new Poco { Key = i, Val = "v-" + i });
+
+            await PocoByteView.UpsertAsync(null, new PocoByte((sbyte)i, (sbyte)(i / 3)));
+            await PocoShortView.UpsertAsync(null, new PocoShort((short)(i * 2), (short)(i * 2)));
+            await PocoIntView.UpsertAsync(null, new PocoInt(i, i * 100));
+            await PocoLongView.UpsertAsync(null, new PocoLong(i, i * 2));
+
+            await PocoFloatView.UpsertAsync(null, new(i, i));
+            await PocoDoubleView.UpsertAsync(null, new(i, i));
+            await PocoDecimalView.UpsertAsync(null, new(i, i));
         }
     }
 
     [OneTimeTearDown]
-    public async Task CleanTable()
+    public async Task CleanTables()
     {
-        await TupleView.DeleteAllAsync(null, Enumerable.Range(0, 10).Select(x => GetTuple(x)));
+        await TupleView.DeleteAllAsync(null, Enumerable.Range(0, Count).Select(x => GetTuple(x)));
+        await PocoIntView.DeleteAllAsync(null, Enumerable.Range(0, Count).Select(x => new PocoInt(x, 0)));
     }
 
     [Test]
@@ -123,6 +161,15 @@ public class LinqTests : IgniteTestsBase
     }
 
     [Test]
+    public void TestSelectEntireRecordObject()
+    {
+        PocoInt res = PocoIntView.AsQueryable().Single(x => x.Key == 3);
+
+        Assert.AreEqual(3, res.Key);
+        Assert.AreEqual(300, res.Val);
+    }
+
+    [Test]
     public void TestSelectTwoColumns()
     {
         var res = PocoView.AsQueryable()
@@ -164,37 +211,6 @@ public class LinqTests : IgniteTestsBase
     }
 
     [Test]
-    public void TestCount()
-    {
-        int res = PocoView
-            .AsQueryable()
-            .Count(x => x.Key < 3);
-
-        Assert.AreEqual(3, res);
-    }
-
-    [Test]
-    public void TestLongCount()
-    {
-        long res = PocoView
-            .AsQueryable()
-            .LongCount(x => x.Key < 3);
-
-        Assert.AreEqual(3, res);
-    }
-
-    [Test]
-    public void TestSum()
-    {
-        long res = PocoView.AsQueryable()
-            .Where(x => x.Key < 3)
-            .Select(x => x.Key)
-            .Sum();
-
-        Assert.AreEqual(3, res);
-    }
-
-    [Test]
     public void TestOrderBySkipTake()
     {
         List<long> res = PocoView.AsQueryable()
@@ -222,6 +238,24 @@ public class LinqTests : IgniteTestsBase
     }
 
     [Test]
+    public void TestContains()
+    {
+        var keys = new long[] { 4, 2 };
+
+        var query = PocoView.AsQueryable()
+            .Where(x => keys.Contains(x.Key))
+            .Select(x => x.Val);
+
+        List<string?> res = query.ToList();
+
+        CollectionAssert.AreEquivalent(new[] { "v-2", "v-4" }, res);
+
+        StringAssert.Contains(
+            "select _T0.VAL from PUBLIC.TBL1 as _T0 where (_T0.KEY IN (?, ?)), Parameters=4, 2",
+            query.ToString());
+    }
+
+    [Test]
     public void TestCustomColumnNameMapping()
     {
         var res = Table.GetRecordView<PocoCustomNames>().AsQueryable()
@@ -242,7 +276,7 @@ public class LinqTests : IgniteTestsBase
 
         var tx = await client.Transactions.BeginAsync();
         var tbl = await client.Tables.GetTableAsync(FakeServer.ExistingTableName);
-        var pocoView = tbl!.GetRecordView<Poco>();
+        var pocoView = tbl!.GetRecordView<PocoInt>();
 
         _ = pocoView.AsQueryable(tx).Select(x => x.Key).ToArray();
 
@@ -279,4 +313,18 @@ public class LinqTests : IgniteTestsBase
 
         Assert.AreEqual(expected, query.ToString());
     }
+
+    private record PocoByte(sbyte Key, sbyte Val);
+
+    private record PocoShort(short Key, short Val);
+
+    private record PocoInt(int Key, int Val);
+
+    private record PocoLong(long Key, long Val);
+
+    private record PocoFloat(float Key, float Val);
+
+    private record PocoDouble(double Key, double Val);
+
+    private record PocoDecimal(decimal Key, decimal Val);
 }

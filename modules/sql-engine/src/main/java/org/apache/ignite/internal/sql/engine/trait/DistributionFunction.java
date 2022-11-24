@@ -174,9 +174,9 @@ public abstract class DistributionFunction {
         @Override
         public <RowT> Destination<RowT> destination(ExecutionContext<RowT> ctx, AffinityService affinityService,
                 ColocationGroup m, ImmutableIntList k) {
-            assert m != null && !nullOrEmpty(m.nodeIds());
+            assert m != null && !nullOrEmpty(m.nodeNames());
 
-            return new AllNodes<>(m.nodeIds());
+            return new AllNodes<>(m.nodeNames());
         }
     }
 
@@ -193,9 +193,9 @@ public abstract class DistributionFunction {
         @Override
         public <RowT> Destination<RowT> destination(ExecutionContext<RowT> ctx, AffinityService affinityService,
                 ColocationGroup m, ImmutableIntList k) {
-            assert m != null && !nullOrEmpty(m.nodeIds());
+            assert m != null && !nullOrEmpty(m.nodeNames());
 
-            return new RandomNode<>(m.nodeIds());
+            return new RandomNode<>(m.nodeNames());
         }
     }
 
@@ -212,11 +212,11 @@ public abstract class DistributionFunction {
         @Override
         public <RowT> Destination<RowT> destination(ExecutionContext<RowT> ctx, AffinityService affinityService,
                 ColocationGroup m, ImmutableIntList k) {
-            if (m == null || m.nodeIds() == null || m.nodeIds().size() != 1) {
+            if (m == null || m.nodeNames() == null || m.nodeNames().size() != 1) {
                 throw new IllegalStateException();
             }
 
-            return new AllNodes<>(Collections.singletonList(Objects.requireNonNull(first(m.nodeIds()))));
+            return new AllNodes<>(Collections.singletonList(Objects.requireNonNull(first(m.nodeNames()))));
         }
     }
 

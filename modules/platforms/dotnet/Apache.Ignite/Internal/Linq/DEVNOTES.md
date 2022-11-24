@@ -13,7 +13,7 @@ LINQ provider uses underlying `Sql` API, which is fully async. While users can c
 
 ## User Type Mapping
 
-There are two way to map columns to user type members:
+There are two ways to map columns to user type members:
 1. Load schema and map only matching columns.
    - GOOD: Potentially nicer to the user, allows unmapped members in user types without extra steps, more flexible with updated schemas.
    - BAD: Requires loading schema before query translation (worse perf, worse complexity).
@@ -21,10 +21,11 @@ There are two way to map columns to user type members:
    - BAD: Obstacle for compiled queries, because updated schema won't be picked up.
 2. Do not load schema, map all object columns.
    - GOOD: Simpler, faster.
-   - BAD: All columns are mapped by default, unmapped columns should be explicitly excluded with `NotMappedAttribute` (IGNITE-18149).
+   - BAD: All columns are mapped by default, unmapped columns should be explicitly excluded with `NotMappedAttribute`.
 
 We take the second approach for the sake of performance, simplicity and clarity.
 
+**Primitive type mapping is not supported**: not possible to determine column names without schema.
 
 ### Type Member to Column Mapping
 

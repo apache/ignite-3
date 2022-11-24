@@ -670,7 +670,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
 
         /** {@inheritDoc} */
         @Override
-        public void close() throws Exception {
+        public void close() {
             // No-op.
         }
 
@@ -794,7 +794,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
 
         /** {@inheritDoc} */
         @Override
-        public void close() throws Exception {
+        public void close() {
             // No-op.
         }
 

@@ -31,7 +31,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.stream.IntStream;
@@ -69,7 +68,7 @@ public class IntegrationTestBase extends BaseIgniteAbstractTest {
     /** Timeout should be big enough to prevent premature session expiration. */
     private static final long SESSION_IDLE_TIMEOUT = TimeUnit.SECONDS.toMillis(60);
 
-    public static final int DEFAULT_NODES_COUNT = 3;
+    private static final int DEFAULT_NODES_COUNT = 3;
 
     /** Correct ignite cluster url. */
     protected static final String NODE_URL = "http://localhost:10300";
@@ -77,7 +76,7 @@ public class IntegrationTestBase extends BaseIgniteAbstractTest {
     /** Cluster nodes. */
     protected static final List<Ignite> CLUSTER_NODES = new ArrayList<>();
 
-    /** Futures that is going to be completed when all nodes are started and the cluster is inintialized. */
+    /** Futures that are going to be completed when all nodes are started and the cluster is initialized. */
     private static List<CompletableFuture<Ignite>> futures = new ArrayList<>();
 
     private static final IgniteLogger LOG = Loggers.forClass(IntegrationTestBase.class);
@@ -162,9 +161,9 @@ public class IntegrationTestBase extends BaseIgniteAbstractTest {
     /**
      * Before all.
      *
-     * @param testInfo Test information oject.
+     * @param testInfo Test information object.
      */
-    protected void startNodes(TestInfo testInfo) throws ExecutionException, InterruptedException {
+    protected void startNodes(TestInfo testInfo) {
         String connectNodeAddr = "\"localhost:" + BASE_PORT + '\"';
 
         futures = IntStream.range(0, nodes())

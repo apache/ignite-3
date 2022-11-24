@@ -194,11 +194,11 @@ public interface Node extends Lifecycle<NodeOptions>, Describer {
      * then it is guaranteed that state of {@link org.apache.ignite.raft.jraft.core.NodeImpl.ConfigurationCtx} was switched to
      * {@code STAGE_CATCHING_UP}
      *
-     * @param newPeers new peers to change
+     * @param newConf new peers and learners configuration to apply.
      * @param term term on which this method was called.
      * @param done callback
      */
-    void changePeersAsync(final Configuration newPeers, long term, final Closure done);
+    void changePeersAsync(final Configuration newConf, long term, final Closure done);
 
     /**
      * Reset the configuration of this node individually, without any replication to other peers before this node

@@ -121,10 +121,22 @@ namespace Apache.Ignite.Internal.Sql
             var tx = transaction.ToInternal();
 
             using var bufferWriter = Write();
-            var (buf, socket) = await _socket.DoOutInOpAndGetSocketAsync(ClientOp.SqlExec, tx, bufferWriter).ConfigureAwait(false);
 
-            // ResultSet will dispose the pooled buffer.
-            return new ResultSet<T>(socket, buf, rowReaderFactory);
+            try
+            {
+                var (buf, socket) = await _socket.DoOutInOpAndGetSocketAsync(ClientOp.SqlExec, tx, bufferWriter).ConfigureAwait(false);
+
+                // ResultSet will dispose the pooled buffer.
+                return new ResultSet<T>(socket, buf, rowReaderFactory);
+            }
+            catch (SqlException e) when (e.Code == ErrorGroups.Sql.QueryInvalid)
+            {
+                throw new SqlException(
+                    e.TraceId,
+                    ErrorGroups.Sql.QueryInvalid,
+                    "Invalid query, check inner exceptions for details: " + statement.Query,
+                    e);
+            }
 
             PooledArrayBufferWriter Write()
             {

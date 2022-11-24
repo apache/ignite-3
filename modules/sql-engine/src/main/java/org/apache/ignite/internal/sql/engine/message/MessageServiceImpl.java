@@ -43,7 +43,7 @@ public class MessageServiceImpl implements MessageService {
 
     private final MessagingService messagingSrvc;
 
-    private final String locNodeId;
+    private final String locNodeName;
 
     private final QueryTaskExecutor taskExecutor;
 
@@ -66,7 +66,7 @@ public class MessageServiceImpl implements MessageService {
         this.taskExecutor = taskExecutor;
         this.busyLock = busyLock;
 
-        locNodeId = topSrvc.localMember().id();
+        locNodeName = topSrvc.localMember().name();
     }
 
     /** {@inheritDoc} */
@@ -77,20 +77,22 @@ public class MessageServiceImpl implements MessageService {
 
     /** {@inheritDoc} */
     @Override
-    public void send(String nodeId, NetworkMessage msg) throws IgniteInternalCheckedException {
+    public void send(String nodeName, NetworkMessage msg) throws IgniteInternalCheckedException {
         if (!busyLock.enterBusy()) {
             return;
         }
 
         try {
-            if (locNodeId.equals(nodeId)) {
-                onMessage(nodeId, msg);
+            if (locNodeName.equals(nodeName)) {
+                onMessage(nodeName, msg);
             } else {
-                ClusterNode node = topSrvc.allMembers().stream()
-                        .filter(cn -> nodeId.equals(cn.id()))
-                        .findFirst()
-                        .orElseThrow(() -> new IgniteInternalException(
-                                NODE_LEFT_ERR, "Failed to send message to node (has node left grid?): " + nodeId));
+                ClusterNode node = topSrvc.getByConsistentId(nodeName);
+
+                if (node == null) {
+                    throw new IgniteInternalException(
+                            NODE_LEFT_ERR, "Failed to send message to node (has node left grid?): " + nodeName
+                    );
+                }
 
                 try {
                     messagingSrvc.send(node, msg).join();
@@ -121,18 +123,16 @@ public class MessageServiceImpl implements MessageService {
 
     /** {@inheritDoc} */
     @Override
-    public boolean alive(String nodeId) {
-        return topSrvc.allMembers().stream()
-                .map(ClusterNode::id)
-                .anyMatch(id -> id.equals(nodeId));
+    public boolean alive(String nodeName) {
+        return topSrvc.getByConsistentId(nodeName) != null;
     }
 
-    private void onMessage(String nodeId, NetworkMessage msg) {
+    private void onMessage(String consistentId, NetworkMessage msg) {
         if (msg instanceof ExecutionContextAwareMessage) {
             ExecutionContextAwareMessage msg0 = (ExecutionContextAwareMessage) msg;
-            taskExecutor.execute(msg0.queryId(), msg0.fragmentId(), () -> onMessageInternal(nodeId, msg));
+            taskExecutor.execute(msg0.queryId(), msg0.fragmentId(), () -> onMessageInternal(consistentId, msg));
         } else {
-            taskExecutor.execute(() -> onMessageInternal(nodeId, msg));
+            taskExecutor.execute(() -> onMessageInternal(consistentId, msg));
         }
     }
 
@@ -144,13 +144,13 @@ public class MessageServiceImpl implements MessageService {
         try {
             assert msg.groupType() == GROUP_TYPE : "unexpected message group grpType=" + msg.groupType();
 
-            onMessage(sender.id(), msg);
+            onMessage(sender.name(), msg);
         } finally {
             busyLock.leaveBusy();
         }
     }
 
-    private void onMessageInternal(String nodeId, NetworkMessage msg) {
+    private void onMessageInternal(String consistentId, NetworkMessage msg) {
         if (!busyLock.enterBusy()) {
             return;
         }
@@ -161,7 +161,7 @@ public class MessageServiceImpl implements MessageService {
                     "there is no listener for msgType=" + msg.messageType()
             );
 
-            lsnr.onMessage(nodeId, msg);
+            lsnr.onMessage(consistentId, msg);
         } finally {
             busyLock.leaveBusy();
         }

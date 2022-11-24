@@ -111,15 +111,15 @@ public class Fragment {
             FragmentMapping mapping = IgniteMdFragmentMapping.fragmentMappingForMetadataQuery(root, mq, ctx);
 
             if (rootFragment()) {
-                mapping = FragmentMapping.create(ctx.localNodeId()).colocate(mapping);
+                mapping = FragmentMapping.create(ctx.locNodeName()).colocate(mapping);
             }
 
-            if (single() && mapping.nodeIds().size() > 1) {
+            if (single() && mapping.nodeNames().size() > 1) {
                 // this is possible when the fragment contains scan of a replicated cache, which brings
                 // several nodes (actually all containing nodes) to the colocation group, but this fragment
                 // supposed to be executed on a single node, so let's choose one wisely
-                mapping = FragmentMapping.create(mapping.nodeIds()
-                        .get(ThreadLocalRandom.current().nextInt(mapping.nodeIds().size()))).colocate(mapping);
+                mapping = FragmentMapping.create(mapping.nodeNames()
+                        .get(ThreadLocalRandom.current().nextInt(mapping.nodeNames().size()))).colocate(mapping);
             }
 
             return mapping.finalize(nodesSource);

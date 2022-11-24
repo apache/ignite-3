@@ -44,7 +44,7 @@ import org.apache.ignite.internal.cli.commands.cluster.topology.LogicalTopologyC
 import org.apache.ignite.internal.cli.commands.cluster.topology.LogicalTopologyReplCommand;
 import org.apache.ignite.internal.cli.commands.cluster.topology.PhysicalTopologyCommand;
 import org.apache.ignite.internal.cli.commands.cluster.topology.PhysicalTopologyReplCommand;
-import org.apache.ignite.internal.cli.commands.connect.ConnectCommand;
+import org.apache.ignite.internal.cli.commands.connect.ConnectReplCommand;
 import org.apache.ignite.internal.cli.commands.node.NodeNameOrUrl;
 import org.apache.ignite.internal.cli.commands.node.config.NodeConfigShowCommand;
 import org.apache.ignite.internal.cli.commands.node.config.NodeConfigShowReplCommand;
@@ -148,7 +148,7 @@ public class UrlOptionsNegativeTest {
                 arguments(LogicalTopologyReplCommand.class, CLUSTER_URL_OPTION, List.of()),
                 arguments(PhysicalTopologyReplCommand.class, CLUSTER_URL_OPTION, List.of()),
                 arguments(ClusterInitReplCommand.class, CLUSTER_URL_OPTION, List.of("--cluster-name=cluster", "--meta-storage-node=test")),
-                arguments(ConnectCommand.class, "", List.of())
+                arguments(ConnectReplCommand.class, "", List.of())
         // TODO https://issues.apache.org/jira/browse/IGNITE-17102
         //                Arguments.arguments(ClusterShowReplCommand.class, CLUSTER_URL_OPTION, List.of()),
         );
@@ -268,7 +268,7 @@ public class UrlOptionsNegativeTest {
     @Test
     void testConnectCommandWithoutParametersWithEmptyConfig() {
         configManagerProvider.configManager = new IniConfigManager(TestConfigManagerHelper.createEmptyConfig());
-        setUp(ConnectCommand.class);
+        setUp(ConnectReplCommand.class);
         cmd.execute();
 
         assertAll(

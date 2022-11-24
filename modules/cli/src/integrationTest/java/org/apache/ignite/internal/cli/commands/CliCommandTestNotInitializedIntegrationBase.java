@@ -24,7 +24,6 @@ import io.micronaut.context.ApplicationContext;
 import jakarta.inject.Inject;
 import java.io.PrintWriter;
 import java.io.StringWriter;
-import java.util.concurrent.ExecutionException;
 import org.apache.ignite.internal.cli.IntegrationTestBase;
 import org.apache.ignite.internal.cli.NodeNameRegistry;
 import org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerHelper;
@@ -90,7 +89,7 @@ public class CliCommandTestNotInitializedIntegrationBase extends IntegrationTest
     }
 
     @BeforeAll
-    void beforeAll(TestInfo testInfo) throws ExecutionException, InterruptedException {
+    void beforeAll(TestInfo testInfo) {
         startNodes(testInfo);
     }
 

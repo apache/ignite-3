@@ -51,7 +51,6 @@ import org.apache.ignite.internal.storage.TxIdMismatchException;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.GridUnsafe;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
 import org.rocksdb.ColumnFamilyHandle;
 import org.rocksdb.ReadOptions;
@@ -795,10 +794,10 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
             }
 
             @Override
-            public void close() throws Exception {
+            public void close() {
                 super.close();
 
-                IgniteUtils.closeAll(options, upperBound);
+                RocksUtils.closeAll(options, upperBound);
             }
         };
     }
@@ -1150,7 +1149,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         }
 
         @Override
-        public final void close() throws Exception {
+        public final void close() {
             it.close();
         }
     }
@@ -1190,7 +1189,8 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                 //          - R1 > R0, this means that we found next row and T1 is either missing (pending row) or represents the latest
                 //            version of the row. It doesn't matter in this case, because this row id will be reused to find its value
                 //            at time T0. Additional "seek" will be required to do it.
-                it.seek(seekKeyBuf.array());
+                //TODO IGNITE-18201 Remove copying.
+                it.seek(copyOf(seekKeyBuf.array(), ROW_PREFIX_SIZE));
 
                 // Finish scan if nothing was found.
                 if (invalid(it)) {
@@ -1291,7 +1291,8 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
             ByteBuffer directBuffer = MV_KEY_BUFFER.get().position(0);
 
             while (true) {
-                it.seek(seekKeyBuf.array());
+                //TODO IGNITE-18201 Remove copying.
+                it.seek(copyOf(seekKeyBuf.array(), ROW_PREFIX_SIZE));
 
                 if (invalid(it)) {
                     return false;

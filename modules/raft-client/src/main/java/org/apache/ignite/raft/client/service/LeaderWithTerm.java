@@ -15,8 +15,30 @@
  * limitations under the License.
  */
 
-/**
- * Contains classes with specification of CLI commands and parameters.
- */
+package org.apache.ignite.raft.client.service;
 
-package org.apache.ignite.internal.cli.deprecated.spec;
+import org.apache.ignite.raft.client.Peer;
+import org.jetbrains.annotations.Nullable;
+
+/**
+ * Class representing a Raft group leader and its term.
+ */
+public class LeaderWithTerm {
+    @Nullable
+    private final Peer leader;
+
+    private final long term;
+
+    public LeaderWithTerm(@Nullable Peer leader, long term) {
+        this.leader = leader;
+        this.term = term;
+    }
+
+    public @Nullable Peer leader() {
+        return leader;
+    }
+
+    public long term() {
+        return term;
+    }
+}

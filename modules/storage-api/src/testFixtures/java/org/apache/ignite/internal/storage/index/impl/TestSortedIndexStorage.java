@@ -65,7 +65,7 @@ public class TestSortedIndexStorage implements SortedIndexStorage {
     public Cursor<RowId> get(BinaryTuple key) throws StorageException {
         Set<RowId> rowIds = index.getOrDefault(key.byteBuffer(), Set.of());
 
-        return Cursor.fromIterator(rowIds.iterator());
+        return Cursor.fromBareIterator(rowIds.iterator());
     }
 
     @Override
@@ -146,7 +146,7 @@ public class TestSortedIndexStorage implements SortedIndexStorage {
                 })
                 .iterator();
 
-        return Cursor.fromIterator(iterator);
+        return Cursor.fromBareIterator(iterator);
     }
 
     private static void setEqualityFlag(BinaryTuplePrefix prefix) {

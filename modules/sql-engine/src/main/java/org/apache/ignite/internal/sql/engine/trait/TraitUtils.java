@@ -70,6 +70,7 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteTableSpool;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTrimExchange;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
+import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Collation;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -504,6 +505,22 @@ public class TraitUtils {
     /**
      * Creates {@link RelCollation} object from a given collations.
      *
+     * @param collations List of collations.
+     * @return a {@link RelCollation} object.
+     */
+    public static RelCollation createCollation(List<Collation> collations) {
+        List<RelFieldCollation> fieldCollations = new ArrayList<>(collations.size());
+
+        for (int i = 0; i < collations.size(); i++) {
+            fieldCollations.add(createFieldCollation(i,  collations.get(i)));
+        }
+
+        return RelCollations.of(fieldCollations);
+    }
+
+    /**
+     * Creates {@link RelCollation} object from a given collations.
+     *
      * @param indexedColumns List of columns names.
      * @param collations List of collations.
      * @param descriptor Table descriptor to derive column indexes from.
@@ -514,9 +531,9 @@ public class TraitUtils {
             @Nullable List<IgniteIndex.Collation> collations,
             TableDescriptor descriptor
     ) {
-        if (collations == null) { // Build collation for Hash index.
-            List<RelFieldCollation> fieldCollations = new ArrayList<>();
+        List<RelFieldCollation> fieldCollations = new ArrayList<>(indexedColumns.size());
 
+        if (collations == null) { // Build collation for Hash index.
             for (int i = 0; i < indexedColumns.size(); i++) {
                 String columnName = indexedColumns.get(i);
                 ColumnDescriptor columnDesc = descriptor.columnDescriptor(columnName);
@@ -526,8 +543,6 @@ public class TraitUtils {
 
             return RelCollations.of(fieldCollations);
         }
-
-        List<RelFieldCollation> fieldCollations = new ArrayList<>();
 
         for (int i = 0; i < indexedColumns.size(); i++) {
             String columnName = indexedColumns.get(i);

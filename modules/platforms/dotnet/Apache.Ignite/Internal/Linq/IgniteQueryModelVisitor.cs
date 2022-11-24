@@ -25,6 +25,7 @@ using System.Globalization;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Text;
+using Common;
 using Remotion.Linq;
 using Remotion.Linq.Clauses;
 using Remotion.Linq.Clauses.Expressions;
@@ -35,12 +36,6 @@ using Remotion.Linq.Clauses.ResultOperators;
 /// </summary>
 internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
 {
-    /** */
-    private static readonly Type DefaultIfEmptyEnumeratorType = Array.Empty<object>()
-        .DefaultIfEmpty()
-        .GetType()
-        .GetGenericTypeDefinition();
-
     /** */
     private readonly StringBuilder _builder = new();
 
@@ -54,26 +49,17 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
     /// <summary>
     /// Gets the builder.
     /// </summary>
-    public StringBuilder Builder
-    {
-        get { return _builder; }
-    }
+    public StringBuilder Builder => _builder;
 
     /// <summary>
     /// Gets the parameters.
     /// </summary>
-    public IList<object?> Parameters
-    {
-        get { return _parameters; }
-    }
+    public IList<object?> Parameters => _parameters;
 
     /// <summary>
     /// Gets the aliases.
     /// </summary>
-    public AliasDictionary Aliases
-    {
-        get { return _aliases; }
-    }
+    public AliasDictionary Aliases => _aliases;
 
     /// <summary>
     /// Generates the query.
@@ -84,12 +70,7 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
     {
         VisitQueryModel(queryModel);
 
-        if (char.IsWhiteSpace(_builder[_builder.Length - 1]))
-        {
-            _builder.Remove(_builder.Length - 1, 1);  // TrimEnd
-        }
-
-        var qryText = _builder.ToString();
+        var qryText = _builder.TrimEnd().ToString();
 
         return new QueryData(qryText, _parameters);
     }
@@ -249,6 +230,24 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
         //     VisitUpdateAllOperator(queryModel);
         // }
         // else
+        if (queryModel.ResultOperators.Count == 1 && queryModel.ResultOperators[0] is AnyResultOperator or AllResultOperator)
+        {
+            // All is different from Any: it always has a predicate inside.
+            // We use NOT EXISTS with reverted predicate to implement All.
+            // Reverted predicate is added in VisitBodyClauses.
+            _builder.Append(queryModel.ResultOperators[0] is AllResultOperator
+                ? "select not exists (select 1 "
+                : "select exists (select 1 ");
+
+            // FROM ... WHERE ... JOIN ...
+            base.VisitQueryModel(queryModel);
+
+            // UNION ...
+            ProcessResultOperatorsEnd(queryModel);
+
+            _builder.TrimEnd().Append(')');
+        }
+        else
         {
             // SELECT
             _builder.Append("select ");
@@ -300,6 +299,15 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
             VisitWhereClause(where, i++, hasGroups);
         }
 
+        if (queryModel.ResultOperators.Count == 1 && queryModel.ResultOperators[0] is AllResultOperator allOp)
+        {
+            _builder.Append(i > 0
+                ? "and not "
+                : "where not ");
+
+            BuildSqlExpression(allOp.Predicate);
+        }
+
         i = 0;
         foreach (var orderBy in bodyClauses.OfType<OrderByClause>())
         {
@@ -329,7 +337,7 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
 
         foreach (var op in queryModel.ResultOperators.Reverse())
         {
-            if (op is CountResultOperator || op is AnyResultOperator || op is LongCountResultOperator)
+            if (op is CountResultOperator or LongCountResultOperator)
             {
                 _builder.Append("count (");
                 parenCount++;
@@ -567,61 +575,8 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
     /// </summary>
     private void VisitJoinWithLocalCollectionClause(JoinClause joinClause)
     {
-        var type = joinClause.InnerSequence.Type;
-
-        var itemType = EnumerableHelper.GetIEnumerableItemType(type);
-
-        var sqlTypeName = SqlTypes.GetSqlTypeName(itemType);
-
-        if (string.IsNullOrWhiteSpace(sqlTypeName))
-        {
-            throw new NotSupportedException("Not supported item type for Join with local collection: " + type.Name);
-        }
-
-        var isOuter = false;
-        var sequenceExpression = joinClause.InnerSequence;
-        object? values;
-
-        var subQuery = sequenceExpression as SubQueryExpression;
-        if (subQuery != null)
-        {
-            isOuter = subQuery.QueryModel.ResultOperators.OfType<DefaultIfEmptyResultOperator>().Any();
-            sequenceExpression = subQuery.QueryModel.MainFromClause.FromExpression;
-        }
-
-        switch (sequenceExpression.NodeType)
-        {
-            case ExpressionType.Constant:
-                var constantValueType = ((ConstantExpression)sequenceExpression).Value!.GetType();
-                if (constantValueType.IsGenericType)
-                {
-                    isOuter = constantValueType.GetGenericTypeDefinition() == DefaultIfEmptyEnumeratorType;
-                }
-
-                values = ExpressionWalker.EvaluateEnumerableValues(sequenceExpression);
-                break;
-
-            case ExpressionType.Parameter:
-                values = ExpressionWalker.EvaluateExpression<object>(sequenceExpression);
-                break;
-
-            default:
-                throw new NotSupportedException("Expression not supported for Join with local collection: "
-                                                + sequenceExpression);
-        }
-
-        var tableAlias = _aliases.GetTableAlias(joinClause);
-        var fieldAlias = _aliases.GetFieldAlias(joinClause.InnerKeySelector);
-
-        _builder.AppendFormat(
-            CultureInfo.InvariantCulture,
-            "{0} join table ({1} {2} = ?) {3} on (",
-            isOuter ? "left outer" : "inner",
-            fieldAlias,
-            sqlTypeName,
-            tableAlias);
-
-        Parameters.Add(values);
+        // Unlike Ignite 2.x, SQL engine does not support local collection joins.
+        throw new NotSupportedException("Local collection joins are not supported, try `.Contains()` instead: " + joinClause);
     }
 
     /// <summary>

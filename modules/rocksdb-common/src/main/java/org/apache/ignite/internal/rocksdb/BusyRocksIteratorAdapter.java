@@ -77,7 +77,7 @@ public abstract class BusyRocksIteratorAdapter<T> extends RocksIteratorAdapter<T
     }
 
     @Override
-    public void close() throws Exception {
+    public void close() {
         if (!busyLock.enterBusy()) {
             handleBusy0();
         }

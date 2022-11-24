@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.cli.commands.OptionsConstants.CLUSTER_U
 import static org.apache.ignite.internal.cli.commands.OptionsConstants.NODE_URL_OR_NAME_DESC;
 
 import jakarta.inject.Inject;
+import org.apache.ignite.internal.cli.ReplManager;
 import org.apache.ignite.internal.cli.call.connect.ConnectCall;
 import org.apache.ignite.internal.cli.call.connect.ConnectCallInput;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
@@ -42,15 +43,21 @@ public class ConnectCommand extends BaseCommand implements Runnable {
     @Inject
     private ConnectCall connectCall;
 
+    @Inject
+    private ReplManager replManager;
+
     /** {@inheritDoc} */
     @Override
     public void run() {
-        CallExecutionPipeline.builder(connectCall)
+        int exitCode = CallExecutionPipeline.builder(connectCall)
                 .inputProvider(() -> new ConnectCallInput(nodeNameOrUrl.stringUrl()))
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())
                 .verbose(verbose)
                 .build()
                 .runPipeline();
+        if (exitCode == 0) {
+            replManager.startReplMode();
+        }
     }
 }

@@ -106,12 +106,11 @@ public class SortedIndexSpoolPlannerTest extends AbstractPlannerTest {
         List<SearchBounds> searchBounds = idxSpool.searchBounds();
 
         assertNotNull(searchBounds, "Invalid plan\n" + RelOptUtil.toString(phys));
-        assertEquals(3, searchBounds.size());
+        assertEquals(2, searchBounds.size());
 
-        assertNull(searchBounds.get(0));
-        assertTrue(searchBounds.get(1) instanceof ExactBounds);
-        assertTrue(((ExactBounds) searchBounds.get(1)).bound() instanceof RexFieldAccess);
-        assertNull(searchBounds.get(2));
+        assertTrue(searchBounds.get(0) instanceof ExactBounds);
+        assertTrue(((ExactBounds) searchBounds.get(0)).bound() instanceof RexFieldAccess);
+        assertNull(searchBounds.get(1));
     }
 
     /**
@@ -154,7 +153,7 @@ public class SortedIndexSpoolPlannerTest extends AbstractPlannerTest {
                         return IgniteDistributions.affinity(0, "T1", "hash");
                     }
                 }
-                        .addIndex("t1_jid0_idx", 1, 0)
+                        .addIndex("t1_jid0_idx", 2, 1)
         );
 
         String sql = "select * "
@@ -174,13 +173,12 @@ public class SortedIndexSpoolPlannerTest extends AbstractPlannerTest {
         List<SearchBounds> searchBounds = idxSpool.searchBounds();
 
         assertNotNull(searchBounds, "Invalid plan\n" + RelOptUtil.toString(phys));
-        assertEquals(4, searchBounds.size());
+        assertEquals(2, searchBounds.size());
 
-        assertNull(searchBounds.get(0));
+        assertTrue(searchBounds.get(0) instanceof ExactBounds);
+        assertTrue(((ExactBounds) searchBounds.get(0)).bound() instanceof RexFieldAccess);
         assertTrue(searchBounds.get(1) instanceof ExactBounds);
         assertTrue(((ExactBounds) searchBounds.get(1)).bound() instanceof RexFieldAccess);
-        assertNull(searchBounds.get(2));
-        assertNull(searchBounds.get(3));
     }
 
     /**
@@ -210,17 +208,15 @@ public class SortedIndexSpoolPlannerTest extends AbstractPlannerTest {
                                     // Condition is LESS_THEN, but we have DESC field and condition should be in lower bound
                                     // instead of upper bound.
                                     assertNotNull(searchBounds);
-                                    assertEquals(3, searchBounds.size());
+                                    assertEquals(1, searchBounds.size());
 
-                                    assertNull(searchBounds.get(0));
-                                    assertTrue(searchBounds.get(1) instanceof RangeBounds);
-                                    RangeBounds fld1Bounds = (RangeBounds) searchBounds.get(1);
+                                    assertTrue(searchBounds.get(0) instanceof RangeBounds);
+                                    RangeBounds fld1Bounds = (RangeBounds) searchBounds.get(0);
                                     assertTrue(fld1Bounds.lowerBound() instanceof RexFieldAccess);
                                     assertFalse(fld1Bounds.lowerInclude());
                                     // NULLS LAST in collation, so nulls can be skipped by upper bound.
                                     assertTrue(((RexLiteral) fld1Bounds.upperBound()).isNull());
                                     assertFalse(fld1Bounds.upperInclude());
-                                    assertNull(searchBounds.get(2));
 
                                     return true;
                                 })
