@@ -83,7 +83,7 @@ public partial class LinqTests
         StringAssert.Contains(
             "select _T0.KEY, _T1.VAL " +
             "from PUBLIC.TBL1 as _T0 " +
-            "inner join PUBLIC.TBL_INT32 as _T1 on (_T1.KEY = _T0.KEY) " +
+            "inner join PUBLIC.TBL_INT32 as _T1 on (cast(_T1.KEY as bigint) = _T0.KEY) " +
             "where (_T0.KEY > ?) " +
             "order by (_T0.KEY) asc " +
             "limit ?",
@@ -128,7 +128,7 @@ public partial class LinqTests
         StringAssert.Contains(
             "select _T0.KEY, _T1.VAL, _T2.VAL " +
             "from PUBLIC.TBL1 as _T0 " +
-            "inner join PUBLIC.TBL_INT32 as _T1 on (_T1.KEY = _T0.KEY) " +
+            "inner join PUBLIC.TBL_INT32 as _T1 on (cast(_T1.KEY as bigint) = _T0.KEY) " +
             "inner join PUBLIC.TBL_INT64 as _T2 on (_T2.KEY = _T0.KEY)",
             joinQuery.ToString());
     }
@@ -157,7 +157,7 @@ public partial class LinqTests
         StringAssert.Contains(
             "select _T0.KEY, _T1.VAL " +
             "from PUBLIC.TBL1 as _T0 " +
-            "inner join PUBLIC.TBL_INT32 as _T1 on (_T1.KEY = _T0.KEY) " +
+            "inner join PUBLIC.TBL_INT32 as _T1 on (cast(_T1.KEY as bigint) = _T0.KEY) " +
             "where (_T1.KEY > ?) " +
             "order by (_T1.KEY) asc",
             joinQuery.ToString());
