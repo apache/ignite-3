@@ -205,7 +205,7 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
         }
 
         Visit(expression.Right);
-        ResultBuilder.Append(')');
+        ResultBuilder.TrimEnd().Append(')');
 
         return expression;
     }
@@ -396,7 +396,7 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
 
         if (closeBracket)
         {
-            ResultBuilder.Append(')');
+            ResultBuilder.TrimEnd().Append(')');
         }
         else if (expression.NodeType is ExpressionType.Convert)
         {
@@ -677,7 +677,7 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
         Visit(expression.Left);
         ResultBuilder.Append(", ");
         Visit(expression.Right);
-        ResultBuilder.Append(')');
+        ResultBuilder.TrimEnd().Append(')');
 
         return true;
     }

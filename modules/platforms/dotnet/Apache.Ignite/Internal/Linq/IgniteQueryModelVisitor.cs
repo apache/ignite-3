@@ -109,7 +109,7 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
 
             BuildSqlExpression(ordering.Expression);
 
-            _builder.Append(')');
+            _builder.TrimEnd().Append(')');
 
             _builder.Append(ordering.OrderingDirection == OrderingDirection.Asc ? " asc" : " desc");
         }
@@ -452,7 +452,7 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
                     VisitQueryModel(queryable.GetQueryModel());
                 }
 
-                _builder.Append(')');
+                _builder.TrimEnd().Append(')');
             }
         }
     }
