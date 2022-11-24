@@ -17,11 +17,10 @@
 # limitations under the License.
 #
 
-SCRIPT=$(readlink -f "$0")
-SCRIPT_DIR=$(dirname "$SCRIPT")
+SCRIPT_DIR=$(dirname "$0")
 
-cd ${SCRIPT_DIR} || exit
-cd .. # SCRIPT_DIR points at bin
+cd ${SCRIPT_DIR} || exit  # SCRIPT_DIR points at bin
+cd .. # now SCRIPT_DIR points at parent dir for bin
 
 # if IGNITE_HOME is not set than it will be parent directory for bin
 if [ -z ${IGNITE_HOME+x} ]; then IGNITE_HOME=$(pwd); fi
@@ -47,7 +46,7 @@ start() {
 
 stop() {
   kill -9 "$(cat ${IGNITE_HOME}/pid)"
-  rm ${IGNITE_WORK_DIR}/rest-address
+  rm ${WORK_DIR}/rest-address
 }
 
 case $1 in
