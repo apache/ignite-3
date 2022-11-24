@@ -292,7 +292,7 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
     }
 
     @Test
-    public void testCreateZoneWithWrongAutoAdjust() throws Exception {
+    public void testCreateZoneWithWrongAutoAdjust() {
         Exception e = null;
 
         try {
@@ -307,7 +307,7 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
     }
 
     @Test
-    public void testCreateZoneWithWrongSeparatedAutoAdjust1() throws Exception {
+    public void testCreateZoneWithWrongSeparatedAutoAdjust1() {
         Exception e = null;
 
         try {
@@ -322,7 +322,7 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
     }
 
     @Test
-    public void testCreateZoneWithWrongSeparatedAutoAdjust2() throws Exception {
+    public void testCreateZoneWithWrongSeparatedAutoAdjust2() {
         Exception e = null;
 
         try {
@@ -337,7 +337,7 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
     }
 
     @Test
-    public void testCreateZoneWithNullConfiguration() throws Exception {
+    public void testCreateZoneWithNullConfiguration() {
         Exception e = null;
 
         try {
@@ -347,12 +347,12 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
         }
 
         assertTrue(e != null);
-        assertTrue(e.getCause().getCause() instanceof NullPointerException, e.toString());
-        assertEquals("Distribution zone configuration is null.", e.getCause().getCause().getMessage(), e.toString());
+        assertTrue(e instanceof NullPointerException, e.toString());
+        assertEquals("Distribution zone configuration is null.", e.getMessage(), e.toString());
     }
 
     @Test
-    public void testAlterZoneWithNullName() throws Exception {
+    public void testAlterZoneWithNullName() {
         Exception e = null;
 
         try {
@@ -363,12 +363,12 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
         }
 
         assertTrue(e != null);
-        assertTrue(e.getCause().getCause() instanceof NullPointerException, e.toString());
-        assertEquals("Distribution zone name is null.", e.getCause().getCause().getMessage(), e.toString());
+        assertTrue(e instanceof NullPointerException, e.toString());
+        assertEquals("Distribution zone name is null.", e.getMessage(), e.toString());
     }
 
     @Test
-    public void testAlterZoneWithNullConfiguration() throws Exception {
+    public void testAlterZoneWithNullConfiguration() {
         Exception e = null;
 
         try {
@@ -379,12 +379,12 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
         }
 
         assertTrue(e != null);
-        assertTrue(e.getCause().getCause() instanceof NullPointerException, e.toString());
-        assertEquals("Distribution zone configuration is null.", e.getCause().getCause().getMessage(), e.toString());
+        assertTrue(e instanceof NullPointerException, e.toString());
+        assertEquals("Distribution zone configuration is null.", e.getMessage(), e.toString());
     }
 
     @Test
-    public void testDropZoneWithNullName() throws Exception {
+    public void testDropZoneWithNullName() {
         Exception e = null;
 
         try {
@@ -395,6 +395,7 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
         }
 
         assertTrue(e != null);
-        assertTrue(e.getCause().getCause() instanceof NullPointerException, e.toString());
+        assertTrue(e instanceof NullPointerException, e.toString());
+        assertEquals("Distribution zone name is null.", e.getMessage(), e.toString());
     }
 }
