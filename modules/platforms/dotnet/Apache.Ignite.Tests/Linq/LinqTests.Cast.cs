@@ -31,25 +31,29 @@ public partial class LinqTests
         var query = PocoIntView.AsQueryable()
             .Select(x => new
             {
-                Byte = (sbyte)x.Key,
-                Short = (short)x.Key,
-                Long = (long)x.Key,
-                Float = (float)x.Key / 1000,
-                Double = (double)x.Key / 2000,
-                Decimal = (decimal)x.Key / 3000
+                // TODO: Decimal = (decimal)x.Val / 3000
+                Byte = (sbyte)x.Val,
+                Short = (short)x.Val,
+                Long = (long)x.Val,
+                Float = (float)x.Val / 1000,
+                Double = (double)x.Val / 2000
             })
             .OrderByDescending(x => x.Long);
 
         var res = query.ToList();
 
-        Assert.AreEqual(100, res[0].Byte);
-        Assert.AreEqual(100, res[0].Short);
-        Assert.AreEqual(100, res[0].Long);
-        Assert.AreEqual(100, res[0].Float);
-        Assert.AreEqual(100, res[0].Double);
-        Assert.AreEqual(100, res[0].Decimal);
+        Assert.AreEqual(-124, res[0].Byte);
+        Assert.AreEqual(900, res[0].Short);
+        Assert.AreEqual(900, res[0].Long);
+        Assert.AreEqual(900f / 1000, res[0].Float);
+        Assert.AreEqual(900d / 2000, res[0].Double);
 
-        StringAssert.Contains("TODO", query.ToString());
+        StringAssert.Contains(
+            "select cast(_T0.VAL as tinyint), cast(_T0.VAL as smallint), cast(_T0.VAL as bigint), " +
+            "(cast(_T0.VAL as real) / ?), (cast(_T0.VAL as double) / ?) " +
+            "from PUBLIC.TBL_INT32 as _T0 " +
+            "order by (cast(_T0.VAL as bigint)) desc",
+            query.ToString());
     }
 
     [Test]
