@@ -17,13 +17,18 @@
 
 package org.apache.ignite.internal.sql.engine.schema;
 
+import static org.apache.ignite.internal.sql.engine.util.TypeUtils.native2relationalType;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.ignite.internal.index.ColumnCollation;
 import org.apache.ignite.internal.index.Index;
 import org.apache.ignite.internal.index.SortedIndex;
 import org.apache.ignite.internal.index.SortedIndexDescriptor;
+import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -112,6 +117,31 @@ public class IgniteIndex {
 
     public Type type() {
         return type;
+    }
+
+    //TODO: cache rowType as it can't be changed.
+
+    /** Returns index row type.
+     *
+     * <p>This is a struct type whose fields describe the names and types of indexed columns.</p>
+     *
+     * <p>The implementer must use the type factory provided. This ensures that
+     * the type is converted into a canonical form; other equal types in the same
+     * query will use the same object.</p>
+     *
+     * @param typeFactory Type factory with which to create the type
+     * @param tableDescriptor Table descriptor.
+     * @return Row type.
+     */
+    public RelDataType getRowType(IgniteTypeFactory typeFactory, TableDescriptor tableDescriptor) {
+        RelDataTypeFactory.Builder b = new RelDataTypeFactory.Builder(typeFactory);
+
+        for (String colName : columns) {
+            ColumnDescriptor colDesc = tableDescriptor.columnDescriptor(colName);
+            b.add(colName, native2relationalType(typeFactory, colDesc.physicalType(), colDesc.nullable()));
+        }
+
+        return b.build();
     }
 
     private static @Nullable List<Collation> deriveCollations(Index<?> index) {

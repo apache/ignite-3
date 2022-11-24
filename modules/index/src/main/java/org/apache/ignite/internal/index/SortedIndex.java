@@ -50,10 +50,10 @@ public interface SortedIndex extends Index<SortedIndexDescriptor> {
      */
     default Publisher<BinaryRow> scan(
             int partId,
-            InternalTransaction tx,
+            @Nullable InternalTransaction tx,
             @Nullable BinaryTuplePrefix left,
             @Nullable BinaryTuplePrefix right,
-            BitSet columns
+            @Nullable BitSet columns
     ) {
         return scan(partId, tx, left, right, INCLUDE_LEFT, columns);
     }
@@ -75,7 +75,7 @@ public interface SortedIndex extends Index<SortedIndexDescriptor> {
             ClusterNode recipientNode,
             @Nullable BinaryTuplePrefix left,
             @Nullable BinaryTuplePrefix right,
-            BitSet columns
+            @Nullable BitSet columns
     ) {
         return scan(partId, readTimestamp, recipientNode, left, right, INCLUDE_LEFT, columns);
     }
@@ -95,11 +95,11 @@ public interface SortedIndex extends Index<SortedIndexDescriptor> {
      */
     Publisher<BinaryRow> scan(
             int partId,
-            InternalTransaction tx,
+            @Nullable InternalTransaction tx,
             @Nullable BinaryTuplePrefix leftBound,
             @Nullable BinaryTuplePrefix rightBound,
             int flags,
-            BitSet columnsToInclude
+            @Nullable BitSet columnsToInclude
     );
 
 
@@ -124,6 +124,6 @@ public interface SortedIndex extends Index<SortedIndexDescriptor> {
             @Nullable BinaryTuplePrefix leftBound,
             @Nullable BinaryTuplePrefix rightBound,
             int flags,
-            BitSet columnsToInclude
+            @Nullable BitSet columnsToInclude
     );
 }

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.IsEqual.equalTo;
 import static org.mockito.Mockito.when;
@@ -34,7 +35,6 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.IntStream;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory.Builder;
-import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.index.ColumnCollation;
 import org.apache.ignite.internal.index.Index;
 import org.apache.ignite.internal.index.IndexDescriptor;
@@ -53,6 +53,7 @@ import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.RangeCondition;
 import org.apache.ignite.internal.sql.engine.exec.exp.RangeIterable;
+import org.apache.ignite.internal.sql.engine.exec.exp.RexImpTable;
 import org.apache.ignite.internal.sql.engine.planner.AbstractPlannerTest;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
@@ -62,7 +63,6 @@ import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.hamcrest.Matchers;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeAll;
@@ -74,6 +74,7 @@ import org.mockito.Mockito;
  * Note: we just bounds are valid and don't care that data meets bound conditions.
  * Bound condition applies in underlying storage, which is mocked here.
  */
+@SuppressWarnings("ThrowableNotThrown")
 public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
     private static final Comparator<Object[]> comp = Comparator.comparingLong(v -> (long) ((Object[]) v)[0]);
 
@@ -112,135 +113,170 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
     }
 
     @Test
-    public void sortedIndexScan() {
+    public void sortedIndexScanWithExactBound() {
+        // Lower bound.
         validateSortedIndexScan(
                 sortedIndexData,
-                new Object[]{null, 2, 1, null},
-                new Object[]{null, 3, 0, null},
+                new Object[]{2L, 1},
+                null,
+                sortedScanResult
+        );
+        validateSortedIndexScan(
+                sortedIndexData,
+                new Object[]{2L, null},
+                null,
+                sortedScanResult
+        );
+        validateSortedIndexScan(
+                sortedIndexData,
+                new Object[]{null, 1},
+                null,
+                sortedScanResult
+        );
+        validateSortedIndexScan(
+                sortedIndexData,
+                new Object[]{null, null},
+                null,
+                sortedScanResult
+        );
+        // Upper bound.
+        validateSortedIndexScan(
+                sortedIndexData,
+                null,
+                new Object[]{4L, 0},
+                sortedScanResult
+        );
+        validateSortedIndexScan(
+                sortedIndexData,
+                null,
+                new Object[]{4L, null},
+                sortedScanResult
+        );
+        validateSortedIndexScan(
+                sortedIndexData,
+                null,
+                new Object[]{null, 0},
+                sortedScanResult
+        );
+        validateSortedIndexScan(
+                sortedIndexData,
+                null,
+                new Object[]{null, null},
                 sortedScanResult
         );
     }
 
     @Test
-    public void sortedIndexScan2() {
+    public void sortedIndexScanWithPrefixBound() {
         validateSortedIndexScan(
                 sortedIndexData,
-                new Object[]{null, 2, 1, null},
-                new Object[]{null, 4, null, null},
-                sortedScanResult
-
-        );
-        validateSortedIndexScan(
-                sortedIndexData,
-                new Object[]{null, 2, null, null},
-                new Object[]{null, 4, 0, null},
+                new Object[]{2L, RexImpTable.UNSPECIFIED_VALUE_PLACEHOLDER},
+                null,
                 sortedScanResult
         );
-    }
-
-    @Test
-    public void sortedIndexScanNoUpperBound() {
         validateSortedIndexScan(
                 sortedIndexData,
-                new Object[]{null, 2, 1, null},
+                new Object[]{null, RexImpTable.UNSPECIFIED_VALUE_PLACEHOLDER},
                 null,
                 sortedScanResult
         );
 
         validateSortedIndexScan(
                 sortedIndexData,
-                new Object[]{null, null, null, null},
                 null,
+                new Object[]{4L, RexImpTable.UNSPECIFIED_VALUE_PLACEHOLDER},
                 sortedScanResult
         );
-    }
-
-    @Test
-    public void sortedIndexScanNoLowerBound() {
         validateSortedIndexScan(
                 sortedIndexData,
                 null,
-                new Object[]{null, 4, 0, null},
-                sortedScanResult
-        );
-
-        validateSortedIndexScan(
-                sortedIndexData,
-                null,
-                new Object[]{null, null, null, null},
+                new Object[]{null, RexImpTable.UNSPECIFIED_VALUE_PLACEHOLDER},
                 sortedScanResult
         );
     }
 
     @Test
     public void sortedIndexScanInvalidBounds() {
-        IgniteTestUtils.assertThrowsWithCause(() ->
+        assertThrowsWithCause(() ->
                 validateSortedIndexScan(
                         sortedIndexData,
-                        new Object[]{null, 2, "Brutus", null},
-                        new Object[]{null, 3.9, 0, null},
+                        new Object[]{2L, "Brutus"},
+                        null,
                         EMPTY
                 ), ClassCastException.class, "class java.lang.String cannot be cast to class java.lang.Integer");
 
-        IgniteTestUtils.assertThrowsWithCause(() ->
+        assertThrowsWithCause(() ->
                 validateSortedIndexScan(
                         sortedIndexData,
-                        new Object[]{null, 2},
-                        new Object[]{null, 3},
+                        null,
+                        new Object[]{3.9, 0},
                         EMPTY
-                ), ArrayIndexOutOfBoundsException.class, "Index 2 out of bounds for length 2");
+                ), ClassCastException.class, "class java.lang.Double cannot be cast to class java.lang.Long");
+
+        assertThrowsWithCause(() ->
+                validateSortedIndexScan(
+                        sortedIndexData,
+                        new Object[]{1L},
+                        null,
+                        EMPTY
+                ), AssertionError.class, "Invalid range condition");
     }
 
     @Test
     public void hashIndexLookupOverEmptyIndex() {
         validateHashIndexScan(
                 EMPTY,
-                new Object[]{null, 1, 3, null},
+                new Object[]{1L, 3},
                 EMPTY
         );
     }
 
     @Test
     public void hashIndexLookupNoKey() {
-        // Validate data.
-        validateHashIndexScan(
-                hashIndexData,
-                null,
-                hashScanResult
-        );
+        assertThrowsWithCause(() ->
+                validateHashIndexScan(
+                        hashIndexData,
+                        null,
+                        hashScanResult
+                ), AssertionError.class, "Invalid hash index condition.");
     }
 
     @Test
     public void hashIndexLookup() {
         validateHashIndexScan(
                 hashIndexData,
-                new Object[]{null, 4, 2, null},
+                new Object[]{4L, 2},
                 hashScanResult);
-    }
 
-    @Test
-    public void hashIndexLookupEmptyKey() {
         validateHashIndexScan(
                 hashIndexData,
-                new Object[]{null, null, null, null},
+                new Object[]{null, null},
                 hashScanResult);
     }
 
     @Test
     public void hashIndexLookupInvalidKey() {
-        IgniteTestUtils.assertThrowsWithCause(() ->
+        // Hash index doesn't support range scans with prefix bounds.
+        assertThrowsWithCause(() ->
                 validateHashIndexScan(
                         hashIndexData,
-                        new Object[]{2},
+                        new Object[]{2L},
                         EMPTY
-                ), ArrayIndexOutOfBoundsException.class, "Index 2 out of bounds for length 1");
+                ), AssertionError.class, "Invalid lookup key");
 
-        IgniteTestUtils.assertThrowsWithCause(() ->
+        assertThrowsWithCause(() ->
                 validateHashIndexScan(
                         hashIndexData,
-                        new Object[]{null, 2, "Brutus", null},
+                        new Object[]{2L, "Brutus"},
                         EMPTY
                 ), ClassCastException.class, "class java.lang.String cannot be cast to class java.lang.Integer");
+
+        assertThrowsWithCause(() ->
+                validateHashIndexScan(
+                        sortedIndexData,
+                        new Object[]{1L, RexImpTable.UNSPECIFIED_VALUE_PLACEHOLDER},
+                        EMPTY
+                ), AssertionError.class, "Invalid lookup key");
     }
 
     private static Object[][] generateIndexData(int partCnt, int partSize, boolean sorted) {
@@ -265,7 +301,7 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
                 data[rowNum] = new Object[4];
 
                 int bound1 = ThreadLocalRandom.current().nextInt(3);
-                int bound2 = ThreadLocalRandom.current().nextInt(3);
+                long bound2 = ThreadLocalRandom.current().nextLong(3);
 
                 data[rowNum][0] = uniqueNumList.get(rowNum);
                 data[rowNum][1] = bound1 == 0 ? null : bound1;
@@ -277,13 +313,13 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
         return data;
     }
 
-    private void validateHashIndexScan(Object[][] tableData, @Nullable Object[] key, Object[][] expRes) {
+    private void validateHashIndexScan(Object[][] tableData, @Nullable Object @Nullable [] key, Object[][] expRes) {
         SchemaDescriptor schemaDescriptor = new SchemaDescriptor(
                 1,
                 new Column[]{new Column("key", NativeTypes.INT64, false)},
                 new Column[]{
                         new Column("idxCol1", NativeTypes.INT32, true),
-                        new Column("idxCol2", NativeTypes.INT32, true),
+                        new Column("idxCol2", NativeTypes.INT64, true),
                         new Column("val", NativeTypes.stringOf(Integer.MAX_VALUE), true)
                 }
         );
@@ -310,13 +346,13 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
         Mockito.doReturn(hashIndexMock).when(indexMock).index();
         Mockito.doReturn(indexDescriptor.columns()).when(indexMock).columns();
 
-        validateIndexScan(tableData, schemaDescriptor, indexMock, key, key, expRes);
+        validateIndexScan(schemaDescriptor, indexMock, key, key, expRes);
     }
 
     private void validateSortedIndexScan(
             Object[][] tableData,
-            Object[] lowerBound,
-            Object[] upperBound,
+            Object @Nullable [] lowerBound,
+            Object @Nullable [] upperBound,
             Object[][] expectedData
     ) {
         SchemaDescriptor schemaDescriptor = new SchemaDescriptor(
@@ -324,7 +360,7 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
                 new Column[]{new Column("key", NativeTypes.INT64, false)},
                 new Column[]{
                         new Column("idxCol1", NativeTypes.INT32, true),
-                        new Column("idxCol2", NativeTypes.INT32, true),
+                        new Column("idxCol2", NativeTypes.INT64, true),
                         new Column("val", NativeTypes.stringOf(Integer.MAX_VALUE), true)
                 }
         );
@@ -332,7 +368,7 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
         SortedIndexDescriptor indexDescriptor = new SortedIndexDescriptor(
                 "IDX1",
                 List.of("idxCol2", "idxCol1"),
-                List.of(ColumnCollation.ASC_NULLS_FIRST, ColumnCollation.ASC_NULLS_LAST)
+                List.of(ColumnCollation.ASC_NULLS_LAST, ColumnCollation.ASC_NULLS_LAST)
 
         );
 
@@ -357,15 +393,14 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
         Mockito.doReturn(sortedIndexMock).when(indexMock).index();
         Mockito.doReturn(indexDescriptor.columns()).when(indexMock).columns();
 
-        validateIndexScan(tableData, schemaDescriptor, indexMock, lowerBound, upperBound, expectedData);
+        validateIndexScan(schemaDescriptor, indexMock, lowerBound, upperBound, expectedData);
     }
 
     private void validateIndexScan(
-            Object[][] tableData,
             SchemaDescriptor schemaDescriptor,
             IgniteIndex index,
-            Object[] lowerBound,
-            Object[] upperBound,
+            Object @Nullable [] lowerBound,
+            Object @Nullable [] upperBound,
             Object[][] expectedData
     ) {
         ExecutionContext<Object[]> ectx = executionContext(true);
@@ -388,17 +423,11 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
             when(rangeIterable.iterator()).thenAnswer(inv -> List.of(range).iterator());
         }
 
-        ImmutableIntList idxColMapping = ImmutableIntList.of(index.columns().stream()
-                .map(schemaDescriptor::column)
-                .mapToInt(Column::schemaIndex)
-                .toArray());
-
         IndexScanNode<Object[]> scanNode = new IndexScanNode<>(
                 ectx,
                 ectx.rowHandler().factory(ectx.getTypeFactory(), rowType),
                 index,
                 new TestTable(rowType, schemaDescriptor),
-                idxColMapping,
                 new int[]{0, 2},
                 index.type() == Type.SORTED ? comp : null,
                 rangeIterable,
@@ -423,7 +452,7 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
         Builder rowTypeBuilder = new Builder(typeFactory);
 
         IntStream.range(0, schemaDescriptor.length())
-                .mapToObj(i -> schemaDescriptor.column(i))
+                .mapToObj(schemaDescriptor::column)
                 .forEach(col -> rowTypeBuilder.add(col.name(), TypeUtils.native2relationalType(typeFactory, col.type(), col.nullable())));
 
         return rowTypeBuilder.build();
@@ -515,9 +544,11 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
 
         for (int i = 0; i < bound.count(); i++) {
             Column col = schemaDescriptor.column(idxCols.get(i));
-            Object val = bound.value(i);
+            Object val = bound.hasNullValue(i) ? null : bound.value(i);
 
-            if (col.nullable() && val == null) {
+            if (val == null) {
+                assertThat("Unexpected null value: columnName" + idxCols.get(i), col.nullable(), Matchers.is(Boolean.TRUE));
+
                 continue;
             }
 
