@@ -17,11 +17,11 @@
 
 package org.apache.ignite.internal.tx;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.hasCause;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.tx.LockMode.S;
 import static org.apache.ignite.internal.tx.LockMode.X;
-import static org.apache.ignite.raft.jraft.util.internal.ThrowUtil.hasCause;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -364,7 +364,7 @@ public class DeadlockPreventionTest {
 
             fail();
         } catch (Exception e) {
-            if (!hasCause(e, null, LockException.class)) {
+            if (!hasCause(e, LockException.class, null)) {
                 fail();
             }
         }
