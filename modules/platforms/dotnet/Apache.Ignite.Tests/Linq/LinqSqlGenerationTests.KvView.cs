@@ -19,7 +19,9 @@ namespace Apache.Ignite.Tests.Linq;
 
 using System;
 using System.Linq;
+using Ignite.Sql;
 using NUnit.Framework;
+using Table;
 
 /// <summary>
 /// Tests LINQ to SQL conversion.
@@ -28,9 +30,6 @@ using NUnit.Framework;
 /// </summary>
 public partial class LinqSqlGenerationTests
 {
-    // TODO:
-    // * Test everything in KV mode, every test should be run in both modes.
-    // * Test different combinations of primitive/poco mappings.
     [Test]
     public void TestSelectPrimitiveKeyColumnKv() =>
         AssertSqlKv("select _T0.VAL from PUBLIC.tbl1 as _T0", q => q.Select(x => x.Value.Val).ToList());
@@ -44,6 +43,12 @@ public partial class LinqSqlGenerationTests
         AssertSqlKv(
             "select (_T0.KEY + ?), _T0.VAL from PUBLIC.tbl1 as _T0",
             q => q.Select(x => new { Key = x.Key.Key + 1, x.Value.Val }).ToList());
+
+    [Test]
+    public void TestSelectAllColumnsCustomNamesKv() =>
+        AssertSql(
+            "select _T0.\"KEY\", _T0.\"VAL\" from PUBLIC.tbl1 as _T0",
+            tbl => tbl.GetKeyValueView<PocoCustomNames, PocoCustomNames>().AsQueryable().ToList());
 
     [Test]
     public void TestSelectSameColumnFromPairKeyAndValKv()
@@ -78,5 +83,31 @@ public partial class LinqSqlGenerationTests
             "Primitive types are not supported in LINQ queries: System.Int64. " +
             "Use a custom type (class, record, struct) with a single field instead.",
             ex!.Message);
+    }
+
+    [Test]
+    public void TestDefaultQueryableOptionsKv()
+    {
+        _server.LastSqlTimeoutMs = null;
+        _server.LastSqlPageSize = null;
+
+        _ = _table.GetKeyValueView<Poco, Poco>().AsQueryable()
+            .Select(x => (int)x.Key.Key).ToArray();
+
+        Assert.AreEqual(SqlStatement.DefaultTimeout.TotalMilliseconds, _server.LastSqlTimeoutMs);
+        Assert.AreEqual(SqlStatement.DefaultPageSize, _server.LastSqlPageSize);
+    }
+
+    [Test]
+    public void TestCustomQueryableOptionsKv()
+    {
+        _server.LastSqlTimeoutMs = null;
+        _server.LastSqlPageSize = null;
+
+        _ = _table.GetKeyValueView<Poco, Poco>().AsQueryable(options: new(TimeSpan.FromSeconds(25), 128))
+            .Select(x => (int)x.Key.Key).ToArray();
+
+        Assert.AreEqual(25000, _server.LastSqlTimeoutMs);
+        Assert.AreEqual(128, _server.LastSqlPageSize);
     }
 }
