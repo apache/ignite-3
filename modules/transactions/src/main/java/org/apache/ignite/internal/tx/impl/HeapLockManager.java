@@ -212,11 +212,10 @@ public class HeapLockManager implements LockManager {
                         waiters.put(txId, prev); // Restore old lock.
                     }
 
-                    return new IgniteBiTuple<>(
-                            failedFuture(new LockException(
-                                    ACQUIRE_LOCK_ERR,
-                                    "Failed to acquire a lock due to a conflict [txId=" + txId + ", waiter=" + olderEntry.getValue() + ']')),
-                            lockMode);
+                    String exceptionMsg = "Failed to acquire a lock due to a conflict [txId=" + txId
+                            + ", waiter=" + olderEntry.getValue() + ']';
+
+                    return new IgniteBiTuple<>(failedFuture(new LockException(ACQUIRE_LOCK_ERR, exceptionMsg)), lockMode);
                 }
 
                 // TODO IGNITE-18043 git rid of try-catch
@@ -382,16 +381,17 @@ public class HeapLockManager implements LockManager {
         }
 
         /**
-         * Aborts waiters that are incompatible with those which hold a lock. Some waiters may be aborted after lock release because of a conflict
-         * with every waiter that are remaining.
+         * Aborts waiters that are incompatible with those which hold a lock. Some waiters may be aborted after lock release because of a
+         * conflict with every waiter that are remaining.
          */
         private void abortIncompatibleWaiters() {
-            Iterator<Map.Entry<UUID, WaiterImpl>> iterWaiting = new FilteringIterator<>(waiters.entrySet().iterator(), w -> !w.getValue().locked);
+            Iterator<Map.Entry<UUID, WaiterImpl>> iterWaiting =
+                    new FilteringIterator<>(waiters.entrySet().iterator(), w -> !w.getValue().locked);
 
             boolean takeNext = true;
             Map.Entry<UUID, WaiterImpl> waiting = null;
 
-            while(true) {
+            while (true) {
                 if (waiting == null || takeNext) {
                     if (!iterWaiting.hasNext()) {
                         break;
@@ -402,12 +402,12 @@ public class HeapLockManager implements LockManager {
 
                 takeNext = true;
 
-                Map.Entry<UUID, WaiterImpl> fWaiting = waiting;
+                Map.Entry<UUID, WaiterImpl> finalWaiting = waiting;
 
                 // Check the most young of conflicting transactions.
                 // TODO IGNITE-18043 get rid of the stream
                 Map.Entry<UUID, WaiterImpl> lockedConflicting = waiters.descendingMap().entrySet().stream()
-                        .filter(e -> e.getValue().locked && !fWaiting.getValue().lockMode.isCompatible(e.getValue().lockMode()))
+                        .filter(e -> e.getValue().locked && !finalWaiting.getValue().lockMode.isCompatible(e.getValue().lockMode()))
                         .findFirst()
                         .orElse(null);
 
@@ -436,6 +436,7 @@ public class HeapLockManager implements LockManager {
 
         /**
          * Whether the given lock mode is compatible with already locked.
+         *
          * @param txId Transaction id.
          * @param lockMode Lock mode.
          * @return Whether the given lock mode is compatible with already locked.
