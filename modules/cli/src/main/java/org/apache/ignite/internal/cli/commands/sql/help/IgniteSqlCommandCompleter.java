@@ -19,7 +19,6 @@ package org.apache.ignite.internal.cli.commands.sql.help;
 
 import java.util.Arrays;
 import java.util.List;
-import java.util.Locale;
 import java.util.stream.Collectors;
 import org.jline.reader.Candidate;
 import org.jline.reader.Completer;
@@ -37,10 +36,9 @@ public class IgniteSqlCommandCompleter implements Completer {
                     .collect(Collectors.joining(" "));
             Arrays.stream(IgniteSqlCommand.values())
                     .map(IgniteSqlCommand::getTopic)
-                    .filter(topic -> topic.startsWith(args.toUpperCase(Locale.ROOT)))
+                    .filter(topic -> topic.startsWith(args))
                     .map(Candidate::new)
                     .forEach(candidates::add);
         }
     }
-
 }

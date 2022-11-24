@@ -20,7 +20,9 @@ package org.apache.ignite.internal.cli.commands.sql.help;
 import java.io.PrintWriter;
 import java.util.Arrays;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.StringJoiner;
+import org.apache.ignite.internal.cli.core.exception.IgniteCliException;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Help.ColorScheme;
@@ -37,22 +39,30 @@ import picocli.CommandLine.Parameters;
                 "If a SQL command is specified, the help for that command is shown.%n"}
 )
 public final class SqlHelpCommand implements IHelpCommandInitializable2, Runnable {
+
     @Parameters(paramLabel = "Ignite SQL command",
             arity = "0..2",
             description = "The SQL command to display the usage help message for.")
-    private String[] command;
+    private String[] parameters;
+
     private CommandLine self;
+
     private PrintWriter outWriter;
+
     private ColorScheme colorScheme;
 
     @Override
     public void run() {
-        if (command != null) {
-            try {
-                outWriter.println(new IgniteSqlCommandConverter().convert(command).getSyntax());
-            } catch (Exception e) {
-                throw new RuntimeException(e); // todo
-            }
+        if (parameters != null) {
+            String command = String.join(" ", this.parameters);
+            String commandUsage = IgniteSqlCommand.find(command)
+                    .map(IgniteSqlCommand::getSyntax)
+                    .or(() -> {
+                        return Optional.ofNullable(self.getParent().getSubcommands().get(command))
+                                .map(CommandLine::getUsageMessage);
+                    })
+                    .orElseThrow(() -> new IgniteCliException("Command not found: " + command));
+            outWriter.println(commandUsage);
         } else {
             String helpMessage = self.getParent().getUsageMessage(colorScheme)
                     + System.lineSeparator()

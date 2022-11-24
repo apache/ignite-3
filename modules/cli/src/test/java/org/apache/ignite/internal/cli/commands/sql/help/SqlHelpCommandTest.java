@@ -45,7 +45,7 @@ class SqlHelpCommandTest extends CliCommandTestBase {
         execute("wrongcommand");
 
         assertAll(
-                () -> assertExitCodeIs(2),
+                () -> assertExitCodeIs(1),
                 this::assertOutputIsEmpty,
                 () -> assertErrOutputContains("Unknown SQL command:")
         );
@@ -63,7 +63,5 @@ class SqlHelpCommandTest extends CliCommandTestBase {
                 this::assertErrOutputIsEmpty);
     }
 
-    //todo: error handling for help exit
-    //todo: lost exit
     //todo: clear garbage from help completions
 }

@@ -166,7 +166,7 @@ public class ReplExecutor {
             cmd.setDefaultValueProvider(defaultValueProvider);
         }
         CommandLineContextProvider.setCmd(cmd);
-        cmd.setExecutionExceptionHandler(new PicocliExecutionExceptionHandler());
+        cmd.setExecutionExceptionHandler(new PicocliExecutionExceptionHandler(exceptionHandlers));
         cmd.registerConverter(NodeNameOrUrl.class, new NodeNameOrUrlConverter(nodeNameRegistry));
 
         DynamicCompleterRegistry completerRegistry = factory.create(DynamicCompleterRegistry.class);
