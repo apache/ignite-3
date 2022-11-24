@@ -424,7 +424,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         Cursor<RowId> getFromSortedIndexCursor = sortedIndexStorage.get(indexRow.indexColumns());
         Cursor<IndexRow> scanFromSortedIndexCursor = sortedIndexStorage.scan(null, null, 0);
 
-        tableStorage.destroyPartition(PARTITION_ID);
+        tableStorage.destroyPartition(PARTITION_ID).get(1, TimeUnit.SECONDS);
 
         // Let's check that we won't get destroyed storages.
         assertNull(tableStorage.getMvPartition(PARTITION_ID));
@@ -461,7 +461,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
             return null;
         });
 
-        tableStorage.destroyPartition(PARTITION_ID);
+        tableStorage.destroyPartition(PARTITION_ID).get(1, TimeUnit.SECONDS);
 
         MvPartitionStorage newMvPartitionStorage = tableStorage.getOrCreateMvPartition(PARTITION_ID);
 

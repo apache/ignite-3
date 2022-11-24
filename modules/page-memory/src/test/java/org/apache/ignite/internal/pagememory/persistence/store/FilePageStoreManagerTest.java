@@ -367,7 +367,7 @@ public class FilePageStoreManagerTest {
     }
 
     @Test
-    void testOnPartitionDestruction() throws Exception {
+    void testDestroyPartition() throws Exception {
         FilePageStoreManager manager = createManager();
 
         manager.start();
@@ -393,15 +393,15 @@ public class FilePageStoreManagerTest {
         filePageStore0.markToDestroy();
         filePageStore1.markToDestroy();
 
-        manager.onPartitionDestruction(0, 0);
-        manager.onPartitionDestruction(1, 0);
+        manager.destroyPartition(0, 0).get(1, TimeUnit.SECONDS);
+        manager.destroyPartition(1, 0).get(1, TimeUnit.SECONDS);
 
         assertThat(collectFilesOnly(startPath), empty());
     }
 
     /**
      * Tests the situation when we could crash in the middle of deleting files when calling
-     * {@link FilePageStoreManager#onPartitionDestruction(int, int)}, i.e. delete everything not completely and at the start of the
+     * {@link FilePageStoreManager#destroyPartition(int, int)}, i.e. delete everything not completely and at the start of the
      * component we will delete everything that could not be completely deleted.
      *
      * @throws Exception If failed.

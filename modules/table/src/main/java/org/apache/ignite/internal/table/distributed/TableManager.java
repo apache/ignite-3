@@ -714,7 +714,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 PendingComparableValuesTracker<HybridTimestamp> safeTime = new PendingComparableValuesTracker<>(clock.now());
 
                 if (raftMgr.shouldHaveRaftGroupLocally(nodes)) {
-                    startGroupFut = CompletableFuture.supplyAsync(() -> getOrCreateMvPartition(internalTbl.storage(), partId), ioExecutor)
+                    startGroupFut = getOrCreateMvPartition(internalTbl.storage(), partId)
                             .thenComposeAsync(mvPartitionStorage -> assignmentsLatestFut.thenCompose(assignmentsLatest -> {
                                 boolean hasData = mvPartitionStorage.lastAppliedIndex() > 0;
 
@@ -811,10 +811,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             ((InternalTableImpl) internalTbl).updateInternalTableRaftGroupService(partId, updatedRaftGroupService);
 
                             if (replicaMgr.shouldHaveReplicationGroupLocally(nodes)) {
-                                return CompletableFuture.supplyAsync(
-                                        () -> getOrCreateMvPartition(internalTbl.storage(), partId),
-                                        ioExecutor
-                                )
+                                return getOrCreateMvPartition(internalTbl.storage(), partId)
                                         .thenCombine(
                                                 CompletableFuture.supplyAsync(
                                                         () -> getOrCreateTxStatePartitionStorage(internalTbl.txStateStorage(), partId),
@@ -1798,7 +1795,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                 pendingAssignmentsWatchEvent.key(), partId, tbl.name(), localMember.address());
 
                         if (raftMgr.shouldHaveRaftGroupLocally(deltaPeers)) {
-                            MvPartitionStorage mvPartitionStorage = getOrCreateMvPartition(internalTable.storage(), partId);
+                            MvPartitionStorage mvPartitionStorage = getOrCreateMvPartition(internalTable.storage(), partId).join();
 
                             TxStateStorage txStatePartitionStorage = getOrCreateTxStatePartitionStorage(
                                     internalTable.txStateStorage(),
@@ -1842,7 +1839,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         }
 
                         if (replicaMgr.shouldHaveReplicationGroupLocally(deltaPeers)) {
-                            MvPartitionStorage mvPartitionStorage = getOrCreateMvPartition(internalTable.storage(), partId);
+                            MvPartitionStorage mvPartitionStorage = getOrCreateMvPartition(internalTable.storage(), partId).join();
 
                             TxStateStorage txStatePartitionStorage = getOrCreateTxStatePartitionStorage(
                                     internalTable.txStateStorage(),
@@ -2018,20 +2015,21 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * in when the rebalance was interrupted.
      *
      * @param mvTableStorage Multi-versioned table storage.
-     * @param partId Partition ID.
+     * @param partitioId Partition ID.
+     * @return Future that will complete when the operation completes.
      */
-    private static MvPartitionStorage getOrCreateMvPartition(MvTableStorage mvTableStorage, int partId) {
-        MvPartitionStorage mvPartitionStorage = mvTableStorage.getOrCreateMvPartition(partId);
+    private static CompletableFuture<MvPartitionStorage> getOrCreateMvPartition(MvTableStorage mvTableStorage, int partitioId) {
+        MvPartitionStorage mvPartitionStorage = mvTableStorage.getOrCreateMvPartition(partitioId);
 
         // If a full rebalance did not happen, then we return the storage as is.
         if (mvPartitionStorage.persistedIndex() != FULL_RABALANCING_STARTED) {
-            return mvPartitionStorage;
+            return completedFuture(mvPartitionStorage);
         }
 
         // A full rebalance was started but not completed, so the partition must be recreated to remove the garbage.
-        mvTableStorage.destroyPartition(partId);
-
-        return mvTableStorage.getOrCreateMvPartition(partId);
+        return mvTableStorage
+                .destroyPartition(partitioId)
+                .thenApply(unused -> mvTableStorage.getOrCreateMvPartition(partitioId));
     }
 
     /**

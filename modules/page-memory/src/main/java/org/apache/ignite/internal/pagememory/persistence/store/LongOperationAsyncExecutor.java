@@ -20,6 +20,7 @@ package org.apache.ignite.internal.pagememory.persistence.store;
 import static org.apache.ignite.internal.util.IgniteUtils.awaitForWorkersStop;
 
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReadWriteLock;
@@ -66,17 +67,22 @@ public class LongOperationAsyncExecutor {
      * @param operation Long operation.
      * @param name name of the operation, used as part of the thread name.
      */
-    public void async(Runnable operation, String name) {
+    public CompletableFuture<Void> async(RunnableX operation, String name) {
         String workerName = "async-" + name + "-task-" + WORKER_COUNTER.getAndIncrement();
 
+        CompletableFuture<Void> future = new CompletableFuture<>();
+
         IgniteWorker worker = new IgniteWorker(log, igniteInstanceName, workerName, null) {
-            /** {@inheritDoc} */
             @Override
             protected void body() {
                 readWriteLock.writeLock().lock();
 
                 try {
                     operation.run();
+
+                    future.complete(null);
+                } catch (Throwable throwable) {
+                    future.completeExceptionally(throwable);
                 } finally {
                     readWriteLock.writeLock().unlock();
 
@@ -88,6 +94,20 @@ public class LongOperationAsyncExecutor {
         workers.add(worker);
 
         new IgniteThread(worker).start();
+
+        return future;
+    }
+
+    /**
+     * Executes long operation in dedicated thread.
+     *
+     * <p>Uses write lock as such operations can't run simultaneously.
+     *
+     * @param operation Long operation.
+     * @param name name of the operation, used as part of the thread name.
+     */
+    public CompletableFuture<Void> async(Runnable operation, String name) {
+        return async((RunnableX) operation::run, name);
     }
 
     /**
@@ -114,5 +134,13 @@ public class LongOperationAsyncExecutor {
      */
     public void awaitAsyncTaskCompletion(boolean cancel) {
         awaitForWorkersStop(workers, cancel, log);
+    }
+
+    /**
+     * Runnable that could throw an exception.
+     */
+    @FunctionalInterface
+    public interface RunnableX {
+        void run() throws Throwable;
     }
 }

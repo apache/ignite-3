@@ -21,6 +21,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.PageMemory;
@@ -48,6 +50,8 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
     protected volatile boolean started;
 
     private volatile AtomicReferenceArray<AbstractPageMemoryMvPartitionStorage> mvPartitions;
+
+    protected final ConcurrentMap<Integer, CompletableFuture<Void>> partitionIdDestroyFuture = new ConcurrentHashMap<>();
 
     /**
      * Constructor.
@@ -100,9 +104,9 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
      * Destroys the partition multi-version storage and all its indexes.
      *
      * @param mvPartitionStorage Multi-versioned partition storage.
-     * @throws StorageException If there are errors on the destruction of the partition.
+     * @return Future that will complete when the partition multi-version storage and its indexes are destroyed.
      */
-    public abstract void destroyMvPartitionStorage(AbstractPageMemoryMvPartitionStorage mvPartitionStorage) throws StorageException;
+    public abstract CompletableFuture<Void> destroyMvPartitionStorage(AbstractPageMemoryMvPartitionStorage mvPartitionStorage);
 
     @Override
     public AbstractPageMemoryMvPartitionStorage getOrCreateMvPartition(int partitionId) throws StorageException {
@@ -131,16 +135,36 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
     }
 
     @Override
-    public void destroyPartition(int partitionId) throws StorageException {
+    public CompletableFuture<Void> destroyPartition(int partitionId) {
         assert started : "Storage has not started yet";
 
         checkPartitionId(partitionId);
 
+        CompletableFuture<Void> destroyPartitionFuture = new CompletableFuture<>();
+
+        CompletableFuture<Void> previousDestroyPartitionFuture = partitionIdDestroyFuture.putIfAbsent(partitionId, destroyPartitionFuture);
+
+        if (previousDestroyPartitionFuture != null) {
+            return previousDestroyPartitionFuture;
+        }
+
         MvPartitionStorage partition = mvPartitions.getAndSet(partitionId, null);
 
         if (partition != null) {
-            destroyMvPartitionStorage((AbstractPageMemoryMvPartitionStorage) partition);
+            destroyMvPartitionStorage((AbstractPageMemoryMvPartitionStorage) partition).whenComplete((unused, throwable) -> {
+                partitionIdDestroyFuture.remove(partitionId);
+
+                if (throwable != null) {
+                    destroyPartitionFuture.completeExceptionally(throwable);
+                } else {
+                    destroyPartitionFuture.complete(null);
+                }
+            });
+        } else {
+            partitionIdDestroyFuture.remove(partitionId).complete(null);
         }
+
+        return destroyPartitionFuture;
     }
 
     @Override

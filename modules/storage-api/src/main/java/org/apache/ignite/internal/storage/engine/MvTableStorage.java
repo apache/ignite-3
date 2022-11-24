@@ -27,7 +27,6 @@ import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
-import org.apache.ignite.internal.storage.StorageClosedException;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.IndexStorage;
@@ -60,15 +59,11 @@ public interface MvTableStorage {
     /**
      * Destroys a partition and all associated indices.
      *
-     * <p>This method will do nothing if there is no partition by ID. When trying to call methods to read or write (as well as all previous
-     * open cursors) for {@link MvPartitionStorage}, {@link HashIndexStorage} and {@link SortedIndexStorage}, {@link StorageClosedException}
-     * will be thrown.
-     *
      * @param partitionId Partition ID.
+     * @return Future that will complete when the destroy of the partition is completed.
      * @throws IllegalArgumentException If Partition ID is out of bounds.
-     * @throws StorageException If an error has occurred during the partition destruction.
      */
-    void destroyPartition(int partitionId) throws StorageException;
+    CompletableFuture<Void> destroyPartition(int partitionId) throws StorageException;
 
     /**
      * Returns an already created Index (either Sorted or Hash) with the given name or creates a new one if it does not exist.

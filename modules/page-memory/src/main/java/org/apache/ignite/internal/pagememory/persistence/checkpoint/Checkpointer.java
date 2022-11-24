@@ -19,10 +19,10 @@ package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
 import static java.lang.Math.max;
 import static java.lang.System.nanoTime;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
-import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointReadWriteLock.CHECKPOINT_RUNNER_THREAD_PREFIX;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.LOCK_TAKEN;
 import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
@@ -63,7 +63,6 @@ import org.apache.ignite.internal.util.worker.WorkProgressDispatcher;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.jetbrains.annotations.Nullable;
 
@@ -803,40 +802,26 @@ public class Checkpointer extends IgniteWorker {
     }
 
     /**
-     * Callback on destruction of the partition of the corresponding group.
+     * Prepares the checkpointer to destroy a partition.
      *
      * <p>If the checkpoint is in progress, then wait until it finishes processing the partition that we are going to destroy, in order to
      * prevent the situation when we want to destroy the partition file along with its delta files, and at this time the checkpoint performs
      * I/O operations on them.
      *
      * @param groupPartitionId Pair of group ID with partition ID.
-     * @throws IgniteInternalCheckedException If there are errors while processing the callback.
+     * @return Future that will end when the checkpoint is ready to destroy the partition.
      */
-    void onPartitionDestruction(GroupPartitionId groupPartitionId) throws IgniteInternalCheckedException {
+    CompletableFuture<Void> prepareToDestroyPartition(GroupPartitionId groupPartitionId) {
         CheckpointProgressImpl currentCheckpointProgress = this.currentCheckpointProgress;
-
-        if (currentCheckpointProgress == null || !currentCheckpointProgress.inProgress()) {
-            return;
-        }
 
         // If the checkpoint starts after this line, then the data region will already know that we want to destroy the partition, and when
         // reading the page for writing to the delta file, we will receive an "outdated" page that we will not write to disk.
+        if (currentCheckpointProgress == null || !currentCheckpointProgress.inProgress()) {
+            return completedFuture(null);
+        }
+
         CompletableFuture<Void> processedPartitionFuture = currentCheckpointProgress.getProcessedPartitionFuture(groupPartitionId);
 
-        if (processedPartitionFuture != null) {
-            try {
-                // Time is taken arbitrarily, but long enough to allow time for the future to complete.
-                processedPartitionFuture.get(10, SECONDS);
-            } catch (Exception e) {
-                throw new IgniteInternalCheckedException(
-                        IgniteStringFormatter.format(
-                                "Error waiting for partition processing to complete at checkpoint: [groupId={}, partitionId={}]",
-                                groupPartitionId.getGroupId(),
-                                groupPartitionId.getPartitionId()
-                        ),
-                        e
-                );
-            }
-        }
+        return processedPartitionFuture == null ? completedFuture(null) : processedPartitionFuture;
     }
 }

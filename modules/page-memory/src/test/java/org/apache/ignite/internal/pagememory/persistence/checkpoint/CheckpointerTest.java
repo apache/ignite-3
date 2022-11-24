@@ -449,7 +449,7 @@ public class CheckpointerTest {
     }
 
     @Test
-    void testOnPartitionDestruction() throws Exception {
+    void testPrepareToDestroyPartition() throws Exception {
         Checkpointer checkpointer = new Checkpointer(
                 "test",
                 null,
@@ -464,28 +464,28 @@ public class CheckpointerTest {
         GroupPartitionId groupPartitionId = new GroupPartitionId(0, 0);
 
         // Everything should be fine as there is no current running checkpoint.
-        checkpointer.onPartitionDestruction(groupPartitionId);
+        checkpointer.prepareToDestroyPartition(groupPartitionId).get(1, SECONDS);
 
         CheckpointProgressImpl checkpointProgress = (CheckpointProgressImpl) checkpointer.scheduledProgress();
 
         checkpointer.startCheckpointProgress();
 
-        checkpointer.onPartitionDestruction(groupPartitionId);
+        checkpointer.prepareToDestroyPartition(groupPartitionId).get(1, SECONDS);
 
         checkpointProgress.transitTo(LOCK_RELEASED);
         assertTrue(checkpointProgress.inProgress());
 
         // Everything should be fine so on a "working" checkpoint we don't process the partition anyhow.
-        checkpointer.onPartitionDestruction(groupPartitionId);
+        checkpointer.prepareToDestroyPartition(groupPartitionId).get(1, SECONDS);
 
         // Let's emulate that we are processing a partition and check that everything will be fine after processing is completed.
         checkpointProgress.onStartPartitionProcessing(groupPartitionId);
 
-        CompletableFuture<?> future0 = runAsync(() -> checkpointer.onPartitionDestruction(groupPartitionId));
-        CompletableFuture<?> future1 = runAsync(() -> checkpointProgress.onFinishPartitionProcessing(groupPartitionId));
+        CompletableFuture<?> onPartitionDestructionFuture = checkpointer.prepareToDestroyPartition(groupPartitionId);
 
-        future1.get(1, SECONDS);
-        future0.get(1, SECONDS);
+        checkpointProgress.onFinishPartitionProcessing(groupPartitionId);
+
+        onPartitionDestructionFuture.get(1, SECONDS);
     }
 
     private CheckpointDirtyPages dirtyPages(PersistentPageMemory pageMemory, FullPageId... pageIds) {

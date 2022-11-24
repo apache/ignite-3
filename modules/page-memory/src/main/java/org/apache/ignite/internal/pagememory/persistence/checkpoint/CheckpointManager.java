@@ -322,10 +322,12 @@ public class CheckpointManager {
      * <p>Prepares the checkpointer and compactor for partition destruction.
      *
      * @param groupPartitionId Pair of group ID with partition ID.
-     * @throws IgniteInternalCheckedException If there are errors while processing the callback.
+     * @return Future that will complete when the callback completes.
      */
-    public void onPartitionDestruction(GroupPartitionId groupPartitionId) throws IgniteInternalCheckedException {
-        checkpointer.onPartitionDestruction(groupPartitionId);
-        compactor.onPartitionDestruction(groupPartitionId);
+    public CompletableFuture<Void> onPartitionDestruction(GroupPartitionId groupPartitionId) {
+        return CompletableFuture.allOf(
+                checkpointer.prepareToDestroyPartition(groupPartitionId),
+                compactor.prepareToDestroyPartition(groupPartitionId)
+        );
     }
 }

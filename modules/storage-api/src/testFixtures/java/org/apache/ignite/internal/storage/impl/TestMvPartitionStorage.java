@@ -120,7 +120,6 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         return lastAppliedTerm;
     }
 
-    /** {@inheritDoc} */
     @Override
     public void lastApplied(long lastAppliedIndex, long lastAppliedTerm) throws StorageException {
         checkClosed();
@@ -139,6 +138,8 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     @Override
     @Nullable
     public RaftGroupConfiguration committedGroupConfiguration() {
+        checkClosed();
+
         return groupConfig;
     }
 
@@ -147,7 +148,6 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         this.groupConfig = config;
     }
 
-    /** {@inheritDoc} */
     @Override
     public @Nullable BinaryRow addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, UUID commitTableId, int commitPartitionId)
             throws TxIdMismatchException {

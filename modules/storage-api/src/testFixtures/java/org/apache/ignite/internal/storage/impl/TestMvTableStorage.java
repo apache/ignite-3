@@ -49,7 +49,7 @@ public class TestMvTableStorage implements MvTableStorage {
 
     private final Map<UUID, HashIndices> hashIndicesById = new ConcurrentHashMap<>();
 
-    private final Map<Integer, CompletableFuture<Void>> partitionIdDestroyFuture = new ConcurrentHashMap<>();
+    private final Map<Integer, CompletableFuture<Void>> destroyFutureByPartitionId = new ConcurrentHashMap<>();
 
     private final TableConfiguration tableCfg;
 
@@ -107,30 +107,51 @@ public class TestMvTableStorage implements MvTableStorage {
     }
 
     @Override
-    public void destroyPartition(int partitionId) throws StorageException {
+    public CompletableFuture<Void> destroyPartition(int partitionId) {
         checkPartitionId(partitionId);
+
+        CompletableFuture<Void> destroyPartitionFuture = new CompletableFuture<>();
+
+        CompletableFuture<Void> previousDestroyPartitionFuture = destroyFutureByPartitionId.putIfAbsent(
+                partitionId,
+                destroyPartitionFuture
+        );
+
+        if (previousDestroyPartitionFuture != null) {
+            return previousDestroyPartitionFuture;
+        }
 
         MvPartitionStorage removedMvPartitionStorage = partitions.remove(partitionId);
 
         if (removedMvPartitionStorage != null) {
-            ((TestMvPartitionStorage) removedMvPartitionStorage).destroy();
+            try {
+                ((TestMvPartitionStorage) removedMvPartitionStorage).destroy();
 
-            for (HashIndices hashIndices : hashIndicesById.values()) {
-                HashIndexStorage removedHashIndexStorage = hashIndices.storageByPartitionId.remove(partitionId);
+                for (HashIndices hashIndices : hashIndicesById.values()) {
+                    HashIndexStorage removedHashIndexStorage = hashIndices.storageByPartitionId.remove(partitionId);
 
-                if (removedHashIndexStorage != null) {
-                    removedHashIndexStorage.destroy();
+                    if (removedHashIndexStorage != null) {
+                        removedHashIndexStorage.destroy();
+                    }
                 }
-            }
 
-            for (SortedIndices sortedIndices : sortedIndicesById.values()) {
-                SortedIndexStorage removedSortedIndexStorage = sortedIndices.storageByPartitionId.remove(partitionId);
+                for (SortedIndices sortedIndices : sortedIndicesById.values()) {
+                    SortedIndexStorage removedSortedIndexStorage = sortedIndices.storageByPartitionId.remove(partitionId);
 
-                if (removedSortedIndexStorage != null) {
-                    ((TestSortedIndexStorage) removedSortedIndexStorage).destroy();
+                    if (removedSortedIndexStorage != null) {
+                        ((TestSortedIndexStorage) removedSortedIndexStorage).destroy();
+                    }
                 }
+
+                destroyFutureByPartitionId.remove(partitionId).complete(null);
+            } catch (Throwable throwable) {
+                destroyFutureByPartitionId.remove(partitionId).completeExceptionally(throwable);
             }
+        } else {
+            destroyFutureByPartitionId.remove(partitionId).complete(null);
         }
+
+        return destroyPartitionFuture;
     }
 
     @Override

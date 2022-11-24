@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.pagememory.persistence.compaction;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static java.util.concurrent.TimeUnit.SECONDS;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -43,9 +43,7 @@ import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.worker.IgniteWorker;
 import org.apache.ignite.internal.util.worker.IgniteWorkerListener;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteStringFormatter;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -417,31 +415,18 @@ public class Compactor extends IgniteWorker {
     }
 
     /**
-     * Callback on destruction of the partition of the corresponding group.
+     * Prepares the compacter to destroy a partition.
      *
      * <p>If the partition compaction is in progress, then we will wait until it is completed so that there are no errors when we want to
      * destroy the partition file and its delta file, and at this time its compaction occurs.
      *
      * @param groupPartitionId Pair of group ID with partition ID.
+     * @return Future at the complete of which we can delete the partition file and its delta files.
      */
-    public void onPartitionDestruction(GroupPartitionId groupPartitionId) throws IgniteInternalCheckedException {
+    public CompletableFuture<Void> prepareToDestroyPartition(GroupPartitionId groupPartitionId) {
         CompletableFuture<Void> partitionProcessingFuture = partitionCompactionInProgressMap.getProcessedPartitionFuture(groupPartitionId);
 
-        if (partitionProcessingFuture != null) {
-            try {
-                // Time is taken arbitrarily, but long enough to allow time for the future to complete.
-                partitionProcessingFuture.get(10, SECONDS);
-            } catch (Exception e) {
-                throw new IgniteInternalCheckedException(
-                        IgniteStringFormatter.format(
-                                "Error waiting for partition processing to complete on compaction: [groupId={}, partitionId={}]",
-                                groupPartitionId.getGroupId(),
-                                groupPartitionId.getPartitionId()
-                        ),
-                        e
-                );
-            }
-        }
+        return partitionProcessingFuture == null ? completedFuture(null) : partitionProcessingFuture;
     }
 
     /**

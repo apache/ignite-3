@@ -35,6 +35,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
@@ -46,6 +47,7 @@ import org.apache.ignite.internal.pagememory.PageIdAllocator;
 import org.apache.ignite.internal.pagememory.persistence.PageReadWriteManager;
 import org.apache.ignite.internal.pagememory.persistence.store.GroupPageStoresMap.GroupPageStores;
 import org.apache.ignite.internal.pagememory.persistence.store.GroupPageStoresMap.PartitionPageStore;
+import org.apache.ignite.internal.pagememory.persistence.store.LongOperationAsyncExecutor.RunnableX;
 import org.apache.ignite.internal.util.IgniteStripedLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
@@ -487,7 +489,7 @@ public class FilePageStoreManager implements PageReadWriteManager {
     }
 
     /**
-     * Callback on destruction of the partition of the corresponding group.
+     * Destruction of the partition file and its delta files.
      *
      * <p>Deletes the partition pages store and all its delta files. Before that, it creates a marker file (for example,
      * "table-1/part-1.del") so as not to get into the situation that we deleted only part of the data/files, the node restarted and we have
@@ -495,9 +497,9 @@ public class FilePageStoreManager implements PageReadWriteManager {
      *
      * @param groupId Group ID.
      * @param partitionId Partition ID.
-     * @throws IgniteInternalCheckedException If there are errors in deleting the partition file and its delta files.
+     * @return Future on completion of which the partition file and its delta files will be destroyed.
      */
-    public void onPartitionDestruction(int groupId, int partitionId) throws IgniteInternalCheckedException {
+    public CompletableFuture<Void> destroyPartition(int groupId, int partitionId) {
         FilePageStore removed = groupPageStores.remove(groupId, partitionId);
 
         assert removed != null : IgniteStringFormatter.format(
@@ -512,7 +514,7 @@ public class FilePageStoreManager implements PageReadWriteManager {
                 partitionId
         );
 
-        try {
+        return cleanupAsyncExecutor.async((RunnableX) () -> {
             Path partitionDeleteFilePath = createFile(
                     dbDir.resolve(GROUP_DIR_PREFIX + groupId).resolve(String.format(DEL_PART_FILE_TEMPLATE, partitionId))
             );
@@ -520,15 +522,6 @@ public class FilePageStoreManager implements PageReadWriteManager {
             removed.stop(true);
 
             delete(partitionDeleteFilePath);
-        } catch (IOException e) {
-            throw new IgniteInternalCheckedException(
-                    IgniteStringFormatter.format(
-                            "Error when deleting partition file and its delta files: [groupId={}, partitionId={}]",
-                            groupId,
-                            partitionId
-                    ),
-                    e
-            );
-        }
+        }, "destroy-group-" + groupId + "-partition-" + partitionId);
     }
 }

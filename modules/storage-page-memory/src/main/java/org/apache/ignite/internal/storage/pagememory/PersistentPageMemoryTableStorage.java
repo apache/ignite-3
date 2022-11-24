@@ -19,10 +19,8 @@ package org.apache.ignite.internal.storage.pagememory;
 
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
 
-import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.pagememory.evict.PageEvictionTrackerNoOp;
@@ -59,12 +57,6 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
 
     /** Data region instance. */
     private final PersistentPageMemoryDataRegion dataRegion;
-
-    /**
-     * In order not to get into a situation where we want to create a partition from a new version without waiting for the previous one to
-     * be deleted, which can lead to undesirable consequences.
-     */
-    private final Map<Integer, CompletableFuture<Void>> destroyFutureByPartitionId = new ConcurrentHashMap<>();
 
     /**
      * Constructor.
@@ -109,7 +101,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
 
     @Override
     public PersistentPageMemoryMvPartitionStorage createMvPartitionStorage(int partitionId) {
-        CompletableFuture<Void> partitionDestroyFuture = destroyFutureByPartitionId.get(partitionId);
+        CompletableFuture<Void> partitionDestroyFuture = partitionIdDestroyFuture.get(partitionId);
 
         if (partitionDestroyFuture != null) {
             try {
@@ -432,12 +424,8 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
     }
 
     @Override
-    public void destroyMvPartitionStorage(AbstractPageMemoryMvPartitionStorage mvPartitionStorage) throws StorageException {
+    public CompletableFuture<Void> destroyMvPartitionStorage(AbstractPageMemoryMvPartitionStorage mvPartitionStorage) {
         int partitionId = mvPartitionStorage.partitionId();
-
-        CompletableFuture<Void> previousFuture = destroyFutureByPartitionId.put(partitionId, new CompletableFuture<>());
-
-        assert previousFuture == null : "Previous destruction of the partition has not completed: " + partitionId;
 
         // It is enough for us to close the partition storage and its indexes (do not destroy). Prepare the data region, checkpointer, and
         // compactor to remove the partition, and then simply delete the partition file and its delta files.
@@ -452,23 +440,8 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
 
         GroupPartitionId groupPartitionId = new GroupPartitionId(tableId, partitionId);
 
-        try {
-            dataRegion.checkpointManager().onPartitionDestruction(groupPartitionId);
-
-            dataRegion.partitionMetaManager().removeMeta(groupPartitionId);
-
-            dataRegion.filePageStoreManager().onPartitionDestruction(tableId, partitionId);
-        } catch (IgniteInternalCheckedException e) {
-            throw new StorageException(
-                    IgniteStringFormatter.format(
-                            "Error while deleting partition: [tableId={}, partitionId={}]",
-                            tableId,
-                            partitionId
-                    ),
-                    e
-            );
-        }
-
-        destroyFutureByPartitionId.remove(partitionId).complete(null);
+        return dataRegion.checkpointManager().onPartitionDestruction(groupPartitionId)
+                .thenAccept(unused -> dataRegion.partitionMetaManager().removeMeta(groupPartitionId))
+                .thenCompose(unused -> dataRegion.filePageStoreManager().destroyPartition(tableId, partitionId));
     }
 }
