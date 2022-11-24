@@ -384,7 +384,7 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
                 break;
 
             case ExpressionType.Convert:
-                // Ignore, let the db do the conversion
+                ResultBuilder.Append("cast(");
                 break;
 
             default:
@@ -396,6 +396,18 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
         if (closeBracket)
         {
             ResultBuilder.Append(')');
+        }
+        else if (expression.NodeType is ExpressionType.Convert)
+        {
+            ResultBuilder.Append(" as ");
+
+            // TODO: One-step type conversion (here and in other places).
+            var sqlColumnType = expression.Type.ToSqlColumnType() ??
+                                throw new NotSupportedException("Unsupported type: " + expression.Type);
+
+            var sqlTypeName = sqlColumnType.ToSqlTypeName();
+
+            ResultBuilder.Append(sqlTypeName).Append(')');
         }
 
         return expression;
