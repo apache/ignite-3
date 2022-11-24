@@ -17,17 +17,14 @@
 # limitations under the License.
 #
 
-CMD="java \
---add-opens java.base/java.lang=ALL-UNNAMED \
---add-opens java.base/java.lang.invoke=ALL-UNNAMED \
---add-opens java.base/java.lang.reflect=ALL-UNNAMED \
---add-opens java.base/java.io=ALL-UNNAMED \
---add-opens java.base/java.nio=ALL-UNNAMED \
---add-opens java.base/java.math=ALL-UNNAMED \
---add-opens java.base/java.util=ALL-UNNAMED \
---add-opens java.base/jdk.internal.misc=ALL-UNNAMED \
--Dio.netty.tryReflectionSetAccessible=true \
--Djava.util.logging.config.file=$CONFIG_PATH/ignite.java.util.logging.properties \
--classpath $LIBS_PATH/ignite-runner.jar:$LIBS_PATH/* org.apache.ignite.app.IgniteRunner"
+. @LIB_DIR@/@BOOTSTRAP_FILE_NAME@
+
+LOGGING_JAVA_OPTS="-Djava.util.logging.config.file=@CONF_DIR@/ignite.java.util.logging.properties"
+
+CMD="${JAVACMD} \
+  ${COMMON_JAVA_OPTS} \
+  ${LOGGING_JAVA_OPTS} \
+  ${CLASSPATH} \
+  ${IGNITE3_EXTRA_JVM_ARGS}"
 
 exec $CMD "$@"

@@ -23,6 +23,7 @@ import java.util.function.Function;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.tx.Lock;
 import org.apache.ignite.internal.tx.LockKey;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.LockMode;
@@ -61,25 +62,25 @@ public class HashIndexLocker implements IndexLocker {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<?> locksForLookup(UUID txId, BinaryRow tableRow) {
+    public CompletableFuture<Void> locksForLookup(UUID txId, BinaryRow tableRow) {
         BinaryTuple key = indexRowResolver.apply(tableRow);
 
-        return lockManager.acquire(txId, new LockKey(indexId, key.byteBuffer()), LockMode.S);
+        return lockManager.acquire(txId, new LockKey(indexId, key.byteBuffer()), LockMode.S).thenApply(lock -> null);
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<?> locksForInsert(UUID txId, BinaryRow tableRow, RowId rowId) {
+    public CompletableFuture<Lock> locksForInsert(UUID txId, BinaryRow tableRow, RowId rowId) {
         BinaryTuple key = indexRowResolver.apply(tableRow);
 
-        return lockManager.acquire(txId, new LockKey(indexId, key.byteBuffer()), modificationMode);
+        return lockManager.acquire(txId, new LockKey(indexId, key.byteBuffer()), modificationMode).thenApply(lock -> null);
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<?> locksForRemove(UUID txId, BinaryRow tableRow, RowId rowId) {
+    public CompletableFuture<Void> locksForRemove(UUID txId, BinaryRow tableRow, RowId rowId) {
         BinaryTuple key = indexRowResolver.apply(tableRow);
 
-        return lockManager.acquire(txId, new LockKey(indexId, key.byteBuffer()), modificationMode);
+        return lockManager.acquire(txId, new LockKey(indexId, key.byteBuffer()), modificationMode).thenApply(lock -> null);
     }
 }

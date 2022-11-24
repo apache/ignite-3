@@ -35,7 +35,7 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
-import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
@@ -48,7 +48,7 @@ public class ProjectFilterScanMergePlannerTest extends AbstractPlannerTest {
     private IgniteSchema publicSchema;
 
     /** {@inheritDoc} */
-    @BeforeAll
+    @BeforeEach
     public void setup() {
         publicSchema = new IgniteSchema("PUBLIC");
 
@@ -87,10 +87,37 @@ public class ProjectFilterScanMergePlannerTest extends AbstractPlannerTest {
     }
 
     @Test
-    public void testProjectFilterMergeIndex() throws Exception {
+    public void testProjectFilterMergeSortedIndex() throws Exception {
         // Test project and filter merge into index scan.
         TestTable tbl = ((TestTable) publicSchema.getTable("TBL"));
         tbl.addIndex(new IgniteIndex(TestSortedIndex.create(RelCollations.of(2), "IDX_C", tbl)));
+
+        // Without index condition shift.
+        assertPlan("SELECT a, b FROM tbl WHERE c = 0", publicSchema, isInstanceOf(IgniteIndexScan.class)
+                .and(scan -> scan.projects() != null)
+                .and(scan -> "[$t0, $t1]".equals(scan.projects().toString()))
+                .and(scan -> scan.condition() != null)
+                .and(scan -> "=($t2, 0)".equals(scan.condition().toString()))
+                .and(scan -> ImmutableBitSet.of(0, 1, 2).equals(scan.requiredColumns()))
+                .and(scan -> "[=($t2, 0)]".equals(searchBoundsCondition(scan.searchBounds()).toString()))
+        );
+
+        // Index condition shifted according to requiredColumns.
+        assertPlan("SELECT b FROM tbl WHERE c = 0", publicSchema, isInstanceOf(IgniteIndexScan.class)
+                .and(scan -> scan.projects() != null)
+                .and(scan -> "[$t0]".equals(scan.projects().toString()))
+                .and(scan -> scan.condition() != null)
+                .and(scan -> "=($t1, 0)".equals(scan.condition().toString()))
+                .and(scan -> ImmutableBitSet.of(1, 2).equals(scan.requiredColumns()))
+                .and(scan -> "[=($t1, 0)]".equals(searchBoundsCondition(scan.searchBounds()).toString()))
+        );
+    }
+
+    @Test
+    public void testProjectFilterMergeHashIndex() throws Exception {
+        // Test project and filter merge into index scan.
+        TestTable tbl = ((TestTable) publicSchema.getTable("TBL"));
+        tbl.addIndex(new IgniteIndex(TestHashIndex.create(List.of("c"), "IDX_C")));
 
         // Without index condition shift.
         assertPlan("SELECT a, b FROM tbl WHERE c = 0", publicSchema, isInstanceOf(IgniteIndexScan.class)
@@ -118,6 +145,31 @@ public class ProjectFilterScanMergePlannerTest extends AbstractPlannerTest {
         // Test project and filter merge into index scan.
         TestTable tbl = ((TestTable) publicSchema.getTable("TBL"));
         tbl.addIndex(new IgniteIndex(TestSortedIndex.create(RelCollations.of(2), "IDX_C", tbl)));
+
+        // Without index condition shift.
+        assertPlan("SELECT a, b, c FROM tbl WHERE c = 0", publicSchema, isInstanceOf(IgniteIndexScan.class)
+                .and(scan -> scan.projects() == null)
+                .and(scan -> scan.condition() != null)
+                .and(scan -> "=($t2, 0)".equals(scan.condition().toString()))
+                .and(scan -> ImmutableBitSet.of(0, 1, 2).equals(scan.requiredColumns()))
+                .and(scan -> "[=($t2, 0)]".equals(searchBoundsCondition(scan.searchBounds()).toString()))
+        );
+
+        // Index condition shift and identity.
+        assertPlan("SELECT b, c FROM tbl WHERE c = 0", publicSchema, isInstanceOf(IgniteIndexScan.class)
+                .and(scan -> scan.projects() == null)
+                .and(scan -> scan.condition() != null)
+                .and(scan -> "=($t1, 0)".equals(scan.condition().toString()))
+                .and(scan -> ImmutableBitSet.of(1, 2).equals(scan.requiredColumns()))
+                .and(scan -> "[=($t1, 0)]".equals(searchBoundsCondition(scan.searchBounds()).toString()))
+        );
+    }
+
+    @Test
+    public void testIdentityFilterMergeHashIndex() throws Exception {
+        // Test project and filter merge into index scan.
+        TestTable tbl = ((TestTable) publicSchema.getTable("TBL"));
+        tbl.addIndex(new IgniteIndex(TestHashIndex.create(List.of("c"), "IDX_C")));
 
         // Without index condition shift.
         assertPlan("SELECT a, b, c FROM tbl WHERE c = 0", publicSchema, isInstanceOf(IgniteIndexScan.class)

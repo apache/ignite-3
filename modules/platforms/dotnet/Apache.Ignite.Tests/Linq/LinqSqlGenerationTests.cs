@@ -18,7 +18,8 @@
 namespace Apache.Ignite.Tests.Linq;
 
 using System;
-using System.Diagnostics.CodeAnalysis;
+using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
 using System.Threading.Tasks;
 using Ignite.Sql;
@@ -31,7 +32,7 @@ using Table;
 /// <para />
 /// Uses <see cref="FakeServer"/> to get the actual SQL sent from the client.
 /// </summary>
-public class LinqSqlGenerationTests
+public partial class LinqSqlGenerationTests
 {
     private IIgniteClient _client = null!;
     private FakeServer _server = null!;
@@ -157,6 +158,55 @@ public class LinqSqlGenerationTests
                 .ToList());
     }
 
+    [Test]
+    public void TestPrimitiveTypeMappingNotSupported()
+    {
+        // ReSharper disable once ReturnValueOfPureMethodIsNotUsed
+        var ex = Assert.Throws<NotSupportedException>(
+            () => _table.GetRecordView<int>().AsQueryable().Where(x => x > 0).ToList());
+
+        Assert.AreEqual(
+            "Primitive types are not supported in LINQ queries: System.Int32. " +
+            "Use a custom type (class, record, struct) with a single field instead.",
+            ex!.Message);
+    }
+
+    [Test]
+    public void TestEmptyTypeMappingNotSupported()
+    {
+        // ReSharper disable once ReturnValueOfPureMethodIsNotUsed
+        var ex = Assert.Throws<NotSupportedException>(() => _table.GetRecordView<EmptyPoco>().AsQueryable().ToList());
+
+        Assert.AreEqual(
+            "Type 'Apache.Ignite.Tests.Linq.LinqSqlGenerationTests+EmptyPoco' can not be mapped to SQL columns: " +
+            "it has no fields, or all fields are [NotMapped].",
+            ex!.Message);
+    }
+
+    [Test]
+    public void TestAllNotMappedTypeMappingNotSupported()
+    {
+        // ReSharper disable once ReturnValueOfPureMethodIsNotUsed
+        var ex = Assert.Throws<NotSupportedException>(() => _table.GetRecordView<UnmappedPoco>().AsQueryable().ToList());
+
+        Assert.AreEqual(
+            "Type 'Apache.Ignite.Tests.Linq.LinqSqlGenerationTests+UnmappedPoco' can not be mapped to SQL columns: " +
+            "it has no fields, or all fields are [NotMapped].",
+            ex!.Message);
+    }
+
+    [Test]
+    public void TestRecordViewKeyValuePairNotSupported()
+    {
+        // ReSharper disable once ReturnValueOfPureMethodIsNotUsed
+        var ex = Assert.Throws<NotSupportedException>(() => _table.GetRecordView<KeyValuePair<int, int>>().AsQueryable().ToList());
+
+        Assert.AreEqual(
+            "Can't use System.Collections.Generic.KeyValuePair`2[TKey,TValue] for LINQ queries: " +
+            "it is reserved for Apache.Ignite.Table.IKeyValueView`2[TK,TV].AsQueryable. Use a custom type instead.",
+            ex!.Message);
+    }
+
     [OneTimeSetUp]
     public async Task OneTimeSetUp()
     {
@@ -174,6 +224,9 @@ public class LinqSqlGenerationTests
 
     private void AssertSql(string expectedSql, Func<IQueryable<Poco>, object?> query) =>
         AssertSql(expectedSql, t => query(t.GetRecordView<Poco>().AsQueryable()));
+
+    private void AssertSqlKv(string expectedSql, Func<IQueryable<KeyValuePair<OneColumnPoco, Poco>>, object?> query) =>
+        AssertSql(expectedSql, t => query(t.GetKeyValueView<OneColumnPoco, Poco>().AsQueryable()));
 
     private void AssertSql(string expectedSql, Func<ITable, object?> query)
     {
@@ -195,7 +248,10 @@ public class LinqSqlGenerationTests
         Assert.AreEqual(expectedSql, _server.LastSql, string.IsNullOrEmpty(_server.LastSql) ? ex?.ToString() : null);
     }
 
-    // ReSharper disable once NotAccessedPositionalProperty.Local
-    [SuppressMessage("Microsoft.Performance", "CA1812:AvoidUninstantiatedInternalClasses", Justification = "Query tests.")]
+    // ReSharper disable NotAccessedPositionalProperty.Local, ClassNeverInstantiated.Local
     private record OneColumnPoco(long Key);
+
+    private record EmptyPoco;
+
+    private record UnmappedPoco([property: NotMapped] long Key, [field: NotMapped] string Val);
 }

@@ -303,9 +303,17 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
         Predicate<RowT> filters = condition == null ? null : expressionFactory.predicate(condition, rowType);
         Function<RowT, RowT> prj = projects == null ? null : expressionFactory.project(projects, rowType);
 
-        //TODO: https://issues.apache.org/jira/browse/IGNITE-18056  Use 'idx.getRowType()' instead of 'tbl.getRowType()'
-        RangeIterable<RowT> ranges = searchBounds == null ? null :
-                expressionFactory.ranges(searchBounds, rel.collation(), tbl.getRowType(typeFactory));
+        RangeIterable<RowT> ranges = null;
+
+        if (searchBounds != null) {
+            Comparator<RowT> searchRowComparator = null;
+
+            if (idx.collations() != null) {
+                searchRowComparator = expressionFactory.comparator(TraitUtils.createCollation(idx.collations()));
+            }
+
+            ranges = expressionFactory.ranges(searchBounds, idx.getRowType(typeFactory, tbl.descriptor()), searchRowComparator);
+        }
 
         RelCollation outputCollation = rel.collation();
 
@@ -329,7 +337,6 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
                 ctx.rowHandler().factory(ctx.getTypeFactory(), rowType),
                 idx,
                 tbl,
-                rel.collation().getKeys(),
                 group.partitions(ctx.localNode().name()),
                 comp,
                 ranges,
@@ -445,13 +452,14 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
         assert rel.searchBounds() != null : rel;
 
         Predicate<RowT> filter = expressionFactory.predicate(rel.condition(), rel.getRowType());
-        RangeIterable<RowT> ranges = expressionFactory.ranges(rel.searchBounds(), collation, rel.getRowType());
+        Comparator<RowT> comparator = expressionFactory.comparator(collation);
+        RangeIterable<RowT> ranges = expressionFactory.ranges(rel.searchBounds(), rel.getRowType(), comparator);
 
         IndexSpoolNode<RowT> node = IndexSpoolNode.createTreeSpool(
                 ctx,
                 rel.getRowType(),
                 collation,
-                expressionFactory.comparator(collation),
+                comparator,
                 filter,
                 ranges
         );

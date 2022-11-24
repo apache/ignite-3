@@ -31,6 +31,7 @@ using Remotion.Linq.Clauses;
 using Remotion.Linq.Clauses.Expressions;
 using Remotion.Linq.Clauses.ResultOperators;
 using Remotion.Linq.Parsing;
+using Sql;
 using Table.Serialization;
 
 /// <summary>
@@ -234,31 +235,8 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
             else
             {
                 var tableName = Aliases.GetTableAlias(expression);
-                var columns = expression.ReferencedQuerySource.ItemType.GetColumns();
-                var first = true;
 
-                foreach (var col in columns)
-                {
-                    if (!first)
-                    {
-                        ResultBuilder.Append(", ");
-                    }
-
-                    first = false;
-
-                    ResultBuilder.Append(tableName).Append('.');
-
-                    if (col.HasColumnNameAttribute)
-                    {
-                        // Exact quoted name.
-                        ResultBuilder.Append('"').Append(col.Name).Append('"');
-                    }
-                    else
-                    {
-                        // Case-insensitive, unquoted, upper-case name.
-                        ResultBuilder.Append(col.Name.ToUpperInvariant());
-                    }
-                }
+                AppendColumnNames(expression.ReferencedQuerySource.ItemType, tableName);
             }
         }
 
@@ -289,9 +267,7 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
             // Find where the projection comes from.
             expression = ExpressionWalker.GetProjectedMember(expression.Expression!, expression.Member) ?? expression;
 
-            var columnName = GetColumnName(expression);
-
-            ResultBuilder.AppendFormat(CultureInfo.InvariantCulture, "{0}.{1}", Aliases.GetTableAlias(expression), columnName);
+            AppendColumnName(expression, Aliases.GetTableAlias(expression));
         }
         else
         {
@@ -347,7 +323,11 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
         // Explicit type specification is required when all arguments of CASEWHEN are parameters
         ResultBuilder.Append(", cast(");
         Visit(expression.IfTrue);
-        ResultBuilder.AppendFormat(CultureInfo.InvariantCulture, " as {0}), ", SqlTypes.GetSqlTypeName(expression.Type) ?? "other");
+
+        ResultBuilder.Append(" as ");
+        var sqlColumnType = expression.Type.ToSqlColumnType() ?? throw new NotSupportedException("Unsupported type: " + expression.Type);
+        ResultBuilder.Append(sqlColumnType.ToSqlTypeName());
+        ResultBuilder.Append(')');
 
         Visit(expression.IfFalse);
         ResultBuilder.Append(')');
@@ -422,22 +402,103 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
     }
 
     /// <summary>
-    /// Gets the name of the field from a member expression, with quotes when necessary.
+    /// Appends the name of the column from a member expression, with quotes when necessary.
     /// </summary>
-    private static string GetColumnName(MemberExpression expression)
+    private void AppendColumnName(MemberExpression expression, string tableName)
     {
-        if (ColumnNameMap.TryGetValue(expression.Member, out var fieldName))
+        if (ColumnNameMap.TryGetValue(expression.Member, out var columnName))
         {
-            return fieldName;
+            ResultBuilder.Append(tableName).Append('.').Append(columnName);
+            return;
+        }
+
+        if (expression.Member.DeclaringType.IsKeyValuePair())
+        {
+            AppendColumnNames(((PropertyInfo)expression.Member).PropertyType, tableName);
+            return;
         }
 
         // When there is a [Column] attribute with Name specified, use quoted identifier: exact match, allows whitespace.
         // Otherwise (most common case), use uppercase non-quoted identifier (case-insensitive).
-        var columnName = expression.Member.GetCustomAttribute<ColumnAttribute>() is { Name: { } columnAttributeName }
+        // NOTE: The same logic is used in AppendColumnNames below.
+        columnName = expression.Member.GetCustomAttribute<ColumnAttribute>() is { Name: { } columnAttributeName }
             ? '"' + columnAttributeName + '"'
             : expression.Member.Name.ToUpperInvariant();
 
-        return ColumnNameMap.GetOrAdd(expression.Member, columnName);
+        ColumnNameMap.GetOrAdd(expression.Member, columnName);
+
+        ResultBuilder.Append(tableName).Append('.').Append(columnName);
+    }
+
+    /// <summary>
+    /// Appends column names for all fields in the specified type.
+    /// </summary>
+    /// <param name="type">Type.</param>
+    /// <param name="tableName">Table name.</param>
+    /// <param name="first">Whether this is the first column and does not need a comma before.</param>
+    /// <param name="toSkip">Names to skip.</param>
+    /// <param name="populateToSkip">Whether to populate provided toSkip set.</param>
+    private void AppendColumnNames(Type type, string tableName, bool first = true, ISet<string>? toSkip = null, bool populateToSkip = false)
+    {
+        if (type.IsPrimitive)
+        {
+            throw new NotSupportedException(
+                $"Primitive types are not supported in LINQ queries: {type}. " +
+                "Use a custom type (class, record, struct) with a single field instead.");
+        }
+
+        if (type.GetKeyValuePairTypes() is var (keyType, valType))
+        {
+            var keyColumnNames = new HashSet<string>();
+
+            AppendColumnNames(keyType, tableName, first: true, toSkip: keyColumnNames, populateToSkip: true);
+            AppendColumnNames(valType, tableName, first: false, toSkip: keyColumnNames);
+
+            return;
+        }
+
+        var columns = type.GetColumns();
+
+        if (columns.Count == 0)
+        {
+            throw new NotSupportedException(
+                $"Type '{type}' can not be mapped to SQL columns: it has no fields, or all fields are [NotMapped].");
+        }
+
+        foreach (var col in columns)
+        {
+            if (toSkip != null)
+            {
+                if (populateToSkip)
+                {
+                    toSkip.Add(col.Name);
+                }
+                else if (toSkip.Contains(col.Name))
+                {
+                    continue;
+                }
+            }
+
+            if (!first)
+            {
+                ResultBuilder.Append(", ");
+            }
+
+            first = false;
+
+            ResultBuilder.Append(tableName).Append('.');
+
+            if (col.HasColumnNameAttribute)
+            {
+                // Exact quoted name.
+                ResultBuilder.Append('"').Append(col.Name).Append('"');
+            }
+            else
+            {
+                // Case-insensitive, unquoted, upper-case name.
+                ResultBuilder.Append(col.Name.ToUpperInvariant());
+            }
+        }
     }
 
     /// <summary>
