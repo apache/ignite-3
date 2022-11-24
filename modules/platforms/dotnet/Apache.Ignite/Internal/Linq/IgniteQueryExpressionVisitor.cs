@@ -418,9 +418,9 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
             return;
         }
 
-        // TODO: This logic is very similar to the one below. Somehow unify.
         // When there is a [Column] attribute with Name specified, use quoted identifier: exact match, allows whitespace.
         // Otherwise (most common case), use uppercase non-quoted identifier (case-insensitive).
+        // NOTE: The same logic is used in AppendColumnNames below.
         columnName = expression.Member.GetCustomAttribute<ColumnAttribute>() is { Name: { } columnAttributeName }
             ? '"' + columnAttributeName + '"'
             : expression.Member.Name.ToUpperInvariant();
