@@ -409,7 +409,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
         assertFalse(fut0.isDone());
     }
 
-    //@Test
+    @Test
     public void testSingleKeyMultithreadedRead() throws InterruptedException {
         LongAdder readLocks = new LongAdder();
         LongAdder writeLocks = new LongAdder();
@@ -432,7 +432,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
         assertTrue(readLocks.sum() == 0);
     }
 
-    //@Test
+    @Test
     public void testSingleKeyMultithreadedRandom() throws InterruptedException {
         LongAdder readLocks = new LongAdder();
         LongAdder writeLocks = new LongAdder();

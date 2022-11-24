@@ -18,8 +18,8 @@
 package org.apache.ignite.internal.tx;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.hasCause;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.internal.tx.LockMode.S;
 import static org.apache.ignite.internal.tx.LockMode.X;
 import static org.hamcrest.MatcherAssert.assertThat;
