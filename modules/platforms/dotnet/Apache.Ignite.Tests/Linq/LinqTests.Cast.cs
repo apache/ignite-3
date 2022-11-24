@@ -26,7 +26,7 @@ using NUnit.Framework;
 public partial class LinqTests
 {
     [Test]
-    public void TestCastProjectWithCastIntoAnonymousType()
+    public void TestProjectionWithCastIntoAnonymousType()
     {
         var query = PocoIntView.AsQueryable()
             .Select(x => new
