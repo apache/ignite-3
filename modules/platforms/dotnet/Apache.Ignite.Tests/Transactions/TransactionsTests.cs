@@ -159,17 +159,18 @@ namespace Apache.Ignite.Tests.Transactions
         [Test]
         public async Task TestClientDisconnectClosesActiveTransactions()
         {
-            await TupleView.UpsertAsync(null, GetTuple(1, "1"));
+            await using var tx0 = Client.Transactions.BeginAsync();
+            await TupleView.UpsertAsync(tx0, GetTuple(1, "1"));
 
             using (var client2 = await IgniteClient.StartAsync(GetConfig()))
             {
                 var table = await client2.Tables.GetTableAsync(TableName);
-                var tx = await client2.Transactions.BeginAsync();
+                var tx1 = await client2.Transactions.BeginAsync();
 
-                await table!.RecordBinaryView.UpsertAsync(tx, GetTuple(1, "2"));
+                await table!.RecordBinaryView.UpsertAsync(tx1, GetTuple(1, "2"));
             }
 
-            Assert.AreEqual("1", (await TupleView.GetAsync(null, GetTuple(1))).Value[ValCol]);
+            Assert.AreEqual("1", (await TupleView.GetAsync(tx0, GetTuple(1))).Value[ValCol]);
         }
 
         [Test]
