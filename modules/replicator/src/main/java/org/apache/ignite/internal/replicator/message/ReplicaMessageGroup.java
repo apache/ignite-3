@@ -42,6 +42,9 @@ public class ReplicaMessageGroup {
     /** Message type for {@link ReplicaSafeTimeSyncRequest}. */
     public static final short SAFE_TIME_SYNC_REQUEST = 6;
 
+    /** Message type for {@link AwaitReplicaRequest}. */
     public static final short AWAIT_REPLICA_REQUEST = 7;
+
+    /** Message type for {@link AwaitReplicaResponse}. */
     public static final short AWAIT_REPLICA_RESPONSE = 8;
 }

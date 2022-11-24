@@ -85,6 +85,7 @@ public class ReplicaManager implements IgniteComponent {
     /** Replicas. */
     private final ConcurrentHashMap<ReplicationGroupId, Replica> replicas = new ConcurrentHashMap<>();
 
+    /** Replicas which was requested but have not started yet. */
     private final Map<ReplicationGroupId, CompletableFuture<Void>> pendingReplicas = new ConcurrentHashMap<>();
 
     /** A hybrid logical clock. */
@@ -243,7 +244,11 @@ public class ReplicaManager implements IgniteComponent {
 
         Replica previous = replicas.putIfAbsent(replicaGrpId, replica);
 
-        pendingReplicas.get(replicaGrpId).complete(null);
+        CompletableFuture<Void> fut = pendingReplicas.get(replicaGrpId);
+
+        if (fut != null) {
+            fut.complete(null);
+        }
 
         pendingReplicas.remove(replicaGrpId);
 

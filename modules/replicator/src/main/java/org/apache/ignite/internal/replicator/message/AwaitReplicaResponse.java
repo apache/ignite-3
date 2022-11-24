@@ -17,9 +17,11 @@
 
 package org.apache.ignite.internal.replicator.message;
 
-import org.apache.ignite.network.annotations.Marshallable;
 import org.apache.ignite.network.annotations.Transferable;
 
+/**
+ * Await replica response.
+ */
 @Transferable(ReplicaMessageGroup.AWAIT_REPLICA_RESPONSE)
 public interface AwaitReplicaResponse extends ReplicaResponse {
 }

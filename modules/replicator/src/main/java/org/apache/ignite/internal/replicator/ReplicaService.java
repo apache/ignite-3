@@ -55,6 +55,7 @@ public class ReplicaService {
     /** A hybrid logical clock. */
     private final HybridClock clock;
 
+    /** Requests to retry. */
     private final Map<ClusterNode, CompletableFuture<NetworkMessage>> pendingInvokes = new ConcurrentHashMap<>();
 
     /** Replicator network message factory. */
