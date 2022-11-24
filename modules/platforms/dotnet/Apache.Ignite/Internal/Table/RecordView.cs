@@ -303,7 +303,6 @@ namespace Apache.Ignite.Internal.Table
             var executor = new IgniteQueryExecutor(_sql, transaction, options);
             var provider = new IgniteQueryProvider(IgniteQueryParser.Instance, executor, _table.Name);
 
-            // TODO: Test
             if (typeof(T).IsKeyValuePair())
             {
                 throw new NotSupportedException(

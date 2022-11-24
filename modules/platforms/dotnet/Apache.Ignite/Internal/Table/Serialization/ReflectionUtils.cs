@@ -65,7 +65,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// </summary>
         /// <param name="type">Type.</param>
         /// <returns>Resulting pair, or null when specified type is not <see cref="KeyValuePair{TKey,TValue}"/>.</returns>
-        public static (Type KeyType, Type ValType)? GetKeyValuePairTypes(this Type type) // TODO: use this everywhere
+        public static (Type KeyType, Type ValType)? GetKeyValuePairTypes(this Type type)
         {
             if (!type.IsKeyValuePair())
             {
