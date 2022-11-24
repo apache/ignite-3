@@ -20,11 +20,12 @@ namespace Apache.Ignite.Tests.Linq;
 using System;
 using System.Linq;
 using Ignite.Sql;
+using Ignite.Table;
 using NUnit.Framework;
 using Table;
 
 /// <summary>
-/// Tests LINQ to SQL conversion.
+/// Tests LINQ to SQL conversion for <see cref="IKeyValueView{TK,TV}"/>.
 /// <para />
 /// Uses <see cref="FakeServer"/> to get the actual SQL sent from the client.
 /// </summary>

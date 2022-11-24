@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Tests.Linq;
 
+using System.Collections.Generic;
 using System.Linq;
 using Ignite.Table;
 using NUnit.Framework;
@@ -35,7 +36,7 @@ public partial class LinqTests
             .Where(x => x.Key.Key > 3 && x.Value.Val != null)
             .OrderBy(x => x.Key.Key);
 
-        var res = query.ToList();
+        List<KeyValuePair<KeyPoco, ValPoco>> res = query.ToList();
 
         Assert.AreEqual(4, res[0].Key.Key);
         Assert.AreEqual("v-4", res[0].Value.Val);
@@ -56,7 +57,7 @@ public partial class LinqTests
             .Where(x => x.Key > 5)
             .OrderBy(x => x.Key);
 
-        var res = query.ToList();
+        List<KeyPoco> res = query.ToList();
 
         Assert.AreEqual(6, res[0].Key);
 
@@ -75,9 +76,28 @@ public partial class LinqTests
             .Where(x => x.Val != "foo")
             .OrderBy(x => x.Val);
 
-        var res = query.ToList();
+        List<ValPoco> res = query.ToList();
 
         Assert.AreEqual("v-0", res[0].Val);
+
+        StringAssert.Contains(
+            "select _T0.VAL from PUBLIC.TBL1 as _T0 " +
+            "where (_T0.VAL IS DISTINCT FROM ?) " +
+            "order by (_T0.VAL) asc",
+            query.ToString());
+    }
+
+    [Test]
+    public void TestSelectOneColumnKv()
+    {
+        var query = KvView.AsQueryable()
+            .Select(x => x.Value.Val)
+            .Where(x => x != "foo")
+            .OrderBy(x => x);
+
+        List<string?> res = query.ToList();
+
+        Assert.AreEqual("v-0", res[0]);
 
         StringAssert.Contains(
             "select _T0.VAL from PUBLIC.TBL1 as _T0 " +
