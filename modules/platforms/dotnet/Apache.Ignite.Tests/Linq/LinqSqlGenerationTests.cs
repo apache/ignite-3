@@ -207,6 +207,14 @@ public partial class LinqSqlGenerationTests
             ex!.Message);
     }
 
+    [Test]
+    public void TestUnion() =>
+        AssertSql(
+            "select (_T0.KEY + ?), _T0.VAL from PUBLIC.tbl1 as _T0 union (select (_T1.KEY + ?), _T1.VAL from PUBLIC.tbl1 as _T1 )",
+            q => q.Select(x => new { Key = x.Key + 1, x.Val })
+                .Union(q.Select(x => new { Key = x.Key + 100, x.Val }))
+                .ToList());
+
     [OneTimeSetUp]
     public async Task OneTimeSetUp()
     {
