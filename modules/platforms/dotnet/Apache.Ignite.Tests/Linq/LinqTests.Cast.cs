@@ -55,9 +55,4 @@ public partial class LinqTests
             "order by (cast(_T0.VAL as bigint)) desc",
             query.ToString());
     }
-
-    [Test]
-    public void TestCastProjectWithCastIntoRecord()
-    {
-    }
 }
