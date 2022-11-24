@@ -85,7 +85,7 @@ internal static class SqlColumnTypeExtensions
         SqlColumnType.Bitmask => "bitmap",
         SqlColumnType.String => "varchar",
         SqlColumnType.ByteArray => "varbinary",
-        SqlColumnType.Number => "number",
+        SqlColumnType.Number => "numeric",
         _ => throw new InvalidOperationException($"Unsupported {nameof(SqlColumnType)}: {sqlColumnType}")
     };
 
