@@ -24,7 +24,6 @@ import it.unimi.dsi.fastutil.ints.IntList;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
 import java.util.List;
-import java.util.stream.Collectors;
 import org.apache.calcite.linq4j.Ord;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptRule;
@@ -120,8 +119,8 @@ public class FilterSpoolMergeToSortedIndexSpoolRule extends RelRule<FilterSpoolM
 
             List<RelFieldCollation> collationFields = inCollation.getFieldCollations().subList(0, searchKeys.size());
 
-            assert searchKeys.containsAll(collationFields.stream().map(RelFieldCollation::getFieldIndex)
-                    .collect(Collectors.toSet())) : "Search condition should be a prefix of collation [searchKeys="
+            assert searchKeys.size() == collationFields.size()
+                    : "Search condition should be a prefix of collation [searchKeys="
                     + searchKeys + ", collation=" + inCollation + ']';
 
             searchCollation = RelCollations.of(collationFields);

@@ -26,7 +26,6 @@ import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.message.TxStateReplicaRequest;
-import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.network.ClusterNode;
 
 /**
@@ -85,14 +84,14 @@ public class PlacementDriver {
         ClusterNode nodeToSend = primaryReplicaMapping.get(replicaGrp).iterator().next();
 
         replicaService.invoke(nodeToSend, request).thenAccept(resp -> {
-            assert resp instanceof IgniteBiTuple : "Unsupported response type [type=" + resp.getClass().getSimpleName() + ']';
+            assert resp instanceof LeaderOrTxState : "Unsupported response type [type=" + resp.getClass().getSimpleName() + ']';
 
-            IgniteBiTuple<TxMeta, ClusterNode> stateAndLeader = (IgniteBiTuple) resp;
+            LeaderOrTxState stateAndLeader = (LeaderOrTxState) resp;
 
-            ClusterNode nextNodeToSend = stateAndLeader.get2();
+            ClusterNode nextNodeToSend = stateAndLeader.leader();
 
             if (nextNodeToSend == null) {
-                resFut.complete(stateAndLeader.get1());
+                resFut.complete(stateAndLeader.txMeta());
             } else {
                 LinkedHashSet<ClusterNode> newAssignment = new LinkedHashSet<>();
 

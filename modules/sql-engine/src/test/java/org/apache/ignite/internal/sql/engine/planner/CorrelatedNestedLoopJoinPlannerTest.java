@@ -102,12 +102,11 @@ public class CorrelatedNestedLoopJoinPlannerTest extends AbstractPlannerTest {
         List<SearchBounds> searchBounds = idxScan.searchBounds();
 
         assertNotNull(searchBounds, "Invalid plan\n" + RelOptUtil.toString(phys));
-        assertEquals(3, searchBounds.size());
+        assertEquals(2, searchBounds.size());
 
-        assertNull(searchBounds.get(0));
-        assertTrue(searchBounds.get(1) instanceof ExactBounds);
-        assertTrue(((ExactBounds) searchBounds.get(1)).bound() instanceof RexFieldAccess);
-        assertNull(searchBounds.get(2));
+        assertTrue(searchBounds.get(0) instanceof ExactBounds);
+        assertTrue(((ExactBounds) searchBounds.get(0)).bound() instanceof RexFieldAccess);
+        assertNull(searchBounds.get(1));
     }
 
     /**

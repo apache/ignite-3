@@ -15,16 +15,27 @@
  * limitations under the License.
  */
 
-apply plugin: 'maven-publish'
+namespace Apache.Ignite.Internal.Common;
 
-publishing {
-  repositories {
-    maven {
-      credentials {
-        username = project.properties["staging_user"]
-        password = project.properties["staging_password"]
-      }
-      url repos['apache-staging']
+using System.Text;
+
+/// <summary>
+/// Extension methods for <see cref="StringBuilder"/> class.
+/// </summary>
+internal static class StringBuilderExtensions
+{
+    /// <summary>
+    /// Removes all the trailing white-space characters from the current string builder.
+    /// </summary>
+    /// <param name="sb">String builder.</param>
+    /// <returns>Same instance for chaining.</returns>
+    public static StringBuilder TrimEnd(this StringBuilder sb)
+    {
+        while (sb.Length > 0 && char.IsWhiteSpace(sb[^1]))
+        {
+            sb.Length--;
+        }
+
+        return sb;
     }
-  }
 }

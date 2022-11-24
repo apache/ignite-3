@@ -17,27 +17,7 @@
 #
 
 . @CONF_DIR@/@VARS_FILE_NAME@
+. @LIB_DIR@/@BOOTSTRAP_FILE_NAME@
 
-CMD="java \
---add-opens java.base/java.lang=ALL-UNNAMED \
---add-opens java.base/java.lang.invoke=ALL-UNNAMED \
---add-opens java.base/java.lang.reflect=ALL-UNNAMED \
---add-opens java.base/java.io=ALL-UNNAMED \
---add-opens java.base/java.nio=ALL-UNNAMED \
---add-opens java.base/java.math=ALL-UNNAMED \
---add-opens java.base/java.util=ALL-UNNAMED \
---add-opens java.base/jdk.internal.misc=ALL-UNNAMED \
--Dfile.encoding=UTF-8 \
--XX:+HeapDumpOnOutOfMemoryError \
--XX:+ExitOnOutOfMemoryError \
--XX:HeapDumpPath=@LOG_DIR@ \
--Xlog:gc=info:file=@LOG_DIR@/${JVM_GC_LOG_NAME}::filecount=${JVM_GC_NUM_LOGS},filesize=${JVM_GC_LOG_SIZE} \
--Dio.netty.tryReflectionSetAccessible=true \
--Djava.util.logging.config.file=@CONF_DIR@/ignite.java.util.logging.properties \
-${IGNITE3_EXTRA_JVM_ARGS} \
--classpath @INSTALL_DIR@/lib:@INSTALL_DIR@/lib/* org.apache.ignite.app.IgniteRunner \
---config-path ${CONFIG_FILE} \
---work-dir ${WORK_DIR} \
---node-name ${NODE_NAME}"
-
-${CMD}
+CMD="${JAVA_CMD_WITH_ARGS} ${APPLICATION_ARGS}"
+$CMD
