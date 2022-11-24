@@ -89,7 +89,6 @@ public class ReplicaService {
 
         // TODO: IGNITE-17824 Use named executor instead of default one in order to process replica Response.
         messagingService.invoke(node, req, RPC_TIMEOUT).whenCompleteAsync((response, throwable) -> {
-//            System.out.println("sendToReplica");
             if (throwable != null) {
                 if (throwable instanceof CompletionException) {
                     throwable = throwable.getCause();
@@ -115,30 +114,26 @@ public class ReplicaService {
                     var errResp = (ErrorReplicaResponse) response;
 
                     if (errResp.throwable() instanceof ReplicaUnavailableException) {
-//                        System.out.println("ReplicaUnavailableException qwer");
-
                         pendingInvokes.compute(node, (clusterNode, fut) -> {
-                            AwaitReplicaRequest awaitReplicaRequest = REPLICA_MESSAGES_FACTORY.awaitReplicaRequest()
+                            AwaitReplicaRequest awaitReplicaReq = REPLICA_MESSAGES_FACTORY.awaitReplicaRequest()
                                     .groupId(req.groupId())
                                     .build();
 
-                            AtomicReference<CompletableFuture<NetworkMessage>> awaitReplicaRequestFut = new AtomicReference<>(fut);
-
                             if (fut == null) {
-                                awaitReplicaRequestFut.set(messagingService.invoke(node, awaitReplicaRequest, RPC_TIMEOUT)
+                                fut = messagingService.invoke(node, awaitReplicaReq, RPC_TIMEOUT)
                                         .whenComplete((response0, throwable0) -> {
                                             pendingInvokes.remove(node);
-                                        }));
+                                        });
                             }
 
-                            awaitReplicaRequestFut.get().handle((response0, throwable0) -> {
+                            fut.handle((response0, throwable0) -> {
                                 if (throwable0 != null) {
                                     if (throwable0 instanceof CompletionException) {
                                         throwable0 = throwable0.getCause();
                                     }
 
                                     if (throwable0 instanceof TimeoutException) {
-                                        res.get().completeExceptionally(new ReplicationTimeoutException(req.groupId()));
+                                        res.get().completeExceptionally(errResp.throwable());
                                     }
 
                                     res.get().completeExceptionally(withCause(
@@ -147,10 +142,7 @@ public class ReplicaService {
                                             "Failed to process replica request [replicaGroupId=" + req.groupId() + ']',
                                             throwable0));
                                 } else {
-//                                System.out.println("retryFut");
-                                    CompletableFuture<R> retryFut = sendToReplica(node, req);
-
-                                    res.get().thenCompose(ignore0 -> retryFut);
+                                    res.get().thenCompose(ignore -> sendToReplica(node, req));
 
                                     res.get().complete(null);
                                 }
@@ -158,38 +150,19 @@ public class ReplicaService {
                                 return null;
                             });
 
-                            return awaitReplicaRequestFut.get();
+                            return fut;
                         });
 
                     } else {
                         res.get().completeExceptionally(errResp.throwable());
                     }
                 } else {
-//                    System.out.println("before res.get().complete((R) ((ReplicaResponse) response).result());");
                     res.get().complete((R) ((ReplicaResponse) response).result());
                 }
             }
         });
 
-//        System.out.println("res.get() " + res.get());
-
         return res.get();
-    }
-
-    public static void main(String[] args) {
-        CompletableFuture<Object> fut = new CompletableFuture<>();
-
-        fut = fut.thenCompose(x -> {
-            System.out.println("111");
-            return null;
-        });
-
-        fut = fut.thenCompose(x -> {
-            System.out.println("222");
-            return null;
-        });
-
-        fut.complete(null);
     }
 
     /**

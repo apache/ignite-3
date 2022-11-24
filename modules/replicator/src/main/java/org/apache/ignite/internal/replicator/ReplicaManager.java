@@ -24,9 +24,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Executor;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -47,6 +44,7 @@ import org.apache.ignite.internal.replicator.message.ReplicaSafeTimeSyncRequest;
 import org.apache.ignite.internal.replicator.message.TimestampAware;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
@@ -114,7 +112,6 @@ public class ReplicaManager implements IgniteComponent {
         this.clock = clock;
         this.messageGroupsToHandle = messageGroupsToHandle;
         this.handler = (message, sender, correlationId) -> {
-//            System.out.println("in_handler");
             if (!busyLock.enterBusy()) {
                 throw new IgniteException(new NodeStoppingException());
             }
@@ -126,42 +123,30 @@ public class ReplicaManager implements IgniteComponent {
 
                 ReplicaRequest request = (ReplicaRequest) message;
 
-                HybridTimestamp requestTimestamp = extractTimestamp(request);
-
                 if (request instanceof AwaitReplicaRequest) {
-//                    System.out.println("request instanceof AwaitReplicaRequest");
-                    replicas.compute(request.groupId(), (replicationGroupId, replica0) -> {
+                    replicas.compute(request.groupId(), (replicationGroupId, replica) -> {
                         pendingReplicas.compute(request.groupId(), (clusterNode, fut) -> {
-                            if (replica0 == null) {
+                            if (replica == null) {
                                 if (fut == null) {
                                     fut = new CompletableFuture<>();
                                 }
 
                                 fut.thenCompose(ignore -> {
-                                    if (!busyLock.enterBusy()) {
-                                        throw new IgniteException(new NodeStoppingException());
-                                    }
-
-                                    try {
-//                                        System.out.println("sendAwaitReplicaResponse1");
-                                        sendAwaitReplicaResponse(sender, correlationId);
-                                    } finally {
-                                        busyLock.leaveBusy();
-                                    }
+                                    IgniteUtils.inBusyLock(busyLock,
+                                            () -> sendAwaitReplicaResponse(sender, correlationId));
 
                                     return null;
                                 });
 
                                 return fut;
                             } else {
-//                                System.out.println("sendAwaitReplicaResponse2");
-                                sendAwaitReplicaResponse(sender, correlationId);
+                                IgniteUtils.inBusyLock(busyLock,() -> sendAwaitReplicaResponse(sender, correlationId));
 
                                 return fut;
                             }
                         });
 
-                        return replica0;
+                        return replica;
                     });
 
                     return;
@@ -169,13 +154,13 @@ public class ReplicaManager implements IgniteComponent {
 
                 Replica replica = replicas.get(request.groupId());
 
+                HybridTimestamp requestTimestamp = extractTimestamp(request);
+
                 if (replica == null) {
                     sendReplicaUnavailableErrorResponse(sender, correlationId, request, requestTimestamp);
 
                     return;
                 }
-
-//                System.out.println("replica is not null");
 
                 CompletableFuture<Object> result = replica.processRequest(request);
 
@@ -183,7 +168,6 @@ public class ReplicaManager implements IgniteComponent {
                     NetworkMessage msg;
 
                     if (ex == null) {
-//                        System.out.println("prepareReplicaResponse");
                         msg = prepareReplicaResponse(requestTimestamp, res);
                     } else {
                         LOG.warn("Failed to process replica request [request={}]", ex, request);
@@ -255,19 +239,11 @@ public class ReplicaManager implements IgniteComponent {
             ReplicationGroupId replicaGrpId,
             ReplicaListener listener
     ) {
-//        System.out.println("startReplicaInternal");
         var replica = new Replica(replicaGrpId, listener);
 
         Replica previous = replicas.putIfAbsent(replicaGrpId, replica);
 
-        pendingReplicas.forEach((id, responsesFut) -> {
-//            System.out.println("startReplicaInternal pendingReplicas.forEach");
-            if (id.equals(replicaGrpId)) {
-//                System.out.println("startReplicaInternal responsesFut.join()");
-
-                responsesFut.complete(null);
-            }
-        });
+        pendingReplicas.get(replicaGrpId).complete(null);
 
         pendingReplicas.remove(replicaGrpId);
 
@@ -393,7 +369,7 @@ public class ReplicaManager implements IgniteComponent {
     }
 
     /**
-     * Sends replica unavailable error response.
+     * Sends await replica response.
      */
     private void sendAwaitReplicaResponse(
             ClusterNode sender,
