@@ -48,6 +48,7 @@ import org.apache.ignite.internal.cluster.management.raft.CmgRaftService;
 import org.apache.ignite.internal.cluster.management.raft.IllegalInitArgumentException;
 import org.apache.ignite.internal.cluster.management.raft.JoinDeniedException;
 import org.apache.ignite.internal.cluster.management.raft.commands.JoinReadyCommand;
+import org.apache.ignite.internal.cluster.management.topology.InternalLogicalTopologyService;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -115,6 +116,8 @@ public class ClusterManagementGroupManager implements IgniteComponent {
 
     private final ClusterStateStorage clusterStateStorage;
 
+    private final InternalLogicalTopologyService logicalTopologyService;
+
     /** Local state. */
     private final LocalStateStorage localStateStorage;
 
@@ -126,11 +129,13 @@ public class ClusterManagementGroupManager implements IgniteComponent {
             VaultManager vault,
             ClusterService clusterService,
             Loza raftManager,
-            ClusterStateStorage clusterStateStorage
+            ClusterStateStorage clusterStateStorage,
+            InternalLogicalTopologyService logicalTopologyService
     ) {
         this.clusterService = clusterService;
         this.raftManager = raftManager;
         this.clusterStateStorage = clusterStateStorage;
+        this.logicalTopologyService = logicalTopologyService;
         this.localStateStorage = new LocalStateStorage(vault);
         this.clusterInitializer = new ClusterInitializer(clusterService);
     }
@@ -474,7 +479,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                             () -> {
                                 clusterStateStorage.start();
 
-                                return new CmgRaftGroupListener(clusterStateStorage);
+                                return new CmgRaftGroupListener(clusterStateStorage, logicalTopologyService);
                             },
                             this::createCmgRaftGroupEventsListener,
                             RaftGroupOptions.defaults()

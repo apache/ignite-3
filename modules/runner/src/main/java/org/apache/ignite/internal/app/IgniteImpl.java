@@ -38,6 +38,7 @@ import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManag
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesSerializationRegistryInitializer;
 import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.rest.ClusterManagementRestFactory;
+import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.compute.ComputeComponent;
 import org.apache.ignite.internal.compute.ComputeComponentImpl;
@@ -308,11 +309,16 @@ public class IgniteImpl implements Ignite {
 
         txManager = new TxManagerImpl(replicaSvc, lockMgr, clock);
 
+        RocksDbClusterStateStorage clusterStateStorage = new RocksDbClusterStateStorage(workDir.resolve(CMG_DB_PATH));
+
+        LogicalTopologyServiceImpl logicalTopologyService = new LogicalTopologyServiceImpl(clusterStateStorage);
+
         cmgMgr = new ClusterManagementGroupManager(
                 vaultMgr,
                 clusterSvc,
                 raftMgr,
-                new RocksDbClusterStateStorage(workDir.resolve(CMG_DB_PATH))
+                clusterStateStorage,
+                logicalTopologyService
         );
 
         metaStorageMgr = new MetaStorageManager(

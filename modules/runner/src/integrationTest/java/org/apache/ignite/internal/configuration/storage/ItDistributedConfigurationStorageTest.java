@@ -32,6 +32,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
+import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -93,11 +94,15 @@ public class ItDistributedConfigurationStorageTest {
 
             raftManager = new Loza(clusterService, raftConfiguration, workDir, new HybridClockImpl());
 
+            TestClusterStateStorage clusterStateStorage = new TestClusterStateStorage();
+            LogicalTopologyServiceImpl logicalTopologyService = new LogicalTopologyServiceImpl(clusterStateStorage);
+
             cmgManager = new ClusterManagementGroupManager(
                     vaultManager,
                     clusterService,
                     raftManager,
-                    new TestClusterStateStorage()
+                    clusterStateStorage,
+                    logicalTopologyService
             );
 
             metaStorageManager = new MetaStorageManager(
