@@ -73,19 +73,24 @@ public partial class LinqTests
     [Test]
     public void TestUnionWithCast()
     {
-        var subQuery = PocoIntView.AsQueryable().Select(x => new { x.Key });
+        var subQuery = PocoIntView.AsQueryable()
+            .Select(x => new { x.Key })
+            .Where(x => x.Key > 3 && x.Key < 5);
 
         var query = PocoByteView.AsQueryable()
+            .Where(x => x.Key > 8)
             .Select(x => new { Key = (int)x.Key })
             .Union(subQuery);
 
         var res = query.ToList();
 
-        Assert.AreEqual(new[] { 0, 1, 2, 3 }, res);
+        CollectionAssert.AreEquivalent(new[] { 4, 9 }, res.Select(x => x.Key));
 
         StringAssert.Contains(
-            "select _T0.KEY from PUBLIC.TBL_INT8 as _T0 " +
-            "union (select _T1.KEY from PUBLIC.TBL_INT32 as _T1)",
+            "select cast(_T0.KEY as int) " +
+            "from PUBLIC.TBL_INT8 as _T0 " +
+            "where (cast(_T0.KEY as int) > ?) " +
+            "union (select _T1.KEY from PUBLIC.TBL_INT32 as _T1 where ((_T1.KEY > ?) and (_T1.KEY < ?)))",
             query.ToString());
     }
 }
