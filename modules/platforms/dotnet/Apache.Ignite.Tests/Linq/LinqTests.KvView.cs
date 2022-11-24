@@ -89,7 +89,39 @@ public partial class LinqTests
     [Test]
     public void TestJoinRecordWithKv()
     {
-        Assert.Fail("TODO");
+        var query1 = KvView.AsQueryable()
+            .Where(x => x.Key.Key > 1);
+
+        var query2 = PocoView.AsQueryable()
+            .Where(x => x.Key > 7);
+
+        var query = query1.Join(
+                query2,
+                a => a.Key.Key,
+                b => b.Key,
+                (a, b) => new
+                {
+                    Key1 = a.Key.Key,
+                    Val1 = a.Value.Val,
+                    Key2 = b.Key,
+                    Val2 = b.Val
+                })
+            .OrderBy(x => x.Key1);
+
+        var res = query.ToList();
+
+        Assert.AreEqual(8, res[0].Key1);
+        Assert.AreEqual(8, res[0].Key2);
+
+        Assert.AreEqual("v-8", res[0].Val1);
+        Assert.AreEqual("v-8", res[0].Val2);
+
+        StringAssert.Contains(
+            "select _T0.KEY, _T0.VAL, _T1.KEY, _T1.VAL from PUBLIC.TBL1 as _T0 " +
+            "inner join (select * from PUBLIC.TBL1 as _T2 where (_T2.KEY > ?) ) as _T1 on (_T1.KEY = _T0.KEY) " +
+            "where (_T0.KEY > ?) " +
+            "order by (_T0.KEY) asc",
+            query.ToString());
     }
 
     [OneTimeSetUp]
