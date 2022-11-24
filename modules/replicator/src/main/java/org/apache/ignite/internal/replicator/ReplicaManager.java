@@ -141,7 +141,7 @@ public class ReplicaManager implements IgniteComponent {
 
                                 return fut;
                             } else {
-                                IgniteUtils.inBusyLock(busyLock,() -> sendAwaitReplicaResponse(sender, correlationId));
+                                IgniteUtils.inBusyLock(busyLock, () -> sendAwaitReplicaResponse(sender, correlationId));
 
                                 return fut;
                             }
