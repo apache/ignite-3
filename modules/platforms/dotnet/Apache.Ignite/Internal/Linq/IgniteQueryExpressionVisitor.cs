@@ -326,8 +326,7 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
         Visit(expression.IfTrue);
 
         ResultBuilder.Append(" as ");
-        var sqlColumnType = expression.Type.ToSqlColumnType() ?? throw new NotSupportedException("Unsupported type: " + expression.Type);
-        ResultBuilder.Append(sqlColumnType.ToSqlTypeName());
+        ResultBuilder.Append(expression.Type.ToSqlTypeName());
         ResultBuilder.Append(')');
 
         Visit(expression.IfFalse);
@@ -400,15 +399,10 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
         }
         else if (expression.NodeType is ExpressionType.Convert)
         {
-            ResultBuilder.Append(" as ");
-
-            // TODO: One-step type conversion (here and in other places).
-            var sqlColumnType = expression.Type.ToSqlColumnType() ??
-                                throw new NotSupportedException("Unsupported type: " + expression.Type);
-
-            var sqlTypeName = sqlColumnType.ToSqlTypeName();
-
-            ResultBuilder.Append(sqlTypeName).Append(')');
+            ResultBuilder
+                .Append(" as ")
+                .Append(expression.Type.ToSqlTypeName())
+                .Append(')');
         }
 
         return expression;

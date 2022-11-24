@@ -33,6 +33,9 @@ internal static class SqlColumnTypeExtensions
     private static readonly IReadOnlyDictionary<Type, SqlColumnType> ClrToSql =
         Enum.GetValues<SqlColumnType>().ToDictionary(x => x.ToClrType(), x => x);
 
+    private static readonly IReadOnlyDictionary<Type, string> ClrToSqlName =
+        Enum.GetValues<SqlColumnType>().ToDictionary(x => x.ToClrType(), x => x.ToSqlTypeName());
+
     /// <summary>
     /// Gets corresponding .NET type.
     /// </summary>
@@ -66,7 +69,7 @@ internal static class SqlColumnTypeExtensions
     /// Gets corresponding SQL type name.
     /// </summary>
     /// <param name="sqlColumnType">SQL column type.</param>
-    /// <returns>CLR type.</returns>
+    /// <returns>SQL type name.</returns>
     public static string ToSqlTypeName(this SqlColumnType sqlColumnType) => sqlColumnType switch
     {
         SqlColumnType.Boolean => "boolean",
@@ -88,6 +91,16 @@ internal static class SqlColumnTypeExtensions
         SqlColumnType.Number => "numeric",
         _ => throw new InvalidOperationException($"Unsupported {nameof(SqlColumnType)}: {sqlColumnType}")
     };
+
+    /// <summary>
+    /// Gets corresponding SQL type name.
+    /// </summary>
+    /// <param name="type">CLR type.</param>
+    /// <returns>SQL type name.</returns>
+    public static string ToSqlTypeName(this Type type) =>
+        ClrToSqlName.TryGetValue(type, out var sqlTypeName)
+            ? sqlTypeName
+            : throw new InvalidOperationException($"Type is not supported in SQL: {type}");
 
     /// <summary>
     /// Gets corresponding <see cref="SqlColumnType"/>.
