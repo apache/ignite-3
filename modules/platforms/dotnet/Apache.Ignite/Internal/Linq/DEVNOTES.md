@@ -25,6 +25,7 @@ There are two ways to map columns to user type members:
 
 We take the second approach for the sake of performance, simplicity and clarity.
 
+**Primitive type mapping is not supported**: not possible to determine column names without schema.
 
 ### Type Member to Column Mapping
 
