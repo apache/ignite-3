@@ -28,6 +28,25 @@ public partial class LinqTests
     [Test]
     public void TestUnion()
     {
+        var subQuery = PocoView.AsQueryable().Select(x => new { Id = x.Key });
+
+        var query = PocoLongView.AsQueryable()
+            .Select(x => new { Id = x.Key })
+            .Union(subQuery);
+
+        var res = query.ToList();
+
+        Assert.AreEqual(new[] { 0, 1, 2, 3 }, res);
+
+        StringAssert.Contains(
+            "select _T0.KEY from PUBLIC.TBL_INT8 as _T0 " +
+            "union (select _T1.KEY from PUBLIC.TBL_INT32 as _T1)",
+            query.ToString());
+    }
+
+    [Test]
+    public void TestUnionWithCast()
+    {
         var subQuery = PocoIntView.AsQueryable().Select(x => new { x.Key });
 
         var query = PocoByteView.AsQueryable()
@@ -39,10 +58,8 @@ public partial class LinqTests
         Assert.AreEqual(new[] { 0, 1, 2, 3 }, res);
 
         StringAssert.Contains(
-            "select _T0.VAL " +
-            "from PUBLIC.TBL_INT8 as _T0 " +
-            "group by (_T0.VAL) " +
-            "order by (_T0.VAL) asc",
+            "select _T0.KEY from PUBLIC.TBL_INT8 as _T0 " +
+            "union (select _T1.KEY from PUBLIC.TBL_INT32 as _T1)",
             query.ToString());
     }
 }
