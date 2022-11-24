@@ -412,8 +412,7 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
             return;
         }
 
-        if (expression.Member.DeclaringType is {IsGenericType: true} declaringType &&
-            declaringType.GetGenericTypeDefinition() == typeof(KeyValuePair<,>))
+        if (expression.Member.DeclaringType.IsKeyValuePair())
         {
             // TODO: Cache this?
             AppendColumnNames(((PropertyInfo)expression.Member).PropertyType, tableName);
@@ -449,15 +448,12 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
                 "Use a custom type (class, record, struct) with a single field instead.");
         }
 
-        // TODO: This check will cause incorrect behavior when user starts with IRecordView<KeyValuePair<,>> - what to do?
-        if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(KeyValuePair<,>))
+        if (type.GetKeyValuePairTypes() is var (keyType, valType))
         {
-            var genericArguments = type.GetGenericArguments();
-
             var keyColumnNames = new HashSet<string>();
 
-            AppendColumnNames(genericArguments[0], tableName, first: true, toSkip: keyColumnNames, populateToSkip: true);
-            AppendColumnNames(genericArguments[1], tableName, first: false, toSkip: keyColumnNames);
+            AppendColumnNames(keyType, tableName, first: true, toSkip: keyColumnNames, populateToSkip: true);
+            AppendColumnNames(valType, tableName, first: false, toSkip: keyColumnNames);
 
             return;
         }

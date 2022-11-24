@@ -82,8 +82,8 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// </summary>
         /// <param name="type">Type.</param>
         /// <returns>Whether the provided type is a <see cref="KeyValuePair{TKey,TValue}"/>.</returns>
-        public static bool IsKeyValuePair(this Type type) =>
-            type.IsGenericType && type.GetGenericTypeDefinition() == typeof(KeyValuePair<,>);
+        public static bool IsKeyValuePair(this Type? type) =>
+            type is { IsGenericType: true } && type.GetGenericTypeDefinition() == typeof(KeyValuePair<,>);
 
         /// <summary>
         /// Gets a map of fields by column name.
