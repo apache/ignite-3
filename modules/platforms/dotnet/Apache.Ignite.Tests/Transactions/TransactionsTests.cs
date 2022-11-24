@@ -170,6 +170,10 @@ namespace Apache.Ignite.Tests.Transactions
                 await table!.RecordBinaryView.UpsertAsync(tx1, GetTuple(1, "2"));
             }
 
+            // The code above is intentionally written in a way that we have no guarantee that the lock taken by tx1 is already released,
+            // as client2 is closed without rolling back tx1, forcing Ignite server to rollback tx1 in background. So we should check the
+            // value using transaction that is older than tx1, to make sure that the conflict on key 1 between tx0 and tx1 will not lead
+            // to exception.
             Assert.AreEqual("1", (await TupleView.GetAsync(tx0, GetTuple(1))).Value[ValCol]);
         }
 
