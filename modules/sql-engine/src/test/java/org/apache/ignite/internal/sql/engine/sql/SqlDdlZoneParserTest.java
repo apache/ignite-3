@@ -24,11 +24,11 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.Objects;
-import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.parser.SqlParseException;
@@ -44,7 +44,7 @@ public class SqlDdlZoneParserTest extends AbstractDdlParserTest {
      * Parse simple CREATE ZONE statement.
      */
     @Test
-    public void createZoneMoOptions() throws SqlParseException {
+    public void createZoneNoOptions() throws SqlParseException {
         // Simple name.
         IgniteSqlCreateZone createZone = parseCreateZone("create zone test_zone");
 
@@ -105,13 +105,21 @@ public class SqlDdlZoneParserTest extends AbstractDdlParserTest {
         createZone.unparse(w, 0, 0);
 
         assertThat(w.toString(), equalTo("CREATE ZONE \"TEST_ZONE\" WITH "
-                + "\"REPLICAS\" = 2, "
-                + "\"PARTITIONS\" = 3, "
-                + "\"DATA_NODES_FILTER\" = '(\"US\" || \"EU\") && \"SSD\"', "
-                + "\"AFFINITY_FUNCTION\" = 'test_Affinity', "
-                + "\"DATA_NODES_AUTO_ADJUST\" = 1, "
-                + "\"DATA_NODES_AUTO_ADJUST_SCALE_UP\" = 2, "
-                + "\"DATA_NODES_AUTO_ADJUST_SCALE_DOWN\" = 3"));
+                + "REPLICAS = 2, "
+                + "PARTITIONS = 3, "
+                + "DATA_NODES_FILTER = '(\"US\" || \"EU\") && \"SSD\"', "
+                + "AFFINITY_FUNCTION = 'test_Affinity', "
+                + "DATA_NODES_AUTO_ADJUST = 1, "
+                + "DATA_NODES_AUTO_ADJUST_SCALE_UP = 2, "
+                + "DATA_NODES_AUTO_ADJUST_SCALE_DOWN = 3"));
+    }
+
+    /**
+     * Parse CREATE ZONE WITH unknown option.
+     */
+    @Test
+    public void createZoneWithUnknownOptions() {
+        assertThrows(SqlParseException.class, () -> parseCreateZone("create zone test_zone with foo=bar"));
     }
 
     /**
@@ -169,13 +177,9 @@ public class SqlDdlZoneParserTest extends AbstractDdlParserTest {
                 option + "=" + expVal,
                 IgniteSqlCreateZoneOption.class,
                 opt -> {
-                    if (opt.key().getSimple().equals(option)) {
+                    if (option.equals(opt.key().toValue())) {
                         if (opt.value() instanceof SqlLiteral) {
                             return Objects.equals(expVal, ((SqlLiteral) opt.value()).getValueAs(expVal.getClass()));
-                        }
-
-                        if (opt.value() instanceof SqlIdentifier) {
-                            return Objects.equals(expVal, ((SqlIdentifier) opt.value()).getSimple());
                         }
                     }
 

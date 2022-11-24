@@ -19,8 +19,8 @@ package org.apache.ignite.internal.sql.engine.sql;
 
 import java.util.List;
 import org.apache.calcite.sql.SqlCall;
-import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlKind;
+import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlOperator;
 import org.apache.calcite.sql.SqlSpecialOperator;
@@ -37,13 +37,13 @@ public class IgniteSqlCreateZoneOption extends SqlCall {
             new SqlSpecialOperator("ZoneOption", SqlKind.OTHER);
 
     /** Option key. */
-    private final SqlIdentifier key;
+    private final SqlLiteral key;
 
     /** Option value. */
     private final SqlNode value;
 
     /** Creates {@link IgniteSqlCreateZoneOption}. */
-    public IgniteSqlCreateZoneOption(SqlIdentifier key, SqlNode value, SqlParserPos pos) {
+    public IgniteSqlCreateZoneOption(SqlLiteral key, SqlNode value, SqlParserPos pos) {
         super(pos);
 
         this.key = key;
@@ -106,7 +106,7 @@ public class IgniteSqlCreateZoneOption extends SqlCall {
     /**
      * Get option's key.
      */
-    public SqlIdentifier key() {
+    public SqlLiteral key() {
         return key;
     }
 

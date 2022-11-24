@@ -80,14 +80,14 @@ public class IgniteSqlCreateZone extends SqlCreate {
     }
 
     /**
-     * Get name of the distributed zone.
+     * Get name of the distribution zone.
      */
     public SqlIdentifier name() {
         return name;
     }
 
     /**
-     * Get list of the specified options to create distributed zone with.
+     * Get list of the specified options to create distribution zone with.
      */
     public SqlNodeList createOptionList() {
         return createOptionList;
