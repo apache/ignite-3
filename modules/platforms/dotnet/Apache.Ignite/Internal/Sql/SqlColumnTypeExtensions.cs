@@ -34,7 +34,9 @@ internal static class SqlColumnTypeExtensions
         Enum.GetValues<SqlColumnType>().ToDictionary(x => x.ToClrType(), x => x);
 
     private static readonly IReadOnlyDictionary<Type, string> ClrToSqlName =
-        Enum.GetValues<SqlColumnType>().ToDictionary(x => x.ToClrType(), x => x.ToSqlTypeName());
+        Enum.GetValues<SqlColumnType>()
+            .Where(x => x != SqlColumnType.Period && x != SqlColumnType.Duration)
+            .ToDictionary(x => x.ToClrType(), x => x.ToSqlTypeName());
 
     /// <summary>
     /// Gets corresponding .NET type.
