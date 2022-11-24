@@ -24,7 +24,7 @@ import org.apache.ignite.network.annotations.Transferable;
 import org.apache.ignite.raft.client.WriteCommand;
 
 /**
- * Command that gets executed when a node needs to be removed from the logical topology.
+ * Command that gets executed when nodes need to be removed from the logical topology.
  */
 @Transferable(CmgMessageGroup.Commands.NODES_LEAVE)
 public interface NodesLeaveCommand extends WriteCommand, NetworkMessage {
