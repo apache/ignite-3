@@ -17,12 +17,21 @@
 
 package org.apache.ignite.internal.distributionzones;
 
+import static org.apache.ignite.lang.ErrorGroups.Common.UNEXPECTED_ERR;
+
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.configuration.NamedListChange;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneChange;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneView;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
+import org.apache.ignite.internal.distributionzones.exception.DistributionZoneAlreadyExistsException;
+import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNotFoundException;
+import org.apache.ignite.internal.distributionzones.exception.DistributionZoneRenameException;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.NodeStoppingException;
 
 /**
@@ -58,7 +67,8 @@ public class DistributionZoneManager implements IgniteComponent {
         }
 
         try {
-            return zonesConfiguration.change(zonesChange -> zonesChange.changeDistributionZones(zonesListChange ->
+            return zonesConfiguration.change(zonesChange -> zonesChange.changeDistributionZones(zonesListChange -> {
+                try {
                     zonesListChange.create(distributionZoneCfg.name(), zoneChange -> {
                         if (distributionZoneCfg.dataNodesAutoAdjust() == null) {
                             zoneChange.changeDataNodesAutoAdjust(Integer.MAX_VALUE);
@@ -83,7 +93,13 @@ public class DistributionZoneManager implements IgniteComponent {
                         zonesChange.changeGlobalIdCounter(intZoneId);
 
                         zoneChange.changeZoneId(intZoneId);
-                    })));
+                    });
+                } catch (IllegalArgumentException e) {
+                    throw new DistributionZoneAlreadyExistsException(distributionZoneCfg.name(), e);
+                } catch (Exception e) {
+                    throw new IgniteInternalException(UNEXPECTED_ERR, distributionZoneCfg.name(), e);
+                }
+            }));
         } finally {
             busyLock.leaveBusy();
         }
@@ -105,27 +121,46 @@ public class DistributionZoneManager implements IgniteComponent {
         }
 
         try {
-            return zonesConfiguration.change(zonesChange -> zonesChange.changeDistributionZones(zonesListChange -> zonesListChange
-                    .rename(name, distributionZoneCfg.name())
-                    .update(
-                            distributionZoneCfg.name(), zoneChange -> {
-                                if (distributionZoneCfg.dataNodesAutoAdjust() != null) {
-                                    zoneChange.changeDataNodesAutoAdjust(distributionZoneCfg.dataNodesAutoAdjust());
-                                    zoneChange.changeDataNodesAutoAdjustScaleUp(Integer.MAX_VALUE);
-                                    zoneChange.changeDataNodesAutoAdjustScaleDown(Integer.MAX_VALUE);
-                                }
+            return zonesConfiguration.change(zonesChange -> zonesChange.changeDistributionZones(zonesListChange -> {
+                NamedListChange<DistributionZoneView, DistributionZoneChange> renameChange;
 
-                                if (distributionZoneCfg.dataNodesAutoAdjustScaleUp() != null) {
-                                    zoneChange.changeDataNodesAutoAdjustScaleUp(
-                                            distributionZoneCfg.dataNodesAutoAdjustScaleUp());
-                                    zoneChange.changeDataNodesAutoAdjust(Integer.MAX_VALUE);
-                                }
+                try {
+                    renameChange = zonesListChange
+                            .rename(name, distributionZoneCfg.name());
+                } catch (IllegalArgumentException e) {
+                    throw new DistributionZoneRenameException(name, distributionZoneCfg.name(), e);
+                } catch (Exception e) {
+                    throw new IgniteInternalException(UNEXPECTED_ERR, distributionZoneCfg.name(), e);
+                }
 
-                                if (distributionZoneCfg.dataNodesAutoAdjustScaleDown() != null) {
-                                    zoneChange.changeDataNodesAutoAdjustScaleDown(distributionZoneCfg.dataNodesAutoAdjustScaleDown());
-                                    zoneChange.changeDataNodesAutoAdjust(Integer.MAX_VALUE);
-                                }
-                            })));
+                try {
+                    renameChange
+                            .update(
+                                    distributionZoneCfg.name(), zoneChange -> {
+                                        if (distributionZoneCfg.dataNodesAutoAdjust() != null) {
+                                            zoneChange.changeDataNodesAutoAdjust(distributionZoneCfg.dataNodesAutoAdjust());
+                                            zoneChange.changeDataNodesAutoAdjustScaleUp(Integer.MAX_VALUE);
+                                            zoneChange.changeDataNodesAutoAdjustScaleDown(Integer.MAX_VALUE);
+                                        }
+
+                                        if (distributionZoneCfg.dataNodesAutoAdjustScaleUp() != null) {
+                                            zoneChange.changeDataNodesAutoAdjustScaleUp(
+                                                    distributionZoneCfg.dataNodesAutoAdjustScaleUp());
+                                            zoneChange.changeDataNodesAutoAdjust(Integer.MAX_VALUE);
+                                        }
+
+                                        if (distributionZoneCfg.dataNodesAutoAdjustScaleDown() != null) {
+                                            zoneChange.changeDataNodesAutoAdjustScaleDown(
+                                                    distributionZoneCfg.dataNodesAutoAdjustScaleDown());
+                                            zoneChange.changeDataNodesAutoAdjust(Integer.MAX_VALUE);
+                                        }
+                                    });
+                } catch (IllegalArgumentException e) {
+                    throw new DistributionZoneNotFoundException(distributionZoneCfg.name(), e);
+                } catch (Exception e) {
+                    throw new IgniteInternalException(UNEXPECTED_ERR, distributionZoneCfg.name(), e);
+                }
+            }));
         } finally {
             busyLock.leaveBusy();
         }
@@ -145,9 +180,15 @@ public class DistributionZoneManager implements IgniteComponent {
         }
 
         try {
-            return zonesConfiguration.change(
-                    zonesChange -> zonesChange.changeDistributionZones(zonesListChange -> zonesListChange.delete(name))
-            );
+            return zonesConfiguration.change(zonesChange -> zonesChange.changeDistributionZones(zonesListChange -> {
+                DistributionZoneView view = zonesListChange.get(name);
+
+                if (view == null) {
+                    throw new DistributionZoneNotFoundException(name);
+                }
+
+                zonesListChange.delete(name);
+            }));
         } finally {
             busyLock.leaveBusy();
         }

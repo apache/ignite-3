@@ -22,7 +22,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.List;
 import java.util.Map;
@@ -32,6 +31,9 @@ import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
+import org.apache.ignite.internal.distributionzones.exception.DistributionZoneAlreadyExistsException;
+import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNotFoundException;
+import org.apache.ignite.internal.distributionzones.exception.DistributionZoneRenameException;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -154,7 +156,7 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
         }
 
         assertTrue(e != null);
-        assertTrue(e.getCause().getCause() instanceof IllegalArgumentException, e.toString());
+        assertTrue(e.getCause().getCause() instanceof DistributionZoneAlreadyExistsException, e.toString());
     }
 
     @Test
@@ -164,8 +166,11 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
         try {
             distributionZoneManager.dropZone(ZONE_NAME).get(5, TimeUnit.SECONDS);
         } catch (Exception e0) {
-            fail();
+            e = e0;
         }
+
+        assertTrue(e != null);
+        assertTrue(e.getCause().getCause() instanceof DistributionZoneNotFoundException, e.toString());
     }
 
     @Test
@@ -277,6 +282,42 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
     }
 
     @Test
+    public void testAlterZoneRename1() {
+        Exception e = null;
+
+        try {
+            distributionZoneManager.alterZone(ZONE_NAME, new DistributionZoneConfigurationParameters.Builder()
+                    .name(NEW_ZONE_NAME).dataNodesAutoAdjust(100).build()).get(5, TimeUnit.SECONDS);
+        } catch (Exception e0) {
+            e = e0;
+        }
+
+        assertTrue(e != null);
+        assertTrue(e.getCause().getCause() instanceof DistributionZoneRenameException, e.toString());
+    }
+
+    @Test
+    public void testAlterZoneRename2() throws Exception {
+        Exception e = null;
+
+        distributionZoneManager.createZone(new DistributionZoneConfigurationParameters.Builder()
+                .name(ZONE_NAME).dataNodesAutoAdjust(100).build()).get(5, TimeUnit.SECONDS);
+
+        distributionZoneManager.createZone(new DistributionZoneConfigurationParameters.Builder()
+                .name(NEW_ZONE_NAME).dataNodesAutoAdjust(100).build()).get(5, TimeUnit.SECONDS);
+
+        try {
+            distributionZoneManager.alterZone(ZONE_NAME, new DistributionZoneConfigurationParameters.Builder()
+                    .name(NEW_ZONE_NAME).dataNodesAutoAdjust(100).build()).get(5, TimeUnit.SECONDS);
+        } catch (Exception e0) {
+            e = e0;
+        }
+
+        assertTrue(e != null);
+        assertTrue(e.getCause().getCause() instanceof DistributionZoneRenameException, e.toString());
+    }
+
+    @Test
     public void testAlterZoneIfExists() {
         Exception e = null;
 
@@ -288,7 +329,7 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
         }
 
         assertTrue(e != null);
-        assertTrue(e.getCause().getCause() instanceof IllegalArgumentException, e.toString());
+        assertTrue(e.getCause().getCause() instanceof DistributionZoneNotFoundException, e.toString());
     }
 
     @Test

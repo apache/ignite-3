@@ -324,12 +324,15 @@ public class ErrorGroups {
     /** Distribution zones error group. */
     public static class DistributionZones {
         /** Distribution zones group. */
-        public static final ErrorGroup DISTRIBUTION_ZONES_ERR_GROUP = ErrorGroup.newGroup("DISTRIBUTION_ZONES", 10);
+        public static final ErrorGroup DISTRIBUTION_ZONES_ERR_GROUP = ErrorGroup.newGroup("DISTRZONES", 10);
 
         /** Distribution zone already exists. */
         public static final int ZONE_ALREADY_EXISTS_ERR = DISTRIBUTION_ZONES_ERR_GROUP.registerErrorCode(1);
 
         /** Distribution zone is not found. */
         public static final int ZONE_NOT_FOUND_ERR = DISTRIBUTION_ZONES_ERR_GROUP.registerErrorCode(2);
+
+        /** Distribution zone rename error. */
+        public static final int ZONE_RENAME_ERR = DISTRIBUTION_ZONES_ERR_GROUP.registerErrorCode(3);
     }
 }
