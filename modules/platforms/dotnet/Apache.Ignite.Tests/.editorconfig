@@ -39,6 +39,5 @@ dotnet_diagnostic.CA2201.severity = none # Do not raise reserved exception types
 dotnet_diagnostic.CA1508.severity = none # Avoid dead conditional code
 dotnet_diagnostic.CA1305.severity = none # Specify IFormatProvider
 dotnet_diagnostic.CA1819.severity = none # Properties should not return arrays
-
-
+dotnet_diagnostic.CA1812.severity = none # Avoid uninstantiated internal classes
 

@@ -48,7 +48,6 @@ processResources {
     }
 }
 
-
 pmdMain {
     enabled = true
 }
@@ -76,7 +75,11 @@ tasks.withType(Checkstyle) {
                 "org/apache/ignite/raft/jraft/**/*"]
     reports {
         xml.required = false
-        html.required = true
+        html {
+            required = true
+            outputLocation = file("$rootDir/build/reports/checkstyle/${project.name}.html")
+        }
+
     }
 }
 

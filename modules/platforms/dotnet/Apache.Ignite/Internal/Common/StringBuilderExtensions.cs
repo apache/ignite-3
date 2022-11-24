@@ -15,21 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cluster.management.raft.commands;
+namespace Apache.Ignite.Internal.Common;
 
-import java.util.Set;
-import org.apache.ignite.internal.cluster.management.network.messages.CmgMessageGroup;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Transferable;
-import org.apache.ignite.raft.client.WriteCommand;
+using System.Text;
 
-/**
- * Command that gets executed when nodes need to be removed from the logical topology.
- */
-@Transferable(CmgMessageGroup.Commands.NODES_LEAVE)
-public interface NodesLeaveCommand extends WriteCommand, NetworkMessage {
-    /**
-     * Returns the nodes that need to be removed from the logical topology.
-     */
-    Set<ClusterNodeMessage> nodes();
+/// <summary>
+/// Extension methods for <see cref="StringBuilder"/> class.
+/// </summary>
+internal static class StringBuilderExtensions
+{
+    /// <summary>
+    /// Removes all the trailing white-space characters from the current string builder.
+    /// </summary>
+    /// <param name="sb">String builder.</param>
+    /// <returns>Same instance for chaining.</returns>
+    public static StringBuilder TrimEnd(this StringBuilder sb)
+    {
+        while (sb.Length > 0 && char.IsWhiteSpace(sb[^1]))
+        {
+            sb.Length--;
+        }
+
+        return sb;
+    }
 }

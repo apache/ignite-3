@@ -28,6 +28,7 @@ import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.network.ClusterNode;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * An object that represents a hash index.
@@ -76,13 +77,19 @@ public class HashIndex implements Index<IndexDescriptor> {
 
     /** {@inheritDoc} */
     @Override
-    public Publisher<BinaryRow> lookup(int partId, InternalTransaction tx, BinaryTuple key, BitSet columns) {
+    public Publisher<BinaryRow> lookup(int partId, @Nullable InternalTransaction tx, BinaryTuple key, @Nullable BitSet columns) {
         return table.lookup(partId, tx, id, key, columns);
     }
 
     /** {@inheritDoc} */
     @Override
-    public Publisher<BinaryRow> lookup(int partId, HybridTimestamp timestamp, ClusterNode recipientNode, BinaryTuple key, BitSet columns) {
+    public Publisher<BinaryRow> lookup(
+            int partId,
+            HybridTimestamp timestamp,
+            ClusterNode recipientNode,
+            BinaryTuple key,
+            @Nullable BitSet columns
+    ) {
         return table.lookup(partId, timestamp, recipientNode, id, key, columns);
     }
 }

@@ -66,6 +66,16 @@ namespace Apache.Ignite.Internal.Table
         /// </summary>
         public RecordSerializer<T> RecordSerializer => _ser;
 
+        /// <summary>
+        /// Gets the table.
+        /// </summary>
+        public Table Table => _table;
+
+        /// <summary>
+        /// Gets the SQL.
+        /// </summary>
+        public Sql Sql => _sql;
+
         /// <inheritdoc/>
         public async Task<Option<T>> GetAsync(ITransaction? transaction, T key)
         {
@@ -292,6 +302,14 @@ namespace Apache.Ignite.Internal.Table
         {
             var executor = new IgniteQueryExecutor(_sql, transaction, options);
             var provider = new IgniteQueryProvider(IgniteQueryParser.Instance, executor, _table.Name);
+
+            if (typeof(T).IsKeyValuePair())
+            {
+                throw new NotSupportedException(
+                    $"Can't use {typeof(KeyValuePair<,>)} for LINQ queries: " +
+                    $"it is reserved for {typeof(IKeyValueView<,>)}.{nameof(IKeyValueView<int, int>.AsQueryable)}. " +
+                    "Use a custom type instead.");
+            }
 
             return new IgniteQueryable<T>(provider);
         }

@@ -38,6 +38,7 @@ import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * TableDescriptorImpl.
@@ -174,7 +175,7 @@ public class TableDescriptorImpl extends NullInitializerExpressionFactory implem
 
     /** {@inheritDoc} */
     @Override
-    public RelDataType rowType(IgniteTypeFactory factory, ImmutableBitSet usedColumns) {
+    public RelDataType rowType(IgniteTypeFactory factory, @Nullable ImmutableBitSet usedColumns) {
         RelDataTypeFactory.Builder b = new RelDataTypeFactory.Builder(factory);
 
         if (usedColumns == null) {

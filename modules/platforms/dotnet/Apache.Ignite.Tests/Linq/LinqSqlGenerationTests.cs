@@ -18,7 +18,8 @@
 namespace Apache.Ignite.Tests.Linq;
 
 using System;
-using System.Diagnostics.CodeAnalysis;
+using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
 using System.Threading.Tasks;
 using Ignite.Sql;
@@ -31,7 +32,7 @@ using Table;
 /// <para />
 /// Uses <see cref="FakeServer"/> to get the actual SQL sent from the client.
 /// </summary>
-public class LinqSqlGenerationTests
+public partial class LinqSqlGenerationTests
 {
     private IIgniteClient _client = null!;
     private FakeServer _server = null!;
@@ -82,6 +83,22 @@ public class LinqSqlGenerationTests
         AssertSql("select distinct _T0.VAL from PUBLIC.tbl1 as _T0", q => q.Select(x => x.Val).Distinct().ToArray());
 
     [Test]
+    public void TestAll() =>
+        AssertSql(
+            "select not exists (select 1 from PUBLIC.tbl1 as _T0 where not (_T0.KEY > ?))",
+            q => q.All(x => x.Key > 10));
+
+    [Test]
+    public void TestAllWithWhere() =>
+        AssertSql(
+            "select not exists (select 1 from PUBLIC.tbl1 as _T0 where (_T0.VAL IS DISTINCT FROM ?) and not (_T0.KEY > ?))",
+            q => q.Where(x => x.Val != "1").All(x => x.Key > 10));
+
+    [Test]
+    public void TestAny() =>
+        AssertSql("select exists (select 1 from PUBLIC.tbl1 as _T0 where (_T0.KEY > ?))", q => q.Any(x => x.Key > 10));
+
+    [Test]
     public void TestSelectOrderByOffsetLimit() =>
         AssertSql(
             "select _T0.KEY, _T0.VAL, (_T0.KEY + ?) " +
@@ -111,7 +128,7 @@ public class LinqSqlGenerationTests
         _server.LastSqlTimeoutMs = null;
         _server.LastSqlPageSize = null;
 
-        _ = _table.GetRecordView<Poco>().AsQueryable().Select(x => x.Key).ToArray();
+        _ = _table.GetRecordView<Poco>().AsQueryable().Select(x => (int)x.Key).ToArray();
 
         Assert.AreEqual(SqlStatement.DefaultTimeout.TotalMilliseconds, _server.LastSqlTimeoutMs);
         Assert.AreEqual(SqlStatement.DefaultPageSize, _server.LastSqlPageSize);
@@ -123,7 +140,7 @@ public class LinqSqlGenerationTests
         _server.LastSqlTimeoutMs = null;
         _server.LastSqlPageSize = null;
 
-        _ = _table.GetRecordView<Poco>().AsQueryable(options: new(TimeSpan.FromSeconds(25), 128)).Select(x => x.Key).ToArray();
+        _ = _table.GetRecordView<Poco>().AsQueryable(options: new(TimeSpan.FromSeconds(25), 128)).Select(x => (int)x.Key).ToArray();
 
         Assert.AreEqual(25000, _server.LastSqlTimeoutMs);
         Assert.AreEqual(128, _server.LastSqlPageSize);
@@ -139,6 +156,55 @@ public class LinqSqlGenerationTests
                 .GroupBy(x => x.Key2)
                 .Select(g => new { g.Key, Count = g.Count() })
                 .ToList());
+    }
+
+    [Test]
+    public void TestPrimitiveTypeMappingNotSupported()
+    {
+        // ReSharper disable once ReturnValueOfPureMethodIsNotUsed
+        var ex = Assert.Throws<NotSupportedException>(
+            () => _table.GetRecordView<int>().AsQueryable().Where(x => x > 0).ToList());
+
+        Assert.AreEqual(
+            "Primitive types are not supported in LINQ queries: System.Int32. " +
+            "Use a custom type (class, record, struct) with a single field instead.",
+            ex!.Message);
+    }
+
+    [Test]
+    public void TestEmptyTypeMappingNotSupported()
+    {
+        // ReSharper disable once ReturnValueOfPureMethodIsNotUsed
+        var ex = Assert.Throws<NotSupportedException>(() => _table.GetRecordView<EmptyPoco>().AsQueryable().ToList());
+
+        Assert.AreEqual(
+            "Type 'Apache.Ignite.Tests.Linq.LinqSqlGenerationTests+EmptyPoco' can not be mapped to SQL columns: " +
+            "it has no fields, or all fields are [NotMapped].",
+            ex!.Message);
+    }
+
+    [Test]
+    public void TestAllNotMappedTypeMappingNotSupported()
+    {
+        // ReSharper disable once ReturnValueOfPureMethodIsNotUsed
+        var ex = Assert.Throws<NotSupportedException>(() => _table.GetRecordView<UnmappedPoco>().AsQueryable().ToList());
+
+        Assert.AreEqual(
+            "Type 'Apache.Ignite.Tests.Linq.LinqSqlGenerationTests+UnmappedPoco' can not be mapped to SQL columns: " +
+            "it has no fields, or all fields are [NotMapped].",
+            ex!.Message);
+    }
+
+    [Test]
+    public void TestRecordViewKeyValuePairNotSupported()
+    {
+        // ReSharper disable once ReturnValueOfPureMethodIsNotUsed
+        var ex = Assert.Throws<NotSupportedException>(() => _table.GetRecordView<KeyValuePair<int, int>>().AsQueryable().ToList());
+
+        Assert.AreEqual(
+            "Can't use System.Collections.Generic.KeyValuePair`2[TKey,TValue] for LINQ queries: " +
+            "it is reserved for Apache.Ignite.Table.IKeyValueView`2[TK,TV].AsQueryable. Use a custom type instead.",
+            ex!.Message);
     }
 
     [OneTimeSetUp]
@@ -159,25 +225,33 @@ public class LinqSqlGenerationTests
     private void AssertSql(string expectedSql, Func<IQueryable<Poco>, object?> query) =>
         AssertSql(expectedSql, t => query(t.GetRecordView<Poco>().AsQueryable()));
 
+    private void AssertSqlKv(string expectedSql, Func<IQueryable<KeyValuePair<OneColumnPoco, Poco>>, object?> query) =>
+        AssertSql(expectedSql, t => query(t.GetKeyValueView<OneColumnPoco, Poco>().AsQueryable()));
+
     private void AssertSql(string expectedSql, Func<ITable, object?> query)
     {
         _server.LastSql = string.Empty;
+        Exception? ex = null;
 
         try
         {
             query(_table);
         }
-        catch (Exception)
+        catch (Exception e)
         {
             // Ignore.
             // Result deserialization may fail because FakeServer returns one column always.
             // We are only interested in the generated SQL.
+            ex = e;
         }
 
-        Assert.AreEqual(expectedSql, _server.LastSql);
+        Assert.AreEqual(expectedSql, _server.LastSql, string.IsNullOrEmpty(_server.LastSql) ? ex?.ToString() : null);
     }
 
-    // ReSharper disable once NotAccessedPositionalProperty.Local
-    [SuppressMessage("Microsoft.Performance", "CA1812:AvoidUninstantiatedInternalClasses", Justification = "Query tests.")]
+    // ReSharper disable NotAccessedPositionalProperty.Local, ClassNeverInstantiated.Local
     private record OneColumnPoco(long Key);
+
+    private record EmptyPoco;
+
+    private record UnmappedPoco([property: NotMapped] long Key, [field: NotMapped] string Val);
 }

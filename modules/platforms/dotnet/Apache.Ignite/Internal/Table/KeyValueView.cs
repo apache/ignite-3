@@ -25,6 +25,7 @@ using Apache.Ignite.Transactions;
 using Common;
 using Ignite.Sql;
 using Ignite.Table;
+using Linq;
 using Serialization;
 
 /// <summary>
@@ -149,8 +150,10 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
     /// <inheritdoc/>
     public IQueryable<KeyValuePair<TK, TV>> AsQueryable(ITransaction? transaction = null, QueryableOptions? options = null)
     {
-        // TODO IGNITE-18111 KeyValueView support
-        throw new NotImplementedException();
+        var executor = new IgniteQueryExecutor(_recordView.Sql, transaction, options);
+        var provider = new IgniteQueryProvider(IgniteQueryParser.Instance, executor, _recordView.Table.Name);
+
+        return new IgniteQueryable<KeyValuePair<TK, TV>>(provider);
     }
 
     private static KvPair<TK, TV> ToKv(KeyValuePair<TK, TV> x)

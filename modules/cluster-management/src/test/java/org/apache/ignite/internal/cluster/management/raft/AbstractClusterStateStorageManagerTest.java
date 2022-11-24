@@ -25,10 +25,14 @@ import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Path;
+import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
@@ -220,5 +224,40 @@ public abstract class AbstractClusterStateStorageManagerTest {
         assertThat(storageManager.isNodeValidated("node2"), is(true));
 
         assertThat(storageManager.getValidatedNodeIds(), containsInAnyOrder("node2"));
+    }
+
+    @Test
+    void logicalTopologyAdditionUsesNameAsNodeKey() {
+        storageManager.putLogicalTopologyNode(new ClusterNode("id1", "node", new NetworkAddress("host", 1000)));
+
+        storageManager.putLogicalTopologyNode(new ClusterNode("id2", "node", new NetworkAddress("host", 1000)));
+
+        Collection<ClusterNode> topology = storageManager.getLogicalTopology();
+
+        assertThat(topology, hasSize(1));
+
+        assertThat(topology.iterator().next().id(), is("id2"));
+    }
+
+    @Test
+    void logicalTopologyRemovalUsesIdAsNodeKey() {
+        storageManager.putLogicalTopologyNode(new ClusterNode("id1", "node", new NetworkAddress("host", 1000)));
+
+        storageManager.removeLogicalTopologyNodes(Set.of(new ClusterNode("id2", "node", new NetworkAddress("host", 1000))));
+
+        assertThat(storageManager.getLogicalTopology(), hasSize(1));
+        assertThat(storageManager.getLogicalTopology().iterator().next().id(), is("id1"));
+
+        storageManager.removeLogicalTopologyNodes(Set.of(new ClusterNode("id1", "another-name", new NetworkAddress("host", 1000))));
+
+        assertThat(storageManager.getLogicalTopology(), is(empty()));
+    }
+
+    @Test
+    void inLogicalTopologyTestUsesIdAsNodeKey() {
+        storageManager.putLogicalTopologyNode(new ClusterNode("id1", "node", new NetworkAddress("host", 1000)));
+
+        assertTrue(storageManager.isNodeInLogicalTopology(new ClusterNode("id1", "node", new NetworkAddress("host", 1000))));
+        assertFalse(storageManager.isNodeInLogicalTopology(new ClusterNode("another-id", "node", new NetworkAddress("host", 1000))));
     }
 }
