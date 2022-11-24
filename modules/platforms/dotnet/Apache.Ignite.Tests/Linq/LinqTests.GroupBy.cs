@@ -70,10 +70,9 @@ public partial class LinqTests
     [Test]
     public void TestGroupByWithAggregates()
     {
-        // TODO IGNITE-18196 Remove cast to long for Sum and Count
         var query = PocoByteView.AsQueryable()
             .GroupBy(x => x.Val)
-            .Select(x => new { x.Key, Count = (long)x.Count(), Sum = (long)x.Sum(e => e.Key), Avg = x.Average(e => e.Key) })
+            .Select(x => new { x.Key, Count = x.Count(), Sum = x.Sum(e => e.Key), Avg = x.Average(e => e.Key) })
             .OrderBy(x => x.Key);
 
         var res = query.ToList();
@@ -116,7 +115,6 @@ public partial class LinqTests
     [Test]
     public void TestGroupByWithJoinAndProjection()
     {
-        // TODO IGNITE-18196 Remove cast to long for Sum and Count
         var query1 = PocoView.AsQueryable();
         var query2 = PocoIntView.AsQueryable();
 
@@ -131,7 +129,7 @@ public partial class LinqTests
                     Price = a.Val
                 })
             .GroupBy(x => x.Category)
-            .Select(g => new {Cat = g.Key, Count = (long)g.Count()})
+            .Select(g => new {Cat = g.Key, Count = g.Count()})
             .OrderBy(x => x.Cat);
 
         var res = query.ToList();
