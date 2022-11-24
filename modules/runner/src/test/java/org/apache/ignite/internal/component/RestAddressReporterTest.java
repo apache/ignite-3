@@ -35,6 +35,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 /** Test for {@link RestAddressReporter}. */
 class RestAddressReporterTest {
+
     private static final String REST_ADDRESS_FILENAME = "rest-address";
 
     @Test
@@ -68,7 +69,7 @@ class RestAddressReporterTest {
     }
 
     @Test
-    @DisplayName("If there is not report file for some reason then throw an exception")
+    @DisplayName("If there is no report file for some reason then throw an exception")
     void throwsExceptionWhenThereIsNoFile(@TempDir Path tmpDir) {
         // Given
         Path path = Path.of(tmpDir.toUri() + "/nosuchpath");

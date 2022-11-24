@@ -30,6 +30,7 @@ import org.apache.ignite.network.NetworkAddress;
 public class RestAddressReporter {
 
     private static final String REPORT_FILE_NAME = "rest-address";
+
     private final Path workDir;
 
     /** Main constructor that accept the root directory where report file will be written. */
