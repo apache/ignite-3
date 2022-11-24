@@ -67,7 +67,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// <returns>Resulting pair, or null when specified type is not <see cref="KeyValuePair{TKey,TValue}"/>.</returns>
         public static (Type KeyType, Type ValType)? GetKeyValuePairTypes(this Type type) // TODO: use this everywhere
         {
-            if (!type.IsGenericType || type.GetGenericTypeDefinition() != typeof(KeyValuePair<,>))
+            if (!type.IsKeyValuePair())
             {
                 return null;
             }
@@ -76,6 +76,14 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
             return (types[0], types[1]);
         }
+
+        /// <summary>
+        /// Gets a value indicating whether the type is <see cref="KeyValuePair{TKey,TValue}"/>.
+        /// </summary>
+        /// <param name="type">Type.</param>
+        /// <returns>Whether the provided type is a <see cref="KeyValuePair{TKey,TValue}"/>.</returns>
+        public static bool IsKeyValuePair(this Type type) =>
+            type.IsGenericType && type.GetGenericTypeDefinition() == typeof(KeyValuePair<,>);
 
         /// <summary>
         /// Gets a map of fields by column name.
