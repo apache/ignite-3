@@ -47,7 +47,7 @@ class SqlHelpCommandTest extends CliCommandTestBase {
         assertAll(
                 () -> assertExitCodeIs(1),
                 this::assertOutputIsEmpty,
-                () -> assertErrOutputContains("Unknown SQL command:")
+                () -> assertErrOutputContains("Unknown command:")
         );
     }
 

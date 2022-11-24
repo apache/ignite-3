@@ -58,10 +58,10 @@ public final class SqlHelpCommand implements IHelpCommandInitializable2, Runnabl
             String commandUsage = IgniteSqlCommand.find(command)
                     .map(IgniteSqlCommand::getSyntax)
                     .or(() -> {
-                        return Optional.ofNullable(self.getParent().getSubcommands().get(command))
-                                .map(CommandLine::getUsageMessage);
+                        return Optional.ofNullable(self.getParent())
+                                .map(it -> it.getSubcommands().get(command).getUsageMessage());
                     })
-                    .orElseThrow(() -> new IgniteCliException("Command not found: " + command));
+                    .orElseThrow(() -> new IgniteCliException("Unknown command: " + command));
             outWriter.println(commandUsage);
         } else {
             String helpMessage = self.getParent().getUsageMessage(colorScheme)

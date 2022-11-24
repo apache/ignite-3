@@ -68,7 +68,7 @@ public enum IgniteSqlCommand {
             "CREATE INDEX [IF NOT EXISTS] name ON tableName\n"
                     + "[USING { HASH | TREE }]\n"
                     + "(column_definition [, column_definition]...)"),
-    create_index("create index", CREATE_TABLE.syntax),
+    create_index("create index", CREATE_INDEX.syntax),
 
     DROP_INDEX("DROP INDEX",
             "DROP INDEX [IF EXISTS] indexName"),
