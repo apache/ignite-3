@@ -55,4 +55,34 @@ public partial class LinqTests
             "order by (cast(_T0.VAL as bigint)) desc",
             query.ToString());
     }
+
+    [Test]
+    public void TestJoinOnDifferentTypes()
+    {
+        var query = PocoFloatView.AsQueryable()
+            .Join(
+                PocoByteView.AsQueryable(),
+                x => x.Key,
+                y => y.Key,
+                (x, y) => new
+                {
+                    x.Key,
+                    Val1 = x.Val,
+                    Val2 = y.Val
+                })
+            .OrderByDescending(x => x.Key);
+
+        var res = query.ToList();
+
+        Assert.AreEqual(9, res[0].Key);
+        Assert.AreEqual(9f, res[0].Val1);
+        Assert.AreEqual(3, res[0].Val2);
+
+        StringAssert.Contains(
+            "select _T0.KEY, _T0.VAL, _T1.VAL " +
+            "from PUBLIC.TBL_FLOAT as _T0 " +
+            "inner join PUBLIC.TBL_INT8 as _T1 on (cast(_T1.KEY as real) = _T0.KEY) " +
+            "order by (_T0.KEY) desc",
+            query.ToString());
+    }
 }
