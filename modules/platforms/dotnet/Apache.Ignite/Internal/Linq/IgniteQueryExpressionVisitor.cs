@@ -26,6 +26,7 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Text;
+using Common;
 using Remotion.Linq;
 using Remotion.Linq.Clauses;
 using Remotion.Linq.Clauses.Expressions;
@@ -493,7 +494,7 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
 
             if (!first)
             {
-                ResultBuilder.Append(", ");
+                ResultBuilder.TrimEnd().Append(", ");
             }
 
             first = false;
@@ -610,7 +611,7 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
                     throw new NotSupportedException("Aggregate functions do not support multiple fields");
                 }
 
-                ResultBuilder.Append(", ");
+                ResultBuilder.TrimEnd().Append(", ");
             }
 
             first = false;

@@ -82,7 +82,7 @@ public partial class LinqTests
         Assert.AreEqual(4.0d, res[1].Avg);
 
         StringAssert.Contains(
-            "select _T0.VAL, count (*) , sum (_T0.KEY) , avg (_T0.KEY)  " +
+            "select _T0.VAL, count (*) , sum (cast(_T0.KEY as int)) , avg (cast(_T0.KEY as int))  " +
             "from PUBLIC.TBL_INT8 as _T0 " +
             "group by (_T0.VAL) " +
             "order by (_T0.VAL) asc",
@@ -139,9 +139,9 @@ public partial class LinqTests
         Assert.AreEqual(10, res.Count);
 
         StringAssert.Contains(
-            "select _T0.VAL, count (*)  " +
+            "select _T0.VAL, count(*) " +
             "from PUBLIC.TBL1 as _T1 " +
-            "inner join PUBLIC.TBL_INT32 as _T0 on (_T0.KEY = _T1.KEY) " +
+            "inner join PUBLIC.TBL_INT32 as _T0 on (cast(_T0.KEY as bigint) = _T1.KEY) " +
             "group by (_T0.VAL) " +
             "order by (_T0.VAL) asc",
             query.ToString());
