@@ -56,7 +56,6 @@ data: {
 #     "KEY_TYPE" // already presented in Calcite
       "TREE"
       "HASH"
-#      "ZONE"
     ]
 
     # List of non-reserved keywords to add;
