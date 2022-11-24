@@ -414,7 +414,6 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
 
         if (expression.Member.DeclaringType.IsKeyValuePair())
         {
-            // TODO: Cache this?
             AppendColumnNames(((PropertyInfo)expression.Member).PropertyType, tableName);
             return;
         }
