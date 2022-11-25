@@ -133,12 +133,12 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
         assertTrue(fut2.isCompletedExceptionally());
 
         CompletableFuture<Lock> fut1 = lockManager.acquire(txId1, key, S);
-        assertFalse(fut1.isDone());
+        fut1.join();
+
+        assertFalse(fut0.isDone());
 
         lockManager.release(txId2, key, X);
         fut0.thenAccept(lock -> lockManager.release(lock));
-
-        fut1.join();
     }
 
     @Test
@@ -487,13 +487,15 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
 
         lockManager.acquire(txId0, key, S).join();
 
-        lockManager.acquire(txId2, key, S).join();
+        Lock lock2 = lockManager.acquire(txId2, key, S).join();
 
-        try {
-            lockManager.acquire(txId1, key, X).join();
-        } catch (CompletionException e) {
-            // Expected.
-        }
+        CompletableFuture<?> fut1 = lockManager.acquire(txId1, key, X);
+
+        assertFalse(fut1.isDone());
+
+        lockManager.release(lock2);
+        assertTrue(fut1.isDone());
+        assertTrue(fut1.isCompletedExceptionally());
     }
 
     @Test

@@ -17,9 +17,7 @@
 
 package org.apache.ignite.internal.tx.impl;
 
-import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.ACQUIRE_LOCK_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Transactions.RELEASE_LOCK_ERR;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -42,7 +40,6 @@ import org.apache.ignite.internal.tx.LockKey;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.LockMode;
 import org.apache.ignite.internal.tx.Waiter;
-import org.apache.ignite.internal.util.FilteringIterator;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -169,8 +166,6 @@ public class HeapLockManager implements LockManager {
         public @Nullable IgniteBiTuple<CompletableFuture<Void>, LockMode> tryAcquire(UUID txId, LockMode lockMode) {
             WaiterImpl waiter = new WaiterImpl(txId, lockMode);
 
-            boolean locked;
-
             synchronized (waiters) {
                 if (markedForRemove) {
                     return new IgniteBiTuple(null, lockMode);
@@ -179,7 +174,7 @@ public class HeapLockManager implements LockManager {
                 WaiterImpl prev = waiters.putIfAbsent(txId, waiter);
 
                 // Reenter
-                if (prev != null && prev.locked) {
+                if (prev != null && prev.locked()) {
                     if (prev.lockMode.allowReenter(lockMode)) {
                         prev.addLock(lockMode, 1);
 
@@ -199,50 +194,67 @@ public class HeapLockManager implements LockManager {
                     }
                 }
 
-                // Check lock compatibility.
-                Map.Entry<UUID, WaiterImpl> olderEntry = waiters.lowerEntry(txId);
+                if (!isWaiterReadyToNotify(waiter, false)) {
+                    return new IgniteBiTuple(waiter.fut, lockMode);
+                }
 
-                // If we have a older waiter in locked state, we can't wait for it.
-                if (olderEntry != null
-                        && olderEntry.getValue().locked()
-                        && !lockMode.isCompatible(olderEntry.getValue().lockMode)) {
+                if (!waiter.locked()){
                     if (prev == null) {
-                        waiters.remove(txId);
+                        waiters.remove(waiter.txId());
                     } else {
-                        waiters.put(txId, prev); // Restore old lock.
-                    }
-
-                    String exceptionMsg = "Failed to acquire a lock due to a conflict [txId=" + txId
-                            + ", waiter=" + olderEntry.getValue() + ']';
-
-                    return new IgniteBiTuple<>(failedFuture(new LockException(ACQUIRE_LOCK_ERR, exceptionMsg)), lockMode);
-                }
-
-                // TODO IGNITE-18043 git rid of try-catch
-                try {
-                    locked = compatibleWithLocked(txId, lockMode);
-                } catch (LockException e) {
-                    return new IgniteBiTuple<>(failedFuture(e), lockMode);
-                }
-
-                if (locked) {
-                    if (waiter.upgraded) {
-                        // Upgrade lock.
-                        waiter.upgraded = false;
-                        waiter.prevLockMode = null;
-                        waiter.locked = true;
-                    } else {
-                        waiter.lock();
+                        waiters.put(waiter.txId(), prev); // Restore old lock.
                     }
                 }
             }
 
             // Notify outside the monitor.
-            if (locked) {
-                waiter.notifyLocked();
-            }
+            waiter.notifyLocked();
 
             return new IgniteBiTuple(waiter.fut, lockMode);
+        }
+
+        /**
+         * Checks current waiter.
+         *
+         * @param waiter Checked waiter.
+         * @return True if current waiter ready to notify, false otherwise.
+         */
+        private boolean isWaiterReadyToNotify(WaiterImpl waiter, boolean skipFail) {
+            for (Map.Entry<UUID, WaiterImpl> entry : waiters.tailMap(waiter.txId(), false).entrySet()) {
+                WaiterImpl tmp = entry.getValue();
+                LockMode mode = lockedMode(tmp);
+
+                if (mode != null && !mode.isCompatible(waiter.lockMode())) {
+                    return false;
+                }
+            }
+
+            for (Map.Entry<UUID, WaiterImpl> entry : waiters.headMap(waiter.txId()).entrySet()) {
+                WaiterImpl tmp = entry.getValue();
+                LockMode mode = lockedMode(tmp);
+
+                if (mode != null && !mode.isCompatible(waiter.lockMode())) {
+                    if (skipFail) {
+                        return false;
+                    } else {
+                        waiter.fail(new LockException(ACQUIRE_LOCK_ERR, "Failed to acquire a lock due to a conflict [txId=" + waiter.txId()
+                                + ", waiter=" + tmp + ']'));
+
+                        return true;
+                    }
+                }
+            }
+
+            if (waiter.upgraded) {
+                // Upgrade lock.
+                waiter.upgraded = false;
+                waiter.prevLockMode = null;
+                waiter.locked = true;
+            } else {
+                waiter.lock();
+            }
+
+            return true;
         }
 
         /**
@@ -283,6 +295,12 @@ public class HeapLockManager implements LockManager {
 
                     LockMode modeToDowngrade = waiter.recalculateMode();
 
+                    if (!waiter.locked()) {
+                        assert waiter.lockMode() == modeToDowngrade : "The lock mode is not locked [mode=" + lockMode + ']';
+
+                        return false;
+                    }
+
                     if (modeToDowngrade == null) {
                         toNotify = release(txId);
                     } else {
@@ -315,9 +333,7 @@ public class HeapLockManager implements LockManager {
                 return Collections.emptyList();
             }
 
-            List<WaiterImpl> toNotify = unlockCompatibleWaiters(removed, null);
-
-            abortIncompatibleWaiters();
+            List<WaiterImpl> toNotify = unlockCompatibleWaiters();
 
             return toNotify;
         }
@@ -325,135 +341,54 @@ public class HeapLockManager implements LockManager {
         /**
          * Unlock compatible waiters.
          *
-         * @param pickedUpWaiter List of unlocked waiters.
-         * @param downgradeMode Lock mode to downgrade.
          * @return List of waiters to notify.
          */
-        private ArrayList<WaiterImpl> unlockCompatibleWaiters(WaiterImpl pickedUpWaiter, LockMode downgradeMode) {
+        private ArrayList<WaiterImpl> unlockCompatibleWaiters() {
             ArrayList<WaiterImpl> toNotify = new ArrayList<>();
-            Set<LockMode> lockModes = new HashSet<>();
+            Set<UUID> toFail = new HashSet<>();
 
-            if (downgradeMode != null) {
-                lockModes.add(downgradeMode);
-            }
-
-            for (WaiterImpl waiter : waiters.values()) {
-                if (waiter.locked) {
-                    lockModes.addAll(waiter.locks.keySet());
-                }
-            }
-
-            // Grant lock to all adjacent readers.
             for (Map.Entry<UUID, WaiterImpl> entry : waiters.entrySet()) {
                 WaiterImpl tmp = entry.getValue();
 
-                if (tmp.upgraded && !pickedUpWaiter.lockMode.isCompatible(tmp.prevLockMode)) {
-                    // Fail upgraded waiters.
-                    assert !tmp.locked;
-
-                    // Downgrade to acquired lock.
-                    tmp.upgraded = false;
-                    tmp.lockMode = tmp.prevLockMode;
-                    tmp.prevLockMode = null;
-                    tmp.locked = true;
-
-                    toNotify.add(tmp);
-                } else if (lockModes.stream().allMatch(tmp.lockMode::isCompatible)) {
-                    if (tmp.upgraded) {
-                        // Fail upgraded waiters.
-                        assert !tmp.locked;
-
-                        // Upgrade lock.
-                        tmp.upgraded = false;
-                        tmp.prevLockMode = null;
-                        tmp.locked = true;
-                    } else {
-                        tmp.lock();
-                    }
-
-                    lockModes.add(tmp.lockMode);
-
+                if (!tmp.locked() && isWaiterReadyToNotify(tmp, true)) {
                     toNotify.add(tmp);
                 }
+            }
+
+            for (Map.Entry<UUID, WaiterImpl> entry : waiters.entrySet()) {
+                WaiterImpl tmp = entry.getValue();
+
+                if (!tmp.locked() && isWaiterReadyToNotify(tmp, false)) {
+                    assert !tmp.locked();
+
+                    toNotify.add(tmp);
+                    toFail.add(tmp.txId());
+                }
+            }
+
+            for (UUID failTx : toFail) {
+                waiters.remove(failTx);
             }
 
             return toNotify;
         }
 
         /**
-         * Aborts waiters that are incompatible with those which hold a lock. Some waiters may be aborted after lock release because of a
-         * conflict with every waiter that are remaining.
-         */
-        private void abortIncompatibleWaiters() {
-            Iterator<Map.Entry<UUID, WaiterImpl>> iterWaiting =
-                    new FilteringIterator<>(waiters.entrySet().iterator(), w -> !w.getValue().locked);
-
-            boolean takeNext = true;
-            Map.Entry<UUID, WaiterImpl> waiting = null;
-
-            while (true) {
-                if (waiting == null || takeNext) {
-                    if (!iterWaiting.hasNext()) {
-                        break;
-                    }
-
-                    waiting = iterWaiting.next();
-                }
-
-                takeNext = true;
-
-                Map.Entry<UUID, WaiterImpl> finalWaiting = waiting;
-
-                // Check the most young of conflicting transactions.
-                // TODO IGNITE-18043 get rid of the stream
-                Map.Entry<UUID, WaiterImpl> lockedConflicting = waiters.descendingMap().entrySet().stream()
-                        .filter(e -> e.getValue().locked && !finalWaiting.getValue().lockMode.isCompatible(e.getValue().lockMode()))
-                        .findFirst()
-                        .orElse(null);
-
-                if (lockedConflicting != null) {
-                    // If the tx that we are waiting for is younger, then skip others, we should wait for the younger one anyway.
-                    // Otherwise, it appears we are waiting for just older ones, we should abort.
-                    if (lockedConflicting.getKey().compareTo(waiting.getKey()) < 0) {
-                        waiting.getValue().fut.completeExceptionally(new LockException(RELEASE_LOCK_ERR,
-                                "Failed to acquire lock because of a conflict [txId=" + waiting.getKey() + ", waiter=" + waiting + ']')
-                        );
-
-                        waiting.getValue().removeLock(waiting.getValue().lockMode());
-
-                        LockMode newMode = waiting.getValue().recalculateMode();
-
-                        if (newMode == null) {
-                            iterWaiting.remove();
-                        } else {
-                            downgrade(waiting.getKey(), newMode);
-                            takeNext = false;
-                        }
-                    }
-                }
-            }
-        }
-
-        /**
-         * Whether the given lock mode is compatible with already locked.
+         * Gets a lock mode for this waiter.
          *
-         * @param txId Transaction id.
-         * @param lockMode Lock mode.
-         * @return Whether the given lock mode is compatible with already locked.
-         * @throws LockException In case of conflict.
+         * @param waiter Waiter.
+         * @return Lock mode, which is held by the waiter or {@code null}, if the waiter holds nothing.
          */
-        private boolean compatibleWithLocked(UUID txId, LockMode lockMode) throws LockException {
-            for (Map.Entry<UUID, WaiterImpl> w : waiters.descendingMap().entrySet()) {
-                if (!w.getValue().lockMode.isCompatible(lockMode) && (w.getValue().locked() || w.getValue().upgraded)) {
-                    if (w.getKey().compareTo(txId) > 0) {
-                        return false;
-                    } else if (w.getKey().compareTo(txId) < 0) {
-                        throw new LockException(ACQUIRE_LOCK_ERR, "Couldn't acquire lock because of the conflict [txId" + txId + ']');
-                    }
-                }
+        private LockMode lockedMode(WaiterImpl waiter) {
+            LockMode mode = null;
+
+            if (waiter.locked()) {
+                mode = waiter.lockMode();
+            } else if (waiter.upgraded) {
+                mode = waiter.prevLockMode;
             }
 
-            return true;
+            return mode;
         }
 
         /**
@@ -465,11 +400,9 @@ public class HeapLockManager implements LockManager {
          * @return List of waiters to notify.
          */
         private List<WaiterImpl> downgrade(UUID txId, LockMode lockMode) {
-            WaiterImpl waiter = waiters.remove(txId);
+            WaiterImpl waiter = waiters.get(txId);
 
             if (waiter == null || waiter.lockMode == lockMode) {
-                waiters.put(txId, waiter);
-
                 return Collections.emptyList();
             }
 
@@ -480,11 +413,9 @@ public class HeapLockManager implements LockManager {
                     "Held lock mode have to be more strict than mode to downgrade [from=" + waiter.lockMode + ", to=" + lockMode
                             + ']';
 
-            List<WaiterImpl> toNotify = unlockCompatibleWaiters(waiter, lockMode);
-
             waiter.lockMode = lockMode;
 
-            waiters.put(txId, waiter);
+            List<WaiterImpl> toNotify = unlockCompatibleWaiters();
 
             return toNotify;
         }
