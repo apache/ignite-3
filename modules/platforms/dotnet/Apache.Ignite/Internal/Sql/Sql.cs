@@ -137,6 +137,16 @@ namespace Apache.Ignite.Internal.Sql
                     "Invalid query, check inner exceptions for details: " + statement.Query,
                     e);
             }
+#if DEBUG // Improve SQL issue debugging. Ideally, all SQL-related exceptions should be SqlException, but this is not yet the case.
+            catch (IgniteException e)
+            {
+                throw new SqlException(
+                    e.TraceId,
+                    ErrorGroups.Sql.QueryInvalid,
+                    "Query failed: " + statement.Query,
+                    e);
+            }
+#endif
 
             PooledArrayBufferWriter Write()
             {
