@@ -141,7 +141,10 @@ public class TestTxStateTableStorage implements TxStateTableStorage {
                 abortRebalanceFuture.completeExceptionally(throwable);
             }
         } else {
-            abortRebalanceFuture.complete(null);
+            abortRebalanceFuture.completeExceptionally(
+                    new StorageException("Already in the process of aborting or finishing a full rebalance for the partition: "
+                            + partitionId)
+            );
         }
 
         return abortRebalanceFuture;
@@ -177,7 +180,10 @@ public class TestTxStateTableStorage implements TxStateTableStorage {
                 finishRebalanceFuture.completeExceptionally(throwable);
             }
         } else {
-            finishRebalanceFuture.complete(null);
+            finishRebalanceFuture.completeExceptionally(
+                    new StorageException("Already in the process of aborting or finishing a full rebalance for the partition: "
+                            + partitionId)
+            );
         }
 
         return finishRebalanceFuture;
