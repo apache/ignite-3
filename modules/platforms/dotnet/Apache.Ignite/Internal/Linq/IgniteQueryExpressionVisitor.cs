@@ -268,9 +268,6 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
 
         if (queryable != null)
         {
-            // Find where the projection comes from.
-            expression = ExpressionWalker.GetProjectedMember(expression.Expression!, expression.Member) ?? expression;
-
             AppendColumnName(expression, Aliases.GetTableAlias(expression));
         }
         else
@@ -326,7 +323,8 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
 
             var param = expression.Members?[i];
 
-            if (param != null)
+            // TODO: Somehow don't append if param name is same as arg name.
+            if (param != null && param.Name != (arg as MemberExpression)?.Member.Name)
             {
                 ResultBuilder.Append(" as ").Append(param.Name.ToUpperInvariant());
             }
