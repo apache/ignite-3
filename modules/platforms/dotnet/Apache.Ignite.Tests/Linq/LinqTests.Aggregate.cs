@@ -110,7 +110,7 @@ public partial class LinqTests
         Assert.AreEqual(2, res[2].Max);
 
         StringAssert.Contains(
-            "select _T0.KEY, count (*) , sum (_T0.KEY) , avg (_T0.KEY) , min (_T0.KEY) , max (_T0.KEY)  " +
+            "select _T0.KEY, count(*), sum(_T0.KEY), avg(_T0.KEY), min(_T0.KEY), max(_T0.KEY) " +
             "from PUBLIC.TBL_INT32 as _T0 " +
             "group by (_T0.KEY) " +
             "order by (_T0.KEY) asc",
