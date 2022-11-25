@@ -26,8 +26,8 @@ import java.util.stream.Stream;
 import org.apache.ignite.internal.cli.commands.Options;
 
 /**
- * Configuration for Dynamic completer. It declares for what command and option the compliter could be applied.
- * Also supports explicit declaration of options after those the compliter should not be applied.
+ * Configuration for dynamic completer. It declares for what command and option the completer could be applied.
+ * Also supports explicit declaration of options after which the completer should not be applied.
   */
 public class CompleterConf {
 
