@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.app;
 
 import java.io.IOException;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -711,6 +713,20 @@ public class IgniteImpl implements Ignite {
     // TODO: should be encapsulated in local properties, see https://issues.apache.org/jira/browse/IGNITE-15131
     public NetworkAddress restAddress() {
         return new NetworkAddress(restComponent.host(), restComponent.port());
+    }
+
+    /**
+     * Returns the host address of REST endpoints.
+     *
+     * @throws IgniteInternalException if the REST module is not started.
+     */
+    // TODO: should be encapsulated in local properties, see https://issues.apache.org/jira/browse/IGNITE-15131
+    public NetworkAddress restHostAddress() {
+        try {
+            return new NetworkAddress(InetAddress.getLocalHost().getHostAddress(), restComponent.port());
+        } catch (UnknownHostException e) {
+            return new NetworkAddress("localhost", restComponent.port());
+        }
     }
 
     /**
