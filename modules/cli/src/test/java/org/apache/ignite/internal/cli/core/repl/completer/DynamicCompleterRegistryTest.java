@@ -72,9 +72,9 @@ class DynamicCompleterRegistryTest {
     @Test
     void findsCompletersRegisteredWithStaticCommand() {
         // Given
-        registry.register(CompleterConf.forCommand("command1", "subcommand1"), (words) -> completer1);
-        registry.register(CompleterConf.forCommand("command1", "subcommand1"), (words) -> completer2);
-        registry.register(CompleterConf.forCommand("command2"), (words) -> completer3);
+        registry.register(CompleterConf.forCommand("command1", "subcommand1"), words -> completer1);
+        registry.register(CompleterConf.forCommand("command1", "subcommand1"), words -> completer2);
+        registry.register(CompleterConf.forCommand("command2"), words -> completer3);
 
         // When find completers for "command1"
         List<DynamicCompleter> completers = registry.findCompleters(words("command1", "subcommand1"));
