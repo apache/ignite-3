@@ -237,10 +237,7 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
             {
                 var tableName = Aliases.GetTableAlias(expression);
 
-                AppendColumnNames(
-                    expression.ReferencedQuerySource.ItemType,
-                    tableName,
-                    source: expression);
+                AppendColumnNames(expression.ReferencedQuerySource.ItemType, tableName);
             }
         }
 
@@ -468,17 +465,10 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
     /// </summary>
     /// <param name="type">Type.</param>
     /// <param name="tableName">Table name.</param>
-    /// <param name="source">Optional source expression to find the projection origin.</param>
     /// <param name="first">Whether this is the first column and does not need a comma before.</param>
     /// <param name="toSkip">Names to skip.</param>
     /// <param name="populateToSkip">Whether to populate provided toSkip set.</param>
-    private void AppendColumnNames(
-        Type type,
-        string tableName,
-        Expression? source = null,
-        bool first = true,
-        ISet<string>? toSkip = null,
-        bool populateToSkip = false)
+    private void AppendColumnNames(Type type, string tableName, bool first = true, ISet<string>? toSkip = null, bool populateToSkip = false)
     {
         if (type.IsPrimitive)
         {
@@ -491,8 +481,8 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
         {
             var keyColumnNames = new HashSet<string>();
 
-            AppendColumnNames(keyType, tableName, source, first: true, toSkip: keyColumnNames, populateToSkip: true);
-            AppendColumnNames(valType, tableName, source, first: false, toSkip: keyColumnNames);
+            AppendColumnNames(keyType, tableName, first: true, toSkip: keyColumnNames, populateToSkip: true);
+            AppendColumnNames(valType, tableName, first: false, toSkip: keyColumnNames);
 
             return;
         }
@@ -527,17 +517,6 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
             first = false;
 
             ResultBuilder.Append(tableName).Append('.');
-
-            // TODO: col.Field is the backing field, we need the property instead.
-            // TODO: In anon type, backing field is different - no CompilerGenerated attribute.
-            // Do we go the wrong way here with enumerating anonymous type properties?
-            if (source != null &&
-                ExpressionWalker.GetProjectedMember(source, (MemberInfo?)col.Property ?? col.Field) is {} projectedMember &&
-                projectedMember.Member != col.Field)
-            {
-                AppendColumnName(projectedMember, tableName);
-                continue;
-            }
 
             if (col.HasColumnNameAttribute)
             {
@@ -629,32 +608,6 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
             first = false;
 
             AppendParameter(val);
-        }
-    }
-
-    /// <summary>
-    /// Visits multiple arguments.
-    /// </summary>
-    /// <param name="arguments">The arguments.</param>
-    private void VisitArguments(IEnumerable<Expression> arguments)
-    {
-        var first = true;
-
-        foreach (var e in arguments)
-        {
-            if (!first)
-            {
-                if (_useStar)
-                {
-                    throw new NotSupportedException("Aggregate functions do not support multiple fields");
-                }
-
-                ResultBuilder.TrimEnd().Append(", ");
-            }
-
-            first = false;
-
-            Visit(e);
         }
     }
 

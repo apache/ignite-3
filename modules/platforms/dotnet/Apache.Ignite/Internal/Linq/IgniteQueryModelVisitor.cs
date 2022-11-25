@@ -180,16 +180,16 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
     /** <inheritdoc /> */
     public override void VisitMainFromClause(MainFromClause fromClause, QueryModel queryModel)
     {
-        if (fromClause.FromExpression is SubQueryExpression subQuery)
-        {
-            // TODO: Proper column name before this call
-            _builder.Append("from (");
-            VisitQueryModel(subQuery.QueryModel);
-            _builder.Append(" ) as _T0 "); // TODO: Proper alias
-
-            return;
-        }
-
+        // TODO: Handle UNION subquery.
+        // if (fromClause.FromExpression is SubQueryExpression subQuery)
+        // {
+        //     // TODO: Proper column name before this call
+        //     _builder.Append("from (");
+        //     VisitQueryModel(subQuery.QueryModel);
+        //     _builder.Append(" ) as _T0 "); // TODO: Proper alias
+        //
+        //     return;
+        // }
         base.VisitMainFromClause(fromClause, queryModel);
 
         // TODO: IGNITE-18137 DML: queryModel.ResultOperators.LastOrDefault() is UpdateAllResultOperator;

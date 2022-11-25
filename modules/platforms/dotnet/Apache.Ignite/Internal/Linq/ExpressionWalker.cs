@@ -117,58 +117,6 @@ internal static class ExpressionWalker
     }
 
     /// <summary>
-    /// Gets the projected member.
-    /// Queries can have multiple projections, e.g. <c>qry.Select(person => new {Foo = person.Name})</c>.
-    /// This method finds the original member expression from the given projected expression, e.g finds
-    /// <c>Person.Name</c> from <c>Foo</c>.
-    /// </summary>
-    /// <param name="expression">Expression.</param>
-    /// <param name="memberHint">Member info.</param>
-    /// <returns>Projected member.</returns>
-    public static MemberExpression? GetProjectedMember(Expression expression, MemberInfo memberHint)
-    {
-        if (expression is SubQueryExpression subQueryExp)
-        {
-            var selector = subQueryExp.QueryModel.SelectClause.Selector;
-
-            if (selector is NewExpression { Members: { } } newExpr)
-            {
-                Debug.Assert(newExpr.Members.Count == newExpr.Arguments.Count, "newExpr.Members.Count == newExpr.Arguments.Count");
-
-                for (var i = 0; i < newExpr.Members.Count; i++)
-                {
-                    var member = newExpr.Members[i];
-
-                    if (member == memberHint)
-                    {
-                        return newExpr.Arguments[i] as MemberExpression;
-                    }
-                }
-            }
-
-            if (selector is MemberInitExpression initExpr)
-            {
-                foreach (var binding in initExpr.Bindings)
-                {
-                    if (binding.Member == memberHint && binding.BindingType == MemberBindingType.Assignment)
-                    {
-                        return ((MemberAssignment)binding).Expression as MemberExpression;
-                    }
-                }
-            }
-
-            return GetProjectedMember(subQueryExp.QueryModel.MainFromClause.FromExpression, memberHint);
-        }
-
-        if (expression is QuerySourceReferenceExpression { ReferencedQuerySource: IFromClause fromSource })
-        {
-            return GetProjectedMember(fromSource.FromExpression, memberHint);
-        }
-
-        return null;
-    }
-
-    /// <summary>
     /// Gets the original QuerySourceReferenceExpression.
     /// </summary>
     /// <param name="expression">Expression.</param>
