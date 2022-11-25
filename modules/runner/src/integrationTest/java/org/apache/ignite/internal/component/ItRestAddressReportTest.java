@@ -24,6 +24,7 @@ import static org.hamcrest.Matchers.is;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.InetAddress;
 import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -77,7 +78,7 @@ public class ItRestAddressReportTest {
 
         // And the file contains valid rest server network address
         String retAddress = Files.readString(workDir.resolve(NODE_NAME).resolve("rest-address"));
-        assertThat(retAddress, containsString("localhost:"));
+        assertThat(retAddress, containsString(InetAddress.getLocalHost().getHostAddress()));
         // And port is in configured range
         int port = cutPort(retAddress);
         assertThat(port >= 10333 && port < 10333 + 10, is(true));

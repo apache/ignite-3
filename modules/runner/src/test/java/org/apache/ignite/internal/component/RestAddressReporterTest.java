@@ -24,11 +24,14 @@ import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.io.IOException;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.NetworkAddress;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -49,7 +52,7 @@ class RestAddressReporterTest {
 
         // Then there is a report
         String restAddress = Files.readString(tmpDir.resolve(REST_ADDRESS_FILENAME));
-        assertThat(restAddress, equalTo("localhost:9999"));
+        assertThat(restAddress, equalTo("http://localhost:9999"));
     }
 
     @Test
@@ -98,6 +101,6 @@ class RestAddressReporterTest {
 
         // Then file rewritten
         String restAddress = Files.readString(tmpDir.resolve(REST_ADDRESS_FILENAME));
-        assertThat(restAddress, equalTo("localhost:4444"));
+        assertThat(restAddress, equalTo("http://localhost:4444"));
     }
 }

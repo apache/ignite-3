@@ -41,7 +41,7 @@ public class RestAddressReporter {
     /** Write network address to file. */
     public void writeReport(NetworkAddress networkAddress) {
         try {
-            Files.writeString(workDir.resolve(REPORT_FILE_NAME), networkAddress.toString());
+            Files.writeString(workDir.resolve(REPORT_FILE_NAME), "http://" + networkAddress.host() + ":" + networkAddress.port());
         } catch (IOException e) {
             String message = "Unexpected error when trying to write REST server network address to file";
             throw new IgniteException(Common.UNEXPECTED_ERR, message, e);

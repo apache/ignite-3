@@ -27,6 +27,8 @@ import io.swagger.v3.oas.annotations.info.Contact;
 import io.swagger.v3.oas.annotations.info.Info;
 import io.swagger.v3.oas.annotations.info.License;
 import java.net.BindException;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.util.List;
 import java.util.Map;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -192,6 +194,10 @@ public class RestComponent implements IgniteComponent {
             throw new IgniteInternalException("RestComponent has not been started");
         }
 
-        return LOCALHOST;
+        try {
+            return InetAddress.getLocalHost().getHostAddress();
+        } catch (UnknownHostException e) {
+            return LOCALHOST;
+        }
     }
 }
