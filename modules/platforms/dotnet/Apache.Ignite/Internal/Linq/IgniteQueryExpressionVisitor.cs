@@ -321,6 +321,8 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
             var param = expression.Members?[i];
 
             // TODO: Somehow don't append if param name is same as arg name.
+            // TODO: This won't work with custom column names though? Or we can retrieve that from attributes?
+            // See how 2.x fails if we get rid of GetProjectedMember. We need tests for this in 3.x before refactoring.
             if (param != null && param.Name != (arg as MemberExpression)?.Member.Name)
             {
                 ResultBuilder.Append(" as ").Append(param.Name.ToUpperInvariant());
