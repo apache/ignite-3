@@ -75,7 +75,7 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
     @Test
     public void testCreateZoneWithAutoAdjust() throws Exception {
         distributionZoneManager.createZone(
-                        new DistributionZoneConfigurationParameters.Builder().name(ZONE_NAME).dataNodesAutoAdjust(100).build()
+                        new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).dataNodesAutoAdjust(100).build()
                 )
                 .get(5, TimeUnit.SECONDS);
 
@@ -92,7 +92,7 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
     @Test
     public void testCreateZoneWithAutoAdjustScaleUp() throws Exception {
         distributionZoneManager.createZone(
-                new DistributionZoneConfigurationParameters.Builder().name(ZONE_NAME)
+                new DistributionZoneConfigurationParameters.Builder(ZONE_NAME)
                         .dataNodesAutoAdjustScaleUp(100).build()
                 )
                 .get(5, TimeUnit.SECONDS);
@@ -117,7 +117,7 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
     @Test
     public void testCreateZoneWithAutoAdjustScaleDown() throws Exception {
         distributionZoneManager.createZone(
-                new DistributionZoneConfigurationParameters.Builder().name(ZONE_NAME)
+                new DistributionZoneConfigurationParameters.Builder(ZONE_NAME)
                         .dataNodesAutoAdjustScaleDown(200).build()
                 )
                 .get(5, TimeUnit.SECONDS);
@@ -144,12 +144,12 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
         Exception e = null;
 
         distributionZoneManager.createZone(
-                new DistributionZoneConfigurationParameters.Builder().name(ZONE_NAME).dataNodesAutoAdjust(100).build()
+                new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).dataNodesAutoAdjust(100).build()
         ).get(5, TimeUnit.SECONDS);
 
         try {
             distributionZoneManager.createZone(
-                    new DistributionZoneConfigurationParameters.Builder().name(ZONE_NAME).dataNodesAutoAdjust(100).build()
+                    new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).dataNodesAutoAdjust(100).build()
             ).get(5, TimeUnit.SECONDS);
         } catch (Exception e0) {
             e = e0;
@@ -176,7 +176,7 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
     @Test
     public void testUpdateZone() throws Exception {
         distributionZoneManager.createZone(
-                        new DistributionZoneConfigurationParameters.Builder().name(ZONE_NAME).dataNodesAutoAdjust(100).build()
+                        new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).dataNodesAutoAdjust(100).build()
                 )
                 .get(5, TimeUnit.SECONDS);
 
@@ -190,7 +190,7 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
         assertEquals(100, zone1.dataNodesAutoAdjust().value());
 
 
-        distributionZoneManager.alterZone(ZONE_NAME, new DistributionZoneConfigurationParameters.Builder().name(ZONE_NAME)
+        distributionZoneManager.alterZone(ZONE_NAME, new DistributionZoneConfigurationParameters.Builder(ZONE_NAME)
                         .dataNodesAutoAdjustScaleUp(200).dataNodesAutoAdjustScaleDown(300).build())
                 .get(5, TimeUnit.SECONDS);
 
@@ -203,7 +203,7 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
         assertEquals(Integer.MAX_VALUE, zone1.dataNodesAutoAdjust().value());
 
 
-        distributionZoneManager.alterZone(ZONE_NAME, new DistributionZoneConfigurationParameters.Builder().name(ZONE_NAME)
+        distributionZoneManager.alterZone(ZONE_NAME, new DistributionZoneConfigurationParameters.Builder(ZONE_NAME)
                         .dataNodesAutoAdjustScaleUp(400).build())
                 .get(5, TimeUnit.SECONDS);
 
@@ -216,7 +216,7 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
         assertEquals(Integer.MAX_VALUE, zone1.dataNodesAutoAdjust().value());
 
 
-        distributionZoneManager.alterZone(ZONE_NAME, new DistributionZoneConfigurationParameters.Builder().name(ZONE_NAME)
+        distributionZoneManager.alterZone(ZONE_NAME, new DistributionZoneConfigurationParameters.Builder(ZONE_NAME)
                         .dataNodesAutoAdjust(500).build())
                 .get(5, TimeUnit.SECONDS);
 
@@ -232,12 +232,12 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
     @Test
     public void testRenameZone() throws Exception {
         distributionZoneManager.createZone(
-                        new DistributionZoneConfigurationParameters.Builder().name(ZONE_NAME).dataNodesAutoAdjust(100).build()
+                        new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).dataNodesAutoAdjust(100).build()
                 )
                 .get(5, TimeUnit.SECONDS);
 
         distributionZoneManager.alterZone(ZONE_NAME,
-                        new DistributionZoneConfigurationParameters.Builder().name(NEW_ZONE_NAME).build())
+                        new DistributionZoneConfigurationParameters.Builder(NEW_ZONE_NAME).build())
                 .get(5, TimeUnit.SECONDS);
 
         DistributionZoneConfiguration zone1 = registry.getConfiguration(DistributionZonesConfiguration.KEY).distributionZones()
@@ -258,12 +258,12 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
     @Test
     public void testUpdateAndRenameZone() throws Exception {
         distributionZoneManager.createZone(
-                        new DistributionZoneConfigurationParameters.Builder().name(ZONE_NAME).dataNodesAutoAdjust(100).build()
+                        new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).dataNodesAutoAdjust(100).build()
                 )
                 .get(5, TimeUnit.SECONDS);
 
         distributionZoneManager.alterZone(ZONE_NAME,
-                        new DistributionZoneConfigurationParameters.Builder().name(NEW_ZONE_NAME).dataNodesAutoAdjust(400).build())
+                        new DistributionZoneConfigurationParameters.Builder(NEW_ZONE_NAME).dataNodesAutoAdjust(400).build())
                 .get(5, TimeUnit.SECONDS);
 
         DistributionZoneConfiguration zone1 = registry.getConfiguration(DistributionZonesConfiguration.KEY).distributionZones()
@@ -286,8 +286,8 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
         Exception e = null;
 
         try {
-            distributionZoneManager.alterZone(ZONE_NAME, new DistributionZoneConfigurationParameters.Builder()
-                    .name(NEW_ZONE_NAME).dataNodesAutoAdjust(100).build()).get(5, TimeUnit.SECONDS);
+            distributionZoneManager.alterZone(ZONE_NAME, new DistributionZoneConfigurationParameters.Builder(NEW_ZONE_NAME)
+                    .dataNodesAutoAdjust(100).build()).get(5, TimeUnit.SECONDS);
         } catch (Exception e0) {
             e = e0;
         }
@@ -300,15 +300,15 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
     public void testAlterZoneRename2() throws Exception {
         Exception e = null;
 
-        distributionZoneManager.createZone(new DistributionZoneConfigurationParameters.Builder()
-                .name(ZONE_NAME).dataNodesAutoAdjust(100).build()).get(5, TimeUnit.SECONDS);
+        distributionZoneManager.createZone(new DistributionZoneConfigurationParameters.Builder(ZONE_NAME)
+                .dataNodesAutoAdjust(100).build()).get(5, TimeUnit.SECONDS);
 
-        distributionZoneManager.createZone(new DistributionZoneConfigurationParameters.Builder()
-                .name(NEW_ZONE_NAME).dataNodesAutoAdjust(100).build()).get(5, TimeUnit.SECONDS);
+        distributionZoneManager.createZone(new DistributionZoneConfigurationParameters.Builder(NEW_ZONE_NAME)
+                .dataNodesAutoAdjust(100).build()).get(5, TimeUnit.SECONDS);
 
         try {
-            distributionZoneManager.alterZone(ZONE_NAME, new DistributionZoneConfigurationParameters.Builder()
-                    .name(NEW_ZONE_NAME).dataNodesAutoAdjust(100).build()).get(5, TimeUnit.SECONDS);
+            distributionZoneManager.alterZone(ZONE_NAME, new DistributionZoneConfigurationParameters.Builder(NEW_ZONE_NAME)
+                    .dataNodesAutoAdjust(100).build()).get(5, TimeUnit.SECONDS);
         } catch (Exception e0) {
             e = e0;
         }
@@ -322,8 +322,8 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
         Exception e = null;
 
         try {
-            distributionZoneManager.alterZone(ZONE_NAME, new DistributionZoneConfigurationParameters.Builder()
-                    .name(ZONE_NAME).dataNodesAutoAdjust(100).build()).get(5, TimeUnit.SECONDS);
+            distributionZoneManager.alterZone(ZONE_NAME, new DistributionZoneConfigurationParameters.Builder(ZONE_NAME)
+                    .dataNodesAutoAdjust(100).build()).get(5, TimeUnit.SECONDS);
         } catch (Exception e0) {
             e = e0;
         }
@@ -337,8 +337,8 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
         Exception e = null;
 
         try {
-            distributionZoneManager.createZone(new DistributionZoneConfigurationParameters.Builder()
-                    .name(ZONE_NAME).dataNodesAutoAdjust(-10).build()).get(5, TimeUnit.SECONDS);
+            distributionZoneManager.createZone(new DistributionZoneConfigurationParameters.Builder(ZONE_NAME)
+                    .dataNodesAutoAdjust(-10).build()).get(5, TimeUnit.SECONDS);
         } catch (Exception e0) {
             e = e0;
         }
@@ -352,7 +352,7 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
         Exception e = null;
 
         try {
-            distributionZoneManager.createZone(new DistributionZoneConfigurationParameters.Builder().name(ZONE_NAME)
+            distributionZoneManager.createZone(new DistributionZoneConfigurationParameters.Builder(ZONE_NAME)
                     .dataNodesAutoAdjustScaleUp(-100).dataNodesAutoAdjustScaleDown(1).build()).get(5, TimeUnit.SECONDS);
         } catch (Exception e0) {
             e = e0;
@@ -367,7 +367,7 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
         Exception e = null;
 
         try {
-            distributionZoneManager.createZone(new DistributionZoneConfigurationParameters.Builder().name(ZONE_NAME)
+            distributionZoneManager.createZone(new DistributionZoneConfigurationParameters.Builder(ZONE_NAME)
                     .dataNodesAutoAdjustScaleUp(1).dataNodesAutoAdjustScaleDown(-100).build()).get(5, TimeUnit.SECONDS);
         } catch (Exception e0) {
             e = e0;
@@ -397,7 +397,7 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
         Exception e = null;
 
         try {
-            distributionZoneManager.alterZone(null, new DistributionZoneConfigurationParameters.Builder().name(ZONE_NAME).build())
+            distributionZoneManager.alterZone(null, new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).build())
                     .get(5, TimeUnit.SECONDS);
         } catch (Exception e0) {
             e = e0;

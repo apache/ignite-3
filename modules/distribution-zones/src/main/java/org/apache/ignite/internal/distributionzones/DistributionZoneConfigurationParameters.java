@@ -103,22 +103,16 @@ public class DistributionZoneConfigurationParameters {
         private Integer dataNodesAutoAdjustScaleDown;
 
         /**
-         * The constructor.
-         */
-        public Builder() {
-
-        }
-
-        /**
-         * Sets zone name.
+         * Constructor.
          *
          * @param name Name.
-         * @return This instance.
          */
-        public Builder name(String name) {
-            this.name = name;
+        public Builder(String name) {
+            if (name == null || name.isEmpty()) {
+                throw new IllegalArgumentException("Illegal distribution zone name [name=" + name + ']');
+            }
 
-            return this;
+            this.name = name;
         }
 
         /**
@@ -164,10 +158,6 @@ public class DistributionZoneConfigurationParameters {
          * @return Distribution zone configuration.
          */
         public DistributionZoneConfigurationParameters build() {
-            if (name == null || name.isEmpty()) {
-                throw new IllegalArgumentException("Illegal distribution zone name [name=" + name + ']');
-            }
-
             if (dataNodesAutoAdjust != null
                     && (dataNodesAutoAdjustScaleUp != null || dataNodesAutoAdjustScaleDown != null)
             ) {

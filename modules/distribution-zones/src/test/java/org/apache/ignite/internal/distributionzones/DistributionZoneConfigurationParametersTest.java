@@ -30,7 +30,7 @@ class DistributionZoneConfigurationParametersTest {
 
     @Test
     public void testDefaultValues() {
-        DistributionZoneConfigurationParameters zoneCfg = new DistributionZoneConfigurationParameters.Builder().name(ZONE_NAME).build();
+        DistributionZoneConfigurationParameters zoneCfg = new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).build();
 
         assertEquals(ZONE_NAME, zoneCfg.name());
         assertEquals(null, zoneCfg.dataNodesAutoAdjust());
@@ -40,8 +40,7 @@ class DistributionZoneConfigurationParametersTest {
 
     @Test
     public void testAutoAdjust() {
-        DistributionZoneConfigurationParameters zoneCfg = new DistributionZoneConfigurationParameters.Builder()
-                .name(ZONE_NAME)
+        DistributionZoneConfigurationParameters zoneCfg = new DistributionZoneConfigurationParameters.Builder(ZONE_NAME)
                 .dataNodesAutoAdjust(100)
                 .build();
 
@@ -53,8 +52,7 @@ class DistributionZoneConfigurationParametersTest {
 
     @Test
     public void testAutoAdjustScaleUp() {
-        DistributionZoneConfigurationParameters zoneCfg = new DistributionZoneConfigurationParameters.Builder()
-                .name(ZONE_NAME)
+        DistributionZoneConfigurationParameters zoneCfg = new DistributionZoneConfigurationParameters.Builder(ZONE_NAME)
                 .dataNodesAutoAdjustScaleUp(100)
                 .build();
 
@@ -66,8 +64,7 @@ class DistributionZoneConfigurationParametersTest {
 
     @Test
     public void testAutoAdjustScaleDown() {
-        DistributionZoneConfigurationParameters zoneCfg = new DistributionZoneConfigurationParameters.Builder()
-                .name(ZONE_NAME)
+        DistributionZoneConfigurationParameters zoneCfg = new DistributionZoneConfigurationParameters.Builder(ZONE_NAME)
                 .dataNodesAutoAdjustScaleDown(100)
                 .build();
 
@@ -80,7 +77,7 @@ class DistributionZoneConfigurationParametersTest {
     @Test
     public void testIncompatibleValues1() {
         assertThrows(IllegalArgumentException.class,
-                () -> new DistributionZoneConfigurationParameters.Builder()
+                () -> new DistributionZoneConfigurationParameters.Builder(ZONE_NAME)
                         .dataNodesAutoAdjust(1)
                         .dataNodesAutoAdjustScaleUp(1)
                         .build());
@@ -89,7 +86,7 @@ class DistributionZoneConfigurationParametersTest {
     @Test
     public void testIncompatibleValues2() {
         assertThrows(IllegalArgumentException.class,
-                () -> new DistributionZoneConfigurationParameters.Builder()
+                () -> new DistributionZoneConfigurationParameters.Builder(ZONE_NAME)
                         .dataNodesAutoAdjust(1)
                         .dataNodesAutoAdjustScaleDown(1)
                         .build());
@@ -98,15 +95,12 @@ class DistributionZoneConfigurationParametersTest {
     @Test
     public void testNullName() {
         assertThrows(IllegalArgumentException.class,
-                () -> new DistributionZoneConfigurationParameters.Builder()
-                        .build());
+                () -> new DistributionZoneConfigurationParameters.Builder(null));
     }
 
     @Test
     public void testEmptyName() {
         assertThrows(IllegalArgumentException.class,
-                () -> new DistributionZoneConfigurationParameters.Builder()
-                        .name("")
-                        .build());
+                () -> new DistributionZoneConfigurationParameters.Builder(""));
     }
 }
