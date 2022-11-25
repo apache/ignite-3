@@ -40,7 +40,7 @@ class DynamicCompleterRegistryTest {
 
     DynamicCompleter completer3;
 
-    /** Makes reading more easy. */
+    /** Makes reading easier. */
     private static String[] words(String... words) {
         return words;
     }
