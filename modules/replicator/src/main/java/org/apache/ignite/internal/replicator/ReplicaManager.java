@@ -285,6 +285,8 @@ public class ReplicaManager implements IgniteComponent {
      * @return True if the replica is found and closed, false otherwise.
      */
     private boolean stopReplicaInternal(ReplicationGroupId replicaGrpId) {
+        pendingReplicas.remove(replicaGrpId);
+
         return replicas.remove(replicaGrpId) != null;
     }
 
