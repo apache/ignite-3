@@ -29,6 +29,7 @@ import org.apache.ignite.internal.cluster.management.ClusterTag;
 import org.apache.ignite.internal.cluster.management.raft.commands.InitCmgStateCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.JoinReadyCommand;
 import org.apache.ignite.internal.cluster.management.raft.responses.ValidationErrorResponse;
+import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
@@ -52,13 +53,16 @@ class ValidationManager implements ManuallyCloseable {
 
     private final RaftStorageManager storage;
 
+    private final LogicalTopology logicalTopology;
+
     /**
      * Map for storing tasks, submitted to the {@link #executor}, so that it is possible to cancel them.
      */
     private final Map<String, Future<?>> cleanupFutures = new ConcurrentHashMap<>();
 
-    ValidationManager(RaftStorageManager storage) {
+    ValidationManager(RaftStorageManager storage, LogicalTopology logicalTopology) {
         this.storage = storage;
+        this.logicalTopology = logicalTopology;
 
         // Schedule removal of possibly stale node IDs in case the leader has changed or the node has been restarted.
         storage.getValidatedNodeIds().forEach(this::scheduleValidatedNodeRemoval);
@@ -138,7 +142,7 @@ class ValidationManager implements ManuallyCloseable {
     }
 
     boolean isNodeValidated(ClusterNode node) {
-        return storage.isNodeValidated(node.id()) || storage.isNodeInLogicalTopology(node);
+        return storage.isNodeValidated(node.id()) || logicalTopology.isNodeInLogicalTopology(node);
     }
 
     /**

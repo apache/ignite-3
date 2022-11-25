@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.jdbc.proto.SqlStateCode.INVALID_TRANSAC
 import static org.apache.ignite.internal.jdbc.proto.SqlStateCode.UNSUPPORTED_OPERATION;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -29,6 +30,7 @@ import java.sql.BatchUpdateException;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.sql.Statement;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
@@ -49,6 +51,44 @@ public class ItJdbcErrorsSelfTest extends ItJdbcErrorsAbstractSelfTest {
     public void testConnectionError() {
         checkErrorState(() -> DriverManager.getConnection("jdbc:ignite:thin://unknown.host?connectionTimeout=1000"),
                 CLIENT_CONNECTION_FAILED, "Failed to connect to server");
+    }
+
+    /**
+     * Test that execution of erroneous queries are not stopping execution.
+     * Also check correctness of exception messages.
+     *
+     * @throws SQLException If connection can`t be established.
+     */
+    @Test
+    public void processMixedQueries() throws SQLException {
+        conn = DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1:10800/");
+
+        try (Statement stmt = conn.createStatement()) {
+            stmt.execute(
+                    "CREATE TABLE CITIES ("
+                            + "ID   INT PRIMARY KEY,"
+                            + "NAME VARCHAR)"
+            );
+
+            SQLException ex = assertThrows(SQLException.class, () -> stmt.execute("non sql stuff"));
+
+            assertTrue(ex.getMessage().contains("Failed to parse query"));
+        }
+
+        try (Statement stmt = conn.createStatement()) {
+            stmt.execute(
+                    "CREATE TABLE ACCOUNTS ("
+                            + "    ACCOUNT_ID INT PRIMARY KEY,"
+                            + "    CITY_ID    INT,"
+                            + "    FIRST_NAME VARCHAR,"
+                            + "    LAST_NAME  VARCHAR,"
+                            + "    BALANCE    DOUBLE)"
+            );
+
+            SQLException ex = assertThrows(SQLException.class, () -> stmt.execute("CREATE TABLE ACCOUNTS (ACCOUNT_ID INT PRIMARY KEY)"));
+
+            assertTrue(ex.getMessage().contains("Table already exists"));
+        }
     }
 
     /**
