@@ -20,12 +20,13 @@ package org.apache.ignite.internal.component;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 
 import java.io.File;
-import java.io.IOException;
 import java.net.InetAddress;
-import java.net.URISyntaxException;
+import java.net.URI;
+import java.net.UnknownHostException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -56,7 +57,7 @@ public class ItRestAddressReportTest {
 
     @Test
     @DisplayName("Should report rest port to the file after RestComponent started")
-    void restPortReportedToFile() throws URISyntaxException, IOException {
+    void restPortReportedToFile() throws Exception {
         // Given configuration with rest port configured rest.port=10333, rest.portRange=10
         Path configPath = Path.of(IgniteRunnerTest.class.getResource("/ignite-config-rest-port-not-default.json").toURI());
 
@@ -77,10 +78,10 @@ public class ItRestAddressReportTest {
         assertThat(reportFile.exists(), is(true));
 
         // And the file contains valid rest server network address
-        String retAddress = Files.readString(workDir.resolve(NODE_NAME).resolve("rest-address"));
-        assertThat(retAddress, containsString(InetAddress.getLocalHost().getHostAddress()));
+        URI restUri = URI.create(Files.readString(workDir.resolve(NODE_NAME).resolve("rest-address")));
+        assertThat(restUri.getHost(), is(equalTo(getHostAddress())));
         // And port is in configured range
-        int port = cutPort(retAddress);
+        int port = restUri.getPort();
         assertThat(port >= 10333 && port < 10333 + 10, is(true));
 
         // When stop node
@@ -88,5 +89,13 @@ public class ItRestAddressReportTest {
 
         // Then the file is removed
         assertThat(reportFile.exists(), is(false));
+    }
+
+    private static String getHostAddress() {
+        try {
+            return InetAddress.getLocalHost().getHostAddress();
+        } catch (UnknownHostException e) {
+            return "localhost";
+        }
     }
 }

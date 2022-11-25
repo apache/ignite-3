@@ -716,20 +716,6 @@ public class IgniteImpl implements Ignite {
     }
 
     /**
-     * Returns the host address of REST endpoints.
-     *
-     * @throws IgniteInternalException if the REST module is not started.
-     */
-    // TODO: should be encapsulated in local properties, see https://issues.apache.org/jira/browse/IGNITE-15131
-    public NetworkAddress restHostAddress() {
-        try {
-            return new NetworkAddress(InetAddress.getLocalHost().getHostAddress(), restComponent.port());
-        } catch (UnknownHostException e) {
-            return new NetworkAddress("localhost", restComponent.port());
-        }
-    }
-
-    /**
      * Returns the local address of the Thin Client.
      *
      * @throws IgniteInternalException if the Client module is not started.
