@@ -51,7 +51,7 @@ import org.jetbrains.annotations.Nullable;
  */
 @OpenAPIDefinition(info = @Info(
         title = "Ignite REST module",
-        version = "3.0.0-alpha",
+        version = "3.0.0-SNAPSHOT",
         license = @License(name = "Apache 2.0", url = "https://ignite.apache.org"),
         contact = @Contact(email = "user@ignite.apache.org")))
 @OpenAPIInclude(classes = {
