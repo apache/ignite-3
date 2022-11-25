@@ -305,7 +305,32 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
     /** <inheritdoc /> */
     protected override Expression VisitNew(NewExpression expression)
     {
-        VisitArguments(expression.Arguments);
+        var first = true;
+
+        for (var i = 0; i < expression.Arguments.Count; i++)
+        {
+            var arg = expression.Arguments[i];
+            if (!first)
+            {
+                if (_useStar)
+                {
+                    throw new NotSupportedException("Aggregate functions do not support multiple fields");
+                }
+
+                ResultBuilder.TrimEnd().Append(", ");
+            }
+
+            first = false;
+
+            Visit(arg);
+
+            var param = expression.Members?[i];
+
+            if (param != null)
+            {
+                ResultBuilder.Append(" as ").Append(param.Name.ToUpperInvariant());
+            }
+        }
 
         return expression;
     }
