@@ -25,7 +25,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateStorage;
-import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
+import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.raft.Loza;
@@ -79,7 +79,7 @@ public class MockNode {
 
         RocksDbClusterStateStorage clusterStateStorage = new RocksDbClusterStateStorage(workDir.resolve("cmg"));
 
-        LogicalTopologyServiceImpl logicalTopologyService = new LogicalTopologyServiceImpl(clusterStateStorage);
+        LogicalTopologyImpl logicalTopologyService = new LogicalTopologyImpl(clusterStateStorage);
 
         this.clusterManager = new ClusterManagementGroupManager(
                 vaultManager,

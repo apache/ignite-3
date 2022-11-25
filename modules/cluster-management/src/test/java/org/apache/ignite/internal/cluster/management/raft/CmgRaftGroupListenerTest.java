@@ -30,7 +30,7 @@ import java.util.List;
 import java.util.Set;
 import org.apache.ignite.internal.cluster.management.ClusterTag;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
-import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
+import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.service.CommandClosure;
@@ -45,7 +45,7 @@ import org.junit.jupiter.api.Test;
 public class CmgRaftGroupListenerTest {
     private final ClusterStateStorage storage = new TestClusterStateStorage();
 
-    private final CmgRaftGroupListener listener = new CmgRaftGroupListener(storage, new LogicalTopologyServiceImpl(storage));
+    private final CmgRaftGroupListener listener = new CmgRaftGroupListener(storage, new LogicalTopologyImpl(storage));
 
     private final CmgMessagesFactory msgFactory = new CmgMessagesFactory();
 

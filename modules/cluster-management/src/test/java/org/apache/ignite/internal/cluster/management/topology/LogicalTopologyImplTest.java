@@ -45,10 +45,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 @ExtendWith(WorkDirectoryExtension.class)
-class LogicalTopologyServiceImplTest {
+class LogicalTopologyImplTest {
     private final ClusterStateStorage storage = new TestClusterStateStorage();
 
-    private InternalLogicalTopologyService topologyService;
+    private LogicalTopology topologyService;
 
     @WorkDirectory
     protected Path workDir;
@@ -57,7 +57,7 @@ class LogicalTopologyServiceImplTest {
     void setUp() {
         storage.start();
 
-        topologyService = new LogicalTopologyServiceImpl(storage);
+        topologyService = new LogicalTopologyImpl(storage);
     }
 
     @AfterEach

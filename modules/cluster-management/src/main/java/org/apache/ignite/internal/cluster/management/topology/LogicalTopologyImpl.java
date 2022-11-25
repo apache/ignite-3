@@ -27,15 +27,15 @@ import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
 import org.apache.ignite.network.ClusterNode;
 
 /**
- * Implementation of {@link InternalLogicalTopologyService}.
+ * Implementation of {@link LogicalTopology}.
  */
-public class LogicalTopologyServiceImpl implements InternalLogicalTopologyService {
+public class LogicalTopologyImpl implements LogicalTopology {
     /** Storage key for the logical topology. */
     private static final byte[] LOGICAL_TOPOLOGY_KEY = "logical".getBytes(UTF_8);
 
     private final ClusterStateStorage storage;
 
-    public LogicalTopologyServiceImpl(ClusterStateStorage storage) {
+    public LogicalTopologyImpl(ClusterStateStorage storage) {
         this.storage = storage;
     }
 

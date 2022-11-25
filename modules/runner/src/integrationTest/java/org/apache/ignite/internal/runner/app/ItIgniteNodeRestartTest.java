@@ -55,7 +55,7 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateStorage;
-import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
+import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationModule;
 import org.apache.ignite.internal.configuration.ConfigurationModules;
@@ -247,7 +247,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
         var txManager = new TxManagerImpl(replicaService, lockManager, hybridClock);
 
         RocksDbClusterStateStorage clusterStateStorage = new RocksDbClusterStateStorage(dir.resolve("cmg"));
-        LogicalTopologyServiceImpl logicalTopologyService = new LogicalTopologyServiceImpl(clusterStateStorage);
+        LogicalTopologyImpl logicalTopologyService = new LogicalTopologyImpl(clusterStateStorage);
 
         var cmgManager = new ClusterManagementGroupManager(
                 vault,

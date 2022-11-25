@@ -48,7 +48,7 @@ import org.apache.ignite.internal.cluster.management.raft.CmgRaftService;
 import org.apache.ignite.internal.cluster.management.raft.IllegalInitArgumentException;
 import org.apache.ignite.internal.cluster.management.raft.JoinDeniedException;
 import org.apache.ignite.internal.cluster.management.raft.commands.JoinReadyCommand;
-import org.apache.ignite.internal.cluster.management.topology.InternalLogicalTopologyService;
+import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -116,7 +116,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
 
     private final ClusterStateStorage clusterStateStorage;
 
-    private final InternalLogicalTopologyService logicalTopologyService;
+    private final LogicalTopology logicalTopologyService;
 
     /** Local state. */
     private final LocalStateStorage localStateStorage;
@@ -130,7 +130,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
             ClusterService clusterService,
             Loza raftManager,
             ClusterStateStorage clusterStateStorage,
-            InternalLogicalTopologyService logicalTopologyService
+            LogicalTopology logicalTopologyService
     ) {
         this.clusterService = clusterService;
         this.raftManager = raftManager;

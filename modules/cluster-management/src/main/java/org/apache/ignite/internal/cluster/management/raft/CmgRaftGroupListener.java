@@ -35,7 +35,7 @@ import org.apache.ignite.internal.cluster.management.raft.commands.ReadLogicalTo
 import org.apache.ignite.internal.cluster.management.raft.commands.ReadStateCommand;
 import org.apache.ignite.internal.cluster.management.raft.responses.LogicalTopologyResponse;
 import org.apache.ignite.internal.cluster.management.raft.responses.ValidationErrorResponse;
-import org.apache.ignite.internal.cluster.management.topology.InternalLogicalTopologyService;
+import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -55,14 +55,14 @@ public class CmgRaftGroupListener implements RaftGroupListener {
 
     private final RaftStorageManager storage;
 
-    private final InternalLogicalTopologyService logicalTopologyService;
+    private final LogicalTopology logicalTopologyService;
 
     private final ValidationManager validationManager;
 
     /**
      * Creates a new instance.
      */
-    public CmgRaftGroupListener(ClusterStateStorage storage, InternalLogicalTopologyService logicalTopologyService) {
+    public CmgRaftGroupListener(ClusterStateStorage storage, LogicalTopology logicalTopologyService) {
         this.storage = new RaftStorageManager(storage);
         this.logicalTopologyService = logicalTopologyService;
         this.validationManager = new ValidationManager(this.storage, this.logicalTopologyService);

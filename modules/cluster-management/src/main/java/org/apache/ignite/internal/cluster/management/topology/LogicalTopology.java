@@ -22,10 +22,10 @@ import java.util.Set;
 import org.apache.ignite.network.ClusterNode;
 
 /**
- * Service used to manage logical topology information available locally on the current node. It is 'internal' because
- * it is fed by internal CMG-related components with information about logical topology changes.
+ * Used to manage logical topology information available locally on the current node.
+ * It is fed by internal CMG-related components with information about logical topology changes.
  */
-public interface InternalLogicalTopologyService {
+public interface LogicalTopology {
     /**
      * Retrieves the current logical topology.
      */

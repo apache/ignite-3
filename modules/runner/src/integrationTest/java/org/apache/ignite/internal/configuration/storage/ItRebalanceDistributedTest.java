@@ -41,7 +41,7 @@ import org.apache.ignite.client.handler.configuration.ClientConnectorConfigurati
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
-import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
+import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -488,7 +488,7 @@ public class ItRebalanceDistributedTest {
             txManager = new TxManagerImpl(replicaSvc, lockManager, hybridClock);
 
             TestClusterStateStorage clusterStateStorage = new TestClusterStateStorage();
-            LogicalTopologyServiceImpl logicalTopologyService = new LogicalTopologyServiceImpl(clusterStateStorage);
+            LogicalTopologyImpl logicalTopologyService = new LogicalTopologyImpl(clusterStateStorage);
 
             cmgManager = new ClusterManagementGroupManager(
                     vaultManager,
