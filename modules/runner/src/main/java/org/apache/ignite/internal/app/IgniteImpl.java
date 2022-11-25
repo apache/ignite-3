@@ -36,8 +36,10 @@ import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesSerializationRegistryInitializer;
+import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.rest.ClusterManagementRestFactory;
+import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.compute.ComputeComponent;
 import org.apache.ignite.internal.compute.ComputeComponentImpl;
@@ -200,6 +202,8 @@ public class IgniteImpl implements Ignite {
     /** Rest module. */
     private final RestComponent restComponent;
 
+    private final ClusterStateStorage clusterStateStorage;
+
     private final ClusterManagementGroupManager cmgMgr;
 
     /** Client handler module. */
@@ -308,11 +312,17 @@ public class IgniteImpl implements Ignite {
 
         txManager = new TxManagerImpl(replicaSvc, lockMgr, clock);
 
+        // TODO: IGNITE-16841 - use common RocksDB instance to store cluster state as well.
+        clusterStateStorage = new RocksDbClusterStateStorage(workDir.resolve(CMG_DB_PATH));
+
+        var logicalTopologyService = new LogicalTopologyImpl(clusterStateStorage);
+
         cmgMgr = new ClusterManagementGroupManager(
                 vaultMgr,
                 clusterSvc,
                 raftMgr,
-                new RocksDbClusterStateStorage(workDir.resolve(CMG_DB_PATH))
+                clusterStateStorage,
+                logicalTopologyService
         );
 
         metaStorageMgr = new MetaStorageManager(
@@ -506,6 +516,7 @@ public class IgniteImpl implements Ignite {
                     clusterSvc,
                     restComponent,
                     raftMgr,
+                    clusterStateStorage,
                     cmgMgr
             );
 

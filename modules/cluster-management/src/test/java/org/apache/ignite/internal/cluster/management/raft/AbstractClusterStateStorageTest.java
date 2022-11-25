@@ -27,7 +27,6 @@ import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -60,13 +59,11 @@ public abstract class AbstractClusterStateStorageTest {
         storage = createStorage();
 
         storage.start();
-
-        assertTrue(storage.isStarted());
     }
 
     @AfterEach
-    void tearDown() {
-        storage.close();
+    void tearDown() throws Exception {
+        storage.stop();
     }
 
     /**
