@@ -117,16 +117,16 @@ public class DynamicCompleterRegistry {
                 }
             }
 
-            return !conf.hasDisableOptions()
+            if (conf.hasDisableOptions()) {
+                if (cursorWord.equals(lastNotEmptyWord)) {
+                    return !conf.disableOptions().contains(lastNotEmptyWord)
+                             && !conf.disableOptions().contains(preLastNotEmptyWord);
+                } else {
+                    return !conf.disableOptions().contains(lastNotEmptyWord);
+                }
+            }
 
-                    || (conf.hasDisableOptions()
-                    && !cursorWord.equals(lastNotEmptyWord)
-                    && !conf.disableOptions().contains(lastNotEmptyWord))
-
-                    || (conf.hasDisableOptions()
-                    && cursorWord.equals(lastNotEmptyWord)
-                    && !conf.disableOptions().contains(lastNotEmptyWord)
-                    && !conf.disableOptions().contains(preLastNotEmptyWord));
+            return true;
         }
 
         DynamicCompleter completer(String[] words) {

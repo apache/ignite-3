@@ -33,13 +33,13 @@ public class CompleterConf {
 
     private final List<String[]> commands;
 
-    private final String[] enableOptions;
+    private final Set<String> enableOptions;
 
-    private final String[] disableOptions;
+    private final Set<String> disableOptions;
 
     private final boolean exclusiveEnableOptions;
 
-    private CompleterConf(List<String[]> commands, String[] enableOptions, String[] disableOptions, boolean exclusiveEnableOptions) {
+    private CompleterConf(List<String[]> commands, Set<String> enableOptions, Set<String> disableOptions, boolean exclusiveEnableOptions) {
         if (commands == null) {
             throw new IllegalArgumentException("commands must not be null");
         }
@@ -67,11 +67,11 @@ public class CompleterConf {
     }
 
     public Set<String> enableOptions() {
-        return Set.of(enableOptions);
+        return enableOptions;
     }
 
     public Set<String> disableOptions() {
-        return Set.of(disableOptions);
+        return disableOptions;
     }
 
     public boolean commandSpecific() {
@@ -94,9 +94,9 @@ public class CompleterConf {
     public static class CompleterConfBuilder {
         private final List<String[]> command = new ArrayList<>();
 
-        private String[] enableOptions;
+        private Set<String> enableOptions;
 
-        private String[] disableOptions;
+        private Set<String> disableOptions;
 
         private boolean exclusiveEnableOptions;
 
@@ -111,22 +111,21 @@ public class CompleterConf {
 
         /** Setup options after those the completer should be called. */
         public CompleterConfBuilder enableOptions(Options... enableOptions) {
-            Set<String> optionsValues = Stream.of(enableOptions)
+            this.enableOptions = Stream.of(enableOptions)
                     .flatMap(opt -> Stream.of(opt.fullName(), opt.shortName()))
                     .collect(Collectors.toSet());
-            this.enableOptions = optionsValues.toArray(String[]::new);
             return this;
         }
 
         /** Setup options after those the completer should be called. */
         public CompleterConfBuilder enableOptions(String... enableOptions) {
-            this.enableOptions = Arrays.copyOf(enableOptions, enableOptions.length);
+            this.enableOptions = Set.of(enableOptions);
             return this;
         }
 
         /** Setup options after those the completer should NOT be called. */
         public CompleterConfBuilder disableOptions(String... disableOptions) {
-            this.disableOptions = Arrays.copyOf(disableOptions, disableOptions.length);
+            this.disableOptions = Set.of(disableOptions);
             return this;
         }
 

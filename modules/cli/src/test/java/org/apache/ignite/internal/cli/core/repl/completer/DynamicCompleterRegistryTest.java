@@ -60,7 +60,7 @@ class DynamicCompleterRegistryTest {
                 CompleterConf.builder()
                         .command("command1")
                         .command("command2").build(),
-                (words) -> completer1
+                words -> completer1
         );
 
         // Then
@@ -86,9 +86,9 @@ class DynamicCompleterRegistryTest {
     @Test
     void returnsEmptyCollectionIfThereIsNoSuitableCompleter() {
         // Given
-        registry.register(CompleterConf.forCommand("command1", "subcommand1"), (words) -> completer1);
-        registry.register(CompleterConf.forCommand("command1", "subcommand1"), (words) -> completer2);
-        registry.register(CompleterConf.forCommand("command2"), (words) -> completer3);
+        registry.register(CompleterConf.forCommand("command1", "subcommand1"), words -> completer1);
+        registry.register(CompleterConf.forCommand("command1", "subcommand1"), words -> completer2);
+        registry.register(CompleterConf.forCommand("command2"), words -> completer3);
 
         // Then
         assertThat(registry.findCompleters(words("command1")), is(empty()));
@@ -105,7 +105,7 @@ class DynamicCompleterRegistryTest {
         // Given
         registry.register(
                 CompleterConf.builder().command("command1", "subcommand1").disableOptions("--stopWord").build(),
-                (words) -> completer1
+                words -> completer1
         );
 
         // Then
@@ -150,7 +150,7 @@ class DynamicCompleterRegistryTest {
                         .command("command1")
                         .enableOptions("--complete-after-me", "-com")
                         .build(),
-                (words) -> completer1
+                words -> completer1
         );
 
         // Then for words without those options there are no completers
@@ -173,7 +173,7 @@ class DynamicCompleterRegistryTest {
                 CompleterConf.builder()
                         .command("node", "config", "show")
                         .disableOptions("-n").build(),
-                (words) -> completer1
+                words -> completer1
         );
         // And the second completer with the same enable option
         registry.register(
@@ -209,17 +209,17 @@ class DynamicCompleterRegistryTest {
                         .command("node", "config", "show")
                         .enableOptions(Options.NODE_NAME)
                         .exclusiveEnableOptions().build(),
-                (words) -> completer1
+                words -> completer1
         );
         // And completer for the same command
         registry.register(
                 CompleterConf.forCommand("node", "config", "show"),
-                (words) -> completer2
+                words -> completer2
         );
         // And common completer for other option
         registry.register(
                 CompleterConf.builder().enableOptions("-l").build(),
-                (words) -> completer3
+                words -> completer3
         );
 
         // Then exclusive option is on the priority and no other completer is used for -n
@@ -255,11 +255,11 @@ class DynamicCompleterRegistryTest {
         // Given completers without exclusive enable option registered first
         registry.register(
                 CompleterConf.forCommand("node", "config", "show"),
-                (words) -> completer2
+                words -> completer2
         );
         registry.register(
                 CompleterConf.builder().enableOptions("-l").build(),
-                (words) -> completer3
+                words -> completer3
         );
         // And exclusiveEnableOption is registered last
         registry.register(
@@ -267,7 +267,7 @@ class DynamicCompleterRegistryTest {
                         .command("node", "config", "show")
                         .enableOptions("-n")
                         .exclusiveEnableOptions().build(),
-                (words) -> completer1
+                words -> completer1
         );
 
         // Then exclusive option is on the priority and no other completer is used for -n
