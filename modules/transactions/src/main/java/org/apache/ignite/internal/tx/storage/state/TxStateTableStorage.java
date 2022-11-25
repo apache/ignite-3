@@ -118,8 +118,9 @@ public interface TxStateTableStorage extends ManuallyCloseable {
      *
      * @param partitionId Partition ID.
      * @return Future to indicate the completion of the abort of a full rebalance for transaction state storage.
+     * @throws StorageException If the given partition does not exist, or fail the abort of rebalancing.
      */
-    CompletableFuture<Void> abortRebalance(int partitionId);
+    CompletableFuture<Void> abortRebalance(int partitionId) throws StorageException;
 
     /**
      * Finishes a successful transaction state storage rebalance if it has been started: deletes the backup of the transaction state storage
@@ -129,6 +130,7 @@ public interface TxStateTableStorage extends ManuallyCloseable {
      *
      * @param partitionId Partition ID.
      * @return Future to indicate the completion of a full rebalance for transaction state storage.
+     * @throws StorageException If the given partition does not exist, or fail the finish of rebalancing.
      */
-    CompletableFuture<Void> finishRebalance(int partitionId);
+    CompletableFuture<Void> finishRebalance(int partitionId) throws StorageException;
 }

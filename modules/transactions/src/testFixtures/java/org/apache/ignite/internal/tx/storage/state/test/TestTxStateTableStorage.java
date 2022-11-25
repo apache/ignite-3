@@ -25,8 +25,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.internal.configuration.storage.StorageException;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
-import org.apache.ignite.internal.tx.storage.state.TxStateStorageDecorator;
-import org.apache.ignite.internal.tx.storage.state.TxStateStorageOnRebalance;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.jetbrains.annotations.Nullable;
 
@@ -34,13 +32,15 @@ import org.jetbrains.annotations.Nullable;
  * Table tx state storage for {@link TestTxStateStorage}.
  */
 public class TestTxStateTableStorage implements TxStateTableStorage {
-    private final Map<Integer, TxStateStorageDecorator> storageByPartitionId = new ConcurrentHashMap<>();
+    private final Map<Integer, TestTxStateStorageDecorator> storageByPartitionId = new ConcurrentHashMap<>();
 
-    private final Map<Integer, TxStateStorage> backupStoragesByPartitionId = new ConcurrentHashMap<>();
+    private final Map<Integer, TestTxStateStorage> backupStorageByPartitionId = new ConcurrentHashMap<>();
+
+    private final Map<Integer, CompletableFuture<Void>> startRebalanceFutureByPartitionId = new ConcurrentHashMap<>();
 
     @Override
     public TxStateStorage getOrCreateTxStateStorage(int partitionId) throws StorageException {
-        return storageByPartitionId.computeIfAbsent(partitionId, k -> new TxStateStorageDecorator(new TestTxStateStorage()));
+        return storageByPartitionId.computeIfAbsent(partitionId, k -> new TestTxStateStorageDecorator(new TestTxStateStorage()));
     }
 
     @Override
@@ -84,55 +84,103 @@ public class TestTxStateTableStorage implements TxStateTableStorage {
 
     @Override
     public CompletableFuture<Void> startRebalance(int partitionId) throws StorageException {
-        TxStateStorageDecorator oldStorageDecorator = storageByPartitionId.get(partitionId);
+        TestTxStateStorageDecorator storageDecorator = storageByPartitionId.get(partitionId);
 
-        checkPartitionStoragesExists(oldStorageDecorator, partitionId);
+        checkPartitionStoragesExists(storageDecorator, partitionId);
 
-        TxStateStorage oldStorage = oldStorageDecorator.getDelegate();
+        CompletableFuture<Void> startRebalancePartitionFuture = new CompletableFuture<>();
 
-        TxStateStorage previousOldStorage = backupStoragesByPartitionId.put(partitionId, oldStorage);
-
-        if (previousOldStorage != null) {
+        if (startRebalanceFutureByPartitionId.putIfAbsent(partitionId, startRebalancePartitionFuture) != null) {
             throw new StorageException("Previous full rebalance did not complete for the partition: " + partitionId);
         }
 
-        oldStorageDecorator.replaceDelegate(new TxStateStorageOnRebalance(oldStorage, new TestTxStateStorage()));
+        try {
+            assert !backupStorageByPartitionId.containsKey(partitionId) : partitionId;
 
-        return completedFuture(null);
+            TestTxStateStorage newWriteStorage = new TestTxStateStorage();
+
+            TestTxStateStorage oldWriteStorage = storageDecorator.startRebalance(newWriteStorage);
+
+            backupStorageByPartitionId.put(partitionId, oldWriteStorage);
+
+            startRebalancePartitionFuture.complete(null);
+        } catch (Throwable throwable) {
+            startRebalanceFutureByPartitionId.remove(partitionId).completeExceptionally(throwable);
+        }
+
+        return startRebalancePartitionFuture;
     }
 
     @Override
-    public CompletableFuture<Void> abortRebalance(int partitionId) {
-        TxStateStorage backupStorage = backupStoragesByPartitionId.remove(partitionId);
+    public CompletableFuture<Void> abortRebalance(int partitionId) throws StorageException {
+        CompletableFuture<Void> startRebalancePartitionFuture = startRebalanceFutureByPartitionId.get(partitionId);
 
-        if (backupStorage != null) {
-            TxStateStorageDecorator storageDecorator = storageByPartitionId.get(partitionId);
-
-            checkPartitionStoragesExists(storageDecorator, partitionId);
-
-            storageDecorator.replaceDelegate(backupStorage);
+        if (startRebalancePartitionFuture == null) {
+            return completedFuture(null);
         }
 
-        return completedFuture(null);
+        if (!startRebalancePartitionFuture.isDone()) {
+            throw new StorageException("Full rebalance for a partition hasn't finished starting yet: " + partitionId);
+        }
+
+        CompletableFuture<Void> abortRebalanceFuture = new CompletableFuture<>();
+
+        TestTxStateStorage removedOldWriteStorage = backupStorageByPartitionId.remove(partitionId);
+
+        if (removedOldWriteStorage != null) {
+            try {
+                TestTxStateStorageDecorator storageDecorator = storageByPartitionId.get(partitionId);
+
+                checkPartitionStoragesExists(storageDecorator, partitionId);
+
+                storageDecorator.abortRebalce(removedOldWriteStorage);
+
+                abortRebalanceFuture.complete(null);
+                startRebalanceFutureByPartitionId.remove(partitionId);
+            } catch (Throwable throwable) {
+                abortRebalanceFuture.completeExceptionally(throwable);
+            }
+        } else {
+            abortRebalanceFuture.complete(null);
+        }
+
+        return abortRebalanceFuture;
     }
 
     @Override
-    public CompletableFuture<Void> finishRebalance(int partitionId) {
-        TxStateStorage backupStorage = backupStoragesByPartitionId.remove(partitionId);
+    public CompletableFuture<Void> finishRebalance(int partitionId) throws StorageException {
+        CompletableFuture<Void> startRebalancePartitionFuture = startRebalanceFutureByPartitionId.get(partitionId);
 
-        if (backupStorage != null) {
-            TxStateStorageDecorator storageDecorator = storageByPartitionId.get(partitionId);
-
-            checkPartitionStoragesExists(storageDecorator, partitionId);
-
-            TxStateStorageOnRebalance txStateStorageOnRebalance = (TxStateStorageOnRebalance) storageDecorator.getDelegate();
-
-            txStateStorageOnRebalance.finishRebalance();
-
-            storageDecorator.replaceDelegate(txStateStorageOnRebalance.getNewStorage());
+        if (startRebalancePartitionFuture == null) {
+            return completedFuture(null);
         }
 
-        return completedFuture(null);
+        if (!startRebalancePartitionFuture.isDone()) {
+            throw new StorageException("Full rebalance for a partition hasn't finished starting yet: " + partitionId);
+        }
+
+        CompletableFuture<Void> finishRebalanceFuture = new CompletableFuture<>();
+
+        TestTxStateStorage removedOldWriteStorage = backupStorageByPartitionId.remove(partitionId);
+
+        if (removedOldWriteStorage != null) {
+            try {
+                TestTxStateStorageDecorator storageDecorator = storageByPartitionId.get(partitionId);
+
+                checkPartitionStoragesExists(storageDecorator, partitionId);
+
+                storageDecorator.finishRebalance();
+
+                finishRebalanceFuture.complete(null);
+                startRebalanceFutureByPartitionId.remove(partitionId);
+            } catch (Throwable throwable) {
+                finishRebalanceFuture.completeExceptionally(throwable);
+            }
+        } else {
+            finishRebalanceFuture.complete(null);
+        }
+
+        return finishRebalanceFuture;
     }
 
     private void checkPartitionStoragesExists(@Nullable TxStateStorage storages, int partitionId) throws StorageException {

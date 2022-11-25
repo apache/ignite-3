@@ -308,19 +308,19 @@ public class TxStateRocksDbTableStorage implements TxStateTableStorage {
     }
 
     @Override
-    public CompletableFuture<Void> startRebalance(int partitionId) {
+    public CompletableFuture<Void> startRebalance(int partitionId) throws StorageException {
         // TODO: IGNITE-18024 Implement
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public CompletableFuture<Void> abortRebalance(int partitionId) {
+    public CompletableFuture<Void> abortRebalance(int partitionId) throws StorageException {
         // TODO: IGNITE-18024 Implement
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public CompletableFuture<Void> finishRebalance(int partitionId) {
+    public CompletableFuture<Void> finishRebalance(int partitionId) throws StorageException {
         // TODO: IGNITE-18024 Implement
         throw new UnsupportedOperationException();
     }
