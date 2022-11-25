@@ -172,7 +172,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
             if (fieldInfo.GetCustomAttribute<ColumnAttribute>() is { Name: { } columnAttributeName })
             {
-                return new(columnAttributeName, fieldInfo, HasColumnNameAttribute: true);
+                return new(columnAttributeName, fieldInfo, null, HasColumnNameAttribute: true);
             }
 
             var cleanName = fieldInfo.GetCleanName();
@@ -188,11 +188,13 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 if (property.GetCustomAttribute<ColumnAttribute>() is { Name: { } columnAttributeName2 })
                 {
                     // This is a compiler-generated backing field for an automatic property - get the attribute from the property.
-                    return new(columnAttributeName2, fieldInfo, HasColumnNameAttribute: true);
+                    return new(columnAttributeName2, fieldInfo, property, HasColumnNameAttribute: true);
                 }
+
+                return new(cleanName, fieldInfo, property, HasColumnNameAttribute: false);
             }
 
-            return new(cleanName, fieldInfo, HasColumnNameAttribute: false);
+            return new(cleanName, fieldInfo, null, HasColumnNameAttribute: false);
         }
 
         /// <summary>
@@ -232,8 +234,9 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// </summary>
         /// <param name="Name">Column name.</param>
         /// <param name="Field">Corresponding field.</param>
+        /// <param name="Property">Corresponding property (when <see cref="Field"/> is a backing field of a auto property).</param>
         /// <param name="HasColumnNameAttribute">Whether corresponding field or property has <see cref="ColumnAttribute"/>
         /// with <see cref="ColumnAttribute.Name"/> set.</param>
-        internal record ColumnInfo(string Name, FieldInfo Field, bool HasColumnNameAttribute);
+        internal record ColumnInfo(string Name, FieldInfo Field, PropertyInfo? Property, bool HasColumnNameAttribute);
     }
 }

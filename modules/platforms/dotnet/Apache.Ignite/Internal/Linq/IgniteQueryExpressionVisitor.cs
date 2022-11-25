@@ -506,8 +506,10 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
             ResultBuilder.Append(tableName).Append('.');
 
             // TODO: col.Field is the backing field, we need the property instead.
+            // TODO: In anon type, backing field is different - no CompilerGenerated attribute.
+            // Do we go the wrong way here with enumerating anonymous type properties?
             if (source != null &&
-                ExpressionWalker.GetProjectedMember(source, col.Field) is {} projectedMember &&
+                ExpressionWalker.GetProjectedMember(source, (MemberInfo?)col.Property ?? col.Field) is {} projectedMember &&
                 projectedMember.Member != col.Field)
             {
                 AppendColumnName(projectedMember, tableName);
