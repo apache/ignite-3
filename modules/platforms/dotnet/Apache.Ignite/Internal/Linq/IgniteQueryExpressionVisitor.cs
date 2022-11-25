@@ -26,6 +26,7 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Text;
+using Common;
 using Remotion.Linq;
 using Remotion.Linq.Clauses;
 using Remotion.Linq.Clauses.Expressions;
@@ -204,7 +205,7 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
         }
 
         Visit(expression.Right);
-        ResultBuilder.Append(')');
+        ResultBuilder.TrimEnd().Append(')');
 
         return expression;
     }
@@ -325,8 +326,7 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
         Visit(expression.IfTrue);
 
         ResultBuilder.Append(" as ");
-        var sqlColumnType = expression.Type.ToSqlColumnType() ?? throw new NotSupportedException("Unsupported type: " + expression.Type);
-        ResultBuilder.Append(sqlColumnType.ToSqlTypeName());
+        ResultBuilder.Append(expression.Type.ToSqlTypeName());
         ResultBuilder.Append(')');
 
         Visit(expression.IfFalse);
@@ -351,7 +351,7 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
         {
             ResultBuilder.Append('(');
             _modelVisitor.VisitQueryModel(subQueryModel, false, true);
-            ResultBuilder.Append(')');
+            ResultBuilder.TrimEnd().Append(')');
         }
         else
         {
@@ -384,7 +384,7 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
                 break;
 
             case ExpressionType.Convert:
-                // Ignore, let the db do the conversion
+                ResultBuilder.Append("cast(");
                 break;
 
             default:
@@ -395,7 +395,14 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
 
         if (closeBracket)
         {
-            ResultBuilder.Append(')');
+            ResultBuilder.TrimEnd().Append(')');
+        }
+        else if (expression.NodeType is ExpressionType.Convert)
+        {
+            ResultBuilder
+                .Append(" as ")
+                .Append(expression.Type.ToSqlTypeName())
+                .Append(')');
         }
 
         return expression;
@@ -481,7 +488,7 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
 
             if (!first)
             {
-                ResultBuilder.Append(", ");
+                ResultBuilder.TrimEnd().Append(", ");
             }
 
             first = false;
@@ -598,7 +605,7 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
                     throw new NotSupportedException("Aggregate functions do not support multiple fields");
                 }
 
-                ResultBuilder.Append(", ");
+                ResultBuilder.TrimEnd().Append(", ");
             }
 
             first = false;
@@ -664,7 +671,7 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
         Visit(expression.Left);
         ResultBuilder.Append(", ");
         Visit(expression.Right);
-        ResultBuilder.Append(')');
+        ResultBuilder.TrimEnd().Append(')');
 
         return true;
     }

@@ -60,23 +60,23 @@ public partial class LinqSqlGenerationTests
 
     [Test]
     public void TestSum() =>
-        AssertSql("select sum (_T0.KEY) from PUBLIC.tbl1 as _T0", q => q.Sum(x => x.Key));
+        AssertSql("select sum(_T0.KEY) from PUBLIC.tbl1 as _T0", q => q.Sum(x => x.Key));
 
     [Test]
     public void TestAvg() =>
-        AssertSql("select avg (_T0.KEY) from PUBLIC.tbl1 as _T0", q => q.Average(x => x.Key));
+        AssertSql("select avg(_T0.KEY) from PUBLIC.tbl1 as _T0", q => q.Average(x => x.Key));
 
     [Test]
     public void TestMin() =>
-        AssertSql("select min (_T0.KEY) from PUBLIC.tbl1 as _T0", q => q.Min(x => x.Key));
+        AssertSql("select min(_T0.KEY) from PUBLIC.tbl1 as _T0", q => q.Min(x => x.Key));
 
     [Test]
     public void TestMax() =>
-        AssertSql("select max (_T0.KEY) from PUBLIC.tbl1 as _T0", q => q.Max(x => x.Key));
+        AssertSql("select max(_T0.KEY) from PUBLIC.tbl1 as _T0", q => q.Max(x => x.Key));
 
     [Test]
     public void TestCount() =>
-        AssertSql("select count (*) from PUBLIC.tbl1 as _T0", q => q.Count());
+        AssertSql("select count(*) from PUBLIC.tbl1 as _T0", q => q.Count());
 
     [Test]
     public void TestDistinct() =>
