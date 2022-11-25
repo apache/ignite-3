@@ -248,7 +248,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         var clusterStateStorage = new RocksDbClusterStateStorage(dir.resolve("cmg"));
 
-        LogicalTopologyImpl logicalTopologyService = new LogicalTopologyImpl(clusterStateStorage);
+        var logicalTopologyService = new LogicalTopologyImpl(clusterStateStorage);
 
         var cmgManager = new ClusterManagementGroupManager(
                 vault,

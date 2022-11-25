@@ -315,7 +315,7 @@ public class IgniteImpl implements Ignite {
         // TODO: IGNITE-16841 - use common RocksDB instance to store cluster state as well.
         clusterStateStorage = new RocksDbClusterStateStorage(workDir.resolve(CMG_DB_PATH));
 
-        LogicalTopologyImpl logicalTopologyService = new LogicalTopologyImpl(clusterStateStorage);
+        var logicalTopologyService = new LogicalTopologyImpl(clusterStateStorage);
 
         cmgMgr = new ClusterManagementGroupManager(
                 vaultMgr,

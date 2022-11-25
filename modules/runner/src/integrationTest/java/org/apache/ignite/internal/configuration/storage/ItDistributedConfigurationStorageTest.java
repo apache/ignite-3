@@ -94,8 +94,8 @@ public class ItDistributedConfigurationStorageTest {
 
             raftManager = new Loza(clusterService, raftConfiguration, workDir, new HybridClockImpl());
 
-            TestClusterStateStorage clusterStateStorage = new TestClusterStateStorage();
-            LogicalTopologyImpl logicalTopologyService = new LogicalTopologyImpl(clusterStateStorage);
+            var clusterStateStorage = new TestClusterStateStorage();
+            var logicalTopologyService = new LogicalTopologyImpl(clusterStateStorage);
 
             cmgManager = new ClusterManagementGroupManager(
                     vaultManager,

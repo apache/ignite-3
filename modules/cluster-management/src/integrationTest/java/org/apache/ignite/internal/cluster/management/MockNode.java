@@ -79,7 +79,7 @@ public class MockNode {
 
         var clusterStateStorage = new RocksDbClusterStateStorage(workDir.resolve("cmg"));
 
-        LogicalTopologyImpl logicalTopologyService = new LogicalTopologyImpl(clusterStateStorage);
+        var logicalTopologyService = new LogicalTopologyImpl(clusterStateStorage);
 
         this.clusterManager = new ClusterManagementGroupManager(
                 vaultManager,

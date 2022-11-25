@@ -487,8 +487,8 @@ public class ItRebalanceDistributedTest {
 
             txManager = new TxManagerImpl(replicaSvc, lockManager, hybridClock);
 
-            TestClusterStateStorage clusterStateStorage = new TestClusterStateStorage();
-            LogicalTopologyImpl logicalTopologyService = new LogicalTopologyImpl(clusterStateStorage);
+            var clusterStateStorage = new TestClusterStateStorage();
+            var logicalTopologyService = new LogicalTopologyImpl(clusterStateStorage);
 
             cmgManager = new ClusterManagementGroupManager(
                     vaultManager,
