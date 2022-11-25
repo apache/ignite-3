@@ -55,17 +55,17 @@ public class CmgRaftGroupListener implements RaftGroupListener {
 
     private final RaftStorageManager storage;
 
-    private final LogicalTopology logicalTopologyService;
+    private final LogicalTopology logicalTopology;
 
     private final ValidationManager validationManager;
 
     /**
      * Creates a new instance.
      */
-    public CmgRaftGroupListener(ClusterStateStorage storage, LogicalTopology logicalTopologyService) {
+    public CmgRaftGroupListener(ClusterStateStorage storage, LogicalTopology logicalTopology) {
         this.storage = new RaftStorageManager(storage);
-        this.logicalTopologyService = logicalTopologyService;
-        this.validationManager = new ValidationManager(this.storage, this.logicalTopologyService);
+        this.logicalTopology = logicalTopology;
+        this.validationManager = new ValidationManager(this.storage, this.logicalTopology);
     }
 
     @Override
@@ -78,7 +78,7 @@ public class CmgRaftGroupListener implements RaftGroupListener {
             if (command instanceof ReadStateCommand) {
                 clo.result(storage.getClusterState());
             } else if (command instanceof ReadLogicalTopologyCommand) {
-                clo.result(new LogicalTopologyResponse(logicalTopologyService.getLogicalTopology()));
+                clo.result(new LogicalTopologyResponse(logicalTopology.getLogicalTopology()));
             }
         }
     }
@@ -143,7 +143,7 @@ public class CmgRaftGroupListener implements RaftGroupListener {
         ClusterNode node = command.node().asClusterNode();
 
         if (validationManager.isNodeValidated(node)) {
-            logicalTopologyService.putLogicalTopologyNode(node);
+            logicalTopology.putLogicalTopologyNode(node);
 
             LOG.info("Node added to the logical topology [node={}]", node.name());
 
@@ -158,7 +158,7 @@ public class CmgRaftGroupListener implements RaftGroupListener {
     private void removeNodesFromLogicalTopology(NodesLeaveCommand command) {
         Set<ClusterNode> nodes = command.nodes().stream().map(ClusterNodeMessage::asClusterNode).collect(Collectors.toSet());
 
-        logicalTopologyService.removeLogicalTopologyNodes(nodes);
+        logicalTopology.removeLogicalTopologyNodes(nodes);
 
         if (LOG.isInfoEnabled()) {
             LOG.info("Nodes removed from the logical topology [nodes={}]", nodes.stream().map(ClusterNode::name).collect(toList()));

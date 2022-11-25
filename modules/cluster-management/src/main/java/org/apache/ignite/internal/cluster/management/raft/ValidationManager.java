@@ -53,16 +53,16 @@ class ValidationManager implements ManuallyCloseable {
 
     private final RaftStorageManager storage;
 
-    private final LogicalTopology logicalTopologyService;
+    private final LogicalTopology logicalTopology;
 
     /**
      * Map for storing tasks, submitted to the {@link #executor}, so that it is possible to cancel them.
      */
     private final Map<String, Future<?>> cleanupFutures = new ConcurrentHashMap<>();
 
-    ValidationManager(RaftStorageManager storage, LogicalTopology logicalTopologyService) {
+    ValidationManager(RaftStorageManager storage, LogicalTopology logicalTopology) {
         this.storage = storage;
-        this.logicalTopologyService = logicalTopologyService;
+        this.logicalTopology = logicalTopology;
 
         // Schedule removal of possibly stale node IDs in case the leader has changed or the node has been restarted.
         storage.getValidatedNodeIds().forEach(this::scheduleValidatedNodeRemoval);
@@ -142,7 +142,7 @@ class ValidationManager implements ManuallyCloseable {
     }
 
     boolean isNodeValidated(ClusterNode node) {
-        return storage.isNodeValidated(node.id()) || logicalTopologyService.isNodeInLogicalTopology(node);
+        return storage.isNodeValidated(node.id()) || logicalTopology.isNodeInLogicalTopology(node);
     }
 
     /**
