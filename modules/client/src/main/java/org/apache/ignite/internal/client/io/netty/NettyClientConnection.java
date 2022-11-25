@@ -21,7 +21,6 @@ import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.util.AttributeKey;
-import java.io.IOException;
 import java.net.InetSocketAddress;
 import org.apache.ignite.internal.client.io.ClientConnection;
 import org.apache.ignite.internal.client.io.ClientConnectionStateHandler;
@@ -88,9 +87,8 @@ public class NettyClientConnection implements ClientConnection {
      * Handles incoming message.
      *
      * @param buf Message.
-     * @throws IOException when message can't be decoded.
      */
-    void onMessage(ByteBuf buf) throws IOException {
+    void onMessage(ByteBuf buf) {
         msgHnd.onMessage(buf);
     }
 
