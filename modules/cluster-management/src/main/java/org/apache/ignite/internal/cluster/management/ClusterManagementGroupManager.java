@@ -48,6 +48,7 @@ import org.apache.ignite.internal.cluster.management.raft.CmgRaftService;
 import org.apache.ignite.internal.cluster.management.raft.IllegalInitArgumentException;
 import org.apache.ignite.internal.cluster.management.raft.JoinDeniedException;
 import org.apache.ignite.internal.cluster.management.raft.commands.JoinReadyCommand;
+import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -115,6 +116,8 @@ public class ClusterManagementGroupManager implements IgniteComponent {
 
     private final ClusterStateStorage clusterStateStorage;
 
+    private final LogicalTopology logicalTopologyService;
+
     /** Local state. */
     private final LocalStateStorage localStateStorage;
 
@@ -126,11 +129,13 @@ public class ClusterManagementGroupManager implements IgniteComponent {
             VaultManager vault,
             ClusterService clusterService,
             Loza raftManager,
-            ClusterStateStorage clusterStateStorage
+            ClusterStateStorage clusterStateStorage,
+            LogicalTopology logicalTopologyService
     ) {
         this.clusterService = clusterService;
         this.raftManager = raftManager;
         this.clusterStateStorage = clusterStateStorage;
+        this.logicalTopologyService = logicalTopologyService;
         this.localStateStorage = new LocalStateStorage(vault);
         this.clusterInitializer = new ClusterInitializer(clusterService);
     }
@@ -382,10 +387,6 @@ public class ClusterManagementGroupManager implements IgniteComponent {
 
                 raftManager.stopRaftGroup(INSTANCE);
 
-                if (clusterStateStorage.isStarted()) {
-                    clusterStateStorage.destroy();
-                }
-
                 localStateStorage.clear().get();
             } catch (Exception e) {
                 throw new IgniteInternalException("Error when cleaning the CMG state", e);
@@ -471,11 +472,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                             INSTANCE,
                             nodeNames,
                             List.of(),
-                            () -> {
-                                clusterStateStorage.start();
-
-                                return new CmgRaftGroupListener(clusterStateStorage);
-                            },
+                            () -> new CmgRaftGroupListener(clusterStateStorage, logicalTopologyService),
                             this::createCmgRaftGroupEventsListener,
                             RaftGroupOptions.defaults()
                     )
@@ -612,10 +609,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
 
         IgniteUtils.shutdownAndAwaitTermination(scheduledExecutor, 10, TimeUnit.SECONDS);
 
-        IgniteUtils.closeAll(
-                () -> raftManager.stopRaftGroup(INSTANCE),
-                clusterStateStorage::close
-        );
+        raftManager.stopRaftGroup(INSTANCE);
 
         // Fail the future to unblock dependent operations
         joinFuture.completeExceptionally(new NodeStoppingException());
