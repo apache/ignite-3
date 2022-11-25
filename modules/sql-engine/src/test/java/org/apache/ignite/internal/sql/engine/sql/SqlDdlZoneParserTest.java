@@ -96,11 +96,11 @@ public class SqlDdlZoneParserTest extends AbstractDdlParserTest {
 
         List<SqlNode> optList = createZone.createOptionList().getList();
 
-        assertThatZoneOptionPresent(optList, "REPLICAS", 2);
-        assertThatZoneOptionPresent(optList, "PARTITIONS", 3);
-        assertThatZoneOptionPresent(optList, "AFFINITY_FUNCTION", "test_Affinity");
-        assertThatZoneOptionPresent(optList, "DATA_NODES_FILTER", "(\"US\" || \"EU\") && \"SSD\"");
-        assertThatZoneOptionPresent(optList, "DATA_NODES_AUTO_ADJUST", 1);
+        assertThatZoneOptionPresent(optList, IgniteSqlCreateZoneOptionEnum.REPLICAS, 2);
+        assertThatZoneOptionPresent(optList, IgniteSqlCreateZoneOptionEnum.PARTITIONS, 3);
+        assertThatZoneOptionPresent(optList, IgniteSqlCreateZoneOptionEnum.AFFINITY_FUNCTION, "test_Affinity");
+        assertThatZoneOptionPresent(optList, IgniteSqlCreateZoneOptionEnum.DATA_NODES_FILTER, "(\"US\" || \"EU\") && \"SSD\"");
+        assertThatZoneOptionPresent(optList, IgniteSqlCreateZoneOptionEnum.DATA_NODES_AUTO_ADJUST, 1);
 
         SqlPrettyWriter w = new SqlPrettyWriter();
         createZone.unparse(w, 0, 0);
@@ -190,12 +190,12 @@ public class SqlDdlZoneParserTest extends AbstractDdlParserTest {
         return (IgniteSqlCreateZone) node;
     }
 
-    private void assertThatZoneOptionPresent(List<SqlNode> optionList, String option, Object expVal) {
+    private void assertThatZoneOptionPresent(List<SqlNode> optionList, IgniteSqlCreateZoneOptionEnum name, Object expVal) {
         assertThat(optionList, Matchers.hasItem(ofTypeMatching(
-                option + "=" + expVal,
+                name + "=" + expVal,
                 IgniteSqlCreateZoneOption.class,
                 opt -> {
-                    if (option.equals(opt.key().toValue())) {
+                    if (name == opt.key().symbolValue(IgniteSqlCreateZoneOptionEnum.class)) {
                         if (opt.value() instanceof SqlLiteral) {
                             return Objects.equals(expVal, ((SqlLiteral) opt.value()).getValueAs(expVal.getClass()));
                         }
