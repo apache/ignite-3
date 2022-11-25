@@ -112,7 +112,6 @@ import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
-import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -823,7 +822,6 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     /**
      * Checks that the table created in cluster of 2 nodes, is recovered on a node after restart of this node.
      */
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17959")
     @Test
     public void testRecoveryOnOneNode() {
         Ignite ignite = startNode(0);
@@ -846,7 +844,6 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     /**
      * Checks that a cluster is able to restart when some changes were made in configuration.
      */
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17959")
     @Test
     public void testRestartDiffConfig() {
         List<IgniteImpl> ignites = startNodes(2);
@@ -876,7 +873,6 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     /**
      * The test for node restart when there is a gap between the node local configuration and distributed configuration.
      */
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17959")
     @Test
     @WithSystemProperty(key = CONFIGURATION_CATCH_UP_DIFFERENCE_PROPERTY, value = "0")
     public void testCfgGapWithoutData() {
@@ -907,7 +903,6 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * metastorage group starts again.
      */
     @Test
-    @RepeatedTest(3)
     @WithSystemProperty(key = CONFIGURATION_CATCH_UP_DIFFERENCE_PROPERTY, value = "0")
     public void testMetastorageStop() {
         int cfgGap = 4;
