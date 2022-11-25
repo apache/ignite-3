@@ -121,22 +121,22 @@ public class SqlDdlZoneParserTest extends AbstractDdlParserTest {
     @Test
     public void createZoneWithInvalidOptions() {
         // Unknown option.
-        assertThrows(SqlParseException.class, () -> parseCreateZone("create zone test_zone with foo=bar"));
+        assertThrows(SqlParseException.class, () -> parseCreateZone("create zone test_zone with foo='bar'"));
 
         // Invalid option type.
+        String query = "create zone test_zone with %s=%s";
+
         List<String> numericOptNames = Arrays.asList("PARTITIONS", "REPLICAS", "DATA_NODES_AUTO_ADJUST",
                 "DATA_NODES_AUTO_ADJUST_SCALE_UP", "DATA_NODES_AUTO_ADJUST_SCALE_DOWN");
 
         for (String optName : numericOptNames) {
-            assertThrows(SqlParseException.class,
-                    () -> parseCreateZone(String.format("create zone test_zone with %s='bar'", optName)));
+            assertThrows(SqlParseException.class, () -> parseCreateZone(String.format(query, optName, "'bar'")));
         }
 
         List<String> stringOptNames = Arrays.asList("AFFINITY_FUNCTION", "DATA_NODES_FILTER");
 
         for (String optName : stringOptNames) {
-            assertThrows(SqlParseException.class,
-                    () -> parseCreateZone(String.format("create zone test_zone with %s=1", optName)));
+            assertThrows(SqlParseException.class, () -> parseCreateZone(String.format(query, optName, "1")));
         }
     }
 
