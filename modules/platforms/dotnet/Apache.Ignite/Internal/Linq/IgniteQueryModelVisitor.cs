@@ -285,6 +285,7 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
     {
         var parenCount = ProcessResultOperatorsBegin(queryModel);
 
+        // TODO: Always true? What was the idea?
         if (parenCount >= 0)
         {
             // FIELD1, FIELD2
