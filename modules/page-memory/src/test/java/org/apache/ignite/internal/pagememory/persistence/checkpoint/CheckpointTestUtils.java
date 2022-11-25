@@ -19,7 +19,6 @@ package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -90,7 +89,7 @@ public class CheckpointTestUtils {
     ) throws Exception {
         FilePageStoreManager manager = mock(FilePageStoreManager.class);
 
-        when(manager.getStore(anyInt(), anyInt())).then(answer -> {
+        when(manager.getStore(any(GroupPartitionId.class))).then(answer -> {
             FilePageStore pageStore = stores.get(new GroupPartitionId(answer.getArgument(0), answer.getArgument(1)));
 
             assertNotNull(pageStore);

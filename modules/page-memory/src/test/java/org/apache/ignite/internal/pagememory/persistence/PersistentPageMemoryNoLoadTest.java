@@ -499,13 +499,13 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
 
         try {
             for (int partition = 0; partition < partitions; partition++) {
-                filePageStoreManager.initialize("Test", GRP_ID, partition);
+                GroupPartitionId groupPartitionId = new GroupPartitionId(GRP_ID, partition);
 
-                FilePageStore filePageStore = filePageStoreManager.getStore(GRP_ID, partition);
+                filePageStoreManager.initialize("Test", groupPartitionId);
+
+                FilePageStore filePageStore = filePageStoreManager.getStore(groupPartitionId);
 
                 filePageStore.ensure();
-
-                GroupPartitionId groupPartitionId = new GroupPartitionId(GRP_ID, partition);
 
                 CheckpointProgress lastCheckpointProgress = checkpointManager.lastCheckpointProgress();
 

@@ -269,7 +269,7 @@ public class CheckpointManager {
             ByteBuffer pageBuf,
             boolean calculateCrc
     ) throws IgniteInternalCheckedException {
-        FilePageStore filePageStore = filePageStoreManager.getStore(pageId.groupId(), pageId.partitionId());
+        FilePageStore filePageStore = filePageStoreManager.getStore(new GroupPartitionId(pageId.groupId(), pageId.partitionId()));
 
         // If the partition is deleted (or will be soon), then such writes to the disk should be skipped.
         if (filePageStore == null || filePageStore.isMarkedToDestroy()) {

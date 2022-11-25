@@ -19,9 +19,11 @@ package org.apache.ignite.internal.pagememory.persistence.compaction;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.stream.Collectors.toCollection;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.Objects;
 import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -36,8 +38,7 @@ import org.apache.ignite.internal.pagememory.persistence.PartitionProcessingCoun
 import org.apache.ignite.internal.pagememory.persistence.store.DeltaFilePageStoreIo;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
-import org.apache.ignite.internal.pagememory.persistence.store.GroupPageStoresMap.GroupPageStores;
-import org.apache.ignite.internal.pagememory.persistence.store.GroupPageStoresMap.PartitionPageStore;
+import org.apache.ignite.internal.pagememory.persistence.store.GroupPageStoresMap.GroupPartitionPageStore;
 import org.apache.ignite.internal.thread.IgniteThread;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -71,10 +72,13 @@ public class Compactor extends IgniteWorker {
     private final FilePageStoreManager filePageStoreManager;
 
     /** Thread local with buffers for the compaction threads. */
-    private final ThreadLocal<ByteBuffer> threadBuf;
+    private static final ThreadLocal<ByteBuffer> THREAD_BUF = new ThreadLocal<>();
 
     /** Partitions for which delta files are currently compacted. */
     private final PartitionProcessingCounterMap partitionCompactionInProgressMap = new PartitionProcessingCounterMap();
+
+    /** Page size in bytes. */
+    private final int pageSize;
 
     /**
      * Creates new ignite worker with given parameters.
@@ -98,14 +102,6 @@ public class Compactor extends IgniteWorker {
 
         this.filePageStoreManager = filePageStoreManager;
 
-        threadBuf = ThreadLocal.withInitial(() -> {
-            ByteBuffer tmpWriteBuf = ByteBuffer.allocateDirect(pageSize);
-
-            tmpWriteBuf.order(ByteOrder.nativeOrder());
-
-            return tmpWriteBuf;
-        });
-
         int threadCount = threads.value();
 
         if (threadCount > 1) {
@@ -120,6 +116,8 @@ public class Compactor extends IgniteWorker {
         } else {
             threadPoolExecutor = null;
         }
+
+        this.pageSize = pageSize;
     }
 
     @Override
@@ -192,24 +190,18 @@ public class Compactor extends IgniteWorker {
     void doCompaction() {
         while (true) {
             // Let's collect one delta file for each partition.
-            Queue<DeltaFileForCompaction> queue = new ConcurrentLinkedQueue<>();
+            Queue<DeltaFileForCompaction> queue = filePageStoreManager.allPageStores().stream()
+                    .map(groupPartitionFilePageStore -> {
+                        DeltaFilePageStoreIo deltaFileToCompaction = groupPartitionFilePageStore.pageStore().getDeltaFileToCompaction();
 
-            for (GroupPageStores<FilePageStore> groupPageStores : filePageStoreManager.allPageStores()) {
-                for (PartitionPageStore<FilePageStore> partitionPageStore : groupPageStores.getAll()) {
-                    FilePageStore filePageStore = partitionPageStore.pageStore();
+                        if (deltaFileToCompaction == null) {
+                            return null;
+                        }
 
-                    DeltaFilePageStoreIo deltaFileToCompaction = filePageStore.getDeltaFileToCompaction();
-
-                    if (!filePageStore.isMarkedToDestroy() && deltaFileToCompaction != null) {
-                        queue.add(new DeltaFileForCompaction(
-                                groupPageStores.groupId(),
-                                partitionPageStore.partitionId(),
-                                filePageStore,
-                                deltaFileToCompaction
-                        ));
-                    }
-                }
-            }
+                        return new DeltaFileForCompaction(groupPartitionFilePageStore, deltaFileToCompaction);
+                    })
+                    .filter(Objects::nonNull)
+                    .collect(toCollection(ConcurrentLinkedQueue::new));
 
             if (queue.isEmpty()) {
                 break;
@@ -235,14 +227,14 @@ public class Compactor extends IgniteWorker {
                                 break;
                             }
 
-                            GroupPartitionId partitionId = new GroupPartitionId(toMerge.groupId, toMerge.partitionId);
+                            GroupPartitionId groupPartitionId = toMerge.groupPartitionFilePageStore.groupPartitionId();
 
-                            partitionCompactionInProgressMap.incrementPartitionProcessingCounter(partitionId);
+                            partitionCompactionInProgressMap.incrementPartitionProcessingCounter(groupPartitionId);
 
                             try {
-                                mergeDeltaFileToMainFile(toMerge.filePageStore, toMerge.deltaFilePageStoreIo);
+                                mergeDeltaFileToMainFile(toMerge.groupPartitionFilePageStore.pageStore(), toMerge.deltaFilePageStoreIo);
                             } finally {
-                                partitionCompactionInProgressMap.decrementPartitionProcessingCounter(partitionId);
+                                partitionCompactionInProgressMap.decrementPartitionProcessingCounter(groupPartitionId);
                             }
                         }
                     } catch (Throwable ex) {
@@ -343,7 +335,7 @@ public class Compactor extends IgniteWorker {
             DeltaFilePageStoreIo deltaFilePageStore
     ) throws Throwable {
         // Copy pages deltaFilePageStore -> filePageStore.
-        ByteBuffer buffer = threadBuf.get();
+        ByteBuffer buffer = getThreadLocalBuffer(pageSize);
 
         for (long pageIndex : deltaFilePageStore.pageIndexes()) {
             updateHeartbeat();
@@ -429,27 +421,33 @@ public class Compactor extends IgniteWorker {
         return partitionProcessingFuture == null ? completedFuture(null) : partitionProcessingFuture;
     }
 
+    private static ByteBuffer getThreadLocalBuffer(int pageSize) {
+        ByteBuffer buffer = THREAD_BUF.get();
+
+        if (buffer == null) {
+            buffer = ByteBuffer.allocateDirect(pageSize);
+
+            buffer.order(ByteOrder.nativeOrder());
+
+            THREAD_BUF.set(buffer);
+        }
+
+        return buffer;
+    }
+
     /**
      * Delta file for compaction.
      */
     private static class DeltaFileForCompaction {
-        private final int groupId;
-
-        private final int partitionId;
-
-        private final FilePageStore filePageStore;
+        private final GroupPartitionPageStore<FilePageStore> groupPartitionFilePageStore;
 
         private final DeltaFilePageStoreIo deltaFilePageStoreIo;
 
         private DeltaFileForCompaction(
-                int groupId,
-                int partitionId,
-                FilePageStore filePageStore,
+                GroupPartitionPageStore<FilePageStore> groupPartitionFilePageStore,
                 DeltaFilePageStoreIo deltaFilePageStoreIo
         ) {
-            this.groupId = groupId;
-            this.partitionId = partitionId;
-            this.filePageStore = filePageStore;
+            this.groupPartitionFilePageStore = groupPartitionFilePageStore;
             this.deltaFilePageStoreIo = deltaFilePageStoreIo;
         }
     }

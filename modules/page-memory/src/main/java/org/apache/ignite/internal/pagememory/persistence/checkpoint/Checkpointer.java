@@ -455,23 +455,7 @@ public class Checkpointer extends IgniteWorker {
                     return;
                 }
 
-                GroupPartitionId partitionId = entry.getKey();
-
-                FilePageStore filePageStore = filePageStoreManager.getStore(partitionId.getGroupId(), partitionId.getPartitionId());
-
-                if (filePageStore == null || filePageStore.isMarkedToDestroy()) {
-                    continue;
-                }
-
-                currentCheckpointProgress.onStartPartitionProcessing(partitionId);
-
-                try {
-                    fsyncDeltaFilePageStoreOnCheckpointThread(filePageStore, entry.getValue());
-
-                    renameDeltaFileOnCheckpointThread(filePageStore, partitionId);
-                } finally {
-                    currentCheckpointProgress.onFinishPartitionProcessing(partitionId);
-                }
+                fsyncDeltaFile(entry.getKey(), entry.getValue());
             }
         } else {
             int checkpointThreads = pageWritePool.getMaximumPoolSize();
@@ -496,19 +480,7 @@ public class Checkpointer extends IgniteWorker {
                                 return;
                             }
 
-                            GroupPartitionId partId = entry.getKey();
-
-                            FilePageStore filePageStore = filePageStoreManager.getStore(partId.getGroupId(), partId.getPartitionId());
-
-                            if (filePageStore != null && !filePageStore.isMarkedToDestroy()) {
-                                currentCheckpointProgress.onStartPartitionProcessing(partId);
-
-                                fsyncDeltaFilePageStoreOnCheckpointThread(filePageStore, entry.getValue());
-
-                                renameDeltaFileOnCheckpointThread(filePageStore, partId);
-
-                                currentCheckpointProgress.onFinishPartitionProcessing(partId);
-                            }
+                            fsyncDeltaFile(entry.getKey(), entry.getValue());
 
                             entry = queue.poll();
                         }
@@ -527,6 +499,24 @@ public class Checkpointer extends IgniteWorker {
             } finally {
                 blockingSectionEnd();
             }
+        }
+    }
+
+    private void fsyncDeltaFile(GroupPartitionId partitionId, LongAdder pagesWritten) throws IgniteInternalCheckedException {
+        FilePageStore filePageStore = filePageStoreManager.getStore(partitionId);
+
+        if (filePageStore == null || filePageStore.isMarkedToDestroy()) {
+            return;
+        }
+
+        currentCheckpointProgress.onStartPartitionProcessing(partitionId);
+
+        try {
+            fsyncDeltaFilePageStoreOnCheckpointThread(filePageStore, pagesWritten);
+
+            renameDeltaFileOnCheckpointThread(filePageStore, partitionId);
+        } finally {
+            currentCheckpointProgress.onFinishPartitionProcessing(partitionId);
         }
     }
 

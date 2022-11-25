@@ -106,7 +106,7 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
      * @param mvPartitionStorage Multi-versioned partition storage.
      * @return Future that will complete when the partition multi-version storage and its indexes are destroyed.
      */
-    public abstract CompletableFuture<Void> destroyMvPartitionStorage(AbstractPageMemoryMvPartitionStorage mvPartitionStorage);
+    abstract CompletableFuture<Void> destroyMvPartitionStorage(AbstractPageMemoryMvPartitionStorage mvPartitionStorage);
 
     @Override
     public AbstractPageMemoryMvPartitionStorage getOrCreateMvPartition(int partitionId) throws StorageException {

@@ -43,10 +43,9 @@ import org.apache.ignite.internal.fileio.FileIo;
 import org.apache.ignite.internal.fileio.FileIoFactory;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.pagememory.PageIdAllocator;
+import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PageReadWriteManager;
-import org.apache.ignite.internal.pagememory.persistence.store.GroupPageStoresMap.GroupPageStores;
-import org.apache.ignite.internal.pagememory.persistence.store.GroupPageStoresMap.PartitionPageStore;
+import org.apache.ignite.internal.pagememory.persistence.store.GroupPageStoresMap.GroupPartitionPageStore;
 import org.apache.ignite.internal.pagememory.persistence.store.LongOperationAsyncExecutor.RunnableX;
 import org.apache.ignite.internal.util.IgniteStripedLock;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -225,7 +224,7 @@ public class FilePageStoreManager implements PageReadWriteManager {
     @Override
     public void read(int grpId, long pageId, ByteBuffer pageBuf, boolean keepCrc) throws IgniteInternalCheckedException {
         try {
-            FilePageStore pageStore = getStoreWithCheckExists(grpId, partitionId(pageId));
+            FilePageStore pageStore = getStoreWithCheckExists(new GroupPartitionId(grpId, partitionId(pageId)));
 
             pageStore.read(pageId, pageBuf, keepCrc);
         } catch (IgniteInternalCheckedException e) {
@@ -243,7 +242,7 @@ public class FilePageStoreManager implements PageReadWriteManager {
             boolean calculateCrc
     ) throws IgniteInternalCheckedException {
         try {
-            FilePageStore pageStore = getStoreWithCheckExists(grpId, partitionId(pageId));
+            FilePageStore pageStore = getStoreWithCheckExists(new GroupPartitionId(grpId, partitionId(pageId)));
 
             pageStore.write(pageId, pageBuf, calculateCrc);
 
@@ -260,7 +259,7 @@ public class FilePageStoreManager implements PageReadWriteManager {
         assert partId >= 0 && partId <= MAX_PARTITION_ID : partId;
 
         try {
-            FilePageStore pageStore = getStoreWithCheckExists(grpId, partId);
+            FilePageStore pageStore = getStoreWithCheckExists(new GroupPartitionId(grpId, partId));
 
             int pageIdx = pageStore.allocatePage();
 
@@ -276,35 +275,32 @@ public class FilePageStoreManager implements PageReadWriteManager {
      * Initialization of the page storage for the group partition.
      *
      * @param tableName Table name.
-     * @param tableId Integer table id.
-     * @param partitionId Partition ID, must be between {@code 0} (inclusive) and {@link PageIdAllocator#MAX_PARTITION_ID} (inclusive).
+     * @param groupPartitionId Pair of group ID with partition ID.
      * @throws IgniteInternalCheckedException If failed.
      */
-    public void initialize(String tableName, int tableId, int partitionId) throws IgniteInternalCheckedException {
-        assert partitionId >= 0 && partitionId <= MAX_PARTITION_ID : partitionId;
-
-        initPartitionStripedLock.lock(tableId + partitionId);
+    public void initialize(String tableName, GroupPartitionId groupPartitionId) throws IgniteInternalCheckedException {
+        initPartitionStripedLock.lock(groupPartitionId.hashCode());
 
         try {
-            if (!groupPageStores.contains(tableId, partitionId)) {
-                Path tableWorkDir = ensureGroupWorkDir(tableId);
+            if (!groupPageStores.contains(groupPartitionId)) {
+                Path tableWorkDir = ensureGroupWorkDir(groupPartitionId.getGroupId());
 
                 ByteBuffer buffer = allocateBuffer(pageSize);
 
                 try {
-                    Path partFilePath = tableWorkDir.resolve(String.format(PART_FILE_TEMPLATE, partitionId));
+                    Path partFilePath = tableWorkDir.resolve(String.format(PART_FILE_TEMPLATE, groupPartitionId.getPartitionId()));
 
-                    Path[] partDeltaFiles = findPartitionDeltaFiles(tableWorkDir, partitionId);
+                    Path[] partDeltaFiles = findPartitionDeltaFiles(tableWorkDir, groupPartitionId.getPartitionId());
 
                     FilePageStore filePageStore = filePageStoreFactory.createPageStore(buffer.rewind(), partFilePath, partDeltaFiles);
 
-                    FilePageStore previous = groupPageStores.put(tableId, partitionId, filePageStore);
+                    FilePageStore previous = groupPageStores.put(groupPartitionId, filePageStore);
 
                     assert previous == null : IgniteStringFormatter.format(
                             "Parallel creation is not allowed: [tableName={}, tableId={}, partitionId={}]",
                             tableName,
-                            tableId,
-                            partitionId
+                            groupPartitionId.getGroupId(),
+                            groupPartitionId.getPartitionId()
                     );
                 } finally {
                     freeBuffer(buffer);
@@ -315,62 +311,41 @@ public class FilePageStoreManager implements PageReadWriteManager {
 
             throw e;
         } finally {
-            initPartitionStripedLock.unlock(tableId + partitionId);
+            initPartitionStripedLock.unlock(groupPartitionId.hashCode());
         }
-    }
-
-    /**
-     * Returns the group partition page stores.
-     *
-     * @param grpId Group ID.
-     */
-    public @Nullable GroupPageStores<FilePageStore> getStores(int grpId) {
-        return groupPageStores.get(grpId);
     }
 
     /**
      * Returns view for all page stores of all groups.
      */
-    public Collection<GroupPageStores<FilePageStore>> allPageStores() {
+    public Collection<GroupPartitionPageStore<FilePageStore>> allPageStores() {
         return groupPageStores.getAll();
     }
 
     /**
      * Returns partition file page store for the corresponding parameters.
      *
-     * @param groupId Group ID.
-     * @param partitionId Partition ID, from {@code 0} (inclusive) to {@link PageIdAllocator#MAX_PARTITION_ID} (inclusive).
+     * @param groupPartitionId Pair of group ID with partition ID.
      * @return Partition file page, {@code null} if not initialized or has been removed.
      */
-    public @Nullable FilePageStore getStore(int groupId, int partitionId) {
-        assert partitionId >= 0 && partitionId <= MAX_PARTITION_ID : partitionId;
-
-        GroupPageStores<FilePageStore> groupPageStores = this.groupPageStores.get(groupId);
-
-        if (groupPageStores == null) {
-            return null;
-        }
-
-        PartitionPageStore<FilePageStore> partitionPageStore = groupPageStores.get(partitionId);
-
-        return partitionPageStore == null ? null : partitionPageStore.pageStore();
+    public @Nullable FilePageStore getStore(GroupPartitionId groupPartitionId) {
+        return groupPageStores.get(groupPartitionId);
     }
 
     /**
      * Returns partition file page store for the corresponding parameters.
      *
-     * @param groupId Group ID.
-     * @param partitionId Partition ID.
+     * @param groupPartitionId Pair of group ID with partition ID.
      * @throws IgniteInternalCheckedException If the partition file page store does not exist.
      */
-    private FilePageStore getStoreWithCheckExists(int groupId, int partitionId) throws IgniteInternalCheckedException {
-        FilePageStore filePageStore = getStore(groupId, partitionId);
+    private FilePageStore getStoreWithCheckExists(GroupPartitionId groupPartitionId) throws IgniteInternalCheckedException {
+        FilePageStore filePageStore = getStore(groupPartitionId);
 
         if (filePageStore == null) {
             throw new IgniteInternalCheckedException(IgniteStringFormatter.format(
-                    "Partition file page store is either not initialized or deleted: [groupId={}, partitioId={}]",
-                    groupId,
-                    partitionId
+                    "Partition file page store is either not initialized or deleted: [groupId={}, partitionId={}]",
+                    groupPartitionId.getGroupId(),
+                    groupPartitionId.getPartitionId()
             ));
         }
 
@@ -384,9 +359,7 @@ public class FilePageStoreManager implements PageReadWriteManager {
      */
     void stopAllGroupFilePageStores(boolean cleanFiles) {
         List<FilePageStore> partitionPageStores = groupPageStores.getAll().stream()
-                .map(GroupPageStores::getAll)
-                .flatMap(Collection::stream)
-                .map(PartitionPageStore::pageStore)
+                .map(GroupPartitionPageStore::pageStore)
                 .collect(toList());
 
         groupPageStores.clear();
@@ -495,33 +468,33 @@ public class FilePageStoreManager implements PageReadWriteManager {
      * "table-1/part-1.del") so as not to get into the situation that we deleted only part of the data/files, the node restarted and we have
      * something left. At the start, we will delete all partition files with delta files that will have a marker.
      *
-     * @param groupId Group ID.
-     * @param partitionId Partition ID.
+     * @param groupPartitionId Pair of group ID with partition ID.
      * @return Future on completion of which the partition file and its delta files will be destroyed.
      */
-    public CompletableFuture<Void> destroyPartition(int groupId, int partitionId) {
-        FilePageStore removed = groupPageStores.remove(groupId, partitionId);
+    public CompletableFuture<Void> destroyPartition(GroupPartitionId groupPartitionId) {
+        FilePageStore removed = groupPageStores.remove(groupPartitionId);
 
         assert removed != null : IgniteStringFormatter.format(
                 "Parallel deletion is not allowed: [groupId={}, partitionId={}]",
-                groupId,
-                partitionId
+                groupPartitionId.getGroupId(),
+                groupPartitionId.getPartitionId()
         );
 
         assert removed.isMarkedToDestroy() : IgniteStringFormatter.format(
                 "Wasn't marked for deletion: [groupId={}, partitionId={}]",
-                groupId,
-                partitionId
+                groupPartitionId.getGroupId(),
+                groupPartitionId.getPartitionId()
         );
 
         return cleanupAsyncExecutor.async((RunnableX) () -> {
             Path partitionDeleteFilePath = createFile(
-                    dbDir.resolve(GROUP_DIR_PREFIX + groupId).resolve(String.format(DEL_PART_FILE_TEMPLATE, partitionId))
+                    dbDir.resolve(GROUP_DIR_PREFIX + groupPartitionId.getGroupId())
+                            .resolve(String.format(DEL_PART_FILE_TEMPLATE, groupPartitionId.getPartitionId()))
             );
 
             removed.stop(true);
 
             delete(partitionDeleteFilePath);
-        }, "destroy-group-" + groupId + "-partition-" + partitionId);
+        }, "destroy-group-" + groupPartitionId.getGroupId() + "-partition-" + groupPartitionId.getPartitionId());
     }
 }

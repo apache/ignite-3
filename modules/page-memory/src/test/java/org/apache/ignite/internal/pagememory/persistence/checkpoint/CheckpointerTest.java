@@ -46,7 +46,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
@@ -538,11 +537,10 @@ public class CheckpointerTest {
         );
     }
 
-    private static FilePageStoreManager createFilePageStoreManager(Map<GroupPartitionId, FilePageStore> pageStores) throws Exception {
+    private static FilePageStoreManager createFilePageStoreManager(Map<GroupPartitionId, FilePageStore> pageStores) {
         FilePageStoreManager manager = mock(FilePageStoreManager.class);
 
-        when(manager.getStore(anyInt(), anyInt()))
-                .then(answer -> pageStores.get(new GroupPartitionId(answer.getArgument(0), answer.getArgument(1))));
+        when(manager.getStore(any(GroupPartitionId.class))).then(answer -> pageStores.get(answer.getArgument(0)));
 
         return manager;
     }

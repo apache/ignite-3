@@ -36,9 +36,6 @@ import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.spy;
@@ -47,13 +44,12 @@ import static org.mockito.Mockito.verify;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.fileio.RandomAccessFileIoFactory;
-import org.apache.ignite.internal.pagememory.persistence.store.GroupPageStoresMap.GroupPageStores;
-import org.apache.ignite.internal.pagememory.persistence.store.GroupPageStoresMap.PartitionPageStore;
+import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
+import org.apache.ignite.internal.pagememory.persistence.store.GroupPageStoresMap.GroupPartitionPageStore;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -114,17 +110,21 @@ public class FilePageStoreManagerTest {
 
             Files.createFile(testGroupDir);
 
+            GroupPartitionId groupPartitionId00 = new GroupPartitionId(0, 0);
+
             IgniteInternalCheckedException exception = assertThrows(
                     IgniteInternalCheckedException.class,
-                    () -> manager.initialize("test", 0, 0)
+                    () -> manager.initialize("test", groupPartitionId00)
             );
 
             assertThat(exception.getMessage(), containsString("Failed to initialize group working directory"));
 
             Files.delete(testGroupDir);
 
-            assertDoesNotThrow(() -> manager.initialize("test", 0, 0));
-            assertDoesNotThrow(() -> manager.initialize("test", 0, 1));
+            GroupPartitionId groupPartitionId01 = new GroupPartitionId(0, 1);
+
+            assertDoesNotThrow(() -> manager.initialize("test", groupPartitionId00));
+            assertDoesNotThrow(() -> manager.initialize("test", groupPartitionId01));
 
             assertTrue(Files.isDirectory(testGroupDir));
 
@@ -132,7 +132,7 @@ public class FilePageStoreManagerTest {
                 assertThat(files.count(), is(0L));
             }
 
-            for (PartitionPageStore<FilePageStore> filePageStore : manager.getStores(0).getAll()) {
+            for (GroupPartitionPageStore<FilePageStore> filePageStore : manager.allPageStores()) {
                 filePageStore.pageStore().ensure();
             }
 
@@ -148,56 +148,17 @@ public class FilePageStoreManagerTest {
     }
 
     @Test
-    void testGetStores() throws Exception {
-        FilePageStoreManager manager = createManager();
-
-        try {
-            manager.initialize("test", 0, 0);
-            manager.initialize("test", 0, 1);
-
-            // Checks getStores.
-
-            assertNull(manager.getStores(1));
-
-            GroupPageStores<FilePageStore> groupPageStores = manager.getStores(0);
-
-            assertNotNull(groupPageStores);
-            assertEquals(2, groupPageStores.getAll().size());
-            assertEquals(2, groupPageStores.getAll().stream().map(PartitionPageStore::pageStore).collect(toSet()).size());
-
-            // Checks getStore.
-
-            FilePageStore partitionPageStore0 = manager.getStore(0, 0);
-
-            assertSame(partitionPageStore0, groupPageStores.get(0).pageStore());
-
-            assertTrue(partitionPageStore0.filePath().endsWith("db/table-0/part-0.bin"));
-
-            FilePageStore partitionPageStore1 = manager.getStore(0, 1);
-
-            assertSame(partitionPageStore1, groupPageStores.get(1).pageStore());
-
-            assertTrue(partitionPageStore1.filePath().endsWith("db/table-0/part-1.bin"));
-
-            assertNull(manager.getStore(1, 0));
-            assertNull(manager.getStore(0, 2));
-        } finally {
-            manager.stop();
-        }
-    }
-
-    @Test
     void testStopAllGroupFilePageStores() throws Exception {
         // Checks without clean files.
 
         FilePageStoreManager manager0 = createManager();
 
         try {
-            manager0.initialize("test0", 0, 0);
+            GroupPartitionId groupPartitionId00 = new GroupPartitionId(0, 0);
 
-            for (PartitionPageStore<FilePageStore> filePageStore : manager0.getStores(0).getAll()) {
-                filePageStore.pageStore().ensure();
-            }
+            manager0.initialize("test0", groupPartitionId00);
+
+            manager0.getStore(groupPartitionId00).ensure();
 
             manager0.stopAllGroupFilePageStores(false);
         } finally {
@@ -217,11 +178,11 @@ public class FilePageStoreManagerTest {
         FilePageStoreManager manager1 = createManager();
 
         try {
-            manager1.initialize("test1", 1, 0);
+            GroupPartitionId groupPartitionId10 = new GroupPartitionId(1, 0);
 
-            for (PartitionPageStore<FilePageStore> filePageStore : manager1.getStores(1).getAll()) {
-                filePageStore.pageStore().ensure();
-            }
+            manager1.initialize("test1", groupPartitionId10);
+
+            manager1.getStore(groupPartitionId10).ensure();
 
             manager1.stopAllGroupFilePageStores(true);
         } finally {
@@ -238,8 +199,11 @@ public class FilePageStoreManagerTest {
 
         manager.start();
 
-        manager.initialize("test0", 1, 0);
-        manager.initialize("test1", 2, 0);
+        GroupPartitionId groupPartitionId10 = new GroupPartitionId(1, 0);
+        GroupPartitionId groupPartitionId20 = new GroupPartitionId(2, 0);
+
+        manager.initialize("test0", groupPartitionId10);
+        manager.initialize("test1", groupPartitionId20);
 
         Path grpDir0 = workDir.resolve("db/table-1");
         Path grpDir1 = workDir.resolve("db/table-2");
@@ -266,8 +230,11 @@ public class FilePageStoreManagerTest {
 
         manager.start();
 
-        manager.initialize("test0", 1, 0);
-        manager.initialize("test1", 2, 0);
+        GroupPartitionId groupPartitionId10 = new GroupPartitionId(1, 0);
+        GroupPartitionId groupPartitionId20 = new GroupPartitionId(2, 0);
+
+        manager.initialize("test0", groupPartitionId10);
+        manager.initialize("test1", groupPartitionId20);
 
         Path grpDir0 = workDir.resolve("db/table-1");
         Path grpDir1 = workDir.resolve("db/table-2");
@@ -347,13 +314,11 @@ public class FilePageStoreManagerTest {
 
         manager.start();
 
-        manager.initialize("test0", 1, 0);
-        manager.initialize("test1", 2, 0);
+        manager.initialize("test0", new GroupPartitionId(1, 0));
+        manager.initialize("test1", new GroupPartitionId(2, 0));
 
         List<Path> allPageStoreFiles = manager.allPageStores().stream()
-                .map(GroupPageStores::getAll)
-                .flatMap(Collection::stream)
-                .map(PartitionPageStore::pageStore)
+                .map(GroupPartitionPageStore::pageStore)
                 .map(FilePageStore::filePath)
                 .collect(toList());
 
@@ -372,11 +337,14 @@ public class FilePageStoreManagerTest {
 
         manager.start();
 
-        manager.initialize("test0", 0, 0);
-        manager.initialize("test1", 1, 0);
+        GroupPartitionId groupPartitionId00 = new GroupPartitionId(0, 0);
+        GroupPartitionId groupPartitionId10 = new GroupPartitionId(1, 0);
 
-        FilePageStore filePageStore0 = manager.getStore(0, 0);
-        FilePageStore filePageStore1 = manager.getStore(1, 0);
+        manager.initialize("test0", groupPartitionId00);
+        manager.initialize("test1", groupPartitionId10);
+
+        FilePageStore filePageStore0 = manager.getStore(groupPartitionId00);
+        FilePageStore filePageStore1 = manager.getStore(groupPartitionId10);
 
         filePageStore0.ensure();
         filePageStore1.ensure();
@@ -393,15 +361,15 @@ public class FilePageStoreManagerTest {
         filePageStore0.markToDestroy();
         filePageStore1.markToDestroy();
 
-        manager.destroyPartition(0, 0).get(1, TimeUnit.SECONDS);
-        manager.destroyPartition(1, 0).get(1, TimeUnit.SECONDS);
+        manager.destroyPartition(groupPartitionId00).get(1, TimeUnit.SECONDS);
+        manager.destroyPartition(groupPartitionId10).get(1, TimeUnit.SECONDS);
 
         assertThat(collectFilesOnly(startPath), empty());
     }
 
     /**
      * Tests the situation when we could crash in the middle of deleting files when calling
-     * {@link FilePageStoreManager#destroyPartition(int, int)}, i.e. delete everything not completely and at the start of the
+     * {@link FilePageStoreManager#destroyPartition(GroupPartitionId)} )}, i.e. delete everything not completely and at the start of the
      * component we will delete everything that could not be completely deleted.
      *
      * @throws Exception If failed.
@@ -412,15 +380,20 @@ public class FilePageStoreManagerTest {
 
         manager.start();
 
-        manager.initialize("test0", 0, 0);
-        manager.initialize("test0", 0, 1);
-        manager.initialize("test1", 1, 0);
-        manager.initialize("test1", 1, 1);
+        GroupPartitionId groupPartitionId00 = new GroupPartitionId(0, 0);
+        GroupPartitionId groupPartitionId01 = new GroupPartitionId(0, 1);
+        GroupPartitionId groupPartitionId10 = new GroupPartitionId(1, 0);
+        GroupPartitionId groupPartitionId11 = new GroupPartitionId(1, 1);
 
-        FilePageStore filePageStore00 = manager.getStore(0, 0);
-        FilePageStore filePageStore01 = manager.getStore(0, 1);
-        FilePageStore filePageStore10 = manager.getStore(1, 0);
-        FilePageStore filePageStore11 = manager.getStore(1, 1);
+        manager.initialize("test0", groupPartitionId00);
+        manager.initialize("test0", groupPartitionId01);
+        manager.initialize("test1", groupPartitionId10);
+        manager.initialize("test1", groupPartitionId11);
+
+        FilePageStore filePageStore00 = manager.getStore(groupPartitionId00);
+        FilePageStore filePageStore01 = manager.getStore(groupPartitionId01);
+        FilePageStore filePageStore10 = manager.getStore(groupPartitionId10);
+        FilePageStore filePageStore11 = manager.getStore(groupPartitionId11);
 
         filePageStore00.ensure();
         filePageStore01.ensure();

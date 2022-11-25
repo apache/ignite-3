@@ -17,25 +17,23 @@
 
 package org.apache.ignite.internal.pagememory.persistence.store;
 
-import static java.util.Collections.unmodifiableCollection;
-
 import java.util.Collection;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.atomic.AtomicReference;
+import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
+import org.apache.ignite.internal.util.CollectionUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Proxy class for map (groupId -> {@link GroupPageStores}) that wraps data adding and replacing operations to disallow concurrent execution
- * simultaneously with cleanup of file page storage.
+ * Proxy class for map ({@link GroupPartitionId} -> {@link PageStore}) that wraps data adding and replacing operations to disallow
+ * concurrent execution simultaneously with cleanup of page storage.
  *
  * <p>Wrapping of data removing operations is not needed.
  *
  * @param <T> Type of {@link PageStore}.
  */
 public class GroupPageStoresMap<T extends PageStore> {
-    /** Mapping: grpId -> list of page stores. */
-    private final ConcurrentHashMap<Integer, GroupPageStores<T>> groupIdPageStores = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<GroupPartitionId, T> groupPartitionIdPageStore = new ConcurrentHashMap<>();
 
     /** Executor that wraps data adding and replacing operations. */
     private final LongOperationAsyncExecutor longOperationAsyncExecutor;
@@ -52,151 +50,78 @@ public class GroupPageStoresMap<T extends PageStore> {
     /**
      * Puts the page store for the group partition.
      *
-     * @param groupId Group ID.
-     * @param partitionId Partition ID.
+     * @param groupPartitionId Pair of group ID with partition ID.
      * @param pageStore Page store.
      * @return Previous page store.
      */
-    public @Nullable T put(Integer groupId, Integer partitionId, T pageStore) {
-        return longOperationAsyncExecutor.afterAsyncCompletion(() -> {
-                    PartitionPageStore<T> previous = groupIdPageStores
-                            .computeIfAbsent(groupId, id -> new GroupPageStores<>(groupId))
-                            .partitionIdPageStore
-                            .put(partitionId, new PartitionPageStore<>(partitionId, pageStore));
+    public @Nullable T put(GroupPartitionId groupPartitionId, T pageStore) {
+        return longOperationAsyncExecutor.afterAsyncCompletion(() -> groupPartitionIdPageStore.put(groupPartitionId, pageStore));
+    }
 
-                    return previous == null ? null : previous.pageStore;
-                }
-        );
+    /**
+     * Gets the page store for the group partition.
+     *
+     * @param groupPartitionId Pair of group ID with partition ID.
+     */
+    public @Nullable T get(GroupPartitionId groupPartitionId) {
+        return groupPartitionIdPageStore.get(groupPartitionId);
     }
 
     /**
      * Removes the page store for the group partition.
      *
-     * @param groupId Group ID.
-     * @param partitionId Partition ID.
+     * @param groupPartitionId Pair of group ID with partition ID.
      * @return Removed page store.
      */
-    public @Nullable T remove(Integer groupId, Integer partitionId) {
-        AtomicReference<PartitionPageStore<T>> partitionPageStoreRef = new AtomicReference<>();
-
-        groupIdPageStores.compute(groupId, (id, groupPageStores) -> {
-            if (groupPageStores == null) {
-                return null;
-            }
-
-            partitionPageStoreRef.set(groupPageStores.partitionIdPageStore.remove(partitionId));
-
-            if (groupPageStores.partitionIdPageStore.isEmpty()) {
-                return null;
-            }
-
-            return groupPageStores;
-        });
-
-        PartitionPageStore<T> partitionPageStore = partitionPageStoreRef.get();
-
-        return partitionPageStore == null ? null : partitionPageStore.pageStore;
-    }
-
-    /**
-     * Returns the page stores for the group.
-     *
-     * @param groupId Group ID.
-     */
-    public @Nullable GroupPageStores<T> get(Integer groupId) {
-        return groupIdPageStores.get(groupId);
+    public @Nullable T remove(GroupPartitionId groupPartitionId) {
+        return groupPartitionIdPageStore.remove(groupPartitionId);
     }
 
     /**
      * Returns {@code true} if a page store exists for the group partition.
      *
-     * @param groupId Group ID.
-     * @param partitionId Partition ID.
+     * @param groupPartitionId Pair of group ID with partition ID.
      */
-    public boolean contains(Integer groupId, Integer partitionId) {
-        GroupPageStores<T> groupPageStores = groupIdPageStores.get(groupId);
-
-        return groupPageStores != null && groupPageStores.partitionIdPageStore.containsKey(partitionId);
+    public boolean contains(GroupPartitionId groupPartitionId) {
+        return groupPartitionIdPageStore.containsKey(groupPartitionId);
     }
 
     /**
      * Returns a view of all page stores of all groups.
      */
-    public Collection<GroupPageStores<T>> getAll() {
-        return unmodifiableCollection(groupIdPageStores.values());
+    public Collection<GroupPartitionPageStore<T>> getAll() {
+        return CollectionUtils.viewReadOnly(groupPartitionIdPageStore.entrySet(), GroupPartitionPageStore::new);
     }
 
     /**
      * Clears all page stores of all groups.
      */
     public void clear() {
-        groupIdPageStores.clear();
+        groupPartitionIdPageStore.clear();
     }
 
     /**
-     * Returns the number of groups for which there are page stores.
+     * Group partition page storage.
      */
-    public int groupCount() {
-        return groupIdPageStores.size();
-    }
-
-    /**
-     * Group partition page stores.
-     */
-    public static class GroupPageStores<T extends PageStore> {
-        private final int groupId;
-
-        private final ConcurrentMap<Integer, PartitionPageStore<T>> partitionIdPageStore = new ConcurrentHashMap<>();
-
-        private GroupPageStores(int groupId) {
-            this.groupId = groupId;
-        }
-
-        /**
-         * Returns the group ID.
-         */
-        public int groupId() {
-            return groupId;
-        }
-
-        /**
-         * Returns the partition's page store.
-         */
-        @Nullable
-        public PartitionPageStore<T> get(Integer partitionId) {
-            return partitionIdPageStore.get(partitionId);
-        }
-
-        /**
-         * Returns a view of the group's partition page stores.
-         */
-        public Collection<PartitionPageStore<T>> getAll() {
-            return unmodifiableCollection(partitionIdPageStore.values());
-        }
-    }
-
-    /**
-     * Partition page store.
-     */
-    public static class PartitionPageStore<T extends PageStore> {
-        private final int partitionId;
+    public static class GroupPartitionPageStore<T> {
+        private final GroupPartitionId groupPartitionId;
 
         private final T pageStore;
 
-        private PartitionPageStore(int partitionId, T pageStore) {
-            this.partitionId = partitionId;
-            this.pageStore = pageStore;
+        private GroupPartitionPageStore(Map.Entry<GroupPartitionId, T> entry) {
+            this.groupPartitionId = entry.getKey();
+            this.pageStore = entry.getValue();
         }
 
         /**
-         * Returns the partition ID.
+         * Returns pair of group ID with partition ID.
          */
-        public int partitionId() {
-            return partitionId;
+        public GroupPartitionId groupPartitionId() {
+            return groupPartitionId;
         }
 
         /**
-         * Returns the page store.
+         * Returns page store.
          */
         public T pageStore() {
             return pageStore;

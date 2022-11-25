@@ -49,6 +49,7 @@ import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointConfiguration;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
+import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.store.DeltaFilePageStoreIo;
@@ -166,7 +167,7 @@ public class CheckpointManagerTest {
 
         FullPageId dirtyPageId = new FullPageId(pageId(0, (byte) 0, 1), 0);
 
-        when(filePageStoreManager.getStore(eq(dirtyPageId.groupId()), eq(dirtyPageId.partitionId())))
+        when(filePageStoreManager.getStore(eq(new GroupPartitionId(dirtyPageId.groupId(), dirtyPageId.partitionId()))))
                 .then(answer -> filePageStoreRef.get());
 
         CheckpointManager checkpointManager = spy(new CheckpointManager(

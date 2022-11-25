@@ -114,7 +114,9 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
 
         TableView tableView = tableCfg.value();
 
-        FilePageStore filePageStore = ensurePartitionFilePageStore(tableView, partitionId);
+        GroupPartitionId groupPartitionId = new GroupPartitionId(tableView.tableId(), partitionId);
+
+        FilePageStore filePageStore = ensurePartitionFilePageStore(tableView, groupPartitionId);
 
         CheckpointManager checkpointManager = dataRegion.checkpointManager();
 
@@ -125,15 +127,9 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
         try {
             PersistentPageMemory pageMemory = dataRegion.pageMemory();
 
-            int grpId = tableView.tableId();
+            PartitionMeta meta = dataRegion.partitionMetaManager().readOrCreateMeta(lastCheckpointId(), groupPartitionId, filePageStore);
 
-            PartitionMeta meta = dataRegion.partitionMetaManager().readOrCreateMeta(
-                    lastCheckpointId(),
-                    new GroupPartitionId(grpId, partitionId),
-                    filePageStore
-            );
-
-            dataRegion.partitionMetaManager().addMeta(new GroupPartitionId(grpId, partitionId), meta);
+            dataRegion.partitionMetaManager().addMeta(groupPartitionId, meta);
 
             filePageStore.pages(meta.pageCount());
 
@@ -176,21 +172,21 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
      * Initializes the partition file page store if it hasn't already.
      *
      * @param tableView Table configuration.
-     * @param partitionId Partition ID.
+     * @param groupPartitionId Pair of group ID with partition ID.
      * @return Partition file page store.
      * @throws StorageException If failed.
      */
-    private FilePageStore ensurePartitionFilePageStore(TableView tableView, int partitionId) throws StorageException {
+    private FilePageStore ensurePartitionFilePageStore(TableView tableView, GroupPartitionId groupPartitionId) throws StorageException {
         try {
-            dataRegion.filePageStoreManager().initialize(tableView.name(), tableView.tableId(), partitionId);
+            dataRegion.filePageStoreManager().initialize(tableView.name(), groupPartitionId);
 
-            FilePageStore filePageStore = dataRegion.filePageStoreManager().getStore(tableView.tableId(), partitionId);
+            FilePageStore filePageStore = dataRegion.filePageStoreManager().getStore(groupPartitionId);
 
             assert !filePageStore.isMarkedToDestroy() : IgniteStringFormatter.format(
                     "Should not be marked for deletion: [tableName={}, tableId={}, partitionId={}]",
                     tableView.name(),
                     tableView.tableId(),
-                    partitionId
+                    groupPartitionId.getPartitionId()
             );
 
             filePageStore.ensure();
@@ -202,7 +198,10 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
             return filePageStore;
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException(
-                    String.format("Error initializing file page store [tableName=%s, partitionId=%s]", tableView.name(), partitionId),
+                    String.format("Error initializing file page store [tableName=%s, partitionId=%s]",
+                            tableView.name(),
+                            groupPartitionId.getPartitionId()
+                    ),
                     e
             );
         }
@@ -424,7 +423,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
     }
 
     @Override
-    public CompletableFuture<Void> destroyMvPartitionStorage(AbstractPageMemoryMvPartitionStorage mvPartitionStorage) {
+    CompletableFuture<Void> destroyMvPartitionStorage(AbstractPageMemoryMvPartitionStorage mvPartitionStorage) {
         int partitionId = mvPartitionStorage.partitionId();
 
         // It is enough for us to close the partition storage and its indexes (do not destroy). Prepare the data region, checkpointer, and
@@ -434,14 +433,14 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
 
         int tableId = tableCfg.tableId().value();
 
-        dataRegion.filePageStoreManager().getStore(tableId, partitionId).markToDestroy();
+        GroupPartitionId groupPartitionId = new GroupPartitionId(tableId, partitionId);
+
+        dataRegion.filePageStoreManager().getStore(groupPartitionId).markToDestroy();
 
         dataRegion.pageMemory().invalidate(tableId, partitionId);
 
-        GroupPartitionId groupPartitionId = new GroupPartitionId(tableId, partitionId);
-
         return dataRegion.checkpointManager().onPartitionDestruction(groupPartitionId)
                 .thenAccept(unused -> dataRegion.partitionMetaManager().removeMeta(groupPartitionId))
-                .thenCompose(unused -> dataRegion.filePageStoreManager().destroyPartition(tableId, partitionId));
+                .thenCompose(unused -> dataRegion.filePageStoreManager().destroyPartition(groupPartitionId));
     }
 }

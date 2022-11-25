@@ -35,8 +35,8 @@ import static org.mockito.Mockito.when;
 
 import java.util.Collection;
 import java.util.function.Supplier;
-import org.apache.ignite.internal.pagememory.persistence.store.GroupPageStoresMap.GroupPageStores;
-import org.apache.ignite.internal.pagememory.persistence.store.GroupPageStoresMap.PartitionPageStore;
+import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
+import org.apache.ignite.internal.pagememory.persistence.store.GroupPageStoresMap.GroupPartitionPageStore;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
 import org.junit.jupiter.api.BeforeEach;
@@ -61,102 +61,108 @@ public class GroupPageStoresMapTest {
     }
 
     @Test
-    void testGroupCount() {
-        assertEquals(0, groupPageStoresMap.groupCount());
-
-        groupPageStoresMap.put(0, 0, mock(FilePageStore.class));
-
-        assertEquals(1, groupPageStoresMap.groupCount());
-
-        groupPageStoresMap.put(0, 0, mock(FilePageStore.class));
-
-        assertEquals(1, groupPageStoresMap.groupCount());
-
-        groupPageStoresMap.put(1, 0, mock(FilePageStore.class));
-
-        assertEquals(2, groupPageStoresMap.groupCount());
-
-        groupPageStoresMap.clear();
-
-        assertEquals(0, groupPageStoresMap.groupCount());
-    }
-
-    @Test
     void testPut() {
         FilePageStore filePageStore0 = mock(FilePageStore.class);
 
-        assertNull(groupPageStoresMap.put(0, 0, filePageStore0));
+        GroupPartitionId groupPartitionId00 = new GroupPartitionId(0, 0);
+
+        assertNull(groupPageStoresMap.put(groupPartitionId00, filePageStore0));
         checkInvokeAfterAsyncCompletion(1);
 
         FilePageStore filePageStore1 = mock(FilePageStore.class);
 
-        assertSame(filePageStore0, groupPageStoresMap.put(0, 0, filePageStore1));
+        assertSame(filePageStore0, groupPageStoresMap.put(groupPartitionId00, filePageStore1));
         checkInvokeAfterAsyncCompletion(2);
 
-        assertNull(groupPageStoresMap.get(1));
+        GroupPartitionId groupPartitionId01 = new GroupPartitionId(0, 1);
+        GroupPartitionId groupPartitionId11 = new GroupPartitionId(1, 1);
 
-        assertThat(getAll(groupPageStoresMap.get(0)), containsInAnyOrder(new TestPartitionPageStore<>(0, filePageStore1)));
+        assertEquals(filePageStore1, groupPageStoresMap.get(groupPartitionId00));
+
+        assertNull(groupPageStoresMap.get(groupPartitionId01));
+        assertNull(groupPageStoresMap.get(groupPartitionId11));
+
+        assertThat(
+                getAll(groupPageStoresMap.getAll()),
+                containsInAnyOrder(new TestGroupPartitionPageStore<>(groupPartitionId00, filePageStore1))
+        );
     }
 
     @Test
     void testGet() {
-        assertNull(groupPageStoresMap.get(0));
-        assertNull(groupPageStoresMap.get(1));
+        GroupPartitionId groupPartitionId00 = new GroupPartitionId(0, 0);
+        GroupPartitionId groupPartitionId10 = new GroupPartitionId(1, 0);
+
+        assertNull(groupPageStoresMap.get(groupPartitionId00));
+        assertNull(groupPageStoresMap.get(groupPartitionId10));
 
         FilePageStore filePageStore0 = mock(FilePageStore.class);
 
-        groupPageStoresMap.put(0, 0, filePageStore0);
+        groupPageStoresMap.put(groupPartitionId00, filePageStore0);
 
-        GroupPageStores<PageStore> groupPageStores0 = groupPageStoresMap.get(0);
+        assertEquals(filePageStore0, groupPageStoresMap.get(groupPartitionId00));
 
-        assertThat(getAll(groupPageStores0), containsInAnyOrder(new TestPartitionPageStore<>(0, filePageStore0)));
-        assertNull(groupPageStoresMap.get(1));
+        assertNull(groupPageStoresMap.get(groupPartitionId10));
+
+        assertThat(
+                getAll(groupPageStoresMap.getAll()),
+                containsInAnyOrder(new TestGroupPartitionPageStore<>(groupPartitionId00, filePageStore0))
+        );
 
         FilePageStore filePageStore1 = mock(FilePageStore.class);
 
-        groupPageStoresMap.put(1, 1, filePageStore1);
+        groupPageStoresMap.put(groupPartitionId10, filePageStore1);
 
-        GroupPageStores<PageStore> groupPageStores1 = groupPageStoresMap.get(1);
+        assertEquals(filePageStore0, groupPageStoresMap.get(groupPartitionId00));
+        assertEquals(filePageStore1, groupPageStoresMap.get(groupPartitionId10));
 
-        assertThat(getAll(groupPageStores0), containsInAnyOrder(new TestPartitionPageStore<>(0, filePageStore0)));
-        assertThat(getAll(groupPageStores1), containsInAnyOrder(new TestPartitionPageStore<>(1, filePageStore1)));
-
-        assertEquals(TestPartitionPageStore.of(groupPageStores0.get(0)), new TestPartitionPageStore<>(0, filePageStore0));
-        assertEquals(TestPartitionPageStore.of(groupPageStores1.get(1)), new TestPartitionPageStore<>(1, filePageStore1));
-
-        assertNull(groupPageStores0.get(2));
-        assertNull(groupPageStores1.get(2));
+        assertThat(
+                getAll(groupPageStoresMap.getAll()),
+                containsInAnyOrder(
+                        new TestGroupPartitionPageStore<>(groupPartitionId00, filePageStore0),
+                        new TestGroupPartitionPageStore<>(groupPartitionId10, filePageStore1)
+                )
+        );
 
         groupPageStoresMap.clear();
 
-        assertNull(groupPageStoresMap.get(0));
-        assertNull(groupPageStoresMap.get(1));
+        assertNull(groupPageStoresMap.get(groupPartitionId00));
+        assertNull(groupPageStoresMap.get(groupPartitionId10));
+
+        assertThat(getAll(groupPageStoresMap.getAll()), empty());
     }
 
     @Test
     void testContainsPageStores() {
-        assertFalse(groupPageStoresMap.contains(0, 0));
-        assertFalse(groupPageStoresMap.contains(1, 0));
+        GroupPartitionId groupPartitionId00 = new GroupPartitionId(0, 0);
+        GroupPartitionId groupPartitionId10 = new GroupPartitionId(1, 0);
+
+        assertFalse(groupPageStoresMap.contains(groupPartitionId00));
+        assertFalse(groupPageStoresMap.contains(groupPartitionId10));
 
         FilePageStore filePageStore0 = mock(FilePageStore.class);
 
-        groupPageStoresMap.put(0, 0, filePageStore0);
+        groupPageStoresMap.put(groupPartitionId00, filePageStore0);
 
-        assertTrue(groupPageStoresMap.contains(0, 0));
-        assertFalse(groupPageStoresMap.contains(1, 0));
-        assertFalse(groupPageStoresMap.contains(0, 1));
+        GroupPartitionId groupPartitionId01 = new GroupPartitionId(0, 1);
+
+        assertTrue(groupPageStoresMap.contains(groupPartitionId00));
+        assertFalse(groupPageStoresMap.contains(groupPartitionId10));
+        assertFalse(groupPageStoresMap.contains(groupPartitionId01));
 
         FilePageStore filePageStore1 = mock(FilePageStore.class);
 
-        groupPageStoresMap.put(1, 0, filePageStore1);
+        groupPageStoresMap.put(groupPartitionId10, filePageStore1);
 
-        assertTrue(groupPageStoresMap.contains(0, 0));
-        assertTrue(groupPageStoresMap.contains(1, 0));
+        assertTrue(groupPageStoresMap.contains(groupPartitionId00));
+        assertTrue(groupPageStoresMap.contains(groupPartitionId10));
+        assertFalse(groupPageStoresMap.contains(groupPartitionId01));
 
         groupPageStoresMap.clear();
 
-        assertFalse(groupPageStoresMap.contains(0, 0));
-        assertFalse(groupPageStoresMap.contains(1, 0));
+        assertFalse(groupPageStoresMap.contains(groupPartitionId00));
+        assertFalse(groupPageStoresMap.contains(groupPartitionId10));
+        assertFalse(groupPageStoresMap.contains(groupPartitionId01));
     }
 
     @Test
@@ -166,20 +172,24 @@ public class GroupPageStoresMapTest {
         FilePageStore filePageStore0 = mock(FilePageStore.class);
         FilePageStore filePageStore1 = mock(FilePageStore.class);
 
-        groupPageStoresMap.put(0, 0, filePageStore0);
+        GroupPartitionId groupPartitionId00 = new GroupPartitionId(0, 0);
+
+        groupPageStoresMap.put(groupPartitionId00, filePageStore0);
 
         assertThat(
-                getAll(groupPageStoresMap),
-                containsInAnyOrder(new TestGroupPartitionPageStore<>(0, 0, filePageStore0))
+                getAll(groupPageStoresMap.getAll()),
+                containsInAnyOrder(new TestGroupPartitionPageStore<>(groupPartitionId00, filePageStore0))
         );
 
-        groupPageStoresMap.put(1, 1, filePageStore1);
+        GroupPartitionId groupPartitionId11 = new GroupPartitionId(1, 1);
+
+        groupPageStoresMap.put(groupPartitionId11, filePageStore1);
 
         assertThat(
-                getAll(groupPageStoresMap),
+                getAll(groupPageStoresMap.getAll()),
                 containsInAnyOrder(
-                        new TestGroupPartitionPageStore<>(0, 0, filePageStore0),
-                        new TestGroupPartitionPageStore<>(1, 1, filePageStore1)
+                        new TestGroupPartitionPageStore<>(groupPartitionId00, filePageStore0),
+                        new TestGroupPartitionPageStore<>(groupPartitionId11, filePageStore1)
                 )
         );
 
@@ -192,105 +202,60 @@ public class GroupPageStoresMapTest {
     void testClear() {
         assertDoesNotThrow(groupPageStoresMap::clear);
 
-        groupPageStoresMap.put(0, 0, mock(FilePageStore.class));
+        groupPageStoresMap.put(new GroupPartitionId(0, 0), mock(FilePageStore.class));
 
         assertDoesNotThrow(groupPageStoresMap::clear);
-        assertEquals(0, groupPageStoresMap.groupCount());
 
-        assertNull(groupPageStoresMap.get(0));
-        assertFalse(groupPageStoresMap.contains(0, 0));
+        assertThat(getAll(groupPageStoresMap.getAll()), empty());
     }
 
     @Test
     void testRemove() {
-        assertNull(groupPageStoresMap.remove(0, 0));
+        GroupPartitionId groupPartitionId00 = new GroupPartitionId(0, 0);
+
+        assertNull(groupPageStoresMap.remove(groupPartitionId00));
 
         FilePageStore filePageStore = mock(FilePageStore.class);
 
-        groupPageStoresMap.put(0, 0, filePageStore);
+        groupPageStoresMap.put(groupPartitionId00, filePageStore);
 
-        GroupPageStores<PageStore> groupPageStores = groupPageStoresMap.get(0);
+        GroupPartitionId groupPartitionId10 = new GroupPartitionId(1, 0);
 
-        assertNull(groupPageStoresMap.remove(0, 1));
-        assertNull(groupPageStoresMap.remove(1, 0));
+        assertNull(groupPageStoresMap.remove(groupPartitionId10));
 
-        assertSame(filePageStore, groupPageStoresMap.remove(0, 0));
+        assertEquals(filePageStore, groupPageStoresMap.remove(groupPartitionId00));
 
-        assertNull(groupPageStoresMap.get(0));
-        assertNull(groupPageStores.get(0));
+        assertNull(groupPageStoresMap.get(groupPartitionId00));
 
-        assertFalse(groupPageStoresMap.contains(0, 0));
-        assertEquals(0, groupPageStoresMap.groupCount());
+        assertFalse(groupPageStoresMap.contains(groupPartitionId00));
+
+        assertThat(getAll(groupPageStoresMap.getAll()), empty());
     }
 
     private void checkInvokeAfterAsyncCompletion(int times) {
         verify(longOperationAsyncExecutor, times(times)).afterAsyncCompletion(any(Supplier.class));
     }
 
-    private static <T extends PageStore> Collection<TestGroupPartitionPageStore<T>> getAll(GroupPageStoresMap<T> groupPageStoresMap) {
-        return groupPageStoresMap.getAll().stream()
-                .flatMap(groupPageStores -> groupPageStores.getAll().stream()
-                        .map(partitionPageStore -> new TestGroupPartitionPageStore<>(
-                                groupPageStores.groupId(),
-                                partitionPageStore.partitionId(),
-                                partitionPageStore.pageStore()
-                        ))
-                )
-                .collect(toList());
-    }
-
-    private static <T extends PageStore> Collection<TestPartitionPageStore<T>> getAll(GroupPageStores<T> groupPageStores) {
-        return groupPageStores.getAll().stream()
-                .map(partitionPageStore -> new TestPartitionPageStore<>(partitionPageStore.partitionId(), partitionPageStore.pageStore()))
+    private static <T extends PageStore> Collection<TestGroupPartitionPageStore<T>> getAll(
+            Collection<GroupPartitionPageStore<T>> groupPartitionPageStores
+    ) {
+        return groupPartitionPageStores.stream()
+                .map(TestGroupPartitionPageStore::of)
                 .collect(toList());
     }
 
     /**
      * Inner class for tests.
      */
-    private static class TestGroupPartitionPageStore<T extends PageStore> extends TestPartitionPageStore<T> {
+    private static class TestGroupPartitionPageStore<T extends PageStore> {
         @IgniteToStringInclude
-        final int groupId;
-
-        private TestGroupPartitionPageStore(int groupId, int partitionId, T filePageStore) {
-            super(partitionId, filePageStore);
-
-            this.groupId = groupId;
-        }
-
-        @Override
-        public boolean equals(Object obj) {
-            if (obj == this) {
-                return true;
-            }
-
-            if (obj instanceof TestGroupPartitionPageStore) {
-                TestGroupPartitionPageStore that = (TestGroupPartitionPageStore) obj;
-
-                return groupId == that.groupId && partitionId == that.partitionId && filePageStore == that.filePageStore;
-            }
-
-            return false;
-        }
-
-        @Override
-        public String toString() {
-            return S.toString(TestGroupPartitionPageStore.class, this, "partitionId", partitionId, "filePageStore", filePageStore);
-        }
-    }
-
-    /**
-     * Inner class for tests.
-     */
-    private static class TestPartitionPageStore<T extends PageStore> {
-        @IgniteToStringInclude
-        final int partitionId;
+        final GroupPartitionId groupPartitionId;
 
         @IgniteToStringInclude
         final T filePageStore;
 
-        private TestPartitionPageStore(int partitionId, T filePageStore) {
-            this.partitionId = partitionId;
+        private TestGroupPartitionPageStore(GroupPartitionId groupPartitionId, T filePageStore) {
+            this.groupPartitionId = groupPartitionId;
             this.filePageStore = filePageStore;
         }
 
@@ -300,10 +265,10 @@ public class GroupPageStoresMapTest {
                 return true;
             }
 
-            if (obj instanceof TestPartitionPageStore) {
-                TestPartitionPageStore that = (TestPartitionPageStore) obj;
+            if (obj instanceof TestGroupPartitionPageStore) {
+                TestGroupPartitionPageStore<?> that = (TestGroupPartitionPageStore<?>) obj;
 
-                return partitionId == that.partitionId && filePageStore.equals(that.filePageStore);
+                return groupPartitionId.equals(that.groupPartitionId) && filePageStore.equals(that.filePageStore);
             }
 
             return false;
@@ -311,11 +276,11 @@ public class GroupPageStoresMapTest {
 
         @Override
         public String toString() {
-            return S.toString(TestPartitionPageStore.class, this);
+            return S.toString(TestGroupPartitionPageStore.class, this);
         }
 
-        private static <T extends PageStore> TestPartitionPageStore<T> of(PartitionPageStore<T> partitionPageStore) {
-            return new TestPartitionPageStore<>(partitionPageStore.partitionId(), partitionPageStore.pageStore());
+        private static <T extends PageStore> TestGroupPartitionPageStore<T> of(GroupPartitionPageStore<T> groupPartitionPageStore) {
+            return new TestGroupPartitionPageStore<>(groupPartitionPageStore.groupPartitionId(), groupPartitionPageStore.pageStore());
         }
     }
 }
