@@ -246,7 +246,8 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         var txManager = new TxManagerImpl(replicaService, lockManager, hybridClock);
 
-        RocksDbClusterStateStorage clusterStateStorage = new RocksDbClusterStateStorage(dir.resolve("cmg"));
+        var clusterStateStorage = new RocksDbClusterStateStorage(dir.resolve("cmg"));
+
         LogicalTopologyImpl logicalTopologyService = new LogicalTopologyImpl(clusterStateStorage);
 
         var cmgManager = new ClusterManagementGroupManager(
@@ -344,6 +345,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 nettyBootstrapFactory,
                 clusterSvc,
                 raftMgr,
+                clusterStateStorage,
                 cmgManager,
                 replicaMgr,
                 txManager,

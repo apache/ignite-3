@@ -92,6 +92,7 @@ public class MockNode {
         components.add(vaultManager);
         components.add(clusterService);
         components.add(raftManager);
+        components.add(clusterStateStorage);
         components.add(clusterManager);
     }
 

@@ -61,8 +61,8 @@ class LogicalTopologyImplTest {
     }
 
     @AfterEach
-    void tearDown() {
-        storage.close();
+    void tearDown() throws Exception {
+        storage.stop();
     }
 
     /**
