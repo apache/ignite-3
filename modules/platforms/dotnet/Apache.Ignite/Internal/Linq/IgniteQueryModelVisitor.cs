@@ -109,7 +109,7 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
 
             BuildSqlExpression(ordering.Expression);
 
-            _builder.Append(')');
+            _builder.TrimEnd().Append(')');
 
             _builder.Append(ordering.OrderingDirection == OrderingDirection.Asc ? " asc" : " desc");
         }
@@ -278,7 +278,7 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
         {
             // FIELD1, FIELD2
             BuildSqlExpression(queryModel.SelectClause.Selector, parenCount > 0, includeAllFields);
-            _builder.Append(')', parenCount).Append(' ');
+            _builder.TrimEnd().Append(')', parenCount).Append(' ');
         }
     }
 
@@ -339,27 +339,27 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
         {
             if (op is CountResultOperator or LongCountResultOperator)
             {
-                _builder.Append("count (");
+                _builder.Append("count(");
                 parenCount++;
             }
             else if (op is SumResultOperator)
             {
-                _builder.Append("sum (");
+                _builder.Append("sum(");
                 parenCount++;
             }
             else if (op is MinResultOperator)
             {
-                _builder.Append("min (");
+                _builder.Append("min(");
                 parenCount++;
             }
             else if (op is MaxResultOperator)
             {
-                _builder.Append("max (");
+                _builder.Append("max(");
                 parenCount++;
             }
             else if (op is AverageResultOperator)
             {
-                _builder.Append("avg (");
+                _builder.Append("avg(");
                 parenCount++;
             }
             else if (op is DistinctResultOperator)
@@ -452,7 +452,7 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
                     VisitQueryModel(queryable.GetQueryModel());
                 }
 
-                _builder.Append(')');
+                _builder.TrimEnd().Append(')');
             }
         }
     }
