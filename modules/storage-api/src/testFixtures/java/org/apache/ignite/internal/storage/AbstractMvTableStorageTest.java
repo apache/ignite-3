@@ -444,7 +444,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         assertThrows(StorageClosedException.class, () -> getAll(scanFromSortedIndexCursor));
 
         // Let's check that nothing will happen if we try to destroy a non-existing partition.
-        assertDoesNotThrow(() -> tableStorage.destroyPartition(PARTITION_ID));
+        assertDoesNotThrow(() -> tableStorage.destroyPartition(PARTITION_ID).get(1, TimeUnit.SECONDS));
     }
 
     @Test

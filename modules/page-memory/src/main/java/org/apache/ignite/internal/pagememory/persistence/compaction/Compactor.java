@@ -50,9 +50,9 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Entity to compact delta files.
  *
- * <p>To start compacting delta files, you need to notify about the appearance of {@link #triggerCompaction() delta files ready for
- * compaction}. Then all delta files {@link FilePageStore#getDeltaFileToCompaction() ready for compaction} will be collected and merged with
- * their {@link FilePageStore file page stores} until all delta files are compacted.
+ * <p>When delta files appear, {@link #triggerCompaction()} must be called to initiate compaction. Then all delta files
+ * {@link FilePageStore#getDeltaFileToCompaction() ready for compaction} will be collected and merged with their
+ * {@link FilePageStore file page stores} until all delta files are compacted.
  *
  * <p>Delta file compaction process consists of:
  * <ul>
@@ -407,7 +407,7 @@ public class Compactor extends IgniteWorker {
     }
 
     /**
-     * Prepares the compacter to destroy a partition.
+     * Prepares the compactor to destroy a partition.
      *
      * <p>If the partition compaction is in progress, then we will wait until it is completed so that there are no errors when we want to
      * destroy the partition file and its delta file, and at this time its compaction occurs.

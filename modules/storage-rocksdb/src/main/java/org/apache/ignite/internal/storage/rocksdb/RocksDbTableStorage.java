@@ -124,7 +124,7 @@ public class RocksDbTableStorage implements MvTableStorage {
     /** Prevents double stopping of the component. */
     private final AtomicBoolean stopGuard = new AtomicBoolean();
 
-    private final ConcurrentMap<Integer, CompletableFuture<Void>> partitionIdDestroyFuture = new ConcurrentHashMap<>();
+    private final ConcurrentMap<Integer, CompletableFuture<Void>> partitionIdDestroyFutureMap = new ConcurrentHashMap<>();
 
     /**
      * Constructor.
@@ -386,7 +386,10 @@ public class RocksDbTableStorage implements MvTableStorage {
 
         CompletableFuture<Void> destroyPartitionFuture = new CompletableFuture<>();
 
-        CompletableFuture<Void> previousDestroyPartitionFuture = partitionIdDestroyFuture.putIfAbsent(partitionId, destroyPartitionFuture);
+        CompletableFuture<Void> previousDestroyPartitionFuture = partitionIdDestroyFutureMap.putIfAbsent(
+                partitionId,
+                destroyPartitionFuture
+        );
 
         if (previousDestroyPartitionFuture != null) {
             return previousDestroyPartitionFuture;
@@ -401,12 +404,12 @@ public class RocksDbTableStorage implements MvTableStorage {
 
                 mvPartition.close();
 
-                partitionIdDestroyFuture.remove(partitionId).complete(null);
+                partitionIdDestroyFutureMap.remove(partitionId).complete(null);
             } catch (Throwable throwable) {
-                partitionIdDestroyFuture.remove(partitionId).completeExceptionally(throwable);
+                partitionIdDestroyFutureMap.remove(partitionId).completeExceptionally(throwable);
             }
         } else {
-            partitionIdDestroyFuture.remove(partitionId).complete(null);
+            partitionIdDestroyFutureMap.remove(partitionId).complete(null);
         }
 
         return destroyPartitionFuture;
