@@ -198,7 +198,7 @@ public class HeapLockManager implements LockManager {
                     return new IgniteBiTuple(waiter.fut, lockMode);
                 }
 
-                if (!waiter.locked()){
+                if (!waiter.locked()) {
                     if (prev == null) {
                         waiters.remove(waiter.txId());
                     } else {
