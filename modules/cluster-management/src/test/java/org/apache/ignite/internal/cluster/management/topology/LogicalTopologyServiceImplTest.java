@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.cluster.management.topology;
 
+import static java.util.stream.Collectors.toList;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
@@ -26,20 +27,31 @@ import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Collection;
+import java.util.List;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
+import org.apache.ignite.internal.testframework.WorkDirectory;
+import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
+@ExtendWith(WorkDirectoryExtension.class)
 class LogicalTopologyServiceImplTest {
     private final ClusterStateStorage storage = new TestClusterStateStorage();
 
     private InternalLogicalTopologyService topologyService;
+
+    @WorkDirectory
+    protected Path workDir;
 
     @BeforeEach
     void setUp() {
@@ -138,5 +150,24 @@ class LogicalTopologyServiceImplTest {
 
         assertTrue(topologyService.isNodeInLogicalTopology(new ClusterNode("id1", "node", new NetworkAddress("host", 1000))));
         assertFalse(topologyService.isNodeInLogicalTopology(new ClusterNode("another-id", "node", new NetworkAddress("host", 1000))));
+    }
+
+    @Test
+    void logicalTopologyIsRestoredCorrectlyWithSnapshot() throws Exception {
+        Path snapshotDir = workDir.resolve("snapshot");
+        Files.createDirectory(snapshotDir);
+
+        topologyService.putLogicalTopologyNode(new ClusterNode("id1", "node", new NetworkAddress("host", 1000)));
+
+        storage.snapshot(snapshotDir).get(10, TimeUnit.SECONDS);
+
+        topologyService.putLogicalTopologyNode(new ClusterNode("id2", "another-node", new NetworkAddress("host", 1001)));
+
+        storage.restoreSnapshot(snapshotDir);
+
+        List<String> namesInTopology = topologyService.getLogicalTopology().stream()
+                .map(ClusterNode::name)
+                .collect(toList());
+        assertThat(namesInTopology, contains("node"));
     }
 }
