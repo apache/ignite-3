@@ -62,6 +62,4 @@ class SqlHelpCommandTest extends CliCommandTestBase {
                 () -> assertOutputContains(expectedHelpMessage),
                 this::assertErrOutputIsEmpty);
     }
-
-    //todo: clear garbage from help completions
 }
