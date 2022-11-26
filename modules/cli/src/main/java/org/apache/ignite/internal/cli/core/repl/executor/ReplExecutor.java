@@ -45,7 +45,6 @@ import org.jline.reader.LineReaderBuilder;
 import org.jline.reader.MaskingCallback;
 import org.jline.reader.Parser;
 import org.jline.reader.impl.DefaultParser;
-import org.jline.reader.impl.completer.AggregateCompleter;
 import org.jline.terminal.Terminal;
 import org.jline.widget.TailTipWidgets;
 import picocli.CommandLine;
@@ -84,6 +83,22 @@ public class ReplExecutor {
         this.nodeNameRegistry = nodeNameRegistry;
     }
 
+    private static TailTipWidgets createWidgets(SystemRegistryImpl registry, LineReader reader) {
+        TailTipWidgets widgets = new TailTipWidgets(reader, registry::commandDescription, 5,
+                TailTipWidgets.TipType.COMPLETER);
+        widgets.enable();
+        // Workaround for the https://issues.apache.org/jira/browse/IGNITE-17346
+        // Turn off tailtip widgets before printing to the output
+        CommandLineContextProvider.setPrintWrapper(printer -> {
+            widgets.disable();
+            printer.run();
+            widgets.enable();
+        });
+        // Workaround for jline issue where TailTipWidgets will produce NPE when passed a bracket
+        registry.setScriptDescription(cmdLine -> null);
+        return widgets;
+    }
+
     /**
      * Executor method. This is thread blocking method, until REPL stop executing.
      *
@@ -97,9 +112,11 @@ public class ReplExecutor {
             SystemRegistryImpl registry = new SystemRegistryImpl(parser, terminal, workDirProvider, null);
             registry.setCommandRegistries(picocliCommands);
 
-            LineReader reader = createReader(repl.getCompleter() != null
-                    ? new AggregateCompleter(registry.completer(), repl.getCompleter())
-                    : registry.completer());
+            LineReader reader = createReader(
+                    repl.getCompleter() != null
+                            ? repl.getCompleter()
+                            : registry.completer()
+            );
             if (repl.getHistoryFileName() != null) {
                 reader.variable(LineReader.HISTORY_FILE, StateFolderProvider.getStateFile(repl.getHistoryFileName()));
             }
@@ -129,22 +146,6 @@ public class ReplExecutor {
         } catch (Throwable t) {
             exceptionHandlers.handleException(System.err::println, t);
         }
-    }
-
-    private static TailTipWidgets createWidgets(SystemRegistryImpl registry, LineReader reader) {
-        TailTipWidgets widgets = new TailTipWidgets(reader, registry::commandDescription, 5,
-                TailTipWidgets.TipType.COMPLETER);
-        widgets.enable();
-        // Workaround for the https://issues.apache.org/jira/browse/IGNITE-17346
-        // Turn off tailtip widgets before printing to the output
-        CommandLineContextProvider.setPrintWrapper(printer -> {
-            widgets.disable();
-            printer.run();
-            widgets.enable();
-        });
-        // Workaround for jline issue where TailTipWidgets will produce NPE when passed a bracket
-        registry.setScriptDescription(cmdLine -> null);
-        return widgets;
     }
 
     private LineReader createReader(Completer completer) {
