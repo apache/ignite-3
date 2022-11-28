@@ -146,4 +146,31 @@ public partial class LinqTests
             "order by (_T0.VAL) asc",
             query.ToString());
     }
+
+    [Test]
+    public void TestGroupByWithReverseJoinAndAnonymousProjectionWithRename()
+    {
+        var query1 = PocoView.AsQueryable();
+        var query2 = PocoIntView.AsQueryable();
+
+        var query = query1.Join(
+                query2,
+                o => o.Key,
+                p => p.Key,
+                (org, person) => new
+                {
+                    Cat = org.Val,
+                    Price = person.Val
+                })
+            .GroupBy(x => x.Cat)
+            .Select(g => new {Category = g.Key, MaxPrice = g.Max(x => x.Price)})
+            .OrderByDescending(x => x.MaxPrice);
+
+        var res = query.ToList();
+
+        Assert.AreEqual("v-1", res[0].Category);
+        Assert.AreEqual(1, res[0].MaxPrice);
+
+        StringAssert.Contains("TODO", query.ToString());
+    }
 }
