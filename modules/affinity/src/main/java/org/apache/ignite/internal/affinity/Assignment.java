@@ -18,12 +18,14 @@
 package org.apache.ignite.internal.affinity;
 
 import java.io.Serializable;
+import org.apache.ignite.internal.tostring.S;
 
 /**
  * Represent an assignment of a partition to a node with a specific {@code consistentId}.
  *
- * <p>There can be two types of assignments: one for the voting members of the partition Raft group (a.k.a. "peers") and one for
- * the learners of the same group.
+ * <p>There can be two types of assignments: one for the synchronous members of a replication group (a.k.a. "peers") and one for
+ * the asynchronous members (a.k.a. "learners") of the same group. Peers get synchronously updated during write operations, while learners
+ * are eventually consistent and received updates some time in the future.
  */
 public class Assignment implements Serializable {
     private static final long serialVersionUID = -8892379245627437834L;
@@ -89,9 +91,6 @@ public class Assignment implements Serializable {
 
     @Override
     public String toString() {
-        return "Assignment{"
-                + "consistentId='"
-                + consistentId + '\'' + ", isPeer=" + isPeer
-                + '}';
+        return S.toString(Assignment.class, this);
     }
 }

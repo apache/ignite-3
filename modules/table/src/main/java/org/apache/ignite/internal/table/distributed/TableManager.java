@@ -1826,8 +1826,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                     // Start a new Raft node and Replica if this node has appeared in the new assignments.
                     boolean shouldStartLocalServices = pendingAssignments.stream()
-                            .filter(assignment -> !stableAssignments.contains(assignment))
-                            .anyMatch(assignment -> localMember.name().equals(assignment.consistentId()));
+                            .filter(assignment -> localMember.name().equals(assignment.consistentId()))
+                            .anyMatch(assignment -> !stableAssignments.contains(assignment));
 
                     PendingComparableValuesTracker<HybridTimestamp> safeTime = new PendingComparableValuesTracker<>(clock.now());
 

@@ -18,6 +18,7 @@
 package org.apache.ignite.distributed;
 
 import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.raft.jraft.test.TestUtils.waitForTopology;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.findLocalAddresses;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -39,6 +40,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
+import java.util.stream.IntStream;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
@@ -360,36 +362,36 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
      */
     protected Int2ObjectOpenHashMap<RaftGroupService> startTable(String name, UUID tblId)
             throws Exception {
-        List<Set<Assignment>> assignments = AffinityUtils.calculateAssignments(
+        List<Set<Assignment>> calculatedAssignments = AffinityUtils.calculateAssignments(
                 cluster.stream().map(node -> node.topologyService().localMember()).collect(toList()),
                 1,
                 replicas()
         );
+
+        List<Set<String>> assignments = calculatedAssignments.stream()
+                .map(a -> a.stream().map(Assignment::consistentId).collect(toSet()))
+                .collect(toList());
+
+        List<TablePartitionId> grpIds = IntStream.range(0, assignments.size())
+                .mapToObj(i -> new TablePartitionId(tblId, i))
+                .collect(toList());
 
         Int2ObjectOpenHashMap<RaftGroupService> clients = new Int2ObjectOpenHashMap<>();
 
         List<CompletableFuture<Void>> partitionReadyFutures = new ArrayList<>();
 
         for (int p = 0; p < assignments.size(); p++) {
-            Set<Assignment> partAssignments = assignments.get(p);
+            Set<String> partAssignments = assignments.get(p);
 
-            TablePartitionId grpId = new TablePartitionId(tblId, p);
+            TablePartitionId grpId = grpIds.get(p);
 
-            List<Peer> conf = partAssignments.stream().map(a -> new Peer(a.consistentId())).collect(toList());
-
-            for (Assignment assignment : partAssignments) {
-                String nodeName = assignment.consistentId();
-
+            for (String assignment : partAssignments) {
                 var testMpPartStorage = new TestMvPartitionStorage(0);
                 var txStateStorage = new TestTxStateStorage();
-                var placementDriver = new PlacementDriver(replicaServices.get(nodeName), consistentIdToNode);
+                var placementDriver = new PlacementDriver(replicaServices.get(assignment), consistentIdToNode);
 
                 for (int part = 0; part < assignments.size(); part++) {
-                    ReplicationGroupId replicaGrpId = new TablePartitionId(tblId, part);
-
-                    List<String> replicaAssignment = assignments.get(part).stream().map(Assignment::consistentId).collect(toList());
-
-                    placementDriver.updateAssignment(replicaGrpId, replicaAssignment);
+                    placementDriver.updateAssignment(grpIds.get(part), assignments.get(part));
                 }
 
                 int partId = p;
@@ -409,15 +411,15 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                         row2tuple
                 ));
 
-                IndexLocker pkLocker = new HashIndexLocker(indexId, true, txManagers.get(nodeName).lockManager(), row2tuple);
+                IndexLocker pkLocker = new HashIndexLocker(indexId, true, txManagers.get(assignment).lockManager(), row2tuple);
 
-                CompletableFuture<Void> partitionReadyFuture = raftServers.get(nodeName).prepareRaftGroup(
+                CompletableFuture<Void> partitionReadyFuture = raftServers.get(assignment).prepareRaftGroup(
                         grpId,
-                        partAssignments.stream().map(Assignment::consistentId).collect(toList()),
+                        partAssignments,
                         () -> new PartitionListener(
                                 new TestPartitionDataStorage(testMpPartStorage),
                                 new TestTxStateStorage(),
-                                txManagers.get(nodeName),
+                                txManagers.get(assignment),
                                 () -> Map.of(pkStorage.get().id(), pkStorage.get()),
                                 partId
                         ),
@@ -426,26 +428,26 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                         raftSvc -> {
                             try {
                                 PendingComparableValuesTracker<HybridTimestamp> safeTime =
-                                        new PendingComparableValuesTracker<>(clocks.get(nodeName).now());
+                                        new PendingComparableValuesTracker<>(clocks.get(assignment).now());
 
-                                replicaManagers.get(nodeName).startReplica(
+                                replicaManagers.get(assignment).startReplica(
                                         new TablePartitionId(tblId, partId),
                                         new PartitionReplicaListener(
                                                 testMpPartStorage,
                                                 raftSvc,
-                                                txManagers.get(nodeName),
-                                                txManagers.get(nodeName).lockManager(),
+                                                txManagers.get(assignment),
+                                                txManagers.get(assignment).lockManager(),
                                                 Runnable::run,
                                                 partId,
                                                 tblId,
                                                 () -> Map.of(pkLocker.id(), pkLocker),
                                                 pkStorage,
                                                 () -> Map.of(),
-                                                clocks.get(nodeName),
+                                                clocks.get(assignment),
                                                 safeTime,
                                                 txStateStorage,
                                                 placementDriver,
-                                                peer -> nodeName.equals(peer.consistentId())
+                                                peer -> assignment.equals(peer.consistentId())
                                         )
                                 );
                             } catch (NodeStoppingException e) {
@@ -456,6 +458,8 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
                 partitionReadyFutures.add(partitionReadyFuture);
             }
+
+            List<Peer> conf = partAssignments.stream().map(Peer::new).collect(toList());
 
             if (startClient()) {
                 RaftGroupService service = RaftGroupServiceImpl
