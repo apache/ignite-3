@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.api;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.lang.ErrorGroups.Sql;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -26,7 +27,7 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.sql.engine.AbstractBasicIntegrationTest;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
-import org.apache.ignite.sql.CursorClosedException;
+import org.apache.ignite.internal.sql.engine.exec.ExecutionCancelledException;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.Session;
@@ -78,15 +79,13 @@ public class ItCommonApiTest extends AbstractBasicIntegrationTest {
         assertEquals(Sql.SESSION_NOT_FOUND_ERR, ex.code());
 
         // already started query should fail due to session has been expired
-        ex = assertThrows(CursorClosedException.class, () -> {
+        assertThrowsWithCause(() -> {
             while (rs1.hasNext()) {
                 rs1.next();
             }
-        });
+        }, ExecutionCancelledException.class);
 
         rs1.close();
-
-        assertEquals(Sql.CURSOR_CLOSED_ERR, ex.code());
 
         // second session could proceed with execution
         while (rs2.hasNext()) {

@@ -39,17 +39,15 @@ dependencies {
 // Common for ZIP and RPM/DEB
 
 def tokens = [
-        PRODUCT_NAME        : 'ignite3cli',
+        PRODUCT_NAME        : 'ignite3-cli',
         PRODUCT_DISPLAY_NAME: 'Apache Ignite CLI',
         INSTALL_DIR         : '/usr/bin',
         LIB_DIR             : '/usr/lib/ignite3',
         LOG_DIR             : '${HOME}/.ignite3',
         APP_JAR             : "${project(':ignite-cli').name}-${project(':ignite-cli').version}.jar".toString(),
+        SETUP_JAVA_FILE_NAME: 'setup-java.sh',
         MAIN_CLASS          : 'org.apache.ignite.internal.cli.Main',
-        JAVA_OPTS           : '',
-        ADDITIONAL_OPTS     : '',
         ARGS                : '$@'
-
 ]
 
 task replaceScriptVars(type: Copy) {
@@ -72,7 +70,8 @@ distTar.dependsOn replaceScriptVars
 distZip.dependsOn replaceScriptVars
 
 task createChecksums(type: Checksum) {
-    files = files(file("${buildDir}/distributions/ignite3cli-${project.version}.zip"))
+    //TODO: remove distribution name hard code IGNITE-18092
+    files = files(file("${buildDir}/distributions/ignite3-cli-${project.version}.zip"))
     outputDir = new File("${buildDir}/distributions")
     algorithm = Checksum.Algorithm.SHA512
 }
@@ -96,21 +95,22 @@ task cliStartScript(type: CreateStartScripts) {
 
 distributions {
     main {
-        distributionBaseName = 'ignite3cli'
+        distributionBaseName = 'ignite3-cli'
         contents {
             into('') {
-                from("$rootDir/LICENSE")
-                from("$rootDir/NOTICE")
-                from("$rootDir/assembly/README.md")
+                from "$rootDir/LICENSE"
+                from "$rootDir/NOTICE"
+                from "$rootDir/assembly/README.md"
             }
             into('bin') {
                 duplicatesStrategy= DuplicatesStrategy.EXCLUDE
-                from(configurations.cliScripts)
-                from(cliStartScript)
+                from configurations.cliScripts
+                from cliStartScript
                 fileMode = 0755
             }
             into('lib') {
-                from(configurations.cliArtifacts)
+                from configurations.cliArtifacts
+                from "$rootDir/packaging/common/setup-java.sh"
             }
         }
     }
@@ -174,6 +174,7 @@ ospackage {
 
     into(tokens.LIB_DIR) {
         from configurations.cliArtifacts
+        from "$rootDir/packaging/common/setup-java.sh"
     }
 
     postInstall file("${buildDir}/postInstall.sh")

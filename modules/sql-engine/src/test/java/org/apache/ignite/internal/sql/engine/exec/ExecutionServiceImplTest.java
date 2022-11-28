@@ -39,13 +39,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Queue;
+import java.util.UUID;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
-import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.sql.SqlNodeList;
@@ -98,12 +98,12 @@ public class ExecutionServiceImplTest {
     /** Timeout in ms for async operations. */
     private static final long TIMEOUT_IN_MS = 2_000;
 
-    private final List<String> nodeIds = List.of("node_1", "node_2", "node_3");
+    private final List<String> nodeNames = List.of("node_1", "node_2", "node_3");
 
     private final Map<String, List<Object[]>> dataPerNode = Map.of(
-            nodeIds.get(0), List.of(new Object[]{0, 0}, new Object[]{3, 3}, new Object[]{6, 6}),
-            nodeIds.get(1), List.of(new Object[]{1, 1}, new Object[]{4, 4}, new Object[]{7, 7}),
-            nodeIds.get(2), List.of(new Object[]{2, 2}, new Object[]{5, 5}, new Object[]{8, 8})
+            nodeNames.get(0), List.of(new Object[]{0, 0}, new Object[]{3, 3}, new Object[]{6, 6}),
+            nodeNames.get(1), List.of(new Object[]{1, 1}, new Object[]{4, 4}, new Object[]{7, 7}),
+            nodeNames.get(2), List.of(new Object[]{2, 2}, new Object[]{5, 5}, new Object[]{8, 8})
     );
 
     private final TestTable table = createTable("TEST_TBL", 1_000_000, IgniteDistributions.random(),
@@ -118,7 +118,7 @@ public class ExecutionServiceImplTest {
     @BeforeEach
     public void init() {
         testCluster = new TestCluster();
-        executionServices = nodeIds.stream().map(this::create).collect(Collectors.toList());
+        executionServices = nodeNames.stream().map(this::create).collect(Collectors.toList());
         prepareService = new PrepareServiceImpl("test", 0, null);
 
         prepareService.start();
@@ -138,7 +138,7 @@ public class ExecutionServiceImplTest {
         var ctx = createContext();
         var plan = prepare("SELECT *  FROM test_tbl", ctx);
 
-        nodeIds.stream().map(testCluster::node).forEach(TestNode::pauseScan);
+        nodeNames.stream().map(testCluster::node).forEach(TestNode::pauseScan);
 
         var cursor = execService.executePlan(plan, ctx);
 
@@ -172,7 +172,7 @@ public class ExecutionServiceImplTest {
         var ctx = createContext();
         var plan = prepare("SELECT *  FROM test_tbl", ctx);
 
-        nodeIds.stream().map(testCluster::node).forEach(TestNode::pauseScan);
+        nodeNames.stream().map(testCluster::node).forEach(TestNode::pauseScan);
 
         var cursor = execService.executePlan(plan, ctx);
 
@@ -206,14 +206,14 @@ public class ExecutionServiceImplTest {
         var ctx = createContext();
         var plan = prepare("SELECT *  FROM test_tbl", ctx);
 
-        nodeIds.stream().map(testCluster::node).forEach(TestNode::pauseScan);
+        nodeNames.stream().map(testCluster::node).forEach(TestNode::pauseScan);
 
         var expectedEx = new RuntimeException("Test error");
 
-        testCluster.node(nodeIds.get(2)).interceptor((nodeId, msg, original) -> {
+        testCluster.node(nodeNames.get(2)).interceptor((nodeName, msg, original) -> {
             if (msg instanceof QueryStartRequest) {
                 try {
-                    testCluster.node(nodeIds.get(2)).messageService().send(nodeId, new SqlQueryMessagesFactory().queryStartResponse()
+                    testCluster.node(nodeNames.get(2)).messageService().send(nodeName, new SqlQueryMessagesFactory().queryStartResponse()
                             .queryId(((QueryStartRequest) msg).queryId())
                             .fragmentId(((QueryStartRequest) msg).fragmentId())
                             .error(expectedEx)
@@ -223,7 +223,7 @@ public class ExecutionServiceImplTest {
                     throw new IgniteInternalException(OPERATION_INTERRUPTED_ERR, e);
                 }
             } else {
-                original.onMessage(nodeId, msg);
+                original.onMessage(nodeName, msg);
             }
         });
 
@@ -255,7 +255,7 @@ public class ExecutionServiceImplTest {
         var ctx = createContext();
         var plan = prepare("SELECT *  FROM test_tbl", ctx);
 
-        nodeIds.stream().map(testCluster::node).forEach(TestNode::pauseScan);
+        nodeNames.stream().map(testCluster::node).forEach(TestNode::pauseScan);
 
         var cursor = execService.executePlan(plan, ctx);
 
@@ -328,36 +328,32 @@ public class ExecutionServiceImplTest {
                         .mapToInt(i -> i).sum() == 0, TIMEOUT_IN_MS));
     }
 
-    /** Creates an execution service instance for the node with given id. */
-    public ExecutionServiceImpl<Object[]> create(String nodeId) {
-        if (!nodeIds.contains(nodeId)) {
-            throw new IllegalArgumentException(format("Node id should be one of {}, but was '{}'", nodeIds, nodeId));
+    /** Creates an execution service instance for the node with given consistent id. */
+    public ExecutionServiceImpl<Object[]> create(String nodeName) {
+        if (!nodeNames.contains(nodeName)) {
+            throw new IllegalArgumentException(format("Node id should be one of {}, but was '{}'", nodeNames, nodeName));
         }
 
-        var taskExecutor = new QueryTaskExecutorImpl(nodeId);
+        var taskExecutor = new QueryTaskExecutorImpl(nodeName);
 
-        var node = testCluster.addNode(nodeId, taskExecutor);
+        var node = testCluster.addNode(nodeName, taskExecutor);
 
-        node.dataset(dataPerNode.get(nodeId));
+        node.dataset(dataPerNode.get(nodeName));
 
         var messageService = node.messageService();
         var mailboxRegistry = new MailboxRegistryImpl();
+        var clusterNode = new ClusterNode(UUID.randomUUID().toString(), nodeName, NetworkAddress.from("127.0.0.1:1111"));
 
-        var exchangeService = new ExchangeServiceImpl(
-                new ClusterNode(nodeId, "fake-test-node", NetworkAddress.from("127.0.0.1:1111")),
-                taskExecutor,
-                mailboxRegistry,
-                messageService
-        );
+        var exchangeService = new ExchangeServiceImpl(clusterNode, taskExecutor, mailboxRegistry, messageService);
 
         var schemaManagerMock = mock(SqlSchemaManager.class);
 
         when(schemaManagerMock.tableById(any(), anyInt())).thenReturn(table);
 
         var executionService = new ExecutionServiceImpl<>(
-                new ClusterNode(nodeId, "fake-test-node", NetworkAddress.from("127.0.0.1:1111")),
+                clusterNode,
                 messageService,
-                (single, filter) -> single ? List.of(nodeIds.get(ThreadLocalRandom.current().nextInt(nodeIds.size()))) : nodeIds,
+                (single, filter) -> single ? List.of(nodeNames.get(ThreadLocalRandom.current().nextInt(nodeNames.size()))) : nodeNames,
                 schemaManagerMock,
                 mock(DdlCommandHandler.class),
                 taskExecutor,
@@ -404,12 +400,12 @@ public class ExecutionServiceImplTest {
     static class TestCluster {
         private final Map<String, TestNode> nodes = new ConcurrentHashMap<>();
 
-        public TestNode addNode(String nodeId, QueryTaskExecutor taskExecutor) {
-            return nodes.computeIfAbsent(nodeId, key -> new TestNode(nodeId, taskExecutor));
+        public TestNode addNode(String nodeName, QueryTaskExecutor taskExecutor) {
+            return nodes.computeIfAbsent(nodeName, key -> new TestNode(nodeName, taskExecutor));
         }
 
-        public TestNode node(String nodeId) {
-            return nodes.get(nodeId);
+        public TestNode node(String nodeName) {
+            return nodes.get(nodeName);
         }
 
         class TestNode {
@@ -420,12 +416,12 @@ public class ExecutionServiceImplTest {
             private volatile MessageInterceptor interceptor = null;
 
             private final QueryTaskExecutor taskExecutor;
-            private final String nodeId;
+            private final String nodeName;
 
             private boolean scanPaused = false;
 
-            public TestNode(String nodeId, QueryTaskExecutor taskExecutor) {
-                this.nodeId = nodeId;
+            public TestNode(String nodeName, QueryTaskExecutor taskExecutor) {
+                this.nodeName = nodeName;
                 this.taskExecutor = taskExecutor;
             }
 
@@ -474,16 +470,16 @@ public class ExecutionServiceImplTest {
                 return new MessageService() {
                     /** {@inheritDoc} */
                     @Override
-                    public void send(String targetNodeId, NetworkMessage msg) {
-                        TestNode node = nodes.get(targetNodeId);
+                    public void send(String nodeName, NetworkMessage msg) {
+                        TestNode node = nodes.get(nodeName);
 
-                        node.onReceive(nodeId, msg);
+                        node.onReceive(TestNode.this.nodeName, msg);
                     }
 
                     /** {@inheritDoc} */
                     @Override
-                    public boolean alive(String nodeId) {
-                        return !nodes.get(nodeId).dead();
+                    public boolean alive(String nodeName) {
+                        return !nodes.get(nodeName).dead();
                     }
 
                     /** {@inheritDoc} */
@@ -492,7 +488,7 @@ public class ExecutionServiceImplTest {
                         var old = msgListeners.put(msgId, lsnr);
 
                         if (old != null) {
-                            throw new RuntimeException(format("Listener was replaced [nodeId={}, msgId={}]", nodeId, msgId));
+                            throw new RuntimeException(format("Listener was replaced [nodeName={}, msgId={}]", nodeName, msgId));
                         }
                     }
 
@@ -518,9 +514,7 @@ public class ExecutionServiceImplTest {
                 return new LogicalRelImplementor<>(ctx, cacheId -> Objects::hashCode, mailboxRegistry, exchangeService) {
                     @Override
                     public Node<Object[]> visit(IgniteTableScan rel) {
-                        RelDataType rowType = rel.getRowType();
-
-                        return new ScanNode<>(ctx, rowType, dataset) {
+                        return new ScanNode<>(ctx, dataset) {
                             @Override
                             public void request(int rowsCnt) {
                                 RunnableX task = () -> super.request(rowsCnt);
@@ -542,35 +536,35 @@ public class ExecutionServiceImplTest {
                 };
             }
 
-            private void onReceive(String senderNodeId, NetworkMessage message) {
-                MessageListener original = (nodeId, msg) -> {
+            private void onReceive(String senderNodeName, NetworkMessage message) {
+                MessageListener original = (nodeName, msg) -> {
                     MessageListener listener = msgListeners.get(msg.messageType());
 
                     if (listener == null) {
                         throw new IllegalStateException(
-                                format("Listener not found [senderNodeId={}, msgId={}]", nodeId, msg.messageType()));
+                                format("Listener not found [senderNodeName={}, msgId={}]", nodeName, msg.messageType()));
                     }
 
                     if (msg instanceof ExecutionContextAwareMessage) {
                         ExecutionContextAwareMessage msg0 = (ExecutionContextAwareMessage) msg;
-                        taskExecutor.execute(msg0.queryId(), msg0.fragmentId(), () -> listener.onMessage(nodeId, msg));
+                        taskExecutor.execute(msg0.queryId(), msg0.fragmentId(), () -> listener.onMessage(nodeName, msg));
                     } else {
-                        taskExecutor.execute(() -> listener.onMessage(nodeId, msg));
+                        taskExecutor.execute(() -> listener.onMessage(nodeName, msg));
                     }
                 };
 
                 MessageInterceptor interceptor = this.interceptor;
 
                 if (interceptor != null) {
-                    interceptor.intercept(senderNodeId, message, original);
+                    interceptor.intercept(senderNodeName, message, original);
                 } else {
-                    original.onMessage(senderNodeId, message);
+                    original.onMessage(senderNodeName, message);
                 }
             }
         }
 
         interface MessageInterceptor {
-            void intercept(String senderNodeId, NetworkMessage msg, MessageListener original);
+            void intercept(String senderNodeName, NetworkMessage msg, MessageListener original);
         }
     }
 
@@ -605,7 +599,7 @@ public class ExecutionServiceImplTest {
 
             @Override
             public ColocationGroup colocationGroup(MappingQueryContext ctx) {
-                return ColocationGroup.forNodes(nodeIds);
+                return ColocationGroup.forNodes(nodeNames);
             }
         };
     }

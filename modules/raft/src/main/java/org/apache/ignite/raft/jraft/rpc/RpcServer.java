@@ -41,4 +41,6 @@ public interface RpcServer<T> extends Lifecycle<T> {
      * @return bound port
      */
     int boundPort();
+
+    String consistentId();
 }

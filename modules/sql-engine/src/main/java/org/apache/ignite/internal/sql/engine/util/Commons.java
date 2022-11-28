@@ -109,6 +109,7 @@ import org.apache.ignite.internal.sql.engine.trait.RewindabilityTraitDef;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
 import org.apache.ignite.internal.util.ArrayUtils;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteSystemProperties;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlException;
@@ -176,7 +177,7 @@ public final class Commons {
             .parserConfig(PARSER_CONFIG)
             .sqlValidatorConfig(SqlValidator.Config.DEFAULT
                     .withIdentifierExpansion(true)
-                    .withDefaultNullCollation(NullCollation.LOW)
+                    .withDefaultNullCollation(NullCollation.HIGH)
                     .withSqlConformance(IgniteSqlConformance.INSTANCE)
                     .withTypeCoercionFactory(IgniteTypeCoercion::new))
             // Dialects support.
@@ -235,9 +236,13 @@ public final class Commons {
             }
 
             @Override
-            public void close() throws Exception {
+            public void close() {
                 if (iter instanceof AutoCloseable) {
-                    ((AutoCloseable) iter).close();
+                    try {
+                        ((AutoCloseable) iter).close();
+                    } catch (Exception e) {
+                        throw new IgniteInternalException(e);
+                    }
                 }
             }
         };

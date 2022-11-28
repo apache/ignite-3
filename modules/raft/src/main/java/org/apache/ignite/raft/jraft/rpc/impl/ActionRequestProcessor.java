@@ -62,7 +62,7 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
     /** {@inheritDoc} */
     @Override
     public void handleRequest(RpcContext rpcCtx, ActionRequest request) {
-        Node node = rpcCtx.getNodeManager().get(request.groupId(), new PeerId(rpcCtx.getLocalAddress()));
+        Node node = rpcCtx.getNodeManager().get(request.groupId(), new PeerId(rpcCtx.getLocalConsistentId()));
 
         if (node == null) {
             rpcCtx.sendResponse(factory.errorResponse().errorCode(RaftError.UNKNOWN.getNumber()).build());

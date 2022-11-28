@@ -37,6 +37,14 @@ public interface CommandClosure<R extends Command> {
     }
 
     /**
+     * Corresponding term of the command. Present for write commands only.
+     * Returns {@code 0} for read commands.
+     */
+    default long term() {
+        return 0;
+    }
+
+    /**
      * Returns command.
      */
     R command();

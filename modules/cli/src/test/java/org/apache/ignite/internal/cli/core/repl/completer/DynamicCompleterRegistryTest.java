@@ -88,4 +88,20 @@ class DynamicCompleterRegistryTest {
                 containsInAnyOrder(completer1, completer2)
         );
     }
+
+    @Test
+    void doesntReturnCompleterWithStopPostfixWords() {
+        // Given
+        registry.register(new String[]{"command1", "subcommand1"}, new String[]{"--stopWord"}, completer1);
+        registry.register(new String[]{"command1", "subcommand1"}, new String[]{"--stopWord"}, completer2);
+
+        // Then
+        assertThat(
+                registry.findCompleters(new String[]{"command1", "subcommand1", "subsubcommand1"}),
+                containsInAnyOrder(completer1, completer2)
+        );
+
+        // But if command ends with a stop word
+        assertThat(registry.findCompleters(new String[]{"command1", "subcommand1", "--stopWord"}), is(empty()));
+    }
 }

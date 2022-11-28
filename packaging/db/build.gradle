@@ -35,11 +35,40 @@ dependencies {
     dbArtifacts(project(':ignite-runner'))
 }
 
+def tokens = [
+        PRODUCT_NAME        : 'ignite3db',
+        PACKAGE_NAME        : 'ignite3-db',
+        PRODUCT_DISPLAY_NAME: 'Apache Ignite',
+        APP_JAR             : "${project(':ignite-runner').name}-${project(':ignite-runner').version}.jar".toString(),
+        MAIN_CLASS          : 'org.apache.ignite.app.IgniteRunner',
+        VARS_FILE_NAME      : 'vars.env',
+        BOOTSTRAP_FILE_NAME : 'bootstrap-functions.sh',
+        SETUP_JAVA_FILE_NAME: 'setup-java.sh'
+]
+
 // ZIP packaging
+
+def zipStartScriptTokens = tokens + [
+        LOG_DIR             : '${IGNITE_HOME}/log',
+        APP_LOG_DIR         : 'log', // java logging does not support env variables, using relative path here
+        LIB_DIR             : '${IGNITE_HOME}/lib',
+        CONF_DIR            : '${IGNITE_HOME}/etc',
+        INSTALL_DIR         : '${IGNITE_HOME}'
+]
+
+task replaceZipScriptVars(type: Copy) {
+    from("$rootDir/packaging/common")
+    from("$rootDir/packaging/zip")
+    from("$rootDir/packaging/db/ignite.java.util.logging.properties")
+
+    filter(ReplaceTokens, tokens: zipStartScriptTokens)
+
+    into("$buildDir/zip/")
+}
 
 distributions {
     main {
-        distributionBaseName = 'ignite3db'
+        distributionBaseName = 'ignite3-db'
         contents {
             // create empty dirs that are required to start Ignite
             into('') {
@@ -56,29 +85,35 @@ distributions {
                 from("$rootDir/assembly/README.md")
             }
             into('etc') {
-                from("$rootDir/packaging/zip/bootstrap-config.env")
+                from("$buildDir/zip/${zipStartScriptTokens.VARS_FILE_NAME}")
                 from("$rootDir/packaging/config/ignite-config.conf")
-                from("$rootDir/packaging/config/ignite.java.util.logging.properties")
+                from("$buildDir/zip/ignite.java.util.logging.properties")
             }
             into('bin') {
                 fileMode 0755
-                from("$rootDir/packaging/zip/ignite3db.sh")
+                from("$buildDir/zip/ignite3db")
             }
             into('lib') {
                 from configurations.dbArtifacts
+                from("$buildDir/zip/${zipStartScriptTokens.BOOTSTRAP_FILE_NAME}")
+                from("$buildDir/zip/${zipStartScriptTokens.SETUP_JAVA_FILE_NAME}")
             }
         }
     }
 }
 
+distZip.dependsOn replaceZipScriptVars
+
 task createChecksums(type: Checksum) {
-    files = files(file("${buildDir}/distributions/ignite3db-${project.version}.zip"))
+    //TODO: remove distribution name hard code IGNITE-18092
+    files = files(file("${buildDir}/distributions/ignite3-db-${project.version}.zip"))
     outputDir = new File("${buildDir}/distributions")
     algorithm = Checksum.Algorithm.SHA512
 }
 
 distTar.finalizedBy(createChecksums)
 distZip.finalizedBy(createChecksums)
+
 
 // Expose zip artifacts to be consumed by others
 configurations {
@@ -100,39 +135,24 @@ signing {
 
 // RPM/DEB packaging
 
-def javaArgs = '-Dio.netty.tryReflectionSetAccessible=true ' +
-        '-Djava.util.logging.config.file=$CONFIG_PATH/ignite.java.util.logging.properties'
-
-def args = '--config-path $IGNITE_CONFIG_FILE --work-dir $WORK_PATH $NODE_NAME'
-
-def tokens = [
-        PRODUCT_NAME        : 'ignite3db',
-        PRODUCT_DISPLAY_NAME: 'Apache Ignite',
-        APP_JAR             : "${project(':ignite-runner').name}-${project(':ignite-runner').version}.jar".toString(),
-        MAIN_CLASS          : 'org.apache.ignite.app.IgniteCliRunner',
-        ADDITIONAL_OPTS     : '',
-        JAVA_OPTS           : javaArgs,
-        ARGS                : args
-]
-
 def packageTokens = tokens + [
         USERNAME            : 'ignite3',
         GROUPNAME           : 'ignite3',
         INSTALL_DIR         : '/usr/share/ignite3db',
         CONF_DIR            : '/usr/share/ignite3db/etc',
         LOG_DIR             : '/var/log/ignite3db',
+        APP_LOG_DIR         : '/var/log/ignite3db',
         PID_DIR             : '/var/run/ignite3db',
         LIB_DIR             : '/usr/share/ignite3db/lib',
         IGNITE_WORK_DIR     : '/usr/share/ignite3db/work',
-        VARS_FILE_NAME      : 'vars.env',
-        IGNITE_CONF_FILE    : 'ignite-config.conf',
-        ENV_FILE            : '/usr/share/ignite3db/etc/vars.env'
+        IGNITE_CONF_FILE    : 'ignite-config.conf'
 ]
 
 
 task replacePackageScriptVars(type: Copy) {
     from("${rootDir}/packaging/linux")
     from("${rootDir}/packaging/db/ignite.java.util.logging.properties")
+    from("$rootDir/packaging/common")
     filter(ReplaceTokens, tokens: packageTokens)
     into("${buildDir}/linux")
 }
@@ -166,7 +186,7 @@ buildDeb {
 
 ospackage {
     license "ASL 2.0"
-    packageName packageTokens.PRODUCT_NAME
+    packageName packageTokens.PACKAGE_NAME
     packageGroup "System Environment/Daemons"
     url "https://ignite.apache.org"
     user packageTokens.USERNAME
@@ -184,6 +204,8 @@ ospackage {
 
         into("lib") {
             from configurations.dbArtifacts
+            from("$buildDir/linux/${zipStartScriptTokens.BOOTSTRAP_FILE_NAME}")
+            from("$buildDir/linux/${zipStartScriptTokens.SETUP_JAVA_FILE_NAME}")
         }
 
         into("etc") {

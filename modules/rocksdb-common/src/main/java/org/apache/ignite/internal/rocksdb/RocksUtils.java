@@ -17,8 +17,11 @@
 
 package org.apache.ignite.internal.rocksdb;
 
+import java.util.Arrays;
+import java.util.Collection;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
+import org.rocksdb.AbstractNativeReference;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
 
@@ -105,6 +108,48 @@ public class RocksUtils {
             result[i] += 1;
 
             return result;
+        }
+    }
+
+    /**
+     * Closes all the provided reference on best-effort basis. This means that, if an exception is thrown when closing
+     * one of the references, other references will still tried to be closed. First exception thrown will be rethrown;
+     * subsequent exceptions will be added to it as suppressed exceptions.
+     *
+     * @param references References to close.
+     */
+    public static void closeAll(AbstractNativeReference... references) {
+        closeAll(Arrays.asList(references));
+    }
+
+    /**
+     * Closes all the provided reference on best-effort basis. This means that, if an exception is thrown when closing
+     * one of the references, other references will still tried to be closed. First exception thrown will be rethrown;
+     * subsequent exceptions will be added to it as suppressed exceptions.
+     *
+     * @param references References to close.
+     */
+    public static void closeAll(Collection<AbstractNativeReference> references) {
+        RuntimeException exception = null;
+
+        for (AbstractNativeReference reference : references) {
+            if (reference == null) {
+                continue;
+            }
+
+            try {
+                reference.close();
+            } catch (RuntimeException e) {
+                if (exception == null) {
+                    exception = e;
+                } else {
+                    exception.addSuppressed(e);
+                }
+            }
+        }
+
+        if (exception != null) {
+            throw exception;
         }
     }
 }

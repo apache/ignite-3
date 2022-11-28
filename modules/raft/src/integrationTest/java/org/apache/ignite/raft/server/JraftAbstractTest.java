@@ -17,11 +17,11 @@
 
 package org.apache.ignite.raft.server;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.raft.jraft.test.TestUtils.getLocalAddress;
 import static org.apache.ignite.raft.jraft.test.TestUtils.waitForTopology;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -30,15 +30,12 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.raft.RaftGroupServiceImpl;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.ClusterService;
@@ -46,7 +43,6 @@ import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
-import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupServiceImpl;
 import org.apache.ignite.raft.jraft.test.TestUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -55,11 +51,6 @@ import org.junit.jupiter.api.BeforeEach;
  * Abstract class for raft tests using JRaftServer.
  */
 public abstract class JraftAbstractTest extends RaftServerAbstractTest {
-    /**
-     * The logger.
-     */
-    protected static final IgniteLogger LOG = Loggers.forClass(ItJraftCounterServerTest.class);
-
     /**
      * The server port offset.
      */
@@ -73,10 +64,7 @@ public abstract class JraftAbstractTest extends RaftServerAbstractTest {
     /**
      * Initial configuration.
      */
-    protected static final List<Peer> INITIAL_CONF = IntStream.rangeClosed(0, 2)
-            .mapToObj(i -> new NetworkAddress(getLocalAddress(), PORT + i))
-            .map(Peer::new)
-            .collect(Collectors.toUnmodifiableList());
+    protected final List<Peer> initialConf = new ArrayList<>();
 
     /**
      * Servers list.
@@ -88,12 +76,6 @@ public abstract class JraftAbstractTest extends RaftServerAbstractTest {
      */
     protected final List<RaftGroupService> clients = new ArrayList<>();
 
-    /**
-     * Data path.
-     */
-    @WorkDirectory
-    protected Path dataPath;
-
     /** Executor for raft group services. */
     private ScheduledExecutorService executor;
 
@@ -102,7 +84,12 @@ public abstract class JraftAbstractTest extends RaftServerAbstractTest {
      */
     @BeforeEach
     void before() {
-        executor = new ScheduledThreadPoolExecutor(20, new NamedThreadFactory(Loza.CLIENT_POOL_NAME, LOG));
+        executor = new ScheduledThreadPoolExecutor(20, new NamedThreadFactory(Loza.CLIENT_POOL_NAME, logger()));
+
+        IntStream.rangeClosed(0, 2)
+                .mapToObj(i -> testNodeName(testInfo, PORT + i))
+                .map(Peer::new)
+                .forEach(initialConf::add);
     }
 
     /**
@@ -121,7 +108,7 @@ public abstract class JraftAbstractTest extends RaftServerAbstractTest {
     }
 
     protected void shutdownCluster() throws Exception {
-        LOG.info("Start client shutdown");
+        logger().info("Start client shutdown");
 
         Iterator<RaftGroupService> iterClients = clients.iterator();
 
@@ -135,7 +122,7 @@ public abstract class JraftAbstractTest extends RaftServerAbstractTest {
 
         clients.clear();
 
-        LOG.info("Start server shutdown servers={}", servers.size());
+        logger().info("Start server shutdown servers={}", servers.size());
 
         Iterator<JraftServerImpl> iterSrv = servers.iterator();
 
@@ -175,7 +162,7 @@ public abstract class JraftAbstractTest extends RaftServerAbstractTest {
 
         optionsUpdater.accept(opts);
 
-        JraftServerImpl server = new JraftServerImpl(service, dataPath.resolve("node" + idx), opts) {
+        JraftServerImpl server = new JraftServerImpl(service, workDir.resolve("node" + idx), opts) {
             @Override
             public void stop() throws Exception {
                 servers.remove(this);
@@ -207,10 +194,12 @@ public abstract class JraftAbstractTest extends RaftServerAbstractTest {
     protected RaftGroupService startClient(ReplicationGroupId groupId) throws Exception {
         var addr = new NetworkAddress(getLocalAddress(), PORT);
 
+        String consistentId = testNodeName(testInfo, PORT);
+
         ClusterService clientNode = clusterService(CLIENT_PORT + clients.size(), List.of(addr), true);
 
         RaftGroupService client = RaftGroupServiceImpl.start(groupId, clientNode, FACTORY, 10_000,
-                List.of(new Peer(addr)), false, 200, executor).get(3, TimeUnit.SECONDS);
+                List.of(new Peer(consistentId)), false, 200, executor).get(3, TimeUnit.SECONDS);
 
         clients.add(client);
 

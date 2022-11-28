@@ -27,7 +27,7 @@ namespace ignite {
 
 namespace {
 
-template <typename T>
+template<typename T>
 T load_as(bytes_view bytes, std::size_t offset = 0) noexcept {
     return bytes::load<endian::LITTLE, T>(bytes.data() + offset);
 }
@@ -49,24 +49,24 @@ ignite_time load_time(bytes_view bytes) {
     std::int32_t nano;
     switch (bytes.size()) {
         case 4:
-            nano = ((std::int32_t)time & ((1 << 10) - 1)) * 1000 * 1000;
+            nano = ((std::int32_t) time & ((1 << 10) - 1)) * 1000 * 1000;
             time >>= 10;
             break;
         case 5:
             time |= std::uint64_t(load_as<std::uint8_t>(bytes, 4)) << 32;
-            nano = ((std::int32_t)time & ((1 << 20) - 1)) * 1000;
+            nano = ((std::int32_t) time & ((1 << 20) - 1)) * 1000;
             time >>= 20;
             break;
         case 6:
             time |= std::uint64_t(load_as<std::uint16_t>(bytes, 4)) << 32;
-            nano = ((std::int32_t)time & ((1 << 30) - 1));
+            nano = ((std::int32_t) time & ((1 << 30) - 1));
             time >>= 30;
             break;
     }
 
-    std::int_fast8_t second = ((int)time) & 63;
-    std::int_fast8_t minute = ((int)time >> 6) & 63;
-    std::int_fast8_t hour = ((int)time >> 12) & 31;
+    std::int_fast8_t second = ((int) time) & 63;
+    std::int_fast8_t minute = ((int) time >> 6) & 63;
+    std::int_fast8_t hour = ((int) time >> 12) & 31;
 
     return {hour, minute, second, nano};
 }

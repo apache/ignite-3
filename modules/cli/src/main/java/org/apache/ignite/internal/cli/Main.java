@@ -20,26 +20,20 @@ package org.apache.ignite.internal.cli;
 import static org.apache.ignite.internal.cli.config.ConfigConstants.IGNITE_CLI_LOGS_DIR;
 
 import io.micronaut.configuration.picocli.MicronautFactory;
+import io.micronaut.context.ApplicationContext;
+import io.micronaut.context.ApplicationContextBuilder;
+import io.micronaut.context.env.Environment;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.logging.LogManager;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.cli.commands.TopLevelCliCommand;
-import org.apache.ignite.internal.cli.commands.TopLevelCliReplCommand;
-import org.apache.ignite.internal.cli.commands.questions.ConnectToClusterQuestion;
 import org.apache.ignite.internal.cli.config.ConfigDefaultValueProvider;
 import org.apache.ignite.internal.cli.config.StateFolderProvider;
-import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
-import org.apache.ignite.internal.cli.core.call.StringCallInput;
-import org.apache.ignite.internal.cli.core.exception.handler.DefaultExceptionHandlers;
 import org.apache.ignite.internal.cli.core.exception.handler.PicocliExecutionExceptionHandler;
-import org.apache.ignite.internal.cli.core.repl.Repl;
-import org.apache.ignite.internal.cli.core.repl.SessionDefaultValueProvider;
 import org.apache.ignite.internal.cli.core.repl.executor.ReplExecutorProvider;
-import org.apache.ignite.internal.cli.core.repl.prompt.PromptProvider;
 import org.fusesource.jansi.AnsiConsole;
 import picocli.CommandLine;
 import picocli.CommandLine.Help.Ansi;
@@ -58,8 +52,10 @@ public class Main {
         initJavaLoggerProps();
 
         int exitCode = 0;
-        try (MicronautFactory micronautFactory = new MicronautFactory()) {
+        ApplicationContextBuilder builder = ApplicationContext.builder(Environment.CLI).deduceEnvironment(false);
+        try (MicronautFactory micronautFactory = new MicronautFactory(builder.start())) {
             AnsiConsole.systemInstall();
+            initReplExecutor(micronautFactory);
             if (args.length != 0 || !isatty()) { // do not enter REPL if input or output is redirected
                 try {
                     exitCode = executeCommand(args, micronautFactory);
@@ -67,12 +63,10 @@ public class Main {
                     System.err.println("Error occurred during command execution");
                 }
             } else {
-                try {
-                    enterRepl(micronautFactory);
-                } catch (Exception e) {
-                    System.err.println("Error occurred during REPL initialization");
-                }
+                enterRepl(micronautFactory);
             }
+        } catch (Exception e) {
+            System.err.println("Error occurred during initialization");
         } finally {
             AnsiConsole.systemUninstall();
         }
@@ -83,37 +77,18 @@ public class Main {
         return System.console() != null;
     }
 
-    private static void enterRepl(MicronautFactory micronautFactory) throws Exception {
+    /** Needed for immediate REPL mode and for running a command which will stay in REPL mode so we need to init it once. */
+    private static void initReplExecutor(MicronautFactory micronautFactory) throws Exception {
         ReplExecutorProvider replExecutorProvider = micronautFactory.create(ReplExecutorProvider.class);
         replExecutorProvider.injectFactory(micronautFactory);
-        HashMap<String, String> aliases = new HashMap<>();
-        aliases.put("zle", "widget");
-        aliases.put("bindkey", "keymap");
+    }
 
-        SessionDefaultValueProvider defaultValueProvider = micronautFactory.create(SessionDefaultValueProvider.class);
-
+    private static void enterRepl(MicronautFactory micronautFactory) throws Exception {
         VersionProvider versionProvider = micronautFactory.create(VersionProvider.class);
         System.out.println(banner(versionProvider));
 
-        ConnectToClusterQuestion question = micronautFactory.create(ConnectToClusterQuestion.class);
-
-        replExecutorProvider.get().execute(Repl.builder()
-                .withPromptProvider(micronautFactory.create(PromptProvider.class))
-                .withAliases(aliases)
-                .withCommandClass(TopLevelCliReplCommand.class)
-                .withDefaultValueProvider(defaultValueProvider)
-                .withCallExecutionPipelineProvider((executor, exceptionHandlers, line) ->
-                        CallExecutionPipeline.builder(executor)
-                                .inputProvider(() -> new StringCallInput(line))
-                                .output(System.out)
-                                .errOutput(System.err)
-                                .exceptionHandlers(new DefaultExceptionHandlers())
-                                .exceptionHandlers(exceptionHandlers)
-                                .build())
-                .withOnStart(question::askQuestionOnReplStart)
-                .withHistoryFileName("history")
-                .withTailTipWidgets()
-                .build());
+        ReplManager replManager = micronautFactory.create(ReplManager.class);
+        replManager.startReplMode();
     }
 
     private static int executeCommand(String[] args, MicronautFactory micronautFactory) throws Exception {
@@ -123,7 +98,7 @@ public class Main {
         return cmd.execute(args);
     }
 
-    private static final String[] BANNER = new String[]{
+    private static final String[] BANNER = {
             "",
             "  @|red,bold          #|@              ___                         __",
             "  @|red,bold        ###|@             /   |   ____   ____ _ _____ / /_   ___",

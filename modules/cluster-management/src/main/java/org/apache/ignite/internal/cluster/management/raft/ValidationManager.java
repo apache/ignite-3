@@ -23,11 +23,13 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.ClusterTag;
 import org.apache.ignite.internal.cluster.management.raft.commands.InitCmgStateCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.JoinReadyCommand;
 import org.apache.ignite.internal.cluster.management.raft.responses.ValidationErrorResponse;
+import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
@@ -43,7 +45,7 @@ import org.jetbrains.annotations.Nullable;
  * After the node finishes local recovery procedures, it sends a {@link JoinReadyCommand} containing the validation
  * token. If the local token and the received token match, the node will be added to the logical topology and the token will be invalidated.
  */
-class ValidationManager implements AutoCloseable {
+class ValidationManager implements ManuallyCloseable {
     private static final IgniteLogger LOG = Loggers.forClass(CmgRaftGroupListener.class);
 
     private final ScheduledExecutorService executor =
@@ -51,13 +53,16 @@ class ValidationManager implements AutoCloseable {
 
     private final RaftStorageManager storage;
 
+    private final LogicalTopology logicalTopology;
+
     /**
      * Map for storing tasks, submitted to the {@link #executor}, so that it is possible to cancel them.
      */
     private final Map<String, Future<?>> cleanupFutures = new ConcurrentHashMap<>();
 
-    ValidationManager(RaftStorageManager storage) {
+    ValidationManager(RaftStorageManager storage, LogicalTopology logicalTopology) {
         this.storage = storage;
+        this.logicalTopology = logicalTopology;
 
         // Schedule removal of possibly stale node IDs in case the leader has changed or the node has been restarted.
         storage.getValidatedNodeIds().forEach(this::scheduleValidatedNodeRemoval);
@@ -137,7 +142,7 @@ class ValidationManager implements AutoCloseable {
     }
 
     boolean isNodeValidated(ClusterNode node) {
-        return storage.isNodeValidated(node.id()) || storage.isNodeInLogicalTopology(node);
+        return storage.isNodeValidated(node.id()) || logicalTopology.isNodeInLogicalTopology(node);
     }
 
     /**

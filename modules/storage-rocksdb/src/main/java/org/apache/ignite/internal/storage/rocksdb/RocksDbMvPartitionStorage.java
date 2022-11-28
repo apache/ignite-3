@@ -24,6 +24,7 @@ import static java.util.Arrays.copyOfRange;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.HYBRID_TIMESTAMP_SIZE;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToUuid;
+import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.ByteUtils.putUuidToBytes;
 import static org.rocksdb.ReadTier.PERSISTED_TIER;
 
@@ -42,6 +43,7 @@ import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
+import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
@@ -49,7 +51,6 @@ import org.apache.ignite.internal.storage.TxIdMismatchException;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.GridUnsafe;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
 import org.rocksdb.ColumnFamilyHandle;
 import org.rocksdb.ReadOptions;
@@ -178,10 +179,28 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     /** Key to store applied index value in meta. */
     private final byte[] lastAppliedIndexKey;
 
+    /** Key to store applied term value in meta. */
+    private final byte[] lastAppliedTermKey;
+
+    /** Key to store group config in meta. */
+    private final byte[] lastGroupConfigKey;
+
     /** On-heap-cached last applied index value. */
     private volatile long lastAppliedIndex;
 
+    /** On-heap-cached last applied term value. */
+    private volatile long lastAppliedTerm;
+
+    /** On-heap-cached last committed group configuration. */
+    @Nullable
+    private volatile RaftGroupConfiguration lastGroupConfig;
+
     private volatile long pendingAppliedIndex;
+
+    private volatile long pendingAppliedTerm;
+
+    @Nullable
+    private volatile RaftGroupConfiguration pendingGroupConfig;
 
     /** The value of {@link #lastAppliedIndex} persisted to the device at this moment. */
     private volatile long persistedIndex;
@@ -204,8 +223,12 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         scanReadOptions = new ReadOptions().setIterateUpperBound(upperBound).setTotalOrderSeek(true);
 
         lastAppliedIndexKey = ("index" + partitionId).getBytes(StandardCharsets.UTF_8);
+        lastAppliedTermKey = ("term" + partitionId).getBytes(StandardCharsets.UTF_8);
+        lastGroupConfigKey = ("config" + partitionId).getBytes(StandardCharsets.UTF_8);
 
         lastAppliedIndex = readLastAppliedIndex(readOpts);
+        lastAppliedTerm = readLastAppliedTerm(readOpts);
+        lastGroupConfig = readLastGroupConfig(readOpts);
 
         persistedIndex = lastAppliedIndex;
     }
@@ -220,6 +243,8 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                 WRITE_BATCH.set(writeBatch);
 
                 pendingAppliedIndex = lastAppliedIndex;
+                pendingAppliedTerm = lastAppliedTerm;
+                pendingGroupConfig = lastGroupConfig;
 
                 V res = closure.execute();
 
@@ -230,6 +255,8 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                 }
 
                 lastAppliedIndex = pendingAppliedIndex;
+                lastAppliedTerm = pendingAppliedTerm;
+                lastGroupConfig = pendingGroupConfig;
 
                 return res;
             } finally {
@@ -265,15 +292,22 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         return WRITE_BATCH.get() == null ? lastAppliedIndex : pendingAppliedIndex;
     }
 
+    @Override
+    public long lastAppliedTerm() {
+        return WRITE_BATCH.get() == null ? lastAppliedTerm : pendingAppliedTerm;
+    }
+
     /** {@inheritDoc} */
     @Override
-    public void lastAppliedIndex(long lastAppliedIndex) throws StorageException {
+    public void lastApplied(long lastAppliedIndex, long lastAppliedTerm) throws StorageException {
         WriteBatchWithIndex writeBatch = requireWriteBatch();
 
         try {
             writeBatch.put(meta, lastAppliedIndexKey, ByteUtils.longToBytes(lastAppliedIndex));
+            writeBatch.put(meta, lastAppliedTermKey, ByteUtils.longToBytes(lastAppliedTerm));
 
             pendingAppliedIndex = lastAppliedIndex;
+            pendingAppliedTerm = lastAppliedTerm;
         } catch (RocksDBException e) {
             throw new StorageException(e);
         }
@@ -283,6 +317,25 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     @Override
     public long persistedIndex() {
         return persistedIndex;
+    }
+
+    @Override
+    @Nullable
+    public RaftGroupConfiguration committedGroupConfiguration() {
+        return WRITE_BATCH.get() == null ? lastGroupConfig : pendingGroupConfig;
+    }
+
+    @Override
+    public void committedGroupConfiguration(RaftGroupConfiguration config) {
+        WriteBatchWithIndex writeBatch = requireWriteBatch();
+
+        try {
+            writeBatch.put(meta, lastGroupConfigKey, ByteUtils.toBytes(config));
+
+            pendingGroupConfig = config;
+        } catch (RocksDBException e) {
+            throw new StorageException(e);
+        }
     }
 
     /**
@@ -302,15 +355,47 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
      * @return The value of last applied index.
      */
     private long readLastAppliedIndex(ReadOptions readOptions) {
-        byte[] appliedIndexBytes;
+        return readLongFromMetaCf(lastAppliedIndexKey, readOptions);
+    }
+
+    /**
+     * Reads the value of {@link #lastAppliedTerm} from the storage.
+     *
+     * @param readOptions Read options to be used for reading.
+     * @return The value of last applied term.
+     */
+    private long readLastAppliedTerm(ReadOptions readOptions) {
+        return readLongFromMetaCf(lastAppliedTermKey, readOptions);
+    }
+
+    private long readLongFromMetaCf(byte[] key, ReadOptions readOptions) {
+        byte[] bytes;
 
         try {
-            appliedIndexBytes = db.get(meta, readOptions, lastAppliedIndexKey);
+            bytes = db.get(meta, readOptions, key);
         } catch (RocksDBException e) {
             throw new StorageException(e);
         }
 
-        return appliedIndexBytes == null ? 0 : ByteUtils.bytesToLong(appliedIndexBytes);
+        return bytes == null ? 0 : bytesToLong(bytes);
+    }
+
+    /**
+     * Reads the value of {@link #lastGroupConfig} from the storage.
+     *
+     * @param readOptions Read options to be used for reading.
+     * @return Group configuration.
+     */
+    private RaftGroupConfiguration readLastGroupConfig(ReadOptions readOptions) {
+        byte[] bytes;
+
+        try {
+            bytes = db.get(meta, readOptions, lastGroupConfigKey);
+        } catch (RocksDBException e) {
+            throw new StorageException(e);
+        }
+
+        return bytes == null ? null : fromBytes(bytes);
     }
 
     /** {@inheritDoc} */
@@ -709,10 +794,10 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
             }
 
             @Override
-            public void close() throws Exception {
+            public void close() {
                 super.close();
 
-                IgniteUtils.closeAll(options, upperBound);
+                RocksUtils.closeAll(options, upperBound);
             }
         };
     }
@@ -822,6 +907,8 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     public void destroy() {
         try (WriteBatch writeBatch = new WriteBatch()) {
             writeBatch.delete(meta, lastAppliedIndexKey);
+            writeBatch.delete(meta, lastAppliedTermKey);
+            writeBatch.delete(meta, lastGroupConfigKey);
 
             writeBatch.delete(meta, RocksDbMetaStorage.partitionIdKey(partitionId));
 
@@ -837,8 +924,8 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
     /** {@inheritDoc} */
     @Override
-    public void close() throws Exception {
-        IgniteUtils.closeAll(persistedTierReadOpts, readOpts, writeOpts, scanReadOptions, upperBound);
+    public void close() {
+        RocksUtils.closeAll(persistedTierReadOpts, readOpts, writeOpts, scanReadOptions, upperBound);
     }
 
     private static WriteBatchWithIndex requireWriteBatch() {
@@ -1062,7 +1149,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         }
 
         @Override
-        public final void close() throws Exception {
+        public final void close() {
             it.close();
         }
     }
@@ -1102,7 +1189,8 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                 //          - R1 > R0, this means that we found next row and T1 is either missing (pending row) or represents the latest
                 //            version of the row. It doesn't matter in this case, because this row id will be reused to find its value
                 //            at time T0. Additional "seek" will be required to do it.
-                it.seek(seekKeyBuf.array());
+                //TODO IGNITE-18201 Remove copying.
+                it.seek(copyOf(seekKeyBuf.array(), ROW_PREFIX_SIZE));
 
                 // Finish scan if nothing was found.
                 if (invalid(it)) {
@@ -1203,7 +1291,8 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
             ByteBuffer directBuffer = MV_KEY_BUFFER.get().position(0);
 
             while (true) {
-                it.seek(seekKeyBuf.array());
+                //TODO IGNITE-18201 Remove copying.
+                it.seek(copyOf(seekKeyBuf.array(), ROW_PREFIX_SIZE));
 
                 if (invalid(it)) {
                     return false;

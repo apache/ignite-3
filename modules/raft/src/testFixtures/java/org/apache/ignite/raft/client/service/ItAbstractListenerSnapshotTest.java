@@ -18,6 +18,7 @@
 package org.apache.ignite.raft.client.service;
 
 import static org.apache.ignite.internal.raft.server.RaftGroupOptions.defaults;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -31,11 +32,11 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.raft.RaftGroupServiceImpl;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -47,7 +48,6 @@ import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.StaticNodeFinder;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
-import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupServiceImpl;
 import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -71,19 +71,16 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
     /** Starting client port. */
     private static final int CLIENT_PORT = 6003;
 
-    /**
-     * Peers list.
-     */
-    private static final List<Peer> INITIAL_CONF = IntStream.rangeClosed(0, 2)
-            .mapToObj(i -> new NetworkAddress(getLocalAddress(), PORT + i))
-            .map(Peer::new)
-            .collect(Collectors.toUnmodifiableList());
-
     /** Factory. */
     private static final RaftMessagesFactory FACTORY = new RaftMessagesFactory();
 
     @WorkDirectory
     private Path workDir;
+
+    /**
+     * Peers list.
+     */
+    private final List<Peer> initialConf = new ArrayList<>();
 
     /** Cluster. */
     private final List<ClusterService> cluster = new ArrayList<>();
@@ -101,8 +98,13 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
      * Create executor for raft group services.
      */
     @BeforeEach
-    public void beforeTest() {
+    public void beforeTest(TestInfo testInfo) {
         executor = new ScheduledThreadPoolExecutor(20, new NamedThreadFactory(Loza.CLIENT_POOL_NAME, LOG));
+
+        IntStream.rangeClosed(0, 2)
+                .mapToObj(i -> testNodeName(testInfo, PORT + i))
+                .map(Peer::new)
+                .forEach(initialConf::add);
     }
 
     /**
@@ -393,7 +395,7 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
         server.startRaftGroup(
                 raftGroupId(),
                 createListener(service, listenerPersistencePath),
-                INITIAL_CONF,
+                initialConf,
                 defaults()
         );
 
@@ -406,7 +408,7 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
      * @return Raft group service instance.
      */
     private RaftGroupService prepareRaftGroup(TestInfo testInfo) throws Exception {
-        for (int i = 0; i < INITIAL_CONF.size(); i++) {
+        for (int i = 0; i < initialConf.size(); i++) {
             startServer(testInfo, i);
         }
 
@@ -421,7 +423,7 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
      * @return The client service.
      */
     protected ClusterService clientService() {
-        return cluster.get(INITIAL_CONF.size());
+        return cluster.get(initialConf.size());
     }
 
     /**
@@ -430,10 +432,12 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
      * @return The service.
      */
     private RaftGroupService startClient(TestInfo testInfo, TestReplicationGroupId groupId, NetworkAddress addr) throws Exception {
+        String consistentId = testNodeName(testInfo, addr.port());
+
         ClusterService clientNode = clusterService(testInfo, CLIENT_PORT + clients.size(), addr);
 
         RaftGroupService client = RaftGroupServiceImpl.start(groupId, clientNode, FACTORY, 10_000,
-                List.of(new Peer(addr)), false, 200, executor).get(3, TimeUnit.SECONDS);
+                List.of(new Peer(consistentId)), false, 200, executor).get(3, TimeUnit.SECONDS);
 
         // Transactios by now require a leader to build a mapping.
         client.refreshLeader().join();

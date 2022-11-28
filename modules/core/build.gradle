@@ -33,6 +33,7 @@ dependencies {
     testImplementation libs.junit.testkit
     testImplementation libs.mockito.core
     testImplementation libs.mockito.inline
+    testImplementation libs.mockito.junit
 
     testFixturesImplementation libs.hamcrest.core
     testFixturesImplementation libs.mockito.core

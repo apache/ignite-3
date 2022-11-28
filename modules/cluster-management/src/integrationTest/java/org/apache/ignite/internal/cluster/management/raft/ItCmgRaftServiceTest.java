@@ -39,11 +39,13 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.ClusterTag;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.cluster.management.raft.commands.JoinReadyCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.JoinRequestCommand;
+import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -103,10 +105,14 @@ public class ItCmgRaftServiceTest {
 
                 raftStorage.start();
 
+                List<String> nodeIds = clusterService.topologyService().allMembers().stream()
+                        .map(ClusterNode::name)
+                        .collect(Collectors.toList());
+
                 CompletableFuture<RaftGroupService> raftService = raftManager.prepareRaftGroup(
                         INSTANCE,
-                        List.copyOf(clusterService.topologyService().allMembers()),
-                        () -> new CmgRaftGroupListener(raftStorage),
+                        nodeIds,
+                        () -> new CmgRaftGroupListener(raftStorage, new LogicalTopologyImpl(raftStorage)),
                         defaults()
                 );
 
@@ -133,7 +139,7 @@ public class ItCmgRaftServiceTest {
             try {
                 IgniteUtils.closeAll(
                         raftManager::stop,
-                        raftStorage,
+                        raftStorage::stop,
                         clusterService::stop
                 );
             } catch (Exception e) {

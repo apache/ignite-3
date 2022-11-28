@@ -17,11 +17,11 @@
 package org.apache.ignite.raft.jraft.storage.snapshot.remote;
 
 import org.apache.ignite.raft.jraft.core.TimerManager;
+import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.option.SnapshotCopierOptions;
 import org.apache.ignite.raft.jraft.rpc.RaftClientService;
-import org.apache.ignite.raft.jraft.util.Endpoint;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -48,18 +48,17 @@ public class RemoteFileCopierTest {
 
     @Test
     public void testInit() {
-        Mockito.when(rpcService.connect(new Endpoint("localhost", 8081))).thenReturn(true);
-        assertTrue(copier.init("remote://localhost:8081/999", null, new SnapshotCopierOptions(rpcService, timerManager,
+        Mockito.when(rpcService.connect(new PeerId("localhost-8081"))).thenReturn(true);
+        assertTrue(copier.init("remote://localhost-8081/999", null, new SnapshotCopierOptions(rpcService, timerManager,
             new RaftOptions(), new NodeOptions())));
         assertEquals(999, copier.getReaderId());
-        assertEquals("localhost", copier.getEndpoint().getIp());
-        assertEquals(8081, copier.getEndpoint().getPort());
+        assertEquals("localhost-8081", copier.getPeerId().getConsistentId());
     }
 
     @Test
     public void testInitFail() {
-        Mockito.when(rpcService.connect(new Endpoint("localhost", 8081))).thenReturn(false);
-        assertFalse(copier.init("remote://localhost:8081/999", null, new SnapshotCopierOptions(rpcService,
+        Mockito.when(rpcService.connect(new PeerId("localhost-8081"))).thenReturn(false);
+        assertFalse(copier.init("remote://localhost-8081/999", null, new SnapshotCopierOptions(rpcService,
             timerManager, new RaftOptions(), new NodeOptions())));
     }
 }

@@ -23,7 +23,9 @@ using System.Linq;
 using System.Threading.Tasks;
 using Apache.Ignite.Transactions;
 using Common;
+using Ignite.Sql;
 using Ignite.Table;
+using Linq;
 using Serialization;
 
 /// <summary>
@@ -144,6 +146,15 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
     public async Task<Option<TV>> GetAndReplaceAsync(ITransaction? transaction, TK key, TV val) =>
         (await _recordView.GetAndReplaceAsync(transaction, ToKv(key, val)).ConfigureAwait(false))
         .Select(static x => x.Val);
+
+    /// <inheritdoc/>
+    public IQueryable<KeyValuePair<TK, TV>> AsQueryable(ITransaction? transaction = null, QueryableOptions? options = null)
+    {
+        var executor = new IgniteQueryExecutor(_recordView.Sql, transaction, options);
+        var provider = new IgniteQueryProvider(IgniteQueryParser.Instance, executor, _recordView.Table.Name);
+
+        return new IgniteQueryable<KeyValuePair<TK, TV>>(provider);
+    }
 
     private static KvPair<TK, TV> ToKv(KeyValuePair<TK, TV> x)
     {

@@ -23,9 +23,7 @@
 namespace ignite::detail {
 
 void tables_impl::get_table_async(std::string_view name, ignite_callback<std::optional<table>> callback) {
-    auto writer_func = [&name](protocol::writer &writer) {
-        writer.write(name);
-    };
+    auto writer_func = [&name](protocol::writer &writer) { writer.write(name); };
 
     auto reader_func = [name, conn = m_connection](protocol::reader &reader) mutable -> std::optional<table> {
         if (reader.try_read_nil())
@@ -50,7 +48,8 @@ void tables_impl::get_tables_async(ignite_callback<std::vector<table>> callback)
         tables.reserve(reader.read_map_size());
 
         reader.read_map<uuid, std::string>([conn, &tables](auto &&id, auto &&name) {
-            auto tableImpl = std::make_shared<table_impl>(std::forward<std::string>(name), std::forward<uuid>(id), conn);
+            auto tableImpl =
+                std::make_shared<table_impl>(std::forward<std::string>(name), std::forward<uuid>(id), conn);
             tables.push_back(table{tableImpl});
         });
 

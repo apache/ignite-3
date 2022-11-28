@@ -19,8 +19,8 @@
 
 #include "config.h"
 
-#include <type_traits>
 #include <climits>
+#include <type_traits>
 
 #if defined(__cpp_lib_bitops) && __cpp_lib_bitops >= 201907L
 # define IGNITE_STD_BITOPS 1
@@ -46,7 +46,7 @@ namespace ignite {
 /**
  * Returns the number of consecutive 0 bits in the value of x, starting from the least significant bit ("right").
  */
-template <typename T>
+template<typename T>
 int countr_zero(T value) noexcept {
     static_assert(std::is_unsigned_v<T>, "countr_zero() doesn't support this type");
     static_assert(sizeof(T) <= sizeof(unsigned long long), "countr_zero() doesn't support this type size");
@@ -80,7 +80,7 @@ int countr_zero(T value) noexcept {
 /**
  * Returns the number of consecutive 0 bits in the value of x, starting from the most significant bit ("left").
  */
-template <typename T>
+template<typename T>
 int countl_zero(T value) noexcept {
     static_assert(std::is_unsigned_v<T>, "countl_zero() doesn't support this type");
     static_assert(sizeof(T) <= sizeof(unsigned long long), "countl_zero() doesn't support this type size");
@@ -120,7 +120,7 @@ int countl_zero(T value) noexcept {
  * If x is not zero, calculates the number of bits needed to store the value x, that is, 1 + ⌊log2(x)⌋.
  * If x is zero, returns zero.
  */
-template <typename T>
+template<typename T>
 int bit_width(T value) noexcept {
     static_assert(std::is_unsigned_v<T>, "bit_width() doesn't support this type");
 
@@ -135,7 +135,7 @@ int bit_width(T value) noexcept {
  * If value is not zero, calculates the largest integral power of two that is not greater than value.
  * If value is zero, returns zero.
  */
-template <typename T>
+template<typename T>
 T bit_floor(T value) noexcept {
     static_assert(std::is_unsigned_v<T>, "bit_floor() doesn't support this type");
 
@@ -149,7 +149,7 @@ T bit_floor(T value) noexcept {
 /**
  * Calculates the smallest integral power of two that is not smaller than a given value.
  */
-template <typename T>
+template<typename T>
 T bit_ceil(T value) noexcept {
     static_assert(std::is_unsigned_v<T>, "bit_ceil() doesn't support this type");
 

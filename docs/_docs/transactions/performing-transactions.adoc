@@ -14,7 +14,7 @@
 // limitations under the License.
 = Performing Transactions
 
-This Alpha release introduces the key-value API that provides an interface for starting and completing transactions.
+This Beta release introduces the key-value API that provides an interface for starting and completing transactions.
 
 === Synchronous Transactions
 

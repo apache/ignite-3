@@ -63,7 +63,7 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
         ExecutionContext<Object[]> ctx = executionContext(true);
         IgniteTypeFactory tf = ctx.getTypeFactory();
         RelDataType rowType = TypeUtils.createRowType(tf, int.class, int.class);
-        ScanNode<Object[]> scan = new ScanNode<>(ctx, rowType, Arrays.asList(
+        ScanNode<Object[]> scan = new ScanNode<>(ctx, Arrays.asList(
                 row(0, 200),
                 row(1, 300),
                 row(1, 1400),
@@ -97,7 +97,7 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
                 scan
         );
 
-        RootNode<Object[]> root = new RootNode<>(ctx, aggRowType);
+        RootNode<Object[]> root = new RootNode<>(ctx);
         root.register(aggChain);
 
         assertTrue(root.hasNext());
@@ -118,7 +118,7 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
         ExecutionContext<Object[]> ctx = executionContext();
         IgniteTypeFactory tf = ctx.getTypeFactory();
         RelDataType rowType = TypeUtils.createRowType(tf, int.class, int.class);
-        ScanNode<Object[]> scan = new ScanNode<>(ctx, rowType, Arrays.asList(
+        ScanNode<Object[]> scan = new ScanNode<>(ctx, Arrays.asList(
                 row(0, 200),
                 row(1, 300),
                 row(1, 1400),
@@ -151,7 +151,7 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
                 scan
         );
 
-        RootNode<Object[]> root = new RootNode<>(ctx, aggRowType);
+        RootNode<Object[]> root = new RootNode<>(ctx);
         root.register(aggChain);
 
         assertTrue(root.hasNext());
@@ -172,7 +172,7 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
         ExecutionContext<Object[]> ctx = executionContext();
         IgniteTypeFactory tf = ctx.getTypeFactory();
         RelDataType rowType = TypeUtils.createRowType(tf, int.class, int.class);
-        ScanNode<Object[]> scan = new ScanNode<>(ctx, rowType, Arrays.asList(
+        ScanNode<Object[]> scan = new ScanNode<>(ctx, Arrays.asList(
                 row(0, 200),
                 row(1, 300),
                 row(1, 1400),
@@ -205,7 +205,7 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
                 scan
         );
 
-        RootNode<Object[]> root = new RootNode<>(ctx, aggRowType);
+        RootNode<Object[]> root = new RootNode<>(ctx);
         root.register(aggChain);
 
         assertTrue(root.hasNext());
@@ -226,7 +226,7 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
         ExecutionContext<Object[]> ctx = executionContext();
         IgniteTypeFactory tf = ctx.getTypeFactory();
         RelDataType rowType = TypeUtils.createRowType(tf, int.class, int.class);
-        ScanNode<Object[]> scan = new ScanNode<>(ctx, rowType, Arrays.asList(
+        ScanNode<Object[]> scan = new ScanNode<>(ctx, Arrays.asList(
                 row(0, 200),
                 row(1, 300),
                 row(1, 1300),
@@ -259,7 +259,7 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
                 scan
         );
 
-        RootNode<Object[]> root = new RootNode<>(ctx, aggRowType);
+        RootNode<Object[]> root = new RootNode<>(ctx);
         root.register(aggChain);
 
         assertTrue(root.hasNext());
@@ -331,7 +331,7 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
         ExecutionContext<Object[]> ctx = executionContext();
         IgniteTypeFactory tf = ctx.getTypeFactory();
         RelDataType rowType = TypeUtils.createRowType(tf, int.class, int.class);
-        ScanNode<Object[]> scan = new ScanNode<>(ctx, rowType, scanInput);
+        ScanNode<Object[]> scan = new ScanNode<>(ctx, scanInput);
 
         AggregateCall call = AggregateCall.create(
                 SqlStdOperatorTable.SINGLE_VALUE,
@@ -359,7 +359,7 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
                 scan
         );
 
-        RootNode<Object[]> root = new RootNode<>(ctx, aggRowType);
+        RootNode<Object[]> root = new RootNode<>(ctx);
         root.register(aggChain);
 
         Runnable r = () -> {
@@ -388,7 +388,7 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
         ExecutionContext<Object[]> ctx = executionContext();
         IgniteTypeFactory tf = ctx.getTypeFactory();
         RelDataType rowType = TypeUtils.createRowType(tf, int.class, int.class);
-        ScanNode<Object[]> scan = new ScanNode<>(ctx, rowType, Arrays.asList(
+        ScanNode<Object[]> scan = new ScanNode<>(ctx, Arrays.asList(
                 row(0, 200),
                 row(1, 200),
                 row(1, 300),
@@ -426,7 +426,7 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
                 scan
         );
 
-        RootNode<Object[]> root = new RootNode<>(ctx, aggRowType);
+        RootNode<Object[]> root = new RootNode<>(ctx);
         root.register(aggChain);
 
         assertTrue(root.hasNext());
@@ -459,7 +459,6 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
 
                 ScanNode<Object[]> scan = new ScanNode<>(
                         ctx,
-                        rowType,
                         new TestTable(
                                 grps * rowsInGroup,
                                 rowType,
@@ -494,7 +493,7 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
                         scan
                 );
 
-                RootNode<Object[]> root = new RootNode<>(ctx, aggRowType);
+                RootNode<Object[]> root = new RootNode<>(ctx);
                 root.register(aggChain);
 
                 IntSet grpId = new IntOpenHashSet(IntStream.range(0, grps).toArray());
@@ -518,7 +517,7 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
         ExecutionContext<Object[]> ctx = executionContext();
         IgniteTypeFactory tf = ctx.getTypeFactory();
         RelDataType rowType = TypeUtils.createRowType(tf, int.class, int.class);
-        ScanNode<Object[]> scan = new ScanNode<>(ctx, rowType, Arrays.asList(
+        ScanNode<Object[]> scan = new ScanNode<>(ctx, Arrays.asList(
                 row(0, Integer.MAX_VALUE / 2),
                 row(0, Integer.MAX_VALUE / 2 + 11)
         ));
@@ -550,7 +549,7 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
                 scan
         );
 
-        RootNode<Object[]> root = new RootNode<>(ctx, aggRowType);
+        RootNode<Object[]> root = new RootNode<>(ctx);
         root.register(aggChain);
 
         assertTrue(root.hasNext());
@@ -566,7 +565,7 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
         ExecutionContext<Object[]> ctx = executionContext();
         IgniteTypeFactory tf = ctx.getTypeFactory();
         RelDataType rowType = TypeUtils.createRowType(tf, int.class, long.class);
-        ScanNode<Object[]> scan = new ScanNode<>(ctx, rowType, Arrays.asList(
+        ScanNode<Object[]> scan = new ScanNode<>(ctx, Arrays.asList(
                 row(0, Long.MAX_VALUE / 2),
                 row(0, Long.MAX_VALUE / 2 + 11)
         ));
@@ -597,7 +596,7 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
                 scan
         );
 
-        RootNode<Object[]> root = new RootNode<>(ctx, aggRowType);
+        RootNode<Object[]> root = new RootNode<>(ctx);
         root.register(aggChain);
 
         assertTrue(root.hasNext());
@@ -619,7 +618,7 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
     ) {
         switch (testAgg) {
             case SINGLE:
-                return createSingleAggregateNodesChain(ctx, grpSets, aggCall, inRowType, aggRowType, rowFactory, scan);
+                return createSingleAggregateNodesChain(ctx, grpSets, aggCall, inRowType, rowFactory, scan);
 
             case MAP_REDUCE:
                 return createMapReduceAggregateNodesChain(ctx, grpSets, aggCall, inRowType, aggRowType, rowFactory, scan);
@@ -636,7 +635,6 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
             List<ImmutableBitSet> grpSets,
             AggregateCall aggCall,
             RelDataType inRowType,
-            RelDataType aggRowType,
             RowHandler.RowFactory<Object[]> rowFactory,
             ScanNode<Object[]> scan
     );

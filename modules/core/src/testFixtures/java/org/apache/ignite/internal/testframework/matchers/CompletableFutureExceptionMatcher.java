@@ -20,6 +20,7 @@ package org.apache.ignite.internal.testframework.matchers;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 
+import java.util.Arrays;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
@@ -33,28 +34,43 @@ import org.hamcrest.TypeSafeMatcher;
  */
 public class CompletableFutureExceptionMatcher extends TypeSafeMatcher<CompletableFuture<?>> {
     /** Timeout in seconds. */
-    private static final int TIMEOUT_SECONDS = 30;
+    private static final int TIMEOUT_SECONDS = 1;
 
     /** Matcher to forward the exception of the completable future. */
     private final Matcher<? extends Exception> matcher;
+
+    private final boolean inspectCause;
+
+    private final int timeout;
+
+    private final TimeUnit timeUnit;
 
     /**
      * Constructor.
      *
      * @param matcher Matcher to forward the exception of the completable future.
+     * @param inspectCause Flag indicating that the whole exception stacktrace should be explored until either the {@code matcher} matches
+     *     or every exception in the stacktrace is explored.
+     * @param timeout Timeout value.
+     * @param timeUnit Timeout unit.
      */
-    private CompletableFutureExceptionMatcher(Matcher<? extends Exception> matcher) {
+    private CompletableFutureExceptionMatcher(Matcher<? extends Exception> matcher, boolean inspectCause, int timeout, TimeUnit timeUnit) {
         this.matcher = matcher;
+        this.inspectCause = inspectCause;
+        this.timeout = timeout;
+        this.timeUnit = timeUnit;
     }
 
     @Override
     protected boolean matchesSafely(CompletableFuture<?> item) {
         try {
-            item.get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
+            item.get(timeout, timeUnit);
 
             return false;
         } catch (Exception e) {
-            return matcher.matches(unwrapException(e));
+            Throwable unwrapped = unwrapException(e);
+
+            return inspectCause ? matchesWithCause(unwrapped) : matcher.matches(unwrapped);
         }
     }
 
@@ -86,17 +102,52 @@ public class CompletableFutureExceptionMatcher extends TypeSafeMatcher<Completab
         }
     }
 
+    private boolean matchesWithCause(Throwable e) {
+        for (Throwable current = e; current != null; current = current.getCause()) {
+            if (matcher.matches(current) || Arrays.stream(current.getSuppressed()).anyMatch(this::matchesWithCause)) {
+                return true;
+            }
+
+            if (current.getCause() == current) {
+                return false;
+            }
+        }
+
+        return false;
+    }
+
     /**
      * Creates a matcher that matches a future that completes exceptionally and the exception matches the nested matcher.
      */
     public static CompletableFutureExceptionMatcher willThrow(Matcher<? extends Exception> matcher) {
-        return new CompletableFutureExceptionMatcher(matcher);
+        return new CompletableFutureExceptionMatcher(matcher, false, TIMEOUT_SECONDS, TimeUnit.SECONDS);
+    }
+
+    /**
+     * Creates a matcher that matches a future that completes exceptionally and the exception matches the nested matcher.
+     */
+    public static CompletableFutureExceptionMatcher willThrow(Matcher<? extends Exception> matcher, int timeout, TimeUnit timeUnit) {
+        return new CompletableFutureExceptionMatcher(matcher, false, timeout, timeUnit);
     }
 
     /**
      * Creates a matcher that matches a future that completes with an exception of the provided type.
      */
     public static CompletableFutureExceptionMatcher willThrow(Class<? extends Exception> cls) {
-        return willThrow(is(instanceOf(cls)));
+        return willThrow(cls, TIMEOUT_SECONDS, TimeUnit.SECONDS);
+    }
+
+    /**
+     * Creates a matcher that matches a future that completes with an exception of the provided type.
+     */
+    public static CompletableFutureExceptionMatcher willThrow(Class<? extends Exception> cls, int timeout, TimeUnit timeUnit) {
+        return willThrow(is(instanceOf(cls)), timeout, timeUnit);
+    }
+
+    /**
+     * Creates a matcher that matches a future that completes with an exception that has a given {@code cause} in the exception stacktrace.
+     */
+    public static CompletableFutureExceptionMatcher willThrowWithCauseOrSuppressed(Class<? extends Exception> cause) {
+        return new CompletableFutureExceptionMatcher(is(instanceOf(cause)), true, TIMEOUT_SECONDS, TimeUnit.SECONDS);
     }
 }

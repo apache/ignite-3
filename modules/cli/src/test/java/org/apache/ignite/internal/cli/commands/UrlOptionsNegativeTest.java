@@ -29,6 +29,7 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.List;
+import org.apache.ignite.internal.cli.NodeNameRegistry;
 import org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerHelper;
 import org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerProvider;
 import org.apache.ignite.internal.cli.commands.cluster.config.ClusterConfigShowCommand;
@@ -39,7 +40,12 @@ import org.apache.ignite.internal.cli.commands.cluster.init.ClusterInitCommand;
 import org.apache.ignite.internal.cli.commands.cluster.init.ClusterInitReplCommand;
 import org.apache.ignite.internal.cli.commands.cluster.status.ClusterStatusCommand;
 import org.apache.ignite.internal.cli.commands.cluster.status.ClusterStatusReplCommand;
-import org.apache.ignite.internal.cli.commands.connect.ConnectCommand;
+import org.apache.ignite.internal.cli.commands.cluster.topology.LogicalTopologyCommand;
+import org.apache.ignite.internal.cli.commands.cluster.topology.LogicalTopologyReplCommand;
+import org.apache.ignite.internal.cli.commands.cluster.topology.PhysicalTopologyCommand;
+import org.apache.ignite.internal.cli.commands.cluster.topology.PhysicalTopologyReplCommand;
+import org.apache.ignite.internal.cli.commands.connect.ConnectReplCommand;
+import org.apache.ignite.internal.cli.commands.node.NodeNameOrUrl;
 import org.apache.ignite.internal.cli.commands.node.config.NodeConfigShowCommand;
 import org.apache.ignite.internal.cli.commands.node.config.NodeConfigShowReplCommand;
 import org.apache.ignite.internal.cli.commands.node.config.NodeConfigUpdateCommand;
@@ -52,11 +58,8 @@ import org.apache.ignite.internal.cli.commands.node.metric.NodeMetricListCommand
 import org.apache.ignite.internal.cli.commands.node.metric.NodeMetricListReplCommand;
 import org.apache.ignite.internal.cli.commands.node.status.NodeStatusCommand;
 import org.apache.ignite.internal.cli.commands.node.status.NodeStatusReplCommand;
-import org.apache.ignite.internal.cli.commands.topology.LogicalTopologyCommand;
-import org.apache.ignite.internal.cli.commands.topology.LogicalTopologyReplCommand;
-import org.apache.ignite.internal.cli.commands.topology.PhysicalTopologyCommand;
-import org.apache.ignite.internal.cli.commands.topology.PhysicalTopologyReplCommand;
 import org.apache.ignite.internal.cli.config.ini.IniConfigManager;
+import org.apache.ignite.internal.cli.core.converters.NodeNameOrUrlConverter;
 import org.apache.ignite.internal.cli.core.repl.context.CommandLineContextProvider;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -89,10 +92,14 @@ public class UrlOptionsNegativeTest {
     @Inject
     TestConfigManagerProvider configManagerProvider;
 
+    @Inject
+    NodeNameRegistry nodeNameRegistry;
+
     private void setUp(Class<?> cmdClass) {
         configManagerProvider.configManager = new IniConfigManager(TestConfigManagerHelper.createSectionWithDefaultProfile());
         MicronautFactory factory = new MicronautFactory(context);
-        cmd = new CommandLine(cmdClass, factory);
+        cmd = new CommandLine(cmdClass, factory)
+                .registerConverter(NodeNameOrUrl.class, new NodeNameOrUrlConverter(nodeNameRegistry));
         CommandLineContextProvider.setCmd(cmd);
         sout = new StringWriter();
         serr = new StringWriter();
@@ -141,7 +148,7 @@ public class UrlOptionsNegativeTest {
                 arguments(LogicalTopologyReplCommand.class, CLUSTER_URL_OPTION, List.of()),
                 arguments(PhysicalTopologyReplCommand.class, CLUSTER_URL_OPTION, List.of()),
                 arguments(ClusterInitReplCommand.class, CLUSTER_URL_OPTION, List.of("--cluster-name=cluster", "--meta-storage-node=test")),
-                arguments(ConnectCommand.class, "", List.of())
+                arguments(ConnectReplCommand.class, "", List.of())
         // TODO https://issues.apache.org/jira/browse/IGNITE-17102
         //                Arguments.arguments(ClusterShowReplCommand.class, CLUSTER_URL_OPTION, List.of()),
         );
@@ -261,12 +268,12 @@ public class UrlOptionsNegativeTest {
     @Test
     void testConnectCommandWithoutParametersWithEmptyConfig() {
         configManagerProvider.configManager = new IniConfigManager(TestConfigManagerHelper.createEmptyConfig());
-        setUp(ConnectCommand.class);
+        setUp(ConnectReplCommand.class);
         cmd.execute();
 
         assertAll(
                 this::assertOutputIsEmpty,
-                () -> assertErrOutputContains("Missing required parameter: '<nodeUrl>'")
+                () -> assertErrOutputContains("Missing required parameter: '<nodeNameOrUrl>'")
         );
     }
 

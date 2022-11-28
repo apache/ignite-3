@@ -54,7 +54,7 @@ std::string getMavenPath();
  * @param res Result to check.
  * @return @c true if there is no error and @c false otherwise.
  */
-template <typename T1, typename T2>
+template<typename T1, typename T2>
 bool check_and_set_operation_error(std::promise<T2> &prom, const ignite_result<T1> &res) {
     if (res.has_error()) {
         prom.set_exception(std::make_exception_ptr(res.error()));

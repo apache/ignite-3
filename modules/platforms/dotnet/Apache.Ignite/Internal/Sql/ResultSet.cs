@@ -25,7 +25,6 @@ namespace Apache.Ignite.Internal.Sql
     using System.Threading.Tasks;
     using Buffers;
     using Ignite.Sql;
-    using Ignite.Table;
     using MessagePack;
     using Proto;
     using Proto.BinaryTuple;
@@ -33,7 +32,8 @@ namespace Apache.Ignite.Internal.Sql
     /// <summary>
     /// SQL result set.
     /// </summary>
-    internal sealed class ResultSet : IResultSet<IIgniteTuple>
+    /// <typeparam name="T">Result type.</typeparam>
+    internal sealed class ResultSet<T> : IResultSet<T>
     {
         private readonly ClientSocket _socket;
 
@@ -45,6 +45,8 @@ namespace Apache.Ignite.Internal.Sql
 
         private readonly bool _hasMorePages;
 
+        private readonly RowReader<T>? _rowReader;
+
         private bool _resourceClosed;
 
         private int _bufferReleased;
@@ -52,11 +54,12 @@ namespace Apache.Ignite.Internal.Sql
         private bool _iterated;
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="ResultSet"/> class.
+        /// Initializes a new instance of the <see cref="ResultSet{T}"/> class.
         /// </summary>
         /// <param name="socket">Socket.</param>
         /// <param name="buf">Buffer to read initial data from.</param>
-        public ResultSet(ClientSocket socket, PooledBuffer buf)
+        /// <param name="rowReaderFactory">Row reader factory.</param>
+        public ResultSet(ClientSocket socket, PooledBuffer buf, RowReaderFactory<T> rowReaderFactory)
         {
             _socket = socket;
 
@@ -71,6 +74,7 @@ namespace Apache.Ignite.Internal.Sql
             AffectedRows = reader.ReadInt64();
 
             Metadata = HasRowSet ? ReadMeta(ref reader) : null;
+            _rowReader = Metadata != null ? rowReaderFactory(Metadata.Columns) : null;
 
             if (HasRowSet)
             {
@@ -86,7 +90,7 @@ namespace Apache.Ignite.Internal.Sql
         }
 
         /// <summary>
-        /// Finalizes an instance of the <see cref="ResultSet"/> class.
+        /// Finalizes an instance of the <see cref="ResultSet{T}"/> class.
         /// </summary>
         ~ResultSet()
         {
@@ -106,14 +110,14 @@ namespace Apache.Ignite.Internal.Sql
         public bool WasApplied { get; }
 
         /// <inheritdoc/>
-        public async ValueTask<List<IIgniteTuple>> ToListAsync()
+        public async ValueTask<List<T>> ToListAsync()
         {
             ValidateAndSetIteratorState();
 
             // First page is included in the initial response.
             var cols = Metadata!.Columns;
             var hasMore = _hasMorePages;
-            List<IIgniteTuple>? res = null;
+            List<T>? res = null;
 
             ReadPage(_buffer!.Value, _bufferOffset);
             ReleaseBuffer();
@@ -132,7 +136,7 @@ namespace Apache.Ignite.Internal.Sql
             {
                 var reader = buf.GetReader(offset);
                 var pageSize = reader.ReadArrayHeader();
-                res ??= new List<IIgniteTuple>(hasMore ? pageSize * 2 : pageSize);
+                res ??= new List<T>(hasMore ? pageSize * 2 : pageSize);
 
                 for (var rowIdx = 0; rowIdx < pageSize; rowIdx++)
                 {
@@ -154,16 +158,25 @@ namespace Apache.Ignite.Internal.Sql
         }
 
         /// <inheritdoc/>
+        [SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "Dispose should not throw.")]
         public async ValueTask DisposeAsync()
         {
             ReleaseBuffer();
 
             if (_resourceId != null && !_resourceClosed)
             {
-                using var writer = ProtoCommon.GetMessageWriter();
-                WriteId(writer.GetMessageWriter());
+                try
+                {
+                    using var writer = ProtoCommon.GetMessageWriter();
+                    WriteId(writer.GetMessageWriter());
 
-                await _socket.DoOutInOpAsync(ClientOp.SqlCursorClose, writer).ConfigureAwait(false);
+                    await _socket.DoOutInOpAsync(ClientOp.SqlCursorClose, writer).ConfigureAwait(false);
+                }
+                catch (Exception)
+                {
+                    // Ignore.
+                    // Socket might be disconnected.
+                }
 
                 _resourceClosed = true;
             }
@@ -172,7 +185,7 @@ namespace Apache.Ignite.Internal.Sql
         }
 
         /// <inheritdoc/>
-        public IAsyncEnumerator<IIgniteTuple> GetAsyncEnumerator(CancellationToken cancellationToken = default)
+        public IAsyncEnumerator<T> GetAsyncEnumerator(CancellationToken cancellationToken = default)
         {
             ValidateAndSetIteratorState();
 
@@ -206,53 +219,14 @@ namespace Apache.Ignite.Internal.Sql
             return new ResultSetMetadata(columns);
         }
 
-        private static IgniteTuple ReadRow(IReadOnlyList<IColumnMetadata> cols, ref MessagePackReader reader)
+        private T ReadRow(IReadOnlyList<IColumnMetadata> cols, ref MessagePackReader reader)
         {
             var tupleReader = new BinaryTupleReader(reader.ReadBytesAsMemory(), cols.Count);
-            var row = new IgniteTuple(cols.Count);
 
-            for (var i = 0; i < cols.Count; i++)
-            {
-                var col = cols[i];
-                row[col.Name] = ReadValue(ref tupleReader, col, i);
-            }
-
-            return row;
+            return _rowReader!(cols, ref tupleReader);
         }
 
-        private static object? ReadValue(ref BinaryTupleReader reader, IColumnMetadata col, int idx)
-        {
-            if (reader.IsNull(idx))
-            {
-                return null;
-            }
-
-            return col.Type switch
-            {
-                SqlColumnType.Boolean => reader.GetByte(idx) != 0,
-                SqlColumnType.Int8 => reader.GetByte(idx),
-                SqlColumnType.Int16 => reader.GetShort(idx),
-                SqlColumnType.Int32 => reader.GetInt(idx),
-                SqlColumnType.Int64 => reader.GetLong(idx),
-                SqlColumnType.Float => reader.GetFloat(idx),
-                SqlColumnType.Double => reader.GetDouble(idx),
-                SqlColumnType.Decimal => reader.GetDecimal(idx, col.Scale),
-                SqlColumnType.Date => reader.GetDate(idx),
-                SqlColumnType.Time => reader.GetTime(idx),
-                SqlColumnType.Datetime => reader.GetDateTime(idx),
-                SqlColumnType.Timestamp => reader.GetTimestamp(idx),
-                SqlColumnType.Uuid => reader.GetGuid(idx),
-                SqlColumnType.Bitmask => reader.GetBitmask(idx),
-                SqlColumnType.String => reader.GetString(idx),
-                SqlColumnType.ByteArray => reader.GetBytes(idx),
-                SqlColumnType.Period => reader.GetPeriod(idx),
-                SqlColumnType.Duration => reader.GetDuration(idx),
-                SqlColumnType.Number => reader.GetNumber(idx),
-                _ => throw new ArgumentOutOfRangeException(nameof(col.Type), col.Type, "Unknown SQL column type.")
-            };
-        }
-
-        private async IAsyncEnumerable<IIgniteTuple> EnumerateRows()
+        private async IAsyncEnumerable<T> EnumerateRows()
         {
             var hasMore = _hasMorePages;
             var cols = Metadata!.Columns;
@@ -280,7 +254,7 @@ namespace Apache.Ignite.Internal.Sql
 
             _resourceClosed = true;
 
-            IEnumerable<IIgniteTuple> EnumeratePage(PooledBuffer buf)
+            IEnumerable<T> EnumeratePage(PooledBuffer buf)
             {
                 // ReSharper disable AccessToModifiedClosure
                 var reader = buf.GetReader(offset);
@@ -322,7 +296,7 @@ namespace Apache.Ignite.Internal.Sql
 
             if (_resourceClosed)
             {
-                throw new ObjectDisposedException(nameof(ResultSet));
+                throw new ObjectDisposedException(nameof(ResultSet<T>));
             }
 
             writer.Write(_resourceId!.Value);

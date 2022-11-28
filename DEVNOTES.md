@@ -297,7 +297,18 @@ Run integration tests only:
 ***
 
 ## Checking and generating Javadoc
- [TBD](https://issues.apache.org/jira/browse/IGNITE-17930)
+Javadoc is generated and checked for correctness with [Gradle Javadoc Plugin](https://docs.gradle.org/current/dsl/org.gradle.api.tasks.javadoc.Javadoc.html).
+
+Build Javadoc site (found in `build/docs/aggregateJavadoc/index.html`):
+```
+./gradlew aggregateJavadoc 
+```
+
+If you don't need to aggregate all javadoc you can use javadoc task and find generated 
+artifacts in each module (for example `modules/api/build/docs/javadoc`)
+```
+./gradlew javadoc
+```
 ***
 
 
@@ -310,7 +321,7 @@ After opening the project in IntelliJ, double check that the Java SDK is properl
 * In the `Project` section, make sure the project language level is set to 11.0 as Ignite makes use of several Java 11
   language features
 
-Ignite uses machine code generation for some of it's modules. To generate necessary production code, build the project using maven (see [Building Ignite](#building-ignite)).
+Ignite uses machine code generation for some of it's modules. To generate necessary production code, build the project using gradle.
 
 Configure Idea code style (for IntelliJ Idea >= 2019):
 * File -> Settings -> Editor -> Code Style -> Scheme -> gear (Show Scheme Actions) -> Import Scheme -> IntelliJ IDEA code style XML
@@ -347,8 +358,8 @@ You can build zip and run CLI with the following commands:
 ```shell
 ./gradlew clean packaging-cli:distZip -x test -x check
 cd packaging/cli/build/distributions
-unzip ignite3cli-3.<version>
-cd ignite3cli-3.<version>
+unzip ignite3-cli-<version>
+cd ignite3-cli-<version>
 ./bin/ignite3
 ```
 
@@ -356,14 +367,14 @@ To build a zip file with ignite-runner and run it:
 ```shell
 ./gradlew clean packaging-db:distZip -x test -x check
 cd packaging/db/build/distributions
-unzip ignite3db-3.<version>
-cd ignite3db-3.<version>
-./bin/ignite3db.sh start
+unzip ignite3-db-<version>
+cd ignite3-db-<version>
+./bin/ignite3db start
 ```
 
 To stop the started node run:
 ```shell
-./bin/ignite3db.sh stop
+./bin/ignite3db stop
 ```
 
 ### RPM/DEB packaging
@@ -372,19 +383,19 @@ There is also RPM/DEB packaging for Ignite. To build those packages run:
 ```shell
 ./gradlew clean buildDeb buildRpm -x test -x check
 ```
-`ignite3cli` packages are located in `packaging/cli/build/distributions/` and `ignite3db` packages in `packaging/db/build/distributions/`.
+`ignite3-cli` packages are located in `packaging/cli/build/distributions/` and `ignite3-db` packages in `packaging/db/build/distributions/`.
 ***
 
 To install RPM packages run:
 ```shell
-rpm -i ignite3cli_3.<version>.noarch.rpm
-rpm -i ignite3db_3.<version>.noarch.rpm
+rpm -i ignite3-cli-<version>.noarch.rpm
+rpm -i ignite3-db-<version>.noarch.rpm
 ```
 
 To install DEB packages run:
 ```shell
-dpkg --install ignite3cli_3.<version>_all.deb
-dpkg --install ignite3db_3.<version>_all.deb
+dpkg --install ignite3-cli_<version>_all.deb
+dpkg --install ignite3-db_<version>_all.deb
 ```
 
 Run ignite3db service:
@@ -404,14 +415,14 @@ ignite3
 
 To uninstall RPM packages run:
 ```shell
-rpm -e ignite3cli
-rpm -e ignite3db
+rpm -e ignite3-cli
+rpm -e ignite3-db
 ```
 
 To uninstall DEB packages run:
 ```shell
-dpkg --remove ignite3cli
-dpkg --remove ignite3db
+dpkg --remove ignite3-cli
+dpkg --remove ignite3-db
 ```
 
 ### Docker image
@@ -435,25 +446,25 @@ docker run -it --rm -p 10300:10300 apacheignite/ignite3
 1. Go to the `packaging/build/distributions` directory which now contains the packaged CLI tool and Ignite
     ```shell
    cd packaging/build/distributions
-   unzip ignite3-3.<version> 
+   unzip ignite3-<version> 
     ```
 1. Run the tool without parameters (full list of available commands should appear)
     ```shell
-   cd ignite3cli-3.<version>
+   cd ignite3-cli-<version>
    ./bin/ignite3
     ```
 1. Start a node
     ```shell
-   cd ../ignite3db-3.<version>
+   cd ../ignite3-db-<version>
    ./bin/ignite3db start
     ```
 1. Check that the new node is up and running
     ```shell
-    cd ../ignite3cli-3.<version>
+    cd ../ignite3-cli-<version>
    ./bin/ignite3 node status
     ```
 1. Stop the node
-    ```
-    cd ../ignite3db-3.<version>
+    ```shell
+    cd ../ignite3-db-<version>
    ./bin/ignite3db stop
     ```

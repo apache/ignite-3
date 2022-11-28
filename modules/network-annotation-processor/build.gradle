@@ -26,7 +26,10 @@ dependencies {
     implementation libs.fastutil.core
     implementation libs.javapoet
 
+    testAnnotationProcessor project(":ignite-network-annotation-processor")
     testImplementation libs.mockito.core
+    testImplementation libs.mockito.junit
+    testImplementation libs.hamcrest.core
     testImplementation libs.compileTesting
 }
 

@@ -63,7 +63,7 @@ public abstract class AbstractKeyValueStorageTest {
      * After each.
      */
     @AfterEach
-    void tearDown() throws Exception {
+    void tearDown() {
         storage.close();
     }
 

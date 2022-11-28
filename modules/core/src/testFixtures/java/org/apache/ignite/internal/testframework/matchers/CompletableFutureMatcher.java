@@ -32,11 +32,17 @@ import org.hamcrest.TypeSafeMatcher;
  * {@link Matcher} that awaits for the given future to complete and then forwards the result to the nested {@code matcher}.
  */
 public class CompletableFutureMatcher<T> extends TypeSafeMatcher<CompletableFuture<? extends T>> {
-    /** Timeout in seconds. */
-    private static final int TIMEOUT_SECONDS = 30;
+    /** Default timeout in seconds. */
+    private static final int DEFAULT_TIMEOUT_SECONDS = 30;
 
     /** Matcher to forward the result of the completable future. */
     private final Matcher<T> matcher;
+
+    /** Timeout. */
+    private final int timeout;
+
+    /** Time unit for timeout. */
+    private final TimeUnit timeoutTimeUnit;
 
     /**
      * Constructor.
@@ -44,14 +50,27 @@ public class CompletableFutureMatcher<T> extends TypeSafeMatcher<CompletableFutu
      * @param matcher Matcher to forward the result of the completable future.
      */
     private CompletableFutureMatcher(Matcher<T> matcher) {
+        this(matcher, DEFAULT_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param matcher Matcher to forward the result of the completable future.
+     * @param timeout Timeout.
+     * @param timeoutTimeUnit {@link TimeUnit} for timeout.
+     */
+    private CompletableFutureMatcher(Matcher<T> matcher, int timeout, TimeUnit timeoutTimeUnit) {
         this.matcher = matcher;
+        this.timeout = timeout;
+        this.timeoutTimeUnit = timeoutTimeUnit;
     }
 
     /** {@inheritDoc} */
     @Override
     protected boolean matchesSafely(CompletableFuture<? extends T> item) {
         try {
-            return matcher.matches(item.get(TIMEOUT_SECONDS, TimeUnit.SECONDS));
+            return matcher.matches(item.get(timeout, timeoutTimeUnit));
         } catch (InterruptedException | ExecutionException | TimeoutException e) {
             throw new AssertionError(e);
         }
@@ -78,6 +97,26 @@ public class CompletableFutureMatcher<T> extends TypeSafeMatcher<CompletableFutu
      */
     public static CompletableFutureMatcher<Object> willCompleteSuccessfully() {
         return willBe(anything());
+    }
+
+    /**
+     * Creates a matcher that matches a future that completes successfully and decently fast.
+     *
+     * @return matcher.
+     */
+    public static CompletableFutureMatcher<Object> willSucceedFast() {
+        return willSucceedIn(1, TimeUnit.SECONDS);
+    }
+
+    /**
+     * Creates a matcher that matches a future that completes successfully with any result within the given timeout.
+     *
+     * @param time Timeout.
+     * @param timeUnit Time unit for timeout.
+     * @return matcher.
+     */
+    public static CompletableFutureMatcher<Object> willSucceedIn(int time, TimeUnit timeUnit) {
+        return new CompletableFutureMatcher<>(anything(), time, timeUnit);
     }
 
     /**

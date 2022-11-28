@@ -19,13 +19,13 @@ package org.apache.ignite.internal.cluster.management;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toUnmodifiableList;
-import static org.apache.ignite.network.util.ClusterServiceUtils.resolveNodes;
 
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.cluster.management.network.messages.CancelInitMessage;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgInitMessage;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
@@ -194,5 +194,21 @@ public class ClusterInitializer {
         CompletableFuture<?>[] futures = nodes.stream().map(futureProducer).toArray(CompletableFuture[]::new);
 
         return CompletableFuture.allOf(futures);
+    }
+
+    private static List<ClusterNode> resolveNodes(ClusterService clusterService, Collection<String> consistentIds) {
+        return consistentIds.stream()
+                .map(consistentId -> {
+                    ClusterNode node = clusterService.topologyService().getByConsistentId(consistentId);
+
+                    if (node == null) {
+                        throw new IllegalArgumentException(String.format(
+                                "Node \"%s\" is not present in the physical topology", consistentId
+                        ));
+                    }
+
+                    return node;
+                })
+                .collect(Collectors.toList());
     }
 }

@@ -41,6 +41,6 @@ public class CursorUtilsTest {
 
     @SafeVarargs
     private static <T> Cursor<T> cursor(T... elements) {
-        return Cursor.fromIterator(Arrays.asList(elements).iterator());
+        return Cursor.fromBareIterator(Arrays.asList(elements).iterator());
     }
 }

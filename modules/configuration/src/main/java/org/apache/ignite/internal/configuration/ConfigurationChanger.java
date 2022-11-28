@@ -440,7 +440,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
     }
 
     /** Stop component. */
-    public void stop() throws Exception {
+    public void stop() {
         IgniteUtils.shutdownAndAwaitTermination(pool, 10, TimeUnit.SECONDS);
 
         StorageRoots roots = storageRoots;

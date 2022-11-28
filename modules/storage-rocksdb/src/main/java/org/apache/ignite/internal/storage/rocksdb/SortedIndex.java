@@ -19,6 +19,7 @@ package org.apache.ignite.internal.storage.rocksdb;
 
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
@@ -29,7 +30,7 @@ import org.rocksdb.RocksDBException;
 /**
  * Class that represents a Sorted Index defined for all partitions of a Table.
  */
-class SortedIndex implements AutoCloseable {
+class SortedIndex implements ManuallyCloseable {
     private final SortedIndexDescriptor descriptor;
 
     private final ColumnFamily indexCf;
@@ -70,7 +71,7 @@ class SortedIndex implements AutoCloseable {
     }
 
     @Override
-    public void close() throws Exception {
+    public void close() {
         indexCf.handle().close();
     }
 }

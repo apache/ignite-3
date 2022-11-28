@@ -26,6 +26,7 @@ import static org.apache.ignite.internal.pagememory.util.PageUtils.putLong;
 import org.apache.ignite.internal.pagememory.io.IoVersions;
 import org.apache.ignite.internal.pagememory.io.PageIo;
 import org.apache.ignite.lang.IgniteStringBuilder;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Io for partition metadata pages.
@@ -33,7 +34,9 @@ import org.apache.ignite.lang.IgniteStringBuilder;
 public class PartitionMetaIo extends PageIo {
     private static final int LAST_APPLIED_INDEX_OFF = COMMON_HEADER_END;
 
-    private static final int ROW_VERSION_FREE_LIST_ROOT_PAGE_ID_OFF = LAST_APPLIED_INDEX_OFF + Long.BYTES;
+    private static final int LAST_APPLIED_TERM_OFF = LAST_APPLIED_INDEX_OFF + Long.BYTES;
+
+    private static final int ROW_VERSION_FREE_LIST_ROOT_PAGE_ID_OFF = LAST_APPLIED_TERM_OFF + Long.BYTES;
 
     private static final int INDEX_COLUMNS_FREE_LIST_ROOT_PAGE_ID_OFF = ROW_VERSION_FREE_LIST_ROOT_PAGE_ID_OFF + Long.BYTES;
 
@@ -64,6 +67,8 @@ public class PartitionMetaIo extends PageIo {
         super.initNewPage(pageAddr, pageId, pageSize);
 
         setLastAppliedIndex(pageAddr, 0);
+        setLastAppliedTerm(pageAddr, 0);
+        setLastGroupConfig(pageAddr, null);
         setRowVersionFreeListRootPageId(pageAddr, 0);
         setIndexColumnsFreeListRootPageId(pageAddr, 0);
         setVersionChainTreeRootPageId(pageAddr, 0);
@@ -84,12 +89,55 @@ public class PartitionMetaIo extends PageIo {
     }
 
     /**
+     * Sets a last applied term value.
+     *
+     * @param pageAddr Page address.
+     * @param lastAppliedTerm Last applied term value.
+     */
+    public void setLastAppliedTerm(long pageAddr, long lastAppliedTerm) {
+        assertPageType(pageAddr);
+
+        putLong(pageAddr, LAST_APPLIED_TERM_OFF, lastAppliedTerm);
+    }
+
+    /**
+     * Sets last group config.
+     *
+     * @param pageAddr Page address.
+     * @param lastGroupConfig Byte representation of last group config..
+     */
+    public void setLastGroupConfig(long pageAddr, byte @Nullable [] lastGroupConfig) {
+        assertPageType(pageAddr);
+
+        // TODO: IGNITE-18118 - implement
+    }
+
+    /**
      * Returns a last applied index value.
      *
      * @param pageAddr Page address.
      */
     public long getLastAppliedIndex(long pageAddr) {
         return getLong(pageAddr, LAST_APPLIED_INDEX_OFF);
+    }
+
+    /**
+     * Returns a last applied term value.
+     *
+     * @param pageAddr Page address.
+     */
+    public long getLastAppliedTerm(long pageAddr) {
+        return getLong(pageAddr, LAST_APPLIED_TERM_OFF);
+    }
+
+    /**
+     * Returns byte representation of group config.
+     *
+     * @param pageAddr Page address.
+     */
+    public byte @Nullable [] getLastGroupConfig(long pageAddr) {
+        // TODO: IGNITE-18118 - implement
+        return null;
     }
 
     /**
@@ -202,6 +250,7 @@ public class PartitionMetaIo extends PageIo {
     protected void printPage(long addr, int pageSize, IgniteStringBuilder sb) {
         sb.app("TablePartitionMeta [").nl()
                 .app("lastAppliedIndex=").app(getLastAppliedIndex(addr)).nl()
+                .app("lastAppliedTerm=").app(getLastAppliedTerm(addr)).nl()
                 .app(", rowVersionFreeListRootPageId=").appendHex(getRowVersionFreeListRootPageId(addr)).nl()
                 .app(", indexColumnsFreeListRootPageId(=").appendHex(getIndexColumnsFreeListRootPageId(addr)).nl()
                 .app(", versionChainTreeRootPageId=").appendHex(getVersionChainTreeRootPageId(addr)).nl()

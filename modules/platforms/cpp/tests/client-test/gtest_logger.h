@@ -41,7 +41,7 @@ public:
      */
     gtest_logger(bool includeTs, bool debug)
         : m_includeTs(includeTs)
-        , m_debug(debug) { }
+        , m_debug(debug) {}
 
     void log_error(std::string_view message) override {
         std::cout << "[          ] [ ERROR ]   " + get_timestamp() + std::string(message) + '\n' << std::flush;

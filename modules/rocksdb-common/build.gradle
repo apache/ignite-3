@@ -23,6 +23,9 @@ dependencies {
     implementation project(':ignite-core')
     implementation libs.jetbrains.annotations
     api libs.rocksdb.jni
+
+    testImplementation libs.hamcrest.core
+    testImplementation libs.mockito.junit
 }
 
 description = 'ignite-rocksdb-common'

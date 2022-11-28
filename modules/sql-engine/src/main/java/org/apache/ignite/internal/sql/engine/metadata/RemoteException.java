@@ -24,7 +24,7 @@ import java.util.UUID;
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class RemoteException extends RuntimeException {
-    private final String nodeId;
+    private final String nodeName;
 
     private final UUID queryId;
 
@@ -33,23 +33,23 @@ public class RemoteException extends RuntimeException {
     /**
      * Constructor.
      *
-     * @param cause      Cause.
-     * @param nodeId     Node ID.
-     * @param queryId    Query ID.
+     * @param cause Cause.
+     * @param nodeName Node consistent ID.
+     * @param queryId Query ID.
      * @param fragmentId Fragment ID.
      */
-    public RemoteException(String nodeId, UUID queryId, long fragmentId, Throwable cause) {
+    public RemoteException(String nodeName, UUID queryId, long fragmentId, Throwable cause) {
         super("Remote query execution", cause);
-        this.nodeId = nodeId;
+        this.nodeName = nodeName;
         this.queryId = queryId;
         this.fragmentId = fragmentId;
     }
 
     /**
-     * Get node ID.
+     * Get node consistent ID.
      */
-    public String nodeId() {
-        return nodeId;
+    public String nodeName() {
+        return nodeName;
     }
 
     /**

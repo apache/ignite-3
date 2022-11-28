@@ -290,8 +290,8 @@ public class AbstractExecutionTest extends IgniteAbstractTest {
          * Constructor.
          * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
          */
-        public RootRewindable(ExecutionContext<RowT> ctx, RelDataType rowType) {
-            super(ctx, rowType);
+        public RootRewindable(ExecutionContext<RowT> ctx) {
+            super(ctx);
         }
 
         /** {@inheritDoc} */

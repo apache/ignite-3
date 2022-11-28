@@ -19,6 +19,7 @@ package org.apache.ignite.internal.tx.storage.state;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.configuration.storage.StorageException;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
@@ -31,7 +32,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Storage for transaction meta, {@link TxMeta}.
  */
-public interface TxStateStorage extends AutoCloseable {
+public interface TxStateStorage extends ManuallyCloseable {
     /**
      * Get tx meta by tx id.
      *
@@ -53,18 +54,18 @@ public interface TxStateStorage extends AutoCloseable {
     void put(UUID txId, TxMeta txMeta);
 
     /**
-     * Atomically change the tx meta in the storage. If transaction meta that is already in the storage, is equal to {@code txMeta},
-     * the operation also succeeds.
+     * Atomically change the tx meta in the storage. If transaction meta that is already in the storage, is equal to {@code txMeta}, the
+     * operation also succeeds.
      *
      * @param txId Tx id.
      * @param txStateExpected Tx state that is expected to be in the storage.
      * @param txMeta Tx meta.
      * @param commandIndex New value for {@link #lastAppliedIndex()}.
+     * @param commandTerm New value for {@link #lastAppliedTerm()}.
      * @return Whether the CAS operation is successful.
-     * @throws IgniteInternalException with {@link Transactions#TX_STATE_STORAGE_ERR} error code in case when
-     *                                 the operation has failed.
+     * @throws IgniteInternalException with {@link Transactions#TX_STATE_STORAGE_ERR} error code in case when the operation has failed.
      */
-    boolean compareAndSet(UUID txId, @Nullable TxState txStateExpected, TxMeta txMeta, long commandIndex);
+    boolean compareAndSet(UUID txId, @Nullable TxState txStateExpected, TxMeta txMeta, long commandIndex, long commandTerm);
 
     /**
      * Remove the tx meta from the storage.
@@ -100,14 +101,25 @@ public interface TxStateStorage extends AutoCloseable {
     long lastAppliedIndex();
 
     /**
-     * Sets the last applied index value.
+     * Term of the highest write command applied to the storage. {@code 0} if term is unknown.
      */
-    void lastAppliedIndex(long lastAppliedIndex);
+    long lastAppliedTerm();
+
+    /**
+     * Sets the last applied index and term.
+     */
+    void lastApplied(long lastAppliedIndex, long lastAppliedTerm);
 
     /**
      * {@link #lastAppliedIndex()} value consistent with the data, already persisted on the storage.
      */
     long persistedIndex();
+
+    /**
+     * Closes the storage.
+     */
+    @Override
+    void close();
 
     /**
      * Removes all data from the storage.

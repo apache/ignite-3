@@ -60,7 +60,7 @@ public:
      * @return Object of type T.
      * @throw ignite_error if there is no object of specified type in the stream.
      */
-    template <typename T>
+    template<typename T>
     [[nodiscard]] T read_object() {
         check_data_in_stream();
 
@@ -77,7 +77,7 @@ public:
      * @return Object of type T or std::nullopt if there is nil in the stream.
      * @throw ignite_error if there is no object of specified type in the stream.
      */
-    template <typename T>
+    template<typename T>
     [[nodiscard]] std::optional<T> read_object_nullable() {
         if (try_read_nil())
             return std::nullopt;
@@ -93,7 +93,7 @@ public:
      * @return Object of type T or @c on_nil if there is nil in stream.
      * @throw ignite_error if there is no object of specified type in the stream.
      */
-    template <typename T>
+    template<typename T>
     [[nodiscard]] T read_object_or_default(T &&on_nil) {
         if (try_read_nil())
             return std::forward<T>(on_nil);
@@ -169,7 +169,7 @@ public:
      *
      * @param handler Pair handler.
      */
-    void read_map_raw(const std::function<void(const msgpack_object_kv&)> &handler) {
+    void read_map_raw(const std::function<void(const msgpack_object_kv &)> &handler) {
         auto size = read_map_size();
         for (std::uint32_t i = 0; i < size; ++i) {
             handler(m_current_val.data.via.map.ptr[i]);
@@ -184,7 +184,7 @@ public:
      * @tparam V Value type.
      * @param handler Pair handler.
      */
-    template <typename K, typename V>
+    template<typename K, typename V>
     void read_map(const std::function<void(K &&, V &&)> &handler) {
         auto size = read_map_size();
         for (std::uint32_t i = 0; i < size; ++i) {
@@ -211,7 +211,7 @@ public:
      *
      * @param read_func Object read function.
      */
-    void read_array_raw(const std::function<void(const msgpack_object&)>& read_func) {
+    void read_array_raw(const std::function<void(const msgpack_object &)> &read_func) {
         auto size = read_array_size();
         for (std::uint32_t i = 0; i < size; ++i) {
             read_func(m_current_val.data.via.array.ptr[i]);
@@ -225,8 +225,8 @@ public:
      * @tparam T Value type.
      * @param unpack_func Object unpack function.
      */
-    template <typename T>
-    [[nodiscard]] std::vector<T> read_array(const std::function<T(const msgpack_object&)>& unpack_func) {
+    template<typename T>
+    [[nodiscard]] std::vector<T> read_array(const std::function<T(const msgpack_object &)> &unpack_func) {
         auto size = read_array_size();
         std::vector<T> res;
         res.reserve(size);
@@ -244,7 +244,7 @@ public:
      * @tparam T Value type.
      * @param handler Value handler.
      */
-    template <typename T>
+    template<typename T>
     [[nodiscard]] std::vector<T> read_array() {
         return read_array<T>(unpack_object<T>);
     }

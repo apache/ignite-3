@@ -21,16 +21,13 @@ import static org.apache.ignite.internal.cluster.management.ClusterState.cluster
 import static org.apache.ignite.internal.cluster.management.ClusterTag.clusterTag;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
-import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
 
 import java.nio.file.Path;
 import java.util.List;
-import java.util.Set;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -69,7 +66,7 @@ public abstract class AbstractClusterStateStorageManagerTest {
 
     @AfterEach
     void tearDown() throws Exception {
-        storage.close();
+        storage.stop();
     }
 
     /**
@@ -105,58 +102,6 @@ public abstract class AbstractClusterStateStorageManagerTest {
     }
 
     /**
-     * Tests methods for working with the logical topology.
-     */
-    @Test
-    void testLogicalTopology() {
-        assertThat(storageManager.getLogicalTopology(), is(empty()));
-
-        var node1 = new ClusterNode("foo", "bar", new NetworkAddress("localhost", 123));
-
-        storageManager.putLogicalTopologyNode(node1);
-
-        assertThat(storageManager.getLogicalTopology(), contains(node1));
-
-        var node2 = new ClusterNode("baz", "quux", new NetworkAddress("localhost", 123));
-
-        storageManager.putLogicalTopologyNode(node2);
-
-        assertThat(storageManager.getLogicalTopology(), containsInAnyOrder(node1, node2));
-
-        var node3 = new ClusterNode("lol", "boop", new NetworkAddress("localhost", 123));
-
-        storageManager.putLogicalTopologyNode(node3);
-
-        assertThat(storageManager.getLogicalTopology(), containsInAnyOrder(node1, node2, node3));
-
-        storageManager.removeLogicalTopologyNodes(Set.of(node1, node2));
-
-        assertThat(storageManager.getLogicalTopology(), contains(node3));
-
-        storageManager.removeLogicalTopologyNodes(Set.of(node3));
-
-        assertThat(storageManager.getLogicalTopology(), is(empty()));
-    }
-
-    /**
-     * Tests that all methods for working with the logical topology are idempotent.
-     */
-    @Test
-    void testLogicalTopologyIdempotence() {
-        var node = new ClusterNode("foo", "bar", new NetworkAddress("localhost", 123));
-
-        storageManager.putLogicalTopologyNode(node);
-        storageManager.putLogicalTopologyNode(node);
-
-        assertThat(storageManager.getLogicalTopology(), contains(node));
-
-        storageManager.removeLogicalTopologyNodes(Set.of(node));
-        storageManager.removeLogicalTopologyNodes(Set.of(node));
-
-        assertThat(storageManager.getLogicalTopology(), is(empty()));
-    }
-
-    /**
      * Tests the snapshot-related methods.
      */
     @Test
@@ -170,12 +115,6 @@ public abstract class AbstractClusterStateStorageManagerTest {
         );
 
         storageManager.putClusterState(state);
-
-        var node1 = new ClusterNode("foo", "bar", new NetworkAddress("localhost", 123));
-        var node2 = new ClusterNode("bar", "baz", new NetworkAddress("localhost", 123));
-
-        storageManager.putLogicalTopologyNode(node1);
-        storageManager.putLogicalTopologyNode(node2);
 
         assertThat(storageManager.snapshot(workDir), willCompleteSuccessfully());
 
@@ -191,12 +130,9 @@ public abstract class AbstractClusterStateStorageManagerTest {
 
         var node3 = new ClusterNode("nonono", "nononono", new NetworkAddress("localhost", 123));
 
-        storageManager.putLogicalTopologyNode(node3);
-
         storageManager.restoreSnapshot(workDir);
 
         assertThat(storageManager.getClusterState(), is(equalTo(state)));
-        assertThat(storageManager.getLogicalTopology(), containsInAnyOrder(node1, node2));
     }
 
     /**

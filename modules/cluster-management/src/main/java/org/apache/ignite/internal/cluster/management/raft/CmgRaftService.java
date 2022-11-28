@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.cluster.management.raft;
 
-import static java.lang.Thread.sleep;
-
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
@@ -40,7 +38,6 @@ import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 
@@ -49,11 +46,6 @@ import org.apache.ignite.raft.client.service.RaftGroupService;
  */
 public class CmgRaftService {
     private static final IgniteLogger LOG = Loggers.forClass(ClusterManagementGroupManager.class);
-
-    /**
-     * Number of attempts when trying to resolve a {@link Peer} into a {@link ClusterNode}.
-     */
-    private static final int MAX_RESOLVE_ATTEMPTS = 5;
 
     private final CmgMessagesFactory msgFactory = new CmgMessagesFactory();
 
@@ -72,13 +64,15 @@ public class CmgRaftService {
      * @return {@code true} if the current node is the CMG leader.
      */
     public CompletableFuture<Boolean> isCurrentNodeLeader() {
-        ClusterNode thisNode = clusterService.topologyService().localMember();
+        Peer leader = raftService.leader();
 
-        return leader().thenApply(thisNode::equals);
-    }
+        if (leader == null) {
+            return raftService.refreshLeader().thenCompose(v -> isCurrentNodeLeader());
+        } else {
+            String nodeName = clusterService.topologyService().localMember().name();
 
-    private CompletableFuture<ClusterNode> leader() {
-        return raftService.refreshLeader().thenApply(v -> resolvePeer(raftService.leader()));
+            return CompletableFuture.completedFuture(leader.consistentId().equals(nodeName));
+        }
     }
 
     /**
@@ -200,36 +194,8 @@ public class CmgRaftService {
         assert peers != null;
 
         return peers.stream()
-                .map(this::resolvePeer)
-                .map(ClusterNode::name)
+                .map(Peer::consistentId)
                 .collect(Collectors.toSet());
-    }
-
-    /**
-     * Converts a {@link Peer} into a {@link ClusterNode}.
-     *
-     * <p>This method tries to resolve the given {@code peer} multiple times, because it might be offline temporarily.
-     */
-    private ClusterNode resolvePeer(Peer peer) {
-        NetworkAddress addr = peer.address();
-
-        for (int i = 0; i < MAX_RESOLVE_ATTEMPTS; i++) {
-            ClusterNode node = clusterService.topologyService().getByAddress(addr);
-
-            if (node != null) {
-                return node;
-            }
-
-            LOG.debug("Unable to resolve Raft peer, address {} is unavailable. Remaining attempts: {}", addr, MAX_RESOLVE_ATTEMPTS - i);
-
-            try {
-                sleep(100);
-            } catch (InterruptedException e) {
-                throw new IgniteInternalException("Interrupted while resolving CMG node address", e);
-            }
-        }
-
-        throw new IgniteInternalException(String.format("Node %s is not present in the physical topology", addr));
     }
 
     private ClusterNodeMessage nodeMessage(ClusterNode node) {

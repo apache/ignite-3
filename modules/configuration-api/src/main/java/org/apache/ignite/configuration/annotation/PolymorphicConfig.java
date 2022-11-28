@@ -30,7 +30,7 @@ import java.lang.annotation.Target;
  *
  * <p>To change the type of polymorphic configuration, you must use the {@code PolymorphicConfigChange#convert}.
  *
- * <p>NOTE: {@link PolymorphicId} field must go first, you should explicitly declare that, also at least one
+ * <p>NOTE: {@link PolymorphicId} field must be present, you should explicitly declare that, also at least one
  * {@link PolymorphicConfigInstance} is required.
  */
 @Target(TYPE)

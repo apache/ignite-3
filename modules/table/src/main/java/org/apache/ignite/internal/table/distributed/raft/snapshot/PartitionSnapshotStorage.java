@@ -56,8 +56,12 @@ public class PartitionSnapshotStorage implements SnapshotStorage {
     /** Instance of partition. */
     private final PartitionAccess partition;
 
-    /** Snapshot meta, constructed from the storage data and raft group configuration. */
-    private final SnapshotMeta snapshotMeta;
+    /**
+     *  Snapshot meta, constructed from the storage data and raft group configuration at startup.
+     *  {@code null} if the storage is empty.
+     */
+    @Nullable
+    private final SnapshotMeta startupSnapshotMeta;
 
     /** Incoming snapshots executor. */
     private final Executor incomingSnapshotsExecutor;
@@ -77,7 +81,7 @@ public class PartitionSnapshotStorage implements SnapshotStorage {
      * @param snapshotUri Snapshot URI.
      * @param raftOptions RAFT options.
      * @param partition Partition.
-     * @param snapshotMeta Snapshot meta.
+     * @param startupSnapshotMeta Snapshot meta at startup. {@code null} if the storage is empty.
      * @param incomingSnapshotsExecutor Incoming snapshots executor.
      */
     public PartitionSnapshotStorage(
@@ -86,7 +90,7 @@ public class PartitionSnapshotStorage implements SnapshotStorage {
             String snapshotUri,
             RaftOptions raftOptions,
             PartitionAccess partition,
-            SnapshotMeta snapshotMeta,
+            @Nullable SnapshotMeta startupSnapshotMeta,
             Executor incomingSnapshotsExecutor
     ) {
         this.topologyService = topologyService;
@@ -94,7 +98,7 @@ public class PartitionSnapshotStorage implements SnapshotStorage {
         this.snapshotUri = snapshotUri;
         this.raftOptions = raftOptions;
         this.partition = partition;
-        this.snapshotMeta = snapshotMeta;
+        this.startupSnapshotMeta = startupSnapshotMeta;
         this.incomingSnapshotsExecutor = incomingSnapshotsExecutor;
     }
 
@@ -134,10 +138,14 @@ public class PartitionSnapshotStorage implements SnapshotStorage {
     }
 
     /**
-     * Returns a snapshot meta, constructed from the storage data and raft group configuration.
+     * Returns a snapshot meta, constructed from the storage data and raft group configuration at startup.
      */
     public SnapshotMeta startupSnapshotMeta() {
-        return snapshotMeta;
+        if (startupSnapshotMeta == null) {
+            throw new IllegalStateException("Storage is empty, so startup snapshot should not be read");
+        }
+
+        return startupSnapshotMeta;
     }
 
     /**
@@ -177,8 +185,15 @@ public class PartitionSnapshotStorage implements SnapshotStorage {
     }
 
     @Override
+    @Nullable
     public SnapshotReader open() {
         if (startupSnapshotOpened.compareAndSet(false, true)) {
+            if (startupSnapshotMeta == null) {
+                // The storage is empty, let's behave how JRaft does: return null, avoiding an attempt to load a snapshot
+                // when it's not there.
+                return null;
+            }
+
             return new StartupPartitionSnapshotReader(this);
         }
 

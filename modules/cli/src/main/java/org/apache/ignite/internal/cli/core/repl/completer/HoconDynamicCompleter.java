@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.cli.core.repl.completer;
 
+import static org.apache.ignite.internal.cli.util.ArrayUtils.findLastNotEmptyWord;
+
 import com.typesafe.config.Config;
 import java.util.ArrayList;
 import java.util.List;
@@ -84,14 +86,7 @@ public class HoconDynamicCompleter implements DynamicCompleter {
                 .collect(Collectors.toList());
     }
 
-    private String findLastNotEmptyWord(String[] words) {
-        for (int i = words.length - 1; i >= 0; i--) {
-            if (!words[i].isEmpty()) {
-                return words[i];
-            }
-        }
-        return "";
-    }
+
 
     private void walkAndAdd(String keyPrefix, Set<String> keySet, List<String> result) {
         keySet.forEach(key -> {

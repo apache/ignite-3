@@ -66,7 +66,9 @@ class IncomingSnapshotReader extends SnapshotReader {
 
     @Override
     public String getPath() {
-        throw new UnsupportedOperationException("No path for the rebalance snapshot");
+        // We must not throw anything from here to not impede the snapshot installation process. PartitionListener#onSnapshotLoad
+        // ignores the path passed to it, so it doesn't matter what we return here, hence an empty string is fine.
+        return "";
     }
 
     @Override

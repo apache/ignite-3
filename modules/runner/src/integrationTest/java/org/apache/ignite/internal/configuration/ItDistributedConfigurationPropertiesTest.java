@@ -39,6 +39,7 @@ import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
+import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorageListener;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
@@ -120,11 +121,15 @@ public class ItDistributedConfigurationPropertiesTest {
 
             raftManager = new Loza(clusterService, raftConfiguration, workDir, new HybridClockImpl());
 
+            var clusterStateStorage = new TestClusterStateStorage();
+            var logicalTopologyService = new LogicalTopologyImpl(clusterStateStorage);
+
             cmgManager = new ClusterManagementGroupManager(
                     vaultManager,
                     clusterService,
                     raftManager,
-                    new TestClusterStateStorage()
+                    clusterStateStorage,
+                    logicalTopologyService
             );
 
             metaStorageManager = new MetaStorageManager(

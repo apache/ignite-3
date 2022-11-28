@@ -86,6 +86,9 @@ public class ConnectToClusterQuestion {
      * Ask for connect to the cluster and suggest to save the last connected URL as default.
      */
     public void askQuestionOnReplStart() {
+        if (session.isConnectedToNode()) {
+            return;
+        }
         String defaultUrl = configManagerProvider.get().getCurrentProperty(ConfigConstants.CLUSTER_URL);
         String lastConnectedUrl = stateConfigProvider.get().getProperty(ConfigConstants.LAST_CONNECTED_URL);
         QuestionUiComponent question;

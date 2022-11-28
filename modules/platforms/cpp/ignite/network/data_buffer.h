@@ -42,7 +42,7 @@ public:
      * @param data Data.
      */
     explicit data_buffer_ref(bytes_view data)
-        : m_data(data) { }
+        : m_data(data) {}
 
     /**
      * Constructor.
@@ -52,7 +52,7 @@ public:
      * @param len Length.
      */
     data_buffer_ref(bytes_view data, size_t pos, size_t len)
-        : m_data(data.substr(pos, len)) { }
+        : m_data(data.substr(pos, len)) {}
 
     /**
      * Consume buffer data by the vector.
@@ -126,7 +126,7 @@ public:
      */
     explicit data_buffer_owning(std::vector<std::byte> &&data, size_t pos = 0)
         : m_memory(std::move(data))
-        , m_pos(pos) { }
+        , m_pos(pos) {}
 
     /**
      * Consume buffer data by the vector.

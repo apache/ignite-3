@@ -197,7 +197,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
         assert old == null;
 
-        ctx.cancel().add(() -> queryManager.close(false));
+        ctx.cancel().add(() -> queryManager.close(true));
 
         return queryManager.execute(plan);
     }
@@ -289,8 +289,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         return new AsyncWrapper<>(res.iterator());
     }
 
-    private void onMessage(String nodeId, QueryStartRequest msg) {
-        assert nodeId != null && msg != null;
+    private void onMessage(String nodeName, QueryStartRequest msg) {
+        assert nodeName != null && msg != null;
 
         DistributedQueryManager queryManager = queryManagerMap.computeIfAbsent(msg.queryId(), key -> {
             BaseQueryContext ctx = createQueryContext(key, msg.schema(), msg.parameters(), msg.txTime());
@@ -298,33 +298,33 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             return new DistributedQueryManager(ctx);
         });
 
-        queryManager.submitFragment(nodeId, msg.root(), msg.fragmentDescription());
+        queryManager.submitFragment(nodeName, msg.root(), msg.fragmentDescription());
     }
 
-    private void onMessage(String nodeId, QueryStartResponse msg) {
-        assert nodeId != null && msg != null;
+    private void onMessage(String nodeName, QueryStartResponse msg) {
+        assert nodeName != null && msg != null;
 
         DistributedQueryManager dqm = queryManagerMap.get(msg.queryId());
 
         if (dqm != null) {
-            dqm.acknowledgeFragment(nodeId, msg.fragmentId(), msg.error());
+            dqm.acknowledgeFragment(nodeName, msg.fragmentId(), msg.error());
         }
     }
 
-    private void onMessage(String nodeId, ErrorMessage msg) {
-        assert nodeId != null && msg != null;
+    private void onMessage(String nodeName, ErrorMessage msg) {
+        assert nodeName != null && msg != null;
 
         DistributedQueryManager dqm = queryManagerMap.get(msg.queryId());
 
         if (dqm != null) {
-            RemoteException e = new RemoteException(nodeId, msg.queryId(), msg.fragmentId(), msg.error());
+            RemoteException e = new RemoteException(nodeName, msg.queryId(), msg.fragmentId(), msg.error());
 
             dqm.onError(e);
         }
     }
 
-    private void onMessage(String nodeId, QueryCloseMessage msg) {
-        assert nodeId != null && msg != null;
+    private void onMessage(String nodeName, QueryCloseMessage msg) {
+        assert nodeName != null && msg != null;
 
         DistributedQueryManager dqm = queryManagerMap.get(msg.queryId());
 
@@ -352,7 +352,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     /** {@inheritDoc} */
     @Override
     public void onDisappeared(ClusterNode member) {
-        queryManagerMap.values().forEach(qm -> qm.onNodeLeft(member.id()));
+        queryManagerMap.values().forEach(qm -> qm.onNodeLeft(member.name()));
     }
 
     /** Returns local fragments for the query with given id. */
@@ -413,7 +413,9 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             return List.copyOf(localFragments);
         }
 
-        private void sendFragment(String targetNodeId, Fragment fragment, FragmentDescription desc) throws IgniteInternalCheckedException {
+        private void sendFragment(
+                String targetNodeName, Fragment fragment, FragmentDescription desc
+        ) throws IgniteInternalCheckedException {
             QueryStartRequest req = FACTORY.queryStartRequest()
                     .queryId(ctx.queryId())
                     .fragmentId(fragment.fragmentId())
@@ -425,10 +427,10 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     .build();
 
             var fut = new CompletableFuture<Void>();
-            remoteFragmentInitCompletion.put(new RemoteFragmentKey(targetNodeId, fragment.fragmentId()), fut);
+            remoteFragmentInitCompletion.put(new RemoteFragmentKey(targetNodeName, fragment.fragmentId()), fut);
 
             try {
-                msgSrvc.send(targetNodeId, req);
+                msgSrvc.send(targetNodeName, req);
             } catch (Exception ex) {
                 fut.complete(null);
 
@@ -440,7 +442,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             }
         }
 
-        private void acknowledgeFragment(String nodeId, long fragmentId, @Nullable Throwable ex) {
+        private void acknowledgeFragment(String nodeName, long fragmentId, @Nullable Throwable ex) {
             if (ex != null) {
                 Long rootFragmentId0 = rootFragmentId;
 
@@ -455,7 +457,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 }
             }
 
-            remoteFragmentInitCompletion.get(new RemoteFragmentKey(nodeId, fragmentId)).complete(null);
+            remoteFragmentInitCompletion.get(new RemoteFragmentKey(nodeName, fragmentId)).complete(null);
         }
 
         private void onError(RemoteException ex) {
@@ -466,15 +468,16 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             });
         }
 
-        private void onNodeLeft(String nodeId) {
-            remoteFragmentInitCompletion.entrySet().stream().filter(e -> nodeId.equals(e.getKey().nodeId()))
+        private void onNodeLeft(String nodeName) {
+            remoteFragmentInitCompletion.entrySet().stream()
+                    .filter(e -> nodeName.equals(e.getKey().nodeName()))
                     .forEach(e -> e.getValue()
                             .completeExceptionally(new IgniteInternalException(
-                                    NODE_LEFT_ERR, "Node left the cluster [nodeId=" + nodeId + "]")));
+                                    NODE_LEFT_ERR, "Node left the cluster [nodeName=" + nodeName + "]")));
         }
 
         private void executeFragment(FragmentPlan plan, ExecutionContext<RowT> ectx) {
-            String origNodeId = ectx.originatingNodeId();
+            String origNodeName = ectx.originatingNodeName();
 
             AbstractNode<RowT> node = implementorFactory.create(ectx).go(plan.root());
 
@@ -503,14 +506,14 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
             try {
                 msgSrvc.send(
-                        origNodeId,
+                        origNodeName,
                         FACTORY.queryStartResponse()
                                 .queryId(ectx.queryId())
                                 .fragmentId(ectx.fragmentId())
                                 .build()
                 );
             } catch (IgniteInternalCheckedException e) {
-                throw new IgniteInternalException(MESSAGE_SEND_ERR, "Failed to send reply. [nodeId=" + origNodeId + ']', e);
+                throw new IgniteInternalException(MESSAGE_SEND_ERR, "Failed to send reply. [nodeName=" + origNodeName + ']', e);
             }
 
             if (node instanceof Outbox) {
@@ -518,13 +521,13 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             }
         }
 
-        private ExecutionContext<RowT> createContext(String initiatorNodeId, FragmentDescription desc) {
+        private ExecutionContext<RowT> createContext(String initiatorNodeName, FragmentDescription desc) {
             return new ExecutionContext<>(
                     ctx,
                     taskExecutor,
                     ctx.queryId(),
                     localNode,
-                    initiatorNodeId,
+                    initiatorNodeName,
                     desc,
                     handler,
                     Commons.parametersMap(ctx.parameters()),
@@ -561,7 +564,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
         private AsyncCursor<List<Object>> execute(MultiStepPlan plan) {
             taskExecutor.execute(() -> {
-                plan.init(mappingSrvc, new MappingQueryContext(localNode.id()));
+                plan.init(mappingSrvc, new MappingQueryContext(localNode.name()));
 
                 List<Fragment> fragments = plan.fragments();
 
@@ -585,8 +588,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                                 plan.remotes(fragment)
                         );
 
-                        for (String nodeId : fragmentDesc.nodeIds()) {
-                            sendFragment(nodeId, fragment, fragmentDesc);
+                        for (String nodeName : fragmentDesc.nodeNames()) {
+                            sendFragment(nodeName, fragment, fragmentDesc);
                         }
                     }
                 } catch (Throwable e) {
@@ -622,24 +625,13 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 return cancelFut.thenApply(Function.identity());
             }
 
-            CompletableFuture<Void> start = new CompletableFuture<>();
+            CompletableFuture<Void> start = closeExecNode(cancel);
 
             start
-                    .thenCompose(none -> {
-                        if (!root.completeExceptionally(new ExecutionCancelledException()) && !root.isCompletedExceptionally()) {
-                            if (cancel) {
-                                return root.thenAccept(root -> root.onError(new ExecutionCancelledException()));
-                            }
-
-                            return root.thenCompose(AsyncRootNode::closeAsync);
-                        }
-
-                        return CompletableFuture.completedFuture(null);
-                    })
                     .thenCompose(tmp -> {
                         Map<String, List<CompletableFuture<?>>> requestsPerNode = new HashMap<>();
                         for (Map.Entry<RemoteFragmentKey, CompletableFuture<Void>> entry : remoteFragmentInitCompletion.entrySet()) {
-                            requestsPerNode.computeIfAbsent(entry.getKey().nodeId(), key -> new ArrayList<>()).add(entry.getValue());
+                            requestsPerNode.computeIfAbsent(entry.getKey().nodeName(), key -> new ArrayList<>()).add(entry.getValue());
                         }
 
                         List<CompletableFuture<?>> cancelFuts = new ArrayList<>();
@@ -692,6 +684,30 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             start.completeAsync(() -> null, taskExecutor);
 
             return cancelFut.thenApply(Function.identity());
+        }
+
+        /**
+         * Synchronously closes the tree's execution iterator.
+         *
+         * @param cancel Forces execution to terminate with {@link ExecutionCancelledException}.
+         * @return Completable future that should run asynchronously.
+         */
+        private CompletableFuture<Void> closeExecNode(boolean cancel) {
+            CompletableFuture<Void> fut = new CompletableFuture<>();
+
+            if (!root.completeExceptionally(new ExecutionCancelledException()) && !root.isCompletedExceptionally()) {
+                AsyncRootNode<RowT, List<Object>> node = root.getNow(null);
+
+                if (!cancel) {
+                    CompletableFuture<Void> closeFut = node.closeAsync();
+
+                    return fut.thenCompose(v -> closeFut);
+                }
+
+                node.onError(new ExecutionCancelledException());
+            }
+
+            return fut;
         }
     }
 

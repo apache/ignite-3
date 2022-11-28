@@ -41,6 +41,7 @@ import org.apache.ignite.client.handler.configuration.ClientConnectorConfigurati
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
+import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -125,15 +126,18 @@ public class ItRebalanceDistributedTest {
 
     public static final String HOST = "localhost";
 
-    private static StaticNodeFinder finder;
-
-    private static List<Node> nodes;
-
     @InjectConfiguration
     private static RaftConfiguration raftConfiguration;
 
+    @WorkDirectory
+    private Path workDir;
+
+    private StaticNodeFinder finder;
+
+    private List<Node> nodes;
+
     @BeforeEach
-    private void before(@WorkDirectory Path workDir, TestInfo testInfo) throws Exception {
+    void before(TestInfo testInfo) throws Exception {
         nodes = new ArrayList<>();
 
         List<NetworkAddress> nodeAddresses = new ArrayList<>();
@@ -145,7 +149,7 @@ public class ItRebalanceDistributedTest {
         finder = new StaticNodeFinder(nodeAddresses);
 
         for (NetworkAddress addr : nodeAddresses) {
-            var node = new Node(testInfo, workDir, addr, raftConfiguration);
+            var node = new Node(testInfo, addr);
 
             nodes.add(node);
 
@@ -156,14 +160,14 @@ public class ItRebalanceDistributedTest {
     }
 
     @AfterEach
-    private void after() throws Exception {
+    void after() throws Exception {
         for (Node node : nodes) {
             node.stop();
         }
     }
 
     @Test
-    void testOneRebalance(@WorkDirectory Path workDir, TestInfo testInfo) throws Exception {
+    void testOneRebalance() throws Exception {
         TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "tbl1").columns(
                 SchemaBuilders.column("key", ColumnType.INT64).build(),
                 SchemaBuilders.column("val", ColumnType.INT32).asNullable(true).build()
@@ -191,7 +195,7 @@ public class ItRebalanceDistributedTest {
     }
 
     @Test
-    void testTwoQueuedRebalances(@WorkDirectory Path workDir, TestInfo testInfo) {
+    void testTwoQueuedRebalances() {
         TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "tbl1").columns(
                 SchemaBuilders.column("key", ColumnType.INT64).build(),
                 SchemaBuilders.column("val", ColumnType.INT32).asNullable(true).build()
@@ -224,7 +228,7 @@ public class ItRebalanceDistributedTest {
     }
 
     @Test
-    void testThreeQueuedRebalances(@WorkDirectory Path workDir, TestInfo testInfo) throws Exception {
+    void testThreeQueuedRebalances() throws Exception {
         TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "tbl1").columns(
                 SchemaBuilders.column("key", ColumnType.INT64).build(),
                 SchemaBuilders.column("val", ColumnType.INT32).asNullable(true).build()
@@ -262,7 +266,7 @@ public class ItRebalanceDistributedTest {
     }
 
     @Test
-    void testOnLeaderElectedRebalanceRestart(@WorkDirectory Path workDir, TestInfo testInfo) throws Exception {
+    void testOnLeaderElectedRebalanceRestart() throws Exception {
         TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "TBL1").columns(
                 SchemaBuilders.column("key", ColumnType.INT64).build(),
                 SchemaBuilders.column("val", ColumnType.INT32).asNullable(true).build()
@@ -274,17 +278,20 @@ public class ItRebalanceDistributedTest {
                         .changeReplicas(2)
                         .changePartitions(1)));
 
-        Set<NetworkAddress> partitionNodesAddresses = getPartitionClusterNodes(0, 0)
-                .stream().map(ClusterNode::address).collect(Collectors.toSet());
+        Set<String> partitionNodesConsistentIds = getPartitionClusterNodes(0, 0).stream()
+                .map(ClusterNode::name)
+                .collect(Collectors.toSet());
 
-        Node newNode = nodes.stream().filter(n -> !partitionNodesAddresses.contains(n.address())).findFirst().get();
+        Node newNode = nodes.stream().filter(n -> !partitionNodesConsistentIds.contains(n.name)).findFirst().orElseThrow();
 
-        Node leaderNode = findNodeByAddress(table.leaderAssignment(0).address());
+        Node leaderNode = findNodeByConsistentId(table.leaderAssignment(0).name());
 
-        NetworkAddress nonLeaderNodeAddress = partitionNodesAddresses
-                .stream().filter(n -> !n.equals(leaderNode.address())).findFirst().get();
+        String nonLeaderNodeConsistentId = partitionNodesConsistentIds.stream()
+                .filter(n -> !n.equals(leaderNode.name))
+                .findFirst()
+                .orElseThrow();
 
-        TableImpl nonLeaderTable = (TableImpl) findNodeByAddress(nonLeaderNodeAddress).tableManager.table("TBL1");
+        TableImpl nonLeaderTable = (TableImpl) findNodeByConsistentId(nonLeaderNodeConsistentId).tableManager.table("TBL1");
 
         var countDownLatch = new CountDownLatch(1);
 
@@ -292,8 +299,8 @@ public class ItRebalanceDistributedTest {
                 .stream().filter(grp -> grp.toString().contains("part")).findFirst().get();
 
         ((JraftServerImpl) leaderNode.raftManager.server()).blockMessages(
-                raftGroupNodeName, (msg, node) -> {
-                    if (node.equals(String.valueOf(newNode.address().toString())) && msg instanceof RpcRequests.PingRequest) {
+                raftGroupNodeName, (msg, peerId) -> {
+                    if (peerId.equals(newNode.name) && msg instanceof RpcRequests.PingRequest) {
                         countDownLatch.countDown();
 
                         return true;
@@ -308,7 +315,7 @@ public class ItRebalanceDistributedTest {
 
         countDownLatch.await();
 
-        nonLeaderTable.internalTable().partitionRaftGroupService(0).transferLeadership(new Peer(nonLeaderNodeAddress)).get();
+        nonLeaderTable.internalTable().partitionRaftGroupService(0).transferLeadership(new Peer(nonLeaderNodeConsistentId)).get();
 
         ((JraftServerImpl) leaderNode.raftManager.server()).stopBlockMessages(raftGroupNodeName);
 
@@ -320,7 +327,7 @@ public class ItRebalanceDistributedTest {
     }
 
     @Test
-    void testRebalanceRetryWhenCatchupFailed(@WorkDirectory Path workDir, TestInfo testInfo) throws Exception {
+    void testRebalanceRetryWhenCatchupFailed() throws Exception {
         TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "tbl1").columns(
                 SchemaBuilders.column("key", ColumnType.INT64).build(),
                 SchemaBuilders.column("val", ColumnType.INT32).asNullable(true).build()
@@ -351,7 +358,7 @@ public class ItRebalanceDistributedTest {
         ReplicationGroupId partGrpId = raftServer.startedGroups().stream().filter(grp -> grp.toString().contains("_part_")).findFirst()
                 .get();
 
-        raftServer.blockMessages(partGrpId, (msg, node) -> {
+        raftServer.blockMessages(partGrpId, (msg, peerId) -> {
             if (msg instanceof RpcRequests.PingRequest) {
                 // We block ping request to prevent starting replicator, hence we fail catch up and fail rebalance.
                 assertEquals(1, getPartitionClusterNodes(0, 0).size());
@@ -380,8 +387,8 @@ public class ItRebalanceDistributedTest {
         }
     }
 
-    private Node findNodeByAddress(NetworkAddress addr) {
-        return nodes.stream().filter(n -> n.address().equals(addr)).findFirst().get();
+    private Node findNodeByConsistentId(String consistentId) {
+        return nodes.stream().filter(n -> n.name.equals(consistentId)).findFirst().orElseThrow();
     }
 
     private Set<ClusterNode> getPartitionClusterNodes(int nodeNum, int partNum) {
@@ -399,7 +406,7 @@ public class ItRebalanceDistributedTest {
         return Set.of();
     }
 
-    private static class Node {
+    private class Node {
         private final String name;
 
         private final VaultManager vaultManager;
@@ -437,7 +444,7 @@ public class ItRebalanceDistributedTest {
         /**
          * Constructor that simply creates a subset of components of this node.
          */
-        Node(TestInfo testInfo, Path workDir, NetworkAddress addr, RaftConfiguration raftConfiguration) {
+        Node(TestInfo testInfo, NetworkAddress addr) {
 
             name = testNodeName(testInfo, addr.port());
 
@@ -480,11 +487,15 @@ public class ItRebalanceDistributedTest {
 
             txManager = new TxManagerImpl(replicaSvc, lockManager, hybridClock);
 
+            var clusterStateStorage = new TestClusterStateStorage();
+            var logicalTopologyService = new LogicalTopologyImpl(clusterStateStorage);
+
             cmgManager = new ClusterManagementGroupManager(
                     vaultManager,
                     clusterService,
                     raftManager,
-                    new TestClusterStateStorage()
+                    clusterStateStorage,
+                    logicalTopologyService
             );
 
             metaStorageManager = new MetaStorageManager(

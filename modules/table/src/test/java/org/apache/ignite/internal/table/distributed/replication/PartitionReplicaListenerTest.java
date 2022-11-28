@@ -26,19 +26,25 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.nio.ByteBuffer;
 import java.util.Collections;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
+import java.util.stream.IntStream;
+import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
+import org.apache.ignite.internal.binarytuple.BinaryTuplePrefixBuilder;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
 import org.apache.ignite.internal.schema.Column;
@@ -51,11 +57,20 @@ import org.apache.ignite.internal.schema.marshaller.reflection.ReflectionMarshal
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
+import org.apache.ignite.internal.storage.index.HashIndexDescriptor;
+import org.apache.ignite.internal.storage.index.HashIndexDescriptor.HashIndexColumnDescriptor;
+import org.apache.ignite.internal.storage.index.IndexRowImpl;
+import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
+import org.apache.ignite.internal.storage.index.SortedIndexDescriptor.SortedIndexColumnDescriptor;
+import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
+import org.apache.ignite.internal.storage.index.impl.TestSortedIndexStorage;
 import org.apache.ignite.internal.table.distributed.HashIndexLocker;
 import org.apache.ignite.internal.table.distributed.IndexLocker;
+import org.apache.ignite.internal.table.distributed.SortedIndexLocker;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
+import org.apache.ignite.internal.table.distributed.replicator.LeaderOrTxState;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.PlacementDriver;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
@@ -73,12 +88,12 @@ import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateStorage;
 import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
-import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.raft.client.Peer;
+import org.apache.ignite.raft.client.service.LeaderWithTerm;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -140,29 +155,35 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     /** Primary index. */
     private static Lazy<TableSchemaAwareIndexStorage> pkStorage;
 
-    private static IndexLocker pkLocker;
-
     /** If true the local replica is considered leader, false otherwise. */
     private static boolean localLeader;
 
     /** The state is used to resolve write intent. */
     private static TxState txState;
 
+    private static BinaryTupleSchema sortedIndexBinarySchema;
+
+    /** Secondary sorted index. */
+    private static TableSchemaAwareIndexStorage sortedIndexStorage;
+
+    /** Secondary hash index. */
+    private static TableSchemaAwareIndexStorage hashIndexStorage;
+
     @BeforeAll
     private static void beforeAll() {
         when(mockRaftClient.refreshAndGetLeaderWithTerm()).thenAnswer(invocationOnMock -> {
             if (!localLeader) {
-                return CompletableFuture.completedFuture(new IgniteBiTuple<>(new Peer(anotherNode.address()), 1L));
+                return CompletableFuture.completedFuture(new LeaderWithTerm(new Peer(anotherNode.name()), 1L));
             }
 
-            return CompletableFuture.completedFuture(new IgniteBiTuple<>(new Peer(localNode.address()), 1L));
+            return CompletableFuture.completedFuture(new LeaderWithTerm(new Peer(localNode.name()), 1L));
         });
 
-        when(topologySrv.getByAddress(any())).thenAnswer(invocationOnMock -> {
-            NetworkAddress addr = invocationOnMock.getArgument(0);
-            if (addr.equals(anotherNode.address())) {
+        when(topologySrv.getByConsistentId(any())).thenAnswer(invocationOnMock -> {
+            String consistentId = invocationOnMock.getArgument(0);
+            if (consistentId.equals(anotherNode.name())) {
                 return anotherNode;
-            } else if (addr.equals(localNode.address())) {
+            } else if (consistentId.equals(localNode.name())) {
                 return localNode;
             } else {
                 return null;
@@ -191,7 +212,9 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         PendingComparableValuesTracker safeTimeClock = mock(PendingComparableValuesTracker.class);
         when(safeTimeClock.waitFor(any())).thenReturn(CompletableFuture.completedFuture(null));
 
-        UUID indexId = UUID.randomUUID();
+        UUID pkIndexId = UUID.randomUUID();
+        UUID sortedIndexId = UUID.randomUUID();
+        UUID hashIndexId = UUID.randomUUID();
 
         BinaryTupleSchema pkSchema = BinaryTupleSchema.create(new Element[]{
                 new Element(NativeTypes.BYTES, false)
@@ -200,30 +223,50 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         Function<BinaryRow, BinaryTuple> row2tuple = tableRow -> new BinaryTuple(pkSchema, ((BinaryRow) tableRow).keySlice());
 
         pkStorage = new Lazy<>(() -> new TableSchemaAwareIndexStorage(
-                indexId,
+                pkIndexId,
                 new TestHashIndexStorage(null),
                 row2tuple
         ));
 
+        sortedIndexStorage = new TableSchemaAwareIndexStorage(
+                sortedIndexId,
+                new TestSortedIndexStorage(new SortedIndexDescriptor(sortedIndexId, List.of(
+                        new SortedIndexColumnDescriptor("intVal", NativeTypes.INT32, false, true)
+                ))),
+                row -> null
+        );
+
+        hashIndexStorage = new TableSchemaAwareIndexStorage(
+                hashIndexId,
+                new TestHashIndexStorage(new HashIndexDescriptor(hashIndexId, List.of(
+                        new HashIndexColumnDescriptor("intVal", NativeTypes.INT32, false)
+                ))),
+                row -> null
+        );
+
         LockManager lockManager = new HeapLockManager();
 
-        pkLocker = new HashIndexLocker(indexId, true, lockManager, row2tuple);
+        IndexLocker pkLocker = new HashIndexLocker(pkIndexId, true, lockManager, row2tuple);
+        IndexLocker sortedIndexLocker = new SortedIndexLocker(sortedIndexId, lockManager, null, row2tuple);
+        IndexLocker hashIndexLocker = new HashIndexLocker(hashIndexId, false, lockManager, row2tuple);
 
         partitionReplicaListener = new PartitionReplicaListener(
                 testMvPartitionStorage,
                 mockRaftClient,
                 mock(TxManager.class),
                 lockManager,
+                Runnable::run,
                 partId,
                 tblId,
-                () -> Map.of(pkLocker.id(), pkLocker),
+                () -> Map.of(pkLocker.id(), pkLocker, sortedIndexId, sortedIndexLocker, hashIndexId, hashIndexLocker),
                 pkStorage,
+                () -> Map.of(sortedIndexId, sortedIndexStorage, hashIndexId, hashIndexStorage),
                 clock,
                 safeTimeClock,
                 txStateStorage,
                 topologySrv,
                 placementDriver,
-                peer -> true
+                peer -> localNode.name().equals(peer.consistentId())
         );
 
         marshallerFactory = new ReflectionMarshallerFactory();
@@ -236,6 +279,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 new Column("strVal".toUpperCase(Locale.ROOT), NativeTypes.STRING, false),
         });
 
+        sortedIndexBinarySchema = BinaryTupleSchema.createSchema(schemaDescriptor, new int[]{2 /* intVal column */});
+
         kvMarshaller = marshallerFactory.create(schemaDescriptor, TestKey.class, TestValue.class);
     }
 
@@ -244,20 +289,22 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         localLeader = true;
         txState = null;
         ((TestHashIndexStorage) pkStorage.get().storage()).destroy();
+        ((TestHashIndexStorage) hashIndexStorage.storage()).destroy();
+        ((TestSortedIndexStorage) sortedIndexStorage.storage()).destroy();
     }
 
     @Test
     public void testTxStateReplicaRequestEmptyState() {
-        CompletableFuture fut = partitionReplicaListener.invoke(TX_MESSAGES_FACTORY.txStateReplicaRequest()
+        CompletableFuture<Object> fut = partitionReplicaListener.invoke(TX_MESSAGES_FACTORY.txStateReplicaRequest()
                 .groupId(grpId)
                 .commitTimestamp(clock.now())
                 .txId(Timestamp.nextVersion().toUuid())
                 .build());
 
-        IgniteBiTuple<Peer, Long> tuple = (IgniteBiTuple<Peer, Long>) fut.join();
+        LeaderOrTxState tuple = (LeaderOrTxState) fut.join();
 
-        assertNull(tuple.get1());
-        assertNull(tuple.get2());
+        assertNull(tuple.leader());
+        assertNull(tuple.txMeta());
     }
 
     @Test
@@ -268,33 +315,33 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
         HybridTimestamp readTimestamp = clock.now();
 
-        CompletableFuture fut = partitionReplicaListener.invoke(TX_MESSAGES_FACTORY.txStateReplicaRequest()
+        CompletableFuture<Object> fut = partitionReplicaListener.invoke(TX_MESSAGES_FACTORY.txStateReplicaRequest()
                 .groupId(grpId)
                 .commitTimestamp(readTimestamp)
                 .txId(txId)
                 .build());
 
-        IgniteBiTuple<TxMeta, ClusterNode> tuple = (IgniteBiTuple<TxMeta, ClusterNode>) fut.join();
+        LeaderOrTxState tuple = (LeaderOrTxState) fut.join();
 
-        assertEquals(TxState.COMMITED, tuple.get1().txState());
-        assertTrue(readTimestamp.compareTo(tuple.get1().commitTimestamp()) > 0);
-        assertNull(tuple.get2());
+        assertEquals(TxState.COMMITED, tuple.txMeta().txState());
+        assertTrue(readTimestamp.compareTo(tuple.txMeta().commitTimestamp()) > 0);
+        assertNull(tuple.leader());
     }
 
     @Test
     public void testTxStateReplicaRequestMissLeaderMiss() {
         localLeader = false;
 
-        CompletableFuture fut = partitionReplicaListener.invoke(TX_MESSAGES_FACTORY.txStateReplicaRequest()
+        CompletableFuture<Object> fut = partitionReplicaListener.invoke(TX_MESSAGES_FACTORY.txStateReplicaRequest()
                 .groupId(grpId)
                 .commitTimestamp(clock.now())
                 .txId(Timestamp.nextVersion().toUuid())
                 .build());
 
-        IgniteBiTuple<Peer, Long> tuple = (IgniteBiTuple<Peer, Long>) fut.join();
+        LeaderOrTxState tuple = (LeaderOrTxState) fut.join();
 
-        assertNull(tuple.get1());
-        assertNotNull(tuple.get2());
+        assertNull(tuple.txMeta());
+        assertNotNull(tuple.leader());
     }
 
     @Test
@@ -402,6 +449,313 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         BinaryRow binaryRow = (BinaryRow) fut.join();
 
         assertNull(binaryRow);
+    }
+
+    @Test
+    public void testWriteScanRetriveBatchReplicaRequestWithSortedIndex() {
+        UUID txId = Timestamp.nextVersion().toUuid();
+        UUID sortedIndexId = sortedIndexStorage.id();
+
+        IntStream.range(0, 6).forEach(i -> {
+            RowId rowId = new RowId(partId);
+            int indexedVal = i % 5; // Non-uniq index.
+            TestValue testValue = new TestValue(indexedVal, "val" + i);
+
+            BinaryTuple indexedValue = new BinaryTuple(sortedIndexBinarySchema,
+                    new BinaryTupleBuilder(1, false).appendInt(indexedVal).build());
+            BinaryRow storeRow = binaryRow(key(nextBinaryKey()), testValue);
+
+            testMvPartitionStorage.addWrite(rowId, storeRow, txId, tblId, partId);
+            sortedIndexStorage.storage().put(new IndexRowImpl(indexedValue, rowId));
+            testMvPartitionStorage.commitWrite(rowId, clock.now());
+        });
+
+        UUID scanTxId = Timestamp.nextVersion().toUuid();
+
+        // Request first batch
+        CompletableFuture<?> fut = partitionReplicaListener.invoke(TABLE_MESSAGES_FACTORY.readWriteScanRetrieveBatchReplicaRequest()
+                .groupId(grpId)
+                .transactionId(scanTxId)
+                .timestamp(clock.now())
+                .term(1L)
+                .scanId(1L)
+                .indexToUse(sortedIndexId)
+                .batchSize(4)
+                .build());
+
+        List<BinaryRow> rows = (List<BinaryRow>) fut.join();
+
+        assertNotNull(rows);
+        assertEquals(4, rows.size());
+
+        // Request second batch
+        fut = partitionReplicaListener.invoke(TABLE_MESSAGES_FACTORY.readWriteScanRetrieveBatchReplicaRequest()
+                .groupId(grpId)
+                .transactionId(scanTxId)
+                .timestamp(clock.now())
+                .term(1L)
+                .scanId(1L)
+                .indexToUse(sortedIndexId)
+                .batchSize(4)
+                .build());
+
+        rows = (List<BinaryRow>) fut.join();
+
+        assertNotNull(rows);
+        assertEquals(2, rows.size());
+
+        // Request bounded.
+        fut = partitionReplicaListener.invoke(TABLE_MESSAGES_FACTORY.readWriteScanRetrieveBatchReplicaRequest()
+                .groupId(grpId)
+                .transactionId(Timestamp.nextVersion().toUuid())
+                .timestamp(clock.now())
+                .term(1L)
+                .scanId(2L)
+                .indexToUse(sortedIndexId)
+                .lowerBound(toIndexBound(1))
+                .upperBound(toIndexBound(3))
+                .flags(SortedIndexStorage.LESS_OR_EQUAL)
+                .batchSize(5)
+                .build());
+
+        rows = (List<BinaryRow>) fut.join();
+
+        assertNotNull(rows);
+        assertEquals(2, rows.size());
+
+        // Empty result.
+        fut = partitionReplicaListener.invoke(TABLE_MESSAGES_FACTORY.readWriteScanRetrieveBatchReplicaRequest()
+                .groupId(grpId)
+                .transactionId(Timestamp.nextVersion().toUuid())
+                .timestamp(clock.now())
+                .term(1L)
+                .scanId(2L)
+                .indexToUse(sortedIndexId)
+                .lowerBound(toIndexBound(5))
+                .batchSize(5)
+                .build());
+
+        rows = (List<BinaryRow>) fut.join();
+
+        assertNotNull(rows);
+        assertEquals(0, rows.size());
+
+        // Lookup.
+        fut = partitionReplicaListener.invoke(TABLE_MESSAGES_FACTORY.readWriteScanRetrieveBatchReplicaRequest()
+                .groupId(grpId)
+                .transactionId(Timestamp.nextVersion().toUuid())
+                .timestamp(clock.now())
+                .term(1L)
+                .scanId(2L)
+                .indexToUse(sortedIndexId)
+                .exactKey(toIndexKey(0))
+                .batchSize(5)
+                .build());
+
+        rows = (List<BinaryRow>) fut.join();
+
+        assertNotNull(rows);
+        assertEquals(2, rows.size());
+    }
+
+    @Test
+    public void testReadOnlyScanRetriveBatchReplicaRequestSortedIndex() {
+        UUID txId = Timestamp.nextVersion().toUuid();
+        UUID sortedIndexId = sortedIndexStorage.id();
+
+        IntStream.range(0, 6).forEach(i -> {
+            RowId rowId = new RowId(partId);
+            int indexedVal = i % 5; // Non-uniq index.
+            TestValue testValue = new TestValue(indexedVal, "val" + i);
+
+            BinaryTuple indexedValue = new BinaryTuple(sortedIndexBinarySchema,
+                    new BinaryTupleBuilder(1, false).appendInt(indexedVal).build());
+            BinaryRow storeRow = binaryRow(key(nextBinaryKey()), testValue);
+
+            testMvPartitionStorage.addWrite(rowId, storeRow, txId, tblId, partId);
+            sortedIndexStorage.storage().put(new IndexRowImpl(indexedValue, rowId));
+            testMvPartitionStorage.commitWrite(rowId, clock.now());
+        });
+
+        UUID scanTxId = Timestamp.nextVersion().toUuid();
+
+        // Request first batch
+        CompletableFuture<?> fut = partitionReplicaListener.invoke(TABLE_MESSAGES_FACTORY.readOnlyScanRetrieveBatchReplicaRequest()
+                .groupId(grpId)
+                .transactionId(scanTxId)
+                .readTimestamp(clock.now())
+                .scanId(1L)
+                .indexToUse(sortedIndexId)
+                .batchSize(4)
+                .build());
+
+        List<BinaryRow> rows = (List<BinaryRow>) fut.join();
+
+        assertNotNull(rows);
+        assertEquals(4, rows.size());
+
+        // Request second batch
+        fut = partitionReplicaListener.invoke(TABLE_MESSAGES_FACTORY.readOnlyScanRetrieveBatchReplicaRequest()
+                .groupId(grpId)
+                .transactionId(scanTxId)
+                .readTimestamp(clock.now())
+                .scanId(1L)
+                .indexToUse(sortedIndexId)
+                .batchSize(4)
+                .build());
+
+        rows = (List<BinaryRow>) fut.join();
+
+        assertNotNull(rows);
+        assertEquals(2, rows.size());
+
+        // Request bounded.
+        fut = partitionReplicaListener.invoke(TABLE_MESSAGES_FACTORY.readOnlyScanRetrieveBatchReplicaRequest()
+                .groupId(grpId)
+                .transactionId(Timestamp.nextVersion().toUuid())
+                .readTimestamp(clock.now())
+                .scanId(2L)
+                .indexToUse(sortedIndexId)
+                .lowerBound(toIndexBound(1))
+                .upperBound(toIndexBound(3))
+                .flags(SortedIndexStorage.LESS_OR_EQUAL)
+                .batchSize(5)
+                .build());
+
+        rows = (List<BinaryRow>) fut.join();
+
+        assertNotNull(rows);
+        assertEquals(2, rows.size());
+
+        // Empty result.
+        fut = partitionReplicaListener.invoke(TABLE_MESSAGES_FACTORY.readOnlyScanRetrieveBatchReplicaRequest()
+                .groupId(grpId)
+                .transactionId(Timestamp.nextVersion().toUuid())
+                .readTimestamp(clock.now())
+                .scanId(2L)
+                .indexToUse(sortedIndexId)
+                .lowerBound(toIndexBound(5))
+                .batchSize(5)
+                .build());
+
+        rows = (List<BinaryRow>) fut.join();
+
+        assertNotNull(rows);
+        assertEquals(0, rows.size());
+
+        // Lookup.
+        fut = partitionReplicaListener.invoke(TABLE_MESSAGES_FACTORY.readOnlyScanRetrieveBatchReplicaRequest()
+                .groupId(grpId)
+                .transactionId(Timestamp.nextVersion().toUuid())
+                .readTimestamp(clock.now())
+                .scanId(2L)
+                .indexToUse(sortedIndexId)
+                .exactKey(toIndexKey(0))
+                .batchSize(5)
+                .build());
+
+        rows = (List<BinaryRow>) fut.join();
+
+        assertNotNull(rows);
+        assertEquals(2, rows.size());
+    }
+
+    @Test
+    public void testReadOnlyScanRetriveBatchReplicaRequstHashIndex() {
+        UUID txId = Timestamp.nextVersion().toUuid();
+        UUID hashIndexId = hashIndexStorage.id();
+
+        IntStream.range(0, 7).forEach(i -> {
+            RowId rowId = new RowId(partId);
+            int indexedVal = i % 2; // Non-uniq index.
+            TestValue testValue = new TestValue(indexedVal, "val" + i);
+
+            BinaryTuple indexedValue = new BinaryTuple(sortedIndexBinarySchema,
+                    new BinaryTupleBuilder(1, false).appendInt(indexedVal).build());
+            BinaryRow storeRow = binaryRow(key(nextBinaryKey()), testValue);
+
+            testMvPartitionStorage.addWrite(rowId, storeRow, txId, tblId, partId);
+            hashIndexStorage.storage().put(new IndexRowImpl(indexedValue, rowId));
+            testMvPartitionStorage.commitWrite(rowId, clock.now());
+        });
+
+        UUID scanTxId = Timestamp.nextVersion().toUuid();
+
+        // Request first batch
+        CompletableFuture<?> fut = partitionReplicaListener.invoke(TABLE_MESSAGES_FACTORY.readOnlyScanRetrieveBatchReplicaRequest()
+                .groupId(grpId)
+                .transactionId(scanTxId)
+                .readTimestamp(clock.now())
+                .scanId(1L)
+                .indexToUse(hashIndexId)
+                .exactKey(toIndexKey(0))
+                .batchSize(3)
+                .build());
+
+        List<BinaryRow> rows = (List<BinaryRow>) fut.join();
+
+        assertNotNull(rows);
+        assertEquals(3, rows.size());
+
+        // Request second batch
+        fut = partitionReplicaListener.invoke(TABLE_MESSAGES_FACTORY.readOnlyScanRetrieveBatchReplicaRequest()
+                .groupId(grpId)
+                .transactionId(scanTxId)
+                .readTimestamp(clock.now())
+                .scanId(1L)
+                .indexToUse(hashIndexId)
+                .exactKey(toIndexKey(0))
+                .batchSize(1)
+                .build());
+
+        rows = (List<BinaryRow>) fut.join();
+
+        assertNotNull(rows);
+        assertEquals(1, rows.size());
+
+        // Empty result.
+        fut = partitionReplicaListener.invoke(TABLE_MESSAGES_FACTORY.readOnlyScanRetrieveBatchReplicaRequest()
+                .groupId(grpId)
+                .transactionId(Timestamp.nextVersion().toUuid())
+                .readTimestamp(clock.now())
+                .scanId(2L)
+                .indexToUse(hashIndexId)
+                .exactKey(toIndexKey(5))
+                .batchSize(5)
+                .build());
+
+        rows = (List<BinaryRow>) fut.join();
+
+        assertNotNull(rows);
+        assertEquals(0, rows.size());
+
+        // Lookup.
+        fut = partitionReplicaListener.invoke(TABLE_MESSAGES_FACTORY.readOnlyScanRetrieveBatchReplicaRequest()
+                .groupId(grpId)
+                .transactionId(Timestamp.nextVersion().toUuid())
+                .readTimestamp(clock.now())
+                .scanId(2L)
+                .indexToUse(hashIndexId)
+                .exactKey(toIndexKey(1))
+                .batchSize(5)
+                .build());
+
+        rows = (List<BinaryRow>) fut.join();
+
+        assertNotNull(rows);
+        assertEquals(3, rows.size());
+    }
+
+    private static BinaryTuplePrefix toIndexBound(int val) {
+        ByteBuffer tuple = new BinaryTuplePrefixBuilder(1, 1).appendInt(val).build();
+
+        return new BinaryTuplePrefix(sortedIndexBinarySchema, tuple);
+    }
+
+    private static BinaryTuple toIndexKey(int val) {
+        ByteBuffer tuple = new BinaryTupleBuilder(1, true).appendInt(val).build();
+
+        return new BinaryTuple(sortedIndexBinarySchema, tuple);
     }
 
     protected static BinaryRow nextBinaryKey() {

@@ -45,9 +45,9 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.IgniteBiTuple;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -72,7 +72,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
     private final TestValue value = new TestValue(20, "bar");
     protected final BinaryRow binaryRow = binaryRow(key, value);
     private final TestValue value2 = new TestValue(21, "bar2");
-    protected final BinaryRow binaryRow2 = binaryRow(key, value2);
+    private final BinaryRow binaryRow2 = binaryRow(key, value2);
     private final BinaryRow binaryRow3 = binaryRow(key, new TestValue(22, "bar3"));
 
     /**
@@ -95,7 +95,14 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
      * Inserts a row inside of consistency closure.
      */
     protected RowId insert(BinaryRow binaryRow, UUID txId) {
-        RowId rowId = new RowId(PARTITION_ID);
+        return insert(binaryRow, txId, null);
+    }
+
+    /**
+     * Inserts a row inside of consistency closure.
+     */
+    protected RowId insert(BinaryRow binaryRow, UUID txId, @Nullable UUID explicitRowId) {
+        RowId rowId = explicitRowId == null ? new RowId(PARTITION_ID) : new RowId(PARTITION_ID, explicitRowId);
 
         storage.runConsistently(() -> storage.addWrite(rowId, binaryRow, txId, UUID.randomUUID(), 0));
 
@@ -142,8 +149,8 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
     /**
      * Creates a new transaction id.
      */
-    protected UUID newTransactionId() {
-        return Timestamp.nextVersion().toUuid();
+    private static UUID newTransactionId() {
+        return UUID.randomUUID();
     }
 
     /**
@@ -868,11 +875,13 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
     void testAppliedIndex() {
         storage.runConsistently(() -> {
             assertEquals(0, storage.lastAppliedIndex());
+            assertEquals(0, storage.lastAppliedTerm());
             assertEquals(0, storage.persistedIndex());
 
-            storage.lastAppliedIndex(1);
+            storage.lastApplied(1, 1);
 
             assertEquals(1, storage.lastAppliedIndex());
+            assertEquals(1, storage.lastAppliedTerm());
             assertThat(storage.persistedIndex(), is(lessThanOrEqualTo(1L)));
 
             return null;
@@ -1305,11 +1314,11 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
     @ParameterizedTest
     @EnumSource(ScanTimestampProvider.class)
     void committedMethodCallDoesNotInterfereWithIteratingOverScanCursor(ScanTimestampProvider scanTsProvider) throws Exception {
-        RowId rowId1 = insert(binaryRow, txId);
+        RowId rowId1 = insert(binaryRow, txId, new UUID(0, 0));
         HybridTimestamp commitTs1 = clock.now();
         commitWrite(rowId1, commitTs1);
 
-        insert(binaryRow2, txId);
+        insert(binaryRow2, txId, new UUID(0, 1));
 
         try (PartitionTimestampCursor cursor = scan(scanTsProvider.scanTimestamp(clock))) {
             cursor.next();
@@ -1321,6 +1330,32 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
 
             assertFalse(cursor.hasNext());
         }
+    }
+
+    @Test
+    void groupConfigurationOnEmptyStorageIsNull() {
+        assertThat(storage.committedGroupConfiguration(), is(nullValue()));
+    }
+
+    @Test
+    void groupConfigurationIsUpdated() {
+        RaftGroupConfiguration configToSave = new RaftGroupConfiguration(
+                List.of("peer1", "peer2"),
+                List.of("learner1", "learner2"),
+                List.of("old-peer1", "old-peer2"),
+                List.of("old-learner1", "old-learner2")
+        );
+
+        storage.runConsistently(() -> {
+            storage.committedGroupConfiguration(configToSave);
+
+            return null;
+        });
+
+        RaftGroupConfiguration returnedConfig = storage.committedGroupConfiguration();
+
+        assertThat(returnedConfig, is(notNullValue()));
+        assertThat(returnedConfig, is(equalTo(configToSave)));
     }
 
     /**

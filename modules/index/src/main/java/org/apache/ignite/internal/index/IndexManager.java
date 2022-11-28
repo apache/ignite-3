@@ -56,6 +56,7 @@ import org.apache.ignite.internal.schema.configuration.index.SortedIndexView;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexChange;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexConfiguration;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
+import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.event.TableEvent;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -71,7 +72,7 @@ import org.jetbrains.annotations.NotNull;
 
 /**
  * An Ignite component that is responsible for handling index-related commands like CREATE or DROP
- * as well as managing indexes lifecycle.
+ * as well as managing indexes' lifecycle.
  */
 public class IndexManager extends Producer<IndexEvent, IndexEventParameters> implements IgniteComponent {
     private static final IgniteLogger LOG = Loggers.forClass(IndexManager.class);
@@ -79,8 +80,10 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
     /** Common tables and indexes configuration. */
     private final TablesConfiguration tablesCfg;
 
+    /** Schema manager. */
     private final SchemaManager schemaManager;
 
+    /** Table manager. */
     private final TableManager tableManager;
 
     /** Busy lock to stop synchronously. */
@@ -376,15 +379,15 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         LOG.trace("Creating local index: name={}, id={}, tableId={}, token={}",
                 tableIndexView.name(), tableIndexView.id(), tableId, causalityToken);
 
-        Index<?> index = newIndex(tableId, tableIndexView);
-
-        TableRowToIndexKeyConverter tableRowConverter = new TableRowToIndexKeyConverter(
-                schemaManager.schemaRegistry(tableId),
-                index.descriptor().columns().toArray(STRING_EMPTY_ARRAY)
-        );
-
         return tableManager.tableAsync(causalityToken, tableId)
                 .thenAccept(table -> {
+                    Index<?> index = newIndex(table, tableIndexView);
+
+                    TableRowToIndexKeyConverter tableRowConverter = new TableRowToIndexKeyConverter(
+                            schemaManager.schemaRegistry(tableId),
+                            index.descriptor().columns().toArray(STRING_EMPTY_ARRAY)
+                    );
+
                     if (index instanceof HashIndex) {
                         table.registerHashIndex(tableIndexView.id(), tableIndexView.uniq(), tableRowConverter::convert);
 
@@ -401,17 +404,17 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
                 });
     }
 
-    private Index<?> newIndex(UUID tableId, TableIndexView indexView) {
+    private Index<?> newIndex(TableImpl table, TableIndexView indexView) {
         if (indexView instanceof SortedIndexView) {
             return new SortedIndexImpl(
                     indexView.id(),
-                    tableId,
+                    table,
                     convert((SortedIndexView) indexView)
             );
         } else if (indexView instanceof HashIndexView) {
             return new HashIndex(
                     indexView.id(),
-                    tableId,
+                    table,
                     convert((HashIndexView) indexView)
             );
         }
@@ -434,8 +437,12 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         for (var columnName : indexView.columns().namedListKeys()) {
             IndexColumnView columnView = indexView.columns().get(columnName);
 
+            //TODO IGNITE-15141: Make null-order configurable.
+            // NULLS FIRST for DESC, NULLS LAST for ASC by default.
+            boolean nullsFirst = !columnView.asc();
+
             indexedColumns.add(columnName);
-            collations.add(ColumnCollation.get(columnView.asc(), false));
+            collations.add(ColumnCollation.get(columnView.asc(), nullsFirst));
         }
 
         return new SortedIndexDescriptor(
@@ -495,8 +502,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
 
             var rowConverter = new BinaryConverter(descriptor, tupleSchema, false);
 
-            return new VersionedConverter(descriptor.version(),
-                    row -> new BinaryTuple(tupleSchema, rowConverter.toTuple(row)));
+            return new VersionedConverter(descriptor.version(), rowConverter::toTuple);
         }
 
         private int[] resolveColumnIndexes(SchemaDescriptor descriptor) {

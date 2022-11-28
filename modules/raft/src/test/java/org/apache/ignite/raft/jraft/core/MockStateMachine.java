@@ -34,11 +34,11 @@ import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.Iterator;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.entity.LeaderChangeContext;
+import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotWriter;
 import org.apache.ignite.raft.jraft.util.Bits;
-import org.apache.ignite.raft.jraft.util.Endpoint;
 
 public class MockStateMachine extends StateMachineAdapter {
     private static final IgniteLogger LOG = Loggers.forClass(MockStateMachine.class);
@@ -49,17 +49,17 @@ public class MockStateMachine extends StateMachineAdapter {
     private volatile long appliedIndex = -1;
     private volatile long snapshotIndex = -1L;
     private final List<ByteBuffer> logs = new ArrayList<>();
-    private final Endpoint address;
+    private final PeerId peerId;
     private volatile int saveSnapshotTimes;
     private volatile int loadSnapshotTimes;
 
-    public Endpoint getAddress() {
-        return this.address;
+    public PeerId getPeerId() {
+        return this.peerId;
     }
 
-    public MockStateMachine(final Endpoint address) {
+    public MockStateMachine(final PeerId peerId) {
         super();
-        this.address = address;
+        this.peerId = peerId;
     }
 
     public int getSaveSnapshotTimes() {
@@ -153,7 +153,7 @@ public class MockStateMachine extends StateMachineAdapter {
             finally {
                 this.lock.unlock();
             }
-            LOG.info("Node<" + this.address + "> saved snapshot into " + file);
+            LOG.info("Node<" + this.peerId + "> saved snapshot into " + file);
             writer.addFile("data");
             done.run(Status.OK());
         }
@@ -194,7 +194,7 @@ public class MockStateMachine extends StateMachineAdapter {
             finally {
                 this.lock.unlock();
             }
-            LOG.info("Node<" + this.address + "> loaded snapshot from " + path);
+            LOG.info("Node<" + this.peerId + "> loaded snapshot from " + path);
             return true;
         }
         catch (final IOException e) {

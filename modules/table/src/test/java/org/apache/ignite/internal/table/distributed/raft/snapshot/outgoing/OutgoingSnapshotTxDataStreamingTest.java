@@ -21,9 +21,12 @@ import static java.util.Collections.emptyIterator;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.notNullValue;
+import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -32,7 +35,8 @@ import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
-import org.apache.ignite.internal.lock.AutoLockup;
+import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionAccess;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionKey;
@@ -44,6 +48,7 @@ import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.IgniteBiTuple;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -54,6 +59,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class OutgoingSnapshotTxDataStreamingTest {
     @Mock
     private PartitionAccess partitionAccess;
+
+    @Mock
+    private MvPartitionStorage mvPartitionStorage;
 
     @Mock
     private TxStateStorage txStateStorage;
@@ -77,9 +85,12 @@ class OutgoingSnapshotTxDataStreamingTest {
 
     @BeforeEach
     void createTestInstance() {
-        lenient().when(partitionAccess.partitionKey()).thenReturn(partitionKey);
+        when(partitionAccess.partitionKey()).thenReturn(partitionKey);
 
+        lenient().when(partitionAccess.mvPartitionStorage()).thenReturn(mvPartitionStorage);
         lenient().when(partitionAccess.txStatePartitionStorage()).thenReturn(txStateStorage);
+
+        lenient().when(mvPartitionStorage.committedGroupConfiguration()).thenReturn(mock(RaftGroupConfiguration.class));
 
         snapshot = new OutgoingSnapshot(UUID.randomUUID(), partitionAccess);
     }
@@ -104,20 +115,23 @@ class OutgoingSnapshotTxDataStreamingTest {
     }
 
     private void configureStorageToHaveExactly(UUID txId1, TxMeta meta1, UUID txId2, TxMeta meta2) {
-        when(txStateStorage.scan()).thenReturn(Cursor.fromIterator(
+        when(txStateStorage.scan()).thenReturn(Cursor.fromBareIterator(
                 List.of(new IgniteBiTuple<>(txId1, meta1), new IgniteBiTuple<>(txId2, meta2)).iterator())
         );
 
-        freezeSnapshotScope();
-    }
-
-    private void freezeSnapshotScope() {
-        try (AutoLockup ignored = snapshot.acquireMvLock()) {
-            snapshot.freezeScope();
-        }
+        snapshot.freezeScopeUnderMvLock();
     }
 
     private SnapshotTxDataResponse getTxDataResponse(int maxTxsInBatch) {
+        SnapshotTxDataResponse response = getNullableTxDataResponse(maxTxsInBatch);
+
+        assertThat(response, is(notNullValue()));
+
+        return response;
+    }
+
+    @Nullable
+    private SnapshotTxDataResponse getNullableTxDataResponse(int maxTxsInBatch) {
         SnapshotTxDataRequest request = messagesFactory.snapshotTxDataRequest()
                 .maxTransactionsInBatch(maxTxsInBatch)
                 .build();
@@ -126,9 +140,9 @@ class OutgoingSnapshotTxDataStreamingTest {
     }
 
     private void configureStorageToBeEmpty() {
-        when(txStateStorage.scan()).thenReturn(Cursor.fromIterator(emptyIterator()));
+        when(txStateStorage.scan()).thenReturn(Cursor.fromBareIterator(emptyIterator()));
 
-        freezeSnapshotScope();
+        snapshot.freezeScopeUnderMvLock();
     }
 
     @Test
@@ -160,13 +174,20 @@ class OutgoingSnapshotTxDataStreamingTest {
 
     @Test
     void closesCursorWhenTxDataIsExhaustedInPartition() throws Exception {
-        Cursor<IgniteBiTuple<UUID, TxMeta>> cursor = spy(Cursor.fromIterator(emptyIterator()));
+        Cursor<IgniteBiTuple<UUID, TxMeta>> cursor = spy(Cursor.fromBareIterator(emptyIterator()));
 
         when(txStateStorage.scan()).thenReturn(cursor);
-        freezeSnapshotScope();
+        snapshot.freezeScopeUnderMvLock();
 
         getTxDataResponse(Integer.MAX_VALUE);
 
         verify(cursor).close();
+    }
+
+    @Test
+    void returnsNullTxDataResponseWhenClosed() {
+        snapshot.close();
+
+        assertThat(getNullableTxDataResponse(Integer.MAX_VALUE), is(nullValue()));
     }
 }

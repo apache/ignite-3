@@ -31,7 +31,6 @@ import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
 import org.apache.ignite.internal.util.ArrayUtils;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -74,7 +73,6 @@ public class LimitOffsetPlannerTest extends AbstractPlannerTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17748")
     public void testOrderOfRels() throws Exception {
         IgniteSchema publicSchema = createSchemaWithTable(IgniteDistributions.random());
 

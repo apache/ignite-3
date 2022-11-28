@@ -20,6 +20,7 @@ package org.apache.ignite.internal.schema;
 import java.util.Collection;
 import org.apache.ignite.internal.schema.registry.SchemaRegistryException;
 import org.apache.ignite.internal.schema.row.Row;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Table schema registry interface.
@@ -50,6 +51,14 @@ public interface SchemaRegistry {
      * @throws SchemaRegistryException If no schema found for given version.
      */
     SchemaDescriptor schema(int ver) throws SchemaRegistryException;
+
+    /**
+     * Gets cached schema descriptor for given version.
+     *
+     * @param ver Schema version to get descriptor for.
+     * @return Schema descriptor of given version or {@code null} if missed in cache.
+     */
+    @Nullable SchemaDescriptor schemaCached(int ver);
 
     /**
      * Gets schema descriptor for the latest version in cluster.

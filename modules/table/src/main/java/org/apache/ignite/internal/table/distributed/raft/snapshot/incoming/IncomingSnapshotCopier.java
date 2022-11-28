@@ -31,6 +31,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.TableManager;
@@ -59,6 +60,10 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
     private static final TableMessagesFactory MSG_FACTORY = new TableMessagesFactory();
 
     private static final long NETWORK_TIMEOUT = Long.MAX_VALUE;
+
+    private static final long MAX_MV_DATA_PAYLOADS_BATCH_BYTES_HINT = 100 * 1024;
+
+    private static final int MAX_TX_DATA_BATCH_SIZE = 1000;
 
     private final PartitionSnapshotStorage partitionSnapshotStorage;
 
@@ -197,12 +202,12 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
                     }
 
                     mvPartitionStorage.runConsistently(() -> {
-                        mvPartitionStorage.lastAppliedIndex(FULL_RABALANCING_STARTED);
+                        mvPartitionStorage.lastApplied(FULL_RABALANCING_STARTED, 0);
 
                         return null;
                     });
 
-                    LOG.info("Copier prepared multi-versioned storage for the partition [partId={}, tableId={}]", partId());
+                    LOG.info("Copier prepared multi-versioned storage for the partition [partId={}, tableId={}]", partId(), tableId());
 
                     return completedFuture(null);
                 });
@@ -226,9 +231,9 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
                         return completedFuture(null);
                     }
 
-                    txStatePartitionStorage.lastAppliedIndex(FULL_RABALANCING_STARTED);
+                    txStatePartitionStorage.lastApplied(FULL_RABALANCING_STARTED, 0);
 
-                    LOG.info("Copier prepared transaction state storage for the partition [partId={}, tableId={}]", partId());
+                    LOG.info("Copier prepared transaction state storage for the partition [partId={}, tableId={}]", partId(), tableId());
 
                     return completedFuture(null);
                 });
@@ -253,7 +258,8 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
         ).thenAccept(response -> {
             snapshotMeta = ((SnapshotMetaResponse) response).meta();
 
-            LOG.info("Copier has loaded the snapshot meta for the partition [partId={}, tableId={}]", partId(), tableId());
+            LOG.info("Copier has loaded the snapshot meta for the partition [partId={}, tableId={}, meta={}]",
+                    partId(), tableId(), snapshotMeta);
         });
     }
 
@@ -267,7 +273,10 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
 
         return partitionSnapshotStorage.outgoingSnapshotsManager().messagingService().invoke(
                 snapshotSender,
-                MSG_FACTORY.snapshotMvDataRequest().id(snapshotUri.snapshotId).build(),
+                MSG_FACTORY.snapshotMvDataRequest()
+                        .id(snapshotUri.snapshotId)
+                        .batchSizeHint(MAX_MV_DATA_PAYLOADS_BATCH_BYTES_HINT)
+                        .build(),
                 NETWORK_TIMEOUT
         ).thenComposeAsync(response -> {
             SnapshotMvDataResponse snapshotMvDataResponse = ((SnapshotMvDataResponse) response);
@@ -336,7 +345,10 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
 
         return partitionSnapshotStorage.outgoingSnapshotsManager().messagingService().invoke(
                 snapshotSender,
-                MSG_FACTORY.snapshotTxDataRequest().id(snapshotUri.snapshotId).build(),
+                MSG_FACTORY.snapshotTxDataRequest()
+                        .id(snapshotUri.snapshotId)
+                        .maxTransactionsInBatch(MAX_TX_DATA_BATCH_SIZE)
+                        .build(),
                 NETWORK_TIMEOUT
         ).thenComposeAsync(response -> {
             SnapshotTxDataResponse snapshotTxDataResponse = (SnapshotTxDataResponse) response;
@@ -390,16 +402,24 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
         assert meta != null;
 
         mvPartitionStorage.runConsistently(() -> {
-            txStatePartitionStorage.lastAppliedIndex(meta.lastIncludedIndex());
-            mvPartitionStorage.lastAppliedIndex(meta.lastIncludedIndex());
+            txStatePartitionStorage.lastApplied(meta.lastIncludedIndex(), meta.lastIncludedTerm());
+            mvPartitionStorage.lastApplied(meta.lastIncludedIndex(), meta.lastIncludedTerm());
+
+            mvPartitionStorage.committedGroupConfiguration(new RaftGroupConfiguration(
+                    meta.peersList(),
+                    meta.learnersList(),
+                    meta.oldPeersList(),
+                    meta.oldLearnersList()
+            ));
 
             return null;
         });
 
         LOG.info(
-                "Copier has finished updating last applied index for the partition [partId={}, lastAppliedIndex={}]",
+                "Copier has finished updating last applied index for the partition [partId={}, lastAppliedIndex={}, lastAppliedTerm={}]",
                 partId(),
-                meta.lastIncludedIndex()
+                meta.lastIncludedIndex(),
+                meta.lastIncludedTerm()
         );
     }
 

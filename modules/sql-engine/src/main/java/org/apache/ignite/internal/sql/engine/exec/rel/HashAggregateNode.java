@@ -30,7 +30,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
-import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
@@ -70,9 +69,9 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
      * @param ctx Execution context.
      */
     public HashAggregateNode(
-            ExecutionContext<RowT> ctx, RelDataType rowType, AggregateType type, List<ImmutableBitSet> grpSets,
+            ExecutionContext<RowT> ctx, AggregateType type, List<ImmutableBitSet> grpSets,
             Supplier<List<AccumulatorWrapper<RowT>>> accFactory, RowFactory<RowT> rowFactory) {
-        super(ctx, rowType);
+        super(ctx);
 
         this.type = type;
         this.accFactory = accFactory;

@@ -20,6 +20,7 @@ package org.apache.ignite.network;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
@@ -83,14 +84,25 @@ class DefaultMessagingServiceTest {
     private final TestMessagesFactory testMessagesFactory = new TestMessagesFactory();
     private final MessageSerializationRegistryImpl messageSerializationRegistry = new MessageSerializationRegistryImpl();
 
+    private final ClusterNode senderNode = new ClusterNode(
+            "sender",
+            "sender",
+            new NetworkAddress("localhost", SENDER_PORT)
+    );
+
     private final ClusterNode receiverNode = new ClusterNode(
             "receiver",
             "receiver",
-            new NetworkAddress("localhost", RECEIVER_PORT, "receiver")
+            new NetworkAddress("localhost", RECEIVER_PORT)
     );
 
     @BeforeEach
-    void initSerializationRegistry() {
+    void setUp() {
+        configureSender();
+        configureReceiver();
+
+        when(topologyService.getByConsistentId(eq(senderNode.name()))).thenReturn(senderNode);
+
         messageSerializationRegistry.registerFactory(
                 (short) 2,
                 TestMessageTypes.TEST,
@@ -100,23 +112,18 @@ class DefaultMessagingServiceTest {
 
     @Test
     void messagesSentBeforeChannelStartAreDeliveredInCorrectOrder() throws Exception {
-        configureSender();
-        configureReceiver();
-
         CountDownLatch allowSendLatch = new CountDownLatch(1);
 
         try (
-                Services senderServices = createMessagingService(
-                        "sender", "sender-network", senderNetworkConfig, () -> awaitQuietly(allowSendLatch)
-                );
-                Services receiverServices = createMessagingService("receiver", "receiver-network", receiverNetworkConfig, () -> {})
+                Services senderServices = createMessagingService(senderNode, senderNetworkConfig, () -> awaitQuietly(allowSendLatch));
+                Services receiverServices = createMessagingService(receiverNode, receiverNetworkConfig, () -> {})
         ) {
             List<String> payloads = new CopyOnWriteArrayList<>();
             CountDownLatch messagesDeliveredLatch = new CountDownLatch(2);
 
             receiverServices.messagingService.addMessageHandler(
                     TestMessageTypes.class,
-                    (message, senderAddr, correlationId) -> {
+                    (message, sender, correlationId) -> {
                         payloads.add(((TestMessage) message).msg());
                         messagesDeliveredLatch.countDown();
                     }
@@ -167,15 +174,11 @@ class DefaultMessagingServiceTest {
         return testMessagesFactory.testMessage().msg(message).build();
     }
 
-    private Services createMessagingService(
-            String consistentId,
-            String senderEventLoopGroupNamePrefix,
-            NetworkConfiguration networkConfig,
-            Runnable beforeHandshake
-    ) {
+    private Services createMessagingService(ClusterNode node, NetworkConfiguration networkConfig, Runnable beforeHandshake) {
         ClassDescriptorRegistry classDescriptorRegistry = new ClassDescriptorRegistry();
         ClassDescriptorFactory classDescriptorFactory = new ClassDescriptorFactory(classDescriptorRegistry);
         UserObjectMarshaller marshaller = new DefaultUserObjectMarshaller(classDescriptorRegistry, classDescriptorFactory);
+
         DefaultMessagingService messagingService = new DefaultMessagingService(
                 networkMessagesFactory,
                 topologyService,
@@ -187,14 +190,17 @@ class DefaultMessagingServiceTest {
                 messageSerializationRegistry,
                 new UserObjectSerializationContext(classDescriptorRegistry, classDescriptorFactory, marshaller)
         );
-        NettyBootstrapFactory bootstrapFactory = new NettyBootstrapFactory(networkConfig, senderEventLoopGroupNamePrefix);
+
+        String eventLoopGroupNamePrefix = node.name() + "-event-loop";
+
+        NettyBootstrapFactory bootstrapFactory = new NettyBootstrapFactory(networkConfig, eventLoopGroupNamePrefix);
         bootstrapFactory.start();
 
         ConnectionManager connectionManager = new ConnectionManager(
                 networkConfig.value(),
                 serializationService,
                 UUID.randomUUID(),
-                consistentId,
+                node.name(),
                 bootstrapFactory,
                 clientHandshakeManagerFactoryAdding(beforeHandshake)
         );

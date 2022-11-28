@@ -1246,7 +1246,8 @@ public class ConfigurationAsmGenerator {
             );
         } else if (!polymorphicFieldsByExtension.isEmpty()) {
             assert polymorphicTypeIdFieldDef != null : schemaClass.getName();
-            assert isPolymorphicId(schemaFields.get(0)) : schemaClass.getName();
+            assert schemaFields.stream().anyMatch(ConfigurationUtil::isPolymorphicId) :
+                    "Missing field with @PolymorphicId in " + schemaClass.getName();
 
             // Create switch by polymorphicTypeIdField.
             StringSwitchBuilder switchBuilderTypeId = typeIdSwitchBuilder(traverseChildrenMtd, polymorphicTypeIdFieldDef);

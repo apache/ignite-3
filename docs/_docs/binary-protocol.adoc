@@ -17,7 +17,7 @@
 Ignite binary client protocol enables user applications to communicate with an existing Ignite cluster without starting a full-fledged Ignite node.
 An application can connect to the cluster through a raw TCP socket. Once the connection is established, the application can communicate with the Ignite cluster and perform cache operations using the established format.
 
-This Alpha release implementation of binary client protocol comes with the following improvements:
+This Beta release implementation of binary client protocol comes with the following improvements:
 
 * Implemented link:https://cwiki.apache.org/confluence/display/IGNITE/IEP-75+Thin+Client+MsgPack+Serialization[MsgPack,window=_blank] as an underlying binary format;
 * Added new set of data types;

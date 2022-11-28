@@ -32,9 +32,10 @@ import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.function.Function;
 import java.util.function.Predicate;
-import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.index.SortedIndex;
+import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowConverter;
@@ -74,6 +75,8 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
 
     private final @Nullable Function<RowT, RowT> rowTransformer;
 
+    private final Function<BinaryRow, RowT> tableRowConverter;
+
     /** Participating columns. */
     private final @Nullable BitSet requiredColumns;
 
@@ -89,7 +92,7 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
 
     private boolean inLoop;
 
-    private Subscription activeSubscription;
+    private @Nullable Subscription activeSubscription;
 
     private boolean rangeConditionsProcessed;
 
@@ -97,7 +100,7 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
      * Constructor.
      *
      * @param ctx Execution context.
-     * @param rowType Output type of the current node.
+     * @param rowFactory Row factory.
      * @param schemaTable The table this node should scan.
      * @param parts Partition numbers to scan.
      * @param comp Rows comparator.
@@ -108,7 +111,7 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
      */
     public IndexScanNode(
             ExecutionContext<RowT> ctx,
-            RelDataType rowType,
+            RowHandler.RowFactory<RowT> rowFactory,
             IgniteIndex schemaIndex,
             InternalIgniteTable schemaTable,
             int[] parts,
@@ -118,8 +121,11 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
             @Nullable Function<RowT, RowT> rowTransformer,
             @Nullable BitSet requiredColumns
     ) {
-        super(ctx, rowType);
+        super(ctx);
+
         assert !nullOrEmpty(parts);
+
+        assert ctx.transaction() != null || ctx.transactionTime() != null : "Transaction not initialized.";
 
         this.schemaIndex = schemaIndex;
         this.parts = parts;
@@ -128,12 +134,13 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
         this.requiredColumns = requiredColumns;
         this.rangeConditions = rangeConditions;
         this.comp = comp;
+        this.factory = rowFactory;
 
         rangeConditionIterator = rangeConditions == null ? null : rangeConditions.iterator();
 
-        factory = ctx.rowHandler().factory(ctx.getTypeFactory(), rowType);
+        tableRowConverter = row -> schemaTable.toRow(context(), row, factory, requiredColumns);
 
-        indexRowSchema = RowConverter.createIndexRowSchema(schemaTable.descriptor(), schemaIndex.index().descriptor());
+        indexRowSchema = RowConverter.createIndexRowSchema(schemaIndex.columns(), schemaTable.descriptor());
     }
 
     /** {@inheritDoc} */
@@ -223,8 +230,10 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
             }
         }
 
-        if (waiting == 0 || activeSubscription == null) {
-            requestNextBatch();
+        if (requested > 0) {
+            if (waiting == 0 || activeSubscription == null) {
+                requestNextBatch();
+            }
         }
 
         if (requested > 0 && waiting == NOT_WAITING) {
@@ -280,12 +289,12 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
     }
 
     private Flow.Publisher<RowT> partitionPublisher(int part, @Nullable RangeCondition<RowT> cond) {
-        Publisher<BinaryTuple> pub;
+        Publisher<BinaryRow> pub;
 
         if (schemaIndex.type() == Type.SORTED) {
             int flags = 0;
-            BinaryTuple lower = null;
-            BinaryTuple upper = null;
+            BinaryTuplePrefix lower = null;
+            BinaryTuplePrefix upper = null;
 
             if (cond == null) {
                 flags = SortedIndex.INCLUDE_LEFT | SortedIndex.INCLUDE_RIGHT;
@@ -297,30 +306,38 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
                 flags |= (cond.upperInclude()) ? SortedIndex.INCLUDE_RIGHT : 0;
             }
 
-            pub = ((SortedIndex) schemaIndex.index()).scan(part, context().transaction(), lower, upper, flags, requiredColumns);
+            pub = ((SortedIndex) schemaIndex.index()).scan(
+                    part,
+                    context().transaction(),
+                    lower,
+                    upper,
+                    flags,
+                    requiredColumns
+            );
         } else {
             assert schemaIndex.type() == Type.HASH;
-            BinaryTuple key = null;
+            assert cond != null && cond.lower() != null : "Invalid hash index condition.";
 
-            if (cond != null) {
-                assert cond.lower() == cond.upper();
+            BinaryTuple key = toBinaryTuple(cond.lower());
 
-                key = toBinaryTuple(cond.lower());
-            }
-
-            pub = schemaIndex.index().scan(part, context().transaction(), key, requiredColumns);
+            pub = schemaIndex.index().lookup(
+                    part,
+                    context().transaction(),
+                    key,
+                    requiredColumns
+            );
         }
 
         return downstream -> {
-            // BinaryTuple -> RowT converter.
-            Subscriber<BinaryTuple> subs = new Subscriber<>() {
+            // BinaryRow -> RowT converter.
+            Subscriber<BinaryRow> subs = new Subscriber<>() {
                 @Override
                 public void onSubscribe(Subscription subscription) {
                     downstream.onSubscribe(subscription);
                 }
 
                 @Override
-                public void onNext(BinaryTuple item) {
+                public void onNext(BinaryRow item) {
                     downstream.onNext(convert(item));
                 }
 
@@ -340,9 +357,6 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
     }
 
     private class SubscriberImpl implements Flow.Subscriber<RowT> {
-
-        private int received = 0; // HB guarded here.
-
         /** {@inheritDoc} */
         @Override
         public void onSubscribe(Subscription subscription) {
@@ -357,9 +371,7 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
         public void onNext(RowT row) {
             inBuff.add(row);
 
-            if (++received == inBufSize) {
-                received = 0;
-
+            if (inBuff.size() == inBufSize) {
                 context().execute(() -> {
                     waiting = 0;
                     push();
@@ -388,7 +400,7 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
     }
 
     @Contract("null -> null")
-    private @Nullable BinaryTuple toBinaryTuplePrefix(@Nullable RowT condition) {
+    private @Nullable BinaryTuplePrefix toBinaryTuplePrefix(@Nullable RowT condition) {
         if (condition == null) {
             return null;
         }
@@ -405,7 +417,7 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
         return RowConverter.toBinaryTuple(context(), indexRowSchema, factory, condition);
     }
 
-    private RowT convert(BinaryTuple binaryTuple) {
-        return RowConverter.toRow(context(), binaryTuple, factory);
+    private RowT convert(BinaryRow binaryRow) {
+        return tableRowConverter.apply(binaryRow);
     }
 }

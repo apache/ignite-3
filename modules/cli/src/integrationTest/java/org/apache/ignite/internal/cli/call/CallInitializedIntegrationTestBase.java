@@ -19,7 +19,6 @@ package org.apache.ignite.internal.cli.call;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 
-import java.util.concurrent.ExecutionException;
 import org.apache.ignite.internal.cli.IntegrationTestBase;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -30,7 +29,7 @@ import org.junit.jupiter.api.TestInfo;
  */
 public class CallInitializedIntegrationTestBase extends IntegrationTestBase {
     @BeforeAll
-    void beforeAll(TestInfo testInfo) throws ExecutionException, InterruptedException {
+    void beforeAll(TestInfo testInfo) {
         startNodes(testInfo);
         String metaStorageNodeName = testNodeName(testInfo, 0);
         initializeCluster(metaStorageNodeName);

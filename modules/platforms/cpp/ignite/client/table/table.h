@@ -17,9 +17,9 @@
 
 #pragma once
 
-#include "ignite/common/config.h"
-#include "ignite/client/table/record_view.h"
 #include "ignite/client/table/ignite_tuple.h"
+#include "ignite/client/table/record_view.h"
+#include "ignite/common/config.h"
 
 #include <memory>
 #include <utility>
@@ -31,7 +31,7 @@ namespace detail {
 class table_impl;
 class tables_impl;
 
-} // namespace
+} // namespace detail
 
 /**
  * Table view.
@@ -71,7 +71,7 @@ private:
      * @param impl Implementation
      */
     explicit table(std::shared_ptr<detail::table_impl> impl)
-        : m_impl(std::move(impl)) { }
+        : m_impl(std::move(impl)) {}
 
     /** Implementation. */
     std::shared_ptr<detail::table_impl> m_impl;

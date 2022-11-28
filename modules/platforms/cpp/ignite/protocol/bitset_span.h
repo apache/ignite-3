@@ -20,9 +20,9 @@
 #include "ignite/common/bytes_view.h"
 
 #include <cassert>
+#include <climits>
 #include <cstddef>
 #include <cstring>
-#include <climits>
 
 namespace ignite::protocol {
 
@@ -59,9 +59,7 @@ public:
      *
      * @return Data view.
      */
-    [[nodiscard]] bytes_view data() const {
-        return {m_data, m_size};
-    }
+    [[nodiscard]] bytes_view data() const { return {m_data, m_size}; }
 
 private:
     /** A pointer to the beginning of the byte span. */

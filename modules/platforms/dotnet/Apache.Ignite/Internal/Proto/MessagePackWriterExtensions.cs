@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Internal.Proto
 {
     using System;
+    using System.Collections.Generic;
     using BinaryTuple;
     using MessagePack;
     using Transactions;
@@ -68,21 +69,21 @@ namespace Apache.Ignite.Internal.Proto
         /// Writes an array of objects with type codes.
         /// </summary>
         /// <param name="writer">Writer.</param>
-        /// <param name="arr">Array.</param>
-        public static void WriteObjectArrayAsBinaryTuple(this ref MessagePackWriter writer, object?[]? arr)
+        /// <param name="col">Array.</param>
+        public static void WriteObjectCollectionAsBinaryTuple(this ref MessagePackWriter writer, ICollection<object?>? col)
         {
-            if (arr == null)
+            if (col == null)
             {
                 writer.WriteNil();
 
                 return;
             }
 
-            writer.Write(arr.Length);
+            writer.Write(col.Count);
 
-            using var builder = new BinaryTupleBuilder(arr.Length * 3);
+            using var builder = new BinaryTupleBuilder(col.Count * 3);
 
-            foreach (var obj in arr)
+            foreach (var obj in col)
             {
                 builder.AppendObjectWithType(obj);
             }

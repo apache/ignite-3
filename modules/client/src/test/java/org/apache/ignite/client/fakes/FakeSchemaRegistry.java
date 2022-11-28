@@ -99,6 +99,12 @@ public class FakeSchemaRegistry implements SchemaRegistry {
     }
 
     /** {@inheritDoc} */
+    @Override
+    public @Nullable SchemaDescriptor schemaCached(int ver) {
+        return schemaCache.get(ver);
+    }
+
+    /** {@inheritDoc} */
     @Override public SchemaDescriptor waitLatestSchema() {
         return schema();
     }

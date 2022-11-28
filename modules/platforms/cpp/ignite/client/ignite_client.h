@@ -32,7 +32,7 @@ namespace detail {
 
 class ignite_client_impl;
 
-} // namespace
+} // namespace detail
 
 /**
  * Ignite client.

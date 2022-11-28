@@ -176,9 +176,9 @@ public class TxStateRocksDbTableStorage implements TxStateTableStorage {
 
             try {
                 storage.close();
-            } catch (Exception e) {
+            } catch (RuntimeException e) {
                 throw new StorageException("Couldn't close the transaction state storage of partition "
-                        + partitionId + ", table " + tableCfg.value().name());
+                        + partitionId + ", table " + tableCfg.value().name(), e);
             }
         }
     }
@@ -250,7 +250,7 @@ public class TxStateRocksDbTableStorage implements TxStateTableStorage {
                 TxStateStorage storage = storages.get(i);
 
                 if (storage != null) {
-                    resources.add(storage);
+                    resources.add(storage::close);
                 }
             }
 
@@ -296,7 +296,7 @@ public class TxStateRocksDbTableStorage implements TxStateTableStorage {
     }
 
     @Override
-    public void close() throws Exception {
+    public void close() {
         stop();
     }
 

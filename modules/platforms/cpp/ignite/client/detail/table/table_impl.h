@@ -50,7 +50,7 @@ public:
     table_impl(std::string name, const uuid &id, std::shared_ptr<cluster_connection> connection)
         : m_name(std::move(name))
         , m_id(id)
-        , m_connection(std::move(connection)) { }
+        , m_connection(std::move(connection)) {}
 
     /**
      * Gets table name.
@@ -71,11 +71,11 @@ public:
      *
      * @param handler Callback to call on error during retrieval of the latest schema.
      */
-    template <typename T>
-    void with_latest_schema_async(ignite_callback<T> handler, std::function<void(const schema&, ignite_callback<T>)> callback) {
-        get_latest_schema_async(
-            [this, handler = std::move(handler), callback = std::move(callback)]
-                (ignite_result<std::shared_ptr<schema>>&& res) mutable {
+    template<typename T>
+    void with_latest_schema_async(
+        ignite_callback<T> handler, std::function<void(const schema &, ignite_callback<T>)> callback) {
+        get_latest_schema_async([this, handler = std::move(handler), callback = std::move(callback)](
+                                    ignite_result<std::shared_ptr<schema>> &&res) mutable {
             if (res.has_error()) {
                 handler(ignite_error{res.error()});
                 return;
@@ -99,7 +99,7 @@ public:
      * @param key Key.
      * @param callback Callback.
      */
-    void get_async(transaction* tx, const ignite_tuple& key, ignite_callback<std::optional<ignite_tuple>> callback);
+    void get_async(transaction *tx, const ignite_tuple &key, ignite_callback<std::optional<ignite_tuple>> callback);
 
     /**
      * Gets multiple records by keys asynchronously.
@@ -113,7 +113,7 @@ public:
      *   does not exist, the resulting element of the corresponding order is
      *   @c std::nullopt.
      */
-    void get_all_async(transaction* tx, std::vector<ignite_tuple> keys,
+    void get_all_async(transaction *tx, std::vector<ignite_tuple> keys,
         ignite_callback<std::vector<std::optional<ignite_tuple>>> callback);
 
     /**
@@ -124,7 +124,7 @@ public:
      * @param record A record to insert into the table. The record cannot be @c nullptr.
      * @param callback Callback.
      */
-    void upsert_async(transaction* tx, const ignite_tuple& record, ignite_callback<void> callback);
+    void upsert_async(transaction *tx, const ignite_tuple &record, ignite_callback<void> callback);
 
     /**
      * Inserts multiple records into the table asynchronously, replacing existing ones.
@@ -134,7 +134,7 @@ public:
      * @param records Records to upsert.
      * @param callback Callback that called on operation completion.
      */
-    void upsert_all_async(transaction* tx, std::vector<ignite_tuple> records, ignite_callback<void> callback);
+    void upsert_all_async(transaction *tx, std::vector<ignite_tuple> records, ignite_callback<void> callback);
 
     /**
      * Inserts a record into the table and returns previous record asynchronously.
@@ -145,8 +145,8 @@ public:
      * @param callback Callback. Called with a value which contains replaced
      *   record or @c std::nullopt if it did not exist.
      */
-    IGNITE_API void get_and_upsert_async(transaction* tx, const ignite_tuple& record,
-        ignite_callback<std::optional<ignite_tuple>> callback);
+    IGNITE_API void get_and_upsert_async(
+        transaction *tx, const ignite_tuple &record, ignite_callback<std::optional<ignite_tuple>> callback);
 
     /**
      * Inserts a record into the table if it does not exist.
@@ -159,7 +159,7 @@ public:
      *   record was inserted. Equals @c false if a record with the same key
      *   already exists.
      */
-    void insert_async(transaction* tx, const ignite_tuple& record, ignite_callback<bool> callback);
+    void insert_async(transaction *tx, const ignite_tuple &record, ignite_callback<bool> callback);
 
     /**
      * Inserts multiple records into the table asynchronously, skipping existing ones.
@@ -170,8 +170,8 @@ public:
      * @param callback Callback that called on operation completion. Called with
      *   skipped records.
      */
-    void insert_all_async(transaction* tx, std::vector<ignite_tuple> records,
-        ignite_callback<std::vector<ignite_tuple>> callback);
+    void insert_all_async(
+        transaction *tx, std::vector<ignite_tuple> records, ignite_callback<std::vector<ignite_tuple>> callback);
 
     /**
      * Asynchronously replaces a record with the same key columns if it exists,
@@ -183,7 +183,7 @@ public:
      * @param callback Callback. Called with a value indicating whether a record
      *   with the specified key was replaced.
      */
-    void replace_async(transaction* tx, const ignite_tuple& record, ignite_callback<bool> callback);
+    void replace_async(transaction *tx, const ignite_tuple &record, ignite_callback<bool> callback);
 
     /**
      * Asynchronously replaces a record with a new one only if all existing
@@ -196,8 +196,8 @@ public:
      * @param callback Callback. Called with a value indicating whether a
      *   specified record was replaced.
      */
-    void replace_async(transaction* tx, const ignite_tuple& record, const ignite_tuple& new_record,
-        ignite_callback<bool> callback);
+    void replace_async(
+        transaction *tx, const ignite_tuple &record, const ignite_tuple &new_record, ignite_callback<bool> callback);
 
     /**
      * Asynchronously replaces a record with the same key columns if it exists
@@ -209,8 +209,8 @@ public:
      * @param callback Callback. Called with a previous value for the given key,
      *   or @c std::nullopt if it did not exist.
      */
-    void get_and_replace_async(transaction* tx, const ignite_tuple& record,
-        ignite_callback<std::optional<ignite_tuple>> callback);
+    void get_and_replace_async(
+        transaction *tx, const ignite_tuple &record, ignite_callback<std::optional<ignite_tuple>> callback);
 
     /**
      * Deletes a record with the specified key asynchronously.
@@ -221,7 +221,7 @@ public:
      * @param callback Callback that called on operation completion. Called with
      *   a value indicating whether a record with the specified key was deleted.
      */
-    void remove_async(transaction* tx, const ignite_tuple &key, ignite_callback<bool> callback);
+    void remove_async(transaction *tx, const ignite_tuple &key, ignite_callback<bool> callback);
 
     /**
      * Deletes a record only if all existing columns have the same values as
@@ -233,7 +233,7 @@ public:
      * @param callback Callback that called on operation completion. Called with
      *   a value indicating whether a record with the specified key was deleted.
      */
-    void remove_exact_async(transaction* tx, const ignite_tuple &record, ignite_callback<bool> callback);
+    void remove_exact_async(transaction *tx, const ignite_tuple &record, ignite_callback<bool> callback);
 
     /**
      * Gets and deletes a record with the specified key asynchronously.
@@ -244,8 +244,8 @@ public:
      * @param callback Callback that called on operation completion. Called with
      *   a deleted record or @c std::nullopt if it did not exist.
      */
-    void get_and_remove_async(transaction* tx, const ignite_tuple &key,
-        ignite_callback<std::optional<ignite_tuple>> callback);
+    void get_and_remove_async(
+        transaction *tx, const ignite_tuple &key, ignite_callback<std::optional<ignite_tuple>> callback);
 
     /**
      * Deletes multiple records from the table asynchronously. If one or more
@@ -257,8 +257,8 @@ public:
      * @param callback Callback that called on operation completion. Called with
      *   records from @c keys that did not exist.
      */
-    void remove_all_async(transaction* tx, std::vector<ignite_tuple> keys,
-        ignite_callback<std::vector<ignite_tuple>> callback);
+    void remove_all_async(
+        transaction *tx, std::vector<ignite_tuple> keys, ignite_callback<std::vector<ignite_tuple>> callback);
 
     /**
      * Deletes multiple exactly matching records asynchronously. If one or more
@@ -270,8 +270,8 @@ public:
      * @param callback Callback that called on operation completion. Called with
      *   records from @c records that did not exist.
      */
-    void remove_all_exact_async(transaction* tx, std::vector<ignite_tuple> records,
-        ignite_callback<std::vector<ignite_tuple>> callback);
+    void remove_all_exact_async(
+        transaction *tx, std::vector<ignite_tuple> records, ignite_callback<std::vector<ignite_tuple>> callback);
 
 private:
     /**
@@ -286,7 +286,7 @@ private:
      *
      * @param val Schema.
      */
-    void add_schema(const std::shared_ptr<schema>& val) {
+    void add_schema(const std::shared_ptr<schema> &val) {
         std::lock_guard<std::mutex> lock(m_schemas_mutex);
         if (m_latest_schema_version < val->version)
             m_latest_schema_version = val->version;
@@ -314,7 +314,7 @@ private:
      *
      * @param reader Reader to use.
      */
-    std::shared_ptr<schema> get_schema(protocol::reader& reader) {
+    std::shared_ptr<schema> get_schema(protocol::reader &reader) {
         auto schema_version = reader.read_object_nullable<std::int32_t>();
         std::shared_ptr<schema> sch;
         if (schema_version)

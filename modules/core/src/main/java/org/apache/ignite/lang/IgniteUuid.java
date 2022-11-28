@@ -18,6 +18,7 @@
 package org.apache.ignite.lang;
 
 import java.io.Serializable;
+import java.util.Comparator;
 import java.util.UUID;
 
 /**
@@ -25,6 +26,28 @@ import java.util.UUID;
  * extra memory for 8-byte counter additionally to internal UUID.
  */
 public final class IgniteUuid implements Comparable<IgniteUuid>, Cloneable, Serializable {
+    /** Returns global order comparator for IgniteUUID type, which orders global UUID first then local id. */
+    public static Comparator<IgniteUuid> globalOrderComparator() {
+        return (uuid1, uuid2) -> {
+            if (uuid1 == uuid2) {
+                return 0;
+            }
+
+            int res = uuid1.globalId().compareTo(uuid2.globalId());
+
+            if (res == 0) {
+                res = Long.compare(uuid1.localId(), uuid2.localId());
+            }
+
+            return res;
+        };
+    }
+
+    /** Returns natural order comparator for IgniteUUID type, which orders local id first then global UUID. */
+    public static Comparator<IgniteUuid> naturalOrderComparator() {
+        return IgniteUuid::compareTo;
+    }
+
     /** Serial version uid. */
     private static final long serialVersionUID = 0L;
 

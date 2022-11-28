@@ -44,7 +44,7 @@ public:
      */
     constexpr ignite_date_time(const ignite_date &date, const ignite_time &time)
         : ignite_date(date)
-        , ignite_time(time) { }
+        , ignite_time(time) {}
 
     /**
      * Gets the date part of this date-time.

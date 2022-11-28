@@ -234,7 +234,7 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
      * cluster state.
      */
     @Test
-    public void test() throws Exception {
+    public void testExpectReplicationTimeout() throws Exception {
         Ignite ignite0 = clusterNodes.get(0);
         IgniteImpl ignite1 = (IgniteImpl) clusterNodes.get(1);
 

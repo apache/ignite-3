@@ -17,13 +17,13 @@
 
 #include "ignite/client/detail/table/table_impl.h"
 
+#include "ignite/common/bits.h"
+#include "ignite/common/ignite_error.h"
 #include "ignite/protocol/bitset_span.h"
 #include "ignite/protocol/reader.h"
 #include "ignite/protocol/writer.h"
 #include "ignite/schema/binary_tuple_builder.h"
 #include "ignite/schema/binary_tuple_parser.h"
-#include "ignite/common/bits.h"
-#include "ignite/common/ignite_error.h"
 
 namespace ignite::detail {
 
@@ -35,7 +35,7 @@ namespace ignite::detail {
  * @param index Tuple field index.
  * @param tuple Tuple.
  */
-void claim_column(binary_tuple_builder& builder, ignite_type typ, std::int32_t index, const ignite_tuple& tuple) {
+void claim_column(binary_tuple_builder &builder, ignite_type typ, std::int32_t index, const ignite_tuple &tuple) {
     switch (typ) {
         case ignite_type::INT8:
             builder.claim_int8(tuple.get<std::int8_t>(index));
@@ -59,10 +59,10 @@ void claim_column(binary_tuple_builder& builder, ignite_type typ, std::int32_t i
             builder.claim_uuid(tuple.get<uuid>(index));
             break;
         case ignite_type::STRING:
-            builder.claim(SizeT(tuple.get<const std::string&>(index).size()));
+            builder.claim(SizeT(tuple.get<const std::string &>(index).size()));
             break;
         case ignite_type::BINARY:
-            builder.claim(SizeT(tuple.get<const std::vector<std::byte>&>(index).size()));
+            builder.claim(SizeT(tuple.get<const std::vector<std::byte> &>(index).size()));
             break;
         default:
             // TODO: IGNITE-18035 Support other types
@@ -78,7 +78,7 @@ void claim_column(binary_tuple_builder& builder, ignite_type typ, std::int32_t i
  * @param index Tuple field index.
  * @param tuple Tuple.
  */
-void append_column(binary_tuple_builder& builder, ignite_type typ, std::int32_t index, const ignite_tuple& tuple) {
+void append_column(binary_tuple_builder &builder, ignite_type typ, std::int32_t index, const ignite_tuple &tuple) {
     switch (typ) {
         case ignite_type::INT8:
             builder.append_int8(tuple.get<std::int8_t>(index));
@@ -102,13 +102,13 @@ void append_column(binary_tuple_builder& builder, ignite_type typ, std::int32_t 
             builder.append_uuid(tuple.get<uuid>(index));
             break;
         case ignite_type::STRING: {
-            const auto& str = tuple.get<const std::string&>(index);
-            bytes_view view{reinterpret_cast<const std::byte*>(str.data()), str.size()};
+            const auto &str = tuple.get<const std::string &>(index);
+            bytes_view view{reinterpret_cast<const std::byte *>(str.data()), str.size()};
             builder.append(typ, view);
             break;
         }
         case ignite_type::BINARY:
-            builder.append(typ, tuple.get<const std::vector<std::byte>&>(index));
+            builder.append(typ, tuple.get<const std::vector<std::byte> &>(index));
             break;
         default:
             // TODO: IGNITE-18035 Support other types
@@ -123,7 +123,7 @@ void append_column(binary_tuple_builder& builder, ignite_type typ, std::int32_t 
  * @param typ Column type.
  * @return Column value.
  */
-std::any read_next_column(binary_tuple_parser& parser, ignite_type typ) {
+std::any read_next_column(binary_tuple_parser &parser, ignite_type typ) {
     auto val_opt = parser.get_next();
     if (!val_opt)
         return {};
@@ -146,7 +146,7 @@ std::any read_next_column(binary_tuple_parser& parser, ignite_type typ) {
         case ignite_type::UUID:
             return binary_tuple_parser::get_uuid(val);
         case ignite_type::STRING:
-            return std::string(reinterpret_cast<const char*>(val.data()), val.size());
+            return std::string(reinterpret_cast<const char *>(val.data()), val.size());
         case ignite_type::BINARY:
             return std::vector<std::byte>(val);
         default:
@@ -160,7 +160,7 @@ std::any read_next_column(binary_tuple_parser& parser, ignite_type typ) {
  *
  * @param tx Transaction.
  */
-void transactions_not_implemented(transaction* tx) {
+void transactions_not_implemented(transaction *tx) {
     // TODO: IGNITE-17604 Implement transactions
     if (tx)
         throw ignite_error("Transactions are not implemented");
@@ -175,15 +175,15 @@ void transactions_not_implemented(transaction* tx) {
  * @param no_value No value bitset.
  * @return Serialized binary tuple.
  */
-std::vector<std::byte> pack_tuple(const schema& sch, const ignite_tuple& tuple, bool key_only,
-        protocol::bitset_span& no_value) {
+std::vector<std::byte> pack_tuple(
+    const schema &sch, const ignite_tuple &tuple, bool key_only, protocol::bitset_span &no_value) {
     auto count = std::int32_t(key_only ? sch.key_column_count : sch.columns.size());
     binary_tuple_builder builder{count};
 
     builder.start();
 
     for (std::int32_t i = 0; i < count; ++i) {
-        const auto& col = sch.columns[i];
+        const auto &col = sch.columns[i];
         auto col_idx = tuple.column_ordinal(col.name);
 
         if (col_idx >= 0)
@@ -194,7 +194,7 @@ std::vector<std::byte> pack_tuple(const schema& sch, const ignite_tuple& tuple, 
 
     builder.layout();
     for (std::int32_t i = 0; i < count; ++i) {
-        const auto& col = sch.columns[i];
+        const auto &col = sch.columns[i];
         auto col_idx = tuple.column_ordinal(col.name);
 
         if (col_idx >= 0)
@@ -216,11 +216,11 @@ std::vector<std::byte> pack_tuple(const schema& sch, const ignite_tuple& tuple, 
  * @param tuple Tuple.
  * @param key_only Should only key fields be written or not.
  */
-void write_tuple(protocol::writer& writer, const schema& sch, const ignite_tuple& tuple, bool key_only) {
+void write_tuple(protocol::writer &writer, const schema &sch, const ignite_tuple &tuple, bool key_only) {
     const std::size_t count = key_only ? sch.key_column_count : sch.columns.size();
     const std::size_t bytes_num = bytes_for_bits(count);
 
-    auto no_value_bytes = reinterpret_cast<std::byte*>(alloca(bytes_num));
+    auto no_value_bytes = reinterpret_cast<std::byte *>(alloca(bytes_num));
     protocol::bitset_span no_value(no_value_bytes, bytes_num);
 
     auto tuple_data = pack_tuple(sch, tuple, key_only, no_value);
@@ -237,7 +237,7 @@ void write_tuple(protocol::writer& writer, const schema& sch, const ignite_tuple
  * @param tuples Tuples.
  * @param key_only Should only key fields be written or not.
  */
-void write_tuples(protocol::writer& writer, const schema& sch, const std::vector<ignite_tuple>& tuples, bool key_only) {
+void write_tuples(protocol::writer &writer, const schema &sch, const std::vector<ignite_tuple> &tuples, bool key_only) {
     writer.write(std::int32_t(tuples.size()));
     for (auto &tuple : tuples)
         write_tuple(writer, sch, tuple, key_only);
@@ -250,7 +250,7 @@ void write_tuples(protocol::writer& writer, const schema& sch, const std::vector
  * @param id Table ID.
  * @param sch Table schema.
  */
-void write_table_operation_header(protocol::writer &writer, uuid id, const schema& sch) {
+void write_table_operation_header(protocol::writer &writer, uuid id, const schema &sch) {
     writer.write(id);
     writer.write_nil(); // TODO: IGNITE-17604: write transaction ID here
     writer.write(sch.version);
@@ -264,7 +264,7 @@ void write_table_operation_header(protocol::writer &writer, uuid id, const schem
  * @param key Key.
  * @return Tuple.
  */
-ignite_tuple read_tuple(protocol::reader& reader, const schema* sch, const ignite_tuple& key) {
+ignite_tuple read_tuple(protocol::reader &reader, const schema *sch, const ignite_tuple &key) {
     auto tuple_data = reader.read_binary();
 
     auto columns_cnt = std::int32_t(sch->columns.size());
@@ -272,7 +272,7 @@ ignite_tuple read_tuple(protocol::reader& reader, const schema* sch, const ignit
     binary_tuple_parser parser(columns_cnt - sch->key_column_count, tuple_data);
 
     for (std::int32_t i = 0; i < columns_cnt; ++i) {
-        auto& column = sch->columns[i];
+        auto &column = sch->columns[i];
         if (i < sch->key_column_count) {
             res.set(column.name, key.get(column.name));
         } else {
@@ -290,7 +290,7 @@ ignite_tuple read_tuple(protocol::reader& reader, const schema* sch, const ignit
  * @param key_only Should only key fields be read or not.
  * @return Tuple.
  */
-ignite_tuple read_tuple(protocol::reader& reader, const schema* sch, bool key_only) {
+ignite_tuple read_tuple(protocol::reader &reader, const schema *sch, bool key_only) {
     auto tuple_data = reader.read_binary();
 
     auto columns_cnt = std::int32_t(key_only ? sch->key_column_count : sch->columns.size());
@@ -298,7 +298,7 @@ ignite_tuple read_tuple(protocol::reader& reader, const schema* sch, bool key_on
     binary_tuple_parser parser(columns_cnt, tuple_data);
 
     for (std::int32_t i = 0; i < columns_cnt; ++i) {
-        auto& column = sch->columns[i];
+        auto &column = sch->columns[i];
         res.set(column.name, read_next_column(parser, column.type));
     }
     return res;
@@ -312,8 +312,7 @@ ignite_tuple read_tuple(protocol::reader& reader, const schema* sch, bool key_on
  * @param key_only Should only key fields be read or not.
  * @return Tuples.
  */
-std::vector<std::optional<ignite_tuple>> read_tuples_opt(protocol::reader& reader, const schema* sch, bool key_only)
-{
+std::vector<std::optional<ignite_tuple>> read_tuples_opt(protocol::reader &reader, const schema *sch, bool key_only) {
     if (!sch)
         return {};
 
@@ -340,8 +339,7 @@ std::vector<std::optional<ignite_tuple>> read_tuples_opt(protocol::reader& reade
  * @param key_only Should only key fields be read or not.
  * @return Tuples.
  */
-std::vector<ignite_tuple> read_tuples(protocol::reader& reader, const schema* sch, bool key_only)
-{
+std::vector<ignite_tuple> read_tuples(protocol::reader &reader, const schema *sch, bool key_only) {
     if (!sch)
         return {};
 
@@ -384,7 +382,7 @@ void table_impl::load_schema_async(ignite_callback<std::shared_ptr<schema>> call
             throw ignite_error("Schema not found");
 
         std::shared_ptr<schema> last;
-        reader.read_map_raw([&last, &table](const msgpack_object_kv& object) {
+        reader.read_map_raw([&last, &table](const msgpack_object_kv &object) {
             last = schema::read(object);
             table->add_schema(last);
         });
@@ -396,64 +394,65 @@ void table_impl::load_schema_async(ignite_callback<std::shared_ptr<schema>> call
         client_operation::SCHEMAS_GET, writer_func, std::move(reader_func), std::move(callback));
 }
 
-void table_impl::get_async(transaction *tx, const ignite_tuple& key, ignite_callback<std::optional<ignite_tuple>> callback) {
+void table_impl::get_async(
+    transaction *tx, const ignite_tuple &key, ignite_callback<std::optional<ignite_tuple>> callback) {
     transactions_not_implemented(tx);
 
     with_latest_schema_async<std::optional<ignite_tuple>>(std::move(callback),
-        [self = shared_from_this(), key = std::make_shared<ignite_tuple>(key)] (const schema& sch, auto callback) mutable {
-        auto writer_func = [self, key, &sch] (protocol::writer &writer) {
-            write_table_operation_header(writer, self->m_id, sch);
-            write_tuple(writer, sch, *key, true);
-        };
+        [self = shared_from_this(), key = std::make_shared<ignite_tuple>(key)](
+            const schema &sch, auto callback) mutable {
+            auto writer_func = [self, key, &sch](protocol::writer &writer) {
+                write_table_operation_header(writer, self->m_id, sch);
+                write_tuple(writer, sch, *key, true);
+            };
 
-        auto reader_func = [self, key] (protocol::reader &reader) -> std::optional<ignite_tuple> {
-            std::shared_ptr<schema> sch = self->get_schema(reader);
-            if (!sch)
-                return std::nullopt;
+            auto reader_func = [self, key](protocol::reader &reader) -> std::optional<ignite_tuple> {
+                std::shared_ptr<schema> sch = self->get_schema(reader);
+                if (!sch)
+                    return std::nullopt;
 
-            return read_tuple(reader, sch.get(), *key);
-        };
+                return read_tuple(reader, sch.get(), *key);
+            };
 
-        self->m_connection->perform_request<std::optional<ignite_tuple>>(
-            client_operation::TUPLE_GET, writer_func, std::move(reader_func), std::move(callback));
-    });
+            self->m_connection->perform_request<std::optional<ignite_tuple>>(
+                client_operation::TUPLE_GET, writer_func, std::move(reader_func), std::move(callback));
+        });
 }
 
 void table_impl::get_all_async(transaction *tx, std::vector<ignite_tuple> keys,
-    ignite_callback<std::vector<std::optional<ignite_tuple>>> callback)
-{
+    ignite_callback<std::vector<std::optional<ignite_tuple>>> callback) {
     transactions_not_implemented(tx);
 
     auto shared_keys = std::make_shared<std::vector<ignite_tuple>>(std::move(keys));
-    with_latest_schema_async<std::vector<std::optional<ignite_tuple>>>(std::move(callback),
-        [self = shared_from_this(), keys = shared_keys] (const schema& sch, auto callback) mutable {
-        auto writer_func = [self, keys, &sch] (protocol::writer &writer) {
-            write_table_operation_header(writer, self->m_id, sch);
-            write_tuples(writer, sch, *keys, true);
-        };
+    with_latest_schema_async<std::vector<std::optional<ignite_tuple>>>(
+        std::move(callback), [self = shared_from_this(), keys = shared_keys](const schema &sch, auto callback) mutable {
+            auto writer_func = [self, keys, &sch](protocol::writer &writer) {
+                write_table_operation_header(writer, self->m_id, sch);
+                write_tuples(writer, sch, *keys, true);
+            };
 
-        auto reader_func = [self] (protocol::reader &reader) -> std::vector<std::optional<ignite_tuple>> {
-            std::shared_ptr<schema> sch = self->get_schema(reader);
-            return read_tuples_opt(reader, sch.get(), false);
-        };
+            auto reader_func = [self](protocol::reader &reader) -> std::vector<std::optional<ignite_tuple>> {
+                std::shared_ptr<schema> sch = self->get_schema(reader);
+                return read_tuples_opt(reader, sch.get(), false);
+            };
 
-        self->m_connection->perform_request<std::vector<std::optional<ignite_tuple>>>(
-            client_operation::TUPLE_GET_ALL, writer_func, std::move(reader_func), std::move(callback));
-    });
+            self->m_connection->perform_request<std::vector<std::optional<ignite_tuple>>>(
+                client_operation::TUPLE_GET_ALL, writer_func, std::move(reader_func), std::move(callback));
+        });
 }
 
 void table_impl::upsert_async(transaction *tx, const ignite_tuple &record, ignite_callback<void> callback) {
     transactions_not_implemented(tx);
 
     with_latest_schema_async<void>(std::move(callback),
-    [self = shared_from_this(), record = ignite_tuple(record)] (const schema& sch, auto callback) mutable {
-        auto writer_func = [self, &record, &sch] (protocol::writer &writer) {
-            write_table_operation_header(writer, self->m_id, sch);
-            write_tuple(writer, sch, record, false);
-        };
+        [self = shared_from_this(), record = ignite_tuple(record)](const schema &sch, auto callback) mutable {
+            auto writer_func = [self, &record, &sch](protocol::writer &writer) {
+                write_table_operation_header(writer, self->m_id, sch);
+                write_tuple(writer, sch, record, false);
+            };
 
-        self->m_connection->perform_request_wr(client_operation::TUPLE_UPSERT, writer_func, std::move(callback));
-    });
+            self->m_connection->perform_request_wr(client_operation::TUPLE_UPSERT, writer_func, std::move(callback));
+        });
 }
 
 void table_impl::upsert_all_async(transaction *tx, std::vector<ignite_tuple> records, ignite_callback<void> callback) {
@@ -461,255 +460,241 @@ void table_impl::upsert_all_async(transaction *tx, std::vector<ignite_tuple> rec
 
     auto shared_records = std::make_shared<std::vector<ignite_tuple>>(std::move(records));
     with_latest_schema_async<void>(std::move(callback),
-        [self = shared_from_this(), records = shared_records] (const schema& sch, auto callback) mutable {
-        auto writer_func = [self, records, &sch] (protocol::writer &writer) {
-            write_table_operation_header(writer, self->m_id, sch);
-            write_tuples(writer, sch, *records, false);
-        };
+        [self = shared_from_this(), records = shared_records](const schema &sch, auto callback) mutable {
+            auto writer_func = [self, records, &sch](protocol::writer &writer) {
+                write_table_operation_header(writer, self->m_id, sch);
+                write_tuples(writer, sch, *records, false);
+            };
 
-        self->m_connection->perform_request_wr(client_operation::TUPLE_UPSERT_ALL, writer_func, std::move(callback));
-    });
+            self->m_connection->perform_request_wr(
+                client_operation::TUPLE_UPSERT_ALL, writer_func, std::move(callback));
+        });
 }
 
-void table_impl::get_and_upsert_async(transaction *tx, const ignite_tuple &record,
-    ignite_callback<std::optional<ignite_tuple>> callback)
-{
+void table_impl::get_and_upsert_async(
+    transaction *tx, const ignite_tuple &record, ignite_callback<std::optional<ignite_tuple>> callback) {
     transactions_not_implemented(tx);
 
     with_latest_schema_async<std::optional<ignite_tuple>>(std::move(callback),
-        [self = shared_from_this(), record = std::make_shared<ignite_tuple>(record)] (const schema& sch, auto callback) {
-        auto writer_func = [self, record, &sch] (protocol::writer &writer) {
-            write_table_operation_header(writer, self->m_id, sch);
-            write_tuple(writer, sch, *record, false);
-        };
+        [self = shared_from_this(), record = std::make_shared<ignite_tuple>(record)](const schema &sch, auto callback) {
+            auto writer_func = [self, record, &sch](protocol::writer &writer) {
+                write_table_operation_header(writer, self->m_id, sch);
+                write_tuple(writer, sch, *record, false);
+            };
 
-        auto reader_func = [self, record] (protocol::reader &reader) -> std::optional<ignite_tuple> {
-            std::shared_ptr<schema> sch = self->get_schema(reader);
-            if (!sch)
-                return std::nullopt;
+            auto reader_func = [self, record](protocol::reader &reader) -> std::optional<ignite_tuple> {
+                std::shared_ptr<schema> sch = self->get_schema(reader);
+                if (!sch)
+                    return std::nullopt;
 
-            return read_tuple(reader, sch.get(), *record);
-        };
+                return read_tuple(reader, sch.get(), *record);
+            };
 
-        self->m_connection->perform_request<std::optional<ignite_tuple>>(
-            client_operation::TUPLE_GET_AND_UPSERT, writer_func, std::move(reader_func), std::move(callback));
-    });
+            self->m_connection->perform_request<std::optional<ignite_tuple>>(
+                client_operation::TUPLE_GET_AND_UPSERT, writer_func, std::move(reader_func), std::move(callback));
+        });
 }
 
 void table_impl::insert_async(transaction *tx, const ignite_tuple &record, ignite_callback<bool> callback) {
     transactions_not_implemented(tx);
 
     with_latest_schema_async<bool>(std::move(callback),
-    [self = shared_from_this(), record = ignite_tuple(record)] (const schema& sch, auto callback) mutable {
-        auto writer_func = [self, &record, &sch] (protocol::writer &writer) {
-            write_table_operation_header(writer, self->m_id, sch);
-            write_tuple(writer, sch, record, false);
-        };
+        [self = shared_from_this(), record = ignite_tuple(record)](const schema &sch, auto callback) mutable {
+            auto writer_func = [self, &record, &sch](protocol::writer &writer) {
+                write_table_operation_header(writer, self->m_id, sch);
+                write_tuple(writer, sch, record, false);
+            };
 
-        auto reader_func = [] (protocol::reader &reader) -> bool {
-            return reader.read_bool();
-        };
+            auto reader_func = [](protocol::reader &reader) -> bool { return reader.read_bool(); };
 
-        self->m_connection->perform_request<bool>(
-            client_operation::TUPLE_INSERT, writer_func, std::move(reader_func), std::move(callback));
-    });
+            self->m_connection->perform_request<bool>(
+                client_operation::TUPLE_INSERT, writer_func, std::move(reader_func), std::move(callback));
+        });
 }
 
-void table_impl::insert_all_async(transaction *tx, std::vector<ignite_tuple> records,
-    ignite_callback<std::vector<ignite_tuple>> callback)
-{
+void table_impl::insert_all_async(
+    transaction *tx, std::vector<ignite_tuple> records, ignite_callback<std::vector<ignite_tuple>> callback) {
     transactions_not_implemented(tx);
 
     auto shared_records = std::make_shared<std::vector<ignite_tuple>>(std::move(records));
     with_latest_schema_async<std::vector<ignite_tuple>>(std::move(callback),
-        [self = shared_from_this(), records = shared_records] (const schema& sch, auto callback) mutable {
-        auto writer_func = [self, records, &sch] (protocol::writer &writer) {
-            write_table_operation_header(writer, self->m_id, sch);
-            write_tuples(writer, sch, *records, false);
-        };
+        [self = shared_from_this(), records = shared_records](const schema &sch, auto callback) mutable {
+            auto writer_func = [self, records, &sch](protocol::writer &writer) {
+                write_table_operation_header(writer, self->m_id, sch);
+                write_tuples(writer, sch, *records, false);
+            };
 
-        auto reader_func = [self, records] (protocol::reader &reader) -> std::vector<ignite_tuple> {
-            std::shared_ptr<schema> sch = self->get_schema(reader);
-            return read_tuples(reader, sch.get(), false);
-        };
+            auto reader_func = [self, records](protocol::reader &reader) -> std::vector<ignite_tuple> {
+                std::shared_ptr<schema> sch = self->get_schema(reader);
+                return read_tuples(reader, sch.get(), false);
+            };
 
-        self->m_connection->perform_request<std::vector<ignite_tuple>>(
-            client_operation::TUPLE_INSERT_ALL, writer_func, std::move(reader_func), std::move(callback));
-    });
+            self->m_connection->perform_request<std::vector<ignite_tuple>>(
+                client_operation::TUPLE_INSERT_ALL, writer_func, std::move(reader_func), std::move(callback));
+        });
 }
+
 void table_impl::replace_async(transaction *tx, const ignite_tuple &record, ignite_callback<bool> callback) {
     transactions_not_implemented(tx);
 
     with_latest_schema_async<bool>(std::move(callback),
-    [self = shared_from_this(), record = ignite_tuple(record)] (const schema& sch, auto callback) mutable {
-        auto writer_func = [self, &record, &sch] (protocol::writer &writer) {
-            write_table_operation_header(writer, self->m_id, sch);
-            write_tuple(writer, sch, record, false);
-        };
+        [self = shared_from_this(), record = ignite_tuple(record)](const schema &sch, auto callback) mutable {
+            auto writer_func = [self, &record, &sch](protocol::writer &writer) {
+                write_table_operation_header(writer, self->m_id, sch);
+                write_tuple(writer, sch, record, false);
+            };
 
-        auto reader_func = [] (protocol::reader &reader) -> bool {
-            return reader.read_bool();
-        };
+            auto reader_func = [](protocol::reader &reader) -> bool { return reader.read_bool(); };
 
-        self->m_connection->perform_request<bool>(
-            client_operation::TUPLE_REPLACE, writer_func, std::move(reader_func), std::move(callback));
-    });
+            self->m_connection->perform_request<bool>(
+                client_operation::TUPLE_REPLACE, writer_func, std::move(reader_func), std::move(callback));
+        });
 }
 
-void table_impl::replace_async(transaction *tx, const ignite_tuple &record, const ignite_tuple &new_record,
-    ignite_callback<bool> callback)
-{
+void table_impl::replace_async(
+    transaction *tx, const ignite_tuple &record, const ignite_tuple &new_record, ignite_callback<bool> callback) {
     transactions_not_implemented(tx);
 
     with_latest_schema_async<bool>(std::move(callback),
-    [self = shared_from_this(), record = ignite_tuple(record), new_record = ignite_tuple(new_record)]
-    (const schema& sch, auto callback) mutable
-    {
-        auto writer_func = [self, &record, &new_record, &sch] (protocol::writer &writer) {
-            write_table_operation_header(writer, self->m_id, sch);
-            write_tuple(writer, sch, record, false);
-            write_tuple(writer, sch, new_record, false);
-        };
+        [self = shared_from_this(), record = ignite_tuple(record), new_record = ignite_tuple(new_record)](
+            const schema &sch, auto callback) mutable {
+            auto writer_func = [self, &record, &new_record, &sch](protocol::writer &writer) {
+                write_table_operation_header(writer, self->m_id, sch);
+                write_tuple(writer, sch, record, false);
+                write_tuple(writer, sch, new_record, false);
+            };
 
-        auto reader_func = [] (protocol::reader &reader) -> bool {
-            return reader.read_bool();
-        };
+            auto reader_func = [](protocol::reader &reader) -> bool { return reader.read_bool(); };
 
-        self->m_connection->perform_request<bool>(
-            client_operation::TUPLE_REPLACE_EXACT, writer_func, std::move(reader_func), std::move(callback));
-    });
+            self->m_connection->perform_request<bool>(
+                client_operation::TUPLE_REPLACE_EXACT, writer_func, std::move(reader_func), std::move(callback));
+        });
 }
 
-void table_impl::get_and_replace_async(transaction *tx, const ignite_tuple &record,
-    ignite_callback<std::optional<ignite_tuple>> callback)
-{
+void table_impl::get_and_replace_async(
+    transaction *tx, const ignite_tuple &record, ignite_callback<std::optional<ignite_tuple>> callback) {
     transactions_not_implemented(tx);
 
     with_latest_schema_async<std::optional<ignite_tuple>>(std::move(callback),
-    [self = shared_from_this(), record = std::make_shared<ignite_tuple>(record)] (const schema& sch, auto callback) mutable {
-        auto writer_func = [self, record, &sch] (protocol::writer &writer) {
-            write_table_operation_header(writer, self->m_id, sch);
-            write_tuple(writer, sch, *record, false);
-        };
+        [self = shared_from_this(), record = std::make_shared<ignite_tuple>(record)](
+            const schema &sch, auto callback) mutable {
+            auto writer_func = [self, record, &sch](protocol::writer &writer) {
+                write_table_operation_header(writer, self->m_id, sch);
+                write_tuple(writer, sch, *record, false);
+            };
 
-        auto reader_func = [self, record] (protocol::reader &reader) -> std::optional<ignite_tuple> {
-            std::shared_ptr<schema> sch = self->get_schema(reader);
-            if (!sch)
-                return std::nullopt;
+            auto reader_func = [self, record](protocol::reader &reader) -> std::optional<ignite_tuple> {
+                std::shared_ptr<schema> sch = self->get_schema(reader);
+                if (!sch)
+                    return std::nullopt;
 
-            return read_tuple(reader, sch.get(), *record);
-        };
+                return read_tuple(reader, sch.get(), *record);
+            };
 
-        self->m_connection->perform_request<std::optional<ignite_tuple>>(
-            client_operation::TUPLE_GET_AND_REPLACE, writer_func, std::move(reader_func), std::move(callback));
-    });
+            self->m_connection->perform_request<std::optional<ignite_tuple>>(
+                client_operation::TUPLE_GET_AND_REPLACE, writer_func, std::move(reader_func), std::move(callback));
+        });
 }
 
 void table_impl::remove_async(transaction *tx, const ignite_tuple &key, ignite_callback<bool> callback) {
     transactions_not_implemented(tx);
 
     with_latest_schema_async<bool>(std::move(callback),
-        [self = shared_from_this(), record = ignite_tuple(key)] (const schema& sch, auto callback) mutable {
-        auto writer_func = [self, &record, &sch] (protocol::writer &writer) {
-            write_table_operation_header(writer, self->m_id, sch);
-            write_tuple(writer, sch, record, true);
-        };
+        [self = shared_from_this(), record = ignite_tuple(key)](const schema &sch, auto callback) mutable {
+            auto writer_func = [self, &record, &sch](protocol::writer &writer) {
+                write_table_operation_header(writer, self->m_id, sch);
+                write_tuple(writer, sch, record, true);
+            };
 
-        auto reader_func = [] (protocol::reader &reader) -> bool {
-            return reader.read_bool();
-        };
+            auto reader_func = [](protocol::reader &reader) -> bool { return reader.read_bool(); };
 
-        self->m_connection->perform_request<bool>(
-            client_operation::TUPLE_DELETE, writer_func, std::move(reader_func), std::move(callback));
-    });
+            self->m_connection->perform_request<bool>(
+                client_operation::TUPLE_DELETE, writer_func, std::move(reader_func), std::move(callback));
+        });
 }
 
 void table_impl::remove_exact_async(transaction *tx, const ignite_tuple &record, ignite_callback<bool> callback) {
     transactions_not_implemented(tx);
 
     with_latest_schema_async<bool>(std::move(callback),
-        [self = shared_from_this(), record = ignite_tuple(record)] (const schema& sch, auto callback) mutable {
-        auto writer_func = [self, &record, &sch] (protocol::writer &writer) {
-            write_table_operation_header(writer, self->m_id, sch);
-            write_tuple(writer, sch, record, false);
-        };
+        [self = shared_from_this(), record = ignite_tuple(record)](const schema &sch, auto callback) mutable {
+            auto writer_func = [self, &record, &sch](protocol::writer &writer) {
+                write_table_operation_header(writer, self->m_id, sch);
+                write_tuple(writer, sch, record, false);
+            };
 
-        auto reader_func = [] (protocol::reader &reader) -> bool {
-            return reader.read_bool();
-        };
+            auto reader_func = [](protocol::reader &reader) -> bool { return reader.read_bool(); };
 
-        self->m_connection->perform_request<bool>(
-            client_operation::TUPLE_DELETE_EXACT, writer_func, std::move(reader_func), std::move(callback));
-    });
+            self->m_connection->perform_request<bool>(
+                client_operation::TUPLE_DELETE_EXACT, writer_func, std::move(reader_func), std::move(callback));
+        });
 }
 
-void table_impl::get_and_remove_async(transaction *tx, const ignite_tuple &key,
-    ignite_callback<std::optional<ignite_tuple>> callback)
-{
+void table_impl::get_and_remove_async(
+    transaction *tx, const ignite_tuple &key, ignite_callback<std::optional<ignite_tuple>> callback) {
     transactions_not_implemented(tx);
 
     with_latest_schema_async<std::optional<ignite_tuple>>(std::move(callback),
-    [self = shared_from_this(), record = std::make_shared<ignite_tuple>(key)] (const schema& sch, auto callback) mutable {
-        auto writer_func = [self, record, &sch] (protocol::writer &writer) {
-            write_table_operation_header(writer, self->m_id, sch);
-            write_tuple(writer, sch, *record, true);
-        };
+        [self = shared_from_this(), record = std::make_shared<ignite_tuple>(key)](
+            const schema &sch, auto callback) mutable {
+            auto writer_func = [self, record, &sch](protocol::writer &writer) {
+                write_table_operation_header(writer, self->m_id, sch);
+                write_tuple(writer, sch, *record, true);
+            };
 
-        auto reader_func = [self, record] (protocol::reader &reader) -> std::optional<ignite_tuple> {
-            std::shared_ptr<schema> sch = self->get_schema(reader);
-            if (!sch)
-                return std::nullopt;
+            auto reader_func = [self, record](protocol::reader &reader) -> std::optional<ignite_tuple> {
+                std::shared_ptr<schema> sch = self->get_schema(reader);
+                if (!sch)
+                    return std::nullopt;
 
-            return read_tuple(reader, sch.get(), *record);
-        };
+                return read_tuple(reader, sch.get(), *record);
+            };
 
-        self->m_connection->perform_request<std::optional<ignite_tuple>>(
-            client_operation::TUPLE_GET_AND_DELETE, writer_func, std::move(reader_func), std::move(callback));
-    });
+            self->m_connection->perform_request<std::optional<ignite_tuple>>(
+                client_operation::TUPLE_GET_AND_DELETE, writer_func, std::move(reader_func), std::move(callback));
+        });
 }
 
-void table_impl::remove_all_async(transaction *tx, std::vector<ignite_tuple> keys,
-    ignite_callback<std::vector<ignite_tuple>> callback)
-{
+void table_impl::remove_all_async(
+    transaction *tx, std::vector<ignite_tuple> keys, ignite_callback<std::vector<ignite_tuple>> callback) {
+    transactions_not_implemented(tx);
+
+    with_latest_schema_async<std::vector<ignite_tuple>>(
+        std::move(callback), [self = shared_from_this(), keys = std::move(keys)](const schema &sch, auto callback) {
+            auto writer_func = [self, &keys, &sch](protocol::writer &writer) {
+                write_table_operation_header(writer, self->m_id, sch);
+                write_tuples(writer, sch, keys, true);
+            };
+
+            auto reader_func = [self](protocol::reader &reader) -> std::vector<ignite_tuple> {
+                std::shared_ptr<schema> sch = self->get_schema(reader);
+                return read_tuples(reader, sch.get(), true);
+            };
+
+            self->m_connection->perform_request<std::vector<ignite_tuple>>(
+                client_operation::TUPLE_DELETE_ALL, writer_func, std::move(reader_func), std::move(callback));
+        });
+}
+
+void table_impl::remove_all_exact_async(
+    transaction *tx, std::vector<ignite_tuple> records, ignite_callback<std::vector<ignite_tuple>> callback) {
     transactions_not_implemented(tx);
 
     with_latest_schema_async<std::vector<ignite_tuple>>(std::move(callback),
-        [self = shared_from_this(), keys = std::move(keys)] (const schema& sch, auto callback) {
-        auto writer_func = [self, &keys, &sch] (protocol::writer &writer) {
-            write_table_operation_header(writer, self->m_id, sch);
-            write_tuples(writer, sch, keys, true);
-        };
+        [self = shared_from_this(), records = std::move(records)](const schema &sch, auto callback) {
+            auto writer_func = [self, &records, &sch](protocol::writer &writer) {
+                write_table_operation_header(writer, self->m_id, sch);
+                write_tuples(writer, sch, records, false);
+            };
 
-        auto reader_func = [self] (protocol::reader &reader) -> std::vector<ignite_tuple> {
-            std::shared_ptr<schema> sch = self->get_schema(reader);
-            return read_tuples(reader, sch.get(), true);
-        };
+            auto reader_func = [self](protocol::reader &reader) -> std::vector<ignite_tuple> {
+                std::shared_ptr<schema> sch = self->get_schema(reader);
+                return read_tuples(reader, sch.get(), false);
+            };
 
-        self->m_connection->perform_request<std::vector<ignite_tuple>>(
-            client_operation::TUPLE_DELETE_ALL, writer_func, std::move(reader_func), std::move(callback));
-    });
-}
-
-void table_impl::remove_all_exact_async(transaction *tx, std::vector<ignite_tuple> records,
-    ignite_callback<std::vector<ignite_tuple>> callback)
-{
-    transactions_not_implemented(tx);
-
-    with_latest_schema_async<std::vector<ignite_tuple>>(std::move(callback),
-        [self = shared_from_this(), records = std::move(records)] (const schema& sch, auto callback) {
-        auto writer_func = [self, &records, &sch] (protocol::writer &writer) {
-            write_table_operation_header(writer, self->m_id, sch);
-            write_tuples(writer, sch, records, false);
-        };
-
-        auto reader_func = [self] (protocol::reader &reader) -> std::vector<ignite_tuple> {
-            std::shared_ptr<schema> sch = self->get_schema(reader);
-            return read_tuples(reader, sch.get(), false);
-        };
-
-        self->m_connection->perform_request<std::vector<ignite_tuple>>(
-            client_operation::TUPLE_DELETE_ALL_EXACT, writer_func, std::move(reader_func), std::move(callback));
-    });
+            self->m_connection->perform_request<std::vector<ignite_tuple>>(
+                client_operation::TUPLE_DELETE_ALL_EXACT, writer_func, std::move(reader_func), std::move(callback));
+        });
 }
 
 } // namespace ignite::detail

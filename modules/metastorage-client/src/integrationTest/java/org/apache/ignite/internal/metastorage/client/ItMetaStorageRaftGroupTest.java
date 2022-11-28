@@ -43,6 +43,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
 import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.raft.RaftGroupServiceImpl;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -61,7 +62,6 @@ import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.core.Replicator;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
-import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupServiceImpl;
 import org.apache.ignite.raft.jraft.test.TestUtils;
 import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.junit.jupiter.api.AfterEach;
@@ -231,7 +231,7 @@ public class ItMetaStorageRaftGroupTest {
             List<org.apache.ignite.internal.metastorage.server.Entry> entries = new ArrayList<>(
                     List.of(EXPECTED_SRV_RESULT_ENTRY1, EXPECTED_SRV_RESULT_ENTRY2));
 
-            return Cursor.fromIterator(entries.iterator());
+            return Cursor.fromBareIterator(entries.iterator());
         });
 
         List<Pair<RaftServer, RaftGroupService>> raftServersRaftGroups = prepareJraftMetaStorages(replicatorStartedCounter,
@@ -239,14 +239,14 @@ public class ItMetaStorageRaftGroupTest {
 
         List<RaftServer> raftServers = raftServersRaftGroups.stream().map(p -> p.key).collect(Collectors.toList());
 
-        NetworkAddress oldLeader = raftServersRaftGroups.get(0).value.leader().address();
+        String oldLeaderId = raftServersRaftGroups.get(0).value.leader().consistentId();
 
         Optional<RaftServer> oldLeaderServer = raftServers.stream()
-                .filter(s -> s.clusterService().topologyService().localMember().address().equals(oldLeader)).findFirst();
+                .filter(s -> localMemberName(s.clusterService()).equals(oldLeaderId)).findFirst();
 
         //Server that will be alive after we stop leader.
         Optional<RaftServer> liveServer = raftServers.stream()
-                .filter(s -> !s.clusterService().topologyService().localMember().address().equals(oldLeader)).findFirst();
+                .filter(s -> !localMemberName(s.clusterService()).equals(oldLeaderId)).findFirst();
 
         if (oldLeaderServer.isEmpty() || liveServer.isEmpty()) {
             fail();
@@ -276,11 +276,11 @@ public class ItMetaStorageRaftGroupTest {
         //stop leader
         oldLeaderServer.get().stopRaftGroup(INSTANCE);
         oldLeaderServer.get().stop();
-        cluster.stream().filter(c -> c.topologyService().localMember().address().equals(oldLeader)).findFirst().get().stop();
+        cluster.stream().filter(c -> localMemberName(c).equals(oldLeaderId)).findFirst().get().stop();
 
         raftGroupServiceOfLiveServer.refreshLeader().get();
 
-        assertNotSame(oldLeader, raftGroupServiceOfLiveServer.leader().address());
+        assertNotSame(oldLeaderId, raftGroupServiceOfLiveServer.leader().consistentId());
 
         // ensure that leader has been changed only once
         assertTrue(TestUtils.waitForCondition(
@@ -296,7 +296,7 @@ public class ItMetaStorageRaftGroupTest {
             AtomicInteger replicatorStoppedCounter) throws InterruptedException, ExecutionException {
         List<Peer> peers = new ArrayList<>();
 
-        cluster.forEach(c -> peers.add(new Peer(c.topologyService().localMember().address())));
+        cluster.forEach(c -> peers.add(new Peer(localMemberName(c))));
 
         assertTrue(cluster.size() > 1);
 
@@ -392,6 +392,10 @@ public class ItMetaStorageRaftGroupTest {
         group3.refreshLeader();
 
         return Objects.equals(group1.leader(), group2.leader()) && Objects.equals(group2.leader(), group3.leader());
+    }
+
+    private static String localMemberName(ClusterService service) {
+        return service.topologyService().localMember().name();
     }
 
     /**

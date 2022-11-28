@@ -53,7 +53,6 @@ import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.lang.NodeStoppingException;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.StaticNodeFinder;
@@ -114,12 +113,12 @@ public class ItLearnersTest extends IgniteAbstractTest {
             loza = new Loza(clusterService, raftConfiguration, raftDir, new HybridClockImpl());
         }
 
-        ClusterNode localMember() {
-            return clusterService.topologyService().localMember();
+        String consistentId() {
+            return clusterService.topologyService().localMember().name();
         }
 
         Peer asPeer() {
-            return new Peer(localMember().address());
+            return new Peer(consistentId());
         }
 
         void start() {
@@ -286,8 +285,8 @@ public class ItLearnersTest extends IgniteAbstractTest {
         try {
             CompletableFuture<RaftGroupService> future = raftNode.loza.prepareRaftGroup(
                     RAFT_GROUP_ID,
-                    peers.stream().map(RaftNode::localMember).collect(toList()),
-                    learners.stream().map(RaftNode::localMember).collect(toList()),
+                    peers.stream().map(RaftNode::consistentId).collect(toList()),
+                    learners.stream().map(RaftNode::consistentId).collect(toList()),
                     () -> listener,
                     () -> noopLsnr,
                     RaftGroupOptions.defaults()

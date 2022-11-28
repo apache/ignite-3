@@ -301,6 +301,11 @@ public abstract class QueryChecker {
         return CoreMatchers.containsString("IgniteUnionAll(all=[" + all + "])");
     }
 
+    /** Creates a matcher that matches if the examined string contains the specified string anywhere. */
+    public static Matcher<String> containsUnion() {
+        return CoreMatchers.containsString("IgniteUnionAll(all=");
+    }
+
     /**
      * Sets columns names.
      *

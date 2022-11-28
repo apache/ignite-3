@@ -19,6 +19,7 @@ package org.apache.ignite.network;
 
 import java.io.Serializable;
 import org.apache.ignite.internal.tostring.S;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Representation of a node in a cluster.
@@ -33,6 +34,25 @@ public class ClusterNode implements Serializable {
     /** Network address of this node. */
     private final NetworkAddress address;
 
+    /** Metadata of this node. */
+    @Nullable
+    private final NodeMetadata nodeMetadata;
+
+    /**
+     * Constructor.
+     *
+     * @param id      Local id that changes between restarts.
+     * @param name    Unique name of a member in a cluster.
+     * @param address Node address.
+     * @param nodeMetadata Node metadata.
+     */
+    public ClusterNode(String id, String name, NetworkAddress address, @Nullable NodeMetadata nodeMetadata) {
+        this.id = id;
+        this.name = name;
+        this.address = address;
+        this.nodeMetadata = nodeMetadata;
+    }
+
     /**
      * Constructor.
      *
@@ -44,6 +64,7 @@ public class ClusterNode implements Serializable {
         this.id = id;
         this.name = name;
         this.address = address;
+        this.nodeMetadata = null;
     }
 
     /**
@@ -71,6 +92,11 @@ public class ClusterNode implements Serializable {
      */
     public NetworkAddress address() {
         return address;
+    }
+
+    @Nullable
+    public NodeMetadata nodeMetadata() {
+        return nodeMetadata;
     }
 
     /** {@inheritDoc} */

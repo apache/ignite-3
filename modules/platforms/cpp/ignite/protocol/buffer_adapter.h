@@ -40,7 +40,7 @@ public:
      */
     explicit buffer_adapter(std::vector<std::byte> &data)
         : m_buffer(data)
-        , m_length_pos(std::numeric_limits<std::size_t>::max()) { }
+        , m_length_pos(std::numeric_limits<std::size_t>::max()) {}
 
     /**
      * Write raw data.

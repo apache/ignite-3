@@ -98,7 +98,7 @@ class ItScaleCubeNetworkMessagingTest {
         for (ClusterService member : testCluster.members) {
             member.messagingService().addMessageHandler(
                     TestMessageTypes.class,
-                    (message, senderAddr, correlationId) -> {
+                    (message, sender, correlationId) -> {
                         messageStorage.put(member.localConfiguration().getName(), (TestMessage) message);
                         messageReceivedLatch.countDown();
                     }
@@ -161,11 +161,11 @@ class ItScaleCubeNetworkMessagingTest {
         class Data {
             private final TestMessage message;
 
-            private final NetworkAddress sender;
+            private final ClusterNode sender;
 
             private final Long correlationId;
 
-            private Data(TestMessage message, NetworkAddress sender, Long correlationId) {
+            private Data(TestMessage message, ClusterNode sender, Long correlationId) {
                 this.message = message;
                 this.sender = sender;
                 this.correlationId = correlationId;
@@ -176,8 +176,8 @@ class ItScaleCubeNetworkMessagingTest {
 
         member.messagingService().addMessageHandler(
                 TestMessageTypes.class,
-                (message, senderAddr, correlationId) ->
-                        dataFuture.complete(new Data((TestMessage) message, senderAddr, correlationId))
+                (message, sender, correlationId) ->
+                        dataFuture.complete(new Data((TestMessage) message, sender, correlationId))
         );
 
         var requestMessage = messageFactory.testMessage().msg("request").build();
@@ -187,7 +187,7 @@ class ItScaleCubeNetworkMessagingTest {
         Data actualData = dataFuture.get(3, TimeUnit.SECONDS);
 
         assertThat(actualData.message.msg(), is(requestMessage.msg()));
-        assertThat(actualData.sender.consistentId(), is(self.name()));
+        assertThat(actualData.sender.name(), is(self.name()));
         assertNull(actualData.correlationId);
     }
 
@@ -210,7 +210,7 @@ class ItScaleCubeNetworkMessagingTest {
 
         member.messagingService().addMessageHandler(
                 TestMessageTypes.class,
-                (message, senderAddr, correlationId) -> {
+                (message, sender, correlationId) -> {
                     if (message.equals(requestMessage)) {
                         member.messagingService().respond(self, responseMessage, correlationId);
                     }
@@ -283,18 +283,18 @@ class ItScaleCubeNetworkMessagingTest {
         // register multiple handlers for the same group
         node1.messagingService().addMessageHandler(
                 TestMessageTypes.class,
-                (message, senderAddr, correlationId) -> assertTrue(testMessageFuture1.complete(message))
+                (message, sender, correlationId) -> assertTrue(testMessageFuture1.complete(message))
         );
 
         node1.messagingService().addMessageHandler(
                 TestMessageTypes.class,
-                (message, senderAddr, correlationId) -> assertTrue(testMessageFuture2.complete(message))
+                (message, sender, correlationId) -> assertTrue(testMessageFuture2.complete(message))
         );
 
         // register a different handle for the second group
         node1.messagingService().addMessageHandler(
                 NetworkMessageTypes.class,
-                (message, senderAddr, correlationId) -> {
+                (message, sender, correlationId) -> {
                     if (message instanceof FieldDescriptorMessage) {
                         assertTrue(networkMessageFuture.complete(message));
                     }

@@ -36,20 +36,20 @@ public class RecordViewPrimitiveTests : IgniteTestsBase
     [Test]
     public async Task TestAllKeyTypes()
     {
-        await TestKey((sbyte)1, "TBL_INT8");
-        await TestKey((short)1, "TBL_INT16");
-        await TestKey(1, "TBL_INT32");
-        await TestKey(1L, "TBL_INT64");
-        await TestKey(1.1f, "TBL_FLOAT");
-        await TestKey(1.1d, "TBL_DOUBLE");
-        await TestKey(1.234m, "TBL_DECIMAL");
-        await TestKey("foo", "TBL_STRING");
-        await TestKey(new LocalDateTime(2022, 10, 13, 8, 4, 42), "TBL_DATETIME");
-        await TestKey(new LocalTime(3, 4, 5), "TBL_TIME");
-        await TestKey(Instant.FromUnixTimeMilliseconds(123456789101112), "TBL_TIMESTAMP");
-        await TestKey(new BigInteger(123456789101112), "TBL_NUMBER");
-        await TestKey(new byte[] { 1, 2, 3 }, "TBL_BYTES");
-        await TestKey(new BitArray(new[] { byte.MaxValue }), "TBL_BITMASK");
+        await TestKey((sbyte)1, TableInt8Name);
+        await TestKey((short)1, TableInt16Name);
+        await TestKey(1, TableInt32Name);
+        await TestKey(1L, TableInt64Name);
+        await TestKey(1.1f, TableFloatName);
+        await TestKey(1.1d, TableDoubleName);
+        await TestKey(1.234m, TableDecimalName);
+        await TestKey("foo", TableStringName);
+        await TestKey(new LocalDateTime(2022, 10, 13, 8, 4, 42), TableDateTimeName);
+        await TestKey(new LocalTime(3, 4, 5), TableTimeName);
+        await TestKey(Instant.FromUnixTimeMilliseconds(123456789101112), TableTimestampName);
+        await TestKey(new BigInteger(123456789101112), TableNumberName);
+        await TestKey(new byte[] { 1, 2, 3 }, TableBytesName);
+        await TestKey(new BitArray(new[] { byte.MaxValue }), TableBitmaskName);
     }
 
     [Test]

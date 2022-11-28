@@ -17,9 +17,12 @@
 
 package org.apache.ignite.internal.cli.core.repl.completer;
 
+import static org.apache.ignite.internal.cli.util.ArrayUtils.findLastNotEmptyWord;
+
 import jakarta.inject.Singleton;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
@@ -39,6 +42,10 @@ public class DynamicCompleterRegistry {
                 .collect(Collectors.toList());
     }
 
+    public void register(DynamicCompleter completer) {
+        completionStrategiesList.add(new CompletionStrategy(ignored -> true, completer));
+    }
+
     /** Registers dynamic completer that can be found by given predicate. */
     public void register(Predicate<String[]> predicate, DynamicCompleter completer) {
         completionStrategiesList.add(new CompletionStrategy(predicate, completer));
@@ -47,6 +54,11 @@ public class DynamicCompleterRegistry {
     /** Registers dynamic completer that can be found by given prefix. */
     public void register(String[] prefixWords, DynamicCompleter completer) {
         register((String[] words) -> samePrefix(words, prefixWords), completer);
+    }
+
+    /** Registers dynamic completer that can be found by given prefix. */
+    public void register(String[] prefixWords, String[] stopPostfixWords, DynamicCompleter completer) {
+        register((String[] words) -> samePrefix(words, prefixWords) && notSamePostfix(words, stopPostfixWords), completer);
     }
 
     private boolean samePrefix(String[] words, String[] prefixWords) {
@@ -59,6 +71,10 @@ public class DynamicCompleterRegistry {
             }
         }
         return true;
+    }
+
+    private boolean notSamePostfix(String[] words, String[] stopPostfixWords) {
+        return words.length > 0 && !Set.of(stopPostfixWords).contains(findLastNotEmptyWord(words));
     }
 
     private static class CompletionStrategy {

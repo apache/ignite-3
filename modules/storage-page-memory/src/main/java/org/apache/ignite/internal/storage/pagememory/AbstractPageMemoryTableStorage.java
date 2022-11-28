@@ -185,7 +185,7 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
             AbstractPageMemoryMvPartitionStorage partition = mvPartitions.getAndUpdate(i, p -> null);
 
             if (partition != null) {
-                closeables.add(destroy ? partition::destroy : partition);
+                closeables.add(destroy ? partition::destroy : partition::close);
             }
         }
 

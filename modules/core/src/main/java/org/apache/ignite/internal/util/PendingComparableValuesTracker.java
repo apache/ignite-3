@@ -19,23 +19,32 @@ package org.apache.ignite.internal.util;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 
-import java.util.Collection;
-import java.util.Map;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.VarHandle;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
-import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Tracker that stores comparable value internally, this value can grow when {@link #update(Comparable)} method is called. The tracker gives
  * ability to wait for certain value, see {@link #waitFor(Comparable)}.
  */
 public class PendingComparableValuesTracker<T extends Comparable<T>> {
+    private static final VarHandle CURRENT;
+
+    static {
+        try {
+            CURRENT = MethodHandles.lookup().findVarHandle(PendingComparableValuesTracker.class, "current", Comparable.class);
+        } catch (ReflectiveOperationException e) {
+            throw new ExceptionInInitializerError(e);
+        }
+    }
+
     /** Map of comparable values to corresponding futures. */
-    private final ConcurrentSkipListMap<T, Collection<CompletableFuture<Void>>> valueFutures = new ConcurrentSkipListMap<>();
+    private final ConcurrentSkipListMap<T, CompletableFuture<Void>> valueFutures = new ConcurrentSkipListMap<>();
 
     /** Current value. */
-    public final AtomicReference<T> current;
+    private volatile T current;
 
     /**
      * Constructor with initial value.
@@ -43,7 +52,7 @@ public class PendingComparableValuesTracker<T extends Comparable<T>> {
      * @param initialValue Initial value.
      */
     public PendingComparableValuesTracker(T initialValue) {
-        current = new AtomicReference<>(initialValue);
+        current = initialValue;
     }
 
     /**
@@ -53,69 +62,43 @@ public class PendingComparableValuesTracker<T extends Comparable<T>> {
      * @param newValue New value.
      */
     public void update(T newValue) {
-        for (Map.Entry<T, Collection<CompletableFuture<Void>>> e : valueFutures.entrySet()) {
-            if (newValue.compareTo(e.getKey()) >= 0) {
-                valueFutures.compute(e.getKey(), (k, v) -> {
-                    if (v != null) {
-                        v.forEach(f -> f.complete(null));
-                    }
+        while (true) {
+            T current = this.current;
 
-                    return null;
-                });
-            } else {
+            if (newValue.compareTo(current) <= 0) {
                 break;
             }
-        }
 
-        while (true) {
-            T current = this.current.get();
+            if (CURRENT.compareAndSet(this, current, newValue)) {
+                ConcurrentNavigableMap<T, CompletableFuture<Void>> smallerFutures = valueFutures.headMap(newValue, true);
 
-            if (newValue.compareTo(current) > 0) {
-                if (this.current.compareAndSet(current, newValue)) {
-                    return;
-                }
-            } else {
-                return;
+                smallerFutures.forEach((k, f) -> f.complete(null));
+
+                smallerFutures.clear();
+
+                break;
             }
         }
     }
 
     /**
-     * Provides the future that is completed when this tracker's internal value reaches given one. If the internal value is greater or
-     * equal then the given one, returns completed future.
+     * Provides the future that is completed when this tracker's internal value reaches given one. If the internal value is greater or equal
+     * then the given one, returns completed future.
      *
      * @param valueToWait Value to wait.
      * @return Future.
      */
     public CompletableFuture<Void> waitFor(T valueToWait) {
-        if (current.get().compareTo(valueToWait) >= 0) {
+        if (current.compareTo(valueToWait) >= 0) {
             return completedFuture(null);
         }
 
-        CompletableFuture<Void> future = new CompletableFuture<>();
+        CompletableFuture<Void> future = valueFutures.computeIfAbsent(valueToWait, k -> new CompletableFuture<>());
 
-        valueFutures.compute(valueToWait, (k, v) -> {
-            if (v == null) {
-                v = new ConcurrentLinkedDeque<>();
-            }
-
-            v.add(future);
-
-            return v;
-        });
-
-        if (current.get().compareTo(valueToWait) >= 0) {
+        if (current.compareTo(valueToWait) >= 0) {
             future.complete(null);
 
-            valueFutures.compute(valueToWait, (k, v) -> {
-                if (v == null) {
-                    return null;
-                } else {
-                    v.remove(future);
-                }
-
-                return v;
-            });
+            valueFutures.remove(valueToWait);
         }
 
         return future;
@@ -127,6 +110,6 @@ public class PendingComparableValuesTracker<T extends Comparable<T>> {
      * @return Current value.
      */
     public T current() {
-        return current.get();
+        return current;
     }
 }

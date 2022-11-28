@@ -34,9 +34,7 @@ public:
      * Commits the transaction.
      */
     IGNITE_API void commit() {
-        return sync<void>([this] (auto callback) {
-            commit_async(std::move(callback));
-        });
+        return sync<void>([this](auto callback) { commit_async(std::move(callback)); });
     }
 
     /**
@@ -51,9 +49,7 @@ public:
      * Rollbacks the transaction.
      */
     IGNITE_API void rollback() {
-        return sync<void>([this] (auto callback) {
-            rollback_async(std::move(callback));
-        });
+        return sync<void>([this](auto callback) { rollback_async(std::move(callback)); });
     }
 
     /**

@@ -48,7 +48,7 @@ public:
     explicit ignite_client_impl(ignite_client_configuration configuration)
         : m_configuration(std::move(configuration))
         , m_connection(cluster_connection::create(m_configuration))
-        , m_tables(std::make_shared<tables_impl>(m_connection)) { }
+        , m_tables(std::make_shared<tables_impl>(m_connection)) {}
 
     /**
      * Destructor.

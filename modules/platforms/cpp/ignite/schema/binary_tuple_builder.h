@@ -226,7 +226,7 @@ public:
      * @param type Element type.
      * @param slice Optional value of an internal tuple field.
      */
-    template <typename BytesT>
+    template<typename BytesT>
     void claim(ignite_type type, const std::optional<BytesT> &slice) noexcept {
         if (slice.has_value()) {
             claim(type, slice.value());
@@ -242,7 +242,7 @@ public:
      * @param schema Tuple schema.
      * @param tuple Tuple in the internal form.
      */
-    template <typename BytesT>
+    template<typename BytesT>
     void claim(const binary_tuple_schema &schema, const std::vector<std::optional<BytesT>> &tuple) noexcept {
         for (IntT i = 0; i < schema.num_elements(); i++) {
             claim(schema.get_element(i).dataType, tuple[i]);
@@ -280,7 +280,7 @@ public:
      * @param type Element type.
      * @param slice Optional value of an internal tuple field.
      */
-    template <typename BytesT>
+    template<typename BytesT>
     void append(ignite_type type, const std::optional<BytesT> &slice) {
         if (slice.has_value()) {
             append(type, slice.value());
@@ -296,7 +296,7 @@ public:
      * @param schema Tuple schema.
      * @param tuple Tuple in the internal form.
      */
-    template <typename BytesT>
+    template<typename BytesT>
     void append(const binary_tuple_schema &schema, const std::vector<std::optional<BytesT>> &tuple) {
         for (IntT i = 0; i < schema.num_elements(); i++) {
             append(schema.get_element(i).dataType, tuple[i]);
@@ -536,14 +536,12 @@ public:
     void append_timestamp(const ignite_timestamp &value);
 
     /**
-     * @brief Appends a string for the next element.
+     * @brief Appends a string as the next element.
      *
      * @param value Element value.
      */
     void append_string(const std::string &value) {
-        bytes_view bytes{reinterpret_cast<const std::byte *>(value.data()), value.size()};
-
-        append_bytes(bytes);
+        append_bytes({reinterpret_cast<const std::byte *>(value.data()), value.size()});
     }
 
     /**
@@ -564,7 +562,7 @@ public:
      * @param tuple Tuple in the internal form.
      * @return Byte buffer with binary tuple.
      */
-    template <typename BytesT>
+    template<typename BytesT>
     const std::vector<std::byte> &build(
         const binary_tuple_schema &schema, const std::vector<std::optional<BytesT>> &tuple) {
         start();
@@ -584,7 +582,7 @@ private:
      * @return true If the source value can be compressed.
      * @return false If the source value cannot be compressed.
      */
-    template <typename SRC, typename TGT>
+    template<typename SRC, typename TGT>
     static bool fits(SRC value) noexcept {
         static_assert(std::is_signed_v<SRC>);
         static_assert(std::is_signed_v<TGT>);

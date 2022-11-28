@@ -21,6 +21,7 @@ import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import io.micronaut.context.annotation.Bean;
 import java.util.Set;
+import org.apache.ignite.internal.cli.NodeNameRegistry;
 import org.apache.ignite.internal.cli.call.configuration.ClusterConfigShowCall;
 import org.apache.ignite.internal.cli.call.configuration.ClusterConfigShowCallInput;
 import org.apache.ignite.internal.cli.call.configuration.NodeConfigShowCall;
@@ -34,16 +35,19 @@ public class DynamicCompleterFactory {
     private final NodeConfigShowCall nodeConfigShowCall;
     private final ClusterConfigShowCall clusterConfigShowCall;
     private final NodeUrlProvider urlProvider;
+    private final NodeNameRegistry nodeNameRegistry;
 
     /** Default constructor. */
     public DynamicCompleterFactory(
             NodeConfigShowCall nodeConfigShowCall,
             ClusterConfigShowCall clusterConfigShowCall,
-            NodeUrlProvider urlProvider) {
+            NodeUrlProvider urlProvider,
+            NodeNameRegistry nodeNameRegistry) {
 
         this.nodeConfigShowCall = nodeConfigShowCall;
         this.clusterConfigShowCall = clusterConfigShowCall;
         this.urlProvider = urlProvider;
+        this.nodeNameRegistry = nodeNameRegistry;
     }
 
     /** Creates node config completer with given activation prefix. */
@@ -89,4 +93,13 @@ public class DynamicCompleterFactory {
             }
         });
     }
+
+    public DynamicCompleter nodeNameCompleter(String... activationPrefixes) {
+        return nodeNameCompleter(Set.of(activationPrefixes));
+    }
+
+    public DynamicCompleter nodeNameCompleter(Set<String> activationPrefixes) {
+        return new NodeNameDynamicCompleter(activationPrefixes, nodeNameRegistry);
+    }
+
 }

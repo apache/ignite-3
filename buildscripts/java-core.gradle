@@ -48,7 +48,6 @@ processResources {
     }
 }
 
-
 pmdMain {
     enabled = true
 }
@@ -76,7 +75,11 @@ tasks.withType(Checkstyle) {
                 "org/apache/ignite/raft/jraft/**/*"]
     reports {
         xml.required = false
-        html.required = true
+        html {
+            required = true
+            outputLocation = file("$rootDir/build/reports/checkstyle/${project.name}.html")
+        }
+
     }
 }
 
@@ -94,10 +97,22 @@ jacoco {
 }
 
 javadoc {
-    source = sourceSets.main.java
+    source = sourceSets.main.allJava
     classpath = configurations.compileClasspath
-    enabled = false
+
+    def sourceDirs = sourceSets.main.java.sourceDirectories.join(":")
+    def generatedSources = "$buildDir/generated/sources/annotationProcessor/java/main"
+
+    options.addStringOption("-source-path", sourceDirs + File.pathSeparator + generatedSources)
+
+    exclude 'org/apache/ignite/internal/**'
+    exclude 'org/apache/ignite/raft/jraft/**'
+    exclude 'com/facebook/presto/**'
+
+    enabled = true
 }
+
+javadoc.dependsOn compileJava
 
 jacocoTestReport {
     reports {

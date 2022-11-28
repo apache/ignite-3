@@ -18,6 +18,8 @@
 package org.apache.ignite.distributed;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
@@ -25,9 +27,11 @@ import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BooleanSupplier;
 import java.util.function.Function;
@@ -36,6 +40,7 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
@@ -61,6 +66,7 @@ import org.apache.ignite.raft.client.service.ItAbstractListenerSnapshotTest;
 import org.apache.ignite.raft.client.service.RaftGroupListener;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 
 /**
@@ -89,9 +95,15 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
 
     private final List<TxManager> managers = new ArrayList<>();
 
-    private final Function<NetworkAddress, ClusterNode> addressToNode = addr -> {
-        throw new UnsupportedOperationException();
-    };
+    private final Function<String, ClusterNode> consistentIdToNode = addr
+            -> new ClusterNode("node1", "node1", new NetworkAddress(addr, 3333));
+
+    private final ReplicaService replicaService = mock(ReplicaService.class);
+
+    @BeforeEach
+    void initMocks() {
+        doReturn(CompletableFuture.completedFuture(null)).when(replicaService).invoke(any(), any());
+    }
 
     @AfterEach
     @Override
@@ -107,7 +119,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
     @Override
     public void beforeFollowerStop(RaftGroupService service) throws Exception {
         // TODO: https://issues.apache.org/jira/browse/IGNITE-17817 Use Replica layer with new transaction protocol.
-        TxManagerImpl txManager = new TxManagerImpl(null, new HeapLockManager(), new HybridClockImpl());
+        TxManagerImpl txManager = new TxManagerImpl(replicaService, new HeapLockManager(), new HybridClockImpl());
 
         managers.add(txManager);
 
@@ -118,12 +130,11 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                 UUID.randomUUID(),
                 Int2ObjectMaps.singleton(0, service),
                 1,
-                NetworkAddress::toString,
-                addressToNode,
+                consistentIdToNode,
                 txManager,
                 mock(MvTableStorage.class),
                 mock(TxStateTableStorage.class),
-                mock(ReplicaService.class),
+                replicaService,
                 mock(HybridClock.class)
         );
 
@@ -134,7 +145,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
     @Override
     public void afterFollowerStop(RaftGroupService service) throws Exception {
         // TODO: https://issues.apache.org/jira/browse/IGNITE-17817 Use Replica layer with new transaction protocol.
-        TxManagerImpl txManager = new TxManagerImpl(null, new HeapLockManager(), new HybridClockImpl());
+        TxManagerImpl txManager = new TxManagerImpl(replicaService, new HeapLockManager(), new HybridClockImpl());
 
         managers.add(txManager);
 
@@ -145,12 +156,11 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                 UUID.randomUUID(),
                 Int2ObjectMaps.singleton(0, service),
                 1,
-                NetworkAddress::toString,
-                addressToNode,
+                consistentIdToNode,
                 txManager,
                 mock(MvTableStorage.class),
                 mock(TxStateTableStorage.class),
-                mock(ReplicaService.class),
+                replicaService,
                 mock(HybridClock.class)
         );
 
@@ -167,7 +177,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
     @Override
     public void afterSnapshot(RaftGroupService service) throws Exception {
         // TODO: https://issues.apache.org/jira/browse/IGNITE-17817 Use Replica layer with new transaction protocol.
-        TxManager txManager = new TxManagerImpl(null, new HeapLockManager(), new HybridClockImpl());
+        TxManager txManager = new TxManagerImpl(replicaService, new HeapLockManager(), new HybridClockImpl());
 
         managers.add(txManager);
 
@@ -178,12 +188,11 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                 UUID.randomUUID(),
                 Int2ObjectMaps.singleton(0, service),
                 1,
-                NetworkAddress::toString,
-                addressToNode,
+                consistentIdToNode,
                 txManager,
                 mock(MvTableStorage.class),
                 mock(TxStateTableStorage.class),
-                mock(ReplicaService.class),
+                replicaService,
                 mock(HybridClock.class)
         );
 
@@ -198,13 +207,17 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
     @Override
     public BooleanSupplier snapshotCheckClosure(JraftServerImpl restarted, boolean interactedAfterSnapshot) {
         MvPartitionStorage storage = getListener(restarted, raftGroupId()).getMvStorage();
-        Map<ByteBuffer, RowId> primaryIndex = null; // getListener(restarted, raftGroupId()).getPk();
+        Map<ByteBuffer, RowId> primaryIndex = rowsToRowIds(storage);
 
         Row key = interactedAfterSnapshot ? SECOND_KEY : FIRST_KEY;
         Row value = interactedAfterSnapshot ? SECOND_VALUE : FIRST_VALUE;
 
         return () -> {
-            ReadResult read = storage.read(primaryIndex.get(key.keySlice()), HybridTimestamp.MAX_VALUE);
+            RowId rowId = primaryIndex.get(key.keySlice());
+
+            assertNotNull(rowId, "No rowId in storage");
+
+            ReadResult read = storage.read(rowId, HybridTimestamp.MAX_VALUE);
 
             if (read == null) {
                 return false;
@@ -212,6 +225,28 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
 
             return Arrays.equals(value.bytes(), read.binaryRow().bytes());
         };
+    }
+
+    private static Map<ByteBuffer, RowId> rowsToRowIds(MvPartitionStorage storage) {
+        Map<ByteBuffer, RowId> result = new HashMap<>();
+
+        RowId rowId = storage.closestRowId(RowId.lowestRowId(0));
+
+        while (rowId != null) {
+            BinaryRow binaryRow = storage.read(rowId, HybridTimestamp.MAX_VALUE).binaryRow();
+            if (binaryRow != null) {
+                result.put(binaryRow.keySlice(), rowId);
+            }
+
+            RowId incremented = rowId.increment();
+            if (incremented == null) {
+                break;
+            }
+
+            rowId = storage.closestRowId(incremented);
+        }
+
+        return result;
     }
 
     /** {@inheritDoc} */
@@ -229,7 +264,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                 .map(Map.Entry::getKey)
                 .findAny()
                 .orElseGet(() -> {
-                    TxManagerImpl txManager = new TxManagerImpl(null, new HeapLockManager(), new HybridClockImpl());
+                    TxManagerImpl txManager = new TxManagerImpl(replicaService, new HeapLockManager(), new HybridClockImpl());
 
                     txManager.start(); // Init listener.
 
@@ -239,7 +274,8 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                             new TestPartitionDataStorage(testMpPartStorage),
                             new TestTxStateStorage(),
                             txManager,
-                            Map::of
+                            Map::of,
+                            0
                     );
 
                     paths.put(listener, workDir);

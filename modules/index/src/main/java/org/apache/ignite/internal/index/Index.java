@@ -20,8 +20,12 @@ package org.apache.ignite.internal.index;
 import java.util.BitSet;
 import java.util.UUID;
 import java.util.concurrent.Flow.Publisher;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.network.ClusterNode;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * An object describing an abstract index.
@@ -35,10 +39,38 @@ public interface Index<DescriptorT extends IndexDescriptor> {
     /** Returns name of the index. */
     String name();
 
+    /** Returns table id index belong to. */
     UUID tableId();
 
+    /** Returns index descriptor. */
     DescriptorT descriptor();
 
-    /** Returns cursor for the values corresponding to the given key. */
-    Publisher<BinaryTuple> scan(int partId, InternalTransaction tx, BinaryTuple key, BitSet columns);
+    /**
+     * Returns cursor for the values corresponding to the given key.
+     *
+     * @param partId Partition id.
+     * @param tx Transaction.
+     * @param key Key to lookup.
+     * @param columns Columns to include.
+     * @return A cursor from resulting rows.
+     */
+    Publisher<BinaryRow> lookup(int partId, @Nullable InternalTransaction tx, BinaryTuple key, @Nullable BitSet columns);
+
+    /**
+     * Returns cursor for the values corresponding to the given key.
+     *
+     * @param partId Partition id.
+     * @param readTimestamp Read timestamp.
+     * @param recipientNode Cluster node that will handle given get request.
+     * @param key Key to search.
+     * @param columns Columns to include.
+     * @return A cursor from resulting rows.
+     */
+    Publisher<BinaryRow> lookup(
+            int partId,
+            HybridTimestamp readTimestamp,
+            ClusterNode recipientNode,
+            BinaryTuple key,
+            @Nullable BitSet columns
+    );
 }

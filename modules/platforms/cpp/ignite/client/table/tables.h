@@ -33,7 +33,7 @@ namespace detail {
 
 class tables_impl;
 
-} // namespace
+} // namespace detail
 
 class ignite_client;
 
@@ -103,7 +103,7 @@ private:
      * @param impl Implementation
      */
     explicit tables(std::shared_ptr<detail::tables_impl> impl)
-        : m_impl(std::move(impl)) { }
+        : m_impl(std::move(impl)) {}
 
     /** Implementation. */
     std::shared_ptr<detail::tables_impl> m_impl;

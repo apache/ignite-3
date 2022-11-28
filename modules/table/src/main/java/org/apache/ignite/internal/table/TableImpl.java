@@ -81,7 +81,7 @@ public class TableImpl implements Table {
      * @param lockManager Lock manager.
      * @param activeIndexIds Supplier of index ids which considered active on the moment of invocation.
      */
-    public TableImpl(InternalTable tbl, LockManager lockManager, Supplier<List<UUID>> activeIndexIds) {
+    public TableImpl(InternalTable tbl, LockManager lockManager, Supplier<CompletableFuture<List<UUID>>> activeIndexIds) {
         this.tbl = tbl;
         this.lockManager = lockManager;
         // this.activeIndexIds = activeIndexIds;

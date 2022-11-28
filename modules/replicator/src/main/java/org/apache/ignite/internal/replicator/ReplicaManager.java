@@ -46,7 +46,6 @@ import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.NetworkMessageHandler;
 import org.jetbrains.annotations.Nullable;
@@ -107,7 +106,7 @@ public class ReplicaManager implements IgniteComponent {
         this.clusterNetSvc = clusterNetSvc;
         this.clock = clock;
         this.messageGroupsToHandle = messageGroupsToHandle;
-        this.handler = (message, senderAddr, correlationId) -> {
+        this.handler = (message, sender, correlationId) -> {
             if (!busyLock.enterBusy()) {
                 throw new IgniteException(new NodeStoppingException());
             }
@@ -124,7 +123,7 @@ public class ReplicaManager implements IgniteComponent {
                 Replica replica = replicas.get(request.groupId());
 
                 if (replica == null) {
-                    sendReplicaUnavailableErrorResponse(senderAddr, correlationId, request, requestTimestamp);
+                    sendReplicaUnavailableErrorResponse(sender, correlationId, request, requestTimestamp);
 
                     return;
                 }
@@ -142,7 +141,7 @@ public class ReplicaManager implements IgniteComponent {
                         msg = prepareReplicaErrorResponse(requestTimestamp, ex);
                     }
 
-                    clusterNetSvc.messagingService().respond(senderAddr, msg, correlationId);
+                    clusterNetSvc.messagingService().respond(sender, msg, correlationId);
 
                     return null;
                 });
@@ -298,14 +297,14 @@ public class ReplicaManager implements IgniteComponent {
      * Sends replica unavailable error response.
      */
     private void sendReplicaUnavailableErrorResponse(
-            NetworkAddress senderAddr,
+            ClusterNode sender,
             @Nullable Long correlationId,
             ReplicaRequest request,
             HybridTimestamp requestTimestamp
     ) {
         if (requestTimestamp != null) {
             clusterNetSvc.messagingService().respond(
-                    senderAddr,
+                    sender,
                     REPLICA_MESSAGES_FACTORY
                             .errorTimestampAwareReplicaResponse()
                             .throwable(
@@ -318,7 +317,7 @@ public class ReplicaManager implements IgniteComponent {
                     correlationId);
         } else {
             clusterNetSvc.messagingService().respond(
-                    senderAddr,
+                    sender,
                     REPLICA_MESSAGES_FACTORY
                             .errorReplicaResponse()
                             .throwable(

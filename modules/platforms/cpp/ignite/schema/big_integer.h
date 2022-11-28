@@ -66,7 +66,7 @@ public:
      */
     big_integer(MagArray &&mag, std::int8_t sign)
         : sign(sign)
-        , mag(std::move(mag)) { }
+        , mag(std::move(mag)) {}
 
     /**
      * Constructs big integer with the specified integer value.

@@ -24,8 +24,6 @@ import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.SortedMap;
-import java.util.TreeMap;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -97,31 +95,6 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
     /** {@inheritDoc} */
     @Override
     public void start() {
-        for (String tblName : tablesCfg.tables().value().namedListKeys()) {
-            ExtendedTableConfiguration tblCfg = ((ExtendedTableConfiguration) tablesCfg.tables().get(tblName));
-            UUID tblId = tblCfg.id().value();
-
-            Map<Integer, byte[]> schemas = collectAllSchemas(tblId);
-
-            byte[] serialized;
-
-            if (!schemas.isEmpty()) {
-                for (Map.Entry<Integer, byte[]> ent : schemas.entrySet()) {
-                    serialized = ent.getValue();
-
-                    SchemaDescriptor desc = SchemaSerializerImpl.INSTANCE.deserialize(serialized);
-
-                    createSchema(0, tblId, tblName, desc).join();
-                }
-
-                registriesVv.complete(0);
-            } else {
-                serialized = schemas.get(INITIAL_SCHEMA_VERSION);
-
-                assert serialized != null;
-            }
-        }
-
         tablesCfg.tables().any().columns().listen(this::onSchemaChange);
     }
 
@@ -153,16 +126,16 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
 
             if (verFromUpdate != INITIAL_SCHEMA_VERSION) {
                 SchemaDescriptor oldSchema = searchSchemaByVersion(tblId, verFromUpdate - 1);
-                assert oldSchema != null;
 
-                NamedListView<ColumnView> oldCols = ctx.oldValue();
-                NamedListView<ColumnView> newCols = ctx.newValue();
+                if (oldSchema == null) {
+                    byte[] serPrevSchema = schemaByVersion(tblId, verFromUpdate - 1);
 
-                schemaDescFromUpdate.columnMapping(SchemaUtils.columnMapper(
-                        oldSchema,
-                        oldCols,
-                        schemaDescFromUpdate,
-                        newCols));
+                    assert serPrevSchema != null;
+
+                    oldSchema = SchemaSerializerImpl.INSTANCE.deserialize(serPrevSchema);
+                }
+
+                schemaDescFromUpdate.columnMapping(SchemaUtils.columnMapper(oldSchema, schemaDescFromUpdate));
             }
 
             long causalityToken = ctx.storageRevision();
@@ -300,27 +273,21 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
 
         CompletableFuture<SchemaDescriptor> fut = new CompletableFuture<>();
 
-        if (checkSchemaVersion(tblId, schemaVer)) {
-            SchemaDescriptor desc = searchSchemaByVersion(tblId, schemaVer);
+        SchemaRegistry registry = registriesVv.latest().get(tblId);
 
-            if (desc == null) {
-                return getSchemaDescriptor(schemaVer, tblCfg);
-            } else {
-                fut.complete(desc);
-                return fut;
-            }
+        if (registry.lastSchemaVersion() > schemaVer) {
+            return getSchemaDescriptor(schemaVer, tblCfg);
         }
 
         IgniteTriConsumer<Long, Map<UUID, SchemaRegistryImpl>, Throwable> schemaListener = (token, regs, e) -> {
             if (schemaVer <= regs.get(tblId).lastSchemaVersion()) {
-                getSchemaDescriptor(schemaVer, tblCfg)
-                        .whenComplete((desc, th) -> {
-                            if (th != null) {
-                                fut.completeExceptionally(th);
-                            } else {
-                                fut.complete(desc);
-                            }
-                        });
+                SchemaRegistry registry0 = registriesVv.latest().get(tblId);
+
+                SchemaDescriptor desc = registry0.schemaCached(schemaVer);
+
+                assert desc != null : "Unexpected empty schema description.";
+
+                fut.complete(desc);
             }
         };
 
@@ -331,7 +298,13 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
         if (checkSchemaVersion(tblId, schemaVer)) {
             registriesVv.removeWhenComplete(schemaListener);
 
-            return getSchemaDescriptor(schemaVer, tblCfg);
+            registry = registriesVv.latest().get(tblId);
+
+            SchemaDescriptor desc = registry.schemaCached(schemaVer);
+
+            assert desc != null : "Unexpected empty schema description.";
+
+            fut.complete(desc);
         }
 
         return fut.thenApply(res -> {
@@ -477,25 +450,24 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
     }
 
     /**
-     * Collect all schemes for appropriate table.
+     * Gets the defined version of the table schema which available in Metastore.
      *
      * @param tblId Table id.
-     * @return Sorted by key collection of schemes.
+     * @return Schema representation if schema found, {@code null} otherwise.
      */
-    private SortedMap<Integer, byte[]> collectAllSchemas(UUID tblId) {
+    private byte[] schemaByVersion(UUID tblId, int ver) {
         try {
-            Cursor<Entry> cur = metastorageMgr.prefix(schemaHistPrefix(tblId));
+            Cursor<Entry> cur = metastorageMgr.prefix(schemaWithVerHistKey(tblId, ver));
 
-            SortedMap<Integer, byte[]> schemes = new TreeMap<>();
+            if (cur.hasNext()) {
+                Entry ent = cur.next();
 
-            for (Entry ent : cur) {
-                String key = ent.key().toString();
-                int descVer = extractVerFromSchemaKey(key);
+                assert !cur.hasNext();
 
-                schemes.put(descVer, ent.value());
+                return ent.value();
             }
 
-            return schemes;
+            return null;
         } catch (NodeStoppingException e) {
             throw new IgniteException(e.traceId(), e.code(), e.getMessage(), e);
         }

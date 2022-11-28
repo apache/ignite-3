@@ -24,15 +24,18 @@ namespace ignite {
 
 big_decimal::big_decimal(const int8_t *mag, int32_t len, int32_t scale, int8_t sign, bool bigEndian)
     : scale(scale & 0x7FFFFFFF)
-    , magnitude(mag, len, sign, bigEndian) { }
+    , magnitude(mag, len, sign, bigEndian) {
+}
 
 big_decimal::big_decimal(int64_t val)
     : scale(0)
-    , magnitude(val) { }
+    , magnitude(val) {
+}
 
 big_decimal::big_decimal(int64_t val, int32_t scale)
     : scale(scale)
-    , magnitude(val) { }
+    , magnitude(val) {
+}
 
 big_decimal::big_decimal(big_integer val, int32_t scale)
     : scale(scale)

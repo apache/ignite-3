@@ -29,7 +29,7 @@ using namespace ignite;
 /**
  * Test suite.
  */
-class client_test : public ignite_runner_suite { };
+class client_test : public ignite_runner_suite {};
 
 TEST_F(client_test, get_configuration) {
     ignite_client_configuration cfg{NODE_ADDRS};

@@ -48,6 +48,10 @@ public class PartitionMeta {
 
     private volatile long lastAppliedIndex;
 
+    private volatile long lastAppliedTerm;
+
+    private volatile byte @Nullable [] lastGroupConfig;
+
     private volatile long rowVersionFreeListRootPageId;
 
     private volatile long indexColumnsFreeListRootPageId;
@@ -80,6 +84,8 @@ public class PartitionMeta {
     public PartitionMeta(
             @Nullable UUID checkpointId,
             long lastAppliedIndex,
+            long lastAppliedTerm,
+            byte @Nullable [] lastGroupConfig,
             long rowVersionFreeListRootPageId,
             long indexColumnsFreeListRootPageId,
             long versionChainTreeRootPageId,
@@ -87,6 +93,8 @@ public class PartitionMeta {
             int pageCount
     ) {
         this.lastAppliedIndex = lastAppliedIndex;
+        this.lastAppliedTerm = lastAppliedTerm;
+        this.lastGroupConfig = lastGroupConfig;
         this.rowVersionFreeListRootPageId = rowVersionFreeListRootPageId;
         this.indexColumnsFreeListRootPageId = indexColumnsFreeListRootPageId;
         this.versionChainTreeRootPageId = versionChainTreeRootPageId;
@@ -107,6 +115,8 @@ public class PartitionMeta {
         this(
                 checkpointId,
                 metaIo.getLastAppliedIndex(pageAddr),
+                metaIo.getLastAppliedTerm(pageAddr),
+                metaIo.getLastGroupConfig(pageAddr),
                 metaIo.getRowVersionFreeListRootPageId(pageAddr),
                 metaIo.getIndexColumnsFreeListRootPageId(pageAddr),
                 metaIo.getVersionChainTreeRootPageId(pageAddr),
@@ -123,15 +133,43 @@ public class PartitionMeta {
     }
 
     /**
-     * Sets a last applied index value.
+     * Returns a last applied term value.
+     */
+    public long lastAppliedTerm() {
+        return lastAppliedTerm;
+    }
+
+    /**
+     * Sets last applied index and term.
      *
      * @param checkpointId Checkpoint ID.
      * @param lastAppliedIndex Last applied index value.
+     * @param lastAppliedTerm Last applied term value.
      */
-    public void lastAppliedIndex(@Nullable UUID checkpointId, long lastAppliedIndex) {
+    public void lastApplied(@Nullable UUID checkpointId, long lastAppliedIndex, long lastAppliedTerm) {
         updateSnapshot(checkpointId);
 
         this.lastAppliedIndex = lastAppliedIndex;
+        this.lastAppliedTerm = lastAppliedTerm;
+    }
+
+    /**
+     * Returns byte array representation of last group config.
+     */
+    public byte @Nullable [] lastGroupConfig() {
+        return lastGroupConfig;
+    }
+
+    /**
+     * Sets last group config.
+     *
+     * @param checkpointId Checkpoint ID.
+     * @param groupConfig Byte array representation of a group config.
+     */
+    public void lastGroupConfig(@Nullable UUID checkpointId, byte[] groupConfig) {
+        updateSnapshot(checkpointId);
+
+        this.lastGroupConfig = groupConfig;
     }
 
     /**
@@ -265,6 +303,10 @@ public class PartitionMeta {
 
         private final long lastAppliedIndex;
 
+        private final long lastAppliedTerm;
+
+        private final byte[] lastGroupConfig;
+
         private final long versionChainTreeRootPageId;
 
         private final long rowVersionFreeListRootPageId;
@@ -284,6 +326,8 @@ public class PartitionMeta {
         private PartitionMetaSnapshot(@Nullable UUID checkpointId, PartitionMeta partitionMeta) {
             this.checkpointId = checkpointId;
             lastAppliedIndex = partitionMeta.lastAppliedIndex;
+            lastAppliedTerm = partitionMeta.lastAppliedTerm;
+            lastGroupConfig = partitionMeta.lastGroupConfig;
             versionChainTreeRootPageId = partitionMeta.versionChainTreeRootPageId;
             rowVersionFreeListRootPageId = partitionMeta.rowVersionFreeListRootPageId;
             indexColumnsFreeListRootPageId = partitionMeta.indexColumnsFreeListRootPageId;
@@ -296,6 +340,20 @@ public class PartitionMeta {
          */
         public long lastAppliedIndex() {
             return lastAppliedIndex;
+        }
+
+        /**
+         * Returns a last applied term value.
+         */
+        public long lastAppliedTerm() {
+            return lastAppliedTerm;
+        }
+
+        /**
+         * Returns last group config.
+         */
+        public byte @Nullable [] lastGroupConfig() {
+            return lastGroupConfig;
         }
 
         /**
@@ -341,6 +399,8 @@ public class PartitionMeta {
          */
         void writeTo(PartitionMetaIo metaIo, long pageAddr) {
             metaIo.setLastAppliedIndex(pageAddr, lastAppliedIndex);
+            metaIo.setLastAppliedTerm(pageAddr, lastAppliedTerm);
+            metaIo.setLastGroupConfig(pageAddr, lastGroupConfig);
             metaIo.setVersionChainTreeRootPageId(pageAddr, versionChainTreeRootPageId);
             metaIo.setIndexColumnsFreeListRootPageId(pageAddr, indexColumnsFreeListRootPageId);
             metaIo.setRowVersionFreeListRootPageId(pageAddr, rowVersionFreeListRootPageId);

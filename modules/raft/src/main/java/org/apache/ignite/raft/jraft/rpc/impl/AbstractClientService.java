@@ -27,6 +27,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.TopologyEventHandler;
 import org.apache.ignite.raft.jraft.Status;
+import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.error.InvokeTimeoutException;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.error.RemotingException;
@@ -39,7 +40,6 @@ import org.apache.ignite.raft.jraft.rpc.RpcClient;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.ErrorResponse;
 import org.apache.ignite.raft.jraft.rpc.RpcResponseClosure;
-import org.apache.ignite.raft.jraft.util.Endpoint;
 import org.apache.ignite.raft.jraft.util.Utils;
 import org.apache.ignite.raft.jraft.util.concurrent.ConcurrentHashSet;
 import org.apache.ignite.raft.jraft.util.internal.ThrowUtil;
@@ -55,9 +55,9 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
     protected RpcOptions rpcOptions;
 
     /**
-     * The set of pinged addresses
+     * The set of pinged consistent IDs.
      */
-    protected Set<String> readyAddresses = new ConcurrentHashSet<>();
+    protected Set<String> readyConsistentIds = new ConcurrentHashSet<>();
 
     public RpcClient getRpcClient() {
         return this.rpcClient;
@@ -81,7 +81,7 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
     }
 
     @Override public void onDisappeared(ClusterNode member) {
-        readyAddresses.remove(member.address().toString());
+        readyConsistentIds.remove(member.name());
     }
 
     protected void configRpcClient(final RpcClient rpcClient) {
@@ -110,29 +110,29 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
     }
 
     @Override
-    public boolean connect(final Endpoint endpoint) {
+    public boolean connect(final PeerId peerId) {
         try {
-            return connectAsync(endpoint).get();
+            return connectAsync(peerId).get();
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
 
-            LOG.error("Interrupted while connecting to {}, exception: {}.", endpoint, e.getMessage());
+            LOG.error("Interrupted while connecting to {}, exception: {}.", peerId, e.getMessage());
         } catch (ExecutionException e) {
-            LOG.error("Fail to connect {}, exception: {}.", endpoint, e.getMessage());
+            LOG.error("Fail to connect {}, exception: {}.", peerId, e.getMessage());
         }
 
         return false;
     }
 
     @Override
-    public CompletableFuture<Boolean> connectAsync(Endpoint endpoint) {
+    public CompletableFuture<Boolean> connectAsync(PeerId peerId) {
         final RpcClient rc = this.rpcClient;
         if (rc == null) {
             throw new IllegalStateException("Client service is uninitialized.");
         }
 
         // Remote node is alive and pinged, safe to continue.
-        if (readyAddresses.contains(endpoint.toString())) {
+        if (readyConsistentIds.contains(peerId.getConsistentId())) {
             return CompletableFuture.completedFuture(true);
         }
 
@@ -142,13 +142,13 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
                 .build();
 
         CompletableFuture<Message> fut =
-                invokeWithDone(endpoint, req, null, null, rpcOptions.getRpcConnectTimeoutMs(), rpcExecutor);
+                invokeWithDone(peerId, req, null, null, rpcOptions.getRpcConnectTimeoutMs(), rpcExecutor);
 
         return fut.thenApply(msg -> {
             ErrorResponse resp = (ErrorResponse) msg;
 
             if (resp != null && resp.errorCode() == 0) {
-                readyAddresses.add(endpoint.toString());
+                readyConsistentIds.add(peerId.getConsistentId());
 
                 return true;
             } else {
@@ -158,24 +158,24 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
     }
 
     @Override
-    public <T extends Message> CompletableFuture<Message> invokeWithDone(final Endpoint endpoint, final Message request,
+    public <T extends Message> CompletableFuture<Message> invokeWithDone(final PeerId peerId, final Message request,
         final RpcResponseClosure<T> done, final int timeoutMs) {
-        return invokeWithDone(endpoint, request, done, timeoutMs, this.rpcExecutor);
+        return invokeWithDone(peerId, request, done, timeoutMs, this.rpcExecutor);
     }
 
-    public <T extends Message> CompletableFuture<Message> invokeWithDone(final Endpoint endpoint, final Message request,
+    public <T extends Message> CompletableFuture<Message> invokeWithDone(final PeerId peerId, final Message request,
         final RpcResponseClosure<T> done, final int timeoutMs,
         final Executor rpcExecutor) {
-        return invokeWithDone(endpoint, request, null, done, timeoutMs, rpcExecutor);
+        return invokeWithDone(peerId, request, null, done, timeoutMs, rpcExecutor);
     }
 
-    public <T extends Message> CompletableFuture<Message> invokeWithDone(final Endpoint endpoint, final Message request,
+    public <T extends Message> CompletableFuture<Message> invokeWithDone(final PeerId peerId, final Message request,
         final InvokeContext ctx,
         final RpcResponseClosure<T> done, final int timeoutMs) {
-        return invokeWithDone(endpoint, request, ctx, done, timeoutMs, this.rpcExecutor);
+        return invokeWithDone(peerId, request, ctx, done, timeoutMs, this.rpcExecutor);
     }
 
-    public <T extends Message> CompletableFuture<Message> invokeWithDone(final Endpoint endpoint, final Message request,
+    public <T extends Message> CompletableFuture<Message> invokeWithDone(final PeerId peerId, final Message request,
         final InvokeContext ctx,
         final RpcResponseClosure<T> done, final int timeoutMs,
         final Executor rpcExecutor) {
@@ -193,7 +193,7 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
                 return future;
             }
 
-            return rc.invokeAsync(endpoint, request, ctx, new InvokeCallback() {
+            return rc.invokeAsync(peerId, request, ctx, new InvokeCallback() {
                 @Override
                 public void complete(final Object result, final Throwable err) {
                     if (err == null) {
@@ -223,7 +223,7 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
                     }
                     else {
                         if (ThrowUtil.hasCause(err, null, ConnectException.class))
-                            readyAddresses.remove(endpoint.toString()); // Force logical reconnect.
+                            readyConsistentIds.remove(peerId.getConsistentId()); // Force logical reconnect.
 
                         if (done != null) {
                             try {

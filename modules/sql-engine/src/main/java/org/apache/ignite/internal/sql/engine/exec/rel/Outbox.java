@@ -28,7 +28,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeService;
@@ -64,24 +63,22 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
      * Constructor.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      *
-     * @param ctx              Execution context.
-     * @param rowType          Rel data type.
-     * @param exchange         Exchange service.
-     * @param registry         Mailbox registry.
-     * @param exchangeId       Exchange ID.
+     * @param ctx Execution context.
+     * @param exchange Exchange service.
+     * @param registry Mailbox registry.
+     * @param exchangeId Exchange ID.
      * @param targetFragmentId Target fragment ID.
-     * @param dest             Destination.
+     * @param dest Destination.
      */
     public Outbox(
             ExecutionContext<RowT> ctx,
-            RelDataType rowType,
             ExchangeService exchange,
             MailboxRegistry registry,
             long exchangeId,
             long targetFragmentId,
             Destination<RowT> dest
     ) {
-        super(ctx, rowType);
+        super(ctx);
         this.exchange = exchange;
         this.registry = registry;
         this.targetFragmentId = targetFragmentId;
@@ -98,15 +95,15 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
     /**
      * Callback method.
      *
-     * @param nodeId  Target ID.
+     * @param nodeName Target consistent ID.
      * @param batchId Batch ID.
      */
-    public void onAcknowledge(String nodeId, int batchId) throws Exception {
-        assert nodeBuffers.containsKey(nodeId);
+    public void onAcknowledge(String nodeName, int batchId) throws Exception {
+        assert nodeBuffers.containsKey(nodeName);
 
         checkState();
 
-        nodeBuffers.get(nodeId).acknowledge(batchId);
+        nodeBuffers.get(nodeName).acknowledge(batchId);
     }
 
     /**
@@ -156,7 +153,8 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
     }
 
     /** {@inheritDoc} */
-    @Override public void onError(Throwable e) {
+    @Override
+    public void onError(Throwable e) {
         try {
             sendError(e);
         } catch (IgniteInternalCheckedException ex) {
@@ -201,28 +199,28 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
         return this;
     }
 
-    private void sendBatch(String nodeId, int batchId, boolean last, List<RowT> rows) throws IgniteInternalCheckedException {
-        exchange.sendBatch(nodeId, queryId(), targetFragmentId, exchangeId, batchId, last, rows);
+    private void sendBatch(String nodeName, int batchId, boolean last, List<RowT> rows) throws IgniteInternalCheckedException {
+        exchange.sendBatch(nodeName, queryId(), targetFragmentId, exchangeId, batchId, last, rows);
     }
 
     private void sendError(Throwable err) throws IgniteInternalCheckedException {
-        exchange.sendError(context().originatingNodeId(), queryId(), fragmentId(), err);
+        exchange.sendError(context().originatingNodeName(), queryId(), fragmentId(), err);
     }
 
-    private void sendInboxClose(String nodeId) {
+    private void sendInboxClose(String nodeName) {
         try {
-            exchange.closeInbox(nodeId, queryId(), targetFragmentId, exchangeId);
+            exchange.closeInbox(nodeName, queryId(), targetFragmentId, exchangeId);
         } catch (IgniteInternalCheckedException e) {
             LOG.info("Unable to send cancel message", e);
         }
     }
 
-    private Buffer getOrCreateBuffer(String nodeId) {
-        return nodeBuffers.computeIfAbsent(nodeId, this::createBuffer);
+    private Buffer getOrCreateBuffer(String nodeName) {
+        return nodeBuffers.computeIfAbsent(nodeName, this::createBuffer);
     }
 
-    private Buffer createBuffer(String nodeId) {
-        return new Buffer(nodeId);
+    private Buffer createBuffer(String nodeName) {
+        return new Buffer(nodeName);
     }
 
     private void flush() throws Exception {
@@ -261,14 +259,14 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
      * OnNodeLeft.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public void onNodeLeft(String nodeId) {
-        if (nodeId.equals(context().originatingNodeId())) {
+    public void onNodeLeft(String nodeName) {
+        if (nodeName.equals(context().originatingNodeName())) {
             context().execute(this::close, this::onError);
         }
     }
 
     private final class Buffer {
-        private final String nodeId;
+        private final String nodeName;
 
         private int hwm = -1;
 
@@ -276,8 +274,8 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
 
         private List<RowT> curr;
 
-        private Buffer(String nodeId) {
-            this.nodeId = nodeId;
+        private Buffer(String nodeName) {
+            this.nodeName = nodeName;
 
             curr = new ArrayList<>(IO_BATCH_SIZE);
         }
@@ -304,7 +302,7 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
             assert ready();
 
             if (curr.size() == IO_BATCH_SIZE) {
-                sendBatch(nodeId, ++hwm, false, curr);
+                sendBatch(nodeName, ++hwm, false, curr);
 
                 curr = new ArrayList<>(IO_BATCH_SIZE);
             }
@@ -326,7 +324,7 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
             List<RowT> tmp = curr;
             curr = null;
 
-            sendBatch(nodeId, batchId, true, tmp);
+            sendBatch(nodeName, batchId, true, tmp);
         }
 
         /**
@@ -360,7 +358,7 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
             curr = null;
 
             if (currBatchId >= 0) {
-                sendInboxClose(nodeId);
+                sendInboxClose(nodeName);
             }
         }
     }

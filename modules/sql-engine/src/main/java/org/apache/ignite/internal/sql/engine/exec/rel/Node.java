@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
 import java.util.List;
-import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 
 /**
@@ -34,13 +33,6 @@ public interface Node<RowT> extends AutoCloseable {
      * @return Execution context.
      */
     ExecutionContext<RowT> context();
-
-    /**
-     * Returns logical node output row type.
-     *
-     * @return Logical node output row type.
-     */
-    RelDataType rowType();
 
     /**
      * Returns node downstream.

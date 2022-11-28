@@ -52,6 +52,7 @@ dependencies {
     testImplementation libs.micronaut.http.server.netty
 
     testFixturesAnnotationProcessor project(':ignite-configuration-annotation-processor')
+    testFixturesImplementation project(':ignite-core')
     testFixturesImplementation libs.jetbrains.annotations
     testFixturesImplementation libs.junit5.api
     testFixturesImplementation libs.mockito.core

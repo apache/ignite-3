@@ -45,7 +45,6 @@ import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.StaticNodeFinder;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -248,7 +247,7 @@ public class ItClusterManagerTest {
 
         String[] metaStorageNodes = { cluster.get(2).name() };
 
-        initCluster(cmgNodes, metaStorageNodes);
+        initCluster(metaStorageNodes, cmgNodes);
 
         for (MockNode node : cluster) {
             assertThat(node.startFuture(), willCompleteSuccessfully());
@@ -386,7 +385,6 @@ public class ItClusterManagerTest {
         assertThat(node.clusterManager().onJoinReady(), willCompleteSuccessfully());
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17814")
     @Test
     void testLeaderChangeBeforeJoin(TestInfo testInfo) throws Exception {
         // Start a cluster of 3 nodes so that the CMG leader node could be stopped later.
@@ -416,8 +414,6 @@ public class ItClusterManagerTest {
         MockNode node = addNodeToCluster(testInfo);
 
         node.start();
-
-        Thread.sleep(10000);
 
         assertThat(node.clusterManager().joinFuture(), willCompleteSuccessfully());
     }

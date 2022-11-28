@@ -33,6 +33,7 @@ import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.exp.RangeCondition;
 import org.apache.ignite.internal.sql.engine.exec.exp.RangeIterable;
+import org.apache.ignite.internal.sql.engine.exec.exp.RexImpTable;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
@@ -106,7 +107,7 @@ public class SortedIndexSpoolExecutionTest extends AbstractExecutionTest {
 
             log.info("Check: size=" + size);
 
-            ScanNode<Object[]> scan = new ScanNode<>(ctx, rowType, new TestTable(size, rowType) {
+            ScanNode<Object[]> scan = new ScanNode<>(ctx, new TestTable(size, rowType) {
                 boolean first = true;
 
                 @Override
@@ -133,7 +134,7 @@ public class SortedIndexSpoolExecutionTest extends AbstractExecutionTest {
 
             spool.register(singletonList(scan));
 
-            RootRewindable<Object[]> root = new RootRewindable<>(ctx, rowType);
+            RootRewindable<Object[]> root = new RootRewindable<>(ctx);
             root.register(spool);
 
             for (TestParams param : testParams) {
@@ -159,7 +160,6 @@ public class SortedIndexSpoolExecutionTest extends AbstractExecutionTest {
 
         ScanNode<Object[]> scan = new ScanNode<>(
                 ctx,
-                rowType,
                 new TestTable(100, rowType, rowId -> rowId / 10, rowId -> rowId % 10, rowId -> rowId)
         );
 
@@ -179,10 +179,10 @@ public class SortedIndexSpoolExecutionTest extends AbstractExecutionTest {
 
         spool.register(scan);
 
-        RootRewindable<Object[]> root = new RootRewindable<>(ctx, rowType);
+        RootRewindable<Object[]> root = new RootRewindable<>(ctx);
         root.register(spool);
 
-        Object x = ctx.unspecifiedValue(); // Unspecified filter value.
+        Object x = RexImpTable.UNSPECIFIED_VALUE_PLACEHOLDER; // Unspecified filter value.
 
         // Test tuple (lower, upper, expected result size).
         List<TestParams> testBounds = Arrays.asList(

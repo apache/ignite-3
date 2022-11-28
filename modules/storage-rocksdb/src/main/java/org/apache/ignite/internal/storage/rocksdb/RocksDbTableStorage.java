@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.storage.rocksdb;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.HASH_INDEX_CF_NAME;
 import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.META_CF_NAME;
 import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.PARTITION_CF_NAME;
@@ -36,7 +37,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReferenceArray;
-import java.util.stream.Collectors;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
@@ -319,7 +319,11 @@ public class RocksDbTableStorage implements MvTableStorage {
         resources.add(meta.columnFamily().handle());
         resources.add(partitionCf.handle());
         resources.add(hashIndexCf.handle());
-        resources.addAll(sortedIndices.values());
+        resources.addAll(
+                sortedIndices.values().stream()
+                        .map(index -> (AutoCloseable) index::close)
+                        .collect(toList())
+        );
 
         resources.add(db);
 
@@ -329,7 +333,7 @@ public class RocksDbTableStorage implements MvTableStorage {
             MvPartitionStorage partition = partitions.get(i);
 
             if (partition != null) {
-                resources.add(partition);
+                resources.add(partition::close);
             }
         }
 
@@ -385,7 +389,7 @@ public class RocksDbTableStorage implements MvTableStorage {
 
             try {
                 mvPartition.close();
-            } catch (Exception e) {
+            } catch (RuntimeException e) {
                 throw new StorageException("Error when closing partition storage for the partition: " + partitionId, e);
             }
         }
@@ -498,7 +502,7 @@ public class RocksDbTableStorage implements MvTableStorage {
             List<String> existingNames = RocksDB.listColumnFamilies(opts, absolutePathStr)
                     .stream()
                     .map(cfNameBytes -> new String(cfNameBytes, UTF_8))
-                    .collect(Collectors.toList());
+                    .collect(toList());
 
             // even if the database is new (no existing Column Families), we return the names of mandatory column families, that
             // will be created automatically.
@@ -518,7 +522,7 @@ public class RocksDbTableStorage implements MvTableStorage {
     private List<ColumnFamilyDescriptor> getExistingCfDescriptors() {
         return getExistingCfNames().stream()
                 .map(this::cfDescriptorFromName)
-                .collect(Collectors.toList());
+                .collect(toList());
     }
 
     /**

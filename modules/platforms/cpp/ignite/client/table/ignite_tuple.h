@@ -24,8 +24,8 @@
 #include <initializer_list>
 #include <string_view>
 #include <unordered_map>
-#include <vector>
 #include <utility>
+#include <vector>
 
 namespace ignite {
 
@@ -36,6 +36,7 @@ class ignite_tuple_builder;
  */
 class ignite_tuple {
     friend class ignite_tuple_builder;
+
 public:
     // Default
     ignite_tuple() = default;
@@ -45,9 +46,7 @@ public:
      *
      * @param capacity Capacity.
      */
-    explicit ignite_tuple(size_t capacity) {
-        m_pairs.reserve(capacity);
-    }
+    explicit ignite_tuple(size_t capacity) { m_pairs.reserve(capacity); }
 
     /**
      * Constructor.
@@ -56,8 +55,7 @@ public:
      */
     ignite_tuple(std::initializer_list<std::pair<std::string, std::any>> pairs)
         : m_pairs(pairs)
-        , m_indices()
-    {
+        , m_indices() {
         for (size_t i = 0; i < m_pairs.size(); ++i)
             m_indices.emplace(std::make_pair(parse_name(m_pairs[i].first), i));
     }
@@ -67,9 +65,7 @@ public:
      *
      * @return Number of columns in the tuple.
      */
-    [[nodiscard]] std::int32_t column_count() const noexcept {
-        return std::int32_t(m_pairs.size());
-    }
+    [[nodiscard]] std::int32_t column_count() const noexcept { return std::int32_t(m_pairs.size()); }
 
     /**
      * Gets the value of the specified column.
@@ -77,10 +73,10 @@ public:
      * @param idx The column index.
      * @return Column value.
      */
-    [[nodiscard]] const std::any& get(uint32_t idx) const {
+    [[nodiscard]] const std::any &get(uint32_t idx) const {
         if (idx > m_pairs.size()) {
-            throw ignite_error("Index is too large: idx=" + std::to_string(idx) +
-                ", columns_num=" + std::to_string(m_pairs.size()));
+            throw ignite_error(
+                "Index is too large: idx=" + std::to_string(idx) + ", columns_num=" + std::to_string(m_pairs.size()));
         }
         return m_pairs[idx].second;
     }
@@ -105,10 +101,10 @@ public:
      * @param value Value.
      */
     template<typename T>
-    void set(uint32_t idx, T&& value) {
+    void set(uint32_t idx, T &&value) {
         if (idx > m_pairs.size()) {
-            throw ignite_error("Index is too large: idx=" + std::to_string(idx) +
-                ", columns_num=" + std::to_string(m_pairs.size()));
+            throw ignite_error(
+                "Index is too large: idx=" + std::to_string(idx) + ", columns_num=" + std::to_string(m_pairs.size()));
         }
         m_pairs[idx].second = std::forward<T>(value);
     }
@@ -119,7 +115,7 @@ public:
      * @param name The column name.
      * @return Column value.
      */
-    [[nodiscard]] const std::any& get(std::string_view name) const {
+    [[nodiscard]] const std::any &get(std::string_view name) const {
         auto it = m_indices.find(parse_name(name));
         if (it == m_indices.end())
             throw ignite_error("Can not find column with the name '" + std::string(name) + "' in the tuple");
@@ -147,7 +143,7 @@ public:
      * @param value Value.
      */
     template<typename T>
-    void set(std::string_view name, T&& value) {
+    void set(std::string_view name, T &&value) {
         auto parsed_name = parse_name(name);
         auto it = m_indices.find(parsed_name);
         if (it != m_indices.end()) {
@@ -166,10 +162,10 @@ public:
      * @param idx The column index.
      * @return Column name.
      */
-    [[nodiscard]] const std::string& column_name(uint32_t idx) const {
+    [[nodiscard]] const std::string &column_name(uint32_t idx) const {
         if (idx > m_pairs.size()) {
-            throw ignite_error("Index is too large: idx=" + std::to_string(idx) +
-                ", columns_num=" + std::to_string(m_pairs.size()));
+            throw ignite_error(
+                "Index is too large: idx=" + std::to_string(idx) + ", columns_num=" + std::to_string(m_pairs.size()));
         }
         return m_pairs[idx].first;
     }
@@ -195,9 +191,9 @@ private:
      * @param pairs Pairs.
      * @param indices Indices.
      */
-    ignite_tuple(std::vector<std::pair<std::string, std::any>>&& pairs, std::unordered_map<std::string, size_t> indices)
+    ignite_tuple(std::vector<std::pair<std::string, std::any>> &&pairs, std::unordered_map<std::string, size_t> indices)
         : m_pairs(std::move(pairs))
-        , m_indices(std::move(indices)) { }
+        , m_indices(std::move(indices)) {}
 
     /**
      * Normalize column name.

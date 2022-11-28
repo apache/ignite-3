@@ -49,7 +49,6 @@ dependencies {
     implementation libs.picocli.shell.jline3
     implementation libs.picocli.core
     implementation libs.jackson.databind
-    implementation libs.apache.ivy
     implementation libs.typesafe.config
     implementation libs.slf4j.jdk14
     implementation libs.gson.core

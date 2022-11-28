@@ -18,7 +18,7 @@ Apache Ignite is shipped with JDBC driver that allows processing of distributed 
 
 WARNING:
 ----
-This Alpha release implementation of JDBC driver does not support the following functionality:
+This Beta release implementation of JDBC driver does not support the following functionality:
 
 * SSL/TLS connection;
 * Multiple Endpoints;

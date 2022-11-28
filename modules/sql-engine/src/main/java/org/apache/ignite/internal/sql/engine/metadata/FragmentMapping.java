@@ -64,8 +64,8 @@ public class FragmentMapping implements Serializable {
      * Create.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public static FragmentMapping create(String nodeId) {
-        return new FragmentMapping(ColocationGroup.forNodes(Collections.singletonList(nodeId)));
+    public static FragmentMapping create(String nodeName) {
+        return new FragmentMapping(ColocationGroup.forNodes(Collections.singletonList(nodeName)));
     }
 
     /**
@@ -139,9 +139,9 @@ public class FragmentMapping implements Serializable {
      * NodeIds.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public List<String> nodeIds() {
+    public List<String> nodeNames() {
         return colocationGroups.stream()
-                .flatMap(g -> g.nodeIds().stream())
+                .flatMap(g -> g.nodeNames().stream())
                 .distinct().collect(Collectors.toList());
     }
 
@@ -158,7 +158,7 @@ public class FragmentMapping implements Serializable {
 
         colocationGroups = Commons.transform(colocationGroups, ColocationGroup::finalaze);
 
-        List<String> nodes = nodeIds();
+        List<String> nodes = nodeNames();
         List<String> nodes0 = nodes.isEmpty() ? nodesSource.get() : nodes;
 
         colocationGroups = Commons.transform(colocationGroups, g -> g.mapToNodes(nodes0));

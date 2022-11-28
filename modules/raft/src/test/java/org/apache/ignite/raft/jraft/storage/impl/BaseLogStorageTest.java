@@ -68,7 +68,7 @@ public abstract class BaseLogStorageTest extends BaseStorageTest {
     }
 
     @AfterEach
-    public void teardown() throws Exception {
+    public void teardown() {
         this.logStorage.shutdown();
     }
 

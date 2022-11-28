@@ -17,16 +17,20 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
+import java.nio.ByteBuffer;
+import java.util.List;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTuplePrefixBuilder;
-import org.apache.ignite.internal.index.IndexDescriptor;
 import org.apache.ignite.internal.schema.BinaryConverter;
 import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
+import org.apache.ignite.internal.sql.engine.exec.exp.RexImpTable;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
+import org.apache.ignite.internal.util.IgniteUtils;
 
 /**
  * Helper class provides method to convert binary tuple to rows and vice-versa.
@@ -35,10 +39,10 @@ public final class RowConverter {
     /**
      * Creates binary tuple schema for index rows.
      */
-    public static BinaryTupleSchema createIndexRowSchema(TableDescriptor tableDescriptor, IndexDescriptor indexDescriptor) {
-        Element[] elements = indexDescriptor.columns().stream()
-                .map(colName -> tableDescriptor.columnDescriptor(colName))
-                .map(colDesc -> new Element(colDesc.physicalType(), colDesc.nullable()))
+    public static BinaryTupleSchema createIndexRowSchema(List<String> indexedColumns, TableDescriptor tableDescriptor) {
+        Element[] elements = indexedColumns.stream()
+                .map(tableDescriptor::columnDescriptor)
+                .map(colDesc -> new Element(colDesc.physicalType(), true))
                 .toArray(Element[]::new);
 
         return BinaryTupleSchema.create(elements);
@@ -54,7 +58,7 @@ public final class RowConverter {
      * @param <RowT> Row type.
      * @return Binary tuple.
      */
-    public static <RowT> BinaryTuple toBinaryTuplePrefix(
+    public static <RowT> BinaryTuplePrefix toBinaryTuplePrefix(
             ExecutionContext<RowT> ectx,
             BinaryTupleSchema binarySchema,
             RowHandler.RowFactory<RowT> factory,
@@ -62,11 +66,23 @@ public final class RowConverter {
     ) {
         RowHandler<RowT> handler = factory.handler();
 
+        int indexedColumnsCount = binarySchema.elementCount();
         int prefixColumnsCount = handler.columnCount(searchRow);
-        int totalColumnsCount = binarySchema.elementCount();
-        BinaryTupleBuilder tupleBuilder = new BinaryTuplePrefixBuilder(prefixColumnsCount, totalColumnsCount);
 
-        return toBinaryTuple(ectx, binarySchema, handler, tupleBuilder, searchRow);
+        assert prefixColumnsCount == indexedColumnsCount : "Invalid range condition";
+
+        int specifiedCols = 0;
+        for (int i = 0; i < prefixColumnsCount; i++) {
+            if (handler.get(i, searchRow) == RexImpTable.UNSPECIFIED_VALUE_PLACEHOLDER) {
+                break;
+            }
+
+            specifiedCols++;
+        }
+
+        BinaryTuplePrefixBuilder tupleBuilder = new BinaryTuplePrefixBuilder(specifiedCols, indexedColumnsCount);
+
+        return new BinaryTuplePrefix(binarySchema, toByteBuffer(ectx, binarySchema, handler, tupleBuilder, searchRow));
     }
 
     /**
@@ -87,27 +103,38 @@ public final class RowConverter {
     ) {
         RowHandler<RowT> handler = factory.handler();
 
-        int prefixColumnsCount = handler.columnCount(searchRow);
-        int totalColumnsCount = binarySchema.elementCount();
+        int rowColumnsCount = handler.columnCount(searchRow);
 
-        assert prefixColumnsCount == totalColumnsCount : "Invalid lookup condition";
+        assert rowColumnsCount == binarySchema.elementCount() : "Invalid lookup key.";
 
-        BinaryTupleBuilder tupleBuilder = new BinaryTupleBuilder(prefixColumnsCount, binarySchema.hasNullableElements());
+        if (IgniteUtils.assertionsEnabled()) {
+            for (int i = 0; i < rowColumnsCount; i++) {
+                if (handler.get(i, searchRow) == RexImpTable.UNSPECIFIED_VALUE_PLACEHOLDER) {
+                    throw new AssertionError("Invalid lookup key.");
+                }
+            }
+        }
 
-        return toBinaryTuple(ectx, binarySchema, handler, tupleBuilder, searchRow);
+        BinaryTupleBuilder tupleBuilder = new BinaryTupleBuilder(rowColumnsCount, binarySchema.hasNullableElements());
+
+        return new BinaryTuple(binarySchema, toByteBuffer(ectx, binarySchema, handler, tupleBuilder, searchRow));
     }
 
-    private static <RowT> BinaryTuple toBinaryTuple(
+    private static <RowT> ByteBuffer toByteBuffer(
             ExecutionContext<RowT> ectx,
             BinaryTupleSchema binarySchema,
             RowHandler<RowT> handler,
             BinaryTupleBuilder tupleBuilder,
             RowT searchRow
     ) {
-        int prefixColumnsCount = handler.columnCount(searchRow);
+        int columnsCount = handler.columnCount(searchRow);
 
-        for (int i = 0; i < prefixColumnsCount; i++) {
+        for (int i = 0; i < columnsCount; i++) {
             Object val = handler.get(i, searchRow);
+
+            if (val == RexImpTable.UNSPECIFIED_VALUE_PLACEHOLDER) {
+                break; // No more columns in prefix.
+            }
 
             Element element = binarySchema.element(i);
 
@@ -116,30 +143,6 @@ public final class RowConverter {
             BinaryConverter.appendValue(tupleBuilder, element, val);
         }
 
-        return new BinaryTuple(binarySchema, tupleBuilder.build());
-    }
-
-    /**
-     * Converts binary tuple to row.
-     *
-     * @param ectx Execution context.
-     * @param binTuple Binary tuple.
-     * @param factory Row handler factory.
-     * @param <RowT> Row type.
-     * @return Row.
-     */
-    public static <RowT> RowT toRow(
-            ExecutionContext<RowT> ectx,
-            BinaryTuple binTuple,
-            RowHandler.RowFactory<RowT> factory
-    ) {
-        RowHandler<RowT> handler = factory.handler();
-        RowT res = factory.create();
-
-        for (int i = 0; i < binTuple.count(); i++) {
-            handler.set(i, res, TypeUtils.toInternal(ectx, binTuple.value(i)));
-        }
-
-        return res;
+        return tupleBuilder.build();
     }
 }

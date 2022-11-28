@@ -29,21 +29,16 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.ReplicationGroupOptions;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.raft.server.counter.CounterListener;
 import org.apache.ignite.raft.server.counter.IncrementAndGetCommand;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Integration test for checking safe time propagation.
  */
-@ExtendWith(WorkDirectoryExtension.class)
 public class ItSafeTimeTest extends JraftAbstractTest {
     /** Raft group id. */
     private static final ReplicationGroupId RAFT_GROUP_ID = new TestReplicationGroupId("testGroup");
@@ -56,24 +51,6 @@ public class ItSafeTimeTest extends JraftAbstractTest {
 
     /** Safe tims clocks. */
     private List<PendingComparableValuesTracker<HybridTimestamp>> safeTimeContainers = new ArrayList<>();
-
-    /** Before each. */
-    @BeforeEach
-    @Override
-    void before() {
-        LOG.info(">>>>>>>>>>>>>>> Start test method: {}", testInfo.getTestMethod().orElseThrow().getName());
-
-        super.before();
-    }
-
-    /** After each. */
-    @AfterEach
-    @Override
-    protected void after() throws Exception {
-        super.after();
-
-        LOG.info(">>>>>>>>>>>>>>> End test method: {}", testInfo.getTestMethod().orElseThrow().getName());
-    }
 
     /**
      * Starts a cluster for the test.
@@ -93,7 +70,7 @@ public class ItSafeTimeTest extends JraftAbstractTest {
                         RaftGroupOptions groupOptions = defaults()
                                 .replicationGroupOptions(new ReplicationGroupOptions().safeTime(safeTime));
 
-                        raftServer.startRaftGroup(RAFT_GROUP_ID, new CounterListener(), INITIAL_CONF, groupOptions);
+                        raftServer.startRaftGroup(RAFT_GROUP_ID, new CounterListener(), initialConf, groupOptions);
                     },
                     opts -> {
                         opts.setClock(clock);
@@ -117,7 +94,7 @@ public class ItSafeTimeTest extends JraftAbstractTest {
         client1.refreshLeader().get();
         Peer leader = client1.leader();
 
-        final int leaderIndex = INITIAL_CONF.indexOf(leader);
+        final int leaderIndex = initialConf.indexOf(leader);
 
         assertTrue(leaderIndex >= 0);
 

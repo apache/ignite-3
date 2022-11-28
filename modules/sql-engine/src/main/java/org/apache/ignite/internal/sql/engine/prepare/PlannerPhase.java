@@ -63,6 +63,7 @@ import org.apache.ignite.internal.sql.engine.rule.TableFunctionScanConverterRule
 import org.apache.ignite.internal.sql.engine.rule.TableModifyConverterRule;
 import org.apache.ignite.internal.sql.engine.rule.UnionConverterRule;
 import org.apache.ignite.internal.sql.engine.rule.ValuesConverterRule;
+import org.apache.ignite.internal.sql.engine.rule.logical.ExposeIndexRule;
 import org.apache.ignite.internal.sql.engine.rule.logical.FilterScanMergeRule;
 import org.apache.ignite.internal.sql.engine.rule.logical.LogicalOrToUnionRule;
 import org.apache.ignite.internal.sql.engine.rule.logical.ProjectScanMergeRule;
@@ -188,8 +189,7 @@ public enum PlannerPhase {
                             b.operand(LogicalSort.class).anyInputs())
                     .toRule(),
 
-            // TODO: uncomment after IGNITE-17748
-            // ExposeIndexRule.INSTANCE,
+            ExposeIndexRule.INSTANCE,
             ProjectScanMergeRule.TABLE_SCAN,
             ProjectScanMergeRule.INDEX_SCAN,
             FilterSpoolMergeToSortedIndexSpoolRule.INSTANCE,

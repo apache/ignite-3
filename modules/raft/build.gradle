@@ -28,6 +28,7 @@ dependencies {
     implementation project(':ignite-configuration')
     implementation project(':ignite-raft-client')
     implementation project(':ignite-network')
+    implementation project(':ignite-rocksdb-common')
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
     implementation libs.disruptor
@@ -53,6 +54,7 @@ dependencies {
     testImplementation libs.classgraph
     testImplementation libs.slf4j.jdk14
 
+    testFixturesAnnotationProcessor project(":ignite-network-annotation-processor")
     testFixturesImplementation project(':ignite-core')
     testFixturesImplementation project(':ignite-network')
     testFixturesImplementation project(':ignite-raft-client')

@@ -252,7 +252,7 @@ big_integer::big_integer(const int8_t *val, int32_t len, int8_t sign, bool bigEn
     assert(sign == 1 || sign == 0 || sign == -1);
 
     std::size_t size = len;
-    const auto *data = (const std::byte *)(val);
+    const auto *data = (const std::byte *) (val);
 
     if (bigEndian) {
         from_big_endian(data, size);

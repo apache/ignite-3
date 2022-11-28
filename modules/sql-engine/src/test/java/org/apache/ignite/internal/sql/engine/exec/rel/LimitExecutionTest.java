@@ -22,11 +22,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.concurrent.atomic.AtomicInteger;
-import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
-import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
-import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -58,12 +55,10 @@ public class LimitExecutionTest extends AbstractExecutionTest {
      */
     private void checkLimit(int offset, int fetch) {
         ExecutionContext<Object[]> ctx = executionContext(true);
-        IgniteTypeFactory tf = ctx.getTypeFactory();
-        RelDataType rowType = TypeUtils.createRowType(tf, int.class);
 
-        RootNode<Object[]> rootNode = new RootNode<>(ctx, rowType);
-        LimitNode<Object[]> limitNode = new LimitNode<>(ctx, rowType, () -> offset, fetch == 0 ? null : () -> fetch);
-        SourceNode srcNode = new SourceNode(ctx, rowType);
+        RootNode<Object[]> rootNode = new RootNode<>(ctx);
+        LimitNode<Object[]> limitNode = new LimitNode<>(ctx, () -> offset, fetch == 0 ? null : () -> fetch);
+        SourceNode srcNode = new SourceNode(ctx);
 
         rootNode.register(limitNode);
         limitNode.register(srcNode);
@@ -87,8 +82,8 @@ public class LimitExecutionTest extends AbstractExecutionTest {
 
         AtomicInteger requested = new AtomicInteger();
 
-        public SourceNode(ExecutionContext<Object[]> ctx, RelDataType rowType) {
-            super(ctx, rowType);
+        public SourceNode(ExecutionContext<Object[]> ctx) {
+            super(ctx);
         }
 
         /** {@inheritDoc} */

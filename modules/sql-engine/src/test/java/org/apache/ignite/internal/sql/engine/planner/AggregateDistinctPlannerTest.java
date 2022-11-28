@@ -24,13 +24,17 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.sql.SqlExplainLevel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteAggregate;
+import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteMapAggregateBase;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteMapHashAggregate;
+import org.apache.ignite.internal.sql.engine.rel.agg.IgniteMapSortAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteReduceAggregateBase;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteReduceHashAggregate;
+import org.apache.ignite.internal.sql.engine.rel.agg.IgniteReduceSortAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteSingleAggregateBase;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteSingleHashAggregate;
+import org.apache.ignite.internal.sql.engine.rel.agg.IgniteSingleSortAggregate;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -72,22 +76,20 @@ public class AggregateDistinctPlannerTest extends AbstractAggregatePlannerTest {
         assertTrue(nullOrEmpty(rdcAgg.getAggregateCalls()), "Invalid plan\n" + RelOptUtil.toString(phys));
         assertTrue(nullOrEmpty(mapAgg.getAggCallList()), "Invalid plan\n" + RelOptUtil.toString(phys));
 
-        // TODO: uncomment after IGNITE-17748"
-        // if (algo == AggregateAlgorithm.SORT) {
-        //     assertNotNull(findFirstNode(phys, byClass(IgniteIndexScan.class)));
-        // }
+        if (algo == AggregateAlgorithm.SORT) {
+            assertNotNull(findFirstNode(phys, byClass(IgniteIndexScan.class)));
+        }
     }
 
     enum AggregateAlgorithm {
-        // TODO: uncomment after IGNITE-17748
-        // SORT(
-        //         IgniteSingleSortAggregate.class,
-        //         IgniteMapSortAggregate.class,
-        //         IgniteReduceSortAggregate.class,
-        //         "HashSingleAggregateConverterRule",
-        //         "HashMapReduceAggregateConverterRule",
-        //         "SortSingleAggregateConverterRule"
-        // ),
+        SORT(
+                IgniteSingleSortAggregate.class,
+                IgniteMapSortAggregate.class,
+                IgniteReduceSortAggregate.class,
+                "HashSingleAggregateConverterRule",
+                "HashMapReduceAggregateConverterRule",
+                "SortSingleAggregateConverterRule"
+        ),
 
         HASH(
                 IgniteSingleHashAggregate.class,

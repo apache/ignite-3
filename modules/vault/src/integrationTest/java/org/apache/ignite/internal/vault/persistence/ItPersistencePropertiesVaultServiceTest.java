@@ -55,25 +55,35 @@ class ItPersistencePropertiesVaultServiceTest {
                 new ByteArray("key" + 3), fromString("value" + 3)
         );
 
-        try (var vaultService = new PersistentVaultService(vaultDir)) {
-            vaultService.start();
+        var service = new PersistentVaultService(vaultDir);
 
-            assertThat(vaultService.putAll(data), willBe(nullValue(Void.class)));
+        try {
+            service.start();
+
+            assertThat(service.putAll(data), willBe(nullValue(Void.class)));
+        } finally {
+            service.close();
         }
 
-        try (var vaultService = new PersistentVaultService(vaultDir)) {
-            vaultService.start();
+        service = new PersistentVaultService(vaultDir);
+
+        try {
+            service.start();
 
             assertThat(
-                    vaultService.get(new ByteArray("key" + 1)),
+                    service.get(new ByteArray("key" + 1)),
                     willBe(equalTo(new VaultEntry(new ByteArray("key" + 1), fromString("value" + 1))))
             );
+        } finally {
+            service.close();
         }
 
-        try (var vaultService = new PersistentVaultService(vaultDir)) {
-            vaultService.start();
+        service = new PersistentVaultService(vaultDir);
 
-            try (var cursor = vaultService.range(new ByteArray("key" + 1), new ByteArray("key" + 4))) {
+        try {
+            service.start();
+
+            try (var cursor = service.range(new ByteArray("key" + 1), new ByteArray("key" + 4))) {
                 List<VaultEntry> expectedData = data.entrySet().stream()
                         .map(e -> new VaultEntry(e.getKey(), e.getValue()))
                         .sorted(Comparator.comparing(VaultEntry::key))
@@ -81,6 +91,8 @@ class ItPersistencePropertiesVaultServiceTest {
 
                 assertThat(cursor.stream().collect(toList()), is(expectedData));
             }
+        } finally {
+            service.close();
         }
     }
 

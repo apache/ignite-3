@@ -247,6 +247,15 @@ public class RexImpTable {
     /** Placeholder for DEFAULT operator value. */
     public static final Object DEFAULT_VALUE_PLACEHOLDER = new DefaultValuePlaceholder();
 
+    /** Placeholder for values, which expressions are not specified. */
+    public static final Object UNSPECIFIED_VALUE_PLACEHOLDER = new Object() {
+        /** {@inheritDoc} */
+        @Override
+        public String toString() {
+            return "<unspecified_value>";
+        }
+    };
+
     /**
      * Constructor.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859

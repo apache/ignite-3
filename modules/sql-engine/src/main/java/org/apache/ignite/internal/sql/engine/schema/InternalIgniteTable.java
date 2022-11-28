@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.schema;
 
+import java.util.BitSet;
 import java.util.List;
 import java.util.Map;
 import org.apache.calcite.plan.RelOptCluster;
@@ -96,7 +97,7 @@ public interface InternalIgniteTable extends IgniteTable {
             ExecutionContext<RowT> ectx,
             BinaryRow row,
             RowHandler.RowFactory<RowT> factory,
-            @Nullable ImmutableBitSet requiredColumns
+            @Nullable BitSet requiredColumns
     );
 
     /**
