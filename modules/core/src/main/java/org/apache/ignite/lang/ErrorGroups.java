@@ -151,8 +151,8 @@ public class ErrorGroups {
         /** Table version not found. */
         public static final int TABLE_VER_NOT_FOUND_ERR = SQL_ERR_GROUP.registerErrorCode(18);
 
-        /** Invalid table option. */
-        public static final int TABLE_OPTION_ERR = SQL_ERR_GROUP.registerErrorCode(19);
+        /** Invalid DDL option. */
+        public static final int DDL_OPTION_ERR = SQL_ERR_GROUP.registerErrorCode(19);
 
         /** Query mapping error. */
         public static final int QUERY_MAPPING_ERR = SQL_ERR_GROUP.registerErrorCode(20);

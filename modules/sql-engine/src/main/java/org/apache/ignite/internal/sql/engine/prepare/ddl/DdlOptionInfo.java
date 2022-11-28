@@ -22,9 +22,9 @@ import java.util.function.Consumer;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Table option information for its processing.
+ * DDL option information for its processing.
  */
-class TableOptionInfo<T> {
+class DdlOptionInfo<S, T> {
     final String name;
 
     final Class<T> type;
@@ -32,21 +32,21 @@ class TableOptionInfo<T> {
     @Nullable
     final Consumer<T> validator;
 
-    final BiConsumer<CreateTableCommand, T> setter;
+    final BiConsumer<S, T> setter;
 
     /**
      * Constructor.
      *
-     * @param name Table option name.
-     * @param type Table option type.
-     * @param validator Table option value validator.
-     * @param setter Table option value setter.
+     * @param name DDL option name.
+     * @param type DDL option type.
+     * @param validator DDL option value validator.
+     * @param setter DDL option value setter.
      */
-    TableOptionInfo(
+    DdlOptionInfo(
             String name,
             Class<T> type,
             @Nullable Consumer<T> validator,
-            BiConsumer<CreateTableCommand, T> setter
+            BiConsumer<S, T> setter
     ) {
         this.name = name;
         this.type = type;

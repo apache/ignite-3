@@ -20,7 +20,7 @@ package org.apache.ignite.internal.sql.engine.prepare.ddl;
 import static org.apache.calcite.tools.Frameworks.newConfigBuilder;
 import static org.apache.ignite.internal.sql.engine.prepare.ddl.DdlSqlToCommandConverter.checkDuplicates;
 import static org.apache.ignite.internal.sql.engine.prepare.ddl.DdlSqlToCommandConverter.collectDataStorageNames;
-import static org.apache.ignite.internal.sql.engine.prepare.ddl.DdlSqlToCommandConverter.collectTableOptionInfos;
+import static org.apache.ignite.internal.sql.engine.prepare.ddl.DdlSqlToCommandConverter.collectDdlOptionInfos;
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
 import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -31,6 +31,7 @@ import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.Map;
@@ -97,36 +98,36 @@ public class DdlSqlToCommandConverterTest extends BaseIgniteAbstractTest {
 
     @Test
     void testCollectTableOptionInfos() {
-        assertThat(collectTableOptionInfos(new TableOptionInfo[0]), equalTo(Map.of()));
+        assertThat(collectDdlOptionInfos(new DdlOptionInfo[0]), equalTo(Map.of()));
 
-        TableOptionInfo<?> replicas = tableOptionInfo("replicas");
+        DdlOptionInfo<CreateTableCommand, ?> replicas = tableOptionInfo("replicas");
 
         assertThat(
-                collectTableOptionInfos(replicas),
+                collectDdlOptionInfos(replicas),
                 equalTo(Map.of("REPLICAS", replicas))
         );
 
         replicas = tableOptionInfo("REPLICAS");
 
         assertThat(
-                collectTableOptionInfos(replicas),
+                collectDdlOptionInfos(replicas),
                 equalTo(Map.of("REPLICAS", replicas))
         );
 
         replicas = tableOptionInfo("replicas");
-        TableOptionInfo<?> partitions = tableOptionInfo("partitions");
+        DdlOptionInfo<CreateTableCommand, ?> partitions = tableOptionInfo("partitions");
 
         assertThat(
-                collectTableOptionInfos(replicas, partitions),
+                collectDdlOptionInfos(replicas, partitions),
                 equalTo(Map.of("REPLICAS", replicas, "PARTITIONS", partitions))
         );
 
-        TableOptionInfo<?> replicas0 = tableOptionInfo("replicas");
-        TableOptionInfo<?> replicas1 = tableOptionInfo("REPLICAS");
+        DdlOptionInfo<CreateTableCommand, ?> replicas0 = tableOptionInfo("replicas");
+        DdlOptionInfo<CreateTableCommand, ?> replicas1 = tableOptionInfo("REPLICAS");
 
         IllegalStateException exception = assertThrows(
                 IllegalStateException.class,
-                () -> collectTableOptionInfos(replicas0, replicas1)
+                () -> collectDdlOptionInfos(replicas0, replicas1)
         );
 
         assertThat(exception.getMessage(), startsWith("Duplicate key"));
@@ -137,16 +138,16 @@ public class DdlSqlToCommandConverterTest extends BaseIgniteAbstractTest {
         IllegalStateException exception = assertThrows(
                 IllegalStateException.class,
                 () -> checkDuplicates(
-                        collectTableOptionInfos(tableOptionInfo("replicas")),
-                        collectTableOptionInfos(tableOptionInfo("replicas"))
+                        collectDdlOptionInfos(tableOptionInfo("replicas")),
+                        collectDdlOptionInfos(tableOptionInfo("replicas"))
                 )
         );
 
         assertThat(exception.getMessage(), startsWith("Duplicate id"));
 
         assertDoesNotThrow(() -> checkDuplicates(
-                collectTableOptionInfos(tableOptionInfo("replicas")),
-                collectTableOptionInfos(tableOptionInfo("partitions"))
+                collectDdlOptionInfos(tableOptionInfo("replicas")),
+                collectDdlOptionInfos(tableOptionInfo("partitions"))
         ));
     }
 
@@ -246,8 +247,64 @@ public class DdlSqlToCommandConverterTest extends BaseIgniteAbstractTest {
         );
     }
 
-    private TableOptionInfo tableOptionInfo(String name) {
-        return new TableOptionInfo<>(name, Object.class, null, (createTableCommand, o) -> {
+    @Test
+    public void zoneCreate() throws SqlParseException {
+        var node = parse("CREATE ZONE test");
+
+        assertThat(node, instanceOf(SqlDdl.class));
+
+        var cmd = new DdlSqlToCommandConverter(Map.of(), () -> "default").convert((SqlDdl) node, createContext());
+
+        assertThat(cmd, Matchers.instanceOf(CreateZoneCommand.class));
+    }
+
+    @Test
+    public void zoneCreateOptions() throws SqlParseException {
+        SqlNode node = parse("CREATE ZONE test with "
+                + "partitions=2, "
+                + "replicas=3, "
+                + "affinity_function='rendezvous', "
+                + "data_nodes_filter='\"attr1\" && \"attr2\"', "
+                + "data_nodes_auto_adjust=100");
+
+        assertThat(node, instanceOf(SqlDdl.class));
+
+        DdlCommand cmd = new DdlSqlToCommandConverter(Map.of(), () -> "default").convert((SqlDdl) node, createContext());
+
+        CreateZoneCommand createZone = (CreateZoneCommand) cmd;
+
+        assertThat(createZone.partitions(), equalTo(2));
+        assertThat(createZone.replicas(), equalTo(3));
+        assertThat(createZone.affinity(), equalTo("rendezvous"));
+        assertThat(createZone.nodeFilter(), equalTo("\"attr1\" && \"attr2\""));
+        assertThat(createZone.autoAdjustScaleUp(), equalTo(100));
+        assertThat(createZone.autoAdjustScaleDown(), equalTo(100));
+    }
+
+//        var createZone = (CreateZoneCommand) cmd;
+//
+//        assertThat(
+//                createTable.columns(),
+//                allOf(
+
+//        assertThat(
+//                createTable.columns(),
+//                allOf(
+//                        hasItem(columnThat("column with name \"VAL\"", cd -> "VAL".equals(cd.name()))),
+//                        hasItem(columnThat("PK with functional default",
+//                                        cd -> "ID".equals(cd.name())
+//                                                && !cd.nullable()
+//                                                && SqlTypeName.VARCHAR.equals(cd.type().getSqlTypeName())
+//                                                && cd.defaultValueDefinition().type() == Type.FUNCTION_CALL
+//                                                && "GEN_RANDOM_UUID".equals(((FunctionCall) cd.defaultValueDefinition()).functionName())
+//                                )
+//                        )
+//                )
+//        );
+//    }
+
+    private DdlOptionInfo<CreateTableCommand, ?> tableOptionInfo(String name) {
+        return new DdlOptionInfo<>(name, Object.class, null, (createTableCommand, o) -> {
         });
     }
 
