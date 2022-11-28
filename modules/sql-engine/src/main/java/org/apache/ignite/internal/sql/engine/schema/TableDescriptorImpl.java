@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.schema;
 
 import static org.apache.ignite.internal.sql.engine.util.TypeUtils.native2relationalType;
 
+import it.unimi.dsi.fastutil.ints.IntList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -47,9 +48,13 @@ import org.jetbrains.annotations.Nullable;
 public class TableDescriptorImpl extends NullInitializerExpressionFactory implements TableDescriptor {
     private static final ColumnDescriptor[] DUMMY = new ColumnDescriptor[0];
 
+    private final UUID dummyAffinityIdentity = UUID.randomUUID();
+
     private final ColumnDescriptor[] descriptors;
 
     private final Map<String, ColumnDescriptor> descriptorsMap;
+
+    private final IntList colocationColumns;
 
     private final ImmutableBitSet insertFields;
 
@@ -60,8 +65,11 @@ public class TableDescriptorImpl extends NullInitializerExpressionFactory implem
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public TableDescriptorImpl(
-            List<ColumnDescriptor> columnDescriptors
+            List<ColumnDescriptor> columnDescriptors,
+            IntList colocationColumns
     ) {
+        this.colocationColumns = colocationColumns;
+
         ImmutableBitSet.Builder keyFieldsBuilder = ImmutableBitSet.builder();
 
         Map<String, ColumnDescriptor> descriptorsMap = new HashMap<>(columnDescriptors.size());
@@ -127,7 +135,7 @@ public class TableDescriptorImpl extends NullInitializerExpressionFactory implem
     /** {@inheritDoc} */
     @Override
     public IgniteDistribution distribution() {
-        return IgniteDistributions.random();
+        return IgniteDistributions.affinity(colocationColumns, 0, dummyAffinityIdentity);
     }
 
     /** {@inheritDoc} */

@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.rel.agg;
 import java.util.List;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelTraitSet;
+import org.apache.calcite.rel.RelDistribution;
 import org.apache.calcite.rel.RelInput;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.AggregateCall;
@@ -27,6 +28,7 @@ import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.sql.engine.rel.IgniteAggregate;
 import org.apache.ignite.internal.sql.engine.rel.IgniteConvention;
+import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.trait.TraitsAwareIgniteRel;
@@ -36,9 +38,9 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
  * IgniteSingleAggregateBase.
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
-public abstract class IgniteSingleAggregateBase extends IgniteAggregate implements TraitsAwareIgniteRel {
+public abstract class IgniteColocatedAggregateBase extends IgniteAggregate implements TraitsAwareIgniteRel {
     /** {@inheritDoc} */
-    protected IgniteSingleAggregateBase(
+    protected IgniteColocatedAggregateBase(
             RelOptCluster cluster,
             RelTraitSet traitSet,
             RelNode input,
@@ -50,7 +52,7 @@ public abstract class IgniteSingleAggregateBase extends IgniteAggregate implemen
     }
 
     /** {@inheritDoc} */
-    protected IgniteSingleAggregateBase(RelInput input) {
+    protected IgniteColocatedAggregateBase(RelInput input) {
         super(TraitUtils.changeTraits(input, IgniteConvention.INSTANCE));
     }
 
@@ -80,13 +82,26 @@ public abstract class IgniteSingleAggregateBase extends IgniteAggregate implemen
             RelTraitSet nodeTraits,
             List<RelTraitSet> inputTraits
     ) {
-        RelTraitSet in = inputTraits.get(0);
+        IgniteDistribution inDistribution = TraitUtils.distribution(inputTraits.get(0));
 
-        if (!TraitUtils.distribution(in).satisfies(IgniteDistributions.single())) {
-            return List.of();
+        if (inDistribution.satisfies(IgniteDistributions.single())) {
+            return List.of(Pair.of(nodeTraits.replace(IgniteDistributions.single()), inputTraits));
         }
 
-        return List.of(Pair.of(nodeTraits.replace(IgniteDistributions.single()), List.of(in)));
+        if (inDistribution.getType() == RelDistribution.Type.HASH_DISTRIBUTED) {
+            for (Integer key : inDistribution.getKeys()) {
+                if (!groupSet.get(key)) {
+                    return List.of();
+                }
+            }
+
+            // Group set contains all distribution keys, shift distribution keys according to used columns.
+            IgniteDistribution outDistribution = inDistribution.apply(Commons.mapping(groupSet, rowType.getFieldCount()));
+
+            return List.of(Pair.of(nodeTraits.replace(outDistribution), inputTraits));
+        }
+
+        return List.of();
     }
 
     /** {@inheritDoc} */

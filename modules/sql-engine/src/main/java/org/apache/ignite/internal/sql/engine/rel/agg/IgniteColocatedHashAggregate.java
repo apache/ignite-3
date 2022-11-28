@@ -35,13 +35,13 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteRelVisitor;
  * IgniteSingleHashAggregate.
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
-public class IgniteSingleHashAggregate extends IgniteSingleAggregateBase implements IgniteHashAggregateBase {
-    public IgniteSingleHashAggregate(RelOptCluster cluster, RelTraitSet traitSet, RelNode input, ImmutableBitSet groupSet,
+public class IgniteColocatedHashAggregate extends IgniteColocatedAggregateBase implements IgniteHashAggregateBase {
+    public IgniteColocatedHashAggregate(RelOptCluster cluster, RelTraitSet traitSet, RelNode input, ImmutableBitSet groupSet,
             List<ImmutableBitSet> groupSets, List<AggregateCall> aggCalls) {
         super(cluster, traitSet, input, groupSet, groupSets, aggCalls);
     }
 
-    public IgniteSingleHashAggregate(RelInput input) {
+    public IgniteColocatedHashAggregate(RelInput input) {
         super(input);
     }
 
@@ -49,13 +49,13 @@ public class IgniteSingleHashAggregate extends IgniteSingleAggregateBase impleme
     @Override
     public Aggregate copy(RelTraitSet traitSet, RelNode input, ImmutableBitSet groupSet,
             List<ImmutableBitSet> groupSets, List<AggregateCall> aggCalls) {
-        return new IgniteSingleHashAggregate(getCluster(), traitSet, input, groupSet, groupSets, aggCalls);
+        return new IgniteColocatedHashAggregate(getCluster(), traitSet, input, groupSet, groupSets, aggCalls);
     }
 
     /** {@inheritDoc} */
     @Override
     public IgniteRel clone(RelOptCluster cluster, List<IgniteRel> inputs) {
-        return new IgniteSingleHashAggregate(cluster, getTraitSet(), sole(inputs),
+        return new IgniteColocatedHashAggregate(cluster, getTraitSet(), sole(inputs),
                 getGroupSet(), getGroupSets(), getAggCallList());
     }
 

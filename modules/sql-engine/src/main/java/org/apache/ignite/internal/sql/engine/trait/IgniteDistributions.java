@@ -98,7 +98,7 @@ public class IgniteDistributions {
      * @param identity Affinity identity key.
      * @return Affinity distribution.
      */
-    public static IgniteDistribution affinity(ImmutableIntList keys, int cacheId, Object identity) {
+    public static IgniteDistribution affinity(List<Integer> keys, int cacheId, Object identity) {
         return hash(keys, DistributionFunction.affinity(cacheId, identity));
     }
 
@@ -121,7 +121,7 @@ public class IgniteDistributions {
      * @param function Specific hash function.
      * @return Hash distribution.
      */
-    public static IgniteDistribution hash(ImmutableIntList keys, DistributionFunction function) {
+    public static IgniteDistribution hash(List<Integer> keys, DistributionFunction function) {
         return canonize(new DistributionTrait(keys, function));
     }
 
