@@ -99,7 +99,7 @@ void node_connection::process_message(bytes_view msg) {
 
     auto pos = reader.position();
     bytes_view data{msg.data() + pos, msg.size() - pos};
-    auto handlingRes = handler->handle(data);
+    auto handlingRes = handler->handle(shared_from_this(), data);
     if (handlingRes.has_error())
         m_logger->log_error("Uncaught user callback exception: " + handlingRes.error().what_str());
 }

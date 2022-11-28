@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include "ignite/client/detail/node_connection.h"
 #include "ignite/common/ignite_error.h"
 #include "ignite/common/ignite_result.h"
 #include "ignite/protocol/reader.h"
@@ -27,6 +28,8 @@
 #include <tuple>
 
 namespace ignite::detail {
+
+class node_connection;
 
 /**
  * Response handler.
@@ -46,7 +49,7 @@ public:
     /**
      * Handle response.
      */
-    [[nodiscard]] virtual ignite_result<void> handle(bytes_view) = 0;
+    [[nodiscard]] virtual ignite_result<void> handle(std::shared_ptr<node_connection>, bytes_view) = 0;
 
     /**
      * Set error.
@@ -69,7 +72,8 @@ public:
      * @param read_func Read function.
      * @param callback Callback.
      */
-    explicit response_handler_bytes(std::function<T(bytes_view)> read_func, ignite_callback<T> callback)
+    explicit response_handler_bytes(
+        std::function<T(std::shared_ptr<node_connection>, bytes_view)> read_func, ignite_callback<T> callback)
         : m_read_func(std::move(read_func))
         , m_callback(std::move(callback))
         , m_mutex() {}
@@ -77,14 +81,15 @@ public:
     /**
      * Handle response.
      *
+     * @param channel Channel.
      * @param msg Message.
      */
-    [[nodiscard]] ignite_result<void> handle(bytes_view msg) final {
+    [[nodiscard]] ignite_result<void> handle(std::shared_ptr<node_connection> channel, bytes_view msg) final {
         ignite_callback<T> callback = remove_callback();
         if (!callback)
             return {};
 
-        auto res = result_of_operation<T>([&]() { return m_read_func(msg); });
+        auto res = result_of_operation<T>([&]() { return m_read_func(std::move(channel), msg); });
         return result_of_operation<void>([&]() { callback(std::move(res)); });
     }
 
@@ -115,7 +120,7 @@ private:
     }
 
     /** Read function. */
-    std::function<T(bytes_view)> m_read_func;
+    std::function<T(std::shared_ptr<node_connection>, bytes_view)> m_read_func;
 
     /** Promise. */
     ignite_callback<T> m_callback;
@@ -148,7 +153,7 @@ public:
      *
      * @param msg Message.
      */
-    [[nodiscard]] ignite_result<void> handle(bytes_view msg) final {
+    [[nodiscard]] ignite_result<void> handle(std::shared_ptr<node_connection>, bytes_view msg) final {
         ignite_callback<T> callback = remove_callback();
         if (!callback)
             return {};

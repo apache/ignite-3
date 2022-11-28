@@ -98,8 +98,8 @@ public:
      * @return Channel used for the request.
      */
     template<typename T>
-    std::shared_ptr<node_connection> perform_request_handler(client_operation op,
-        const std::function<void(protocol::writer &)> &wr, std::shared_ptr<response_handler> handler)
+    void perform_request_handler(client_operation op,
+        const std::function<void(protocol::writer &)> &wr, const std::shared_ptr<response_handler>& handler)
     {
         while (true) {
             auto channel = get_random_channel();
@@ -108,7 +108,7 @@ public:
 
             auto res = channel->perform_request(op, wr, handler);
             if (res)
-                return channel;
+                return;
         }
     }
 
@@ -123,12 +123,11 @@ public:
      * @return Channel used for the request.
      */
     template<typename T>
-    std::shared_ptr<node_connection> perform_request_raw(
-        client_operation op, const std::function<void(protocol::writer &)> &wr,
-        std::function<T(bytes_view)> rd, ignite_callback<T> callback)
+    void perform_request_raw(client_operation op, const std::function<void(protocol::writer &)> &wr,
+        std::function<T(std::shared_ptr<node_connection>, bytes_view)> rd, ignite_callback<T> callback)
     {
         auto handler = std::make_shared<response_handler_bytes<T>>(std::move(rd), std::move(callback));
-        return perform_request_handler<T>(op, wr, std::move(handler));
+        perform_request_handler<T>(op, wr, std::move(handler));
     }
 
     /**
@@ -142,12 +141,11 @@ public:
      * @return Channel used for the request.
      */
     template<typename T>
-    std::shared_ptr<node_connection> perform_request(
-        client_operation op, const std::function<void(protocol::writer &)> &wr,
+    void perform_request(client_operation op, const std::function<void(protocol::writer &)> &wr,
         std::function<T(protocol::reader &)> rd, ignite_callback<T> callback)
     {
         auto handler = std::make_shared<response_handler_reader<T>>(std::move(rd), std::move(callback));
-        return perform_request_handler<T>(op, wr, std::move(handler));
+        perform_request_handler<T>(op, wr, std::move(handler));
     }
 
     /**
@@ -160,10 +158,9 @@ public:
      * @return Channel used for the request.
      */
     template<typename T>
-    std::shared_ptr<node_connection> perform_request_rd(
+    void perform_request_rd(
         client_operation op, std::function<T(protocol::reader &)> rd, ignite_callback<T> callback) {
-        return perform_request<T>(
-            op, [](protocol::writer &) {}, std::move(rd), std::move(callback));
+        perform_request<T>(op, [](protocol::writer &) {}, std::move(rd), std::move(callback));
     }
 
     /**
@@ -176,10 +173,9 @@ public:
      * @return Channel used for the request.
      */
     template<typename T>
-    std::shared_ptr<node_connection> perform_request_wr(
+    void perform_request_wr(
         client_operation op, const std::function<void(protocol::writer &)> &wr, ignite_callback<T> callback) {
-        return perform_request<T>(
-            op, wr, [](protocol::reader &) {}, std::move(callback));
+        perform_request<T>(op, wr, [](protocol::reader &) {}, std::move(callback));
     }
 
 private:

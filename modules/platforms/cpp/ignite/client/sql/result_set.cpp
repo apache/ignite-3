@@ -15,45 +15,13 @@
  * limitations under the License.
  */
 
-#pragma once
-
-#include "ignite/client/sql/result_set_metadata.h"
-#include "ignite/common/config.h"
-
-#include <memory>
+#include "ignite/client/sql/result_set.h"
+#include "ignite/client/detail/sql/result_set_impl.h"
 
 namespace ignite {
 
-namespace detail {
-class result_set_impl;
+const result_set_metadata& result_set::metadata() const {
+    return m_impl->metadata();
 }
-
-/**
- * Query result set.
- */
-class result_set {
-public:
-    // Default
-    result_set() = default;
-
-    /**
-     * Constructor
-     *
-     * @param impl Implementation
-     */
-    explicit result_set(std::shared_ptr<detail::result_set_impl> impl)
-            : m_impl(std::move(impl)) {}
-
-    /**
-     * Gets metadata.
-     *
-     * @return Metadata.
-     */
-    [[nodiscard]] const result_set_metadata& metadata() const;
-
-private:
-    /** Implementation. */
-    std::shared_ptr<detail::result_set_impl> m_impl;
-};
 
 } // namespace ignite

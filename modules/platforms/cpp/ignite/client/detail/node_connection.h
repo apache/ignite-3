@@ -42,7 +42,7 @@ class cluster_connection;
  *
  * Considered established while there is connection to at least one server.
  */
-class node_connection {
+class node_connection : public std::enable_shared_from_this<node_connection> {
     friend class cluster_connection;
 
 public:
@@ -59,14 +59,17 @@ public:
     ~node_connection();
 
     /**
-     * Constructor.
+     * Makes new instance.
      *
      * @param id Connection ID.
      * @param pool Connection pool.
      * @param logger Logger.
+     * @return New instance.
      */
-    node_connection(
-        uint64_t id, std::shared_ptr<network::async_client_pool> pool, std::shared_ptr<ignite_logger> logger);
+    static std::shared_ptr<node_connection> make_new(
+        uint64_t id, std::shared_ptr<network::async_client_pool> pool, std::shared_ptr<ignite_logger> logger) {
+        return std::shared_ptr<node_connection>(new node_connection(id, std::move(pool), std::move(logger)));
+    }
 
     /**
      * Get connection ID.
@@ -149,6 +152,16 @@ public:
     const protocol_context& get_protocol_context() const { return m_protocol_context; }
 
 private:
+    /**
+     * Constructor.
+     *
+     * @param id Connection ID.
+     * @param pool Connection pool.
+     * @param logger Logger.
+     */
+    node_connection(
+        uint64_t id, std::shared_ptr<network::async_client_pool> pool, std::shared_ptr<ignite_logger> logger);
+
     /**
      * Generate next request ID.
      *

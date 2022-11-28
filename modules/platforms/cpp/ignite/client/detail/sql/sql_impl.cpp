@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+#include "ignite/client/detail/sql/result_set_impl.h"
 #include "ignite/client/detail/sql/sql_impl.h"
 #include "ignite/client/detail/utils.h"
 
@@ -83,12 +84,12 @@ void sql_impl::execute_async(
         writer.write_binary(args_data);
     };
 
-    auto reader_func = [](bytes_view msg) -> result_set {
-        // TODO: Implement result set
-        return {};
+    auto reader_func = [](std::shared_ptr<node_connection> channel, bytes_view msg) -> result_set {
+        // TODO: Implement me.
+        return result_set{std::make_shared<result_set_impl>(std::move(channel), msg)};
     };
 
-    auto channel = m_connection->perform_request_raw<result_set>(
+    m_connection->perform_request_raw<result_set>(
         client_operation::SQL_EXEC, writer_func, std::move(reader_func), std::move(callback));
 }
 
