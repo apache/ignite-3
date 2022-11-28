@@ -19,6 +19,7 @@ namespace Apache.Ignite.Tests.Linq;
 
 using System.Collections.Generic;
 using System.Linq;
+using Internal.Linq;
 using NUnit.Framework;
 
 /// <summary>
@@ -147,6 +148,12 @@ public partial class LinqTests
             query.ToString());
     }
 
+    /// <summary>
+    /// Tests grouping combined with join in a reverse order followed by a projection to an anonymous type with
+    /// custom projected column names.
+    /// <para />
+    /// Covers <see cref="ExpressionWalker.GetProjectedMember"/>.
+    /// </summary>
     [Test]
     public void TestGroupByWithReverseJoinAndAnonymousProjectionWithRename()
     {
