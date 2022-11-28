@@ -180,17 +180,19 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
     /** <inheritdoc /> */
     public override void VisitMainFromClause(MainFromClause fromClause, QueryModel queryModel)
     {
-        // TODO: Handle UNION subquery.
-        // if (fromClause.FromExpression is SubQueryExpression subQuery)
-        // {
-        //     // TODO: Proper column name before this call
-        //     _builder.Append("from (");
-        //     VisitQueryModel(subQuery.QueryModel);
-        //     _builder.Append(" ) as _T0 "); // TODO: Proper alias
-        //
-        //     return;
-        // }
-        base.VisitMainFromClause(fromClause, queryModel);
+        // Special case for UNION subquery.
+        // TODO: Why do we have to handle it that way? Must be a mistake somewhere else?
+        if (fromClause.FromExpression is SubQueryExpression subQuery &&
+            subQuery.QueryModel.ResultOperators.Count == 1 &&
+            subQuery.QueryModel.ResultOperators[0] is UnionResultOperator)
+        {
+            // TODO: Proper column name before this call
+            _builder.Append("from (");
+            VisitQueryModel(subQuery.QueryModel);
+            _builder.Append(" ) as _T0 "); // TODO: Proper alias
+
+            return;
+        }
 
         // TODO: IGNITE-18137 DML: queryModel.ResultOperators.LastOrDefault() is UpdateAllResultOperator;
         var isUpdateQuery = false;
