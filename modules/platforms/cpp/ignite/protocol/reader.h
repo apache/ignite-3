@@ -272,6 +272,15 @@ public:
      */
     void skip() { next(); }
 
+    /**
+     * Position.
+     *
+     * @return Current position in memory.
+     */
+    [[nodiscard]] size_t position() const {
+        return msgpack_unpacker_parsed_size(&m_unpacker);
+    }
+
 private:
     /**
      * Move to the next value.

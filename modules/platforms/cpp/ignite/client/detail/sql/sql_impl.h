@@ -17,7 +17,11 @@
 
 #pragma once
 
-#include "ignite/common/config.h"
+#include "ignite/client/detail/cluster_connection.h"
+#include "ignite/client/transaction/transaction.h"
+#include "ignite/client/sql/sql_statement.h"
+#include "ignite/client/sql/result_set.h"
+#include "ignite/client/primitive.h"
 
 #include <memory>
 #include <utility>
@@ -39,7 +43,21 @@ public:
     sql_impl(const sql_impl &) = delete;
     sql_impl &operator=(const sql_impl &) = delete;
 
+    /**
+     * Executes single SQL statement and returns rows.
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *   single operation is used.
+     * @param statement Statement to execute.
+     * @param args Arguments for the statement.
+     * @param callback A callback called on operation completion with SQL result set.
+     */
+    void execute_async(
+        transaction *tx, const sql_statement& statement, std::vector<primitive>&& args, ignite_callback<result_set>&& callback);
+
 private:
+    /** Cluster connection. */
+    std::shared_ptr<cluster_connection> m_connection;
 };
 
 } // namespace ignite::detail

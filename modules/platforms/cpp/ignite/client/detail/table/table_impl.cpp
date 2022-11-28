@@ -16,6 +16,7 @@
  */
 
 #include "ignite/client/detail/table/table_impl.h"
+#include "ignite/client/detail/utils.h"
 
 #include "ignite/common/bits.h"
 #include "ignite/common/ignite_error.h"
@@ -153,17 +154,6 @@ primitive read_next_column(binary_tuple_parser &parser, ignite_type typ) {
             // TODO: IGNITE-18035 Support other types
             throw ignite_error("Type with id " + std::to_string(int(typ)) + " is not yet supported");
     }
-}
-
-/**
- * Check transaction and throw an exception if it is not nullptr.
- *
- * @param tx Transaction.
- */
-void transactions_not_implemented(transaction *tx) {
-    // TODO: IGNITE-17604 Implement transactions
-    if (tx)
-        throw ignite_error("Transactions are not implemented");
 }
 
 /**

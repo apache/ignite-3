@@ -82,7 +82,6 @@ void node_connection::process_message(bytes_view msg) {
     (void) flags; // Flags are unused for now.
 
     auto handler = get_and_remove_handler(reqId);
-
     if (!handler) {
         m_logger->log_error("Missing handler for request with id=" + std::to_string(reqId));
         return;
@@ -98,7 +97,9 @@ void node_connection::process_message(bytes_view msg) {
         return;
     }
 
-    auto handlingRes = handler->handle(reader);
+    auto pos = reader.position();
+    bytes_view data{msg.data() + pos, msg.size() - pos};
+    auto handlingRes = handler->handle(data);
     if (handlingRes.has_error())
         m_logger->log_error("Uncaught user callback exception: " + handlingRes.error().what_str());
 }

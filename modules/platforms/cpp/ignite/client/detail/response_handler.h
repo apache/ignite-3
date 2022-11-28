@@ -17,9 +17,9 @@
 
 #pragma once
 
-#include <ignite/common/ignite_error.h>
-#include <ignite/common/ignite_result.h>
-#include <ignite/protocol/reader.h>
+#include "ignite/common/ignite_error.h"
+#include "ignite/common/ignite_result.h"
+#include "ignite/protocol/reader.h"
 
 #include <functional>
 #include <future>
@@ -46,7 +46,7 @@ public:
     /**
      * Handle response.
      */
-    [[nodiscard]] virtual ignite_result<void> handle(protocol::reader &) = 0;
+    [[nodiscard]] virtual ignite_result<void> handle(bytes_view) = 0;
 
     /**
      * Set error.
@@ -55,34 +55,105 @@ public:
 };
 
 /**
- * Response handler implementation for specific type.
+ * Response handler implementation for bytes.
  */
 template<typename T>
-class response_handler_impl final : public response_handler {
+class response_handler_bytes final : public response_handler {
 public:
     // Default
-    response_handler_impl() = default;
+    response_handler_bytes() = default;
 
     /**
      * Constructor.
      *
-     * @param func Function.
+     * @param read_func Read function.
+     * @param callback Callback.
      */
-    explicit response_handler_impl(std::function<T(protocol::reader &)> readFunc, ignite_callback<T> callback)
-        : m_read_func(std::move(readFunc))
+    explicit response_handler_bytes(std::function<T(bytes_view)> read_func, ignite_callback<T> callback)
+        : m_read_func(std::move(read_func))
         , m_callback(std::move(callback))
         , m_mutex() {}
 
     /**
      * Handle response.
      *
-     * @param reader Reader to be used to read response.
+     * @param msg Message.
      */
-    [[nodiscard]] ignite_result<void> handle(protocol::reader &reader) final {
+    [[nodiscard]] ignite_result<void> handle(bytes_view msg) final {
         ignite_callback<T> callback = remove_callback();
         if (!callback)
             return {};
 
+        auto res = result_of_operation<T>([&]() { return m_read_func(msg); });
+        return result_of_operation<void>([&]() { callback(std::move(res)); });
+    }
+
+    /**
+     * Set error.
+     *
+     * @param err Error to set.
+     */
+    [[nodiscard]] ignite_result<void> set_error(ignite_error err) final {
+        ignite_callback<T> callback = remove_callback();
+        if (!callback)
+            return {};
+
+        return result_of_operation<void>([&]() { callback({std::move(err)}); });
+    }
+
+private:
+    /**
+     * Remove callback and return it.
+     *
+     * @return Callback.
+     */
+    ignite_callback<T> remove_callback() {
+        std::lock_guard<std::mutex> guard(m_mutex);
+        ignite_callback<T> callback = {};
+        std::swap(callback, m_callback);
+        return callback;
+    }
+
+    /** Read function. */
+    std::function<T(bytes_view)> m_read_func;
+
+    /** Promise. */
+    ignite_callback<T> m_callback;
+
+    /** Callback mutex. */
+    std::mutex m_mutex;
+};
+
+/**
+ * Response handler implementation for reader.
+ */
+template<typename T>
+class response_handler_reader final : public response_handler {
+public:
+    // Default
+    response_handler_reader() = default;
+
+    /**
+     * Constructor.
+     *
+     * @param read_func Read function.
+     */
+    explicit response_handler_reader(std::function<T(protocol::reader &)> read_func, ignite_callback<T> callback)
+        : m_read_func(std::move(read_func))
+        , m_callback(std::move(callback))
+        , m_mutex() {}
+
+    /**
+     * Handle response.
+     *
+     * @param msg Message.
+     */
+    [[nodiscard]] ignite_result<void> handle(bytes_view msg) final {
+        ignite_callback<T> callback = remove_callback();
+        if (!callback)
+            return {};
+
+        protocol::reader reader(msg);
         auto res = result_of_operation<T>([&]() { return m_read_func(reader); });
         return result_of_operation<void>([&]() { callback(std::move(res)); });
     }
@@ -114,7 +185,7 @@ private:
     }
 
     /** Read function. */
-    std::function<T(protocol::reader &)> m_read_func;
+    std::function<T(protocol::reader&)> m_read_func;
 
     /** Promise. */
     ignite_callback<T> m_callback;

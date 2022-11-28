@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include "ignite/client/sql/sql_column_type.h"
 #include "ignite/common/ignite_error.h"
 #include "ignite/common/uuid.h"
 
@@ -135,8 +136,18 @@ public:
                 std::is_same_v<T, std::vector<std::byte>>) {
             return std::get<T>(m_value);
         } else {
-            static_assert(sizeof(T) == 0, "Type is not an Ignite primitive type");
+            static_assert(sizeof(T) == 0, "Type is not an Ignite primitive type or is not yet supported");
         }
+    }
+
+    /**
+     * Get primitive type.
+     *
+     * @return Primitive type.
+     */
+    [[nodiscard]] column_type get_type() const {
+        // TODO: Ensure by tests
+        return static_cast<column_type>(m_value.index());
     }
 
 private:

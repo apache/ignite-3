@@ -91,9 +91,8 @@ public:
      * @param handler Response handler.
      * @return @c true on success and @c false otherwise.
      */
-    template<typename T>
     bool perform_request(client_operation op, const std::function<void(protocol::writer &)> &wr,
-        std::shared_ptr<response_handler_impl<T>> handler) {
+        std::shared_ptr<response_handler> handler) {
         auto reqId = generate_request_id();
         std::vector<std::byte> message;
         {

@@ -21,11 +21,14 @@ set(TARGET ${PROJECT_NAME})
 
 set(SOURCES
     ignite_client.cpp
+    sql/sql.cpp
     table/record_view.cpp
     table/table.cpp
     table/tables.cpp
     detail/cluster_connection.cpp
+    detail/utils.cpp
     detail/node_connection.cpp
+    detail/sql/sql_impl.cpp
     detail/table/table_impl.cpp
     detail/table/tables_impl.cpp
 )

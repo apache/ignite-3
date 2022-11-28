@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include "ignite/client/primitive.h"
+
 #include <chrono>
 #include <string>
 #include <unordered_map>
@@ -29,6 +31,16 @@ namespace ignite {
  */
 class sql_statement {
 public:
+    /** Default SQL schema name. */
+    static constexpr const char* DEFAULT_SCHEMA{"PUBLIC"};
+
+    /** Default number of rows per data page. */
+    static constexpr std::int32_t DEFAULT_PAGE_SIZE{1024};
+
+    /** Default query timeout (zero means no timeout). */
+    static constexpr std::chrono::milliseconds DEFAULT_TIMEOUT{0};
+
+
     // Default
     sql_statement() = default;
 
@@ -39,12 +51,15 @@ public:
      * @param timeout Timeout.
      * @param schema Schema.
      * @param page_size Page size.
+     * @param properties Properties list.
      */
-    sql_statement(std::string query, std::chrono::milliseconds timeout, std::string schema, std::int32_t page_size)
+    sql_statement(std::string query, std::chrono::milliseconds timeout, std::string schema, std::int32_t page_size,
+            std::initializer_list<std::pair<const std::string, primitive>> properties)
         : m_query(std::move(query))
         , m_timeout(timeout)
         , m_schema(std::move(schema))
-        , m_page_size(page_size) { }
+        , m_page_size(page_size)
+        , m_properties(properties) { }
 
     /**
      * Gets the query text.
@@ -74,21 +89,28 @@ public:
      */
     [[nodiscard]] std::int32_t page_size() const { return m_page_size; }
 
+    /**
+     * Gets the statement properties.
+     *
+     * @return Properties.
+     */
+    [[nodiscard]] const std::unordered_map<std::string, primitive>& properties() const { return m_properties; }
+
 private:
     /** Query text. */
     std::string m_query;
 
     /** Timeout. */
-    std::chrono::milliseconds m_timeout;
+    std::chrono::milliseconds m_timeout{DEFAULT_TIMEOUT};
 
     /** Schema. */
-    std::string m_schema;
+    std::string m_schema{DEFAULT_SCHEMA};
 
     /** Page size. */
-    std::int32_t m_page_size;
+    std::int32_t m_page_size{DEFAULT_PAGE_SIZE};
 
     /** Properties. */
-    std::unordered_map<std::string, std::string> m_properties;
+    std::unordered_map<std::string, primitive> m_properties;
 };
 
 } // namespace ignite

@@ -15,25 +15,14 @@
  * limitations under the License.
  */
 
-#include "ignite/client/table/tables.h"
-#include "ignite/client/detail/table/tables_impl.h"
+#include "ignite/client/sql/sql.h"
+#include "ignite/client/detail/sql/sql_impl.h"
 
 namespace ignite {
 
-std::optional<table> tables::get_table(std::string_view name) {
-    return sync<std::optional<table>>([this, name](auto callback) { get_table_async(name, std::move(callback)); });
-}
-
-void tables::get_table_async(std::string_view name, ignite_callback<std::optional<table>> callback) {
-    m_impl->get_table_async(name, std::move(callback));
-}
-
-std::vector<table> tables::get_tables() {
-    return sync<std::vector<table>>([this](auto callback) { get_tables_async(std::move(callback)); });
-}
-
-void tables::get_tables_async(ignite_callback<std::vector<table>> callback) {
-    m_impl->get_tables_async(std::move(callback));
+void sql::execute_async(
+    transaction *tx, const sql_statement &statement, std::vector<primitive> args, ignite_callback<result_set> callback) {
+    m_impl->execute_async(tx, statement, std::move(args), std::move(callback));
 }
 
 } // namespace ignite
