@@ -28,7 +28,3 @@ dependencies {
     testImplementation libs.mockito.junit
     testImplementation libs.mockito.core
 }
-
-checkstyleMain {
-    enabled = false
-}
