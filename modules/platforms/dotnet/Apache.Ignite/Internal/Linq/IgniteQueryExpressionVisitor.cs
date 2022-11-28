@@ -265,6 +265,9 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
 
         if (queryable != null)
         {
+            // Find where the projection comes from.
+            expression = ExpressionWalker.GetProjectedMember(expression.Expression!, expression.Member) ?? expression;
+
             AppendColumnName(expression, Aliases.GetTableAlias(expression));
         }
         else

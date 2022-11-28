@@ -200,7 +200,6 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
         }
 
         ValidateFromClause(fromClause);
-
         _aliases.AppendAsClause(_builder, fromClause);
         _builder.Append(' ');
 
