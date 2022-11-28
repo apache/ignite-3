@@ -168,9 +168,15 @@ public partial class LinqTests
 
         var res = query.ToList();
 
-        Assert.AreEqual("v-1", res[0].Category);
-        Assert.AreEqual(1, res[0].MaxPrice);
+        Assert.AreEqual("v-9", res[0].Category);
+        Assert.AreEqual(900, res[0].MaxPrice);
 
-        StringAssert.Contains("TODO", query.ToString());
+        StringAssert.Contains(
+            "select _T0.VAL, max(_T1.VAL) " +
+            "from PUBLIC.TBL1 as _T0 " +
+            "inner join PUBLIC.TBL_INT32 as _T1 on (cast(_T1.KEY as bigint) = _T0.KEY) " +
+            "group by (_T0.VAL) " +
+            "order by (max(_T1.VAL)) desc",
+            query.ToString());
     }
 }
