@@ -17,13 +17,11 @@
 
 package org.apache.ignite.internal.tx;
 
-import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 
 /**
  * Test class for {@link HeapLockManager}.
  */
-@WithSystemProperty(key = "IGNITE_ALL_LOCK_TYPES_ARE_USED", value = "true")
 public class HeapLockManagerTest extends AbstractLockManagerTest {
     @Override
     protected LockManager newInstance() {

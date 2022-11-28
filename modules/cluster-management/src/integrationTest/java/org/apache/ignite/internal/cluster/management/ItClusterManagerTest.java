@@ -247,7 +247,7 @@ public class ItClusterManagerTest {
 
         String[] metaStorageNodes = { cluster.get(2).name() };
 
-        initCluster(cmgNodes, metaStorageNodes);
+        initCluster(metaStorageNodes, cmgNodes);
 
         for (MockNode node : cluster) {
             assertThat(node.startFuture(), willCompleteSuccessfully());

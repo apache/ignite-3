@@ -87,11 +87,6 @@ public class RocksDbClusterStateStorage implements ClusterStateStorage {
     }
 
     @Override
-    public boolean isStarted() {
-        return db != null;
-    }
-
-    @Override
     public byte @Nullable [] get(byte[] key) {
         try {
             return db.get(key);
@@ -200,7 +195,7 @@ public class RocksDbClusterStateStorage implements ClusterStateStorage {
     @Override
     public void destroy() {
         try (Options options = new Options()) {
-            close();
+            stop();
 
             RocksDB.destroyDB(dbPath.toString(), options);
         } catch (Exception e) {
@@ -209,7 +204,7 @@ public class RocksDbClusterStateStorage implements ClusterStateStorage {
     }
 
     @Override
-    public void close() {
+    public void stop() {
         IgniteUtils.shutdownAndAwaitTermination(snapshotExecutor, 10, TimeUnit.SECONDS);
 
         RocksUtils.closeAll(options, db);

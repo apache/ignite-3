@@ -351,6 +351,11 @@ public class RocksDbTableStorage implements MvTableStorage {
     }
 
     @Override
+    public void close() throws StorageException {
+        stop();
+    }
+
+    @Override
     public CompletableFuture<Void> destroy() {
         try {
             stop();

@@ -19,6 +19,7 @@ package org.apache.ignite.internal.table;
 
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -56,6 +57,7 @@ import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.Lock;
+import org.apache.ignite.internal.tx.LockException;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.LockMode;
 import org.apache.ignite.internal.tx.TxManager;
@@ -206,35 +208,35 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     public void testLockOrdering() throws InterruptedException {
         accounts.recordView().upsert(null, makeValue(1, 50.));
 
-        InternalTransaction tx = (InternalTransaction) igniteTransactions.begin();
+        InternalTransaction tx1 = (InternalTransaction) igniteTransactions.begin();
         InternalTransaction tx2 = (InternalTransaction) igniteTransactions.begin();
         InternalTransaction tx3 = (InternalTransaction) igniteTransactions.begin();
         InternalTransaction tx4 = (InternalTransaction) igniteTransactions.begin();
 
-        assertTrue(tx2.id().compareTo(tx.id()) > 0);
-        assertTrue(tx3.id().compareTo(tx2.id()) > 0);
-        assertTrue(tx4.id().compareTo(tx3.id()) > 0);
+        assertTrue(tx3.id().compareTo(tx4.id()) < 0);
+        assertTrue(tx2.id().compareTo(tx3.id()) < 0);
+        assertTrue(tx1.id().compareTo(tx2.id()) < 0);
 
         RecordView<Tuple> acc0 = accounts.recordView();
         RecordView<Tuple> acc2 = accounts.recordView();
         RecordView<Tuple> acc3 = accounts.recordView();
         RecordView<Tuple> acc4 = accounts.recordView();
 
-        acc0.upsert(tx, makeValue(1, 100.));
+        acc0.upsert(tx4, makeValue(1, 100.));
 
-        CompletableFuture<Void> fut = acc3.upsertAsync(tx3, makeValue(1, 300.));
+        CompletableFuture<Void> fut = acc3.upsertAsync(tx2, makeValue(1, 300.));
 
         Thread.sleep(100);
 
         assertFalse(fut.isDone());
 
-        CompletableFuture<Void> fut2 = acc4.upsertAsync(tx3, makeValue(1, 400.));
+        CompletableFuture<Void> fut2 = acc4.upsertAsync(tx2, makeValue(1, 400.));
 
         Thread.sleep(100);
 
         assertFalse(fut2.isDone());
 
-        CompletableFuture<Void> fut3 = acc2.upsertAsync(tx2, makeValue(1, 200.));
+        CompletableFuture<Void> fut3 = acc2.upsertAsync(tx3, makeValue(1, 200.));
 
         assertFalse(fut3.isDone());
     }
@@ -375,11 +377,11 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
     @Test
     public void testBatchPutConcurrently() {
-        Transaction tx = igniteTransactions.begin();
+        Transaction tx1 = igniteTransactions.begin();
         Transaction tx2 = igniteTransactions.begin();
 
-        log.info("Tx " + tx);
-        log.info("Tx2 " + tx2);
+        log.info("Tx " + tx2);
+        log.info("Tx2 " + tx1);
 
         ArrayList<Tuple> rows = new ArrayList<>();
         ArrayList<Tuple> rows2 = new ArrayList<>();
@@ -392,21 +394,21 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         var table = accounts.recordView();
         var table2 = accounts.recordView();
 
-        table2.upsertAll(tx2, rows2);
+        table2.upsertAll(tx1, rows2);
 
-        Exception err = assertThrows(Exception.class, () -> table.upsertAll(tx, rows));
+        Exception err = assertThrows(Exception.class, () -> table.upsertAll(tx2, rows));
 
         assertTrue(err.getMessage().contains("Failed to acquire a lock"), err.getMessage());
 
-        tx2.commit();
+        tx1.commit();
     }
 
     @Test
     public void testBatchReadPutConcurrently() throws InterruptedException {
-        InternalTransaction tx = (InternalTransaction) igniteTransactions.begin();
+        InternalTransaction tx1 = (InternalTransaction) igniteTransactions.begin();
         InternalTransaction tx2 = (InternalTransaction) igniteTransactions.begin();
 
-        log.info("Tx " + tx);
+        log.info("Tx1 " + tx1);
         log.info("Tx2 " + tx2);
 
         var table = accounts.recordView();
@@ -420,7 +422,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
             keys2.add(makeKey(i));
         }
 
-        table2.getAll(tx, keys);
+        table2.getAll(tx1, keys);
         table2.getAll(tx2, keys2);
 
         ArrayList<Tuple> rows = new ArrayList<>();
@@ -431,12 +433,12 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
             rows2.add(makeValue(i, 2 * i * 100.));
         }
 
-        var futUpd2 = table2.upsertAllAsync(tx2, rows2);
+        var futUpd2 = table2.upsertAllAsync(tx1, rows2);
 
         assertTrue(IgniteTestUtils.waitForCondition(() -> {
             boolean lockUpgraded = false;
 
-            for (Iterator<Lock> it = txManager(accounts).lockManager().locks(tx2.id()); it.hasNext(); ) {
+            for (Iterator<Lock> it = txManager(accounts).lockManager().locks(tx1.id()); it.hasNext(); ) {
                 Lock lock = it.next();
 
                 lockUpgraded = lock.lockMode() == LockMode.X;
@@ -447,18 +449,11 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
             }
 
             return lockUpgraded;
-        },
-                3000));
+        }, 3000));
 
         assertFalse(futUpd2.isDone());
 
-        table.upsertAll(tx, rows);
-
-        tx.commit();
-
-        Exception err = assertThrows(Exception.class, () -> futUpd2.join());
-
-        assertTrue(err.getMessage().contains("Failed to acquire a lock"), err.getMessage());
+        assertThrowsWithCause(() -> table.upsertAll(tx2, rows), LockException.class);
     }
 
     /**
@@ -516,29 +511,29 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     public void testSimpleConflict() throws Exception {
         accounts.recordView().upsert(null, makeValue(1, 100.));
 
-        Transaction tx = igniteTransactions.begin();
+        Transaction tx1 = igniteTransactions.begin();
         Transaction tx2 = igniteTransactions.begin();
 
         var table = accounts.recordView();
         var table2 = accounts.recordView();
 
-        double val = table.get(tx, makeKey(1)).doubleValue("balance");
-        table2.get(tx2, makeKey(1)).doubleValue("balance");
+        double val = table.get(tx2, makeKey(1)).doubleValue("balance");
+        table2.get(tx1, makeKey(1)).doubleValue("balance");
 
         try {
-            table.upsert(tx, makeValue(1, val + 1));
+            table.upsert(tx2, makeValue(1, val + 1));
 
             fail();
         } catch (Exception e) {
             // Expected.
         }
 
-        table2.upsert(tx2, makeValue(1, val + 1));
+        table2.upsert(tx1, makeValue(1, val + 1));
 
-        tx2.commit();
+        tx1.commit();
 
         try {
-            tx.commit();
+            tx2.commit();
 
             fail();
         } catch (TransactionException e) {
@@ -626,7 +621,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
      */
     @Test
     public void testIncrement() throws TransactionException {
-        Transaction tx = igniteTransactions.begin();
+        Transaction tx1 = igniteTransactions.begin();
         Transaction tx2 = igniteTransactions.begin();
 
         Tuple key = makeKey(1);
@@ -637,63 +632,22 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         var table = accounts.recordView();
         var table2 = accounts.recordView();
 
-        // Read in tx
-        double valTx = table.get(tx, key).doubleValue("balance");
-
         // Read in tx2
-        double valTx2 = table2.get(tx2, key).doubleValue("balance");
+        double valTx = table.get(tx2, key).doubleValue("balance");
 
-        // Write in tx (out of order)
+        // Read in tx1
+        double valTx2 = table2.get(tx1, key).doubleValue("balance");
+
+        // Write in tx2 (out of order)
         // TODO asch IGNITE-15937 fix exception model.
-        Exception err = assertThrows(Exception.class, () -> table.upsert(tx, makeValue(1, valTx + 1)));
+        Exception err = assertThrows(Exception.class, () -> table.upsert(tx2, makeValue(1, valTx + 1)));
 
         assertTrue(err.getMessage().contains("Failed to acquire a lock"), err.getMessage());
 
-        // Write in tx2
-        table2.upsert(tx2, makeValue(1, valTx2 + 1));
+        // Write in tx1
+        table2.upsert(tx1, makeValue(1, valTx2 + 1));
 
-        tx2.commit();
-
-        assertEquals(101., accounts.recordView().get(null, key).doubleValue("balance"));
-    }
-
-    /**
-     * Tests if a lost update is not happening on concurrent increment.
-     */
-    @Test
-    public void testIncrement2() throws TransactionException, InterruptedException {
-        InternalTransaction tx = (InternalTransaction) igniteTransactions.begin();
-        InternalTransaction tx2 = (InternalTransaction) igniteTransactions.begin();
-
-        Tuple key = makeKey(1);
-        Tuple val = makeValue(1, 100.);
-
-        accounts.recordView().upsert(null, val); // Creates implicit transaction.
-
-        var table = accounts.recordView();
-        var table2 = accounts.recordView();
-
-        // Read in tx
-        double valTx = table.get(tx, key).doubleValue("balance");
-
-        // Read in tx2
-        double valTx2 = table2.get(tx2, key).doubleValue("balance");
-
-        // Write in tx2 (should wait for read unlock in tx1)
-        CompletableFuture<Void> fut = table2.upsertAsync(tx2, makeValue(1, valTx2 + 1));
-        Thread.sleep(300); // Give some time to update lock queue TODO asch IGNITE-15928
-        assertFalse(fut.isDone());
-
-        CompletableFuture<Void> fut2 = fut.thenCompose(ret -> tx2.commitAsync());
-
-        // Write in tx
-        table.upsert(tx, makeValue(1, valTx + 1));
-
-        tx.commit();
-
-        Exception err = assertThrows(Exception.class, () -> fut2.get(5, TimeUnit.SECONDS));
-
-        assertTrue(err.getMessage().contains("Failed to acquire a lock"), err.getMessage());
+        tx1.commit();
 
         assertEquals(101., accounts.recordView().get(null, key).doubleValue("balance"));
     }
@@ -826,24 +780,24 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     public void testGetAllConflict() throws Exception {
         accounts.recordView().upsertAll(null, List.of(makeValue(1, 100.), makeValue(2, 200.)));
 
-        InternalTransaction tx = (InternalTransaction) igniteTransactions.begin();
+        InternalTransaction tx1 = (InternalTransaction) igniteTransactions.begin();
         InternalTransaction tx2 = (InternalTransaction) igniteTransactions.begin();
 
         RecordView<Tuple> txAcc = accounts.recordView();
         RecordView<Tuple> txAcc2 = accounts.recordView();
 
-        txAcc2.upsert(tx2, makeValue(1, 300.));
-        txAcc.upsert(tx, makeValue(2, 400.));
+        txAcc2.upsert(tx1, makeValue(1, 300.));
+        txAcc.upsert(tx2, makeValue(2, 400.));
 
-        Exception err = assertThrows(Exception.class, () -> txAcc.getAll(tx, List.of(makeKey(2), makeKey(1))));
+        Exception err = assertThrows(Exception.class, () -> txAcc.getAll(tx2, List.of(makeKey(2), makeKey(1))));
         assertTrue(err.getMessage().contains("Failed to acquire a lock"), err.getMessage());
 
-        validateBalance(txAcc2.getAll(tx2, List.of(makeKey(2), makeKey(1))), 200., 300.);
-        validateBalance(txAcc2.getAll(tx2, List.of(makeKey(1), makeKey(2))), 300., 200.);
+        validateBalance(txAcc2.getAll(tx1, List.of(makeKey(2), makeKey(1))), 200., 300.);
+        validateBalance(txAcc2.getAll(tx1, List.of(makeKey(1), makeKey(2))), 300., 200.);
 
-        assertTrue(IgniteTestUtils.waitForCondition(() -> TxState.ABORTED == tx.state(), 5_000), tx.state().toString());
+        assertTrue(IgniteTestUtils.waitForCondition(() -> TxState.ABORTED == tx2.state(), 5_000), tx2.state().toString());
 
-        tx2.commit();
+        tx1.commit();
 
         validateBalance(accounts.recordView().getAll(null, List.of(makeKey(2), makeKey(1))), 200., 300.);
     }
@@ -1036,7 +990,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     public void testReorder() throws Exception {
         accounts.recordView().upsert(null, makeValue(1, 100.));
 
-        InternalTransaction tx = (InternalTransaction) igniteTransactions.begin();
+        InternalTransaction tx1 = (InternalTransaction) igniteTransactions.begin();
         InternalTransaction tx2 = (InternalTransaction) igniteTransactions.begin();
         InternalTransaction tx3 = (InternalTransaction) igniteTransactions.begin();
 
@@ -1044,52 +998,14 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         var table2 = accounts.recordView();
         var table3 = accounts.recordView();
 
-        double v0 = table.get(tx, makeKey(1)).doubleValue("balance");
-        double v1 = table3.get(tx3, makeKey(1)).doubleValue("balance");
+        double v0 = table.get(tx3, makeKey(1)).doubleValue("balance");
 
-        assertEquals(v0, v1);
-
-        CompletableFuture<Void> fut = table3.upsertAsync(tx3, makeValue(1, v0 + 10));
-        assertFalse(fut.isDone());
-
-        Thread.sleep(300); // Give some time to update lock queue TODO asch IGNITE-15928
-
-        table.upsert(tx, makeValue(1, v0 + 20));
-
-        CompletableFuture<Tuple> fut2 = table2.getAsync(tx2, makeKey(1));
-        assertFalse(fut2.isDone());
-
-        tx.commit();
-
-        fut2.get();
-
-        tx2.rollback();
-
-        Exception err = assertThrows(Exception.class, () -> fut.get(5, TimeUnit.SECONDS));
-
-        assertTrue(err.getMessage().contains("Failed to acquire a lock"), err.getMessage());
-    }
-
-    @Test
-    public void testReorder2() throws Exception {
-        accounts.recordView().upsert(null, makeValue(1, 100.));
-
-        InternalTransaction tx = (InternalTransaction) igniteTransactions.begin();
-        InternalTransaction tx2 = (InternalTransaction) igniteTransactions.begin();
-        InternalTransaction tx3 = (InternalTransaction) igniteTransactions.begin();
-
-        var table = accounts.recordView();
-        var table2 = accounts.recordView();
-        var table3 = accounts.recordView();
-
-        double v0 = table.get(tx, makeKey(1)).doubleValue("balance");
-
-        table.upsertAsync(tx, makeValue(1, v0 + 10));
+        table.upsertAsync(tx3, makeValue(1, v0 + 10));
 
         CompletableFuture<Tuple> fut = table2.getAsync(tx2, makeKey(1));
         assertFalse(fut.isDone());
 
-        CompletableFuture<Tuple> fut2 = table3.getAsync(tx3, makeKey(1));
+        CompletableFuture<Tuple> fut2 = table3.getAsync(tx1, makeKey(1));
         assertFalse(fut2.isDone());
     }
 

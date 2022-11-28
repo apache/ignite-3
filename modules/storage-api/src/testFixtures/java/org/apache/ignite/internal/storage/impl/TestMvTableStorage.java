@@ -219,6 +219,11 @@ public class TestMvTableStorage implements MvTableStorage {
     }
 
     @Override
+    public void close() throws StorageException {
+        stop();
+    }
+
+    @Override
     public CompletableFuture<Void> destroy() {
         return completedFuture(null);
     }

@@ -58,11 +58,6 @@ public class TestClusterStateStorage implements ClusterStateStorage {
     }
 
     @Override
-    public boolean isStarted() {
-        return isStarted;
-    }
-
-    @Override
     public byte @Nullable [] get(byte[] key) {
         lock.readLock().lock();
 
@@ -203,7 +198,7 @@ public class TestClusterStateStorage implements ClusterStateStorage {
     }
 
     @Override
-    public void close() {
+    public void stop() {
         isStarted = false;
     }
 }

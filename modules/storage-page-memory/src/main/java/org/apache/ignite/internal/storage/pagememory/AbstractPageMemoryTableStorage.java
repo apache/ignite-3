@@ -213,6 +213,11 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
         throw new UnsupportedOperationException("Not implemented yet");
     }
 
+    @Override
+    public void close() throws StorageException {
+        stop();
+    }
+
     /**
      * Checks that the partition ID is within the scope of the configuration.
      *
