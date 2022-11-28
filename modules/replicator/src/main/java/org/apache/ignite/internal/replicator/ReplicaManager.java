@@ -19,7 +19,6 @@ package org.apache.ignite.internal.replicator;
 
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 
-import java.util.Collection;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -90,7 +89,7 @@ public class ReplicaManager implements IgniteComponent {
             Executors.newScheduledThreadPool(1, new NamedThreadFactory("scheduled-idle-safe-time-sync-thread", LOG));
 
     /** Set of message groups to handler as replica requests. */
-    Set<Class<?>> messageGroupsToHandle;
+    private final Set<Class<?>> messageGroupsToHandle;
 
     /**
      * Constructor for a    replica service.
@@ -270,16 +269,6 @@ public class ReplicaManager implements IgniteComponent {
         shutdownAndAwaitTermination(scheduledIdleSafeTimeSyncExecutor, 10, TimeUnit.SECONDS);
 
         assert replicas.isEmpty() : "There are replicas alive [replicas=" + replicas.keySet() + ']';
-    }
-
-    /**
-     * Determines whether a replication group should be started locally
-     * according to a collection of nodes that should have a replication group.
-     */
-    public boolean shouldHaveReplicationGroupLocally(Collection<ClusterNode> replicas) {
-        String locNodeName = clusterNetSvc.topologyService().localMember().name();
-
-        return replicas.stream().anyMatch(r -> locNodeName.equals(r.name()));
     }
 
     /**

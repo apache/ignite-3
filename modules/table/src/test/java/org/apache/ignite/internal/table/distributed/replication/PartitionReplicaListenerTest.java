@@ -265,7 +265,6 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 clock,
                 safeTimeClock,
                 txStateStorage,
-                topologySrv,
                 placementDriver,
                 peer -> localNode.name().equals(peer.consistentId())
         );
@@ -304,7 +303,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
         LeaderOrTxState tuple = (LeaderOrTxState) fut.get(1, TimeUnit.SECONDS);
 
-        assertNull(tuple.leader());
+        assertNull(tuple.leaderName());
         assertNull(tuple.txMeta());
     }
 
@@ -326,7 +325,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
         assertEquals(TxState.COMMITED, tuple.txMeta().txState());
         assertTrue(readTimestamp.compareTo(tuple.txMeta().commitTimestamp()) > 0);
-        assertNull(tuple.leader());
+        assertNull(tuple.leaderName());
     }
 
     @Test
@@ -342,7 +341,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         LeaderOrTxState tuple = (LeaderOrTxState) fut.get(1, TimeUnit.SECONDS);
 
         assertNull(tuple.txMeta());
-        assertNotNull(tuple.leader());
+        assertNotNull(tuple.leaderName());
     }
 
     @Test

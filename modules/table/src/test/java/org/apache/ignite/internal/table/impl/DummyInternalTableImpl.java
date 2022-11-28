@@ -252,7 +252,6 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 clock,
                 new PendingComparableValuesTracker<>(clock.now()),
                 txStateStorage().getOrCreateTxStateStorage(0),
-                null,
                 placementDriver,
                 peer -> true
         );

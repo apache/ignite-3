@@ -49,7 +49,6 @@ import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.NodeStoppingException;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.TopologyService;
@@ -171,29 +170,11 @@ public class Loza implements IgniteComponent {
     }
 
     /**
-     * Determines whether a RAFT group should be started locally according to a collection of nodes that should have a RAFT group.
-     */
-    public boolean shouldHaveRaftGroupLocally(Collection<ClusterNode> raftNodes) {
-        String locNodeName = clusterNetSvc.topologyService().localMember().name();
-
-        return raftNodes.stream().anyMatch(n -> locNodeName.equals(n.name()));
-    }
-
-    /**
-     * Determines whether a RAFT group should be started locally according to a collection of nodes that should have a RAFT group.
-     */
-    private boolean shouldHaveRaftGroupLocallyImpl(Collection<String> raftNodes) {
-        String locNodeName = clusterNetSvc.topologyService().localMember().name();
-
-        return raftNodes.stream().anyMatch(locNodeName::equals);
-    }
-
-    /**
      * Creates a raft group service providing operations on a raft group. If {@code nodes} contains the current node, then raft group starts
      * on the current node.
      *
      * @param groupId Raft group id.
-     * @param nodeConsistentIds Consistent IDs of Raft group nodes.
+     * @param peerConsistentIds Consistent IDs of Raft peers.
      * @param lsnrSupplier Raft group listener supplier.
      * @param groupOptions Options to apply to the group.
      * @return Future representing pending completion of the operation.
@@ -201,20 +182,20 @@ public class Loza implements IgniteComponent {
      */
     public CompletableFuture<RaftGroupService> prepareRaftGroup(
             ReplicationGroupId groupId,
-            Collection<String> nodeConsistentIds,
+            Collection<String> peerConsistentIds,
             Supplier<RaftGroupListener> lsnrSupplier,
             RaftGroupOptions groupOptions
     ) throws NodeStoppingException {
-        return prepareRaftGroup(groupId, nodeConsistentIds, List.of(), lsnrSupplier, () -> noopLsnr, groupOptions);
+        return prepareRaftGroup(groupId, peerConsistentIds, List.of(), lsnrSupplier, () -> noopLsnr, groupOptions);
     }
 
     /**
-     * Creates a raft group service providing operations on a raft group. If {@code nodeConsistentIds} or {@code learnerConsistentIds}
+     * Creates a raft group service providing operations on a raft group. If {@code peerConsistentIds} or {@code learnerConsistentIds}
      * contains the current node, then raft group starts on the current node.
      *
      * @param groupId Raft group id.
-     * @param nodeConsistentIds Consistent IDs of Raft group nodes.
-     * @param learnerConsistentIds Consistent IDs of Raft learner nodes.
+     * @param peerConsistentIds Consistent IDs of Raft peers.
+     * @param learnerConsistentIds Consistent IDs of Raft learners.
      * @param lsnrSupplier Raft group listener supplier.
      * @param raftGrpEvtsLsnrSupplier Raft group events listener supplier.
      * @param groupOptions Options to apply to the group.
@@ -223,7 +204,7 @@ public class Loza implements IgniteComponent {
      */
     public CompletableFuture<RaftGroupService> prepareRaftGroup(
             ReplicationGroupId groupId,
-            Collection<String> nodeConsistentIds,
+            Collection<String> peerConsistentIds,
             Collection<String> learnerConsistentIds,
             Supplier<RaftGroupListener> lsnrSupplier,
             Supplier<RaftGroupEventsListener> raftGrpEvtsLsnrSupplier,
@@ -235,7 +216,7 @@ public class Loza implements IgniteComponent {
 
         try {
             return prepareRaftGroupInternal(
-                    groupId, nodeConsistentIds, learnerConsistentIds, lsnrSupplier, raftGrpEvtsLsnrSupplier, groupOptions
+                    groupId, peerConsistentIds, learnerConsistentIds, lsnrSupplier, raftGrpEvtsLsnrSupplier, groupOptions
             );
         } finally {
             busyLock.leaveBusy();
@@ -246,8 +227,8 @@ public class Loza implements IgniteComponent {
      * Internal method to a raft group creation.
      *
      * @param groupId Raft group id.
-     * @param nodeConsistentIds Consistent IDs of Raft group nodes.
-     * @param learnerConsistentIds Consistent IDs of Raft learner nodes.
+     * @param peerConsistentIds Consistent IDs of Raft peers.
+     * @param learnerConsistentIds Consistent IDs of Raft learners.
      * @param lsnrSupplier Raft group listener supplier.
      * @param eventsLsnrSupplier Raft group events listener supplier.
      * @param groupOptions Options to apply to the group.
@@ -255,16 +236,18 @@ public class Loza implements IgniteComponent {
      */
     private CompletableFuture<RaftGroupService> prepareRaftGroupInternal(
             ReplicationGroupId groupId,
-            Collection<String> nodeConsistentIds,
+            Collection<String> peerConsistentIds,
             Collection<String> learnerConsistentIds,
             Supplier<RaftGroupListener> lsnrSupplier,
             Supplier<RaftGroupEventsListener> eventsLsnrSupplier,
             RaftGroupOptions groupOptions
     ) {
-        List<Peer> peers = idsToPeers(nodeConsistentIds);
+        List<Peer> peers = idsToPeers(peerConsistentIds);
         List<Peer> learners = idsToPeers(learnerConsistentIds);
 
-        if (shouldHaveRaftGroupLocallyImpl(nodeConsistentIds) || shouldHaveRaftGroupLocallyImpl(learnerConsistentIds)) {
+        String locNodeName = clusterNetSvc.topologyService().localMember().name();
+
+        if (peerConsistentIds.contains(locNodeName) || learnerConsistentIds.contains(locNodeName)) {
             startRaftGroupNodeInternal(
                     groupId,
                     peers,
@@ -282,7 +265,8 @@ public class Loza implements IgniteComponent {
      * Start RAFT group on the current node.
      *
      * @param grpId Raft group id.
-     * @param nodeConsistentIds Consistent IDs of Raft group nodes.
+     * @param peerConsistentIds Consistent IDs of Raft peers.
+     * @param learnerConsistentIds Consistent IDs of Raft learners.
      * @param lsnr Raft group listener.
      * @param eventsLsnr Raft group events listener.
      * @param groupOptions Options to apply to the group.
@@ -290,7 +274,8 @@ public class Loza implements IgniteComponent {
      */
     public void startRaftGroupNode(
             ReplicationGroupId grpId,
-            Collection<String> nodeConsistentIds,
+            Collection<String> peerConsistentIds,
+            Collection<String> learnerConsistentIds,
             RaftGroupListener lsnr,
             RaftGroupEventsListener eventsLsnr,
             RaftGroupOptions groupOptions
@@ -300,7 +285,14 @@ public class Loza implements IgniteComponent {
         }
 
         try {
-            startRaftGroupNodeInternal(grpId, idsToPeers(nodeConsistentIds), List.of(), lsnr, eventsLsnr, groupOptions);
+            startRaftGroupNodeInternal(
+                    grpId,
+                    idsToPeers(peerConsistentIds),
+                    idsToPeers(learnerConsistentIds),
+                    lsnr,
+                    eventsLsnr,
+                    groupOptions
+            );
         } finally {
             busyLock.leaveBusy();
         }
@@ -310,20 +302,22 @@ public class Loza implements IgniteComponent {
      * Creates and starts a raft group service providing operations on a raft group.
      *
      * @param grpId RAFT group id.
-     * @param nodeConsistentIds Consistent IDs of Raft group nodes.
+     * @param peerConsistentIds Consistent IDs of Raft peers.
+     * @param learnerConsistentIds Consistent IDs of Raft learners.
      * @return Future that will be completed with an instance of RAFT group service.
      * @throws NodeStoppingException If node stopping intention was detected.
      */
     public CompletableFuture<RaftGroupService> startRaftGroupService(
             ReplicationGroupId grpId,
-            Collection<String> nodeConsistentIds
+            Collection<String> peerConsistentIds,
+            Collection<String> learnerConsistentIds
     ) throws NodeStoppingException {
         if (!busyLock.enterBusy()) {
             throw new NodeStoppingException();
         }
 
         try {
-            return startRaftGroupServiceInternal(grpId, idsToPeers(nodeConsistentIds), List.of());
+            return startRaftGroupServiceInternal(grpId, idsToPeers(peerConsistentIds), idsToPeers(learnerConsistentIds));
         } finally {
             busyLock.leaveBusy();
         }

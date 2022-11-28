@@ -79,7 +79,7 @@ public class LozaTest extends IgniteAbstractTest {
 
         assertThrows(
                 NodeStoppingException.class,
-                () -> loza.startRaftGroupService(raftGroupId, newNodes)
+                () -> loza.startRaftGroupService(raftGroupId, newNodes, List.of())
         );
         assertThrows(NodeStoppingException.class, () -> loza.stopRaftGroup(raftGroupId));
         assertThrows(
