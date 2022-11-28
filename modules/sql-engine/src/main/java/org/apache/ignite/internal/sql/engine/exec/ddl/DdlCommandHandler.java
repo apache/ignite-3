@@ -133,8 +133,7 @@ public class DdlCommandHandler {
             return handleCreateZone((CreateZoneCommand) cmd);
         } else if (cmd instanceof DropZoneCommand) {
             return handleDropZone((DropZoneCommand) cmd);
-        }
-        else {
+        } else {
             return failedFuture(new IgniteInternalCheckedException(UNSUPPORTED_DDL_OPERATION_ERR, "Unsupported DDL operation ["
                     + "cmdName=" + (cmd == null ? null : cmd.getClass().getSimpleName()) + "; "
                     + "cmd=\"" + cmd + "\"]"));

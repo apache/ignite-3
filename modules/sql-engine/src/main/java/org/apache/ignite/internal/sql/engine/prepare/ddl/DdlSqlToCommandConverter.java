@@ -21,13 +21,13 @@ import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toUnmodifiableMap;
 import static org.apache.ignite.internal.schema.configuration.storage.UnknownDataStorageConfigurationSchema.UNKNOWN_DATA_STORAGE;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
+import static org.apache.ignite.lang.ErrorGroups.Sql.DDL_OPTION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.PRIMARY_KEYS_MULTIPLE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.PRIMARY_KEY_MISSING_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.QUERY_INVALID_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.SCHEMA_NOT_FOUND_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.SQL_TO_REL_CONVERSION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STORAGE_ENGINE_NOT_VALID_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Sql.DDL_OPTION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.UNSUPPORTED_DDL_OPERATION_ERR;
 
 import java.math.BigDecimal;
@@ -588,13 +588,13 @@ public class DdlSqlToCommandConverter {
     /**
      * Checks that there are no ID duplicates.
      *
-     * @param tableOptionInfos0 Table options information.
-     * @param tableOptionInfos1 Table options information.
+     * @param tblOptionInfos0 Table options information.
+     * @param tblOptionInfos1 Table options information.
      * @throws IllegalStateException If there is a duplicate ID.
      */
-    static <T> void checkDuplicates(Map<String, DdlOptionInfo<T, ?>> tableOptionInfos0, Map<String, DdlOptionInfo<T, ?>> tableOptionInfos1) {
-        for (String id : tableOptionInfos1.keySet()) {
-            if (tableOptionInfos0.containsKey(id)) {
+    static <T> void checkDuplicates(Map<String, DdlOptionInfo<T, ?>> tblOptionInfos0, Map<String, DdlOptionInfo<T, ?>> tblOptionInfos1) {
+        for (String id : tblOptionInfos1.keySet()) {
+            if (tblOptionInfos0.containsKey(id)) {
                 throw new IllegalStateException("Duplicate id:" + id);
             }
         }

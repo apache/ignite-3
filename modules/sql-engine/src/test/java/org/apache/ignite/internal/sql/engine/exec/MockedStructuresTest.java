@@ -290,9 +290,9 @@ public class MockedStructuresTest extends IgniteAbstractTest {
      */
     @Test
     public void testCreateZone() {
-        String curMethodName = getCurrentMethodName();
+        String mtdName = getCurrentMethodName();
 
-        String query = String.format("CREATE ZONE %s", curMethodName);
+        String query = String.format("CREATE ZONE %s", mtdName);
 
         // Create new distribution zone.
         readFirst(queryProc.queryAsync("PUBLIC", query));
@@ -302,22 +302,34 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         assertTrue(hasCause(ex, DistributionZoneAlreadyExistsException.class, null));
 
         // Check ifNotExists flag.
-        readFirst(queryProc.queryAsync("PUBLIC", String.format("CREATE ZONE IF NOT EXISTS %s", curMethodName)));
+        readFirst(queryProc.queryAsync("PUBLIC", String.format("CREATE ZONE IF NOT EXISTS %s", mtdName)));
     }
 
     @Test
     public void testCreateZoneOptions() {
+        String mtdName = getCurrentMethodName();
 
+        // Check for conflicting options.
+        String qry0 = String.format("CREATE ZONE %s WITH DATA_NODES_AUTO_ADJUST=10, DATA_NODES_AUTO_ADJUST_SCALE_UP=5", mtdName);
+        assertThrows(IllegalArgumentException.class, () -> readFirst(queryProc.queryAsync("PUBLIC", qry0)));
+
+        String qry1 = String.format("CREATE ZONE %s WITH DATA_NODES_AUTO_ADJUST_SCALE_DOWN=5, DATA_NODES_AUTO_ADJUST=10", mtdName);
+        assertThrows(IllegalArgumentException.class, () -> readFirst(queryProc.queryAsync("PUBLIC", qry1)));
+
+        // Check for non-conflicting options.
+        readFirst(queryProc.queryAsync("PUBLIC", String.format(
+                "CREATE ZONE %s WITH DATA_NODES_AUTO_ADJUST_SCALE_DOWN=5, DATA_NODES_AUTO_ADJUST_SCALE_UP=10", mtdName)));
+        readFirst(queryProc.queryAsync("PUBLIC", String.format("CREATE ZONE %s_common WITH DATA_NODES_AUTO_ADJUST=5", mtdName)));
     }
 
     @Test
     public void testDropZone() {
-        String curMethodName = getCurrentMethodName();
+        String mtdName = getCurrentMethodName();
 
-        String dropQuery = String.format("DROP ZONE %s", curMethodName);
+        String dropQuery = String.format("DROP ZONE %s", mtdName);
 
         // Drop existing distribution zone.
-        readFirst(queryProc.queryAsync("PUBLIC", String.format("CREATE ZONE %s", curMethodName)));
+        readFirst(queryProc.queryAsync("PUBLIC", String.format("CREATE ZONE %s", mtdName)));
         readFirst(queryProc.queryAsync("PUBLIC", dropQuery));
 
         // Drop non-existing distribution zone.
@@ -325,7 +337,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         assertTrue(hasCause(ex, DistributionZoneNotFoundException.class, null));
 
         // Check ifExists flag.
-        readFirst(queryProc.queryAsync("PUBLIC", String.format("DROP ZONE IF EXISTS %s", curMethodName)));
+        readFirst(queryProc.queryAsync("PUBLIC", String.format("DROP ZONE IF EXISTS %s", mtdName)));
     }
 
     /**

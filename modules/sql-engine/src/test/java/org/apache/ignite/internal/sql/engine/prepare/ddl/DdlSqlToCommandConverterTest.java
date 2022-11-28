@@ -31,7 +31,6 @@ import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.Map;
@@ -280,28 +279,6 @@ public class DdlSqlToCommandConverterTest extends BaseIgniteAbstractTest {
         assertThat(createZone.dataNodesAutoAdjustScaleUp(), equalTo(100));
         assertThat(createZone.dataNodesAutoAdjustScaleDown(), equalTo(100));
     }
-
-//        var createZone = (CreateZoneCommand) cmd;
-//
-//        assertThat(
-//                createTable.columns(),
-//                allOf(
-
-//        assertThat(
-//                createTable.columns(),
-//                allOf(
-//                        hasItem(columnThat("column with name \"VAL\"", cd -> "VAL".equals(cd.name()))),
-//                        hasItem(columnThat("PK with functional default",
-//                                        cd -> "ID".equals(cd.name())
-//                                                && !cd.nullable()
-//                                                && SqlTypeName.VARCHAR.equals(cd.type().getSqlTypeName())
-//                                                && cd.defaultValueDefinition().type() == Type.FUNCTION_CALL
-//                                                && "GEN_RANDOM_UUID".equals(((FunctionCall) cd.defaultValueDefinition()).functionName())
-//                                )
-//                        )
-//                )
-//        );
-//    }
 
     private DdlOptionInfo<CreateTableCommand, ?> tableOptionInfo(String name) {
         return new DdlOptionInfo<>(name, Object.class, null, (createTableCommand, o) -> {
