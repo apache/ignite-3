@@ -17,6 +17,7 @@
 
 package org.apache.ignite.distributed;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -24,7 +25,6 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.impl.ReadWriteTransactionImpl;
-import org.apache.ignite.raft.jraft.test.TestUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
@@ -56,7 +56,7 @@ public class ItTxDistributedTestThreeNodesThreeReplicasCollocated extends ItTxDi
     }
 
     @Test
-    public void testTxStateReplication() {
+    public void testTxStateReplication() throws InterruptedException {
         ReadWriteTransactionImpl tx = (ReadWriteTransactionImpl) igniteTransactions.begin();
 
         UUID txId = tx.id();
@@ -65,7 +65,7 @@ public class ItTxDistributedTestThreeNodesThreeReplicasCollocated extends ItTxDi
 
         tx.commit();
 
-        assertTrue(TestUtils.waitForCondition(
+        assertTrue(waitForCondition(
                 () -> txManagers.values().stream()
                         .filter(txManager -> txManager.state(txId) != null && txManager.state(txId)
                                 .equals(TxState.COMMITED))

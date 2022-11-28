@@ -17,9 +17,9 @@
 
 package org.apache.ignite.internal.metastorage.common.command;
 
+import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
-import org.apache.ignite.raft.client.WriteCommand;
 
 /**
  * Get and put command for MetaStorageCommandListener that inserts or updates an entry with the given key and the given value and retrieves

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.raft.server;
+package org.apache.ignite.internal.raft;
 
 import java.util.Collection;
 import org.apache.ignite.raft.jraft.Status;
@@ -24,7 +24,7 @@ import org.apache.ignite.raft.jraft.entity.PeerId;
 /**
  * Listener for group membership and other events.
  */
-public interface RaftGroupEventsListener {
+public interface JraftGroupEventsListener {
     /**
      * Invoked, when a new leader is elected (if it is the first leader of group ever - will be invoked too).
      *
@@ -49,22 +49,4 @@ public interface RaftGroupEventsListener {
      * @param term Raft term of the current leader.
      */
     void onReconfigurationError(Status status, Collection<PeerId> peers, Collection<PeerId> learners, long term);
-
-    /**
-     * No-op raft group events listener.
-     */
-    RaftGroupEventsListener noopLsnr = new RaftGroupEventsListener() {
-        /** {@inheritDoc} */
-        @Override
-        public void onLeaderElected(long term) { }
-
-        /** {@inheritDoc} */
-        @Override
-        public void onNewPeersConfigurationApplied(Collection<PeerId> peers, Collection<PeerId> learners) { }
-
-        /** {@inheritDoc} */
-        @Override
-        public void onReconfigurationError(Status status, Collection<PeerId> peers, Collection<PeerId> learners, long term) {}
-    };
-
 }

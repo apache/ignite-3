@@ -23,14 +23,15 @@ dependencies {
     implementation project(':ignite-configuration')
     implementation project(':ignite-cluster-management')
     implementation project(':ignite-network-api')
-    implementation project(':ignite-raft')
     implementation project(':ignite-vault')
+    implementation project(':ignite-raft-api')
+    implementation project(':ignite-api')
+    implementation project(':ignite-core')
+
     api project(':ignite-metastorage-client')
     api project(':ignite-metastorage-server')
     api project(':ignite-metastorage-common')
-    implementation project(':ignite-raft-client')
-    implementation project(':ignite-api')
-    implementation project(':ignite-core')
+
     implementation libs.jetbrains.annotations
     testImplementation libs.mockito.junit
 }

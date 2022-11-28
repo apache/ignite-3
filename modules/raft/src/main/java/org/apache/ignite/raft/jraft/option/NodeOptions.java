@@ -21,7 +21,7 @@ import java.util.concurrent.ExecutorService;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridClock;
-import org.apache.ignite.internal.raft.server.RaftGroupEventsListener;
+import org.apache.ignite.internal.raft.JraftGroupEventsListener;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.raft.jraft.JRaftServiceFactory;
 import org.apache.ignite.raft.jraft.StateMachine;
@@ -111,7 +111,7 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
     private StateMachine fsm;
 
     // Listener for raft group reconfiguration events.
-    private RaftGroupEventsListener raftGrpEvtsLsnr;
+    private JraftGroupEventsListener raftGrpEvtsLsnr;
 
     // Describe a specific LogStorage in format ${type}://${parameters}
     private String logUri;
@@ -443,11 +443,11 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
         this.initialConf = initialConf;
     }
 
-    public RaftGroupEventsListener getRaftGrpEvtsLsnr() {
+    public JraftGroupEventsListener getRaftGrpEvtsLsnr() {
         return raftGrpEvtsLsnr;
     }
 
-    public void setRaftGrpEvtsLsnr(@NotNull RaftGroupEventsListener raftGrpEvtsLsnr) {
+    public void setRaftGrpEvtsLsnr(@NotNull JraftGroupEventsListener raftGrpEvtsLsnr) {
         this.raftGrpEvtsLsnr = raftGrpEvtsLsnr;
     }
 

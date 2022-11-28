@@ -40,12 +40,7 @@
 
         <dependency>
             <groupId>org.apache.ignite</groupId>
-            <artifactId>ignite-configuration</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.ignite</groupId>
-            <artifactId>ignite-raft-client</artifactId>
+            <artifactId>ignite-raft-api</artifactId>
         </dependency>
 
         <dependency>
@@ -77,8 +72,8 @@
         <dependency>
             <groupId>org.apache.ignite</groupId>
             <artifactId>ignite-configuration</artifactId>
-            <type>test-jar</type>
             <scope>test</scope>
+            <type>test-jar</type>
         </dependency>
 
         <dependency>
@@ -165,11 +160,6 @@
                 <dependencies>
                     <dependency>
                         <groupId>org.apache.ignite</groupId>
-                        <artifactId>ignite-configuration-annotation-processor</artifactId>
-                        <version>${project.version}</version>
-                    </dependency>
-                    <dependency>
-                        <groupId>org.apache.ignite</groupId>
                         <artifactId>ignite-network-annotation-processor</artifactId>
                         <version>${project.version}</version>
                     </dependency>
@@ -181,11 +171,6 @@
                 </dependencies>
                 <configuration>
                     <annotationProcessorPaths>
-                        <path>
-                            <groupId>org.apache.ignite</groupId>
-                            <artifactId>ignite-configuration-annotation-processor</artifactId>
-                            <version>${project.version}</version>
-                        </path>
                         <path>
                             <groupId>org.apache.ignite</groupId>
                             <artifactId>ignite-network-annotation-processor</artifactId>

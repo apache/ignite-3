@@ -32,10 +32,10 @@ import org.apache.ignite.internal.metastorage.common.MetaStorageException;
 import org.apache.ignite.internal.metastorage.common.command.MetaStorageCommandsFactory;
 import org.apache.ignite.internal.metastorage.common.command.cursor.CursorCloseCommand;
 import org.apache.ignite.internal.metastorage.common.command.cursor.CursorNextCommand;
+import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.lang.NodeStoppingException;
-import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.jetbrains.annotations.Nullable;
 
 /**

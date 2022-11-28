@@ -69,11 +69,11 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiPredicate;
 import java.util.function.BooleanSupplier;
 import java.util.stream.IntStream;
-import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.raft.server.RaftGroupEventsListener;
+import org.apache.ignite.internal.raft.JraftGroupEventsListener;
 import org.apache.ignite.internal.raft.storage.impl.DefaultLogStorageFactory;
 import org.apache.ignite.internal.raft.storage.impl.IgniteJraftServiceFactory;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -3070,7 +3070,7 @@ public class ItNodeTest {
         TestPeer peer0 = new TestPeer(testInfo, TestUtils.INIT_PORT);
         cluster = new TestCluster("testChangePeers", dataPath, Collections.singletonList(peer0), testInfo);
 
-        var raftGrpEvtsLsnr = mock(RaftGroupEventsListener.class);
+        var raftGrpEvtsLsnr = mock(JraftGroupEventsListener.class);
 
         cluster.setRaftGrpEvtsLsnr(raftGrpEvtsLsnr);
         assertTrue(cluster.start(peer0));
@@ -3099,7 +3099,7 @@ public class ItNodeTest {
         TestPeer peer0 = new TestPeer(testInfo, TestUtils.INIT_PORT);
         cluster = new TestCluster("testChangePeers", dataPath, Collections.singletonList(peer0), testInfo);
 
-        var raftGrpEvtsLsnr = mock(RaftGroupEventsListener.class);
+        var raftGrpEvtsLsnr = mock(JraftGroupEventsListener.class);
 
         cluster.setRaftGrpEvtsLsnr(raftGrpEvtsLsnr);
         assertTrue(cluster.start(peer0));
@@ -3157,7 +3157,7 @@ public class ItNodeTest {
 
         cluster = new TestCluster("testChangePeers", dataPath, peers, testInfo);
 
-        var raftGrpEvtsLsnr = mock(RaftGroupEventsListener.class);
+        var raftGrpEvtsLsnr = mock(JraftGroupEventsListener.class);
 
         cluster.setRaftGrpEvtsLsnr(raftGrpEvtsLsnr);
 

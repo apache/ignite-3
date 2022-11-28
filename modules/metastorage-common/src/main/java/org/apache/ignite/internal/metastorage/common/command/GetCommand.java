@@ -17,9 +17,9 @@
 
 package org.apache.ignite.internal.metastorage.common.command;
 
+import org.apache.ignite.internal.raft.ReadCommand;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
-import org.apache.ignite.raft.client.ReadCommand;
 
 /**
  * Get command for MetaStorageCommandListener that retrieves an entry for the given key and the revision upper bound, if latter is present.

@@ -19,7 +19,7 @@ package org.apache.ignite.raft.jraft.entity;
 import java.io.Serializable;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.raft.client.Peer;
+import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.raft.jraft.core.ElectionPriority;
 import org.apache.ignite.raft.jraft.util.AsciiStringUtil;
 import org.apache.ignite.raft.jraft.util.Copiable;

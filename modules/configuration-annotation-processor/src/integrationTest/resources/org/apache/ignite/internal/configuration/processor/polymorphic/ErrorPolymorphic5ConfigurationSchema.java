@@ -19,7 +19,6 @@ package org.apache.ignite.internal.configuration.processor.polymorphic;
 
 import org.apache.ignite.configuration.annotation.PolymorphicConfig;
 import org.apache.ignite.configuration.annotation.PolymorphicId;
-import org.apache.ignite.configuration.annotation.Value;
 
 /**
  * Class with {@link PolymorphicConfig} should contain only one string field with {@link PolymorphicId}.

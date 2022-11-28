@@ -20,7 +20,6 @@ package org.apache.ignite.internal.cluster.management.raft;
 import static org.apache.ignite.internal.cluster.management.ClusterState.clusterState;
 import static org.apache.ignite.internal.cluster.management.ClusterTag.clusterTag;
 import static org.apache.ignite.internal.cluster.management.CmgGroupId.INSTANCE;
-import static org.apache.ignite.internal.raft.server.RaftGroupOptions.defaults;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.will;
@@ -51,7 +50,9 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
+import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -62,7 +63,6 @@ import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NodeFinder;
 import org.apache.ignite.network.StaticNodeFinder;
-import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -85,7 +85,7 @@ public class ItCmgRaftServiceTest {
 
         final ClusterService clusterService;
 
-        private final Loza raftManager;
+        private final RaftManager raftManager;
 
         private final ClusterStateStorage raftStorage = new TestClusterStateStorage();
 
@@ -112,8 +112,7 @@ public class ItCmgRaftServiceTest {
                 CompletableFuture<RaftGroupService> raftService = raftManager.prepareRaftGroup(
                         INSTANCE,
                         nodeIds,
-                        () -> new CmgRaftGroupListener(raftStorage, new LogicalTopologyImpl(raftStorage)),
-                        defaults()
+                        () -> new CmgRaftGroupListener(raftStorage, new LogicalTopologyImpl(raftStorage))
                 );
 
                 assertThat(raftService, willCompleteSuccessfully());

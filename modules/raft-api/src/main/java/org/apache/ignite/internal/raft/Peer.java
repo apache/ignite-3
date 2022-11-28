@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.raft.client;
+package org.apache.ignite.internal.raft;
 
 import java.io.Serializable;
 import java.util.Objects;
@@ -24,7 +24,6 @@ import org.apache.ignite.internal.tostring.S;
 /**
  * A participant of a replication group.
  */
-// TODO: IGNITE-15506 Replace it by jraft Peer
 public final class Peer implements Serializable {
     /**
      * Node consistent ID.
