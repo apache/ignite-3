@@ -28,6 +28,7 @@ public partial class LinqTests
     [Test]
     public void TestUnion()
     {
+        // TODO: UnionBy, IntersectBy, ExceptBy
         var subQuery = PocoView.AsQueryable()
             .Where(x => x.Key < 2)
             .Select(x => new { Id = x.Key });
@@ -94,5 +95,44 @@ public partial class LinqTests
             "where (cast(_T0.KEY as int) > ?) " +
             "union (select _T1.KEY from PUBLIC.TBL_INT32 as _T1 where ((_T1.KEY > ?) and (_T1.KEY < ?)))",
             query.ToString());
+    }
+
+    [Test]
+    public void TestIntersect()
+    {
+        var subQuery = PocoView.AsQueryable()
+            .Where(x => x.Key < 5)
+            .Select(x => new { Id = x.Key });
+
+        var query = PocoLongView.AsQueryable()
+            .Where(x => x.Key > 2)
+            .Select(x => new { Id = x.Key })
+            .Intersect(subQuery);
+
+        var res = query.ToList();
+
+        CollectionAssert.AreEquivalent(new[] { 3, 4 }, res.Select(x => x.Id));
+
+        StringAssert.Contains(
+            "select _T0.KEY from PUBLIC.TBL_INT64 as _T0 where (_T0.KEY > ?) " +
+            "intersect (select _T1.KEY from PUBLIC.TBL1 as _T1 where (_T1.KEY < ?)",
+            query.ToString());
+    }
+
+    [Test]
+    public void TestIntersectEmpty()
+    {
+        var subQuery = PocoView.AsQueryable()
+            .Where(x => x.Key < 2)
+            .Select(x => new { Id = x.Key });
+
+        var query = PocoLongView.AsQueryable()
+            .Where(x => x.Key > 8)
+            .Select(x => new { Id = x.Key })
+            .Intersect(subQuery);
+
+        var res = query.ToList();
+
+        CollectionAssert.IsEmpty(res);
     }
 }
