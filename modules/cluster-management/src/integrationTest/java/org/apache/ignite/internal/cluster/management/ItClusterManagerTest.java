@@ -36,6 +36,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
+import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -416,6 +417,37 @@ public class ItClusterManagerTest {
         node.start();
 
         assertThat(node.clusterManager().joinFuture(), willCompleteSuccessfully());
+    }
+
+    @Test
+    void nonCmgMemberOfInitialTopologyGetsLogicalTopologyChanges(TestInfo testInfo) throws Exception {
+        startCluster(2, testInfo);
+
+        String[] cmgNodes = { cluster.get(0).name() };
+
+        initCluster(cmgNodes, cmgNodes);
+
+        MockNode nonCmgNode = cluster.get(1);
+        LogicalTopologyImpl nonCmgTopology = nonCmgNode.clusterManager().logicalTopologyImpl();
+
+        assertTrue(waitForCondition(() -> nonCmgTopology.getLogicalTopology().size() == 2, 10_000));
+    }
+
+    @Test
+    void nonCmgNodeAddedLaterGetsLogicalTopologyChanges(TestInfo testInfo) throws Exception {
+        startCluster(1, testInfo);
+
+        String[] cmgNodes = { cluster.get(0).name() };
+
+        initCluster(cmgNodes, cmgNodes);
+
+        MockNode nonCmgNode = addNodeToCluster(testInfo);
+        nonCmgNode.start();
+        assertThat(nonCmgNode.startFuture(), willCompleteSuccessfully());
+
+        LogicalTopologyImpl nonCmgTopology = nonCmgNode.clusterManager().logicalTopologyImpl();
+
+        assertTrue(waitForCondition(() -> nonCmgTopology.getLogicalTopology().size() == 2, 10_000));
     }
 
     private ClusterNode[] currentPhysicalTopology() {

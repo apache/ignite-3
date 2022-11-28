@@ -49,6 +49,7 @@ import org.apache.ignite.internal.cluster.management.raft.IllegalInitArgumentExc
 import org.apache.ignite.internal.cluster.management.raft.JoinDeniedException;
 import org.apache.ignite.internal.cluster.management.raft.commands.JoinReadyCommand;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
+import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -116,7 +117,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
 
     private final ClusterStateStorage clusterStateStorage;
 
-    private final LogicalTopology logicalTopologyService;
+    private final LogicalTopology logicalTopology;
 
     /** Local state. */
     private final LocalStateStorage localStateStorage;
@@ -130,12 +131,12 @@ public class ClusterManagementGroupManager implements IgniteComponent {
             ClusterService clusterService,
             Loza raftManager,
             ClusterStateStorage clusterStateStorage,
-            LogicalTopology logicalTopologyService
+            LogicalTopology logicalTopology
     ) {
         this.clusterService = clusterService;
         this.raftManager = raftManager;
         this.clusterStateStorage = clusterStateStorage;
-        this.logicalTopologyService = logicalTopologyService;
+        this.logicalTopology = logicalTopology;
         this.localStateStorage = new LocalStateStorage(vault);
         this.clusterInitializer = new ClusterInitializer(clusterService);
     }
@@ -314,17 +315,18 @@ public class ClusterManagementGroupManager implements IgniteComponent {
     }
 
     /**
-     * Executes the following actions when a CMG leader is elected.
+     * Executes the following actions when this node is elected as a CMG leader.
      * <ol>
      *     <li>Updates the logical topology in case some nodes have gone offline during leader election.</li>
      *     <li>Broadcasts the current CMG state to all nodes in the physical topology.</li>
      * </ol>
      */
-    private void onLeaderElected() {
+    private void onElectedAsLeader(long term) {
         LOG.info("CMG leader has been elected, executing onLeaderElected callback");
 
         raftServiceAfterJoin()
                 .thenCompose(this::updateLogicalTopology)
+                .thenCompose(service -> service.updateLearners(term).thenApply(unused -> service))
                 .thenAccept(service -> {
                     // Register a listener to send ClusterState messages to new nodes.
                     TopologyService topologyService = clusterService.topologyService();
@@ -466,19 +468,43 @@ public class ClusterManagementGroupManager implements IgniteComponent {
      * Starts the CMG Raft service using the provided node names as its peers.
      */
     private CompletableFuture<CmgRaftService> startCmgRaftService(Collection<String> nodeNames) {
+        String thisNodeConsistentId = clusterService.topologyService().localMember().name();
+
+        // If we are not in the CMG, we must be a lerner. List of learners will be updated by a leader accordingly,
+        // but just to start a RAFT service we must include ourselves in the initial learners list, that's why we
+        // pass List.of(we) as learners list if we are not in the CMG.
+        List<String> learnerConsistentIds = nodeNames.contains(thisNodeConsistentId) ? List.of() : List.of(thisNodeConsistentId);
+
         try {
             return raftManager
                     .prepareRaftGroup(
                             INSTANCE,
                             nodeNames,
-                            List.of(),
-                            () -> new CmgRaftGroupListener(clusterStateStorage, logicalTopologyService),
+                            learnerConsistentIds,
+                            () -> new CmgRaftGroupListener(clusterStateStorage, logicalTopology, this::onLogicalTopologyChanged),
                             this::createCmgRaftGroupEventsListener,
                             RaftGroupOptions.defaults()
                     )
-                    .thenApply(service -> new CmgRaftService(service, clusterService));
+                    .thenApply(service -> new CmgRaftService(service, clusterService, logicalTopology));
         } catch (Exception e) {
             return failedFuture(e);
+        }
+    }
+
+    private void onLogicalTopologyChanged(long term) {
+        CompletableFuture<CmgRaftService> serviceFuture = raftService;
+
+        // If the future is not here yet, this means we are still starting, so learners will be updated after start
+        // (if we happen to become a leader).
+
+        if (serviceFuture != null) {
+            serviceFuture.thenCompose(service -> service.isCurrentNodeLeader().thenCompose(isLeader -> {
+                if (!isLeader) {
+                    return completedFuture(null);
+                }
+
+                return service.updateLearners(term);
+            }));
         }
     }
 
@@ -486,7 +512,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
         return new RaftGroupEventsListener() {
             @Override
             public void onLeaderElected(long term) {
-                ClusterManagementGroupManager.this.onLeaderElected();
+                ClusterManagementGroupManager.this.onElectedAsLeader(term);
             }
 
             @Override
@@ -713,5 +739,10 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                         return raftService;
                     }
                 });
+    }
+
+    @TestOnly
+    LogicalTopologyImpl logicalTopologyImpl() {
+        return (LogicalTopologyImpl) logicalTopology;
     }
 }

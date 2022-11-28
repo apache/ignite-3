@@ -45,6 +45,7 @@ import org.apache.ignite.internal.cluster.management.ClusterTag;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.cluster.management.raft.commands.JoinReadyCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.JoinRequestCommand;
+import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -89,9 +90,12 @@ public class ItCmgRaftServiceTest {
 
         private final ClusterStateStorage raftStorage = new TestClusterStateStorage();
 
+        private final LogicalTopology logicalTopology;
+
         Node(TestInfo testInfo, NetworkAddress addr, NodeFinder nodeFinder, Path workDir) {
             this.clusterService = clusterService(testInfo, addr.port(), nodeFinder);
             this.raftManager = new Loza(clusterService, raftConfiguration, workDir, new HybridClockImpl());
+            this.logicalTopology = new LogicalTopologyImpl(raftStorage);
         }
 
         void start() {
@@ -112,13 +116,13 @@ public class ItCmgRaftServiceTest {
                 CompletableFuture<RaftGroupService> raftService = raftManager.prepareRaftGroup(
                         INSTANCE,
                         nodeIds,
-                        () -> new CmgRaftGroupListener(raftStorage, new LogicalTopologyImpl(raftStorage)),
+                        () -> new CmgRaftGroupListener(raftStorage, new LogicalTopologyImpl(raftStorage), term -> {}),
                         defaults()
                 );
 
                 assertThat(raftService, willCompleteSuccessfully());
 
-                this.raftService = new CmgRaftService(raftService.join(), clusterService);
+                this.raftService = new CmgRaftService(raftService.join(), clusterService, logicalTopology);
             } catch (InterruptedException | NodeStoppingException e) {
                 throw new RuntimeException(e);
             }
@@ -175,7 +179,7 @@ public class ItCmgRaftServiceTest {
     }
 
     /**
-     * Tests the basic scenario of {@link CmgRaftService#logicalTopology} when nodes are joining and leaving.
+     * Tests the basic scenario of {@link CmgRaftService#logicalTopology()} when nodes are joining and leaving.
      */
     @Test
     void testLogicalTopology() {

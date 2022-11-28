@@ -59,12 +59,15 @@ public class CmgRaftGroupListener implements RaftGroupListener {
 
     private final ValidationManager validationManager;
 
+    private final ActionOnTerm onLogicalTopologyChanged;
+
     /**
      * Creates a new instance.
      */
-    public CmgRaftGroupListener(ClusterStateStorage storage, LogicalTopology logicalTopology) {
+    public CmgRaftGroupListener(ClusterStateStorage storage, LogicalTopology logicalTopology, ActionOnTerm onLogicalTopologyChanged) {
         this.storage = new RaftStorageManager(storage);
         this.logicalTopology = logicalTopology;
+        this.onLogicalTopologyChanged = onLogicalTopologyChanged;
         this.validationManager = new ValidationManager(this.storage, this.logicalTopology);
     }
 
@@ -101,9 +104,16 @@ public class CmgRaftGroupListener implements RaftGroupListener {
             } else if (command instanceof JoinReadyCommand) {
                 Serializable response = completeValidation((JoinReadyCommand) command);
 
+                if (response == null) {
+                    // It is valid, the topology has been changed.
+                    onLogicalTopologyChanged.run(clo.term());
+                }
+
                 clo.result(response);
             } else if (command instanceof NodesLeaveCommand) {
                 removeNodesFromLogicalTopology((NodesLeaveCommand) command);
+
+                onLogicalTopologyChanged.run(clo.term());
 
                 clo.result(null);
             }
