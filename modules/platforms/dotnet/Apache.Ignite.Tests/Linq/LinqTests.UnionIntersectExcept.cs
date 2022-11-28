@@ -65,11 +65,10 @@ public partial class LinqTests
         Assert.AreEqual(new[] { 0, 1, 9 }, res.Select(x => x.Id));
 
         StringAssert.Contains(
-            "select _T0.ID from " +
-            "(select _T1.KEY as ID from PUBLIC.TBL_INT64 as _T1 where (_T1.KEY > ?) union " +
-            "(select _T2.KEY as ID from PUBLIC.TBL1 as _T2 where (_T2.KEY < ?)) ) " +
-            "as _T0 " +
-            "order by (_T0.ID) asc",
+            "select * from " +
+            "(select _T0.KEY from PUBLIC.TBL_INT64 as _T0 where (_T0.KEY > ?) " +
+            "union (select _T1.KEY from PUBLIC.TBL1 as _T1 where (_T1.KEY < ?))) as _T2 " +
+            "order by (_T2.KEY) asc",
             query.ToString());
     }
 
