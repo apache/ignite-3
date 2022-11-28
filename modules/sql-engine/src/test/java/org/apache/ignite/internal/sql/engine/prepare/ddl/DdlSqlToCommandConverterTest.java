@@ -264,7 +264,9 @@ public class DdlSqlToCommandConverterTest extends BaseIgniteAbstractTest {
                 + "replicas=3, "
                 + "affinity_function='rendezvous', "
                 + "data_nodes_filter='\"attr1\" && \"attr2\"', "
-                + "data_nodes_auto_adjust=100");
+                + "data_nodes_auto_adjust_scale_up=100, "
+                + "data_nodes_auto_adjust_scale_down=200, "
+                + "data_nodes_auto_adjust=300");
 
         assertThat(node, instanceOf(SqlDdl.class));
 
@@ -277,7 +279,8 @@ public class DdlSqlToCommandConverterTest extends BaseIgniteAbstractTest {
         assertThat(createZone.affinity(), equalTo("rendezvous"));
         assertThat(createZone.nodeFilter(), equalTo("\"attr1\" && \"attr2\""));
         assertThat(createZone.dataNodesAutoAdjustScaleUp(), equalTo(100));
-        assertThat(createZone.dataNodesAutoAdjustScaleDown(), equalTo(100));
+        assertThat(createZone.dataNodesAutoAdjustScaleDown(), equalTo(200));
+        assertThat(createZone.dataNodesAutoAdjust(), equalTo(300));
     }
 
     private DdlOptionInfo<CreateTableCommand, ?> tableOptionInfo(String name) {
