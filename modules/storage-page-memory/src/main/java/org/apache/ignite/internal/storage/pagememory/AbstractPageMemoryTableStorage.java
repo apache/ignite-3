@@ -49,7 +49,7 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
 
     protected volatile boolean started;
 
-    private volatile AtomicReferenceArray<AbstractPageMemoryMvPartitionStorage> mvPartitions;
+    protected volatile AtomicReferenceArray<AbstractPageMemoryMvPartitionStorage> mvPartitions;
 
     protected final ConcurrentMap<Integer, CompletableFuture<Void>> partitionIdDestroyFutureMap = new ConcurrentHashMap<>();
 
@@ -89,7 +89,23 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
 
     @Override
     public void stop() throws StorageException {
-        close(false);
+        started = false;
+
+        List<AutoCloseable> closeables = new ArrayList<>();
+
+        for (int i = 0; i < mvPartitions.length(); i++) {
+            AbstractPageMemoryMvPartitionStorage partition = mvPartitions.getAndUpdate(i, p -> null);
+
+            if (partition != null) {
+                closeables.add(partition::close);
+            }
+        }
+
+        try {
+            IgniteUtils.closeAll(closeables);
+        } catch (Exception e) {
+            throw new StorageException("Failed to stop PageMemory table storage.", e);
+        }
     }
 
     /**
@@ -195,32 +211,6 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
     @Override
     public CompletableFuture<Void> destroyIndex(UUID indexId) {
         throw new UnsupportedOperationException("Not implemented yet");
-    }
-
-    /**
-     * Closes all {@link #mvPartitions}.
-     *
-     * @param destroy Destroy partitions.
-     * @throws StorageException If failed.
-     */
-    protected void close(boolean destroy) throws StorageException {
-        started = false;
-
-        List<AutoCloseable> closeables = new ArrayList<>();
-
-        for (int i = 0; i < mvPartitions.length(); i++) {
-            AbstractPageMemoryMvPartitionStorage partition = mvPartitions.getAndUpdate(i, p -> null);
-
-            if (partition != null) {
-                closeables.add(destroy ? () -> destroyMvPartitionStorage(partition) : partition::close);
-            }
-        }
-
-        try {
-            IgniteUtils.closeAll(closeables);
-        } catch (Exception e) {
-            throw new StorageException("Failed to stop PageMemory table storage.", e);
-        }
     }
 
     /**

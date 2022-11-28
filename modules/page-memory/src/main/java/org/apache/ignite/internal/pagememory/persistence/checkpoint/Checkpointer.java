@@ -455,7 +455,7 @@ public class Checkpointer extends IgniteWorker {
                     return;
                 }
 
-                fsyncDeltaFile(entry.getKey(), entry.getValue());
+                fsyncDeltaFile(currentCheckpointProgress, entry.getKey(), entry.getValue());
             }
         } else {
             int checkpointThreads = pageWritePool.getMaximumPoolSize();
@@ -480,7 +480,7 @@ public class Checkpointer extends IgniteWorker {
                                 return;
                             }
 
-                            fsyncDeltaFile(entry.getKey(), entry.getValue());
+                            fsyncDeltaFile(currentCheckpointProgress, entry.getKey(), entry.getValue());
 
                             entry = queue.poll();
                         }
@@ -502,7 +502,11 @@ public class Checkpointer extends IgniteWorker {
         }
     }
 
-    private void fsyncDeltaFile(GroupPartitionId partitionId, LongAdder pagesWritten) throws IgniteInternalCheckedException {
+    private void fsyncDeltaFile(
+            CheckpointProgressImpl currentCheckpointProgress,
+            GroupPartitionId partitionId,
+            LongAdder pagesWritten
+    ) throws IgniteInternalCheckedException {
         FilePageStore filePageStore = filePageStoreManager.getStore(partitionId);
 
         if (filePageStore == null || filePageStore.isMarkedToDestroy()) {

@@ -19,6 +19,7 @@ package org.apache.ignite.internal.storage.rocksdb;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.HASH_INDEX_CF_NAME;
 import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.META_CF_NAME;
@@ -350,10 +351,16 @@ public class RocksDbTableStorage implements MvTableStorage {
     }
 
     @Override
-    public void destroy() throws StorageException {
-        stop();
+    public CompletableFuture<Void> destroy() {
+        try {
+            stop();
 
-        IgniteUtils.deleteIfExists(tablePath);
+            IgniteUtils.deleteIfExists(tablePath);
+
+            return completedFuture(null);
+        } catch (Throwable throwable) {
+            return failedFuture(throwable);
+        }
     }
 
     @Override
@@ -400,6 +407,9 @@ public class RocksDbTableStorage implements MvTableStorage {
         if (mvPartition != null) {
             try {
                 //TODO IGNITE-17626 Destroy indexes as well...
+
+                // Operation to delete partition data should be fast, since we will write only the range of keys for deletion, and the
+                // RocksDB itself will then destroy the data on flash.
                 mvPartition.destroy();
 
                 mvPartition.close();

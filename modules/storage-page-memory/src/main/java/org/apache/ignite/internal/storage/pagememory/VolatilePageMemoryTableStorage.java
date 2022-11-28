@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.storage.pagememory;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
 
 import java.util.concurrent.CompletableFuture;
@@ -102,8 +104,14 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
     }
 
     @Override
-    public void destroy() throws StorageException {
-        stop();
+    public CompletableFuture<Void> destroy() {
+        try {
+            stop();
+
+            return completedFuture(null);
+        } catch (Throwable throwable) {
+            return failedFuture(throwable);
+        }
     }
 
     /**

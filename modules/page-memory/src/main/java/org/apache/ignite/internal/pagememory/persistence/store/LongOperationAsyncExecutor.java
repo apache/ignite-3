@@ -93,6 +93,7 @@ public class LongOperationAsyncExecutor {
 
         workers.add(worker);
 
+        // TODO: IGNITE-18269 replace with thread pool
         new IgniteThread(worker).start();
 
         return future;

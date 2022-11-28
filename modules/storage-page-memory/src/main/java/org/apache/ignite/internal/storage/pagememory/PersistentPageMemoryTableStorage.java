@@ -17,8 +17,11 @@
 
 package org.apache.ignite.internal.storage.pagememory;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -95,8 +98,39 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
     }
 
     @Override
-    public void destroy() throws StorageException {
-        close(true);
+    public CompletableFuture<Void> destroy() {
+        started = false;
+
+        List<CompletableFuture<Void>> destroyFutures = new ArrayList<>();
+
+        for (int i = 0; i < mvPartitions.length(); i++) {
+            CompletableFuture<Void> destroyPartitionFuture = partitionIdDestroyFutureMap.get(i);
+
+            if (destroyPartitionFuture != null) {
+                destroyFutures.add(destroyPartitionFuture);
+            } else {
+                AbstractPageMemoryMvPartitionStorage partition = mvPartitions.getAndUpdate(i, p -> null);
+
+                if (partition != null) {
+                    destroyFutures.add(destroyMvPartitionStorage(partition));
+                }
+            }
+        }
+
+        int tableId = tableCfg.tableId().value();
+
+        if (destroyFutures.isEmpty()) {
+            dataRegion.pageMemory().onGroupDestroyed(tableId);
+
+            return completedFuture(null);
+        } else {
+            return CompletableFuture.allOf(destroyFutures.toArray(CompletableFuture[]::new))
+                    .whenComplete((unused, throwable) -> {
+                        if (throwable == null) {
+                            dataRegion.pageMemory().onGroupDestroyed(tableId);
+                        }
+                    });
+        }
     }
 
     @Override

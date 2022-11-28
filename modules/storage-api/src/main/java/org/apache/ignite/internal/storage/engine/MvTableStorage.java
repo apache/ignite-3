@@ -159,9 +159,9 @@ public interface MvTableStorage {
     /**
      * Stops and destroys the storage and cleans all allocated resources.
      *
-     * @throws StorageException If an error has occurred during the destruction of the storage.
+     * @return Future that will complete when the table destruction is complete.
      */
-    void destroy() throws StorageException;
+    CompletableFuture<Void> destroy();
 
     /**
      * Prepares the partition storage for rebalancing: makes a backup of the current partition storage and creates a new storage.
