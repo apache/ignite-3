@@ -26,6 +26,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.nio.file.Path;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -90,7 +91,7 @@ public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
      * Tests that dropping a partition does not remove extra data.
      */
     @Test
-    void testDropPartition() {
+    void testDropPartition() throws Exception {
         var testData = binaryRow(new TestKey(1, "1"), new TestValue(10, "10"));
 
         UUID txId = UUID.randomUUID();
@@ -107,7 +108,7 @@ public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
 
         partitionStorage1.runConsistently(() -> partitionStorage1.addWrite(rowId1, testData, txId, UUID.randomUUID(), 0));
 
-        tableStorage.destroyPartition(PARTITION_ID_0);
+        tableStorage.destroyPartition(PARTITION_ID_0).get(1, TimeUnit.SECONDS);
 
         // Partition destruction doesn't enforce flush.
         ((RocksDbTableStorage) tableStorage).awaitFlush(true);
@@ -168,5 +169,17 @@ public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
     @Override
     public void testFinishRebalanceMvPartition() throws Exception {
         super.testFinishRebalanceMvPartition();
+    }
+
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18180")
+    @Override
+    public void testDestroyPartition() throws Exception {
+        super.testDestroyPartition();
+    }
+
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18180")
+    @Override
+    public void testReCreatePartition() throws Exception {
+        super.testReCreatePartition();
     }
 }

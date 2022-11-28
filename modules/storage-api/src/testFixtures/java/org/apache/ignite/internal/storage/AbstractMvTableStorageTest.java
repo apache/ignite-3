@@ -20,6 +20,7 @@ package org.apache.ignite.internal.storage;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
@@ -45,7 +46,9 @@ import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
 import org.apache.ignite.internal.schema.NativeTypes;
@@ -59,9 +62,12 @@ import org.apache.ignite.internal.schema.testutils.definition.TableDefinition;
 import org.apache.ignite.internal.schema.testutils.definition.index.IndexDefinition;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
+import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexRowImpl;
+import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.util.Cursor;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -198,6 +204,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
     /**
      * Tests destroying an index.
      */
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17626")
     @Test
     public void testDestroyIndex() {
         MvPartitionStorage partitionStorage = tableStorage.getOrCreateMvPartition(PARTITION_ID);
@@ -214,7 +221,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
     }
 
     @Test
-    public void testHashIndexIndependence() {
+    public void testHashIndexIndependence() throws Exception {
         MvPartitionStorage partitionStorage1 = tableStorage.getOrCreateMvPartition(PARTITION_ID);
 
         assertThat(tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx.id()), is(notNullValue()));
@@ -382,6 +389,85 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         assertDoesNotThrow(() -> tableStorage.finishRebalanceMvPartition(PARTITION_ID).get(1, TimeUnit.SECONDS));
     }
 
+    @Test
+    public void testDestroyPartition() throws Exception {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> tableStorage.destroyPartition(tableStorage.configuration().partitions().value())
+        );
+
+        MvPartitionStorage mvPartitionStorage = tableStorage.getOrCreateMvPartition(PARTITION_ID);
+        HashIndexStorage hashIndexStorage = tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx.id());
+        SortedIndexStorage sortedIndexStorage = tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIdx.id());
+
+        RowId rowId = new RowId(PARTITION_ID);
+
+        BinaryRow binaryRow = binaryRow(new TestKey(0, "0"), new TestValue(1, "1"));
+
+        IndexRow indexRow = indexRow(binaryRow, rowId);
+
+        mvPartitionStorage.runConsistently(() -> {
+            mvPartitionStorage.addWriteCommitted(rowId, binaryRow, clock.now());
+
+            hashIndexStorage.put(indexRow);
+
+            sortedIndexStorage.put(indexRow);
+
+            return null;
+        });
+
+        Cursor<ReadResult> scanVersionsCursor = mvPartitionStorage.scanVersions(rowId);
+        PartitionTimestampCursor scanTimestampCursor = mvPartitionStorage.scan(clock.now());
+
+        Cursor<RowId> getFromHashIndexCursor = hashIndexStorage.get(indexRow.indexColumns());
+
+        Cursor<RowId> getFromSortedIndexCursor = sortedIndexStorage.get(indexRow.indexColumns());
+        Cursor<IndexRow> scanFromSortedIndexCursor = sortedIndexStorage.scan(null, null, 0);
+
+        tableStorage.destroyPartition(PARTITION_ID).get(1, TimeUnit.SECONDS);
+
+        // Let's check that we won't get destroyed storages.
+        assertNull(tableStorage.getMvPartition(PARTITION_ID));
+        assertThrows(StorageException.class, () -> tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx.id()));
+        assertThrows(StorageException.class, () -> tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIdx.id()));
+
+        checkStorageDestroyed(mvPartitionStorage);
+        checkStorageDestroyed(hashIndexStorage);
+        checkStorageDestroyed(sortedIndexStorage);
+
+        assertThrows(StorageClosedException.class, () -> getAll(scanVersionsCursor));
+        assertThrows(StorageClosedException.class, () -> getAll(scanTimestampCursor));
+
+        assertThrows(StorageClosedException.class, () -> getAll(getFromHashIndexCursor));
+
+        assertThrows(StorageClosedException.class, () -> getAll(getFromSortedIndexCursor));
+        assertThrows(StorageClosedException.class, () -> getAll(scanFromSortedIndexCursor));
+
+        // Let's check that nothing will happen if we try to destroy a non-existing partition.
+        assertDoesNotThrow(() -> tableStorage.destroyPartition(PARTITION_ID).get(1, TimeUnit.SECONDS));
+    }
+
+    @Test
+    public void testReCreatePartition() throws Exception {
+        MvPartitionStorage mvPartitionStorage = tableStorage.getOrCreateMvPartition(PARTITION_ID);
+
+        RowId rowId = new RowId(PARTITION_ID);
+
+        BinaryRow binaryRow = binaryRow(new TestKey(0, "0"), new TestValue(1, "1"));
+
+        mvPartitionStorage.runConsistently(() -> {
+            mvPartitionStorage.addWriteCommitted(rowId, binaryRow, clock.now());
+
+            return null;
+        });
+
+        tableStorage.destroyPartition(PARTITION_ID).get(1, TimeUnit.SECONDS);
+
+        MvPartitionStorage newMvPartitionStorage = tableStorage.getOrCreateMvPartition(PARTITION_ID);
+
+        assertThat(getAll(newMvPartitionStorage.scanVersions(rowId)), empty());
+    }
+
     private static void createTestIndexes(TablesConfiguration tablesConfig) {
         List<IndexDefinition> indexDefinitions = List.of(
                 SchemaBuilders.sortedIndex(SORTED_INDEX_NAME)
@@ -419,11 +505,64 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         assertThat(createTableFuture, willCompleteSuccessfully());
     }
 
-    private static <T> List<T> getAll(Cursor<T> cursor) {
+    private static <T> List<T> getAll(Cursor<T> cursor) throws Exception {
         try (cursor) {
             return cursor.stream().collect(Collectors.toList());
-        } catch (Exception e) {
-            throw new RuntimeException(e);
         }
+    }
+
+    private void checkStorageDestroyed(MvPartitionStorage storage) {
+        int partId = PARTITION_ID;
+
+        assertThrows(StorageClosedException.class, () -> storage.runConsistently(() -> null));
+
+        assertThrows(StorageClosedException.class, storage::flush);
+
+        assertThrows(StorageClosedException.class, storage::lastAppliedIndex);
+        assertThrows(StorageClosedException.class, storage::lastAppliedTerm);
+        assertThrows(StorageClosedException.class, storage::persistedIndex);
+        assertThrows(StorageClosedException.class, storage::committedGroupConfiguration);
+
+        RowId rowId = new RowId(partId);
+
+        HybridTimestamp timestamp = clock.now();
+
+        assertThrows(StorageClosedException.class, () -> storage.read(new RowId(PARTITION_ID), timestamp));
+
+        BinaryRow binaryRow = binaryRow(new TestKey(0, "0"), new TestValue(1, "1"));
+
+        assertThrows(StorageClosedException.class, () -> storage.addWrite(rowId, binaryRow, UUID.randomUUID(), UUID.randomUUID(), partId));
+        assertThrows(StorageClosedException.class, () -> storage.commitWrite(rowId, timestamp));
+        assertThrows(StorageClosedException.class, () -> storage.abortWrite(rowId));
+        assertThrows(StorageClosedException.class, () -> storage.addWriteCommitted(rowId, binaryRow, timestamp));
+
+        assertThrows(StorageClosedException.class, () -> storage.scan(timestamp));
+        assertThrows(StorageClosedException.class, () -> storage.scanVersions(rowId));
+        assertThrows(StorageClosedException.class, () -> storage.scanVersions(rowId));
+
+        assertThrows(StorageClosedException.class, () -> storage.closestRowId(rowId));
+
+        assertThrows(StorageClosedException.class, storage::rowsCount);
+    }
+
+    private void checkStorageDestroyed(SortedIndexStorage storage) {
+        checkStorageDestroyed((IndexStorage) storage);
+
+        BinaryTuple indexKey = indexKey(binaryRow(new TestKey(0, "0"), new TestValue(1, "1")));
+
+        assertThrows(
+                StorageClosedException.class,
+                () -> storage.scan(BinaryTuplePrefix.fromBinaryTuple(indexKey), BinaryTuplePrefix.fromBinaryTuple(indexKey), 0)
+        );
+    }
+
+    private void checkStorageDestroyed(IndexStorage storage) {
+        IndexRow indexRow = indexRow(binaryRow(new TestKey(0, "0"), new TestValue(1, "1")), new RowId(PARTITION_ID));
+
+        assertThrows(StorageClosedException.class, () -> storage.get(indexRow.indexColumns()));
+
+        assertThrows(StorageClosedException.class, () -> storage.put(indexRow));
+
+        assertThrows(StorageClosedException.class, () -> storage.remove(indexRow));
     }
 }

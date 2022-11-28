@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.storage.rocksdb;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.HASH_INDEX_CF_NAME;
 import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.META_CF_NAME;
@@ -122,6 +124,8 @@ public class RocksDbTableStorage implements MvTableStorage {
 
     /** Prevents double stopping of the component. */
     private final AtomicBoolean stopGuard = new AtomicBoolean();
+
+    private final ConcurrentMap<Integer, CompletableFuture<Void>> partitionIdDestroyFutureMap = new ConcurrentHashMap<>();
 
     /**
      * Constructor.
@@ -352,10 +356,16 @@ public class RocksDbTableStorage implements MvTableStorage {
     }
 
     @Override
-    public void destroy() throws StorageException {
-        stop();
+    public CompletableFuture<Void> destroy() {
+        try {
+            stop();
 
-        IgniteUtils.deleteIfExists(tablePath);
+            IgniteUtils.deleteIfExists(tablePath);
+
+            return completedFuture(null);
+        } catch (Throwable throwable) {
+            return failedFuture(throwable);
+        }
     }
 
     @Override
@@ -383,21 +393,41 @@ public class RocksDbTableStorage implements MvTableStorage {
     }
 
     @Override
-    public void destroyPartition(int partitionId) throws StorageException {
+    public CompletableFuture<Void> destroyPartition(int partitionId) {
         checkPartitionId(partitionId);
+
+        CompletableFuture<Void> destroyPartitionFuture = new CompletableFuture<>();
+
+        CompletableFuture<Void> previousDestroyPartitionFuture = partitionIdDestroyFutureMap.putIfAbsent(
+                partitionId,
+                destroyPartitionFuture
+        );
+
+        if (previousDestroyPartitionFuture != null) {
+            return previousDestroyPartitionFuture;
+        }
 
         RocksDbMvPartitionStorage mvPartition = partitions.getAndSet(partitionId, null);
 
         if (mvPartition != null) {
-            //TODO IGNITE-17626 Destroy indexes as well...
-            mvPartition.destroy();
-
             try {
+                //TODO IGNITE-17626 Destroy indexes as well...
+
+                // Operation to delete partition data should be fast, since we will write only the range of keys for deletion, and the
+                // RocksDB itself will then destroy the data on flash.
+                mvPartition.destroy();
+
                 mvPartition.close();
-            } catch (RuntimeException e) {
-                throw new StorageException("Error when closing partition storage for the partition: " + partitionId, e);
+
+                partitionIdDestroyFutureMap.remove(partitionId).complete(null);
+            } catch (Throwable throwable) {
+                partitionIdDestroyFutureMap.remove(partitionId).completeExceptionally(throwable);
             }
+        } else {
+            partitionIdDestroyFutureMap.remove(partitionId).complete(null);
         }
+
+        return destroyPartitionFuture;
     }
 
     @Override
@@ -467,7 +497,7 @@ public class RocksDbTableStorage implements MvTableStorage {
         }
 
         if (hashIdx == null) {
-            return CompletableFuture.completedFuture(null);
+            return completedFuture(null);
         } else {
             return awaitFlush(false);
         }

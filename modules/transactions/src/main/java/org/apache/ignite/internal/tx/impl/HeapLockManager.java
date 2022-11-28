@@ -325,7 +325,7 @@ public class HeapLockManager implements LockManager {
          * @return List of waiters to notify.
          */
         private List<WaiterImpl> release(UUID txId) {
-            WaiterImpl removed = waiters.remove(txId);
+            waiters.remove(txId);
 
             if (waiters.isEmpty()) {
                 markedForRemove = true;

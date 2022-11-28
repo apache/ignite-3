@@ -61,10 +61,10 @@ public interface MvTableStorage extends ManuallyCloseable {
      * Destroys a partition and all associated indices.
      *
      * @param partitionId Partition ID.
+     * @return Future that will complete when the destroy of the partition is completed.
      * @throws IllegalArgumentException If Partition ID is out of bounds.
-     * @throws StorageException If an error has occurred during the partition destruction.
      */
-    void destroyPartition(int partitionId) throws StorageException;
+    CompletableFuture<Void> destroyPartition(int partitionId) throws StorageException;
 
     /**
      * Returns an already created Index (either Sorted or Hash) with the given name or creates a new one if it does not exist.
@@ -160,9 +160,9 @@ public interface MvTableStorage extends ManuallyCloseable {
     /**
      * Stops and destroys the storage and cleans all allocated resources.
      *
-     * @throws StorageException If an error has occurred during the destruction of the storage.
+     * @return Future that will complete when the table destruction is complete.
      */
-    void destroy() throws StorageException;
+    CompletableFuture<Void> destroy();
 
     /**
      * Prepares the partition storage for rebalancing: makes a backup of the current partition storage and creates a new storage.

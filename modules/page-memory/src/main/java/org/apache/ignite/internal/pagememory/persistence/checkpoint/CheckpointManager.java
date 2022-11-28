@@ -28,6 +28,7 @@ import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointView;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
+import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointDirtyPages.CheckpointDirtyPagesView;
@@ -122,7 +123,6 @@ public class CheckpointManager {
         );
 
         checkpointPagesWriterFactory = new CheckpointPagesWriterFactory(
-                Loggers.forClass(CheckpointPagesWriterFactory.class),
                 (pageMemory, fullPageId, pageBuf) -> writePageToDeltaFilePageStore(pageMemory, fullPageId, pageBuf, true),
                 ioRegistry,
                 partitionMetaManager,
@@ -139,7 +139,6 @@ public class CheckpointManager {
         );
 
         checkpointer = new Checkpointer(
-                Loggers.forClass(Checkpoint.class),
                 igniteInstanceName,
                 workerListener,
                 longJvmPauseDetector,
@@ -151,7 +150,6 @@ public class CheckpointManager {
         );
 
         checkpointTimeoutLock = new CheckpointTimeoutLock(
-                Loggers.forClass(CheckpointTimeoutLock.class),
                 checkpointReadWriteLock,
                 checkpointConfigView.readLockTimeout(),
                 () -> safeToUpdateAllPageMemories(dataRegions),
@@ -271,7 +269,12 @@ public class CheckpointManager {
             ByteBuffer pageBuf,
             boolean calculateCrc
     ) throws IgniteInternalCheckedException {
-        FilePageStore filePageStore = filePageStoreManager.getStore(pageId.groupId(), pageId.partitionId());
+        FilePageStore filePageStore = filePageStoreManager.getStore(new GroupPartitionId(pageId.groupId(), pageId.partitionId()));
+
+        // If the partition is deleted (or will be soon), then such writes to the disk should be skipped.
+        if (filePageStore == null || filePageStore.isMarkedToDestroy()) {
+            return;
+        }
 
         CheckpointProgress lastCheckpointProgress = lastCheckpointProgress();
 
@@ -307,11 +310,24 @@ public class CheckpointManager {
     }
 
     /**
-     * Adds the number of delta files to compact.
-     *
-     * @param count Number of delta files.
+     * Triggers compacting for new delta files.
      */
-    public void addDeltaFileCountForCompaction(int count) {
-        compactor.addDeltaFiles(count);
+    public void triggerCompaction() {
+        compactor.triggerCompaction();
+    }
+
+    /**
+     * Callback on destruction of the partition of the corresponding group.
+     *
+     * <p>Prepares the checkpointer and compactor for partition destruction.
+     *
+     * @param groupPartitionId Pair of group ID with partition ID.
+     * @return Future that will complete when the callback completes.
+     */
+    public CompletableFuture<Void> onPartitionDestruction(GroupPartitionId groupPartitionId) {
+        return CompletableFuture.allOf(
+                checkpointer.prepareToDestroyPartition(groupPartitionId),
+                compactor.prepareToDestroyPartition(groupPartitionId)
+        );
     }
 }

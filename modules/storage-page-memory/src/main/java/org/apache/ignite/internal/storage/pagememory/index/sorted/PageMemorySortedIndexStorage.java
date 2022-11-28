@@ -17,13 +17,15 @@
 
 package org.apache.ignite.internal.storage.pagememory.index.sorted;
 
-import static org.apache.ignite.internal.util.CursorUtils.map;
-
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.VarHandle;
 import java.nio.ByteBuffer;
+import java.util.function.Function;
 import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.StorageClosedException;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexRowImpl;
@@ -32,13 +34,24 @@ import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumnsFreeList;
 import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Sorted index storage implementation.
+ * Implementation of Sorted index storage using Page Memory.
  */
 public class PageMemorySortedIndexStorage implements SortedIndexStorage {
+    private static final VarHandle CLOSED;
+
+    static {
+        try {
+            CLOSED = MethodHandles.lookup().findVarHandle(PageMemorySortedIndexStorage.class, "closed", boolean.class);
+        } catch (ReflectiveOperationException e) {
+            throw new ExceptionInInitializerError(e);
+        }
+    }
+
     /** Index descriptor. */
     private final SortedIndexDescriptor descriptor;
 
@@ -56,6 +69,13 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
 
     /** Highest possible RowId according to signed long ordering. */
     private final RowId highestRowId;
+
+    /** Busy lock for synchronous closing. */
+    private final IgniteSpinBusyLock closeBusyLock = new IgniteSpinBusyLock();
+
+    /** To avoid double closure. */
+    @SuppressWarnings("unused")
+    private volatile boolean closed;
 
     /**
      * Constructor.
@@ -83,19 +103,29 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
 
     @Override
     public Cursor<RowId> get(BinaryTuple key) throws StorageException {
-        SortedIndexRowKey lowerBound = toSortedIndexRow(key, lowestRowId);
-
-        SortedIndexRowKey upperBound = toSortedIndexRow(key, highestRowId);
+        if (!closeBusyLock.enterBusy()) {
+            throwStorageClosedException();
+        }
 
         try {
-            return map(sortedIndexTree.find(lowerBound, upperBound), SortedIndexRow::rowId);
+            SortedIndexRowKey lowerBound = toSortedIndexRow(key, lowestRowId);
+
+            SortedIndexRowKey upperBound = toSortedIndexRow(key, highestRowId);
+
+            return convertCursor(sortedIndexTree.find(lowerBound, upperBound), SortedIndexRow::rowId);
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException("Failed to create scan cursor", e);
+        } finally {
+            closeBusyLock.leaveBusy();
         }
     }
 
     @Override
     public void put(IndexRow row) {
+        if (!closeBusyLock.enterBusy()) {
+            throwStorageClosedException();
+        }
+
         try {
             SortedIndexRow sortedIndexRow = toSortedIndexRow(row.indexColumns(), row.rowId());
 
@@ -104,11 +134,17 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
             sortedIndexTree.invoke(sortedIndexRow, null, insert);
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException("Failed to put value into index", e);
+        } finally {
+            closeBusyLock.leaveBusy();
         }
     }
 
     @Override
     public void remove(IndexRow row) {
+        if (!closeBusyLock.enterBusy()) {
+            throwStorageClosedException();
+        }
+
         try {
             SortedIndexRow sortedIndexRow = toSortedIndexRow(row.indexColumns(), row.rowId());
 
@@ -120,22 +156,30 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
             remove.afterCompletion();
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException("Failed to remove value from index", e);
+        } finally {
+            closeBusyLock.leaveBusy();
         }
     }
 
     @Override
     public Cursor<IndexRow> scan(@Nullable BinaryTuplePrefix lowerBound, @Nullable BinaryTuplePrefix upperBound, int flags) {
-        boolean includeLower = (flags & GREATER_OR_EQUAL) != 0;
-        boolean includeUpper = (flags & LESS_OR_EQUAL) != 0;
-
-        SortedIndexRowKey lower = createBound(lowerBound, !includeLower);
-
-        SortedIndexRowKey upper = createBound(upperBound, includeUpper);
+        if (!closeBusyLock.enterBusy()) {
+            throwStorageClosedException();
+        }
 
         try {
-            return map(sortedIndexTree.find(lower, upper), this::toIndexRowImpl);
+            boolean includeLower = (flags & GREATER_OR_EQUAL) != 0;
+            boolean includeUpper = (flags & LESS_OR_EQUAL) != 0;
+
+            SortedIndexRowKey lower = createBound(lowerBound, !includeLower);
+
+            SortedIndexRowKey upper = createBound(upperBound, includeUpper);
+
+            return convertCursor(sortedIndexTree.find(lower, upper), this::toIndexRowImpl);
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException("Failed to create scan cursor", e);
+        } finally {
+            closeBusyLock.leaveBusy();
         }
     }
 
@@ -165,5 +209,67 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
                 new BinaryTuple(descriptor.binaryTupleSchema(), sortedIndexRow.indexColumns().valueBuffer()),
                 sortedIndexRow.rowId()
         );
+    }
+
+    /**
+     * Closes the sorted index storage.
+     */
+    public void close() {
+        if (!CLOSED.compareAndSet(this, false, true)) {
+            return;
+        }
+
+        closeBusyLock.block();
+
+        sortedIndexTree.close();
+    }
+
+    /**
+     * Throws an exception that the storage is already closed.
+     */
+    private void throwStorageClosedException() {
+        throw new StorageClosedException("Storage is already closed");
+    }
+
+    /**
+     * Returns a new cursor that converts elements to another type, and also throws {@link StorageClosedException} on
+     * {@link Cursor#hasNext()} and {@link Cursor#next()} when the sorted index storage is {@link #close()}.
+     *
+     * @param cursor Cursor.
+     * @param mapper Conversion function.
+     */
+    private <T, R> Cursor<R> convertCursor(Cursor<T> cursor, Function<T, R> mapper) {
+        return new Cursor<>() {
+            @Override
+            public void close() {
+                cursor.close();
+            }
+
+            @Override
+            public boolean hasNext() {
+                if (!closeBusyLock.enterBusy()) {
+                    throwStorageClosedException();
+                }
+
+                try {
+                    return cursor.hasNext();
+                } finally {
+                    closeBusyLock.leaveBusy();
+                }
+            }
+
+            @Override
+            public R next() {
+                if (!closeBusyLock.enterBusy()) {
+                    throwStorageClosedException();
+                }
+
+                try {
+                    return mapper.apply(cursor.next());
+                } finally {
+                    closeBusyLock.leaveBusy();
+                }
+            }
+        };
     }
 }

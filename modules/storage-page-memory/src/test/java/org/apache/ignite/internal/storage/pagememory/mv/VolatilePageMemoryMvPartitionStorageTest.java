@@ -53,6 +53,8 @@ class VolatilePageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvParti
         table.start();
 
         storage = table.createMvPartitionStorage(PARTITION_ID);
+
+        ((VolatilePageMemoryMvPartitionStorage) storage).start();
     }
 
     @AfterEach
@@ -64,7 +66,6 @@ class VolatilePageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvParti
         );
     }
 
-    /** {@inheritDoc} */
     @Override
     int pageSize() {
         return engineConfig.pageSize().value();

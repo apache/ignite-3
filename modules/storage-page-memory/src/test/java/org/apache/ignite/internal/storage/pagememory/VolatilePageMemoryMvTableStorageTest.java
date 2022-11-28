@@ -71,13 +71,6 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
         );
     }
 
-    // TODO: Enable this test after index destruction is implemented.
-    @Disabled
-    @Override
-    public void testDestroyIndex() {
-        super.testDestroyIndex();
-    }
-
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-18028")
     @Override
     public void testStartRebalanceMvPartition() throws Exception {
@@ -94,5 +87,17 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
     @Override
     public void testFinishRebalanceMvPartition() throws Exception {
         super.testFinishRebalanceMvPartition();
+    }
+
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17833")
+    @Override
+    public void testDestroyPartition() throws Exception {
+        super.testDestroyPartition();
+    }
+
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17833")
+    @Override
+    public void testReCreatePartition() throws Exception {
+        super.testReCreatePartition();
     }
 }

@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.storage.pagememory;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
 
 import java.util.concurrent.CompletableFuture;
@@ -27,6 +29,7 @@ import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
+import org.apache.ignite.internal.storage.pagememory.mv.AbstractPageMemoryMvPartitionStorage;
 import org.apache.ignite.internal.storage.pagememory.mv.VersionChainTree;
 import org.apache.ignite.internal.storage.pagememory.mv.VolatilePageMemoryMvPartitionStorage;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
@@ -58,7 +61,6 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
         return dataRegion;
     }
 
-    /** {@inheritDoc} */
     @Override
     public VolatilePageMemoryMvPartitionStorage createMvPartitionStorage(int partitionId) throws StorageException {
         VersionChainTree versionChainTree = createVersionChainTree(partitionId, tableCfg.value());
@@ -96,16 +98,20 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
         }
     }
 
-    /** {@inheritDoc} */
     @Override
     public boolean isVolatile() {
         return true;
     }
 
-    /** {@inheritDoc} */
     @Override
-    public void destroy() throws StorageException {
-        stop();
+    public CompletableFuture<Void> destroy() {
+        try {
+            stop();
+
+            return completedFuture(null);
+        } catch (Throwable throwable) {
+            return failedFuture(throwable);
+        }
     }
 
     /**
@@ -155,6 +161,12 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
     @Override
     public CompletableFuture<Void> finishRebalanceMvPartition(int partitionId) {
         // TODO: IGNITE-18028 Implement
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    CompletableFuture<Void> destroyMvPartitionStorage(AbstractPageMemoryMvPartitionStorage mvPartitionStorage) {
+        // TODO: IGNITE-17833 Implement
         throw new UnsupportedOperationException();
     }
 }
