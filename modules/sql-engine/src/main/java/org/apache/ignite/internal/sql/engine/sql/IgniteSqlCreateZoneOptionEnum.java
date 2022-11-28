@@ -15,16 +15,30 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.tx;
-
-import org.apache.ignite.internal.tx.impl.HeapLockManager;
+package org.apache.ignite.internal.sql.engine.sql;
 
 /**
- * Test class for {@link HeapLockManager}.
+ * Enumerates the options for CREATE ZONE statement.
  */
-public class HeapLockManagerTest extends AbstractLockManagerTest {
-    @Override
-    protected LockManager newInstance() {
-        return new HeapLockManager();
-    }
+public enum IgniteSqlCreateZoneOptionEnum {
+    /** Number of partitions. */
+    PARTITIONS,
+
+    /** Number of replicas. */
+    REPLICAS,
+
+    /** Affinity function name. */
+    AFFINITY_FUNCTION,
+
+    /** An expression to filter data nodes. */
+    DATA_NODES_FILTER,
+
+    /** Data nodes auto adjust timeout. */
+    DATA_NODES_AUTO_ADJUST,
+
+    /** Data nodes scale up auto adjust timeout. */
+    DATA_NODES_AUTO_ADJUST_SCALE_UP,
+
+    /** Data nodes scale down auto adjust timeout. */
+    DATA_NODES_AUTO_ADJUST_SCALE_DOWN
 }

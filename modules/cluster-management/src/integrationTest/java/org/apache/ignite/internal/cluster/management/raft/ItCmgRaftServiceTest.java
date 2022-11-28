@@ -45,6 +45,7 @@ import org.apache.ignite.internal.cluster.management.ClusterTag;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.cluster.management.raft.commands.JoinReadyCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.JoinRequestCommand;
+import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -111,7 +112,7 @@ public class ItCmgRaftServiceTest {
                 CompletableFuture<RaftGroupService> raftService = raftManager.prepareRaftGroup(
                         INSTANCE,
                         nodeIds,
-                        () -> new CmgRaftGroupListener(raftStorage),
+                        () -> new CmgRaftGroupListener(raftStorage, new LogicalTopologyImpl(raftStorage)),
                         defaults()
                 );
 
@@ -138,7 +139,7 @@ public class ItCmgRaftServiceTest {
             try {
                 IgniteUtils.closeAll(
                         raftManager::stop,
-                        raftStorage::close,
+                        raftStorage::stop,
                         clusterService::stop
                 );
             } catch (Exception e) {
