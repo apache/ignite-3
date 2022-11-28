@@ -136,14 +136,12 @@ public class DdlSqlToCommandConverter {
                 new DdlOptionInfo<>("partitions", Integer.class, this::checkPositiveNumber, CreateZoneCommand::partitions),
                 new DdlOptionInfo<>("affinity_function", String.class, null, CreateZoneCommand::affinity),
                 new DdlOptionInfo<>("data_nodes_filter", String.class, null, CreateZoneCommand::nodeFilter),
-                new DdlOptionInfo<>("data_nodes_auto_adjust", Integer.class, this::checkPositiveNumber, (cmd, val) -> {
-                    cmd.autoAdjustScaleUp(val);
-                    cmd.autoAdjustScaleDown(val);
-                }),
+                new DdlOptionInfo<>("data_nodes_auto_adjust", Integer.class, this::checkPositiveNumber,
+                        CreateZoneCommand::dataNodesAutoAdjust),
                 new DdlOptionInfo<>("data_nodes_auto_adjust_scale_up", Integer.class, this::checkPositiveNumber,
-                        CreateZoneCommand::autoAdjustScaleUp),
+                        CreateZoneCommand::dataNodesAutoAdjustScaleUp),
                 new DdlOptionInfo<>("data_nodes_auto_adjust_scale_down", Integer.class, this::checkPositiveNumber,
-                        CreateZoneCommand::autoAdjustScaleDown)
+                        CreateZoneCommand::dataNodesAutoAdjustScaleDown)
         );
 
         this.dataStorageOptionInfos = dataStorageFields.entrySet()
@@ -474,10 +472,6 @@ public class DdlSqlToCommandConverter {
         createZoneCmd.zoneName(deriveObjectName(createZoneNode.name(), ctx, "zoneName"));
         createZoneCmd.ifZoneExists(createZoneNode.ifNotExists());
 
-//
-//
-//        createZoneCmd.dataStorage(deriveDataStorage(createZoneNode.engineName(), ctx));
-//
         if (createZoneNode.createOptionList() != null) {
             for (SqlNode optionNode : createZoneNode.createOptionList().getList()) {
                 IgniteSqlCreateZoneOption option = (IgniteSqlCreateZoneOption) optionNode;
@@ -488,97 +482,12 @@ public class DdlSqlToCommandConverter {
 
                 if (ddlOptionInfo != null) {
                     processZoneOption(ddlOptionInfo, option, ctx, createZoneCmd);
-//                } else if (dataStorageOptionInfos.get(createZoneCmd.dataStorage()).containsKey(optionKey)) {
-//                    processTableOption(dataStorageOptionInfos.get(createZoneCmd.dataStorage()).get(optionKey), option, ctx, createZoneCmd);
                 } else {
                     throw new IgniteException(
                             DDL_OPTION_ERR, String.format("Unexpected table option [option=%s, query=%s]", optionKey, ctx.query()));
                 }
             }
         }
-//
-//        List<SqlKeyConstraint> pkConstraints = createZoneNode.columnList().getList().stream()
-//                .filter(SqlKeyConstraint.class::isInstance)
-//                .map(SqlKeyConstraint.class::cast)
-//                .collect(Collectors.toList());
-//
-//        if (pkConstraints.isEmpty() && Commons.implicitPkEnabled()) {
-//            SqlIdentifier colName = new SqlIdentifier(Commons.IMPLICIT_PK_COL_NAME, SqlParserPos.ZERO);
-//
-//            pkConstraints.add(SqlKeyConstraint.primary(SqlParserPos.ZERO, null, SqlNodeList.of(colName)));
-//
-//            SqlDataTypeSpec type = new SqlDataTypeSpec(new SqlBasicTypeNameSpec(SqlTypeName.VARCHAR, SqlParserPos.ZERO), SqlParserPos.ZERO);
-//            SqlNode col = SqlDdlNodes.column(SqlParserPos.ZERO, colName, type, null, ColumnStrategy.DEFAULT);
-//
-//            createZoneNode.columnList().add(0, col);
-//        }
-//
-//        if (nullOrEmpty(pkConstraints)) {
-//            throw new SqlException(PRIMARY_KEY_MISSING_ERR, "Table without PRIMARY KEY is not supported");
-//        } else if (pkConstraints.size() > 1) {
-//            throw new SqlException(PRIMARY_KEYS_MULTIPLE_ERR, "Unexpected amount of primary key constraints ["
-//                    + "expected at most one, but was " + pkConstraints.size() + "; "
-//                    + "querySql=\"" + ctx.query() + "\"]");
-//        }
-//
-//        Set<String> dedupSetPk = new HashSet<>();
-//
-//        List<String> pkCols = pkConstraints.stream()
-//                .map(pk -> pk.getOperandList().get(1))
-//                .map(SqlNodeList.class::cast)
-//                .flatMap(l -> l.getList().stream())
-//                .map(SqlIdentifier.class::cast)
-//                .map(SqlIdentifier::getSimple)
-//                .filter(dedupSetPk::add)
-//                .collect(Collectors.toList());
-//
-//        createZoneCmd.primaryKeyColumns(pkCols);
-//
-//        List<String> colocationCols = createZoneNode.colocationColumns() == null
-//                ? null
-//                : createZoneNode.colocationColumns().getList().stream()
-//                        .map(SqlIdentifier.class::cast)
-//                        .map(SqlIdentifier::getSimple)
-//                        .collect(Collectors.toList());
-//
-//        createZoneCmd.colocationColumns(colocationCols);
-//
-//        List<SqlColumnDeclaration> colDeclarations = createZoneNode.columnList().getList().stream()
-//                .filter(SqlColumnDeclaration.class::isInstance)
-//                .map(SqlColumnDeclaration.class::cast)
-//                .collect(Collectors.toList());
-//
-//        IgnitePlanner planner = ctx.planner();
-//
-//        List<ColumnDefinition> cols = new ArrayList<>(colDeclarations.size());
-//
-//        for (SqlColumnDeclaration col : colDeclarations) {
-//            if (!col.name.isSimple()) {
-//                throw new SqlException(QUERY_INVALID_ERR, "Unexpected value of columnName ["
-//                        + "expected a simple identifier, but was " + col.name + "; "
-//                        + "querySql=\"" + ctx.query() + "\"]");
-//            }
-//
-//            String name = col.name.getSimple();
-//
-//            if (col.dataType.getNullable() != null && col.dataType.getNullable() && dedupSetPk.contains(name)) {
-//                throw new SqlException(QUERY_INVALID_ERR, "Primary key cannot contain nullable column [col=" + name + "]");
-//            }
-//
-//            RelDataType relType = planner.convert(col.dataType, !dedupSetPk.contains(name));
-//
-//            dedupSetPk.remove(name);
-//
-//            DefaultValueDefinition dflt = convertDefault(col.expression, relType);
-//
-//            cols.add(new ColumnDefinition(name, relType, dflt));
-//        }
-//
-//        if (!dedupSetPk.isEmpty()) {
-//            throw new SqlException(QUERY_INVALID_ERR, "Primary key constraint contains undefined columns: [cols=" + dedupSetPk + "]");
-//        }
-//
-//        createZoneCmd.columns(cols);
 
         return createZoneCmd;
     }

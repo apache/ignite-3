@@ -37,6 +37,10 @@ import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.NamedListView;
+import org.apache.ignite.internal.distributionzones.DistributionZoneConfigurationParameters;
+import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
+import org.apache.ignite.internal.distributionzones.exception.DistributionZoneAlreadyExistsException;
+import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNotFoundException;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.schema.BitmaskNativeType;
 import org.apache.ignite.internal.schema.DecimalNativeType;
@@ -63,6 +67,7 @@ import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterTableDropCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.ColumnDefinition;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateIndexCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateTableCommand;
+import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateZoneCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DefaultValueDefinition.ConstantValue;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DefaultValueDefinition.FunctionCall;
@@ -84,6 +89,8 @@ import org.apache.ignite.sql.SqlException;
 
 /** DDL commands handler. */
 public class DdlCommandHandler {
+    private final DistributionZoneManager distributionZoneManager;
+
     private final TableManager tableManager;
 
     private final IndexManager indexManager;
@@ -94,10 +101,12 @@ public class DdlCommandHandler {
      * Constructor.
      */
     public DdlCommandHandler(
+            DistributionZoneManager distributionZoneManager,
             TableManager tableManager,
             IndexManager indexManager,
             DataStorageManager dataStorageManager
     ) {
+        this.distributionZoneManager = distributionZoneManager;
         this.tableManager = tableManager;
         this.indexManager = indexManager;
         this.dataStorageManager = dataStorageManager;
@@ -119,7 +128,10 @@ public class DdlCommandHandler {
             return handleCreateIndex((CreateIndexCommand) cmd);
         } else if (cmd instanceof DropIndexCommand) {
             return handleDropIndex((DropIndexCommand) cmd);
-        } else {
+        } else if (cmd instanceof CreateZoneCommand) {
+            return handleCreateZone((CreateZoneCommand) cmd);
+        }
+        else {
             return failedFuture(new IgniteInternalCheckedException(UNSUPPORTED_DDL_OPERATION_ERR, "Unsupported DDL operation ["
                     + "cmdName=" + (cmd == null ? null : cmd.getClass().getSimpleName()) + "; "
                     + "cmd=\"" + cmd + "\"]"));
@@ -201,13 +213,17 @@ public class DdlCommandHandler {
     }
 
     private static BiFunction<Object, Throwable, Boolean> handleTableModificationResult(boolean ignoreTableExistenceErrors) {
+        return handleModificationResult(ignoreTableExistenceErrors, TableAlreadyExistsException.class, TableNotFoundException.class);
+    }
+
+    private static BiFunction<Object, Throwable, Boolean> handleModificationResult(boolean ignore, Class<?> existsEx, Class<?> notFoundEx) {
         return (val, err) -> {
             if (err == null) {
                 return val instanceof Boolean ? (Boolean) val : Boolean.TRUE;
-            } else if (ignoreTableExistenceErrors) {
+            } else if (ignore) {
                 Throwable err0 = err instanceof CompletionException ? err.getCause() : err;
 
-                if (err0 instanceof TableAlreadyExistsException || err0 instanceof TableNotFoundException) {
+                if (existsEx.isInstance(err0) || notFoundEx.isInstance(err0)) {
                     return Boolean.FALSE;
                 }
             }
@@ -244,6 +260,34 @@ public class DdlCommandHandler {
     /** Handles drop index command. */
     private CompletableFuture<Boolean> handleDropIndex(DropIndexCommand cmd) {
         return indexManager.dropIndexAsync(cmd.schemaName(), cmd.indexName(), !cmd.ifNotExists());
+    }
+
+    /** Handles create distribution zone command. */
+    private CompletableFuture<Boolean> handleCreateZone(CreateZoneCommand cmd) {
+        DistributionZoneConfigurationParameters.Builder zoneCfgBuilder = new DistributionZoneConfigurationParameters.Builder(cmd.zoneName());
+
+        Integer val = cmd.dataNodesAutoAdjust();
+
+        if (val != null) {
+            zoneCfgBuilder.dataNodesAutoAdjust(val);
+        }
+
+        val = cmd.dataNodesAutoAdjustScaleUp();
+
+        if (val != null) {
+            zoneCfgBuilder.dataNodesAutoAdjustScaleUp(val);
+        }
+
+        val = cmd.dataNodesAutoAdjustScaleDown();
+
+        if (val != null) {
+            zoneCfgBuilder.dataNodesAutoAdjustScaleDown(val);
+        }
+
+        return distributionZoneManager.createZone(zoneCfgBuilder.build())
+//                .thenApply(v -> Boolean.TRUE)
+                .handle(handleModificationResult(cmd.ifZoneExists(),
+                        DistributionZoneAlreadyExistsException.class, DistributionZoneNotFoundException.class));
     }
 
     /**

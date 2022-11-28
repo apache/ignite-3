@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine.ENGINE_NAME;
 import static org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfigurationSchema.DEFAULT_DATA_REGION_NAME;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.hasCause;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
@@ -48,6 +49,9 @@ import org.apache.ignite.internal.configuration.notifications.ConfigurationStora
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.configuration.testframework.InjectRevisionListenerHolder;
+import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
+import org.apache.ignite.internal.distributionzones.exception.DistributionZoneAlreadyExistsException;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -149,6 +153,10 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     @InjectConfiguration
     private TablesConfiguration tblsCfg;
 
+    /** Distribution zones configuration. */
+    @InjectConfiguration
+    private DistributionZonesConfiguration zonesCfg;
+
     TableManager tblManager;
 
     IndexManager idxManager;
@@ -248,6 +256,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 schemaManager,
                 dataStorageManager,
                 tm,
+                new DistributionZoneManager(zonesCfg),
                 () -> dataStorageModules.collectSchemasFields(
                         List.of(
                                 RocksDbDataStorageConfigurationSchema.class,
@@ -274,6 +283,30 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         when(msm.prefix(any())).thenReturn(cursorMocked);
         when(cursorMocked.iterator()).thenReturn(itMock);
     }
+
+    /**
+     * Tests create a zone through public API.
+     */
+    @Test
+    public void testCreateZone() {
+        String curMethodName = getCurrentMethodName();
+
+        String query = String.format("CREATE ZONE %s", curMethodName);
+
+        // Create new distribution zone.
+        readFirst(queryProc.queryAsync("PUBLIC", query));
+
+        // Create distribution zone with existing name.
+        IgniteException ex = assertThrows(IgniteException.class, () -> readFirst(queryProc.queryAsync("PUBLIC", query)));
+        assertTrue(hasCause(ex, DistributionZoneAlreadyExistsException.class, null));
+
+        // Check ifNotExists flag.
+        readFirst(queryProc.queryAsync("PUBLIC", String.format("CREATE ZONE IF NOT EXISTS %s", curMethodName)));
+    }
+
+//    public void testDropZone() throws Exception {
+//
+//    }
 
     /**
      * Tests create a table through public API.
@@ -385,7 +418,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 ))
         );
 
-        assertThat(exception.getMessage(), containsString("Unsuspected table option type"));
+        assertThat(exception.getMessage(), containsString("Unsuspected DDL option type"));
 
         exception = assertThrows(
                 IgniteException.class,

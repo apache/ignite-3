@@ -277,8 +277,8 @@ public class DdlSqlToCommandConverterTest extends BaseIgniteAbstractTest {
         assertThat(createZone.replicas(), equalTo(3));
         assertThat(createZone.affinity(), equalTo("rendezvous"));
         assertThat(createZone.nodeFilter(), equalTo("\"attr1\" && \"attr2\""));
-        assertThat(createZone.autoAdjustScaleUp(), equalTo(100));
-        assertThat(createZone.autoAdjustScaleDown(), equalTo(100));
+        assertThat(createZone.dataNodesAutoAdjustScaleUp(), equalTo(100));
+        assertThat(createZone.dataNodesAutoAdjustScaleDown(), equalTo(100));
     }
 
 //        var createZone = (CreateZoneCommand) cmd;

@@ -33,12 +33,13 @@ public class CreateZoneCommand extends AbstractZoneDdlCommand {
 
     private String nodeFiler;
 
-    private Integer autoAdjustScaleUp;
+    private Integer dataNodesAutoAdjust;
 
-    private Integer autoAdjustScaleDown;
+    private Integer dataNodesAutoAdjustScaleUp;
 
-    @Nullable
-    public Integer replicas() {
+    private Integer dataNodesAutoAdjustScaleDown;
+
+    @Nullable public Integer replicas() {
         return replicas;
     }
 
@@ -46,8 +47,7 @@ public class CreateZoneCommand extends AbstractZoneDdlCommand {
         this.replicas = replicas;
     }
 
-    @Nullable
-    public Integer partitions() {
+    @Nullable public Integer partitions() {
         return partitions;
     }
 
@@ -55,8 +55,7 @@ public class CreateZoneCommand extends AbstractZoneDdlCommand {
         this.partitions = partitions;
     }
 
-    @Nullable
-    public String affinity() {
+    @Nullable public String affinity() {
         return affinity;
     }
 
@@ -64,8 +63,7 @@ public class CreateZoneCommand extends AbstractZoneDdlCommand {
         this.affinity = affinity;
     }
 
-    @Nullable
-    public String nodeFilter() {
+    @Nullable public String nodeFilter() {
         return nodeFiler;
     }
 
@@ -73,21 +71,27 @@ public class CreateZoneCommand extends AbstractZoneDdlCommand {
         this.nodeFiler = nodeFiler;
     }
 
-    @Nullable
-    public Integer autoAdjustScaleUp() {
-        return autoAdjustScaleUp;
+    @Nullable public Integer dataNodesAutoAdjust() {
+        return dataNodesAutoAdjust;
     }
 
-    public void autoAdjustScaleUp(Integer autoAdjustScaleUp) {
-        this.autoAdjustScaleUp = autoAdjustScaleUp;
+    public void dataNodesAutoAdjust(Integer dataNodesAutoAdjust) {
+        this.dataNodesAutoAdjust = dataNodesAutoAdjust;
     }
 
-    @Nullable
-    public Integer autoAdjustScaleDown() {
-        return autoAdjustScaleDown;
+    @Nullable public Integer dataNodesAutoAdjustScaleUp() {
+        return dataNodesAutoAdjustScaleUp;
     }
 
-    public void autoAdjustScaleDown(Integer autoAdjustScaleDown) {
-        this.autoAdjustScaleDown = autoAdjustScaleDown;
+    public void dataNodesAutoAdjustScaleUp(Integer dataNodesAutoAdjustScaleUp) {
+        this.dataNodesAutoAdjustScaleUp = dataNodesAutoAdjustScaleUp;
+    }
+
+    @Nullable public Integer dataNodesAutoAdjustScaleDown() {
+        return dataNodesAutoAdjustScaleDown;
+    }
+
+    public void dataNodesAutoAdjustScaleDown(Integer dataNodesAutoAdjustScaleDown) {
+        this.dataNodesAutoAdjustScaleDown = dataNodesAutoAdjustScaleDown;
     }
 }
