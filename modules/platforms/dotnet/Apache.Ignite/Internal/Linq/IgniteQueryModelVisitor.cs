@@ -78,7 +78,7 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
     /** <inheritdoc /> */
     public override void VisitQueryModel(QueryModel queryModel)
     {
-        VisitQueryModel(queryModel, false);
+        VisitQueryModel(queryModel, includeAllFields: queryModel.MainFromClause.FromExpression is SubQueryExpression);
     }
 
     /** <inheritdoc /> */
@@ -181,15 +181,17 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
     public override void VisitMainFromClause(MainFromClause fromClause, QueryModel queryModel)
     {
         // Special case for UNION subquery.
-        // TODO: Why do we have to handle it that way? Must be a mistake somewhere else?
         if (fromClause.FromExpression is SubQueryExpression subQuery &&
-            subQuery.QueryModel.ResultOperators.Count == 1 &&
-            subQuery.QueryModel.ResultOperators[0] is UnionResultOperator)
+            subQuery.QueryModel.ResultOperators.Any(x => x is UnionResultOperator))
         {
-            // TODO: Proper column name before this call
             _builder.Append("from (");
+
             VisitQueryModel(subQuery.QueryModel);
-            _builder.Append(" ) as _T0 "); // TODO: Proper alias
+
+            _builder.TrimEnd()
+                .Append(") as ")
+                .Append(_aliases.GetTableAlias(subQuery.QueryModel.MainFromClause))
+                .Append(' ');
 
             return;
         }
