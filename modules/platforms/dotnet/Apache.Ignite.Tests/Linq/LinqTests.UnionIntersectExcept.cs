@@ -28,7 +28,6 @@ public partial class LinqTests
     [Test]
     public void TestUnion()
     {
-        // TODO: UnionBy, IntersectBy, ExceptBy
         var subQuery = PocoView.AsQueryable()
             .Where(x => x.Key < 2)
             .Select(x => new { Id = x.Key });
@@ -134,5 +133,27 @@ public partial class LinqTests
         var res = query.ToList();
 
         CollectionAssert.IsEmpty(res);
+    }
+
+    [Test]
+    public void TestExcept()
+    {
+        var subQuery = PocoView.AsQueryable()
+            .Where(x => x.Key < 7)
+            .Select(x => new { Id = x.Key });
+
+        var query = PocoLongView.AsQueryable()
+            .Where(x => x.Key > 5)
+            .Select(x => new { Id = x.Key })
+            .Except(subQuery);
+
+        var res = query.ToList();
+
+        CollectionAssert.AreEquivalent(new[] { 7, 8, 9 }, res.Select(x => x.Id));
+
+        StringAssert.Contains(
+            "select _T0.KEY from PUBLIC.TBL_INT64 as _T0 where (_T0.KEY > ?) " +
+            "except (select _T1.KEY from PUBLIC.TBL1 as _T1 where (_T1.KEY < ?))",
+            query.ToString());
     }
 }
