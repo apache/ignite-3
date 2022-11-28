@@ -77,13 +77,28 @@ public class MvPartitionStorageDecorator implements MvPartitionStorage {
     }
 
     @Override
-    public void lastAppliedIndex(long lastAppliedIndex) throws StorageException {
-        delegate.lastAppliedIndex(lastAppliedIndex);
+    public long lastAppliedTerm() {
+        return delegate.lastAppliedTerm();
+    }
+
+    @Override
+    public void lastApplied(long lastAppliedIndex, long lastAppliedTerm) throws StorageException {
+        delegate.lastApplied(lastAppliedIndex, lastAppliedTerm);
     }
 
     @Override
     public long persistedIndex() {
         return delegate.persistedIndex();
+    }
+
+    @Override
+    public @Nullable RaftGroupConfiguration committedGroupConfiguration() {
+        return delegate.committedGroupConfiguration();
+    }
+
+    @Override
+    public void committedGroupConfiguration(RaftGroupConfiguration config) {
+        delegate.committedGroupConfiguration(config);
     }
 
     @Override
@@ -133,7 +148,7 @@ public class MvPartitionStorageDecorator implements MvPartitionStorage {
     }
 
     @Override
-    public void close() throws Exception {
+    public void close() {
         delegate.close();
     }
 }

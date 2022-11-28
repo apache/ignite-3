@@ -17,9 +17,6 @@
 
 package org.apache.ignite.internal.storage;
 
-import static org.apache.ignite.internal.schema.BinaryTupleSchema.createKeySchema;
-import static org.apache.ignite.internal.schema.BinaryTupleSchema.createRowSchema;
-
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
@@ -240,10 +237,10 @@ public abstract class BaseMvStoragesTest {
     }
 
     protected static BinaryTuple keyValueBinaryTuple(BinaryRow keValueBinaryRow) {
-        return new BinaryTuple(createRowSchema(schemaDescriptor), kvBinaryConverter.toTuple(keValueBinaryRow));
+        return kvBinaryConverter.toTuple(keValueBinaryRow);
     }
 
     protected static BinaryTuple keyBinaryTuple(BinaryRow keyBinaryRow) {
-        return new BinaryTuple(createKeySchema(schemaDescriptor), kBinaryConverter.toTuple(keyBinaryRow));
+        return kBinaryConverter.toTuple(keyBinaryRow);
     }
 }

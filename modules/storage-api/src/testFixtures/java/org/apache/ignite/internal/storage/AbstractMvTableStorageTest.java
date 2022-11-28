@@ -343,7 +343,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
             sortedIndexStorage.put(indexRow);
 
-            partitionStorage.lastAppliedIndex(100);
+            partitionStorage.lastApplied(100, 10);
 
             return null;
         });
@@ -365,6 +365,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         assertSame(sortedIndexStorage, newSortedIndexStorage0);
 
         assertEquals(0L, newPartitionStorage0.lastAppliedIndex());
+        assertEquals(0L, newPartitionStorage0.lastAppliedTerm());
         assertEquals(0L, newPartitionStorage0.persistedIndex());
 
         assertThat(getAll(newPartitionStorage0.scanVersions(rowId)), empty());
@@ -408,7 +409,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
             sortedIndexStorage.put(oldIndexRow);
 
-            partitionStorage.lastAppliedIndex(100);
+            partitionStorage.lastApplied(100, 10);
 
             return null;
         });
@@ -429,7 +430,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
             sortedIndexStorage.put(newIndexRow);
 
-            partitionStorage.lastAppliedIndex(500);
+            partitionStorage.lastApplied(500, 20);
 
             return null;
         });
@@ -443,6 +444,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         assertDoesNotThrow(() -> tableStorage.abortRebalance(PARTITION_ID).get(1, TimeUnit.SECONDS));
 
         assertEquals(100L, partitionStorage.lastAppliedIndex());
+        assertEquals(10L, partitionStorage.lastAppliedTerm());
 
         assertThat(viewReadOnly(getAll(partitionStorage.scanVersions(oldRowId)), ReadResult::binaryRow), containsInAnyOrder(oldBinaryRow));
         assertThat(getAll(hashIndexStorage.get(oldIndexRow.indexColumns())), containsInAnyOrder(oldRowId));
@@ -478,7 +480,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
             sortedIndexStorage.put(oldIndexRow);
 
-            partitionStorage.lastAppliedIndex(100);
+            partitionStorage.lastApplied(100, 10);
 
             return null;
         });
@@ -503,7 +505,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
             sortedIndexStorage.put(newIndexRow);
 
-            partitionStorage.lastAppliedIndex(500);
+            partitionStorage.lastApplied(500, 20);
 
             return null;
         });
@@ -517,6 +519,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         assertDoesNotThrow(() -> tableStorage.finishRebalance(PARTITION_ID).get(1, TimeUnit.SECONDS));
 
         assertEquals(500L, partitionStorage.lastAppliedIndex());
+        assertEquals(20L, partitionStorage.lastAppliedTerm());
 
         assertThat(getAll(partitionStorage.scanVersions(oldRowId)), empty());
         assertThat(getAll(hashIndexStorage.get(oldIndexRow.indexColumns())), empty());
@@ -567,8 +570,6 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
     private static <T> List<T> getAll(Cursor<T> cursor) {
         try (cursor) {
             return cursor.stream().collect(Collectors.toList());
-        } catch (Exception e) {
-            throw new RuntimeException(e);
         }
     }
 }

@@ -71,9 +71,9 @@ public class MvPartitionStorageOnRebalanceTest {
 
         verify(mvPartitionStorage, times(1)).lastAppliedIndex();
 
-        mvPartitionStorageOnRebalance.lastAppliedIndex(1L);
+        mvPartitionStorageOnRebalance.lastApplied(1L, 2L);
 
-        verify(mvPartitionStorage, times(1)).lastAppliedIndex(eq(1L));
+        verify(mvPartitionStorage, times(1)).lastApplied(eq(1L), eq(2L));
 
         mvPartitionStorageOnRebalance.persistedIndex();
 
