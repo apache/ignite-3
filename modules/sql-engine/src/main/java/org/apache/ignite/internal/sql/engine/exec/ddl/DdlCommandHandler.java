@@ -269,22 +269,16 @@ public class DdlCommandHandler {
         DistributionZoneConfigurationParameters.Builder zoneCfgBuilder =
                 new DistributionZoneConfigurationParameters.Builder(cmd.zoneName());
 
-        Integer val = cmd.dataNodesAutoAdjust();
-
-        if (val != null) {
-            zoneCfgBuilder.dataNodesAutoAdjust(val);
+        if (cmd.dataNodesAutoAdjust() != null) {
+            zoneCfgBuilder.dataNodesAutoAdjust(cmd.dataNodesAutoAdjust());
         }
 
-        val = cmd.dataNodesAutoAdjustScaleUp();
-
-        if (val != null) {
-            zoneCfgBuilder.dataNodesAutoAdjustScaleUp(val);
+        if (cmd.dataNodesAutoAdjustScaleUp() != null) {
+            zoneCfgBuilder.dataNodesAutoAdjustScaleUp(cmd.dataNodesAutoAdjustScaleUp());
         }
 
-        val = cmd.dataNodesAutoAdjustScaleDown();
-
-        if (val != null) {
-            zoneCfgBuilder.dataNodesAutoAdjustScaleDown(val);
+        if (cmd.dataNodesAutoAdjustScaleDown() != null) {
+            zoneCfgBuilder.dataNodesAutoAdjustScaleDown(cmd.dataNodesAutoAdjustScaleDown());
         }
 
         return distributionZoneManager.createZone(zoneCfgBuilder.build())

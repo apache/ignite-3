@@ -34,8 +34,8 @@ public class AbstractZoneDdlCommand implements DdlCommand {
         return zoneName;
     }
 
-    public void zoneName(String tblName) {
-        this.zoneName = tblName;
+    public void zoneName(String zoneName) {
+        this.zoneName = zoneName;
     }
 
     public String schemaName() {
