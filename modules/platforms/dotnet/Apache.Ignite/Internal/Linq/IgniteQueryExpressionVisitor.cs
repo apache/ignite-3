@@ -321,6 +321,8 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
 
             Visit(arg);
 
+            // TODO: Do we need this or not?
+            /*
             var param = expression.Members?[i];
 
             // TODO: Somehow don't append if param name is same as arg name.
@@ -329,7 +331,7 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
             if (param != null && param.Name != (arg as MemberExpression)?.Member.Name)
             {
                 ResultBuilder.Append(" as ").Append(param.Name.ToUpperInvariant());
-            }
+            }*/
         }
 
         return expression;
