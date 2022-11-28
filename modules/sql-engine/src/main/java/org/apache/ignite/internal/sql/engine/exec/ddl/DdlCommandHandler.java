@@ -73,6 +73,7 @@ import org.apache.ignite.internal.sql.engine.prepare.ddl.DefaultValueDefinition.
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DefaultValueDefinition.FunctionCall;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DropIndexCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DropTableCommand;
+import org.apache.ignite.internal.sql.engine.prepare.ddl.DropZoneCommand;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Collation;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.storage.DataStorageManager;
@@ -130,6 +131,8 @@ public class DdlCommandHandler {
             return handleDropIndex((DropIndexCommand) cmd);
         } else if (cmd instanceof CreateZoneCommand) {
             return handleCreateZone((CreateZoneCommand) cmd);
+        } else if (cmd instanceof DropZoneCommand) {
+            return handleDropZone((DropZoneCommand) cmd);
         }
         else {
             return failedFuture(new IgniteInternalCheckedException(UNSUPPORTED_DDL_OPERATION_ERR, "Unsupported DDL operation ["
@@ -264,7 +267,8 @@ public class DdlCommandHandler {
 
     /** Handles create distribution zone command. */
     private CompletableFuture<Boolean> handleCreateZone(CreateZoneCommand cmd) {
-        DistributionZoneConfigurationParameters.Builder zoneCfgBuilder = new DistributionZoneConfigurationParameters.Builder(cmd.zoneName());
+        DistributionZoneConfigurationParameters.Builder zoneCfgBuilder =
+                new DistributionZoneConfigurationParameters.Builder(cmd.zoneName());
 
         Integer val = cmd.dataNodesAutoAdjust();
 
@@ -285,7 +289,13 @@ public class DdlCommandHandler {
         }
 
         return distributionZoneManager.createZone(zoneCfgBuilder.build())
-//                .thenApply(v -> Boolean.TRUE)
+                .handle(handleModificationResult(cmd.ifZoneExists(),
+                        DistributionZoneAlreadyExistsException.class, DistributionZoneNotFoundException.class));
+    }
+
+    /** Handles drop distribution zone command. */
+    private CompletableFuture<Boolean> handleDropZone(DropZoneCommand cmd) {
+        return distributionZoneManager.dropZone(cmd.zoneName())
                 .handle(handleModificationResult(cmd.ifZoneExists(),
                         DistributionZoneAlreadyExistsException.class, DistributionZoneNotFoundException.class));
     }

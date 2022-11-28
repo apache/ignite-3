@@ -77,6 +77,7 @@ import org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateTableOption;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateZone;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateZoneOption;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlDropIndex;
+import org.apache.ignite.internal.sql.engine.sql.IgniteSqlDropZone;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlIndexType;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.util.ArrayUtils;
@@ -191,6 +192,10 @@ public class DdlSqlToCommandConverter {
 
         if (ddlNode instanceof IgniteSqlCreateZone) {
             return convertCreateZone((IgniteSqlCreateZone) ddlNode, ctx);
+        }
+
+        if (ddlNode instanceof IgniteSqlDropZone) {
+            return convertDropZone((IgniteSqlDropZone) ddlNode, ctx);
         }
 
         throw new SqlException(UNSUPPORTED_DDL_OPERATION_ERR, "Unsupported operation ["
@@ -490,6 +495,22 @@ public class DdlSqlToCommandConverter {
         }
 
         return createZoneCmd;
+    }
+
+    /**
+     * Converts a given DropZone AST to a DropZone command.
+     *
+     * @param dropZoneNode Root node of the given AST.
+     * @param ctx         Planning context.
+     */
+    private DropZoneCommand convertDropZone(IgniteSqlDropZone dropZoneNode, PlanningContext ctx) {
+        DropZoneCommand dropZoneCmd = new DropZoneCommand();
+
+        dropZoneCmd.schemaName(deriveSchemaName(dropZoneNode.name(), ctx));
+        dropZoneCmd.zoneName(deriveObjectName(dropZoneNode.name(), ctx, "zoneName"));
+        dropZoneCmd.ifZoneExists(dropZoneNode.ifExists());
+
+        return dropZoneCmd;
     }
 
     /** Derives a schema name from the compound identifier. */

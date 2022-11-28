@@ -52,6 +52,7 @@ import org.apache.ignite.internal.configuration.testframework.InjectRevisionList
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneAlreadyExistsException;
+import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNotFoundException;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -304,9 +305,28 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         readFirst(queryProc.queryAsync("PUBLIC", String.format("CREATE ZONE IF NOT EXISTS %s", curMethodName)));
     }
 
-//    public void testDropZone() throws Exception {
-//
-//    }
+    @Test
+    public void testCreateZoneOptions() {
+
+    }
+
+    @Test
+    public void testDropZone() {
+        String curMethodName = getCurrentMethodName();
+
+        String dropQuery = String.format("DROP ZONE %s", curMethodName);
+
+        // Drop existing distribution zone.
+        readFirst(queryProc.queryAsync("PUBLIC", String.format("CREATE ZONE %s", curMethodName)));
+        readFirst(queryProc.queryAsync("PUBLIC", dropQuery));
+
+        // Drop non-existing distribution zone.
+        IgniteException ex = assertThrows(IgniteException.class, () -> readFirst(queryProc.queryAsync("PUBLIC", dropQuery)));
+        assertTrue(hasCause(ex, DistributionZoneNotFoundException.class, null));
+
+        // Check ifExists flag.
+        readFirst(queryProc.queryAsync("PUBLIC", String.format("DROP ZONE IF EXISTS %s", curMethodName)));
+    }
 
     /**
      * Tests create a table through public API.
