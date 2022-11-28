@@ -61,6 +61,7 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.IntSupplier;
@@ -134,6 +135,7 @@ import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbTableSt
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.IgniteNameUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.utils.RebalanceUtil;
@@ -718,7 +720,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 // start new nodes, only if it is table creation, other cases will be covered by rebalance logic
                 if (oldPartAssignment.isEmpty() && localMemberAssignment != null) {
-                    startGroupFut = getOrCreateMvPartitionAsync(internalTbl.storage(), partId).thenComposeAsync(mvPartitionStorage -> {
+                    startGroupFut = getOrCreateMvPartition(internalTbl.storage(), partId).thenComposeAsync(mvPartitionStorage -> {
                         boolean hasData = mvPartitionStorage.lastAppliedIndex() > 0;
 
                         CompletableFuture<Boolean> fut;
@@ -816,7 +818,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             }
 
                             CompletableFuture<MvPartitionStorage> partitionStorageFuture =
-                                    getOrCreateMvPartitionAsync(internalTbl.storage(), partId);
+                                    getOrCreateMvPartition(internalTbl.storage(), partId);
 
                             CompletableFuture<TxStateStorage> txStateStorageFuture =
                                     getOrCreateTxStateStorageAsync(internalTbl.txStateStorage(), partId);
@@ -965,20 +967,64 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      */
     private void cleanUpTablesResources(Map<UUID, TableImpl> tables) {
         for (TableImpl table : tables.values()) {
+            List<Runnable> stopping = new ArrayList<>();
+
+            AtomicReference<Exception> exception = new AtomicReference<>();
+
+            AtomicBoolean nodeStoppingEx = new AtomicBoolean();
+
+            for (int p = 0; p < table.internalTable().partitions(); p++) {
+                TablePartitionId replicationGroupId = new TablePartitionId(table.tableId(), p);
+
+                stopping.add(() -> {
+                    try {
+                        raftMgr.stopRaftGroup(replicationGroupId);
+                    } catch (Exception e) {
+                        if (!exception.compareAndSet(null, e)) {
+                            if (!(e instanceof NodeStoppingException) || !nodeStoppingEx.get()) {
+                                exception.get().addSuppressed(e);
+                            }
+                        }
+
+                        if (e instanceof NodeStoppingException) {
+                            nodeStoppingEx.set(true);
+                        }
+                    }
+                });
+
+                stopping.add(() -> {
+                    try {
+                        replicaMgr.stopReplica(replicationGroupId);
+                    } catch (Exception e) {
+                        if (!exception.compareAndSet(null, e)) {
+                            if (!(e instanceof NodeStoppingException) || !nodeStoppingEx.get()) {
+                                exception.get().addSuppressed(e);
+                            }
+                        }
+
+                        if (e instanceof NodeStoppingException) {
+                            nodeStoppingEx.set(true);
+                        }
+                    }
+                });
+            }
+
+            stopping.forEach(Runnable::run);
+
             try {
-                for (int p = 0; p < table.internalTable().partitions(); p++) {
-                    TablePartitionId replicationGroupId = new TablePartitionId(table.tableId(), p);
-
-                    raftMgr.stopRaftGroup(replicationGroupId);
-
-                    replicaMgr.stopReplica(replicationGroupId);
-                }
-
-                table.internalTable().storage().stop();
-                table.internalTable().txStateStorage().stop();
-                table.internalTable().close();
+                IgniteUtils.closeAllManually(
+                        table.internalTable().storage(),
+                        table.internalTable().txStateStorage(),
+                        table.internalTable()
+                );
             } catch (Exception e) {
-                LOG.info("Unable to stop table [name={}]", e, table.name());
+                if (!exception.compareAndSet(null, e)) {
+                    exception.get().addSuppressed(e);
+                }
+            }
+
+            if (exception.get() != null) {
+                LOG.info("Unable to stop table [name={}, tableId={}]", exception.get(), table.name(), table.tableId());
             }
         }
     }
@@ -1161,15 +1207,16 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             assert table != null : IgniteStringFormatter.format("There is no table with the name specified [name={}, id={}]",
                     name, tblId);
 
-            table.internalTable().storage().destroy();
+            CompletableFuture<Void> destroyMvStorageFuture = table.internalTable().storage().destroy();
+
             table.internalTable().txStateStorage().destroy();
 
-            CompletableFuture<?> fut = schemaManager.dropRegistry(causalityToken, table.tableId())
+            CompletableFuture<?> dropSchemaRegistryFuture = schemaManager.dropRegistry(causalityToken, table.tableId())
                     .thenCompose(
                             v -> inBusyLock(busyLock, () -> fireEvent(TableEvent.DROP, new TableEventParameters(causalityToken, table)))
                     );
 
-            beforeTablesVvComplete.add(fut);
+            beforeTablesVvComplete.add(allOf(destroyMvStorageFuture, dropSchemaRegistryFuture));
         } catch (Exception e) {
             fireEvent(TableEvent.DROP, new TableEventParameters(causalityToken, tblId, name), e);
         }
@@ -1791,7 +1838,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             pendingAssignmentsWatchEvent.key(), partId, tbl.name(), localMember.address());
 
                     if (shouldStartLocalServices) {
-                        MvPartitionStorage mvPartitionStorage = getOrCreateMvPartition(internalTable.storage(), partId);
+                        MvPartitionStorage mvPartitionStorage = getOrCreateMvPartition(internalTable.storage(), partId).join();
 
                         TxStateStorage txStatePartitionStorage = getOrCreateTxStateStorage(internalTable.txStateStorage(), partId);
 
@@ -2011,27 +2058,22 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * in when the rebalance was interrupted.
      *
      * @param mvTableStorage Multi-versioned table storage.
-     * @param partId Partition ID.
+     * @param partitionId Partition ID.
+     * @return Future that will complete when the operation completes.
      */
-    private static MvPartitionStorage getOrCreateMvPartition(MvTableStorage mvTableStorage, int partId) {
-        MvPartitionStorage mvPartitionStorage = mvTableStorage.getOrCreateMvPartition(partId);
-
-        // If a full rebalance did not happen, then we return the storage as is.
-        if (mvPartitionStorage.persistedIndex() != FULL_RABALANCING_STARTED) {
-            return mvPartitionStorage;
-        }
-
-        // A full rebalance was started but not completed, so the partition must be recreated to remove the garbage.
-        mvTableStorage.destroyPartition(partId);
-
-        return mvTableStorage.getOrCreateMvPartition(partId);
-    }
-
-    /**
-     * Async version of {@link #getOrCreateMvPartition}.
-     */
-    private CompletableFuture<MvPartitionStorage> getOrCreateMvPartitionAsync(MvTableStorage mvTableStorage, int partId) {
-        return CompletableFuture.supplyAsync(() -> getOrCreateMvPartition(mvTableStorage, partId), ioExecutor);
+    private CompletableFuture<MvPartitionStorage> getOrCreateMvPartition(MvTableStorage mvTableStorage, int partitionId) {
+        return CompletableFuture.supplyAsync(() -> mvTableStorage.getOrCreateMvPartition(partitionId), ioExecutor)
+                .thenCompose(storage -> {
+                    if (storage.persistedIndex() != FULL_RABALANCING_STARTED) {
+                        // If a full rebalance did not happen, then we return the storage as is.
+                        return completedFuture(storage);
+                    } else {
+                        // A full rebalance was started but not completed, so the partition must be recreated to remove the garbage.
+                        return mvTableStorage
+                                .destroyPartition(partitionId)
+                                .thenApplyAsync(unused -> mvTableStorage.getOrCreateMvPartition(partitionId), ioExecutor);
+                    }
+                });
     }
 
     /**

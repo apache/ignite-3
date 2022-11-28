@@ -112,43 +112,75 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
 
     @Override
     public <V> V runConsistently(WriteClosure<V> closure) throws StorageException {
-        checkpointTimeoutLock.checkpointReadLock();
+        if (!closeBusyLock.enterBusy()) {
+            throwStorageClosedException();
+        }
 
         try {
-            return closure.execute();
+            checkpointTimeoutLock.checkpointReadLock();
+
+            try {
+                return closure.execute();
+            } finally {
+                checkpointTimeoutLock.checkpointReadUnlock();
+            }
         } finally {
-            checkpointTimeoutLock.checkpointReadUnlock();
+            closeBusyLock.leaveBusy();
         }
     }
 
     @Override
     public CompletableFuture<Void> flush() {
-        CheckpointProgress lastCheckpoint = checkpointManager.lastCheckpointProgress();
-
-        CheckpointProgress scheduledCheckpoint;
-
-        if (lastCheckpoint != null && meta.metaSnapshot(lastCheckpoint.id()).lastAppliedIndex() == meta.lastAppliedIndex()) {
-            scheduledCheckpoint = lastCheckpoint;
-        } else {
-            var persistentTableStorage = (PersistentPageMemoryTableStorage) tableStorage;
-
-            PersistentPageMemoryStorageEngineView engineCfg = persistentTableStorage.engine().configuration().value();
-
-            int checkpointDelayMillis = engineCfg.checkpoint().checkpointDelayMillis();
-            scheduledCheckpoint = checkpointManager.scheduleCheckpoint(checkpointDelayMillis, "Triggered by replicator");
+        if (!closeBusyLock.enterBusy()) {
+            throwStorageClosedException();
         }
 
-        return scheduledCheckpoint.futureFor(CheckpointState.FINISHED).thenApply(res -> null);
+        try {
+            CheckpointProgress lastCheckpoint = checkpointManager.lastCheckpointProgress();
+
+            CheckpointProgress scheduledCheckpoint;
+
+            if (lastCheckpoint != null && meta.metaSnapshot(lastCheckpoint.id()).lastAppliedIndex() == meta.lastAppliedIndex()) {
+                scheduledCheckpoint = lastCheckpoint;
+            } else {
+                var persistentTableStorage = (PersistentPageMemoryTableStorage) tableStorage;
+
+                PersistentPageMemoryStorageEngineView engineCfg = persistentTableStorage.engine().configuration().value();
+
+                int checkpointDelayMillis = engineCfg.checkpoint().checkpointDelayMillis();
+                scheduledCheckpoint = checkpointManager.scheduleCheckpoint(checkpointDelayMillis, "Triggered by replicator");
+            }
+
+            return scheduledCheckpoint.futureFor(CheckpointState.FINISHED).thenApply(res -> null);
+        } finally {
+            closeBusyLock.leaveBusy();
+        }
     }
 
     @Override
     public long lastAppliedIndex() {
-        return meta.lastAppliedIndex();
+        if (!closeBusyLock.enterBusy()) {
+            throwStorageClosedException();
+        }
+
+        try {
+            return meta.lastAppliedIndex();
+        } finally {
+            closeBusyLock.leaveBusy();
+        }
     }
 
     @Override
     public long lastAppliedTerm() {
-        return meta.lastAppliedTerm();
+        if (!closeBusyLock.enterBusy()) {
+            throwStorageClosedException();
+        }
+
+        try {
+            return meta.lastAppliedTerm();
+        } finally {
+            closeBusyLock.leaveBusy();
+        }
     }
 
     @Override
@@ -164,13 +196,29 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
 
     @Override
     public long persistedIndex() {
-        return persistedIndex;
+        if (!closeBusyLock.enterBusy()) {
+            throwStorageClosedException();
+        }
+
+        try {
+            return persistedIndex;
+        } finally {
+            closeBusyLock.leaveBusy();
+        }
     }
 
     @Override
     @Nullable
     public RaftGroupConfiguration committedGroupConfiguration() {
-        return groupConfigFromBytes(meta.lastGroupConfig());
+        if (!closeBusyLock.enterBusy()) {
+            throwStorageClosedException();
+        }
+
+        try {
+            return groupConfigFromBytes(meta.lastGroupConfig());
+        } finally {
+            closeBusyLock.leaveBusy();
+        }
     }
 
     @Override
@@ -209,10 +257,30 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
 
     @Override
     public void close() {
+        if (!STARTED.compareAndSet(this, true, false)) {
+            return;
+        }
+
+        closeBusyLock.block();
+
         checkpointManager.removeCheckpointListener(checkpointListener);
 
         rowVersionFreeList.close();
         indexFreeList.close();
+
+        versionChainTree.close();
+        indexMetaTree.close();
+
+        for (PageMemoryHashIndexStorage hashIndexStorage : hashIndexes.values()) {
+            hashIndexStorage.close();
+        }
+
+        for (PageMemorySortedIndexStorage sortedIndexStorage : sortedIndexes.values()) {
+            sortedIndexStorage.close();
+        }
+
+        hashIndexes.clear();
+        sortedIndexes.clear();
     }
 
     /**

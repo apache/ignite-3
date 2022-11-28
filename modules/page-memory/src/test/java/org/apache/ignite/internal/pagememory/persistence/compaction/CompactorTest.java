@@ -39,16 +39,19 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.nio.ByteBuffer;
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.io.PageIo;
+import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.store.DeltaFilePageStoreIo;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
+import org.apache.ignite.internal.pagememory.persistence.store.GroupPageStoresMap;
+import org.apache.ignite.internal.pagememory.persistence.store.LongOperationAsyncExecutor;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -120,19 +123,25 @@ public class CompactorTest {
     void testDoCompaction() throws Throwable {
         FilePageStore filePageStore = mock(FilePageStore.class);
 
-        DeltaFilePageStoreIo deltaFilePageStoreIo = mock(DeltaFilePageStoreIo.class);
+        AtomicReference<DeltaFilePageStoreIo> deltaFilePageStoreIoRef = new AtomicReference<>(mock(DeltaFilePageStoreIo.class));
 
-        when(filePageStore.getDeltaFileToCompaction()).thenReturn(deltaFilePageStoreIo);
+        when(filePageStore.getDeltaFileToCompaction()).then(answer -> deltaFilePageStoreIoRef.get());
 
         FilePageStoreManager filePageStoreManager = mock(FilePageStoreManager.class);
 
-        when(filePageStoreManager.allPageStores()).thenReturn(List.of(List.of(filePageStore)));
+        GroupPageStoresMap<FilePageStore> groupPageStoresMap = new GroupPageStoresMap<>(new LongOperationAsyncExecutor("test", log));
+
+        groupPageStoresMap.put(new GroupPartitionId(0, 0), filePageStore);
+
+        when(filePageStoreManager.allPageStores()).then(answer -> groupPageStoresMap.getAll());
 
         Compactor compactor = spy(new Compactor(log, "test", null, threadsConfig(1), filePageStoreManager, PAGE_SIZE));
 
         doAnswer(answer -> {
             assertSame(filePageStore, answer.getArgument(0));
-            assertSame(deltaFilePageStoreIo, answer.getArgument(1));
+            assertSame(deltaFilePageStoreIoRef.get(), answer.getArgument(1));
+
+            deltaFilePageStoreIoRef.set(null);
 
             return null;
         })
@@ -141,7 +150,7 @@ public class CompactorTest {
 
         compactor.doCompaction();
 
-        verify(filePageStore, times(1)).getDeltaFileToCompaction();
+        verify(filePageStore, times(2)).getDeltaFileToCompaction();
 
         verify(compactor, times(1)).mergeDeltaFileToMainFile(any(FilePageStore.class), any(DeltaFilePageStoreIo.class));
     }
@@ -173,7 +182,7 @@ public class CompactorTest {
 
         assertThrows(TimeoutException.class, () -> waitDeltaFilesFuture.get(100, MILLISECONDS));
 
-        compactor.addDeltaFiles(1);
+        compactor.triggerCompaction();
 
         waitDeltaFilesFuture.get(100, MILLISECONDS);
     }

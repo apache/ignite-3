@@ -20,13 +20,14 @@ package org.apache.ignite.internal.storage.index.impl;
 import static org.apache.ignite.internal.util.IgniteUtils.capacity;
 
 import java.nio.ByteBuffer;
-import java.util.Collection;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.StorageClosedException;
 import org.apache.ignite.internal.storage.index.HashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.IndexRow;
@@ -39,6 +40,8 @@ public class TestHashIndexStorage implements HashIndexStorage {
     private final ConcurrentMap<ByteBuffer, Set<RowId>> index = new ConcurrentHashMap<>();
 
     private final HashIndexDescriptor descriptor;
+
+    private volatile boolean closed;
 
     /**
      * Constructor.
@@ -54,13 +57,19 @@ public class TestHashIndexStorage implements HashIndexStorage {
 
     @Override
     public Cursor<RowId> get(BinaryTuple key) {
-        Collection<RowId> rowIds = index.getOrDefault(key.byteBuffer(), Set.of());
+        checkClosed();
 
-        return Cursor.fromBareIterator(rowIds.iterator());
+        Iterator<RowId> iterator = index.getOrDefault(key.byteBuffer(), Set.of()).stream()
+                .peek(rowId -> checkClosed())
+                .iterator();
+
+        return Cursor.fromBareIterator(iterator);
     }
 
     @Override
     public void put(IndexRow row) {
+        checkClosed();
+
         index.compute(row.indexColumns().byteBuffer(), (k, v) -> {
             if (v == null) {
                 return Set.of(row.rowId());
@@ -79,6 +88,8 @@ public class TestHashIndexStorage implements HashIndexStorage {
 
     @Override
     public void remove(IndexRow row) {
+        checkClosed();
+
         index.computeIfPresent(row.indexColumns().byteBuffer(), (k, v) -> {
             if (v.contains(row.rowId())) {
                 if (v.size() == 1) {
@@ -98,6 +109,21 @@ public class TestHashIndexStorage implements HashIndexStorage {
 
     @Override
     public void destroy() {
+        closed = true;
+
         index.clear();
+    }
+
+    /**
+     * Removes all index data.
+     */
+    public void clear() {
+        index.clear();
+    }
+
+    private void checkClosed() {
+        if (closed) {
+            throw new StorageClosedException("Storage is already closed");
+        }
     }
 }

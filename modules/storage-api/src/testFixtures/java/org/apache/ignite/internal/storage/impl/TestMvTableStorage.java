@@ -34,6 +34,7 @@ import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
 import org.apache.ignite.internal.storage.index.impl.TestSortedIndexStorage;
+import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -47,6 +48,8 @@ public class TestMvTableStorage implements MvTableStorage {
     private final Map<UUID, SortedIndices> sortedIndicesById = new ConcurrentHashMap<>();
 
     private final Map<UUID, HashIndices> hashIndicesById = new ConcurrentHashMap<>();
+
+    private final Map<Integer, CompletableFuture<Void>> destroyFutureByPartitionId = new ConcurrentHashMap<>();
 
     private final TableConfiguration tableCfg;
 
@@ -104,11 +107,51 @@ public class TestMvTableStorage implements MvTableStorage {
     }
 
     @Override
-    public void destroyPartition(int partitionId) throws StorageException {
-        partitions.remove(partitionId);
+    public CompletableFuture<Void> destroyPartition(int partitionId) {
+        checkPartitionId(partitionId);
 
-        sortedIndicesById.values().forEach(indices -> indices.storageByPartitionId.remove(partitionId));
-        hashIndicesById.values().forEach(indices -> indices.storageByPartitionId.remove(partitionId));
+        CompletableFuture<Void> destroyPartitionFuture = new CompletableFuture<>();
+
+        CompletableFuture<Void> previousDestroyPartitionFuture = destroyFutureByPartitionId.putIfAbsent(
+                partitionId,
+                destroyPartitionFuture
+        );
+
+        if (previousDestroyPartitionFuture != null) {
+            return previousDestroyPartitionFuture;
+        }
+
+        MvPartitionStorage removedMvPartitionStorage = partitions.remove(partitionId);
+
+        if (removedMvPartitionStorage != null) {
+            try {
+                ((TestMvPartitionStorage) removedMvPartitionStorage).destroy();
+
+                for (HashIndices hashIndices : hashIndicesById.values()) {
+                    HashIndexStorage removedHashIndexStorage = hashIndices.storageByPartitionId.remove(partitionId);
+
+                    if (removedHashIndexStorage != null) {
+                        removedHashIndexStorage.destroy();
+                    }
+                }
+
+                for (SortedIndices sortedIndices : sortedIndicesById.values()) {
+                    SortedIndexStorage removedSortedIndexStorage = sortedIndices.storageByPartitionId.remove(partitionId);
+
+                    if (removedSortedIndexStorage != null) {
+                        ((TestSortedIndexStorage) removedSortedIndexStorage).destroy();
+                    }
+                }
+
+                destroyFutureByPartitionId.remove(partitionId).complete(null);
+            } catch (Throwable throwable) {
+                destroyFutureByPartitionId.remove(partitionId).completeExceptionally(throwable);
+            }
+        } else {
+            destroyFutureByPartitionId.remove(partitionId).complete(null);
+        }
+
+        return destroyPartitionFuture;
     }
 
     @Override
@@ -176,7 +219,13 @@ public class TestMvTableStorage implements MvTableStorage {
     }
 
     @Override
-    public void destroy() throws StorageException {
+    public void close() throws StorageException {
+        stop();
+    }
+
+    @Override
+    public CompletableFuture<Void> destroy() {
+        return completedFuture(null);
     }
 
     @Override
@@ -208,5 +257,18 @@ public class TestMvTableStorage implements MvTableStorage {
         backupPartitions.remove(partitionId);
 
         return completedFuture(null);
+    }
+
+    private void checkPartitionId(int partitionId) {
+        Integer partitions = tableCfg.partitions().value();
+
+        if (partitionId < 0 || partitionId >= partitions) {
+            throw new IllegalArgumentException(S.toString(
+                    "Unable to access partition with id outside of configured range",
+                    "table", tableCfg.value().name(), false,
+                    "partitionId", partitionId, false,
+                    "partitions", partitions, false
+            ));
+        }
     }
 }

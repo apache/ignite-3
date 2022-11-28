@@ -24,7 +24,9 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryTableStorage;
+import org.apache.ignite.internal.storage.pagememory.index.hash.PageMemoryHashIndexStorage;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
+import org.apache.ignite.internal.storage.pagememory.index.sorted.PageMemorySortedIndexStorage;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -106,5 +108,28 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
     @Override
     public void committedGroupConfiguration(RaftGroupConfiguration config) {
         this.groupConfig = config;
+    }
+
+    @Override
+    public void close() {
+        if (!STARTED.compareAndSet(this, true, false)) {
+            return;
+        }
+
+        closeBusyLock.block();
+
+        versionChainTree.close();
+        indexMetaTree.close();
+
+        for (PageMemoryHashIndexStorage hashIndexStorage : hashIndexes.values()) {
+            hashIndexStorage.close();
+        }
+
+        for (PageMemorySortedIndexStorage sortedIndexStorage : sortedIndexes.values()) {
+            sortedIndexStorage.close();
+        }
+
+        hashIndexes.clear();
+        sortedIndexes.clear();
     }
 }

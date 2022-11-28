@@ -32,7 +32,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
-import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import org.apache.calcite.sql.SqlBasicCall;
 import org.apache.calcite.sql.SqlIdentifier;
@@ -42,9 +41,7 @@ import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.ddl.SqlColumnDeclaration;
 import org.apache.calcite.sql.ddl.SqlKeyConstraint;
 import org.apache.calcite.sql.parser.SqlParseException;
-import org.apache.calcite.sql.parser.SqlParser;
 import org.apache.calcite.sql.pretty.SqlPrettyWriter;
-import org.apache.ignite.internal.generated.query.calcite.sql.IgniteSqlParserImpl;
 import org.hamcrest.CustomMatcher;
 import org.hamcrest.Matcher;
 import org.junit.jupiter.api.Test;
@@ -52,7 +49,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Test suite to verify parsing of the DDL command.
  */
-public class SqlDdlParserTest {
+public class SqlDdlParserTest extends AbstractDdlParserTest {
     /**
      * Very simple case where only table name and a few columns are presented.
      */
@@ -545,18 +542,6 @@ public class SqlDdlParserTest {
     }
 
     /**
-     * Parses a given statement and returns a resulting AST.
-     *
-     * @param stmt Statement to parse.
-     * @return An AST.
-     */
-    private static SqlNode parse(String stmt) throws SqlParseException {
-        SqlParser parser = SqlParser.create(stmt, SqlParser.config().withParserFactory(IgniteSqlParserImpl.FACTORY));
-
-        return parser.parseStmt();
-    }
-
-    /**
      * Matcher to verify name in the column declaration.
      *
      * @param name Expected name.
@@ -573,25 +558,7 @@ public class SqlDdlParserTest {
         };
     }
 
-    /**
-     * Matcher to verify that an object of the expected type and matches the given predicate.
-     *
-     * @param desc Description for this matcher.
-     * @param cls  Expected class to verify the object is instance of.
-     * @param pred Addition check that would be applied to the object.
-     * @return {@code true} in case the object if instance of the given class and matches the predicat.
-     */
-    private static <T> Matcher<T> ofTypeMatching(String desc, Class<T> cls, Predicate<T> pred) {
-        return new CustomMatcher<T>(desc) {
-            /** {@inheritDoc} */
-            @Override
-            public boolean matches(Object item) {
-                return item != null && cls.isAssignableFrom(item.getClass()) && pred.test((T) item);
-            }
-        };
-    }
-
-    private static void assertThatOptionPresent(List<SqlNode> optionList, String option, Object expVal) {
+    private void assertThatOptionPresent(List<SqlNode> optionList, String option, Object expVal) {
         assertThat(optionList, hasItem(ofTypeMatching(
                 option + "=" + expVal,
                 IgniteSqlCreateTableOption.class,

@@ -37,7 +37,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CyclicBarrier;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.LongAdder;
@@ -85,35 +84,34 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
     @Test
     public void testSingleKeyWriteLock() throws LockException {
         UUID txId1 = Timestamp.nextVersion().toUuid();
+        UUID txId2 = Timestamp.nextVersion().toUuid();
 
         LockKey key = new LockKey("test");
 
-        CompletableFuture<Lock> fut0 = lockManager.acquire(txId1, key, X);
+        CompletableFuture<Lock> fut0 = lockManager.acquire(txId2, key, X);
 
         assertTrue(fut0.isDone());
 
-        UUID txId2 = Timestamp.nextVersion().toUuid();
+        assertTrue(txId2.compareTo(txId1) > 0);
 
-        assertTrue(txId1.compareTo(txId2) < 0);
-
-        CompletableFuture<Lock> fut1 = lockManager.acquire(txId2, key, X);
+        CompletableFuture<Lock> fut1 = lockManager.acquire(txId1, key, X);
 
         assertFalse(fut1.isDone());
 
-        assertTrue(lockManager.waiter(key, txId1).locked());
-        assertFalse(lockManager.waiter(key, txId2).locked());
+        assertTrue(lockManager.waiter(key, txId2).locked());
+        assertFalse(lockManager.waiter(key, txId1).locked());
 
         lockManager.release(fut0.join());
 
         assertTrue(fut1.isDone());
 
-        assertNull(lockManager.waiter(key, txId1));
-        assertTrue(lockManager.waiter(key, txId2).locked());
+        assertNull(lockManager.waiter(key, txId2));
+        assertTrue(lockManager.waiter(key, txId1).locked());
 
         lockManager.release(fut1.join());
 
-        assertNull(lockManager.waiter(key, txId1));
         assertNull(lockManager.waiter(key, txId2));
+        assertNull(lockManager.waiter(key, txId1));
     }
 
     @Test
@@ -127,20 +125,20 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
         lockManager.acquire(txId0, key, S).join();
         lockManager.acquire(txId2, key, S).join();
 
-        CompletableFuture<Lock> fut2 = lockManager.acquire(txId2, key, X);
-        assertFalse(fut2.isDone());
-
         CompletableFuture<Lock> fut0 = lockManager.acquire(txId0, key, X);
-        fut0.get(10, TimeUnit.SECONDS);
+        assertFalse(fut0.isDone());
+
+        CompletableFuture<Lock> fut2 = lockManager.acquire(txId2, key, X);
+        assertTrue(fut2.isDone());
+        assertTrue(fut2.isCompletedExceptionally());
 
         CompletableFuture<Lock> fut1 = lockManager.acquire(txId1, key, S);
-        assertFalse(fut1.isDone());
-
-        assertFalse(fut2.isDone());
-        fut0.thenAccept(lock -> lockManager.release(lock));
-
         fut1.join();
-        expectConflict(fut2);
+
+        assertFalse(fut0.isDone());
+
+        lockManager.release(txId2, key, X);
+        fut0.thenAccept(lock -> lockManager.release(lock));
     }
 
     @Test
@@ -172,48 +170,48 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
         UUID txId1 = Timestamp.nextVersion().toUuid();
         UUID txId2 = Timestamp.nextVersion().toUuid();
         UUID txId3 = Timestamp.nextVersion().toUuid();
-        assertTrue(txId0.compareTo(txId1) < 0);
-        assertTrue(txId1.compareTo(txId2) < 0);
-        assertTrue(txId2.compareTo(txId3) < 0);
+        assertTrue(txId3.compareTo(txId2) > 0);
+        assertTrue(txId2.compareTo(txId1) > 0);
+        assertTrue(txId1.compareTo(txId0) > 0);
         LockKey key = new LockKey("test");
 
-        CompletableFuture<Lock> fut0 = lockManager.acquire(txId0, key, S);
-        assertTrue(fut0.isDone());
-
-        CompletableFuture<Lock> fut2 = lockManager.acquire(txId2, key, S);
-        assertTrue(fut2.isDone());
+        CompletableFuture<Lock> fut3 = lockManager.acquire(txId3, key, S);
+        assertTrue(fut3.isDone());
 
         CompletableFuture<Lock> fut1 = lockManager.acquire(txId1, key, S);
         assertTrue(fut1.isDone());
 
-        CompletableFuture<Lock> fut3 = lockManager.acquire(txId3, key, X);
-        assertFalse(fut3.isDone());
+        CompletableFuture<Lock> fut2 = lockManager.acquire(txId2, key, S);
+        assertTrue(fut2.isDone());
 
-        assertTrue(lockManager.waiter(key, txId0).locked());
-        assertTrue(lockManager.waiter(key, txId1).locked());
+        CompletableFuture<Lock> fut0 = lockManager.acquire(txId0, key, X);
+        assertFalse(fut0.isDone());
+
+        assertTrue(lockManager.waiter(key, txId3).locked());
         assertTrue(lockManager.waiter(key, txId2).locked());
-        assertFalse(lockManager.waiter(key, txId3).locked());
-
-        lockManager.release(fut2.join());
-
-        assertTrue(lockManager.waiter(key, txId0).locked());
         assertTrue(lockManager.waiter(key, txId1).locked());
-        assertNull(lockManager.waiter(key, txId2));
-        assertFalse(lockManager.waiter(key, txId3).locked());
-
-        lockManager.release(fut0.join());
-
-        assertNull(lockManager.waiter(key, txId0));
-        assertTrue(lockManager.waiter(key, txId1).locked());
-        assertNull(lockManager.waiter(key, txId2));
-        assertFalse(lockManager.waiter(key, txId3).locked());
+        assertFalse(lockManager.waiter(key, txId0).locked());
 
         lockManager.release(fut1.join());
 
-        assertNull(lockManager.waiter(key, txId0));
-        assertNull(lockManager.waiter(key, txId1));
-        assertNull(lockManager.waiter(key, txId2));
         assertTrue(lockManager.waiter(key, txId3).locked());
+        assertTrue(lockManager.waiter(key, txId2).locked());
+        assertNull(lockManager.waiter(key, txId1));
+        assertFalse(lockManager.waiter(key, txId0).locked());
+
+        lockManager.release(fut3.join());
+
+        assertNull(lockManager.waiter(key, txId3));
+        assertTrue(lockManager.waiter(key, txId2).locked());
+        assertNull(lockManager.waiter(key, txId1));
+        assertFalse(lockManager.waiter(key, txId0).locked());
+
+        lockManager.release(fut2.join());
+
+        assertNull(lockManager.waiter(key, txId3));
+        assertNull(lockManager.waiter(key, txId2));
+        assertNull(lockManager.waiter(key, txId1));
+        assertTrue(lockManager.waiter(key, txId0).locked());
     }
 
     @Test
@@ -223,10 +221,10 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
         LockKey key = new LockKey("test");
 
         // Lock in order
-        CompletableFuture<Lock> fut0 = lockManager.acquire(txId0, key, S);
+        CompletableFuture<Lock> fut0 = lockManager.acquire(txId1, key, S);
         assertTrue(fut0.isDone());
 
-        CompletableFuture<Lock> fut1 = lockManager.acquire(txId1, key, X);
+        CompletableFuture<Lock> fut1 = lockManager.acquire(txId0, key, X);
         assertFalse(fut1.isDone());
 
         lockManager.release(fut0.join());
@@ -237,11 +235,11 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
         assertTrue(lockManager.queue(key).isEmpty());
 
         // Lock not in order
-        fut0 = lockManager.acquire(txId1, key, S);
+        fut0 = lockManager.acquire(txId0, key, S);
         assertTrue(fut0.isDone());
 
         try {
-            lockManager.acquire(txId0, key, X).join();
+            lockManager.acquire(txId1, key, X).join();
 
             fail();
         } catch (CompletionException e) {
@@ -258,10 +256,10 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
         CompletableFuture<Lock> fut0 = lockManager.acquire(txId[1], key, S);
         assertTrue(fut0.isDone());
 
-        CompletableFuture<Lock> fut1 = lockManager.acquire(txId[2], key, X);
+        CompletableFuture<Lock> fut1 = lockManager.acquire(txId[0], key, X);
         assertFalse(fut1.isDone());
 
-        CompletableFuture<Lock> fut2 = lockManager.acquire(txId[0], key, S);
+        CompletableFuture<Lock> fut2 = lockManager.acquire(txId[2], key, S);
         assertTrue(fut2.isDone());
 
         lockManager.release(fut0.join());
@@ -278,16 +276,16 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
         LockKey key = new LockKey("test");
 
         // Lock in order
-        CompletableFuture<Lock> fut0 = lockManager.acquire(txId0, key, S);
+        CompletableFuture<Lock> fut0 = lockManager.acquire(txId1, key, S);
         assertTrue(fut0.isDone());
 
-        CompletableFuture<Lock> fut1 = lockManager.acquire(txId2, key, X);
+        CompletableFuture<Lock> fut1 = lockManager.acquire(txId0, key, X);
         assertFalse(fut1.isDone());
 
-        CompletableFuture<Lock> fut2 = lockManager.acquire(txId1, key, S);
+        CompletableFuture<Lock> fut2 = lockManager.acquire(txId2, key, S);
         assertTrue(fut2.isDone());
 
-        assertFalse(lockManager.waiter(key, txId2).locked());
+        assertFalse(lockManager.waiter(key, txId0).locked());
 
         lockManager.release(fut2.join());
         lockManager.release(fut0.join());
@@ -297,14 +295,14 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
 
     @Test
     public void testSingleKeyReadWriteConflict4() throws LockException {
-        UUID txId0 = Timestamp.nextVersion().toUuid();
         UUID txId1 = Timestamp.nextVersion().toUuid();
         final UUID txId2 = Timestamp.nextVersion().toUuid();
         UUID txId3 = Timestamp.nextVersion().toUuid();
+        UUID txId4 = Timestamp.nextVersion().toUuid();
         LockKey key = new LockKey("test");
 
-        CompletableFuture<Lock> fut0 = lockManager.acquire(txId0, key, S);
-        assertTrue(fut0.isDone());
+        CompletableFuture<Lock> fut4 = lockManager.acquire(txId4, key, S);
+        assertTrue(fut4.isDone());
 
         CompletableFuture<Lock> fut1 = lockManager.acquire(txId1, key, X);
         assertFalse(fut1.isDone());
@@ -322,29 +320,9 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
         UUID txId1 = Timestamp.nextVersion().toUuid();
         LockKey key = new LockKey("test");
 
-        lockManager.acquire(txId1, key, X).join();
+        lockManager.acquire(txId0, key, X).join();
 
-        expectConflict(lockManager.acquire(txId0, key, X));
-    }
-
-    @Test
-    public void testSingleKeyReadWriteConflict6() throws LockException {
-        UUID txId0 = Timestamp.nextVersion().toUuid();
-        UUID txId1 = Timestamp.nextVersion().toUuid();
-        LockKey key = new LockKey("test");
-
-        lockManager.acquire(txId0, key, S).join();
-
-        lockManager.acquire(txId1, key, S).join();
-
-        CompletableFuture<Lock> fut = lockManager.acquire(txId1, key, X);
-        assertFalse(fut.isDone());
-
-        Lock lock0 = lockManager.acquire(txId0, key, X).join();
-
-        lockManager.release(lock0);
-
-        expectConflict(fut);
+        expectConflict(lockManager.acquire(txId1, key, X));
     }
 
     @Test
@@ -378,8 +356,8 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
         lockModes.add(new IgniteBiTuple<>(X, IS));
 
         for (IgniteBiTuple<LockMode, LockMode> lockModePair : lockModes) {
-            CompletableFuture<Lock> fut0 = lockManager.acquire(txId1, key, lockModePair.get1());
-            CompletableFuture<Lock> fut1 = lockManager.acquire(txId0, key, lockModePair.get2());
+            CompletableFuture<Lock> fut0 = lockManager.acquire(txId0, key, lockModePair.get2());
+            CompletableFuture<Lock> fut1 = lockManager.acquire(txId1, key, lockModePair.get1());
 
             assertTrue(fut0.isDone());
             expectConflict(fut1);
@@ -401,11 +379,11 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
         CompletableFuture<Lock> fut0 = lockManager.acquire(txId1, key, X);
         assertTrue(fut0.isDone());
 
-        CompletableFuture<Lock> fut1 = lockManager.acquire(txId2, key, X);
+        CompletableFuture<Lock> fut1 = lockManager.acquire(txId0, key, X);
         assertFalse(fut1.isDone());
 
         try {
-            lockManager.acquire(txId0, key, X).join();
+            lockManager.acquire(txId2, key, X).join();
 
             fail();
         } catch (CompletionException e) {
@@ -421,14 +399,14 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
         LockKey key = new LockKey("test");
 
         // Lock in order
-        CompletableFuture<Lock> fut0 = lockManager.acquire(txId0, key, X);
-        assertTrue(fut0.isDone());
+        CompletableFuture<Lock> fut2 = lockManager.acquire(txId2, key, X);
+        assertTrue(fut2.isDone());
 
-        CompletableFuture<Lock> fut1 = lockManager.acquire(txId2, key, X);
+        CompletableFuture<Lock> fut1 = lockManager.acquire(txId1, key, X);
         assertFalse(fut1.isDone());
 
-        CompletableFuture<Lock> fut2 = lockManager.acquire(txId1, key, X);
-        assertFalse(fut2.isDone());
+        CompletableFuture<Lock> fut0 = lockManager.acquire(txId0, key, X);
+        assertFalse(fut0.isDone());
     }
 
     @Test
@@ -469,11 +447,11 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
         UUID txId1 = Timestamp.nextVersion().toUuid();
         LockKey key = new LockKey("test");
 
-        lockManager.acquire(txId1, key, S).join();
+        lockManager.acquire(txId0, key, S).join();
 
-        Lock lock = lockManager.acquire(txId0, key, S).join();
+        Lock lock = lockManager.acquire(txId1, key, S).join();
 
-        CompletableFuture<Lock> fut = lockManager.acquire(txId1, key, X);
+        CompletableFuture<Lock> fut = lockManager.acquire(txId0, key, X);
         assertFalse(fut.isDone());
 
         lockManager.release(lock);
@@ -495,7 +473,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
 
         lockManager.acquire(txId1, key, S).join();
 
-        expectConflict(lockManager.acquire(txId0, key, X));
+        expectConflict(lockManager.acquire(txId1, key, X));
     }
 
     @Test
@@ -509,13 +487,15 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
 
         lockManager.acquire(txId0, key, S).join();
 
-        lockManager.acquire(txId2, key, S).join();
+        Lock lock2 = lockManager.acquire(txId2, key, S).join();
 
-        try {
-            lockManager.acquire(txId1, key, X).join();
-        } catch (CompletionException e) {
-            // Expected.
-        }
+        CompletableFuture<?> fut1 = lockManager.acquire(txId1, key, X);
+
+        assertFalse(fut1.isDone());
+
+        lockManager.release(lock2);
+        assertTrue(fut1.isDone());
+        assertTrue(fut1.isCompletedExceptionally());
     }
 
     @Test
@@ -524,11 +504,11 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
         UUID txId1 = Timestamp.nextVersion().toUuid();
         LockKey key = new LockKey("test");
 
-        lockManager.acquire(txId1, key, S).join();
+        lockManager.acquire(txId0, key, S).join();
 
-        Lock lock = lockManager.acquire(txId0, key, S).join();
+        Lock lock = lockManager.acquire(txId1, key, S).join();
 
-        CompletableFuture<Lock> fut = lockManager.acquire(txId1, key, X);
+        CompletableFuture<Lock> fut = lockManager.acquire(txId0, key, X);
 
         assertFalse(fut.isDone());
 
@@ -637,17 +617,17 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
         lockModes.add(List.of(X, IS));
 
         for (List<LockMode> lockModes0 : lockModes) {
-            CompletableFuture<Lock> fut0 = lockManager.acquire(txId0, key, lockModes0.get(1));
-            CompletableFuture<Lock> fut1 = lockManager.acquire(txId1, key, lockModes0.get(0));
-
-            assertTrue(fut0.isDone());
-            assertFalse(fut1.isDone());
-
-            lockManager.release(fut0.join());
+            CompletableFuture<Lock> fut1 = lockManager.acquire(txId1, key, lockModes0.get(1));
+            CompletableFuture<Lock> fut0 = lockManager.acquire(txId0, key, lockModes0.get(0));
 
             assertTrue(fut1.isDone());
+            assertFalse(fut0.isDone());
 
             lockManager.release(fut1.join());
+
+            assertTrue(fut0.isDone());
+
+            lockManager.release(fut0.join());
         }
     }
 
@@ -801,23 +781,23 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
         UUID txId1 = Timestamp.nextVersion().toUuid();
         UUID txId2 = Timestamp.nextVersion().toUuid();
 
-        var tx1SharedLock = lockManager.acquire(txId1, key, S);
+        var tx1SharedLock = lockManager.acquire(txId2, key, S);
 
         assertTrue(tx1SharedLock.isDone());
 
-        var tx1ExclusiveLock = lockManager.acquire(txId1, key, X);
+        var tx1ExclusiveLock = lockManager.acquire(txId2, key, X);
 
         assertTrue(tx1ExclusiveLock.isDone());
 
-        var tx2SharedLock = lockManager.acquire(txId2, key, S);
+        var tx2SharedLock = lockManager.acquire(txId1, key, S);
 
         assertFalse(tx2SharedLock.isDone());
 
-        lockManager.release(txId1, key, X);
+        lockManager.release(txId2, key, X);
 
-        assertTrue(lockManager.locks(txId1).hasNext());
+        assertTrue(lockManager.locks(txId2).hasNext());
 
-        var lock = lockManager.locks(txId1).next();
+        var lock = lockManager.locks(txId2).next();
 
         assertSame(S, lock.lockMode());
 
@@ -831,23 +811,23 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
         UUID txId1 = Timestamp.nextVersion().toUuid();
         UUID txId2 = Timestamp.nextVersion().toUuid();
 
-        var tx1SharedLock = lockManager.acquire(txId1, key, S);
+        var tx1SharedLock = lockManager.acquire(txId2, key, S);
 
         assertTrue(tx1SharedLock.isDone());
 
-        var tx1ExclusiveLock = lockManager.acquire(txId1, key, X);
+        var tx1ExclusiveLock = lockManager.acquire(txId2, key, X);
 
         assertTrue(tx1ExclusiveLock.isDone());
 
-        var tx2SharedLock = lockManager.acquire(txId2, key, S);
+        var tx2SharedLock = lockManager.acquire(txId1, key, S);
 
         assertFalse(tx2SharedLock.isDone());
 
-        lockManager.release(txId1, key, S);
+        lockManager.release(txId2, key, S);
 
-        assertTrue(lockManager.locks(txId1).hasNext());
+        assertTrue(lockManager.locks(txId2).hasNext());
 
-        var lock = lockManager.locks(txId1).next();
+        var lock = lockManager.locks(txId2).next();
 
         assertSame(X, lock.lockMode());
 

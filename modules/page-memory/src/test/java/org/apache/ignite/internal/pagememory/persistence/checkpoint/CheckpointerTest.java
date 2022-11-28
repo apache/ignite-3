@@ -20,9 +20,11 @@ package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 import static java.lang.System.nanoTime;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointDirtyPages.DIRTY_PAGE_COMPARATOR;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointDirtyPages.EMPTY;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.FINISHED;
+import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.LOCK_RELEASED;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.LOCK_TAKEN;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageId;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
@@ -44,9 +46,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -63,8 +63,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointConfiguration;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
@@ -92,8 +90,6 @@ public class CheckpointerTest {
 
     private static PageIoRegistry ioRegistry;
 
-    private final IgniteLogger log = Loggers.forClass(CheckpointerTest.class);
-
     @InjectConfiguration("mock : {checkpointThreads=1, frequency=1000, frequencyDeviation=0}")
     private PageMemoryCheckpointConfiguration checkpointConfig;
 
@@ -112,7 +108,6 @@ public class CheckpointerTest {
     @Test
     void testStartAndStop() throws Exception {
         Checkpointer checkpointer = new Checkpointer(
-                log,
                 "test",
                 null,
                 null,
@@ -145,7 +140,6 @@ public class CheckpointerTest {
     @Test
     void testScheduleCheckpoint() {
         Checkpointer checkpointer = spy(new Checkpointer(
-                log,
                 "test",
                 null,
                 null,
@@ -249,7 +243,6 @@ public class CheckpointerTest {
         checkpointConfig.frequency().update(200L).get(100, MILLISECONDS);
 
         Checkpointer checkpointer = new Checkpointer(
-                log,
                 "test",
                 null,
                 null,
@@ -278,7 +271,6 @@ public class CheckpointerTest {
         checkpointConfig.frequency().update(100L).get(100, MILLISECONDS);
 
         Checkpointer checkpointer = spy(new Checkpointer(
-                log,
                 "test",
                 null,
                 null,
@@ -366,7 +358,6 @@ public class CheckpointerTest {
         Compactor compactor = mock(Compactor.class);
 
         Checkpointer checkpointer = spy(new Checkpointer(
-                log,
                 "test",
                 null,
                 null,
@@ -381,7 +372,7 @@ public class CheckpointerTest {
 
         verify(dirtyPages, times(1)).toDirtyPageIdQueue();
         verify(checkpointer, times(1)).startCheckpointProgress();
-        verify(compactor, times(1)).addDeltaFiles(eq(1));
+        verify(compactor, times(1)).triggerCompaction();
 
         assertEquals(checkpointer.lastCheckpointProgress().currentCheckpointPagesCount(), 3);
 
@@ -395,7 +386,6 @@ public class CheckpointerTest {
         Compactor compactor = mock(Compactor.class);
 
         Checkpointer checkpointer = spy(new Checkpointer(
-                log,
                 "test",
                 null,
                 null,
@@ -410,7 +400,7 @@ public class CheckpointerTest {
 
         verify(dirtyPages, never()).toDirtyPageIdQueue();
         verify(checkpointer, times(1)).startCheckpointProgress();
-        verify(compactor, never()).addDeltaFiles(anyInt());
+        verify(compactor, never()).triggerCompaction();
 
         assertEquals(checkpointer.lastCheckpointProgress().currentCheckpointPagesCount(), 0);
 
@@ -420,7 +410,6 @@ public class CheckpointerTest {
     @Test
     void testNextCheckpointInterval() throws Exception {
         Checkpointer checkpointer = new Checkpointer(
-                log,
                 "test",
                 null,
                 null,
@@ -456,6 +445,46 @@ public class CheckpointerTest {
                 checkpointer.nextCheckpointInterval(),
                 allOf(greaterThanOrEqualTo(1_800L), lessThanOrEqualTo(2_200L))
         );
+    }
+
+    @Test
+    void testPrepareToDestroyPartition() throws Exception {
+        Checkpointer checkpointer = new Checkpointer(
+                "test",
+                null,
+                null,
+                mock(CheckpointWorkflow.class),
+                mock(CheckpointPagesWriterFactory.class),
+                mock(FilePageStoreManager.class),
+                mock(Compactor.class),
+                checkpointConfig
+        );
+
+        GroupPartitionId groupPartitionId = new GroupPartitionId(0, 0);
+
+        // Everything should be fine as there is no current running checkpoint.
+        checkpointer.prepareToDestroyPartition(groupPartitionId).get(1, SECONDS);
+
+        CheckpointProgressImpl checkpointProgress = (CheckpointProgressImpl) checkpointer.scheduledProgress();
+
+        checkpointer.startCheckpointProgress();
+
+        checkpointer.prepareToDestroyPartition(groupPartitionId).get(1, SECONDS);
+
+        checkpointProgress.transitTo(LOCK_RELEASED);
+        assertTrue(checkpointProgress.inProgress());
+
+        // Everything should be fine so on a "working" checkpoint we don't process the partition anyhow.
+        checkpointer.prepareToDestroyPartition(groupPartitionId).get(1, SECONDS);
+
+        // Let's emulate that we are processing a partition and check that everything will be fine after processing is completed.
+        checkpointProgress.onStartPartitionProcessing(groupPartitionId);
+
+        CompletableFuture<?> onPartitionDestructionFuture = checkpointer.prepareToDestroyPartition(groupPartitionId);
+
+        checkpointProgress.onFinishPartitionProcessing(groupPartitionId);
+
+        onPartitionDestructionFuture.get(1, SECONDS);
     }
 
     private CheckpointDirtyPages dirtyPages(PersistentPageMemory pageMemory, FullPageId... pageIds) {
@@ -501,7 +530,6 @@ public class CheckpointerTest {
 
     private CheckpointPagesWriterFactory createCheckpointPagesWriterFactory(PartitionMetaManager partitionMetaManager) {
         return new CheckpointPagesWriterFactory(
-                log,
                 mock(WriteDirtyPage.class),
                 ioRegistry,
                 partitionMetaManager,
@@ -509,11 +537,10 @@ public class CheckpointerTest {
         );
     }
 
-    private static FilePageStoreManager createFilePageStoreManager(Map<GroupPartitionId, FilePageStore> pageStores) throws Exception {
+    private static FilePageStoreManager createFilePageStoreManager(Map<GroupPartitionId, FilePageStore> pageStores) {
         FilePageStoreManager manager = mock(FilePageStoreManager.class);
 
-        when(manager.getStore(anyInt(), anyInt()))
-                .then(answer -> pageStores.get(new GroupPartitionId(answer.getArgument(0), answer.getArgument(1))));
+        when(manager.getStore(any(GroupPartitionId.class))).then(answer -> pageStores.get(answer.getArgument(0)));
 
         return manager;
     }

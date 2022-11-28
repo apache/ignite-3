@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed.raft.snapshot;
 
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
@@ -74,12 +75,11 @@ public class PartitionAccessImpl implements PartitionAccess {
     }
 
     @Override
-    public MvPartitionStorage reCreateMvPartitionStorage() throws StorageException {
+    public CompletableFuture<MvPartitionStorage> reCreateMvPartitionStorage() throws StorageException {
         assert mvTableStorage.getMvPartition(partId()) != null : "table=" + tableName() + ", part=" + partId();
 
-        mvTableStorage.destroyPartition(partId());
-
-        return mvTableStorage.getOrCreateMvPartition(partId());
+        return mvTableStorage.destroyPartition(partId())
+                .thenApply(unused -> mvTableStorage.getOrCreateMvPartition(partId()));
     }
 
     @Override

@@ -195,8 +195,8 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
             return completedFuture(null);
         }
 
-        return CompletableFuture.supplyAsync(() -> partitionSnapshotStorage.partition().reCreateMvPartitionStorage(), executor)
-                .thenCompose(mvPartitionStorage -> {
+        return partitionSnapshotStorage.partition().reCreateMvPartitionStorage()
+                .thenComposeAsync(mvPartitionStorage -> {
                     if (canceled) {
                         return completedFuture(null);
                     }
@@ -210,7 +210,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
                     LOG.info("Copier prepared multi-versioned storage for the partition [partId={}, tableId={}]", partId(), tableId());
 
                     return completedFuture(null);
-                });
+                }, executor);
     }
 
     /**

@@ -187,13 +187,15 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
     void testAccessLockedKeyTimesOut() {
         KeyValueView<Integer, String> kvView = kvView();
 
-        Transaction tx = client().transactions().begin();
-        kvView.put(tx, -100, "1");
+        Transaction tx1 = client().transactions().begin();
+        Transaction tx2 = client().transactions().begin();
 
-        var ex = assertThrows(IgniteException.class, () -> kvView.get(null, -100));
+        kvView.put(tx2, -100, "1");
+
+        var ex = assertThrows(IgniteException.class, () -> kvView.get(tx1, -100));
         assertThat(ex.getMessage(), containsString("TimeoutException"));
 
-        tx.rollback();
+        tx2.rollback();
     }
 
     @Test

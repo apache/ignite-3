@@ -20,7 +20,10 @@ package org.apache.ignite.internal.storage.pagememory.mv;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.getByInternalId;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
 
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.VarHandle;
 import java.nio.ByteBuffer;
+import java.util.Iterator;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.UUID;
@@ -46,6 +49,7 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.StorageClosedException;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.TxIdMismatchException;
 import org.apache.ignite.internal.storage.index.HashIndexDescriptor;
@@ -61,18 +65,27 @@ import org.apache.ignite.internal.storage.pagememory.index.sorted.PageMemorySort
 import org.apache.ignite.internal.storage.pagememory.index.sorted.SortedIndexTree;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.CursorUtils;
+import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Abstract implementation of {@link MvPartitionStorage} using Page Memory.
- *
- * @see MvPartitionStorage
+ * Abstract implementation of partition storage using Page Memory.
  */
 public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitionStorage {
     private static final byte[] TOMBSTONE_PAYLOAD = new byte[0];
 
     private static final Predicate<HybridTimestamp> ALWAYS_LOAD_VALUE = timestamp -> true;
+
+    protected static final VarHandle STARTED;
+
+    static {
+        try {
+            STARTED = MethodHandles.lookup().findVarHandle(AbstractPageMemoryMvPartitionStorage.class, "started", boolean.class);
+        } catch (ReflectiveOperationException e) {
+            throw new ExceptionInInitializerError(e);
+        }
+    }
 
     protected final int partitionId;
 
@@ -95,6 +108,13 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     protected final ConcurrentMap<UUID, PageMemoryHashIndexStorage> hashIndexes = new ConcurrentHashMap<>();
 
     protected final ConcurrentMap<UUID, PageMemorySortedIndexStorage> sortedIndexes = new ConcurrentHashMap<>();
+
+    /** Busy lock for synchronous closing. */
+    protected final IgniteSpinBusyLock closeBusyLock = new IgniteSpinBusyLock();
+
+    /** To avoid double closure. */
+    @SuppressWarnings("unused")
+    private volatile boolean started;
 
     /**
      * Constructor.
@@ -137,8 +157,11 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
      * Starts a partition by initializing its internal structures.
      */
     public void start() {
-        try (Cursor<IndexMeta> cursor = indexMetaTree.find(null, null)) {
+        if (!closeBusyLock.enterBusy()) {
+            throwStorageClosedException();
+        }
 
+        try (Cursor<IndexMeta> cursor = indexMetaTree.find(null, null)) {
             NamedListView<TableIndexView> indexesCfgView = tablesConfiguration.indexes().value();
 
             while (cursor.hasNext()) {
@@ -158,7 +181,18 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
             }
         } catch (Exception e) {
             throw new StorageException("Failed to process SQL indexes during the partition start", e);
+        } finally {
+            closeBusyLock.leaveBusy();
         }
+
+        started = true;
+    }
+
+    /**
+     * Returns the partition ID.
+     */
+    public int partitionId() {
+        return partitionId;
     }
 
     /**
@@ -167,7 +201,15 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
      * @param indexId Index UUID.
      */
     public PageMemoryHashIndexStorage getOrCreateHashIndex(UUID indexId) {
-        return hashIndexes.computeIfAbsent(indexId, uuid -> createOrRestoreHashIndex(new IndexMeta(indexId, 0L)));
+        if (!closeBusyLock.enterBusy()) {
+            throwStorageClosedException();
+        }
+
+        try {
+            return hashIndexes.computeIfAbsent(indexId, uuid -> createOrRestoreHashIndex(new IndexMeta(indexId, 0L)));
+        } finally {
+            closeBusyLock.leaveBusy();
+        }
     }
 
     /**
@@ -176,7 +218,15 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
      * @param indexId Index UUID.
      */
     public PageMemorySortedIndexStorage getOrCreateSortedIndex(UUID indexId) {
-        return sortedIndexes.computeIfAbsent(indexId, uuid -> createOrRestoreSortedIndex(new IndexMeta(indexId, 0L)));
+        if (!closeBusyLock.enterBusy()) {
+            throwStorageClosedException();
+        }
+
+        try {
+            return sortedIndexes.computeIfAbsent(indexId, uuid -> createOrRestoreSortedIndex(new IndexMeta(indexId, 0L)));
+        } finally {
+            closeBusyLock.leaveBusy();
+        }
     }
 
     private PageMemoryHashIndexStorage createOrRestoreHashIndex(IndexMeta indexMeta) {
@@ -259,21 +309,29 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
     @Override
     public ReadResult read(RowId rowId, HybridTimestamp timestamp) throws StorageException {
-        if (rowId.partitionId() != partitionId) {
-            throw new IllegalArgumentException(
-                    String.format("RowId partition [%d] is not equal to storage partition [%d].", rowId.partitionId(), partitionId));
+        if (!closeBusyLock.enterBusy()) {
+            throwStorageClosedException();
         }
 
-        VersionChain versionChain = findVersionChain(rowId);
+        try {
+            if (rowId.partitionId() != partitionId) {
+                throw new IllegalArgumentException(
+                        String.format("RowId partition [%d] is not equal to storage partition [%d].", rowId.partitionId(), partitionId));
+            }
 
-        if (versionChain == null) {
-            return ReadResult.EMPTY;
-        }
+            VersionChain versionChain = findVersionChain(rowId);
 
-        if (lookingForLatestVersion(timestamp)) {
-            return findLatestRowVersion(versionChain);
-        } else {
-            return findRowVersionByTimestamp(versionChain, timestamp);
+            if (versionChain == null) {
+                return ReadResult.EMPTY;
+            }
+
+            if (lookingForLatestVersion(timestamp)) {
+                return findLatestRowVersion(versionChain);
+            } else {
+                return findRowVersionByTimestamp(versionChain, timestamp);
+            }
+        } finally {
+            closeBusyLock.leaveBusy();
         }
     }
 
@@ -316,7 +374,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         try {
             rowVersionDataPageReader.traverse(nextLink, read, loadValue);
         } catch (IgniteInternalCheckedException e) {
-            throw new StorageException("Row version lookup failed");
+            throw new StorageException("Row version lookup failed", e);
         }
 
         return read.result();
@@ -465,74 +523,90 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
             throws TxIdMismatchException, StorageException {
         assert rowId.partitionId() == partitionId : rowId;
 
-        VersionChain currentChain = findVersionChain(rowId);
-
-        if (currentChain == null) {
-            RowVersion newVersion = insertRowVersion(row, NULL_LINK);
-
-            VersionChain versionChain = VersionChain.createUncommitted(rowId, txId, commitTableId, commitPartitionId, newVersion.link(),
-                    NULL_LINK);
-
-            updateVersionChain(versionChain);
-
-            return null;
+        if (!closeBusyLock.enterBusy()) {
+            throwStorageClosedException();
         }
 
-        if (currentChain.isUncommitted()) {
-            throwIfChainBelongsToAnotherTx(currentChain, txId);
+        try {
+            VersionChain currentChain = findVersionChain(rowId);
+
+            if (currentChain == null) {
+                RowVersion newVersion = insertRowVersion(row, NULL_LINK);
+
+                VersionChain versionChain = VersionChain.createUncommitted(rowId, txId, commitTableId, commitPartitionId, newVersion.link(),
+                        NULL_LINK);
+
+                updateVersionChain(versionChain);
+
+                return null;
+            }
+
+            if (currentChain.isUncommitted()) {
+                throwIfChainBelongsToAnotherTx(currentChain, txId);
+            }
+
+            RowVersion newVersion = insertRowVersion(row, currentChain.newestCommittedLink());
+
+            BinaryRow res = null;
+
+            if (currentChain.isUncommitted()) {
+                RowVersion currentVersion = readRowVersion(currentChain.headLink(), ALWAYS_LOAD_VALUE);
+
+                res = rowVersionToBinaryRow(currentVersion);
+
+                // as we replace an uncommitted version with new one, we need to remove old uncommitted version
+                removeRowVersion(currentVersion);
+            }
+
+            VersionChain chainReplacement = VersionChain.createUncommitted(rowId, txId, commitTableId, commitPartitionId, newVersion.link(),
+                    newVersion.nextLink());
+
+            updateVersionChain(chainReplacement);
+
+            return res;
+        } finally {
+            closeBusyLock.leaveBusy();
         }
-
-        RowVersion newVersion = insertRowVersion(row, currentChain.newestCommittedLink());
-
-        BinaryRow res = null;
-
-        if (currentChain.isUncommitted()) {
-            RowVersion currentVersion = readRowVersion(currentChain.headLink(), ALWAYS_LOAD_VALUE);
-
-            res = rowVersionToBinaryRow(currentVersion);
-
-            // as we replace an uncommitted version with new one, we need to remove old uncommitted version
-            removeRowVersion(currentVersion);
-        }
-
-        VersionChain chainReplacement = VersionChain.createUncommitted(rowId, txId, commitTableId, commitPartitionId, newVersion.link(),
-                newVersion.nextLink());
-
-        updateVersionChain(chainReplacement);
-
-        return res;
     }
 
     @Override
     public @Nullable BinaryRow abortWrite(RowId rowId) throws StorageException {
         assert rowId.partitionId() == partitionId : rowId;
 
-        VersionChain currentVersionChain = findVersionChain(rowId);
-
-        if (currentVersionChain == null || currentVersionChain.transactionId() == null) {
-            // Row doesn't exist or the chain doesn't contain an uncommitted write intent.
-            return null;
+        if (!closeBusyLock.enterBusy()) {
+            throwStorageClosedException();
         }
 
-        RowVersion latestVersion = readRowVersion(currentVersionChain.headLink(), ALWAYS_LOAD_VALUE);
+        try {
+            VersionChain currentVersionChain = findVersionChain(rowId);
 
-        assert latestVersion.isUncommitted();
+            if (currentVersionChain == null || currentVersionChain.transactionId() == null) {
+                // Row doesn't exist or the chain doesn't contain an uncommitted write intent.
+                return null;
+            }
 
-        removeRowVersion(latestVersion);
+            RowVersion latestVersion = readRowVersion(currentVersionChain.headLink(), ALWAYS_LOAD_VALUE);
 
-        if (latestVersion.hasNextLink()) {
-            // Next can be safely replaced with any value (like 0), because this field is only used when there
-            // is some uncommitted value, but when we add an uncommitted value, we 'fix' such placeholder value
-            // (like 0) by replacing it with a valid value.
-            VersionChain versionChainReplacement = VersionChain.createCommitted(rowId, latestVersion.nextLink(), NULL_LINK);
+            assert latestVersion.isUncommitted();
 
-            updateVersionChain(versionChainReplacement);
-        } else {
-            // it was the only version, let's remove the chain as well
-            removeVersionChain(currentVersionChain);
+            removeRowVersion(latestVersion);
+
+            if (latestVersion.hasNextLink()) {
+                // Next can be safely replaced with any value (like 0), because this field is only used when there
+                // is some uncommitted value, but when we add an uncommitted value, we 'fix' such placeholder value
+                // (like 0) by replacing it with a valid value.
+                VersionChain versionChainReplacement = VersionChain.createCommitted(rowId, latestVersion.nextLink(), NULL_LINK);
+
+                updateVersionChain(versionChainReplacement);
+            } else {
+                // it was the only version, let's remove the chain as well
+                removeVersionChain(currentVersionChain);
+            }
+
+            return rowVersionToBinaryRow(latestVersion);
+        } finally {
+            closeBusyLock.leaveBusy();
         }
-
-        return rowVersionToBinaryRow(latestVersion);
     }
 
     private void removeVersionChain(VersionChain currentVersionChain) {
@@ -547,31 +621,39 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     public void commitWrite(RowId rowId, HybridTimestamp timestamp) throws StorageException {
         assert rowId.partitionId() == partitionId : rowId;
 
-        VersionChain currentVersionChain = findVersionChain(rowId);
-
-        if (currentVersionChain == null || currentVersionChain.transactionId() == null) {
-            // Row doesn't exist or the chain doesn't contain an uncommitted write intent.
-            return;
-        }
-
-        long chainLink = currentVersionChain.headLink();
-
-        try {
-            rowVersionFreeList.updateTimestamp(chainLink, timestamp);
-        } catch (IgniteInternalCheckedException e) {
-            throw new StorageException("Cannot update timestamp", e);
+        if (!closeBusyLock.enterBusy()) {
+            throwStorageClosedException();
         }
 
         try {
-            VersionChain updatedVersionChain = VersionChain.createCommitted(
-                    currentVersionChain.rowId(),
-                    currentVersionChain.headLink(),
-                    currentVersionChain.nextLink()
-            );
+            VersionChain currentVersionChain = findVersionChain(rowId);
 
-            versionChainTree.putx(updatedVersionChain);
-        } catch (IgniteInternalCheckedException e) {
-            throw new StorageException("Cannot update transaction ID", e);
+            if (currentVersionChain == null || currentVersionChain.transactionId() == null) {
+                // Row doesn't exist or the chain doesn't contain an uncommitted write intent.
+                return;
+            }
+
+            long chainLink = currentVersionChain.headLink();
+
+            try {
+                rowVersionFreeList.updateTimestamp(chainLink, timestamp);
+            } catch (IgniteInternalCheckedException e) {
+                throw new StorageException("Cannot update timestamp", e);
+            }
+
+            try {
+                VersionChain updatedVersionChain = VersionChain.createCommitted(
+                        currentVersionChain.rowId(),
+                        currentVersionChain.headLink(),
+                        currentVersionChain.nextLink()
+                );
+
+                versionChainTree.putx(updatedVersionChain);
+            } catch (IgniteInternalCheckedException e) {
+                throw new StorageException("Cannot update transaction ID", e);
+            }
+        } finally {
+            closeBusyLock.leaveBusy();
         }
     }
 
@@ -587,7 +669,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         try {
             versionChainTree.putx(newVersionChain);
         } catch (IgniteInternalCheckedException e) {
-            throw new StorageException("Cannot update version chain");
+            throw new StorageException("Cannot update version chain", e);
         }
     }
 
@@ -595,20 +677,28 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     public void addWriteCommitted(RowId rowId, BinaryRow row, HybridTimestamp commitTimestamp) throws StorageException {
         assert rowId.partitionId() == partitionId : rowId;
 
-        VersionChain currentChain = findVersionChain(rowId);
-
-        if (currentChain != null && currentChain.isUncommitted()) {
-            // This means that there is a bug in our code as the caller must make sure that no write intent exists
-            // below this write.
-            throw new StorageException("Write intent exists for " + rowId);
+        if (!closeBusyLock.enterBusy()) {
+            throwStorageClosedException();
         }
 
-        long nextLink = currentChain == null ? NULL_LINK : currentChain.newestCommittedLink();
-        RowVersion newVersion = insertCommittedRowVersion(row, commitTimestamp, nextLink);
+        try {
+            VersionChain currentChain = findVersionChain(rowId);
 
-        VersionChain chainReplacement = VersionChain.createCommitted(rowId, newVersion.link(), newVersion.nextLink());
+            if (currentChain != null && currentChain.isUncommitted()) {
+                // This means that there is a bug in our code as the caller must make sure that no write intent exists
+                // below this write.
+                throw new StorageException("Write intent exists for " + rowId);
+            }
 
-        updateVersionChain(chainReplacement);
+            long nextLink = currentChain == null ? NULL_LINK : currentChain.newestCommittedLink();
+            RowVersion newVersion = insertCommittedRowVersion(row, commitTimestamp, nextLink);
+
+            VersionChain chainReplacement = VersionChain.createCommitted(rowId, newVersion.link(), newVersion.nextLink());
+
+            updateVersionChain(chainReplacement);
+        } finally {
+            closeBusyLock.leaveBusy();
+        }
     }
 
     private RowVersion insertCommittedRowVersion(BinaryRow row, HybridTimestamp commitTimestamp, long nextPartitionlessLink) {
@@ -623,6 +713,10 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
     @Override
     public Cursor<ReadResult> scanVersions(RowId rowId) throws StorageException {
+        if (!closeBusyLock.enterBusy()) {
+            throwStorageClosedException();
+        }
+
         try {
             VersionChain versionChain = versionChainTree.findOne(new VersionChainKey(rowId));
 
@@ -632,16 +726,33 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
             RowVersion head = readRowVersion(versionChain.headLink(), ALWAYS_LOAD_VALUE);
 
-            Stream<RowVersion> stream = Stream.iterate(head, Objects::nonNull, rowVersion ->
-                    rowVersion.nextLink() == 0 ? null : readRowVersion(rowVersion.nextLink(), ALWAYS_LOAD_VALUE)
-            );
+            Iterator<ReadResult> iterator = Stream.iterate(
+                            head,
+                            Objects::nonNull,
+                            rowVersion -> {
+                                if (!closeBusyLock.enterBusy()) {
+                                    throwStorageClosedException();
+                                }
 
-            return Cursor.fromBareIterator(
-                    stream.map(rowVersion -> rowVersionToResultNotFillingLastCommittedTs(versionChain, rowVersion))
-                            .iterator()
-            );
+                                try {
+                                    if (rowVersion.nextLink() == 0) {
+                                        return null;
+                                    }
+
+                                    return readRowVersion(rowVersion.nextLink(), ALWAYS_LOAD_VALUE);
+                                } finally {
+                                    closeBusyLock.leaveBusy();
+                                }
+                            }
+                    )
+                    .map(rowVersion -> rowVersionToResultNotFillingLastCommittedTs(versionChain, rowVersion))
+                    .iterator();
+
+            return Cursor.fromBareIterator(iterator);
         } catch (IgniteInternalCheckedException e) {
-            throw new RuntimeException(e);
+            throw new StorageException(e);
+        } finally {
+            closeBusyLock.leaveBusy();
         }
     }
 
@@ -655,62 +766,65 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
                     row,
                     versionChain.transactionId(),
                     versionChain.commitTableId(),
-                    versionChain.commitPartitionId(), null
+                    versionChain.commitPartitionId(),
+                    null
             );
         }
     }
 
     @Override
     public PartitionTimestampCursor scan(HybridTimestamp timestamp) throws StorageException {
-        Objects.requireNonNull(timestamp, "timestamp is null");
-
-        Cursor<VersionChain> treeCursor;
-
-        try {
-            treeCursor = versionChainTree.find(null, null);
-        } catch (IgniteInternalCheckedException e) {
-            throw new StorageException("Find failed", e);
+        if (!closeBusyLock.enterBusy()) {
+            throwStorageClosedException();
         }
 
-        if (lookingForLatestVersion(timestamp)) {
-            return new LatestVersionsCursor(treeCursor);
-        } else {
-            return new TimestampCursor(treeCursor, timestamp);
+        try {
+            Cursor<VersionChain> treeCursor;
+
+            try {
+                treeCursor = versionChainTree.find(null, null);
+            } catch (IgniteInternalCheckedException e) {
+                throw new StorageException("Find failed", e);
+            }
+
+            if (lookingForLatestVersion(timestamp)) {
+                return new LatestVersionsCursor(treeCursor);
+            } else {
+                return new TimestampCursor(treeCursor, timestamp);
+            }
+        } finally {
+            closeBusyLock.leaveBusy();
         }
     }
 
     @Override
     public @Nullable RowId closestRowId(RowId lowerBound) throws StorageException {
+        if (!closeBusyLock.enterBusy()) {
+            throwStorageClosedException();
+        }
+
         try (Cursor<VersionChain> cursor = versionChainTree.find(new VersionChainKey(lowerBound), null)) {
             return cursor.hasNext() ? cursor.next().rowId() : null;
         } catch (Exception e) {
             throw new StorageException("Error occurred while trying to read a row id", e);
+        } finally {
+            closeBusyLock.leaveBusy();
         }
     }
 
     @Override
     public long rowsCount() {
+        if (!closeBusyLock.enterBusy()) {
+            throwStorageClosedException();
+        }
+
         try {
             return versionChainTree.size();
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException("Error occurred while fetching the size.", e);
+        } finally {
+            closeBusyLock.leaveBusy();
         }
-    }
-
-    @Override
-    public void close() {
-        versionChainTree.close();
-
-        indexMetaTree.close();
-    }
-
-    /**
-     * Removes all data from this storage and frees all associated resources.
-     *
-     * @throws StorageException If failed to destroy the data or storage is already stopped.
-     */
-    public void destroy() {
-        // TODO: IGNITE-17132 Implement it
     }
 
     private abstract class BasePartitionTimestampCursor implements PartitionTimestampCursor {
@@ -748,23 +862,32 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
         @Override
         public @Nullable BinaryRow committed(HybridTimestamp timestamp) {
-            if (currentChain == null) {
-                throw new IllegalStateException();
+            if (!closeBusyLock.enterBusy()) {
+                throwStorageClosedException();
             }
 
-            ReadResult result = findRowVersionByTimestamp(currentChain, timestamp);
-            if (result.isEmpty()) {
-                return null;
-            }
+            try {
+                if (currentChain == null) {
+                    throw new IllegalStateException();
+                }
 
-            // We don't check if row conforms the key filter here, because we've already checked it.
-            return result.binaryRow();
+                ReadResult result = findRowVersionByTimestamp(currentChain, timestamp);
+
+                if (result.isEmpty()) {
+                    return null;
+                }
+
+                // We don't check if row conforms the key filter here, because we've already checked it.
+                return result.binaryRow();
+            } finally {
+                closeBusyLock.leaveBusy();
+            }
         }
     }
 
     /**
-     * Implementation of the {@link PartitionTimestampCursor} over the page memory storage.
-     * See {@link PartitionTimestampCursor} for the details on the API.
+     * Implementation of the {@link PartitionTimestampCursor} over the page memory storage. See {@link PartitionTimestampCursor} for the
+     * details on the API.
      */
     private class TimestampCursor extends BasePartitionTimestampCursor {
         private final HybridTimestamp timestamp;
@@ -790,31 +913,39 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
             currentChain = null;
 
             while (true) {
-                if (!treeCursor.hasNext()) {
-                    iterationExhausted = true;
-
-                    return false;
+                if (!closeBusyLock.enterBusy()) {
+                    throwStorageClosedException();
                 }
 
-                VersionChain chain = treeCursor.next();
-                ReadResult result = findRowVersionByTimestamp(chain, timestamp);
+                try {
+                    if (!treeCursor.hasNext()) {
+                        iterationExhausted = true;
 
-                if (result.isEmpty() && !result.isWriteIntent()) {
-                    continue;
+                        return false;
+                    }
+
+                    VersionChain chain = treeCursor.next();
+                    ReadResult result = findRowVersionByTimestamp(chain, timestamp);
+
+                    if (result.isEmpty() && !result.isWriteIntent()) {
+                        continue;
+                    }
+
+                    nextRead = result;
+                    currentChain = chain;
+
+                    return true;
+                } finally {
+                    closeBusyLock.leaveBusy();
                 }
-
-                nextRead = result;
-                currentChain = chain;
-
-                return true;
             }
         }
     }
 
     /**
-     * Implementation of the cursor that iterates over the page memory storage with the respect to the transaction id.
-     * Scans the partition and returns a cursor of values. All filtered values must either be uncommitted in the current transaction
-     * or already committed in a different transaction.
+     * Implementation of the cursor that iterates over the page memory storage with the respect to the transaction id. Scans the partition
+     * and returns a cursor of values. All filtered values must either be uncommitted in the current transaction or already committed in a
+     * different transaction.
      */
     private class LatestVersionsCursor extends BasePartitionTimestampCursor {
         private boolean iterationExhausted = false;
@@ -834,23 +965,38 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
             }
 
             while (true) {
-                if (!treeCursor.hasNext()) {
-                    iterationExhausted = true;
-                    return false;
+                if (!closeBusyLock.enterBusy()) {
+                    throwStorageClosedException();
                 }
 
-                VersionChain chain = treeCursor.next();
-                ReadResult result = findLatestRowVersion(chain);
+                try {
+                    if (!treeCursor.hasNext()) {
+                        iterationExhausted = true;
+                        return false;
+                    }
 
-                if (result.isEmpty() && !result.isWriteIntent()) {
-                    continue;
+                    VersionChain chain = treeCursor.next();
+                    ReadResult result = findLatestRowVersion(chain);
+
+                    if (result.isEmpty() && !result.isWriteIntent()) {
+                        continue;
+                    }
+
+                    nextRead = result;
+                    currentChain = chain;
+
+                    return true;
+                } finally {
+                    closeBusyLock.leaveBusy();
                 }
-
-                nextRead = result;
-                currentChain = chain;
-
-                return true;
             }
         }
+    }
+
+    /**
+     * Throws an exception that the storage is already closed.
+     */
+    protected void throwStorageClosedException() {
+        throw new StorageClosedException("Storage is already closed");
     }
 }

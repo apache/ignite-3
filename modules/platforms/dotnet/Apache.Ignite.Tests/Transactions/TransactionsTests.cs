@@ -159,17 +159,22 @@ namespace Apache.Ignite.Tests.Transactions
         [Test]
         public async Task TestClientDisconnectClosesActiveTransactions()
         {
+            await using var tx0 = await Client.Transactions.BeginAsync();
             await TupleView.UpsertAsync(null, GetTuple(1, "1"));
 
             using (var client2 = await IgniteClient.StartAsync(GetConfig()))
             {
                 var table = await client2.Tables.GetTableAsync(TableName);
-                var tx = await client2.Transactions.BeginAsync();
+                var tx1 = await client2.Transactions.BeginAsync();
 
-                await table!.RecordBinaryView.UpsertAsync(tx, GetTuple(1, "2"));
+                await table!.RecordBinaryView.UpsertAsync(tx1, GetTuple(1, "2"));
             }
 
-            Assert.AreEqual("1", (await TupleView.GetAsync(null, GetTuple(1))).Value[ValCol]);
+            // The code above is intentionally written in a way that we have no guarantee that the lock taken by tx1 is already released,
+            // as client2 is closed without rolling back tx1, forcing Ignite server to rollback tx1 in background. So we should check the
+            // value using transaction that is older than tx1, to make sure that the conflict on key 1 between tx0 and tx1 will not lead
+            // to exception.
+            Assert.AreEqual("1", (await TupleView.GetAsync(tx0, GetTuple(1))).Value[ValCol]);
         }
 
         [Test]

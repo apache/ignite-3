@@ -99,8 +99,9 @@ public interface NamedListChange<VIEWT, CHANGET extends VIEWT> extends NamedList
     NamedListChange<VIEWT, CHANGET> update(String key, Consumer<CHANGET> valConsumer);
 
     /**
-     * Renames the existing value in the named list configuration. Element with key {@code oldKey} must exist and key
-     * {@code newKey} must not. Error will occur if {@code newKey} has just been deleted on the same
+     * Renames the existing value in the named list configuration. Does nothing if {@code oldKey} and {@code newKey} are the same.
+     * Element with key {@code oldKey} must exist and key {@code newKey} must not.
+     * Error will occur if {@code newKey} has just been deleted on the same
      * {@link NamedListChange} instance (to distinguish between
      * {@link ConfigurationNamedListListener#onRename(String, String, ConfigurationNotificationEvent)} and
      * {@link ConfigurationNamedListListener#onUpdate(ConfigurationNotificationEvent)} on {@code newKey}).

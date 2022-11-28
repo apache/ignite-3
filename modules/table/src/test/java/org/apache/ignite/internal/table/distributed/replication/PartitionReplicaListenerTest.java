@@ -34,6 +34,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
@@ -287,40 +288,40 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     private void beforeTest() {
         localLeader = true;
         txState = null;
-        ((TestHashIndexStorage) pkStorage.get().storage()).destroy();
-        ((TestHashIndexStorage) hashIndexStorage.storage()).destroy();
-        ((TestSortedIndexStorage) sortedIndexStorage.storage()).destroy();
+        ((TestHashIndexStorage) pkStorage.get().storage()).clear();
+        ((TestHashIndexStorage) hashIndexStorage.storage()).clear();
+        ((TestSortedIndexStorage) sortedIndexStorage.storage()).clear();
     }
 
     @Test
-    public void testTxStateReplicaRequestEmptyState() {
-        CompletableFuture<Object> fut = partitionReplicaListener.invoke(TX_MESSAGES_FACTORY.txStateReplicaRequest()
+    public void testTxStateReplicaRequestEmptyState() throws Exception {
+        CompletableFuture<?> fut = partitionReplicaListener.invoke(TX_MESSAGES_FACTORY.txStateReplicaRequest()
                 .groupId(grpId)
                 .commitTimestamp(clock.now())
                 .txId(Timestamp.nextVersion().toUuid())
                 .build());
 
-        LeaderOrTxState tuple = (LeaderOrTxState) fut.join();
+        LeaderOrTxState tuple = (LeaderOrTxState) fut.get(1, TimeUnit.SECONDS);
 
         assertNull(tuple.leaderName());
         assertNull(tuple.txMeta());
     }
 
     @Test
-    public void testTxStateReplicaRequestCommitState() {
+    public void testTxStateReplicaRequestCommitState() throws Exception {
         UUID txId = Timestamp.nextVersion().toUuid();
 
         txStateStorage.put(txId, new TxMeta(TxState.COMMITED, Collections.singletonList(grpId), clock.now()));
 
         HybridTimestamp readTimestamp = clock.now();
 
-        CompletableFuture<Object> fut = partitionReplicaListener.invoke(TX_MESSAGES_FACTORY.txStateReplicaRequest()
+        CompletableFuture<?> fut = partitionReplicaListener.invoke(TX_MESSAGES_FACTORY.txStateReplicaRequest()
                 .groupId(grpId)
                 .commitTimestamp(readTimestamp)
                 .txId(txId)
                 .build());
 
-        LeaderOrTxState tuple = (LeaderOrTxState) fut.join();
+        LeaderOrTxState tuple = (LeaderOrTxState) fut.get(1, TimeUnit.SECONDS);
 
         assertEquals(TxState.COMMITED, tuple.txMeta().txState());
         assertTrue(readTimestamp.compareTo(tuple.txMeta().commitTimestamp()) > 0);
@@ -328,39 +329,39 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     @Test
-    public void testTxStateReplicaRequestMissLeaderMiss() {
+    public void testTxStateReplicaRequestMissLeaderMiss() throws Exception {
         localLeader = false;
 
-        CompletableFuture<Object> fut = partitionReplicaListener.invoke(TX_MESSAGES_FACTORY.txStateReplicaRequest()
+        CompletableFuture<?> fut = partitionReplicaListener.invoke(TX_MESSAGES_FACTORY.txStateReplicaRequest()
                 .groupId(grpId)
                 .commitTimestamp(clock.now())
                 .txId(Timestamp.nextVersion().toUuid())
                 .build());
 
-        LeaderOrTxState tuple = (LeaderOrTxState) fut.join();
+        LeaderOrTxState tuple = (LeaderOrTxState) fut.get(1, TimeUnit.SECONDS);
 
         assertNull(tuple.txMeta());
         assertNotNull(tuple.leaderName());
     }
 
     @Test
-    public void testReadOnlySingleRowReplicaRequestEmptyResult() {
+    public void testReadOnlySingleRowReplicaRequestEmptyResult() throws Exception {
         BinaryRow testBinaryKey = nextBinaryKey();
 
-        CompletableFuture fut = partitionReplicaListener.invoke(TABLE_MESSAGES_FACTORY.readOnlySingleRowReplicaRequest()
+        CompletableFuture<?> fut = partitionReplicaListener.invoke(TABLE_MESSAGES_FACTORY.readOnlySingleRowReplicaRequest()
                 .groupId(grpId)
                 .readTimestamp(clock.now())
                 .binaryRow(testBinaryKey)
                 .requestType(RequestType.RO_GET)
                 .build());
 
-        BinaryRow binaryRow = (BinaryRow) fut.join();
+        BinaryRow binaryRow = (BinaryRow) fut.get(1, TimeUnit.SECONDS);
 
         assertNull(binaryRow);
     }
 
     @Test
-    public void testReadOnlySingleRowReplicaRequestCommittedResult() {
+    public void testReadOnlySingleRowReplicaRequestCommittedResult() throws Exception {
         UUID txId = Timestamp.nextVersion().toUuid();
         BinaryRow testBinaryKey = nextBinaryKey();
         BinaryRow testBinaryRow = binaryRow(key(testBinaryKey), new TestValue(1, "v1"));
@@ -370,20 +371,20 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         testMvPartitionStorage.addWrite(rowId, testBinaryRow, txId, tblId, partId);
         testMvPartitionStorage.commitWrite(rowId, clock.now());
 
-        CompletableFuture fut = partitionReplicaListener.invoke(TABLE_MESSAGES_FACTORY.readOnlySingleRowReplicaRequest()
+        CompletableFuture<?> fut = partitionReplicaListener.invoke(TABLE_MESSAGES_FACTORY.readOnlySingleRowReplicaRequest()
                 .groupId(grpId)
                 .readTimestamp(clock.now())
                 .binaryRow(testBinaryKey)
                 .requestType(RequestType.RO_GET)
                 .build());
 
-        BinaryRow binaryRow = (BinaryRow) fut.join();
+        BinaryRow binaryRow = (BinaryRow) fut.get(1, TimeUnit.SECONDS);
 
         assertNotNull(binaryRow);
     }
 
     @Test
-    public void testReadOnlySingleRowReplicaRequestResolveWriteIntentCommitted() {
+    public void testReadOnlySingleRowReplicaRequestResolveWriteIntentCommitted() throws Exception {
         UUID txId = Timestamp.nextVersion().toUuid();
         BinaryRow testBinaryKey = nextBinaryKey();
         BinaryRow testBinaryRow = binaryRow(key(testBinaryKey), new TestValue(1, "v1"));
@@ -393,20 +394,20 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         pkStorage.get().put(testBinaryKey, rowId);
         testMvPartitionStorage.addWrite(rowId, testBinaryRow, txId, tblId, partId);
 
-        CompletableFuture fut = partitionReplicaListener.invoke(TABLE_MESSAGES_FACTORY.readOnlySingleRowReplicaRequest()
+        CompletableFuture<?> fut = partitionReplicaListener.invoke(TABLE_MESSAGES_FACTORY.readOnlySingleRowReplicaRequest()
                 .groupId(grpId)
                 .readTimestamp(clock.now())
                 .binaryRow(testBinaryKey)
                 .requestType(RequestType.RO_GET)
                 .build());
 
-        BinaryRow binaryRow = (BinaryRow) fut.join();
+        BinaryRow binaryRow = (BinaryRow) fut.get(1, TimeUnit.SECONDS);
 
         assertNotNull(binaryRow);
     }
 
     @Test
-    public void testReadOnlySingleRowReplicaRequestResolveWriteIntentPending() {
+    public void testReadOnlySingleRowReplicaRequestResolveWriteIntentPending() throws Exception {
         UUID txId = Timestamp.nextVersion().toUuid();
         BinaryRow testBinaryKey = nextBinaryKey();
         BinaryRow testBinaryRow = binaryRow(key(testBinaryKey), new TestValue(1, "v1"));
@@ -415,20 +416,20 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         pkStorage.get().put(testBinaryKey, rowId);
         testMvPartitionStorage.addWrite(rowId, testBinaryRow, txId, tblId, partId);
 
-        CompletableFuture fut = partitionReplicaListener.invoke(TABLE_MESSAGES_FACTORY.readOnlySingleRowReplicaRequest()
+        CompletableFuture<?> fut = partitionReplicaListener.invoke(TABLE_MESSAGES_FACTORY.readOnlySingleRowReplicaRequest()
                 .groupId(grpId)
                 .readTimestamp(clock.now())
                 .binaryRow(testBinaryKey)
                 .requestType(RequestType.RO_GET)
                 .build());
 
-        BinaryRow binaryRow = (BinaryRow) fut.join();
+        BinaryRow binaryRow = (BinaryRow) fut.get(1, TimeUnit.SECONDS);
 
         assertNull(binaryRow);
     }
 
     @Test
-    public void testReadOnlySingleRowReplicaRequestResolveWriteIntentAborted() {
+    public void testReadOnlySingleRowReplicaRequestResolveWriteIntentAborted() throws Exception {
         UUID txId = Timestamp.nextVersion().toUuid();
         BinaryRow testBinaryKey = nextBinaryKey();
         BinaryRow testBinaryRow = binaryRow(key(testBinaryKey), new TestValue(1, "v1"));
@@ -438,20 +439,20 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         pkStorage.get().put(testBinaryKey, rowId);
         testMvPartitionStorage.addWrite(rowId, testBinaryRow, txId, tblId, partId);
 
-        CompletableFuture fut = partitionReplicaListener.invoke(TABLE_MESSAGES_FACTORY.readOnlySingleRowReplicaRequest()
+        CompletableFuture<?> fut = partitionReplicaListener.invoke(TABLE_MESSAGES_FACTORY.readOnlySingleRowReplicaRequest()
                 .groupId(grpId)
                 .readTimestamp(clock.now())
                 .binaryRow(testBinaryKey)
                 .requestType(RequestType.RO_GET)
                 .build());
 
-        BinaryRow binaryRow = (BinaryRow) fut.join();
+        BinaryRow binaryRow = (BinaryRow) fut.get(1, TimeUnit.SECONDS);
 
         assertNull(binaryRow);
     }
 
     @Test
-    public void testWriteScanRetriveBatchReplicaRequestWithSortedIndex() {
+    public void testWriteScanRetriveBatchReplicaRequestWithSortedIndex() throws Exception {
         UUID txId = Timestamp.nextVersion().toUuid();
         UUID sortedIndexId = sortedIndexStorage.id();
 
@@ -482,7 +483,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 .batchSize(4)
                 .build());
 
-        List<BinaryRow> rows = (List<BinaryRow>) fut.join();
+        List<BinaryRow> rows = (List<BinaryRow>) fut.get(1, TimeUnit.SECONDS);
 
         assertNotNull(rows);
         assertEquals(4, rows.size());
@@ -498,7 +499,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 .batchSize(4)
                 .build());
 
-        rows = (List<BinaryRow>) fut.join();
+        rows = (List<BinaryRow>) fut.get(1, TimeUnit.SECONDS);
 
         assertNotNull(rows);
         assertEquals(2, rows.size());
@@ -517,7 +518,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 .batchSize(5)
                 .build());
 
-        rows = (List<BinaryRow>) fut.join();
+        rows = (List<BinaryRow>) fut.get(1, TimeUnit.SECONDS);
 
         assertNotNull(rows);
         assertEquals(2, rows.size());
@@ -534,7 +535,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 .batchSize(5)
                 .build());
 
-        rows = (List<BinaryRow>) fut.join();
+        rows = (List<BinaryRow>) fut.get(1, TimeUnit.SECONDS);
 
         assertNotNull(rows);
         assertEquals(0, rows.size());
@@ -551,14 +552,14 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 .batchSize(5)
                 .build());
 
-        rows = (List<BinaryRow>) fut.join();
+        rows = (List<BinaryRow>) fut.get(1, TimeUnit.SECONDS);
 
         assertNotNull(rows);
         assertEquals(2, rows.size());
     }
 
     @Test
-    public void testReadOnlyScanRetriveBatchReplicaRequestSortedIndex() {
+    public void testReadOnlyScanRetriveBatchReplicaRequestSortedIndex() throws Exception {
         UUID txId = Timestamp.nextVersion().toUuid();
         UUID sortedIndexId = sortedIndexStorage.id();
 
@@ -588,7 +589,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 .batchSize(4)
                 .build());
 
-        List<BinaryRow> rows = (List<BinaryRow>) fut.join();
+        List<BinaryRow> rows = (List<BinaryRow>) fut.get(1, TimeUnit.SECONDS);
 
         assertNotNull(rows);
         assertEquals(4, rows.size());
@@ -603,7 +604,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 .batchSize(4)
                 .build());
 
-        rows = (List<BinaryRow>) fut.join();
+        rows = (List<BinaryRow>) fut.get(1, TimeUnit.SECONDS);
 
         assertNotNull(rows);
         assertEquals(2, rows.size());
@@ -621,7 +622,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 .batchSize(5)
                 .build());
 
-        rows = (List<BinaryRow>) fut.join();
+        rows = (List<BinaryRow>) fut.get(1, TimeUnit.SECONDS);
 
         assertNotNull(rows);
         assertEquals(2, rows.size());
@@ -637,7 +638,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 .batchSize(5)
                 .build());
 
-        rows = (List<BinaryRow>) fut.join();
+        rows = (List<BinaryRow>) fut.get(1, TimeUnit.SECONDS);
 
         assertNotNull(rows);
         assertEquals(0, rows.size());
@@ -653,14 +654,14 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 .batchSize(5)
                 .build());
 
-        rows = (List<BinaryRow>) fut.join();
+        rows = (List<BinaryRow>) fut.get(1, TimeUnit.SECONDS);
 
         assertNotNull(rows);
         assertEquals(2, rows.size());
     }
 
     @Test
-    public void testReadOnlyScanRetriveBatchReplicaRequstHashIndex() {
+    public void testReadOnlyScanRetriveBatchReplicaRequstHashIndex() throws Exception {
         UUID txId = Timestamp.nextVersion().toUuid();
         UUID hashIndexId = hashIndexStorage.id();
 
@@ -691,7 +692,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 .batchSize(3)
                 .build());
 
-        List<BinaryRow> rows = (List<BinaryRow>) fut.join();
+        List<BinaryRow> rows = (List<BinaryRow>) fut.get(1, TimeUnit.SECONDS);
 
         assertNotNull(rows);
         assertEquals(3, rows.size());
@@ -707,7 +708,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 .batchSize(1)
                 .build());
 
-        rows = (List<BinaryRow>) fut.join();
+        rows = (List<BinaryRow>) fut.get(1, TimeUnit.SECONDS);
 
         assertNotNull(rows);
         assertEquals(1, rows.size());
@@ -723,7 +724,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 .batchSize(5)
                 .build());
 
-        rows = (List<BinaryRow>) fut.join();
+        rows = (List<BinaryRow>) fut.get(1, TimeUnit.SECONDS);
 
         assertNotNull(rows);
         assertEquals(0, rows.size());
@@ -739,7 +740,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 .batchSize(5)
                 .build());
 
-        rows = (List<BinaryRow>) fut.join();
+        rows = (List<BinaryRow>) fut.get(1, TimeUnit.SECONDS);
 
         assertNotNull(rows);
         assertEquals(3, rows.size());

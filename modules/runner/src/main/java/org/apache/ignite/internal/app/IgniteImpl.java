@@ -40,6 +40,7 @@ import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.rest.ClusterManagementRestFactory;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
+import org.apache.ignite.internal.component.RestAddressReporter;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.compute.ComputeComponent;
 import org.apache.ignite.internal.compute.ComputeComponentImpl;
@@ -54,6 +55,8 @@ import org.apache.ignite.internal.configuration.ServiceLoaderModulesProvider;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.LocalConfigurationStorage;
+import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.index.IndexManager;
@@ -227,6 +230,8 @@ public class IgniteImpl implements Ignite {
     /** Metric manager. */
     private final MetricManager metricManager;
 
+    private final DistributionZoneManager distributionZoneManager;
+
     /** Creator for volatile {@link org.apache.ignite.internal.raft.storage.LogStorageFactory} instances. */
     private final VolatileLogStorageFactoryCreator volatileLogStorageFactoryCreator;
 
@@ -234,6 +239,8 @@ public class IgniteImpl implements Ignite {
     private final HybridClock clock;
 
     private final OutgoingSnapshotsManager outgoingSnapshotsManager;
+
+    private final RestAddressReporter restAddressReporter;
 
     /**
      * The Constructor.
@@ -347,6 +354,8 @@ public class IgniteImpl implements Ignite {
 
         restComponent = createRestComponent(name);
 
+        restAddressReporter = new RestAddressReporter(workDir);
+
         baselineMgr = new BaselineManager(
                 clusterCfgMgr,
                 metaStorageMgr,
@@ -429,6 +438,11 @@ public class IgniteImpl implements Ignite {
                 sql,
                 () -> cmgMgr.clusterState().thenApply(s -> s.clusterTag().clusterId())
         );
+
+        DistributionZonesConfiguration zonesConfiguration = clusterCfgMgr.configurationRegistry()
+                .getConfiguration(DistributionZonesConfiguration.KEY);
+
+        distributionZoneManager = new DistributionZoneManager(zonesConfiguration);
     }
 
     private RestComponent createRestComponent(String name) {
@@ -522,6 +536,8 @@ public class IgniteImpl implements Ignite {
 
             clusterSvc.updateMetadata(new NodeMetadata(restComponent.host(), restComponent.port()));
 
+            restAddressReporter.writeReport(restAddress());
+
             LOG.info("Components started, joining the cluster");
 
             return cmgMgr.joinFuture()
@@ -535,6 +551,7 @@ public class IgniteImpl implements Ignite {
                                     metaStorageMgr,
                                     clusterCfgMgr,
                                     metricManager,
+                                    distributionZoneManager,
                                     computeComponent,
                                     replicaMgr,
                                     txManager,
@@ -614,6 +631,7 @@ public class IgniteImpl implements Ignite {
      */
     public void stop() {
         lifecycleManager.stopNode();
+        restAddressReporter.removeReport();
     }
 
     /** {@inheritDoc} */
@@ -783,5 +801,10 @@ public class IgniteImpl implements Ignite {
     @TestOnly
     public ClusterNode node() {
         return clusterSvc.topologyService().localMember();
+    }
+
+    @TestOnly
+    public DistributionZoneManager distributionZoneManager() {
+        return distributionZoneManager;
     }
 }
