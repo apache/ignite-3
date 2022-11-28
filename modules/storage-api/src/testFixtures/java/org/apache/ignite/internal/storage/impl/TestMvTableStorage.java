@@ -176,6 +176,11 @@ public class TestMvTableStorage implements MvTableStorage {
     }
 
     @Override
+    public void close() throws StorageException {
+        stop();
+    }
+
+    @Override
     public void destroy() throws StorageException {
     }
 

@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.schema.configuration.index.TableIndexCo
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
@@ -36,7 +37,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Table storage that contains meta, partitions and SQL indexes.
  */
-public interface MvTableStorage {
+public interface MvTableStorage extends ManuallyCloseable {
     /**
      * Retrieves or creates a partition for the current table. Not expected to be called concurrently with the same Partition ID.
      *

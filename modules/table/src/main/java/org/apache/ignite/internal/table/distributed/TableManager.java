@@ -62,6 +62,7 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.IntSupplier;
@@ -134,6 +135,7 @@ import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbTableSt
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.IgniteNameUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.utils.RebalanceUtil;
@@ -971,20 +973,64 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      */
     private void cleanUpTablesResources(Map<UUID, TableImpl> tables) {
         for (TableImpl table : tables.values()) {
+            List<Runnable> stopping = new ArrayList<>();
+
+            AtomicReference<Exception> exception = new AtomicReference<>();
+
+            AtomicBoolean nodeStoppingEx = new AtomicBoolean();
+
+            for (int p = 0; p < table.internalTable().partitions(); p++) {
+                TablePartitionId replicationGroupId = new TablePartitionId(table.tableId(), p);
+
+                stopping.add(() -> {
+                    try {
+                        raftMgr.stopRaftGroup(replicationGroupId);
+                    } catch (Exception e) {
+                        if (!exception.compareAndSet(null, e)) {
+                            if (!(e instanceof NodeStoppingException) || !nodeStoppingEx.get()) {
+                                exception.get().addSuppressed(e);
+                            }
+                        }
+
+                        if (e instanceof NodeStoppingException) {
+                            nodeStoppingEx.set(true);
+                        }
+                    }
+                });
+
+                stopping.add(() -> {
+                    try {
+                        replicaMgr.stopReplica(replicationGroupId);
+                    } catch (Exception e) {
+                        if (!exception.compareAndSet(null, e)) {
+                            if (!(e instanceof NodeStoppingException) || !nodeStoppingEx.get()) {
+                                exception.get().addSuppressed(e);
+                            }
+                        }
+
+                        if (e instanceof NodeStoppingException) {
+                            nodeStoppingEx.set(true);
+                        }
+                    }
+                });
+            }
+
+            stopping.forEach(Runnable::run);
+
             try {
-                for (int p = 0; p < table.internalTable().partitions(); p++) {
-                    TablePartitionId replicationGroupId = new TablePartitionId(table.tableId(), p);
-
-                    raftMgr.stopRaftGroup(replicationGroupId);
-
-                    replicaMgr.stopReplica(replicationGroupId);
-                }
-
-                table.internalTable().storage().stop();
-                table.internalTable().txStateStorage().stop();
-                table.internalTable().close();
+                IgniteUtils.closeAllManually(
+                        table.internalTable().storage(),
+                        table.internalTable().txStateStorage(),
+                        table.internalTable()
+                );
             } catch (Exception e) {
-                LOG.info("Unable to stop table [name={}]", e, table.name());
+                if (!exception.compareAndSet(null, e)) {
+                    exception.get().addSuppressed(e);
+                }
+            }
+
+            if (exception.get() != null) {
+                LOG.info("Unable to stop table [name={}, tableId={}]", exception.get(), table.name(), table.tableId());
             }
         }
     }

@@ -31,6 +31,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.times;
@@ -96,7 +97,9 @@ import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.ByteArray;
+import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessagingService;
@@ -413,27 +416,104 @@ public class TableManagerTest extends IgniteAbstractTest {
     }
 
     /**
-     * Cheks that the all RAFT nodes will be stopped when Table manager is stopping.
+     * Checks that the all RAFT nodes will be stopped when Table manager is stopping and
+     * an exception that was thrown by one of the component will not prevent stopping other components.
      *
      * @throws Exception If failed.
      */
     @Test
-    public void tableManagerStopTest() throws Exception {
+    public void tableManagerStopTest1() throws Exception {
+        IgniteBiTuple<TableImpl, TableManager> tblAndMnr = startTableManagerStopTest();
+
+        endTableManagerStopTest(tblAndMnr.get1(), tblAndMnr.get2(),
+                () -> {
+                    try {
+                        doThrow(new NodeStoppingException()).when(rm).stopRaftGroup(any());
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                });
+    }
+
+    /**
+     * Checks that the all RAFT nodes will be stopped when Table manager is stopping and
+     * an exception that was thrown by one of the component will not prevent stopping other components.
+     *
+     * @throws Exception If failed.
+     */
+    @Test
+    public void tableManagerStopTest2() throws Exception {
+        IgniteBiTuple<TableImpl, TableManager> tblAndMnr = startTableManagerStopTest();
+
+        endTableManagerStopTest(tblAndMnr.get1(), tblAndMnr.get2(),
+                () -> {
+                    try {
+                        doThrow(new NodeStoppingException()).when(replicaMgr).stopReplica(any());
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                });
+    }
+
+    /**
+     * Checks that the all RAFT nodes will be stopped when Table manager is stopping and
+     * an exception that was thrown by one of the component will not prevent stopping other components.
+     *
+     * @throws Exception If failed.
+     */
+    @Test
+    public void tableManagerStopTest3() throws Exception {
+        IgniteBiTuple<TableImpl, TableManager> tblAndMnr = startTableManagerStopTest();
+
+        endTableManagerStopTest(tblAndMnr.get1(), tblAndMnr.get2(),
+                () -> {
+                    try {
+                        doThrow(new RuntimeException()).when(tblAndMnr.get1().internalTable().storage()).close();
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                });
+    }
+
+    /**
+     * Checks that the all RAFT nodes will be stopped when Table manager is stopping and
+     * an exception that was thrown by one of the component will not prevent stopping other components.
+     *
+     * @throws Exception If failed.
+     */
+    @Test
+    public void tableManagerStopTest4() throws Exception {
+        IgniteBiTuple<TableImpl, TableManager> tblAndMnr = startTableManagerStopTest();
+
+        endTableManagerStopTest(tblAndMnr.get1(), tblAndMnr.get2(),
+                () -> doThrow(new RuntimeException()).when(tblAndMnr.get1().internalTable().txStateStorage()).close());
+    }
+
+    private IgniteBiTuple<TableImpl, TableManager> startTableManagerStopTest() throws Exception {
         TableDefinition scmTbl = SchemaBuilders.tableBuilder("PUBLIC", DYNAMIC_TABLE_FOR_DROP_NAME).columns(
                 SchemaBuilders.column("key", ColumnType.INT64).build(),
                 SchemaBuilders.column("val", ColumnType.INT64).asNullable(true).build()
         ).withPrimaryKey("key").build();
 
-        mockManagersAndCreateTable(scmTbl, tblManagerFut);
+        TableImpl table = mockManagersAndCreateTable(scmTbl, tblManagerFut);
 
         verify(rm, times(PARTITIONS)).startRaftGroupService(any(), any());
 
         TableManager tableManager = tblManagerFut.join();
 
+        return new IgniteBiTuple<>(table, tableManager);
+    }
+
+    private void endTableManagerStopTest(TableImpl table, TableManager tableManager, Runnable mockDoThrow) throws Exception {
+        mockDoThrow.run();
+
         tableManager.stop();
 
         verify(rm, times(PARTITIONS)).stopRaftGroup(any());
         verify(replicaMgr, times(PARTITIONS)).stopReplica(any());
+
+        verify(table.internalTable().storage()).close();
+        verify(table.internalTable().txStateStorage()).close();
     }
 
     /**
