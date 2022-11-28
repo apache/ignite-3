@@ -39,7 +39,3 @@ dependencies {
     integrationTestImplementation libs.hamcrest.core
 }
 
-checkstyleMain {
-    enabled = false
-}
-
