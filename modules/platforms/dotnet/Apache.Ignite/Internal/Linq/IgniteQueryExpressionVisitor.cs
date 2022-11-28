@@ -302,37 +302,7 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
     /** <inheritdoc /> */
     protected override Expression VisitNew(NewExpression expression)
     {
-        var first = true;
-
-        for (var i = 0; i < expression.Arguments.Count; i++)
-        {
-            var arg = expression.Arguments[i];
-            if (!first)
-            {
-                if (_useStar)
-                {
-                    throw new NotSupportedException("Aggregate functions do not support multiple fields");
-                }
-
-                ResultBuilder.TrimEnd().Append(", ");
-            }
-
-            first = false;
-
-            Visit(arg);
-
-            // TODO: Do we need this or not?
-            /*
-            var param = expression.Members?[i];
-
-            // TODO: Somehow don't append if param name is same as arg name.
-            // TODO: This won't work with custom column names though? Or we can retrieve that from attributes?
-            // See how 2.x fails if we get rid of GetProjectedMember. We need tests for this in 3.x before refactoring.
-            if (param != null && param.Name != (arg as MemberExpression)?.Member.Name)
-            {
-                ResultBuilder.Append(" as ").Append(param.Name.ToUpperInvariant());
-            }*/
-        }
+        VisitArguments(expression.Arguments);
 
         return expression;
     }
@@ -615,6 +585,32 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
             first = false;
 
             AppendParameter(val);
+        }
+    }
+
+    /// <summary>
+    /// Visits multiple arguments.
+    /// </summary>
+    /// <param name="arguments">The arguments.</param>
+    private void VisitArguments(IEnumerable<Expression> arguments)
+    {
+        var first = true;
+
+        foreach (var e in arguments)
+        {
+            if (!first)
+            {
+                if (_useStar)
+                {
+                    throw new NotSupportedException("Aggregate functions do not support multiple fields");
+                }
+
+                ResultBuilder.TrimEnd().Append(", ");
+            }
+
+            first = false;
+
+            Visit(e);
         }
     }
 
