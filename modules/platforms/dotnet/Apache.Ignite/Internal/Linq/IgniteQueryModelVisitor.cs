@@ -78,7 +78,7 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
     /** <inheritdoc /> */
     public override void VisitQueryModel(QueryModel queryModel)
     {
-        VisitQueryModel(queryModel, false);
+        VisitQueryModel(queryModel, includeAllFields: queryModel.MainFromClause.FromExpression is SubQueryExpression);
     }
 
     /** <inheritdoc /> */
@@ -180,7 +180,21 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
     /** <inheritdoc /> */
     public override void VisitMainFromClause(MainFromClause fromClause, QueryModel queryModel)
     {
-        base.VisitMainFromClause(fromClause, queryModel);
+        // Special case for UNION subquery.
+        if (fromClause.FromExpression is SubQueryExpression subQuery &&
+            subQuery.QueryModel.ResultOperators.Any(x => x is UnionResultOperator))
+        {
+            _builder.Append("from (");
+
+            VisitQueryModel(subQuery.QueryModel);
+
+            _builder.TrimEnd()
+                .Append(") as ")
+                .Append(_aliases.GetTableAlias(subQuery.QueryModel.MainFromClause))
+                .Append(' ');
+
+            return;
+        }
 
         // TODO: IGNITE-18137 DML: queryModel.ResultOperators.LastOrDefault() is UpdateAllResultOperator;
         var isUpdateQuery = false;
@@ -274,12 +288,9 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
     {
         var parenCount = ProcessResultOperatorsBegin(queryModel);
 
-        if (parenCount >= 0)
-        {
-            // FIELD1, FIELD2
-            BuildSqlExpression(queryModel.SelectClause.Selector, parenCount > 0, includeAllFields);
-            _builder.TrimEnd().Append(')', parenCount).Append(' ');
-        }
+        // FIELD1, FIELD2
+        BuildSqlExpression(queryModel.SelectClause.Selector, parenCount > 0, includeAllFields);
+        _builder.TrimEnd().Append(')', parenCount).Append(' ');
     }
 
     /** <inheritdoc /> */
@@ -393,67 +404,61 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
     {
         ProcessSkipTake(queryModel);
 
-        foreach (var op in queryModel.ResultOperators.Reverse())
+        for (var i = queryModel.ResultOperators.Count - 1; i >= 0; i--)
         {
+            var op = queryModel.ResultOperators[i];
             string? keyword = null;
             Expression? source = null;
 
-            var union = op as UnionResultOperator;
-            if (union != null)
+            if (op is UnionResultOperator union)
             {
                 keyword = "union";
                 source = union.Source2;
             }
 
-            var intersect = op as IntersectResultOperator;
-            if (intersect != null)
+            if (op is IntersectResultOperator intersect)
             {
                 keyword = "intersect";
                 source = intersect.Source2;
             }
 
-            var except = op as ExceptResultOperator;
-            if (except != null)
+            if (op is ExceptResultOperator except)
             {
                 keyword = "except";
                 source = except.Source2;
             }
 
-            if (keyword != null)
+            if (keyword == null)
             {
-                _builder.Append(keyword).Append(" (");
-
-                var subQuery = source as SubQueryExpression;
-
-                if (subQuery != null)
-                {
-                    // Subquery union.
-                    VisitQueryModel(subQuery.QueryModel);
-                }
-                else
-                {
-                    // Direct union, source is IIgniteQueryableInternal
-                    var innerExpr = source as ConstantExpression;
-
-                    if (innerExpr == null)
-                    {
-                        throw new NotSupportedException("Unexpected UNION inner sequence: " + source);
-                    }
-
-                    var queryable = innerExpr.Value as IIgniteQueryableInternal;
-
-                    if (queryable == null)
-                    {
-                        throw new NotSupportedException("Unexpected UNION inner sequence " +
-                                                        "(only results of cache.ToQueryable() are supported): " +
-                                                        innerExpr.Value);
-                    }
-
-                    VisitQueryModel(queryable.GetQueryModel());
-                }
-
-                _builder.TrimEnd().Append(')');
+                continue;
             }
+
+            _builder.Append(keyword).Append(" (");
+
+            if (source is SubQueryExpression subQuery)
+            {
+                // Subquery union.
+                VisitQueryModel(subQuery.QueryModel);
+            }
+            else
+            {
+                // Direct union, source is IIgniteQueryableInternal
+                if (source is not ConstantExpression innerExpr)
+                {
+                    throw new NotSupportedException("Unexpected UNION inner sequence: " + source);
+                }
+
+                if (innerExpr.Value is not IIgniteQueryableInternal queryable)
+                {
+                    throw new NotSupportedException("Unexpected UNION inner sequence " +
+                                                    "(only results of cache.ToQueryable() are supported): " +
+                                                    innerExpr.Value);
+                }
+
+                VisitQueryModel(queryable.GetQueryModel());
+            }
+
+            _builder.TrimEnd().Append(')');
         }
     }
 

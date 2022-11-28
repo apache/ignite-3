@@ -19,6 +19,7 @@ namespace Apache.Ignite.Sql
 {
     using System;
     using System.Collections.Generic;
+    using System.Diagnostics.CodeAnalysis;
     using System.Threading.Tasks;
 
     /// <summary>
@@ -42,6 +43,7 @@ namespace Apache.Ignite.Sql
         /// <summary>
         /// Gets a value indicating whether this result set contains a collection of rows.
         /// </summary>
+        [MemberNotNullWhen(true, nameof(Metadata))]
         bool HasRowSet { get; }
 
         /// <summary>

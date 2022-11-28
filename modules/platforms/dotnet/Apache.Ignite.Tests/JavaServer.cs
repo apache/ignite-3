@@ -180,8 +180,7 @@ namespace Apache.Ignite.Tests
                 var cfg = new IgniteClientConfiguration("127.0.0.1:" + port);
                 using var client = await IgniteClient.StartAsync(cfg);
 
-                var tables = await client.Tables.GetTablesAsync();
-                return tables.Count > 0 ? null : new InvalidOperationException("No tables found on server");
+                return null;
             }
             catch (Exception e)
             {
