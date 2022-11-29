@@ -86,7 +86,7 @@ public partial class LinqTests
         TestOpString(x => x.Val!.ToLower(), "v-9", "select lower(_T0.VAL) from");
 
         TestOpString(x => x.Val!.Substring(1), "-9", "select substring(_T0.VAL, ? + 1) from");
-        TestOpString(x => x.Val!.Substring(0, 2), "v-", "select substring(_T0.VAL, ? + 1) from");
+        TestOpString(x => x.Val!.Substring(0, 2), "v-", "select substring(_T0.VAL, 0 + 1, 2) from");
 
         // TODO:
         // TestOpString(x => x.Val!.IndexOf("-9"), 1, "select instr(_T0.VAL, ?) -1 from");
