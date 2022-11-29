@@ -51,6 +51,7 @@ internal static class MethodVisitor
     private static readonly Dictionary<MethodInfo, VisitMethodDelegate> Delegates = new List
             <KeyValuePair<MethodInfo?, VisitMethodDelegate>>
             {
+                // TODO: Use nameof.
                 GetStringMethod("ToLower", Type.EmptyTypes, GetFunc("lower")),
                 GetStringMethod("ToUpper", Type.EmptyTypes, GetFunc("upper")),
                 GetStringMethod("Contains", new[] {typeof(string)}, (e, v) => VisitSqlLike(e, v, "'%' || ? || '%'")),
@@ -89,8 +90,11 @@ internal static class MethodVisitor
                 GetMathMethod("Abs", typeof(sbyte)),
                 GetMathMethod("Abs", typeof(short)),
                 GetMathMethod("Acos", typeof(double)),
+                GetMathMethod("Acosh", typeof(double)),
                 GetMathMethod("Asin", typeof(double)),
+                GetMathMethod("Asinh", typeof(double)),
                 GetMathMethod("Atan", typeof(double)),
+                GetMathMethod("Atanh", typeof(double)),
                 GetMathMethod("Atan2", typeof(double), typeof(double)),
                 GetMathMethod("Ceiling", typeof(double)),
                 GetMathMethod("Ceiling", typeof(decimal)),

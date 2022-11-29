@@ -53,15 +53,14 @@ public partial class LinqTests
     [Test]
     public void TestNumericFunctions()
     {
+        // TODO: ACOSH, ASINH are not supported, but COSH and SINH are?
         TestOpDouble(x => Math.Abs(-x.Key), 9.0d, "select Abs((-_T0.KEY)) from");
         TestOpDouble(x => Math.Cos(x.Key + 2), 0.96017028665036597d, "select Cos((_T0.KEY + ?)) from");
         TestOpDouble(x => Math.Cosh(x.Key), 4051.5420254925943d, "select Cosh(_T0.KEY) from");
         TestOpDouble(x => Math.Acos(x.Key / 100), 1.5707963267948966d, "select Acos((_T0.KEY / ?)) from");
-        TestOpDouble(x => Math.Acosh(x.Key), 9.0d, "select Acosh(_T0.KEY) from");
-        TestOpDouble(x => Math.Sin(x.Key), 9.0d, "select Sin(_T0.KEY) from");
-        TestOpDouble(x => Math.Sinh(x.Key), 9.0d, "select Sinh(_T0.KEY) from");
-        TestOpDouble(x => Math.Asin(x.Key), 9.0d, "select Asin(_T0.KEY) from");
-        TestOpDouble(x => Math.Asinh(x.Key), 9.0d, "select Asinh(_T0.KEY) from");
+        TestOpDouble(x => Math.Sin(x.Key), 0.98935824662338179d, "select Sin(_T0.KEY) from");
+        TestOpDouble(x => Math.Sinh(x.Key), 4051.5419020827899d, "select Sinh(_T0.KEY) from");
+        TestOpDouble(x => Math.Asin(x.Key / 100), 0.090121945014595251d, "select Asin((_T0.KEY / ?)) from");
         TestOpDouble(x => Math.Tan(x.Key), 9.0d, "select Tan(_T0.KEY) from");
         TestOpDouble(x => Math.Tanh(x.Key), 9.0d, "select Tanh(_T0.KEY) from");
         TestOpDouble(x => Math.Atan(x.Key), 9.0d, "select Atan(_T0.KEY) from");
