@@ -22,6 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
@@ -34,7 +35,7 @@ import org.junit.jupiter.api.Test;
 public class AffinityServiceTest {
     @Test
     public void testCalculatedAssignmentHappyPath() {
-        List<List<ClusterNode>> assignments = AffinityUtils.calculateAssignments(
+        List<Set<Assignment>> assignments = AffinityUtils.calculateAssignments(
                 Arrays.asList(
                         new ClusterNode(
                                 UUID.randomUUID().toString(), "node0",
@@ -51,14 +52,14 @@ public class AffinityServiceTest {
 
         assertEquals(10, assignments.size());
 
-        for (List<ClusterNode> partitionAssignment : assignments) {
+        for (Set<Assignment> partitionAssignment : assignments) {
             assertEquals(2, partitionAssignment.size());
         }
     }
 
     @Test
     public void testEmptyBaselineAssignmentsCalculation() {
-        List<List<ClusterNode>> assignments = AffinityUtils.calculateAssignments(
+        List<Set<Assignment>> assignments = AffinityUtils.calculateAssignments(
                 Collections.emptyList(),
                 10,
                 3
@@ -66,7 +67,7 @@ public class AffinityServiceTest {
 
         assertEquals(10, assignments.size());
 
-        for (List<ClusterNode> partitionAssignment : assignments) {
+        for (Set<Assignment> partitionAssignment : assignments) {
             assertEquals(0, partitionAssignment.size());
         }
     }

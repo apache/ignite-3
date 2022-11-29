@@ -27,6 +27,8 @@ import io.swagger.v3.oas.annotations.info.Contact;
 import io.swagger.v3.oas.annotations.info.Info;
 import io.swagger.v3.oas.annotations.info.License;
 import java.net.BindException;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.util.List;
 import java.util.Map;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -51,7 +53,7 @@ import org.jetbrains.annotations.Nullable;
  */
 @OpenAPIDefinition(info = @Info(
         title = "Ignite REST module",
-        version = "3.0.0-alpha",
+        version = "3.0.0-SNAPSHOT",
         license = @License(name = "Apache 2.0", url = "https://ignite.apache.org"),
         contact = @Contact(email = "user@ignite.apache.org")))
 @OpenAPIInclude(classes = {
@@ -192,6 +194,10 @@ public class RestComponent implements IgniteComponent {
             throw new IgniteInternalException("RestComponent has not been started");
         }
 
-        return LOCALHOST;
+        try {
+            return InetAddress.getLocalHost().getHostAddress();
+        } catch (UnknownHostException e) {
+            return LOCALHOST;
+        }
     }
 }

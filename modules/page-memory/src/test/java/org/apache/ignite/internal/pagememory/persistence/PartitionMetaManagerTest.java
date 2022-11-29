@@ -188,6 +188,23 @@ public class PartitionMetaManagerTest {
         }
     }
 
+    @Test
+    void testRemoveMeta() {
+        PartitionMetaManager manager = new PartitionMetaManager(ioRegistry, PAGE_SIZE);
+
+        GroupPartitionId id = new GroupPartitionId(0, 0);
+
+        manager.removeMeta(id);
+
+        PartitionMeta meta = mock(PartitionMeta.class);
+
+        manager.addMeta(id, meta);
+
+        manager.removeMeta(id);
+
+        assertNull(manager.getMeta(id));
+    }
+
     private static FilePageStore createFilePageStore(Path filePath) throws Exception {
         FilePageStore filePageStore = new FilePageStore(new FilePageStoreIo(
                 new RandomAccessFileIoFactory(),

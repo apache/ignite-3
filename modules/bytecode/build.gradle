@@ -27,7 +27,3 @@ dependencies {
     api libs.asm.tree
     api libs.asm.util
 }
-
-checkstyleMain {
-    enabled = false
-}

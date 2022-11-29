@@ -38,7 +38,6 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Partition meta information manager.
  */
-// TODO: IGNITE-17132 Do not forget about deleting the partition meta information
 public class PartitionMetaManager {
     private static final IgniteLogger LOG = Loggers.forClass(PartitionMetaManager.class);
 
@@ -159,5 +158,14 @@ public class PartitionMetaManager {
 
     private boolean containsPartitionMeta(FilePageStore filePageStore) throws IgniteInternalCheckedException {
         return filePageStore.deltaFileCount() > 0 || filePageStore.size() > filePageStore.headerSize();
+    }
+
+    /**
+     * Removes partition meta information.
+     *
+     * @param groupPartitionId Partition of the group.
+     */
+    public void removeMeta(GroupPartitionId groupPartitionId) {
+        metas.remove(groupPartitionId);
     }
 }

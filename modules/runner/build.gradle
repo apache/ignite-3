@@ -51,6 +51,7 @@ dependencies {
     implementation project(':ignite-cluster-management')
     implementation project(':ignite-metrics')
     implementation project(':ignite-replicator')
+    implementation project(':ignite-distribution-zones')
     implementation libs.jetbrains.annotations
     implementation libs.micronaut.inject
     implementation libs.micronaut.validation
@@ -119,10 +120,6 @@ integrationTest {
     useJUnitPlatform {
         excludeTags "sqllogic"
     }
-}
-
-checkstyleMain {
-    enabled = false
 }
 
 jar {

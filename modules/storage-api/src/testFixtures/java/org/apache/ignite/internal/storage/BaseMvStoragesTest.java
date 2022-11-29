@@ -21,7 +21,9 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.schema.BinaryConverter;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -30,6 +32,8 @@ import org.apache.ignite.internal.schema.marshaller.MarshallerException;
 import org.apache.ignite.internal.schema.marshaller.MarshallerFactory;
 import org.apache.ignite.internal.schema.marshaller.reflection.ReflectionMarshallerFactory;
 import org.apache.ignite.internal.schema.row.Row;
+import org.apache.ignite.internal.storage.index.IndexRow;
+import org.apache.ignite.internal.storage.index.IndexRowImpl;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.Cursor;
@@ -52,6 +56,12 @@ public abstract class BaseMvStoragesTest {
     /** Key-value marshaller for tests. */
     protected static KvMarshaller<TestKey, TestValue> kvMarshaller;
 
+    /** Key-value {@link BinaryTuple} converter for tests. */
+    protected static BinaryConverter kvBinaryConverter;
+
+    /** Key {@link BinaryTuple} converter for tests. */
+    protected static BinaryConverter kBinaryConverter;
+
     @BeforeAll
     static void beforeAll() {
         marshallerFactory = new ReflectionMarshallerFactory();
@@ -65,6 +75,9 @@ public abstract class BaseMvStoragesTest {
         });
 
         kvMarshaller = marshallerFactory.create(schemaDescriptor, TestKey.class, TestValue.class);
+
+        kvBinaryConverter = BinaryConverter.forRow(schemaDescriptor);
+        kBinaryConverter = BinaryConverter.forKey(schemaDescriptor);
     }
 
     @AfterAll
@@ -72,6 +85,8 @@ public abstract class BaseMvStoragesTest {
         kvMarshaller = null;
         schemaDescriptor = null;
         marshallerFactory = null;
+        kvBinaryConverter = null;
+        kBinaryConverter = null;
     }
 
     protected static BinaryRow binaryKey(TestKey key) {
@@ -88,6 +103,14 @@ public abstract class BaseMvStoragesTest {
         } catch (MarshallerException e) {
             throw new IgniteException(e);
         }
+    }
+
+    protected static IndexRow indexRow(BinaryRow binaryRow, RowId rowId) {
+        return new IndexRowImpl(kvBinaryConverter.toTuple(binaryRow), rowId);
+    }
+
+    protected static BinaryTuple indexKey(BinaryRow binaryKey) {
+        return kBinaryConverter.toTuple(binaryKey);
     }
 
     protected static TestKey key(BinaryRow binaryRow) {

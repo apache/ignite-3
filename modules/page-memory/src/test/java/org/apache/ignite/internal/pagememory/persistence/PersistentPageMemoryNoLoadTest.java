@@ -73,8 +73,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 /**
  * Tests {@link PersistentPageMemory}.
  */
-@ExtendWith(WorkDirectoryExtension.class)
-@ExtendWith(ConfigurationExtension.class)
+@ExtendWith({WorkDirectoryExtension.class, ConfigurationExtension.class})
 public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelfTest {
     private static PageIoRegistry ioRegistry;
 
@@ -435,7 +434,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
                 filePageStoreManager == null ? new TestPageReadWriteManager() : filePageStoreManager,
                 null,
                 flushDirtyPageForReplacement,
-                checkpointManager == null ? mockCheckpointTimeoutLock(log, true) : checkpointManager.checkpointTimeoutLock(),
+                checkpointManager == null ? mockCheckpointTimeoutLock(true) : checkpointManager.checkpointTimeoutLock(),
                 PAGE_SIZE
         );
     }
@@ -486,7 +485,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
     }
 
     private static FilePageStoreManager createFilePageStoreManager(Path storagePath) throws Exception {
-        return new FilePageStoreManager(log, "test", storagePath, new RandomAccessFileIoFactory(), PAGE_SIZE);
+        return new FilePageStoreManager("test", storagePath, new RandomAccessFileIoFactory(), PAGE_SIZE);
     }
 
     private static void initGroupFilePageStores(
@@ -496,17 +495,17 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
     ) throws Exception {
         int partitions = PARTITION_ID + 1;
 
-        filePageStoreManager.initialize("Test", GRP_ID, partitions);
-
         checkpointManager.checkpointTimeoutLock().checkpointReadLock();
 
         try {
-            for (int i = 0; i < partitions; i++) {
-                FilePageStore filePageStore = filePageStoreManager.getStore(GRP_ID, i);
+            for (int partition = 0; partition < partitions; partition++) {
+                GroupPartitionId groupPartitionId = new GroupPartitionId(GRP_ID, partition);
+
+                filePageStoreManager.initialize("Test", groupPartitionId);
+
+                FilePageStore filePageStore = filePageStoreManager.getStore(groupPartitionId);
 
                 filePageStore.ensure();
-
-                GroupPartitionId groupPartitionId = new GroupPartitionId(GRP_ID, i);
 
                 CheckpointProgress lastCheckpointProgress = checkpointManager.lastCheckpointProgress();
 

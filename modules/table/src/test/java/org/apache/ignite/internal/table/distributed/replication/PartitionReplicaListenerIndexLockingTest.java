@@ -76,7 +76,6 @@ import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.Pair;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.raft.client.service.LeaderWithTerm;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.hamcrest.CustomMatcher;
@@ -180,7 +179,6 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                 CLOCK,
                 new PendingComparableValuesTracker<>(CLOCK.now()),
                 new TestTxStateStorage(),
-                mock(TopologyService.class),
                 mock(PlacementDriver.class),
                 peer -> true
         );
@@ -190,7 +188,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
 
     @BeforeEach
     private void beforeTest() {
-        ((TestHashIndexStorage) pkStorage.get().storage()).destroy();
+        ((TestHashIndexStorage) pkStorage.get().storage()).clear();
         TEST_MV_PARTITION_STORAGE.clear();
 
         locks().forEach(LOCK_MANAGER::release);

@@ -60,23 +60,23 @@ public partial class LinqSqlGenerationTests
 
     [Test]
     public void TestSum() =>
-        AssertSql("select sum (_T0.KEY) from PUBLIC.tbl1 as _T0", q => q.Sum(x => x.Key));
+        AssertSql("select sum(_T0.KEY) from PUBLIC.tbl1 as _T0", q => q.Sum(x => x.Key));
 
     [Test]
     public void TestAvg() =>
-        AssertSql("select avg (_T0.KEY) from PUBLIC.tbl1 as _T0", q => q.Average(x => x.Key));
+        AssertSql("select avg(_T0.KEY) from PUBLIC.tbl1 as _T0", q => q.Average(x => x.Key));
 
     [Test]
     public void TestMin() =>
-        AssertSql("select min (_T0.KEY) from PUBLIC.tbl1 as _T0", q => q.Min(x => x.Key));
+        AssertSql("select min(_T0.KEY) from PUBLIC.tbl1 as _T0", q => q.Min(x => x.Key));
 
     [Test]
     public void TestMax() =>
-        AssertSql("select max (_T0.KEY) from PUBLIC.tbl1 as _T0", q => q.Max(x => x.Key));
+        AssertSql("select max(_T0.KEY) from PUBLIC.tbl1 as _T0", q => q.Max(x => x.Key));
 
     [Test]
     public void TestCount() =>
-        AssertSql("select count (*) from PUBLIC.tbl1 as _T0", q => q.Count());
+        AssertSql("select count(*) from PUBLIC.tbl1 as _T0", q => q.Count());
 
     [Test]
     public void TestDistinct() =>
@@ -206,6 +206,32 @@ public partial class LinqSqlGenerationTests
             "it is reserved for Apache.Ignite.Table.IKeyValueView`2[TK,TV].AsQueryable. Use a custom type instead.",
             ex!.Message);
     }
+
+    [Test]
+    public void TestUnion() =>
+        AssertSql(
+            "select (_T0.KEY + ?), _T0.VAL from PUBLIC.tbl1 as _T0 " +
+            "union (select (_T1.KEY + ?), _T1.VAL from PUBLIC.tbl1 as _T1)",
+            q => q.Select(x => new { Key = x.Key + 1, x.Val })
+                .Union(q.Select(x => new { Key = x.Key + 100, x.Val }))
+                .ToList());
+
+    [Test]
+    public void TestIntersect() =>
+        AssertSql(
+            "select (_T0.KEY + ?), concat(_T0.VAL, ?) from PUBLIC.tbl1 as _T0 " +
+            "intersect (select (_T1.KEY + ?), concat(_T1.VAL, ?) from PUBLIC.tbl1 as _T1)",
+            q => q.Select(x => new { Key = x.Key + 1, Val = x.Val + "_" })
+                .Intersect(q.Select(x => new { Key = x.Key + 100, Val = x.Val + "!" }))
+                .ToList());
+
+    [Test]
+    public void TestExcept() =>
+        AssertSql(
+            "select (_T0.KEY + ?) from PUBLIC.tbl1 as _T0 except (select (_T1.KEY + ?) from PUBLIC.tbl1 as _T1)",
+            q => q.Select(x => x.Key + 1)
+                .Except(q.Select(x => x.Key + 5))
+                .ToList());
 
     [OneTimeSetUp]
     public async Task OneTimeSetUp()

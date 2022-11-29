@@ -21,6 +21,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.PageMemory;
@@ -47,7 +49,9 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
 
     protected volatile boolean started;
 
-    private volatile AtomicReferenceArray<AbstractPageMemoryMvPartitionStorage> mvPartitions;
+    protected volatile AtomicReferenceArray<AbstractPageMemoryMvPartitionStorage> mvPartitions;
+
+    protected final ConcurrentMap<Integer, CompletableFuture<Void>> partitionIdDestroyFutureMap = new ConcurrentHashMap<>();
 
     /**
      * Constructor.
@@ -85,16 +89,40 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
 
     @Override
     public void stop() throws StorageException {
-        close(false);
+        started = false;
+
+        List<AutoCloseable> closeables = new ArrayList<>();
+
+        for (int i = 0; i < mvPartitions.length(); i++) {
+            AbstractPageMemoryMvPartitionStorage partition = mvPartitions.getAndUpdate(i, p -> null);
+
+            if (partition != null) {
+                closeables.add(partition::close);
+            }
+        }
+
+        try {
+            IgniteUtils.closeAll(closeables);
+        } catch (Exception e) {
+            throw new StorageException("Failed to stop PageMemory table storage.", e);
+        }
     }
 
     /**
      * Returns a new instance of {@link AbstractPageMemoryMvPartitionStorage}.
      *
-     * @param partitionId Partition id.
+     * @param partitionId Partition ID.
      * @throws StorageException If there is an error while creating the mv partition storage.
      */
     public abstract AbstractPageMemoryMvPartitionStorage createMvPartitionStorage(int partitionId) throws StorageException;
+
+    /**
+     * Destroys the partition multi-version storage and all its indexes.
+     *
+     * @param mvPartitionStorage Multi-versioned partition storage.
+     * @return Future that will complete when the partition multi-version storage and its indexes are destroyed.
+     */
+    abstract CompletableFuture<Void> destroyMvPartitionStorage(AbstractPageMemoryMvPartitionStorage mvPartitionStorage);
 
     @Override
     public AbstractPageMemoryMvPartitionStorage getOrCreateMvPartition(int partitionId) throws StorageException {
@@ -117,30 +145,45 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
     public @Nullable AbstractPageMemoryMvPartitionStorage getMvPartition(int partitionId) {
         assert started : "Storage has not started yet";
 
-        if (partitionId < 0 || partitionId >= mvPartitions.length()) {
-            throw new IllegalArgumentException(S.toString(
-                    "Unable to access partition with id outside of configured range",
-                    "table", tableCfg.value().name(), false,
-                    "partitionId", partitionId, false,
-                    "partitions", mvPartitions.length(), false
-            ));
-        }
+        checkPartitionId(partitionId);
 
         return mvPartitions.get(partitionId);
     }
 
     @Override
-    public void destroyPartition(int partitionId) throws StorageException {
+    public CompletableFuture<Void> destroyPartition(int partitionId) {
         assert started : "Storage has not started yet";
 
-        MvPartitionStorage partition = getMvPartition(partitionId);
+        checkPartitionId(partitionId);
+
+        CompletableFuture<Void> destroyPartitionFuture = new CompletableFuture<>();
+
+        CompletableFuture<Void> previousDestroyPartitionFuture = partitionIdDestroyFutureMap.putIfAbsent(
+                partitionId,
+                destroyPartitionFuture
+        );
+
+        if (previousDestroyPartitionFuture != null) {
+            return previousDestroyPartitionFuture;
+        }
+
+        MvPartitionStorage partition = mvPartitions.getAndSet(partitionId, null);
 
         if (partition != null) {
-            mvPartitions.set(partitionId, null);
+            destroyMvPartitionStorage((AbstractPageMemoryMvPartitionStorage) partition).whenComplete((unused, throwable) -> {
+                partitionIdDestroyFutureMap.remove(partitionId);
 
-            // TODO: IGNITE-17197 Actually destroy the partition.
-            //partition.destroy();
+                if (throwable != null) {
+                    destroyPartitionFuture.completeExceptionally(throwable);
+                } else {
+                    destroyPartitionFuture.complete(null);
+                }
+            });
+        } else {
+            partitionIdDestroyFutureMap.remove(partitionId).complete(null);
         }
+
+        return destroyPartitionFuture;
     }
 
     @Override
@@ -170,29 +213,26 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
         throw new UnsupportedOperationException("Not implemented yet");
     }
 
+    @Override
+    public void close() throws StorageException {
+        stop();
+    }
+
     /**
-     * Closes all {@link #mvPartitions}.
+     * Checks that the partition ID is within the scope of the configuration.
      *
-     * @param destroy Destroy partitions.
-     * @throws StorageException If failed.
+     * @param partitionId Partition ID.
      */
-    protected void close(boolean destroy) throws StorageException {
-        started = false;
+    private void checkPartitionId(int partitionId) {
+        int partitions = mvPartitions.length();
 
-        List<AutoCloseable> closeables = new ArrayList<>();
-
-        for (int i = 0; i < mvPartitions.length(); i++) {
-            AbstractPageMemoryMvPartitionStorage partition = mvPartitions.getAndUpdate(i, p -> null);
-
-            if (partition != null) {
-                closeables.add(destroy ? partition::destroy : partition::close);
-            }
-        }
-
-        try {
-            IgniteUtils.closeAll(closeables);
-        } catch (Exception e) {
-            throw new StorageException("Failed to stop PageMemory table storage.", e);
+        if (partitionId < 0 || partitionId >= partitions) {
+            throw new IllegalArgumentException(S.toString(
+                    "Unable to access partition with id outside of configured range",
+                    "table", tableCfg.value().name(), false,
+                    "partitionId", partitionId, false,
+                    "partitions", partitions, false
+            ));
         }
     }
 }

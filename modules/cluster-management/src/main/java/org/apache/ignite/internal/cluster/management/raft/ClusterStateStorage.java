@@ -21,26 +21,14 @@ import java.nio.file.Path;
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
-import org.apache.ignite.internal.close.ManuallyCloseable;
+import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Storage for the CMG Raft service.
  */
-public interface ClusterStateStorage extends ManuallyCloseable {
-    /**
-     * Starts the storage.
-     */
-    void start();
-
-    /**
-     * Returns {@code true} if the storage has been started.
-     *
-     * @return {@code true} if the storage has been started.
-     */
-    boolean isStarted();
-
+public interface ClusterStateStorage extends IgniteComponent {
     /**
      * Retrieves a value associated with the given key or {@code null} if no such value exists.
      *
@@ -104,12 +92,6 @@ public interface ClusterStateStorage extends ManuallyCloseable {
      * @param snapshotPath Path to the snapshot's directory.
      */
     void restoreSnapshot(Path snapshotPath);
-
-    /**
-     * Closes this storage.
-     */
-    @Override
-    void close();
 
     /**
      * Removes all data from the storage and frees all resources.

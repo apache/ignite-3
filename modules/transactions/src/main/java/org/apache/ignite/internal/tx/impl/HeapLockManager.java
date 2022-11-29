@@ -17,11 +17,8 @@
 
 package org.apache.ignite.internal.tx.impl;
 
-import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.ACQUIRE_LOCK_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Transactions.RELEASE_LOCK_ERR;
 
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -44,7 +41,6 @@ import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.LockMode;
 import org.apache.ignite.internal.tx.Waiter;
 import org.apache.ignite.lang.IgniteBiTuple;
-import org.apache.ignite.lang.IgniteSystemProperties;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -72,19 +68,8 @@ import org.jetbrains.annotations.Nullable;
 public class HeapLockManager implements LockManager {
     private ConcurrentHashMap<LockKey, LockState> locks = new ConcurrentHashMap<>();
 
-    /**
-     * It is a test only property which is removing after IGNITE-17733.
-     * We are forced to avoid all locks types except key lock in production code.
-     */
-    private final boolean allLockTypesAreUsed = IgniteSystemProperties.getBoolean("IGNITE_ALL_LOCK_TYPES_ARE_USED");
-
     @Override
     public CompletableFuture<Lock> acquire(UUID txId, LockKey lockKey, LockMode lockMode) {
-        //TODO: IGNITE-17733 Resume honest index lock
-        if (! (lockKey.key() instanceof ByteBuffer) && !allLockTypesAreUsed) { // Takes a lock on keys only.
-            lockMode = LockMode.NL;
-        }
-
         while (true) {
             LockState state = lockState(lockKey);
 
@@ -181,8 +166,6 @@ public class HeapLockManager implements LockManager {
         public @Nullable IgniteBiTuple<CompletableFuture<Void>, LockMode> tryAcquire(UUID txId, LockMode lockMode) {
             WaiterImpl waiter = new WaiterImpl(txId, lockMode);
 
-            boolean locked;
-
             synchronized (waiters) {
                 if (markedForRemove) {
                     return new IgniteBiTuple(null, lockMode);
@@ -191,7 +174,7 @@ public class HeapLockManager implements LockManager {
                 WaiterImpl prev = waiters.putIfAbsent(txId, waiter);
 
                 // Reenter
-                if (prev != null && prev.locked) {
+                if (prev != null && prev.locked()) {
                     if (prev.lockMode.allowReenter(lockMode)) {
                         prev.addLock(lockMode, 1);
 
@@ -211,55 +194,67 @@ public class HeapLockManager implements LockManager {
                     }
                 }
 
-                // Check lock compatibility.
-                Map.Entry<UUID, WaiterImpl> nextEntry = waiters.higherEntry(txId);
+                if (!isWaiterReadyToNotify(waiter, false)) {
+                    return new IgniteBiTuple(waiter.fut, lockMode);
+                }
 
-                // If we have a younger waiter in a locked state, when refuse to wait for lock.
-                if (nextEntry != null
-                        && nextEntry.getValue().locked()
-                        && !lockMode.isCompatible(nextEntry.getValue().lockMode)) {
+                if (!waiter.locked()) {
                     if (prev == null) {
-                        waiters.remove(txId);
+                        waiters.remove(waiter.txId());
                     } else {
-                        waiters.put(txId, prev); // Restore old lock.
-                    }
-
-                    return new IgniteBiTuple(
-                            failedFuture(new LockException(
-                                    ACQUIRE_LOCK_ERR,
-                                    "Failed to acquire a lock due to a conflict [txId=" + txId + ", waiter=" + nextEntry.getValue() + ']')),
-                            lockMode);
-                }
-
-                // Lock if oldest.
-                locked = waiters.firstKey().equals(txId);
-
-                if (!locked) {
-                    Map.Entry<UUID, WaiterImpl> prevEntry = waiters.lowerEntry(txId);
-
-                    // Grant lock if previous entry lock is compatible (by induction).
-                    locked = prevEntry == null || (prevEntry.getValue().lockMode.isCompatible(lockMode) && prevEntry
-                            .getValue().locked());
-                }
-
-                if (locked) {
-                    if (waiter.upgraded) {
-                        // Upgrade lock.
-                        waiter.upgraded = false;
-                        waiter.prevLockMode = null;
-                        waiter.locked = true;
-                    } else {
-                        waiter.lock();
+                        waiters.put(waiter.txId(), prev); // Restore old lock.
                     }
                 }
             }
 
             // Notify outside the monitor.
-            if (locked) {
-                waiter.notifyLocked();
-            }
+            waiter.notifyLocked();
 
             return new IgniteBiTuple(waiter.fut, lockMode);
+        }
+
+        /**
+         * Checks current waiter.
+         *
+         * @param waiter Checked waiter.
+         * @return True if current waiter ready to notify, false otherwise.
+         */
+        private boolean isWaiterReadyToNotify(WaiterImpl waiter, boolean skipFail) {
+            for (Map.Entry<UUID, WaiterImpl> entry : waiters.tailMap(waiter.txId(), false).entrySet()) {
+                WaiterImpl tmp = entry.getValue();
+                LockMode mode = lockedMode(tmp);
+
+                if (mode != null && !mode.isCompatible(waiter.lockMode())) {
+                    return false;
+                }
+            }
+
+            for (Map.Entry<UUID, WaiterImpl> entry : waiters.headMap(waiter.txId()).entrySet()) {
+                WaiterImpl tmp = entry.getValue();
+                LockMode mode = lockedMode(tmp);
+
+                if (mode != null && !mode.isCompatible(waiter.lockMode())) {
+                    if (skipFail) {
+                        return false;
+                    } else {
+                        waiter.fail(new LockException(ACQUIRE_LOCK_ERR, "Failed to acquire a lock due to a conflict [txId=" + waiter.txId()
+                                + ", waiter=" + tmp + ']'));
+
+                        return true;
+                    }
+                }
+            }
+
+            if (waiter.upgraded) {
+                // Upgrade lock.
+                waiter.upgraded = false;
+                waiter.prevLockMode = null;
+                waiter.locked = true;
+            } else {
+                waiter.lock();
+            }
+
+            return true;
         }
 
         /**
@@ -300,6 +295,12 @@ public class HeapLockManager implements LockManager {
 
                     LockMode modeToDowngrade = waiter.recalculateMode();
 
+                    if (!waiter.locked()) {
+                        assert waiter.lockMode() == modeToDowngrade : "The lock mode is not locked [mode=" + lockMode + ']';
+
+                        return false;
+                    }
+
                     if (modeToDowngrade == null) {
                         toNotify = release(txId);
                     } else {
@@ -324,7 +325,7 @@ public class HeapLockManager implements LockManager {
          * @return List of waiters to notify.
          */
         private List<WaiterImpl> release(UUID txId) {
-            WaiterImpl removed = waiters.remove(txId);
+            waiters.remove(txId);
 
             if (waiters.isEmpty()) {
                 markedForRemove = true;
@@ -332,7 +333,7 @@ public class HeapLockManager implements LockManager {
                 return Collections.emptyList();
             }
 
-            List<WaiterImpl> toNotify = unlockCompatibleWaiters(txId, removed, null);
+            List<WaiterImpl> toNotify = unlockCompatibleWaiters();
 
             return toNotify;
         }
@@ -340,57 +341,54 @@ public class HeapLockManager implements LockManager {
         /**
          * Unlock compatible waiters.
          *
-         * @param txId Transaction id.
-         * @param pickedUpWaiter List of unlocked waiters.
-         * @param downgradeMode Lock mode to downgrade.
          * @return List of waiters to notify.
          */
-        private ArrayList<WaiterImpl> unlockCompatibleWaiters(UUID txId, WaiterImpl pickedUpWaiter, LockMode downgradeMode) {
+        private ArrayList<WaiterImpl> unlockCompatibleWaiters() {
             ArrayList<WaiterImpl> toNotify = new ArrayList<>();
-            Set<LockMode> lockModes = new HashSet<>();
+            Set<UUID> toFail = new HashSet<>();
 
-            if (downgradeMode != null) {
-                lockModes.add(downgradeMode);
-            }
-
-            // Grant lock to all adjacent readers.
             for (Map.Entry<UUID, WaiterImpl> entry : waiters.entrySet()) {
                 WaiterImpl tmp = entry.getValue();
 
-                if (tmp.upgraded && !pickedUpWaiter.lockMode.isCompatible(tmp.prevLockMode)) {
-                    // Fail upgraded waiters.
-                    assert !tmp.locked;
-
-                    // Downgrade to acquired lock.
-                    tmp.upgraded = false;
-                    tmp.lockMode = tmp.prevLockMode;
-                    tmp.prevLockMode = null;
-                    tmp.locked = true;
-
-                    tmp.fail(new LockException(RELEASE_LOCK_ERR,
-                            "Failed to acquire a lock due to a conflict [txId=" + txId + ", waiter=" + pickedUpWaiter + ']'));
-
-                    toNotify.add(tmp);
-                } else if (lockModes.stream().allMatch(tmp.lockMode::isCompatible)) {
-                    if (tmp.upgraded) {
-                        // Fail upgraded waiters.
-                        assert !tmp.locked;
-
-                        // Upgrade lock.
-                        tmp.upgraded = false;
-                        tmp.prevLockMode = null;
-                        tmp.locked = true;
-                    } else {
-                        tmp.lock();
-                    }
-
-                    lockModes.add(tmp.lockMode);
-
+                if (!tmp.locked() && isWaiterReadyToNotify(tmp, true)) {
                     toNotify.add(tmp);
                 }
             }
 
+            for (Map.Entry<UUID, WaiterImpl> entry : waiters.entrySet()) {
+                WaiterImpl tmp = entry.getValue();
+
+                if (!tmp.locked() && isWaiterReadyToNotify(tmp, false)) {
+                    assert !tmp.locked();
+
+                    toNotify.add(tmp);
+                    toFail.add(tmp.txId());
+                }
+            }
+
+            for (UUID failTx : toFail) {
+                waiters.remove(failTx);
+            }
+
             return toNotify;
+        }
+
+        /**
+         * Gets a lock mode for this waiter.
+         *
+         * @param waiter Waiter.
+         * @return Lock mode, which is held by the waiter or {@code null}, if the waiter holds nothing.
+         */
+        private LockMode lockedMode(WaiterImpl waiter) {
+            LockMode mode = null;
+
+            if (waiter.locked()) {
+                mode = waiter.lockMode();
+            } else if (waiter.upgraded) {
+                mode = waiter.prevLockMode;
+            }
+
+            return mode;
         }
 
         /**
@@ -402,11 +400,9 @@ public class HeapLockManager implements LockManager {
          * @return List of waiters to notify.
          */
         private List<WaiterImpl> downgrade(UUID txId, LockMode lockMode) {
-            WaiterImpl waiter = waiters.remove(txId);
+            WaiterImpl waiter = waiters.get(txId);
 
             if (waiter == null || waiter.lockMode == lockMode) {
-                waiters.put(txId, waiter);
-
                 return Collections.emptyList();
             }
 
@@ -417,11 +413,9 @@ public class HeapLockManager implements LockManager {
                     "Held lock mode have to be more strict than mode to downgrade [from=" + waiter.lockMode + ", to=" + lockMode
                             + ']';
 
-            List<WaiterImpl> toNotify = unlockCompatibleWaiters(txId, waiter, lockMode);
-
             waiter.lockMode = lockMode;
 
-            waiters.put(txId, waiter);
+            List<WaiterImpl> toNotify = unlockCompatibleWaiters();
 
             return toNotify;
         }

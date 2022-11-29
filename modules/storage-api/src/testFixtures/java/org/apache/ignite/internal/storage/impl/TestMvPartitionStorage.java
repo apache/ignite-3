@@ -32,6 +32,7 @@ import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.StorageClosedException;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.TxIdMismatchException;
 import org.apache.ignite.internal.util.Cursor;
@@ -51,6 +52,8 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     private volatile RaftGroupConfiguration groupConfig;
 
     private final int partitionId;
+
+    private volatile boolean closed;
 
     public TestMvPartitionStorage(int partitionId) {
         this.partitionId = partitionId;
@@ -89,45 +92,54 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         }
     }
 
-    /** {@inheritDoc} */
     @Override
     public <V> V runConsistently(WriteClosure<V> closure) throws StorageException {
+        checkClosed();
+
         return closure.execute();
     }
 
-    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> flush() {
+        checkClosed();
+
         return CompletableFuture.completedFuture(null);
     }
 
-    /** {@inheritDoc} */
     @Override
     public long lastAppliedIndex() {
+        checkClosed();
+
         return lastAppliedIndex;
     }
 
     @Override
     public long lastAppliedTerm() {
+        checkClosed();
+
         return lastAppliedTerm;
     }
 
-    /** {@inheritDoc} */
     @Override
     public void lastApplied(long lastAppliedIndex, long lastAppliedTerm) throws StorageException {
+        checkClosed();
+
         this.lastAppliedIndex = lastAppliedIndex;
         this.lastAppliedTerm = lastAppliedTerm;
     }
 
-    /** {@inheritDoc} */
     @Override
     public long persistedIndex() {
+        checkClosed();
+
         return lastAppliedIndex;
     }
 
     @Override
     @Nullable
     public RaftGroupConfiguration committedGroupConfiguration() {
+        checkClosed();
+
         return groupConfig;
     }
 
@@ -136,10 +148,11 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         this.groupConfig = config;
     }
 
-    /** {@inheritDoc} */
     @Override
     public @Nullable BinaryRow addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, UUID commitTableId, int commitPartitionId)
             throws TxIdMismatchException {
+        checkClosed();
+
         BinaryRow[] res = {null};
 
         map.compute(rowId, (ignored, versionChain) -> {
@@ -159,9 +172,10 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         return res[0];
     }
 
-    /** {@inheritDoc} */
     @Override
     public @Nullable BinaryRow abortWrite(RowId rowId) {
+        checkClosed();
+
         BinaryRow[] res = {null};
 
         map.computeIfPresent(rowId, (ignored, versionChain) -> {
@@ -179,9 +193,10 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         return res[0];
     }
 
-    /** {@inheritDoc} */
     @Override
     public void commitWrite(RowId rowId, HybridTimestamp timestamp) {
+        checkClosed();
+
         map.compute(rowId, (ignored, versionChain) -> {
             assert versionChain != null;
 
@@ -193,9 +208,10 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         });
     }
 
-    /** {@inheritDoc} */
     @Override
     public void addWriteCommitted(RowId rowId, BinaryRow row, HybridTimestamp commitTimestamp) throws StorageException {
+        checkClosed();
+
         map.compute(rowId, (ignored, versionChain) -> {
             if (versionChain != null && versionChain.isWriteIntent()) {
                 throw new StorageException("Write intent exists for " + rowId);
@@ -205,9 +221,10 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         });
     }
 
-    /** {@inheritDoc} */
     @Override
     public ReadResult read(RowId rowId, @Nullable HybridTimestamp timestamp) {
+        checkClosed();
+
         if (rowId.partitionId() != partitionId) {
             throw new IllegalArgumentException(
                     String.format("RowId partition [%d] is not equal to storage partition [%d].", rowId.partitionId(), partitionId));
@@ -318,16 +335,20 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
     @Override
     public Cursor<ReadResult> scanVersions(RowId rowId) throws StorageException {
+        checkClosed();
+
         return Cursor.fromBareIterator(
                 Stream.iterate(map.get(rowId), Objects::nonNull, vc -> vc.next)
+                        .peek(versionChain -> checkClosed())
                         .map((VersionChain versionChain) -> versionChainToReadResult(versionChain, false))
                         .iterator()
         );
     }
 
-    /** {@inheritDoc} */
     @Override
     public PartitionTimestampCursor scan(HybridTimestamp timestamp) {
+        checkClosed();
+
         Iterator<VersionChain> iterator = map.values().iterator();
 
         return new PartitionTimestampCursor() {
@@ -360,6 +381,8 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
             @Override
             public boolean hasNext() {
+                checkClosed();
+
                 if (currentReadResult != null) {
                     return true;
                 }
@@ -398,23 +421,35 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
     @Override
     public @Nullable RowId closestRowId(RowId lowerBound) throws StorageException {
+        checkClosed();
+
         return map.ceilingKey(lowerBound);
     }
 
-    /** {@inheritDoc} */
     @Override
     public long rowsCount() {
+        checkClosed();
+
         return map.size();
     }
 
-    /** {@inheritDoc} */
     @Override
     public void close() {
-        // No-op.
+        closed = true;
+    }
+
+    public void destroy() {
+        close();
     }
 
     /** Removes all entries from this storage. */
     public void clear() {
         map.clear();
+    }
+
+    private void checkClosed() {
+        if (closed) {
+            throw new StorageClosedException("Storage is already closed");
+        }
     }
 }

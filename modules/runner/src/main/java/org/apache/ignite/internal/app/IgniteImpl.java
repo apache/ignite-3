@@ -36,8 +36,11 @@ import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesSerializationRegistryInitializer;
+import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.rest.ClusterManagementRestFactory;
+import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
+import org.apache.ignite.internal.component.RestAddressReporter;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.compute.ComputeComponent;
 import org.apache.ignite.internal.compute.ComputeComponentImpl;
@@ -52,6 +55,8 @@ import org.apache.ignite.internal.configuration.ServiceLoaderModulesProvider;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.LocalConfigurationStorage;
+import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.index.IndexManager;
@@ -200,6 +205,8 @@ public class IgniteImpl implements Ignite {
     /** Rest module. */
     private final RestComponent restComponent;
 
+    private final ClusterStateStorage clusterStateStorage;
+
     private final ClusterManagementGroupManager cmgMgr;
 
     /** Client handler module. */
@@ -223,6 +230,8 @@ public class IgniteImpl implements Ignite {
     /** Metric manager. */
     private final MetricManager metricManager;
 
+    private final DistributionZoneManager distributionZoneManager;
+
     /** Creator for volatile {@link org.apache.ignite.internal.raft.storage.LogStorageFactory} instances. */
     private final VolatileLogStorageFactoryCreator volatileLogStorageFactoryCreator;
 
@@ -230,6 +239,8 @@ public class IgniteImpl implements Ignite {
     private final HybridClock clock;
 
     private final OutgoingSnapshotsManager outgoingSnapshotsManager;
+
+    private final RestAddressReporter restAddressReporter;
 
     /**
      * The Constructor.
@@ -308,11 +319,17 @@ public class IgniteImpl implements Ignite {
 
         txManager = new TxManagerImpl(replicaSvc, lockMgr, clock);
 
+        // TODO: IGNITE-16841 - use common RocksDB instance to store cluster state as well.
+        clusterStateStorage = new RocksDbClusterStateStorage(workDir.resolve(CMG_DB_PATH));
+
+        var logicalTopologyService = new LogicalTopologyImpl(clusterStateStorage);
+
         cmgMgr = new ClusterManagementGroupManager(
                 vaultMgr,
                 clusterSvc,
                 raftMgr,
-                new RocksDbClusterStateStorage(workDir.resolve(CMG_DB_PATH))
+                clusterStateStorage,
+                logicalTopologyService
         );
 
         metaStorageMgr = new MetaStorageManager(
@@ -336,6 +353,8 @@ public class IgniteImpl implements Ignite {
         metricManager.configure(clusterCfgMgr.configurationRegistry().getConfiguration(MetricConfiguration.KEY));
 
         restComponent = createRestComponent(name);
+
+        restAddressReporter = new RestAddressReporter(workDir);
 
         baselineMgr = new BaselineManager(
                 clusterCfgMgr,
@@ -419,6 +438,11 @@ public class IgniteImpl implements Ignite {
                 sql,
                 () -> cmgMgr.clusterState().thenApply(s -> s.clusterTag().clusterId())
         );
+
+        DistributionZonesConfiguration zonesConfiguration = clusterCfgMgr.configurationRegistry()
+                .getConfiguration(DistributionZonesConfiguration.KEY);
+
+        distributionZoneManager = new DistributionZoneManager(zonesConfiguration);
     }
 
     private RestComponent createRestComponent(String name) {
@@ -506,10 +530,13 @@ public class IgniteImpl implements Ignite {
                     clusterSvc,
                     restComponent,
                     raftMgr,
+                    clusterStateStorage,
                     cmgMgr
             );
 
             clusterSvc.updateMetadata(new NodeMetadata(restComponent.host(), restComponent.port()));
+
+            restAddressReporter.writeReport(restAddress());
 
             LOG.info("Components started, joining the cluster");
 
@@ -524,6 +551,7 @@ public class IgniteImpl implements Ignite {
                                     metaStorageMgr,
                                     clusterCfgMgr,
                                     metricManager,
+                                    distributionZoneManager,
                                     computeComponent,
                                     replicaMgr,
                                     txManager,
@@ -603,6 +631,7 @@ public class IgniteImpl implements Ignite {
      */
     public void stop() {
         lifecycleManager.stopNode();
+        restAddressReporter.removeReport();
     }
 
     /** {@inheritDoc} */
@@ -772,5 +801,10 @@ public class IgniteImpl implements Ignite {
     @TestOnly
     public ClusterNode node() {
         return clusterSvc.topologyService().localMember();
+    }
+
+    @TestOnly
+    public DistributionZoneManager distributionZoneManager() {
+        return distributionZoneManager;
     }
 }

@@ -19,6 +19,7 @@ namespace Apache.Ignite.Tests.Linq;
 
 using System.Collections.Generic;
 using System.Linq;
+using Internal.Linq;
 using NUnit.Framework;
 
 /// <summary>
@@ -70,10 +71,9 @@ public partial class LinqTests
     [Test]
     public void TestGroupByWithAggregates()
     {
-        // TODO IGNITE-18196 Remove cast to long for Sum and Count
         var query = PocoByteView.AsQueryable()
             .GroupBy(x => x.Val)
-            .Select(x => new { x.Key, Count = (long)x.Count(), Sum = (long)x.Sum(e => e.Key), Avg = x.Average(e => e.Key) })
+            .Select(x => new { x.Key, Count = x.Count(), Sum = x.Sum(e => e.Key), Avg = x.Average(e => e.Key) })
             .OrderBy(x => x.Key);
 
         var res = query.ToList();
@@ -83,7 +83,7 @@ public partial class LinqTests
         Assert.AreEqual(4.0d, res[1].Avg);
 
         StringAssert.Contains(
-            "select _T0.VAL, count (*) , sum (_T0.KEY) , avg (_T0.KEY)  " +
+            "select _T0.VAL, count(*), sum(cast(_T0.KEY as int)), avg(cast(_T0.KEY as int)) " +
             "from PUBLIC.TBL_INT8 as _T0 " +
             "group by (_T0.VAL) " +
             "order by (_T0.VAL) asc",
@@ -116,7 +116,6 @@ public partial class LinqTests
     [Test]
     public void TestGroupByWithJoinAndProjection()
     {
-        // TODO IGNITE-18196 Remove cast to long for Sum and Count
         var query1 = PocoView.AsQueryable();
         var query2 = PocoIntView.AsQueryable();
 
@@ -131,7 +130,7 @@ public partial class LinqTests
                     Price = a.Val
                 })
             .GroupBy(x => x.Category)
-            .Select(g => new {Cat = g.Key, Count = (long)g.Count()})
+            .Select(g => new {Cat = g.Key, Count = g.Count()})
             .OrderBy(x => x.Cat);
 
         var res = query.ToList();
@@ -141,11 +140,50 @@ public partial class LinqTests
         Assert.AreEqual(10, res.Count);
 
         StringAssert.Contains(
-            "select _T0.VAL, count (*)  " +
+            "select _T0.VAL, count(*) " +
             "from PUBLIC.TBL1 as _T1 " +
-            "inner join PUBLIC.TBL_INT32 as _T0 on (_T0.KEY = _T1.KEY) " +
+            "inner join PUBLIC.TBL_INT32 as _T0 on (cast(_T0.KEY as bigint) = _T1.KEY) " +
             "group by (_T0.VAL) " +
             "order by (_T0.VAL) asc",
+            query.ToString());
+    }
+
+    /// <summary>
+    /// Tests grouping combined with join in a reverse order followed by a projection to an anonymous type with
+    /// custom projected column names.
+    /// <para />
+    /// Covers <see cref="ExpressionWalker.GetProjectedMember"/>.
+    /// </summary>
+    [Test]
+    public void TestGroupByWithReverseJoinAndAnonymousProjectionWithRename()
+    {
+        var query1 = PocoView.AsQueryable();
+        var query2 = PocoIntView.AsQueryable();
+
+        var query = query1.Join(
+                query2,
+                o => o.Key,
+                p => p.Key,
+                (org, person) => new
+                {
+                    Cat = org.Val,
+                    Price = person.Val
+                })
+            .GroupBy(x => x.Cat)
+            .Select(g => new {Category = g.Key, MaxPrice = g.Max(x => x.Price)})
+            .OrderByDescending(x => x.MaxPrice);
+
+        var res = query.ToList();
+
+        Assert.AreEqual("v-9", res[0].Category);
+        Assert.AreEqual(900, res[0].MaxPrice);
+
+        StringAssert.Contains(
+            "select _T0.VAL, max(_T1.VAL) " +
+            "from PUBLIC.TBL1 as _T0 " +
+            "inner join PUBLIC.TBL_INT32 as _T1 on (cast(_T1.KEY as bigint) = _T0.KEY) " +
+            "group by (_T0.VAL) " +
+            "order by (max(_T1.VAL)) desc",
             query.ToString());
     }
 }

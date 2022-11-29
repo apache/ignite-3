@@ -19,7 +19,6 @@ package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -52,20 +51,17 @@ public class CheckpointTestUtils {
     /**
      * Returns mocked {@link CheckpointTimeoutLock}.
      *
-     * @param log Logger.
      * @param checkpointHeldByCurrentThread Result of {@link CheckpointTimeoutLock#checkpointLockIsHeldByThread()}.
      */
-    public static CheckpointTimeoutLock mockCheckpointTimeoutLock(IgniteLogger log, boolean checkpointHeldByCurrentThread) {
+    public static CheckpointTimeoutLock mockCheckpointTimeoutLock(boolean checkpointHeldByCurrentThread) {
         // Do not use "mock(CheckpointTimeoutLock.class)" because calling the CheckpointTimeoutLock.checkpointLockIsHeldByThread
         // greatly degrades in time, which is critical for ItBPlus*Test (it increases from 2 minutes to 5 minutes).
         return new CheckpointTimeoutLock(
-                log,
                 mock(CheckpointReadWriteLock.class),
                 Long.MAX_VALUE,
                 () -> true,
                 mock(Checkpointer.class)
         ) {
-            /** {@inheritDoc} */
             @Override
             public boolean checkpointLockIsHeldByThread() {
                 return checkpointHeldByCurrentThread;
@@ -93,7 +89,7 @@ public class CheckpointTestUtils {
     ) throws Exception {
         FilePageStoreManager manager = mock(FilePageStoreManager.class);
 
-        when(manager.getStore(anyInt(), anyInt())).then(answer -> {
+        when(manager.getStore(any(GroupPartitionId.class))).then(answer -> {
             FilePageStore pageStore = stores.get(new GroupPartitionId(answer.getArgument(0), answer.getArgument(1)));
 
             assertNotNull(pageStore);

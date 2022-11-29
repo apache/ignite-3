@@ -26,8 +26,6 @@ import static org.apache.ignite.internal.metastorage.client.Operations.remove;
 import static org.apache.ignite.internal.utils.RebalanceUtil.intersect;
 import static org.apache.ignite.internal.utils.RebalanceUtil.pendingPartAssignmentsKey;
 import static org.apache.ignite.internal.utils.RebalanceUtil.plannedPartAssignmentsKey;
-import static org.apache.ignite.internal.utils.RebalanceUtil.readClusterNodes;
-import static org.apache.ignite.internal.utils.RebalanceUtil.resolveClusterNodes;
 import static org.apache.ignite.internal.utils.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.utils.RebalanceUtil.subtract;
 import static org.apache.ignite.internal.utils.RebalanceUtil.switchAppendKey;
@@ -46,6 +44,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -62,7 +63,6 @@ import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.ByteArray;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.entity.PeerId;
@@ -80,7 +80,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
     private static final int REBALANCE_RETRY_THRESHOLD = 10;
 
     /** Delay between unsuccessful trial of a rebalance and a new trial, ms. */
-    public static final int REBALANCE_RETRY_DELAY_MS = 200;
+    private static final int REBALANCE_RETRY_DELAY_MS = 200;
 
     /** Success code for the MetaStorage switch append assignments change. */
     private static final int SWITCH_APPEND_SUCCESS = 1;
@@ -131,7 +131,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
     private final AtomicInteger rebalanceAttempts =  new AtomicInteger(0);
 
     /** Function that calculates assignments for table's partition. */
-    private final BiFunction<TableConfiguration, Integer, Set<ClusterNode>> calculateAssignmentsFn;
+    private final BiFunction<TableConfiguration, Integer, Set<Assignment>> calculateAssignmentsFn;
 
     /**
      * Constructs new listener.
@@ -152,7 +152,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             int partNum,
             IgniteSpinBusyLock busyLock,
             PartitionMover partitionMover,
-            BiFunction<TableConfiguration, Integer, Set<ClusterNode>> calculateAssignmentsFn,
+            BiFunction<TableConfiguration, Integer, Set<Assignment>> calculateAssignmentsFn,
             ScheduledExecutorService rebalanceScheduler) {
         this.metaStorageMgr = metaStorageMgr;
         this.tblConfiguration = tblConfiguration;
@@ -180,17 +180,29 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                 try {
                     rebalanceAttempts.set(0);
 
-                    Entry pendingEntry = metaStorageMgr.get(pendingPartAssignmentsKey(partId)).get();
+                    byte[] pendingAssignmentsBytes = metaStorageMgr.get(pendingPartAssignmentsKey(partId)).get().value();
 
-                    if (pendingEntry.value() != null) {
-                        Set<ClusterNode> pendingNodes = ByteUtils.fromBytes(pendingEntry.value());
+                    if (pendingAssignmentsBytes != null) {
+                        Set<Assignment> pendingAssignments = ByteUtils.fromBytes(pendingAssignmentsBytes);
 
-                        LOG.info("New leader elected. Going to reconfigure peers [group={}, partition={}, table={}, peers={}]",
-                                partId, partNum, tblConfiguration.name().value(), pendingNodes);
+                        List<Peer> peers = new ArrayList<>();
+                        List<Peer> learners = new ArrayList<>();
 
-                        partitionMover.movePartition(clusterNodesToPeers(pendingNodes), List.of(), term).join();
+                        for (Assignment assignment : pendingAssignments) {
+                            if (assignment.isPeer()) {
+                                peers.add(new Peer(assignment.consistentId()));
+                            } else {
+                                learners.add(new Peer(assignment.consistentId()));
+                            }
+                        }
+
+                        LOG.info("New leader elected. Going to apply new configuration "
+                                        + "[group={}, partition={}, table={}, peers={}, learners={}]",
+                                partId, partNum, tblConfiguration.name().value(), peers, learners);
+
+                        partitionMover.movePartition(peers, learners, term).get();
                     }
-                } catch (InterruptedException | ExecutionException e) {
+                } catch (Exception e) {
                     // TODO: IGNITE-14693
                     LOG.warn("Unable to start rebalance [partition={}, table={}, term={}]",
                             e, partNum, tblConfiguration.name().value(), term);
@@ -320,31 +332,31 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             Entry switchReduceEntry = values.get(switchReduceKey);
             Entry switchAppendEntry = values.get(switchAppendKey);
 
-            Set<ClusterNode> calculatedAssignments = calculateAssignmentsFn.apply(tblConfiguration, partNum);
+            Set<Assignment> retrievedStable = readAssignments(stableEntry);
+            Set<Assignment> retrievedSwitchReduce = readAssignments(switchReduceEntry);
+            Set<Assignment> retrievedSwitchAppend = readAssignments(switchAppendEntry);
 
-            Set<ClusterNode> stable = resolveClusterNodes(peers, pendingEntry.value(), stableEntry.value());
+            Set<Assignment> calculatedAssignments = calculateAssignmentsFn.apply(tblConfiguration, partNum);
 
-            Set<ClusterNode> retrievedSwitchReduce = readClusterNodes(switchReduceEntry);
-            Set<ClusterNode> retrievedSwitchAppend = readClusterNodes(switchAppendEntry);
-            Set<ClusterNode> retrievedStable = readClusterNodes(stableEntry);
+            Set<Assignment> stable = createAssignments(peers, learners);
 
             // Were reduced
-            Set<ClusterNode> reducedNodes = subtract(retrievedSwitchReduce, stable);
+            Set<Assignment> reducedNodes = subtract(retrievedSwitchReduce, stable);
 
             // Were added
-            Set<ClusterNode> addedNodes = subtract(stable, retrievedStable);
+            Set<Assignment> addedNodes = subtract(stable, retrievedStable);
 
             // For further reduction
-            Set<ClusterNode> calculatedSwitchReduce = subtract(retrievedSwitchReduce, reducedNodes);
+            Set<Assignment> calculatedSwitchReduce = subtract(retrievedSwitchReduce, reducedNodes);
 
             // For further addition
-            Set<ClusterNode> calculatedSwitchAppend = union(retrievedSwitchAppend, reducedNodes);
+            Set<Assignment> calculatedSwitchAppend = union(retrievedSwitchAppend, reducedNodes);
             calculatedSwitchAppend = subtract(calculatedSwitchAppend, addedNodes);
             calculatedSwitchAppend = intersect(calculatedAssignments, calculatedSwitchAppend);
 
-            Set<ClusterNode> calculatedPendingReduction = subtract(stable, retrievedSwitchReduce);
+            Set<Assignment> calculatedPendingReduction = subtract(stable, retrievedSwitchReduce);
 
-            Set<ClusterNode> calculatedPendingAddition = union(stable, reducedNodes);
+            Set<Assignment> calculatedPendingAddition = union(stable, reducedNodes);
             calculatedPendingAddition = intersect(calculatedAssignments, calculatedPendingAddition);
 
             // eq(revision(assignments.stable), retrievedAssignmentsStable.revision)
@@ -368,7 +380,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
 
             // TODO: https://issues.apache.org/jira/browse/IGNITE-17592 Remove synchronous wait
             tblConfiguration.change(ch -> {
-                List<Set<ClusterNode>> assignments = ByteUtils.fromBytes(((ExtendedTableChange) ch).assignments());
+                List<Set<Assignment>> assignments = ByteUtils.fromBytes(((ExtendedTableChange) ch).assignments());
                 assignments.set(partNum, stable);
                 ((ExtendedTableChange) ch).changeAssignments(ByteUtils.toBytes(assignments));
             }).get(10, TimeUnit.SECONDS);
@@ -487,22 +499,6 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
     }
 
     /**
-     * Transforms list of cluster nodes to the list of peers.
-     *
-     * @param nodes List of cluster nodes to transform.
-     * @return List of transformed peers.
-     */
-    private static List<Peer> clusterNodesToPeers(Set<ClusterNode> nodes) {
-        List<Peer> peers = new ArrayList<>(nodes.size());
-
-        for (ClusterNode node : nodes) {
-            peers.add(new Peer(node.name()));
-        }
-
-        return peers;
-    }
-
-    /**
      * Transforms list of peerIds to list of peers.
      *
      * @param peerIds List of peerIds to transform.
@@ -516,5 +512,29 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
         }
 
         return peers;
+    }
+
+    /**
+     * Creates a set of assignments from the given set of peers and learners.
+     */
+    private static Set<Assignment> createAssignments(Collection<PeerId> peers, Collection<PeerId> learners) {
+        Stream<Assignment> newAssignments = Stream.concat(
+                peers.stream().map(peerId -> Assignment.forPeer(peerId.getConsistentId())),
+                learners.stream().map(peerId -> Assignment.forLearner(peerId.getConsistentId()))
+        );
+
+        return newAssignments.collect(Collectors.toSet());
+    }
+
+    /**
+     * Reads a list of cluster nodes from a MetaStorage entry.
+     *
+     * @param entry MetaStorage entry.
+     * @return List of cluster nodes.
+     */
+    private static Set<Assignment> readAssignments(Entry entry) {
+        byte[] value = entry.value();
+
+        return value == null ? Set.of() : ByteUtils.fromBytes(value);
     }
 }

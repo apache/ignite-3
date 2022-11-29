@@ -17,10 +17,14 @@
 
 package org.apache.ignite.internal.storage.pagememory;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.pagememory.evict.PageEvictionTrackerNoOp;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
@@ -39,10 +43,12 @@ import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumnsFreeList;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
+import org.apache.ignite.internal.storage.pagememory.mv.AbstractPageMemoryMvPartitionStorage;
 import org.apache.ignite.internal.storage.pagememory.mv.PersistentPageMemoryMvPartitionStorage;
 import org.apache.ignite.internal.storage.pagememory.mv.RowVersionFreeList;
 import org.apache.ignite.internal.storage.pagememory.mv.VersionChainTree;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
+import org.apache.ignite.lang.IgniteStringFormatter;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -86,44 +92,65 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
         return dataRegion;
     }
 
-    /** {@inheritDoc} */
     @Override
     public boolean isVolatile() {
         return false;
     }
 
-    /** {@inheritDoc} */
     @Override
-    public void start() throws StorageException {
-        super.start();
+    public CompletableFuture<Void> destroy() {
+        started = false;
 
-        TableView tableView = tableCfg.value();
+        List<CompletableFuture<Void>> destroyFutures = new ArrayList<>();
 
-        try {
-            dataRegion.filePageStoreManager().initialize(tableView.name(), tableView.tableId(), tableView.partitions());
+        for (int i = 0; i < mvPartitions.length(); i++) {
+            CompletableFuture<Void> destroyPartitionFuture = partitionIdDestroyFutureMap.get(i);
 
-            int deltaFileCount = dataRegion.filePageStoreManager().getStores(tableView.tableId()).stream()
-                    .mapToInt(FilePageStore::deltaFileCount)
-                    .sum();
+            if (destroyPartitionFuture != null) {
+                destroyFutures.add(destroyPartitionFuture);
+            } else {
+                AbstractPageMemoryMvPartitionStorage partition = mvPartitions.getAndUpdate(i, p -> null);
 
-            dataRegion.checkpointManager().addDeltaFileCountForCompaction(deltaFileCount);
-        } catch (IgniteInternalCheckedException e) {
-            throw new StorageException("Error initializing file page stores for table: " + tableView.name(), e);
+                if (partition != null) {
+                    destroyFutures.add(destroyMvPartitionStorage(partition));
+                }
+            }
+        }
+
+        int tableId = tableCfg.tableId().value();
+
+        if (destroyFutures.isEmpty()) {
+            dataRegion.pageMemory().onGroupDestroyed(tableId);
+
+            return completedFuture(null);
+        } else {
+            return CompletableFuture.allOf(destroyFutures.toArray(CompletableFuture[]::new))
+                    .whenComplete((unused, throwable) -> {
+                        if (throwable == null) {
+                            dataRegion.pageMemory().onGroupDestroyed(tableId);
+                        }
+                    });
         }
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public void destroy() throws StorageException {
-        close(true);
-    }
-
-    /** {@inheritDoc} */
     @Override
     public PersistentPageMemoryMvPartitionStorage createMvPartitionStorage(int partitionId) {
+        CompletableFuture<Void> partitionDestroyFuture = partitionIdDestroyFutureMap.get(partitionId);
+
+        if (partitionDestroyFuture != null) {
+            try {
+                // Time is chosen randomly (long enough) so as not to call #join().
+                partitionDestroyFuture.get(10, TimeUnit.SECONDS);
+            } catch (Exception e) {
+                throw new StorageException("Error waiting for the destruction of the previous version of the partition: " + partitionId, e);
+            }
+        }
+
         TableView tableView = tableCfg.value();
 
-        FilePageStore filePageStore = ensurePartitionFilePageStore(tableView, partitionId);
+        GroupPartitionId groupPartitionId = new GroupPartitionId(tableView.tableId(), partitionId);
+
+        FilePageStore filePageStore = ensurePartitionFilePageStore(tableView, groupPartitionId);
 
         CheckpointManager checkpointManager = dataRegion.checkpointManager();
 
@@ -134,15 +161,9 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
         try {
             PersistentPageMemory pageMemory = dataRegion.pageMemory();
 
-            int grpId = tableView.tableId();
+            PartitionMeta meta = dataRegion.partitionMetaManager().readOrCreateMeta(lastCheckpointId(), groupPartitionId, filePageStore);
 
-            PartitionMeta meta = dataRegion.partitionMetaManager().readOrCreateMeta(
-                    lastCheckpointId(),
-                    new GroupPartitionId(grpId, partitionId),
-                    filePageStore
-            );
-
-            dataRegion.partitionMetaManager().addMeta(new GroupPartitionId(grpId, partitionId), meta);
+            dataRegion.partitionMetaManager().addMeta(groupPartitionId, meta);
 
             filePageStore.pages(meta.pageCount());
 
@@ -185,20 +206,36 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
      * Initializes the partition file page store if it hasn't already.
      *
      * @param tableView Table configuration.
-     * @param partId Partition ID.
+     * @param groupPartitionId Pair of group ID with partition ID.
      * @return Partition file page store.
      * @throws StorageException If failed.
      */
-    private FilePageStore ensurePartitionFilePageStore(TableView tableView, int partId) throws StorageException {
+    private FilePageStore ensurePartitionFilePageStore(TableView tableView, GroupPartitionId groupPartitionId) throws StorageException {
         try {
-            FilePageStore filePageStore = dataRegion.filePageStoreManager().getStore(tableView.tableId(), partId);
+            dataRegion.filePageStoreManager().initialize(tableView.name(), groupPartitionId);
+
+            FilePageStore filePageStore = dataRegion.filePageStoreManager().getStore(groupPartitionId);
+
+            assert !filePageStore.isMarkedToDestroy() : IgniteStringFormatter.format(
+                    "Should not be marked for deletion: [tableName={}, tableId={}, partitionId={}]",
+                    tableView.name(),
+                    tableView.tableId(),
+                    groupPartitionId.getPartitionId()
+            );
 
             filePageStore.ensure();
+
+            if (filePageStore.deltaFileCount() > 0) {
+                dataRegion.checkpointManager().triggerCompaction();
+            }
 
             return filePageStore;
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException(
-                    String.format("Error initializing file page store [tableName=%s, partitionId=%s]", tableView.name(), partId),
+                    String.format("Error initializing file page store [tableName=%s, partitionId=%s]",
+                            tableView.name(),
+                            groupPartitionId.getPartitionId()
+                    ),
                     e
             );
         }
@@ -417,5 +454,27 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
     public CompletableFuture<Void> finishRebalanceMvPartition(int partitionId) {
         // TODO: IGNITE-18029 Implement
         throw new UnsupportedOperationException();
+    }
+
+    @Override
+    CompletableFuture<Void> destroyMvPartitionStorage(AbstractPageMemoryMvPartitionStorage mvPartitionStorage) {
+        int partitionId = mvPartitionStorage.partitionId();
+
+        // It is enough for us to close the partition storage and its indexes (do not destroy). Prepare the data region, checkpointer, and
+        // compactor to remove the partition, and then simply delete the partition file and its delta files.
+
+        mvPartitionStorage.close();
+
+        int tableId = tableCfg.tableId().value();
+
+        GroupPartitionId groupPartitionId = new GroupPartitionId(tableId, partitionId);
+
+        dataRegion.filePageStoreManager().getStore(groupPartitionId).markToDestroy();
+
+        dataRegion.pageMemory().invalidate(tableId, partitionId);
+
+        return dataRegion.checkpointManager().onPartitionDestruction(groupPartitionId)
+                .thenAccept(unused -> dataRegion.partitionMetaManager().removeMeta(groupPartitionId))
+                .thenCompose(unused -> dataRegion.filePageStoreManager().destroyPartition(groupPartitionId));
     }
 }
