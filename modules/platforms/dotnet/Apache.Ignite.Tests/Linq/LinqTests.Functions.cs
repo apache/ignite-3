@@ -30,6 +30,7 @@ using Table;
 /// </summary>
 [SuppressMessage("Globalization", "CA1304:Specify CultureInfo", Justification = "SQL")]
 [SuppressMessage("ReSharper", "StringIndexOfIsCultureSpecific.1", Justification = "SQL")]
+[SuppressMessage("ReSharper", "StringIndexOfIsCultureSpecific.2", Justification = "SQL")]
 public partial class LinqTests
 {
     [Test]
@@ -88,20 +89,21 @@ public partial class LinqTests
         TestOpString(x => x.Val!.Substring(1), "-9", "select substring(_T0.VAL, ? + 1) from");
         TestOpString(x => x.Val!.Substring(0, 2), "v-", "select substring(_T0.VAL, 0 + 1, 2) from");
 
-        // TODO:
-        // TestOpString(x => x.Val!.IndexOf("-9"), 1, "select instr(_T0.VAL, ?) -1 from");
-        // TestOpString(x => x.Val!.IndexOf("-9", 1), -1, "select instr(_T0.VAL, ?, ?) -1 from");
         Assert.Fail("TODO");
     }
 
     [Test]
     [Ignore("IGNITE-18283 Exception on SQL LIKE")]
-    public void TestStringContainsStartsEndsFunctions()
+    public void TestStringFunctionsIgnored()
     {
         // We can't use inlining workaround with LIKE (as we do with Math.Log) - with strings it will allow SQL injection.
         TestOpString(x => x.Val!.Contains("v-"), true, "select (_T0.VAL like '%v-%') from");
         TestOpString(x => x.Val!.StartsWith("v-"), true, "select (_T0.VAL like ? || '%') from");
         TestOpString(x => x.Val!.EndsWith("-9"), true, "select (_T0.VAL like '%' || ?) from");
+
+        TestOpString(x => x.Val + "_", "v-9_", "select concat(_T0.VAL, ?) from");
+        TestOpString(x => x.Val!.IndexOf("-9"), 1, "select instr(_T0.VAL, ?) -1 from");
+        TestOpString(x => x.Val!.IndexOf("-9", 1), -1, "select instr(_T0.VAL, ?, ?) -1 from");
     }
 
     [Test]
