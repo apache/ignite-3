@@ -80,7 +80,7 @@ internal static class MethodVisitor
                 GetRegexMethod(nameof(Regex.IsMatch), "regexp_like", typeof(string), typeof(string)),
                 GetRegexMethod(nameof(Regex.IsMatch), "regexp_like", typeof(string), typeof(string), typeof(RegexOptions)),
 
-                GetMethod(typeof(DateTime), "ToString", new[] {typeof(string)}, (e, v) => VisitFunc(e, v, "formatdatetime", ", 'en', 'UTC'")),
+                GetMethod(typeof(DateTime), "ToString", new[] {typeof(string)}, (e, v) => VisitFunc(e, v, "formatdatetime", ", 'en', 'UTC'", false)),
 
                 GetMathMethod(nameof(Math.Abs), typeof(int)),
                 GetMathMethod(nameof(Math.Abs), typeof(long)),
@@ -103,10 +103,10 @@ internal static class MethodVisitor
                 GetMathMethod(nameof(Math.Exp), typeof(double)),
                 GetMathMethod(nameof(Math.Floor), typeof(double)),
                 GetMathMethod(nameof(Math.Floor), typeof(decimal)),
-                GetMathMethod(nameof(Math.Log), "Ln", typeof(double)),
+                GetMathMethod(nameof(Math.Log), "Ln", inlineCostArgs: false, typeof(double)),
                 GetMathMethod(nameof(Math.Log10), typeof(double)),
                 GetMathMethod(nameof(Math.Log2), typeof(double)),
-                GetMathMethod(nameof(Math.Pow), "Power", typeof(double), typeof(double)),
+                GetMathMethod(nameof(Math.Pow), "Power", inlineCostArgs: true, typeof(double), typeof(double)),
                 GetMathMethod(nameof(Math.Round), typeof(double)),
                 GetMathMethod(nameof(Math.Round), typeof(double), typeof(int)),
                 GetMathMethod(nameof(Math.Round), typeof(decimal)),
@@ -220,10 +220,14 @@ internal static class MethodVisitor
     /// <summary>
     /// Gets the function.
     /// </summary>
-    private static VisitMethodDelegate GetFunc(string func, params int[] adjust)
-    {
-        return (e, v) => VisitFunc(e, v, func, null, adjust);
-    }
+    private static VisitMethodDelegate GetFunc(string func, params int[] adjust) =>
+        (e, v) => VisitFunc(e, v, func, null, false, adjust);
+
+    /// <summary>
+    /// Gets the function.
+    /// </summary>
+    private static VisitMethodDelegate GetFunc(string func, bool inlineConstArgs, params int[] adjust) =>
+        (e, v) => VisitFunc(e, v, func, null, inlineConstArgs, adjust);
 
     /// <summary>
     /// Visits the instance function.
@@ -233,6 +237,7 @@ internal static class MethodVisitor
         IgniteQueryExpressionVisitor visitor,
         string func,
         string? suffix,
+        bool inlineConstArgs,
         params int[] adjust)
     {
         visitor.ResultBuilder.Append(func).Append('(');
@@ -253,7 +258,15 @@ internal static class MethodVisitor
                 visitor.ResultBuilder.Append(", ");
             }
 
-            visitor.Visit(arg);
+            if (inlineConstArgs && arg is ConstantExpression constExpr)
+            {
+                // TODO IGNITE-18282 Remove this logic, we should be able to pass args as SQL params for all functions.
+                visitor.ResultBuilder.Append(constExpr.Value);
+            }
+            else
+            {
+                visitor.Visit(arg);
+            }
 
             AppendAdjustment(visitor, adjust, i + 1);
         }
@@ -421,11 +434,12 @@ internal static class MethodVisitor
         Type type,
         string name,
         Type[]? argTypes = null,
-        VisitMethodDelegate? del = null)
+        VisitMethodDelegate? del = null,
+        bool inlineConstArgs = false)
     {
         var method = argTypes == null ? type.GetMethod(name) : type.GetMethod(name, argTypes);
 
-        return new KeyValuePair<MethodInfo?, VisitMethodDelegate>(method!, del ?? GetFunc(name));
+        return new KeyValuePair<MethodInfo?, VisitMethodDelegate>(method!, del ?? GetFunc(name, inlineConstArgs));
     }
 
     /// <summary>
@@ -495,16 +509,13 @@ internal static class MethodVisitor
     private static KeyValuePair<MethodInfo?, VisitMethodDelegate> GetMathMethod(
         string name,
         string sqlName,
-        params Type[] argTypes)
-    {
-        return GetMethod(typeof(Math), name, argTypes, GetFunc(sqlName));
-    }
+        bool inlineCostArgs,
+        params Type[] argTypes) =>
+        GetMethod(typeof(Math), name, argTypes, GetFunc(sqlName, inlineCostArgs), inlineCostArgs);
 
     /// <summary>
     /// Gets the math method.
     /// </summary>
-    private static KeyValuePair<MethodInfo?, VisitMethodDelegate> GetMathMethod(string name, params Type[] argTypes)
-    {
-        return GetMathMethod(name, name, argTypes);
-    }
+    private static KeyValuePair<MethodInfo?, VisitMethodDelegate> GetMathMethod(string name, params Type[] argTypes) =>
+        GetMathMethod(name, name, false, argTypes);
 }
