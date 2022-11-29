@@ -94,7 +94,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
 
     /** Future that resolves into a CMG Raft service. Can be {@code null} if the Raft service has not been started. */
     @Nullable
-    private CompletableFuture<CmgRaftService> raftService;
+    private volatile CompletableFuture<CmgRaftService> raftService;
 
     /** Lock for the {@code raftService} field. */
     private final Object raftServiceLock = new Object();
@@ -200,9 +200,9 @@ public class ClusterManagementGroupManager implements IgniteComponent {
      * Returns the cluster state future or the future that will be resolved to null if the cluster is not initialized yet.
      */
     public CompletableFuture<ClusterState> clusterState() {
-        synchronized (raftServiceLock) {
-            return raftService == null ? completedFuture(null) : raftService.thenCompose(CmgRaftService::readClusterState);
-        }
+        CompletableFuture<CmgRaftService> serviceFuture = raftService;
+
+        return serviceFuture == null ? completedFuture(null) : serviceFuture.thenCompose(CmgRaftService::readClusterState);
     }
 
     /**
@@ -493,20 +493,21 @@ public class ClusterManagementGroupManager implements IgniteComponent {
     }
 
     private void onLogicalTopologyChanged(long term) {
-        synchronized (raftServiceLock) {
+        // We don't do it under lock to avoid deadlocks during node restart.
 
-            // If the future is not here yet, this means we are still starting, so learners will be updated after start
-            // (if we happen to become a leader).
+        CompletableFuture<CmgRaftService> serviceFuture = raftService;
 
-            if (raftService != null) {
-                raftService.thenCompose(service -> service.isCurrentNodeLeader().thenCompose(isLeader -> {
-                    if (!isLeader) {
-                        return completedFuture(null);
-                    }
+        // If the future is not here yet, this means we are still starting, so learners will be updated after start
+        // (if we happen to become a leader).
 
-                    return service.updateLearners(term);
-                }));
-            }
+        if (serviceFuture != null) {
+            serviceFuture.thenCompose(service -> service.isCurrentNodeLeader().thenCompose(isLeader -> {
+                if (!isLeader) {
+                    return completedFuture(null);
+                }
+
+                return service.updateLearners(term);
+            }));
         }
     }
 
@@ -735,11 +736,11 @@ public class ClusterManagementGroupManager implements IgniteComponent {
         // the CMG Raft service must have already been started (reference to "raftService" is not null).
         return joinFuture
                 .thenCompose(v -> {
-                    synchronized (raftServiceLock) {
-                        assert raftService != null;
+                    CompletableFuture<CmgRaftService> serviceFuture = raftService;
 
-                        return raftService;
-                    }
+                    assert serviceFuture != null;
+
+                    return serviceFuture;
                 });
     }
 
