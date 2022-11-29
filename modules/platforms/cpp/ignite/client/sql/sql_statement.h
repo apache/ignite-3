@@ -40,7 +40,6 @@ public:
     /** Default query timeout (zero means no timeout). */
     static constexpr std::chrono::milliseconds DEFAULT_TIMEOUT{0};
 
-
     // Default
     sql_statement() = default;
 
@@ -53,8 +52,10 @@ public:
      * @param page_size Page size.
      * @param properties Properties list.
      */
-    sql_statement(std::string query, std::chrono::milliseconds timeout, std::string schema, std::int32_t page_size,
-            std::initializer_list<std::pair<const std::string, primitive>> properties)
+    sql_statement( // NOLINT(google-explicit-constructor)
+            std::string query, std::chrono::milliseconds timeout = DEFAULT_TIMEOUT,
+            std::string schema = DEFAULT_SCHEMA, std::int32_t page_size = DEFAULT_PAGE_SIZE,
+            std::initializer_list<std::pair<const std::string, primitive>> properties = {})
         : m_query(std::move(query))
         , m_timeout(timeout)
         , m_schema(std::move(schema))

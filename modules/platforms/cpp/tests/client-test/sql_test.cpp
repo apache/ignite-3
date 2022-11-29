@@ -15,33 +15,43 @@
  * limitations under the License.
  */
 
-#pragma once
+#include "ignite_runner_suite.h"
+#include "tests/test-common/test_utils.h"
 
-#include "gtest_logger.h"
+#include "ignite/client/ignite_client.h"
+#include "ignite/client/ignite_client_configuration.h"
 
 #include <gtest/gtest.h>
 
-#include <memory>
-#include <string_view>
+#include <algorithm>
+#include <chrono>
 
-namespace ignite {
-
-using namespace std::string_view_literals;
+using namespace ignite;
 
 /**
  * Test suite.
  */
-class ignite_runner_suite : public ::testing::Test {
-protected:
-    static constexpr std::initializer_list<std::string_view> NODE_ADDRS = {"127.0.0.1:10942"sv, "127.0.0.1:10943"sv};
-    static constexpr std::string_view TABLE_1 = "tbl1"sv;
+class sql_test : public ignite_runner_suite {
 
-    /**
-     * Get logger.
-     *
-     * @return Logger for tests.
-     */
-    static std::shared_ptr<gtest_logger> get_logger() { return std::make_shared<gtest_logger>(false, true); }
+protected:
+    void SetUp() override {
+        ignite_client_configuration cfg{NODE_ADDRS};
+        cfg.set_logger(get_logger());
+
+        m_client = ignite_client::start(cfg, std::chrono::seconds(5));
+    }
+
+    void TearDown() override {
+        // remove all
+    }
+
+    /** Ignite client. */
+    ignite_client m_client;
 };
 
-} // namespace ignite
+TEST_F(sql_test, sql_simple_select) {
+    auto result_set = m_client.get_sql().execute(nullptr, {"select 1"}, {});
+
+//    ASSERT_TRUE(table.has_value());
+//    EXPECT_EQ(table->name(), "tbl1");
+}

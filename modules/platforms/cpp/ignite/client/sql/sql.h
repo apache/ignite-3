@@ -43,16 +43,29 @@ public:
     sql() = default;
 
     /**
-     * Executes single SQL statement and returns rows.
+     * Executes single SQL statement asynchronously and returns rows.
      *
-     * @param tx Optional transaction. If nullptr implicit transaction for this
-     *   single operation is used.
+     * @param tx Optional transaction. If nullptr implicit transaction for this single operation is used.
      * @param statement Statement to execute.
      * @param args Arguments for the statement.
      * @param callback A callback called on operation completion with SQL result set.
      */
     IGNITE_API void execute_async(
-        transaction *tx, const sql_statement& statement, std::vector<primitive> args, ignite_callback<result_set> callback);
+        transaction *tx, const sql_statement &statement, std::vector<primitive> args, ignite_callback<result_set> callback);
+
+    /**
+     * Executes single SQL statement and returns rows.
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this single operation is used.
+     * @param statement Statement to execute.
+     * @param args Arguments for the statement.
+     * @return SQL result set.
+     */
+    IGNITE_API result_set execute(transaction *tx, const sql_statement &statement, std::vector<primitive> args)  {
+        return sync<result_set>([this, tx, &statement, args = std::move(args)](auto callback) mutable {
+            execute_async(tx, statement, std::move(args), std::move(callback));
+        });
+    }
 
 private:
     /**
