@@ -184,9 +184,10 @@ public class TraitUtils {
             return rel;
         }
 
-        // right now we cannot create a multi-column affinity
-        // key object, thus this conversion is impossible
-        if (toTrait.function().affinity() && toTrait.getKeys().size() > 1) {
+        // TODO: remove in IGNITE-18211
+        // currently affinity function is not implemented properly,
+        // thus rehashing by affinity should by disabled for a while
+        if (toTrait.function().affinity()) {
             return null;
         }
 
