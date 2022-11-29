@@ -61,6 +61,8 @@ internal static class MethodVisitor
                 GetStringMethod(nameof(string.Substring), new[] {typeof(int)}, GetFunc("substring", 0, 1)),
                 GetStringMethod(nameof(string.Substring), new[] {typeof(int), typeof(int)}, GetFunc("substring", inlineConstArgs: true, 0, 1)),
                 GetStringMethod(nameof(string.Trim), "trim"),
+                GetStringMethod(nameof(string.TrimStart), "ltrim"),
+                GetStringMethod(nameof(string.TrimEnd), "rtrim"),
                 GetParameterizedTrimMethod(nameof(string.Trim), "trim"),
                 GetParameterizedTrimMethod(nameof(string.TrimStart), "ltrim"),
                 GetParameterizedTrimMethod(nameof(string.TrimEnd), "rtrim"),
