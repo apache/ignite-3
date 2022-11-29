@@ -29,6 +29,7 @@ using Table;
 /// Linq type cast tests.
 /// </summary>
 [SuppressMessage("Globalization", "CA1304:Specify CultureInfo", Justification = "SQL")]
+[SuppressMessage("ReSharper", "StringIndexOfIsCultureSpecific.1", Justification = "SQL")]
 public partial class LinqTests
 {
     [Test]
@@ -81,10 +82,12 @@ public partial class LinqTests
     [Test]
     public void TestStringFunctions()
     {
-        // TODO: We can't inline LIKE argument - potential SQL injection.
         TestOpString(x => x.Val!.ToUpper(), "V-9", "select upper(_T0.VAL) from");
         TestOpString(x => x.Val!.ToLower(), "v-9", "select lower(_T0.VAL) from");
 
+        // TODO:
+        // TestOpString(x => x.Val!.IndexOf("-9"), 1, "select instr(_T0.VAL, ?) -1 from");
+        // TestOpString(x => x.Val!.IndexOf("-9", 1), -1, "select instr(_T0.VAL, ?, ?) -1 from");
         Assert.Fail("TODO");
     }
 
