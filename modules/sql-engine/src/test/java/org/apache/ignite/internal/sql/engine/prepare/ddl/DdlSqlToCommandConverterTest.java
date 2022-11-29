@@ -20,7 +20,6 @@ package org.apache.ignite.internal.sql.engine.prepare.ddl;
 import static org.apache.calcite.tools.Frameworks.newConfigBuilder;
 import static org.apache.ignite.internal.sql.engine.prepare.ddl.DdlSqlToCommandConverter.checkDuplicates;
 import static org.apache.ignite.internal.sql.engine.prepare.ddl.DdlSqlToCommandConverter.collectDataStorageNames;
-import static org.apache.ignite.internal.sql.engine.prepare.ddl.DdlSqlToCommandConverter.collectDdlOptionInfos;
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
 import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -96,58 +95,22 @@ public class DdlSqlToCommandConverterTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void testCollectTableOptionInfos() {
-        assertThat(collectDdlOptionInfos(new DdlOptionInfo[0]), equalTo(Map.of()));
-
-        DdlOptionInfo<CreateTableCommand, ?> replicas = tableOptionInfo("replicas");
-
-        assertThat(
-                collectDdlOptionInfos(replicas),
-                equalTo(Map.of("REPLICAS", replicas))
-        );
-
-        replicas = tableOptionInfo("REPLICAS");
-
-        assertThat(
-                collectDdlOptionInfos(replicas),
-                equalTo(Map.of("REPLICAS", replicas))
-        );
-
-        replicas = tableOptionInfo("replicas");
-        DdlOptionInfo<CreateTableCommand, ?> partitions = tableOptionInfo("partitions");
-
-        assertThat(
-                collectDdlOptionInfos(replicas, partitions),
-                equalTo(Map.of("REPLICAS", replicas, "PARTITIONS", partitions))
-        );
-
-        DdlOptionInfo<CreateTableCommand, ?> replicas0 = tableOptionInfo("replicas");
-        DdlOptionInfo<CreateTableCommand, ?> replicas1 = tableOptionInfo("REPLICAS");
-
-        IllegalStateException exception = assertThrows(
-                IllegalStateException.class,
-                () -> collectDdlOptionInfos(replicas0, replicas1)
-        );
-
-        assertThat(exception.getMessage(), startsWith("Duplicate key"));
-    }
-
-    @Test
-    void testCheckPositiveNumber() {
+    void testCheckDuplicates() {
         IllegalStateException exception = assertThrows(
                 IllegalStateException.class,
                 () -> checkDuplicates(
-                        collectDdlOptionInfos(tableOptionInfo("replicas")),
-                        collectDdlOptionInfos(tableOptionInfo("replicas"))
+                        Set.of("replicas", "affinity"),
+                        Set.of("partitions", "replicas")
                 )
         );
 
         assertThat(exception.getMessage(), startsWith("Duplicate id"));
 
         assertDoesNotThrow(() -> checkDuplicates(
-                collectDdlOptionInfos(tableOptionInfo("replicas")),
-                collectDdlOptionInfos(tableOptionInfo("partitions"))
-        ));
+                        Set.of("replicas", "affinity"),
+                        Set.of("replicas0", "affinity0")
+                )
+        );
     }
 
     @Test
@@ -281,11 +244,6 @@ public class DdlSqlToCommandConverterTest extends BaseIgniteAbstractTest {
         assertThat(createZone.dataNodesAutoAdjustScaleUp(), equalTo(100));
         assertThat(createZone.dataNodesAutoAdjustScaleDown(), equalTo(200));
         assertThat(createZone.dataNodesAutoAdjust(), equalTo(300));
-    }
-
-    private DdlOptionInfo<CreateTableCommand, ?> tableOptionInfo(String name) {
-        return new DdlOptionInfo<>(name, Object.class, null, (createTableCommand, o) -> {
-        });
     }
 
     private static Matcher<ColumnDefinition> columnThat(String description, Function<ColumnDefinition, Boolean> checker) {
