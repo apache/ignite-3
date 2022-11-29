@@ -40,7 +40,19 @@ public:
      */
     result_set_impl(std::shared_ptr<node_connection> connection, bytes_view data)
         : m_connection(std::move(connection)) {
+        protocol::reader reader(data);
 
+        m_resource_id = reader.read_object_nullable<std::int64_t>();
+        m_has_rowset = reader.read_bool();
+        m_has_more_pages = reader.read_bool();
+        m_was_applied = reader.read_bool();
+        m_affected_rows = reader.read_int64();
+
+        if (m_has_rowset) {
+            auto columns = read_meta(reader);
+            m_meta = std::move(result_set_metadata(columns));
+            m_data.assign(data.begin() + (int)reader.position(), data.end());
+        }
     }
 
     /**
@@ -82,6 +94,59 @@ public:
     }
 
 private:
+    /**
+     * Reads result set metadata.
+     *
+     * @param reader Reader.
+     * @return Result set meta coumns.
+     */
+    static std::vector<column_metadata> read_meta(protocol::reader& reader) {
+        auto size = reader.read_array_size();
+
+        std::vector<column_metadata> columns;
+        columns.reserve(size);
+
+        for (std::uint32_t i = 0; i < size; ++i) {
+            auto name = reader.read_string();
+            auto nullable = reader.read_bool();
+            auto typ = column_type(reader.read_int32());
+            auto scale = reader.read_int32();
+            auto precision = reader.read_int32();
+
+            auto origin_name = reader.read_string_nullable();
+            auto origin_schema_id = reader.try_read_int32();
+            std::string origin_schema;
+            if (origin_schema_id) {
+                if (*origin_schema_id >= columns.size()) {
+                    throw ignite_error("Origin schema ID is too large: " + std::to_string(*origin_schema_id) +
+                                       ", id=" + std::to_string(i));
+                }
+                origin_schema = columns[*origin_schema_id].origin().schema_name();
+            } else {
+                origin_schema = reader.read_string();
+            }
+
+            auto origin_table_id = reader.read_object_nullable<std::int32_t>();
+            std::string origin_table;
+            if (origin_table_id) {
+                if (*origin_table_id >= columns.size()) {
+                    throw ignite_error("Origin table ID is too large: " + std::to_string(*origin_table_id) +
+                                       ", id=" + std::to_string(i));
+                }
+                origin_table = columns[*origin_table_id].origin().table_name();
+            } else {
+                origin_table = reader.read_string();
+            }
+
+            column_origin origin{origin_name ? std::move(*origin_name) : name,
+                std::move(origin_table), std::move(origin_schema)};
+
+            columns.emplace_back(std::move(name), typ, precision, scale, nullable, std::move(origin));
+        }
+
+        return columns;
+    }
+
     /** Result set metadata. */
     result_set_metadata m_meta;
 
@@ -96,6 +161,18 @@ private:
 
     /** Connection. */
     std::shared_ptr<node_connection> m_connection;
+
+    /** Resource ID. */
+    std::optional<std::int64_t> m_resource_id;
+
+    /** Has more pages. */
+    bool m_has_more_pages{false};
+
+    /** Row set data. */
+    std::vector<std::byte> m_data;
+
+    /** Position in buffer. */
+    size_t m_data_pos{0};
 };
 
 } // namespace ignite::detail

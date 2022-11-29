@@ -71,6 +71,24 @@ public:
     }
 
     /**
+     * Read object of type T from msgpack stream.
+     *
+     * @tparam T Type of the object to read.
+     * @return Object of type T or @c nullopt if there is object of other type in the stream.
+     * @throw ignite_error if there is no data left in the stream.
+     */
+    template<typename T>
+    [[nodiscard]] std::optional<T> try_read_object() {
+        check_data_in_stream();
+
+        auto res = try_unpack_object<T>(m_current_val.data);
+        if (res)
+            next();
+
+        return res;
+    }
+
+    /**
      * Read object of type T from msgpack stream or nil.
      *
      * @tparam T Type of the object to read.
@@ -114,6 +132,13 @@ public:
      * @return Value.
      */
     [[nodiscard]] std::int32_t read_int32() { return read_object<std::int32_t>(); }
+
+    /**
+     * Read int32 or nullopt.
+     *
+     * @return Value or nullopt if the next value in stream is not integer.
+     */
+    [[nodiscard]] std::optional<std::int32_t> try_read_int32() { return try_read_object<std::int32_t>(); }
 
     /**
      * Read int64 number.

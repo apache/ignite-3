@@ -41,6 +41,29 @@ static constexpr std::array<std::byte, 4> MAGIC_BYTES = {
     std::byte('I'), std::byte('G'), std::byte('N'), std::byte('I')};
 
 template<typename T>
+[[nodiscard]] std::optional<T> try_unpack_object(const msgpack_object &) {
+    static_assert(sizeof(T) == 0, "Unpacking is not implemented for the type");
+}
+
+/**
+ * Try unpack number.
+ *
+ * @param object MsgPack object.
+ * @return Number or @c nullopt if the object is not a number.
+ */
+template<>
+[[nodiscard]] std::optional<std::int64_t> try_unpack_object(const msgpack_object &object);
+
+/**
+ * Try unpack number.
+ *
+ * @param object MsgPack object.
+ * @return Number or @c nullopt if the object is not a number.
+ */
+template<>
+[[nodiscard]] std::optional<std::int32_t> try_unpack_object(const msgpack_object &object);
+
+template<typename T>
 [[nodiscard]] T unpack_object(const msgpack_object &) {
     static_assert(sizeof(T) == 0, "Unpacking is not implemented for the type");
 }

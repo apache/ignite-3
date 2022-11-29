@@ -28,6 +28,47 @@
 
 namespace ignite::protocol {
 
+/**
+ * Check if int value fits in @c T.
+ *
+ * @tparam T Int type to fit value to.
+ * @param value Int value.
+ */
+template<typename T>
+inline void check_int_fits(std::int64_t value) {
+    if (value > std::int64_t(std::numeric_limits<T>::max()))
+        throw ignite_error("The number in stream is too large to fit in type: " + std::to_string(value));
+
+    if (value < std::int64_t(std::numeric_limits<T>::min()))
+        throw ignite_error("The number in stream is too small to fit in type: " + std::to_string(value));
+}
+
+template<typename T>
+std::optional<T> try_unpack_int(const msgpack_object &object) {
+    static_assert(
+            std::numeric_limits<T>::is_integer && std::numeric_limits<T>::is_signed, "Type T is not a signed integer type");
+
+    auto i64_val = try_unpack_object<std::int64_t>(object);
+    if (!i64_val)
+        return std::nullopt;
+
+    check_int_fits<T>(*i64_val);
+    return T(*i64_val);
+}
+
+template<>
+std::optional<std::int64_t> try_unpack_object(const msgpack_object &object) {
+    if (object.type != MSGPACK_OBJECT_NEGATIVE_INTEGER && object.type != MSGPACK_OBJECT_POSITIVE_INTEGER)
+        return std::nullopt;
+
+    return object.via.i64;
+}
+
+template<>
+std::optional<std::int32_t> try_unpack_object(const msgpack_object &object) {
+    return try_unpack_int<std::int32_t>(object);
+}
+
 template<typename T>
 T unpack_int(const msgpack_object &object) {
     static_assert(
@@ -35,12 +76,7 @@ T unpack_int(const msgpack_object &object) {
 
     auto i64_val = unpack_object<std::int64_t>(object);
 
-    if (i64_val > std::int64_t(std::numeric_limits<T>::max()))
-        throw ignite_error("The number in stream is too large to fit in type: " + std::to_string(i64_val));
-
-    if (i64_val < std::int64_t(std::numeric_limits<T>::min()))
-        throw ignite_error("The number in stream is too small to fit in type: " + std::to_string(i64_val));
-
+    check_int_fits<T>(i64_val);
     return T(i64_val);
 }
 

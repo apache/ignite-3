@@ -85,7 +85,6 @@ void sql_impl::execute_async(
     };
 
     auto reader_func = [](std::shared_ptr<node_connection> channel, bytes_view msg) -> result_set {
-        // TODO: Implement me.
         return result_set{std::make_shared<result_set_impl>(std::move(channel), msg)};
     };
 
