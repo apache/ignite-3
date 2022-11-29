@@ -17,40 +17,78 @@
 
 package org.apache.ignite.internal.distributionzones;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.metastorage.client.CompoundCondition.or;
+import static org.apache.ignite.internal.metastorage.client.Conditions.notExists;
+import static org.apache.ignite.internal.metastorage.client.Conditions.value;
+import static org.apache.ignite.internal.metastorage.client.Operations.ops;
+import static org.apache.ignite.internal.metastorage.client.Operations.put;
+import static org.apache.ignite.internal.metastorage.client.Operations.remove;
 import static org.apache.ignite.lang.ErrorGroups.Common.UNEXPECTED_ERR;
 
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import org.apache.ignite.configuration.NamedListChange;
+import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
+import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
+import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneChange;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneView;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneAlreadyExistsException;
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNotFoundException;
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneRenameException;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.client.CompoundCondition;
+import org.apache.ignite.internal.metastorage.client.If;
+import org.apache.ignite.internal.metastorage.client.Update;
+import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.NodeStoppingException;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Distribution zones manager.
  */
 public class DistributionZoneManager implements IgniteComponent {
+    /** The logger. */
+    private static final IgniteLogger LOG = Loggers.forClass(DistributionZoneManager.class);
+
     /** Distribution zone configuration. */
     private final DistributionZonesConfiguration zonesConfiguration;
 
+    private final MetaStorageManager metaStorageManager;
+
+    private final ClusterManagementGroupManager cmgManager;
+
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
+
+    /**  */
+    public static final String DISTRIBUTION_ZONE_DATA_NODES_PREFIX = "distributionZone.dataNodes";
 
     /**
      * Creates a new distribution zone manager.
      *
      * @param zonesConfiguration Distribution zones configuration.
      */
-    public DistributionZoneManager(DistributionZonesConfiguration zonesConfiguration) {
+    public DistributionZoneManager(
+            DistributionZonesConfiguration zonesConfiguration,
+            MetaStorageManager metaStorageManager,
+            ClusterManagementGroupManager cmgManager
+    ) {
         this.zonesConfiguration = zonesConfiguration;
+
+        this.metaStorageManager = metaStorageManager;
+
+        this.cmgManager = cmgManager;
     }
 
     /**
@@ -125,8 +163,7 @@ public class DistributionZoneManager implements IgniteComponent {
                 NamedListChange<DistributionZoneView, DistributionZoneChange> renameChange;
 
                 try {
-                    renameChange = zonesListChange
-                            .rename(name, distributionZoneCfg.name());
+                    renameChange = zonesListChange.rename(name, distributionZoneCfg.name());
                 } catch (IllegalArgumentException e) {
                     throw new DistributionZoneRenameException(name, distributionZoneCfg.name(), e);
                 } catch (Exception e) {
@@ -197,12 +234,104 @@ public class DistributionZoneManager implements IgniteComponent {
     /** {@inheritDoc} */
     @Override
     public void start() {
-
+        zonesConfiguration.distributionZones().listenElements(new ZonesConfigurationListener());
     }
 
     /** {@inheritDoc} */
     @Override
     public void stop() throws Exception {
 
+    }
+
+    private class ZonesConfigurationListener implements ConfigurationNamedListListener<DistributionZoneView> {
+        @Override
+        public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<DistributionZoneView> ctx) {
+            updateMetaStorageOnZoneCreateOrUpdate(ctx.newValue().zoneId(), ctx.storageRevision());
+
+            return completedFuture(null);
+        }
+
+        @Override
+        public CompletableFuture<?> onDelete(ConfigurationNotificationEvent<DistributionZoneView> ctx) {
+            updateMetaStorageOnZoneDelete(ctx.oldValue().zoneId(), ctx.storageRevision());
+
+            return completedFuture(null);
+        }
+
+        @Override
+        public CompletableFuture<?> onUpdate(ConfigurationNotificationEvent<DistributionZoneView> ctx) {
+            updateMetaStorageOnZoneCreateOrUpdate(ctx.newValue().zoneId(), ctx.storageRevision());
+
+            return completedFuture(null);
+        }
+    }
+
+    private void updateMetaStorageOnZoneCreateOrUpdate(int zoneId, long revision) {
+        byte[] logicalTopologyBytes;
+
+        try {
+            logicalTopologyBytes = ByteUtils.toBytes(cmgManager.logicalTopology().get());
+        } catch (InterruptedException | ExecutionException e) {
+            throw new IgniteInternalException(e);
+        }
+
+        ByteArray zonesChangeTriggerKey = zonesChangeTriggerKey();
+
+        CompoundCondition triggerKeyCondition = triggerKeyCondition(revision, zonesChangeTriggerKey);
+
+        Update dataNodesAndTriggerKeyUpd = ops(
+                put(zoneDataNodesKey(zoneId), logicalTopologyBytes),
+                put(zonesChangeTriggerKey, ByteUtils.longToBytes(revision))
+        ).yield(true);
+
+        var iif = If.iif(triggerKeyCondition, dataNodesAndTriggerKeyUpd, ops().yield(false));
+
+        metaStorageManager.invoke(iif).thenAccept(res -> {
+            if (res.getAsBoolean()) {
+                LOG.info("");
+            } else {
+                LOG.info("");
+            }
+        });
+    }
+
+    private void updateMetaStorageOnZoneDelete(int zoneId, long revision) {
+        ByteArray zonesChangeTriggerKey = zonesChangeTriggerKey();
+
+        CompoundCondition triggerKeyCondition = triggerKeyCondition(revision, zonesChangeTriggerKey);
+
+        Update dataNodesRemoveUpd = ops(
+                remove(zoneDataNodesKey(zoneId)),
+                put(zonesChangeTriggerKey, ByteUtils.longToBytes(revision))
+        ).yield(true);
+
+        var iif = If.iif(triggerKeyCondition, dataNodesRemoveUpd, ops().yield(false));
+
+        metaStorageManager.invoke(iif).thenAccept(res -> {
+            if (res.getAsBoolean()) {
+                LOG.info("");
+            } else {
+                LOG.info("");
+            }
+        });
+    }
+
+    private static CompoundCondition triggerKeyCondition(long revision, ByteArray zonesChangeTriggerKey) {
+        return or(
+                notExists(zonesChangeTriggerKey),
+                value(zonesChangeTriggerKey).lt(ByteUtils.longToBytes(revision))
+        );
+    }
+
+    /**
+     *
+     *
+     */
+    private static ByteArray zonesChangeTriggerKey() {
+        return new ByteArray("distributionZones.change.trigger");
+    }
+
+    private static ByteArray zoneDataNodesKey(int zoneId) {
+        return new ByteArray(DISTRIBUTION_ZONE_DATA_NODES_PREFIX + zoneId);
     }
 }
