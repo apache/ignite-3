@@ -217,7 +217,7 @@ public class CmgRaftService {
     }
 
     /**
-     * Issues changePeersAsync request with same peers; learners are recalculated based on the current peers (which is same as
+     * Issues {@code changePeersAsync} request with same peers; learners are recalculated based on the current peers (which is same as
      * CMG nodes) and known logical topology. Any node in the logical topology that is not a CMG node constitutes a learner.
      *
      * @param term RAFT term in which we operate (used to avoid races when changing peers/learners).
