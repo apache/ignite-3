@@ -47,3 +47,16 @@ else
     Please set the JAVA_HOME variable in your environment to match the
     location of your Java installation."
 fi
+
+
+# check java version
+JAVA_VER=$("$JAVACMD" -version 2>&1 \
+  | head -1 \
+  | cut -d'"' -f2 \
+  | sed 's/^1\.//' \
+  | cut -d'.' -f1
+)
+
+if [ "${JAVA_VER}" -lt "11" ]; then
+  echo "java version should be equal or higher than 11, your current version is $("$JAVACMD" -version 2>&1 | grep -i version)"
+fi
