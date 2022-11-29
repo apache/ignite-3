@@ -336,6 +336,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
 
                     // Send the ClusterStateMessage to all members of the physical topology. We do not wait for the send operation
                     // because being unable to send ClusterState messages should not fail the CMG service startup.
+                    // TODO: IGNITE-18275 - use RAFT replication instead of message sending
                     sendClusterState(service, topologyService.allMembers());
 
                     LOG.info("onLeaderElected callback executed successfully");
