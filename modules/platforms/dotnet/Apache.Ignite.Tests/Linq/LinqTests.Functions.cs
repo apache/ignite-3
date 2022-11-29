@@ -53,7 +53,7 @@ public partial class LinqTests
     [Test]
     public void TestNumericFunctions()
     {
-        // TODO: ACOSH, ASINH are not supported, but COSH and SINH are?
+        // ACOSH, ASINH, ATANH, ATAN2 are not supported by Calcite.
         TestOpDouble(x => Math.Abs(-x.Key), 9.0d, "select Abs((-_T0.KEY)) from");
         TestOpDouble(x => Math.Cos(x.Key + 2), 0.96017028665036597d, "select Cos((_T0.KEY + ?)) from");
         TestOpDouble(x => Math.Cosh(x.Key), 4051.5420254925943d, "select Cosh(_T0.KEY) from");
@@ -61,11 +61,9 @@ public partial class LinqTests
         TestOpDouble(x => Math.Sin(x.Key), 0.98935824662338179d, "select Sin(_T0.KEY) from");
         TestOpDouble(x => Math.Sinh(x.Key), 4051.5419020827899d, "select Sinh(_T0.KEY) from");
         TestOpDouble(x => Math.Asin(x.Key / 100), 0.090121945014595251d, "select Asin((_T0.KEY / ?)) from");
-        TestOpDouble(x => Math.Tan(x.Key), 9.0d, "select Tan(_T0.KEY) from");
-        TestOpDouble(x => Math.Tanh(x.Key), 9.0d, "select Tanh(_T0.KEY) from");
-        TestOpDouble(x => Math.Atan(x.Key), 9.0d, "select Atan(_T0.KEY) from");
-        TestOpDouble(x => Math.Atanh(x.Key), 9.0d, "select Atanh(_T0.KEY) from");
-        TestOpDouble(x => Math.Atan2(x.Key, 0.5), 9.0d, "select Atan2(_T0.KEY) from");
+        TestOpDouble(x => Math.Tan(x.Key), 1.5574077246549023d, "select Tan(_T0.KEY) from");
+        TestOpDouble(x => Math.Tanh(x.Key / 10), 0.71629787019902447d, "select Tanh((_T0.KEY / ?)) from");
+        TestOpDouble(x => Math.Atan(x.Key), 1.4601391056210009d, "select Atan(_T0.KEY) from");
 
         // TODO: Ceiling, Exp, Floor, Exp, Log, Log10, Pow, Round, Sign, Sqrt, Truncate
         TestOpInt(x => Math.Abs(-x.Key), 9, "select Abs((-_T0.KEY)) from");
