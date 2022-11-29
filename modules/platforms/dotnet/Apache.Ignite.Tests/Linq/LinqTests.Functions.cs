@@ -72,9 +72,7 @@ public partial class LinqTests
         TestOpDouble(x => Math.Round(x.Key / 5), 2, "select Round((_T0.KEY / ?)) from");
         TestOpDouble(x => Math.Sign(x.Key - 10), -1, "select Sign((_T0.KEY - ?)) from");
         TestOpDouble(x => Math.Sqrt(x.Key), 3.0d, "select Sqrt(_T0.KEY) from");
-
-        // TODO: Ceiling, Exp, Floor, Exp, Log, Log10, Pow, Round, Sign, Sqrt, Truncate
-        TestOpInt(x => Math.Abs(-x.Key), 9, "select Abs((-_T0.KEY)) from");
+        TestOpDouble(x => Math.Truncate(x.Key + 0.8), 9.0d, "select Truncate((_T0.KEY + ?)) from");
     }
 
     [Test]
