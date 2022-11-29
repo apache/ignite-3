@@ -18,14 +18,17 @@
 namespace Apache.Ignite.Tests.Linq;
 
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Linq.Expressions;
 using Ignite.Table;
 using NUnit.Framework;
+using Table;
 
 /// <summary>
 /// Linq type cast tests.
 /// </summary>
+[SuppressMessage("Globalization", "CA1304:Specify CultureInfo", Justification = "SQL")]
 public partial class LinqTests
 {
     [Test]
@@ -44,7 +47,7 @@ public partial class LinqTests
 
     [Test]
     [Ignore("IGNITE-18274")]
-    public void TestModulus()
+    public void TestRemainder()
     {
         TestOpDouble(x => x.Key % 3d, 1.0d, "select (_T0.KEY % ?) from");
         TestOpInt(x => x.Key % 4, 2, "select (_T0.KEY % ?) from");
@@ -78,6 +81,9 @@ public partial class LinqTests
     [Test]
     public void TestStringFunctions()
     {
+        TestOpString(x => x.Val!.ToUpper(), "V-9", "select upper(_T0.VAL) from");
+        TestOpString(x => x.Val!.ToLower(), "v-9", "select lower(_T0.VAL) from");
+
         Assert.Fail("TODO");
     }
 
@@ -122,4 +128,7 @@ public partial class LinqTests
 
     private void TestOpInt<TRes>(Expression<Func<PocoInt, TRes>> expr, TRes expectedRes, string expectedQuery) =>
         TestOp(PocoIntView, expr, expectedRes, expectedQuery);
+
+    private void TestOpString<TRes>(Expression<Func<Poco, TRes>> expr, TRes expectedRes, string expectedQuery) =>
+        TestOp(PocoView, expr, expectedRes, expectedQuery);
 }
