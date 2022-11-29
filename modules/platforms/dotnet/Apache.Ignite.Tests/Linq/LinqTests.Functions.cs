@@ -83,6 +83,9 @@ public partial class LinqTests
     {
         TestOpString(x => x.Val!.ToUpper(), "V-9", "select upper(_T0.VAL) from");
         TestOpString(x => x.Val!.ToLower(), "v-9", "select lower(_T0.VAL) from");
+        TestOpString(x => x.Val!.Contains("v-"), true, "select lower(_T0.VAL) from");
+        TestOpString(x => x.Val!.Contains("v-9"), true, "select lower(_T0.VAL) from");
+        TestOpString(x => x.Val!.Contains("v-v"), false, "select lower(_T0.VAL) from");
 
         Assert.Fail("TODO");
     }
