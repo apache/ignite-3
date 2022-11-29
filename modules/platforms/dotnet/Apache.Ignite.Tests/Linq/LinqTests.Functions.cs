@@ -40,9 +40,14 @@ public partial class LinqTests
         TestOpInt(x => x.Key - 1.234d, 7.766d, "select (cast(_T0.KEY as double) - ?) from");
         TestOpInt(x => x.Key * 2.5d, 22.5d, "select (cast(_T0.KEY as double) * ?) from");
         TestOpInt(x => x.Key / 3d, 3.0d, "select (cast(_T0.KEY as double) / ?) from");
+    }
 
-        // TODO:
-        // TestOpDouble(x => x.Key % 3d, 3.0d, "select (_T0.KEY % ?) from");
+    [Test]
+    public void TestModulus()
+    {
+        // TODO: Calcite throws errors - asked in #sql_team.
+        TestOpDouble(x => x.Key % 3d, 1.0d, "select (_T0.KEY % ?) from");
+        TestOpInt(x => x.Key % 4, 2, "select (_T0.KEY % ?) from");
     }
 
     [Test]
