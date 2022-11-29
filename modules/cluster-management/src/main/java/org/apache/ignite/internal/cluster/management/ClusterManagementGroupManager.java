@@ -49,6 +49,7 @@ import org.apache.ignite.internal.cluster.management.raft.IllegalInitArgumentExc
 import org.apache.ignite.internal.cluster.management.raft.JoinDeniedException;
 import org.apache.ignite.internal.cluster.management.raft.commands.JoinReadyCommand;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
+import org.apache.ignite.internal.cluster.management.topology.LogicalTopologySnapshot;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -358,7 +359,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                             .map(ClusterNode::id)
                             .collect(toSet());
 
-                    Set<ClusterNode> nodesToRemove = logicalTopology.stream()
+                    Set<ClusterNode> nodesToRemove = logicalTopology.nodes().stream()
                             .filter(node -> !physicalTopologyIds.contains(node.id()))
                             .collect(toUnmodifiableSet());
 
@@ -652,11 +653,11 @@ public class ClusterManagementGroupManager implements IgniteComponent {
     }
 
     /**
-     * Returns a future that, when complete, resolves into a list of nodes that comprise the logical topology.
+     * Returns a future that, when complete, resolves into a logical topology snapshot.
      *
-     * @return Future that, when complete, resolves into a list of nodes that comprise the logical topology.
+     * @return Future that, when complete, resolves into a logical topology snapshot.
      */
-    public CompletableFuture<Collection<ClusterNode>> logicalTopology() {
+    public CompletableFuture<LogicalTopologySnapshot> logicalTopology() {
         if (!busyLock.enterBusy()) {
             return failedFuture(new NodeStoppingException());
         }

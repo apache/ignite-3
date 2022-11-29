@@ -21,7 +21,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 
-import java.util.Collection;
 import java.util.Set;
 import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
 import org.apache.ignite.network.ClusterNode;
@@ -40,8 +39,8 @@ public class LogicalTopologyImpl implements LogicalTopology {
     }
 
     @Override
-    public Collection<ClusterNode> getLogicalTopology() {
-        return readLogicalTopology().nodes();
+    public LogicalTopologySnapshot getLogicalTopology() {
+        return readLogicalTopology();
     }
 
     private LogicalTopologySnapshot readLogicalTopology() {
