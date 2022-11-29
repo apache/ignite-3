@@ -116,6 +116,12 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
     {
         ResultBuilder.Append('?');
 
+        if (value is char)
+        {
+            // Pass char params as string - protocol does not support char.
+            value = value.ToString();
+        }
+
         _modelVisitor.Parameters.Add(value);
     }
 

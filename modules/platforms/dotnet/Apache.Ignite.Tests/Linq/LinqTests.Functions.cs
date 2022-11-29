@@ -93,6 +93,11 @@ public partial class LinqTests
         TestOpString(x => x.Val!.TrimStart(), "v-9", "select ltrim(_T0.VAL) from");
         TestOpString(x => x.Val!.TrimEnd(), "v-9", "select rtrim(_T0.VAL) from");
 
+        // TODO: select trim('f' from 'foo-bar') works (single char), ltrim and rtrim do not take parameters
+        TestOpString(x => x.Val!.Trim('v'), "-9", "select trim(_T0.VAL) from");
+        TestOpString(x => x.Val!.TrimStart('v'), "-9", "select ltrim(_T0.VAL) from");
+        TestOpString(x => x.Val!.TrimEnd('9'), "v-", "select rtrim(_T0.VAL) from");
+
         Assert.Fail("TODO");
     }
 
