@@ -232,13 +232,9 @@ public class CmgRaftService {
                 .map(Peer::consistentId)
                 .collect(toSet());
 
-        Set<String> consistentIds = logicalTopology.getLogicalTopology().stream()
+        Set<Peer> newLearners = logicalTopology.getLogicalTopology().stream()
                 .map(ClusterNode::name)
-                .collect(toSet());
-
-        consistentIds.removeAll(peersConsistentIds);
-
-        Set<Peer> newLearners = consistentIds.stream()
+                .filter(name -> !peersConsistentIds.contains(name))
                 .map(Peer::new)
                 .collect(toSet());
 
