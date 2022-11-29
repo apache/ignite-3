@@ -83,10 +83,7 @@ public class ReplicaManager implements IgniteComponent {
     private final NetworkMessageHandler handler;
 
     /** Replicas. */
-    private final ConcurrentHashMap<ReplicationGroupId, Replica> replicas = new ConcurrentHashMap<>();
-
-    /** Replicas which was requested but have not started yet. */
-    private final Map<ReplicationGroupId, CompletableFuture<Void>> pendingReplicas = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<ReplicationGroupId, CompletableFuture<Replica>> replicas = new ConcurrentHashMap<>();
 
     /** A hybrid logical clock. */
     private final HybridClock clock;
@@ -96,7 +93,7 @@ public class ReplicaManager implements IgniteComponent {
             Executors.newScheduledThreadPool(1, new NamedThreadFactory("scheduled-idle-safe-time-sync-thread", LOG));
 
     /** Set of message groups to handler as replica requests. */
-    Set<Class<?>> messageGroupsToHandle;
+    private Set<Class<?>> messageGroupsToHandle;
 
     /**
      * Constructor for a    replica service.
@@ -125,45 +122,41 @@ public class ReplicaManager implements IgniteComponent {
                 ReplicaRequest request = (ReplicaRequest) message;
 
                 if (request instanceof AwaitReplicaRequest) {
-                    replicas.compute(request.groupId(), (replicationGroupId, replica) -> {
-                        pendingReplicas.compute(request.groupId(), (clusterNode, fut) -> {
-                            if (replica == null) {
-                                if (fut == null) {
-                                    fut = new CompletableFuture<>();
-                                }
+                    replicas.compute(request.groupId(), (replicationGroupId, replicaFut) -> {
+                            if (replicaFut == null) {
+                                replicaFut = new CompletableFuture<>();
+                            }
 
-                                fut.thenCompose(ignore -> {
+                            if (!replicaFut.isDone()) {
+                                replicaFut.thenCompose(ignore -> {
                                     IgniteUtils.inBusyLock(busyLock,
                                             () -> sendAwaitReplicaResponse(sender, correlationId));
 
                                     return null;
                                 });
 
-                                return fut;
+                                return replicaFut;
                             } else {
                                 IgniteUtils.inBusyLock(busyLock, () -> sendAwaitReplicaResponse(sender, correlationId));
 
-                                return fut;
+                                return replicaFut;
                             }
-                        });
-
-                        return replica;
                     });
 
                     return;
                 }
 
-                Replica replica = replicas.get(request.groupId());
+                CompletableFuture<Replica> replicaFut = replicas.get(request.groupId());
 
                 HybridTimestamp requestTimestamp = extractTimestamp(request);
 
-                if (replica == null) {
+                if (replicaFut == null || !replicaFut.isDone()) {
                     sendReplicaUnavailableErrorResponse(sender, correlationId, request, requestTimestamp);
 
                     return;
                 }
 
-                CompletableFuture<Object> result = replica.processRequest(request);
+                CompletableFuture<Object> result = replicaFut.join().processRequest(request);
 
                 result.handle((res, ex) -> {
                     NetworkMessage msg;
@@ -199,7 +192,7 @@ public class ReplicaManager implements IgniteComponent {
         }
 
         try {
-            return replicas.get(replicaGrpId);
+            return replicas.get(replicaGrpId).join();
         } finally {
             busyLock.leaveBusy();
         }
@@ -240,23 +233,19 @@ public class ReplicaManager implements IgniteComponent {
             ReplicationGroupId replicaGrpId,
             ReplicaListener listener
     ) {
-        var replica = new Replica(replicaGrpId, listener);
+        replicas.compute(replicaGrpId, (replicationGroupId, replicaFut) -> {
+            if (replicaFut == null) {
+                replicaFut = CompletableFuture.completedFuture(new Replica(replicaGrpId, listener));
 
-        Replica previous = replicas.putIfAbsent(replicaGrpId, replica);
+                return replicaFut;
+            } else {
+                replicaFut.complete(new Replica(replicaGrpId, listener));
 
-        CompletableFuture<Void> fut = pendingReplicas.get(replicaGrpId);
+                return replicaFut;
+            }
+        });
 
-        if (fut != null) {
-            fut.complete(null);
-        }
-
-        pendingReplicas.remove(replicaGrpId);
-
-        if (previous != null) {
-            throw new ReplicaIsAlreadyStartedException(replicaGrpId);
-        }
-
-        return replica;
+        return replicas.get(replicaGrpId).join();
     }
 
     /**
@@ -285,8 +274,6 @@ public class ReplicaManager implements IgniteComponent {
      * @return True if the replica is found and closed, false otherwise.
      */
     private boolean stopReplicaInternal(ReplicationGroupId replicaGrpId) {
-        pendingReplicas.remove(replicaGrpId);
-
         return replicas.remove(replicaGrpId) != null;
     }
 
@@ -432,10 +419,10 @@ public class ReplicaManager implements IgniteComponent {
     private void idleSafeTimeSync() {
         replicas.values().forEach(r -> {
             ReplicaSafeTimeSyncRequest req = REPLICA_MESSAGES_FACTORY.replicaSafeTimeSyncRequest()
-                    .groupId(r.groupId())
+                    .groupId(r.join().groupId())
                     .build();
 
-            r.processRequest(req);
+            r.join().processRequest(req);
         });
     }
 
