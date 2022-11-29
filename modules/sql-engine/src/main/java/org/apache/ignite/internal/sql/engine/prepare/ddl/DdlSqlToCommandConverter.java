@@ -37,6 +37,8 @@ import static org.apache.ignite.lang.ErrorGroups.Sql.SQL_TO_REL_CONVERSION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STORAGE_ENGINE_NOT_VALID_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.UNSUPPORTED_DDL_OPERATION_ERR;
 
+import com.google.common.collect.Sets;
+import com.google.common.collect.Sets.SetView;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -107,17 +109,22 @@ public class DdlSqlToCommandConverter {
     private final Map<String, String> dataStorageNames;
 
     /**
-     * Mapping: Table option ID -> table option info.
+     * Mapping: Table option ID -> table option converter.
      *
      * <p>Example for "replicas": {@code Map.of("REPLICAS", TableOptionInfo@123)}.
      */
-    private final Map<String, DdlOptionConverter<?, CreateTableCommand>> tableOptionInfos;
+    private final Map<String, DdlOptionConverter<?, CreateTableCommand>> tableOptionConverters;
 
     /**
-     * Like {@link #tableOptionInfos}, but for each data storage name.
+     * Like {@link #tableOptionConverters}, but for each data storage name.
      */
-    private final Map<String, Map<String, DdlOptionConverter<?, CreateTableCommand>>> dataStorageOptionInfos;
+    private final Map<String, Map<String, DdlOptionConverter<?, CreateTableCommand>>> dataStorageOptionConverters;
 
+    /**
+     * Mapping: Zone option ID -> zone option converter.
+     *
+     * <p>Example for "replicas": {@code Map.of("REPLICAS", TableOptionInfo@123)}.
+     */
     private final Map<IgniteSqlCreateZoneOptionEnum, DdlOptionConverter<?, CreateZoneCommand>> zoneOptionConverters;
 
     /**
@@ -133,12 +140,12 @@ public class DdlSqlToCommandConverter {
         this.defaultDataStorageSupplier = defaultDataStorageSupplier;
         this.dataStorageNames = collectDataStorageNames(dataStorageFields.keySet());
 
-        this.tableOptionInfos = Map.of(
+        this.tableOptionConverters = Map.of(
                 "REPLICAS", new DdlOptionConverter<>(Integer.class, this::checkPositiveNumber, CreateTableCommand::replicas),
                 "PARTITIONS", new DdlOptionConverter<>(Integer.class, this::checkPositiveNumber, CreateTableCommand::partitions)
         );
 
-        this.dataStorageOptionInfos = dataStorageFields.entrySet()
+        this.dataStorageOptionConverters = dataStorageFields.entrySet()
                 .stream()
                 .collect(toUnmodifiableMap(
                         Entry::getKey,
@@ -147,7 +154,7 @@ public class DdlSqlToCommandConverter {
                                 .collect(toUnmodifiableMap(k -> k.getKey().toUpperCase(), Entry::getValue))
                 ));
 
-        dataStorageOptionInfos.forEach((k, v) -> checkDuplicates(v.keySet(), tableOptionInfos.keySet()));
+        dataStorageOptionConverters.values().forEach(v -> checkDuplicates(v.keySet(), tableOptionConverters.keySet()));
 
         // Create zone options.
         zoneOptionConverters = Map.of(
@@ -231,10 +238,10 @@ public class DdlSqlToCommandConverter {
 
                 String optionKey = option.key().getSimple().toUpperCase();
 
-                DdlOptionConverter<?, CreateTableCommand> optConv = tableOptionInfos.get(optionKey);
+                DdlOptionConverter<?, CreateTableCommand> optConv = tableOptionConverters.get(optionKey);
 
                 if (optConv == null)
-                    optConv = dataStorageOptionInfos.get(createTblCmd.dataStorage()).get(optionKey);
+                    optConv = dataStorageOptionConverters.get(createTblCmd.dataStorage()).get(optionKey);
 
                 if (optConv != null) {
                     optConv.convert(optionKey, (SqlLiteral) option.value(), ctx.query(), createTblCmd);
@@ -587,10 +594,10 @@ public class DdlSqlToCommandConverter {
      * @throws IllegalStateException If there is a duplicate ID.
      */
     static <T> void checkDuplicates(Set<String> tblOptionInfos0, Set<String> tblOptionInfos1) {
-        for (String id : tblOptionInfos1) {
-            if (tblOptionInfos0.contains(id)) {
-                throw new IllegalStateException("Duplicate id:" + id);
-            }
+        SetView<String> duplicates = Sets.intersection(tblOptionInfos0, tblOptionInfos1);
+
+        if (!duplicates.isEmpty()) {
+            throw new IllegalStateException("Duplicate identifiers found: " + String.join(", ", duplicates));
         }
     }
 

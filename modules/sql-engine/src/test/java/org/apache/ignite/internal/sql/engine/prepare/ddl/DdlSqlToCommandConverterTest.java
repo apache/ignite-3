@@ -104,7 +104,7 @@ public class DdlSqlToCommandConverterTest extends BaseIgniteAbstractTest {
                 )
         );
 
-        assertThat(exception.getMessage(), startsWith("Duplicate id"));
+        assertThat(exception.getMessage(), startsWith("Duplicate identifiers found: replicas"));
 
         assertDoesNotThrow(() -> checkDuplicates(
                         Set.of("replicas", "affinity"),
