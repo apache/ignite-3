@@ -34,15 +34,15 @@ internal static class MethodVisitor
     /// <summary> Property visitors. </summary>
     private static readonly Dictionary<MemberInfo, string> Properties = new()
     {
-        {typeof(string).GetProperty("Length")!, "length"},
-        {typeof(DateTime).GetProperty("Year")!, "year"},
-        {typeof(DateTime).GetProperty("Month")!, "month"},
-        {typeof(DateTime).GetProperty("Day")!, "day_of_month"},
-        {typeof(DateTime).GetProperty("DayOfYear")!, "day_of_year"},
-        {typeof(DateTime).GetProperty("DayOfWeek")!, "-1 + day_of_week"},
-        {typeof(DateTime).GetProperty("Hour")!, "hour"},
-        {typeof(DateTime).GetProperty("Minute")!, "minute"},
-        {typeof(DateTime).GetProperty("Second")!, "second"}
+        {typeof(string).GetProperty(nameof(string.Length))!, "length"},
+        {typeof(DateTime).GetProperty(nameof(DateTime.Year))!, "year"},
+        {typeof(DateTime).GetProperty(nameof(DateTime.Month))!, "month"},
+        {typeof(DateTime).GetProperty(nameof(DateTime.Day))!, "day_of_month"},
+        {typeof(DateTime).GetProperty(nameof(DateTime.DayOfYear))!, "day_of_year"},
+        {typeof(DateTime).GetProperty(nameof(DateTime.DayOfWeek))!, "-1 + day_of_week"},
+        {typeof(DateTime).GetProperty(nameof(DateTime.Hour))!, "hour"},
+        {typeof(DateTime).GetProperty(nameof(DateTime.Minute))!, "minute"},
+        {typeof(DateTime).GetProperty(nameof(DateTime.Second))!, "second"}
     };
 
     /// <summary>
@@ -76,9 +76,10 @@ internal static class MethodVisitor
                 GetStringMethod(nameof(string.Compare), new[] { typeof(string), typeof(string) }, (e, v) => VisitStringCompare(e, v, false)),
                 GetStringMethod(nameof(string.Compare), new[] { typeof(string), typeof(string), typeof(bool) }, (e, v) => VisitStringCompare(e, v, GetStringCompareIgnoreCaseParameter(e.Arguments[2]))),
 
-                GetRegexMethod("Replace", "regexp_replace", typeof(string), typeof(string), typeof(string)),
-                GetRegexMethod("Replace", "regexp_replace", typeof(string), typeof(string), typeof(string), typeof(RegexOptions)),
-                GetRegexMethod("IsMatch", "regexp_like", typeof(string), typeof(string)), GetRegexMethod("IsMatch", "regexp_like", typeof(string), typeof(string), typeof(RegexOptions)),
+                GetRegexMethod(nameof(Regex.Replace), "regexp_replace", typeof(string), typeof(string), typeof(string)),
+                GetRegexMethod(nameof(Regex.Replace), "regexp_replace", typeof(string), typeof(string), typeof(string), typeof(RegexOptions)),
+                GetRegexMethod(nameof(Regex.IsMatch), "regexp_like", typeof(string), typeof(string)),
+                GetRegexMethod(nameof(Regex.IsMatch), "regexp_like", typeof(string), typeof(string), typeof(RegexOptions)),
 
                 GetMethod(typeof(DateTime), "ToString", new[] {typeof(string)}, (e, v) => VisitFunc(e, v, "formatdatetime", ", 'en', 'UTC'")),
 
