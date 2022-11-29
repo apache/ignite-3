@@ -471,7 +471,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
     private CompletableFuture<CmgRaftService> startCmgRaftService(Collection<String> nodeNames) {
         String thisNodeConsistentId = clusterService.topologyService().localMember().name();
 
-        // If we are not in the CMG, we must be a lerner. List of learners will be updated by a leader accordingly,
+        // If we are not in the CMG, we must be a learner. List of learners will be updated by a leader accordingly,
         // but just to start a RAFT service we must include ourselves in the initial learners list, that's why we
         // pass List.of(we) as learners list if we are not in the CMG.
         List<String> learnerConsistentIds = nodeNames.contains(thisNodeConsistentId) ? List.of() : List.of(thisNodeConsistentId);
