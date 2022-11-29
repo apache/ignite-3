@@ -26,17 +26,22 @@ public class CreateZoneCommand extends AbstractZoneDdlCommand {
     /** Replicas number. */
     private Integer replicas;
 
-    /** Number of partitions for the new table. */
+    /** Number of partitions. */
     private Integer partitions;
 
+    /** Affinity function name. */
     private String affinity;
 
+    /** Data nodes filter expression. */
     private String nodeFiler;
 
+    /** Data nodes auto adjust timeout. */
     private Integer dataNodesAutoAdjust;
 
+    /** Data nodes auto adjust scale up timeout. */
     private Integer dataNodesAutoAdjustScaleUp;
 
+    /** Data nodes auto adjust scale down timeout. */
     private Integer dataNodesAutoAdjustScaleDown;
 
     @Nullable public Integer replicas() {

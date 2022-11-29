@@ -51,6 +51,7 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
+import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteException;
 import org.hamcrest.CustomMatcher;
 import org.hamcrest.Matcher;
@@ -104,7 +105,7 @@ public class DdlSqlToCommandConverterTest extends BaseIgniteAbstractTest {
                 )
         );
 
-        assertThat(exception.getMessage(), startsWith("Duplicate identifiers found: replicas"));
+        assertThat(exception.getMessage(), startsWith("Duplicate id: replicas"));
 
         assertDoesNotThrow(() -> checkDuplicates(
                         Set.of("replicas", "affinity"),
@@ -211,17 +212,23 @@ public class DdlSqlToCommandConverterTest extends BaseIgniteAbstractTest {
 
     @Test
     public void zoneCreate() throws SqlParseException {
-        var node = parse("CREATE ZONE test");
+        SqlNode node = parse("CREATE ZONE test");
 
         assertThat(node, instanceOf(SqlDdl.class));
 
-        var cmd = new DdlSqlToCommandConverter(Map.of(), () -> "default").convert((SqlDdl) node, createContext());
+        DdlCommand cmd = new DdlSqlToCommandConverter(Map.of(), () -> "default").convert((SqlDdl) node, createContext());
 
         assertThat(cmd, Matchers.instanceOf(CreateZoneCommand.class));
+
+        CreateZoneCommand zoneCmd = (CreateZoneCommand) cmd;
+
+        assertThat(zoneCmd.zoneName(), equalTo("TEST"));
     }
 
     @Test
     public void zoneCreateOptions() throws SqlParseException {
+        DdlSqlToCommandConverter converter = new DdlSqlToCommandConverter(Map.of(), () -> "default");
+
         SqlNode node = parse("CREATE ZONE test with "
                 + "partitions=2, "
                 + "replicas=3, "
@@ -233,7 +240,7 @@ public class DdlSqlToCommandConverterTest extends BaseIgniteAbstractTest {
 
         assertThat(node, instanceOf(SqlDdl.class));
 
-        DdlCommand cmd = new DdlSqlToCommandConverter(Map.of(), () -> "default").convert((SqlDdl) node, createContext());
+        DdlCommand cmd = converter.convert((SqlDdl) node, createContext());
 
         CreateZoneCommand createZone = (CreateZoneCommand) cmd;
 
@@ -244,6 +251,54 @@ public class DdlSqlToCommandConverterTest extends BaseIgniteAbstractTest {
         assertThat(createZone.dataNodesAutoAdjustScaleUp(), equalTo(100));
         assertThat(createZone.dataNodesAutoAdjustScaleDown(), equalTo(200));
         assertThat(createZone.dataNodesAutoAdjust(), equalTo(300));
+
+        // Check option validation.
+        IgniteException ex = assertThrows(
+                IgniteException.class,
+                () -> converter.convert((SqlDdl) parse("CREATE ZONE test with partitions=-1"), createContext())
+        );
+
+        assertThat(ex.code(), equalTo(Sql.DDL_OPTION_ERR));
+        assertThat(ex.getMessage(), containsString("DDL option validation failed [option=PARTITIONS"));
+
+        ex = assertThrows(
+                IgniteException.class,
+                () -> converter.convert((SqlDdl) parse("CREATE ZONE test with replicas=-1"), createContext())
+        );
+
+        assertThat(ex.code(), equalTo(Sql.DDL_OPTION_ERR));
+        assertThat(ex.getMessage(), containsString("DDL option validation failed [option=REPLICAS"));
+    }
+
+    @Test
+    public void zoneCreateDuplicateOptions() throws SqlParseException {
+        SqlNode node = parse("CREATE ZONE test with partitions=2, replicas=0, PARTITIONS=1");
+
+        assertThat(node, instanceOf(SqlDdl.class));
+
+        DdlSqlToCommandConverter converter = new DdlSqlToCommandConverter(Map.of(), () -> "default");
+
+        IgniteException ex = assertThrows(
+                IgniteException.class,
+                () -> converter.convert((SqlDdl) node, createContext())
+        );
+
+        assertThat(ex.code(), equalTo(Sql.DDL_OPTION_ERR));
+    }
+
+    @Test
+    public void zoneDrop() throws SqlParseException {
+        SqlNode node = parse("DROP ZONE test");
+
+        assertThat(node, instanceOf(SqlDdl.class));
+
+        DdlCommand cmd = new DdlSqlToCommandConverter(Map.of(), () -> "default").convert((SqlDdl) node, createContext());
+
+        assertThat(cmd, Matchers.instanceOf(DropZoneCommand.class));
+
+        DropZoneCommand zoneCmd = (DropZoneCommand) cmd;
+
+        assertThat(zoneCmd.zoneName(), equalTo("TEST"));
     }
 
     private static Matcher<ColumnDefinition> columnThat(String description, Function<ColumnDefinition, Boolean> checker) {

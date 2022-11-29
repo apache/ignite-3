@@ -151,6 +151,33 @@ public class DdlCommandHandler {
         }
     }
 
+    /** Handles create distribution zone command. */
+    private CompletableFuture<Boolean> handleCreateZone(CreateZoneCommand cmd) {
+        DistributionZoneConfigurationParameters.Builder zoneCfgBuilder =
+                new DistributionZoneConfigurationParameters.Builder(cmd.zoneName());
+
+        if (cmd.dataNodesAutoAdjust() != null) {
+            zoneCfgBuilder.dataNodesAutoAdjust(cmd.dataNodesAutoAdjust());
+        }
+
+        if (cmd.dataNodesAutoAdjustScaleUp() != null) {
+            zoneCfgBuilder.dataNodesAutoAdjustScaleUp(cmd.dataNodesAutoAdjustScaleUp());
+        }
+
+        if (cmd.dataNodesAutoAdjustScaleDown() != null) {
+            zoneCfgBuilder.dataNodesAutoAdjustScaleDown(cmd.dataNodesAutoAdjustScaleDown());
+        }
+
+        return distributionZoneManager.createZone(zoneCfgBuilder.build())
+                .handle(handleModificationResult(cmd.ifZoneExists(), DistributionZoneAlreadyExistsException.class));
+    }
+
+    /** Handles drop distribution zone command. */
+    private CompletableFuture<Boolean> handleDropZone(DropZoneCommand cmd) {
+        return distributionZoneManager.dropZone(cmd.zoneName())
+                .handle(handleModificationResult(cmd.ifZoneExists(), DistributionZoneNotFoundException.class));
+    }
+
     /** Handles create table command. */
     private CompletableFuture<Boolean> handleCreateTable(CreateTableCommand cmd) {
         Consumer<TableChange> tblChanger = tableChange -> {
@@ -184,14 +211,14 @@ public class DdlCommandHandler {
 
         return tableManager.createTableAsync(cmd.tableName(), tblChanger)
                 .thenApply(Objects::nonNull)
-                .handle(handleTableModificationResult(cmd.ifTableExists()));
+                .handle(handleModificationResult(cmd.ifTableExists(), TableAlreadyExistsException.class));
     }
 
     /** Handles drop table command. */
     private CompletableFuture<Boolean> handleDropTable(DropTableCommand cmd) {
         return tableManager.dropTableAsync(cmd.tableName())
                 .thenApply(v -> Boolean.TRUE)
-                .handle(handleTableModificationResult(cmd.ifTableExists()));
+                .handle(handleModificationResult(cmd.ifTableExists(), TableNotFoundException.class));
     }
 
     /** Handles add column command. */
@@ -201,7 +228,7 @@ public class DdlCommandHandler {
         }
 
         return addColumnInternal(cmd.tableName(), cmd.columns(), cmd.ifColumnNotExists())
-                .handle(handleTableModificationResult(cmd.ifTableExists()));
+                .handle(handleModificationResult(cmd.ifTableExists(), TableNotFoundException.class));
     }
 
     /** Handles drop column command. */
@@ -211,21 +238,17 @@ public class DdlCommandHandler {
         }
 
         return dropColumnInternal(cmd.tableName(), cmd.columns(), cmd.ifColumnExists())
-                .handle(handleTableModificationResult(cmd.ifTableExists()));
+                .handle(handleModificationResult(cmd.ifTableExists(), TableNotFoundException.class));
     }
 
-    private static BiFunction<Object, Throwable, Boolean> handleTableModificationResult(boolean ignoreTableExistenceErrors) {
-        return handleModificationResult(ignoreTableExistenceErrors, TableAlreadyExistsException.class, TableNotFoundException.class);
-    }
-
-    private static BiFunction<Object, Throwable, Boolean> handleModificationResult(boolean ignore, Class<?> existsEx, Class<?> notFoundEx) {
+    private static BiFunction<Object, Throwable, Boolean> handleModificationResult(boolean ignoreExpectedError, Class<?> expErrCls) {
         return (val, err) -> {
             if (err == null) {
                 return val instanceof Boolean ? (Boolean) val : Boolean.TRUE;
-            } else if (ignore) {
+            } else if (ignoreExpectedError) {
                 Throwable err0 = err instanceof CompletionException ? err.getCause() : err;
 
-                if (existsEx.isInstance(err0) || notFoundEx.isInstance(err0)) {
+                if (expErrCls.isInstance(err0)) {
                     return Boolean.FALSE;
                 }
             }
@@ -262,35 +285,6 @@ public class DdlCommandHandler {
     /** Handles drop index command. */
     private CompletableFuture<Boolean> handleDropIndex(DropIndexCommand cmd) {
         return indexManager.dropIndexAsync(cmd.schemaName(), cmd.indexName(), !cmd.ifNotExists());
-    }
-
-    /** Handles create distribution zone command. */
-    private CompletableFuture<Boolean> handleCreateZone(CreateZoneCommand cmd) {
-        DistributionZoneConfigurationParameters.Builder zoneCfgBuilder =
-                new DistributionZoneConfigurationParameters.Builder(cmd.zoneName());
-
-        if (cmd.dataNodesAutoAdjust() != null) {
-            zoneCfgBuilder.dataNodesAutoAdjust(cmd.dataNodesAutoAdjust());
-        }
-
-        if (cmd.dataNodesAutoAdjustScaleUp() != null) {
-            zoneCfgBuilder.dataNodesAutoAdjustScaleUp(cmd.dataNodesAutoAdjustScaleUp());
-        }
-
-        if (cmd.dataNodesAutoAdjustScaleDown() != null) {
-            zoneCfgBuilder.dataNodesAutoAdjustScaleDown(cmd.dataNodesAutoAdjustScaleDown());
-        }
-
-        return distributionZoneManager.createZone(zoneCfgBuilder.build())
-                .handle(handleModificationResult(cmd.ifZoneExists(),
-                        DistributionZoneAlreadyExistsException.class, DistributionZoneNotFoundException.class));
-    }
-
-    /** Handles drop distribution zone command. */
-    private CompletableFuture<Boolean> handleDropZone(DropZoneCommand cmd) {
-        return distributionZoneManager.dropZone(cmd.zoneName())
-                .handle(handleModificationResult(cmd.ifZoneExists(),
-                        DistributionZoneAlreadyExistsException.class, DistributionZoneNotFoundException.class));
     }
 
     /**

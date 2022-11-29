@@ -285,9 +285,6 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         when(cursorMocked.iterator()).thenReturn(itMock);
     }
 
-    /**
-     * Tests create a zone through public API.
-     */
     @Test
     public void testCreateZone() {
         String mtdName = getCurrentMethodName();
@@ -470,7 +467,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 ))
         );
 
-        assertThat(exception.getMessage(), containsString("Table option validation failed"));
+        assertThat(exception.getMessage(), containsString("DDL option validation failed"));
     }
 
     @Test
