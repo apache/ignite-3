@@ -53,7 +53,7 @@ public partial class LinqTests
     [Test]
     public void TestNumericFunctions()
     {
-        // ACOSH, ASINH, ATANH, ATAN2 are not supported by Calcite.
+        // ACOSH, ASINH, ATANH, ATAN2, LOG2, LOG(X, Y) are not supported by Calcite.
         TestOpDouble(x => Math.Abs(-x.Key), 9.0d, "select Abs((-_T0.KEY)) from");
         TestOpDouble(x => Math.Cos(x.Key + 2), 0.96017028665036597d, "select Cos((_T0.KEY + ?)) from");
         TestOpDouble(x => Math.Cosh(x.Key), 4051.5420254925943d, "select Cosh(_T0.KEY) from");
@@ -68,7 +68,7 @@ public partial class LinqTests
         TestOpDouble(x => Math.Exp(x.Key), 8103.0839275753842d, "select Exp(_T0.KEY) from");
         TestOpDouble(x => Math.Log(x.Key), 2.1972245773362196d, "select Ln(_T0.KEY) from");
         TestOpDouble(x => Math.Log10(x.Key), 0.95424250943932487d, "select Log10(_T0.KEY) from");
-        TestOpDouble(x => Math.Log2(x.Key), 8103.0839275753842d, "select Log2(_T0.KEY) from");
+        TestOpDouble(x => Math.Pow(x.Key, 2), 81, "select Power(_T0.KEY, 2) from");
 
         // TODO: Ceiling, Exp, Floor, Exp, Log, Log10, Pow, Round, Sign, Sqrt, Truncate
         TestOpInt(x => Math.Abs(-x.Key), 9, "select Abs((-_T0.KEY)) from");
@@ -96,13 +96,22 @@ public partial class LinqTests
         where T : notnull
     {
         var query = view.AsQueryable().Select(expr);
-        var res = query.Max();
+        var sql = query.ToString();
 
-        Assert.Multiple(() =>
+        try
         {
-            Assert.AreEqual(expectedRes, res);
-            StringAssert.Contains(expectedQuery, query.ToString());
-        });
+            var res = query.Max();
+
+            Assert.Multiple(() =>
+            {
+                Assert.AreEqual(expectedRes, res);
+                StringAssert.Contains(expectedQuery, sql);
+            });
+        }
+        catch (Exception e)
+        {
+            throw new Exception("Failed to execute query: " + sql, e);
+        }
     }
 
     private void TestOpDouble<TRes>(Expression<Func<PocoDouble, TRes>> expr, TRes expectedRes, string expectedQuery) =>

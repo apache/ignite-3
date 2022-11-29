@@ -244,7 +244,7 @@ internal static class MethodVisitor
             visitor.Visit(expression.Object!);
         }
 
-        for (int i= 0; i < expression.Arguments.Count; i++)
+        for (int i = 0; i < expression.Arguments.Count; i++)
         {
             var arg = expression.Arguments[i];
 
