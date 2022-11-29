@@ -53,7 +53,23 @@ public partial class LinqTests
     [Test]
     public void TestNumericFunctions()
     {
-        Assert.Fail("TODO");
+        TestOpDouble(x => Math.Abs(-x.Key), 9.0d, "select Abs((-_T0.KEY)) from");
+        TestOpDouble(x => Math.Cos(x.Key + 2), 0.96017028665036597d, "select Cos((_T0.KEY + ?)) from");
+        TestOpDouble(x => Math.Cosh(x.Key), 4051.5420254925943d, "select Cosh(_T0.KEY) from");
+        TestOpDouble(x => Math.Acos(x.Key / 100), 1.5707963267948966d, "select Acos((_T0.KEY / ?)) from");
+        TestOpDouble(x => Math.Acosh(x.Key), 9.0d, "select Acosh(_T0.KEY) from");
+        TestOpDouble(x => Math.Sin(x.Key), 9.0d, "select Sin(_T0.KEY) from");
+        TestOpDouble(x => Math.Sinh(x.Key), 9.0d, "select Sinh(_T0.KEY) from");
+        TestOpDouble(x => Math.Asin(x.Key), 9.0d, "select Asin(_T0.KEY) from");
+        TestOpDouble(x => Math.Asinh(x.Key), 9.0d, "select Asinh(_T0.KEY) from");
+        TestOpDouble(x => Math.Tan(x.Key), 9.0d, "select Tan(_T0.KEY) from");
+        TestOpDouble(x => Math.Tanh(x.Key), 9.0d, "select Tanh(_T0.KEY) from");
+        TestOpDouble(x => Math.Atan(x.Key), 9.0d, "select Atan(_T0.KEY) from");
+        TestOpDouble(x => Math.Atanh(x.Key), 9.0d, "select Atanh(_T0.KEY) from");
+        TestOpDouble(x => Math.Atan2(x.Key, 0.5), 9.0d, "select Atan2(_T0.KEY) from");
+
+        // TODO: Ceiling, Exp, Floor, Exp, Log, Log10, Pow, Round, Sign, Sqrt, Truncate
+        TestOpInt(x => Math.Abs(-x.Key), 9, "select Abs((-_T0.KEY)) from");
     }
 
     [Test]
@@ -74,19 +90,22 @@ public partial class LinqTests
         Assert.Fail("TODO");
     }
 
-    private static void TestOp<T>(IRecordView<T> view, Expression<Func<T, double>> expr, double expectedRes, string expectedQuery)
+    private static void TestOp<T, TRes>(IRecordView<T> view, Expression<Func<T, TRes>> expr, TRes expectedRes, string expectedQuery)
         where T : notnull
     {
         var query = view.AsQueryable().Select(expr);
         var res = query.Max();
 
-        Assert.AreEqual(expectedRes, res);
-        StringAssert.Contains(expectedQuery, query.ToString());
+        Assert.Multiple(() =>
+        {
+            Assert.AreEqual(expectedRes, res);
+            StringAssert.Contains(expectedQuery, query.ToString());
+        });
     }
 
-    private void TestOpDouble(Expression<Func<PocoDouble, double>> expr, double expectedRes, string expectedQuery) =>
+    private void TestOpDouble<TRes>(Expression<Func<PocoDouble, TRes>> expr, TRes expectedRes, string expectedQuery) =>
         TestOp(PocoDoubleView, expr, expectedRes, expectedQuery);
 
-    private void TestOpInt(Expression<Func<PocoInt, double>> expr, double expectedRes, string expectedQuery) =>
+    private void TestOpInt<TRes>(Expression<Func<PocoInt, TRes>> expr, TRes expectedRes, string expectedQuery) =>
         TestOp(PocoIntView, expr, expectedRes, expectedQuery);
 }
