@@ -493,19 +493,20 @@ public class ClusterManagementGroupManager implements IgniteComponent {
     }
 
     private void onLogicalTopologyChanged(long term) {
-        CompletableFuture<CmgRaftService> serviceFuture = raftService;
+        synchronized (raftServiceLock) {
 
-        // If the future is not here yet, this means we are still starting, so learners will be updated after start
-        // (if we happen to become a leader).
+            // If the future is not here yet, this means we are still starting, so learners will be updated after start
+            // (if we happen to become a leader).
 
-        if (serviceFuture != null) {
-            serviceFuture.thenCompose(service -> service.isCurrentNodeLeader().thenCompose(isLeader -> {
-                if (!isLeader) {
-                    return completedFuture(null);
-                }
+            if (raftService != null) {
+                raftService.thenCompose(service -> service.isCurrentNodeLeader().thenCompose(isLeader -> {
+                    if (!isLeader) {
+                        return completedFuture(null);
+                    }
 
-                return service.updateLearners(term);
-            }));
+                    return service.updateLearners(term);
+                }));
+            }
         }
     }
 
