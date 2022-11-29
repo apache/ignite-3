@@ -252,11 +252,13 @@ public class ClusterManagementGroupManager implements IgniteComponent {
      */
     private void handleInit(CmgInitMessage msg, ClusterNode sender, long correlationId) {
         synchronized (raftServiceLock) {
-            if (raftService == null) {
+            CompletableFuture<CmgRaftService> serviceFuture = raftService;
+
+            if (serviceFuture == null) {
                 // Raft service has not been started
                 LOG.info("Init command received, starting the CMG [nodes={}]", msg.cmgNodes());
 
-                raftService = startCmgRaftService(msg.cmgNodes());
+                serviceFuture = startCmgRaftService(msg.cmgNodes());
             } else {
                 // Raft service has been started, which means that this node has already received an init command at least once.
                 LOG.info("Init command received, but the CMG has already been started");
@@ -265,7 +267,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
             // Every node, that receives the init command, tries to initialize the CMG state. Raft listener will correctly
             // handle this case by applying only the first attempt and returning the actual cluster state for all other
             // attempts.
-            raftService = raftService
+            raftService = serviceFuture
                     .thenCompose(service -> doInit(service, msg)
                             .handle((v, e) -> {
                                 NetworkMessage response;
