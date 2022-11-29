@@ -120,6 +120,7 @@ public class ReplicaManager implements IgniteComponent {
 
                 ReplicaRequest request = (ReplicaRequest) message;
 
+                // Notify the sender that the Replica is created and ready to process requests.
                 if (request instanceof AwaitReplicaRequest) {
                     replicas.compute(request.groupId(), (replicationGroupId, replicaFut) -> {
                         if (replicaFut == null) {
@@ -127,12 +128,16 @@ public class ReplicaManager implements IgniteComponent {
                         }
 
                         if (!replicaFut.isDone()) {
-                            replicaFut.thenCompose(ignore -> {
-                                IgniteUtils.inBusyLock(busyLock,
-                                        () -> sendAwaitReplicaResponse(sender, correlationId));
+                            replicaFut.thenCompose(
+                                    ignore -> {
+                                        IgniteUtils.inBusyLock(
+                                                busyLock,
+                                                () -> sendAwaitReplicaResponse(sender, correlationId)
+                                        );
 
-                                return null;
-                            });
+                                        return null;
+                                    }
+                            );
 
                             return replicaFut;
                         } else {
@@ -155,6 +160,7 @@ public class ReplicaManager implements IgniteComponent {
                     return;
                 }
 
+                // replicaFut is always completed here.
                 CompletableFuture<Object> result = replicaFut.join().processRequest(request);
 
                 result.handle((res, ex) -> {
@@ -176,25 +182,6 @@ public class ReplicaManager implements IgniteComponent {
                 busyLock.leaveBusy();
             }
         };
-    }
-
-    /**
-     * Gets a replica by its replica group id.
-     *
-     * @param replicaGrpId Replication group id.
-     * @return Instance of the replica or {@code null} if the replica is not started.
-     * @throws NodeStoppingException If the node is stopping.
-     */
-    public Replica replica(ReplicationGroupId replicaGrpId) throws NodeStoppingException {
-        if (!busyLock.enterBusy()) {
-            throw new NodeStoppingException();
-        }
-
-        try {
-            return replicas.get(replicaGrpId).join();
-        } finally {
-            busyLock.leaveBusy();
-        }
     }
 
     /**
@@ -244,6 +231,7 @@ public class ReplicaManager implements IgniteComponent {
             }
         });
 
+        // replicaFut is always completed here.
         return replicas.get(replicaGrpId).join();
     }
 
@@ -364,10 +352,7 @@ public class ReplicaManager implements IgniteComponent {
     /**
      * Sends await replica response.
      */
-    private void sendAwaitReplicaResponse(
-            ClusterNode sender,
-            @Nullable Long correlationId
-    ) {
+    private void sendAwaitReplicaResponse(ClusterNode sender, @Nullable Long correlationId) {
         clusterNetSvc.messagingService().respond(
                 sender,
                 REPLICA_MESSAGES_FACTORY
@@ -417,11 +402,13 @@ public class ReplicaManager implements IgniteComponent {
      */
     private void idleSafeTimeSync() {
         replicas.values().forEach(r -> {
-            ReplicaSafeTimeSyncRequest req = REPLICA_MESSAGES_FACTORY.replicaSafeTimeSyncRequest()
-                    .groupId(r.join().groupId())
-                    .build();
+            if (r.isDone()) {
+                ReplicaSafeTimeSyncRequest req = REPLICA_MESSAGES_FACTORY.replicaSafeTimeSyncRequest()
+                        .groupId(r.join().groupId())
+                        .build();
 
-            r.join().processRequest(req);
+                r.join().processRequest(req);
+            }
         });
     }
 

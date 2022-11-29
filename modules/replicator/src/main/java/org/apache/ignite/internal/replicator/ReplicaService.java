@@ -115,11 +115,11 @@ public class ReplicaService {
 
                     if (errResp.throwable() instanceof ReplicaUnavailableException) {
                         pendingInvokes.compute(node, (clusterNode, fut) -> {
-                            AwaitReplicaRequest awaitReplicaReq = REPLICA_MESSAGES_FACTORY.awaitReplicaRequest()
-                                    .groupId(req.groupId())
-                                    .build();
-
                             if (fut == null) {
+                                AwaitReplicaRequest awaitReplicaReq = REPLICA_MESSAGES_FACTORY.awaitReplicaRequest()
+                                        .groupId(req.groupId())
+                                        .build();
+
                                 fut = messagingService.invoke(node, awaitReplicaReq, RPC_TIMEOUT)
                                         .whenComplete((response0, throwable0) -> {
                                             pendingInvokes.remove(node);
