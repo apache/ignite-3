@@ -69,6 +69,9 @@ public partial class LinqTests
         TestOpDouble(x => Math.Log(x.Key), 2.1972245773362196d, "select Ln(_T0.KEY) from");
         TestOpDouble(x => Math.Log10(x.Key), 0.95424250943932487d, "select Log10(_T0.KEY) from");
         TestOpDouble(x => Math.Pow(x.Key, 2), 81, "select Power(_T0.KEY, 2) from");
+        TestOpDouble(x => Math.Round(x.Key / 5), 2, "select Round((_T0.KEY / ?)) from");
+        TestOpDouble(x => Math.Sign(x.Key - 10), -1, "select Sign((_T0.KEY - ?)) from");
+        TestOpDouble(x => Math.Sqrt(x.Key), 3.0d, "select Sqrt(_T0.KEY) from");
 
         // TODO: Ceiling, Exp, Floor, Exp, Log, Log10, Pow, Round, Sign, Sqrt, Truncate
         TestOpInt(x => Math.Abs(-x.Key), 9, "select Abs((-_T0.KEY)) from");
@@ -98,20 +101,22 @@ public partial class LinqTests
         var query = view.AsQueryable().Select(expr);
         var sql = query.ToString();
 
+        TRes? res;
+
         try
         {
-            var res = query.Max();
-
-            Assert.Multiple(() =>
-            {
-                Assert.AreEqual(expectedRes, res);
-                StringAssert.Contains(expectedQuery, sql);
-            });
+            res = query.Max();
         }
         catch (Exception e)
         {
             throw new Exception("Failed to execute query: " + sql, e);
         }
+
+        Assert.Multiple(() =>
+        {
+            Assert.AreEqual(expectedRes, res);
+            StringAssert.Contains(expectedQuery, sql);
+        });
     }
 
     private void TestOpDouble<TRes>(Expression<Func<PocoDouble, TRes>> expr, TRes expectedRes, string expectedQuery) =>
