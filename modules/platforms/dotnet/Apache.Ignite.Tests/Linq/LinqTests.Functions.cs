@@ -88,6 +88,9 @@ public partial class LinqTests
 
         TestOpString(x => x.Val!.Substring(1), "-9", "select substring(_T0.VAL, ? + 1) from");
         TestOpString(x => x.Val!.Substring(0, 2), "v-", "select substring(_T0.VAL, 0 + 1, 2) from");
+        TestOpString(x => x.Val!.Trim(), "v-9", "select trim(_T0.VAL) from");
+        TestOpString(x => x.Val!.TrimStart(), "v-9", "select ltrim(_T0.VAL) from");
+        TestOpString(x => x.Val!.TrimEnd(), "v-9", "select rtrim(_T0.VAL) from");
 
         Assert.Fail("TODO");
     }
