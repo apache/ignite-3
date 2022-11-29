@@ -20,7 +20,6 @@ package org.apache.ignite.internal.replicator;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 
 import java.util.Collection;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -123,24 +122,24 @@ public class ReplicaManager implements IgniteComponent {
 
                 if (request instanceof AwaitReplicaRequest) {
                     replicas.compute(request.groupId(), (replicationGroupId, replicaFut) -> {
-                            if (replicaFut == null) {
-                                replicaFut = new CompletableFuture<>();
-                            }
+                        if (replicaFut == null) {
+                            replicaFut = new CompletableFuture<>();
+                        }
 
-                            if (!replicaFut.isDone()) {
-                                replicaFut.thenCompose(ignore -> {
-                                    IgniteUtils.inBusyLock(busyLock,
-                                            () -> sendAwaitReplicaResponse(sender, correlationId));
+                        if (!replicaFut.isDone()) {
+                            replicaFut.thenCompose(ignore -> {
+                                IgniteUtils.inBusyLock(busyLock,
+                                        () -> sendAwaitReplicaResponse(sender, correlationId));
 
-                                    return null;
-                                });
+                                return null;
+                            });
 
-                                return replicaFut;
-                            } else {
-                                IgniteUtils.inBusyLock(busyLock, () -> sendAwaitReplicaResponse(sender, correlationId));
+                            return replicaFut;
+                        } else {
+                            IgniteUtils.inBusyLock(busyLock, () -> sendAwaitReplicaResponse(sender, correlationId));
 
-                                return replicaFut;
-                            }
+                            return replicaFut;
+                        }
                     });
 
                     return;

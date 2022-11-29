@@ -24,8 +24,9 @@ import org.apache.ignite.internal.replicator.exception.ReplicaUnavailableExcepti
 import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * This request is sent when some request fails in {@link ReplicaService} with an {@link ReplicaUnavailableException}
- * due to the {@link Replica} has not created in {@link ReplicaManager}.
+ * When some request is failed in {@link ReplicaService} with a {@link ReplicaUnavailableException}
+ * due to the {@link Replica} has not created in {@link ReplicaManager},
+ * then {@link AwaitReplicaRequest} will be sent to await replica creation.
  */
 @Transferable(ReplicaMessageGroup.AWAIT_REPLICA_REQUEST)
 public interface AwaitReplicaRequest extends ReplicaRequest {
