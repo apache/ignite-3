@@ -23,7 +23,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.ClusterState;
@@ -224,7 +223,7 @@ public class CmgRaftService {
      * @param term RAFT term in which we operate (used to avoid races when changing peers/learners).
      * @return Future that completes when the request is processed.
      */
-    public CompletionStage<Void> updateLearners(long term) {
+    public CompletableFuture<Void> updateLearners(long term) {
         List<Peer> currentPeers = raftService.peers();
 
         assert currentPeers != null : "Raft service is not yet initialized";
