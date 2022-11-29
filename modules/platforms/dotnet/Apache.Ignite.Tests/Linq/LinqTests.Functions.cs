@@ -46,6 +46,7 @@ public partial class LinqTests
     public void TestModulus()
     {
         // TODO: Calcite throws errors - asked in #sql_team.
+        // Alternatively, emit MOD(X, Y) instead of X % Y.
         TestOpDouble(x => x.Key % 3d, 1.0d, "select (_T0.KEY % ?) from");
         TestOpInt(x => x.Key % 4, 2, "select (_T0.KEY % ?) from");
     }
