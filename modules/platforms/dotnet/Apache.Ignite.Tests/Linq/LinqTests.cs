@@ -230,50 +230,11 @@ public partial class LinqTests : IgniteTestsBase
     }
 
     [Test]
-    public void TestSkipMultiple()
-    {
-        var query = PocoView.AsQueryable()
-            .OrderBy(x => x.Key)
-            .Select(x => x.Key)
-            .Skip(5)
-            .Skip(3);
-
-        List<long> res = query.ToList();
-
-        Assert.AreEqual(new long[] { 8, 9 }, res);
-
-        StringAssert.Contains(
-            "select _T0.KEY from PUBLIC.TBL1 as _T0 " +
-            "order by (_T0.KEY) asc " +
-            "offset ?",
-            query.ToString());
-    }
-
-    [Test]
     public void TestTake()
     {
         var query = PocoView.AsQueryable()
             .OrderBy(x => x.Key)
             .Take(2);
-
-        List<Poco> res = query.ToList();
-
-        Assert.AreEqual(new long[] { 0, 1 }, res.Select(x => x.Key));
-
-        StringAssert.Contains(
-            "select _T0.KEY, _T0.VAL from PUBLIC.TBL1 as _T0 " +
-            "order by (_T0.KEY) asc " +
-            "limit ?",
-            query.ToString());
-    }
-
-    [Test]
-    public void TestTakeMultiple()
-    {
-        var query = PocoView.AsQueryable()
-            .OrderBy(x => x.Key)
-            .Take(2)
-            .Take(5);
 
         List<Poco> res = query.ToList();
 

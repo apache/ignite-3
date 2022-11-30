@@ -129,6 +129,26 @@ public partial class LinqSqlGenerationTests
             q => q.Skip(2).Take(3).Single());
 
     [Test]
+    public void TestOffsetMultipleNotSupported()
+    {
+        // ReSharper disable once ReturnValueOfPureMethodIsNotUsed
+        var ex = Assert.Throws<NotSupportedException>(
+            () => _table.GetRecordView<Poco>().AsQueryable().Skip(1).Skip(2).ToList());
+
+        Assert.AreEqual("Multiple Skip operators on the same subquery are not supported.", ex!.Message);
+    }
+
+    [Test]
+    public void TestLimitMultipleNotSupported()
+    {
+        // ReSharper disable once ReturnValueOfPureMethodIsNotUsed
+        var ex = Assert.Throws<NotSupportedException>(
+            () => _table.GetRecordView<Poco>().AsQueryable().Take(1).Take(2).ToList());
+
+        Assert.AreEqual("Multiple Take operators on the same subquery are not supported.", ex!.Message);
+    }
+
+    [Test]
     [Ignore("IGNITE-18131 Distinct support")]
     public void TestSelectOrderDistinct() =>
         AssertSql(

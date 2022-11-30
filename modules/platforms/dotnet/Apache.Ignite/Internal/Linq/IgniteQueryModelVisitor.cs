@@ -484,10 +484,20 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
             }
             else if (op is TakeResultOperator limit)
             {
+                if (limitExpr != null)
+                {
+                    throw new NotSupportedException("Multiple Take operators on the same subquery are not supported.");
+                }
+
                 limitExpr = limit.Count;
             }
             else if (op is SkipResultOperator offset)
             {
+                if (offsetExpr != null)
+                {
+                    throw new NotSupportedException("Multiple Skip operators on the same subquery are not supported.");
+                }
+
                 offsetExpr = offset.Count;
             }
         }
