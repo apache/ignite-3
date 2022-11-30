@@ -18,21 +18,20 @@
 package org.apache.ignite.internal.cluster.management.raft.responses;
 
 import java.io.Serializable;
-import java.util.Collection;
-import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.internal.cluster.management.topology.LogicalTopologySnapshot;
 
 /**
  * Response containing the current logical topology.
  */
 public class LogicalTopologyResponse implements Serializable {
-    private final Collection<ClusterNode> topology;
+    private final LogicalTopologySnapshot topology;
 
     /**
      * Creates a new response.
      *
      * @param topology Logical topology.
      */
-    public LogicalTopologyResponse(Collection<ClusterNode> topology) {
+    public LogicalTopologyResponse(LogicalTopologySnapshot topology) {
         this.topology = topology;
     }
 
@@ -41,7 +40,7 @@ public class LogicalTopologyResponse implements Serializable {
      *
      * @return Logical topology.
      */
-    public Collection<ClusterNode> logicalTopology() {
+    public LogicalTopologySnapshot logicalTopology() {
         return topology;
     }
 }

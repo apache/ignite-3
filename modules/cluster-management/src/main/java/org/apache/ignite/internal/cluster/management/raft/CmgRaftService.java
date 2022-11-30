@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.cluster.management.raft;
 
-import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -32,6 +31,7 @@ import org.apache.ignite.internal.cluster.management.raft.commands.JoinRequestCo
 import org.apache.ignite.internal.cluster.management.raft.commands.NodesLeaveCommand;
 import org.apache.ignite.internal.cluster.management.raft.responses.LogicalTopologyResponse;
 import org.apache.ignite.internal.cluster.management.raft.responses.ValidationErrorResponse;
+import org.apache.ignite.internal.cluster.management.topology.LogicalTopologySnapshot;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
@@ -173,11 +173,11 @@ public class CmgRaftService {
     }
 
     /**
-     * Retrieves the logical topology.
+     * Retrieves the logical topology snapshot.
      *
-     * @return Logical topology.
+     * @return Logical topology snapshot.
      */
-    public CompletableFuture<Collection<ClusterNode>> logicalTopology() {
+    public CompletableFuture<LogicalTopologySnapshot> logicalTopology() {
         return raftService.run(msgFactory.readLogicalTopologyCommand().build())
                 .thenApply(LogicalTopologyResponse.class::cast)
                 .thenApply(LogicalTopologyResponse::logicalTopology);
