@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.distributionzones;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.metastorage.client.CompoundCondition.or;
 import static org.apache.ignite.internal.metastorage.client.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.client.Conditions.value;
@@ -26,7 +27,9 @@ import static org.apache.ignite.internal.metastorage.client.Operations.put;
 import static org.apache.ignite.internal.metastorage.client.Operations.remove;
 import static org.apache.ignite.lang.ErrorGroups.Common.UNEXPECTED_ERR;
 
+import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import org.apache.ignite.configuration.NamedListChange;
@@ -44,14 +47,18 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.client.CompoundCondition;
+import org.apache.ignite.internal.metastorage.client.Entry;
 import org.apache.ignite.internal.metastorage.client.If;
 import org.apache.ignite.internal.metastorage.client.Update;
+import org.apache.ignite.internal.metastorage.client.WatchEvent;
+import org.apache.ignite.internal.metastorage.client.WatchListener;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.NodeStoppingException;
+import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -235,6 +242,70 @@ public class DistributionZoneManager implements IgniteComponent {
     @Override
     public void start() {
         zonesConfiguration.distributionZones().listenElements(new ZonesConfigurationListener());
+
+        metaStorageManager.registerWatchByPrefix(ByteArray.fromString(DISTRIBUTION_ZONE_DATA_NODES_PREFIX), new WatchListener() {
+            @Override
+            public boolean onUpdate(@NotNull WatchEvent evt) {
+                if (!busyLock.enterBusy()) {
+                    throw new IgniteInternalException(new NodeStoppingException());
+                }
+
+                try {
+                    assert evt.single();
+
+                    Entry oldLogicalTopology = evt.entryEvent().oldEntry();
+
+                    Entry newLogicalTopology = evt.entryEvent().newEntry();
+
+                    int zoneId = extractZoneId(newLogicalTopology.key(), DISTRIBUTION_ZONE_DATA_NODES_PREFIX);
+
+                    Set<ClusterNode> oldDataNodes = ByteUtils.fromBytes(oldLogicalTopology.value());
+
+                    Set<ClusterNode> newDataNodes = ByteUtils.fromBytes(newLogicalTopology.value());
+
+                    List<ClusterNode> removedNodes = oldDataNodes.stream().filter(node -> !newDataNodes.contains(node)).collect(toList());
+                    List<ClusterNode> addedNodes = newDataNodes.stream().filter(node -> !oldDataNodes.contains(node)).collect(toList());
+
+                    if (!removedNodes.isEmpty()) {
+                        //start scaleDown timer
+                    }
+
+                    if (!addedNodes.isEmpty()) {
+                        //start scaleUp timer
+                    }
+
+                    long revision = newLogicalTopology.revision();
+
+                    ByteArray zonesChangeTriggerKey = zonesChangeTriggerKey();
+
+                    CompoundCondition triggerKeyCondition = triggerKeyCondition(revision, zonesChangeTriggerKey);
+
+                    Update dataNodesAndTriggerKeyUpd = ops(
+                            put(zoneDataNodesKey(zoneId), newLogicalTopology.value()),
+                            put(zonesChangeTriggerKey, ByteUtils.longToBytes(revision))
+                    ).yield(true);
+
+                    var iif = If.iif(triggerKeyCondition, dataNodesAndTriggerKeyUpd, ops().yield(false));
+
+                    metaStorageManager.invoke(iif).thenAccept(res -> {
+                        if (res.getAsBoolean()) {
+                            LOG.info("");
+                        } else {
+                            LOG.info("");
+                        }
+                    });
+
+                    return true;
+                } finally {
+                    busyLock.leaveBusy();
+                }
+            }
+
+            @Override
+            public void onError(@NotNull Throwable e) {
+                LOG.warn("Unable to process distribution zone event", e);
+            }
+        });
     }
 
     /** {@inheritDoc} */
@@ -333,5 +404,11 @@ public class DistributionZoneManager implements IgniteComponent {
 
     private static ByteArray zoneDataNodesKey(int zoneId) {
         return new ByteArray(DISTRIBUTION_ZONE_DATA_NODES_PREFIX + zoneId);
+    }
+
+    public static int extractZoneId(ByteArray key, String prefix) {
+        String strKey = key.toString();
+
+        return Integer.parseInt(strKey.substring(prefix.length()));
     }
 }
