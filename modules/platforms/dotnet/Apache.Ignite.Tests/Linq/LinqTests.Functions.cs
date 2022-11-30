@@ -83,6 +83,7 @@ public partial class LinqTests
     [Test]
     public void TestStringFunctions()
     {
+        // TODO: Wait for IGNITE-18282 fix, too many issues with that.
         TestOpString(x => x.Val!.ToUpper(), "V-9", "select upper(_T0.VAL) from");
         TestOpString(x => x.Val!.ToLower(), "v-9", "select lower(_T0.VAL) from");
 
@@ -93,14 +94,6 @@ public partial class LinqTests
         TestOpString(x => x.Val!.TrimStart(), "v-9", "select ltrim(_T0.VAL) from");
         TestOpString(x => x.Val!.TrimEnd(), "v-9", "select rtrim(_T0.VAL) from");
 
-        Assert.Fail("TODO");
-    }
-
-    [Test]
-    [Ignore("IGNITE-18283 Illegal use of dynamic parameter exception")]
-    public void TestStringFunctionsIgnored()
-    {
-        // We can't use inlining workaround with LIKE (as we do with Math.Log) - with strings it will allow SQL injection.
         TestOpString(x => x.Val!.Contains("v-"), true, "select (_T0.VAL like '%v-%') from");
         TestOpString(x => x.Val!.StartsWith("v-"), true, "select (_T0.VAL like ? || '%') from");
         TestOpString(x => x.Val!.EndsWith("-9"), true, "select (_T0.VAL like '%' || ?) from");
