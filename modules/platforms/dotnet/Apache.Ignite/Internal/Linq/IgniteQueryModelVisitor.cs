@@ -180,6 +180,7 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
     /** <inheritdoc /> */
     public override void VisitMainFromClause(MainFromClause fromClause, QueryModel queryModel)
     {
+        // GROUP BY is handled separately in ProcessGroupings and does not need to be handled here as SubQuery.
         if (fromClause.FromExpression is SubQueryExpression subQuery &&
             subQuery.QueryModel.ResultOperators.All(x => x is not GroupResultOperator))
         {
