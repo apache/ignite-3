@@ -172,7 +172,8 @@ public class IgniteRpcServer implements RpcServer<Void> {
 
             RpcProcessor<NetworkMessage> finalPrc = prc;
 
-            Objects.requireNonNull(sender, "sender is null, message is " + message);
+            Objects.requireNonNull(sender, "sender is null, message is " + message + "; assertions enabled? "
+                    + this.getClass().desiredAssertionStatus());
 
             try {
                 executor.execute(() -> {
