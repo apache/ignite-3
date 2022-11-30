@@ -28,6 +28,8 @@ using Ignite.Sql;
 using Ignite.Transactions;
 using Proto.BinaryTuple;
 using Remotion.Linq;
+using Remotion.Linq.Clauses;
+using Remotion.Linq.Clauses.Expressions;
 using Sql;
 using Table.Serialization;
 
@@ -178,6 +180,15 @@ internal sealed class IgniteQueryExecutor : IQueryExecutor
 
                 return (T)Activator.CreateInstance(typeof(T), key, val)!;
             };
+        }
+
+        if (selectorExpression is QuerySourceReferenceExpression
+            {
+                ReferencedQuerySource: IFromClause { FromExpression: SubQueryExpression subQuery }
+            })
+        {
+            // Select everything from a sub-query - use nested selector.
+            return GetResultSelector<T>(columns, subQuery.QueryModel.SelectClause.Selector);
         }
 
         return (IReadOnlyList<IColumnMetadata> cols, ref BinaryTupleReader reader) =>

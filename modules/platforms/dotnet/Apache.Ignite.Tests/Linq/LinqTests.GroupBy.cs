@@ -19,6 +19,7 @@ namespace Apache.Ignite.Tests.Linq;
 
 using System.Collections.Generic;
 using System.Linq;
+using Internal.Linq;
 using NUnit.Framework;
 
 /// <summary>
@@ -144,6 +145,45 @@ public partial class LinqTests
             "inner join PUBLIC.TBL_INT32 as _T0 on (cast(_T0.KEY as bigint) = _T1.KEY) " +
             "group by (_T0.VAL) " +
             "order by (_T0.VAL) asc",
+            query.ToString());
+    }
+
+    /// <summary>
+    /// Tests grouping combined with join in a reverse order followed by a projection to an anonymous type with
+    /// custom projected column names.
+    /// <para />
+    /// Covers <see cref="ExpressionWalker.GetProjectedMember"/>.
+    /// </summary>
+    [Test]
+    public void TestGroupByWithReverseJoinAndAnonymousProjectionWithRename()
+    {
+        var query1 = PocoView.AsQueryable();
+        var query2 = PocoIntView.AsQueryable();
+
+        var query = query1.Join(
+                query2,
+                o => o.Key,
+                p => p.Key,
+                (org, person) => new
+                {
+                    Cat = org.Val,
+                    Price = person.Val
+                })
+            .GroupBy(x => x.Cat)
+            .Select(g => new {Category = g.Key, MaxPrice = g.Max(x => x.Price)})
+            .OrderByDescending(x => x.MaxPrice);
+
+        var res = query.ToList();
+
+        Assert.AreEqual("v-9", res[0].Category);
+        Assert.AreEqual(900, res[0].MaxPrice);
+
+        StringAssert.Contains(
+            "select _T0.VAL, max(_T1.VAL) " +
+            "from PUBLIC.TBL1 as _T0 " +
+            "inner join PUBLIC.TBL_INT32 as _T1 on (cast(_T1.KEY as bigint) = _T0.KEY) " +
+            "group by (_T0.VAL) " +
+            "order by (max(_T1.VAL)) desc",
             query.ToString());
     }
 }

@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.cluster.management.topology;
 
-import java.util.Collection;
 import java.util.Set;
 import org.apache.ignite.network.ClusterNode;
 
@@ -27,9 +26,9 @@ import org.apache.ignite.network.ClusterNode;
  */
 public interface LogicalTopology {
     /**
-     * Retrieves the current logical topology.
+     * Retrieves the current logical topology snapshot.
      */
-    Collection<ClusterNode> getLogicalTopology();
+    LogicalTopologySnapshot getLogicalTopology();
 
     /**
      * Puts a given node as a part of the logical topology.

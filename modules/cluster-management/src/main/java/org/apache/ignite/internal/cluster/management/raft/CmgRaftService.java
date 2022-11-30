@@ -19,11 +19,9 @@ package org.apache.ignite.internal.cluster.management.raft;
 
 import static java.util.stream.Collectors.toSet;
 
-import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.ClusterTag;
@@ -35,6 +33,7 @@ import org.apache.ignite.internal.cluster.management.raft.commands.NodesLeaveCom
 import org.apache.ignite.internal.cluster.management.raft.responses.LogicalTopologyResponse;
 import org.apache.ignite.internal.cluster.management.raft.responses.ValidationErrorResponse;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
+import org.apache.ignite.internal.cluster.management.topology.LogicalTopologySnapshot;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
@@ -175,18 +174,18 @@ public class CmgRaftService {
      */
     public CompletableFuture<Void> removeFromCluster(Set<ClusterNode> nodes) {
         NodesLeaveCommand command = msgFactory.nodesLeaveCommand()
-                .nodes(nodes.stream().map(this::nodeMessage).collect(Collectors.toSet()))
+                .nodes(nodes.stream().map(this::nodeMessage).collect(toSet()))
                 .build();
 
         return raftService.run(command);
     }
 
     /**
-     * Retrieves the logical topology.
+     * Retrieves the logical topology snapshot.
      *
-     * @return Logical topology.
+     * @return Logical topology snapshot.
      */
-    public CompletableFuture<Collection<ClusterNode>> logicalTopology() {
+    public CompletableFuture<LogicalTopologySnapshot> logicalTopology() {
         return raftService.run(msgFactory.readLogicalTopologyCommand().build())
                 .thenApply(LogicalTopologyResponse.class::cast)
                 .thenApply(LogicalTopologyResponse::logicalTopology);
@@ -204,7 +203,7 @@ public class CmgRaftService {
 
         return peers.stream()
                 .map(Peer::consistentId)
-                .collect(Collectors.toSet());
+                .collect(toSet());
     }
 
     private ClusterNodeMessage nodeMessage(ClusterNode node) {
@@ -232,7 +231,7 @@ public class CmgRaftService {
                 .map(Peer::consistentId)
                 .collect(toSet());
 
-        Set<Peer> newLearners = logicalTopology.getLogicalTopology().stream()
+        Set<Peer> newLearners = logicalTopology.getLogicalTopology().nodes().stream()
                 .map(ClusterNode::name)
                 .filter(name -> !peersConsistentIds.contains(name))
                 .map(Peer::new)

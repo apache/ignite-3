@@ -15,32 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cluster.management.raft.responses;
+package org.apache.ignite.internal.replicator.message;
 
-import java.io.Serializable;
-import org.apache.ignite.internal.cluster.management.topology.LogicalTopologySnapshot;
+import org.apache.ignite.internal.replicator.Replica;
+import org.apache.ignite.internal.replicator.ReplicaManager;
+import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.replicator.exception.ReplicaUnavailableException;
+import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * Response containing the current logical topology.
+ * When some request is failed in {@link ReplicaService} with a {@link ReplicaUnavailableException}
+ * due to the {@link Replica} has not created in {@link ReplicaManager},
+ * then {@link AwaitReplicaRequest} will be sent to await replica creation.
  */
-public class LogicalTopologyResponse implements Serializable {
-    private final LogicalTopologySnapshot topology;
-
-    /**
-     * Creates a new response.
-     *
-     * @param topology Logical topology.
-     */
-    public LogicalTopologyResponse(LogicalTopologySnapshot topology) {
-        this.topology = topology;
-    }
-
-    /**
-     * Returns the logical topology.
-     *
-     * @return Logical topology.
-     */
-    public LogicalTopologySnapshot logicalTopology() {
-        return topology;
-    }
+@Transferable(ReplicaMessageGroup.AWAIT_REPLICA_REQUEST)
+public interface AwaitReplicaRequest extends ReplicaRequest {
 }
