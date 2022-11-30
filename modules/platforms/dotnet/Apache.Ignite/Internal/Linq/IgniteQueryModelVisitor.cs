@@ -180,8 +180,8 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
     /** <inheritdoc /> */
     public override void VisitMainFromClause(MainFromClause fromClause, QueryModel queryModel)
     {
-        // TODO: Why does this produce invalid SQL sometimes?
-        if (fromClause.FromExpression is SubQueryExpression subQuery)
+        if (fromClause.FromExpression is SubQueryExpression subQuery &&
+            subQuery.QueryModel.ResultOperators.All(x => x is not GroupResultOperator))
         {
             _builder.Append("from (");
 
