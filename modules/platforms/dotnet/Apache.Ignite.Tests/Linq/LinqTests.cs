@@ -224,7 +224,6 @@ public partial class LinqTests : IgniteTestsBase
     }
 
     [Test]
-    [Ignore("IGNITE-18123 LINQ: Skip and Take (offset / limit) support")]
     public void TestOrderBySkipTakeBeforeSelect()
     {
         List<long> res = PocoView.AsQueryable()
