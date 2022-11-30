@@ -222,7 +222,26 @@ public partial class LinqTests : IgniteTestsBase
 
         Assert.AreEqual(new long[] { 7, 8, 9 }, res);
 
-        // TODO: Remove limit workaround?
+        StringAssert.Contains(
+            "select _T0.KEY from PUBLIC.TBL1 as _T0 " +
+            "order by (_T0.KEY) asc " +
+            "offset ?",
+            query.ToString());
+    }
+
+    [Test]
+    public void TestSkipMultiple()
+    {
+        var query = PocoView.AsQueryable()
+            .OrderBy(x => x.Key)
+            .Select(x => x.Key)
+            .Skip(5)
+            .Skip(3);
+
+        List<long> res = query.ToList();
+
+        Assert.AreEqual(new long[] { 8, 9 }, res);
+
         StringAssert.Contains(
             "select _T0.KEY from PUBLIC.TBL1 as _T0 " +
             "order by (_T0.KEY) asc " +
@@ -249,6 +268,25 @@ public partial class LinqTests : IgniteTestsBase
     }
 
     [Test]
+    public void TestTakeMultiple()
+    {
+        var query = PocoView.AsQueryable()
+            .OrderBy(x => x.Key)
+            .Take(2)
+            .Take(5);
+
+        List<Poco> res = query.ToList();
+
+        Assert.AreEqual(new long[] { 0, 1 }, res.Select(x => x.Key));
+
+        StringAssert.Contains(
+            "select _T0.KEY, _T0.VAL from PUBLIC.TBL1 as _T0 " +
+            "order by (_T0.KEY) asc " +
+            "limit ?",
+            query.ToString());
+    }
+
+    [Test]
     public void TestOrderBySkipTake()
     {
         var query = PocoView.AsQueryable()
@@ -260,6 +298,26 @@ public partial class LinqTests : IgniteTestsBase
         List<long> res = query.ToList();
 
         Assert.AreEqual(new long[] { 8, 7 }, res);
+
+        StringAssert.Contains(
+            "select _T0.KEY from PUBLIC.TBL1 as _T0 " +
+            "order by (_T0.KEY) desc " +
+            "limit ? offset ?",
+            query.ToString());
+    }
+
+    [Test]
+    public void TestSkipTakeFirst()
+    {
+        var query = PocoView.AsQueryable()
+            .OrderByDescending(x => x.Key)
+            .Select(x => x.Key)
+            .Skip(1)
+            .Take(2);
+
+        long res = query.First();
+
+        Assert.AreEqual(8, res);
 
         StringAssert.Contains(
             "select _T0.KEY from PUBLIC.TBL1 as _T0 " +
