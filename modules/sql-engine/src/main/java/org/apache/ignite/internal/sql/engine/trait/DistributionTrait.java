@@ -87,8 +87,8 @@ public final class DistributionTrait implements IgniteDistribution {
      * @param keys     Distribution keys.
      * @param function Distribution function.
      */
-    DistributionTrait(ImmutableIntList keys, DistributionFunction function) {
-        this.keys = keys;
+    DistributionTrait(List<Integer> keys, DistributionFunction function) {
+        this.keys = ImmutableIntList.copyOf(keys);
         this.function = function;
     }
 

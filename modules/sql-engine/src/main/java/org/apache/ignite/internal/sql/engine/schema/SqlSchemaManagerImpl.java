@@ -26,6 +26,8 @@ import static org.apache.ignite.lang.ErrorGroups.Sql.OBJECT_NOT_FOUND_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.SCHEMA_EVALUATION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.TABLE_VER_NOT_FOUND_ERR;
 
+import it.unimi.dsi.fastutil.ints.IntArrayList;
+import it.unimi.dsi.fastutil.ints.IntList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -357,8 +359,14 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                 ))
                 .collect(Collectors.toList());
 
+        IntList colocationColumns = new IntArrayList();
+
+        for (Column column : descriptor.colocationColumns()) {
+            colocationColumns.add(column.columnOrder());
+        }
+
         return new IgniteTableImpl(
-                new TableDescriptorImpl(colDescriptors),
+                new TableDescriptorImpl(colDescriptors, colocationColumns),
                 table.internalTable(),
                 schemaRegistry
         );

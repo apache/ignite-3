@@ -68,6 +68,7 @@ import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
@@ -187,6 +188,7 @@ public class PlannerTest extends AbstractPlannerTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18211")
     public void testSplitterColocatedReplicatedReplicated() throws Exception {
         IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
 
@@ -265,6 +267,7 @@ public class PlannerTest extends AbstractPlannerTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18211")
     public void testSplitterPartiallyColocatedReplicatedAndPartitioned() throws Exception {
         IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
 
@@ -429,6 +432,7 @@ public class PlannerTest extends AbstractPlannerTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18211")
     public void testSplitterPartiallyColocated2() throws Exception {
         IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
 
