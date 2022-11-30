@@ -25,12 +25,19 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Text.RegularExpressions;
+using Common;
 
 /// <summary>
 /// MethodCall expression visitor.
 /// </summary>
 internal static class MethodVisitor
 {
+    private const string TrimBoth = "both";
+
+    private const string TrimLeading = "leading";
+
+    private const string TrimTrailing = "trailing";
+
     /// <summary> Property visitors. </summary>
     private static readonly Dictionary<MemberInfo, string> Properties = new()
     {
@@ -63,12 +70,12 @@ internal static class MethodVisitor
                 GetStringMethod(nameof(string.Trim), "trim"),
                 GetStringMethod(nameof(string.TrimStart), "ltrim"),
                 GetStringMethod(nameof(string.TrimEnd), "rtrim"),
-                GetParameterizedTrimMethod(nameof(string.Trim), "trim"),
-                GetParameterizedTrimMethod(nameof(string.TrimStart), "ltrim"),
-                GetParameterizedTrimMethod(nameof(string.TrimEnd), "rtrim"),
-                GetCharTrimMethod(nameof(string.Trim), "trim"),
-                GetCharTrimMethod(nameof(string.TrimStart), "ltrim"),
-                GetCharTrimMethod(nameof(string.TrimEnd), "rtrim"),
+                GetParameterizedTrimMethod(nameof(string.Trim), TrimBoth),
+                GetParameterizedTrimMethod(nameof(string.TrimStart), TrimLeading),
+                GetParameterizedTrimMethod(nameof(string.TrimEnd), TrimTrailing),
+                GetCharTrimMethod(nameof(string.Trim), TrimBoth),
+                GetCharTrimMethod(nameof(string.TrimStart), TrimLeading),
+                GetCharTrimMethod(nameof(string.TrimEnd), TrimTrailing),
                 GetStringMethod(nameof(string.Replace), "replace", typeof(string), typeof(string)),
                 GetStringMethod(nameof(string.PadLeft), "lpad", typeof(int)),
                 GetStringMethod(nameof(string.PadLeft), "lpad", typeof(int), typeof(char)),
@@ -288,15 +295,12 @@ internal static class MethodVisitor
     private static void VisitParameterizedTrimFunc(
         MethodCallExpression expression,
         IgniteQueryExpressionVisitor visitor,
-        string func)
+        string mode)
     {
-        visitor.ResultBuilder.Append(func).Append('(');
+        // trim(leading|trailing|both chars from string)
+        visitor.ResultBuilder.Append("trim(").Append(mode).Append(' ');
 
-        visitor.Visit(expression.Object!);
-
-        var arg = expression.Arguments[0];
-
-        if (arg != null!)
+        if (expression.Arguments.Count > 0 && expression.Arguments[0] is { } arg)
         {
             visitor.ResultBuilder.Append(", ");
 
@@ -304,9 +308,9 @@ internal static class MethodVisitor
             {
                 var constant = (ConstantExpression) arg;
 
-                if (constant.Value is char)
+                if (constant.Value is char ch)
                 {
-                    visitor.AppendParameter((char) constant.Value);
+                    visitor.AppendParameter(ch);
                 }
                 else
                 {
@@ -334,6 +338,8 @@ internal static class MethodVisitor
             }
         }
 
+        visitor.ResultBuilder.TrimEnd().Append(" from ");
+        visitor.Visit(expression.Object!);
         visitor.ResultBuilder.Append(')');
     }
 
@@ -484,30 +490,22 @@ internal static class MethodVisitor
     /// <summary>
     /// Gets string parameterized Trim(TrimStart, TrimEnd) method.
     /// </summary>
-    private static KeyValuePair<MethodInfo?, VisitMethodDelegate> GetParameterizedTrimMethod(
-        string name,
-        string sqlName)
-    {
-        return GetMethod(
+    private static KeyValuePair<MethodInfo?, VisitMethodDelegate> GetParameterizedTrimMethod(string name, string mode) =>
+        GetMethod(
             typeof(string),
             name,
             new[] {typeof(char[])},
-            (e, v) => VisitParameterizedTrimFunc(e, v, sqlName));
-    }
+            (e, v) => VisitParameterizedTrimFunc(e, v, mode));
 
     /// <summary>
     /// Gets string parameterized Trim(TrimStart, TrimEnd) method that takes a single char.
     /// </summary>
-    private static KeyValuePair<MethodInfo?, VisitMethodDelegate> GetCharTrimMethod(
-        string name,
-        string sqlName)
-    {
-        return GetMethod(
+    private static KeyValuePair<MethodInfo?, VisitMethodDelegate> GetCharTrimMethod(string name, string mode) =>
+        GetMethod(
             typeof(string),
             name,
             new[] {typeof(char)},
-            (e, v) => VisitParameterizedTrimFunc(e, v, sqlName));
-    }
+            (e, v) => VisitParameterizedTrimFunc(e, v, mode));
 
     /// <summary>
     /// Gets the math method.
