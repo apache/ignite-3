@@ -252,7 +252,7 @@ public class RexUtils {
         Mappings.TargetMapping mapping = null;
 
         if (requiredColumns != null) {
-            mapping = Commons.trimmingMapping(types.size(), requiredColumns).inverse();
+            mapping = Commons.inverseTrimmingMapping(types.size(), requiredColumns);
         }
 
         List<SearchBounds> bounds = Arrays.asList(new SearchBounds[collation.getFieldCollations().size()]);
@@ -271,7 +271,7 @@ public class RexUtils {
             }
 
             if (mapping != null) {
-                collFldIdx = mapping.getTargetOpt(collFldIdx);
+                collFldIdx = mapping.getSourceOpt(collFldIdx);
             }
 
             SearchBounds fldBounds = createBounds(fc, collFldPreds, cluster, types.get(collFldIdx), prevComplexity);
@@ -329,7 +329,7 @@ public class RexUtils {
 
         Mappings.TargetMapping toTrimmedRowMapping = null;
         if (requiredColumns != null) {
-            toTrimmedRowMapping = Commons.trimmingMapping(types.size(), requiredColumns).inverse();
+            toTrimmedRowMapping = Commons.inverseTrimmingMapping(types.size(), requiredColumns);
         }
 
         List<RelFieldCollation> fieldCollations = collation.getFieldCollations();
@@ -351,7 +351,7 @@ public class RexUtils {
             }
 
             if (toTrimmedRowMapping != null) {
-                collFldIdx = toTrimmedRowMapping.getTargetOpt(collFldIdx);
+                collFldIdx = toTrimmedRowMapping.getSourceOpt(collFldIdx);
             }
 
             bounds.set(i, createBounds(null, Collections.singletonList(columnPred), cluster, types.get(collFldIdx), 1));

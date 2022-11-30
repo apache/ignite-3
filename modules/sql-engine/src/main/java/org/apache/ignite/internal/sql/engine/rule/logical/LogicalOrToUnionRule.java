@@ -148,7 +148,7 @@ public class LogicalOrToUnionRule extends RelRule<LogicalOrToUnionRule.Config> {
         }
 
         Mappings.TargetMapping mapping = scan.requiredColumns() == null ? null :
-                Commons.trimmingMapping(fieldCnt, scan.requiredColumns()).inverse();
+                Commons.inverseTrimmingMapping(fieldCnt, scan.requiredColumns());
 
         for (RexNode op : operands) {
             BitSet conditionFields = new BitSet(fieldCnt);
@@ -156,7 +156,7 @@ public class LogicalOrToUnionRule extends RelRule<LogicalOrToUnionRule.Config> {
             new RexShuttle() {
                 @Override public RexNode visitLocalRef(RexLocalRef inputRef) {
                     conditionFields.set(mapping == null ? inputRef.getIndex() :
-                            mapping.getTargetOpt(inputRef.getIndex()));
+                            mapping.getSourceOpt(inputRef.getIndex()));
                     return inputRef;
                 }
             }.apply(op);

@@ -567,6 +567,8 @@ public final class Commons {
     /**
      * Creates mapping to trim the fields.
      *
+     * <p>To find a new index of element after trimming call {@code mapping.getTargetOpt(index)}.
+     *
      * <p>This mapping can be used to adjust traits or aggregations, for example, when several fields have been truncated.
      * Assume the following scenario:
      * <pre>
@@ -597,6 +599,23 @@ public final class Commons {
         }
         return mapping;
     }
+
+    /**
+     * Create a mapping to redo trimming made by {@link #trimmingMapping(int, ImmutableBitSet)}.
+     *
+     * <p>To find an old index of element before trimming call {@code mapping.getSourceOpt(index)}.
+     *
+     * <p>This mapping can be used to remap traits or aggregates back as if the trimming has never happened.
+     *
+     * @param sourceSize Count of elements in a non trimmed collection.
+     * @param requiredElements Elements which were preserved during trimming.
+     * @return A mapping to restore the original mapping.
+     * @see #trimmingMapping(int, ImmutableBitSet)
+     */
+    public static Mappings.TargetMapping inverseTrimmingMapping(int sourceSize, ImmutableBitSet requiredElements) {
+        return Mappings.invert(trimmingMapping(sourceSize, requiredElements).inverse());
+    }
+
 
     /**
      * Checks if there is a such permutation of all {@code elems} that is prefix of provided {@code seq}.
