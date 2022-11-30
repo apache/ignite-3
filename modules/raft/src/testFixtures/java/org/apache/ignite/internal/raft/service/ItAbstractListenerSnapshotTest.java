@@ -17,9 +17,13 @@
 
 package org.apache.ignite.internal.raft.service;
 
+import static java.util.stream.Collectors.collectingAndThen;
+import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.raft.server.RaftGroupOptions.defaults;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.net.InetAddress;
@@ -28,15 +32,19 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
+import java.util.function.Function;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.Loza;
-import org.apache.ignite.internal.raft.Peer;
+import org.apache.ignite.internal.raft.PeersAndLearners;
+import org.apache.ignite.internal.raft.RaftGroupId;
 import org.apache.ignite.internal.raft.RaftGroupServiceImpl;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
@@ -77,16 +85,14 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
     @WorkDirectory
     private Path workDir;
 
-    /**
-     * Peers list.
-     */
-    private final List<Peer> initialConf = new ArrayList<>();
+    /** Initial Raft configuration. */
+    private PeersAndLearners initialConf;
 
     /** Cluster. */
     private final List<ClusterService> cluster = new ArrayList<>();
 
     /** Servers. */
-    protected final List<JraftServerImpl> servers = new ArrayList<>();
+    private final List<JraftServerImpl> servers = new ArrayList<>();
 
     /** Clients. */
     private final List<RaftGroupService> clients = new ArrayList<>();
@@ -101,10 +107,9 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
     public void beforeTest(TestInfo testInfo) {
         executor = new ScheduledThreadPoolExecutor(20, new NamedThreadFactory(Loza.CLIENT_POOL_NAME, LOG));
 
-        IntStream.rangeClosed(0, 2)
+        initialConf = IntStream.rangeClosed(0, 2)
                 .mapToObj(i -> testNodeName(testInfo, PORT + i))
-                .map(Peer::new)
-                .forEach(initialConf::add);
+                .collect(collectingAndThen(toSet(), PeersAndLearners::fromConsistentIds));
     }
 
     /**
@@ -114,25 +119,19 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
      */
     @AfterEach
     public void afterTest() throws Exception {
-        for (JraftServerImpl server : servers) {
-            server.stopRaftGroup(raftGroupId());
-        }
+        Stream<AutoCloseable> stopRaftGroups = servers.stream().map(s -> () -> s.stopRaftNodes(raftGroupId()));
 
-        for (RaftGroupService client : clients) {
-            client.shutdown();
-        }
+        Stream<AutoCloseable> shutdownClients = clients.stream().map(c -> c::shutdown);
 
-        IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
+        Stream<AutoCloseable> stopExecutor = Stream.of(() -> IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS));
 
-        for (JraftServerImpl server : servers) {
-            server.beforeNodeStop();
+        Stream<AutoCloseable> beforeNodeStop = Stream.concat(servers.stream(), cluster.stream()).map(c -> c::beforeNodeStop);
 
-            server.stop();
-        }
+        Stream<AutoCloseable> nodeStop = Stream.concat(servers.stream(), cluster.stream()).map(c -> c::stop);
 
-        for (ClusterService service : cluster) {
-            service.stop();
-        }
+        IgniteUtils.closeAll(
+                Stream.of(stopRaftGroups, shutdownClients, stopExecutor, beforeNodeStop, nodeStop).flatMap(Function.identity())
+        );
     }
 
     /**
@@ -198,12 +197,14 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
 
         // Select any node that is not the leader of the group
         JraftServerImpl toStop = servers.stream()
-                .filter(server -> !server.localPeer(raftGroupId()).equals(service.leader()))
+                .filter(server -> !server.localPeers(raftGroupId()).contains(service.leader()))
                 .findAny()
                 .orElseThrow();
 
+        var raftGroupId = new RaftGroupId(raftGroupId(), toStop.localPeers(raftGroupId()).get(0));
+
         // Get the path to that node's raft directory
-        Path serverDataPath = toStop.getServerDataPath(raftGroupId());
+        Path serverDataPath = toStop.getServerDataPath(raftGroupId);
 
         // Get the path to that node's RocksDB key-value storage
         Path dbPath = getListenerPersistencePath(getListener(toStop, raftGroupId()));
@@ -214,7 +215,7 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
         servers.remove(stopIdx);
 
         // Shutdown that node
-        toStop.stopRaftGroup(raftGroupId());
+        toStop.stopRaftNode(raftGroupId);
         toStop.beforeNodeStop();
         toStop.stop();
 
@@ -315,7 +316,9 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
      * @return Raft group listener.
      */
     protected T getListener(JraftServerImpl server, TestReplicationGroupId grpId) {
-        org.apache.ignite.raft.jraft.RaftGroupService svc = server.raftGroupService(grpId);
+        var raftGroupId = new RaftGroupId(grpId, server.localPeers(grpId).get(0));
+
+        org.apache.ignite.raft.jraft.RaftGroupService svc = server.raftGroupService(raftGroupId);
 
         JraftServerImpl.DelegatingStateMachine fsm =
                 (JraftServerImpl.DelegatingStateMachine) svc.getRaftNode().getOptions().getFsm();
@@ -393,9 +396,9 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
         servers.add(server);
 
         server.startRaftGroup(
-                raftGroupId(),
-                createListener(service, listenerPersistencePath),
+                new RaftGroupId(raftGroupId(), initialConf.peer(service.topologyService().localMember().name())),
                 initialConf,
+                createListener(service, listenerPersistencePath),
                 defaults()
         );
 
@@ -408,7 +411,7 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
      * @return Raft group service instance.
      */
     private RaftGroupService prepareRaftGroup(TestInfo testInfo) throws Exception {
-        for (int i = 0; i < initialConf.size(); i++) {
+        for (int i = 0; i < initialConf.peers().size(); i++) {
             startServer(testInfo, i);
         }
 
@@ -423,7 +426,7 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
      * @return The client service.
      */
     protected ClusterService clientService() {
-        return cluster.get(initialConf.size());
+        return cluster.get(initialConf.peers().size());
     }
 
     /**
@@ -431,20 +434,17 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
      *
      * @return The service.
      */
-    private RaftGroupService startClient(TestInfo testInfo, TestReplicationGroupId groupId, NetworkAddress addr) throws Exception {
-        String consistentId = testNodeName(testInfo, addr.port());
-
+    private RaftGroupService startClient(TestInfo testInfo, TestReplicationGroupId groupId, NetworkAddress addr) {
         ClusterService clientNode = clusterService(testInfo, CLIENT_PORT + clients.size(), addr);
 
-        RaftGroupService client = RaftGroupServiceImpl.start(groupId, clientNode, FACTORY, 10_000,
-                List.of(new Peer(consistentId)), false, 200, executor).get(3, TimeUnit.SECONDS);
+        CompletableFuture<RaftGroupService> clientFuture = RaftGroupServiceImpl
+                .start(groupId, clientNode, FACTORY, 10_000, 10_000, initialConf, true, 200, executor);
 
-        // Transactios by now require a leader to build a mapping.
-        client.refreshLeader().join();
+        assertThat(clientFuture, willCompleteSuccessfully());
 
-        clients.add(client);
+        clients.add(clientFuture.join());
 
-        return client;
+        return clientFuture.join();
     }
 
     /**

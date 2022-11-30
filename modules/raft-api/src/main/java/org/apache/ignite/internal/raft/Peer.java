@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.raft;
 
 import java.io.Serializable;
-import java.util.Objects;
 import org.apache.ignite.internal.tostring.S;
 
 /**
@@ -31,6 +30,11 @@ public final class Peer implements Serializable {
     private final String consistentId;
 
     /**
+     * Peer index. Used when multiple Raft nodes are started on the same Ignite node.
+     */
+    private final int idx;
+
+    /**
      * Peer's local priority value, if node don't support priority election, this value is {@link ElectionPriority#DISABLED}.
      */
     private final int priority;
@@ -38,30 +42,32 @@ public final class Peer implements Serializable {
     /**
      * Constructor.
      *
-     * @param peer Peer.
-     */
-    public Peer(Peer peer) {
-        this.consistentId = peer.consistentId();
-        this.priority = peer.getPriority();
-    }
-
-    /**
-     * Constructor.
-     *
      * @param consistentId Consistent ID of a node.
      */
     public Peer(String consistentId) {
-        this(consistentId, ElectionPriority.DISABLED);
+        this(consistentId, 0, ElectionPriority.DISABLED);
     }
 
     /**
      * Constructor.
      *
      * @param consistentId Consistent ID of a node.
+     * @param idx Peer index.
+     */
+    public Peer(String consistentId, int idx) {
+        this(consistentId, idx, ElectionPriority.DISABLED);
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param consistentId Consistent ID of a node.
+     * @param idx Peer index.
      * @param priority Election priority.
      */
-    public Peer(String consistentId, int priority) {
+    public Peer(String consistentId, int idx, int priority) {
         this.consistentId = consistentId;
+        this.idx = idx;
         this.priority = priority;
     }
 
@@ -73,9 +79,16 @@ public final class Peer implements Serializable {
     }
 
     /**
+     * Returns this node's index.
+     */
+    public int idx() {
+        return idx;
+    }
+
+    /**
      * Returns election priority.
      */
-    public int getPriority() {
+    public int priority() {
         return priority;
     }
 
@@ -87,13 +100,24 @@ public final class Peer implements Serializable {
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
+
         Peer peer = (Peer) o;
-        return priority == peer.priority && consistentId.equals(peer.consistentId);
+
+        if (idx != peer.idx) {
+            return false;
+        }
+        if (priority != peer.priority) {
+            return false;
+        }
+        return consistentId.equals(peer.consistentId);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(consistentId, priority);
+        int result = consistentId.hashCode();
+        result = 31 * result + idx;
+        result = 31 * result + priority;
+        return result;
     }
 
     @Override

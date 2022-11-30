@@ -256,7 +256,7 @@ public class TableManagerTest extends IgniteAbstractTest {
      */
     @Test
     public void testPreconfiguredTable() throws Exception {
-        when(rm.startRaftGroupService(any(), any(), any())).thenAnswer(mock -> completedFuture(mock(RaftGroupService.class)));
+        when(rm.startRaftGroupService(any(), any())).thenAnswer(mock -> completedFuture(mock(RaftGroupService.class)));
 
         TableManager tableManager = createTableManager(tblManagerFut, false);
 
@@ -423,7 +423,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         endTableManagerStopTest(tblAndMnr.get1(), tblAndMnr.get2(),
                 () -> {
                     try {
-                        doThrow(new NodeStoppingException()).when(rm).stopRaftGroup(any());
+                        doThrow(new NodeStoppingException()).when(rm).stopRaftNodes(any());
                     } catch (Exception e) {
                         throw new RuntimeException(e);
                     }
@@ -492,7 +492,7 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         TableImpl table = mockManagersAndCreateTable(scmTbl, tblManagerFut);
 
-        verify(rm, times(PARTITIONS)).startRaftGroupService(any(), any(), any());
+        verify(rm, times(PARTITIONS)).startRaftGroupService(any(), any());
 
         TableManager tableManager = tblManagerFut.join();
 
@@ -504,7 +504,7 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         tableManager.stop();
 
-        verify(rm, times(PARTITIONS)).stopRaftGroup(any());
+        verify(rm, times(PARTITIONS)).stopRaftNodes(any());
         verify(replicaMgr, times(PARTITIONS)).stopReplica(any());
 
         verify(table.internalTable().storage()).close();
@@ -625,7 +625,7 @@ public class TableManagerTest extends IgniteAbstractTest {
     ) throws Exception {
         String consistentId = "node0";
 
-        when(rm.startRaftGroupService(any(), any(), any())).thenAnswer(mock -> {
+        when(rm.startRaftGroupService(any(), any())).thenAnswer(mock -> {
             RaftGroupService raftGrpSrvcMock = mock(RaftGroupService.class);
 
             when(raftGrpSrvcMock.leader()).thenReturn(new Peer(consistentId));

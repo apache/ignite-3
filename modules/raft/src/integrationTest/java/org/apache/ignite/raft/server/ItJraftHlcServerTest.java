@@ -17,7 +17,9 @@
 
 package org.apache.ignite.raft.server;
 
+import static java.util.stream.Collectors.collectingAndThen;
 import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.raft.server.RaftGroupOptions.defaults;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.raft.jraft.test.TestUtils.getLocalAddress;
@@ -34,9 +36,10 @@ import java.util.function.Supplier;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.raft.Peer;
+import org.apache.ignite.internal.raft.PeersAndLearners;
+import org.apache.ignite.internal.raft.RaftGroupId;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.RaftGroupService;
@@ -60,7 +63,7 @@ class ItJraftHlcServerTest extends RaftServerAbstractTest {
     /**
      * Initial configuration.
      */
-    private final List<Peer> initialConf = new ArrayList<>();
+    private PeersAndLearners initialConf;
 
     /**
      * Listener factory.
@@ -74,10 +77,9 @@ class ItJraftHlcServerTest extends RaftServerAbstractTest {
 
     @BeforeEach
     void setUp() {
-        IntStream.rangeClosed(0, 2)
+        initialConf = IntStream.rangeClosed(0, 2)
                 .mapToObj(i -> testNodeName(testInfo, PORT + i))
-                .map(Peer::new)
-                .forEach(initialConf::add);
+                .collect(collectingAndThen(toSet(), PeersAndLearners::fromConsistentIds));
     }
 
     /**
@@ -88,8 +90,6 @@ class ItJraftHlcServerTest extends RaftServerAbstractTest {
     protected void after() throws Exception {
         super.after();
 
-        logger().info("Start client shutdown");
-
         logger().info("Start server shutdown servers={}", servers.size());
 
         Iterator<JraftServerImpl> iterSrv = servers.iterator();
@@ -99,10 +99,10 @@ class ItJraftHlcServerTest extends RaftServerAbstractTest {
 
             iterSrv.remove();
 
-            Set<ReplicationGroupId> grps = server.startedGroups();
+            Set<RaftGroupId> grps = server.startedGroups();
 
-            for (ReplicationGroupId grp : grps) {
-                server.stopRaftGroup(grp);
+            for (RaftGroupId grp : grps) {
+                server.stopRaftNode(grp);
             }
 
             server.beforeNodeStop();
@@ -159,12 +159,24 @@ class ItJraftHlcServerTest extends RaftServerAbstractTest {
     @Test
     public void testHlcOneInstancePerIgniteNode() {
         startServer(0, raftServer -> {
-            raftServer.startRaftGroup(new TestReplicationGroupId("test_raft_group"), listenerFactory.get(), initialConf, defaults());
+            String localNodeName = raftServer.clusterService().topologyService().localMember().name();
+
+            Peer localNode = initialConf.peer(localNodeName);
+
+            var groupId = new RaftGroupId(new TestReplicationGroupId("test_raft_group"), localNode);
+
+            raftServer.startRaftGroup(groupId, initialConf, listenerFactory.get(), defaults());
         }, opts -> {});
 
         servers.forEach(srv -> {
             for (int i = 0; i < 5; i++) {
-                srv.startRaftGroup(new TestReplicationGroupId("test_raft_group_" + i), listenerFactory.get(), initialConf, defaults());
+                String localNodeName = srv.clusterService().topologyService().localMember().name();
+
+                Peer localNode = initialConf.peer(localNodeName);
+
+                var groupId = new RaftGroupId(new TestReplicationGroupId("test_raft_group_" + i), localNode);
+
+                srv.startRaftGroup(groupId, initialConf, listenerFactory.get(), defaults());
             }
         });
 
@@ -188,10 +200,10 @@ class ItJraftHlcServerTest extends RaftServerAbstractTest {
         });
 
         servers.forEach(srv -> {
-            srv.stopRaftGroup(new TestReplicationGroupId("test_raft_group"));
+            srv.stopRaftNodes(new TestReplicationGroupId("test_raft_group"));
 
             for (int i = 0; i < 10; i++) {
-                srv.stopRaftGroup(new TestReplicationGroupId("test_raft_group_" + i));
+                srv.stopRaftNodes(new TestReplicationGroupId("test_raft_group_" + i));
             }
         });
     }

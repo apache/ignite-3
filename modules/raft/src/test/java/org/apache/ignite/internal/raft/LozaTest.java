@@ -17,16 +17,13 @@
 
 package org.apache.ignite.internal.raft;
 
-import static org.apache.ignite.internal.raft.server.RaftGroupOptions.defaults;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
 
-import java.util.List;
 import java.util.Objects;
-import java.util.function.Supplier;
+import java.util.Set;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
-import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.lang.NodeStoppingException;
@@ -71,21 +68,14 @@ public class LozaTest extends IgniteAbstractTest {
 
         TestReplicationGroupId raftGroupId = new TestReplicationGroupId("test_raft_group");
 
-        List<String> nodes = List.of("test1");
+        PeersAndLearners configuration = PeersAndLearners.fromConsistentIds(Set.of("test1"));
 
-        List<String> newNodes = List.of("test2", "test3");
+        Peer serverPeer = configuration.peer("test1");
 
-        Supplier<RaftGroupListener> lsnrSupplier = () -> null;
-
-        assertThrows(
-                NodeStoppingException.class,
-                () -> loza.startRaftGroupService(raftGroupId, newNodes, List.of())
-        );
-        assertThrows(NodeStoppingException.class, () -> loza.stopRaftGroup(raftGroupId));
-        assertThrows(
-                NodeStoppingException.class,
-                () -> loza.prepareRaftGroup(raftGroupId, nodes, lsnrSupplier, defaults())
-        );
+        assertThrows(NodeStoppingException.class, () -> loza.startRaftGroupService(raftGroupId, configuration));
+        assertThrows(NodeStoppingException.class, () -> loza.stopRaftNode(new RaftGroupId(raftGroupId, serverPeer)));
+        assertThrows(NodeStoppingException.class, () -> loza.stopRaftNodes(raftGroupId));
+        assertThrows(NodeStoppingException.class, () -> loza.prepareRaftGroup(raftGroupId, serverPeer, configuration, () -> null));
     }
 
     /**

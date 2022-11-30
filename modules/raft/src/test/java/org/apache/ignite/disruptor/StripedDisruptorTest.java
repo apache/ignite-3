@@ -26,8 +26,10 @@ import java.util.ArrayList;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.lang.IgniteStringFormatter;
-import org.apache.ignite.raft.jraft.disruptor.GroupAware;
+import org.apache.ignite.raft.jraft.disruptor.NodeIdAware;
 import org.apache.ignite.raft.jraft.disruptor.StripedDisruptor;
+import org.apache.ignite.raft.jraft.entity.NodeId;
+import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -42,16 +44,19 @@ public class StripedDisruptorTest extends IgniteAbstractTest {
      */
     @Test
     public void testDisruptorBatch() throws Exception {
-        StripedDisruptor<GroupAwareTestObj> disruptor = new StripedDisruptor<>("test-disruptor",
+        StripedDisruptor<NodeIdAwareTestObj> disruptor = new StripedDisruptor<>("test-disruptor",
                 16384,
-                GroupAwareTestObj::new,
+                NodeIdAwareTestObj::new,
                 1);
+
+        var nodeId1 = new NodeId("grp1", new PeerId("foo"));
+        var nodeId2 = new NodeId("grp2", new PeerId("foo"));
 
         GroupAwareTestObjHandler handler1 = new GroupAwareTestObjHandler();
         GroupAwareTestObjHandler handler2 = new GroupAwareTestObjHandler();
 
-        RingBuffer<GroupAwareTestObj> taskQueue1 = disruptor.subscribe("grp1", handler1);
-        RingBuffer<GroupAwareTestObj> taskQueue2 = disruptor.subscribe("grp2", handler2);
+        RingBuffer<NodeIdAwareTestObj> taskQueue1 = disruptor.subscribe(nodeId1, handler1);
+        RingBuffer<NodeIdAwareTestObj> taskQueue2 = disruptor.subscribe(nodeId2, handler2);
 
         assertSame(taskQueue1, taskQueue2);
 
@@ -59,12 +64,12 @@ public class StripedDisruptorTest extends IgniteAbstractTest {
             int finalInt = i;
 
             taskQueue1.tryPublishEvent((event, sequence) -> {
-                event.groupId = "grp1";
+                event.nodeId = nodeId1;
                 event.num = finalInt;
             });
 
             taskQueue2.tryPublishEvent((event, sequence) -> {
-                event.groupId = "grp2";
+                event.nodeId = nodeId2;
                 event.num = finalInt;
             });
 
@@ -88,20 +93,22 @@ public class StripedDisruptorTest extends IgniteAbstractTest {
      */
     @Test
     public void testDisruptorSimple() throws Exception {
-        StripedDisruptor<GroupAwareTestObj> disruptor = new StripedDisruptor<>("test-disruptor",
+        StripedDisruptor<NodeIdAwareTestObj> disruptor = new StripedDisruptor<>("test-disruptor",
                 16384,
-                () -> new GroupAwareTestObj(),
+                NodeIdAwareTestObj::new,
                 5);
 
         GroupAwareTestObjHandler handler = new GroupAwareTestObjHandler();
 
-        RingBuffer<GroupAwareTestObj> taskQueue = disruptor.subscribe("grp", handler);
+        var nodeId = new NodeId("grp", new PeerId("foo"));
+
+        RingBuffer<NodeIdAwareTestObj> taskQueue = disruptor.subscribe(nodeId, handler);
 
         for (int i = 0; i < 1_000; i++) {
             int finalInt = i;
 
             taskQueue.publishEvent((event, sequence) -> {
-                event.groupId = "grp";
+                event.nodeId = nodeId;
                 event.num = finalInt;
             });
         }
@@ -112,7 +119,7 @@ public class StripedDisruptorTest extends IgniteAbstractTest {
     }
 
     /** Group event handler. */
-    private static class GroupAwareTestObjHandler implements EventHandler<GroupAwareTestObj> {
+    private static class GroupAwareTestObjHandler implements EventHandler<NodeIdAwareTestObj> {
         /** This is a container for the batch events. */
         ArrayList<Integer> batch = new ArrayList<>();
 
@@ -121,7 +128,7 @@ public class StripedDisruptorTest extends IgniteAbstractTest {
 
         /** {@inheritDoc} */
         @Override
-        public void onEvent(GroupAwareTestObj event, long sequence, boolean endOfBatch) {
+        public void onEvent(NodeIdAwareTestObj event, long sequence, boolean endOfBatch) {
             batch.add(event.num);
 
             if (endOfBatch) {
@@ -135,21 +142,16 @@ public class StripedDisruptorTest extends IgniteAbstractTest {
     /**
      * Group aware object implementation to test the striped disruptor.
      */
-    private static class GroupAwareTestObj implements GroupAware {
-        /** Group id. */
-        String groupId;
+    private static class NodeIdAwareTestObj implements NodeIdAware {
+        /** Node id. */
+        NodeId nodeId;
 
         /** Any integer number. */
         int num;
 
-        /**
-         * Get a group id.
-         *
-         * @return Group id.
-         */
         @Override
-        public String groupId() {
-            return groupId;
+        public NodeId nodeId() {
+            return nodeId;
         }
     }
 }

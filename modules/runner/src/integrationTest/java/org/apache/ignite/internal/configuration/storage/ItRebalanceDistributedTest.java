@@ -57,12 +57,12 @@ import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorConfigurationSchema;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
+import org.apache.ignite.internal.raft.RaftGroupId;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.rest.configuration.RestConfiguration;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableConfiguration;
@@ -295,8 +295,12 @@ public class ItRebalanceDistributedTest {
 
         var countDownLatch = new CountDownLatch(1);
 
-        ReplicationGroupId raftGroupNodeName = leaderNode.raftManager.server().startedGroups()
-                .stream().filter(grp -> grp.toString().contains("part")).findFirst().get();
+        RaftGroupId raftGroupNodeName = leaderNode.raftManager.server()
+                .startedGroups()
+                .stream()
+                .filter(grp -> grp.replicationGroupId().toString().contains("part"))
+                .findFirst()
+                .orElseThrow();
 
         ((JraftServerImpl) leaderNode.raftManager.server()).blockMessages(
                 raftGroupNodeName, (msg, peerId) -> {
@@ -355,8 +359,10 @@ public class ItRebalanceDistributedTest {
 
         AtomicInteger counter = new AtomicInteger(0);
 
-        ReplicationGroupId partGrpId = raftServer.startedGroups().stream().filter(grp -> grp.toString().contains("_part_")).findFirst()
-                .get();
+        RaftGroupId partGrpId = raftServer.startedGroups().stream()
+                .filter(grp -> grp.toString().contains("_part_"))
+                .findFirst()
+                .orElseThrow();
 
         raftServer.blockMessages(partGrpId, (msg, peerId) -> {
             if (msg instanceof RpcRequests.PingRequest) {

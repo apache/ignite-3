@@ -43,7 +43,7 @@ public class PeerId implements Copiable<PeerId>, Serializable, Checksum {
     /**
      * Index in same addr, default is 0.
      */
-    private int idx; // TODO IGNITE-14832 asch drop support for peer index
+    private int idx;
 
     /**
      * Cached toString result.
@@ -269,6 +269,6 @@ public class PeerId implements Copiable<PeerId>, Serializable, Checksum {
         if (p == null)
             return null;
         else
-            return new PeerId(p.consistentId(), 0, p.getPriority());
+            return new PeerId(p.consistentId(), p.idx(), p.priority());
     }
 }

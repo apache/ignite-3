@@ -208,8 +208,8 @@ public class ItIgniteInMemoryNodeRestartTest extends IgniteAbstractTest {
         // Check that it restarts.
         assertTrue(IgniteTestUtils.waitForCondition(
                 () -> loza.startedGroups().stream().anyMatch(grpName -> {
-                    if (grpName instanceof TablePartitionId) {
-                        return ((TablePartitionId) grpName).getTableId().equals(tableId);
+                    if (grpName.replicationGroupId() instanceof TablePartitionId) {
+                        return ((TablePartitionId) grpName.replicationGroupId()).getTableId().equals(tableId);
                     }
 
                     return true;
@@ -249,8 +249,8 @@ public class ItIgniteInMemoryNodeRestartTest extends IgniteAbstractTest {
         // Check that it restarts.
         assertTrue(IgniteTestUtils.waitForCondition(
                 () -> loza.startedGroups().stream().anyMatch(grpName -> {
-                    if (grpName instanceof TablePartitionId) {
-                        return ((TablePartitionId) grpName).getTableId().equals(tableId);
+                    if (grpName.replicationGroupId() instanceof TablePartitionId) {
+                        return ((TablePartitionId) grpName.replicationGroupId()).getTableId().equals(tableId);
                     }
 
                     return true;
@@ -292,8 +292,8 @@ public class ItIgniteInMemoryNodeRestartTest extends IgniteAbstractTest {
 
             assertTrue(IgniteTestUtils.waitForCondition(
                     () -> loza.startedGroups().stream().anyMatch(grpName -> {
-                        if (grpName instanceof TablePartitionId) {
-                            return ((TablePartitionId) grpName).getTableId().equals(tableId);
+                        if (grpName.replicationGroupId() instanceof TablePartitionId) {
+                            return ((TablePartitionId) grpName.replicationGroupId()).getTableId().equals(tableId);
                         }
 
                         return true;

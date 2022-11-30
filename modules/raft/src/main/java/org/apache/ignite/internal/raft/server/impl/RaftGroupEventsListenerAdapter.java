@@ -17,11 +17,13 @@
 
 package org.apache.ignite.internal.raft.server.impl;
 
+import static java.util.stream.Collectors.toUnmodifiableSet;
+
 import java.util.Collection;
-import java.util.List;
-import java.util.stream.Collectors;
+import java.util.Set;
 import org.apache.ignite.internal.raft.JraftGroupEventsListener;
 import org.apache.ignite.internal.raft.Peer;
+import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.entity.PeerId;
@@ -41,16 +43,22 @@ class RaftGroupEventsListenerAdapter implements JraftGroupEventsListener {
 
     @Override
     public void onNewPeersConfigurationApplied(Collection<PeerId> peerIds, Collection<PeerId> learnerIds) {
-        delegate.onNewPeersConfigurationApplied(peerIdsToPeers(peerIds), peerIdsToPeers(learnerIds));
+        delegate.onNewPeersConfigurationApplied(configuration(peerIds, learnerIds));
     }
 
     @Override
     public void onReconfigurationError(Status status, Collection<PeerId> peerIds, Collection<PeerId> learnerIds, long term) {
-        delegate.onReconfigurationError(convertStatus(status), peerIdsToPeers(peerIds), peerIdsToPeers(learnerIds), term);
+        delegate.onReconfigurationError(convertStatus(status), configuration(peerIds, learnerIds), term);
     }
 
-    private static List<Peer> peerIdsToPeers(Collection<PeerId> ids) {
-        return ids.stream().map(id -> new Peer(id.getConsistentId())).collect(Collectors.toUnmodifiableList());
+    private static PeersAndLearners configuration(Collection<PeerId> peerIds, Collection<PeerId> learnerIds) {
+        return PeersAndLearners.fromPeers(peerIdsToPeers(peerIds), peerIdsToPeers(learnerIds));
+    }
+
+    private static Set<Peer> peerIdsToPeers(Collection<PeerId> ids) {
+        return ids.stream()
+                .map(id -> new Peer(id.getConsistentId(), id.getIdx(), id.getPriority()))
+                .collect(toUnmodifiableSet());
     }
 
     private static org.apache.ignite.internal.raft.Status convertStatus(Status status) {

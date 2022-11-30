@@ -18,10 +18,11 @@
 package org.apache.ignite.internal.cluster.management;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static java.util.stream.Collectors.toUnmodifiableList;
+import static java.util.stream.Collectors.toUnmodifiableSet;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.function.Function;
@@ -84,11 +85,11 @@ public class ClusterInitializer {
         }
 
         try {
-            metaStorageNodeNames = metaStorageNodeNames.stream().map(String::trim).collect(toUnmodifiableList());
+            metaStorageNodeNames = metaStorageNodeNames.stream().map(String::trim).collect(toUnmodifiableSet());
 
             cmgNodeNames = cmgNodeNames.isEmpty()
                     ? metaStorageNodeNames
-                    : cmgNodeNames.stream().map(String::trim).collect(toUnmodifiableList());
+                    : cmgNodeNames.stream().map(String::trim).collect(toUnmodifiableSet());
 
             // check that provided Meta Storage nodes are present in the topology
             List<ClusterNode> msNodes = resolveNodes(clusterService, metaStorageNodeNames);
@@ -100,8 +101,8 @@ public class ClusterInitializer {
             LOG.info("Resolved CMG nodes[nodes={}]", cmgNodes);
 
             CmgInitMessage initMessage = msgFactory.cmgInitMessage()
-                    .metaStorageNodes(metaStorageNodeNames)
-                    .cmgNodes(cmgNodeNames)
+                    .metaStorageNodes(Set.copyOf(metaStorageNodeNames))
+                    .cmgNodes(Set.copyOf(cmgNodeNames))
                     .clusterName(clusterName)
                     .build();
 

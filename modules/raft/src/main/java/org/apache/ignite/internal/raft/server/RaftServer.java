@@ -21,11 +21,12 @@ import java.util.List;
 import java.util.Set;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.raft.Peer;
+import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
+import org.apache.ignite.internal.raft.RaftGroupId;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.network.ClusterService;
-import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
 /**
@@ -43,15 +44,15 @@ public interface RaftServer extends IgniteComponent {
      * Starts a raft group bound to this cluster node.
      *
      * @param groupId Group id.
-     * @param lsnr The listener.
-     * @param peers Peers configuration.
+     * @param configuration Raft peers configuration.
+     * @param lsnr Listener for state machine events.
      * @param groupOptions Options to apply to the group.
      * @return {@code True} if a group was successfully started, {@code False} when the group with given name is already exists.
      */
     boolean startRaftGroup(
-            ReplicationGroupId groupId,
+            RaftGroupId groupId,
+            PeersAndLearners configuration,
             RaftGroupListener lsnr,
-            List<Peer> peers,
             RaftGroupOptions groupOptions
     );
 
@@ -59,37 +60,43 @@ public interface RaftServer extends IgniteComponent {
      * Starts a raft group bound to this cluster node.
      *
      * @param groupId Group id.
+     * @param configuration Raft peers configuration.
      * @param evLsnr Listener for group membership and other events.
      * @param lsnr Listener for state machine events.
-     * @param peers Peers configuration.
-     * @param learners Learners configuration.
      * @param groupOptions Options to apply to the group.
      * @return {@code True} if a group was successfully started, {@code False} when the group with given name is already exists.
      */
     boolean startRaftGroup(
-            ReplicationGroupId groupId,
+            RaftGroupId groupId,
+            PeersAndLearners configuration,
             RaftGroupEventsListener evLsnr,
             RaftGroupListener lsnr,
-            List<Peer> peers,
-            List<Peer> learners,
             RaftGroupOptions groupOptions
     );
 
     /**
-     * Synchronously stops a raft group if any.
+     * Stops a given local Raft node if it exists.
      *
      * @param groupId Group id.
-     * @return {@code True} if a group was successfully stopped.
+     * @return {@code true} if the node has been stopped, {@code false} otherwise.
      */
-    boolean stopRaftGroup(ReplicationGroupId groupId);
+    boolean stopRaftNode(RaftGroupId groupId);
 
     /**
-     * Returns a local peer.
+     * Stops all local nodes running the given Raft group.
+     *
+     * @param replicationGroupId Raft group name.
+     * @return {@code true} if at least one node has been stopped, {@code false} otherwise.
+     */
+    boolean stopRaftNodes(ReplicationGroupId replicationGroupId);
+
+    /**
+     * Returns local nodes running the given Raft group.
      *
      * @param groupId Group id.
-     * @return Local peer or null if the group is not started.
+     * @return List of peers (can be empty if no local Raft nodes have been started).
      */
-    @Nullable Peer localPeer(ReplicationGroupId groupId);
+    List<Peer> localPeers(ReplicationGroupId groupId);
 
     /**
      * Returns a set of started partition groups.
@@ -97,5 +104,5 @@ public interface RaftServer extends IgniteComponent {
      * @return Started groups.
      */
     @TestOnly
-    Set<ReplicationGroupId> startedGroups();
+    Set<RaftGroupId> startedGroups();
 }

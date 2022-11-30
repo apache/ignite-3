@@ -17,6 +17,8 @@
 
 package org.apache.ignite.raft.server;
 
+import static java.util.stream.Collectors.collectingAndThen;
+import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.raft.jraft.test.TestUtils.getLocalAddress;
 import static org.apache.ignite.raft.jraft.test.TestUtils.waitForTopology;
@@ -32,7 +34,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.raft.Loza;
-import org.apache.ignite.internal.raft.Peer;
+import org.apache.ignite.internal.raft.PeersAndLearners;
+import org.apache.ignite.internal.raft.RaftGroupId;
 import org.apache.ignite.internal.raft.RaftGroupServiceImpl;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
@@ -51,6 +54,9 @@ import org.junit.jupiter.api.BeforeEach;
  * Abstract class for raft tests using JRaftServer.
  */
 public abstract class JraftAbstractTest extends RaftServerAbstractTest {
+    /** Nodes count. */
+    protected static final int NODES = 3;
+
     /**
      * The server port offset.
      */
@@ -64,7 +70,7 @@ public abstract class JraftAbstractTest extends RaftServerAbstractTest {
     /**
      * Initial configuration.
      */
-    protected final List<Peer> initialConf = new ArrayList<>();
+    protected PeersAndLearners initialConf;
 
     /**
      * Servers list.
@@ -86,10 +92,9 @@ public abstract class JraftAbstractTest extends RaftServerAbstractTest {
     void before() {
         executor = new ScheduledThreadPoolExecutor(20, new NamedThreadFactory(Loza.CLIENT_POOL_NAME, logger()));
 
-        IntStream.rangeClosed(0, 2)
+        initialConf = IntStream.range(0, NODES)
                 .mapToObj(i -> testNodeName(testInfo, PORT + i))
-                .map(Peer::new)
-                .forEach(initialConf::add);
+                .collect(collectingAndThen(toSet(), PeersAndLearners::fromConsistentIds));
     }
 
     /**
@@ -131,10 +136,10 @@ public abstract class JraftAbstractTest extends RaftServerAbstractTest {
 
             iterSrv.remove();
 
-            Set<ReplicationGroupId> grps = server.startedGroups();
+            Set<RaftGroupId> grps = server.startedGroups();
 
-            for (ReplicationGroupId grp : grps) {
-                server.stopRaftGroup(grp);
+            for (RaftGroupId grp : grps) {
+                server.stopRaftNode(grp);
             }
 
             server.beforeNodeStop();
@@ -196,10 +201,13 @@ public abstract class JraftAbstractTest extends RaftServerAbstractTest {
 
         String consistentId = testNodeName(testInfo, PORT);
 
+        PeersAndLearners configuration = PeersAndLearners.fromConsistentIds(Set.of(consistentId));
+
         ClusterService clientNode = clusterService(CLIENT_PORT + clients.size(), List.of(addr), true);
 
-        RaftGroupService client = RaftGroupServiceImpl.start(groupId, clientNode, FACTORY, 10_000,
-                List.of(new Peer(consistentId)), false, 200, executor).get(3, TimeUnit.SECONDS);
+        RaftGroupService client = RaftGroupServiceImpl
+                .start(groupId, clientNode, FACTORY, 10_000, 10_000, configuration, false, 200, executor)
+                .get(3, TimeUnit.SECONDS);
 
         clients.add(client);
 

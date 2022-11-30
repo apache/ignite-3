@@ -29,6 +29,5 @@ dependencies {
 
     annotationProcessor project(":ignite-configuration-annotation-processor")
 
-    testImplementation libs.mockito.junit
-    testImplementation libs.mockito.core
+    testImplementation libs.hamcrest.core
 }
