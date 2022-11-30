@@ -211,16 +211,61 @@ public partial class LinqTests : IgniteTestsBase
     }
 
     [Test]
+    public void TestSkip()
+    {
+        var query = PocoView.AsQueryable()
+            .OrderBy(x => x.Key)
+            .Select(x => x.Key)
+            .Skip(7);
+
+        List<long> res = query.ToList();
+
+        Assert.AreEqual(new long[] { 7, 8, 9 }, res);
+
+        // TODO: Remove limit workaround?
+        StringAssert.Contains(
+            "select _T0.KEY from PUBLIC.TBL1 as _T0 " +
+            "order by (_T0.KEY) asc " +
+            "limit 2147483640 offset ?",
+            query.ToString());
+    }
+
+    [Test]
+    public void TestTake()
+    {
+        var query = PocoView.AsQueryable()
+            .OrderBy(x => x.Key)
+            .Take(2);
+
+        List<Poco> res = query.ToList();
+
+        Assert.AreEqual(new long[] { 0, 1 }, res.Select(x => x.Key));
+
+        StringAssert.Contains(
+            "select _T0.KEY, _T0.VAL from PUBLIC.TBL1 as _T0 " +
+            "order by (_T0.KEY) asc " +
+            "limit ?",
+            query.ToString());
+    }
+
+    [Test]
     public void TestOrderBySkipTake()
     {
-        List<long> res = PocoView.AsQueryable()
+        var query = PocoView.AsQueryable()
             .OrderByDescending(x => x.Key)
             .Select(x => x.Key)
             .Skip(1)
-            .Take(2)
-            .ToList();
+            .Take(2);
+
+        List<long> res = query.ToList();
 
         Assert.AreEqual(new long[] { 8, 7 }, res);
+
+        StringAssert.Contains(
+            "select _T0.KEY from PUBLIC.TBL1 as _T0 " +
+            "order by (_T0.KEY) desc " +
+            "limit ? offset ?",
+            query.ToString());
     }
 
     [Test]
