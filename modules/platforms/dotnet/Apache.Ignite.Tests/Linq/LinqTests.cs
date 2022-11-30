@@ -226,14 +226,23 @@ public partial class LinqTests : IgniteTestsBase
     [Test]
     public void TestOrderBySkipTakeBeforeSelect()
     {
-        List<long> res = PocoView.AsQueryable()
+        var query = PocoView.AsQueryable()
             .OrderByDescending(x => x.Key)
             .Skip(1)
             .Take(2)
-            .Select(x => x.Key)
-            .ToList();
+            .Select(x => x.Key);
+
+        List<long> res = query.ToList();
 
         Assert.AreEqual(new long[] { 8, 7 }, res);
+
+        StringAssert.Contains(
+            "select _T0.KEY from (" +
+            "select _T1.KEY, _T1.VAL " +
+            "from PUBLIC.TBL1 as _T1 " +
+            "order by (_T1.KEY) desc " +
+            "limit ? offset ?) as _T0",
+            query.ToString());
     }
 
     [Test]

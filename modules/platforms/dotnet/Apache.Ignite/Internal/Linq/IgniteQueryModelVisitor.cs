@@ -180,9 +180,8 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
     /** <inheritdoc /> */
     public override void VisitMainFromClause(MainFromClause fromClause, QueryModel queryModel)
     {
-        // Special case for UNION subquery.
-        if (fromClause.FromExpression is SubQueryExpression subQuery &&
-            subQuery.QueryModel.ResultOperators.Any(x => x is UnionResultOperator))
+        // TODO: Why does this produce invalid SQL sometimes?
+        if (fromClause.FromExpression is SubQueryExpression subQuery)
         {
             _builder.Append("from (");
 
