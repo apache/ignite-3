@@ -71,7 +71,13 @@ bash ignite3-cli-3.0.0-beta1\bin\ignite3
 ----
 --
 
-After you start the node, you can start working on it. For example, you can perform sql requests from the command line, or use the thin client to perform requests.
+After you start the node, you need to initialize a cluster. To do this, use the `cluster init` command:
+
+----
+cluster init -n=sampleCluster -m=defaultNode
+----
+
+This command creates a simple cluster you can interact with. For example, you can perform sql requests from the command line, or use the thin client to perform requests.
 
 
 == Stopping the Cluster
