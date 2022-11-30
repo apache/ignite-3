@@ -467,32 +467,45 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
     /// </summary>
     private void ProcessSkipTake(QueryModel queryModel)
     {
+        int? limitCount = null;
+        Expression? limitExpr = null;
+        Expression? offsetExpr = null;
+
         foreach (var op in queryModel.ResultOperators)
         {
             if (op is FirstResultOperator)
             {
-                _builder.AppendWithSpace("limit 1");
-                return;
+                limitCount = Math.Min(1, limitCount ?? int.MaxValue);
             }
-
-            if (op is SingleResultOperator)
+            else if (op is SingleResultOperator)
             {
                 // Will fail in IgniteQueryExecutor.ExecuteSingleInternalAsync if there is more than 1 row.
-                _builder.AppendWithSpace("limit 2");
-                return;
+                limitCount = Math.Min(2, limitCount ?? int.MaxValue);
             }
-
-            if (op is TakeResultOperator limit)
+            else if (op is TakeResultOperator limit)
             {
-                _builder.AppendWithSpace("limit ");
-                BuildSqlExpression(limit.Count);
+                limitExpr = limit.Count;
             }
-
-            if (op is SkipResultOperator offset)
+            else if (op is SkipResultOperator offset)
             {
-                _builder.AppendWithSpace("offset ");
-                BuildSqlExpression(offset.Count);
+                offsetExpr = offset.Count;
             }
+        }
+
+        if (limitCount != null)
+        {
+            _builder.AppendWithSpace("limit ").Append(limitCount.Value);
+        }
+        else if (limitExpr != null)
+        {
+            _builder.AppendWithSpace("limit ");
+            BuildSqlExpression(limitExpr);
+        }
+
+        if (offsetExpr != null)
+        {
+            _builder.AppendWithSpace("offset ");
+            BuildSqlExpression(offsetExpr);
         }
     }
 
