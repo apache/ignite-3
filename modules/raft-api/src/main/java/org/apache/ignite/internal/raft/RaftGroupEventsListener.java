@@ -24,7 +24,7 @@ import java.util.Collection;
  */
 public interface RaftGroupEventsListener {
     /**
-     * Invoked, when a new leader is elected (if it is the first leader of group ever - will be invoked too).
+     * Invoked, when this node is elected as a new leader (if it is the first leader of group ever - will be invoked too).
      *
      * @param term Raft term of the current leader.
      */

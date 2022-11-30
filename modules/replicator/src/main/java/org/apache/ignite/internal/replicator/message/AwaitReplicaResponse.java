@@ -15,32 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cluster.management.raft.responses;
+package org.apache.ignite.internal.replicator.message;
 
-import java.io.Serializable;
-import org.apache.ignite.internal.cluster.management.topology.LogicalTopologySnapshot;
+import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * Response containing the current logical topology.
+ * Await replica response.
  */
-public class LogicalTopologyResponse implements Serializable {
-    private final LogicalTopologySnapshot topology;
-
-    /**
-     * Creates a new response.
-     *
-     * @param topology Logical topology.
-     */
-    public LogicalTopologyResponse(LogicalTopologySnapshot topology) {
-        this.topology = topology;
-    }
-
-    /**
-     * Returns the logical topology.
-     *
-     * @return Logical topology.
-     */
-    public LogicalTopologySnapshot logicalTopology() {
-        return topology;
-    }
+@Transferable(ReplicaMessageGroup.AWAIT_REPLICA_RESPONSE)
+public interface AwaitReplicaResponse extends ReplicaResponse {
 }
