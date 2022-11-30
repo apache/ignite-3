@@ -467,30 +467,32 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
     /// </summary>
     private void ProcessSkipTake(QueryModel queryModel)
     {
-        // TODO Single loop
-        if (queryModel.ResultOperators.Any(static x => x is FirstResultOperator))
+        foreach (var op in queryModel.ResultOperators)
         {
-            _builder.Append("limit 1");
-            return;
-        }
+            if (op is FirstResultOperator)
+            {
+                _builder.AppendWithSpace("limit 1");
+                return;
+            }
 
-        if (queryModel.ResultOperators.Any(static x => x is SingleResultOperator))
-        {
-            // Will fail in IgniteQueryExecutor.ExecuteSingleInternalAsync if there is more than 1 row.
-            _builder.Append("limit 2");
-            return;
-        }
+            if (op is SingleResultOperator)
+            {
+                // Will fail in IgniteQueryExecutor.ExecuteSingleInternalAsync if there is more than 1 row.
+                _builder.AppendWithSpace("limit 2");
+                return;
+            }
 
-        if (queryModel.ResultOperators.OfType<TakeResultOperator>().FirstOrDefault() is { } limit)
-        {
-            _builder.Append("limit ");
-            BuildSqlExpression(limit.Count);
-        }
+            if (op is TakeResultOperator limit)
+            {
+                _builder.AppendWithSpace("limit ");
+                BuildSqlExpression(limit.Count);
+            }
 
-        if (queryModel.ResultOperators.OfType<SkipResultOperator>().FirstOrDefault() is { } offset)
-        {
-            _builder.AppendWithSpace("offset ");
-            BuildSqlExpression(offset.Count);
+            if (op is SkipResultOperator offset)
+            {
+                _builder.AppendWithSpace("offset ");
+                BuildSqlExpression(offset.Count);
+            }
         }
     }
 
