@@ -71,7 +71,7 @@ bash ignite3-cli-3.0.0-beta1\bin\ignite3
 ----
 --
 
-After you start the node, you need to initialize a cluster in it. To do this, use the `cluster init` command:
+After you start the node, you need to initialize a cluster. To do this, use the `cluster init` command:
 
 ----
 cluster init -n=sampleCluster -m=defaultNode
