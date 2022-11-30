@@ -302,12 +302,8 @@ internal static class MethodVisitor
 
         if (expression.Arguments.Count > 0 && expression.Arguments[0] is { } arg)
         {
-            visitor.ResultBuilder.Append(", ");
-
-            if (arg.NodeType == ExpressionType.Constant)
+            if (arg is ConstantExpression constant)
             {
-                var constant = (ConstantExpression) arg;
-
                 if (constant.Value is char ch)
                 {
                     visitor.AppendParameter(ch);
@@ -325,8 +321,7 @@ internal static class MethodVisitor
 
                     if (enumeratedArgs.Length != 1)
                     {
-                        throw new NotSupportedException("String.Trim function only supports a single argument: " +
-                                                        expression);
+                        throw new NotSupportedException("String.Trim function only supports a single argument: " + expression);
                     }
 
                     visitor.AppendParameter(enumeratedArgs[0]);

@@ -93,16 +93,11 @@ public partial class LinqTests
         TestOpString(x => x.Val!.TrimStart(), "v-9", "select ltrim(_T0.VAL) from");
         TestOpString(x => x.Val!.TrimEnd(), "v-9", "select rtrim(_T0.VAL) from");
 
-        // TODO: select trim(leading|trailing|both 'f' from 'foo-bar') works (single char), ltrim and rtrim do not take parameters - just don't use them
-        TestOpString(x => x.Val!.Trim('v'), "-9", "select trim(_T0.VAL) from");
-        TestOpString(x => x.Val!.TrimStart('v'), "-9", "select ltrim(_T0.VAL) from");
-        TestOpString(x => x.Val!.TrimEnd('9'), "v-", "select rtrim(_T0.VAL) from");
-
         Assert.Fail("TODO");
     }
 
     [Test]
-    [Ignore("IGNITE-18283 Exception on SQL LIKE")]
+    [Ignore("IGNITE-18283 Illegal use of dynamic parameter exception")]
     public void TestStringFunctionsIgnored()
     {
         // We can't use inlining workaround with LIKE (as we do with Math.Log) - with strings it will allow SQL injection.
@@ -113,6 +108,10 @@ public partial class LinqTests
         TestOpString(x => x.Val + "_", "v-9_", "select concat(_T0.VAL, ?) from");
         TestOpString(x => x.Val!.IndexOf("-9"), 1, "select instr(_T0.VAL, ?) -1 from");
         TestOpString(x => x.Val!.IndexOf("-9", 1), -1, "select instr(_T0.VAL, ?, ?) -1 from");
+
+        TestOpString(x => x.Val!.Trim('v'), "-9", "select trim(both ? from _T0.VAL) from");
+        TestOpString(x => x.Val!.TrimStart('v'), "-9", "select trim(leading ? from _T0.VAL) from");
+        TestOpString(x => x.Val!.TrimEnd('9'), "v-", "select trim(trailing ? from _T0.VAL) from");
     }
 
     [Test]
