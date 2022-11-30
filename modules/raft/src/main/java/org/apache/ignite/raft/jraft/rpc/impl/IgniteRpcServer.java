@@ -141,8 +141,6 @@ public class IgniteRpcServer implements RpcServer<Void> {
     public class RpcMessageHandler implements NetworkMessageHandler {
         /** {@inheritDoc} */
         @Override public void onReceived(NetworkMessage message, ClusterNode sender, @Nullable Long correlationId) {
-            Objects.requireNonNull(sender, "sender is null");
-
             Class<? extends NetworkMessage> cls = message.getClass();
             RpcProcessor<NetworkMessage> prc = processors.get(cls.getName());
 
@@ -173,6 +171,8 @@ public class IgniteRpcServer implements RpcServer<Void> {
                 executor = rpcExecutor;
 
             RpcProcessor<NetworkMessage> finalPrc = prc;
+
+            Objects.requireNonNull(sender, "sender is null, message is " + message);
 
             try {
                 executor.execute(() -> {
