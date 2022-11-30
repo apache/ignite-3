@@ -18,7 +18,7 @@ package org.apache.ignite.raft.jraft.rpc.impl;
 
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.Objects;import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
@@ -141,6 +141,8 @@ public class IgniteRpcServer implements RpcServer<Void> {
     public class RpcMessageHandler implements NetworkMessageHandler {
         /** {@inheritDoc} */
         @Override public void onReceived(NetworkMessage message, ClusterNode sender, @Nullable Long correlationId) {
+            Objects.requireNonNull(sender, "sender is null");
+
             Class<? extends NetworkMessage> cls = message.getClass();
             RpcProcessor<NetworkMessage> prc = processors.get(cls.getName());
 

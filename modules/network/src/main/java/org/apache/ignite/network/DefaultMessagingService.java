@@ -152,6 +152,8 @@ public class DefaultMessagingService extends AbstractMessagingService {
             return failedFuture(new NodeStoppingException());
         }
 
+        Objects.requireNonNull(recipient, "recipient is null");
+
         InetSocketAddress recipientAddress = new InetSocketAddress(recipient.address().host(), recipient.address().port());
 
         if (isSelf(recipient.name(), recipientAddress)) {
