@@ -226,7 +226,7 @@ public partial class LinqTests : IgniteTestsBase
         StringAssert.Contains(
             "select _T0.KEY from PUBLIC.TBL1 as _T0 " +
             "order by (_T0.KEY) asc " +
-            "limit 2147483640 offset ?",
+            "offset ?",
             query.ToString());
     }
 

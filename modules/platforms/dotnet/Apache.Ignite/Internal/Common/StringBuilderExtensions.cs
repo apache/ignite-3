@@ -38,4 +38,22 @@ internal static class StringBuilderExtensions
 
         return sb;
     }
+
+    /// <summary>
+    /// Appends a string to the string builder, ensuring that there is a whitespace character between existing and appended content.
+    /// </summary>
+    /// <param name="sb">String builder.</param>
+    /// <param name="str">String to append.</param>
+    /// <returns>Same instance for chaining.</returns>
+    public static StringBuilder AppendWithSpace(this StringBuilder sb, string str)
+    {
+        if (!char.IsWhiteSpace(sb[^1]))
+        {
+            sb.Append(' ');
+        }
+
+        sb.Append(str);
+
+        return sb;
+    }
 }

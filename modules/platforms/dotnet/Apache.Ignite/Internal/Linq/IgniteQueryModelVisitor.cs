@@ -467,6 +467,7 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
     /// </summary>
     private void ProcessSkipTake(QueryModel queryModel)
     {
+        // TODO Single loop
         if (queryModel.ResultOperators.Any(static x => x is FirstResultOperator))
         {
             _builder.Append("limit 1");
@@ -480,39 +481,15 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
             return;
         }
 
-        var limit = queryModel.ResultOperators.OfType<TakeResultOperator>().FirstOrDefault();
-        var offset = queryModel.ResultOperators.OfType<SkipResultOperator>().FirstOrDefault();
-
-        if (limit == null && offset == null)
+        if (queryModel.ResultOperators.OfType<TakeResultOperator>().FirstOrDefault() is { } limit)
         {
-            return;
-        }
-
-        // "limit" is mandatory if there is "offset", but not vice versa
-        _builder.Append("limit ");
-
-        if (limit == null)
-        {
-            // TODO IGNITE-18123 LINQ: Skip and Take (offset / limit) support
-            // Workaround for unlimited offset (IGNITE-2602)
-            // H2 allows NULL & -1 for unlimited, but Ignite indexing does not
-            // Maximum limit that works is (int.MaxValue - offset)
-            if (offset!.Count is ParameterExpression)
-            {
-                throw new NotSupportedException("Skip() without Take() is not supported in compiled queries.");
-            }
-
-            var offsetInt = (int) ((ConstantExpression) offset.Count).Value!;
-            _builder.Append((int.MaxValue - offsetInt).ToString(CultureInfo.InvariantCulture));
-        }
-        else
-        {
+            _builder.Append("limit ");
             BuildSqlExpression(limit.Count);
         }
 
-        if (offset != null)
+        if (queryModel.ResultOperators.OfType<SkipResultOperator>().FirstOrDefault() is { } offset)
         {
-            _builder.Append(" offset ");
+            _builder.AppendWithSpace("offset ");
             BuildSqlExpression(offset.Count);
         }
     }
