@@ -113,6 +113,22 @@ public partial class LinqSqlGenerationTests
                 .ToList());
 
     [Test]
+    public void TestOffsetLimitFirst() =>
+        AssertSql(
+            "select _T0.KEY, _T0.VAL " +
+            "from PUBLIC.tbl1 as _T0 " +
+            "limit 1 offset ?",
+            q => q.Skip(2).Take(3).First());
+
+    [Test]
+    public void TestOffsetLimitSingle() =>
+        AssertSql(
+            "select _T0.KEY, _T0.VAL " +
+            "from PUBLIC.tbl1 as _T0 " +
+            "limit 2 offset ?",
+            q => q.Skip(2).Take(3).Single());
+
+    [Test]
     [Ignore("IGNITE-18131 Distinct support")]
     public void TestSelectOrderDistinct() =>
         AssertSql(
