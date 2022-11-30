@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.cli.commands.connect;
 
-import static org.apache.ignite.internal.cli.commands.OptionsConstants.CLUSTER_URL_KEY;
-import static org.apache.ignite.internal.cli.commands.OptionsConstants.NODE_URL_OR_NAME_DESC;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.CLUSTER_URL_KEY;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.NODE_URL_OR_NAME_DESC;
 
 import jakarta.inject.Inject;
 import org.apache.ignite.internal.cli.call.connect.ConnectCall;
