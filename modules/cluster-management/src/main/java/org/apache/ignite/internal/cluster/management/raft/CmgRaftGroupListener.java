@@ -24,6 +24,7 @@ import java.nio.file.Path;
 import java.util.Iterator;
 import java.util.Set;
 import java.util.function.Consumer;
+import java.util.function.LongConsumer;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.raft.commands.ClusterNodeMessage;
@@ -59,12 +60,16 @@ public class CmgRaftGroupListener implements RaftGroupListener {
 
     private final ValidationManager validationManager;
 
-    private final ActionOnTerm onLogicalTopologyChanged;
+    private final LongConsumer onLogicalTopologyChanged;
 
     /**
      * Creates a new instance.
+     *
+     * @param storage Storage where this listener local data will be stored.
+     * @param logicalTopology Logical topology that will be updated by this listener.
+     * @param onLogicalTopologyChanged Callback invoked (with the corresponding RAFT term) when logical topology gets changed.
      */
-    public CmgRaftGroupListener(ClusterStateStorage storage, LogicalTopology logicalTopology, ActionOnTerm onLogicalTopologyChanged) {
+    public CmgRaftGroupListener(ClusterStateStorage storage, LogicalTopology logicalTopology, LongConsumer onLogicalTopologyChanged) {
         this.storage = new RaftStorageManager(storage);
         this.logicalTopology = logicalTopology;
         this.onLogicalTopologyChanged = onLogicalTopologyChanged;
@@ -106,14 +111,14 @@ public class CmgRaftGroupListener implements RaftGroupListener {
 
                 if (response == null) {
                     // It is valid, the topology has been changed.
-                    onLogicalTopologyChanged.run(clo.term());
+                    onLogicalTopologyChanged.accept(clo.term());
                 }
 
                 clo.result(response);
             } else if (command instanceof NodesLeaveCommand) {
                 removeNodesFromLogicalTopology((NodesLeaveCommand) command);
 
-                onLogicalTopologyChanged.run(clo.term());
+                onLogicalTopologyChanged.accept(clo.term());
 
                 clo.result(null);
             }

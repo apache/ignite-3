@@ -32,6 +32,7 @@ import java.io.Serializable;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
+import java.util.function.LongConsumer;
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.ClusterTag;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
@@ -52,7 +53,7 @@ import org.junit.jupiter.api.Test;
 public class CmgRaftGroupListenerTest {
     private final ClusterStateStorage storage = new TestClusterStateStorage();
 
-    private final ActionOnTerm onLogicalTopologyChanged = mock(ActionOnTerm.class);
+    private final LongConsumer onLogicalTopologyChanged = mock(LongConsumer.class);
 
     private final CmgRaftGroupListener listener = new CmgRaftGroupListener(
             storage,
@@ -113,21 +114,21 @@ public class CmgRaftGroupListenerTest {
 
         listener.onWrite(iterator(msgFactory.joinReadyCommand().node(node).build()));
 
-        verify(onLogicalTopologyChanged).run(anyLong());
+        verify(onLogicalTopologyChanged).accept(anyLong());
     }
 
     @Test
-    void insuccessfulJoinReadyExecutesOnLogicalTopologyChanged() {
+    void unsuccessfulJoinReadyExecutesOnLogicalTopologyChanged() {
         listener.onWrite(iterator(msgFactory.joinReadyCommand().node(node).build()));
 
-        verify(onLogicalTopologyChanged, never()).run(anyLong());
+        verify(onLogicalTopologyChanged, never()).accept(anyLong());
     }
 
     @Test
     void nodesLeaveExecutesOnLogicalTopologyChanged() {
         listener.onWrite(iterator(msgFactory.nodesLeaveCommand().nodes(Set.of(node)).build()));
 
-        verify(onLogicalTopologyChanged).run(anyLong());
+        verify(onLogicalTopologyChanged).accept(anyLong());
     }
 
     private static <T extends Command> Iterator<CommandClosure<T>> iterator(T obj) {
