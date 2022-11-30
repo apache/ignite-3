@@ -96,7 +96,7 @@ public abstract class IgniteColocatedAggregateBase extends IgniteAggregate imple
             }
 
             // Group set contains all distribution keys, shift distribution keys according to used columns.
-            IgniteDistribution outDistribution = inDistribution.apply(Commons.mapping(groupSet, rowType.getFieldCount()));
+            IgniteDistribution outDistribution = inDistribution.apply(Commons.trimmingMapping(rowType.getFieldCount(), groupSet));
 
             return List.of(Pair.of(nodeTraits.replace(outDistribution), inputTraits));
         }

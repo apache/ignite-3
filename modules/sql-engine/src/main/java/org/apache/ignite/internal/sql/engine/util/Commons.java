@@ -80,6 +80,7 @@ import org.apache.calcite.util.Util;
 import org.apache.calcite.util.mapping.Mapping;
 import org.apache.calcite.util.mapping.MappingType;
 import org.apache.calcite.util.mapping.Mappings;
+import org.apache.calcite.util.mapping.Mappings.TargetMapping;
 import org.apache.ignite.internal.generated.query.calcite.sql.IgniteSqlParserImpl;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.schema.BitmaskNativeType;
@@ -564,24 +565,34 @@ public final class Commons {
     }
 
     /**
-     * Mapping.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Creates mapping to trim the fields.
+     *
+     * <p>This mapping can be used to adjust traits or aggregations, for example, when several fields have been truncated.
+     * Assume the following scenario:
+     * <pre>
+     *     We got a plan like below:
+     *
+     *     Project(b, d)
+     *       TableScan(t, Distribution(b:1, d:3)): RowType(a, b, c, d)
+     *
+     *     In order to decrease amount of occupied memory, we can trim
+     *     all the fields we aren't interested in. But such a trimming
+     *     should change and indexes in Distribution trait as well. The
+     *     plan after trimming should looks like this:
+     *
+     *     Project(b, d)
+     *       TableScan(t, Distribution(b:0, d:1)): RowType(b, d)
+     * </pre>
+     *
+     * @param sourceSize A size of the source collection.
+     * @param requiredElements A set of elements that should be preserved.
+     * @return A mapping for desired elements.
+     * @see org.apache.calcite.plan.RelTrait#apply(TargetMapping)
+     * @see org.apache.calcite.rel.core.AggregateCall#transform(TargetMapping)
      */
-    public static Mappings.TargetMapping mapping(ImmutableBitSet bitSet, int sourceSize) {
-        Mapping mapping = Mappings.create(MappingType.PARTIAL_FUNCTION, sourceSize, bitSet.cardinality());
-        for (Ord<Integer> ord : Ord.zip(bitSet)) {
-            mapping.set(ord.e, ord.i);
-        }
-        return mapping;
-    }
-
-    /**
-     * InverseMapping.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    public static Mappings.TargetMapping inverseMapping(ImmutableBitSet bitSet, int sourceSize) {
-        Mapping mapping = Mappings.create(MappingType.INVERSE_FUNCTION, sourceSize, bitSet.cardinality());
-        for (Ord<Integer> ord : Ord.zip(bitSet)) {
+    public static Mappings.TargetMapping trimmingMapping(int sourceSize, ImmutableBitSet requiredElements) {
+        Mapping mapping = Mappings.create(MappingType.PARTIAL_FUNCTION, sourceSize, requiredElements.cardinality());
+        for (Ord<Integer> ord : Ord.zip(requiredElements)) {
             mapping.set(ord.e, ord.i);
         }
         return mapping;
