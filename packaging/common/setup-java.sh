@@ -58,5 +58,5 @@ JAVA_VER=$("$JAVACMD" -version 2>&1 \
 )
 
 if [ "${JAVA_VER}" -lt "11" ]; then
-  echo "java version should be equal or higher than 11, your current version is $("$JAVACMD" -version 2>&1 | grep -i version)"
+  echo "java version should be equal or higher than 11, your current version is $("$JAVACMD" -version 2>&1 | grep -i version)" >&2
 fi

@@ -62,7 +62,7 @@ distZip.finalizedBy(createChecksums)
 // ZIP packaging
 
 def zipTokens = tokens + [
-        LIB_DIR             : '$(dirname "$0")/../lib/',
+        LIB_DIR             : '$(dirname "$0")/../lib',
 ]
 
 task replaceScriptVarsZip(type: Copy) {
@@ -75,8 +75,25 @@ task replaceScriptVarsZip(type: Copy) {
     }
 }
 
-distTar.dependsOn replaceScriptVarsZip
-distZip.dependsOn replaceScriptVarsZip
+// task that generates start script for cli
+task cliStartScript(type: CreateStartScripts) {
+    // will be passed to exec "java ... <mainClassName>"
+    mainClass = "org.apache.ignite.internal.cli.Main"
+    // forms a classpath string that will be passed to exec "java -cp <classpath> .."
+    // it is expected to locate the "lib" dir together with "bin"
+    classpath = files(new File("../lib/${project(':ignite-cli').name}-${project(':ignite-cli').version}.jar"), new File("../lib/*"))
+    outputDir = file "$buildDir/scripts"
+    applicationName = 'ignite3'
+}
+
+task windowsCliStartScript(type: Copy) {
+    from cliStartScript
+    filter { it.endsWith '.bat' }
+    into "$buildDir/windows"
+}
+
+distTar.dependsOn replaceScriptVarsZip, windowsCliStartScript
+distZip.dependsOn replaceScriptVarsZip, windowsCliStartScript
 
 distributions {
     main {
@@ -91,6 +108,7 @@ distributions {
                 duplicatesStrategy= DuplicatesStrategy.EXCLUDE
                 from configurations.cliScripts
                 from "$buildDir/zip/ignite3"
+                from "$buildDir/windows"
                 fileMode = 0755
             }
             into('lib') {
