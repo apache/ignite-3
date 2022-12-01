@@ -149,7 +149,6 @@ public partial class LinqSqlGenerationTests
     }
 
     [Test]
-    [Ignore("IGNITE-18131 Distinct support")]
     public void TestSelectOrderDistinct() =>
         AssertSql(
             "select distinct _T0.KEY, (_T0.KEY + ?) from PUBLIC.tbl1 as _T0 order by ((_T0.KEY + ?)) asc",
