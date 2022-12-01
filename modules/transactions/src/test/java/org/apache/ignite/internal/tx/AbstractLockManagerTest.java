@@ -849,18 +849,18 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
 
         assertTrue(tx1Lock.isDone());
 
-        var tx2SLock = lockManager.acquire(tx1, key, S);
+        var tx2sLock = lockManager.acquire(tx1, key, S);
 
-        assertFalse(tx2SLock.isDone());
+        assertFalse(tx2sLock.isDone());
 
-        var tx2XLock = lockManager.acquire(tx1, key, X);
+        var tx2xLock = lockManager.acquire(tx1, key, X);
 
-        assertFalse(tx2XLock.isDone());
+        assertFalse(tx2xLock.isDone());
 
         lockManager.release(tx1Lock.join());
 
-        assertThat(tx2SLock, willSucceedFast());
-        assertThat(tx2XLock, willSucceedFast());
+        assertThat(tx2sLock, willSucceedFast());
+        assertThat(tx2xLock, willSucceedFast());
     }
 
     @Test
@@ -875,21 +875,21 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
 
         assertTrue(tx1Lock.isDone());
 
-        var tx2XLock = lockManager.acquire(tx1, key, X);
+        var tx2xLock = lockManager.acquire(tx1, key, X);
 
-        assertFalse(tx2XLock.isDone());
+        assertFalse(tx2xLock.isDone());
 
-        var tx2S1Lock = lockManager.acquire(tx1, key, S);
-        var tx2S2Lock = lockManager.acquire(tx1, key, S);
+        var tx2s1Lock = lockManager.acquire(tx1, key, S);
+        var tx2s2Lock = lockManager.acquire(tx1, key, S);
 
-        assertFalse(tx2S1Lock.isDone());
-        assertFalse(tx2S2Lock.isDone());
+        assertFalse(tx2s1Lock.isDone());
+        assertFalse(tx2s2Lock.isDone());
 
         lockManager.release(tx1Lock.join());
 
-        assertThat(tx2XLock, willSucceedFast());
-        assertThat(tx2S1Lock, willSucceedFast());
-        assertThat(tx2S2Lock, willSucceedFast());
+        assertThat(tx2xLock, willSucceedFast());
+        assertThat(tx2s1Lock, willSucceedFast());
+        assertThat(tx2s2Lock, willSucceedFast());
     }
 
     @Test
@@ -909,20 +909,20 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
         assertTrue(tx2Lock.isDone());
         assertTrue(tx3Lock.isDone());
 
-        var tx1XLock = lockManager.acquire(tx1, key, X);
-        var tx2XLock = lockManager.acquire(tx2, key, X);
+        var tx1xLock = lockManager.acquire(tx1, key, X);
+        var tx2xLock = lockManager.acquire(tx2, key, X);
 
-        assertFalse(tx1XLock.isDone());
-        assertFalse(tx2XLock.isDone());
+        assertFalse(tx1xLock.isDone());
+        assertFalse(tx2xLock.isDone());
 
         lockManager.release(tx3Lock.join());
 
-        assertTrue(tx1XLock.isDone());
-        assertFalse(tx2XLock.isDone());
+        assertTrue(tx1xLock.isDone());
+        assertFalse(tx2xLock.isDone());
 
-        lockManager.release(tx1XLock.join());
+        lockManager.release(tx1xLock.join());
 
-        assertThat(tx2XLock, willSucceedFast());
+        assertThat(tx2xLock, willSucceedFast());
     }
 
     @Test
@@ -1012,6 +1012,70 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
         lockManager.release(tx2, key, IX);
 
         assertThat(tx3Lock, willSucceedFast());
+    }
+
+    @Test
+    public void testWaitNotInOrder() {
+        LockKey key = new LockKey("test");
+
+        UUID tx1 = Timestamp.nextVersion().toUuid();
+        UUID tx2 = Timestamp.nextVersion().toUuid();
+        UUID tx3 = Timestamp.nextVersion().toUuid();
+
+        var tx3IxLock = lockManager.acquire(tx3, key, IX);
+        var tx3Lock = lockManager.acquire(tx3, key, S);
+
+        assertThat(tx3IxLock, willSucceedFast());
+        assertThat(tx3Lock, willSucceedFast());
+
+        var tx2Lock = lockManager.acquire(tx2, key, X);
+
+        assertFalse(tx2Lock.isDone());
+
+        var tx1Lock = lockManager.acquire(tx1, key, IX);
+
+        assertFalse(tx1Lock.isDone());
+
+        lockManager.release(tx3, key, S);
+
+        assertThat(tx1Lock, willSucceedFast());
+
+        lockManager.release(tx1, key, IX);
+        lockManager.release(tx3, key, IX);
+
+        assertThat(tx2Lock, willSucceedFast());
+    }
+
+    @Test
+    public void testWaitFailNotInOrder() {
+        LockKey key = new LockKey("test");
+
+        UUID tx1 = Timestamp.nextVersion().toUuid();
+        UUID tx2 = Timestamp.nextVersion().toUuid();
+        UUID tx3 = Timestamp.nextVersion().toUuid();
+
+        var tx3IxLock = lockManager.acquire(tx3, key, IX);
+        var tx3Lock = lockManager.acquire(tx3, key, S);
+
+        assertThat(tx3IxLock, willSucceedFast());
+        assertThat(tx3Lock, willSucceedFast());
+
+        var tx2Lock = lockManager.acquire(tx2, key, X);
+
+        assertFalse(tx2Lock.isDone());
+
+        var tx1Lock = lockManager.acquire(tx1, key, IX);
+
+        assertFalse(tx1Lock.isDone());
+
+        lockManager.release(tx3, key, S);
+
+        assertThat(tx1Lock, willSucceedFast());
+
+        lockManager.release(tx3, key, IX);
+        lockManager.release(tx1, key, IX);
+
+        expectConflict(tx2Lock);
     }
 
     /**
