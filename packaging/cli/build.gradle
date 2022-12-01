@@ -88,7 +88,7 @@ task cliStartScript(type: CreateStartScripts) {
 
 task windowsCliStartScript(type: Copy) {
     from cliStartScript
-    filter { it.endsWith '.bat' }
+    include '*.bat'
     into "$buildDir/windows"
 }
 
