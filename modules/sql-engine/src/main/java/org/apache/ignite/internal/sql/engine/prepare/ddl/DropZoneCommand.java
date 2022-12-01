@@ -21,4 +21,14 @@ package org.apache.ignite.internal.sql.engine.prepare.ddl;
  * DROP ZONE statement.
  */
 public class DropZoneCommand extends AbstractZoneDdlCommand {
+    /** Quietly ignore this command if the zone does not exist. */
+    private boolean ifExists;
+
+    public boolean ifExists() {
+        return ifExists;
+    }
+
+    public void ifExists(boolean ifExists) {
+        this.ifExists = ifExists;
+    }
 }

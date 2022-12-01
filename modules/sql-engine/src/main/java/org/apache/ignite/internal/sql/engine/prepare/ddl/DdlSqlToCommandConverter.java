@@ -491,7 +491,7 @@ public class DdlSqlToCommandConverter {
 
         createZoneCmd.schemaName(deriveSchemaName(createZoneNode.name(), ctx));
         createZoneCmd.zoneName(deriveObjectName(createZoneNode.name(), ctx, "zoneName"));
-        createZoneCmd.ifZoneExists(createZoneNode.ifNotExists());
+        createZoneCmd.ifNotExists(createZoneNode.ifNotExists());
 
         if (createZoneNode.createOptionList() == null) {
             return createZoneCmd;
@@ -530,7 +530,7 @@ public class DdlSqlToCommandConverter {
 
         dropZoneCmd.schemaName(deriveSchemaName(dropZoneNode.name(), ctx));
         dropZoneCmd.zoneName(deriveObjectName(dropZoneNode.name(), ctx, "zoneName"));
-        dropZoneCmd.ifZoneExists(dropZoneNode.ifExists());
+        dropZoneCmd.ifExists(dropZoneNode.ifExists());
 
         return dropZoneCmd;
     }

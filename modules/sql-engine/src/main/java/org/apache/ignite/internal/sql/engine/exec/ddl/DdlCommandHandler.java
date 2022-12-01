@@ -169,13 +169,13 @@ public class DdlCommandHandler {
         }
 
         return distributionZoneManager.createZone(zoneCfgBuilder.build())
-                .handle(handleModificationResult(cmd.ifZoneExists(), DistributionZoneAlreadyExistsException.class));
+                .handle(handleModificationResult(cmd.ifNotExists(), DistributionZoneAlreadyExistsException.class));
     }
 
     /** Handles drop distribution zone command. */
     private CompletableFuture<Boolean> handleDropZone(DropZoneCommand cmd) {
         return distributionZoneManager.dropZone(cmd.zoneName())
-                .handle(handleModificationResult(cmd.ifZoneExists(), DistributionZoneNotFoundException.class));
+                .handle(handleModificationResult(cmd.ifExists(), DistributionZoneNotFoundException.class));
     }
 
     /** Handles create table command. */

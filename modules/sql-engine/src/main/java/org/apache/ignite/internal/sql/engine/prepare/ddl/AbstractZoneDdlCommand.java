@@ -24,9 +24,6 @@ public class AbstractZoneDdlCommand implements DdlCommand {
     /** Table zone. */
     private String zoneName;
 
-    /** Quietly ignore this command if zone is not exists. */
-    protected boolean ifZoneExists;
-
     /** Schema name where this new zone will be created. */
     private String schemaName;
 
@@ -44,21 +41,5 @@ public class AbstractZoneDdlCommand implements DdlCommand {
 
     public void schemaName(String schemaName) {
         this.schemaName = schemaName;
-    }
-
-    /**
-     * Quietly ignore if zone exists flag.
-     */
-    public boolean ifZoneExists() {
-        return ifZoneExists;
-    }
-
-    /**
-     * Set quietly ignore flag.
-     *
-     * @param ifZoneNotExists Flag.
-     */
-    public void ifZoneExists(boolean ifZoneNotExists) {
-        this.ifZoneExists = ifZoneNotExists;
     }
 }

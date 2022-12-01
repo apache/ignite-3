@@ -23,6 +23,9 @@ import org.jetbrains.annotations.Nullable;
  * CREATE ZONE statement.
  */
 public class CreateZoneCommand extends AbstractZoneDdlCommand {
+    /** Quietly ignore this command if zone is already exists. */
+    private boolean ifNotExists;
+
     /** Replicas number. */
     private Integer replicas;
 
@@ -43,6 +46,14 @@ public class CreateZoneCommand extends AbstractZoneDdlCommand {
 
     /** Data nodes auto adjust scale down timeout. */
     private Integer dataNodesAutoAdjustScaleDown;
+
+    public boolean ifNotExists() {
+        return ifNotExists;
+    }
+
+    public void ifNotExists(boolean ifNotExists) {
+        this.ifNotExists = ifNotExists;
+    }
 
     @Nullable public Integer replicas() {
         return replicas;
