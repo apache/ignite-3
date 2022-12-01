@@ -165,6 +165,9 @@ public class ItMetaStorageServiceTest {
     /** Meta storage raft server. */
     private final List<RaftManager> raftManagers = new ArrayList<>();
 
+    /** List of Raft services (for resource management purposes). */
+    private final List<RaftGroupService> raftGroupServices = new ArrayList<>();
+
     /** Mock Metastorage storage. */
     @Mock
     private KeyValueStorage mockStorage;
@@ -238,13 +241,15 @@ public class ItMetaStorageServiceTest {
      */
     @AfterEach
     public void afterTest() throws Exception {
+        Stream<AutoCloseable> stopRaftGroupServices = raftGroupServices.stream().map(service -> service::shutdown);
+
         Stream<AutoCloseable> stopRaftGroups = raftManagers.stream().map(manager -> () -> manager.stopRaftGroup(INSTANCE));
 
         Stream<AutoCloseable> beforeNodeStop = Stream.concat(raftManagers.stream(), cluster.stream()).map(c -> c::beforeNodeStop);
 
         Stream<AutoCloseable> nodeStop = Stream.concat(raftManagers.stream(), cluster.stream()).map(c -> c::stop);
 
-        IgniteUtils.closeAll(Stream.of(stopRaftGroups, beforeNodeStop, nodeStop).flatMap(Function.identity()));
+        IgniteUtils.closeAll(Stream.of(stopRaftGroupServices, stopRaftGroups, beforeNodeStop, nodeStop).flatMap(Function.identity()));
     }
 
     /**
@@ -897,10 +902,13 @@ public class ItMetaStorageServiceTest {
 
         List<String> peers = List.of(cluster.get(0).topologyService().localMember().name());
 
-        MetaStorageService metaStorageSvc2 = raftManagers.get(1)
+        RaftGroupService metaStorageRaftSvc2 = raftManagers.get(1)
                 .startRaftGroupService(INSTANCE, peers, List.of())
-                .thenApply(service -> new MetaStorageServiceImpl(service, NODE_ID_1, NODE_ID_1))
                 .get(3, TimeUnit.SECONDS);
+
+        raftGroupServices.add(metaStorageRaftSvc2);
+
+        MetaStorageService metaStorageSvc2 = new MetaStorageServiceImpl(metaStorageRaftSvc2, NODE_ID_1, NODE_ID_1);
 
         Cursor<Entry> cursorNode0 = metaStorageSvc.range(EXPECTED_RESULT_ENTRY.key(), null);
 
@@ -1045,6 +1053,9 @@ public class ItMetaStorageServiceTest {
         CompletableFuture<RaftGroupService> secondService = startRaftService(cluster.get(1), peers);
 
         assertThat(allOf(firstService, secondService), willCompleteSuccessfully());
+
+        raftGroupServices.add(firstService.join());
+        raftGroupServices.add(secondService.join());
 
         RaftGroupService metaStorageRaftGrpSvc = secondService.join();
 

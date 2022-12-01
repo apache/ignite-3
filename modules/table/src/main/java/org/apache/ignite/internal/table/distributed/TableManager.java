@@ -775,6 +775,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                         );
 
                                         try {
+                                            // TODO: use RaftManager interface, see https://issues.apache.org/jira/browse/IGNITE-18273
                                             ((Loza) raftMgr).startRaftGroupNode(
                                                     replicaGrpId,
                                                     newPeers,
@@ -923,6 +924,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         if (mvTableStorage.isVolatile()) {
             raftGroupOptions = RaftGroupOptions.forVolatileStores()
+                    // TODO: use RaftManager interface, see https://issues.apache.org/jira/browse/IGNITE-18273
                     .setLogStorageFactory(volatileLogStorageFactoryCreator.factory(((Loza) raftMgr).volatileRaft().logStorage().value()))
                     .raftMetaStorageFactory((groupId, raftOptions) -> new VolatileRaftMetaStorage());
         } else {
@@ -1875,6 +1877,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         );
 
                         try {
+                            // TODO: use RaftManager interface, see https://issues.apache.org/jira/browse/IGNITE-18273
                             ((Loza) raftMgr).startRaftGroupNode(
                                     replicaGrpId,
                                     stablePeers,
