@@ -180,9 +180,9 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
     /** <inheritdoc /> */
     public override void VisitMainFromClause(MainFromClause fromClause, QueryModel queryModel)
     {
-        // Special case for UNION subquery.
+        // GROUP BY is handled separately in ProcessGroupings and does not need to be handled here as SubQuery.
         if (fromClause.FromExpression is SubQueryExpression subQuery &&
-            subQuery.QueryModel.ResultOperators.Any(x => x is UnionResultOperator))
+            subQuery.QueryModel.ResultOperators.All(x => x is not GroupResultOperator))
         {
             _builder.Append("from (");
 
@@ -467,53 +467,55 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
     /// </summary>
     private void ProcessSkipTake(QueryModel queryModel)
     {
-        if (queryModel.ResultOperators.Any(static x => x is FirstResultOperator))
+        int? limitCount = null;
+        Expression? limitExpr = null;
+        Expression? offsetExpr = null;
+
+        foreach (var op in queryModel.ResultOperators)
         {
-            _builder.Append("limit 1");
-            return;
-        }
-
-        if (queryModel.ResultOperators.Any(static x => x is SingleResultOperator))
-        {
-            // Will fail in IgniteQueryExecutor.ExecuteSingleInternalAsync if there is more than 1 row.
-            _builder.Append("limit 2");
-            return;
-        }
-
-        var limit = queryModel.ResultOperators.OfType<TakeResultOperator>().FirstOrDefault();
-        var offset = queryModel.ResultOperators.OfType<SkipResultOperator>().FirstOrDefault();
-
-        if (limit == null && offset == null)
-        {
-            return;
-        }
-
-        // "limit" is mandatory if there is "offset", but not vice versa
-        _builder.Append("limit ");
-
-        if (limit == null)
-        {
-            // TODO IGNITE-18123 LINQ: Skip and Take (offset / limit) support
-            // Workaround for unlimited offset (IGNITE-2602)
-            // H2 allows NULL & -1 for unlimited, but Ignite indexing does not
-            // Maximum limit that works is (int.MaxValue - offset)
-            if (offset!.Count is ParameterExpression)
+            if (op is FirstResultOperator)
             {
-                throw new NotSupportedException("Skip() without Take() is not supported in compiled queries.");
+                limitCount = Math.Min(1, limitCount ?? int.MaxValue);
             }
+            else if (op is SingleResultOperator)
+            {
+                // Will fail in IgniteQueryExecutor.ExecuteSingleInternalAsync if there is more than 1 row.
+                limitCount = Math.Min(2, limitCount ?? int.MaxValue);
+            }
+            else if (op is TakeResultOperator limit)
+            {
+                if (limitExpr != null)
+                {
+                    throw new NotSupportedException("Multiple Take operators on the same subquery are not supported.");
+                }
 
-            var offsetInt = (int) ((ConstantExpression) offset.Count).Value!;
-            _builder.Append((int.MaxValue - offsetInt).ToString(CultureInfo.InvariantCulture));
-        }
-        else
-        {
-            BuildSqlExpression(limit.Count);
+                limitExpr = limit.Count;
+            }
+            else if (op is SkipResultOperator offset)
+            {
+                if (offsetExpr != null)
+                {
+                    throw new NotSupportedException("Multiple Skip operators on the same subquery are not supported.");
+                }
+
+                offsetExpr = offset.Count;
+            }
         }
 
-        if (offset != null)
+        if (limitCount != null)
         {
-            _builder.Append(" offset ");
-            BuildSqlExpression(offset.Count);
+            _builder.AppendWithSpace("limit ").Append(limitCount.Value);
+        }
+        else if (limitExpr != null)
+        {
+            _builder.AppendWithSpace("limit ");
+            BuildSqlExpression(limitExpr);
+        }
+
+        if (offsetExpr != null)
+        {
+            _builder.AppendWithSpace("offset ");
+            BuildSqlExpression(offsetExpr);
         }
     }
 
