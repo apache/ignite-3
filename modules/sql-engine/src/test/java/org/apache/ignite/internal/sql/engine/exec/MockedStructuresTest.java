@@ -375,7 +375,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         String finalNewTblSql3 = newTblSql;
 
-        assertDoesNotThrow(() -> await(finalQueryProc.queryAsync("PUBLIC", finalNewTblSql3).get(0)));
+        assertDoesNotThrow(() -> readFirst(finalQueryProc.queryAsync("PUBLIC", finalNewTblSql3)));
     }
 
     /**

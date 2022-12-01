@@ -248,7 +248,7 @@ public class DdlCommandHandler {
             } else if (ignoreExpectedError) {
                 Throwable err0 = err instanceof CompletionException ? err.getCause() : err;
 
-                if (expErrCls.isInstance(err0)) {
+                if (expErrCls.isAssignableFrom(err0.getClass())) {
                     return Boolean.FALSE;
                 }
             }
