@@ -327,7 +327,7 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
             // TODO: This won't work with custom column names though? Or we can retrieve that from attributes?
             if (param != null && param.Name != (arg as MemberExpression)?.Member.Name)
             {
-                ResultBuilder.Append(" as ").Append(param.Name.ToUpperInvariant());
+                ResultBuilder.AppendWithSpace("as ").Append(param.Name.ToUpperInvariant());
             }
         }
 

@@ -351,7 +351,7 @@ public partial class LinqTests : IgniteTestsBase
 
         Assert.AreEqual(10, res.Count);
 
-        StringAssert.Contains("select distinct  _T0.KEY, _T0.VAL from PUBLIC.TBL_INT8 as _T0", query.ToString());
+        StringAssert.Contains("select distinct _T0.KEY, _T0.VAL from PUBLIC.TBL_INT8 as _T0", query.ToString());
     }
 
     [Test]
@@ -365,7 +365,10 @@ public partial class LinqTests : IgniteTestsBase
 
         Assert.AreEqual(4, res.Count);
 
-        StringAssert.Contains("select distinct (cast(_T0.VAL as int) + ?), _T0.VAL from PUBLIC.TBL_INT8 as _T0", query.ToString());
+        StringAssert.Contains(
+            "select distinct (cast(_T0.VAL as int) + ?) as ID, _T0.VAL as V " +
+            "from PUBLIC.TBL_INT8 as _T0",
+            query.ToString());
     }
 
     [Test]
