@@ -59,7 +59,8 @@ public class IgniteLogicalIndexScan extends AbstractIndexScan {
         List<SearchBounds> searchBounds;
         if (index.type() == Type.HASH) {
             if (requiredColumns != null) {
-                Mappings.TargetMapping targetMapping = Commons.mapping(requiredColumns, tbl.getRowType(typeFactory).getFieldCount());
+                Mappings.TargetMapping targetMapping = Commons.trimmingMapping(
+                        tbl.getRowType(typeFactory).getFieldCount(), requiredColumns);
                 RelCollation outputCollation = collation.apply(targetMapping);
 
                 searchBounds = (collation.getFieldCollations().size() == outputCollation.getFieldCollations().size())
@@ -70,7 +71,8 @@ public class IgniteLogicalIndexScan extends AbstractIndexScan {
             }
         } else if (index.type() == Type.SORTED) {
             if (requiredColumns != null) {
-                Mappings.TargetMapping targetMapping = Commons.mapping(requiredColumns, tbl.getRowType(typeFactory).getFieldCount());
+                Mappings.TargetMapping targetMapping = Commons.trimmingMapping(
+                        tbl.getRowType(typeFactory).getFieldCount(), requiredColumns);
                 collation = collation.apply(targetMapping);
             }
 

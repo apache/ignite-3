@@ -110,8 +110,8 @@ public abstract class ProjectScanMergeRule<T extends ProjectableFilterableTableS
 
             requiredColumns = builder.build();
 
-            Mappings.TargetMapping targetMapping = Commons.mapping(requiredColumns,
-                    tbl.getRowType(typeFactory).getFieldCount());
+            Mappings.TargetMapping targetMapping = Commons.trimmingMapping(
+                    tbl.getRowType(typeFactory).getFieldCount(), requiredColumns);
 
             projects = new RexShuttle() {
                 @Override public RexNode visitInputRef(RexInputRef ref) {

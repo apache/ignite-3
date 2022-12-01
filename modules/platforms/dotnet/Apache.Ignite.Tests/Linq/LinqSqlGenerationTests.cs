@@ -113,6 +113,42 @@ public partial class LinqSqlGenerationTests
                 .ToList());
 
     [Test]
+    public void TestOffsetLimitFirst() =>
+        AssertSql(
+            "select _T0.KEY, _T0.VAL " +
+            "from PUBLIC.tbl1 as _T0 " +
+            "limit 1 offset ?",
+            q => q.Skip(2).Take(3).First());
+
+    [Test]
+    public void TestOffsetLimitSingle() =>
+        AssertSql(
+            "select _T0.KEY, _T0.VAL " +
+            "from PUBLIC.tbl1 as _T0 " +
+            "limit 2 offset ?",
+            q => q.Skip(2).Take(3).Single());
+
+    [Test]
+    public void TestOffsetMultipleNotSupported()
+    {
+        // ReSharper disable once ReturnValueOfPureMethodIsNotUsed
+        var ex = Assert.Throws<NotSupportedException>(
+            () => _table.GetRecordView<Poco>().AsQueryable().Skip(1).Skip(2).ToList());
+
+        Assert.AreEqual("Multiple Skip operators on the same subquery are not supported.", ex!.Message);
+    }
+
+    [Test]
+    public void TestLimitMultipleNotSupported()
+    {
+        // ReSharper disable once ReturnValueOfPureMethodIsNotUsed
+        var ex = Assert.Throws<NotSupportedException>(
+            () => _table.GetRecordView<Poco>().AsQueryable().Take(1).Take(2).ToList());
+
+        Assert.AreEqual("Multiple Take operators on the same subquery are not supported.", ex!.Message);
+    }
+
+    [Test]
     [Ignore("IGNITE-18131 Distinct support")]
     public void TestSelectOrderDistinct() =>
         AssertSql(

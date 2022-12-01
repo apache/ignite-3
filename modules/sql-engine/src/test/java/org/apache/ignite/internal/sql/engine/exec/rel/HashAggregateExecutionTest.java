@@ -51,7 +51,7 @@ import org.junit.jupiter.params.provider.EnumSource;
 public class HashAggregateExecutionTest extends BaseAggregateTest {
     /** {@inheritDoc} */
     @Override
-    protected SingleNode<Object[]> createSingleAggregateNodesChain(
+    protected SingleNode<Object[]> createColocatedAggregateNodesChain(
             ExecutionContext<Object[]> ctx,
             List<ImmutableBitSet> grpSets,
             AggregateCall call,

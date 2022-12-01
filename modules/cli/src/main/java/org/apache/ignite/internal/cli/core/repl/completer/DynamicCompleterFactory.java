@@ -17,89 +17,13 @@
 
 package org.apache.ignite.internal.cli.core.repl.completer;
 
-import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
-import io.micronaut.context.annotation.Bean;
-import java.util.Set;
-import org.apache.ignite.internal.cli.NodeNameRegistry;
-import org.apache.ignite.internal.cli.call.configuration.ClusterConfigShowCall;
-import org.apache.ignite.internal.cli.call.configuration.ClusterConfigShowCallInput;
-import org.apache.ignite.internal.cli.call.configuration.NodeConfigShowCall;
-import org.apache.ignite.internal.cli.call.configuration.NodeConfigShowCallInput;
-
 /**
- * Factory that creates {@link DynamicCompleter}s.
+ * Factory that is responsible for defining the lifecycle of {@link DynamicCompleter}.
+ * It is called each time the completer is needed. So, the factory should cache the completer
+ * if there is no need to update it.
  */
-@Bean
-public class DynamicCompleterFactory {
-    private final NodeConfigShowCall nodeConfigShowCall;
-    private final ClusterConfigShowCall clusterConfigShowCall;
-    private final NodeUrlProvider urlProvider;
-    private final NodeNameRegistry nodeNameRegistry;
-
-    /** Default constructor. */
-    public DynamicCompleterFactory(
-            NodeConfigShowCall nodeConfigShowCall,
-            ClusterConfigShowCall clusterConfigShowCall,
-            NodeUrlProvider urlProvider,
-            NodeNameRegistry nodeNameRegistry) {
-
-        this.nodeConfigShowCall = nodeConfigShowCall;
-        this.clusterConfigShowCall = clusterConfigShowCall;
-        this.urlProvider = urlProvider;
-        this.nodeNameRegistry = nodeNameRegistry;
-    }
-
-    /** Creates node config completer with given activation prefix. */
-    public LazyDynamicCompleter nodeConfigCompleter(String activationPrefix) {
-        return nodeConfigCompleter(Set.of(activationPrefix));
-    }
-
-    /** Creates node config completer with given set of activation prefixes. */
-    public LazyDynamicCompleter nodeConfigCompleter(Set<String> activationPrefixes) {
-        return new LazyDynamicCompleter(() -> {
-            try {
-                Config config = ConfigFactory.parseString(
-                        nodeConfigShowCall.execute(
-                                // todo https://issues.apache.org/jira/browse/IGNITE-17416
-                                NodeConfigShowCallInput.builder().nodeUrl(urlProvider.resolveUrl(new String[]{""})).build()
-                        ).body().getValue()
-                );
-                return new HoconDynamicCompleter(activationPrefixes, config);
-            } catch (Exception e) {
-                return new HoconDynamicCompleter(activationPrefixes, ConfigFactory.parseString(""));
-            }
-        });
-    }
-
-    /** Creates cluster config completer with given activation prefix. */
-    public LazyDynamicCompleter clusterConfigCompleter(String activationPrefix) {
-        return clusterConfigCompleter(Set.of(activationPrefix));
-    }
-
-    /** Creates cluster config completer with given set of activation prefixes. */
-    public LazyDynamicCompleter clusterConfigCompleter(Set<String> activationPrefixes) {
-        return new LazyDynamicCompleter(() -> {
-            try {
-                Config config = ConfigFactory.parseString(
-                        clusterConfigShowCall.execute(
-                                // todo https://issues.apache.org/jira/browse/IGNITE-17416
-                                ClusterConfigShowCallInput.builder().clusterUrl(urlProvider.resolveUrl(new String[]{""})).build()
-                        ).body().getValue()
-                );
-                return new HoconDynamicCompleter(activationPrefixes, config);
-            } catch (Exception e) {
-                return new HoconDynamicCompleter(activationPrefixes, ConfigFactory.parseString(""));
-            }
-        });
-    }
-
-    public DynamicCompleter nodeNameCompleter(String... activationPrefixes) {
-        return nodeNameCompleter(Set.of(activationPrefixes));
-    }
-
-    public DynamicCompleter nodeNameCompleter(Set<String> activationPrefixes) {
-        return new NodeNameDynamicCompleter(activationPrefixes, nodeNameRegistry);
-    }
-
+@FunctionalInterface
+public interface DynamicCompleterFactory {
+    /** Return an instance of {@link DynamicCompleter}. */
+    DynamicCompleter getDynamicCompleter(String[] words);
 }

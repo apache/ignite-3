@@ -21,8 +21,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import org.apache.ignite.internal.sql.engine.util.QueryChecker;
 import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -182,5 +184,38 @@ public class ItAggregatesTest extends AbstractBasicIntegrationTest {
         val = res.get(1).get(0);
 
         assertEquals("Ilya", val);
+    }
+
+    @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18211")
+    public void testColocatedAggregate() {
+        sql("CREATE TABLE t1(id INT, val0 VARCHAR, val1 VARCHAR, val2 VARCHAR, PRIMARY KEY(id, val1)) "
+                + "COLOCATE BY (val1)");
+
+        sql("CREATE TABLE t2(id INT, val0 VARCHAR, val1 VARCHAR, val2 VARCHAR, PRIMARY KEY(id, val1)) "
+                + "COLOCATE BY (val1)");
+
+        for (int i = 0; i < 100; i++) {
+            sql("INSERT INTO t1 VALUES (?, ?, ?, ?)", i, "val" + i, "val" + i % 2, "val" + i);
+        }
+
+        sql("INSERT INTO t2 VALUES (0, 'val0', 'val0', 'val0'), (1, 'val1', 'val1', 'val1')");
+
+        String sql = "SELECT val1, count(val2) FROM t1 GROUP BY val1";
+
+        assertQuery(sql)
+                .matches(QueryChecker.matches(".*Exchange.*Colocated.*Aggregate.*"))
+                .returns("val0", 50L)
+                .returns("val1", 50L)
+                .check();
+
+        sql = "SELECT t2.val1, agg.cnt "
+                + "FROM t2 JOIN (SELECT val1, COUNT(val2) AS cnt FROM t1 GROUP BY val1) AS agg ON t2.val1 = agg.val1";
+
+        assertQuery(sql)
+                .matches(QueryChecker.matches(".*Exchange.*Join.*Colocated.*Aggregate.*"))
+                .returns("val0", 50L)
+                .returns("val1", 50L)
+                .check();
     }
 }

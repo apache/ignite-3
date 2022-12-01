@@ -17,51 +17,41 @@
 
 package org.apache.ignite.internal.cli.core.repl.completer;
 
-import static org.apache.ignite.internal.cli.commands.OptionsConstants.NODE_NAME_OPTION;
-import static org.apache.ignite.internal.cli.commands.OptionsConstants.NODE_NAME_OPTION_SHORT;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 import java.util.stream.Stream;
-import org.apache.ignite.internal.cli.NodeNameRegistry;
+import org.apache.ignite.internal.cli.core.repl.completer.node.StringDynamicCompleter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 
-/** Tests for {@link NodeNameDynamicCompleter}. */
-class NodeNameDynamicCompleterTest {
-
-    private static final Set<String> prefixes = Set.of(NODE_NAME_OPTION, NODE_NAME_OPTION_SHORT);
-    private static final List<String> nodeNames = List.of("node1", "node2", "remoteNode");
-    private NodeNameDynamicCompleter completer;
-
-    @BeforeEach
-    void setUp() {
-        NodeNameRegistry nodeNameRegistry = mock(NodeNameRegistry.class);
-        when(nodeNameRegistry.getAllNames()).thenReturn(new HashSet<>(nodeNames));
-        completer = new NodeNameDynamicCompleter(prefixes, nodeNameRegistry);
-    }
+/** Tests for {@link StringDynamicCompleter}. */
+class StringDynamicCompleterTest {
+    private static final Set<String> candidates = Set.of("node1", "node2", "remoteNode");
+    private StringDynamicCompleter completer;
 
     private static Stream<Arguments> words() {
         return Stream.of(
-                Arguments.of(new String[]{"-n"}, nodeNames),
-                Arguments.of(new String[]{"--node-name"}, nodeNames),
-                Arguments.of(new String[]{"-n", "node"}, List.of("node1", "node2")),
-                Arguments.of(new String[]{"node", "config", "show"}, Collections.emptyList())
+                Arguments.of(new String[]{"n"}, Set.of("node1", "node2")),
+                Arguments.of(new String[]{""}, candidates),
+                Arguments.of(new String[]{" "}, candidates),
+                Arguments.of(new String[]{"node1", ""}, candidates),
+                Arguments.of(new String[]{"-n", "node"}, Set.of("node1", "node2"))
         );
+    }
+
+    @BeforeEach
+    void setUp() {
+        completer = new StringDynamicCompleter(candidates);
     }
 
     @ParameterizedTest
     @MethodSource("words")
-    void complete(String[] words, List<String> expectedCompletions) {
+    void complete(String[] words, Set<String> expectedCompletions) {
         assertThat(completer.complete(words), containsInAnyOrder(expectedCompletions.toArray(new String[0])));
     }
 }
