@@ -22,7 +22,6 @@ import org.apache.ignite.internal.tostring.S;
 
 /** Lock. */
 public class Lock {
-
     /** Lock key. */
     private final LockKey lockKey;
 

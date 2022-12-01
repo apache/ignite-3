@@ -54,7 +54,7 @@ public interface LockManager {
     void release(UUID txId, LockKey lockKey, LockMode lockMode);
 
     /**
-     * Retrieves all locks for the specified transaction id.
+     * Retrieves all acquired locks for the specified transaction id.
      *
      * @param txId Transaction Id.
      * @return An iterator over a collection of locks.

@@ -17,11 +17,14 @@
 
 package org.apache.ignite.internal.tx;
 
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.internal.tx.LockMode.IS;
 import static org.apache.ignite.internal.tx.LockMode.IX;
 import static org.apache.ignite.internal.tx.LockMode.S;
 import static org.apache.ignite.internal.tx.LockMode.SIX;
 import static org.apache.ignite.internal.tx.LockMode.X;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -137,7 +140,6 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
 
         assertFalse(fut0.isDone());
 
-        lockManager.release(txId2, key, X);
         fut0.thenAccept(lock -> lockManager.release(lock));
     }
 
@@ -772,6 +774,84 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
         }
 
         assertTrue(lockManager.isEmpty());
+    }
+
+    @Test
+    public void testLockingOverloadAndUpgrade() {
+        LockKey key = new LockKey("test");
+        UUID tx1 = Timestamp.nextVersion().toUuid();
+        UUID tx2 = Timestamp.nextVersion().toUuid();
+        var tx1Lock = lockManager.acquire(tx2, key, X);
+        assertTrue(tx1Lock.isDone());
+        var tx2SLock = lockManager.acquire(tx1, key, S);
+        assertFalse(tx2SLock.isDone());
+        var tx2XLock = lockManager.acquire(tx1, key, X);
+        assertFalse(tx2XLock.isDone());
+        lockManager.release(tx1Lock.join());
+        assertThat(tx2SLock, willSucceedFast());
+        assertThat(tx2XLock, willSucceedFast());
+    }
+
+    @Test
+    public void testLockingOverload() {
+        LockKey key = new LockKey("test");
+        UUID tx1 = Timestamp.nextVersion().toUuid();
+        UUID tx2 = Timestamp.nextVersion().toUuid();
+        var tx1Lock = lockManager.acquire(tx2, key, X);
+        assertTrue(tx1Lock.isDone());
+        var tx2XLock = lockManager.acquire(tx1, key, X);
+        assertFalse(tx2XLock.isDone());
+        var tx2S1Lock = lockManager.acquire(tx1, key, S);
+        var tx2S2Lock = lockManager.acquire(tx1, key, S);
+        assertFalse(tx2S1Lock.isDone());
+        assertFalse(tx2S2Lock.isDone());
+        lockManager.release(tx1Lock.join());
+        assertThat(tx2XLock, willCompleteSuccessfully());
+        assertThat(tx2S1Lock, willCompleteSuccessfully());
+        assertThat(tx2S2Lock, willCompleteSuccessfully());
+    }
+
+    @Test
+    public void testFailUpgrade() {
+        LockKey key = new LockKey("test");
+        UUID tx1 = Timestamp.nextVersion().toUuid();
+        UUID tx2 = Timestamp.nextVersion().toUuid();
+        UUID tx3 = Timestamp.nextVersion().toUuid();
+        var tx1Lock = lockManager.acquire(tx1, key, S);
+        var tx2Lock = lockManager.acquire(tx2, key, S);
+        var tx3Lock = lockManager.acquire(tx3, key, S);
+        assertTrue(tx1Lock.isDone());
+        assertTrue(tx2Lock.isDone());
+        assertTrue(tx3Lock.isDone());
+        var tx1XLock = lockManager.acquire(tx1, key, X);
+        var tx2XLock = lockManager.acquire(tx2, key, X);
+        assertFalse(tx1XLock.isDone());
+        assertFalse(tx2XLock.isDone());
+        lockManager.release(tx3Lock.join());
+        lockManager.release(tx2Lock.join());
+        assertTrue(tx1XLock.isDone());
+        assertFalse(tx2XLock.isDone());
+        lockManager.release(tx1XLock.join());
+        assertThat(tx2XLock, willCompleteSuccessfully());
+    }
+
+    @Test
+    public void testDowngradeTargetLock() {
+        LockKey key = new LockKey("test");
+        UUID tx1 = Timestamp.nextVersion().toUuid();
+        UUID tx2 = Timestamp.nextVersion().toUuid();
+        var tx1Lock = lockManager.acquire(tx1, key, S);
+        var tx2Lock = lockManager.acquire(tx2, key, S);
+        assertThat(tx1Lock, willCompleteSuccessfully());
+        assertThat(tx2Lock, willCompleteSuccessfully());
+        var tx1IxLock = lockManager.acquire(tx1, key, IX);
+        assertFalse(tx1IxLock.isDone());
+        //assertEquals(SIX, lockManager.locks(tx1).next().lockMode());
+        lockManager.release(tx1, key, S);
+        assertFalse(tx1IxLock.isDone());
+        //assertEquals(IX, lockManager.locks(tx1).next().intentionLockMode());
+        lockManager.release(tx2, key, S);
+        assertThat(tx1IxLock, willCompleteSuccessfully());
     }
 
     @Test

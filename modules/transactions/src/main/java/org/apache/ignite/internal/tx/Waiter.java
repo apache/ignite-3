@@ -18,11 +18,12 @@
 package org.apache.ignite.internal.tx;
 
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * The lock waiter.
  */
-public interface Waiter {
+public interface Waiter extends Comparable<Waiter> {
     /**
      * Associated transaction id.
      *
@@ -37,10 +38,22 @@ public interface Waiter {
      */
     boolean locked();
 
+    void lock();
+
+    void fail(LockException e);
+
+    CompletableFuture<Void> fut();
+
+    void addLock(LockMode lockMode, boolean intention);
+
+    void removeLock(LockMode lockMode);
+
     /**
      * Returns lock mode.
      *
      * @return Lock mode.
      */
     LockMode lockMode();
+
+    LockMode intentionLockMode();
 }
