@@ -328,7 +328,7 @@ public partial class LinqTests : IgniteTestsBase
     }
 
     [Test]
-    public void TestDistinctSimple()
+    public void TestDistinctOneField()
     {
         var query = PocoByteView.AsQueryable()
             .Select(x => x.Val)
@@ -339,6 +339,49 @@ public partial class LinqTests : IgniteTestsBase
         CollectionAssert.AreEquivalent(new[] { 0, 1, 2, 3 }, res);
 
         StringAssert.Contains("select distinct _T0.VAL from PUBLIC.TBL_INT8 as _T0", query.ToString());
+    }
+
+    [Test]
+    public void TestDistinctEntireObject()
+    {
+        var query = PocoByteView.AsQueryable()
+            .Distinct();
+
+        List<PocoByte> res = query.ToList();
+
+        Assert.AreEqual(10, res.Count);
+
+        StringAssert.Contains("select distinct  _T0.KEY, _T0.VAL from PUBLIC.TBL_INT8 as _T0", query.ToString());
+    }
+
+    [Test]
+    public void TestDistinctProjection()
+    {
+        var query = PocoByteView.AsQueryable()
+            .Select(x => new { Id = x.Val + 10, V = x.Val })
+            .Distinct();
+
+        var res = query.ToList();
+
+        Assert.AreEqual(4, res.Count);
+
+        StringAssert.Contains("select distinct (cast(_T0.VAL as int) + ?), _T0.VAL from PUBLIC.TBL_INT8 as _T0", query.ToString());
+    }
+
+    [Test]
+    public void TestDistinctProjectionWithOrderBy()
+    {
+        var query = PocoByteView.AsQueryable()
+            .Select(x => new { Id = x.Val + 10, V = x.Val })
+            .OrderByDescending(x => x.Id)
+            .Distinct();
+
+        var res = query.ToList();
+
+        Assert.AreEqual(4, res.Count);
+        Assert.AreEqual(14, res[0].Id);
+
+        StringAssert.Contains("select distinct (cast(_T0.VAL as int) + ?), _T0.VAL from PUBLIC.TBL_INT8 as _T0", query.ToString());
     }
 
     [Test]
