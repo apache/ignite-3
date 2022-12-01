@@ -158,7 +158,7 @@ public class CmgRaftGroupListener implements RaftGroupListener {
         ClusterNode node = command.node().asClusterNode();
 
         if (validationManager.isNodeValidated(node)) {
-            logicalTopology.putLogicalTopologyNode(node);
+            logicalTopology.putNode(node);
 
             LOG.info("Node added to the logical topology [node={}]", node.name());
 
@@ -173,7 +173,7 @@ public class CmgRaftGroupListener implements RaftGroupListener {
     private void removeNodesFromLogicalTopology(NodesLeaveCommand command) {
         Set<ClusterNode> nodes = command.nodes().stream().map(ClusterNodeMessage::asClusterNode).collect(Collectors.toSet());
 
-        logicalTopology.removeLogicalTopologyNodes(nodes);
+        logicalTopology.removeNodes(nodes);
 
         if (LOG.isInfoEnabled()) {
             LOG.info("Nodes removed from the logical topology [nodes={}]", nodes.stream().map(ClusterNode::name).collect(toList()));
@@ -191,9 +191,11 @@ public class CmgRaftGroupListener implements RaftGroupListener {
         try {
             storage.restoreSnapshot(path);
 
+            logicalTopology.fireTopologyLeap();
+
             return true;
         } catch (IgniteInternalException e) {
-            LOG.debug("Failed to restore snapshot [path={}]", path, e);
+            LOG.error("Failed to restore snapshot [path={}]", path, e);
 
             return false;
         }
