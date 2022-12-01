@@ -302,7 +302,34 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
     /** <inheritdoc /> */
     protected override Expression VisitNew(NewExpression expression)
     {
-        VisitArguments(expression.Arguments);
+        var first = true;
+
+        for (var i = 0; i < expression.Arguments.Count; i++)
+        {
+            var arg = expression.Arguments[i];
+            if (!first)
+            {
+                if (_useStar)
+                {
+                    throw new NotSupportedException("Aggregate functions do not support multiple fields");
+                }
+
+                ResultBuilder.TrimEnd().Append(", ");
+            }
+
+            first = false;
+
+            Visit(arg);
+
+            var param = expression.Members?[i];
+
+            // TODO: Somehow don't append if param name is same as arg name.
+            // TODO: This won't work with custom column names though? Or we can retrieve that from attributes?
+            if (param != null && param.Name != (arg as MemberExpression)?.Member.Name)
+            {
+                ResultBuilder.Append(" as ").Append(param.Name.ToUpperInvariant());
+            }
+        }
 
         return expression;
     }
@@ -585,32 +612,6 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
             first = false;
 
             AppendParameter(val);
-        }
-    }
-
-    /// <summary>
-    /// Visits multiple arguments.
-    /// </summary>
-    /// <param name="arguments">The arguments.</param>
-    private void VisitArguments(IEnumerable<Expression> arguments)
-    {
-        var first = true;
-
-        foreach (var e in arguments)
-        {
-            if (!first)
-            {
-                if (_useStar)
-                {
-                    throw new NotSupportedException("Aggregate functions do not support multiple fields");
-                }
-
-                ResultBuilder.TrimEnd().Append(", ");
-            }
-
-            first = false;
-
-            Visit(e);
         }
     }
 
