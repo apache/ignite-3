@@ -136,6 +136,7 @@ internal sealed class IgniteQueryExecutor : IQueryExecutor
         // TODO: IGNITE-18136 Replace reflection with emitted delegates.
         if (selectorExpression is NewExpression newExpr)
         {
+            // TODO: Cache compiled delegate based on constructor? Do we care about column types here as well?
             return (IReadOnlyList<IColumnMetadata> cols, ref BinaryTupleReader reader) =>
             {
                 var args = new object?[cols.Count];
