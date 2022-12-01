@@ -72,7 +72,7 @@ class RestAddressReporterTest {
     @DisplayName("If there is no report file for some reason then throw an exception")
     void throwsExceptionWhenThereIsNoFile(@TempDir Path tmpDir) {
         // Given
-        Path path = Path.of(tmpDir.toUri() + "/nosuchpath");
+        Path path = tmpDir.resolve("nosuchpath");
         RestAddressReporter reporter = new RestAddressReporter(path);
 
         // When try to removeReport
