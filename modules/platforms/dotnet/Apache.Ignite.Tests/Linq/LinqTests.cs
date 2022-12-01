@@ -369,12 +369,28 @@ public partial class LinqTests : IgniteTestsBase
     }
 
     [Test]
-    public void TestDistinctProjectionWithOrderBy()
+    public void TestDistinctAfterOrderBy()
     {
         var query = PocoByteView.AsQueryable()
             .Select(x => new { Id = x.Val + 10, V = x.Val })
             .OrderByDescending(x => x.Id)
             .Distinct();
+
+        var res = query.ToList();
+
+        Assert.AreEqual(4, res.Count);
+        Assert.AreEqual(14, res[0].Id);
+
+        StringAssert.Contains("select distinct (cast(_T0.VAL as int) + ?), _T0.VAL from PUBLIC.TBL_INT8 as _T0", query.ToString());
+    }
+
+    [Test]
+    public void TestDistinctBeforeOrderBy()
+    {
+        var query = PocoByteView.AsQueryable()
+            .Select(x => new { Id = x.Val + 10, V = x.Val })
+            .Distinct()
+            .OrderByDescending(x => x.Id);
 
         var res = query.ToList();
 
