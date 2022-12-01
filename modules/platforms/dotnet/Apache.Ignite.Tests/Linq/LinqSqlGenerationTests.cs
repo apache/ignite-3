@@ -101,7 +101,7 @@ public partial class LinqSqlGenerationTests
     [Test]
     public void TestSelectOrderByOffsetLimit() =>
         AssertSql(
-            "select _T0.KEY, _T0.VAL, (_T0.KEY + ?) " +
+            "select _T0.KEY, _T0.VAL, (_T0.KEY + ?) as KEY2 " +
             "from PUBLIC.tbl1 as _T0 " +
             "order by ((_T0.KEY + ?)) asc, (_T0.VAL) desc " +
             "limit ? offset ?",
@@ -149,10 +149,9 @@ public partial class LinqSqlGenerationTests
     }
 
     [Test]
-    [Ignore("IGNITE-18131 Distinct support")]
     public void TestSelectOrderDistinct() =>
         AssertSql(
-            "select distinct _T0.KEY, (_T0.KEY + ?) from PUBLIC.tbl1 as _T0 order by ((_T0.KEY + ?)) asc",
+            "select * from (select distinct _T0.KEY, (_T0.KEY + ?) as KEY2 from PUBLIC.tbl1 as _T0) as _T1 order by (_T1.KEY2) asc",
             q => q.Select(x => new { x.Key, Key2 = x.Key + 1})
                 .Distinct()
                 .OrderBy(x => x.Key2)
@@ -246,8 +245,8 @@ public partial class LinqSqlGenerationTests
     [Test]
     public void TestUnion() =>
         AssertSql(
-            "select (_T0.KEY + ?), _T0.VAL from PUBLIC.tbl1 as _T0 " +
-            "union (select (_T1.KEY + ?), _T1.VAL from PUBLIC.tbl1 as _T1)",
+            "select (_T0.KEY + ?) as KEY, _T0.VAL from PUBLIC.tbl1 as _T0 " +
+            "union (select (_T1.KEY + ?) as KEY, _T1.VAL from PUBLIC.tbl1 as _T1)",
             q => q.Select(x => new { Key = x.Key + 1, x.Val })
                 .Union(q.Select(x => new { Key = x.Key + 100, x.Val }))
                 .ToList());
@@ -255,8 +254,8 @@ public partial class LinqSqlGenerationTests
     [Test]
     public void TestIntersect() =>
         AssertSql(
-            "select (_T0.KEY + ?), concat(_T0.VAL, ?) from PUBLIC.tbl1 as _T0 " +
-            "intersect (select (_T1.KEY + ?), concat(_T1.VAL, ?) from PUBLIC.tbl1 as _T1)",
+            "select (_T0.KEY + ?) as KEY, concat(_T0.VAL, ?) as VAL from PUBLIC.tbl1 as _T0 " +
+            "intersect (select (_T1.KEY + ?) as KEY, concat(_T1.VAL, ?) as VAL from PUBLIC.tbl1 as _T1)",
             q => q.Select(x => new { Key = x.Key + 1, Val = x.Val + "_" })
                 .Intersect(q.Select(x => new { Key = x.Key + 100, Val = x.Val + "!" }))
                 .ToList());

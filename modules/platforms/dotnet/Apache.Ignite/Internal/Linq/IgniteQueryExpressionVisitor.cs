@@ -302,7 +302,32 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
     /** <inheritdoc /> */
     protected override Expression VisitNew(NewExpression expression)
     {
-        VisitArguments(expression.Arguments);
+        var first = true;
+
+        for (var i = 0; i < expression.Arguments.Count; i++)
+        {
+            var arg = expression.Arguments[i];
+            if (!first)
+            {
+                if (_useStar)
+                {
+                    throw new NotSupportedException("Aggregate functions do not support multiple fields");
+                }
+
+                ResultBuilder.TrimEnd().Append(", ");
+            }
+
+            first = false;
+
+            Visit(arg);
+
+            // When projection uses projection comes from a complex expression, append an alias.
+            var param = expression.Members?[i];
+            if (param != null && arg is not MemberExpression)
+            {
+                ResultBuilder.AppendWithSpace("as ").Append(param.Name.ToUpperInvariant());
+            }
+        }
 
         return expression;
     }
@@ -585,32 +610,6 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
             first = false;
 
             AppendParameter(val);
-        }
-    }
-
-    /// <summary>
-    /// Visits multiple arguments.
-    /// </summary>
-    /// <param name="arguments">The arguments.</param>
-    private void VisitArguments(IEnumerable<Expression> arguments)
-    {
-        var first = true;
-
-        foreach (var e in arguments)
-        {
-            if (!first)
-            {
-                if (_useStar)
-                {
-                    throw new NotSupportedException("Aggregate functions do not support multiple fields");
-                }
-
-                ResultBuilder.TrimEnd().Append(", ");
-            }
-
-            first = false;
-
-            Visit(e);
         }
     }
 

@@ -186,7 +186,7 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
         {
             _builder.Append("from (");
 
-            VisitQueryModel(subQuery.QueryModel);
+            VisitQueryModel(subQuery.QueryModel, includeAllFields: true);
 
             _builder.TrimEnd()
                 .Append(") as ")

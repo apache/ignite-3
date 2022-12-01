@@ -288,6 +288,7 @@ public partial class LinqTests : IgniteTestsBase
     }
 
     [Test]
+    [Ignore("IGNITE-18311")]
     public void TestOrderBySkipTakeBeforeSelect()
     {
         var query = PocoView.AsQueryable()
@@ -324,6 +325,90 @@ public partial class LinqTests : IgniteTestsBase
 
         StringAssert.Contains(
             "select _T0.VAL from PUBLIC.TBL1 as _T0 where (_T0.KEY IN (?, ?)), Parameters=4, 2",
+            query.ToString());
+    }
+
+    [Test]
+    public void TestDistinctOneField()
+    {
+        var query = PocoByteView.AsQueryable()
+            .Select(x => x.Val)
+            .Distinct();
+
+        List<sbyte> res = query.ToList();
+
+        CollectionAssert.AreEquivalent(new[] { 0, 1, 2, 3 }, res);
+
+        StringAssert.Contains("select distinct _T0.VAL from PUBLIC.TBL_INT8 as _T0", query.ToString());
+    }
+
+    [Test]
+    public void TestDistinctEntireObject()
+    {
+        var query = PocoByteView.AsQueryable()
+            .Distinct();
+
+        List<PocoByte> res = query.ToList();
+
+        Assert.AreEqual(10, res.Count);
+
+        StringAssert.Contains("select distinct _T0.KEY, _T0.VAL from PUBLIC.TBL_INT8 as _T0", query.ToString());
+    }
+
+    [Test]
+    public void TestDistinctProjection()
+    {
+        var query = PocoByteView.AsQueryable()
+            .Select(x => new { Id = x.Val + 10, V = x.Val })
+            .Distinct();
+
+        var res = query.ToList();
+
+        Assert.AreEqual(4, res.Count);
+
+        StringAssert.Contains(
+            "select distinct (cast(_T0.VAL as int) + ?) as ID, _T0.VAL " +
+            "from PUBLIC.TBL_INT8 as _T0",
+            query.ToString());
+    }
+
+    [Test]
+    public void TestDistinctAfterOrderBy()
+    {
+        var query = PocoByteView.AsQueryable()
+            .Select(x => new { Id = x.Val + 10, V = x.Val })
+            .OrderByDescending(x => x.V)
+            .Distinct();
+
+        var res = query.ToList();
+
+        Assert.AreEqual(4, res.Count);
+        Assert.AreEqual(13, res[0].Id);
+
+        StringAssert.Contains(
+            "select distinct (cast(_T0.VAL as int) + ?) as ID, _T0.VAL " +
+            "from PUBLIC.TBL_INT8 as _T0 " +
+            "order by (_T0.VAL) desc",
+            query.ToString());
+    }
+
+    [Test]
+    public void TestDistinctBeforeOrderBy()
+    {
+        var query = PocoByteView.AsQueryable()
+            .Select(x => new { Id = x.Val + 10, V = x.Val })
+            .Distinct()
+            .OrderByDescending(x => x.Id);
+
+        var res = query.ToList();
+
+        Assert.AreEqual(4, res.Count);
+        Assert.AreEqual(13, res[0].Id);
+
+        StringAssert.Contains(
+            "select * from " +
+            "(select distinct (cast(_T0.VAL as int) + ?) as ID, _T0.VAL from PUBLIC.TBL_INT8 as _T0) as _T1 " +
+            "order by (_T1.ID) desc",
             query.ToString());
     }
 
