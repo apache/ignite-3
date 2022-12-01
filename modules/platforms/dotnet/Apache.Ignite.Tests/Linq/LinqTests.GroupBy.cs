@@ -140,7 +140,7 @@ public partial class LinqTests
         Assert.AreEqual(10, res.Count);
 
         StringAssert.Contains(
-            "select _T0.VAL, count(*) " +
+            "select _T0.VAL, count(*) as COUNT " +
             "from PUBLIC.TBL1 as _T1 " +
             "inner join PUBLIC.TBL_INT32 as _T0 on (cast(_T0.KEY as bigint) = _T1.KEY) " +
             "group by (_T0.VAL) " +

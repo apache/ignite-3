@@ -89,7 +89,7 @@ public partial class LinqTests
         CollectionAssert.AreEquivalent(new[] { 4, 9 }, res.Select(x => x.Key));
 
         StringAssert.Contains(
-            "select cast(_T0.KEY as int) " +
+            "select cast(_T0.KEY as int) as KEY " +
             "from PUBLIC.TBL_INT8 as _T0 " +
             "where (cast(_T0.KEY as int) > ?) " +
             "union (select _T1.KEY from PUBLIC.TBL_INT32 as _T1 where ((_T1.KEY > ?) and (_T1.KEY < ?)))",
@@ -152,8 +152,8 @@ public partial class LinqTests
         CollectionAssert.AreEquivalent(new[] { 7, 8, 9 }, res.Select(x => x.Id));
 
         StringAssert.Contains(
-            "select _T0.KEY as ID from PUBLIC.TBL_INT64 as _T0 where (_T0.KEY > ?) " +
-            "except (select _T1.KEY as ID from PUBLIC.TBL1 as _T1 where (_T1.KEY < ?))",
+            "select _T0.KEY from PUBLIC.TBL_INT64 as _T0 where (_T0.KEY > ?) " +
+            "except (select _T1.KEY from PUBLIC.TBL1 as _T1 where (_T1.KEY < ?))",
             query.ToString());
     }
 }
