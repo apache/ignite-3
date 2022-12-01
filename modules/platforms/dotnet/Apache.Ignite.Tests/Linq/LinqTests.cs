@@ -395,9 +395,13 @@ public partial class LinqTests : IgniteTestsBase
         var res = query.ToList();
 
         Assert.AreEqual(4, res.Count);
-        Assert.AreEqual(14, res[0].Id);
+        Assert.AreEqual(13, res[0].Id);
 
-        StringAssert.Contains("select distinct (cast(_T0.VAL as int) + ?), _T0.VAL from PUBLIC.TBL_INT8 as _T0", query.ToString());
+        StringAssert.Contains(
+            "select * from " +
+            "(select distinct (cast(_T0.VAL as int) + ?) as ID, _T0.VAL as V from PUBLIC.TBL_INT8 as _T0) as _T1 " +
+            "order by (_T1.ID) desc",
+            query.ToString());
     }
 
     [Test]
