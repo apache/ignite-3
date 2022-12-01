@@ -321,8 +321,8 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
 
             Visit(arg);
 
+            // When projection uses a different field name, or projection comes from a complex expression, append an alias.
             var param = expression.Members?[i];
-
             if (param != null && param.Name != (arg as MemberExpression)?.Member.Name)
             {
                 ResultBuilder.AppendWithSpace("as ").Append(param.Name.ToUpperInvariant());
