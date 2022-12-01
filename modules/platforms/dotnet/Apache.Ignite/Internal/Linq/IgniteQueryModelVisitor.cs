@@ -646,6 +646,13 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
     /// </summary>
     private void BuildSqlExpression(Expression expression, bool useStar = false, bool includeAllFields = false, bool visitSubqueryModel = false)
     {
-        new IgniteQueryExpressionVisitor(this, useStar, includeAllFields, visitSubqueryModel).Visit(expression);
+        if (Aliases.TryGetExpressionAlias(expression) is { } alias)
+        {
+            Builder.AppendWithSpace(alias);
+        }
+        else
+        {
+            new IgniteQueryExpressionVisitor(this, useStar, includeAllFields, visitSubqueryModel).Visit(expression);
+        }
     }
 }

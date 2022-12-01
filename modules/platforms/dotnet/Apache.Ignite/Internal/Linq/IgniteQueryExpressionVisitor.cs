@@ -325,7 +325,7 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
             var param = expression.Members?[i];
             if (param != null && param.Name != (arg as MemberExpression)?.Member.Name)
             {
-                ResultBuilder.AppendWithSpace("as ").Append(param.Name.ToUpperInvariant());
+                ResultBuilder.AppendWithSpace("as ").Append(Aliases.GetOrCreateExpressionAlias(arg));
             }
         }
 

@@ -105,6 +105,31 @@ internal sealed class AliasDictionary
     }
 
     /// <summary>
+    /// Gets or creates an alias for the specified expression.
+    /// </summary>
+    /// <param name="expression">Expression.</param>
+    /// <returns>Alias.</returns>
+    public string GetOrCreateExpressionAlias(Expression expression)
+    {
+        if (!_fieldAliases.TryGetValue(expression, out var alias))
+        {
+            alias = "F" + _fieldAliasIndex++;
+
+            _fieldAliases[expression] = alias;
+        }
+
+        return alias;
+    }
+
+    /// <summary>
+    /// Gets an alias for the specified expression, or null if it does not exist.
+    /// </summary>
+    /// <param name="expression">Expression.</param>
+    /// <returns>Alias or null.</returns>
+    public string? TryGetExpressionAlias(Expression expression) =>
+        _fieldAliases.TryGetValue(expression, out var alias) ? alias : null;
+
+    /// <summary>
     /// Appends as clause.
     /// </summary>
     /// <param name="builder">Builder.</param>
