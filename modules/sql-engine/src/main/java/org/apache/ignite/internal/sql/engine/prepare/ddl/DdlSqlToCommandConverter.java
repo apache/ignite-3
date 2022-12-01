@@ -107,23 +107,13 @@ public class DdlSqlToCommandConverter {
      */
     private final Map<String, String> dataStorageNames;
 
-    /**
-     * Mapping: Table option ID -> DDL command updater.
-     *
-     * <p>Example for "replicas": {@code Map.of("REPLICAS", TableOptionInfo@123)}.
-     */
+    /** Mapping: Table option ID -> DDL command updater. */
     private final Map<String, DdlCommandOptionUpdater<CreateTableCommand, ?>> tableOptionUpdaters;
 
-    /**
-     * Like {@link #tableOptionUpdaters}, but for each data storage name.
-     */
+    /** Like {@link #tableOptionUpdaters}, but for each data storage name. */
     private final Map<String, Map<String, DdlCommandOptionUpdater<CreateTableCommand, ?>>> dataStorageOptionUpdaters;
 
-    /**
-     * Mapping: Zone option ID -> DDL command updater.
-     *
-     * <p>Example for "replicas": {@code Map.of("REPLICAS", TableOptionInfo@123)}.
-     */
+    /** Mapping: Zone option ID -> DDL command updater. */
     private final Map<IgniteSqlCreateZoneOptionEnum, DdlCommandOptionUpdater<CreateZoneCommand, ?>> zoneOptionUpdaters;
 
     /**
