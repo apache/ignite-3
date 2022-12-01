@@ -377,15 +377,19 @@ public partial class LinqTests : IgniteTestsBase
     {
         var query = PocoByteView.AsQueryable()
             .Select(x => new { Id = x.Val + 10, V = x.Val })
-            .OrderByDescending(x => x.Id)
+            .OrderByDescending(x => x.V)
             .Distinct();
 
         var res = query.ToList();
 
         Assert.AreEqual(4, res.Count);
-        Assert.AreEqual(14, res[0].Id);
+        Assert.AreEqual(13, res[0].Id);
 
-        StringAssert.Contains("select distinct (cast(_T0.VAL as int) + ?), _T0.VAL from PUBLIC.TBL_INT8 as _T0", query.ToString());
+        StringAssert.Contains(
+            "select distinct (cast(_T0.VAL as int) + ?) as ID, _T0.VAL " +
+            "from PUBLIC.TBL_INT8 as _T0 " +
+            "order by (_T0.VAL) desc",
+            query.ToString());
     }
 
     [Test]
