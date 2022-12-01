@@ -51,12 +51,17 @@ public class ConnectToClusterQuestion {
 
 
     /**
-     * Execute call with question about connect to cluster in case when disconnected state.
+     * Asks whether the user wants to connect to the default node when user hasn't passed a URL explicitly and we're not connected.
      *
      * @param clusterUrl cluster url.
-     * @return {@link FlowBuilder} instance with question in case when cluster url.
+     * @return {@link FlowBuilder} instance which returns a URL.
      */
     public FlowBuilder<Void, String> askQuestionIfNotConnected(String clusterUrl) {
+        String url = clusterUrlOrSessionNode(clusterUrl);
+        if (url != null) {
+            return Flows.from(url);
+        }
+
         String defaultUrl = configManagerProvider.get().getCurrentProperty(ConfigConstants.CLUSTER_URL);
 
         QuestionUiComponent questionUiComponent = QuestionUiComponent.fromQuestion(
@@ -64,22 +69,31 @@ public class ConnectToClusterQuestion {
                 UiElements.url(defaultUrl), UiElements.yesNo()
         );
 
-        return Flows.from(clusterUrlOrSessionNode(clusterUrl))
-                .flatMap(v -> {
-                    if (Objects.isNull(v)) {
-                        return Flows.<String, ConnectCallInput>acceptQuestion(questionUiComponent,
-                                        () -> new ConnectCallInput(defaultUrl))
-                                .then(Flows.fromCall(connectCall))
-                                .print()
-                                .map(ignored -> clusterUrlOrSessionNode(clusterUrl));
-                    } else {
-                        return Flows.identity();
-                    }
-                });
+        return Flows.<Void, ConnectCallInput>acceptQuestion(questionUiComponent, () -> new ConnectCallInput(defaultUrl))
+                .then(Flows.fromCall(connectCall))
+                .print()
+                .map(ignored -> session.nodeUrl());
     }
 
     private String clusterUrlOrSessionNode(String clusterUrl) {
         return clusterUrl != null ? clusterUrl : session.nodeUrl();
+    }
+
+    /**
+     * Ask if the user really wants to connect if we are already connected and the URL is different.
+     *
+     * @param clusterUrl cluster url.
+     * @return {@link FlowBuilder} instance with question in case when cluster url.
+     */
+    public FlowBuilder<Void, String> askQuestionIfConnected(String clusterUrl) {
+        if (session.isConnectedToNode() && !Objects.equals(session.nodeUrl(), clusterUrl)) {
+            QuestionUiComponent question = QuestionUiComponent.fromQuestion(
+                    "You are already connected to the %s, do you want to connect to the %s? %s ",
+                    UiElements.url(session.nodeUrl()), UiElements.url(clusterUrl), UiElements.yesNo()
+            );
+            return Flows.acceptQuestion(question, () -> clusterUrl);
+        }
+        return Flows.from(clusterUrl);
     }
 
     /**
