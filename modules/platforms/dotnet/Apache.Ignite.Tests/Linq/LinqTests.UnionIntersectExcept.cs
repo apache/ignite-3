@@ -152,8 +152,8 @@ public partial class LinqTests
         CollectionAssert.AreEquivalent(new[] { 7, 8, 9 }, res.Select(x => x.Id));
 
         StringAssert.Contains(
-            "select _T0.KEY from PUBLIC.TBL_INT64 as _T0 where (_T0.KEY > ?) " +
-            "except (select _T1.KEY from PUBLIC.TBL1 as _T1 where (_T1.KEY < ?))",
+            "select _T0.KEY as ID from PUBLIC.TBL_INT64 as _T0 where (_T0.KEY > ?) " +
+            "except (select _T1.KEY as ID from PUBLIC.TBL1 as _T1 where (_T1.KEY < ?))",
             query.ToString());
     }
 }

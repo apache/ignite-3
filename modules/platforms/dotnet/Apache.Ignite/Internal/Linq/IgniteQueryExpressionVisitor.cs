@@ -323,8 +323,6 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
 
             var param = expression.Members?[i];
 
-            // TODO: Somehow don't append if param name is same as arg name.
-            // TODO: This won't work with custom column names though? Or we can retrieve that from attributes?
             if (param != null && param.Name != (arg as MemberExpression)?.Member.Name)
             {
                 ResultBuilder.AppendWithSpace("as ").Append(param.Name.ToUpperInvariant());
