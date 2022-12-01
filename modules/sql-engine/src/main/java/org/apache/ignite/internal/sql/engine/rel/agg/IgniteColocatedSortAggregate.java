@@ -39,7 +39,7 @@ import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
  * IgniteSingleSortAggregate.
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
-public class IgniteSingleSortAggregate extends IgniteSingleAggregateBase implements IgniteSortAggregateBase {
+public class IgniteColocatedSortAggregate extends IgniteColocatedAggregateBase implements IgniteSortAggregateBase {
     /** Collation. */
     private final RelCollation collation;
 
@@ -47,7 +47,7 @@ public class IgniteSingleSortAggregate extends IgniteSingleAggregateBase impleme
      * Constructor.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public IgniteSingleSortAggregate(
+    public IgniteColocatedSortAggregate(
             RelOptCluster cluster,
             RelTraitSet traitSet,
             RelNode input,
@@ -67,7 +67,7 @@ public class IgniteSingleSortAggregate extends IgniteSingleAggregateBase impleme
      * Constructor.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public IgniteSingleSortAggregate(RelInput input) {
+    public IgniteColocatedSortAggregate(RelInput input) {
         super(input);
 
         collation = input.getCollation();
@@ -80,13 +80,13 @@ public class IgniteSingleSortAggregate extends IgniteSingleAggregateBase impleme
     @Override
     public Aggregate copy(RelTraitSet traitSet, RelNode input, ImmutableBitSet groupSet,
             List<ImmutableBitSet> groupSets, List<AggregateCall> aggCalls) {
-        return new IgniteSingleSortAggregate(getCluster(), traitSet, input, groupSet, groupSets, aggCalls);
+        return new IgniteColocatedSortAggregate(getCluster(), traitSet, input, groupSet, groupSets, aggCalls);
     }
 
     /** {@inheritDoc} */
     @Override
     public IgniteRel clone(RelOptCluster cluster, List<IgniteRel> inputs) {
-        return new IgniteSingleSortAggregate(cluster, getTraitSet().replace(collation), sole(inputs),
+        return new IgniteColocatedSortAggregate(cluster, getTraitSet().replace(collation), sole(inputs),
                 getGroupSet(), getGroupSets(), getAggCallList());
     }
 

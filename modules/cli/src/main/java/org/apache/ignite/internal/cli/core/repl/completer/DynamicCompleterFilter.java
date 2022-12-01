@@ -17,11 +17,17 @@
 
 package org.apache.ignite.internal.cli.core.repl.completer;
 
-import static org.apache.ignite.internal.cli.commands.OptionsConstants.CLUSTER_URL_OPTION;
-import static org.apache.ignite.internal.cli.commands.OptionsConstants.NODE_URL_OPTION;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.CLUSTER_URL_OPTION;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.HELP_OPTION;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.HELP_OPTION_SHORT;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.NODE_URL_OPTION;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.VERBOSE_OPTION;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.VERBOSE_OPTION_SHORT;
 
 import jakarta.inject.Singleton;
 import java.util.Arrays;
+import java.util.List;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.cli.core.repl.Session;
 
 /**
@@ -43,25 +49,31 @@ public class DynamicCompleterFilter implements CompleterFilter {
 
     @Override
     public String[] filter(String[] words, String[] candidates) {
+        List<String> notOptionsCandidates = Arrays.stream(candidates)
+                .filter(candidate -> !candidate.startsWith("-"))
+                .collect(Collectors.toList());
+
+        if (!notOptionsCandidates.isEmpty()) {
+            return notOptionsCandidates.toArray(String[]::new);
+        }
+
         return Arrays.stream(candidates)
                 .filter(candidate -> filterClusterUrl(words, candidate))
-                .filter(candidate -> filterHelp(words, candidate))
+                .filter(candidate -> filterCommonOptions(words, candidate))
                 .toArray(String[]::new);
     }
 
-    private boolean filterHelp(String[] words, String candidate) {
-        if (optionTyped(words)) {
-            return true;
-        }
-
-        return !(candidate.equals("--help") || candidate.equals("-h"));
+    private boolean filterCommonOptions(String[] words, String candidate) {
+        return optionTyped(words)
+                || !(HELP_OPTION.equals(candidate)
+                || HELP_OPTION_SHORT.equals(candidate)
+                || VERBOSE_OPTION_SHORT.equals(candidate)
+                || VERBOSE_OPTION.equals(candidate));
     }
 
     private boolean filterClusterUrl(String[] words, String candidate) {
-        if (optionTyped(words)) {
-            return true;
-        }
-
-        return !session.isConnectedToNode() || (!candidate.equals(CLUSTER_URL_OPTION) && !candidate.equals(NODE_URL_OPTION));
+        return optionTyped(words)
+                || !session.isConnectedToNode()
+                || (!candidate.equals(CLUSTER_URL_OPTION) && !candidate.equals(NODE_URL_OPTION));
     }
 }

@@ -18,12 +18,14 @@
 package org.apache.ignite.internal.cli.core.repl.completer;
 
 import static org.apache.ignite.internal.cli.util.ArrayUtils.findLastNotEmptyWord;
+import static org.apache.ignite.internal.cli.util.ArrayUtils.findLastNotEmptyWordBeforeWordFromEnd;
 
 import jakarta.inject.Singleton;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
-import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 /**
@@ -38,60 +40,97 @@ public class DynamicCompleterRegistry {
     public List<DynamicCompleter> findCompleters(String[] words) {
         return completionStrategiesList.stream()
                 .filter(strategy -> strategy.canBeApplied(words))
-                .map(CompletionStrategy::completer)
+                .map(strategy -> strategy.completer(words))
                 .collect(Collectors.toList());
     }
 
-    public void register(DynamicCompleter completer) {
-        completionStrategiesList.add(new CompletionStrategy(ignored -> true, completer));
-    }
-
     /** Registers dynamic completer that can be found by given predicate. */
-    public void register(Predicate<String[]> predicate, DynamicCompleter completer) {
-        completionStrategiesList.add(new CompletionStrategy(predicate, completer));
-    }
-
-    /** Registers dynamic completer that can be found by given prefix. */
-    public void register(String[] prefixWords, DynamicCompleter completer) {
-        register((String[] words) -> samePrefix(words, prefixWords), completer);
-    }
-
-    /** Registers dynamic completer that can be found by given prefix. */
-    public void register(String[] prefixWords, String[] stopPostfixWords, DynamicCompleter completer) {
-        register((String[] words) -> samePrefix(words, prefixWords) && notSamePostfix(words, stopPostfixWords), completer);
-    }
-
-    private boolean samePrefix(String[] words, String[] prefixWords) {
-        if (words.length < prefixWords.length) {
-            return false;
+    public void register(CompleterConf conf, DynamicCompleterFactory factory) {
+        if (conf.isExclusiveEnableOptions()) {
+            // add disable option for all strategies because current configuration has exclusive enable option
+            completionStrategiesList.forEach(strategy -> strategy.exclusiveDisableOptions.addAll(conf.enableOptions()));
         }
-        for (int i = 0; i < prefixWords.length; i++) {
-            if (!words[i].equals(prefixWords[i])) {
-                return false;
-            }
-        }
-        return true;
-    }
 
-    private boolean notSamePostfix(String[] words, String[] stopPostfixWords) {
-        return words.length > 0 && !Set.of(stopPostfixWords).contains(findLastNotEmptyWord(words));
+        Set<String> exclusiveDisableOptions = completionStrategiesList.stream()
+                .filter(strategy -> strategy.conf.isExclusiveEnableOptions())
+                .flatMap(strategy -> strategy.conf.enableOptions().stream())
+                .collect(Collectors.toSet());
+
+        CompletionStrategy strategy = new CompletionStrategy(conf, factory);
+        strategy.exclusiveDisableOptions.addAll(exclusiveDisableOptions);
+        completionStrategiesList.add(strategy);
     }
 
     private static class CompletionStrategy {
-        private final Predicate<String[]> predicate;
-        private final DynamicCompleter completer;
+        private final CompleterConf conf;
 
-        private CompletionStrategy(Predicate<String[]> predicate, DynamicCompleter completer) {
-            this.predicate = predicate;
-            this.completer = completer;
+        private final DynamicCompleterFactory factory;
+
+        private final Set<String> exclusiveDisableOptions = new HashSet<>();
+
+        private CompletionStrategy(CompleterConf conf, DynamicCompleterFactory factory) {
+            this.conf = conf;
+            this.factory = factory;
+        }
+
+        private static boolean samePrefix(String[] words, String[] prefixWords) {
+            if (words.length < prefixWords.length) {
+                return false;
+            }
+            for (int i = 0; i < prefixWords.length; i++) {
+                if (!words[i].equals(prefixWords[i])) {
+                    return false;
+                }
+            }
+            return true;
         }
 
         boolean canBeApplied(String[] words) {
-            return predicate.test(words);
+            // empty command means can be applied to all words
+            if (!conf.commandSpecific()) {
+                return canBeAppliedCommandMatch(words);
+            }
+
+            Optional<String[]> commandsMatch = conf.commands().stream().filter(command -> samePrefix(words, command)).findFirst();
+            return commandsMatch.isPresent() && canBeAppliedCommandMatch(words);
         }
 
-        DynamicCompleter completer() {
-            return completer;
+        private boolean canBeAppliedCommandMatch(String[] words) {
+            String cursorWord = words[words.length - 1];
+            String lastNotEmptyWord = findLastNotEmptyWord(words);
+            String preLastNotEmptyWord = findLastNotEmptyWordBeforeWordFromEnd(words, lastNotEmptyWord);
+
+            if (cursorWord.equals(lastNotEmptyWord)) {
+                if (exclusiveDisableOptions.contains(lastNotEmptyWord) || exclusiveDisableOptions.contains(preLastNotEmptyWord)) {
+                    return false;
+                }
+            } else if (exclusiveDisableOptions.contains(lastNotEmptyWord)) {
+                return false;
+            }
+
+            if (conf.hasEnableOptions()) {
+                if (cursorWord.equals(lastNotEmptyWord)) {
+                    return conf.enableOptions().contains(lastNotEmptyWord) // command subcommand --enable-option
+                            || conf.enableOptions().contains(preLastNotEmptyWord); // command subcommand --enable-option lastWord
+                } else {
+                    return conf.enableOptions().contains(lastNotEmptyWord); // command subcommand --enable-option <space>
+                }
+            }
+
+            if (conf.hasDisableOptions()) {
+                if (cursorWord.equals(lastNotEmptyWord)) {
+                    return !conf.disableOptions().contains(lastNotEmptyWord)
+                             && !conf.disableOptions().contains(preLastNotEmptyWord);
+                } else {
+                    return !conf.disableOptions().contains(lastNotEmptyWord);
+                }
+            }
+
+            return true;
+        }
+
+        DynamicCompleter completer(String[] words) {
+            return factory.getDynamicCompleter(words);
         }
     }
 }

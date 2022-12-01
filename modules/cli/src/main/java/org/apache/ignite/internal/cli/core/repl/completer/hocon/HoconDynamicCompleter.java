@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.core.repl.completer;
+package org.apache.ignite.internal.cli.core.repl.completer.hocon;
 
 import static org.apache.ignite.internal.cli.util.ArrayUtils.findLastNotEmptyWord;
 
@@ -25,10 +25,9 @@ import java.util.List;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.cli.core.repl.completer.DynamicCompleter;
 
-/**
- * Completes typed words with hocon schema keys.
- */
+/** Completes typed words with hocon schema keys. */
 public class HoconDynamicCompleter implements DynamicCompleter {
 
     private final Config config;
@@ -39,12 +38,8 @@ public class HoconDynamicCompleter implements DynamicCompleter {
     /** List of all possible completions. */
     private final List<String> completions;
 
-    /** Words, after those the completer should have been activated. */
-    private final Set<String> activationPostfixes;
-
     /** Default constructor that creates an instance from a given set of postfixes that trigger the completion. */
-    public HoconDynamicCompleter(Set<String> activationPostfixes, Config config) {
-        this.activationPostfixes = activationPostfixes;
+    public HoconDynamicCompleter(Config config) {
         this.config = config;
         this.leafs = config.entrySet().stream().map(Entry::getKey).collect(Collectors.toSet());
         this.completions = this.compile();
@@ -61,23 +56,21 @@ public class HoconDynamicCompleter implements DynamicCompleter {
 
     /**
      * Completes the given typed words with the config keys that are in the same level as the last typed words.
-     * <p/>
-     * Example: given typed words ["cluster", "config", "show", "a"], The last word is "a", only root config values will be
-     * suggested to autocomplete: "aimem", "aipersist". If user hits "aimem" and types dot "." then only subkeys of "aimem." will be
-     * suggested: "aimem.pageSize", "aimem.regions".
+     *
+     * <p>Example: given typed words ["cluster", "config", "show", "a"], The last word is "a", only root config values will be suggested to
+     * autocomplete: "aimem", "aipersist". If user hits "aimem" and types dot "." then only subkeys of "aimem." will be suggested:
+     * "aimem.pageSize", "aimem.regions".
      */
     @Override
     public List<String> complete(String[] words) {
-        final String lastWord = findLastNotEmptyWord(words);
+        String lastWord = findLastNotEmptyWord(words);
 
-        if (activationPostfixes.contains(lastWord)
-                // activation profile contains empty string and the last typed word is empty
-                || (activationPostfixes.contains("") && words[words.length - 1].isEmpty())) {
+        if (words[words.length - 1].isEmpty()) {
             // roots
             return completions.stream().filter(s -> s.split("\\.").length == 1).collect(Collectors.toList());
         }
 
-        final int deepLevel = lastWord.endsWith(".")
+        int deepLevel = lastWord.endsWith(".")
                 ? lastWord.split("\\.").length + 1
                 : lastWord.split("\\.").length;
 
@@ -85,7 +78,6 @@ public class HoconDynamicCompleter implements DynamicCompleter {
                 .filter(s -> s.startsWith(lastWord) && deepLevel == s.split("\\.").length)
                 .collect(Collectors.toList());
     }
-
 
 
     private void walkAndAdd(String keyPrefix, Set<String> keySet, List<String> result) {

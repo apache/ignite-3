@@ -15,27 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.commands;
+package org.apache.ignite.internal.cli.core.repl.completer.node;
 
-import static org.apache.ignite.internal.cli.commands.Options.Constants.PROFILE_OPTION;
-import static org.apache.ignite.internal.cli.commands.Options.Constants.PROFILE_OPTION_DESC;
-import static org.apache.ignite.internal.cli.commands.Options.Constants.PROFILE_OPTION_SHORT;
+import jakarta.inject.Singleton;
+import org.apache.ignite.internal.cli.NodeNameRegistry;
+import org.apache.ignite.internal.cli.core.repl.completer.DynamicCompleter;
+import org.apache.ignite.internal.cli.core.repl.completer.DynamicCompleterFactory;
 
-import picocli.CommandLine.Option;
+/** Factory for --node-name option completer. */
+@Singleton
+public class NodeNameDynamicCompleterFactory implements DynamicCompleterFactory {
 
-/**
- * Mixin for profile option.
- */
-public class ProfileMixin {
-    @Option(names = {PROFILE_OPTION_SHORT, PROFILE_OPTION}, description = PROFILE_OPTION_DESC)
-    private String profileName;
+    private final NodeNameRegistry nodeNameRegistry;
 
-    /**
-     * Gets profile name.
-     *
-     * @return profile name
-     */
-    public String getProfileName() {
-        return profileName;
+    public NodeNameDynamicCompleterFactory(NodeNameRegistry nodeNameRegistry) {
+        this.nodeNameRegistry = nodeNameRegistry;
+    }
+
+    @Override
+    public DynamicCompleter getDynamicCompleter(String[] words) {
+        return new StringDynamicCompleter(nodeNameRegistry.getAllNames());
     }
 }

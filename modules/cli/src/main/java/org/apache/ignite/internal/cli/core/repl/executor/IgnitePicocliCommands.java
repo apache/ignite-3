@@ -201,7 +201,7 @@ public class IgnitePicocliCommands implements CommandRegistry {
             }
 
             List<DynamicCompleter> completers = completerRegistry.findCompleters(words);
-            if (completers.size() > 0) {
+            if (!completers.isEmpty()) {
                 try {
                     completers.stream()
                             .map(c -> c.complete(words))
@@ -213,13 +213,17 @@ public class IgnitePicocliCommands implements CommandRegistry {
                 }
             }
 
+            if (!candidates.isEmpty()) {
+                return;
+            }
+
             String[] filteredCandidates = completerFilters.get(0).filter(words, staticCandidates.toArray(String[]::new));
             for (int i = 1; i < completerFilters.size(); i++) {
                 filteredCandidates = completerFilters.get(i).filter(words, filteredCandidates);
             }
 
             for (String c : filteredCandidates) {
-                candidates.add(new Candidate(c));
+                candidates.add(staticCandidate(c));
             }
         }
 
@@ -229,6 +233,10 @@ public class IgnitePicocliCommands implements CommandRegistry {
             int sortingPriority = one.split("\\.").length;
 
             return new Candidate(one, one, null, null, null, null, false, sortingPriority);
+        }
+
+        private Candidate staticCandidate(String one) {
+            return new Candidate(one, one, null, null, null, null, true, 10);
         }
     }
 }

@@ -17,6 +17,13 @@
 
 package org.apache.ignite.internal.cli.commands.cliconfig.profile;
 
+import static org.apache.ignite.internal.cli.commands.Options.Constants.PROFILE_ACTIVATE_OPTION;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.PROFILE_ACTIVATE_OPTION_DESC;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.PROFILE_ACTIVATE_OPTION_SHORT;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.PROFILE_COPY_FROM_OPTION;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.PROFILE_COPY_FROM_OPTION_DESC;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.PROFILE_COPY_FROM_OPTION_SHORT;
+
 import jakarta.inject.Inject;
 import java.util.concurrent.Callable;
 import org.apache.ignite.internal.cli.call.cliconfig.profile.CliConfigProfileCreateCall;
@@ -35,10 +42,10 @@ public class CliConfigProfileCreateCommand extends BaseCommand implements Callab
     @Parameters(arity = "1", description = "Name of new profile")
     private String profileName;
 
-    @Option(names = {"--copy-from", "-c"}, description = "Profile whose content will be copied to new one")
+    @Option(names = {PROFILE_COPY_FROM_OPTION, PROFILE_COPY_FROM_OPTION_SHORT}, description = PROFILE_COPY_FROM_OPTION_DESC)
     private String copyFrom;
 
-    @Option(names = {"--activate", "-a"}, description = "Activate new profile as current or not")
+    @Option(names = {PROFILE_ACTIVATE_OPTION, PROFILE_ACTIVATE_OPTION_SHORT}, description = PROFILE_ACTIVATE_OPTION_DESC)
     private boolean activate;
 
     @Inject
