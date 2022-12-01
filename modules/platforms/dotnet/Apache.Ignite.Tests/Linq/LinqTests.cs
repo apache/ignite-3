@@ -328,6 +328,20 @@ public partial class LinqTests : IgniteTestsBase
     }
 
     [Test]
+    public void TestDistinctSimple()
+    {
+        var query = PocoByteView.AsQueryable()
+            .Select(x => x.Val)
+            .Distinct();
+
+        List<sbyte> res = query.ToList();
+
+        CollectionAssert.AreEquivalent(new[] { 0, 1, 2, 3 }, res);
+
+        StringAssert.Contains("select distinct _T0.VAL from PUBLIC.TBL_INT8 as _T0", query.ToString());
+    }
+
+    [Test]
     public void TestCustomColumnNameMapping()
     {
         var res = Table.GetRecordView<PocoCustomNames>().AsQueryable()
