@@ -1388,7 +1388,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                         return completedFuture(false);
                     }
 
-                    return takeLocksForDelete(searchRow, rowId, txId)
+                    return takeLocksForDelete(row, rowId, txId)
                             .thenCompose(ignored -> applyCmdWithExceptionHandling(
                                     updateCommand(commitPartitionId, rowId.uuid(), null, txId)))
                             .thenApply(ignored -> true);
@@ -1400,7 +1400,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                         return completedFuture(null);
                     }
 
-                    return takeLocksForDelete(searchRow, rowId, txId)
+                    return takeLocksForDelete(row, rowId, txId)
                             .thenCompose(ignored -> applyCmdWithExceptionHandling(
                                     updateCommand(commitPartitionId, rowId.uuid(), null, txId)))
                             .thenApply(ignored -> row);
