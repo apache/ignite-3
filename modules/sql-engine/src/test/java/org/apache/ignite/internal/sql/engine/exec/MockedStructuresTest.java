@@ -390,7 +390,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 ))
         );
 
-        assertThat(exception.getMessage(), containsString("Unsuspected DDL option type"));
+        assertThat(exception.getMessage(), containsString("Unsuspected table option type"));
 
         exception = assertThrows(
                 IgniteException.class,
@@ -410,7 +410,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 ))
         );
 
-        assertThat(exception.getMessage(), containsString("DDL option validation failed"));
+        assertThat(exception.getMessage(), containsString("Table option validation failed"));
     }
 
     @Test

@@ -108,13 +108,13 @@ public class DdlSqlToCommandConverter {
     private final Map<String, String> dataStorageNames;
 
     /** Mapping: Table option ID -> DDL option info. */
-    private final Map<String, DdlOptionInfo<CreateTableCommand, ?>> tableOptionUpdaters;
+    private final Map<String, DdlOptionInfo<CreateTableCommand, ?>> tableOptionInfos;
 
-    /** Like {@link #tableOptionUpdaters}, but for each data storage name. */
-    private final Map<String, Map<String, DdlOptionInfo<CreateTableCommand, ?>>> dataStorageOptionUpdaters;
+    /** Like {@link #tableOptionInfos}, but for each data storage name. */
+    private final Map<String, Map<String, DdlOptionInfo<CreateTableCommand, ?>>> dataStorageOptionInfos;
 
     /** Mapping: Zone option ID -> DDL option info. */
-    private final Map<IgniteSqlCreateZoneOptionEnum, DdlOptionInfo<CreateZoneCommand, ?>> zoneOptionUpdaters;
+    private final Map<IgniteSqlCreateZoneOptionEnum, DdlOptionInfo<CreateZoneCommand, ?>> zoneOptionInfos;
 
     /**
      * Constructor.
@@ -130,12 +130,12 @@ public class DdlSqlToCommandConverter {
 
         this.dataStorageNames = collectDataStorageNames(dataStorageFields.keySet());
 
-        this.tableOptionUpdaters = Map.of(
+        this.tableOptionInfos = Map.of(
                 REPLICAS.name(), new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, CreateTableCommand::replicas),
                 PARTITIONS.name(), new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, CreateTableCommand::partitions)
         );
 
-        this.dataStorageOptionUpdaters = dataStorageFields.entrySet()
+        this.dataStorageOptionInfos = dataStorageFields.entrySet()
                 .stream()
                 .collect(toUnmodifiableMap(
                         Entry::getKey,
@@ -144,10 +144,10 @@ public class DdlSqlToCommandConverter {
                                 .collect(toUnmodifiableMap(k -> k.getKey().toUpperCase(), Entry::getValue))
                 ));
 
-        dataStorageOptionUpdaters.values().forEach(v -> checkDuplicates(v.keySet(), tableOptionUpdaters.keySet()));
+        dataStorageOptionInfos.values().forEach(v -> checkDuplicates(v.keySet(), tableOptionInfos.keySet()));
 
         // Create zone options.
-        zoneOptionUpdaters = Map.of(
+        zoneOptionInfos = Map.of(
                 REPLICAS, new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, CreateZoneCommand::replicas),
                 PARTITIONS, new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, CreateZoneCommand::partitions),
                 AFFINITY_FUNCTION, new DdlOptionInfo<>(String.class, null, CreateZoneCommand::affinity),
@@ -214,13 +214,16 @@ public class DdlSqlToCommandConverter {
      */
     private CreateTableCommand convertCreateTable(IgniteSqlCreateTable createTblNode, PlanningContext ctx) {
         CreateTableCommand createTblCmd = new CreateTableCommand();
+        String dataStorageName = deriveDataStorage(createTblNode.engineName(), ctx);
 
         createTblCmd.schemaName(deriveSchemaName(createTblNode.name(), ctx));
         createTblCmd.tableName(deriveObjectName(createTblNode.name(), ctx, "tableName"));
         createTblCmd.ifTableExists(createTblNode.ifNotExists());
-        createTblCmd.dataStorage(deriveDataStorage(createTblNode.engineName(), ctx));
+        createTblCmd.dataStorage(dataStorageName);
 
         if (createTblNode.createOptionList() != null) {
+            Map<String, DdlOptionInfo<CreateTableCommand, ?>> dsOptInfos = dataStorageOptionInfos.get(dataStorageName);
+
             for (SqlNode optionNode : createTblNode.createOptionList().getList()) {
                 IgniteSqlCreateTableOption option = (IgniteSqlCreateTableOption) optionNode;
 
@@ -228,14 +231,14 @@ public class DdlSqlToCommandConverter {
 
                 String optionKey = option.key().getSimple().toUpperCase();
 
-                DdlOptionInfo<CreateTableCommand, ?> tblOptionInfo = tableOptionUpdaters.get(optionKey);
+                DdlOptionInfo<CreateTableCommand, ?> tblOptionInfo = tableOptionInfos.get(optionKey);
 
                 if (tblOptionInfo == null) {
-                    tblOptionInfo = dataStorageOptionUpdaters.get(createTblCmd.dataStorage()).get(optionKey);
+                    tblOptionInfo = dsOptInfos.get(optionKey);
                 }
 
                 if (tblOptionInfo != null) {
-                    updateCommandOption(optionKey, (SqlLiteral) option.value(), tblOptionInfo, ctx.query(), createTblCmd);
+                    updateCommandOption("Table", optionKey, (SqlLiteral) option.value(), tblOptionInfo, ctx.query(), createTblCmd);
                 } else {
                     throw new IgniteException(
                             QUERY_VALIDATION_ERR, String.format("Unexpected table option [option=%s, query=%s]", optionKey, ctx.query()));
@@ -499,12 +502,12 @@ public class DdlSqlToCommandConverter {
                         String.format("Duplicate DDL command option specified [option=%s, query=%s]", optionName, ctx.query()));
             }
 
-            DdlOptionInfo<CreateZoneCommand, ?> zoneOptionInfo = zoneOptionUpdaters.get(optionName);
+            DdlOptionInfo<CreateZoneCommand, ?> zoneOptionInfo = zoneOptionInfos.get(optionName);
 
             assert zoneOptionInfo != null : optionName;
             assert option.value() instanceof SqlLiteral : option.value();
 
-            updateCommandOption(optionName, (SqlLiteral) option.value(), zoneOptionInfo, ctx.query(), createZoneCmd);
+            updateCommandOption("Zone", optionName, (SqlLiteral) option.value(), zoneOptionInfo, ctx.query(), createZoneCmd);
         }
 
         return createZoneCmd;
@@ -623,15 +626,23 @@ public class DdlSqlToCommandConverter {
         return dataStorageNames.get(dataStorage);
     }
 
-    private <S, T> void updateCommandOption(Object name, SqlLiteral value, DdlOptionInfo<S, T> optInfo, String query, S target) {
+    private <S, T> void updateCommandOption(
+            String sqlObjName,
+            Object optId,
+            SqlLiteral value,
+            DdlOptionInfo<S, T> optInfo,
+            String query,
+            S target
+    ) {
         T value0;
 
         try {
             value0 = value.getValueAs(optInfo.type);
         } catch (AssertionError | ClassCastException e) {
             throw new IgniteException(QUERY_VALIDATION_ERR, String.format(
-                    "Unsuspected DDL option type [option=%s, expectedType=%s, query=%s]",
-                    name,
+                    "Unsuspected %s option type [option=%s, expectedType=%s, query=%s]",
+                    sqlObjName.toLowerCase(),
+                    optId,
                     optInfo.type.getSimpleName(),
                     query)
             );
@@ -642,8 +653,9 @@ public class DdlSqlToCommandConverter {
                 optInfo.validator.accept(value0);
             } catch (Throwable e) {
                 throw new IgniteException(QUERY_VALIDATION_ERR, String.format(
-                        "DDL option validation failed [option=%s, err=%s, query=%s]",
-                        name,
+                        "%s option validation failed [option=%s, err=%s, query=%s]",
+                        sqlObjName,
+                        optId,
                         e.getMessage(),
                         query
                 ), e);

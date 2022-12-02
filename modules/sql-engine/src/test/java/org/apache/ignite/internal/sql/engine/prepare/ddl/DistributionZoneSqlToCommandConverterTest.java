@@ -36,7 +36,7 @@ import org.junit.jupiter.api.Test;
  */
 public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToCommandConverterTest {
     @Test
-    public void create() throws SqlParseException {
+    public void testCreateZone() throws SqlParseException {
         SqlNode node = parse("CREATE ZONE test");
 
         assertThat(node, instanceOf(SqlDdl.class));
@@ -51,7 +51,7 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
     }
 
     @Test
-    public void createWithOptions() throws SqlParseException {
+    public void testCreateZoneWithOptions() throws SqlParseException {
         SqlNode node = parse("CREATE ZONE test with "
                 + "partitions=2, "
                 + "replicas=3, "
@@ -82,7 +82,7 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
         );
 
         assertThat(ex.code(), equalTo(Sql.QUERY_VALIDATION_ERR));
-        assertThat(ex.getMessage(), containsString("DDL option validation failed [option=PARTITIONS"));
+        assertThat(ex.getMessage(), containsString("Zone option validation failed [option=PARTITIONS"));
 
         ex = assertThrows(
                 IgniteException.class,
@@ -90,11 +90,11 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
         );
 
         assertThat(ex.code(), equalTo(Sql.QUERY_VALIDATION_ERR));
-        assertThat(ex.getMessage(), containsString("DDL option validation failed [option=REPLICAS"));
+        assertThat(ex.getMessage(), containsString("Zone option validation failed [option=REPLICAS"));
     }
 
     @Test
-    public void createWithDuplicateOptions() throws SqlParseException {
+    public void testCreateZoneWithDuplicateOptions() throws SqlParseException {
         SqlNode node = parse("CREATE ZONE test with partitions=2, replicas=0, PARTITIONS=1");
 
         assertThat(node, instanceOf(SqlDdl.class));
@@ -108,7 +108,7 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
     }
 
     @Test
-    public void drop() throws SqlParseException {
+    public void testDropZone() throws SqlParseException {
         SqlNode node = parse("DROP ZONE test");
 
         assertThat(node, instanceOf(SqlDdl.class));
