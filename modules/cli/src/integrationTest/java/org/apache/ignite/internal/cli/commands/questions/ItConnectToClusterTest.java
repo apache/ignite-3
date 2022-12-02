@@ -148,17 +148,23 @@ class ItConnectToClusterTest extends CliCommandTestInitializedIntegrationBase {
         // And connected
         execute("connect");
 
+        // And output is
+        assertAll(
+                this::assertErrOutputIsEmpty,
+                () -> assertOutputIs("Connected to http://localhost:10300" + System.lineSeparator())
+        );
+
         // And answer is "y"
         bindAnswers("y");
 
         // When connect to different URL
+        resetOutput();
         execute("connect", "http://localhost:10301");
 
         // Then
         assertAll(
                 this::assertErrOutputIsEmpty,
-                () -> assertOutputIs("Connected to http://localhost:10300" + System.lineSeparator()
-                + "Connected to http://localhost:10301" + System.lineSeparator())
+                () -> assertOutputIs("Connected to http://localhost:10301" + System.lineSeparator())
         );
         // And prompt is changed to another node
         String promptAfter = Ansi.OFF.string(promptProvider.getPrompt());

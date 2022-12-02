@@ -112,18 +112,23 @@ class ItConnectCommandTest extends CliCommandTestInitializedIntegrationBase {
     void connectTwice() {
         // Given connected to cluster
         execute("connect");
+        // And output is
+        assertAll(
+                this::assertErrOutputIsEmpty,
+                () -> assertOutputIs("Connected to http://localhost:10300" + System.lineSeparator())
+        );
         // And prompt is
         String promptBefore = Ansi.OFF.string(promptProvider.getPrompt());
         assertThat(promptBefore).isEqualTo("[" + nodeName() + "]> ");
 
         // When connect again
+        resetOutput();
         execute("connect");
 
         // Then
         assertAll(
                 this::assertErrOutputIsEmpty,
-                () -> assertOutputIs("Connected to http://localhost:10300" + System.lineSeparator()
-                        + "You are already connected to http://localhost:10300" + System.lineSeparator())
+                () -> assertOutputIs("You are already connected to http://localhost:10300" + System.lineSeparator())
         );
         // And prompt is still connected
         String promptAfter = Ansi.OFF.string(promptProvider.getPrompt());
