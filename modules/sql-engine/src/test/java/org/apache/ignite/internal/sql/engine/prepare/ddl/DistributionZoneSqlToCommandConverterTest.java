@@ -36,7 +36,7 @@ import org.junit.jupiter.api.Test;
  */
 public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToCommandConverterTest {
     @Test
-    public void zoneCreate() throws SqlParseException {
+    public void create() throws SqlParseException {
         SqlNode node = parse("CREATE ZONE test");
 
         assertThat(node, instanceOf(SqlDdl.class));
@@ -51,7 +51,7 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
     }
 
     @Test
-    public void zoneCreateOptions() throws SqlParseException {
+    public void createWithOptions() throws SqlParseException {
         SqlNode node = parse("CREATE ZONE test with "
                 + "partitions=2, "
                 + "replicas=3, "
@@ -94,7 +94,7 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
     }
 
     @Test
-    public void zoneCreateDuplicateOptions() throws SqlParseException {
+    public void createWithDuplicateOptions() throws SqlParseException {
         SqlNode node = parse("CREATE ZONE test with partitions=2, replicas=0, PARTITIONS=1");
 
         assertThat(node, instanceOf(SqlDdl.class));
@@ -108,7 +108,7 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
     }
 
     @Test
-    public void zoneDrop() throws SqlParseException {
+    public void drop() throws SqlParseException {
         SqlNode node = parse("DROP ZONE test");
 
         assertThat(node, instanceOf(SqlDdl.class));
