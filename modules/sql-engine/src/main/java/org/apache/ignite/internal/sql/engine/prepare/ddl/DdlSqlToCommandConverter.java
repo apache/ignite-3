@@ -28,10 +28,10 @@ import static org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateZoneOptio
 import static org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateZoneOptionEnum.PARTITIONS;
 import static org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateZoneOptionEnum.REPLICAS;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
-import static org.apache.ignite.lang.ErrorGroups.Sql.DDL_OPTION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.PRIMARY_KEYS_MULTIPLE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.PRIMARY_KEY_MISSING_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.QUERY_INVALID_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.QUERY_VALIDATION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.SCHEMA_NOT_FOUND_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.SQL_TO_REL_CONVERSION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STORAGE_ENGINE_NOT_VALID_ERR;
@@ -237,7 +237,7 @@ public class DdlSqlToCommandConverter {
                     updateCommandOption(optionKey, (SqlLiteral) option.value(), tblOptionInfo, ctx.query(), createTblCmd);
                 } else {
                     throw new IgniteException(
-                            DDL_OPTION_ERR, String.format("Unexpected table option [option=%s, query=%s]", optionKey, ctx.query()));
+                            QUERY_VALIDATION_ERR, String.format("Unexpected table option [option=%s, query=%s]", optionKey, ctx.query()));
                 }
             }
         }
@@ -494,7 +494,7 @@ public class DdlSqlToCommandConverter {
             IgniteSqlCreateZoneOptionEnum optionName = option.key().symbolValue(IgniteSqlCreateZoneOptionEnum.class);
 
             if (!knownOptionNames.remove(optionName)) {
-                throw new IgniteException(DDL_OPTION_ERR,
+                throw new IgniteException(QUERY_VALIDATION_ERR,
                         String.format("Duplicate DDL command option specified [option=%s, query=%s]", optionName, ctx.query()));
             }
 
@@ -628,7 +628,7 @@ public class DdlSqlToCommandConverter {
         try {
             value0 = value.getValueAs(optInfo.type);
         } catch (AssertionError | ClassCastException e) {
-            throw new IgniteException(DDL_OPTION_ERR, String.format(
+            throw new IgniteException(QUERY_VALIDATION_ERR, String.format(
                     "Unsuspected DDL option type [option=%s, expectedType=%s, query=%s]",
                     name,
                     optInfo.type.getSimpleName(),
@@ -640,7 +640,7 @@ public class DdlSqlToCommandConverter {
             try {
                 optInfo.validator.accept(value0);
             } catch (Throwable e) {
-                throw new IgniteException(DDL_OPTION_ERR, String.format(
+                throw new IgniteException(QUERY_VALIDATION_ERR, String.format(
                         "DDL option validation failed [option=%s, err=%s, query=%s]",
                         name,
                         e.getMessage(),
@@ -654,7 +654,7 @@ public class DdlSqlToCommandConverter {
 
     private void checkPositiveNumber(int num) {
         if (num < 0) {
-            throw new IgniteException(DDL_OPTION_ERR, "Must be positive:" + num);
+            throw new IgniteException(QUERY_VALIDATION_ERR, "Must be positive:" + num);
         }
     }
 

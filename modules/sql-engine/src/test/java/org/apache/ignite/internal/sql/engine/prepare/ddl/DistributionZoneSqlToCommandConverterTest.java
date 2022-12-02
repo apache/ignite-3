@@ -81,7 +81,7 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
                 () -> converter.convert((SqlDdl) parse("CREATE ZONE test with partitions=-1"), createContext())
         );
 
-        assertThat(ex.code(), equalTo(Sql.DDL_OPTION_ERR));
+        assertThat(ex.code(), equalTo(Sql.QUERY_VALIDATION_ERR));
         assertThat(ex.getMessage(), containsString("DDL option validation failed [option=PARTITIONS"));
 
         ex = assertThrows(
@@ -89,7 +89,7 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
                 () -> converter.convert((SqlDdl) parse("CREATE ZONE test with replicas=-1"), createContext())
         );
 
-        assertThat(ex.code(), equalTo(Sql.DDL_OPTION_ERR));
+        assertThat(ex.code(), equalTo(Sql.QUERY_VALIDATION_ERR));
         assertThat(ex.getMessage(), containsString("DDL option validation failed [option=REPLICAS"));
     }
 
@@ -104,7 +104,7 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
                 () -> converter.convert((SqlDdl) node, createContext())
         );
 
-        assertThat(ex.code(), equalTo(Sql.DDL_OPTION_ERR));
+        assertThat(ex.code(), equalTo(Sql.QUERY_VALIDATION_ERR));
     }
 
     @Test
