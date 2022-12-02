@@ -87,9 +87,14 @@ import org.apache.ignite.internal.metastorage.client.Entry;
 import org.apache.ignite.internal.metastorage.client.WatchEvent;
 import org.apache.ignite.internal.metastorage.client.WatchListener;
 import org.apache.ignite.internal.raft.Loza;
-import org.apache.ignite.internal.raft.server.RaftGroupEventsListener;
+import org.apache.ignite.internal.raft.Peer;
+import org.apache.ignite.internal.raft.RaftGroupEventsListener;
+import org.apache.ignite.internal.raft.RaftManager;
+import org.apache.ignite.internal.raft.ReplicationGroupOptions;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
-import org.apache.ignite.internal.raft.server.ReplicationGroupOptions;
+import org.apache.ignite.internal.raft.service.LeaderWithTerm;
+import org.apache.ignite.internal.raft.service.RaftGroupListener;
+import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.raft.storage.impl.LogStorageFactoryCreator;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
@@ -149,15 +154,10 @@ import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.TopologyService;
-import org.apache.ignite.raft.client.Peer;
-import org.apache.ignite.raft.client.service.LeaderWithTerm;
-import org.apache.ignite.raft.client.service.RaftGroupListener;
-import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.raft.jraft.storage.impl.VolatileRaftMetaStorage;
-import org.apache.ignite.raft.jraft.util.Utils;
-import org.apache.ignite.raft.jraft.util.concurrent.ConcurrentHashSet;
 import org.apache.ignite.table.Table;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -204,8 +204,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /** Tables configuration. */
     private final TablesConfiguration tablesCfg;
 
+    private final ClusterService clusterService;
+
     /** Raft manager. */
-    private final Loza raftMgr;
+    private final RaftManager raftMgr;
 
     /** Replica manager. */
     private final ReplicaManager replicaMgr;
@@ -238,7 +240,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     private final VersionedValue<Map<UUID, TableImpl>> tablesByIdVv;
 
     /** Set of futures that should complete before completion of {@link #tablesByIdVv}, after completion this set is cleared. */
-    private final Set<CompletableFuture<?>> beforeTablesVvComplete = new ConcurrentHashSet<>();
+    private final Set<CompletableFuture<?>> beforeTablesVvComplete = ConcurrentHashMap.newKeySet();
 
     /**
      * {@link TableImpl} is created during update of tablesByIdVv, we store reference to it in case of updating of tablesByIdVv fails,
@@ -291,7 +293,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     private final ExecutorService incomingSnapshotsExecutor;
 
     /** Rebalance scheduler pool size. */
-    private static final int REBALANCE_SCHEDULER_POOL_SIZE = Math.min(Utils.cpus() * 3, 20);
+    private static final int REBALANCE_SCHEDULER_POOL_SIZE = Math.min(Runtime.getRuntime().availableProcessors() * 3, 20);
 
     private static final TableMessagesFactory TABLE_MESSAGES_FACTORY = new TableMessagesFactory();
 
@@ -316,7 +318,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             String nodeName,
             Consumer<Function<Long, CompletableFuture<?>>> registry,
             TablesConfiguration tablesCfg,
-            Loza raftMgr,
+            ClusterService clusterService,
+            RaftManager raftMgr,
             ReplicaManager replicaMgr,
             LockManager lockMgr,
             ReplicaService replicaSvc,
@@ -332,6 +335,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             OutgoingSnapshotsManager outgoingSnapshotsManager
     ) {
         this.tablesCfg = tablesCfg;
+        this.clusterService = clusterService;
         this.raftMgr = raftMgr;
         this.baselineMgr = baselineMgr;
         this.replicaMgr = replicaMgr;
@@ -409,8 +413,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         rebalanceScheduler = new ScheduledThreadPoolExecutor(REBALANCE_SCHEDULER_POOL_SIZE,
                 NamedThreadFactory.create(nodeName, "rebalance-scheduler", LOG));
 
+        int cpus = Runtime.getRuntime().availableProcessors();
+
         ioExecutor = new ThreadPoolExecutor(
-                Math.min(Utils.cpus() * 3, 25),
+                Math.min(cpus * 3, 25),
                 Integer.MAX_VALUE,
                 100,
                 TimeUnit.MILLISECONDS,
@@ -418,8 +424,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 NamedThreadFactory.create(nodeName, "tableManager-io", LOG));
 
         incomingSnapshotsExecutor = new ThreadPoolExecutor(
-                Utils.cpus(),
-                Utils.cpus(),
+                cpus,
+                cpus,
                 100,
                 TimeUnit.MILLISECONDS,
                 new LinkedBlockingQueue<>(),
@@ -470,7 +476,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             }
         });
 
-        addMessageHandler(raftMgr.messagingService());
+        addMessageHandler(clusterService.messagingService());
     }
 
     /**
@@ -668,7 +674,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             futures[i] = new CompletableFuture<>();
         }
 
-        String localMemberName = raftMgr.topologyService().localMember().name();
+        String localMemberName = clusterService.topologyService().localMember().name();
 
         // Create new raft nodes according to new assignments.
         tablesByIdVv.update(causalityToken, (tablesById, e) -> {
@@ -769,7 +775,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                         );
 
                                         try {
-                                            raftMgr.startRaftGroupNode(
+                                            // TODO: use RaftManager interface, see https://issues.apache.org/jira/browse/IGNITE-18273
+                                            ((Loza) raftMgr).startRaftGroupNode(
                                                     replicaGrpId,
                                                     newPeers,
                                                     newLearners,
@@ -863,7 +870,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     private boolean isLocalPeer(Peer peer) {
-        return peer.consistentId().equals(raftMgr.topologyService().localMember().name());
+        return peer.consistentId().equals(clusterService.topologyService().localMember().name());
     }
 
     private PartitionDataStorage partitionDataStorage(MvPartitionStorage partitionStorage, InternalTable internalTbl, int partId) {
@@ -893,7 +900,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         CompletableFuture<Boolean>[] requestFutures = peerNames.stream()
                 .map(clusterNodeResolver)
                 .filter(Objects::nonNull)
-                .map(node -> raftMgr.messagingService()
+                .map(node -> clusterService.messagingService()
                         .invoke(node, request, QUERY_DATA_NODES_COUNT_TIMEOUT)
                         .thenApply(response -> {
                             assert response instanceof HasDataResponse : response;
@@ -917,14 +924,15 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         if (mvTableStorage.isVolatile()) {
             raftGroupOptions = RaftGroupOptions.forVolatileStores()
-                    .setLogStorageFactory(volatileLogStorageFactoryCreator.factory(raftMgr.volatileRaft().logStorage().value()))
+                    // TODO: use RaftManager interface, see https://issues.apache.org/jira/browse/IGNITE-18273
+                    .setLogStorageFactory(volatileLogStorageFactoryCreator.factory(((Loza) raftMgr).volatileRaft().logStorage().value()))
                     .raftMetaStorageFactory((groupId, raftOptions) -> new VolatileRaftMetaStorage());
         } else {
             raftGroupOptions = RaftGroupOptions.forPersistentStores();
         }
 
         raftGroupOptions.snapshotStorageFactory(new PartitionSnapshotStorageFactory(
-                raftMgr.topologyService(),
+                clusterService.topologyService(),
                 outgoingSnapshotsManager,
                 new PartitionAccessImpl(partitionKey, mvTableStorage, txStateTableStorage),
                 incomingSnapshotsExecutor
@@ -1822,7 +1830,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                     placementDriver.updateAssignment(replicaGrpId, stablePeers);
 
-                    ClusterNode localMember = raftMgr.topologyService().localMember();
+                    ClusterNode localMember = clusterService.topologyService().localMember();
 
                     // Start a new Raft node and Replica if this node has appeared in the new assignments.
                     boolean shouldStartLocalServices = pendingAssignments.stream()
@@ -1869,7 +1877,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         );
 
                         try {
-                            raftMgr.startRaftGroupNode(
+                            // TODO: use RaftManager interface, see https://issues.apache.org/jira/browse/IGNITE-18273
+                            ((Loza) raftMgr).startRaftGroupNode(
                                     replicaGrpId,
                                     stablePeers,
                                     stableLearners,
@@ -1974,7 +1983,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             ? Set.of()
                             : ByteUtils.fromBytes(pendingFromMetastorage);
 
-                    String localMemberName = raftMgr.topologyService().localMember().name();
+                    String localMemberName = clusterService.topologyService().localMember().name();
 
                     boolean shouldStopLocalServices = Stream.concat(stableAssignments.stream(), pendingAssignments.stream())
                             .noneMatch(assignment -> assignment.consistentId().equals(localMemberName));

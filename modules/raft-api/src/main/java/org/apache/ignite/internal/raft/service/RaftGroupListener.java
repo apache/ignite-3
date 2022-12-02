@@ -15,13 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.raft.client.service;
+package org.apache.ignite.internal.raft.service;
 
 import java.nio.file.Path;
 import java.util.Iterator;
 import java.util.function.Consumer;
-import org.apache.ignite.raft.client.ReadCommand;
-import org.apache.ignite.raft.client.WriteCommand;
+import org.apache.ignite.internal.raft.ReadCommand;
+import org.apache.ignite.internal.raft.WriteCommand;
 
 /**
  * A listener for replication group events.

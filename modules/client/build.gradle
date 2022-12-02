@@ -40,7 +40,7 @@ dependencies {
     testImplementation project(':ignite-schema')
     testImplementation project(':ignite-table')
     testImplementation project(':ignite-network')
-    testImplementation project(':ignite-raft-client')
+    testImplementation project(':ignite-raft-api')
     testImplementation project(':ignite-transactions')
     testImplementation project(':ignite-storage-api')
     testImplementation(testFixtures(project(':ignite-core')))

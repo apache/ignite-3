@@ -19,8 +19,9 @@ package org.apache.ignite.internal.metastorage.client;
 
 import static org.apache.ignite.internal.metastorage.common.MetastorageGroupId.INSTANCE;
 import static org.apache.ignite.internal.raft.server.RaftGroupOptions.defaults;
-import static org.apache.ignite.raft.jraft.test.TestUtils.waitForTopology;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.findLocalAddresses;
+import static org.apache.ignite.utils.ClusterServiceTestUtils.waitForTopology;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -42,10 +43,11 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
-import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.RaftGroupServiceImpl;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
+import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -55,14 +57,11 @@ import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.StaticNodeFinder;
-import org.apache.ignite.raft.client.Peer;
-import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.core.Replicator;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
-import org.apache.ignite.raft.jraft.test.TestUtils;
 import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -161,7 +160,7 @@ public class ItMetaStorageRaftGroupTest {
      * Run {@code NODES} cluster nodes.
      */
     @BeforeEach
-    public void beforeTest(TestInfo testInfo) {
+    public void beforeTest(TestInfo testInfo) throws InterruptedException {
         List<NetworkAddress> localAddresses = findLocalAddresses(NODE_PORT_BASE, NODE_PORT_BASE + NODES);
 
         var nodeFinder = new StaticNodeFinder(localAddresses);
@@ -179,7 +178,7 @@ public class ItMetaStorageRaftGroupTest {
 
         LOG.info("Cluster started.");
 
-        executor = new ScheduledThreadPoolExecutor(20, new NamedThreadFactory(Loza.CLIENT_POOL_NAME, LOG));
+        executor = new ScheduledThreadPoolExecutor(20, new NamedThreadFactory("Raft-Group-Client", LOG));
     }
 
     /**
@@ -261,7 +260,7 @@ public class ItMetaStorageRaftGroupTest {
 
         Cursor<Entry> cursor = metaStorageSvc.range(EXPECTED_RESULT_ENTRY1.key(), new ByteArray(new byte[]{4}));
 
-        assertTrue(TestUtils.waitForCondition(
+        assertTrue(waitForCondition(
                 () -> replicatorStartedCounter.get() == 2, 5_000), replicatorStartedCounter.get() + "");
 
         assertTrue(cursor.hasNext());
@@ -270,7 +269,7 @@ public class ItMetaStorageRaftGroupTest {
 
         // Ensure that leader has not been changed.
         // In a stable topology unexpected leader election shouldn't happen.
-        assertTrue(TestUtils.waitForCondition(
+        assertTrue(waitForCondition(
                 () -> replicatorStartedCounter.get() == 2, 5_000), replicatorStartedCounter.get() + "");
 
         //stop leader
@@ -283,9 +282,9 @@ public class ItMetaStorageRaftGroupTest {
         assertNotSame(oldLeaderId, raftGroupServiceOfLiveServer.leader().consistentId());
 
         // ensure that leader has been changed only once
-        assertTrue(TestUtils.waitForCondition(
+        assertTrue(waitForCondition(
                 () -> replicatorStartedCounter.get() == 4, 5_000), replicatorStartedCounter.get() + "");
-        assertTrue(TestUtils.waitForCondition(
+        assertTrue(waitForCondition(
                 () -> replicatorStoppedCounter.get() == 2, 5_000), replicatorStoppedCounter.get() + "");
 
         assertTrue(cursor.hasNext());
@@ -363,8 +362,7 @@ public class ItMetaStorageRaftGroupTest {
                 executor
         ).get();
 
-        assertTrue(TestUtils
-                        .waitForCondition(
+        assertTrue(waitForCondition(
                                 () -> sameLeaders(metaStorageRaftGrpSvc1, metaStorageRaftGrpSvc2, metaStorageRaftGrpSvc3), 10_000),
                 "Leaders: " + metaStorageRaftGrpSvc1.leader() + " " + metaStorageRaftGrpSvc2.leader() + " " + metaStorageRaftGrpSvc3
                         .leader());

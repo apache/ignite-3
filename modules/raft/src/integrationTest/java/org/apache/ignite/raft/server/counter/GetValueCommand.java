@@ -17,7 +17,7 @@
 
 package org.apache.ignite.raft.server.counter;
 
-import org.apache.ignite.raft.client.ReadCommand;
+import org.apache.ignite.internal.raft.ReadCommand;
 
 /**
  * Get a value command.

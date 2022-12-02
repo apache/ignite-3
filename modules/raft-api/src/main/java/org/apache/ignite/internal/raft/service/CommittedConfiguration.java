@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.raft.client.service;
+package org.apache.ignite.internal.raft.service;
 
 import java.util.List;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;

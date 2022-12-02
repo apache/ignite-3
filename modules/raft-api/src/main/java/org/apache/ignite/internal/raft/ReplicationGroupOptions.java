@@ -15,16 +15,34 @@
  * limitations under the License.
  */
 
-apply from: "$rootDir/buildscripts/java-core.gradle"
-apply from: "$rootDir/buildscripts/publishing.gradle"
-apply from: "$rootDir/buildscripts/java-junit5.gradle"
+package org.apache.ignite.internal.raft;
 
-description = 'ignite-raft-client'
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 
-dependencies {
-    implementation project(':ignite-core')
-    implementation project(':ignite-network-api')
-    implementation libs.jetbrains.annotations
-    testImplementation libs.mockito.junit
-    testImplementation libs.mockito.core
+/**
+ * Options that are specific for replication group.
+ */
+public class ReplicationGroupOptions {
+    /** Safe time. */
+    private PendingComparableValuesTracker<HybridTimestamp> safeTime;
+
+    /**
+     * Safe time.
+     */
+    public PendingComparableValuesTracker<HybridTimestamp> safeTime() {
+        return safeTime;
+    }
+
+    /**
+     * Set the safe time clock.
+     *
+     * @param safeTime Safe time.
+     * @return This, for chaining.
+     */
+    public ReplicationGroupOptions safeTime(PendingComparableValuesTracker<HybridTimestamp> safeTime) {
+        this.safeTime = safeTime;
+
+        return this;
+    }
 }

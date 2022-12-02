@@ -35,7 +35,7 @@
     <dependencies>
         <dependency>
             <groupId>org.apache.ignite</groupId>
-            <artifactId>ignite-raft-client</artifactId>
+            <artifactId>ignite-raft-api</artifactId>
         </dependency>
 
         <dependency>

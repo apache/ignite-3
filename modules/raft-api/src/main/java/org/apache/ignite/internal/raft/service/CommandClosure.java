@@ -15,10 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.raft.client.service;
+package org.apache.ignite.internal.raft.service;
 
 import java.io.Serializable;
-import org.apache.ignite.raft.client.Command;
+import org.apache.ignite.internal.raft.Command;
 import org.jetbrains.annotations.Nullable;
 
 /**

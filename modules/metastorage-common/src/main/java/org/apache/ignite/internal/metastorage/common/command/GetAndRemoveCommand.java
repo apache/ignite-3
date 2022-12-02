@@ -17,9 +17,9 @@
 
 package org.apache.ignite.internal.metastorage.common.command;
 
+import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
-import org.apache.ignite.raft.client.WriteCommand;
 
 /**
  * Get and remove command for MetaStorageCommandListener that removes an entry for the given key and retrieves a previous entry for the

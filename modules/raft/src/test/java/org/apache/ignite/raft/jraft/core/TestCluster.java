@@ -42,7 +42,7 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.raft.server.RaftGroupEventsListener;
+import org.apache.ignite.internal.raft.JraftGroupEventsListener;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
@@ -97,7 +97,7 @@ public class TestCluster {
 
     private LinkedHashSet<PeerId> learners;
 
-    private RaftGroupEventsListener raftGrpEvtsLsnr = RaftGroupEventsListener.noopLsnr;
+    private JraftGroupEventsListener raftGrpEvtsLsnr;
 
     public JRaftServiceFactory getRaftServiceFactory() {
         return this.raftServiceFactory;
@@ -357,11 +357,11 @@ public class TestCluster {
         IgniteUtils.deleteIfExists(path);
     }
 
-    public RaftGroupEventsListener getRaftGrpEvtsLsnr() {
+    public JraftGroupEventsListener getRaftGrpEvtsLsnr() {
         return raftGrpEvtsLsnr;
     }
 
-    public void setRaftGrpEvtsLsnr(RaftGroupEventsListener raftGrpEvtsLsnr) {
+    public void setRaftGrpEvtsLsnr(JraftGroupEventsListener raftGrpEvtsLsnr) {
         this.raftGrpEvtsLsnr = raftGrpEvtsLsnr;
     }
 

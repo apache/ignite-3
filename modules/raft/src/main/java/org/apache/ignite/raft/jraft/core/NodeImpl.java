@@ -38,8 +38,8 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
-import org.apache.ignite.raft.client.Peer;
+import org.apache.ignite.internal.raft.JraftGroupEventsListener;import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.FSMCaller;
 import org.apache.ignite.raft.jraft.FSMCaller.LastAppliedLogIndexListener;
@@ -458,11 +458,16 @@ public class NodeImpl implements Node, RaftServerService {
 
             if (this.done != null) {
                 Closure newDone = (Status status) -> {
-                    if (status.isOk()) {
-                        node.getOptions().getRaftGrpEvtsLsnr().onNewPeersConfigurationApplied(resultPeerIds, resultLearnerIds);
-                    } else {
-                        node.getOptions().getRaftGrpEvtsLsnr().onReconfigurationError(status, resultPeerIds, resultLearnerIds, node.getCurrentTerm());
+                    JraftGroupEventsListener listener = node.getOptions().getRaftGrpEvtsLsnr();
+
+                    if (listener != null) {
+                        if (status.isOk()) {
+                            listener.onNewPeersConfigurationApplied(resultPeerIds, resultLearnerIds);
+                        } else {
+                            listener.onReconfigurationError(status, resultPeerIds, resultLearnerIds, node.getCurrentTerm());
+                        }
                     }
+
                     oldDoneClosure.run(status);
                 };
 
@@ -2624,7 +2629,12 @@ public class NodeImpl implements Node, RaftServerService {
             Closure newDone = (Status status) -> {
                 // doOnNewPeersConfigurationApplied should be called, otherwise we could lose the callback invocation.
                 // For example, old leader failed just before an invocation of doOnNewPeersConfigurationApplied
-                this.getOptions().getRaftGrpEvtsLsnr().onNewPeersConfigurationApplied(newConf.getPeers(), newConf.getLearners());
+                JraftGroupEventsListener listener = this.getOptions().getRaftGrpEvtsLsnr();
+
+                if (listener != null) {
+                    listener.onNewPeersConfigurationApplied(newConf.getPeers(), newConf.getLearners());
+                }
+
                 done.run(status);
             };
             Utils.runClosureInThread(this.getOptions().getCommonExecutor(), newDone);

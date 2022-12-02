@@ -301,6 +301,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 name,
                 registry,
                 tblCfg,
+                clusterSvc,
                 raftMgr,
                 replicaMgr,
                 lockManager,

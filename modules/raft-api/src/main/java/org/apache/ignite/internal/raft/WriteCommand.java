@@ -15,30 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.raft.client.service;
-
-import org.apache.ignite.raft.client.Peer;
-import org.jetbrains.annotations.Nullable;
+package org.apache.ignite.internal.raft;
 
 /**
- * Class representing a Raft group leader and its term.
+ * A write command.
  */
-public class LeaderWithTerm {
-    @Nullable
-    private final Peer leader;
-
-    private final long term;
-
-    public LeaderWithTerm(@Nullable Peer leader, long term) {
-        this.leader = leader;
-        this.term = term;
-    }
-
-    public @Nullable Peer leader() {
-        return leader;
-    }
-
-    public long term() {
-        return term;
-    }
+public interface WriteCommand extends Command {
 }
