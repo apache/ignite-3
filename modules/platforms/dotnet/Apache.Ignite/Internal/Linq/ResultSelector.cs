@@ -48,6 +48,7 @@ internal static class ResultSelector
     public static RowReader<T> Get<T>(IReadOnlyList<IColumnMetadata> columns, Expression selectorExpression)
     {
         // TODO: IGNITE-18136 Replace reflection with emitted delegates.
+        // Anonymous type projections use a constructor call. But user-defined types can also be used with constructor call.
         if (selectorExpression is NewExpression newExpr)
         {
             // Constructor projections always require the same set of columns, so the constructor itself can be the cache key.
@@ -114,6 +115,11 @@ internal static class ResultSelector
 
         return (IReadOnlyList<IColumnMetadata> cols, ref BinaryTupleReader reader) =>
         {
+            if (cols.Count > 1)
+            {
+                throw new ArgumentException("FOO");
+            }
+
             var res = (T)FormatterServices.GetUninitializedObject(typeof(T));
 
             for (int i = 0; i < cols.Count; i++)
