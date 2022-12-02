@@ -22,12 +22,13 @@ import java.util.function.Consumer;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * DDL command option info.
+ * DDL option information for its processing.
  */
 class DdlCommandOptionInfo<S, T> {
     final Class<T> type;
 
-    @Nullable final Consumer<T> validator;
+    @Nullable
+    final Consumer<T> validator;
 
     final BiConsumer<S, T> setter;
 
@@ -38,7 +39,11 @@ class DdlCommandOptionInfo<S, T> {
      * @param validator DDL option value validator.
      * @param setter DDL option value updater.
      */
-    DdlCommandOptionInfo(Class<T> type, @Nullable Consumer<T> validator, BiConsumer<S, T> setter) {
+    DdlCommandOptionInfo(
+            Class<T> type,
+            @Nullable Consumer<T> validator,
+            BiConsumer<S, T> setter
+    ) {
         this.type = type;
         this.validator = validator;
         this.setter = setter;

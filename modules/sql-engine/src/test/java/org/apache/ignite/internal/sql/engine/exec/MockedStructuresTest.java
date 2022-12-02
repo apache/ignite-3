@@ -21,12 +21,10 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine.ENGINE_NAME;
 import static org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfigurationSchema.DEFAULT_DATA_REGION_NAME;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.hasCause;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
@@ -51,10 +49,6 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.configuration.testframework.InjectRevisionListenerHolder;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneView;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
-import org.apache.ignite.internal.distributionzones.exception.DistributionZoneAlreadyExistsException;
-import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNotFoundException;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -156,10 +150,6 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     @InjectConfiguration
     private TablesConfiguration tblsCfg;
 
-    /** Distribution zones configuration. */
-    @InjectConfiguration
-    private DistributionZonesConfiguration zonesCfg;
-
     TableManager tblManager;
 
     IndexManager idxManager;
@@ -178,6 +168,9 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
     @Mock
     private ConfigurationRegistry configRegistry;
+
+    @Mock
+    private DistributionZoneManager distributionZoneManager;
 
     DataStorageManager dataStorageManager;
 
@@ -259,7 +252,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 schemaManager,
                 dataStorageManager,
                 tm,
-                new DistributionZoneManager(zonesCfg),
+                distributionZoneManager,
                 () -> dataStorageModules.collectSchemasFields(
                         List.of(
                                 RocksDbDataStorageConfigurationSchema.class,
@@ -285,73 +278,6 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         when(itMock.hasNext()).thenReturn(false);
         when(msm.prefix(any())).thenReturn(cursorMocked);
         when(cursorMocked.iterator()).thenReturn(itMock);
-    }
-
-    @Test
-    public void testCreateZone() {
-        String mtdName = getCurrentMethodName();
-
-        String query = String.format("CREATE ZONE %s", mtdName);
-
-        // Create new distribution zone.
-        readFirst(queryProc.queryAsync("PUBLIC", query));
-        assertNotNull(zonesCfg.distributionZones().value().get(mtdName.toUpperCase()));
-
-        // Create distribution zone with existing name.
-        IgniteException ex = assertThrows(IgniteException.class, () -> readFirst(queryProc.queryAsync("PUBLIC", query)));
-        assertTrue(hasCause(ex, DistributionZoneAlreadyExistsException.class, null));
-
-        // Check ifNotExists flag.
-        readFirst(queryProc.queryAsync("PUBLIC", String.format("CREATE ZONE IF NOT EXISTS %s", mtdName)));
-    }
-
-    @Test
-    public void testCreateZoneOptions() {
-        String mtdName = getCurrentMethodName();
-
-        // Check for conflicting options.
-        String qry0 = String.format("CREATE ZONE %s WITH DATA_NODES_AUTO_ADJUST=10, DATA_NODES_AUTO_ADJUST_SCALE_UP=5", mtdName);
-        assertThrows(IllegalArgumentException.class, () -> readFirst(queryProc.queryAsync("PUBLIC", qry0)));
-
-        String qry1 = String.format("CREATE ZONE %s WITH DATA_NODES_AUTO_ADJUST_SCALE_DOWN=5, DATA_NODES_AUTO_ADJUST=10", mtdName);
-        assertThrows(IllegalArgumentException.class, () -> readFirst(queryProc.queryAsync("PUBLIC", qry1)));
-
-        // Check for non-conflicting options.
-        String zoneName1 = mtdName + "_1";
-        String zoneName2 = mtdName + "_2";
-
-        readFirst(queryProc.queryAsync("PUBLIC", String.format("CREATE ZONE %s WITH DATA_NODES_AUTO_ADJUST=5", zoneName1)));
-        readFirst(queryProc.queryAsync("PUBLIC", String.format(
-                "CREATE ZONE %s WITH DATA_NODES_AUTO_ADJUST_SCALE_UP=10, DATA_NODES_AUTO_ADJUST_SCALE_DOWN=5", zoneName2)));
-
-        DistributionZoneView zoneView1 = zonesCfg.distributionZones().value().get(zoneName1.toUpperCase());
-        DistributionZoneView zoneView2 = zonesCfg.distributionZones().value().get(zoneName2.toUpperCase());
-
-        assertNotNull(zoneView1);
-        assertNotNull(zoneView2);
-
-        assertThat(zoneView1.dataNodesAutoAdjust(), equalTo(5));
-        assertThat(zoneView2.dataNodesAutoAdjustScaleUp(), equalTo(10));
-        assertThat(zoneView2.dataNodesAutoAdjustScaleDown(), equalTo(5));
-
-    }
-
-    @Test
-    public void testDropZone() {
-        String mtdName = getCurrentMethodName();
-
-        String dropQuery = String.format("DROP ZONE %s", mtdName);
-
-        // Drop existing distribution zone.
-        readFirst(queryProc.queryAsync("PUBLIC", String.format("CREATE ZONE %s", mtdName)));
-        readFirst(queryProc.queryAsync("PUBLIC", dropQuery));
-
-        // Drop non-existing distribution zone.
-        IgniteException ex = assertThrows(IgniteException.class, () -> readFirst(queryProc.queryAsync("PUBLIC", dropQuery)));
-        assertTrue(hasCause(ex, DistributionZoneNotFoundException.class, null));
-
-        // Check ifExists flag.
-        readFirst(queryProc.queryAsync("PUBLIC", String.format("DROP ZONE IF EXISTS %s", mtdName)));
     }
 
     /**
@@ -392,7 +318,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         String finalNewTblSql3 = newTblSql;
 
-        assertDoesNotThrow(() -> readFirst(finalQueryProc.queryAsync("PUBLIC", finalNewTblSql3)));
+        assertDoesNotThrow(() -> await(finalQueryProc.queryAsync("PUBLIC", finalNewTblSql3).get(0)));
     }
 
     /**
