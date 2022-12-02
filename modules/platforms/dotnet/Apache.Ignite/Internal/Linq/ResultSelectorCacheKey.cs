@@ -24,49 +24,57 @@ using Ignite.Sql;
 /// <summary>
 /// Key for <see cref="ResultSelector"/> cached delegates. Equality logic is based on column types.
 /// </summary>
-internal readonly struct ResultSelectorCacheKey : IEquatable<ResultSelectorCacheKey>
+/// <typeparam name="T">Target type.</typeparam>
+internal readonly struct ResultSelectorCacheKey<T> : IEquatable<ResultSelectorCacheKey<T>>
+    where T : class
 {
-    private readonly IReadOnlyList<IColumnMetadata> _columns;
-
-    private readonly object _target;
-
     /// <summary>
-    /// Initializes a new instance of the <see cref="ResultSelectorCacheKey"/> struct.
+    /// Initializes a new instance of the <see cref="ResultSelectorCacheKey{T}"/> struct.
     /// </summary>
-    /// <param name="columns">Columns.</param>
     /// <param name="target">Target object (can be type, constructor, etc).</param>
-    public ResultSelectorCacheKey(IReadOnlyList<IColumnMetadata> columns, object target)
+    /// <param name="columns">Columns.</param>
+    public ResultSelectorCacheKey(T target, IReadOnlyList<IColumnMetadata> columns)
     {
-        _columns = columns;
-        _target = target;
+        Target = target;
+        Columns = columns;
     }
 
-    public static bool operator ==(ResultSelectorCacheKey left, ResultSelectorCacheKey right)
+    /// <summary>
+    /// Gets columns.
+    /// </summary>
+    public IReadOnlyList<IColumnMetadata> Columns { get; }
+
+    /// <summary>
+    /// Gets target object (can be type, constructor, etc).
+    /// </summary>
+    public T Target { get; }
+
+    public static bool operator ==(ResultSelectorCacheKey<T> left, ResultSelectorCacheKey<T> right)
     {
         return left.Equals(right);
     }
 
-    public static bool operator !=(ResultSelectorCacheKey left, ResultSelectorCacheKey right)
+    public static bool operator !=(ResultSelectorCacheKey<T> left, ResultSelectorCacheKey<T> right)
     {
         return !(left == right);
     }
 
     /// <inheritdoc/>
-    public bool Equals(ResultSelectorCacheKey other)
+    public bool Equals(ResultSelectorCacheKey<T> other)
     {
-        if (_target != other._target)
+        if (Target != other.Target)
         {
             return false;
         }
 
-        if (_columns.Count != other._columns.Count)
+        if (Columns.Count != other.Columns.Count)
         {
             return false;
         }
 
-        for (var i = 0; i < _columns.Count; i++)
+        for (var i = 0; i < Columns.Count; i++)
         {
-            if (_columns[i].Type != other._columns[i].Type)
+            if (Columns[i].Type != other.Columns[i].Type)
             {
                 return false;
             }
@@ -77,16 +85,16 @@ internal readonly struct ResultSelectorCacheKey : IEquatable<ResultSelectorCache
 
     /// <inheritdoc/>
     public override bool Equals(object? obj) =>
-        obj is ResultSelectorCacheKey other && Equals(other);
+        obj is ResultSelectorCacheKey<T> other && Equals(other);
 
     /// <inheritdoc/>
     public override int GetHashCode()
     {
         HashCode hash = default;
 
-        hash.Add(_target);
+        hash.Add(Target);
 
-        foreach (var column in _columns)
+        foreach (var column in Columns)
         {
             hash.Add(column.Type);
         }

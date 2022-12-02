@@ -37,7 +37,7 @@ using Table.Serialization;
 /// </summary>
 internal static class ResultSelector
 {
-    private static readonly ConcurrentDictionary<ConstructorInfo, object> CtorCache = new();
+    private static readonly ConcurrentDictionary<ResultSelectorCacheKey<ConstructorInfo>, object> CtorCache = new();
 
     /// <summary>
     /// Gets the result selector.
@@ -52,10 +52,10 @@ internal static class ResultSelector
         // Anonymous type projections use a constructor call. But user-defined types can also be used with constructor call.
         if (selectorExpression is NewExpression newExpr)
         {
-            // Constructor projections always require the same set of columns, so the constructor itself can be the cache key.
             var ctorInfo = newExpr.Constructor!;
+            var cacheKey = new ResultSelectorCacheKey<ConstructorInfo>(ctorInfo, columns);
 
-            return (RowReader<T>)CtorCache.GetOrAdd(ctorInfo, static (ctor, cols) => EmitConstructorReader<T>(ctor, cols), columns);
+            return (RowReader<T>)CtorCache.GetOrAdd(cacheKey, static k => EmitConstructorReader<T>(k.Target, k.Columns));
         }
 
         if (columns.Count == 1 && typeof(T).ToSqlColumnType() is not null)
