@@ -198,7 +198,7 @@ public class HeapLockManager implements LockManager {
             }
 
             // Notify outside the monitor.
-            // TODO reusing same waiter for multiple acquisitions can lead to races due to future rewrite outside of synchronized section
+            // TODO IGNITE-18316 possible races
             if (waiterNotification.waiterNotificationType != WaiterNotificationType.NONE) {
                 waiter.notifyWaiter();
             }
@@ -303,7 +303,7 @@ public class HeapLockManager implements LockManager {
             }
 
             // Notify outside the monitor.
-            // TODO reusing same waiter for multiple acquisitions can lead to races due to future rewrite outside of synchronized section
+            // TODO IGNITE-18316 possible races
             for (WaiterImpl waiter : toNotify) {
                 waiter.notifyWaiter();
             }
@@ -339,7 +339,7 @@ public class HeapLockManager implements LockManager {
             }
 
             // Notify outside the monitor.
-            // TODO reusing same waiter for multiple acquisitions can lead to races due to future rewrite outside of synchronized section
+            // TODO IGNITE-18316 possible races
             for (WaiterImpl waiter : toNotify) {
                 waiter.notifyWaiter();
             }
