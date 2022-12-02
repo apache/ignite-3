@@ -95,11 +95,6 @@ internal static class ResultSelector
 
         return (IReadOnlyList<IColumnMetadata> cols, ref BinaryTupleReader reader) =>
         {
-            if (cols.Count > 1)
-            {
-                throw new ArgumentException("FOO");
-            }
-
             var res = (T)FormatterServices.GetUninitializedObject(typeof(T));
 
             for (int i = 0; i < cols.Count; i++)
@@ -127,11 +122,16 @@ internal static class ResultSelector
         }
     }
 
+    private static KeyValuePair<int, long> Test(IReadOnlyList<IColumnMetadata> cols, ref BinaryTupleReader reader)
+    {
+        return new KeyValuePair<int, long>(reader.GetInt(0), reader.GetLong(1));
+    }
+
     private static RowReader<T> EmitConstructorReader<T>(ConstructorInfo ctorInfo)
     {
         var method = new DynamicMethod(
             name: "ConstructFromBinaryTupleReader_" + ctorInfo.DeclaringType!.Name,
-            returnType: typeof(void),
+            returnType: typeof(T),
             parameterTypes: new[] { typeof(IReadOnlyList<IColumnMetadata>), typeof(BinaryTupleReader).MakeByRefType() },
             m: typeof(IIgnite).Module,
             skipVisibility: true);
@@ -141,35 +141,17 @@ internal static class ResultSelector
 
         for (var index = 0; index < ctorParams.Length; index++)
         {
+            // TODO: handle decimal scale - get from column.
             var param = ctorParams[index];
             il.Emit(OpCodes.Ldarg_1); // Reader.
+            il.Emit(OpCodes.Ldc_I4, index); // Index.
 
-            il.Emit(OpCodes.Ldc_I4, index);
             il.Emit(OpCodes.Call, BinaryTupleMethods.GetReadMethod(param.ParameterType));
         }
 
-        il.Emit(OpCodes.Call, ctorInfo);
+        il.Emit(OpCodes.Newobj, ctorInfo);
         il.Emit(OpCodes.Ret);
 
         return (RowReader<T>)method.CreateDelegate(typeof(RowReader<T>));
-
-        /*
-        return (IReadOnlyList<IColumnMetadata> cols, ref BinaryTupleReader reader) =>
-        {
-            var args = new object?[cols.Count];
-
-            for (int i = 0; i < cols.Count; i++)
-            {
-                var val = Sql.ReadColumnValue(ref reader, cols[i], i);
-
-                // if (val != null)
-                // {
-                //     val = Convert.ChangeType(val, newExpr.Arguments[i].Type, CultureInfo.InvariantCulture);
-                // }
-                args[i] = val;
-            }
-
-            return (T)ctorInfo.Invoke(args);
-        };*/
     }
 }
