@@ -26,6 +26,7 @@ using System.Reflection;
 using System.Reflection.Emit;
 using System.Runtime.Serialization;
 using Ignite.Sql;
+using Proto;
 using Proto.BinaryTuple;
 using Remotion.Linq.Clauses;
 using Remotion.Linq.Clauses.Expressions;
@@ -142,7 +143,6 @@ internal static class ResultSelector
 
         for (var index = 0; index < ctorParams.Length; index++)
         {
-            // TODO: handle decimal scale - get from column.
             // TODO IGNITE-18329 handle nulls.
             // But this screws up outer joins.
             var param = ctorParams[index];
@@ -150,6 +150,12 @@ internal static class ResultSelector
 
             il.Emit(OpCodes.Ldarg_1); // Reader.
             il.Emit(OpCodes.Ldc_I4, index); // Index.
+
+            if (col.Type == SqlColumnType.Decimal)
+            {
+                // TODO: Test for this.
+                il.Emit(OpCodes.Ldc_I4, col.Scale);
+            }
 
             var colType = col.Type.ToClrType();
             il.Emit(OpCodes.Call, BinaryTupleMethods.GetReadMethod(colType));
