@@ -24,7 +24,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * DDL option information for its processing.
  */
-class DdlCommandOptionInfo<S, T> {
+class DdlOptionInfo<S, T> {
     final Class<T> type;
 
     @Nullable
@@ -39,7 +39,7 @@ class DdlCommandOptionInfo<S, T> {
      * @param validator DDL option value validator.
      * @param setter DDL option value updater.
      */
-    DdlCommandOptionInfo(
+    DdlOptionInfo(
             Class<T> type,
             @Nullable Consumer<T> validator,
             BiConsumer<S, T> setter

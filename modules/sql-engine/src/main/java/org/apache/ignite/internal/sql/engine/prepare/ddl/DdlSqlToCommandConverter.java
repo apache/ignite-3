@@ -107,14 +107,14 @@ public class DdlSqlToCommandConverter {
      */
     private final Map<String, String> dataStorageNames;
 
-    /** Mapping: Table option ID -> DDL command updater. */
-    private final Map<String, DdlCommandOptionInfo<CreateTableCommand, ?>> tableOptionUpdaters;
+    /** Mapping: Table option ID -> DDL option info. */
+    private final Map<String, DdlOptionInfo<CreateTableCommand, ?>> tableOptionUpdaters;
 
     /** Like {@link #tableOptionUpdaters}, but for each data storage name. */
-    private final Map<String, Map<String, DdlCommandOptionInfo<CreateTableCommand, ?>>> dataStorageOptionUpdaters;
+    private final Map<String, Map<String, DdlOptionInfo<CreateTableCommand, ?>>> dataStorageOptionUpdaters;
 
-    /** Mapping: Zone option ID -> DDL command updater. */
-    private final Map<IgniteSqlCreateZoneOptionEnum, DdlCommandOptionInfo<CreateZoneCommand, ?>> zoneOptionUpdaters;
+    /** Mapping: Zone option ID -> DDL option info. */
+    private final Map<IgniteSqlCreateZoneOptionEnum, DdlOptionInfo<CreateZoneCommand, ?>> zoneOptionUpdaters;
 
     /**
      * Constructor.
@@ -127,11 +127,12 @@ public class DdlSqlToCommandConverter {
             Supplier<String> defaultDataStorageSupplier
     ) {
         this.defaultDataStorageSupplier = defaultDataStorageSupplier;
+
         this.dataStorageNames = collectDataStorageNames(dataStorageFields.keySet());
 
         this.tableOptionUpdaters = Map.of(
-                REPLICAS.name(), new DdlCommandOptionInfo<>(Integer.class, this::checkPositiveNumber, CreateTableCommand::replicas),
-                PARTITIONS.name(), new DdlCommandOptionInfo<>(Integer.class, this::checkPositiveNumber, CreateTableCommand::partitions)
+                REPLICAS.name(), new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, CreateTableCommand::replicas),
+                PARTITIONS.name(), new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, CreateTableCommand::partitions)
         );
 
         this.dataStorageOptionUpdaters = dataStorageFields.entrySet()
@@ -147,17 +148,17 @@ public class DdlSqlToCommandConverter {
 
         // Create zone options.
         zoneOptionUpdaters = Map.of(
-                REPLICAS, new DdlCommandOptionInfo<>(Integer.class, this::checkPositiveNumber, CreateZoneCommand::replicas),
-                PARTITIONS, new DdlCommandOptionInfo<>(Integer.class, this::checkPositiveNumber, CreateZoneCommand::partitions),
-                AFFINITY_FUNCTION, new DdlCommandOptionInfo<>(String.class, null, CreateZoneCommand::affinity),
-                DATA_NODES_FILTER, new DdlCommandOptionInfo<>(String.class, null, CreateZoneCommand::nodeFilter),
+                REPLICAS, new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, CreateZoneCommand::replicas),
+                PARTITIONS, new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, CreateZoneCommand::partitions),
+                AFFINITY_FUNCTION, new DdlOptionInfo<>(String.class, null, CreateZoneCommand::affinity),
+                DATA_NODES_FILTER, new DdlOptionInfo<>(String.class, null, CreateZoneCommand::nodeFilter),
 
                 DATA_NODES_AUTO_ADJUST,
-                    new DdlCommandOptionInfo<>(Integer.class, this::checkPositiveNumber, CreateZoneCommand::dataNodesAutoAdjust),
+                    new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, CreateZoneCommand::dataNodesAutoAdjust),
                 DATA_NODES_AUTO_ADJUST_SCALE_UP,
-                    new DdlCommandOptionInfo<>(Integer.class, this::checkPositiveNumber, CreateZoneCommand::dataNodesAutoAdjustScaleUp),
+                    new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, CreateZoneCommand::dataNodesAutoAdjustScaleUp),
                 DATA_NODES_AUTO_ADJUST_SCALE_DOWN,
-                    new DdlCommandOptionInfo<>(Integer.class, this::checkPositiveNumber, CreateZoneCommand::dataNodesAutoAdjustScaleDown)
+                    new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, CreateZoneCommand::dataNodesAutoAdjustScaleDown)
         );
     }
 
@@ -227,7 +228,7 @@ public class DdlSqlToCommandConverter {
 
                 String optionKey = option.key().getSimple().toUpperCase();
 
-                DdlCommandOptionInfo<CreateTableCommand, ?> tblOptionInfo = tableOptionUpdaters.get(optionKey);
+                DdlOptionInfo<CreateTableCommand, ?> tblOptionInfo = tableOptionUpdaters.get(optionKey);
 
                 if (tblOptionInfo == null) {
                     tblOptionInfo = dataStorageOptionUpdaters.get(createTblCmd.dataStorage()).get(optionKey);
@@ -498,7 +499,7 @@ public class DdlSqlToCommandConverter {
                         String.format("Duplicate DDL command option specified [option=%s, query=%s]", optionName, ctx.query()));
             }
 
-            DdlCommandOptionInfo<CreateZoneCommand, ?> zoneOptionInfo = zoneOptionUpdaters.get(optionName);
+            DdlOptionInfo<CreateZoneCommand, ?> zoneOptionInfo = zoneOptionUpdaters.get(optionName);
 
             assert zoneOptionInfo != null : optionName;
             assert option.value() instanceof SqlLiteral : option.value();
@@ -622,7 +623,7 @@ public class DdlSqlToCommandConverter {
         return dataStorageNames.get(dataStorage);
     }
 
-    private <S, T> void updateCommandOption(Object name, SqlLiteral value, DdlCommandOptionInfo<S, T> optInfo, String query, S target) {
+    private <S, T> void updateCommandOption(Object name, SqlLiteral value, DdlOptionInfo<S, T> optInfo, String query, S target) {
         T value0;
 
         try {
@@ -658,10 +659,10 @@ public class DdlSqlToCommandConverter {
         }
     }
 
-    private Entry<String, DdlCommandOptionInfo<CreateTableCommand, ?>> dataStorageFieldOptionInfo(Entry<String, Class<?>> e) {
+    private Entry<String, DdlOptionInfo<CreateTableCommand, ?>> dataStorageFieldOptionInfo(Entry<String, Class<?>> e) {
         return new SimpleEntry<>(
                 e.getKey(),
-                new DdlCommandOptionInfo<>(e.getValue(), null, (cmd, o) -> cmd.addDataStorageOption(e.getKey(), o))
+                new DdlOptionInfo<>(e.getValue(), null, (cmd, o) -> cmd.addDataStorageOption(e.getKey(), o))
         );
     }
 
