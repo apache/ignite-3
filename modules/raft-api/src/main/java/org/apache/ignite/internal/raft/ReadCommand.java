@@ -15,34 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.raft.server;
-
-import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.util.PendingComparableValuesTracker;
+package org.apache.ignite.internal.raft;
 
 /**
- * Options that are specific for replication group.
+ * A read command.
  */
-public class ReplicationGroupOptions {
-    /** Safe time. */
-    private PendingComparableValuesTracker<HybridTimestamp> safeTime;
-
-    /**
-     * Safe time.
-     */
-    public PendingComparableValuesTracker<HybridTimestamp> safeTime() {
-        return safeTime;
-    }
-
-    /**
-     * Set the safe time clock.
-     *
-     * @param safeTime Safe time.
-     * @return This, for chaining.
-     */
-    public ReplicationGroupOptions safeTime(PendingComparableValuesTracker<HybridTimestamp> safeTime) {
-        this.safeTime = safeTime;
-
-        return this;
-    }
+public interface ReadCommand extends Command {
 }

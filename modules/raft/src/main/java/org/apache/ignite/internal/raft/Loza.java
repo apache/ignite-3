@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.raft;
 
-import static org.apache.ignite.internal.raft.server.RaftGroupEventsListener.noopLsnr;
+import static org.apache.ignite.internal.raft.RaftGroupEventsListener.noopLsnr;
 
 import java.nio.file.Path;
 import java.util.Collection;
@@ -34,13 +34,13 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.configuration.VolatileRaftConfiguration;
-import org.apache.ignite.internal.raft.server.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
+import org.apache.ignite.internal.raft.service.RaftGroupListener;
+import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -52,9 +52,6 @@ import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.TopologyService;
-import org.apache.ignite.raft.client.Peer;
-import org.apache.ignite.raft.client.service.RaftGroupListener;
-import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.util.Utils;
@@ -64,7 +61,9 @@ import org.jetbrains.annotations.TestOnly;
 /**
  * Best raft manager ever since 1982.
  */
-public class Loza implements IgniteComponent {
+// TODO: Encapsulate RaftGroupOptions and move other methods to the RaftManager interface,
+//  see https://issues.apache.org/jira/browse/IGNITE-18273
+public class Loza implements RaftManager {
     /** Factory. */
     private static final RaftMessagesFactory FACTORY = new RaftMessagesFactory();
 
@@ -167,6 +166,28 @@ public class Loza implements IgniteComponent {
         IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
 
         raftServer.stop();
+    }
+
+    @Override
+    public CompletableFuture<RaftGroupService> prepareRaftGroup(
+            ReplicationGroupId groupId,
+            Collection<String> nodeConsistentIds,
+            Supplier<RaftGroupListener> lsnrSupplier
+    ) throws NodeStoppingException {
+        return prepareRaftGroup(groupId, nodeConsistentIds, lsnrSupplier, RaftGroupOptions.defaults());
+    }
+
+    @Override
+    public CompletableFuture<RaftGroupService> prepareRaftGroup(
+            ReplicationGroupId groupId,
+            Collection<String> nodeConsistentIds,
+            Collection<String> learnerConsistentIds,
+            Supplier<RaftGroupListener> lsnrSupplier,
+            Supplier<RaftGroupEventsListener> raftGrpEvtsLsnrSupplier
+    ) throws NodeStoppingException {
+        return prepareRaftGroup(
+                groupId, nodeConsistentIds, learnerConsistentIds, lsnrSupplier, raftGrpEvtsLsnrSupplier, RaftGroupOptions.defaults()
+        );
     }
 
     /**
@@ -307,6 +328,7 @@ public class Loza implements IgniteComponent {
      * @return Future that will be completed with an instance of RAFT group service.
      * @throws NodeStoppingException If node stopping intention was detected.
      */
+    @Override
     public CompletableFuture<RaftGroupService> startRaftGroupService(
             ReplicationGroupId grpId,
             Collection<String> peerConsistentIds,
@@ -378,6 +400,7 @@ public class Loza implements IgniteComponent {
      * @param groupId Raft group id.
      * @throws NodeStoppingException If node stopping intention was detected.
      */
+    @Override
     public void stopRaftGroup(ReplicationGroupId groupId) throws NodeStoppingException {
         if (!busyLock.enterBusy()) {
             throw new NodeStoppingException();

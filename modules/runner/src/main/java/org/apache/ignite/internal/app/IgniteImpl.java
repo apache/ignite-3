@@ -393,6 +393,7 @@ public class IgniteImpl implements Ignite {
                 name,
                 registry,
                 tablesConfiguration,
+                clusterSvc,
                 raftMgr,
                 replicaMgr,
                 lockMgr,

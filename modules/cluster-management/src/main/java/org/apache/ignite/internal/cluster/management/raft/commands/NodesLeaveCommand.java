@@ -19,9 +19,9 @@ package org.apache.ignite.internal.cluster.management.raft.commands;
 
 import java.util.Set;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessageGroup;
+import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
-import org.apache.ignite.raft.client.WriteCommand;
 
 /**
  * Command that gets executed when nodes need to be removed from the logical topology.

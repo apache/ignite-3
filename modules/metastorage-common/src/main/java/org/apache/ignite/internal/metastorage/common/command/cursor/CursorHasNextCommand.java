@@ -18,10 +18,10 @@
 package org.apache.ignite.internal.metastorage.common.command.cursor;
 
 import org.apache.ignite.internal.metastorage.common.command.MetastorageCommandsMessageGroup;
+import org.apache.ignite.internal.raft.ReadCommand;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
-import org.apache.ignite.raft.client.ReadCommand;
 
 /**
  * Cursor {@code hasNext} command for MetaStorageCommandListener that checks whether next element is available.

@@ -15,12 +15,30 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.raft.client;
+package org.apache.ignite.internal.raft.service;
 
-import java.io.Serializable;
+import org.apache.ignite.internal.raft.Peer;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * A marker interface for replication group command.
+ * Class representing a Raft group leader and its term.
  */
-public interface Command extends Serializable {
+public class LeaderWithTerm {
+    @Nullable
+    private final Peer leader;
+
+    private final long term;
+
+    public LeaderWithTerm(@Nullable Peer leader, long term) {
+        this.leader = leader;
+        this.term = term;
+    }
+
+    public @Nullable Peer leader() {
+        return leader;
+    }
+
+    public long term() {
+        return term;
+    }
 }

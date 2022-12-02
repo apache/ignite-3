@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.raft;
+package org.apache.ignite.internal.raft;
 
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.raft.jraft.core.NodeImpl.LEADER_STEPPED_DOWN;
@@ -32,7 +32,6 @@ import static org.mockito.Mockito.when;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.raft.server.RaftGroupEventsListener;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.util.DirectExecutor;
 import org.apache.ignite.raft.jraft.Closure;
@@ -41,16 +40,16 @@ import org.apache.ignite.raft.jraft.core.NodeImpl;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.junit.jupiter.api.Test;
 
-class RebalanceRaftGroupEventsListenerTest {
+class JraftGroupEventsListenerTest {
     /**
-     * Tests that {@link RebalanceRaftGroupEventsListener} handles correctly a situation when
+     * Tests that {@link JraftGroupEventsListener} handles correctly a situation when
      * ConfigurationCtx#reset is called with null status.
      *
      * @throws Exception If failed.
      */
     @Test
     void testOnReconfigurationErrorCalledFromResetWithNullStatus() throws Exception {
-        RaftGroupEventsListener listener = mock(RebalanceRaftGroupEventsListener.class);
+        JraftGroupEventsListener listener = mock(JraftGroupEventsListener.class);
 
         NodeImpl node = mock(NodeImpl.class);
 

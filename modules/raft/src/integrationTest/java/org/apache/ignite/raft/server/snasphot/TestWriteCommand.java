@@ -17,7 +17,7 @@
 
 package org.apache.ignite.raft.server.snasphot;
 
-import org.apache.ignite.raft.client.WriteCommand;
+import org.apache.ignite.internal.raft.WriteCommand;
 
 /**
  * Test write command.

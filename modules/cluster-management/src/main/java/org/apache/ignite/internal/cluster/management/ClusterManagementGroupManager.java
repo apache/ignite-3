@@ -55,9 +55,10 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
-import org.apache.ignite.internal.raft.Loza;
-import org.apache.ignite.internal.raft.server.RaftGroupEventsListener;
-import org.apache.ignite.internal.raft.server.RaftGroupOptions;
+import org.apache.ignite.internal.raft.Peer;
+import org.apache.ignite.internal.raft.RaftGroupEventsListener;
+import org.apache.ignite.internal.raft.RaftManager;
+import org.apache.ignite.internal.raft.Status;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -69,8 +70,6 @@ import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.TopologyEventHandler;
 import org.apache.ignite.network.TopologyService;
-import org.apache.ignite.raft.jraft.Status;
-import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -114,7 +113,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
 
     private final ClusterService clusterService;
 
-    private final Loza raftManager;
+    private final RaftManager raftManager;
 
     private final ClusterStateStorage clusterStateStorage;
 
@@ -130,7 +129,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
     public ClusterManagementGroupManager(
             VaultManager vault,
             ClusterService clusterService,
-            Loza raftManager,
+            RaftManager raftManager,
             ClusterStateStorage clusterStateStorage,
             LogicalTopology logicalTopology
     ) {
@@ -486,8 +485,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                             nodeNames,
                             learnerConsistentIds,
                             () -> new CmgRaftGroupListener(clusterStateStorage, logicalTopology, this::onLogicalTopologyChanged),
-                            this::createCmgRaftGroupEventsListener,
-                            RaftGroupOptions.defaults()
+                            this::createCmgRaftGroupEventsListener
                     )
                     .thenApply(service -> new CmgRaftService(service, clusterService, logicalTopology));
         } catch (Exception e) {
@@ -522,12 +520,12 @@ public class ClusterManagementGroupManager implements IgniteComponent {
             }
 
             @Override
-            public void onNewPeersConfigurationApplied(Collection<PeerId> peers, Collection<PeerId> learners) {
+            public void onNewPeersConfigurationApplied(Collection<Peer> peers, Collection<Peer> learners) {
                 // No-op.
             }
 
             @Override
-            public void onReconfigurationError(Status status, Collection<PeerId> peers, Collection<PeerId> learners, long term) {
+            public void onReconfigurationError(Status status, Collection<Peer> peers, Collection<Peer> learners, long term) {
                 // No-op.
             }
         };

@@ -17,10 +17,10 @@
 
 package org.apache.ignite.internal.metastorage.common.command;
 
+import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
-import org.apache.ignite.raft.client.WriteCommand;
 
 /**
  * Range command for MetaStorageCommandListener that retrieves entries for the given key range in lexicographic order. Entries will be

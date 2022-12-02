@@ -19,8 +19,8 @@ package org.apache.ignite.distributed;
 
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
-import static org.apache.ignite.raft.jraft.test.TestUtils.waitForTopology;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.findLocalAddresses;
+import static org.apache.ignite.utils.ClusterServiceTestUtils.waitForTopology;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -51,10 +51,11 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.RaftGroupServiceImpl;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
-import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
+import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
@@ -96,8 +97,6 @@ import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NodeFinder;
 import org.apache.ignite.network.StaticNodeFinder;
-import org.apache.ignite.raft.client.Peer;
-import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.tx.Transaction;
@@ -422,8 +421,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                                 txManagers.get(assignment),
                                 () -> Map.of(pkStorage.get().id(), pkStorage.get()),
                                 partId
-                        ),
-                        RaftGroupOptions.defaults()
+                        )
                 ).thenAccept(
                         raftSvc -> {
                             try {
@@ -469,7 +467,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 clients.put(p, service);
             } else {
                 // Create temporary client to find a leader address.
-                ClusterService tmpSvc = raftServers.values().stream().findFirst().get().service();
+                ClusterService tmpSvc = cluster.get(0);
 
                 RaftGroupService service = RaftGroupServiceImpl
                         .start(grpId, tmpSvc, FACTORY, 10_000, conf, true, 200, executor)
@@ -479,10 +477,13 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
                 service.shutdown();
 
-                Loza leaderSrv = raftServers.get(leader.consistentId());
+                ClusterService leaderSrv = cluster.stream()
+                        .filter(cluster -> cluster.topologyService().localMember().name().equals(leader.consistentId()))
+                        .findAny()
+                        .orElseThrow();
 
                 RaftGroupService leaderClusterSvc = RaftGroupServiceImpl
-                        .start(grpId, leaderSrv.service(), FACTORY,
+                        .start(grpId, leaderSrv, FACTORY,
                                 10_000, conf, true, 200, executor).get(5, TimeUnit.SECONDS);
 
                 clients.put(p, leaderClusterSvc);

@@ -15,10 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.raft.client;
+package org.apache.ignite.internal.raft;
 
 /**
- * A read command.
+ * Raft error code.
  */
-public interface ReadCommand extends Command {
+public enum RaftError {
+    /** Success, no error. */
+    SUCCESS,
+
+    /** Catchup failed. */
+    ECATCHUP,
+
+    /** Permission issue. */
+    EPERM,
+
+    /** Other issues. */
+    OTHER
 }
