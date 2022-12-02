@@ -127,7 +127,6 @@ public class DeadlockPreventionTest {
 
         commitTx(tx3);
 
-        // TODO correctness
         assertThat(futTx1, willSucceedFast());
 
         assertThrowsLockException(() -> futTx2);

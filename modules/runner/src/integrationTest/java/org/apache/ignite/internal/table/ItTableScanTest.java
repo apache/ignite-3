@@ -180,7 +180,6 @@ public class ItTableScanTest extends AbstractBasicIntegrationTest {
     }
 
     @Test
-    @Disabled("IGNITE-18294 Multiple lock intentions support")
     public void testUpsertAllDuringPureTableScan() throws Exception {
         pureTableScan(tx -> {
             TableImpl table = getOrCreateTable();
@@ -225,7 +224,6 @@ public class ItTableScanTest extends AbstractBasicIntegrationTest {
     }
 
     @Test
-    @Disabled("IGNITE-18294 Multiple lock intentions support")
     public void testInsertAllDuringPureTableScan() throws Exception {
         pureTableScan(tx -> {
             TableImpl table = getOrCreateTable();
@@ -307,7 +305,6 @@ public class ItTableScanTest extends AbstractBasicIntegrationTest {
     }
 
     @Test
-    @Disabled("IGNITE-18294 Multiple lock intentions support")
     public void testDeleteAllDuringPureTableScan() throws Exception {
         pureTableScan(tx -> {
             TableImpl table = getOrCreateTable();
@@ -341,7 +338,7 @@ public class ItTableScanTest extends AbstractBasicIntegrationTest {
     }
 
     @Test
-    @Disabled("IGNITE-18299 Value comparison in table operations IGNITE-18294 Multiple lock intentions support")
+    @Disabled("IGNITE-18299 Value comparison in table operations")
     public void testDeleteAllExactDuringPureTableScan() throws Exception {
         pureTableScan(tx -> {
             TableImpl table = getOrCreateTable();

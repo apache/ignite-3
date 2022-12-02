@@ -435,22 +435,6 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
         var futUpd2 = table2.upsertAllAsync(tx1, rows2);
 
-        assertTrue(IgniteTestUtils.waitForCondition(() -> {
-            boolean lockUpgraded = false;
-
-            for (Iterator<Lock> it = txManager(accounts).lockManager().locks(tx1.id()); it.hasNext(); ) {
-                Lock lock = it.next();
-
-                lockUpgraded = lock.lockMode() == LockMode.X;
-
-                if (lockUpgraded) {
-                    break;
-                }
-            }
-
-            return lockUpgraded;
-        }, 3000));
-
         assertFalse(futUpd2.isDone());
 
         assertThrowsWithCause(() -> table.upsertAll(tx2, rows), LockException.class);
