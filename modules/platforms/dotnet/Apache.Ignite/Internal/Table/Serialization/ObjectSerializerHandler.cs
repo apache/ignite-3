@@ -493,6 +493,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 EmitLdcI4(il, col.Scale);
             }
 
+            // TODO: Nullable values are not handled?
             il.Emit(OpCodes.Call, readMethod);
             il.Emit(OpCodes.Stfld, fieldInfo); // res.field = value
         }
