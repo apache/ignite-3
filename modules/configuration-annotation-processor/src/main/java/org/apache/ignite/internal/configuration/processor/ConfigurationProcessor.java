@@ -82,6 +82,7 @@ import org.apache.ignite.configuration.annotation.InternalId;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.PolymorphicConfig;
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
+import org.apache.ignite.configuration.annotation.PolymorphicConfigIntermediary;
 import org.apache.ignite.configuration.annotation.PolymorphicId;
 import org.apache.ignite.configuration.annotation.Value;
 import org.jetbrains.annotations.Nullable;
@@ -235,6 +236,8 @@ public class ConfigurationProcessor extends AbstractProcessor {
             // Is a polymorphic configuration.
             boolean isPolymorphicConfig = clazz.getAnnotation(PolymorphicConfig.class) != null;
 
+            boolean extendsPolymorphicConfig = nonObjectTopMostAncestor(clazz).getAnnotation(PolymorphicConfig.class) != null;
+
             // Is an instance of a polymorphic configuration.
             boolean isPolymorphicInstance = clazz.getAnnotation(PolymorphicConfigInstance.class) != null;
 
@@ -243,7 +246,7 @@ public class ConfigurationProcessor extends AbstractProcessor {
                     fields,
                     schemaClassName,
                     configurationInterfaceBuilder,
-                    (isInternalConfig && !isRootConfig) || isPolymorphicInstance,
+                    (isInternalConfig && !isRootConfig) || (extendsPolymorphicConfig && !isPolymorphicConfig),
                     clazz,
                     isPolymorphicConfig,
                     isPolymorphicInstance
@@ -722,9 +725,11 @@ public class ConfigurationProcessor extends AbstractProcessor {
 
         checkExistSuperClass(clazz, PolymorphicConfigInstance.class);
 
-        TypeElement superClazz = superClass(clazz);
+        TypeElement rootClazz = nonObjectTopMostAncestor(clazz);
 
-        checkSuperclassContainAnyAnnotation(clazz, superClazz, PolymorphicConfig.class);
+        checkSuperclassContainAnyAnnotation(clazz, rootClazz, PolymorphicConfig.class);
+
+        TypeElement superClazz = superClass(clazz);
 
         checkNoConflictFieldNames(clazz, superClazz, fields, fields(superClazz));
     }
@@ -750,6 +755,7 @@ public class ConfigurationProcessor extends AbstractProcessor {
                 ConfigurationRoot.class,
                 InternalConfiguration.class,
                 PolymorphicConfig.class,
+                PolymorphicConfigIntermediary.class,
                 PolymorphicConfigInstance.class,
                 AbstractConfiguration.class
         );
@@ -762,6 +768,29 @@ public class ConfigurationProcessor extends AbstractProcessor {
      */
     private TypeElement superClass(TypeElement clazz) {
         return processingEnv.getElementUtils().getTypeElement(clazz.getSuperclass().toString());
+    }
+
+    /**
+     * Gets the top-most ancestor that is not Object.
+     *
+     * @param clazz Class type.
+     */
+    private TypeElement nonObjectTopMostAncestor(TypeElement clazz) {
+        TypeElement objectType = processingEnv.getElementUtils().getTypeElement("java.lang.Object");
+
+        TypeElement currentType = clazz;
+        while (currentType.getSuperclass() != null) {
+            TypeMirror superClass = currentType.getSuperclass();
+            TypeElement superType = processingEnv.getElementUtils().getTypeElement(superClass.toString());
+
+            if (superType.equals(objectType)) {
+                return currentType;
+            }
+
+            currentType = superType;
+        }
+
+        return currentType;
     }
 
     /**

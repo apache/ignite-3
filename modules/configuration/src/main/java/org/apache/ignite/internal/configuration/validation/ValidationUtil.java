@@ -38,7 +38,6 @@ import org.apache.ignite.internal.configuration.tree.InnerNode;
 import org.apache.ignite.internal.configuration.util.AnyNodeConfigurationVisitor;
 import org.apache.ignite.internal.configuration.util.KeysTrackingConfigurationVisitor;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Utility class for configuration validation.
@@ -188,10 +187,17 @@ public class ValidationUtil {
         return (sndParam instanceof Class) && (val == null || ((Class<?>) sndParam).isInstance(val));
     }
 
-    private static @Nullable Field findSchemaField(InnerNode innerNode, String schemaFieldName) throws NoSuchFieldException {
+    private static Field findSchemaField(InnerNode innerNode, String schemaFieldName) throws NoSuchFieldException {
+        // TODO: IGNITE-17516 - we are searching for all the levels, but this does not seem correct as we'll always find the first field
+        // if there are more than one fields with same name.
+
+        if (innerNode.isPolymorphic()) {
+            return findSchemaFieldConsideringAncestors(innerNode, schemaFieldName);
+        }
+
         Class<?> schemaType = innerNode.schemaType();
 
-        if (innerNode.isPolymorphic() || innerNode.extendsAbstractConfiguration()) {
+        if (innerNode.extendsAbstractConfiguration()) {
             // Linear search to not fight with NoSuchFieldException.
             for (Field field : schemaType.getDeclaredFields()) {
                 if (field.getName().equals(schemaFieldName)) {
@@ -213,5 +219,21 @@ public class ValidationUtil {
         }
 
         return schemaType.getDeclaredField(schemaFieldName);
+    }
+
+    private static Field findSchemaFieldConsideringAncestors(InnerNode innerNode, String schemaFieldName) throws NoSuchFieldException {
+        Class<?> currentClass = innerNode.schemaType();
+
+        while (currentClass != null && currentClass != Object.class) {
+            for (Field field : currentClass.getDeclaredFields()) {
+                if (field.getName().equals(schemaFieldName)) {
+                    return field;
+                }
+            }
+
+            currentClass = currentClass.getSuperclass();
+        }
+
+        throw new NoSuchFieldException("Did not find field '" + schemaFieldName + "' in " + innerNode);
     }
 }

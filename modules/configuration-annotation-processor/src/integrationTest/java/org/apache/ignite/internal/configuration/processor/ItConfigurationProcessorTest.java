@@ -18,11 +18,13 @@
 package org.apache.ignite.internal.configuration.processor;
 
 import static com.google.testing.compile.CompilationSubject.assertThat;
+import static java.util.Collections.emptyList;
 import static org.apache.ignite.internal.configuration.processor.ConfigurationProcessorUtils.getChangeName;
 import static org.apache.ignite.internal.configuration.processor.ConfigurationProcessorUtils.getConfigurationInterfaceName;
 import static org.apache.ignite.internal.configuration.processor.ConfigurationProcessorUtils.getViewName;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.matchesRegex;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -31,9 +33,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.google.common.truth.StringSubject;
 import com.google.testing.compile.Compilation;
 import com.squareup.javapoet.ClassName;
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Pattern;
+import javax.tools.JavaFileObject;
+import org.apache.ignite.configuration.ConfigurationTree;
 import org.apache.ignite.configuration.annotation.InjectedName;
 import org.apache.ignite.configuration.annotation.InternalId;
 import org.apache.ignite.configuration.annotation.Name;
@@ -41,6 +48,7 @@ import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
+import org.objectweb.asm.ClassReader;
 import org.opentest4j.AssertionFailedError;
 
 /**
@@ -62,7 +70,7 @@ public class ItConfigurationProcessorTest extends AbstractProcessorTest {
 
         assertEquals(Compilation.Status.SUCCESS, status.status());
 
-        assertEquals(3, batch.generated().size());
+        assertEquals(3, batch.generatedSources().size());
 
         ConfigSet classSet = batch.getBySchema(testConfigurationSchema);
 
@@ -82,7 +90,7 @@ public class ItConfigurationProcessorTest extends AbstractProcessorTest {
 
         assertEquals(Compilation.Status.SUCCESS, batchCompile.getCompilationStatus().status());
 
-        assertEquals(4 * 3, batchCompile.generated().size());
+        assertEquals(4 * 3, batchCompile.generatedSources().size());
 
         assertTrue(batchCompile.getBySchema(cls0).allGenerated());
         assertTrue(batchCompile.getBySchema(cls1).allGenerated());
@@ -234,12 +242,85 @@ public class ItConfigurationProcessorTest extends AbstractProcessorTest {
 
         assertEquals(Compilation.Status.SUCCESS, batchCompile.getCompilationStatus().status());
 
-        assertEquals(4 * 3, batchCompile.generated().size());
+        assertEquals(4 * 3, batchCompile.generatedSources().size());
 
         assertTrue(batchCompile.getBySchema(cls0).allGenerated());
         assertTrue(batchCompile.getBySchema(cls1).allGenerated());
         assertTrue(batchCompile.getBySchema(cls2).allGenerated());
         assertTrue(batchCompile.getBySchema(cls3).allGenerated());
+    }
+
+
+    @Test
+    void testPolymorphicConfigCodeGenerationWithNonTrivialInheritanceHierarchy() throws Exception {
+        String packageName = "org.apache.ignite.internal.configuration.processor.polymorphic";
+
+        ClassName rootSchema = ClassName.get(packageName, "PolymorphicHierarchyRootConfigurationSchema");
+        ClassName middle1Schema = ClassName.get(packageName, "PolymorphicHierarchyMiddle1ConfigurationSchema");
+        ClassName middle2Schema = ClassName.get(packageName, "PolymorphicHierarchyMiddle2ConfigurationSchema");
+        ClassName leafSchema = ClassName.get(packageName, "PolymorphicHierarchyLeafConfigurationSchema");
+        ClassName configSchema = ClassName.get(packageName, "PolymorphicHierarchyConfigurationSchema");
+
+        BatchCompilation batchCompile = batchCompile(rootSchema, leafSchema, middle1Schema, middle2Schema, configSchema);
+
+        assertEquals(Compilation.Status.SUCCESS, batchCompile.getCompilationStatus().status());
+
+        assertEquals(5 * 3, batchCompile.generatedSources().size());
+
+        assertTrue(batchCompile.getBySchema(rootSchema).allGenerated());
+        assertTrue(batchCompile.getBySchema(middle1Schema).allGenerated());
+        assertTrue(batchCompile.getBySchema(middle2Schema).allGenerated());
+        assertTrue(batchCompile.getBySchema(leafSchema).allGenerated());
+        assertTrue(batchCompile.getBySchema(configSchema).allGenerated());
+
+        ClassName rootConfig = ClassName.get(packageName, "PolymorphicHierarchyRootConfiguration");
+        ClassName leafConfig = ClassName.get(packageName, "PolymorphicHierarchyLeafConfiguration");
+        ClassName middle1Config = ClassName.get(packageName, "PolymorphicHierarchyMiddle1Configuration");
+        ClassName middle2Config = ClassName.get(packageName, "PolymorphicHierarchyMiddle2Configuration");
+
+        Map<ClassName, JavaFileObject> generatedClasses = batchCompile.generatedClassesMap();
+
+        Map<String, List<String>> rootInterfaces = extractClassInterfaces(generatedClasses.get(rootConfig));
+        assertThat(rootInterfaces, is(Map.of(
+                canonicalToBinary(ConfigurationTree.class.getCanonicalName()),
+                List.of(
+                        canonicalToBinary(replaceSuffix(rootConfig, "Configuration", "View")),
+                        canonicalToBinary(replaceSuffix(rootConfig, "Configuration", "Change"))
+                )
+        )));
+
+        Map<String, List<String>> leafInterfaces = extractClassInterfaces(generatedClasses.get(leafConfig));
+        assertThat(leafInterfaces, is(Map.of(canonicalToBinary(middle2Config.canonicalName()), emptyList())));
+
+        Map<String, List<String>> middle1Interfaces = extractClassInterfaces(generatedClasses.get(middle1Config));
+        assertThat(middle1Interfaces, is(Map.of(canonicalToBinary(rootConfig.canonicalName()), emptyList())));
+
+        Map<String, List<String>> middle2Interfaces = extractClassInterfaces(generatedClasses.get(middle2Config));
+        assertThat(middle2Interfaces, is(Map.of(canonicalToBinary(middle1Config.canonicalName()), emptyList())));
+    }
+
+    private Map<String, List<String>> extractClassInterfaces(JavaFileObject file) throws IOException {
+        try (InputStream stream = file.openInputStream()) {
+            ClassReader reader = new ClassReader(stream);
+
+            InterfacesExtractor extractor = new InterfacesExtractor();
+            reader.accept(extractor, 0);
+            return extractor.interfaces();
+        }
+    }
+
+    private String canonicalToBinary(String canonicalName) {
+        return canonicalName.replaceAll("\\.", "/");
+    }
+
+    private String replaceSuffix(ClassName name, String suffix, String replacement) {
+        String nameString = name.toString();
+
+        if (!nameString.endsWith(suffix)) {
+            throw new IllegalArgumentException(name + " is supposed to end with " + suffix + ", but it doesn't");
+        }
+
+        return nameString.substring(0, nameString.length() - suffix.length()) + replacement;
     }
 
     /**
@@ -373,7 +454,7 @@ public class ItConfigurationProcessorTest extends AbstractProcessorTest {
 
         assertThat(batchCompile.getCompilationStatus()).succeededWithoutWarnings();
 
-        assertEquals(2 * 3, batchCompile.generated().size());
+        assertEquals(2 * 3, batchCompile.generatedSources().size());
 
         assertTrue(batchCompile.getBySchema(cls0).allGenerated());
         assertTrue(batchCompile.getBySchema(cls1).allGenerated());
@@ -393,7 +474,7 @@ public class ItConfigurationProcessorTest extends AbstractProcessorTest {
 
         assertThat(batchCompile.getCompilationStatus()).succeededWithoutWarnings();
 
-        assertEquals(2 * 3, batchCompile.generated().size());
+        assertEquals(2 * 3, batchCompile.generatedSources().size());
 
         assertTrue(batchCompile.getBySchema(cls0).allGenerated());
         assertTrue(batchCompile.getBySchema(cls1).allGenerated());
@@ -427,7 +508,7 @@ public class ItConfigurationProcessorTest extends AbstractProcessorTest {
 
         assertThat(batchCompile.getCompilationStatus()).succeededWithoutWarnings();
 
-        assertEquals(3, batchCompile.generated().size());
+        assertEquals(3, batchCompile.generatedSources().size());
 
         assertTrue(batchCompile.getBySchema(cls).allGenerated());
     }
@@ -563,7 +644,7 @@ public class ItConfigurationProcessorTest extends AbstractProcessorTest {
 
         assertThat(batchCompile.getCompilationStatus()).succeededWithoutWarnings();
 
-        assertEquals(4 * 3, batchCompile.generated().size());
+        assertEquals(4 * 3, batchCompile.generatedSources().size());
 
         assertTrue(batchCompile.getBySchema(abstractConfigSchema).allGenerated());
         assertTrue(batchCompile.getBySchema(abstractRootConfigSchema).allGenerated());
