@@ -136,6 +136,24 @@ internal static class ResultSelector
             m: typeof(IIgnite).Module,
             skipVisibility: true);
 
+        var il = method.GetILGenerator();
+        var ctorParams = ctorInfo.GetParameters();
+
+        for (var index = 0; index < ctorParams.Length; index++)
+        {
+            var param = ctorParams[index];
+            il.Emit(OpCodes.Ldarg_1); // Reader.
+
+            il.Emit(OpCodes.Ldc_I4, index);
+            il.Emit(OpCodes.Call, BinaryTupleMethods.GetReadMethod(param.ParameterType));
+        }
+
+        il.Emit(OpCodes.Call, ctorInfo);
+        il.Emit(OpCodes.Ret);
+
+        return (RowReader<T>)method.CreateDelegate(typeof(RowReader<T>));
+
+        /*
         return (IReadOnlyList<IColumnMetadata> cols, ref BinaryTupleReader reader) =>
         {
             var args = new object?[cols.Count];
@@ -152,6 +170,6 @@ internal static class ResultSelector
             }
 
             return (T)ctorInfo.Invoke(args);
-        };
+        };*/
     }
 }
