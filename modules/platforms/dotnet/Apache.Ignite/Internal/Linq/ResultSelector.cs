@@ -18,9 +18,11 @@
 namespace Apache.Ignite.Internal.Linq;
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq.Expressions;
+using System.Reflection;
 using System.Runtime.Serialization;
 using Ignite.Sql;
 using Proto.BinaryTuple;
@@ -34,6 +36,8 @@ using Table.Serialization;
 /// </summary>
 internal static class ResultSelector
 {
+    private static readonly ConcurrentDictionary<ConstructorInfo, object> CtorCache = new();
+
     /// <summary>
     /// Gets the result selector.
     /// </summary>
@@ -46,6 +50,12 @@ internal static class ResultSelector
         // TODO: IGNITE-18136 Replace reflection with emitted delegates.
         if (selectorExpression is NewExpression newExpr)
         {
+            // Constructor projections always require the same set of columns, so the constructor itself can be the cache key.
+            if (CtorCache.TryGetValue(newExpr.Constructor!, out var cachedCtor))
+            {
+                return (RowReader<T>) cachedCtor;
+            }
+
             // TODO: Cache compiled delegate based on constructor? Do we care about column types here as well?
             return (IReadOnlyList<IColumnMetadata> cols, ref BinaryTupleReader reader) =>
             {
