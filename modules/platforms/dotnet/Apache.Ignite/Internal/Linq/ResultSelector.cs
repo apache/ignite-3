@@ -55,7 +55,7 @@ internal static class ResultSelector
             // Constructor projections always require the same set of columns, so the constructor itself can be the cache key.
             var ctorInfo = newExpr.Constructor!;
 
-            return (RowReader<T>)CtorCache.GetOrAdd(ctorInfo, static c => EmitConstructorReader<T>(c));
+            return (RowReader<T>)CtorCache.GetOrAdd(ctorInfo, static (ctor, cols) => EmitConstructorReader<T>(ctor, cols), columns);
         }
 
         if (columns.Count == 1 && typeof(T).ToSqlColumnType() is not null)
@@ -124,10 +124,10 @@ internal static class ResultSelector
 
     private static KeyValuePair<int, long> Test(IReadOnlyList<IColumnMetadata> cols, ref BinaryTupleReader reader)
     {
-        return new KeyValuePair<int, long>(reader.GetInt(0), reader.GetLong(1));
+        return new KeyValuePair<int, long>(reader.GetInt(0), (long)reader.GetDouble(1));
     }
 
-    private static RowReader<T> EmitConstructorReader<T>(ConstructorInfo ctorInfo)
+    private static RowReader<T> EmitConstructorReader<T>(ConstructorInfo ctorInfo, IReadOnlyList<IColumnMetadata> columns)
     {
         var method = new DynamicMethod(
             name: "ConstructFromBinaryTupleReader_" + ctorInfo.DeclaringType!.Name,
@@ -139,19 +139,48 @@ internal static class ResultSelector
         var il = method.GetILGenerator();
         var ctorParams = ctorInfo.GetParameters();
 
+        if (ctorParams.Length != columns.Count)
+        {
+            throw new InvalidOperationException("Constructor parameter count does not match column count, can't emit row reader.");
+        }
+
         for (var index = 0; index < ctorParams.Length; index++)
         {
             // TODO: handle decimal scale - get from column.
             var param = ctorParams[index];
+            var col = columns[index];
+
             il.Emit(OpCodes.Ldarg_1); // Reader.
             il.Emit(OpCodes.Ldc_I4, index); // Index.
 
-            il.Emit(OpCodes.Call, BinaryTupleMethods.GetReadMethod(param.ParameterType));
+            var colType = col.Type.ToClrType();
+            il.Emit(OpCodes.Call, BinaryTupleMethods.GetReadMethod(colType));
+
+            EmitConv(colType, param.ParameterType, il);
         }
 
         il.Emit(OpCodes.Newobj, ctorInfo);
         il.Emit(OpCodes.Ret);
 
         return (RowReader<T>)method.CreateDelegate(typeof(RowReader<T>));
+    }
+
+    private static void EmitConv(Type from, Type to, ILGenerator il)
+    {
+        if (from == to)
+        {
+            return;
+        }
+
+        // TODO: Support all types and test them.
+        // TODO: Use a dictionary of opcodes?
+        if (to == typeof(int))
+        {
+            il.Emit(OpCodes.Conv_I4);
+        }
+        else if (to == typeof(double))
+        {
+            il.Emit(OpCodes.Conv_R8);
+        }
     }
 }
