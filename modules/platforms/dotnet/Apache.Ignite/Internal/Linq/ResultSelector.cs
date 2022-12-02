@@ -123,13 +123,6 @@ internal static class ResultSelector
         }
     }
 
-    private static KeyValuePair<int?, long?> Test(IReadOnlyList<IColumnMetadata> cols, ref BinaryTupleReader reader)
-    {
-        return new KeyValuePair<int?, long?>(
-            reader.IsNull(0) ? null : reader.GetInt(0),
-            reader.IsNull(0) ? null : (long)reader.GetDouble(1));
-    }
-
     private static RowReader<T> EmitConstructorReader<T>(ConstructorInfo ctorInfo, IReadOnlyList<IColumnMetadata> columns)
     {
         var method = new DynamicMethod(
@@ -150,7 +143,7 @@ internal static class ResultSelector
         for (var index = 0; index < ctorParams.Length; index++)
         {
             // TODO: handle decimal scale - get from column.
-            // TODO: handle nulls: add GetIntNullable and others to BinaryTupleReader? If target column is not nullable, then throw.
+            // TODO IGNITE-18329 handle nulls.
             // But this screws up outer joins.
             var param = ctorParams[index];
             var col = columns[index];

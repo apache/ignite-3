@@ -92,7 +92,7 @@ namespace Apache.Ignite.Tests
 
             var tableAllColumns = await Client.Tables.GetTableAsync(TableAllColumnsName);
             PocoAllColumnsView = tableAllColumns!.GetRecordView<PocoAllColumns>();
-            PocoAllColumnsNullableView = tableAllColumns!.GetRecordView<PocoAllColumnsNullable>();
+            PocoAllColumnsNullableView = tableAllColumns.GetRecordView<PocoAllColumnsNullable>();
         }
 
         [OneTimeTearDown]
