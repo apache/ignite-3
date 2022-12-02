@@ -60,6 +60,7 @@ internal static class ResultSelector
 
         if (columns.Count == 1 && typeof(T).ToSqlColumnType() is not null)
         {
+            // TODO: No need for emit, but cache the logic based on column type and result type to avoid conversions and switch.
             return (IReadOnlyList<IColumnMetadata> cols, ref BinaryTupleReader reader) =>
                 (T)Convert.ChangeType(Sql.ReadColumnValue(ref reader, cols[0], 0)!, typeof(T), CultureInfo.InvariantCulture);
         }
