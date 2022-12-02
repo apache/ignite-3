@@ -23,6 +23,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq.Expressions;
 using System.Reflection;
+using System.Reflection.Emit;
 using System.Runtime.Serialization;
 using Ignite.Sql;
 using Proto.BinaryTuple;
@@ -52,30 +53,9 @@ internal static class ResultSelector
         if (selectorExpression is NewExpression newExpr)
         {
             // Constructor projections always require the same set of columns, so the constructor itself can be the cache key.
-            if (CtorCache.TryGetValue(newExpr.Constructor!, out var cachedCtor))
-            {
-                return (RowReader<T>) cachedCtor;
-            }
+            var ctorInfo = newExpr.Constructor!;
 
-            // TODO: Cache compiled delegate based on constructor? Do we care about column types here as well?
-            return (IReadOnlyList<IColumnMetadata> cols, ref BinaryTupleReader reader) =>
-            {
-                var args = new object?[cols.Count];
-
-                for (int i = 0; i < cols.Count; i++)
-                {
-                    var val = Sql.ReadColumnValue(ref reader, cols[i], i);
-
-                    if (val != null)
-                    {
-                        val = Convert.ChangeType(val, newExpr.Arguments[i].Type, CultureInfo.InvariantCulture);
-                    }
-
-                    args[i] = val;
-                }
-
-                return (T)newExpr.Constructor!.Invoke(args);
-            };
+            return (RowReader<T>)CtorCache.GetOrAdd(ctorInfo, static c => EmitConstructorReader<T>(c));
         }
 
         if (columns.Count == 1 && typeof(T).ToSqlColumnType() is not null)
@@ -145,5 +125,33 @@ internal static class ResultSelector
 
             field.SetValue(res, val);
         }
+    }
+
+    private static RowReader<T> EmitConstructorReader<T>(ConstructorInfo ctorInfo)
+    {
+        var method = new DynamicMethod(
+            name: "ConstructFromBinaryTupleReader_" + ctorInfo.DeclaringType!.Name,
+            returnType: typeof(void),
+            parameterTypes: new[] { typeof(IReadOnlyList<IColumnMetadata>), typeof(BinaryTupleReader).MakeByRefType() },
+            m: typeof(IIgnite).Module,
+            skipVisibility: true);
+
+        return (IReadOnlyList<IColumnMetadata> cols, ref BinaryTupleReader reader) =>
+        {
+            var args = new object?[cols.Count];
+
+            for (int i = 0; i < cols.Count; i++)
+            {
+                var val = Sql.ReadColumnValue(ref reader, cols[i], i);
+
+                // if (val != null)
+                // {
+                //     val = Convert.ChangeType(val, newExpr.Arguments[i].Type, CultureInfo.InvariantCulture);
+                // }
+                args[i] = val;
+            }
+
+            return (T)ctorInfo.Invoke(args);
+        };
     }
 }
