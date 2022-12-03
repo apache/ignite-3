@@ -20,7 +20,13 @@ package org.apache.ignite.internal.storage.pagememory.mv;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
+import org.apache.ignite.internal.pagememory.DataRegion;
+import org.apache.ignite.internal.pagememory.datapage.DataPageReader;
+import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMeta;
+import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointListener;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointManager;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointProgress;
@@ -62,6 +68,15 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     /** Checkpoint listener. */
     private final CheckpointListener checkpointListener;
 
+    /** FreeList for blobs. */
+    private final BlobFreeList blobFreeList;
+
+    /** Used to read data from pagememory pages. */
+    private final DataPageReader pageReader;
+
+    /** Lock that protects group config read/write. */
+    private final ReadWriteLock groupConfigReadWriteLock = new ReentrantReadWriteLock();
+
     /**
      * Constructor.
      *
@@ -72,6 +87,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
      * @param indexFreeList Free list fot {@link IndexColumns}.
      * @param versionChainTree Table tree for {@link VersionChain}.
      * @param indexMetaTree Tree that contains SQL indexes' metadata.
+     * @param blobFreeList Free list for {@link Blob}.
      */
     public PersistentPageMemoryMvPartitionStorage(
             PersistentPageMemoryTableStorage tableStorage,
@@ -81,12 +97,15 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
             IndexColumnsFreeList indexFreeList,
             VersionChainTree versionChainTree,
             IndexMetaTree indexMetaTree,
+            BlobFreeList blobFreeList,
             TablesConfiguration tablesCfg
     ) {
         super(partitionId, tableStorage, rowVersionFreeList, indexFreeList, versionChainTree, indexMetaTree, tablesCfg);
 
         checkpointManager = tableStorage.engine().checkpointManager();
         checkpointTimeoutLock = checkpointManager.checkpointTimeoutLock();
+
+        DataRegion<PersistentPageMemory> dataRegion = tableStorage.dataRegion();
 
         checkpointManager.addCheckpointListener(checkpointListener = new CheckpointListener() {
             @Override
@@ -105,9 +124,17 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
             public void afterCheckpointEnd(CheckpointProgress progress) {
                 persistedIndex = meta.metaSnapshot(progress.id()).lastAppliedIndex();
             }
-        }, tableStorage.dataRegion());
+        }, dataRegion);
 
         this.meta = meta;
+
+        this.blobFreeList = blobFreeList;
+
+        pageReader = new DataPageReader(
+                dataRegion.pageMemory(),
+                tableStorage.configuration().value().tableId(),
+                IoStatisticsHolderNoOp.INSTANCE
+        );
     }
 
     @Override
@@ -215,7 +242,25 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         }
 
         try {
-            return groupConfigFromBytes(meta.lastGroupConfig());
+            groupConfigReadWriteLock.readLock().lock();
+
+            try {
+                long configLink = meta.lastGroupConfigLink();
+
+                if (configLink == 0) {
+                    return null;
+                }
+
+                ReadBlob readBlob = new ReadBlob();
+
+                pageReader.traverse(configLink, readBlob, null);
+
+                return groupConfigFromBytes(readBlob.result());
+            } finally {
+                groupConfigReadWriteLock.readLock().unlock();
+            }
+        } catch (IgniteInternalCheckedException e) {
+            throw new IgniteInternalException("Failed to read group config", e);
         } finally {
             closeBusyLock.leaveBusy();
         }
@@ -229,7 +274,29 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
 
         UUID lastCheckpointId = lastCheckpoint == null ? null : lastCheckpoint.id();
 
-        meta.lastGroupConfig(lastCheckpointId, groupConfigToBytes(config));
+        Blob blob = new Blob(partitionId, groupConfigToBytes(config));
+
+        groupConfigReadWriteLock.writeLock().lock();
+
+        try {
+            if (meta.lastGroupConfigLink() != 0) {
+                try {
+                    blobFreeList.removeBlobByLink(meta.lastGroupConfigLink());
+                } catch (IgniteInternalCheckedException e) {
+                    throw new IgniteInternalException("Failed to remove old group config", e);
+                }
+            }
+
+            try {
+                blobFreeList.insertBlob(blob);
+            } catch (IgniteInternalCheckedException e) {
+                throw new IgniteInternalException("Failed to save group config", e);
+            }
+
+            meta.lastGroupConfigLink(lastCheckpointId, blob.link());
+        } finally {
+            groupConfigReadWriteLock.writeLock().unlock();
+        }
     }
 
     @Nullable
@@ -271,6 +338,8 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         versionChainTree.close();
         indexMetaTree.close();
 
+        blobFreeList.close();
+
         for (PageMemoryHashIndexStorage hashIndexStorage : hashIndexes.values()) {
             hashIndexStorage.close();
         }
@@ -294,6 +363,8 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
             rowVersionFreeList.saveMetadata();
 
             indexFreeList.saveMetadata();
+
+            blobFreeList.saveMetadata();
         } else {
             executor.execute(() -> {
                 try {
@@ -308,6 +379,14 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
                     indexFreeList.saveMetadata();
                 } catch (IgniteInternalCheckedException e) {
                     throw new IgniteInternalException("Failed to save IndexColumnsFreeList metadata", e);
+                }
+            });
+
+            executor.execute(() -> {
+                try {
+                    blobFreeList.saveMetadata();
+                } catch (IgniteInternalCheckedException e) {
+                    throw new IgniteInternalException("Failed to save BlobFreeList metadata", e);
                 }
             });
         }

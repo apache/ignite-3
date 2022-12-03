@@ -26,7 +26,6 @@ import static org.apache.ignite.internal.pagememory.util.PageUtils.putLong;
 import org.apache.ignite.internal.pagememory.io.IoVersions;
 import org.apache.ignite.internal.pagememory.io.PageIo;
 import org.apache.ignite.lang.IgniteStringBuilder;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Io for partition metadata pages.
@@ -36,7 +35,9 @@ public class PartitionMetaIo extends PageIo {
 
     private static final int LAST_APPLIED_TERM_OFF = LAST_APPLIED_INDEX_OFF + Long.BYTES;
 
-    private static final int ROW_VERSION_FREE_LIST_ROOT_PAGE_ID_OFF = LAST_APPLIED_TERM_OFF + Long.BYTES;
+    private static final int LAST_GROUP_CONFIG_LINK_OFF = LAST_APPLIED_TERM_OFF + Long.BYTES;
+
+    private static final int ROW_VERSION_FREE_LIST_ROOT_PAGE_ID_OFF = LAST_GROUP_CONFIG_LINK_OFF + Long.BYTES;
 
     private static final int INDEX_COLUMNS_FREE_LIST_ROOT_PAGE_ID_OFF = ROW_VERSION_FREE_LIST_ROOT_PAGE_ID_OFF + Long.BYTES;
 
@@ -68,7 +69,7 @@ public class PartitionMetaIo extends PageIo {
 
         setLastAppliedIndex(pageAddr, 0);
         setLastAppliedTerm(pageAddr, 0);
-        setLastGroupConfig(pageAddr, null);
+        setLastGroupConfig(pageAddr, 0);
         setRowVersionFreeListRootPageId(pageAddr, 0);
         setIndexColumnsFreeListRootPageId(pageAddr, 0);
         setVersionChainTreeRootPageId(pageAddr, 0);
@@ -101,15 +102,15 @@ public class PartitionMetaIo extends PageIo {
     }
 
     /**
-     * Sets last group config.
+     * Sets link to blob representing last group config.
      *
      * @param pageAddr Page address.
-     * @param lastGroupConfig Byte representation of last group config..
+     * @param lastGroupConfigLink Link to blob representing last group config..
      */
-    public void setLastGroupConfig(long pageAddr, byte @Nullable [] lastGroupConfig) {
+    public void setLastGroupConfig(long pageAddr, long lastGroupConfigLink) {
         assertPageType(pageAddr);
 
-        // TODO: IGNITE-18118 - implement
+        putLong(pageAddr, LAST_GROUP_CONFIG_LINK_OFF, lastGroupConfigLink);
     }
 
     /**
@@ -131,13 +132,12 @@ public class PartitionMetaIo extends PageIo {
     }
 
     /**
-     * Returns byte representation of group config.
+     * Returns link to group config blob.
      *
      * @param pageAddr Page address.
      */
-    public byte @Nullable [] getLastGroupConfig(long pageAddr) {
-        // TODO: IGNITE-18118 - implement
-        return null;
+    public long getLastGroupConfigLink(long pageAddr) {
+        return getLong(pageAddr, LAST_GROUP_CONFIG_LINK_OFF);
     }
 
     /**

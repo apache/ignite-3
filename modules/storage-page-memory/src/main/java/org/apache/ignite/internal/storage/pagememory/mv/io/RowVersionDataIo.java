@@ -37,7 +37,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public class RowVersionDataIo extends AbstractDataPageIo<RowVersion> {
     /** Page IO type. */
-    public static final short T_VALUE_VERSION_DATA_IO = 12;
+    public static final short T_ROW_VERSION_DATA_IO = 12;
 
     /** I/O versions. */
     public static final IoVersions<RowVersionDataIo> VERSIONS = new IoVersions<>(new RowVersionDataIo(1));
@@ -48,7 +48,7 @@ public class RowVersionDataIo extends AbstractDataPageIo<RowVersion> {
      * @param ver Page format version.
      */
     protected RowVersionDataIo(int ver) {
-        super(T_VALUE_VERSION_DATA_IO, ver);
+        super(T_ROW_VERSION_DATA_IO, ver);
     }
 
     /** {@inheritDoc} */
@@ -58,15 +58,15 @@ public class RowVersionDataIo extends AbstractDataPageIo<RowVersion> {
 
         long addr = pageAddr + dataOff;
 
-        putShort(addr, 0, (short) payloadSize);
-        addr += 2;
+        putShort(addr, 0, narrowIntToShort(payloadSize));
+        addr += Short.BYTES;
 
         addr += HybridTimestamps.writeTimestampToMemory(addr, 0, row.timestamp());
 
         addr += writePartitionless(addr, row.nextLink());
 
         putInt(addr, 0, row.valueSize());
-        addr += 4;
+        addr += Integer.BYTES;
 
         putByteBuffer(addr, 0, row.value());
     }

@@ -15,70 +15,75 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.pagememory.index.freelist.io;
+package org.apache.ignite.internal.storage.pagememory.mv.io;
 
-import static org.apache.ignite.internal.pagememory.util.PageUtils.putByteBuffer;
+import static org.apache.ignite.internal.pagememory.util.PageUtils.putBytes;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putInt;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putShort;
-import static org.apache.ignite.internal.storage.pagememory.index.IndexPageTypes.T_INDEX_COLUMNS_DATA_IO;
 
 import java.nio.ByteBuffer;
 import org.apache.ignite.internal.pagememory.io.AbstractDataPageIo;
 import org.apache.ignite.internal.pagememory.io.IoVersions;
-import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns;
+import org.apache.ignite.internal.storage.pagememory.mv.Blob;
 import org.apache.ignite.lang.IgniteStringBuilder;
 
 /**
- * Data pages IO for {@link IndexColumns}.
+ * Data pages IO for {@link Blob}.
  */
-public class IndexColumnsDataIo extends AbstractDataPageIo<IndexColumns> {
+public class BlobDataIo extends AbstractDataPageIo<Blob> {
+    /** Page IO type. */
+    private static final short T_BLOB_DATA_IO = 13;
+
     /** I/O versions. */
-    public static final IoVersions<IndexColumnsDataIo> VERSIONS = new IoVersions<>(new IndexColumnsDataIo(1));
+    public static final IoVersions<BlobDataIo> VERSIONS = new IoVersions<>(new BlobDataIo(1));
 
     /**
      * Constructor.
      *
      * @param ver Page format version.
      */
-    protected IndexColumnsDataIo(int ver) {
-        super(T_INDEX_COLUMNS_DATA_IO, ver);
+    private BlobDataIo(int ver) {
+        super(T_BLOB_DATA_IO, ver);
     }
 
     @Override
-    protected void writeRowData(long pageAddr, int dataOff, int payloadSize, IndexColumns row, boolean newRow) {
+    protected void writeRowData(long pageAddr, int dataOff, int payloadSize, Blob blob, boolean newRow) {
         assertPageType(pageAddr);
 
-        putShort(pageAddr, dataOff, narrowIntToShort(payloadSize));
+        long addr = pageAddr + dataOff;
 
-        dataOff += Short.BYTES;
+        putShort(addr, 0, narrowIntToShort(payloadSize));
+        addr += Short.BYTES;
 
-        putInt(pageAddr, dataOff + IndexColumns.SIZE_OFFSET, row.valueSize());
+        putInt(addr, 0, blob.valueSize());
+        addr += Integer.BYTES;
 
-        putByteBuffer(pageAddr, dataOff + IndexColumns.VALUE_OFFSET, row.valueBuffer());
+        putBytes(addr, 0, blob.value());
     }
 
     @Override
-    protected void writeFragmentData(IndexColumns row, ByteBuffer pageBuf, int rowOff, int payloadSize) {
+    protected void writeFragmentData(Blob blob, ByteBuffer pageBuf, int rowOff, int payloadSize) {
         assertPageType(pageBuf);
 
         if (rowOff == 0) {
-            // First fragment.
-            assert row.headerSize() <= payloadSize;
+            // first fragment
+            assert blob.headerSize() <= payloadSize : "Header must entirely fit in the first fragment, but header size is "
+                    + blob.headerSize() + " and payload size is " + payloadSize;
 
-            pageBuf.putInt(row.valueSize());
+            pageBuf.putInt(blob.valueSize());
 
-            putValueBufferIntoPage(pageBuf, row.valueBuffer(), 0, payloadSize - IndexColumns.VALUE_OFFSET);
+            pageBuf.put(blob.value(), 0, payloadSize - blob.headerSize());
         } else {
-            // Not a first fragment.
-            assert rowOff >= row.headerSize();
+            // non-first fragment
+            assert rowOff >= blob.headerSize();
 
-            putValueBufferIntoPage(pageBuf, row.valueBuffer(), rowOff - IndexColumns.VALUE_OFFSET, payloadSize);
+            pageBuf.put(blob.value(), rowOff - blob.headerSize(), payloadSize);
         }
     }
 
     @Override
     protected void printPage(long addr, int pageSize, IgniteStringBuilder sb) {
-        sb.app("IndexColumnsDataIo [\n");
+        sb.app("BlobDataIo [\n");
         printPageLayout(addr, pageSize, sb);
         sb.app("\n]");
     }

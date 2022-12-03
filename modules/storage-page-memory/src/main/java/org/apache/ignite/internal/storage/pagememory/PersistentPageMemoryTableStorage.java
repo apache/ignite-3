@@ -44,6 +44,7 @@ import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumnsFreeList;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
 import org.apache.ignite.internal.storage.pagememory.mv.AbstractPageMemoryMvPartitionStorage;
+import org.apache.ignite.internal.storage.pagememory.mv.BlobFreeList;
 import org.apache.ignite.internal.storage.pagememory.mv.PersistentPageMemoryMvPartitionStorage;
 import org.apache.ignite.internal.storage.pagememory.mv.RowVersionFreeList;
 import org.apache.ignite.internal.storage.pagememory.mv.VersionChainTree;
@@ -182,6 +183,8 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
 
             IndexMetaTree indexMetaTree = createIndexMetaTree(tableView, partitionId, rowVersionFreeList, pageMemory, meta);
 
+            BlobFreeList blobFreeList = createBlobFreeList(tableView, partitionId, pageMemory, meta);
+
             return new PersistentPageMemoryMvPartitionStorage(
                     this,
                     partitionId,
@@ -190,6 +193,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
                     indexColumnsFreeList,
                     versionChainTree,
                     indexMetaTree,
+                    blobFreeList,
                     tablesConfiguration
             );
         } catch (IgniteInternalCheckedException e) {
@@ -433,6 +437,52 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException(
                     String.format("Error creating IndexMetaTree [tableName=%s, partitionId=%s]", tableView.name(), partitionId),
+                    e
+            );
+        }
+    }
+
+    /**
+     * Returns new {@link BlobFreeList} instance for partition.
+     *
+     * @param tableView Table configuration.
+     * @param partId Partition ID.
+     * @param pageMemory Persistent page memory instance.
+     * @param meta Partition metadata.
+     * @throws StorageException If failed.
+     */
+    private BlobFreeList createBlobFreeList(
+            TableView tableView,
+            int partId,
+            PersistentPageMemory pageMemory,
+            PartitionMeta meta
+    ) throws StorageException {
+        try {
+            boolean initNew = false;
+
+            if (meta.blobFreeListRootPageId() == 0) {
+                long rootPageId = pageMemory.allocatePage(tableView.tableId(), partId, FLAG_AUX);
+
+                meta.blobFreeListRootPageId(lastCheckpointId(), rootPageId);
+
+                initNew = true;
+            }
+
+            return new BlobFreeList(
+                    tableView.tableId(),
+                    partId,
+                    dataRegion.pageMemory(),
+                    null,
+                    PageLockListenerNoOp.INSTANCE,
+                    meta.blobFreeListRootPageId(),
+                    initNew,
+                    dataRegion.pageListCacheLimit(),
+                    PageEvictionTrackerNoOp.INSTANCE,
+                    IoStatisticsHolderNoOp.INSTANCE
+            );
+        } catch (IgniteInternalCheckedException e) {
+            throw new StorageException(
+                    String.format("Error creating BlobFreeList [tableName=%s, partitionId=%s]", tableView.name(), partId),
                     e
             );
         }

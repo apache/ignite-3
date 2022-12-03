@@ -1093,7 +1093,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
         // Reverse expected values to simplify comparison - they are returned in reversed order, newest to oldest.
         Collections.reverse(values);
 
-        List<IgniteBiTuple<TestKey, TestValue>> list = toList(storage.scanVersions(rowId));
+        List<IgniteBiTuple<TestKey, TestValue>> list = drainToList(storage.scanVersions(rowId));
 
         assertEquals(values.size(), list.size());
 
@@ -1164,7 +1164,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
             commitWrite(newRowId, clock.now());
         });
 
-        List<IgniteBiTuple<TestKey, TestValue>> list = toList(storage.scanVersions(rowId));
+        List<IgniteBiTuple<TestKey, TestValue>> list = drainToList(storage.scanVersions(rowId));
 
         assertEquals(2, list.size());
 

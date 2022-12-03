@@ -17,16 +17,23 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv;
 
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.FINISHED;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.is;
 
 import java.nio.file.Path;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.IntStream;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
+import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryTableStorage;
@@ -96,6 +103,12 @@ class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPar
     void testReadAfterRestart() throws Exception {
         RowId rowId = insert(binaryRow, txId);
 
+        restartStorage();
+
+        assertRowMatches(binaryRow, read(rowId, HybridTimestamp.MAX_VALUE));
+    }
+
+    private void restartStorage() throws Exception {
         engine
                 .checkpointManager()
                 .forceCheckpoint("before_stop_engine")
@@ -105,7 +118,53 @@ class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPar
         tearDown();
 
         setUp();
+    }
 
-        assertRowMatches(binaryRow, read(rowId, HybridTimestamp.MAX_VALUE));
+    @Test
+    void groupConfigIsPersisted() throws Exception {
+        RaftGroupConfiguration originalConfig = new RaftGroupConfiguration(
+                List.of("peer1", "peer2"),
+                List.of("old-peer1", "old-peer2"),
+                List.of("learner1", "learner2"),
+                List.of("old-learner1", "old-learner2")
+        );
+
+        storage.runConsistently(() -> {
+            storage.committedGroupConfiguration(originalConfig);
+
+            return null;
+        });
+
+        restartStorage();
+
+        RaftGroupConfiguration readConfig = storage.committedGroupConfiguration();
+
+        assertThat(readConfig, is(equalTo(originalConfig)));
+    }
+
+    @Test
+    void groupConfigWhichDoesNotFitInOnePageIsPersisted() throws Exception {
+        List<String> oneMbOfPeers = IntStream.range(0, 100_000)
+                .mapToObj(n -> String.format("peer%06d", n))
+                .collect(toList());
+
+        RaftGroupConfiguration originalConfig = new RaftGroupConfiguration(
+                oneMbOfPeers,
+                List.of("old-peer1", "old-peer2"),
+                List.of("learner1", "learner2"),
+                List.of("old-learner1", "old-learner2")
+        );
+
+        storage.runConsistently(() -> {
+            storage.committedGroupConfiguration(originalConfig);
+
+            return null;
+        });
+
+        restartStorage();
+
+        RaftGroupConfiguration readConfig = storage.committedGroupConfiguration();
+
+        assertThat(readConfig, is(equalTo(originalConfig)));
     }
 }
