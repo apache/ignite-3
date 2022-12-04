@@ -33,7 +33,7 @@ dependencies {
     implementation project(':ignite-network-api')
     implementation project(':ignite-raft')
     implementation project(':ignite-replicator')
-    implementation project(':ignite-raft-client')
+    implementation project(':ignite-raft-api')
     implementation project(':ignite-metastorage-client')
     implementation project(':ignite-storage-api')
     implementation project(':ignite-transactions')
@@ -55,7 +55,6 @@ dependencies {
     testImplementation(testFixtures(project(':ignite-configuration')))
     testImplementation(testFixtures(project(':ignite-transactions')))
     testImplementation(testFixtures(project(':ignite-storage-api')))
-    testImplementation(testFixtures(project(':ignite-raft')))
     testImplementation libs.mockito.core
     testImplementation libs.mockito.inline
     testImplementation libs.mockito.junit

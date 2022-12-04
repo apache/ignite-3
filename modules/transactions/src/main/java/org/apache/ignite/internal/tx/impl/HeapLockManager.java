@@ -351,6 +351,8 @@ public class HeapLockManager implements LockManager {
                 WaiterImpl tmp = entry.getValue();
 
                 if (!tmp.locked() && isWaiterReadyToNotify(tmp, true)) {
+                    assert tmp.locked() : "This waiter in not locked for notification [waiter=" + tmp + ']';
+
                     toNotify.add(tmp);
                 }
             }
@@ -359,7 +361,7 @@ public class HeapLockManager implements LockManager {
                 WaiterImpl tmp = entry.getValue();
 
                 if (!tmp.locked() && isWaiterReadyToNotify(tmp, false)) {
-                    assert !tmp.locked();
+                    assert !tmp.locked() : "Only failed waiter can be notified here [waiter=" + tmp + ']';
 
                     toNotify.add(tmp);
                     toFail.add(tmp.txId());

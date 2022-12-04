@@ -42,7 +42,7 @@ import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 public class SortAggregateExecutionTest extends BaseAggregateTest {
     /** {@inheritDoc} */
     @Override
-    protected SingleNode<Object[]> createSingleAggregateNodesChain(
+    protected SingleNode<Object[]> createColocatedAggregateNodesChain(
             ExecutionContext<Object[]> ctx,
             List<ImmutableBitSet> grpSets,
             AggregateCall call,

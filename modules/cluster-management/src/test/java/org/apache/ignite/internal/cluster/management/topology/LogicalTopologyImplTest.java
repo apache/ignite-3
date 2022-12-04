@@ -70,33 +70,33 @@ class LogicalTopologyImplTest {
      */
     @Test
     void testLogicalTopology() {
-        assertThat(topologyService.getLogicalTopology(), is(empty()));
+        assertThat(topologyService.getLogicalTopology().nodes(), is(empty()));
 
         var node1 = new ClusterNode("foo", "bar", new NetworkAddress("localhost", 123));
 
         topologyService.putLogicalTopologyNode(node1);
 
-        assertThat(topologyService.getLogicalTopology(), contains(node1));
+        assertThat(topologyService.getLogicalTopology().nodes(), contains(node1));
 
         var node2 = new ClusterNode("baz", "quux", new NetworkAddress("localhost", 123));
 
         topologyService.putLogicalTopologyNode(node2);
 
-        assertThat(topologyService.getLogicalTopology(), containsInAnyOrder(node1, node2));
+        assertThat(topologyService.getLogicalTopology().nodes(), containsInAnyOrder(node1, node2));
 
         var node3 = new ClusterNode("lol", "boop", new NetworkAddress("localhost", 123));
 
         topologyService.putLogicalTopologyNode(node3);
 
-        assertThat(topologyService.getLogicalTopology(), containsInAnyOrder(node1, node2, node3));
+        assertThat(topologyService.getLogicalTopology().nodes(), containsInAnyOrder(node1, node2, node3));
 
         topologyService.removeLogicalTopologyNodes(Set.of(node1, node2));
 
-        assertThat(topologyService.getLogicalTopology(), contains(node3));
+        assertThat(topologyService.getLogicalTopology().nodes(), contains(node3));
 
         topologyService.removeLogicalTopologyNodes(Set.of(node3));
 
-        assertThat(topologyService.getLogicalTopology(), is(empty()));
+        assertThat(topologyService.getLogicalTopology().nodes(), is(empty()));
     }
 
     /**
@@ -109,12 +109,12 @@ class LogicalTopologyImplTest {
         topologyService.putLogicalTopologyNode(node);
         topologyService.putLogicalTopologyNode(node);
 
-        assertThat(topologyService.getLogicalTopology(), contains(node));
+        assertThat(topologyService.getLogicalTopology().nodes(), contains(node));
 
         topologyService.removeLogicalTopologyNodes(Set.of(node));
         topologyService.removeLogicalTopologyNodes(Set.of(node));
 
-        assertThat(topologyService.getLogicalTopology(), is(empty()));
+        assertThat(topologyService.getLogicalTopology().nodes(), is(empty()));
     }
 
     @Test
@@ -123,7 +123,7 @@ class LogicalTopologyImplTest {
 
         topologyService.putLogicalTopologyNode(new ClusterNode("id2", "node", new NetworkAddress("host", 1000)));
 
-        Collection<ClusterNode> topology = topologyService.getLogicalTopology();
+        Collection<ClusterNode> topology = topologyService.getLogicalTopology().nodes();
 
         assertThat(topology, hasSize(1));
 
@@ -136,12 +136,12 @@ class LogicalTopologyImplTest {
 
         topologyService.removeLogicalTopologyNodes(Set.of(new ClusterNode("id2", "node", new NetworkAddress("host", 1000))));
 
-        assertThat(topologyService.getLogicalTopology(), hasSize(1));
-        assertThat(topologyService.getLogicalTopology().iterator().next().id(), is("id1"));
+        assertThat(topologyService.getLogicalTopology().nodes(), hasSize(1));
+        assertThat((topologyService.getLogicalTopology().nodes()).iterator().next().id(), is("id1"));
 
         topologyService.removeLogicalTopologyNodes(Set.of(new ClusterNode("id1", "another-name", new NetworkAddress("host", 1000))));
 
-        assertThat(topologyService.getLogicalTopology(), is(empty()));
+        assertThat(topologyService.getLogicalTopology().nodes(), is(empty()));
     }
 
     @Test
@@ -165,7 +165,7 @@ class LogicalTopologyImplTest {
 
         storage.restoreSnapshot(snapshotDir);
 
-        List<String> namesInTopology = topologyService.getLogicalTopology().stream()
+        List<String> namesInTopology = topologyService.getLogicalTopology().nodes().stream()
                 .map(ClusterNode::name)
                 .collect(toList());
         assertThat(namesInTopology, contains("node"));

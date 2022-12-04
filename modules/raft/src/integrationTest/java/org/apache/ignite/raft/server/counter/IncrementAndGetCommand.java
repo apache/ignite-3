@@ -17,7 +17,7 @@
 
 package org.apache.ignite.raft.server.counter;
 
-import org.apache.ignite.raft.client.WriteCommand;
+import org.apache.ignite.internal.raft.WriteCommand;
 
 /**
  * Increment and get command.

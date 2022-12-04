@@ -19,6 +19,7 @@ package org.apache.ignite.utils;
 
 import static java.util.stream.Collectors.toUnmodifiableList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 
 import io.github.classgraph.ClassGraph;
 import io.github.classgraph.ClassInfo;
@@ -204,5 +205,17 @@ public class ClusterServiceTestUtils {
         return IntStream.range(startPort, endPort)
                 .mapToObj(port -> new NetworkAddress("localhost", port))
                 .collect(toUnmodifiableList());
+    }
+
+    /**
+     * Waits for the {@code expected} amount of nodes to appear in a topology.
+     *
+     * @param cluster The cluster.
+     * @param expected Expected count.
+     * @param timeout The timeout in millis.
+     * @return {@code True} if topology size is equal to expected.
+     */
+    public static boolean waitForTopology(ClusterService cluster, int expected, int timeout) throws InterruptedException {
+        return waitForCondition(() -> cluster.topologyService().allMembers().size() >= expected, timeout);
     }
 }

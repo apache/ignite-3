@@ -42,7 +42,7 @@ public partial class LinqSqlGenerationTests
     [Test]
     public void TestSelectTwoColumnsKv() =>
         AssertSqlKv(
-            "select (_T0.KEY + ?), _T0.VAL from PUBLIC.tbl1 as _T0",
+            "select (_T0.KEY + ?) as KEY, _T0.VAL from PUBLIC.tbl1 as _T0",
             q => q.Select(x => new { Key = x.Key.Key + 1, x.Value.Val }).ToList());
 
     [Test]

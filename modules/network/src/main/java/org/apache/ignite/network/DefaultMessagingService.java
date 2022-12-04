@@ -35,6 +35,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.message.ClassDescriptorMessage;
 import org.apache.ignite.internal.network.message.InvokeRequest;
@@ -46,6 +48,7 @@ import org.apache.ignite.internal.network.netty.NettySender;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorRegistry;
 import org.apache.ignite.internal.network.serialization.DescriptorRegistry;
 import org.apache.ignite.internal.network.serialization.marshal.UserObjectMarshaller;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NodeStoppingException;
@@ -53,6 +56,8 @@ import org.jetbrains.annotations.Nullable;
 
 /** Default messaging service implementation. */
 public class DefaultMessagingService extends AbstractMessagingService {
+    private static final IgniteLogger LOG = Loggers.forClass(DefaultMessagingService.class);
+
     /** Network messages factory. */
     private final NetworkMessagesFactory factory;
 
@@ -75,10 +80,14 @@ public class DefaultMessagingService extends AbstractMessagingService {
     private final AtomicLong correlationIdGenerator = new AtomicLong();
 
     /** Executor for outbound messages. */
-    private final ExecutorService outboundService = Executors.newSingleThreadExecutor();
+    private final ExecutorService outboundExecutor = Executors.newSingleThreadExecutor(
+            new NamedThreadFactory("MessagingService-outbound-", LOG)
+    );
 
     /** Executor for inbound messages. */
-    private final ExecutorService inboundService = Executors.newSingleThreadExecutor();
+    private final ExecutorService inboundExecutor = Executors.newSingleThreadExecutor(
+            new NamedThreadFactory("MessagingService-inbound-", LOG)
+    );
 
     /**
      * Constructor.
@@ -204,7 +213,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
      */
     private CompletableFuture<Void> sendMessage0(@Nullable String consistentId, InetSocketAddress addr, NetworkMessage message) {
         if (isInNetworkThread()) {
-            return CompletableFuture.supplyAsync(() -> sendMessage0(consistentId, addr, message), outboundService)
+            return CompletableFuture.supplyAsync(() -> sendMessage0(consistentId, addr, message), outboundExecutor)
                     .thenCompose(Function.identity());
         }
 
@@ -247,7 +256,8 @@ public class DefaultMessagingService extends AbstractMessagingService {
      */
     private void onMessage(InNetworkObject obj) {
         if (isInNetworkThread()) {
-            inboundService.submit(() -> onMessage(obj));
+            inboundExecutor.execute(() -> onMessage(obj));
+
             return;
         }
 
@@ -368,7 +378,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
         requestsMap.clear();
 
-        IgniteUtils.shutdownAndAwaitTermination(inboundService, 10, TimeUnit.SECONDS);
-        IgniteUtils.shutdownAndAwaitTermination(outboundService, 10, TimeUnit.SECONDS);
+        IgniteUtils.shutdownAndAwaitTermination(inboundExecutor, 10, TimeUnit.SECONDS);
+        IgniteUtils.shutdownAndAwaitTermination(outboundExecutor, 10, TimeUnit.SECONDS);
     }
 }

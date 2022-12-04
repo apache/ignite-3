@@ -24,6 +24,7 @@ import java.nio.file.Path;
 import java.util.Iterator;
 import java.util.Set;
 import java.util.function.Consumer;
+import java.util.function.LongConsumer;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.raft.commands.ClusterNodeMessage;
@@ -38,12 +39,12 @@ import org.apache.ignite.internal.cluster.management.raft.responses.ValidationEr
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.raft.ReadCommand;
+import org.apache.ignite.internal.raft.WriteCommand;
+import org.apache.ignite.internal.raft.service.CommandClosure;
+import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.raft.client.ReadCommand;
-import org.apache.ignite.raft.client.WriteCommand;
-import org.apache.ignite.raft.client.service.CommandClosure;
-import org.apache.ignite.raft.client.service.RaftGroupListener;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -59,12 +60,19 @@ public class CmgRaftGroupListener implements RaftGroupListener {
 
     private final ValidationManager validationManager;
 
+    private final LongConsumer onLogicalTopologyChanged;
+
     /**
      * Creates a new instance.
+     *
+     * @param storage Storage where this listener local data will be stored.
+     * @param logicalTopology Logical topology that will be updated by this listener.
+     * @param onLogicalTopologyChanged Callback invoked (with the corresponding RAFT term) when logical topology gets changed.
      */
-    public CmgRaftGroupListener(ClusterStateStorage storage, LogicalTopology logicalTopology) {
+    public CmgRaftGroupListener(ClusterStateStorage storage, LogicalTopology logicalTopology, LongConsumer onLogicalTopologyChanged) {
         this.storage = new RaftStorageManager(storage);
         this.logicalTopology = logicalTopology;
+        this.onLogicalTopologyChanged = onLogicalTopologyChanged;
         this.validationManager = new ValidationManager(this.storage, this.logicalTopology);
     }
 
@@ -101,9 +109,16 @@ public class CmgRaftGroupListener implements RaftGroupListener {
             } else if (command instanceof JoinReadyCommand) {
                 Serializable response = completeValidation((JoinReadyCommand) command);
 
+                if (response == null) {
+                    // It is valid, the topology has been changed.
+                    onLogicalTopologyChanged.accept(clo.term());
+                }
+
                 clo.result(response);
             } else if (command instanceof NodesLeaveCommand) {
                 removeNodesFromLogicalTopology((NodesLeaveCommand) command);
+
+                onLogicalTopologyChanged.accept(clo.term());
 
                 clo.result(null);
             }

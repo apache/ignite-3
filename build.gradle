@@ -18,6 +18,7 @@
 
 //This need for resolving plugins in buildscripts
 plugins {
+    id('idea')
     alias(libs.plugins.javacc) apply false
     alias(libs.plugins.modernizer) apply false
     alias(libs.plugins.aggregateJavadoc)
@@ -75,14 +76,11 @@ allprojects {
 
     tasks.withType(Javadoc) {
         options.tags = [ "apiNote" ]
+        options.addStringOption('bottom', javadocFooter())
     }
 
     tasks.withType(JavaCompile) {
         options.encoding = 'UTF-8'
-    }
-
-    tasks.withType(Javadoc) {
-        options.addStringOption('bottom', javadocFooter())
     }
 
     //Temporary hack to disable caching of Test tasks.

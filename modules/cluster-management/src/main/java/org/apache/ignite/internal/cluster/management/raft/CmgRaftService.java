@@ -17,11 +17,11 @@
 
 package org.apache.ignite.internal.cluster.management.raft;
 
-import java.util.Collection;
+import static java.util.stream.Collectors.toSet;
+
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.ClusterTag;
@@ -32,14 +32,16 @@ import org.apache.ignite.internal.cluster.management.raft.commands.JoinRequestCo
 import org.apache.ignite.internal.cluster.management.raft.commands.NodesLeaveCommand;
 import org.apache.ignite.internal.cluster.management.raft.responses.LogicalTopologyResponse;
 import org.apache.ignite.internal.cluster.management.raft.responses.ValidationErrorResponse;
+import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
+import org.apache.ignite.internal.cluster.management.topology.LogicalTopologySnapshot;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
+import org.apache.ignite.internal.raft.Peer;
+import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.raft.client.Peer;
-import org.apache.ignite.raft.client.service.RaftGroupService;
 
 /**
  * A wrapper around a {@link RaftGroupService} providing helpful methods for working with the CMG.
@@ -53,9 +55,15 @@ public class CmgRaftService {
 
     private final ClusterService clusterService;
 
-    public CmgRaftService(RaftGroupService raftService, ClusterService clusterService) {
+    private final LogicalTopology logicalTopology;
+
+    /**
+     * Creates a new instance.
+     */
+    public CmgRaftService(RaftGroupService raftService, ClusterService clusterService, LogicalTopology logicalTopology) {
         this.raftService = raftService;
         this.clusterService = clusterService;
+        this.logicalTopology = logicalTopology;
     }
 
     /**
@@ -166,18 +174,18 @@ public class CmgRaftService {
      */
     public CompletableFuture<Void> removeFromCluster(Set<ClusterNode> nodes) {
         NodesLeaveCommand command = msgFactory.nodesLeaveCommand()
-                .nodes(nodes.stream().map(this::nodeMessage).collect(Collectors.toSet()))
+                .nodes(nodes.stream().map(this::nodeMessage).collect(toSet()))
                 .build();
 
         return raftService.run(command);
     }
 
     /**
-     * Retrieves the logical topology.
+     * Retrieves the logical topology snapshot.
      *
-     * @return Logical topology.
+     * @return Logical topology snapshot.
      */
-    public CompletableFuture<Collection<ClusterNode>> logicalTopology() {
+    public CompletableFuture<LogicalTopologySnapshot> logicalTopology() {
         return raftService.run(msgFactory.readLogicalTopologyCommand().build())
                 .thenApply(LogicalTopologyResponse.class::cast)
                 .thenApply(LogicalTopologyResponse::logicalTopology);
@@ -195,7 +203,7 @@ public class CmgRaftService {
 
         return peers.stream()
                 .map(Peer::consistentId)
-                .collect(Collectors.toSet());
+                .collect(toSet());
     }
 
     private ClusterNodeMessage nodeMessage(ClusterNode node) {
@@ -205,5 +213,30 @@ public class CmgRaftService {
                 .host(node.address().host())
                 .port(node.address().port())
                 .build();
+    }
+
+    /**
+     * Issues {@code changePeersAsync} request with same peers; learners are recalculated based on the current peers (which is same as
+     * CMG nodes) and known logical topology. Any node in the logical topology that is not a CMG node constitutes a learner.
+     *
+     * @param term RAFT term in which we operate (used to avoid races when changing peers/learners).
+     * @return Future that completes when the request is processed.
+     */
+    public CompletableFuture<Void> updateLearners(long term) {
+        List<Peer> currentPeers = raftService.peers();
+
+        assert currentPeers != null : "Raft service is not yet initialized";
+
+        Set<String> peersConsistentIds = currentPeers.stream()
+                .map(Peer::consistentId)
+                .collect(toSet());
+
+        Set<Peer> newLearners = logicalTopology.getLogicalTopology().nodes().stream()
+                .map(ClusterNode::name)
+                .filter(name -> !peersConsistentIds.contains(name))
+                .map(Peer::new)
+                .collect(toSet());
+
+        return raftService.changePeersAsync(currentPeers, newLearners, term);
     }
 }

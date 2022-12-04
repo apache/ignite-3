@@ -31,7 +31,6 @@ import static org.apache.ignite.internal.utils.RebalanceUtil.subtract;
 import static org.apache.ignite.internal.utils.RebalanceUtil.switchAppendKey;
 import static org.apache.ignite.internal.utils.RebalanceUtil.switchReduceKey;
 import static org.apache.ignite.internal.utils.RebalanceUtil.union;
-import static org.apache.ignite.raft.jraft.core.NodeImpl.LEADER_STEPPED_DOWN;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -55,7 +54,10 @@ import org.apache.ignite.internal.metastorage.client.Entry;
 import org.apache.ignite.internal.metastorage.client.If;
 import org.apache.ignite.internal.metastorage.client.SimpleCondition;
 import org.apache.ignite.internal.metastorage.client.Update;
-import org.apache.ignite.internal.raft.server.RaftGroupEventsListener;
+import org.apache.ignite.internal.raft.Peer;
+import org.apache.ignite.internal.raft.RaftError;
+import org.apache.ignite.internal.raft.RaftGroupEventsListener;
+import org.apache.ignite.internal.raft.Status;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableChange;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.table.distributed.PartitionMover;
@@ -63,10 +65,6 @@ import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.ByteArray;
-import org.apache.ignite.raft.client.Peer;
-import org.apache.ignite.raft.jraft.Status;
-import org.apache.ignite.raft.jraft.entity.PeerId;
-import org.apache.ignite.raft.jraft.error.RaftError;
 
 /**
  * Listener for the raft group events, which must provide correct error handling of rebalance process
@@ -217,7 +215,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
 
     /** {@inheritDoc} */
     @Override
-    public void onNewPeersConfigurationApplied(Collection<PeerId> peers, Collection<PeerId> learners) {
+    public void onNewPeersConfigurationApplied(Collection<Peer> peers, Collection<Peer> learners) {
         if (!busyLock.enterBusy()) {
             return;
         }
@@ -241,7 +239,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
 
     /** {@inheritDoc} */
     @Override
-    public void onReconfigurationError(Status status, Collection<PeerId> peers, Collection<PeerId> learners, long term) {
+    public void onReconfigurationError(Status status, Collection<Peer> peers, Collection<Peer> learners, long term) {
         if (!busyLock.enterBusy()) {
             return;
         }
@@ -249,14 +247,14 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
         try {
             assert status != null;
 
-            if (status.equals(LEADER_STEPPED_DOWN)) {
+            if (status.equals(Status.LEADER_STEPPED_DOWN)) {
                 // Leader stepped down, so we are expecting RebalanceRaftGroupEventsListener.onLeaderElected to be called on a new leader.
                 LOG.info("Leader stepped down during rebalance [partId={}]", partId);
 
                 return;
             }
 
-            RaftError raftError = status.getRaftError();
+            RaftError raftError = status.error();
 
             assert raftError == RaftError.ECATCHUP : "According to the JRaft protocol, " + RaftError.ECATCHUP
                     + " is expected, got " + raftError;
@@ -285,7 +283,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
      * @param learners New learners to change configuration for a raft group.
      * @param term Current known leader term.
      */
-    private void scheduleChangePeers(Collection<PeerId> peers, Collection<PeerId> learners, long term) {
+    private void scheduleChangePeers(Collection<Peer> peers, Collection<Peer> learners, long term) {
         rebalanceScheduler.schedule(() -> {
             if (!busyLock.enterBusy()) {
                 return;
@@ -294,7 +292,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             LOG.info("Going to retry rebalance [attemptNo={}, partId={}]", rebalanceAttempts.get(), partId);
 
             try {
-                partitionMover.movePartition(peerIdsToPeers(peers), peerIdsToPeers(learners), term).join();
+                partitionMover.movePartition(peers, learners, term).join();
             } finally {
                 busyLock.leaveBusy();
             }
@@ -307,7 +305,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
      * @param peers New peers.
      * @param learners New learners.
      */
-    private void doOnNewPeersConfigurationApplied(Collection<PeerId> peers, Collection<PeerId> learners) {
+    private void doOnNewPeersConfigurationApplied(Collection<Peer> peers, Collection<Peer> learners) {
         try {
             ByteArray pendingPartAssignmentsKey = pendingPartAssignmentsKey(partId);
             ByteArray stablePartAssignmentsKey = stablePartAssignmentsKey(partId);
@@ -499,28 +497,12 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
     }
 
     /**
-     * Transforms list of peerIds to list of peers.
-     *
-     * @param peerIds List of peerIds to transform.
-     * @return List of transformed peers.
-     */
-    private static List<Peer> peerIdsToPeers(Collection<PeerId> peerIds) {
-        List<Peer> peers = new ArrayList<>(peerIds.size());
-
-        for (PeerId peerId : peerIds) {
-            peers.add(new Peer(peerId.getConsistentId()));
-        }
-
-        return peers;
-    }
-
-    /**
      * Creates a set of assignments from the given set of peers and learners.
      */
-    private static Set<Assignment> createAssignments(Collection<PeerId> peers, Collection<PeerId> learners) {
+    private static Set<Assignment> createAssignments(Collection<Peer> peers, Collection<Peer> learners) {
         Stream<Assignment> newAssignments = Stream.concat(
-                peers.stream().map(peerId -> Assignment.forPeer(peerId.getConsistentId())),
-                learners.stream().map(peerId -> Assignment.forLearner(peerId.getConsistentId()))
+                peers.stream().map(peer -> Assignment.forPeer(peer.consistentId())),
+                learners.stream().map(peer -> Assignment.forLearner(peer.consistentId()))
         );
 
         return newAssignments.collect(Collectors.toSet());

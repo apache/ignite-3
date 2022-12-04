@@ -17,9 +17,9 @@
 
 package org.apache.ignite.internal.metastorage.common.command;
 
+import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
-import org.apache.ignite.raft.client.WriteCommand;
 
 /**
  * Represents invoke command with nested conditions and execution branches.

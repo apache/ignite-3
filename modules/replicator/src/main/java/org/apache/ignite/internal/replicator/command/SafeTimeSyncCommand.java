@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.replicator.command;
 
-import org.apache.ignite.raft.client.WriteCommand;
+import org.apache.ignite.internal.raft.WriteCommand;
 
 /**
  * Write command to synchronize safe time periodically.

@@ -17,9 +17,13 @@
 
 package org.apache.ignite.internal.table;
 
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -30,19 +34,26 @@ import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.ByteBufferRow;
+import org.apache.ignite.internal.schema.Column;
+import org.apache.ignite.internal.schema.NativeTypes;
+import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
+import org.apache.ignite.internal.schema.row.Row;
+import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.sql.engine.AbstractBasicIntegrationTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.IgniteTransactions;
-import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -57,6 +68,15 @@ public class ItTableScanTest extends AbstractBasicIntegrationTest {
 
     /** Ids to insert. */
     private static final List<Integer> ROW_IDS = List.of(1, 2, 5, 6, 7, 10, 53);
+
+    private static final SchemaDescriptor SCHEMA = new SchemaDescriptor(
+            1,
+            new Column[]{new Column("key", NativeTypes.INT32, false)},
+            new Column[]{
+                    new Column("valInt", NativeTypes.INT32, false),
+                    new Column("valInt", NativeTypes.STRING, false)
+            }
+    );
 
     @BeforeEach
     public void beforeTest() {
@@ -147,12 +167,294 @@ public class ItTableScanTest extends AbstractBasicIntegrationTest {
         //assertEquals(ROW_IDS.size() + 1, scannedRows.size());
     }
 
+    @Test
+    public void testUpsertDuringPureTableScan() throws Exception {
+        pureTableScan(tx -> {
+            TableImpl table = getOrCreateTable();
+
+            InternalTable internalTable = table.internalTable();
+
+            return internalTable.upsert(createKeyValueRow(3), tx)
+                    .thenApply(unused -> 1);
+        });
+    }
+
+    @Test
+    @Disabled("IGNITE-18294 Multiple lock intentions support")
+    public void testUpsertAllDuringPureTableScan() throws Exception {
+        pureTableScan(tx -> {
+            TableImpl table = getOrCreateTable();
+
+            InternalTable internalTable = table.internalTable();
+
+            return internalTable.upsertAll(List.of(createKeyValueRow(3), createKeyValueRow(60)), tx)
+                    .thenApply(unused -> 2);
+        });
+    }
+
+    @Test
+    public void testGetAndUpsertDuringPureTableScan() throws Exception {
+        pureTableScan(tx -> {
+            TableImpl table = getOrCreateTable();
+
+            InternalTable internalTable = table.internalTable();
+
+            return internalTable.getAndUpsert(createKeyValueRow(3), tx)
+                    .thenApply(previous -> {
+                        assertNull(previous);
+
+                        return 1;
+                    });
+        });
+    }
+
+    @Test
+    public void testInsertDuringPureTableScan() throws Exception {
+        pureTableScan(tx -> {
+            TableImpl table = getOrCreateTable();
+
+            InternalTable internalTable = table.internalTable();
+
+            return internalTable.insert(createKeyValueRow(3), tx)
+                    .thenApply(inserted -> {
+                        assertTrue(inserted);
+
+                        return 1;
+                    });
+        });
+    }
+
+    @Test
+    @Disabled("IGNITE-18294 Multiple lock intentions support")
+    public void testInsertAllDuringPureTableScan() throws Exception {
+        pureTableScan(tx -> {
+            TableImpl table = getOrCreateTable();
+
+            InternalTable internalTable = table.internalTable();
+
+            return internalTable.insertAll(List.of(createKeyValueRow(3), createKeyValueRow(60)), tx)
+                    .thenApply(notInsertedRows -> {
+                        assertTrue(notInsertedRows.isEmpty());
+
+                        return 2;
+                    });
+        });
+    }
+
+    @Test
+    public void testReplaceDuringPureTableScan() throws Exception {
+        pureTableScan(tx -> {
+            TableImpl table = getOrCreateTable();
+
+            InternalTable internalTable = table.internalTable();
+
+            return internalTable.replace(createKeyValueRow(6), tx)
+                    .thenApply(inserted -> {
+                        assertTrue(inserted);
+
+                        return 0;
+                    });
+        });
+    }
+
+    @Test
+    @Disabled("IGNITE-18299 Value comparison in table operations")
+    public void testReplaceOldDuringPureTableScan() throws Exception {
+        pureTableScan(tx -> {
+            TableImpl table = getOrCreateTable();
+
+            InternalTable internalTable = table.internalTable();
+
+            return internalTable.replace(createOldKeyValueRow(6), createKeyValueRow(6), tx)
+                    .thenApply(inserted -> {
+                        assertTrue(inserted);
+
+                        return 0;
+                    });
+        });
+    }
+
+    @Test
+    public void testGetAndReplaceDuringPureTableScan() throws Exception {
+        pureTableScan(tx -> {
+            TableImpl table = getOrCreateTable();
+
+            InternalTable internalTable = table.internalTable();
+
+            return internalTable.getAndReplace(createKeyValueRow(6), tx)
+                    .thenApply(previous -> {
+                        assertNotNull(previous);
+
+                        return 0;
+                    });
+        });
+    }
+
+    @Test
+    public void testDeleteDuringPureTableScan() throws Exception {
+        pureTableScan(tx -> {
+            TableImpl table = getOrCreateTable();
+
+            InternalTable internalTable = table.internalTable();
+
+            return internalTable.delete(createKeyRow(6), tx)
+                    .thenApply(deleted -> {
+                        assertTrue(deleted);
+
+                        return -1;
+                    });
+        });
+    }
+
+    @Test
+    @Disabled("IGNITE-18294 Multiple lock intentions support")
+    public void testDeleteAllDuringPureTableScan() throws Exception {
+        pureTableScan(tx -> {
+            TableImpl table = getOrCreateTable();
+
+            InternalTable internalTable = table.internalTable();
+
+            return internalTable.deleteAll(List.of(createKeyRow(6), createKeyRow(10)), tx)
+                    .thenApply(deletedRows -> {
+                        assertEquals(2, deletedRows.size());
+
+                        return -2;
+                    });
+        });
+    }
+
+    @Test
+    @Disabled("IGNITE-18299 Value comparison in table operations")
+    public void testDeleteExactDuringPureTableScan() throws Exception {
+        pureTableScan(tx -> {
+            TableImpl table = getOrCreateTable();
+
+            InternalTable internalTable = table.internalTable();
+
+            return internalTable.deleteExact(createOldKeyValueRow(6), tx)
+                    .thenApply(deleted -> {
+                        assertTrue(deleted);
+
+                        return -1;
+                    });
+        });
+    }
+
+    @Test
+    @Disabled("IGNITE-18299 Value comparison in table operations IGNITE-18294 Multiple lock intentions support")
+    public void testDeleteAllExactDuringPureTableScan() throws Exception {
+        pureTableScan(tx -> {
+            TableImpl table = getOrCreateTable();
+
+            InternalTable internalTable = table.internalTable();
+
+            return internalTable.deleteAllExact(List.of(createOldKeyValueRow(6), createOldKeyValueRow(10)), tx)
+                    .thenApply(deletedRows -> {
+                        assertEquals(2, deletedRows.size());
+
+                        return -2;
+                    });
+        });
+    }
+
+    @Test
+    public void testGetAndDeleteDuringPureTableScan() throws Exception {
+        pureTableScan(tx -> {
+            TableImpl table = getOrCreateTable();
+
+            InternalTable internalTable = table.internalTable();
+
+            return internalTable.getAndDelete(createKeyRow(6), tx)
+                    .thenApply(deleted -> {
+                        assertNotNull(deleted);
+
+                        return -1;
+                    });
+        });
+    }
+
+    /**
+     * The method executes an operation, encapsulated in closure, during a pure table scan.
+     *
+     * @param txOperationAction An closure to apply during the scan operation.
+     * @throws Exception If failed.
+     */
+    public void pureTableScan(Function<InternalTransaction, CompletableFuture<Integer>> txOperationAction) throws Exception {
+        TableImpl table = getOrCreateTable();
+
+        InternalTable internalTable = table.internalTable();
+
+        InternalTransaction tx = (InternalTransaction) CLUSTER_NODES.get(0).transactions().begin();
+
+        log.info("Old transaction [id=" + tx.id());
+
+        ArrayList<ByteBuffer> scannedRows = new ArrayList<>();
+
+        Publisher<BinaryRow> publisher = internalTable.scan(0, null, null, null, null, 0, null);
+
+        CompletableFuture<Void> scanned = new CompletableFuture<>();
+
+        Subscription subscription = subscribeToPublisher(scannedRows, publisher, scanned);
+
+        subscription.request(1);
+
+        IgniteTestUtils.waitForCondition(() -> !scannedRows.isEmpty(), 10_000);
+
+        assertEquals(1, scannedRows.size());
+        assertFalse(scanned.isDone());
+
+        var txOpFut = txOperationAction.apply(tx);
+
+        assertFalse(txOpFut.isDone());
+
+        subscription.request(2);
+
+        IgniteTestUtils.waitForCondition(() -> scannedRows.size() == 3, 10_000);
+
+        assertEquals(3, scannedRows.size());
+        assertFalse(scanned.isDone());
+        assertFalse(txOpFut.isDone());
+
+        subscription.request(1_000); // Request so much entries here to close the publisher.
+
+        IgniteTestUtils.await(scanned);
+
+        assertThat(txOpFut, willCompleteSuccessfully());
+
+        tx.commit();
+
+        assertEquals(ROW_IDS.size(), scannedRows.size());
+
+        var pub = internalTable.scan(0, null, null, null, null, 0, null);
+
+        assertEquals(ROW_IDS.size() + txOpFut.get(), scanAllRows(pub).size());
+    }
+
+    /**
+     * Scans all rows form given publisher.
+     *
+     * @param publisher Publisher.
+     * @return List of scanned rows.
+     * @throws Exception If failed.
+     */
+    private ArrayList<ByteBuffer> scanAllRows(Publisher<BinaryRow> publisher) throws Exception {
+        ArrayList<ByteBuffer> scannedRows = new ArrayList<>();
+        CompletableFuture<Void> scanned = new CompletableFuture<>();
+
+        Subscription subscription = subscribeToPublisher(scannedRows, publisher, scanned);
+
+        subscription.request(1_000); // Request so much entries here to close the publisher.
+
+        IgniteTestUtils.waitForCondition(() -> scanned.isDone(), 10_000);
+
+        return scannedRows;
+    }
+
     /**
      * Loads data.
      *
      * @param table Ignite table.
      */
-    @NotNull
     private static void loadData(TableImpl table) {
         ROW_IDS.forEach(id -> insertRow(id));
 
@@ -249,5 +551,51 @@ public class ItTableScanTest extends AbstractBasicIntegrationTest {
     private static void insertRow(int rowId) {
         sql(IgniteStringFormatter.format("INSERT INTO {} (key, valInt, valStr) VALUES ({}, {}, '{}');",
                 TABLE_NAME, rowId, rowId, "Str_" + rowId));
+    }
+
+    /**
+     * Creates an entire row with new value.
+     *
+     * @param id Primary key.
+     * @return Entire row.
+     */
+    private static Row createKeyValueRow(int id) {
+        RowAssembler rowBuilder = new RowAssembler(SCHEMA, 0, 0);
+
+        rowBuilder.appendInt(id);
+        rowBuilder.appendInt(id);
+        rowBuilder.appendString("StrNew_" + id);
+
+        return new Row(SCHEMA, new ByteBufferRow(rowBuilder.toBytes()));
+    }
+
+    /**
+     * Creates an entire row with old value.
+     *
+     * @param id Primary key.
+     * @return Entire row.
+     */
+    private static Row createOldKeyValueRow(int id) {
+        RowAssembler rowBuilder = new RowAssembler(SCHEMA, 0, 0);
+
+        rowBuilder.appendInt(id);
+        rowBuilder.appendInt(id);
+        rowBuilder.appendString("Str_" + id);
+
+        return new Row(SCHEMA, new ByteBufferRow(rowBuilder.toBytes()));
+    }
+
+    /**
+     * Creates a key row from primary key.
+     *
+     * @param id Primary key.
+     * @return Key row.
+     */
+    private static Row createKeyRow(int id) {
+        RowAssembler rowBuilder = new RowAssembler(SCHEMA, 0, 0);
+
+        rowBuilder.appendInt(id);
+
+        return new Row(SCHEMA, new ByteBufferRow(rowBuilder.toBytes()));
     }
 }

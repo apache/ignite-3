@@ -17,12 +17,12 @@
 
 package org.apache.ignite.internal.sql.engine.rel;
 
+import org.apache.ignite.internal.sql.engine.rel.agg.IgniteColocatedHashAggregate;
+import org.apache.ignite.internal.sql.engine.rel.agg.IgniteColocatedSortAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteMapHashAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteMapSortAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteReduceHashAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteReduceSortAggregate;
-import org.apache.ignite.internal.sql.engine.rel.agg.IgniteSingleHashAggregate;
-import org.apache.ignite.internal.sql.engine.rel.agg.IgniteSingleSortAggregate;
 import org.apache.ignite.internal.sql.engine.rel.set.IgniteSetOp;
 
 /**
@@ -87,7 +87,7 @@ public interface IgniteRelVisitor<T> {
     /**
      * See {@link IgniteRelVisitor#visit(IgniteRel)}.
      */
-    T visit(IgniteSingleHashAggregate rel);
+    T visit(IgniteColocatedHashAggregate rel);
 
     /**
      * See {@link IgniteRelVisitor#visit(IgniteRel)}.
@@ -102,7 +102,7 @@ public interface IgniteRelVisitor<T> {
     /**
      * See {@link IgniteRelVisitor#visit(IgniteRel)}.
      */
-    T visit(IgniteSingleSortAggregate rel);
+    T visit(IgniteColocatedSortAggregate rel);
 
     /**
      * See {@link IgniteRelVisitor#visit(IgniteRel)}.

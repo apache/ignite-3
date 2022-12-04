@@ -18,8 +18,8 @@
 package org.apache.ignite.internal.table.distributed.command;
 
 import java.util.UUID;
+import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.raft.client.WriteCommand;
 
 /**
  * Partition transactional command.
