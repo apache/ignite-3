@@ -18,6 +18,10 @@
 package org.apache.ignite.internal.distributionzones;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.DISTRIBUTION_ZONE_DATA_NODES_PREFIX;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.triggerKeyCondition;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesChangeTriggerKey;
 import static org.apache.ignite.internal.metastorage.client.CompoundCondition.or;
 import static org.apache.ignite.internal.metastorage.client.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.client.Conditions.value;
@@ -29,6 +33,7 @@ import static org.apache.ignite.lang.ErrorGroups.Common.UNEXPECTED_ERR;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
 import org.apache.ignite.configuration.NamedListChange;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
@@ -52,6 +57,7 @@ import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.NodeStoppingException;
+import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -70,9 +76,6 @@ public class DistributionZoneManager implements IgniteComponent {
 
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
-
-    /**  */
-    public static final String DISTRIBUTION_ZONE_DATA_NODES_PREFIX = "distributionZone.dataNodes";
 
     /**
      * Creates a new distribution zone manager.
@@ -270,7 +273,9 @@ public class DistributionZoneManager implements IgniteComponent {
         byte[] logicalTopologyBytes;
 
         try {
-            logicalTopologyBytes = ByteUtils.toBytes(cmgManager.logicalTopology().get());
+            logicalTopologyBytes = ByteUtils.toBytes(
+                    cmgManager.logicalTopology().get().stream().map(ClusterNode::name).collect(Collectors.toSet())
+            );
         } catch (InterruptedException | ExecutionException e) {
             throw new IgniteInternalException(e);
         }
@@ -314,24 +319,5 @@ public class DistributionZoneManager implements IgniteComponent {
                 LOG.info("");
             }
         });
-    }
-
-    private static CompoundCondition triggerKeyCondition(long revision, ByteArray zonesChangeTriggerKey) {
-        return or(
-                notExists(zonesChangeTriggerKey),
-                value(zonesChangeTriggerKey).lt(ByteUtils.longToBytes(revision))
-        );
-    }
-
-    /**
-     *
-     *
-     */
-    private static ByteArray zonesChangeTriggerKey() {
-        return new ByteArray("distributionZones.change.trigger");
-    }
-
-    private static ByteArray zoneDataNodesKey(int zoneId) {
-        return new ByteArray(DISTRIBUTION_ZONE_DATA_NODES_PREFIX + zoneId);
     }
 }
