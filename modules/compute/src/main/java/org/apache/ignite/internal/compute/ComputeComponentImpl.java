@@ -177,7 +177,6 @@ public class ComputeComponentImpl implements ComputeComponent {
         return future;
     }
 
-    @SuppressWarnings("unchecked")
     private <R> CompletableFuture<R> resultFromExecuteResponse(ExecuteResponse executeResponse) {
         if (executeResponse.throwable() != null) {
             return CompletableFuture.failedFuture(executeResponse.throwable());
@@ -198,11 +197,11 @@ public class ComputeComponentImpl implements ComputeComponent {
                 new NamedThreadFactory(NamedThreadFactory.threadPrefix(ignite.name(), "compute"), LOG)
         );
 
-        messagingService.addMessageHandler(ComputeMessageTypes.class, (message, sender, correlationId) -> {
+        messagingService.addMessageHandler(ComputeMessageTypes.class, (message, senderConsistentId, correlationId) -> {
             assert correlationId != null;
 
             if (message instanceof ExecuteRequest) {
-                processExecuteRequest((ExecuteRequest) message, sender, correlationId);
+                processExecuteRequest((ExecuteRequest) message, senderConsistentId, correlationId);
 
                 return;
             }
@@ -215,9 +214,9 @@ public class ComputeComponentImpl implements ComputeComponent {
         return new LinkedBlockingQueue<>();
     }
 
-    private void processExecuteRequest(ExecuteRequest executeRequest, ClusterNode sender, long correlationId) {
+    private void processExecuteRequest(ExecuteRequest executeRequest, String senderConsistentId, long correlationId) {
         if (!busyLock.enterBusy()) {
-            sendExecuteResponse(null, new NodeStoppingException(), sender, correlationId);
+            sendExecuteResponse(null, new NodeStoppingException(), senderConsistentId, correlationId);
             return;
         }
 
@@ -225,25 +224,24 @@ public class ComputeComponentImpl implements ComputeComponent {
             Class<ComputeJob<Object>> jobClass = jobClass(executeRequest.jobClassName());
 
             doExecuteLocally(jobClass, executeRequest.args())
-                    .handle((result, ex) -> sendExecuteResponse(result, ex, sender, correlationId));
+                    .handle((result, ex) -> sendExecuteResponse(result, ex, senderConsistentId, correlationId));
         } finally {
             busyLock.leaveBusy();
         }
     }
 
     @Nullable
-    private Object sendExecuteResponse(Object result, Throwable ex, ClusterNode sender, Long correlationId) {
+    private Object sendExecuteResponse(@Nullable Object result, @Nullable Throwable ex, String senderConsistentId, Long correlationId) {
         ExecuteResponse executeResponse = messagesFactory.executeResponse()
                 .result(result)
                 .throwable(ex)
                 .build();
 
-        messagingService.respond(sender, executeResponse, correlationId);
+        messagingService.respond(senderConsistentId, executeResponse, correlationId);
 
         return null;
     }
 
-    @SuppressWarnings("unchecked")
     private <R, J extends ComputeJob<R>> Class<J> jobClass(String jobClassName) {
         try {
             return (Class<J>) Class.forName(jobClassName, true, jobClassLoader);

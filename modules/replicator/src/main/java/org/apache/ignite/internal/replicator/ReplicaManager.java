@@ -45,7 +45,6 @@ import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NodeStoppingException;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.NetworkMessageHandler;
@@ -107,7 +106,7 @@ public class ReplicaManager implements IgniteComponent {
         this.clusterNetSvc = clusterNetSvc;
         this.clock = clock;
         this.messageGroupsToHandle = messageGroupsToHandle;
-        this.handler = (message, sender, correlationId) -> {
+        this.handler = (message, senderConsistentId, correlationId) -> {
             if (!busyLock.enterBusy()) {
                 throw new IgniteException(new NodeStoppingException());
             }
@@ -131,7 +130,7 @@ public class ReplicaManager implements IgniteComponent {
                                     ignore -> {
                                         IgniteUtils.inBusyLock(
                                                 busyLock,
-                                                () -> sendAwaitReplicaResponse(sender, correlationId)
+                                                () -> sendAwaitReplicaResponse(senderConsistentId, correlationId)
                                         );
 
                                         return null;
@@ -140,7 +139,7 @@ public class ReplicaManager implements IgniteComponent {
 
                             return replicaFut;
                         } else {
-                            IgniteUtils.inBusyLock(busyLock, () -> sendAwaitReplicaResponse(sender, correlationId));
+                            IgniteUtils.inBusyLock(busyLock, () -> sendAwaitReplicaResponse(senderConsistentId, correlationId));
 
                             return replicaFut;
                         }
@@ -154,7 +153,7 @@ public class ReplicaManager implements IgniteComponent {
                 HybridTimestamp requestTimestamp = extractTimestamp(request);
 
                 if (replicaFut == null || !replicaFut.isDone()) {
-                    sendReplicaUnavailableErrorResponse(sender, correlationId, request, requestTimestamp);
+                    sendReplicaUnavailableErrorResponse(senderConsistentId, correlationId, request, requestTimestamp);
 
                     return;
                 }
@@ -173,7 +172,7 @@ public class ReplicaManager implements IgniteComponent {
                         msg = prepareReplicaErrorResponse(requestTimestamp, ex);
                     }
 
-                    clusterNetSvc.messagingService().respond(sender, msg, correlationId);
+                    clusterNetSvc.messagingService().respond(senderConsistentId, msg, correlationId);
 
                     return null;
                 });
@@ -305,14 +304,14 @@ public class ReplicaManager implements IgniteComponent {
      * Sends replica unavailable error response.
      */
     private void sendReplicaUnavailableErrorResponse(
-            ClusterNode sender,
+            String senderConsistentId,
             @Nullable Long correlationId,
             ReplicaRequest request,
             HybridTimestamp requestTimestamp
     ) {
         if (requestTimestamp != null) {
             clusterNetSvc.messagingService().respond(
-                    sender,
+                    senderConsistentId,
                     REPLICA_MESSAGES_FACTORY
                             .errorTimestampAwareReplicaResponse()
                             .throwable(
@@ -325,7 +324,7 @@ public class ReplicaManager implements IgniteComponent {
                     correlationId);
         } else {
             clusterNetSvc.messagingService().respond(
-                    sender,
+                    senderConsistentId,
                     REPLICA_MESSAGES_FACTORY
                             .errorReplicaResponse()
                             .throwable(
@@ -341,9 +340,9 @@ public class ReplicaManager implements IgniteComponent {
     /**
      * Sends await replica response.
      */
-    private void sendAwaitReplicaResponse(ClusterNode sender, @Nullable Long correlationId) {
+    private void sendAwaitReplicaResponse(String senderConsistentId, @Nullable Long correlationId) {
         clusterNetSvc.messagingService().respond(
-                sender,
+                senderConsistentId,
                 REPLICA_MESSAGES_FACTORY
                         .awaitReplicaResponse()
                         .build(),

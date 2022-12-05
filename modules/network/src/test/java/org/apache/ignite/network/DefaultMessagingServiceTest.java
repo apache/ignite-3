@@ -17,14 +17,18 @@
 
 package org.apache.ignite.network;
 
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -101,7 +105,7 @@ class DefaultMessagingServiceTest {
         configureSender();
         configureReceiver();
 
-        when(topologyService.getByConsistentId(eq(senderNode.name()))).thenReturn(senderNode);
+        lenient().when(topologyService.getByConsistentId(eq(senderNode.name()))).thenReturn(senderNode);
 
         messageSerializationRegistry.registerFactory(
                 (short) 2,
@@ -140,13 +144,22 @@ class DefaultMessagingServiceTest {
         }
     }
 
+    @Test
+    void respondingWhenSenderIsNotInTopologyResultsInFailingFuture() throws Exception {
+        try (Services services = createMessagingService(senderNode, senderNetworkConfig, () -> {})) {
+            CompletableFuture<Void> resultFuture = services.messagingService.respond("no-such-node", mock(NetworkMessage.class), 123);
+
+            assertThat(resultFuture, willThrow(ConsistentIdNotResolvedException.class));
+        }
+    }
+
     private void configureSender() {
         when(senderNetworkConfigView.port()).thenReturn(SENDER_PORT);
         configureNetworkDefaults(senderNetworkConfig, senderNetworkConfigView, senderOutboundConfig, senderInboundConfig);
     }
 
     private void configureReceiver() {
-        when(receiverNetworkConfigView.port()).thenReturn(RECEIVER_PORT);
+        lenient().when(receiverNetworkConfigView.port()).thenReturn(RECEIVER_PORT);
         configureNetworkDefaults(receiverNetworkConfig, receiverNetworkConfigView, receiverOutboundConfig, receiverInboundConfig);
     }
 
@@ -156,10 +169,10 @@ class DefaultMessagingServiceTest {
             OutboundView outboundConfig,
             InboundView inboundConfig
     ) {
-        when(networkConfig.value()).thenReturn(networkConfigView);
-        when(networkConfigView.portRange()).thenReturn(0);
-        when(networkConfigView.outbound()).thenReturn(outboundConfig);
-        when(networkConfigView.inbound()).thenReturn(inboundConfig);
+        lenient().when(networkConfig.value()).thenReturn(networkConfigView);
+        lenient().when(networkConfigView.portRange()).thenReturn(0);
+        lenient().when(networkConfigView.outbound()).thenReturn(outboundConfig);
+        lenient().when(networkConfigView.inbound()).thenReturn(inboundConfig);
     }
 
     private static void awaitQuietly(CountDownLatch latch) {
