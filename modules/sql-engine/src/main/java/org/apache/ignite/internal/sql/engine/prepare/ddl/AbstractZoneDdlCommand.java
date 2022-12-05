@@ -17,40 +17,29 @@
 
 package org.apache.ignite.internal.sql.engine.prepare.ddl;
 
-import java.util.function.BiConsumer;
-import java.util.function.Consumer;
-import org.jetbrains.annotations.Nullable;
-
 /**
- * Table option information for its processing.
+ * Abstract zone ddl command.
  */
-class TableOptionInfo<T> {
-    final String name;
+public class AbstractZoneDdlCommand implements DdlCommand {
+    /** Table zone. */
+    private String zoneName;
 
-    final Class<T> type;
+    /** Schema name where this new zone will be created. */
+    private String schemaName;
 
-    @Nullable
-    final Consumer<T> validator;
+    public String zoneName() {
+        return zoneName;
+    }
 
-    final BiConsumer<CreateTableCommand, T> setter;
+    public void zoneName(String zoneName) {
+        this.zoneName = zoneName;
+    }
 
-    /**
-     * Constructor.
-     *
-     * @param name Table option name.
-     * @param type Table option type.
-     * @param validator Table option value validator.
-     * @param setter Table option value setter.
-     */
-    TableOptionInfo(
-            String name,
-            Class<T> type,
-            @Nullable Consumer<T> validator,
-            BiConsumer<CreateTableCommand, T> setter
-    ) {
-        this.name = name;
-        this.type = type;
-        this.validator = validator;
-        this.setter = setter;
+    public String schemaName() {
+        return schemaName;
+    }
+
+    public void schemaName(String schemaName) {
+        this.schemaName = schemaName;
     }
 }

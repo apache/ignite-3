@@ -37,7 +37,7 @@ public class IgniteSqlDropZone extends SqlDrop {
     private final SqlIdentifier name;
 
     /** Sql operator. */
-    private static final SqlOperator OPERATOR = new SqlSpecialOperator("DROP ZONE", SqlKind.OTHER);
+    private static final SqlOperator OPERATOR = new SqlSpecialOperator("DROP ZONE", SqlKind.OTHER_DDL);
 
     /** Constructor. */
     public IgniteSqlDropZone(SqlParserPos pos, boolean ifExists, SqlIdentifier name) {
