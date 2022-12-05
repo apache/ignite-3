@@ -56,7 +56,7 @@ public interface SortedIndexStorage extends IndexStorage {
      *      {@code null} means unbounded.
      * @param flags Control flags. {@link #GREATER} | {@link #LESS} by default. Other available values
      *      are {@link #GREATER_OR_EQUAL}, {@link #LESS_OR_EQUAL}.
-     * @return Cursor with fetched index rows.
+     * @return Weakly consistent cursor with fetched index rows.
      * @throws IllegalArgumentException If backwards flag is passed and backwards iteration is not supported by the storage.
      */
     Cursor<IndexRow> scan(

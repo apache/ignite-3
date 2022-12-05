@@ -37,14 +37,20 @@ import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.hasSize;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -227,14 +233,14 @@ public abstract class AbstractSortedIndexStorageTest {
     }
 
     @Test
-    void testEmpty() throws Exception {
+    void testEmpty() {
         SortedIndexStorage index = createIndexStorage(shuffledRandomDefinitions());
 
         assertThat(scan(index, null, null, 0), is(empty()));
     }
 
     @Test
-    void testGet() throws Exception {
+    void testGet() {
         SortedIndexDefinition indexDefinition = SchemaBuilders.sortedIndex("TEST_INDEX")
                 .addIndexColumn(ColumnTypeSpec.STRING.name()).asc().done()
                 .addIndexColumn(ColumnTypeSpec.INT32.name()).asc().done()
@@ -267,7 +273,7 @@ public abstract class AbstractSortedIndexStorageTest {
      */
     @ParameterizedTest
     @VariableSource("ALL_TYPES_COLUMN_DEFINITIONS")
-    void testSingleColumnIndex(ColumnDefinition columnDefinition) throws Exception {
+    void testSingleColumnIndex(ColumnDefinition columnDefinition) {
         testPutGetRemove(List.of(columnDefinition));
     }
 
@@ -275,7 +281,7 @@ public abstract class AbstractSortedIndexStorageTest {
      * Tests that appending an already existing row does no harm.
      */
     @Test
-    void testPutIdempotence() throws Exception {
+    void testPutIdempotence() {
         SortedIndexDefinition indexDefinition = SchemaBuilders.sortedIndex("TEST_INDEX")
                 .addIndexColumn(ColumnTypeSpec.STRING.name()).asc().done()
                 .addIndexColumn(ColumnTypeSpec.INT32.name()).asc().done()
@@ -302,7 +308,7 @@ public abstract class AbstractSortedIndexStorageTest {
      * Tests that it is possible to add rows with the same columns but different Row IDs.
      */
     @Test
-    void testMultiplePuts() throws Exception {
+    void testMultiplePuts() {
         SortedIndexDefinition indexDefinition = SchemaBuilders.sortedIndex("TEST_INDEX")
                 .addIndexColumn(ColumnTypeSpec.STRING.name()).asc().done()
                 .addIndexColumn(ColumnTypeSpec.INT32.name()).asc().done()
@@ -335,7 +341,7 @@ public abstract class AbstractSortedIndexStorageTest {
      * Tests the {@link SortedIndexStorage#remove} method.
      */
     @Test
-    void testRemove() throws Exception {
+    void testRemove() {
         SortedIndexDefinition indexDefinition = SchemaBuilders.sortedIndex("TEST_INDEX")
                 .addIndexColumn(ColumnTypeSpec.STRING.name()).asc().done()
                 .addIndexColumn(ColumnTypeSpec.INT32.name()).asc().done()
@@ -389,7 +395,7 @@ public abstract class AbstractSortedIndexStorageTest {
      * Tests the Put-Get-Remove case when an index is created using all possible column in random order.
      */
     @RepeatedTest(5)
-    void testCreateMultiColumnIndex() throws Exception {
+    void testCreateMultiColumnIndex() {
         testPutGetRemove(shuffledDefinitions());
     }
 
@@ -397,7 +403,7 @@ public abstract class AbstractSortedIndexStorageTest {
      * Tests the happy case of the {@link SortedIndexStorage#scan} method.
      */
     @RepeatedTest(5)
-    void testScan() throws Exception {
+    void testScan() {
         SortedIndexStorage indexStorage = createIndexStorage(shuffledDefinitions());
 
         List<TestIndexRow> entries = IntStream.range(0, 10)
@@ -434,7 +440,7 @@ public abstract class AbstractSortedIndexStorageTest {
     }
 
     @Test
-    public void testBoundsAndOrder() throws Exception {
+    public void testBoundsAndOrder() {
         ColumnTypeSpec string = ColumnTypeSpec.STRING;
         ColumnTypeSpec int32 = ColumnTypeSpec.INT32;
 
@@ -525,7 +531,7 @@ public abstract class AbstractSortedIndexStorageTest {
      * Tests that an empty range is returned if {@link SortedIndexStorage#scan} method is called using overlapping keys.
      */
     @Test
-    void testEmptyRange() throws Exception {
+    void testEmptyRange() {
         List<ColumnDefinition> indexSchema = shuffledRandomDefinitions();
 
         SortedIndexStorage indexStorage = createIndexStorage(indexSchema);
@@ -549,7 +555,7 @@ public abstract class AbstractSortedIndexStorageTest {
 
     @ParameterizedTest
     @VariableSource("ALL_TYPES_COLUMN_DEFINITIONS")
-    void testNullValues(ColumnDefinition columnDefinition) throws Exception {
+    void testNullValues(ColumnDefinition columnDefinition) {
         SortedIndexStorage storage = createIndexStorage(List.of(columnDefinition));
 
         TestIndexRow entry1 = TestIndexRow.randomRow(storage);
@@ -577,6 +583,91 @@ public abstract class AbstractSortedIndexStorageTest {
                     contains(entry1.indexColumns().byteBuffer(), entry2.indexColumns().byteBuffer())
             );
         }
+    }
+
+    /**
+     * Validates the {@link SortedIndexStorage#scan(BinaryTuplePrefix, BinaryTuplePrefix, int)} contract:
+     * <ul>
+     *     <li>At the moment of creating the cursor, we get its first IndexRow;</li>
+     *     <li>Cursor works with the current state of the storage, if the changes are within the range of the cursor, then we will receive
+     *     them.</li>
+     * </ul>
+     */
+    @Test
+    void testScanContract() {
+        SortedIndexDefinition indexDefinition = SchemaBuilders.sortedIndex("TEST_IDX")
+                .addIndexColumn(ColumnType.INT32.typeSpec().name()).asc().done()
+                .build();
+
+        SortedIndexStorage indexStorage = createIndexStorage(indexDefinition);
+
+        assertThat(indexStorage.scan(null, null, 0).stream().collect(toList()), empty());
+
+        Cursor<IndexRow> scan = indexStorage.scan(null, null, 0);
+
+        BinaryTupleRowSerializer serializer = new BinaryTupleRowSerializer(indexStorage.indexDescriptor());
+
+        RowId rowId = new RowId(TEST_PARTITION);
+
+        // Let's check that if we now add an IndexRow, then we will not get it by the cursor.
+        indexStorage.put(serializer.serializeRow(new Object[]{0}, rowId));
+
+        assertThat(scan.stream().collect(toList()), empty());
+
+        // But new cursors will see this IndexRow.
+        assertThat(
+                indexStorage.scan(null, null, 0).stream()
+                        .map(indexRow -> serializer.deserializeColumns(indexRow)[0])
+                        .collect(toList()),
+                contains(0)
+        );
+
+        // Let's check that the added IndexRows to the storage will be visible for the cursor.
+        scan = indexStorage.scan(null, null, 0);
+
+        assertTrue(scan.hasNext());
+
+        // Let's add an IndexRow after method Cursor#hasNext.
+        indexStorage.put(serializer.serializeRow(new Object[]{1}, rowId));
+
+        assertEquals(0, serializer.deserializeColumns(scan.next())[0]);
+
+        assertTrue(scan.hasNext());
+
+        // Let's add an IndexRow before method Cursor#hasNext.
+        indexStorage.put(serializer.serializeRow(new Object[]{2}, rowId));
+
+        assertTrue(scan.hasNext());
+
+        assertEquals(1, serializer.deserializeColumns(scan.next())[0]);
+
+        assertTrue(scan.hasNext());
+
+        assertEquals(2, serializer.deserializeColumns(scan.next())[0]);
+
+        assertFalse(scan.hasNext());
+
+        assertThrows(NoSuchElementException.class, scan::next);
+
+        // Let's check that the removed IndexRow's from the storage will be visible for the cursor.
+        scan = indexStorage.scan(null, null, 0);
+
+        // Let's check that if we now remove an IndexRow, then we will get it by the cursor.
+        indexStorage.remove(serializer.serializeRow(new Object[]{0}, rowId));
+
+        // Let's remove an IndexRows before method Cursor#hasNext.
+        indexStorage.remove(serializer.serializeRow(new Object[]{1}, rowId));
+
+        assertTrue(scan.hasNext());
+
+        // Let's remove an IndexRows after method Cursor#hasNext.
+        indexStorage.remove(serializer.serializeRow(new Object[]{2}, rowId));
+
+        assertEquals(0, serializer.deserializeColumns(scan.next())[0]);
+
+        assertFalse(scan.hasNext());
+
+        assertThrows(NoSuchElementException.class, scan::next);
     }
 
     private List<ColumnDefinition> shuffledRandomDefinitions() {
@@ -611,7 +702,7 @@ public abstract class AbstractSortedIndexStorageTest {
      * Tests the Get-Put-Remove scenario: inserts some keys into the storage and checks that they have been successfully persisted and can
      * be removed.
      */
-    private void testPutGetRemove(List<ColumnDefinition> indexSchema) throws Exception {
+    private void testPutGetRemove(List<ColumnDefinition> indexSchema) {
         SortedIndexStorage indexStorage = createIndexStorage(indexSchema);
 
         TestIndexRow entry1 = TestIndexRow.randomRow(indexStorage);
@@ -644,7 +735,7 @@ public abstract class AbstractSortedIndexStorageTest {
      * Extracts a single value by a given key or {@code null} if it does not exist.
      */
     @Nullable
-    private static IndexRow getSingle(SortedIndexStorage indexStorage, BinaryTuple fullPrefix) throws Exception {
+    private static IndexRow getSingle(SortedIndexStorage indexStorage, BinaryTuple fullPrefix) {
         List<RowId> rowIds = get(indexStorage, fullPrefix);
 
         assertThat(rowIds, anyOf(empty(), hasSize(1)));
@@ -663,7 +754,7 @@ public abstract class AbstractSortedIndexStorageTest {
             @Nullable BinaryTuplePrefix lowerBound,
             @Nullable BinaryTuplePrefix upperBound,
             @MagicConstant(flagsFromClass = SortedIndexStorage.class) int flags
-    ) throws Exception {
+    ) {
         var serializer = new BinaryTupleRowSerializer(index.indexDescriptor());
 
         try (Cursor<IndexRow> cursor = index.scan(lowerBound, upperBound, flags)) {
@@ -673,7 +764,7 @@ public abstract class AbstractSortedIndexStorageTest {
         }
     }
 
-    protected static List<RowId> get(SortedIndexStorage index, BinaryTuple key) throws Exception {
+    protected static List<RowId> get(SortedIndexStorage index, BinaryTuple key) {
         try (Cursor<RowId> cursor = index.get(key)) {
             return cursor.stream().collect(toUnmodifiableList());
         }
@@ -693,5 +784,19 @@ public abstract class AbstractSortedIndexStorageTest {
 
             return null;
         });
+    }
+
+    private static <T> List<T> getRemaining(Cursor<IndexRow> scanCursor, Function<IndexRow, T> mapper) {
+        List<T> result = new ArrayList<>();
+
+        while (scanCursor.hasNext()) {
+            result.add(mapper.apply(scanCursor.next()));
+        }
+
+        return result;
+    }
+
+    private static <T> Function<IndexRow, T> firstColumn(BinaryTupleRowSerializer serializer) {
+        return indexRow -> (T) serializer.deserializeColumns(indexRow)[0];
     }
 }

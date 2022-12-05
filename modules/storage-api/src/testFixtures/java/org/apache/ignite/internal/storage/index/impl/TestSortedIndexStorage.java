@@ -17,14 +17,17 @@
 
 package org.apache.ignite.internal.storage.index.impl;
 
-import static org.apache.ignite.internal.util.IgniteUtils.capacity;
+import static java.util.Collections.emptyIterator;
 
 import java.nio.ByteBuffer;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.Iterator;
+import java.util.Map.Entry;
+import java.util.NavigableMap;
+import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.SortedMap;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
@@ -68,11 +71,28 @@ public class TestSortedIndexStorage implements SortedIndexStorage {
     public Cursor<RowId> get(BinaryTuple key) throws StorageException {
         checkClosed();
 
-        Iterator<RowId> iterator = index.getOrDefault(key.byteBuffer(), Set.of()).stream()
-                .peek(rowId -> checkClosed())
-                .iterator();
+        Iterator<RowId> iterator = index.getOrDefault(key.byteBuffer(), Set.of()).iterator();
 
-        return Cursor.fromBareIterator(iterator);
+        return new Cursor<>() {
+            @Override
+            public void close() {
+                // No-op.
+            }
+
+            @Override
+            public boolean hasNext() {
+                checkClosed();
+
+                return iterator.hasNext();
+            }
+
+            @Override
+            public RowId next() {
+                checkClosed();
+
+                return iterator.next();
+            }
+        };
     }
 
     @Override
@@ -80,18 +100,11 @@ public class TestSortedIndexStorage implements SortedIndexStorage {
         checkClosed();
 
         index.compute(row.indexColumns().byteBuffer(), (k, v) -> {
-            if (v == null) {
-                return Set.of(row.rowId());
-            } else if (v.contains(row.rowId())) {
-                return v;
-            } else {
-                var result = new HashSet<RowId>(capacity(v.size() + 1));
+            Set<RowId> rowIds = v == null ? ConcurrentHashMap.newKeySet() : v;
 
-                result.addAll(v);
-                result.add(row.rowId());
+            rowIds.add(row.rowId());
 
-                return result;
-            }
+            return rowIds;
         });
     }
 
@@ -100,19 +113,9 @@ public class TestSortedIndexStorage implements SortedIndexStorage {
         checkClosed();
 
         index.computeIfPresent(row.indexColumns().byteBuffer(), (k, v) -> {
-            if (v.contains(row.rowId())) {
-                if (v.size() == 1) {
-                    return null;
-                } else {
-                    var result = new HashSet<>(v);
+            v.remove(row.rowId());
 
-                    result.remove(row.rowId());
-
-                    return result;
-                }
-            } else {
-                return v;
-            }
+            return v.isEmpty() ? null : v;
         });
     }
 
@@ -135,48 +138,23 @@ public class TestSortedIndexStorage implements SortedIndexStorage {
             setEqualityFlag(upperBound);
         }
 
-        SortedMap<ByteBuffer, Set<RowId>> data;
+        NavigableMap<ByteBuffer, Set<RowId>> navigableMap;
 
         if (lowerBound == null && upperBound == null) {
-            data = index;
+            navigableMap = index;
         } else if (lowerBound == null) {
-            data = index.headMap(upperBound.byteBuffer());
+            navigableMap = index.headMap(upperBound.byteBuffer());
         } else if (upperBound == null) {
-            data = index.tailMap(lowerBound.byteBuffer());
+            navigableMap = index.tailMap(lowerBound.byteBuffer());
         } else {
             try {
-                data = index.subMap(lowerBound.byteBuffer(), upperBound.byteBuffer());
+                navigableMap = index.subMap(lowerBound.byteBuffer(), upperBound.byteBuffer());
             } catch (IllegalArgumentException e) {
-                data = Collections.emptySortedMap();
+                navigableMap = Collections.emptyNavigableMap();
             }
         }
 
-        Iterator<? extends IndexRow> iterator = data.entrySet().stream()
-                .flatMap(e -> {
-                    var tuple = new BinaryTuple(descriptor.binaryTupleSchema(), e.getKey());
-
-                    return e.getValue().stream().map(rowId -> new IndexRowImpl(tuple, rowId));
-                })
-                .iterator();
-
-        return new Cursor<>() {
-            @Override
-            public void close() {
-                // No-op.
-            }
-
-            @Override
-            public boolean hasNext() {
-                checkClosed();
-
-                return iterator.hasNext();
-            }
-
-            @Override
-            public IndexRow next() {
-                return iterator.next();
-            }
-        };
+        return new ScanCursor(navigableMap);
     }
 
     private static void setEqualityFlag(BinaryTuplePrefix prefix) {
@@ -206,6 +184,78 @@ public class TestSortedIndexStorage implements SortedIndexStorage {
     private void checkClosed() {
         if (closed) {
             throw new StorageClosedException("Storage is already closed");
+        }
+    }
+
+    /**
+     * Sorted index storage scan cursor.
+     */
+    private class ScanCursor implements Cursor<IndexRow> {
+        private final NavigableMap<ByteBuffer, Set<RowId>> map;
+
+        @Nullable
+        private Entry<ByteBuffer, Set<RowId>> currentEntry;
+
+        private Iterator<RowId> currentRowIdIterator;
+
+        @Nullable
+        private IndexRow nextRow;
+
+        private ScanCursor(NavigableMap<ByteBuffer, Set<RowId>> map) {
+            this.map = map;
+
+            applyEntry(map.firstEntry());
+
+            advance();
+        }
+
+        @Override
+        public void close() {
+            // No-op.
+        }
+
+        @Override
+        public boolean hasNext() {
+            checkClosed();
+
+            return nextRow != null;
+        }
+
+        @Override
+        public IndexRow next() {
+            checkClosed();
+
+            if (nextRow == null) {
+                throw new NoSuchElementException();
+            }
+
+            IndexRow indexRow = nextRow;
+
+            advance();
+
+            return indexRow;
+        }
+
+        private void advance() {
+            nextRow = null;
+
+            while (currentEntry != null) {
+                if (currentRowIdIterator.hasNext()) {
+                    RowId rowId = currentRowIdIterator.next();
+
+                    nextRow = new IndexRowImpl(new BinaryTuple(descriptor.binaryTupleSchema(), currentEntry.getKey()), rowId);
+
+                    break;
+                }
+
+                applyEntry(map.higherEntry(currentEntry.getKey()));
+            }
+        }
+
+        private void applyEntry(@Nullable Entry<ByteBuffer, Set<RowId>> entry) {
+            currentEntry = entry;
+
+            currentRowIdIterator = entry == null ? emptyIterator() : currentEntry.getValue().iterator();
         }
     }
 }
