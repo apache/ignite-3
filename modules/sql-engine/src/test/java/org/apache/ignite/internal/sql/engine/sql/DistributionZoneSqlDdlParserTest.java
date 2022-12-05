@@ -40,7 +40,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Test suite to verify parsing of the DDL "ZONE" commands.
  */
-public class SqlDdlZoneParserTest extends AbstractDdlParserTest {
+public class DistributionZoneSqlDdlParserTest extends AbstractDdlParserTest {
     /**
      * Parse simple CREATE ZONE statement.
      */
