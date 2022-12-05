@@ -40,20 +40,8 @@ public interface LogicalTopologyService {
     /**
      * Adds a listener for logical topology events.
      *
-     * <p>Event listeners are not guaranteed to see events they receive being consistent with the state acquired from
-     * {@link #logicalTopologyOnLeader()} (or local logical topology state obtained in other means). This means that,
-     * if you get an event with topology version N, event listener might see version M less or greater than N if it
-     * tries to get current logical topology in other means.
-     *
-     * <p>Event listener methods must return as quickly as possible. If some heavy processing, blocking I/O or waiting
-     * for a future has to be done, this should be offloaded to another thread.
-     *
-     * <p>While an event listener is registered, it is guaranteed to get all logical topology events, in the correct order.
-     * While an event listener is NOT registereed (for instance, when its node is restarting), events are skipped. This
-     * means that, if an Ignite node is restarting, it might miss some logical topology events. {@link #logicalTopologyOnLeader()}
-     * should be used to catch up.
-     *
      * @param listener Listener to add.
+     * @see LogicalTopologyEventListener
      */
     void addEventListener(LogicalTopologyEventListener listener);
 
