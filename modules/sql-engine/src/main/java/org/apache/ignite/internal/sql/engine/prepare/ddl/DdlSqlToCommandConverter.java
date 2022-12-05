@@ -146,7 +146,7 @@ public class DdlSqlToCommandConverter {
 
         dataStorageOptionInfos.values().forEach(v -> checkDuplicates(v.keySet(), tableOptionInfos.keySet()));
 
-        // Create zone options.
+        // CREATE ZONE options.
         zoneOptionInfos = Map.of(
                 REPLICAS, new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, CreateZoneCommand::replicas),
                 PARTITIONS, new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, CreateZoneCommand::partitions),
@@ -478,7 +478,7 @@ public class DdlSqlToCommandConverter {
      * Converts a given CreateZone AST to a CreateZone command.
      *
      * @param createZoneNode Root node of the given AST.
-     * @param ctx           Planning context.
+     * @param ctx            Planning context.
      */
     private CreateZoneCommand convertCreateZone(IgniteSqlCreateZone createZoneNode, PlanningContext ctx) {
         CreateZoneCommand createZoneCmd = new CreateZoneCommand();
@@ -517,7 +517,7 @@ public class DdlSqlToCommandConverter {
      * Converts a given DropZone AST to a DropZone command.
      *
      * @param dropZoneNode Root node of the given AST.
-     * @param ctx         Planning context.
+     * @param ctx          Planning context.
      */
     private DropZoneCommand convertDropZone(IgniteSqlDropZone dropZoneNode, PlanningContext ctx) {
         DropZoneCommand dropZoneCmd = new DropZoneCommand();
