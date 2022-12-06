@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.metastorage.common.command;
 
 import org.apache.ignite.internal.raft.WriteCommand;
-import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
 
 /**
@@ -26,7 +25,7 @@ import org.apache.ignite.network.annotations.Transferable;
  * previous entry for the given key.
  */
 @Transferable(MetastorageCommandsMessageGroup.PUT)
-public interface PutCommand extends WriteCommand, NetworkMessage {
+public interface PutCommand extends WriteCommand {
     /**
      * Returns the key. Couldn't be {@code null}.
      */

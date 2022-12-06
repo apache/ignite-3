@@ -19,6 +19,7 @@ package org.apache.ignite.raft.server;
 
 import static org.apache.ignite.internal.raft.server.RaftGroupOptions.defaults;
 import static org.apache.ignite.raft.jraft.test.TestUtils.waitForCondition;
+import static org.apache.ignite.raft.server.counter.IncrementAndGetCommand.incrementAndGetCommand;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
@@ -33,7 +34,6 @@ import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.raft.server.counter.CounterListener;
-import org.apache.ignite.raft.server.counter.IncrementAndGetCommand;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -102,7 +102,7 @@ public class ItSafeTimeTest extends JraftAbstractTest {
 
         clocks.get(leaderIndex).update(new HybridTimestamp(leaderPhysicalTime, 0));
 
-        client1.run(new IncrementAndGetCommand(1)).get();
+        client1.run(incrementAndGetCommand(1)).get();
 
         waitForCondition(() -> {
             for (int i = 0; i < NODES; i++) {

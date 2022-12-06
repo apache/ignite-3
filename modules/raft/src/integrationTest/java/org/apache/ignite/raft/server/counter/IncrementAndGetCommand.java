@@ -18,29 +18,20 @@
 package org.apache.ignite.raft.server.counter;
 
 import org.apache.ignite.internal.raft.WriteCommand;
+import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.raft.messages.TestRaftMessagesFactory;
 
 /**
  * Increment and get command.
  */
-public class IncrementAndGetCommand implements WriteCommand {
-    /**
-     * The delta.
-     */
-    private final long delta;
-
-    /**
-     * Constructor.
-     *
-     * @param delta The delta.
-     */
-    public IncrementAndGetCommand(long delta) {
-        this.delta = delta;
-    }
-
+@Transferable(1_001)
+public interface IncrementAndGetCommand extends WriteCommand {
     /**
      * Returns the delta.
      */
-    public long delta() {
-        return delta;
+    long delta();
+
+    static IncrementAndGetCommand incrementAndGetCommand(long delta) {
+        return new TestRaftMessagesFactory().incrementAndGetCommand().delta(delta).build();
     }
 }

@@ -63,6 +63,7 @@ import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.common.command.MetaStorageCommandsSerializationRegistryInitializer;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.configuration.MetricConfiguration;
@@ -117,6 +118,7 @@ import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NodeMetadata;
 import org.apache.ignite.network.scalecube.ScaleCubeClusterServiceFactory;
+import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.raft.jraft.RaftMessagesSerializationRegistryInitializer;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.manager.IgniteTables;
@@ -272,8 +274,9 @@ public class IgniteImpl implements Ignite {
         );
 
         NetworkConfiguration networkConfiguration = nodeCfgMgr.configurationRegistry().getConfiguration(NetworkConfiguration.KEY);
-        MessageSerializationRegistryImpl serializationRegistry = new MessageSerializationRegistryImpl();
+        MessageSerializationRegistry serializationRegistry = new MessageSerializationRegistryImpl();
 
+        MetaStorageCommandsSerializationRegistryInitializer.registerFactories(serializationRegistry);
         CmgMessagesSerializationRegistryInitializer.registerFactories(serializationRegistry);
         RaftMessagesSerializationRegistryInitializer.registerFactories(serializationRegistry);
         SqlQueryMessagesSerializationRegistryInitializer.registerFactories(serializationRegistry);
@@ -803,10 +806,5 @@ public class IgniteImpl implements Ignite {
     @TestOnly
     public ClusterNode node() {
         return clusterSvc.topologyService().localMember();
-    }
-
-    @TestOnly
-    public DistributionZoneManager distributionZoneManager() {
-        return distributionZoneManager;
     }
 }
