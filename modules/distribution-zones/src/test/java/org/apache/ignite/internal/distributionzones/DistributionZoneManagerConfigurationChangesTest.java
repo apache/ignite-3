@@ -19,461 +19,294 @@ package org.apache.ignite.internal.distributionzones;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesChangeTriggerKey;
+import static org.apache.ignite.internal.metastorage.client.MetaStorageServiceImpl.toIfInfo;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
-import java.nio.file.Path;
+import java.io.Serializable;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
-import java.util.function.Consumer;
-import java.util.function.Function;
-import java.util.stream.Stream;
-import org.apache.ignite.configuration.ConfigurationChangeException;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
-import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
+import org.apache.ignite.internal.cluster.management.topology.LogicalTopologySnapshot;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
-import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
-import org.apache.ignite.internal.distributionzones.exception.DistributionZoneAlreadyExistsException;
-import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNotFoundException;
-import org.apache.ignite.internal.distributionzones.exception.DistributionZoneRenameException;
-import org.apache.ignite.internal.hlc.HybridClock;
-import org.apache.ignite.internal.hlc.HybridClockImpl;
-import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
-import org.apache.ignite.internal.raft.Loza;
-import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
+import org.apache.ignite.internal.metastorage.client.If;
+import org.apache.ignite.internal.metastorage.client.StatementResult;
+import org.apache.ignite.internal.metastorage.common.StatementResultInfo;
+import org.apache.ignite.internal.metastorage.common.command.MetaStorageCommandsFactory;
+import org.apache.ignite.internal.metastorage.common.command.MultiInvokeCommand;
+import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
+import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
+import org.apache.ignite.internal.raft.Command;
+import org.apache.ignite.internal.raft.WriteCommand;
+import org.apache.ignite.internal.raft.service.CommandClosure;
+import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
-import org.apache.ignite.internal.util.ReverseIterator;
-import org.apache.ignite.internal.vault.VaultManager;
-import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
-import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.NetworkAddress;
-import org.apache.ignite.network.StaticNodeFinder;
+import org.apache.ignite.internal.util.ByteUtils;
+import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.network.ClusterNode;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInfo;
 import org.mockito.Mock;
-import org.mockito.Mockito;
 
+/**
+ * Tests distribution zones configuration changes and reaction to that changes.
+ */
 public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstractTest {
     private static final String ZONE_NAME = "zone1";
 
     private static final String NEW_ZONE_NAME = "zone2";
 
-    private final ConfigurationRegistry registry = new ConfigurationRegistry(
-            List.of(DistributionZonesConfiguration.KEY),
-            Map.of(),
-            new TestConfigurationStorage(DISTRIBUTED),
-            List.of(),
-            List.of()
-    );
-
-    private DistributionZoneManager distributionZoneManager;
-
     @Mock
     private ClusterManagementGroupManager cmgManager;
 
-    @Mock
-    private MetaStorageManager metaStorageManager;
+    private DistributionZoneManager distributionZoneManager;
 
+    private SimpleInMemoryKeyValueStorage keyValueStorage;
+
+    private ConfigurationManager clusterCfgMgr;
 
     @BeforeEach
     public void setUp() {
-        registry.start();
+        clusterCfgMgr = new ConfigurationManager(
+                List.of(DistributionZonesConfiguration.KEY),
+                Map.of(),
+                new TestConfigurationStorage(DISTRIBUTED),
+                List.of(),
+                List.of()
+        );
 
-        registry.initializeDefaults();
+        DistributionZonesConfiguration zonesConfiguration = clusterCfgMgr.configurationRegistry()
+                .getConfiguration(DistributionZonesConfiguration.KEY);
 
-        DistributionZonesConfiguration zonesConfiguration = registry.getConfiguration(DistributionZonesConfiguration.KEY);
+        MetaStorageManager metaStorageManager = mock(MetaStorageManager.class);
+
+        cmgManager = mock(ClusterManagementGroupManager.class);
 
         distributionZoneManager = new DistributionZoneManager(
                 zonesConfiguration,
                 metaStorageManager,
                 cmgManager
         );
+
+        clusterCfgMgr.start();
+
+        distributionZoneManager.start();
+
+        AtomicLong raftIndex = new AtomicLong();
+
+        keyValueStorage = new SimpleInMemoryKeyValueStorage();
+
+        MetaStorageListener metaStorageListener = new MetaStorageListener(keyValueStorage);
+
+        RaftGroupService metaStorageService = mock(RaftGroupService.class);
+
+        // Delegate directly to listener.
+        lenient().doAnswer(
+                invocationClose -> {
+                    Command cmd = invocationClose.getArgument(0);
+
+                    long commandIndex = raftIndex.incrementAndGet();
+
+                    CompletableFuture<Serializable> res = new CompletableFuture<>();
+
+                    CommandClosure<WriteCommand> clo = new CommandClosure<>() {
+                        /** {@inheritDoc} */
+                        @Override
+                        public long index() {
+                            return commandIndex;
+                        }
+
+                        /** {@inheritDoc} */
+                        @Override
+                        public WriteCommand command() {
+                            return (WriteCommand) cmd;
+                        }
+
+                        /** {@inheritDoc} */
+                        @Override
+                        public void result(@Nullable Serializable r) {
+                            if (r instanceof Throwable) {
+                                res.completeExceptionally((Throwable) r);
+                            } else {
+                                res.complete(r);
+                            }
+                        }
+                    };
+
+                    try {
+                        metaStorageListener.onWrite(List.of(clo).iterator());
+                    } catch (Throwable e) {
+                        res.completeExceptionally(new IgniteInternalException(e));
+                    }
+
+                    return res;
+                }
+        ).when(metaStorageService).run(any());
+
+        MetaStorageCommandsFactory commandsFactory = new MetaStorageCommandsFactory();
+
+        lenient().doAnswer(invocationClose -> {
+            If iif = invocationClose.getArgument(0);
+
+            MultiInvokeCommand multiInvokeCommand = commandsFactory.multiInvokeCommand().iif(toIfInfo(iif, commandsFactory)).build();
+
+            return metaStorageService.run(multiInvokeCommand).thenApply(bi -> new StatementResult(((StatementResultInfo) bi).result()));
+        }).when(metaStorageManager).invoke(any());
     }
 
     @AfterEach
     public void tearDown() throws Exception {
-        registry.stop();
+        distributionZoneManager.stop();
+
+        clusterCfgMgr.stop();
+
+        keyValueStorage.close();
     }
 
     @Test
-    public void testCreateZoneWithAutoAdjust() throws Exception {
-        distributionZoneManager.createZone(
-                        new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).dataNodesAutoAdjust(100).build()
-                )
-                .get(5, TimeUnit.SECONDS);
+    void testDataNodesPropagationAfterZoneCreation() throws Exception {
+        Set<ClusterNode> clusterNodes = Set.of(new ClusterNode("1", "name1", null));
 
-        DistributionZoneConfiguration zone1 = registry.getConfiguration(DistributionZonesConfiguration.KEY).distributionZones()
-                .get(ZONE_NAME);
+        mockCmgLocalNodes(clusterNodes);
 
-        assertNotNull(zone1);
-        assertEquals(ZONE_NAME, zone1.name().value());
-        assertEquals(Integer.MAX_VALUE, zone1.dataNodesAutoAdjustScaleUp().value());
-        assertEquals(Integer.MAX_VALUE, zone1.dataNodesAutoAdjustScaleDown().value());
-        assertEquals(100, zone1.dataNodesAutoAdjust().value());
+        distributionZoneManager.createZone(new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).build()).get();
+
+        assertDataNodesForZone(1, clusterNodes);
+
+        assertZonesChangeTriggerKey(1);
     }
 
     @Test
-    public void testCreateZoneWithAutoAdjustScaleUp() throws Exception {
-        distributionZoneManager.createZone(
-                        new DistributionZoneConfigurationParameters.Builder(ZONE_NAME)
-                                .dataNodesAutoAdjustScaleUp(100).build()
-                )
-                .get(5, TimeUnit.SECONDS);
+    void testDataNodesPropagationAfterZoneUpdate() throws Exception {
+        Set<ClusterNode> clusterNodes = Set.of(new ClusterNode("1", "name1", null));
 
-        DistributionZoneConfiguration zone1 = registry.getConfiguration(DistributionZonesConfiguration.KEY).distributionZones()
-                .get(ZONE_NAME);
+        LogicalTopologySnapshot logicalTopologySnapshot = mockCmgLocalNodes(clusterNodes);
 
-        assertNotNull(zone1);
-        assertEquals(ZONE_NAME, zone1.name().value());
-        assertEquals(100, zone1.dataNodesAutoAdjustScaleUp().value());
-        assertEquals(Integer.MAX_VALUE, zone1.dataNodesAutoAdjustScaleDown().value());
-        assertEquals(Integer.MAX_VALUE, zone1.dataNodesAutoAdjust().value());
+        distributionZoneManager.createZone(new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).build()).get();
 
-        distributionZoneManager.dropZone(ZONE_NAME).get(5, TimeUnit.SECONDS);
+        assertZonesChangeTriggerKey(1);
 
-        zone1 = registry.getConfiguration(DistributionZonesConfiguration.KEY).distributionZones()
-                .get(ZONE_NAME);
+        var clusterNodes2 = Set.of(
+                new ClusterNode("1", "name1", null),
+                new ClusterNode("2", "name2", null)
+        );
 
-        assertNull(zone1);
-    }
+        when(logicalTopologySnapshot.nodes()).thenReturn(clusterNodes2);
 
-    @Test
-    public void testCreateZoneWithAutoAdjustScaleDown() throws Exception {
-        distributionZoneManager.createZone(
-                        new DistributionZoneConfigurationParameters.Builder(ZONE_NAME)
-                                .dataNodesAutoAdjustScaleDown(200).build()
-                )
-                .get(5, TimeUnit.SECONDS);
-
-        DistributionZoneConfiguration zone1 = registry.getConfiguration(DistributionZonesConfiguration.KEY).distributionZones()
-                .get(ZONE_NAME);
-
-        assertNotNull(zone1);
-        assertEquals(ZONE_NAME, zone1.name().value());
-        assertEquals(Integer.MAX_VALUE, zone1.dataNodesAutoAdjustScaleUp().value());
-        assertEquals(200, zone1.dataNodesAutoAdjustScaleDown().value());
-        assertEquals(Integer.MAX_VALUE, zone1.dataNodesAutoAdjust().value());
-
-        distributionZoneManager.dropZone(ZONE_NAME).get(5, TimeUnit.SECONDS);
-
-        zone1 = registry.getConfiguration(DistributionZonesConfiguration.KEY).distributionZones()
-                .get(ZONE_NAME);
-
-        assertNull(zone1);
-    }
-
-    @Test
-    public void testCreateZoneIfExists() throws Exception {
-        Exception e = null;
-
-        distributionZoneManager.createZone(
+        distributionZoneManager.alterZone(
+                ZONE_NAME,
                 new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).dataNodesAutoAdjust(100).build()
-        ).get(5, TimeUnit.SECONDS);
+        ).get();
 
-        try {
-            distributionZoneManager.createZone(
-                    new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).dataNodesAutoAdjust(100).build()
-            ).get(5, TimeUnit.SECONDS);
-        } catch (Exception e0) {
-            e = e0;
-        }
+        assertDataNodesForZone(1, clusterNodes2);
 
-        assertTrue(e != null);
-        assertTrue(e.getCause().getCause() instanceof DistributionZoneAlreadyExistsException, e.toString());
+        assertZonesChangeTriggerKey(2);
     }
 
     @Test
-    public void testDropZoneIfNotExists() {
-        Exception e = null;
+    void testZoneDeleteMetaStorageKeyRemove() throws Exception {
+        Set<ClusterNode> clusterNodes = Set.of(new ClusterNode("1", "name1", null));
 
-        try {
-            distributionZoneManager.dropZone(ZONE_NAME).get(5, TimeUnit.SECONDS);
-        } catch (Exception e0) {
-            e = e0;
-        }
+        mockCmgLocalNodes(clusterNodes);
 
-        assertTrue(e != null);
-        assertTrue(e.getCause().getCause() instanceof DistributionZoneNotFoundException, e.toString());
+        distributionZoneManager.createZone(new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).build());
+
+        assertDataNodesForZone(1, clusterNodes);
+
+        distributionZoneManager.dropZone(ZONE_NAME);
+
+        assertTrue(waitForCondition(() -> keyValueStorage.get(zoneDataNodesKey(1).bytes()).value() == null, 5000));
     }
 
     @Test
-    public void testUpdateZone() throws Exception {
-        distributionZoneManager.createZone(
-                        new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).dataNodesAutoAdjust(100).build()
+    void testSeveralZoneCreationsUpdatesTriggerKey() throws Exception {
+        Set<ClusterNode> clusterNodes = Set.of(new ClusterNode("1", "name1", null));
+
+        mockCmgLocalNodes(clusterNodes);
+
+        distributionZoneManager.createZone(new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).build()).get();
+
+        distributionZoneManager.createZone(new DistributionZoneConfigurationParameters.Builder(NEW_ZONE_NAME).build()).get();
+
+        assertZonesChangeTriggerKey(2);
+    }
+
+    @Test
+    void testSeveralZoneUpdatesUpdatesTriggerKey() throws Exception {
+        Set<ClusterNode> clusterNodes = Set.of(new ClusterNode("1", "name1", null));
+
+        mockCmgLocalNodes(clusterNodes);
+
+        distributionZoneManager.createZone(new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).build()).get();
+
+        distributionZoneManager.alterZone(
+                ZONE_NAME,
+                new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).dataNodesAutoAdjust(100).build()
+        ).get();
+
+        distributionZoneManager.alterZone(
+                ZONE_NAME,
+                new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).dataNodesAutoAdjust(1000).build()
+        ).get();
+
+        assertZonesChangeTriggerKey(3);
+    }
+
+    @Test
+    void testDataNodesNotPropagatedAfterZoneCreation() throws Exception {
+        Set<ClusterNode> clusterNodes = Set.of(new ClusterNode("1", "name1", null));
+
+        mockCmgLocalNodes(clusterNodes);
+
+        keyValueStorage.put(zonesChangeTriggerKey().bytes(), ByteUtils.longToBytes(100));
+
+        distributionZoneManager.createZone(new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).build()).get();
+
+        assertZonesChangeTriggerKey(100);
+    }
+
+    private LogicalTopologySnapshot mockCmgLocalNodes(Set<ClusterNode> clusterNodes) {
+        LogicalTopologySnapshot logicalTopologySnapshot = mock(LogicalTopologySnapshot.class);
+
+        when(cmgManager.logicalTopology()).thenReturn(completedFuture(logicalTopologySnapshot));
+
+        when(logicalTopologySnapshot.nodes()).thenReturn(clusterNodes);
+
+        return logicalTopologySnapshot;
+    }
+
+    private void assertDataNodesForZone(int zoneId, Set<ClusterNode> clusterNodes) throws InterruptedException {
+        assertTrue(
+                waitForCondition(
+                        () -> Arrays.equals(
+                                keyValueStorage.get(zoneDataNodesKey(zoneId).bytes()).value(),
+                                ByteUtils.toBytes(clusterNodes.stream().map(ClusterNode::name).collect(Collectors.toSet()))
+                        ), 5000
                 )
-                .get(5, TimeUnit.SECONDS);
-
-        DistributionZoneConfiguration zone1 = registry.getConfiguration(DistributionZonesConfiguration.KEY).distributionZones()
-                .get(ZONE_NAME);
-
-        assertNotNull(zone1);
-        assertEquals(ZONE_NAME, zone1.name().value());
-        assertEquals(Integer.MAX_VALUE, zone1.dataNodesAutoAdjustScaleUp().value());
-        assertEquals(Integer.MAX_VALUE, zone1.dataNodesAutoAdjustScaleDown().value());
-        assertEquals(100, zone1.dataNodesAutoAdjust().value());
-
-
-        distributionZoneManager.alterZone(ZONE_NAME, new DistributionZoneConfigurationParameters.Builder(ZONE_NAME)
-                        .dataNodesAutoAdjustScaleUp(200).dataNodesAutoAdjustScaleDown(300).build())
-                .get(5, TimeUnit.SECONDS);
-
-        zone1 = registry.getConfiguration(DistributionZonesConfiguration.KEY).distributionZones()
-                .get(ZONE_NAME);
-
-        assertNotNull(zone1);
-        assertEquals(200, zone1.dataNodesAutoAdjustScaleUp().value());
-        assertEquals(300, zone1.dataNodesAutoAdjustScaleDown().value());
-        assertEquals(Integer.MAX_VALUE, zone1.dataNodesAutoAdjust().value());
-
-
-        distributionZoneManager.alterZone(ZONE_NAME, new DistributionZoneConfigurationParameters.Builder(ZONE_NAME)
-                        .dataNodesAutoAdjustScaleUp(400).build())
-                .get(5, TimeUnit.SECONDS);
-
-        zone1 = registry.getConfiguration(DistributionZonesConfiguration.KEY).distributionZones()
-                .get(ZONE_NAME);
-
-        assertNotNull(zone1);
-        assertEquals(400, zone1.dataNodesAutoAdjustScaleUp().value());
-        assertEquals(300, zone1.dataNodesAutoAdjustScaleDown().value());
-        assertEquals(Integer.MAX_VALUE, zone1.dataNodesAutoAdjust().value());
-
-
-        distributionZoneManager.alterZone(ZONE_NAME, new DistributionZoneConfigurationParameters.Builder(ZONE_NAME)
-                        .dataNodesAutoAdjust(500).build())
-                .get(5, TimeUnit.SECONDS);
-
-        zone1 = registry.getConfiguration(DistributionZonesConfiguration.KEY).distributionZones()
-                .get(ZONE_NAME);
-
-        assertNotNull(zone1);
-        assertEquals(Integer.MAX_VALUE, zone1.dataNodesAutoAdjustScaleUp().value());
-        assertEquals(Integer.MAX_VALUE, zone1.dataNodesAutoAdjustScaleDown().value());
-        assertEquals(500, zone1.dataNodesAutoAdjust().value());
+        );
     }
 
-    @Test
-    public void testRenameZone() throws Exception {
-        distributionZoneManager.createZone(
-                        new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).dataNodesAutoAdjust(100).build()
+    private void assertZonesChangeTriggerKey(int revision) throws InterruptedException {
+        assertTrue(
+                waitForCondition(
+                        () -> ByteUtils.bytesToLong(keyValueStorage.get(zonesChangeTriggerKey().bytes()).value()) == revision, 5000
                 )
-                .get(5, TimeUnit.SECONDS);
-
-        distributionZoneManager.alterZone(ZONE_NAME,
-                        new DistributionZoneConfigurationParameters.Builder(NEW_ZONE_NAME).build())
-                .get(5, TimeUnit.SECONDS);
-
-        DistributionZoneConfiguration zone1 = registry.getConfiguration(DistributionZonesConfiguration.KEY).distributionZones()
-                .get(ZONE_NAME);
-
-        DistributionZoneConfiguration zone2 = registry.getConfiguration(DistributionZonesConfiguration.KEY)
-                .distributionZones()
-                .get(NEW_ZONE_NAME);
-
-        assertNull(zone1);
-        assertNotNull(zone2);
-        assertEquals(NEW_ZONE_NAME, zone2.name().value());
-        assertEquals(Integer.MAX_VALUE, zone2.dataNodesAutoAdjustScaleUp().value());
-        assertEquals(Integer.MAX_VALUE, zone2.dataNodesAutoAdjustScaleDown().value());
-        assertEquals(100, zone2.dataNodesAutoAdjust().value());
-    }
-
-    @Test
-    public void testUpdateAndRenameZone() throws Exception {
-        distributionZoneManager.createZone(
-                        new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).dataNodesAutoAdjust(100).build()
-                )
-                .get(5, TimeUnit.SECONDS);
-
-        distributionZoneManager.alterZone(ZONE_NAME,
-                        new DistributionZoneConfigurationParameters.Builder(NEW_ZONE_NAME).dataNodesAutoAdjust(400).build())
-                .get(5, TimeUnit.SECONDS);
-
-        DistributionZoneConfiguration zone1 = registry.getConfiguration(DistributionZonesConfiguration.KEY).distributionZones()
-                .get(ZONE_NAME);
-
-        DistributionZoneConfiguration zone2 = registry.getConfiguration(DistributionZonesConfiguration.KEY)
-                .distributionZones()
-                .get(NEW_ZONE_NAME);
-
-        assertNull(zone1);
-        assertNotNull(zone2);
-        assertEquals(NEW_ZONE_NAME, zone2.name().value());
-        assertEquals(Integer.MAX_VALUE, zone2.dataNodesAutoAdjustScaleUp().value());
-        assertEquals(Integer.MAX_VALUE, zone2.dataNodesAutoAdjustScaleDown().value());
-        assertEquals(400, zone2.dataNodesAutoAdjust().value());
-    }
-
-    @Test
-    public void testAlterZoneRename1() {
-        Exception e = null;
-
-        try {
-            distributionZoneManager.alterZone(ZONE_NAME, new DistributionZoneConfigurationParameters.Builder(NEW_ZONE_NAME)
-                    .dataNodesAutoAdjust(100).build()).get(5, TimeUnit.SECONDS);
-        } catch (Exception e0) {
-            e = e0;
-        }
-
-        assertTrue(e != null);
-        assertTrue(e.getCause().getCause() instanceof DistributionZoneRenameException, e.toString());
-    }
-
-    @Test
-    public void testAlterZoneRename2() throws Exception {
-        Exception e = null;
-
-        distributionZoneManager.createZone(new DistributionZoneConfigurationParameters.Builder(ZONE_NAME)
-                .dataNodesAutoAdjust(100).build()).get(5, TimeUnit.SECONDS);
-
-        distributionZoneManager.createZone(new DistributionZoneConfigurationParameters.Builder(NEW_ZONE_NAME)
-                .dataNodesAutoAdjust(100).build()).get(5, TimeUnit.SECONDS);
-
-        try {
-            distributionZoneManager.alterZone(ZONE_NAME, new DistributionZoneConfigurationParameters.Builder(NEW_ZONE_NAME)
-                    .dataNodesAutoAdjust(100).build()).get(5, TimeUnit.SECONDS);
-        } catch (Exception e0) {
-            e = e0;
-        }
-
-        assertTrue(e != null);
-        assertTrue(e.getCause().getCause() instanceof DistributionZoneRenameException, e.toString());
-    }
-
-    @Test
-    public void testAlterZoneIfExists() {
-        Exception e = null;
-
-        try {
-            distributionZoneManager.alterZone(ZONE_NAME, new DistributionZoneConfigurationParameters.Builder(ZONE_NAME)
-                    .dataNodesAutoAdjust(100).build()).get(5, TimeUnit.SECONDS);
-        } catch (Exception e0) {
-            e = e0;
-        }
-
-        assertTrue(e != null);
-        assertTrue(e.getCause().getCause() instanceof DistributionZoneNotFoundException, e.toString());
-    }
-
-    @Test
-    public void testCreateZoneWithWrongAutoAdjust() {
-        Exception e = null;
-
-        try {
-            distributionZoneManager.createZone(new DistributionZoneConfigurationParameters.Builder(ZONE_NAME)
-                    .dataNodesAutoAdjust(-10).build()).get(5, TimeUnit.SECONDS);
-        } catch (Exception e0) {
-            e = e0;
-        }
-
-        assertTrue(e != null);
-        assertTrue(e.getCause() instanceof ConfigurationChangeException, e.toString());
-    }
-
-    @Test
-    public void testCreateZoneWithWrongSeparatedAutoAdjust1() {
-        Exception e = null;
-
-        try {
-            distributionZoneManager.createZone(new DistributionZoneConfigurationParameters.Builder(ZONE_NAME)
-                    .dataNodesAutoAdjustScaleUp(-100).dataNodesAutoAdjustScaleDown(1).build()).get(5, TimeUnit.SECONDS);
-        } catch (Exception e0) {
-            e = e0;
-        }
-
-        assertTrue(e != null);
-        assertTrue(e.getCause() instanceof ConfigurationChangeException, e.toString());
-    }
-
-    @Test
-    public void testCreateZoneWithWrongSeparatedAutoAdjust2() {
-        Exception e = null;
-
-        try {
-            distributionZoneManager.createZone(new DistributionZoneConfigurationParameters.Builder(ZONE_NAME)
-                    .dataNodesAutoAdjustScaleUp(1).dataNodesAutoAdjustScaleDown(-100).build()).get(5, TimeUnit.SECONDS);
-        } catch (Exception e0) {
-            e = e0;
-        }
-
-        assertTrue(e != null);
-        assertTrue(e.getCause() instanceof ConfigurationChangeException, e.toString());
-    }
-
-    @Test
-    public void testCreateZoneWithNullConfiguration() {
-        Exception e = null;
-
-        try {
-            distributionZoneManager.createZone(null).get(5, TimeUnit.SECONDS);
-        } catch (Exception e0) {
-            e = e0;
-        }
-
-        assertTrue(e != null);
-        assertTrue(e instanceof NullPointerException, e.toString());
-        assertEquals("Distribution zone configuration is null.", e.getMessage(), e.toString());
-    }
-
-    @Test
-    public void testAlterZoneWithNullName() {
-        Exception e = null;
-
-        try {
-            distributionZoneManager.alterZone(null, new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).build())
-                    .get(5, TimeUnit.SECONDS);
-        } catch (Exception e0) {
-            e = e0;
-        }
-
-        assertTrue(e != null);
-        assertTrue(e instanceof NullPointerException, e.toString());
-        assertEquals("Distribution zone name is null.", e.getMessage(), e.toString());
-    }
-
-    @Test
-    public void testAlterZoneWithNullConfiguration() {
-        Exception e = null;
-
-        try {
-            distributionZoneManager.alterZone(ZONE_NAME, null)
-                    .get(5, TimeUnit.SECONDS);
-        } catch (Exception e0) {
-            e = e0;
-        }
-
-        assertTrue(e != null);
-        assertTrue(e instanceof NullPointerException, e.toString());
-        assertEquals("Distribution zone configuration is null.", e.getMessage(), e.toString());
-    }
-
-    @Test
-    public void testDropZoneWithNullName() {
-        Exception e = null;
-
-        try {
-            distributionZoneManager.dropZone(null)
-                    .get(5, TimeUnit.SECONDS);
-        } catch (Exception e0) {
-            e = e0;
-        }
-
-        assertTrue(e != null);
-        assertTrue(e instanceof NullPointerException, e.toString());
-        assertEquals("Distribution zone name is null.", e.getMessage(), e.toString());
+        );
     }
 }

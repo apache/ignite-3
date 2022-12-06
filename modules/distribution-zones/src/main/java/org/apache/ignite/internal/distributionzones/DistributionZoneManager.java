@@ -18,19 +18,16 @@
 package org.apache.ignite.internal.distributionzones;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.DISTRIBUTION_ZONE_DATA_NODES_PREFIX;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.triggerKeyCondition;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesChangeTriggerKey;
-import static org.apache.ignite.internal.metastorage.client.CompoundCondition.or;
-import static org.apache.ignite.internal.metastorage.client.Conditions.notExists;
-import static org.apache.ignite.internal.metastorage.client.Conditions.value;
 import static org.apache.ignite.internal.metastorage.client.Operations.ops;
 import static org.apache.ignite.internal.metastorage.client.Operations.put;
 import static org.apache.ignite.internal.metastorage.client.Operations.remove;
 import static org.apache.ignite.lang.ErrorGroups.Common.UNEXPECTED_ERR;
 
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
@@ -58,7 +55,6 @@ import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Distribution zones manager.
@@ -272,17 +268,21 @@ public class DistributionZoneManager implements IgniteComponent {
     private void updateMetaStorageOnZoneCreateOrUpdate(int zoneId, long revision) {
         byte[] logicalTopologyBytes;
 
+        Set<ClusterNode> clusterNodes;
+
         try {
-            logicalTopologyBytes = ByteUtils.toBytes(
-                    cmgManager.logicalTopology().get().stream().map(ClusterNode::name).collect(Collectors.toSet())
-            );
+            clusterNodes = cmgManager.logicalTopology().get().nodes();
         } catch (InterruptedException | ExecutionException e) {
             throw new IgniteInternalException(e);
         }
 
+        Set<String> nodesConsistentIds = clusterNodes.stream().map(ClusterNode::name).collect(Collectors.toSet());
+
+        logicalTopologyBytes = ByteUtils.toBytes(nodesConsistentIds);
+
         ByteArray zonesChangeTriggerKey = zonesChangeTriggerKey();
 
-        CompoundCondition triggerKeyCondition = triggerKeyCondition(revision, zonesChangeTriggerKey);
+        CompoundCondition triggerKeyCondition = triggerKeyCondition(revision);
 
         Update dataNodesAndTriggerKeyUpd = ops(
                 put(zoneDataNodesKey(zoneId), logicalTopologyBytes),
@@ -293,9 +293,9 @@ public class DistributionZoneManager implements IgniteComponent {
 
         metaStorageManager.invoke(iif).thenAccept(res -> {
             if (res.getAsBoolean()) {
-                LOG.info("");
+                LOG.info("Update zones' dataNodes value [zoneId = {}, dataNodes = {}", zoneId, nodesConsistentIds);
             } else {
-                LOG.info("");
+                LOG.info("Failed to update zones' dataNodes value [zoneId = {}]", zoneId);
             }
         });
     }
@@ -303,7 +303,7 @@ public class DistributionZoneManager implements IgniteComponent {
     private void updateMetaStorageOnZoneDelete(int zoneId, long revision) {
         ByteArray zonesChangeTriggerKey = zonesChangeTriggerKey();
 
-        CompoundCondition triggerKeyCondition = triggerKeyCondition(revision, zonesChangeTriggerKey);
+        CompoundCondition triggerKeyCondition = triggerKeyCondition(revision);
 
         Update dataNodesRemoveUpd = ops(
                 remove(zoneDataNodesKey(zoneId)),
@@ -314,9 +314,9 @@ public class DistributionZoneManager implements IgniteComponent {
 
         metaStorageManager.invoke(iif).thenAccept(res -> {
             if (res.getAsBoolean()) {
-                LOG.info("");
+                LOG.info("Delete zones' dataNodes key [zoneId = {}", zoneId);
             } else {
-                LOG.info("");
+                LOG.info("Failed to delete zones' dataNodes key [zoneId = {}]", zoneId);
             }
         });
     }

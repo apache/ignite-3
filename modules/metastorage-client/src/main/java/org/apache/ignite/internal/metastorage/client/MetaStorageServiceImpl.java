@@ -227,11 +227,11 @@ public class MetaStorageServiceImpl implements MetaStorageService {
             @NotNull Collection<Operation> success,
             @NotNull Collection<Operation> failure
     ) {
-        ConditionInfo cond = toConditionInfo(condition);
+        ConditionInfo cond = toConditionInfo(condition, commandsFactory);
 
-        List<OperationInfo> successOps = toOperationInfos(success);
+        List<OperationInfo> successOps = toOperationInfos(success, commandsFactory);
 
-        List<OperationInfo> failureOps = toOperationInfos(failure);
+        List<OperationInfo> failureOps = toOperationInfos(failure, commandsFactory);
 
         InvokeCommand invokeCommand = commandsFactory.invokeCommand().condition(cond).success(successOps).failure(failureOps).build();
 
@@ -241,7 +241,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
     /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<StatementResult> invoke(@NotNull If iif) {
-        MultiInvokeCommand multiInvokeCommand = commandsFactory.multiInvokeCommand().iif(toIfInfo(iif)).build();
+        MultiInvokeCommand multiInvokeCommand = commandsFactory.multiInvokeCommand().iif(toIfInfo(iif, commandsFactory)).build();
 
         return metaStorageRaftGrpSvc.run(multiInvokeCommand)
                 .thenApply(bi -> new StatementResult(((StatementResultInfo) bi).result()));
@@ -385,7 +385,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
         return metaStorageRaftGrpSvc.run(commandsFactory.cursorsCloseCommand().nodeId(nodeId).build());
     }
 
-    private List<OperationInfo> toOperationInfos(Collection<Operation> ops) {
+    public static List<OperationInfo> toOperationInfos(Collection<Operation> ops, MetaStorageCommandsFactory commandsFactory) {
         List<OperationInfo> res = new ArrayList<>(ops.size());
 
         for (Operation op : ops) {
@@ -419,30 +419,30 @@ public class MetaStorageServiceImpl implements MetaStorageService {
         return res;
     }
 
-    private UpdateInfo toUpdateInfo(Update update) {
+    private static UpdateInfo toUpdateInfo(Update update, MetaStorageCommandsFactory commandsFactory) {
         return commandsFactory.updateInfo()
-                .operations(toOperationInfos(update.operations()))
+                .operations(toOperationInfos(update.operations(), commandsFactory))
                 .result(commandsFactory.statementResultInfo().result(update.result().bytes()).build())
                 .build();
     }
 
-    private StatementInfo toIfBranchInfo(Statement statement) {
+    private static StatementInfo toIfBranchInfo(Statement statement, MetaStorageCommandsFactory commandsFactory) {
         if (statement.isTerminal()) {
-            return commandsFactory.statementInfo().update(toUpdateInfo(statement.update())).build();
+            return commandsFactory.statementInfo().update(toUpdateInfo(statement.update(), commandsFactory)).build();
         } else {
-            return commandsFactory.statementInfo().iif(toIfInfo(statement.iif())).build();
+            return commandsFactory.statementInfo().iif(toIfInfo(statement.iif(), commandsFactory)).build();
         }
     }
 
-    private IfInfo toIfInfo(If iif) {
+    public static IfInfo toIfInfo(If iif, MetaStorageCommandsFactory commandsFactory) {
         return commandsFactory.ifInfo()
-                .cond(toConditionInfo(iif.condition()))
-                .andThen(toIfBranchInfo(iif.andThen()))
-                .orElse(toIfBranchInfo(iif.orElse()))
+                .cond(toConditionInfo(iif.condition(), commandsFactory))
+                .andThen(toIfBranchInfo(iif.andThen(), commandsFactory))
+                .orElse(toIfBranchInfo(iif.orElse(), commandsFactory))
                 .build();
     }
 
-    private ConditionInfo toConditionInfo(@NotNull Condition condition) {
+    private static ConditionInfo toConditionInfo(@NotNull Condition condition, MetaStorageCommandsFactory commandsFactory) {
         if (condition instanceof SimpleCondition) {
             SimpleConditionInfoBuilder cnd = commandsFactory.simpleConditionInfo();
 
@@ -473,8 +473,8 @@ public class MetaStorageServiceImpl implements MetaStorageService {
             CompoundCondition cond = (CompoundCondition) condition;
 
             return commandsFactory.compoundConditionInfo()
-                    .leftConditionInfo(toConditionInfo(cond.leftCondition()))
-                    .rightConditionInfo(toConditionInfo(cond.rightCondition()))
+                    .leftConditionInfo(toConditionInfo(cond.leftCondition(), commandsFactory))
+                    .rightConditionInfo(toConditionInfo(cond.rightCondition(), commandsFactory))
                     .conditionType(cond.compoundConditionType().ordinal())
                     .build();
         } else {
