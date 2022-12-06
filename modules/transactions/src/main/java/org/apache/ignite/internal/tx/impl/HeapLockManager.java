@@ -481,53 +481,27 @@ public class HeapLockManager implements LockManager {
         /**
          * Recalculates lock mode based of all locks which the waiter has taken.
          *
-         * @return Previous lock mode or {@code null} if nothing is changed.
+         * @return Previous lock mode.
          */
         LockMode recalculateMode(LockMode modeToRemove) {
             if (!removeLock(modeToRemove)) {
                 return lockMode;
             }
 
-            LockMode newIntendedLockMode = null;
-            LockMode newLockMode = null;
-
-            for (LockMode heldMode : locks.keySet()) {
-                assert locks.get(heldMode) > 0 : "Incorrect lock counter [txId=" + txId + ", mode=" + heldMode + "]";
-
-                if (intendedLocks.contains(heldMode)) {
-                    newIntendedLockMode = newIntendedLockMode == null ? heldMode : LockMode.supremum(newIntendedLockMode, heldMode);
-                } else {
-                    newLockMode = newLockMode == null ? heldMode : LockMode.supremum(newLockMode, heldMode);
-                }
-            }
-
-            if (lockMode == newLockMode) {
-                return lockMode;
-            } else {
-                LockMode mode = lockMode;
-
-                lockMode = newLockMode;
-                intendedLockMode = newIntendedLockMode;
-
-                return mode;
-            }
+            return recalculate();
         }
 
         /**
-         * Merge all locks that were held by another waiter to the current one.
+         * Recalculates lock supremums.
          *
-         * @param other Other waiter.
+         * @return Previous lock mode.
          */
-        void upgrade(WaiterImpl other) {
-            LockMode newIntendedLockMode = intendedLockMode;
-            LockMode newLockMode = lockMode;
+        private LockMode recalculate() {
+            LockMode newIntendedLockMode = null;
+            LockMode newLockMode = null;
 
-            intendedLocks.addAll(other.intendedLocks);
-
-            for (LockMode mode : other.locks.keySet()) {
-                Integer inc = other.locks.get(mode);
-
-                addLock(mode, inc);
+            for (LockMode mode : locks.keySet()) {
+                assert locks.get(mode) > 0 : "Incorrect lock counter [txId=" + txId + ", mode=" + mode + "]";
 
                 if (intendedLocks.contains(mode)) {
                     newIntendedLockMode = newIntendedLockMode == null ? mode : LockMode.supremum(newIntendedLockMode, mode);
@@ -536,8 +510,26 @@ public class HeapLockManager implements LockManager {
                 }
             }
 
-            intendedLockMode = newIntendedLockMode;
+            LockMode mode = lockMode;
+
             lockMode = newLockMode;
+            intendedLockMode = newLockMode != null && newIntendedLockMode != null ? LockMode.supremum(newLockMode, newIntendedLockMode)
+                    : newIntendedLockMode;
+
+            return mode;
+        }
+
+        /**
+         * Merge all locks that were held by another waiter to the current one.
+         *
+         * @param other Other waiter.
+         */
+        void upgrade(WaiterImpl other) {
+            intendedLocks.addAll(other.intendedLocks);
+
+            other.locks.entrySet().forEach(entry -> addLock(entry.getKey(), entry.getValue()));
+
+            recalculate();
 
             if (other.hasLockIntent()) {
                 fut = other.fut;
