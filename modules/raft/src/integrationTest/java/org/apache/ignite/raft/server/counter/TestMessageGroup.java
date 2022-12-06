@@ -17,20 +17,11 @@
 
 package org.apache.ignite.raft.server.counter;
 
-import org.apache.ignite.internal.raft.WriteCommand;
-import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.network.annotations.MessageGroup;
 
 /**
- * Increment and get command.
+ * Message group for tests.
  */
-@Transferable(1_001)
-public interface IncrementAndGetCommand extends WriteCommand {
-    /**
-     * Returns the delta.
-     */
-    long delta();
-
-    static IncrementAndGetCommand incrementAndGetCommand(long delta) {
-        return new ItTestRaftMessagesFactory().incrementAndGetCommand().delta(delta).build();
-    }
+@MessageGroup(groupType = Short.MAX_VALUE - 100, groupName = "ItTestRaftMessages")
+public interface TestMessageGroup {
 }

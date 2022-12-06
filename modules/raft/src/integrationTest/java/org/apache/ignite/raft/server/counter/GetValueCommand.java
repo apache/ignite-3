@@ -19,7 +19,6 @@ package org.apache.ignite.raft.server.counter;
 
 import org.apache.ignite.internal.raft.ReadCommand;
 import org.apache.ignite.network.annotations.Transferable;
-import org.apache.ignite.raft.messages.TestRaftMessagesFactory;
 
 /**
  * Get a value command.
@@ -27,6 +26,6 @@ import org.apache.ignite.raft.messages.TestRaftMessagesFactory;
 @Transferable(1_000)
 public interface GetValueCommand extends ReadCommand {
     static GetValueCommand getValueCommand() {
-        return new TestRaftMessagesFactory().getValueCommand().build();
+        return new ItTestRaftMessagesFactory().getValueCommand().build();
     }
 }
