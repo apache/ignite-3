@@ -47,7 +47,6 @@ import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -132,15 +131,14 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
         assertFalse(fut0.isDone());
 
         CompletableFuture<Lock> fut2 = lockManager.acquire(txId2, key, X);
-        assertTrue(fut2.isDone());
-        assertTrue(fut2.isCompletedExceptionally());
+        expectConflict(fut2);
 
         CompletableFuture<Lock> fut1 = lockManager.acquire(txId1, key, S);
         fut1.join();
 
         assertFalse(fut0.isDone());
 
-        lockManager.release(txId2, key, X);
+        lockManager.release(lockManager.locks(txId2).next());
         fut0.thenAccept(lock -> lockManager.release(lock));
     }
 
@@ -676,22 +674,18 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
 
         LockKey key = new LockKey("test");
 
-        CompletableFuture<Lock> fut0 = lockManager.acquire(txId0, key, X);
-
-        assertEquals(X, fut0.join().lockMode());
-
         List<LockMode> lockModes = List.of(SIX, S, IS);
 
-        LockMode lastLockMode;
-
         for (LockMode lockMode : lockModes) {
+            CompletableFuture<Lock> fut0 = lockManager.acquire(txId0, key, X);
+
+            assertEquals(X, fut0.join().lockMode());
+
             var lockFut = lockManager.acquire(txId0, key, lockMode);
 
             Waiter waiter = lockManager.waiter(fut0.join().lockKey(), txId0);
 
-            lastLockMode = waiter.lockMode();
-
-            assertEquals(lastLockMode, waiter.lockMode());
+            assertEquals(LockMode.supremum(lockMode, X), waiter.lockMode());
 
             lockManager.release(txId0, key, X);
 
@@ -706,20 +700,18 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
             lockManager.release(lockFut.join());
         }
 
-        fut0 = lockManager.acquire(txId0, key, X);
-
-        assertEquals(X, fut0.join().lockMode());
-
         lockModes = List.of(SIX, IX, IS);
 
         for (LockMode lockMode : lockModes) {
+            CompletableFuture<Lock> fut0 = lockManager.acquire(txId0, key, X);
+
+            assertEquals(X, fut0.join().lockMode());
+
             var lockFut = lockManager.acquire(txId0, key, lockMode);
 
             Waiter waiter = lockManager.waiter(fut0.join().lockKey(), txId0);
 
-            lastLockMode = waiter.lockMode();
-
-            assertEquals(lastLockMode, waiter.lockMode());
+            assertEquals(LockMode.supremum(lockMode, X), waiter.lockMode());
 
             lockManager.release(txId0, key, X);
 
@@ -763,7 +755,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
 
             for (LockMode lockMode : LockMode.values()) {
                 lockManager.acquire(txId, key, lockMode);
-                lockManager.release(txId, key, lockMode);
+                lockManager. release(txId, key, lockMode);
             }
 
             assertTrue(lockManager.locks(txId).hasNext());
@@ -838,7 +830,6 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
     }
 
     @Test
-    @Disabled("IGNITE-18294 Multiple lock intentions support")
     public void testLockingOverloadAndUpgrade() {
         LockKey key = new LockKey("test");
 
@@ -864,7 +855,6 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
     }
 
     @Test
-    @Disabled("IGNITE-18294 Multiple lock intentions support")
     public void testLockingOverload() {
         LockKey key = new LockKey("test");
 
@@ -893,7 +883,6 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
     }
 
     @Test
-    @Disabled("IGNITE-18294 Multiple lock intentions support")
     public void testFailUpgrade() {
         LockKey key = new LockKey("test");
 
@@ -917,16 +906,17 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
 
         lockManager.release(tx3Lock.join());
 
+        expectConflict(tx2xLock);
+        assertFalse(tx1xLock.isDone());
+
+        lockManager.release(tx2Lock.join());
+
         assertTrue(tx1xLock.isDone());
-        assertFalse(tx2xLock.isDone());
 
         lockManager.release(tx1xLock.join());
-
-        assertThat(tx2xLock, willSucceedFast());
     }
 
     @Test
-    @Disabled("IGNITE-18294 Multiple lock intentions support")
     public void testDowngradeTargetLock() {
         LockKey key = new LockKey("test");
 
@@ -943,12 +933,12 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
 
         assertFalse(tx1IxLock.isDone());
 
-        assertEquals(SIX, lockManager.locks(tx1).next().lockMode());
+        assertEquals(SIX, lockManager.waiter(key, tx1).intendedLockMode());
 
         lockManager.release(tx1, key, S);
 
         assertFalse(tx1IxLock.isDone());
-        assertEquals(IX, lockManager.locks(tx1).next().lockMode());
+        assertEquals(IX, lockManager.waiter(key, tx1).intendedLockMode());
 
         lockManager.release(tx2, key, S);
 
