@@ -586,7 +586,7 @@ public abstract class AbstractSortedIndexStorageTest {
     }
 
     /**
-     * Validates the {@link SortedIndexStorage#scan(BinaryTuplePrefix, BinaryTuplePrefix, int)} contract:
+     * Validates the {@link SortedIndexStorage#scan(BinaryTuplePrefix, BinaryTuplePrefix, int)} contract.
      * <ul>
      *     <li>At the moment of creating the cursor, we get its first IndexRow;</li>
      *     <li>Cursor works with the current state of the storage, if the changes are within the range of the cursor, then we will receive
@@ -610,7 +610,7 @@ public abstract class AbstractSortedIndexStorageTest {
         RowId rowId = new RowId(TEST_PARTITION);
 
         // Let's check that if we now add an IndexRow, then we will not get it by the cursor.
-        indexStorage.put(serializer.serializeRow(new Object[]{0}, rowId));
+        put(indexStorage, serializer.serializeRow(new Object[]{0}, rowId));
 
         assertThat(scan.stream().collect(toList()), empty());
 
@@ -628,14 +628,14 @@ public abstract class AbstractSortedIndexStorageTest {
         assertTrue(scan.hasNext());
 
         // Let's add an IndexRow after method Cursor#hasNext.
-        indexStorage.put(serializer.serializeRow(new Object[]{1}, rowId));
+        put(indexStorage, serializer.serializeRow(new Object[]{1}, rowId));
 
         assertEquals(0, serializer.deserializeColumns(scan.next())[0]);
 
         assertTrue(scan.hasNext());
 
         // Let's add an IndexRow before method Cursor#hasNext.
-        indexStorage.put(serializer.serializeRow(new Object[]{2}, rowId));
+        put(indexStorage, serializer.serializeRow(new Object[]{2}, rowId));
 
         assertTrue(scan.hasNext());
 
@@ -653,15 +653,15 @@ public abstract class AbstractSortedIndexStorageTest {
         scan = indexStorage.scan(null, null, 0);
 
         // Let's check that if we now remove an IndexRow, then we will get it by the cursor.
-        indexStorage.remove(serializer.serializeRow(new Object[]{0}, rowId));
+        remove(indexStorage, serializer.serializeRow(new Object[]{0}, rowId));
 
         // Let's remove an IndexRows before method Cursor#hasNext.
-        indexStorage.remove(serializer.serializeRow(new Object[]{1}, rowId));
+        remove(indexStorage, serializer.serializeRow(new Object[]{1}, rowId));
 
         assertTrue(scan.hasNext());
 
         // Let's remove an IndexRows after method Cursor#hasNext.
-        indexStorage.remove(serializer.serializeRow(new Object[]{2}, rowId));
+        remove(indexStorage, serializer.serializeRow(new Object[]{2}, rowId));
 
         assertEquals(0, serializer.deserializeColumns(scan.next())[0]);
 
