@@ -293,13 +293,15 @@ public class DefaultMessagingService extends AbstractMessagingService {
             message = messageWithCorrelation.message();
         }
 
+        String senderConsistentId = obj.consistentId();
+
         // Unfortunately, since the Messaging Service is used by ScaleCube itself, some messages can be sent
         // before the node is added to the topology. ScaleCubeMessage handler guarantees to handle null sender consistent ID
         // without throwing an exception.
-        assert message instanceof ScaleCubeMessage || obj.consistentId() != null;
+        assert message instanceof ScaleCubeMessage || senderConsistentId != null;
 
         for (NetworkMessageHandler networkMessageHandler : getMessageHandlers(message.groupType())) {
-            networkMessageHandler.onReceived(message, obj.consistentId(), correlationId);
+            networkMessageHandler.onReceived(message, senderConsistentId, correlationId);
         }
     }
 
