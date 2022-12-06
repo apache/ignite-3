@@ -385,7 +385,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
         return metaStorageRaftGrpSvc.run(commandsFactory.cursorsCloseCommand().nodeId(nodeId).build());
     }
 
-    public static List<OperationInfo> toOperationInfos(Collection<Operation> ops, MetaStorageCommandsFactory commandsFactory) {
+    private static List<OperationInfo> toOperationInfos(Collection<Operation> ops, MetaStorageCommandsFactory commandsFactory) {
         List<OperationInfo> res = new ArrayList<>(ops.size());
 
         for (Operation op : ops) {
@@ -434,6 +434,13 @@ public class MetaStorageServiceImpl implements MetaStorageService {
         }
     }
 
+    /**
+     * Generate network message from {@link If} statement.
+     *
+     * @param iif If statement.
+     * @param commandsFactory Commands factory.
+     * @return Network message.
+     */
     public static IfInfo toIfInfo(If iif, MetaStorageCommandsFactory commandsFactory) {
         return commandsFactory.ifInfo()
                 .cond(toConditionInfo(iif.condition(), commandsFactory))

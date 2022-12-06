@@ -66,8 +66,10 @@ public class DistributionZoneManager implements IgniteComponent {
     /** Distribution zone configuration. */
     private final DistributionZonesConfiguration zonesConfiguration;
 
+    /** Meta Storage manager. */
     private final MetaStorageManager metaStorageManager;
 
+    /* Cluster Management manager. */
     private final ClusterManagementGroupManager cmgManager;
 
     /** Busy lock to stop synchronously. */
@@ -270,6 +272,7 @@ public class DistributionZoneManager implements IgniteComponent {
 
         Set<ClusterNode> clusterNodes;
 
+        //TODO temporary code, will be removed in https://issues.apache.org/jira/browse/IGNITE-18087
         try {
             clusterNodes = cmgManager.logicalTopology().get().nodes();
         } catch (InterruptedException | ExecutionException e) {

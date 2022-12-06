@@ -27,6 +27,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.timeout;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.io.Serializable;
@@ -110,7 +113,7 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
 
         AtomicLong raftIndex = new AtomicLong();
 
-        keyValueStorage = new SimpleInMemoryKeyValueStorage();
+        keyValueStorage = spy(new SimpleInMemoryKeyValueStorage());
 
         MetaStorageListener metaStorageListener = new MetaStorageListener(keyValueStorage);
 
@@ -220,7 +223,7 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
     }
 
     @Test
-    void testZoneDeleteMetaStorageKeyRemove() throws Exception {
+    void testZoneDeleteRemovesMetaStorageKey() throws Exception {
         Set<ClusterNode> clusterNodes = Set.of(new ClusterNode("1", "name1", null));
 
         mockCmgLocalNodes(clusterNodes);
@@ -278,7 +281,59 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
 
         distributionZoneManager.createZone(new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).build()).get();
 
+        verify(keyValueStorage, timeout(1000).times(1)).invoke(any());
+
         assertZonesChangeTriggerKey(100);
+
+        assertDataNodesForZone(1, null);
+    }
+
+    @Test
+    void testDataNodesNotPropagatedAfterZoneUpdate() throws Exception {
+        Set<ClusterNode> clusterNodes = Set.of(new ClusterNode("1", "name1", null));
+
+        LogicalTopologySnapshot logicalTopologySnapshot = mockCmgLocalNodes(clusterNodes);
+
+        distributionZoneManager.createZone(new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).build()).get();
+
+        assertDataNodesForZone(1, clusterNodes);
+
+        var clusterNodes2 = Set.of(
+                new ClusterNode("1", "name1", null),
+                new ClusterNode("2", "name2", null)
+        );
+
+        when(logicalTopologySnapshot.nodes()).thenReturn(clusterNodes2);
+
+        keyValueStorage.put(zonesChangeTriggerKey().bytes(), ByteUtils.longToBytes(100));
+
+        distributionZoneManager.alterZone(
+                ZONE_NAME,
+                new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).dataNodesAutoAdjust(100).build()
+        ).get();
+
+        verify(keyValueStorage, timeout(1000).times(2)).invoke(any());
+
+        assertZonesChangeTriggerKey(100);
+
+        assertDataNodesForZone(1, clusterNodes);
+    }
+
+    @Test
+    void testZoneDeleteDoNotRemoveMetaStorageKey() throws Exception {
+        Set<ClusterNode> clusterNodes = Set.of(new ClusterNode("1", "name1", null));
+
+        mockCmgLocalNodes(clusterNodes);
+
+        distributionZoneManager.createZone(new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).build());
+
+        assertDataNodesForZone(1, clusterNodes);
+
+        keyValueStorage.put(zonesChangeTriggerKey().bytes(), ByteUtils.longToBytes(100));
+
+        distributionZoneManager.dropZone(ZONE_NAME);
+
+        verify(keyValueStorage, timeout(1000).times(2)).invoke(any());
     }
 
     private LogicalTopologySnapshot mockCmgLocalNodes(Set<ClusterNode> clusterNodes) {
@@ -291,21 +346,18 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
         return logicalTopologySnapshot;
     }
 
-    private void assertDataNodesForZone(int zoneId, Set<ClusterNode> clusterNodes) throws InterruptedException {
-        assertTrue(
-                waitForCondition(
-                        () -> Arrays.equals(
-                                keyValueStorage.get(zoneDataNodesKey(zoneId).bytes()).value(),
-                                ByteUtils.toBytes(clusterNodes.stream().map(ClusterNode::name).collect(Collectors.toSet()))
-                        ), 5000
-                )
-        );
+    private void assertDataNodesForZone(int zoneId, @Nullable Set<ClusterNode> clusterNodes) throws InterruptedException {
+        byte[] nodes = clusterNodes == null
+                ? null
+                : ByteUtils.toBytes(clusterNodes.stream().map(ClusterNode::name).collect(Collectors.toSet()));
+
+        assertTrue(waitForCondition(() -> Arrays.equals(keyValueStorage.get(zoneDataNodesKey(zoneId).bytes()).value(), nodes), 1000));
     }
 
     private void assertZonesChangeTriggerKey(int revision) throws InterruptedException {
         assertTrue(
                 waitForCondition(
-                        () -> ByteUtils.bytesToLong(keyValueStorage.get(zonesChangeTriggerKey().bytes()).value()) == revision, 5000
+                        () -> ByteUtils.bytesToLong(keyValueStorage.get(zonesChangeTriggerKey().bytes()).value()) == revision, 1000
                 )
         );
     }
