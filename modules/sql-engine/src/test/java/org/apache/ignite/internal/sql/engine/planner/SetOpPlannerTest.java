@@ -17,8 +17,11 @@
 
 package org.apache.ignite.internal.sql.engine.planner;
 
+import java.util.List;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
+import org.apache.ignite.internal.sql.engine.rel.IgniteExchange;
+import org.apache.ignite.internal.sql.engine.rel.IgniteTrimExchange;
 import org.apache.ignite.internal.sql.engine.rel.set.IgniteMapIntersect;
 import org.apache.ignite.internal.sql.engine.rel.set.IgniteMapMinus;
 import org.apache.ignite.internal.sql.engine.rel.set.IgniteMapSetOp;
@@ -34,6 +37,7 @@ import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -70,10 +74,48 @@ public class SetOpPlannerTest extends AbstractPlannerTest {
         createTable(publicSchema, "SINGLE_TBL2", type, IgniteDistributions.single());
 
         createTable(publicSchema, "AFFINITY_TBL1", type,
-                IgniteDistributions.affinity(0, "Test1", "hash"));
+                // TODO https://issues.apache.org/jira/browse/IGNITE-18211
+                // IgniteDistributions.affinity(0, "Test1", "hash"));
+                IgniteDistributions.hash(List.of(0)));
+
 
         createTable(publicSchema, "AFFINITY_TBL2", type,
-                IgniteDistributions.affinity(0, "Test2", "hash"));
+                // TODO https://issues.apache.org/jira/browse/IGNITE-18211
+                // IgniteDistributions.affinity(0, "Test2", "hash"));
+                IgniteDistributions.hash(List.of(0)));
+
+        createTable(publicSchema, "AFFINITY_TBL3", type,
+                IgniteDistributions.affinity(1, "Test3", "hash"));
+
+        createTable(publicSchema, "AFFINITY_TBL4", type,
+                IgniteDistributions.affinity(0, "Test4", "hash2"));
+    }
+
+    /**
+     * testSetOpAffinityNested
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
+     * @throws Exception If failed.
+     */
+    @ParameterizedTest
+    @EnumSource
+    public void testSetOpAffinityNested(SetOp setOp) throws Exception {
+        String sql = "SELECT * FROM affinity_tbl2 " + setOp(setOp) + "("
+                + "   SELECT * FROM affinity_tbl1 "
+                + setOp(setOp)
+                + "   SELECT * FROM affinity_tbl2"
+                + ")";
+
+        assertPlan(sql, publicSchema, isInstanceOf(IgniteExchange.class)
+                        .and(input(isInstanceOf(setOp.single)
+                                .and(input(0, isTableScan("affinity_tbl2")))
+                                .and(input(1, isInstanceOf(setOp.single)
+                                        .and(input(0, isTableScan("affinity_tbl1")))
+                                        .and(input(1, isTableScan("affinity_tbl2")))
+                                ))
+                        )),
+                "MinusMergeRule", "IntersectMergeRule"
+        );
     }
 
     /**
@@ -169,6 +211,7 @@ public class SetOpPlannerTest extends AbstractPlannerTest {
                 + "SELECT * FROM random_tbl1 ";
 
         assertPlan(sql, publicSchema, isInstanceOf(setOp.single)
+                .and(hasDistribution(IgniteDistributions.single()))
                 .and(input(0, isTableScan("single_tbl1")))
                 .and(input(1, hasChildThat(isTableScan("random_tbl1")))));
     }
@@ -187,6 +230,7 @@ public class SetOpPlannerTest extends AbstractPlannerTest {
                 + "SELECT * FROM affinity_tbl1 ";
 
         assertPlan(sql, publicSchema, isInstanceOf(setOp.single)
+                .and(hasDistribution(IgniteDistributions.single()))
                 .and(input(0, isTableScan("single_tbl1")))
                 .and(input(1, hasChildThat(isTableScan("affinity_tbl1")))));
     }
@@ -223,10 +267,71 @@ public class SetOpPlannerTest extends AbstractPlannerTest {
                 + setOp(setOp)
                 + "SELECT * FROM affinity_tbl2 ";
 
+        assertPlan(sql, publicSchema, isInstanceOf(IgniteExchange.class)
+                .and(input(isInstanceOf(setOp.single)
+                        // TODO https://issues.apache.org/jira/browse/IGNITE-18211
+                        // .and(hasDistribution(IgniteDistributions.affinity(0, null, "hash")))
+                        .and(input(0, isTableScan("affinity_tbl1")))
+                        .and(input(1, isTableScan("affinity_tbl2")))
+                ))
+        );
+    }
+
+    /**
+     * testSetOpAffinityAndBroadcast
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
+     * @throws Exception If failed.
+     */
+    @ParameterizedTest
+    @EnumSource
+    public void testSetOpAffinityAndBroadcast(SetOp setOp) throws Exception {
+        String sql = "SELECT * FROM affinity_tbl1 "
+                + setOp(setOp)
+                + "SELECT * FROM broadcast_tbl1 ";
+
+        assertPlan(sql, publicSchema, isInstanceOf(IgniteExchange.class)
+                .and(input(isInstanceOf(setOp.single)
+                        // TODO https://issues.apache.org/jira/browse/IGNITE-18211
+                        // .and(hasDistribution(IgniteDistributions.affinity(0, null, "hash")))
+                        .and(input(0, isTableScan("affinity_tbl1")))
+                        .and(input(1, isInstanceOf(IgniteTrimExchange.class)
+                                .and(input(isTableScan("broadcast_tbl1")))
+                        ))
+                ))
+        );
+    }
+
+    /**
+     * testSetOpNonColocatedAffinity
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
+     * @throws Exception If failed.
+     */
+    @ParameterizedTest
+    @EnumSource
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18211")
+    public void testSetOpNonColocatedAffinity(SetOp setOp) throws Exception {
+        String sql = "SELECT * FROM affinity_tbl1 "
+                + setOp(setOp)
+                + "SELECT * FROM affinity_tbl3 ";
+
         assertPlan(sql, publicSchema, isInstanceOf(setOp.reduce)
                 .and(hasChildThat(isInstanceOf(setOp.map)
                         .and(input(0, isTableScan("affinity_tbl1")))
                         .and(input(1, isTableScan("affinity_tbl2")))
+                        .and(input(1, isTableScan("affinity_tbl3")))
+                ))
+        );
+
+        sql = "SELECT * FROM affinity_tbl1 "
+                + setOp(setOp)
+                + "SELECT * FROM affinity_tbl4 ";
+
+        assertPlan(sql, publicSchema, isInstanceOf(setOp.reduce)
+                .and(hasChildThat(isInstanceOf(setOp.map)
+                        .and(input(0, isTableScan("affinity_tbl1")))
+                        .and(input(1, isTableScan("affinity_tbl4")))
                 ))
         );
     }
@@ -266,26 +371,16 @@ public class SetOpPlannerTest extends AbstractPlannerTest {
                 + "   SELECT * FROM random_tbl2"
                 + ")";
 
-        if (setOp == SetOp.EXCEPT) {
-            assertPlan(sql, publicSchema, isInstanceOf(setOp.single)
-                    .and(input(0, hasChildThat(isTableScan("random_tbl2"))))
-                    .and(input(1, isInstanceOf(setOp.reduce)
-                            .and(hasChildThat(isInstanceOf(setOp.map)
-                                    .and(input(0, isTableScan("random_tbl1")))
-                                    .and(input(1, isTableScan("random_tbl2")))
-                            ))
-                    ))
-            );
-        } else {
-            // INTERSECT operator is commutative and can be merged.
-            assertPlan(sql, publicSchema, isInstanceOf(setOp.reduce)
-                    .and(hasChildThat(isInstanceOf(setOp.map)
-                            .and(input(0, isTableScan("random_tbl2")))
-                            .and(input(1, isTableScan("random_tbl1")))
-                            .and(input(2, isTableScan("random_tbl2")))
-                    ))
-            );
-        }
+        assertPlan(sql, publicSchema, isInstanceOf(setOp.single)
+                        .and(input(0, hasChildThat(isTableScan("random_tbl2"))))
+                        .and(input(1, isInstanceOf(setOp.reduce)
+                                .and(hasChildThat(isInstanceOf(setOp.map)
+                                        .and(input(0, isTableScan("random_tbl1")))
+                                        .and(input(1, isTableScan("random_tbl2")))
+                                ))
+                        )),
+                "MinusMergeRule", "IntersectMergeRule"
+        );
     }
 
     /**
@@ -305,26 +400,16 @@ public class SetOpPlannerTest extends AbstractPlannerTest {
                 + "   SELECT * FROM random_tbl2"
                 + ")";
 
-        if (setOp == SetOp.EXCEPT) {
-            assertPlan(sql, publicSchema, isInstanceOf(setOp.single)
-                    .and(input(0, isTableScan("broadcast_tbl1")))
-                    .and(input(1, isInstanceOf(setOp.reduce)
-                            .and(hasChildThat(isInstanceOf(setOp.map)
-                                    .and(input(0, isTableScan("random_tbl1")))
-                                    .and(input(1, isTableScan("random_tbl2")))
-                            ))
-                    ))
-            );
-        } else {
-            // INTERSECT operator is commutative and can be merged.
-            assertPlan(sql, publicSchema, isInstanceOf(setOp.reduce)
-                    .and(hasChildThat(isInstanceOf(setOp.map)
-                            .and(input(0, nodeOrAnyChild(isTableScan("broadcast_tbl1"))))
-                            .and(input(1, isTableScan("random_tbl1")))
-                            .and(input(2, isTableScan("random_tbl2")))
-                    ))
-            );
-        }
+        assertPlan(sql, publicSchema, isInstanceOf(setOp.single)
+                        .and(input(0, isTableScan("broadcast_tbl1")))
+                        .and(input(1, isInstanceOf(setOp.reduce)
+                                .and(hasChildThat(isInstanceOf(setOp.map)
+                                        .and(input(0, isTableScan("random_tbl1")))
+                                        .and(input(1, isTableScan("random_tbl2")))
+                                ))
+                        )),
+                "MinusMergeRule", "IntersectMergeRule"
+        );
     }
 
     /**
