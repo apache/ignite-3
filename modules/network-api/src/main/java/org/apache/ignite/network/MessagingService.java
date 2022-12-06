@@ -70,7 +70,7 @@ public interface MessagingService {
      * Guarantees are the same as for the {@link #send(ClusterNode, NetworkMessage)}.
      *
      * <p>If the recipient cannot be resolved (because it has already left the physical topology), the returned future is resolved
-     * with the corresponding exception ({@link ConsistentIdNotResolvedException}).
+     * with the corresponding exception ({@link UnresolvableConsistentIdException}).
      *
      * @param recipientConsistentId Consistent ID of the recipient of the message.
      * @param msg Message which should be delivered.

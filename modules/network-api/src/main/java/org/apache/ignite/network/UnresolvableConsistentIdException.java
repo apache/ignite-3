@@ -17,14 +17,15 @@
 
 package org.apache.ignite.network;
 
+import org.apache.ignite.lang.ErrorGroups.Network;
 import org.apache.ignite.lang.IgniteException;
 
 /**
  * Thrown when consistent ID cannot be resolved to a {@link ClusterNode} instance (i.e. when
  * there is no node with such consistent ID in the physical topology).
  */
-public class ConsistentIdNotResolvedException extends IgniteException {
-    public ConsistentIdNotResolvedException(String msg) {
-        super(msg);
+public class UnresolvableConsistentIdException extends IgniteException {
+    public UnresolvableConsistentIdException(String msg) {
+        super(Network.UNRESOLVABLE_CONSISTENT_ID_ERR, msg);
     }
 }

@@ -136,7 +136,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
         if (recipient == null) {
             return failedFuture(
-                    new ConsistentIdNotResolvedException("Recipient consistent ID cannot be resolved: " + recipientConsistentId)
+                    new UnresolvableConsistentIdException("Recipient consistent ID cannot be resolved: " + recipientConsistentId)
             );
         }
 

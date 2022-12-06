@@ -149,7 +149,7 @@ class DefaultMessagingServiceTest {
         try (Services services = createMessagingService(senderNode, senderNetworkConfig, () -> {})) {
             CompletableFuture<Void> resultFuture = services.messagingService.respond("no-such-node", mock(NetworkMessage.class), 123);
 
-            assertThat(resultFuture, willThrow(ConsistentIdNotResolvedException.class));
+            assertThat(resultFuture, willThrow(UnresolvableConsistentIdException.class));
         }
     }
 
