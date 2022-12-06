@@ -22,11 +22,14 @@ apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
 
 dependencies {
     annotationProcessor project(":ignite-configuration-annotation-processor")
+    annotationProcessor libs.auto.service
+
     implementation project(':ignite-api')
     implementation project(':ignite-schema')
     implementation project(':ignite-configuration')
     implementation project(":ignite-core")
     implementation libs.jetbrains.annotations
+    implementation libs.auto.service.annotations
 
     testAnnotationProcessor project(":ignite-configuration-annotation-processor")
     testImplementation project(':ignite-core')
@@ -40,6 +43,8 @@ dependencies {
     testImplementation libs.mockito.junit
 
     testFixturesAnnotationProcessor project(":ignite-configuration-annotation-processor")
+    testFixturesAnnotationProcessor libs.auto.service
+
     testFixturesImplementation project(':ignite-core')
     testFixturesImplementation(testFixtures(project(':ignite-core')))
     testFixturesImplementation project(':ignite-configuration')
@@ -51,6 +56,7 @@ dependencies {
     testFixturesImplementation libs.junit5.api
     testFixturesImplementation libs.junit5.impl
     testFixturesImplementation libs.junit5.params
+    testFixturesImplementation libs.auto.service.annotations
 }
 
 description = 'ignite-storage-api'

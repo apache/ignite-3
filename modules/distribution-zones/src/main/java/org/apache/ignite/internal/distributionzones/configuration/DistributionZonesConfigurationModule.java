@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.distributionzones.configuration;
 
+import com.google.auto.service.AutoService;
 import java.util.Collection;
 import java.util.List;
 import org.apache.ignite.configuration.RootKey;
@@ -26,6 +27,7 @@ import org.apache.ignite.internal.configuration.ConfigurationModule;
 /**
  * Configuration module for distribution zones configs.
  */
+@AutoService(ConfigurationModule.class)
 public class DistributionZonesConfigurationModule implements ConfigurationModule {
     /** {@inheritDoc} */
     @Override

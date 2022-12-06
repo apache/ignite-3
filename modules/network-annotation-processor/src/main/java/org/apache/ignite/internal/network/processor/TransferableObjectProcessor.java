@@ -20,6 +20,7 @@ package org.apache.ignite.internal.network.processor;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 
+import com.google.auto.service.AutoService;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.JavaFile;
 import com.squareup.javapoet.TypeSpec;
@@ -31,6 +32,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Stream;
 import javax.annotation.processing.AbstractProcessor;
+import javax.annotation.processing.Processor;
 import javax.annotation.processing.RoundEnvironment;
 import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Element;
@@ -59,6 +61,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Annotation processor for working with the {@link Transferable} annotation.
  */
+@AutoService(Processor.class)
 public class TransferableObjectProcessor extends AbstractProcessor {
     /** {@inheritDoc} */
     @Override

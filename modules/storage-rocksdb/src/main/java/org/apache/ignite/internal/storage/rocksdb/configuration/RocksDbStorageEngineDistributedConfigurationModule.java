@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.storage.rocksdb.configuration;
 
+import com.google.auto.service.AutoService;
 import java.lang.annotation.Annotation;
 import java.util.Collection;
 import java.util.List;
@@ -32,6 +33,7 @@ import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbSt
 /**
  * {@link ConfigurationModule} for cluster-wide configuration provided by ignite-storage-rocksdb.
  */
+@AutoService(ConfigurationModule.class)
 public class RocksDbStorageEngineDistributedConfigurationModule implements ConfigurationModule {
     /** {@inheritDoc} */
     @Override

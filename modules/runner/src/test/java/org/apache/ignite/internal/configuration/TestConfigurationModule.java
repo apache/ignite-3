@@ -17,11 +17,13 @@
 
 package org.apache.ignite.internal.configuration;
 
+import com.google.auto.service.AutoService;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 
 /**
  * A test {@link ConfigurationModule} implementation used to test loading by {@link ServiceLoaderModulesProvider}.
  */
+@AutoService(ConfigurationModule.class)
 public class TestConfigurationModule implements ConfigurationModule {
     /** {@inheritDoc} */
     @Override

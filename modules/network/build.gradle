@@ -35,9 +35,12 @@ dependencies {
     implementation libs.netty.transport
     implementation libs.jackson.core
     implementation libs.jackson.databind
+    implementation libs.auto.service.annotations
+
     annotationProcessor project(":ignite-configuration-annotation-processor")
     annotationProcessor project(":ignite-network-annotation-processor")
     annotationProcessor libs.jmh.annotation.processor
+    annotationProcessor libs.auto.service
 
     testAnnotationProcessor project(":ignite-network-annotation-processor")
     testImplementation project(':ignite-configuration')

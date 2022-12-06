@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.compute.configuration;
 
+import com.google.auto.service.AutoService;
 import java.util.Collection;
 import java.util.Collections;
 import org.apache.ignite.configuration.RootKey;
@@ -26,6 +27,7 @@ import org.apache.ignite.internal.configuration.ConfigurationModule;
 /**
  * {@link ConfigurationModule} for node-local configuration provided by compute.
  */
+@AutoService(ConfigurationModule.class)
 public class ComputeConfigurationModule implements ConfigurationModule {
     @Override
     public ConfigurationType type() {

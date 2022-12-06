@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.raft;
 
+import com.google.auto.service.AutoService;
 import java.util.Map;
 import org.apache.ignite.internal.raft.configuration.EntryCountBudgetConfigurationSchema;
 import org.apache.ignite.internal.raft.configuration.EntryCountBudgetView;
@@ -29,6 +30,7 @@ import org.apache.ignite.raft.jraft.storage.impl.UnlimitedBudget;
 /**
  * Provides core budget factories.
  */
+@AutoService(LogStorageBudgetsModule.class)
 public class CoreLogStorageBudgetsModule implements LogStorageBudgetsModule {
     @Override
     public Map<String, LogStorageBudgetFactory> budgetFactories() {
