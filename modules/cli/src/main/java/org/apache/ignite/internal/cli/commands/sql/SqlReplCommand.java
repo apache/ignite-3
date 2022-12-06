@@ -24,6 +24,8 @@ import static org.apache.ignite.internal.cli.commands.Options.Constants.PLAIN_OP
 import static org.apache.ignite.internal.cli.commands.Options.Constants.PLAIN_OPTION_DESC;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.SCRIPT_FILE_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.SCRIPT_FILE_OPTION_SHORT;
+import static org.apache.ignite.internal.cli.core.style.AnsiStringSupport.ansi;
+import static org.apache.ignite.internal.cli.core.style.AnsiStringSupport.fg;
 
 import jakarta.inject.Inject;
 import java.io.File;
@@ -43,6 +45,7 @@ import org.apache.ignite.internal.cli.core.exception.handler.SqlExceptionHandler
 import org.apache.ignite.internal.cli.core.repl.Repl;
 import org.apache.ignite.internal.cli.core.repl.executor.RegistryCommandExecutor;
 import org.apache.ignite.internal.cli.core.repl.executor.ReplExecutorProvider;
+import org.apache.ignite.internal.cli.core.style.AnsiStringSupport.Color;
 import org.apache.ignite.internal.cli.decorators.PlainTableDecorator;
 import org.apache.ignite.internal.cli.decorators.SqlQueryResultDecorator;
 import org.apache.ignite.internal.cli.decorators.TableDecorator;
@@ -96,7 +99,7 @@ public class SqlReplCommand extends BaseCommand implements Runnable {
             // When passing white space to this command, picocli will treat it as a positional argument
             if (execOptions == null || (execOptions.command != null && execOptions.command.isBlank())) {
                 replExecutorProvider.get().execute(Repl.builder()
-                        .withPromptProvider(() -> "sql-cli> ")
+                        .withPromptProvider(() -> ansi(fg(Color.GREEN).mark("sql-cli > ")))
                         .withCompleter(new SqlCompleter(new SqlSchemaProvider(sqlManager::getMetadata)))
                         .withCommandClass(SqlReplTopLevelCliCommand.class)
                         .withCallExecutionPipelineProvider(provider(sqlManager))
