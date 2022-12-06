@@ -17,19 +17,15 @@
 
 package org.apache.ignite.network;
 
-import org.jetbrains.annotations.Nullable;
+import org.apache.ignite.lang.ErrorGroups.Network;
+import org.apache.ignite.lang.IgniteException;
 
 /**
- * Handler of incoming messages.
+ * Thrown when consistent ID cannot be resolved to a {@link ClusterNode} instance (i.e. when
+ * there is no node with such consistent ID in the physical topology).
  */
-public interface NetworkMessageHandler {
-    /**
-     * Method that gets invoked when a network message is received.
-     *
-     * @param message Message, which was received from the cluster.
-     * @param senderConsistentId Consistend ID of the sender node.
-     * @param correlationId Correlation id. Used to track correspondence between requests and responses. Can be {@code null} if the received
-     *     message is not a request from a {@link MessagingService#invoke} method from another node.
-     */
-    void onReceived(NetworkMessage message, String senderConsistentId, @Nullable Long correlationId);
+public class UnresolvableConsistentIdException extends IgniteException {
+    public UnresolvableConsistentIdException(String msg) {
+        super(Network.UNRESOLVABLE_CONSISTENT_ID_ERR, msg);
+    }
 }
