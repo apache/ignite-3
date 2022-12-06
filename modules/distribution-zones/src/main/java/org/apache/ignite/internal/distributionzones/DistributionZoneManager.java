@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.metastorage.client.Operations.ops;
 import static org.apache.ignite.internal.metastorage.client.Operations.put;
 import static org.apache.ignite.internal.metastorage.client.Operations.remove;
+import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Common.UNEXPECTED_ERR;
 
 import java.util.Objects;
@@ -268,59 +269,75 @@ public class DistributionZoneManager implements IgniteComponent {
     }
 
     private void updateMetaStorageOnZoneCreateOrUpdate(int zoneId, long revision) {
-        byte[] logicalTopologyBytes;
-
-        Set<ClusterNode> clusterNodes;
-
-        //TODO temporary code, will be removed in https://issues.apache.org/jira/browse/IGNITE-18087
-        try {
-            clusterNodes = cmgManager.logicalTopology().get().nodes();
-        } catch (InterruptedException | ExecutionException e) {
-            throw new IgniteInternalException(e);
+        if (!busyLock.enterBusy()) {
+            throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
         }
 
-        Set<String> nodesConsistentIds = clusterNodes.stream().map(ClusterNode::name).collect(Collectors.toSet());
+        try {
+            byte[] logicalTopologyBytes;
 
-        logicalTopologyBytes = ByteUtils.toBytes(nodesConsistentIds);
+            Set<ClusterNode> clusterNodes;
 
-        ByteArray zonesChangeTriggerKey = zonesChangeTriggerKey();
-
-        CompoundCondition triggerKeyCondition = triggerKeyCondition(revision);
-
-        Update dataNodesAndTriggerKeyUpd = ops(
-                put(zoneDataNodesKey(zoneId), logicalTopologyBytes),
-                put(zonesChangeTriggerKey, ByteUtils.longToBytes(revision))
-        ).yield(true);
-
-        var iif = If.iif(triggerKeyCondition, dataNodesAndTriggerKeyUpd, ops().yield(false));
-
-        metaStorageManager.invoke(iif).thenAccept(res -> {
-            if (res.getAsBoolean()) {
-                LOG.info("Update zones' dataNodes value [zoneId = {}, dataNodes = {}", zoneId, nodesConsistentIds);
-            } else {
-                LOG.info("Failed to update zones' dataNodes value [zoneId = {}]", zoneId);
+            //TODO temporary code, will be removed in https://issues.apache.org/jira/browse/IGNITE-18087
+            try {
+                clusterNodes = cmgManager.logicalTopology().get().nodes();
+            } catch (InterruptedException | ExecutionException e) {
+                throw new IgniteInternalException(e);
             }
-        });
+
+            Set<String> nodesConsistentIds = clusterNodes.stream().map(ClusterNode::name).collect(Collectors.toSet());
+
+            logicalTopologyBytes = ByteUtils.toBytes(nodesConsistentIds);
+
+            ByteArray zonesChangeTriggerKey = zonesChangeTriggerKey();
+
+            CompoundCondition triggerKeyCondition = triggerKeyCondition(revision);
+
+            Update dataNodesAndTriggerKeyUpd = ops(
+                    put(zoneDataNodesKey(zoneId), logicalTopologyBytes),
+                    put(zonesChangeTriggerKey, ByteUtils.longToBytes(revision))
+            ).yield(true);
+
+            var iif = If.iif(triggerKeyCondition, dataNodesAndTriggerKeyUpd, ops().yield(false));
+
+            metaStorageManager.invoke(iif).thenAccept(res -> {
+                if (res.getAsBoolean()) {
+                    LOG.info("Update zones' dataNodes value [zoneId = {}, dataNodes = {}", zoneId, nodesConsistentIds);
+                } else {
+                    LOG.info("Failed to update zones' dataNodes value [zoneId = {}]", zoneId);
+                }
+            });
+        } finally {
+            busyLock.leaveBusy();
+        }
     }
 
     private void updateMetaStorageOnZoneDelete(int zoneId, long revision) {
-        ByteArray zonesChangeTriggerKey = zonesChangeTriggerKey();
+        if (!busyLock.enterBusy()) {
+            throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
+        }
 
-        CompoundCondition triggerKeyCondition = triggerKeyCondition(revision);
+        try {
+            ByteArray zonesChangeTriggerKey = zonesChangeTriggerKey();
 
-        Update dataNodesRemoveUpd = ops(
-                remove(zoneDataNodesKey(zoneId)),
-                put(zonesChangeTriggerKey, ByteUtils.longToBytes(revision))
-        ).yield(true);
+            CompoundCondition triggerKeyCondition = triggerKeyCondition(revision);
 
-        var iif = If.iif(triggerKeyCondition, dataNodesRemoveUpd, ops().yield(false));
+            Update dataNodesRemoveUpd = ops(
+                    remove(zoneDataNodesKey(zoneId)),
+                    put(zonesChangeTriggerKey, ByteUtils.longToBytes(revision))
+            ).yield(true);
 
-        metaStorageManager.invoke(iif).thenAccept(res -> {
-            if (res.getAsBoolean()) {
-                LOG.info("Delete zones' dataNodes key [zoneId = {}", zoneId);
-            } else {
-                LOG.info("Failed to delete zones' dataNodes key [zoneId = {}]", zoneId);
-            }
-        });
+            var iif = If.iif(triggerKeyCondition, dataNodesRemoveUpd, ops().yield(false));
+
+            metaStorageManager.invoke(iif).thenAccept(res -> {
+                if (res.getAsBoolean()) {
+                    LOG.info("Delete zones' dataNodes key [zoneId = {}", zoneId);
+                } else {
+                    LOG.info("Failed to delete zones' dataNodes key [zoneId = {}]", zoneId);
+                }
+            });
+        } finally {
+            busyLock.leaveBusy();
+        }
     }
 }
