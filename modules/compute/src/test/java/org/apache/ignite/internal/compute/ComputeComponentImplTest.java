@@ -30,6 +30,7 @@ import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.lenient;
@@ -220,7 +221,7 @@ class ComputeComponentImplTest {
         markResponseSentOnResponseSend();
         assertThat(computeMessageHandlerRef.get(), is(notNullValue()));
 
-        var sender = new ClusterNode("test", "test", new NetworkAddress("some-host", 1));
+        String sender = "test";
 
         ExecuteRequest request = new ComputeMessagesFactory().executeRequest()
                 .jobClassName(SimpleJob.class.getName())
@@ -232,14 +233,14 @@ class ComputeComponentImplTest {
     }
 
     private void markResponseSentOnResponseSend() {
-        when(messagingService.respond(any(), any(), anyLong()))
+        when(messagingService.respond(anyString(), any(), anyLong()))
                 .thenAnswer(invocation -> {
                     responseSent.set(true);
                     return null;
                 });
     }
 
-    private void assertThatExecuteResponseIsSentTo(ClusterNode sender) throws InterruptedException {
+    private void assertThatExecuteResponseIsSentTo(String sender) throws InterruptedException {
         assertTrue(IgniteTestUtils.waitForCondition(responseSent::get, 1000), "No response sent");
 
         verify(messagingService).respond(eq(sender), executeResponseCaptor.capture(), eq(123L));
@@ -294,7 +295,7 @@ class ComputeComponentImplTest {
         markResponseSentOnResponseSend();
         assertThat(computeMessageHandlerRef.get(), is(notNullValue()));
 
-        var sender = new ClusterNode("test", "test", new NetworkAddress("some-host", 1));
+        String sender = "test";
 
         ExecuteRequest request = new ComputeMessagesFactory().executeRequest()
                 .jobClassName(SimpleJob.class.getName())
@@ -305,7 +306,7 @@ class ComputeComponentImplTest {
         assertThatNodeStoppingExceptionIsSentTo(sender);
     }
 
-    private void assertThatNodeStoppingExceptionIsSentTo(ClusterNode sender) throws InterruptedException {
+    private void assertThatNodeStoppingExceptionIsSentTo(String sender) throws InterruptedException {
         assertTrue(IgniteTestUtils.waitForCondition(responseSent::get, 1000), "No response sent");
 
         verify(messagingService).respond(eq(sender), executeResponseCaptor.capture(), eq(123L));

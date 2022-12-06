@@ -161,13 +161,13 @@ class ItScaleCubeNetworkMessagingTest {
         class Data {
             private final TestMessage message;
 
-            private final ClusterNode sender;
+            private final String senderConsistentId;
 
             private final Long correlationId;
 
-            private Data(TestMessage message, ClusterNode sender, Long correlationId) {
+            private Data(TestMessage message, String senderConsistentId, Long correlationId) {
                 this.message = message;
-                this.sender = sender;
+                this.senderConsistentId = senderConsistentId;
                 this.correlationId = correlationId;
             }
         }
@@ -187,7 +187,7 @@ class ItScaleCubeNetworkMessagingTest {
         Data actualData = dataFuture.get(3, TimeUnit.SECONDS);
 
         assertThat(actualData.message.msg(), is(requestMessage.msg()));
-        assertThat(actualData.sender.name(), is(self.name()));
+        assertThat(actualData.senderConsistentId, is(self.name()));
         assertNull(actualData.correlationId);
     }
 
