@@ -529,9 +529,9 @@ public class HeapLockManager implements LockManager {
 
                 addLock(mode, inc);
 
-                newIntendedLockMode = newIntendedLockMode == null ? mode : LockMode.supremum(newIntendedLockMode, mode);
-
-                if (!intendedLocks.contains(mode)) {
+                if (intendedLocks.contains(mode)) {
+                    newIntendedLockMode = newIntendedLockMode == null ? mode : LockMode.supremum(newIntendedLockMode, mode);
+                } else {
                     newLockMode = newLockMode == null ? mode : LockMode.supremum(newLockMode, mode);
                 }
             }
