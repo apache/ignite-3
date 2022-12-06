@@ -2333,6 +2333,25 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
         }
     }
 
+    @Test
+    void testFindNext() throws Exception {
+        TestTree tree = createTestTree(true);
+
+        assertNull(tree.findNext(0L));
+
+        tree.put(0L);
+
+        assertNull(tree.findNext(0L));
+
+        tree.put(1L);
+
+        assertEquals(1L, tree.findNext(0L));
+
+        assertNull(tree.findNext(1L));
+
+        assertEquals(0L, tree.findNext(-1L));
+    }
+
     private void doTestRandomPutRemoveMultithreaded(boolean canGetRow) throws Exception {
         final TestTree tree = createTestTree(canGetRow);
 

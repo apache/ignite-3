@@ -601,8 +601,6 @@ public abstract class AbstractSortedIndexStorageTest {
 
         SortedIndexStorage indexStorage = createIndexStorage(indexDefinition);
 
-        assertThat(indexStorage.scan(null, null, 0).stream().collect(toList()), empty());
-
         Cursor<IndexRow> scan = indexStorage.scan(null, null, 0);
 
         BinaryTupleRowSerializer serializer = new BinaryTupleRowSerializer(indexStorage.indexDescriptor());
@@ -668,6 +666,165 @@ public abstract class AbstractSortedIndexStorageTest {
         assertFalse(scan.hasNext());
 
         assertThrows(NoSuchElementException.class, scan::next);
+    }
+
+    /**
+     * Checks simple scenarios for a scanning cursor.
+     */
+    @Test
+    void testScanSimple() {
+        SortedIndexDefinition indexDefinition = SchemaBuilders.sortedIndex("TEST_IDX")
+                .addIndexColumn(ColumnType.INT32.typeSpec().name()).asc().done()
+                .build();
+
+        SortedIndexStorage indexStorage = createIndexStorage(indexDefinition);
+
+        BinaryTupleRowSerializer serializer = new BinaryTupleRowSerializer(indexStorage.indexDescriptor());
+
+        for (int i = 0; i < 5; i++) {
+            put(indexStorage, serializer.serializeRow(new Object[]{i}, new RowId(TEST_PARTITION)));
+        }
+
+        // Checking without borders.
+        assertThat(
+                scan(indexStorage, null, null, 0).stream().map(objects -> objects[0]).collect(toList()),
+                contains(0, 1, 2, 3, 4)
+        );
+
+        // Let's check without borders.
+        assertThat(
+                indexStorage.scan(
+                                serializer.serializeRowPrefix(0),
+                                serializer.serializeRowPrefix(4),
+                                (GREATER_OR_EQUAL | LESS_OR_EQUAL)
+                        ).stream()
+                        .map(indexRow -> serializer.deserializeColumns(indexRow)[0])
+                        .collect(toList()),
+                contains(0, 1, 2, 3, 4)
+        );
+
+        assertThat(
+                indexStorage.scan(
+                                serializer.serializeRowPrefix(0),
+                                serializer.serializeRowPrefix(4),
+                                (GREATER_OR_EQUAL | LESS)
+                        ).stream()
+                        .map(indexRow -> serializer.deserializeColumns(indexRow)[0])
+                        .collect(toList()),
+                contains(0, 1, 2, 3)
+        );
+
+        assertThat(
+                indexStorage.scan(
+                                serializer.serializeRowPrefix(0),
+                                serializer.serializeRowPrefix(4),
+                                (GREATER | LESS_OR_EQUAL)
+                        ).stream()
+                        .map(indexRow -> serializer.deserializeColumns(indexRow)[0])
+                        .collect(toList()),
+                contains(1, 2, 3, 4)
+        );
+
+        assertThat(
+                indexStorage.scan(
+                                serializer.serializeRowPrefix(0),
+                                serializer.serializeRowPrefix(4),
+                                (GREATER | LESS)
+                        ).stream()
+                        .map(indexRow -> serializer.deserializeColumns(indexRow)[0])
+                        .collect(toList()),
+                contains(1, 2, 3)
+        );
+
+        // Let's check only with the lower bound.
+        assertThat(
+                indexStorage.scan(
+                                serializer.serializeRowPrefix(1),
+                                null,
+                                (GREATER_OR_EQUAL | LESS_OR_EQUAL)
+                        ).stream()
+                        .map(indexRow -> serializer.deserializeColumns(indexRow)[0])
+                        .collect(toList()),
+                contains(1, 2, 3, 4)
+        );
+
+        assertThat(
+                indexStorage.scan(
+                                serializer.serializeRowPrefix(1),
+                                null,
+                                (GREATER_OR_EQUAL | LESS)
+                        ).stream()
+                        .map(indexRow -> serializer.deserializeColumns(indexRow)[0])
+                        .collect(toList()),
+                contains(1, 2, 3, 4)
+        );
+
+        assertThat(
+                indexStorage.scan(
+                                serializer.serializeRowPrefix(1),
+                                null,
+                                (GREATER | LESS_OR_EQUAL)
+                        ).stream()
+                        .map(indexRow -> serializer.deserializeColumns(indexRow)[0])
+                        .collect(toList()),
+                contains(2, 3, 4)
+        );
+
+        assertThat(
+                indexStorage.scan(
+                                serializer.serializeRowPrefix(1),
+                                null,
+                                (GREATER | LESS)
+                        ).stream()
+                        .map(indexRow -> serializer.deserializeColumns(indexRow)[0])
+                        .collect(toList()),
+                contains(2, 3, 4)
+        );
+
+        // Let's check only with the upper bound.
+        assertThat(
+                indexStorage.scan(
+                                null,
+                                serializer.serializeRowPrefix(3),
+                                (GREATER_OR_EQUAL | LESS_OR_EQUAL)
+                        ).stream()
+                        .map(indexRow -> serializer.deserializeColumns(indexRow)[0])
+                        .collect(toList()),
+                contains(0, 1, 2, 3)
+        );
+
+        assertThat(
+                indexStorage.scan(
+                                null,
+                                serializer.serializeRowPrefix(3),
+                                (GREATER_OR_EQUAL | LESS)
+                        ).stream()
+                        .map(indexRow -> serializer.deserializeColumns(indexRow)[0])
+                        .collect(toList()),
+                contains(0, 1, 2)
+        );
+
+        assertThat(
+                indexStorage.scan(
+                                null,
+                                serializer.serializeRowPrefix(3),
+                                (GREATER | LESS_OR_EQUAL)
+                        ).stream()
+                        .map(indexRow -> serializer.deserializeColumns(indexRow)[0])
+                        .collect(toList()),
+                contains(0, 1, 2, 3)
+        );
+
+        assertThat(
+                indexStorage.scan(
+                                null,
+                                serializer.serializeRowPrefix(3),
+                                (GREATER | LESS)
+                        ).stream()
+                        .map(indexRow -> serializer.deserializeColumns(indexRow)[0])
+                        .collect(toList()),
+                contains(0, 1, 2)
+        );
     }
 
     private List<ColumnDefinition> shuffledRandomDefinitions() {

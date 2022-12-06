@@ -20,6 +20,7 @@ package org.apache.ignite.internal.storage.pagememory.index.sorted;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
 import java.nio.ByteBuffer;
+import java.util.NoSuchElementException;
 import java.util.function.Function;
 import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
 import org.apache.ignite.internal.schema.BinaryTuple;
@@ -168,14 +169,7 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
         }
 
         try {
-            boolean includeLower = (flags & GREATER_OR_EQUAL) != 0;
-            boolean includeUpper = (flags & LESS_OR_EQUAL) != 0;
-
-            SortedIndexRowKey lower = createBound(lowerBound, !includeLower);
-
-            SortedIndexRowKey upper = createBound(upperBound, includeUpper);
-
-            return convertCursor(sortedIndexTree.find(lower, upper), this::toIndexRowImpl);
+            return new ScanCursor(lowerBound, upperBound, flags);
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException("Failed to create scan cursor", e);
         } finally {
@@ -271,5 +265,100 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
                 }
             }
         };
+    }
+
+    /**
+     * Sorted index storage scan cursor.
+     */
+    private class ScanCursor implements Cursor<IndexRow> {
+        @Nullable
+        private SortedIndexRowKey lower;
+
+        @Nullable
+        private final SortedIndexRowKey upper;
+
+        @Nullable
+        private IndexRow nextRow;
+
+        private ScanCursor(
+                @Nullable BinaryTuplePrefix lowerBound,
+                @Nullable BinaryTuplePrefix upperBound,
+                int flags
+        ) throws IgniteInternalCheckedException {
+            boolean includeLower = (flags & GREATER_OR_EQUAL) != 0;
+            boolean includeUpper = (flags & LESS_OR_EQUAL) != 0;
+
+            upper = createBound(upperBound, includeUpper);
+
+            applyRowFromTree(
+                    lowerBound == null ? sortedIndexTree.findFirst() : sortedIndexTree.findNext(createBound(lowerBound, !includeLower))
+            );
+        }
+
+        @Override
+        public void close() {
+            // No-op.
+        }
+
+        @Override
+        public boolean hasNext() {
+            if (!closeBusyLock.enterBusy()) {
+                throwStorageClosedException();
+            }
+
+            try {
+                return nextRow != null;
+            } finally {
+                closeBusyLock.leaveBusy();
+            }
+        }
+
+        @Override
+        public IndexRow next() {
+            if (!closeBusyLock.enterBusy()) {
+                throwStorageClosedException();
+            }
+
+            try {
+                if (nextRow == null) {
+                    throw new NoSuchElementException();
+                }
+
+                IndexRow row = nextRow;
+
+                advance();
+
+                return row;
+            } catch (IgniteInternalCheckedException e) {
+                throw new StorageException("Error getting row", e);
+            } finally {
+                closeBusyLock.leaveBusy();
+            }
+        }
+
+        private void advance() throws IgniteInternalCheckedException {
+            nextRow = null;
+
+            if (lower != null) {
+                applyRowFromTree(sortedIndexTree.findNext(lower));
+            }
+        }
+
+        private void applyRowFromTree(@Nullable SortedIndexRow rowFromTree) {
+            lower = rowFromTree;
+
+            if (rowFromTree != null) {
+                if (upper == null || compareRows(rowFromTree, upper) < 0) {
+                    nextRow = toIndexRowImpl(rowFromTree);
+                }
+            }
+        }
+
+        private int compareRows(SortedIndexRowKey key1, SortedIndexRowKey key2) {
+            return sortedIndexTree.getBinaryTupleComparator().compare(
+                    key1.indexColumns().valueBuffer(),
+                    key2.indexColumns().valueBuffer()
+            );
+        }
     }
 }

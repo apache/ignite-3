@@ -1573,6 +1573,33 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
     }
 
     /**
+     * Searches for a row that will be greater than the passed in the arguments.
+     *
+     * @param row Row.
+     * @return Next row.
+     * @throws IgniteInternalCheckedException If failed.
+     */
+    public final @Nullable T findNext(L row) throws IgniteInternalCheckedException {
+        checkDestroyed();
+
+        GetNext g = new GetNext(row);
+
+        try {
+            doFind(g);
+
+            return (T) g.nextRow;
+        } catch (CorruptedDataStructureException e) {
+            throw e;
+        } catch (IgniteInternalCheckedException e) {
+            throw new IgniteInternalCheckedException("Runtime failure on lookup next row: " + row, e);
+        } catch (RuntimeException | AssertionError e) {
+            throw corruptedTreeException("Runtime failure on lookup next row: " + row, e, grpId, g.pageId);
+        } finally {
+            checkDestroyed();
+        }
+    }
+
+    /**
      * Tries to find.
      *
      * @param g Get.
@@ -6219,6 +6246,73 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
         @Override
         public void close() {
             // No-op.
+        }
+    }
+
+    /**
+     * Class for getting a row greater than the passed in the arguments.
+     */
+    private final class GetNext extends Get {
+        @Nullable
+        private Object nextRow;
+
+        private GetNext(L row) {
+            super(row, false);
+
+            // Because we need a row greater than the one passed.
+            shift = 1;
+        }
+
+        @Override
+        boolean found(BplusIo<L> io, long pageAddr, int idx, int lvl) throws IgniteInternalCheckedException {
+            // Must never be called because we always have a shift.
+            throw new IgniteInternalCheckedException("Should have found a row greater than the current: " + row);
+        }
+
+        @Override
+        boolean notFound(BplusIo<L> io, long pageAddr, int idx, int lvl) throws IgniteInternalCheckedException {
+            if (lvl != 0) {
+                return false;
+            }
+
+            int cnt = io.getCount(pageAddr);
+
+            if (cnt == 0) {
+                // Empty tree.
+                assert io.getForward(pageAddr, partId) == 0L;
+            } else {
+                assert io.isLeaf() : io;
+                assert cnt > 0 : cnt;
+                assert idx >= 0 || idx == -1 : idx;
+                assert cnt >= idx : "cnt=" + cnt + ", idx=" + idx;
+
+                checkDestroyed();
+
+                if (idx == -1) {
+                    idx = findNextRowIdx(pageAddr, io, cnt);
+                }
+
+                if (cnt - idx > 0) {
+                    nextRow = getRow(io, pageAddr, idx);
+                }
+            }
+
+            return true;
+        }
+
+        int findNextRowIdx(long pageAddr, BplusIo<L> io, int cnt) throws IgniteInternalCheckedException {
+            // Compare with the first row on the page.
+            int cmp = compare(0, io, pageAddr, 0, row);
+
+            if (cmp <= 0) {
+                int idx = findInsertionPoint(0, io, pageAddr, 0, cnt, row, shift);
+
+                assert idx < 0 : idx;
+
+                return fix(idx);
+            }
+
+            return 0;
         }
     }
 
