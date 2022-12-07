@@ -586,89 +586,6 @@ public abstract class AbstractSortedIndexStorageTest {
     }
 
     /**
-     * Validates the {@link SortedIndexStorage#scan(BinaryTuplePrefix, BinaryTuplePrefix, int)} contract.
-     * <ul>
-     *     <li>At the moment of creating the cursor, we get its first IndexRow;</li>
-     *     <li>Cursor works with the current state of the storage, if the changes are within the range of the cursor, then we will receive
-     *     them.</li>
-     * </ul>
-     */
-    @Test
-    void testScanContract() {
-        SortedIndexDefinition indexDefinition = SchemaBuilders.sortedIndex("TEST_IDX")
-                .addIndexColumn(ColumnType.INT32.typeSpec().name()).asc().done()
-                .build();
-
-        SortedIndexStorage indexStorage = createIndexStorage(indexDefinition);
-
-        Cursor<IndexRow> scan = indexStorage.scan(null, null, 0);
-
-        BinaryTupleRowSerializer serializer = new BinaryTupleRowSerializer(indexStorage.indexDescriptor());
-
-        RowId rowId = new RowId(TEST_PARTITION);
-
-        // Let's check that if we now add an IndexRow, then we will not get it by the cursor.
-        put(indexStorage, serializer.serializeRow(new Object[]{0}, rowId));
-
-        assertThat(scan.stream().collect(toList()), empty());
-
-        // But new cursors will see this IndexRow.
-        assertThat(
-                indexStorage.scan(null, null, 0).stream()
-                        .map(indexRow -> serializer.deserializeColumns(indexRow)[0])
-                        .collect(toList()),
-                contains(0)
-        );
-
-        // Let's check that the added IndexRows to the storage will be visible for the cursor.
-        scan = indexStorage.scan(null, null, 0);
-
-        assertTrue(scan.hasNext());
-
-        // Let's add an IndexRow after method Cursor#hasNext.
-        put(indexStorage, serializer.serializeRow(new Object[]{1}, rowId));
-
-        assertEquals(0, serializer.deserializeColumns(scan.next())[0]);
-
-        assertTrue(scan.hasNext());
-
-        // Let's add an IndexRow before method Cursor#hasNext.
-        put(indexStorage, serializer.serializeRow(new Object[]{2}, rowId));
-
-        assertTrue(scan.hasNext());
-
-        assertEquals(1, serializer.deserializeColumns(scan.next())[0]);
-
-        assertTrue(scan.hasNext());
-
-        assertEquals(2, serializer.deserializeColumns(scan.next())[0]);
-
-        assertFalse(scan.hasNext());
-
-        assertThrows(NoSuchElementException.class, scan::next);
-
-        // Let's check that the removed IndexRow's from the storage will be visible for the cursor.
-        scan = indexStorage.scan(null, null, 0);
-
-        // Let's check that if we now remove an IndexRow, then we will get it by the cursor.
-        remove(indexStorage, serializer.serializeRow(new Object[]{0}, rowId));
-
-        // Let's remove an IndexRows before method Cursor#hasNext.
-        remove(indexStorage, serializer.serializeRow(new Object[]{1}, rowId));
-
-        assertTrue(scan.hasNext());
-
-        // Let's remove an IndexRows after method Cursor#hasNext.
-        remove(indexStorage, serializer.serializeRow(new Object[]{2}, rowId));
-
-        assertEquals(0, serializer.deserializeColumns(scan.next())[0]);
-
-        assertFalse(scan.hasNext());
-
-        assertThrows(NoSuchElementException.class, scan::next);
-    }
-
-    /**
      * Checks simple scenarios for a scanning cursor.
      */
     @Test
@@ -825,6 +742,157 @@ public abstract class AbstractSortedIndexStorageTest {
                         .collect(toList()),
                 contains(0, 1, 2)
         );
+    }
+
+    @Test
+    void testScanContractForEmptyIndex() {
+        SortedIndexDefinition indexDefinition = SchemaBuilders.sortedIndex("TEST_IDX")
+                .addIndexColumn(ColumnType.INT32.typeSpec().name()).asc().done()
+                .build();
+
+        SortedIndexStorage indexStorage = createIndexStorage(indexDefinition);
+
+        BinaryTupleRowSerializer serializer = new BinaryTupleRowSerializer(indexStorage.indexDescriptor());
+
+        Cursor<IndexRow> scanBeforeHashNext = indexStorage.scan(null, null, 0);
+
+        Cursor<IndexRow> scanAfterHasNext = indexStorage.scan(null, null, 0);
+
+        assertFalse(scanAfterHasNext.hasNext());
+
+        Cursor<IndexRow> scanWithoutHasNext = indexStorage.scan(null, null, 0);
+
+        put(indexStorage, serializer.serializeRow(new Object[]{0}, new RowId(TEST_PARTITION)));
+
+        assertTrue(scanBeforeHashNext.hasNext());
+        assertFalse(scanAfterHasNext.hasNext());
+
+        assertEquals(0, serializer.deserializeColumns(scanBeforeHashNext.next())[0]);
+
+        assertThrows(NoSuchElementException.class, scanAfterHasNext::next);
+        assertEquals(0, serializer.deserializeColumns(scanAfterHasNext.next())[0]);
+
+        assertEquals(0, serializer.deserializeColumns(scanWithoutHasNext.next())[0]);
+
+        assertFalse(scanBeforeHashNext.hasNext());
+        assertFalse(scanAfterHasNext.hasNext());
+        assertFalse(scanWithoutHasNext.hasNext());
+
+        assertThrows(NoSuchElementException.class, scanBeforeHashNext::next);
+        assertThrows(NoSuchElementException.class, scanAfterHasNext::next);
+        assertThrows(NoSuchElementException.class, scanWithoutHasNext::next);
+    }
+
+    @Test
+    void testScanContract() {
+        SortedIndexDefinition indexDefinition = SchemaBuilders.sortedIndex("TEST_IDX")
+                .addIndexColumn(ColumnType.INT32.typeSpec().name()).asc().done()
+                .build();
+
+        SortedIndexStorage indexStorage = createIndexStorage(indexDefinition);
+
+        BinaryTupleRowSerializer serializer = new BinaryTupleRowSerializer(indexStorage.indexDescriptor());
+
+        RowId rowId0 = new RowId(TEST_PARTITION, 0, 0);
+        RowId rowId1 = new RowId(TEST_PARTITION, 0, 1);
+        RowId rowId2 = new RowId(TEST_PARTITION, 1, 0);
+
+        Cursor<IndexRow> scan = indexStorage.scan(null, null, 0);
+
+        put(indexStorage, serializer.serializeRow(new Object[]{0}, rowId1));
+
+        IndexRow nextRow = scan.next();
+
+        assertEquals(0, serializer.deserializeColumns(nextRow)[0]);
+        assertEquals(rowId1, nextRow.rowId());
+
+        put(indexStorage, serializer.serializeRow(new Object[]{0}, rowId0));
+        put(indexStorage, serializer.serializeRow(new Object[]{0}, rowId2));
+
+        assertTrue(scan.hasNext());
+
+        nextRow = scan.next();
+
+        assertEquals(0, serializer.deserializeColumns(nextRow)[0]);
+        assertEquals(rowId2, nextRow.rowId());
+
+        put(indexStorage, serializer.serializeRow(new Object[]{1}, rowId0));
+        put(indexStorage, serializer.serializeRow(new Object[]{-1}, rowId0));
+
+        assertTrue(scan.hasNext());
+
+        nextRow = scan.next();
+
+        assertEquals(1, serializer.deserializeColumns(nextRow)[0]);
+        assertEquals(rowId0, nextRow.rowId());
+
+        assertFalse(scan.hasNext());
+        assertThrows(NoSuchElementException.class, scan::next);
+    }
+
+    @Test
+    void testScanContractForFinishCursor() {
+        SortedIndexDefinition indexDefinition = SchemaBuilders.sortedIndex("TEST_IDX")
+                .addIndexColumn(ColumnType.INT32.typeSpec().name()).asc().done()
+                .build();
+
+        SortedIndexStorage indexStorage = createIndexStorage(indexDefinition);
+
+        BinaryTupleRowSerializer serializer = new BinaryTupleRowSerializer(indexStorage.indexDescriptor());
+
+        Cursor<IndexRow> scan = indexStorage.scan(null, null, 0);
+
+        assertFalse(scan.hasNext());
+        assertThrows(NoSuchElementException.class, scan::next);
+
+        RowId rowId0 = new RowId(TEST_PARTITION, 0, 0);
+        RowId rowId1 = new RowId(TEST_PARTITION, 0, 1);
+
+        put(indexStorage, serializer.serializeRow(new Object[]{0}, rowId0));
+
+        assertTrue(scan.hasNext());
+
+        IndexRow nextRow = scan.next();
+
+        assertEquals(0, serializer.deserializeColumns(nextRow)[0]);
+        assertEquals(rowId0, nextRow.rowId());
+
+        assertFalse(scan.hasNext());
+        assertThrows(NoSuchElementException.class, scan::next);
+
+        put(indexStorage, serializer.serializeRow(new Object[]{0}, rowId0));
+
+        assertFalse(scan.hasNext());
+        assertThrows(NoSuchElementException.class, scan::next);
+
+        put(indexStorage, serializer.serializeRow(new Object[]{0}, rowId1));
+
+        assertTrue(scan.hasNext());
+
+        nextRow = scan.next();
+
+        assertEquals(0, serializer.deserializeColumns(nextRow)[0]);
+        assertEquals(rowId1, nextRow.rowId());
+
+        assertFalse(scan.hasNext());
+        assertThrows(NoSuchElementException.class, scan::next);
+
+        put(indexStorage, serializer.serializeRow(new Object[]{1}, rowId0));
+
+        assertTrue(scan.hasNext());
+
+        nextRow = scan.next();
+
+        assertEquals(1, serializer.deserializeColumns(nextRow)[0]);
+        assertEquals(rowId0, nextRow.rowId());
+
+        assertFalse(scan.hasNext());
+        assertThrows(NoSuchElementException.class, scan::next);
+
+        put(indexStorage, serializer.serializeRow(new Object[]{-1}, rowId0));
+
+        assertFalse(scan.hasNext());
+        assertThrows(NoSuchElementException.class, scan::next);
     }
 
     private List<ColumnDefinition> shuffledRandomDefinitions() {
