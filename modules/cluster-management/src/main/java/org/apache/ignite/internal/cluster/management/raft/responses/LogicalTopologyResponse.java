@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.cluster.management.raft.responses;
 
 import java.io.Serializable;
-import org.apache.ignite.internal.cluster.management.topology.LogicalTopologySnapshot;
+import org.apache.ignite.network.LogicalTopologySnapshot;
 
 /**
  * Response containing the current logical topology.
