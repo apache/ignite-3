@@ -18,12 +18,10 @@
 package org.apache.ignite.internal.distributionzones;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.deleteDataNodesKeyAndUpdateTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.triggerKeyCondition;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesChangeTriggerKey;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.updateDataNodesAndTriggerKey;
 import static org.apache.ignite.internal.metastorage.client.Operations.ops;
-import static org.apache.ignite.internal.metastorage.client.Operations.put;
-import static org.apache.ignite.internal.metastorage.client.Operations.remove;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Common.UNEXPECTED_ERR;
 
@@ -51,7 +49,6 @@ import org.apache.ignite.internal.metastorage.client.If;
 import org.apache.ignite.internal.metastorage.client.Update;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.NodeStoppingException;
@@ -80,6 +77,8 @@ public class DistributionZoneManager implements IgniteComponent {
      * Creates a new distribution zone manager.
      *
      * @param zonesConfiguration Distribution zones configuration.
+     * @param metaStorageManager Meta Storage manager.
+     * @param cmgManager Cluster management group manager.
      */
     public DistributionZoneManager(
             DistributionZonesConfiguration zonesConfiguration,
@@ -268,6 +267,13 @@ public class DistributionZoneManager implements IgniteComponent {
         }
     }
 
+    /**
+     * Method updates data nodes value for the specified zone,
+     * also sets {@code revision} to the {@link DistributionZonesUtil#zonesChangeTriggerKey()} if it passes the condition.
+     *
+     * @param zoneId Unique id of a zone
+     * @param revision Revision of an event that has triggered this method.
+     */
     private void updateMetaStorageOnZoneCreateOrUpdate(int zoneId, long revision) {
         if (!busyLock.enterBusy()) {
             throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
@@ -285,18 +291,15 @@ public class DistributionZoneManager implements IgniteComponent {
                 throw new IgniteInternalException(e);
             }
 
+            // Update data nodes for a zone only if the revision of the event is newer than value in that trigger key,
+            // so we do not react on a stale events
+            CompoundCondition triggerKeyCondition = triggerKeyCondition(revision);
+
             Set<String> nodesConsistentIds = clusterNodes.stream().map(ClusterNode::name).collect(Collectors.toSet());
 
             logicalTopologyBytes = ByteUtils.toBytes(nodesConsistentIds);
 
-            ByteArray zonesChangeTriggerKey = zonesChangeTriggerKey();
-
-            CompoundCondition triggerKeyCondition = triggerKeyCondition(revision);
-
-            Update dataNodesAndTriggerKeyUpd = ops(
-                    put(zoneDataNodesKey(zoneId), logicalTopologyBytes),
-                    put(zonesChangeTriggerKey, ByteUtils.longToBytes(revision))
-            ).yield(true);
+            Update dataNodesAndTriggerKeyUpd = updateDataNodesAndTriggerKey(zoneId, revision, logicalTopologyBytes);
 
             var iif = If.iif(triggerKeyCondition, dataNodesAndTriggerKeyUpd, ops().yield(false));
 
@@ -312,20 +315,22 @@ public class DistributionZoneManager implements IgniteComponent {
         }
     }
 
+    /**
+     * Method deleted data nodes value for the specified zone,
+     * also sets {@code revision} to the {@link DistributionZonesUtil#zonesChangeTriggerKey()} if it passes the condition.
+     *
+     * @param zoneId Unique id of a zone
+     * @param revision Revision of an event that has triggered this method.
+     */
     private void updateMetaStorageOnZoneDelete(int zoneId, long revision) {
         if (!busyLock.enterBusy()) {
             throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
         }
 
         try {
-            ByteArray zonesChangeTriggerKey = zonesChangeTriggerKey();
-
             CompoundCondition triggerKeyCondition = triggerKeyCondition(revision);
 
-            Update dataNodesRemoveUpd = ops(
-                    remove(zoneDataNodesKey(zoneId)),
-                    put(zonesChangeTriggerKey, ByteUtils.longToBytes(revision))
-            ).yield(true);
+            Update dataNodesRemoveUpd = deleteDataNodesKeyAndUpdateTriggerKey(zoneId, revision);
 
             var iif = If.iif(triggerKeyCondition, dataNodesRemoveUpd, ops().yield(false));
 

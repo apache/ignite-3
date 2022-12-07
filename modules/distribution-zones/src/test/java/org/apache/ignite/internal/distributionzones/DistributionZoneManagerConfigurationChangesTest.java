@@ -334,6 +334,8 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
         distributionZoneManager.dropZone(ZONE_NAME);
 
         verify(keyValueStorage, timeout(1000).times(2)).invoke(any());
+
+        assertDataNodesForZone(1, clusterNodes);
     }
 
     private LogicalTopologySnapshot mockCmgLocalNodes(Set<ClusterNode> clusterNodes) {
