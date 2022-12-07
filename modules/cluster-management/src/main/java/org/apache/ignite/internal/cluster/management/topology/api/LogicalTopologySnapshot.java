@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.network;
+package org.apache.ignite.internal.cluster.management.topology.api;
 
 import static java.util.Collections.emptySet;
 
@@ -24,6 +24,7 @@ import java.util.Collection;
 import java.util.Set;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.network.ClusterNode;
 
 /**
  * A snapshot of a logical topology as seen locally. Includes nodes participating in the logical topology and the version

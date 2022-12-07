@@ -31,11 +31,11 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.LogicalTopologyEventListener;
-import org.apache.ignite.network.LogicalTopologySnapshot;
 
 /**
  * Implementation of {@link LogicalTopology}.
