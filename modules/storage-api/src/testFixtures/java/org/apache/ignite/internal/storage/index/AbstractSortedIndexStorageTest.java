@@ -784,7 +784,7 @@ public abstract class AbstractSortedIndexStorageTest {
     }
 
     @Test
-    void testScanContract() {
+    void testScanContractAddRowsOnly() {
         SortedIndexDefinition indexDefinition = SchemaBuilders.sortedIndex("TEST_IDX")
                 .addIndexColumn(ColumnType.INT32.typeSpec().name()).asc().done()
                 .build();
@@ -933,6 +933,50 @@ public abstract class AbstractSortedIndexStorageTest {
         assertEquals(1, serializer.deserializeColumns(nextRow)[0]);
         assertEquals(rowId2, nextRow.rowId());
 
+        assertThrows(NoSuchElementException.class, scan::next);
+    }
+
+    @Test
+    void testScanContractRemoveRowsOnly() {
+        SortedIndexDefinition indexDefinition = SchemaBuilders.sortedIndex("TEST_IDX")
+                .addIndexColumn(ColumnType.INT32.typeSpec().name()).asc().done()
+                .build();
+
+        SortedIndexStorage indexStorage = createIndexStorage(indexDefinition);
+
+        BinaryTupleRowSerializer serializer = new BinaryTupleRowSerializer(indexStorage.indexDescriptor());
+
+        RowId rowId0 = new RowId(TEST_PARTITION, 0, 0);
+        RowId rowId1 = new RowId(TEST_PARTITION, 0, 1);
+
+        put(indexStorage, serializer.serializeRow(new Object[]{0}, rowId0));
+        put(indexStorage, serializer.serializeRow(new Object[]{0}, rowId1));
+        put(indexStorage, serializer.serializeRow(new Object[]{1}, rowId0));
+        put(indexStorage, serializer.serializeRow(new Object[]{2}, rowId1));
+
+        Cursor<IndexRow> scan = indexStorage.scan(null, null, 0);
+
+        assertTrue(scan.hasNext());
+
+        remove(indexStorage, serializer.serializeRow(new Object[]{0}, rowId0));
+
+        IndexRow nextRow = scan.next();
+
+        assertEquals(0, serializer.deserializeColumns(nextRow)[0]);
+        assertEquals(rowId0, nextRow.rowId());
+
+        remove(indexStorage, serializer.serializeRow(new Object[]{0}, rowId1));
+
+        assertTrue(scan.hasNext());
+
+        nextRow = scan.next();
+
+        assertEquals(1, serializer.deserializeColumns(nextRow)[0]);
+        assertEquals(rowId0, nextRow.rowId());
+
+        remove(indexStorage, serializer.serializeRow(new Object[]{2}, rowId1));
+
+        assertFalse(scan.hasNext());
         assertThrows(NoSuchElementException.class, scan::next);
     }
 

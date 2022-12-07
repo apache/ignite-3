@@ -22,9 +22,9 @@ import static org.apache.ignite.internal.util.CursorUtils.map;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.NoSuchElementException;
 import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
-import org.apache.ignite.internal.rocksdb.RocksIteratorAdapter;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
@@ -167,23 +167,70 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
 
         RocksIterator it = indexCf.newIterator(options);
 
-        if (lowerBound == null) {
-            it.seek(partitionStorage.partitionStartPrefix());
-        } else {
-            it.seek(lowerBound);
-        }
+        return new Cursor<>() {
+            @Nullable
+            private Boolean hasNext;
 
-        return new RocksIteratorAdapter<>(it) {
-            @Override
-            protected ByteBuffer decodeEntry(byte[] key, byte[] value) {
-                return ByteBuffer.wrap(key).order(ORDER);
-            }
+            @Nullable
+            private byte[] key;
 
             @Override
             public void close() {
-                super.close();
+                it.close();
 
                 RocksUtils.closeAll(options, upperBoundSlice);
+            }
+
+            @Override
+            public boolean hasNext() {
+                advanceIfNeeded();
+
+                return hasNext;
+            }
+
+            @Override
+            public ByteBuffer next() {
+                advanceIfNeeded();
+
+                boolean hasNext = this.hasNext;
+
+                this.hasNext = null;
+
+                if (!hasNext) {
+                    throw new NoSuchElementException();
+                }
+
+                return ByteBuffer.wrap(key).order(ORDER);
+            }
+
+            private void advanceIfNeeded() throws StorageException {
+                if (hasNext == null) {
+                    try {
+                        it.refresh();
+                    } catch (RocksDBException e) {
+                        throw new StorageException("Error refreshing an iterator", e);
+                    }
+
+                    if (key == null) {
+                        it.seek(lowerBound == null ? partitionStorage.partitionStartPrefix() : lowerBound);
+                    } else {
+                        it.seekForPrev(key);
+
+                        it.next();
+                    }
+
+                    if (!it.isValid()) {
+                        // check the status first. This operation is guaranteed to throw if an internal error has occurred during
+                        // the iteration. Otherwise, we've exhausted the data range.
+                        RocksUtils.checkIterator(it);
+
+                        hasNext = false;
+                    } else {
+                        key = it.key();
+
+                        hasNext = true;
+                    }
+                }
             }
         };
     }
@@ -241,5 +288,30 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
                 .limit(key.limit() - ROW_ID_SIZE)
                 .slice()
                 .order(ByteOrder.LITTLE_ENDIAN);
+    }
+
+    private static class ScanCursor implements Cursor<ByteBuffer> {
+        private final RocksIterator it;
+
+        private ScanCursor(RocksIterator it) {
+            this.it = it;
+        }
+
+        @Override
+        public void close() {
+            it.close();
+
+
+        }
+
+        @Override
+        public boolean hasNext() {
+            return false;
+        }
+
+        @Override
+        public ByteBuffer next() {
+            return null;
+        }
     }
 }
