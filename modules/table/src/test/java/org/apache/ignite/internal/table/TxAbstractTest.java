@@ -441,7 +441,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
             for (Iterator<Lock> it = txManager(accounts).lockManager().locks(tx1.id()); it.hasNext(); ) {
                 Lock lock = it.next();
 
-                lockUpgraded = lock.lockMode() == LockMode.X;
+                lockUpgraded = txManager(accounts).lockManager().waiter(lock.lockKey(), tx1.id()).intendedLockMode() == LockMode.X;
 
                 if (lockUpgraded) {
                     break;
