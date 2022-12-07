@@ -169,9 +169,14 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
         }
 
         try {
-            return new ScanCursor(lowerBound, upperBound, flags);
-        } catch (IgniteInternalCheckedException e) {
-            throw new StorageException("Failed to create scan cursor", e);
+            boolean includeLower = (flags & GREATER_OR_EQUAL) != 0;
+            boolean includeUpper = (flags & LESS_OR_EQUAL) != 0;
+
+            SortedIndexRowKey lower = createBound(lowerBound, !includeLower);
+
+            SortedIndexRowKey upper = createBound(upperBound, includeUpper);
+
+            return new ScanCursor(lower, upper);
         } finally {
             closeBusyLock.leaveBusy();
         }
@@ -267,32 +272,22 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
         };
     }
 
-    /**
-     * Sorted index storage scan cursor.
-     */
     private class ScanCursor implements Cursor<IndexRow> {
         @Nullable
-        private SortedIndexRowKey lower;
+        private Boolean hasNext;
+
+        @Nullable
+        private final SortedIndexRowKey lower;
 
         @Nullable
         private final SortedIndexRowKey upper;
 
         @Nullable
-        private IndexRow nextRow;
+        private SortedIndexRow treeRow;
 
-        private ScanCursor(
-                @Nullable BinaryTuplePrefix lowerBound,
-                @Nullable BinaryTuplePrefix upperBound,
-                int flags
-        ) throws IgniteInternalCheckedException {
-            boolean includeLower = (flags & GREATER_OR_EQUAL) != 0;
-            boolean includeUpper = (flags & LESS_OR_EQUAL) != 0;
-
-            upper = createBound(upperBound, includeUpper);
-
-            applyRowFromTree(
-                    lowerBound == null ? sortedIndexTree.findFirst() : sortedIndexTree.findNext(createBound(lowerBound, !includeLower))
-            );
+        private ScanCursor(@Nullable SortedIndexRowKey lower, @Nullable SortedIndexRowKey upper) {
+            this.lower = lower;
+            this.upper = upper;
         }
 
         @Override
@@ -307,7 +302,11 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
             }
 
             try {
-                return nextRow != null;
+                advanceIfNeeded();
+
+                return hasNext;
+            } catch (IgniteInternalCheckedException e) {
+                throw new StorageException("Error while advancing the cursor", e);
             } finally {
                 closeBusyLock.leaveBusy();
             }
@@ -320,37 +319,41 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
             }
 
             try {
-                if (nextRow == null) {
+                advanceIfNeeded();
+
+                boolean hasNext = this.hasNext;
+
+                this.hasNext = null;
+
+                if (!hasNext) {
                     throw new NoSuchElementException();
                 }
 
-                IndexRow row = nextRow;
-
-                advance();
-
-                return row;
+                return toIndexRowImpl(treeRow);
             } catch (IgniteInternalCheckedException e) {
-                throw new StorageException("Error getting row", e);
+                throw new StorageException("Error while advancing the cursor", e);
             } finally {
                 closeBusyLock.leaveBusy();
             }
         }
 
-        private void advance() throws IgniteInternalCheckedException {
-            nextRow = null;
+        private void advanceIfNeeded() throws IgniteInternalCheckedException {
+            if (hasNext == null) {
+                if (treeRow == null) {
+                    treeRow = lower == null ? sortedIndexTree.findFirst() : sortedIndexTree.findNext(lower, true);
+                } else {
+                    SortedIndexRow next = sortedIndexTree.findNext(treeRow, false);
 
-            if (lower != null) {
-                applyRowFromTree(sortedIndexTree.findNext(lower));
-            }
-        }
+                    if (next == null) {
+                        hasNext = false;
 
-        private void applyRowFromTree(@Nullable SortedIndexRow rowFromTree) {
-            lower = rowFromTree;
-
-            if (rowFromTree != null) {
-                if (upper == null || compareRows(rowFromTree, upper) < 0) {
-                    nextRow = toIndexRowImpl(rowFromTree);
+                        return;
+                    } else {
+                        treeRow = next;
+                    }
                 }
+
+                hasNext = treeRow != null && (upper == null || compareRows(treeRow, upper) < 0);
             }
         }
 

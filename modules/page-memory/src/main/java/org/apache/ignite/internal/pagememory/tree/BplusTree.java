@@ -1573,21 +1573,22 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
     }
 
     /**
-     * Searches for a row that will be greater than the passed in the arguments.
+     * Searches for the next row from the passed from the arguments.
      *
      * @param row Row.
+     * @param includeRow {@code True} if you include the passed row in the result.
      * @return Next row.
      * @throws IgniteInternalCheckedException If failed.
      */
-    public final @Nullable T findNext(L row) throws IgniteInternalCheckedException {
+    public final @Nullable T findNext(L row, boolean includeRow) throws IgniteInternalCheckedException {
         checkDestroyed();
 
-        GetNext g = new GetNext(row);
+        GetNext g = new GetNext(row, includeRow);
 
         try {
             doFind(g);
 
-            return (T) g.nextRow;
+            return g.nextRow;
         } catch (CorruptedDataStructureException e) {
             throw e;
         } catch (IgniteInternalCheckedException e) {
@@ -6250,23 +6251,22 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
     }
 
     /**
-     * Class for getting a row greater than the passed in the arguments.
+     * Class for getting the next row.
      */
     private final class GetNext extends Get {
         @Nullable
-        private Object nextRow;
+        private T nextRow;
 
-        private GetNext(L row) {
+        private GetNext(L row, boolean includeRow) {
             super(row, false);
 
-            // Because we need a row greater than the one passed.
-            shift = 1;
+            shift = includeRow ? -1 : 1;
         }
 
         @Override
-        boolean found(BplusIo<L> io, long pageAddr, int idx, int lvl) throws IgniteInternalCheckedException {
+        boolean found(BplusIo<L> io, long pageAddr, int idx, int lvl) {
             // Must never be called because we always have a shift.
-            throw new IgniteInternalCheckedException("Should have found a row greater than the current: " + row);
+            throw new IllegalStateException();
         }
 
         @Override

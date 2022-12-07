@@ -229,9 +229,7 @@ public class TestSortedIndexStorage implements SortedIndexStorage {
                 throw new NoSuchElementException();
             }
 
-            IndexRow nextRow = new IndexRowImpl(new BinaryTuple(descriptor.binaryTupleSchema(), indexMapEntry.getKey()), rowId);
-
-            return nextRow;
+            return new IndexRowImpl(new BinaryTuple(descriptor.binaryTupleSchema(), indexMapEntry.getKey()), rowId);
         }
 
         private void advanceIfNeeded() {

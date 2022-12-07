@@ -895,6 +895,47 @@ public abstract class AbstractSortedIndexStorageTest {
         assertThrows(NoSuchElementException.class, scan::next);
     }
 
+    @Test
+    void testScanContractNextMethodOnly() {
+        SortedIndexDefinition indexDefinition = SchemaBuilders.sortedIndex("TEST_IDX")
+                .addIndexColumn(ColumnType.INT32.typeSpec().name()).asc().done()
+                .build();
+
+        SortedIndexStorage indexStorage = createIndexStorage(indexDefinition);
+
+        BinaryTupleRowSerializer serializer = new BinaryTupleRowSerializer(indexStorage.indexDescriptor());
+
+        RowId rowId0 = new RowId(TEST_PARTITION, 0, 0);
+        RowId rowId1 = new RowId(TEST_PARTITION, 0, 1);
+        RowId rowId2 = new RowId(TEST_PARTITION, 0, 1);
+
+        Cursor<IndexRow> scan = indexStorage.scan(null, null, 0);
+
+        put(indexStorage, serializer.serializeRow(new Object[]{0}, rowId0));
+
+        IndexRow nextRow = scan.next();
+
+        assertEquals(0, serializer.deserializeColumns(nextRow)[0]);
+        assertEquals(rowId0, nextRow.rowId());
+
+        put(indexStorage, serializer.serializeRow(new Object[]{0}, rowId1));
+
+        nextRow = scan.next();
+
+        assertEquals(0, serializer.deserializeColumns(nextRow)[0]);
+        assertEquals(rowId1, nextRow.rowId());
+
+        put(indexStorage, serializer.serializeRow(new Object[]{1}, rowId2));
+        put(indexStorage, serializer.serializeRow(new Object[]{-1}, rowId2));
+
+        nextRow = scan.next();
+
+        assertEquals(1, serializer.deserializeColumns(nextRow)[0]);
+        assertEquals(rowId2, nextRow.rowId());
+
+        assertThrows(NoSuchElementException.class, scan::next);
+    }
+
     private List<ColumnDefinition> shuffledRandomDefinitions() {
         return shuffledDefinitions(d -> random.nextBoolean());
     }
