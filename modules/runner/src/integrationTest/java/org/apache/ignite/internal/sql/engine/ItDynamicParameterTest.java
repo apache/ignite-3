@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine;
 
 import java.math.BigDecimal;
 import java.sql.Date;
+import java.time.LocalDate;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
@@ -39,7 +40,7 @@ public class ItDynamicParameterTest extends AbstractBasicIntegrationTest {
     }
 
     // After fix the mute reason need to merge the test with above testDynamicParameters
-    @Disabled("")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18258")
     @Test
     public void testDynamicParameters2() {
         assertQuery("SELECT POWER(?, ?)").withParams(2, 3).returns(8).check();
@@ -48,10 +49,12 @@ public class ItDynamicParameterTest extends AbstractBasicIntegrationTest {
     }
 
     // After fix the mute reason need to merge the test with above testDynamicParameters
-    @Disabled("")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18345")
     @Test
     public void testDynamicParameters3() {
         assertQuery("SELECT LAST_DAY(?)").withParams(Date.valueOf("2022-01-01"))
+                .returns(Date.valueOf("2022-01-31")).check();
+        assertQuery("SELECT LAST_DAY(?)").withParams(LocalDate.parse("2022-01-01"))
                 .returns(Date.valueOf("2022-01-31")).check();
     }
 }
