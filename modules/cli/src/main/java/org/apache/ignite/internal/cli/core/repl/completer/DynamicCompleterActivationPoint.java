@@ -18,8 +18,6 @@
 package org.apache.ignite.internal.cli.core.repl.completer;
 
 import jakarta.inject.Singleton;
-import java.util.Arrays;
-import java.util.Set;
 import org.apache.ignite.internal.cli.commands.Options;
 import org.apache.ignite.internal.cli.core.repl.completer.hocon.ClusterConfigDynamicCompleterFactory;
 import org.apache.ignite.internal.cli.core.repl.completer.hocon.NodeConfigDynamicCompleterFactory;
@@ -64,12 +62,8 @@ public class DynamicCompleterActivationPoint {
         registry.register(
                 CompleterConf.builder()
                         .command("node", "config", "update")
-                        .filter((unused, candidates) -> {
-                            Set<String> exclusions = Set.of("compute", "raft");
-                            return Arrays.stream(candidates)
-                                    .filter(it -> !exclusions.contains(it))
-                                    .toArray(String[]::new);
-                        }).build(),
+                        .filter(new ExclusionsCompleterFilter("compute", "raft"))
+                        .build(),
                 nodeConfigDynamicCompleterFactory
         );
 
