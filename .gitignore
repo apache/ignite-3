@@ -3,9 +3,6 @@ work
 .DS_Store
 .flattened-pom.xml
 
-**/generated
-**/generated_tests
-
 .classpath
 .project
 .settings
