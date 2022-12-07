@@ -125,6 +125,8 @@ public class ClusterManagementGroupManager implements IgniteComponent {
     /** Handles cluster initialization flow. */
     private final ClusterInitializer clusterInitializer;
 
+    private volatile boolean attemptedCompleteJoinOnStart = false;
+
     /** Constructor. */
     public ClusterManagementGroupManager(
             VaultManager vault,
@@ -420,7 +422,15 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                             if (service != null && service.nodeNames().equals(state.cmgNodes())) {
                                 LOG.info("ClusterStateMessage received, but the CMG service is already started");
 
-                                return completedFuture(service);
+                                return joinCluster(service, state.clusterTag())
+                                        .thenCompose(cmgRaftService -> {
+                                            if (attemptedCompleteJoinOnStart) {
+                                                return cmgRaftService.completeJoinCluster();
+                                            } else {
+                                                return completedFuture(null);
+                                            }
+                                        })
+                                        .thenApply(unused -> service);
                             }
 
                             if (service == null) {
@@ -708,6 +718,8 @@ public class ClusterManagementGroupManager implements IgniteComponent {
         if (!busyLock.enterBusy()) {
             return failedFuture(new NodeStoppingException());
         }
+
+        attemptedCompleteJoinOnStart = true;
 
         try {
             return raftServiceAfterJoin().thenCompose(CmgRaftService::completeJoinCluster);
