@@ -99,7 +99,7 @@ public class SqlReplCommand extends BaseCommand implements Runnable {
             // When passing white space to this command, picocli will treat it as a positional argument
             if (execOptions == null || (execOptions.command != null && execOptions.command.isBlank())) {
                 replExecutorProvider.get().execute(Repl.builder()
-                        .withPromptProvider(() -> ansi(fg(Color.GREEN).mark("sql-cli > ")))
+                        .withPromptProvider(() -> ansi(fg(Color.GREEN).mark("sql-cli> ")))
                         .withCompleter(new SqlCompleter(new SqlSchemaProvider(sqlManager::getMetadata)))
                         .withCommandClass(SqlReplTopLevelCliCommand.class)
                         .withCallExecutionPipelineProvider(provider(sqlManager))
