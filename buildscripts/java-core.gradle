@@ -92,10 +92,6 @@ modernizer {
                       "org.apache.ignite.rest.client"]
 }
 
-jacoco {
-    toolVersion = libs.versions.jacocoTool.get()
-}
-
 javadoc {
     source = sourceSets.main.allJava
     classpath = configurations.compileClasspath
@@ -114,7 +110,15 @@ javadoc {
 
 javadoc.dependsOn compileJava
 
+
+jacoco {
+    toolVersion = libs.versions.jacocoTool.get()
+}
+
+
 jacocoTestReport {
+    dependsOn test
+
     reports {
         xml.required = false
         html.required = true
