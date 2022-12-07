@@ -3,6 +3,9 @@ work
 .DS_Store
 .flattened-pom.xml
 
+**/generated
+**/generated_tests
+
 .classpath
 .project
 .settings
@@ -23,3 +26,6 @@ build/
 out/
 
 modules/platforms/cpp/cmake-build-*
+
+# JVM crash dumps
+**/hs_err_pid*
