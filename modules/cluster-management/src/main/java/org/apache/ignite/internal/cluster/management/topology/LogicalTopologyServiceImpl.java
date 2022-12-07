@@ -19,9 +19,9 @@ package org.apache.ignite.internal.cluster.management.topology;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
-import org.apache.ignite.network.LogicalTopologyEventListener;
-import org.apache.ignite.network.LogicalTopologyService;
-import org.apache.ignite.network.LogicalTopologySnapshot;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 
 /**
  * {@link LogicalTopologyService} implementation.

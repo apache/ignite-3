@@ -15,7 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.network;
+package org.apache.ignite.internal.cluster.management.topology.api;
+
+import org.apache.ignite.network.ClusterNode;
 
 /**
  * Listens to events related to logical topology changes.
