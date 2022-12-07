@@ -332,4 +332,13 @@ public class ErrorGroups {
         /** Distribution zone rename error. */
         public static final int ZONE_RENAME_ERR = DISTRIBUTION_ZONES_ERR_GROUP.registerErrorCode(3);
     }
+
+    /** Network error group. */
+    public static class Network {
+        /** Network error group. */
+        public static final ErrorGroup NETWORK_ERR_GROUP = ErrorGroup.newGroup("NETWORK", 11);
+
+        /** Unresolvable consistent ID. */
+        public static final int UNRESOLVABLE_CONSISTENT_ID_ERR = NETWORK_ERR_GROUP.registerErrorCode(1);
+    }
 }

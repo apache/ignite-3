@@ -82,9 +82,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     /** {@inheritDoc} */
     @Override
     public IgniteBiTuple<ClusterNode, Long> enlist(ReplicationGroupId replicationGroupId, IgniteBiTuple<ClusterNode, Long> nodeAndTerm) {
-        enlisted.put(replicationGroupId, nodeAndTerm);
-
-        return nodeAndTerm;
+        return enlisted.computeIfAbsent(replicationGroupId, k -> nodeAndTerm);
     }
 
     /** {@inheritDoc} */

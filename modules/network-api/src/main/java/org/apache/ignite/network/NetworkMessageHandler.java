@@ -27,9 +27,9 @@ public interface NetworkMessageHandler {
      * Method that gets invoked when a network message is received.
      *
      * @param message Message, which was received from the cluster.
-     * @param sender Sender node.
+     * @param senderConsistentId Consistend ID of the sender node.
      * @param correlationId Correlation id. Used to track correspondence between requests and responses. Can be {@code null} if the received
      *     message is not a request from a {@link MessagingService#invoke} method from another node.
      */
-    void onReceived(NetworkMessage message, ClusterNode sender, @Nullable Long correlationId);
+    void onReceived(NetworkMessage message, String senderConsistentId, @Nullable Long correlationId);
 }

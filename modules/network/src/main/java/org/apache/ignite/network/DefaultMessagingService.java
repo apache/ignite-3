@@ -115,25 +115,34 @@ public class DefaultMessagingService extends AbstractMessagingService {
         connectionManager.addListener(this::onMessage);
     }
 
-    /** {@inheritDoc} */
     @Override
     public void weakSend(ClusterNode recipient, NetworkMessage msg) {
         send(recipient, msg);
     }
 
-    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> send(ClusterNode recipient, NetworkMessage msg) {
         return send0(recipient, msg, null);
     }
 
-    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> respond(ClusterNode recipient, NetworkMessage msg, long correlationId) {
         return send0(recipient, msg, correlationId);
     }
 
-    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Void> respond(String recipientConsistentId, NetworkMessage msg, long correlationId) {
+        ClusterNode recipient = topologyService.getByConsistentId(recipientConsistentId);
+
+        if (recipient == null) {
+            return failedFuture(
+                    new UnresolvableConsistentIdException("Recipient consistent ID cannot be resolved: " + recipientConsistentId)
+            );
+        }
+
+        return respond(recipient, msg, correlationId);
+    }
+
     @Override
     public CompletableFuture<NetworkMessage> invoke(ClusterNode recipient, NetworkMessage msg, long timeout) {
         return invoke0(recipient, msg, timeout);
@@ -245,7 +254,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
      */
     private void sendToSelf(NetworkMessage msg, @Nullable Long correlationId) {
         for (NetworkMessageHandler networkMessageHandler : getMessageHandlers(msg.groupType())) {
-            networkMessageHandler.onReceived(msg, topologyService.localMember(), correlationId);
+            networkMessageHandler.onReceived(msg, topologyService.localMember().name(), correlationId);
         }
     }
 
@@ -263,7 +272,6 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
         NetworkMessage msg = obj.message();
         DescriptorRegistry registry = obj.registry();
-        String consistentId = obj.consistentId();
         try {
             msg.unmarshal(marshaller, registry);
         } catch (Exception e) {
@@ -285,15 +293,15 @@ public class DefaultMessagingService extends AbstractMessagingService {
             message = messageWithCorrelation.message();
         }
 
-        ClusterNode sender = topologyService.getByConsistentId(consistentId);
+        String senderConsistentId = obj.consistentId();
 
         // Unfortunately, since the Messaging Service is used by ScaleCube itself, some messages can be sent
-        // before the node is added to the topology. ScaleCubeMessage handler guarantees to handle null sender without throwing an
-        // exception.
-        assert message instanceof ScaleCubeMessage || sender != null : consistentId;
+        // before the node is added to the topology. ScaleCubeMessage handler guarantees to handle null sender consistent ID
+        // without throwing an exception.
+        assert message instanceof ScaleCubeMessage || senderConsistentId != null;
 
         for (NetworkMessageHandler networkMessageHandler : getMessageHandlers(message.groupType())) {
-            networkMessageHandler.onReceived(message, sender, correlationId);
+            networkMessageHandler.onReceived(message, senderConsistentId, correlationId);
         }
     }
 

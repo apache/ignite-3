@@ -17,26 +17,15 @@
 
 package org.apache.ignite.network;
 
-/**
- * Interface for handling events related to physical topology changes.
- */
-public interface TopologyEventHandler {
-    /**
-     * Called when a new member has been detected joining a cluster's physical topology.
-     *
-     * @param member Appeared cluster member.
-     */
-    default void onAppeared(ClusterNode member) {
-        // no-op
-    }
+import org.apache.ignite.lang.ErrorGroups.Network;
+import org.apache.ignite.lang.IgniteException;
 
-    /**
-     * Indicates that a member has left a cluster's physical topology. This method is only called when a member leaves permanently
-     * (i.e. it is not possible to re-establish a connection to it).
-     *
-     * @param member Disappeared cluster member.
-     */
-    default void onDisappeared(ClusterNode member) {
-        // no-op
+/**
+ * Thrown when consistent ID cannot be resolved to a {@link ClusterNode} instance (i.e. when
+ * there is no node with such consistent ID in the physical topology).
+ */
+public class UnresolvableConsistentIdException extends IgniteException {
+    public UnresolvableConsistentIdException(String msg) {
+        super(Network.UNRESOLVABLE_CONSISTENT_ID_ERR, msg);
     }
 }

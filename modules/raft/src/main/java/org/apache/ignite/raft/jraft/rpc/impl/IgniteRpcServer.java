@@ -28,7 +28,7 @@ import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.network.UnresolvableConsistentIdException;import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.NetworkMessageHandler;
 import org.apache.ignite.network.TopologyEventHandler;
@@ -142,9 +142,15 @@ public class IgniteRpcServer implements RpcServer<Void> {
      */
     public class RpcMessageHandler implements NetworkMessageHandler {
         /** {@inheritDoc} */
-        @Override public void onReceived(NetworkMessage message, ClusterNode sender, @Nullable Long correlationId) {
+        @Override public void onReceived(NetworkMessage message, String senderConsistentId, @Nullable Long correlationId) {
             Class<? extends NetworkMessage> cls = message.getClass();
             RpcProcessor<NetworkMessage> prc = processors.get(cls.getName());
+
+            ClusterNode sender = clusterService().topologyService().getByConsistentId(senderConsistentId);
+
+            if (sender == null) {
+                throw new UnresolvableConsistentIdException("No node by consistent ID " + senderConsistentId);
+            }
 
             // TODO asch cache mapping https://issues.apache.org/jira/browse/IGNITE-14832
             if (prc == null) {

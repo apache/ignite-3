@@ -50,7 +50,6 @@ import org.apache.ignite.internal.cluster.management.raft.JoinDeniedException;
 import org.apache.ignite.internal.cluster.management.raft.commands.JoinReadyCommand;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
-import org.apache.ignite.internal.cluster.management.topology.LogicalTopologySnapshot;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -67,6 +66,7 @@ import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.network.LogicalTopologySnapshot;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.TopologyEventHandler;
 import org.apache.ignite.network.TopologyService;
@@ -180,17 +180,17 @@ public class ClusterManagementGroupManager implements IgniteComponent {
 
         clusterService.messagingService().addMessageHandler(
                 CmgMessageGroup.class,
-                messageHandlerFactory.wrapHandler((message, sender, correlationId) -> {
+                messageHandlerFactory.wrapHandler((message, senderConsistentId, correlationId) -> {
                     if (message instanceof ClusterStateMessage) {
                         assert correlationId != null;
 
-                        handleClusterState((ClusterStateMessage) message, sender, correlationId);
+                        handleClusterState((ClusterStateMessage) message, senderConsistentId, correlationId);
                     } else if (message instanceof CancelInitMessage) {
                         handleCancelInit((CancelInitMessage) message);
                     } else if (message instanceof CmgInitMessage) {
                         assert correlationId != null;
 
-                        handleInit((CmgInitMessage) message, sender, correlationId);
+                        handleInit((CmgInitMessage) message, senderConsistentId, correlationId);
                     }
                 })
         );
@@ -250,7 +250,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
      *     we simply check that the Raft state and the received message are the same.</li>
      * </ol>
      */
-    private void handleInit(CmgInitMessage msg, ClusterNode sender, long correlationId) {
+    private void handleInit(CmgInitMessage msg, String senderConsistentId, long correlationId) {
         synchronized (raftServiceLock) {
             CompletableFuture<CmgRaftService> serviceFuture = raftService;
 
@@ -289,7 +289,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                                             .build();
                                 }
 
-                                clusterService.messagingService().respond(sender, response, correlationId);
+                                clusterService.messagingService().respond(senderConsistentId, response, correlationId);
 
                                 return service;
                             }));
@@ -402,8 +402,8 @@ public class ClusterManagementGroupManager implements IgniteComponent {
     /**
      * Handler for the {@link ClusterStateMessage}.
      */
-    private void handleClusterState(ClusterStateMessage msg, ClusterNode sender, long correlationId) {
-        clusterService.messagingService().respond(sender, msgFactory.successResponseMessage().build(), correlationId);
+    private void handleClusterState(ClusterStateMessage msg, String senderConsistentId, long correlationId) {
+        clusterService.messagingService().respond(senderConsistentId, msgFactory.successResponseMessage().build(), correlationId);
 
         ClusterState state = msg.clusterState();
 
