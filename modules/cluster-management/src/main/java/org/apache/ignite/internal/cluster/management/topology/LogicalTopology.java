@@ -18,9 +18,9 @@
 package org.apache.ignite.internal.cluster.management.topology;
 
 import java.util.Set;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.LogicalTopologyEventListener;
-import org.apache.ignite.network.LogicalTopologySnapshot;
 
 /**
  * Used to manage logical topology information available locally on the current node.
