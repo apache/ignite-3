@@ -27,10 +27,10 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteRelVisitor;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 
 /**
- * Physical node for MINUS (EXCEPT) operator which inputs satisfy SINGLE distribution.
+ * Physical node for INTERSECT operator which inputs are colocated.
  */
-public class IgniteSingleMinus extends IgniteMinus implements IgniteSingleSetOp {
-    public IgniteSingleMinus(
+public class IgniteColocatedIntersect extends IgniteIntersect implements IgniteColocatedSetOp {
+    public IgniteColocatedIntersect(
             RelOptCluster cluster,
             RelTraitSet traitSet,
             List<RelNode> inputs,
@@ -43,20 +43,20 @@ public class IgniteSingleMinus extends IgniteMinus implements IgniteSingleSetOp 
      * Constructor.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public IgniteSingleMinus(RelInput input) {
+    public IgniteColocatedIntersect(RelInput input) {
         super(input);
     }
 
     /** {@inheritDoc} */
     @Override
-    public IgniteSingleMinus copy(RelTraitSet traitSet, List<RelNode> inputs, boolean all) {
-        return new IgniteSingleMinus(getCluster(), traitSet, inputs, all);
+    public IgniteColocatedIntersect copy(RelTraitSet traitSet, List<RelNode> inputs, boolean all) {
+        return new IgniteColocatedIntersect(getCluster(), traitSet, inputs, all);
     }
 
     /** {@inheritDoc} */
     @Override
     public IgniteRel clone(RelOptCluster cluster, List<IgniteRel> inputs) {
-        return new IgniteSingleMinus(cluster, getTraitSet(), Commons.cast(inputs), all);
+        return new IgniteColocatedIntersect(cluster, getTraitSet(), Commons.cast(inputs), all);
     }
 
     /** {@inheritDoc} */
@@ -68,6 +68,6 @@ public class IgniteSingleMinus extends IgniteMinus implements IgniteSingleSetOp 
     /** {@inheritDoc} */
     @Override
     public int aggregateFieldsCount() {
-        return getInput(0).getRowType().getFieldCount() + COUNTER_FIELDS_CNT;
+        return getInput(0).getRowType().getFieldCount() + getInputs().size();
     }
 }

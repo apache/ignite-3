@@ -27,10 +27,10 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteRelVisitor;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 
 /**
- * Physical node for INTERSECT operator which inputs satisfy SINGLE distribution.
+ * Physical node for MINUS (EXCEPT) operator which inputs are colocated.
  */
-public class IgniteSingleIntersect extends IgniteIntersect implements IgniteSingleSetOp {
-    public IgniteSingleIntersect(
+public class IgniteColocatedMinus extends IgniteMinus implements IgniteColocatedSetOp {
+    public IgniteColocatedMinus(
             RelOptCluster cluster,
             RelTraitSet traitSet,
             List<RelNode> inputs,
@@ -43,20 +43,20 @@ public class IgniteSingleIntersect extends IgniteIntersect implements IgniteSing
      * Constructor.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public IgniteSingleIntersect(RelInput input) {
+    public IgniteColocatedMinus(RelInput input) {
         super(input);
     }
 
     /** {@inheritDoc} */
     @Override
-    public IgniteSingleIntersect copy(RelTraitSet traitSet, List<RelNode> inputs, boolean all) {
-        return new IgniteSingleIntersect(getCluster(), traitSet, inputs, all);
+    public IgniteColocatedMinus copy(RelTraitSet traitSet, List<RelNode> inputs, boolean all) {
+        return new IgniteColocatedMinus(getCluster(), traitSet, inputs, all);
     }
 
     /** {@inheritDoc} */
     @Override
     public IgniteRel clone(RelOptCluster cluster, List<IgniteRel> inputs) {
-        return new IgniteSingleIntersect(cluster, getTraitSet(), Commons.cast(inputs), all);
+        return new IgniteColocatedMinus(cluster, getTraitSet(), Commons.cast(inputs), all);
     }
 
     /** {@inheritDoc} */
@@ -68,6 +68,6 @@ public class IgniteSingleIntersect extends IgniteIntersect implements IgniteSing
     /** {@inheritDoc} */
     @Override
     public int aggregateFieldsCount() {
-        return getInput(0).getRowType().getFieldCount() + getInputs().size();
+        return getInput(0).getRowType().getFieldCount() + COUNTER_FIELDS_CNT;
     }
 }

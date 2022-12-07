@@ -29,9 +29,9 @@ import org.apache.ignite.internal.sql.engine.rel.set.IgniteReduceIntersect;
 import org.apache.ignite.internal.sql.engine.rel.set.IgniteReduceMinus;
 import org.apache.ignite.internal.sql.engine.rel.set.IgniteReduceSetOp;
 import org.apache.ignite.internal.sql.engine.rel.set.IgniteSetOp;
-import org.apache.ignite.internal.sql.engine.rel.set.IgniteSingleIntersect;
-import org.apache.ignite.internal.sql.engine.rel.set.IgniteSingleMinus;
-import org.apache.ignite.internal.sql.engine.rel.set.IgniteSingleSetOp;
+import org.apache.ignite.internal.sql.engine.rel.set.IgniteColocatedIntersect;
+import org.apache.ignite.internal.sql.engine.rel.set.IgniteColocatedMinus;
+import org.apache.ignite.internal.sql.engine.rel.set.IgniteColocatedSetOp;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
@@ -107,9 +107,9 @@ public class SetOpPlannerTest extends AbstractPlannerTest {
                 + ")";
 
         assertPlan(sql, publicSchema, isInstanceOf(IgniteExchange.class)
-                        .and(input(isInstanceOf(setOp.single)
+                        .and(input(isInstanceOf(setOp.colocated)
                                 .and(input(0, isTableScan("affinity_tbl2")))
-                                .and(input(1, isInstanceOf(setOp.single)
+                                .and(input(1, isInstanceOf(setOp.colocated)
                                         .and(input(0, isTableScan("affinity_tbl1")))
                                         .and(input(1, isTableScan("affinity_tbl2")))
                                 ))
@@ -173,7 +173,7 @@ public class SetOpPlannerTest extends AbstractPlannerTest {
                 + setOp(setOp)
                 + "SELECT * FROM broadcast_tbl2 ";
 
-        assertPlan(sql, publicSchema, isInstanceOf(setOp.single)
+        assertPlan(sql, publicSchema, isInstanceOf(setOp.colocated)
                 .and(input(0, isTableScan("broadcast_tbl1")))
                 .and(input(1, isTableScan("broadcast_tbl2")))
         );
@@ -192,7 +192,7 @@ public class SetOpPlannerTest extends AbstractPlannerTest {
                 + setOp(setOp)
                 + "SELECT * FROM single_tbl2 ";
 
-        assertPlan(sql, publicSchema, isInstanceOf(setOp.single)
+        assertPlan(sql, publicSchema, isInstanceOf(setOp.colocated)
                 .and(input(0, isTableScan("single_tbl1")))
                 .and(input(1, isTableScan("single_tbl2"))));
     }
@@ -210,7 +210,7 @@ public class SetOpPlannerTest extends AbstractPlannerTest {
                 + setOp(setOp)
                 + "SELECT * FROM random_tbl1 ";
 
-        assertPlan(sql, publicSchema, isInstanceOf(setOp.single)
+        assertPlan(sql, publicSchema, isInstanceOf(setOp.colocated)
                 .and(hasDistribution(IgniteDistributions.single()))
                 .and(input(0, isTableScan("single_tbl1")))
                 .and(input(1, hasChildThat(isTableScan("random_tbl1")))));
@@ -229,7 +229,7 @@ public class SetOpPlannerTest extends AbstractPlannerTest {
                 + setOp(setOp)
                 + "SELECT * FROM affinity_tbl1 ";
 
-        assertPlan(sql, publicSchema, isInstanceOf(setOp.single)
+        assertPlan(sql, publicSchema, isInstanceOf(setOp.colocated)
                 .and(hasDistribution(IgniteDistributions.single()))
                 .and(input(0, isTableScan("single_tbl1")))
                 .and(input(1, hasChildThat(isTableScan("affinity_tbl1")))));
@@ -248,7 +248,7 @@ public class SetOpPlannerTest extends AbstractPlannerTest {
                 + setOp(setOp)
                 + "SELECT * FROM broadcast_tbl1 ";
 
-        assertPlan(sql, publicSchema, isInstanceOf(setOp.single)
+        assertPlan(sql, publicSchema, isInstanceOf(setOp.colocated)
                 .and(input(0, isTableScan("single_tbl1")))
                 .and(input(1, isTableScan("broadcast_tbl1")))
         );
@@ -268,7 +268,7 @@ public class SetOpPlannerTest extends AbstractPlannerTest {
                 + "SELECT * FROM affinity_tbl2 ";
 
         assertPlan(sql, publicSchema, isInstanceOf(IgniteExchange.class)
-                .and(input(isInstanceOf(setOp.single)
+                .and(input(isInstanceOf(setOp.colocated)
                         // TODO https://issues.apache.org/jira/browse/IGNITE-18211
                         // .and(hasDistribution(IgniteDistributions.affinity(0, null, "hash")))
                         .and(input(0, isTableScan("affinity_tbl1")))
@@ -291,7 +291,7 @@ public class SetOpPlannerTest extends AbstractPlannerTest {
                 + "SELECT * FROM broadcast_tbl1 ";
 
         assertPlan(sql, publicSchema, isInstanceOf(IgniteExchange.class)
-                .and(input(isInstanceOf(setOp.single)
+                .and(input(isInstanceOf(setOp.colocated)
                         // TODO https://issues.apache.org/jira/browse/IGNITE-18211
                         // .and(hasDistribution(IgniteDistributions.affinity(0, null, "hash")))
                         .and(input(0, isTableScan("affinity_tbl1")))
@@ -349,7 +349,7 @@ public class SetOpPlannerTest extends AbstractPlannerTest {
                 + setOp(setOp)
                 + "SELECT * FROM broadcast_tbl1 ";
 
-        assertPlan(sql, publicSchema, isInstanceOf(setOp.single)
+        assertPlan(sql, publicSchema, isInstanceOf(setOp.colocated)
                 .and(input(0, hasChildThat(isTableScan("random_tbl1"))))
                 .and(input(1, isTableScan("broadcast_tbl1")))
         );
@@ -371,7 +371,7 @@ public class SetOpPlannerTest extends AbstractPlannerTest {
                 + "   SELECT * FROM random_tbl2"
                 + ")";
 
-        assertPlan(sql, publicSchema, isInstanceOf(setOp.single)
+        assertPlan(sql, publicSchema, isInstanceOf(setOp.colocated)
                         .and(input(0, hasChildThat(isTableScan("random_tbl2"))))
                         .and(input(1, isInstanceOf(setOp.reduce)
                                 .and(hasChildThat(isInstanceOf(setOp.map)
@@ -400,7 +400,7 @@ public class SetOpPlannerTest extends AbstractPlannerTest {
                 + "   SELECT * FROM random_tbl2"
                 + ")";
 
-        assertPlan(sql, publicSchema, isInstanceOf(setOp.single)
+        assertPlan(sql, publicSchema, isInstanceOf(setOp.colocated)
                         .and(input(0, isTableScan("broadcast_tbl1")))
                         .and(input(1, isInstanceOf(setOp.reduce)
                                 .and(hasChildThat(isInstanceOf(setOp.map)
@@ -500,28 +500,28 @@ public class SetOpPlannerTest extends AbstractPlannerTest {
 
     enum SetOp {
         EXCEPT(
-                IgniteSingleMinus.class,
+                IgniteColocatedMinus.class,
                 IgniteMapMinus.class,
                 IgniteReduceMinus.class
         ),
 
         INTERSECT(
-                IgniteSingleIntersect.class,
+                IgniteColocatedIntersect.class,
                 IgniteMapIntersect.class,
                 IgniteReduceIntersect.class
         );
 
-        public final Class<? extends IgniteSingleSetOp> single;
+        public final Class<? extends IgniteColocatedSetOp> colocated;
 
         public final Class<? extends IgniteMapSetOp> map;
 
         public final Class<? extends IgniteReduceSetOp> reduce;
 
         SetOp(
-                Class<? extends IgniteSingleSetOp> single,
+                Class<? extends IgniteColocatedSetOp> colocated,
                 Class<? extends IgniteMapSetOp> map,
                 Class<? extends IgniteReduceSetOp> reduce) {
-            this.single = single;
+            this.colocated = colocated;
             this.map = map;
             this.reduce = reduce;
         }

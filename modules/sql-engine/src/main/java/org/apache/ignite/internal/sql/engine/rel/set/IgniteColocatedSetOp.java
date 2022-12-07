@@ -34,9 +34,9 @@ import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 
 /**
- * Physical node for set op (MINUS, INTERSECT) operator which inputs satisfy SINGLE distribution.
+ * Physical node for set op (MINUS, INTERSECT) operator which inputs are colocated.
  */
-public interface IgniteSingleSetOp extends IgniteSetOp {
+public interface IgniteColocatedSetOp extends IgniteSetOp {
     /** {@inheritDoc} */
     @Override
     public default List<Pair<RelTraitSet, List<RelTraitSet>>> deriveRewindability(
