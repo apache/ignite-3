@@ -78,7 +78,6 @@ dependencies {
     testImplementation libs.hamcrest.optional
     testImplementation libs.hamcrest.path
     testImplementation libs.mockito.core
-    testImplementation libs.classgraph
     testImplementation libs.mockito.junit
     testImplementation libs.jsonpath.assert
 
