@@ -23,7 +23,7 @@ import org.apache.ignite.network.annotations.Transferable;
 /**
  * Increment and get command.
  */
-@Transferable(1_001)
+@Transferable(TestMessageGroup.INCREMENT_AND_GET_COMMAND)
 public interface IncrementAndGetCommand extends WriteCommand {
     /**
      * Returns the delta.

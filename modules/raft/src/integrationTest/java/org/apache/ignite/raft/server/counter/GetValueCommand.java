@@ -23,7 +23,7 @@ import org.apache.ignite.network.annotations.Transferable;
 /**
  * Get a value command.
  */
-@Transferable(1_000)
+@Transferable(TestMessageGroup.GET_VALUE_COMMAND)
 public interface GetValueCommand extends ReadCommand {
     static GetValueCommand getValueCommand() {
         return new ItTestRaftMessagesFactory().getValueCommand().build();

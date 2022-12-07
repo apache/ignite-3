@@ -114,7 +114,7 @@ public class JraftServerImpl implements RaftServer {
     /** Request executor. */
     private ExecutorService requestExecutor;
 
-    /** Marshaller. */
+    /** Marshaller for RAFT commands. */
     private final Marshaller commandsMarshaller;
 
     /** The number of parallel raft groups starts. */
