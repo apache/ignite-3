@@ -23,6 +23,7 @@ import java.time.LocalDate;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
+/** Dynamic parameters checks. */
 public class ItDynamicParameterTest extends AbstractBasicIntegrationTest {
     @Test
     public void testDynamicParameters() {
