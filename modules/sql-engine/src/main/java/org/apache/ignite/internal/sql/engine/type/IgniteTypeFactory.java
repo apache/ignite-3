@@ -353,6 +353,21 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
         return super.toSql(type);
     }
 
+
+    /** Returns custom type.  {@code Null} if custom type not found */
+    public RelDataType createCustomType(Type type) {
+        return createCustomType(type, true);
+    }
+
+    /** Returns nullable custom type. {@code Null} if custom type not found. */
+    public RelDataType createCustomType(Type type, boolean nullable) {
+        if (Object.class == type) {
+            return canonize(new OtherType(nullable));
+        }
+
+        return null;
+    }
+
     /** {@inheritDoc} */
     @Override public RelDataType createType(Type type) {
         if (type == Duration.class || type == Period.class || type == LocalDate.class || type == LocalDateTime.class
