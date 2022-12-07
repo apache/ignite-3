@@ -410,9 +410,16 @@ public class HeapLockManager implements LockManager {
      */
     private static class WaiterImpl implements Comparable<WaiterImpl>, Waiter {
 
-        /** Holding locks by type. */
+        /**
+         * Holding locks by type.
+         * TODO: IGNITE-18350 Abandon the collection in favor of BitSet.
+         */
         private final Map<LockMode, Integer> locks = new HashMap<>();
 
+        /**
+         * Lock modes are marked as intended, but have not taken yet.
+         * TODO: IGNITE-18350 Abandon the collection in favor of BitSet.
+         */
         private final Set<LockMode> intendedLocks = new HashSet<>();
 
         /** Locked future. */
@@ -481,6 +488,7 @@ public class HeapLockManager implements LockManager {
         /**
          * Recalculates lock mode based of all locks which the waiter has taken.
          *
+         * @param modeToRemove Mode without which, the recalculation will happen.
          * @return Previous lock mode.
          */
         LockMode recalculateMode(LockMode modeToRemove) {

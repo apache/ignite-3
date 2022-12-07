@@ -674,35 +674,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
 
         LockKey key = new LockKey("test");
 
-        List<LockMode> lockModes = List.of(SIX, S, IS);
-
-        for (LockMode lockMode : lockModes) {
-            CompletableFuture<Lock> fut0 = lockManager.acquire(txId0, key, X);
-
-            assertEquals(X, fut0.join().lockMode());
-
-            var lockFut = lockManager.acquire(txId0, key, lockMode);
-
-            Waiter waiter = lockManager.waiter(fut0.join().lockKey(), txId0);
-
-            assertEquals(LockMode.supremum(lockMode, X), waiter.lockMode());
-
-            lockManager.release(txId0, key, X);
-
-            assertTrue(lockManager.queue(key).size() == 1);
-
-            waiter = lockManager.waiter(fut0.join().lockKey(), txId0);
-
-            assertEquals(lockMode, waiter.lockMode());
-
-            assertTrue(lockManager.queue(key).size() == 1);
-
-            lockManager.release(lockFut.join());
-        }
-
-        lockModes = List.of(SIX, IX, IS);
-
-        for (LockMode lockMode : lockModes) {
+        for (LockMode lockMode : List.of(SIX, S, IS, IX)) {
             CompletableFuture<Lock> fut0 = lockManager.acquire(txId0, key, X);
 
             assertEquals(X, fut0.join().lockMode());
