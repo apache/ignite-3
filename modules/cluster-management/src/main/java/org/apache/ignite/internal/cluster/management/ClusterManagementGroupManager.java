@@ -422,15 +422,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                             if (service != null && service.nodeNames().equals(state.cmgNodes())) {
                                 LOG.info("ClusterStateMessage received, but the CMG service is already started");
 
-                                return joinCluster(service, state.clusterTag())
-                                        .thenCompose(cmgRaftService -> {
-                                            if (attemptedCompleteJoinOnStart) {
-                                                return cmgRaftService.completeJoinCluster();
-                                            } else {
-                                                return completedFuture(null);
-                                            }
-                                        })
-                                        .thenApply(unused -> service);
+                                return joinCluster(service, state.clusterTag());
                             }
 
                             if (service == null) {
@@ -458,8 +450,18 @@ public class ClusterManagementGroupManager implements IgniteComponent {
 
                             return initCmgRaftService(state);
                         })
-                        .thenCompose(Function.identity());
+                        .thenCompose(Function.identity())
+                        .thenCompose(this::completeJoinIfTryingToRejoin);
             }
+        }
+    }
+
+    private CompletableFuture<CmgRaftService> completeJoinIfTryingToRejoin(CmgRaftService cmgRaftService) {
+        if (attemptedCompleteJoinOnStart) {
+            return cmgRaftService.completeJoinCluster()
+                    .thenApply(unused -> cmgRaftService);
+        } else {
+            return completedFuture(cmgRaftService);
         }
     }
 
