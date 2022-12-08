@@ -26,7 +26,15 @@ import picocli.CommandLine.ParseResult;
  * Implementation of {@link IExecutionExceptionHandler} based on {@link ExceptionHandlers}.
  */
 public class PicocliExecutionExceptionHandler implements IExecutionExceptionHandler {
-    private final ExceptionHandlers exceptionHandlers = new DefaultExceptionHandlers();
+    private final ExceptionHandlers exceptionHandlers;
+
+    public PicocliExecutionExceptionHandler() {
+        exceptionHandlers = new DefaultExceptionHandlers();
+    }
+
+    public PicocliExecutionExceptionHandler(ExceptionHandlers exceptionHandlers) {
+        this.exceptionHandlers = exceptionHandlers;
+    }
 
     @Override
     public int handleExecutionException(Exception ex, CommandLine commandLine, ParseResult parseResult) {

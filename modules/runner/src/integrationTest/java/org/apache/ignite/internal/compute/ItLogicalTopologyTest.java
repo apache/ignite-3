@@ -31,10 +31,10 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.AbstractClusterIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.network.message.ScaleCubeMessage;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.LogicalTopologyEventListener;
-import org.apache.ignite.network.LogicalTopologySnapshot;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 

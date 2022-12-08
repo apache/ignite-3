@@ -15,25 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.commands.sql;
+package org.apache.ignite.internal.cli.core.repl.completer;
 
-import jakarta.inject.Singleton;
-import org.apache.ignite.internal.cli.commands.ExitCommand;
-import org.apache.ignite.internal.cli.commands.sql.help.SqlHelpCommand;
-import picocli.CommandLine.Command;
-import picocli.shell.jline3.PicocliCommands.ClearScreen;
+import java.util.Arrays;
+import java.util.Set;
 
-/**
- * Top level SQL REPL command.
- */
-@Command(name = "",
-        description = {""},
-        subcommands = {
-                ClearScreen.class,
-                ExitCommand.class,
-                SqlHelpCommand.class
-        }
-)
-@Singleton
-public class SqlReplTopLevelCliCommand {
+/** Filters out exclusions from candidates. */
+public class ExclusionsCompleterFilter implements CompleterFilter {
+
+    private final Set<String> exclusions;
+
+    public ExclusionsCompleterFilter(String... exclusions) {
+        this.exclusions = Set.of(exclusions);
+    }
+
+    /** Filters candidates. */
+    @Override
+    public String[] filter(String[] ignored, String[] candidates) {
+        return Arrays.stream(candidates)
+                .filter(it -> !exclusions.contains(it))
+                .toArray(String[]::new);
+    }
 }
