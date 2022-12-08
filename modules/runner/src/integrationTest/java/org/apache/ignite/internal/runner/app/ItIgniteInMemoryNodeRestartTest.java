@@ -207,9 +207,9 @@ public class ItIgniteInMemoryNodeRestartTest extends IgniteAbstractTest {
 
         // Check that it restarts.
         assertTrue(IgniteTestUtils.waitForCondition(
-                () -> loza.localNodes().stream().anyMatch(grpName -> {
-                    if (grpName.groupId() instanceof TablePartitionId) {
-                        return ((TablePartitionId) grpName.groupId()).getTableId().equals(tableId);
+                () -> loza.localNodes().stream().anyMatch(nodeId -> {
+                    if (nodeId.groupId() instanceof TablePartitionId) {
+                        return ((TablePartitionId) nodeId.groupId()).getTableId().equals(tableId);
                     }
 
                     return true;
@@ -248,9 +248,9 @@ public class ItIgniteInMemoryNodeRestartTest extends IgniteAbstractTest {
 
         // Check that it restarts.
         assertTrue(IgniteTestUtils.waitForCondition(
-                () -> loza.localNodes().stream().anyMatch(grpName -> {
-                    if (grpName.groupId() instanceof TablePartitionId) {
-                        return ((TablePartitionId) grpName.groupId()).getTableId().equals(tableId);
+                () -> loza.localNodes().stream().anyMatch(nodeId -> {
+                    if (nodeId.groupId() instanceof TablePartitionId) {
+                        return ((TablePartitionId) nodeId.groupId()).getTableId().equals(tableId);
                     }
 
                     return true;
@@ -291,9 +291,9 @@ public class ItIgniteInMemoryNodeRestartTest extends IgniteAbstractTest {
             Loza loza = ignite(i).raftManager();
 
             assertTrue(IgniteTestUtils.waitForCondition(
-                    () -> loza.localNodes().stream().anyMatch(grpName -> {
-                        if (grpName.groupId() instanceof TablePartitionId) {
-                            return ((TablePartitionId) grpName.groupId()).getTableId().equals(tableId);
+                    () -> loza.localNodes().stream().anyMatch(nodeId -> {
+                        if (nodeId.groupId() instanceof TablePartitionId) {
+                            return ((TablePartitionId) nodeId.groupId()).getTableId().equals(tableId);
                         }
 
                         return true;
