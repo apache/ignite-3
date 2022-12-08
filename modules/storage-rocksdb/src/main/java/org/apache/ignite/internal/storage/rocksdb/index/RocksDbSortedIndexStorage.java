@@ -289,29 +289,4 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
                 .slice()
                 .order(ByteOrder.LITTLE_ENDIAN);
     }
-
-    private static class ScanCursor implements Cursor<ByteBuffer> {
-        private final RocksIterator it;
-
-        private ScanCursor(RocksIterator it) {
-            this.it = it;
-        }
-
-        @Override
-        public void close() {
-            it.close();
-
-
-        }
-
-        @Override
-        public boolean hasNext() {
-            return false;
-        }
-
-        @Override
-        public ByteBuffer next() {
-            return null;
-        }
-    }
 }
