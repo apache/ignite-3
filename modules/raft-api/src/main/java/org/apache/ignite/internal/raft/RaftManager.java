@@ -80,6 +80,9 @@ public interface RaftManager extends IgniteComponent {
     /**
      * Stops all local nodes running the given Raft group.
      *
+     * <p>This method is different from {@link #stopRaftNode} as it stops all nodes that belong to the same Raft group. This can happen
+     * when a Peer and a Learner are started on the same Ignite node.
+     *
      * @param groupId Raft group ID.
      * @return {@code true} if at least one node has been stopped, {@code false} otherwise.
      * @throws NodeStoppingException If node stopping intention was detected.
