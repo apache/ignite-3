@@ -86,10 +86,10 @@ import org.apache.ignite.internal.schema.testutils.definition.TableDefinition;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
-import org.apache.ignite.internal.storage.rocksdb.RocksDbDataStorageModule;
-import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
-import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageChange;
-import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
+import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryDataStorageModule;
+import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryDataStorageChange;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.table.event.TableEvent;
@@ -106,6 +106,7 @@ import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.table.Table;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -119,7 +120,6 @@ import org.mockito.quality.Strictness;
 
 /**
  * Tests scenarios for table manager.
- * TODO: to change storage from "rocksdb" to "aimem" https://issues.apache.org/jira/browse/IGNITE-17197
  */
 @ExtendWith({MockitoExtension.class, ConfigurationExtension.class})
 @MockitoSettings(strictness = Strictness.LENIENT)
@@ -190,7 +190,7 @@ public class TableManagerTest extends IgniteAbstractTest {
     private TablesConfiguration tblsCfg;
 
     @InjectConfiguration
-    private RocksDbStorageEngineConfiguration rocksDbEngineConfig;
+    private PersistentPageMemoryStorageEngineConfiguration storageEngineConfig;
 
     @Mock
     private ConfigurationRegistry configRegistry;
@@ -271,7 +271,7 @@ public class TableManagerTest extends IgniteAbstractTest {
                         .changeReplicas(REPLICAS)
                         .changePartitions(PARTITIONS);
 
-                tableChange.changeDataStorage(c -> c.convert(RocksDbDataStorageChange.class));
+                tableChange.changeDataStorage(c -> c.convert(PersistentPageMemoryDataStorageChange.class));
 
                 var extConfCh = ((ExtendedTableChange) tableChange);
 
@@ -289,7 +289,7 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         assertNotNull(tableManager.table(scmTbl.name()));
 
-        checkTableDataStorage(tblsCfg.tables().value(), RocksDbStorageEngine.ENGINE_NAME);
+        checkTableDataStorage(tblsCfg.tables().value(), PersistentPageMemoryStorageEngine.ENGINE_NAME);
     }
 
     /**
@@ -310,7 +310,7 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         assertSame(table, tblManagerFut.join().table(scmTbl.name()));
 
-        checkTableDataStorage(tblsCfg.tables().value(), RocksDbStorageEngine.ENGINE_NAME);
+        checkTableDataStorage(tblsCfg.tables().value(), PersistentPageMemoryStorageEngine.ENGINE_NAME);
     }
 
     /**
@@ -615,7 +615,7 @@ public class TableManagerTest extends IgniteAbstractTest {
     private TableImpl mockManagersAndCreateTableWithDelay(
             TableDefinition tableDefinition,
             CompletableFuture<TableManager> tblManagerFut,
-            Phaser phaser
+            @Nullable Phaser phaser
     ) throws Exception {
         String consistentId = "node0";
 
@@ -720,7 +720,7 @@ public class TableManagerTest extends IgniteAbstractTest {
                 bm,
                 ts,
                 tm,
-                dsm = createDataStorageManager(configRegistry, workDir, rocksDbEngineConfig),
+                dsm = createDataStorageManager(configRegistry, workDir, storageEngineConfig),
                 workDir,
                 msm,
                 sm = new SchemaManager(revisionUpdater, tblsCfg, msm),
@@ -755,11 +755,11 @@ public class TableManagerTest extends IgniteAbstractTest {
     private DataStorageManager createDataStorageManager(
             ConfigurationRegistry mockedRegistry,
             Path storagePath,
-            RocksDbStorageEngineConfiguration config
+            PersistentPageMemoryStorageEngineConfiguration config
     ) {
-        when(mockedRegistry.getConfiguration(RocksDbStorageEngineConfiguration.KEY)).thenReturn(config);
+        when(mockedRegistry.getConfiguration(PersistentPageMemoryStorageEngineConfiguration.KEY)).thenReturn(config);
 
-        DataStorageModules dataStorageModules = new DataStorageModules(List.of(new RocksDbDataStorageModule()));
+        DataStorageModules dataStorageModules = new DataStorageModules(List.of(new PersistentPageMemoryDataStorageModule()));
 
         DataStorageManager manager = new DataStorageManager(
                 tblsCfg,
