@@ -21,7 +21,7 @@ import java.util.Collection;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Entry point for obtaining information about a cluster's topology.
+ * Entry point for obtaining information about a cluster's physical topology.
  */
 // TODO: allow removing event handlers, see https://issues.apache.org/jira/browse/IGNITE-14519
 public interface TopologyService {
@@ -40,14 +40,14 @@ public interface TopologyService {
     Collection<ClusterNode> allMembers();
 
     /**
-     * Registers a handler for topology change events.
+     * Registers a handler for physical topology change events.
      *
-     * @param handler Topology events handler.
+     * @param handler Physical topology events handler.
      */
     void addEventHandler(TopologyEventHandler handler);
 
     /**
-     * Returns a cluster node by its network address in host:port format.
+     * Returns a cluster node by its network address.
      *
      * @param addr The address.
      * @return The node or {@code null} if the node has not yet been discovered or is offline.
