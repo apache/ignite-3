@@ -241,7 +241,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                                             });
                                 }))
                         .thenCombine(igniteTableFuture, (v, igniteTable) -> {
-                            schema.addTable(table.name(), igniteTable);
+                            schema.addTable(igniteTable);
 
                             return res;
                         });
@@ -430,10 +430,8 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                                         return CompletableFuture.completedFuture(resIdxs);
                                     })
                             ).thenCompose(ignore -> {
-                                String tblName = tableNameById(schema, index.tableId());
-
                                 table.addIndex(schemaIndex);
-                                schema.addTable(tblName, table);
+                                schema.addTable(table);
                                 schema.addIndex(index.id(), schemaIndex);
 
                                 return completedFuture(resTbls);
@@ -508,8 +506,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
                                             assert table.id().equals(rmvIdx.index().tableId());
 
-                                            String tblName = tableNameById(schema, rmvIdx.index().tableId());
-                                            schema.addTable(tblName, table);
+                                            schema.addTable(table);
 
                                             return completedFuture(resIdxs);
                                         }
