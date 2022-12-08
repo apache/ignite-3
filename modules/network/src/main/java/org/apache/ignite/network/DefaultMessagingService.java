@@ -404,7 +404,8 @@ public class DefaultMessagingService extends AbstractMessagingService {
      * Installs a predicate, it will be consulted with for each message being sent; when it returns {@code true}, the
      * message will be silently dropped (it will not be sent, the corresponding future will never complete).
      *
-     * @param predicate Predicate that will decide whether a message should be dropped.
+     * @param predicate Predicate that will decide whether a message should be dropped. Its first argument is the recipient
+     *     node consistent ID.
      */
     @TestOnly
     public void dropMessages(BiPredicate<String, NetworkMessage> predicate) {
