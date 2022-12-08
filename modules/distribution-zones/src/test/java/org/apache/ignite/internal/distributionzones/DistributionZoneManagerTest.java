@@ -38,6 +38,7 @@ import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNo
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneRenameException;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
+import org.apache.ignite.internal.vault.VaultManager;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -70,7 +71,8 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
         distributionZoneManager = new DistributionZoneManager(
                 zonesConfiguration,
                 mock(MetaStorageManager.class),
-                mock(ClusterManagementGroupManager.class)
+                mock(ClusterManagementGroupManager.class),
+                mock(VaultManager.class)
         );
     }
 

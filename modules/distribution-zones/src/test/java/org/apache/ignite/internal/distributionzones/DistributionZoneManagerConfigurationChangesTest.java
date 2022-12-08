@@ -59,6 +59,7 @@ import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.util.ByteUtils;
+import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
@@ -77,6 +78,8 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
 
     @Mock
     private ClusterManagementGroupManager cmgManager;
+
+    private VaultManager vaultMgr;
 
     private DistributionZoneManager distributionZoneManager;
 
@@ -101,10 +104,13 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
 
         cmgManager = mock(ClusterManagementGroupManager.class);
 
+        vaultMgr = mock(VaultManager.class);
+
         distributionZoneManager = new DistributionZoneManager(
                 zonesConfiguration,
                 metaStorageManager,
-                cmgManager
+                cmgManager,
+                vaultMgr
         );
 
         clusterCfgMgr.start();
