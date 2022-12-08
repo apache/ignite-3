@@ -86,9 +86,7 @@ public class DistributionZoneManager implements IgniteComponent {
             ClusterManagementGroupManager cmgManager
     ) {
         this.zonesConfiguration = zonesConfiguration;
-
         this.metaStorageManager = metaStorageManager;
-
         this.cmgManager = cmgManager;
     }
 
@@ -280,8 +278,6 @@ public class DistributionZoneManager implements IgniteComponent {
         }
 
         try {
-            byte[] logicalTopologyBytes;
-
             Set<ClusterNode> clusterNodes;
 
             //TODO temporary code, will be removed in https://issues.apache.org/jira/browse/IGNITE-18087
@@ -297,17 +293,17 @@ public class DistributionZoneManager implements IgniteComponent {
 
             Set<String> nodesConsistentIds = clusterNodes.stream().map(ClusterNode::name).collect(Collectors.toSet());
 
-            logicalTopologyBytes = ByteUtils.toBytes(nodesConsistentIds);
+            byte[] logicalTopologyBytes = ByteUtils.toBytes(nodesConsistentIds);
 
             Update dataNodesAndTriggerKeyUpd = updateDataNodesAndTriggerKey(zoneId, revision, logicalTopologyBytes);
 
-            var iif = If.iif(triggerKeyCondition, dataNodesAndTriggerKeyUpd, ops().yield(false));
+            If iif = If.iif(triggerKeyCondition, dataNodesAndTriggerKeyUpd, ops().yield(false));
 
             metaStorageManager.invoke(iif).thenAccept(res -> {
                 if (res.getAsBoolean()) {
-                    LOG.info("Update zones' dataNodes value [zoneId = {}, dataNodes = {}", zoneId, nodesConsistentIds);
+                    LOG.debug("Update zones' dataNodes value [zoneId = {}, dataNodes = {}", zoneId, nodesConsistentIds);
                 } else {
-                    LOG.info("Failed to update zones' dataNodes value [zoneId = {}]", zoneId);
+                    LOG.debug("Failed to update zones' dataNodes value [zoneId = {}]", zoneId);
                 }
             });
         } finally {
@@ -332,13 +328,13 @@ public class DistributionZoneManager implements IgniteComponent {
 
             Update dataNodesRemoveUpd = deleteDataNodesKeyAndUpdateTriggerKey(zoneId, revision);
 
-            var iif = If.iif(triggerKeyCondition, dataNodesRemoveUpd, ops().yield(false));
+            If iif = If.iif(triggerKeyCondition, dataNodesRemoveUpd, ops().yield(false));
 
             metaStorageManager.invoke(iif).thenAccept(res -> {
                 if (res.getAsBoolean()) {
-                    LOG.info("Delete zones' dataNodes key [zoneId = {}", zoneId);
+                    LOG.debug("Delete zones' dataNodes key [zoneId = {}", zoneId);
                 } else {
-                    LOG.info("Failed to delete zones' dataNodes key [zoneId = {}]", zoneId);
+                    LOG.debug("Failed to delete zones' dataNodes key [zoneId = {}]", zoneId);
                 }
             });
         } finally {
