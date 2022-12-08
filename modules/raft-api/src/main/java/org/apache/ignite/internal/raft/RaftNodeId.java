@@ -22,36 +22,36 @@ import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.tostring.S;
 
 /**
- * Class that is used to uniquely identify a locally hosted Raft group.
+ * Raft node identifier, consists of a Raft group ID and a Peer ID.
  */
-public class RaftGroupId {
-    private final ReplicationGroupId replicationGroupId;
+public class RaftNodeId {
+    private final ReplicationGroupId groupId;
 
-    private final Peer serverPeer;
+    private final Peer peer;
 
     /**
      * Creates an instance.
      *
-     * @param replicationGroupId Raft group name.
-     * @param serverPeer Local peer running a Raft node.
+     * @param groupId Raft group name.
+     * @param peer Peer running a Raft node.
      */
-    public RaftGroupId(ReplicationGroupId replicationGroupId, Peer serverPeer) {
-        this.replicationGroupId = replicationGroupId;
-        this.serverPeer = Objects.requireNonNull(serverPeer);
+    public RaftNodeId(ReplicationGroupId groupId, Peer peer) {
+        this.groupId = groupId;
+        this.peer = Objects.requireNonNull(peer);
     }
 
     /**
-     * Return the name of this Raft group.
+     * Return the ID of this Raft group.
      */
-    public ReplicationGroupId replicationGroupId() {
-        return replicationGroupId;
+    public ReplicationGroupId groupId() {
+        return groupId;
     }
 
     /**
-     * Returns the local peer running a Raft node.
+     * Returns the peer running a Raft node.
      */
-    public Peer serverPeer() {
-        return serverPeer;
+    public Peer peer() {
+        return peer;
     }
 
     @Override
@@ -63,23 +63,23 @@ public class RaftGroupId {
             return false;
         }
 
-        RaftGroupId that = (RaftGroupId) o;
+        RaftNodeId that = (RaftNodeId) o;
 
-        if (!replicationGroupId.equals(that.replicationGroupId)) {
+        if (!groupId.equals(that.groupId)) {
             return false;
         }
-        return serverPeer.equals(that.serverPeer);
+        return peer.equals(that.peer);
     }
 
     @Override
     public int hashCode() {
-        int result = replicationGroupId.hashCode();
-        result = 31 * result + serverPeer.hashCode();
+        int result = groupId.hashCode();
+        result = 31 * result + peer.hashCode();
         return result;
     }
 
     @Override
     public String toString() {
-        return S.toString(RaftGroupId.class, this);
+        return S.toString(RaftNodeId.class, this);
     }
 }

@@ -31,10 +31,11 @@ import org.jetbrains.annotations.Nullable;
  */
 public interface RaftManager extends IgniteComponent {
     /**
-     * Creates a raft group service providing operations on a raft group.
+     * Optionally starts a Raft node and creates a Raft group service providing operations on a Raft group.
      *
-     * @param groupId Raft group id.
-     * @param serverPeer Local peer that will host the Raft node. If {@code null} - no nodes will be started, but only the Raft client.
+     * @param groupId Raft group ID.
+     * @param serverPeer Local peer that will host the Raft node. If {@code null} - no nodes will be started, but only the Raft client
+     *      service.
      * @param configuration Peers and Learners of the Raft group.
      * @param lsnrSupplier Raft group listener supplier.
      * @return Future representing pending completion of the operation.
@@ -48,10 +49,11 @@ public interface RaftManager extends IgniteComponent {
     ) throws NodeStoppingException;
 
     /**
-     * Creates a raft group service providing operations on a raft group.
+     * Optionally starts a Raft node and creates a Raft group service providing operations on a Raft group.
      *
-     * @param groupId Raft group id.
-     * @param serverPeer Local peer that will host the Raft node. If {@code null} - no nodes will be started, but only the Raft client.
+     * @param groupId Raft group ID.
+     * @param serverPeer Local peer that will host the Raft node. If {@code null} - no nodes will be started, but only the Raft client
+     *     service.
      * @param configuration Peers and Learners of the Raft group.
      * @param lsnrSupplier Raft group listener supplier.
      * @param raftGrpEvtsLsnrSupplier Raft group events listener supplier.
@@ -69,27 +71,27 @@ public interface RaftManager extends IgniteComponent {
     /**
      * Stops a given local Raft node.
      *
-     * @param groupId Raft group id.
+     * @param nodeId Raft node ID.
      * @return {@code true} if the node has been stopped, {@code false} otherwise.
      * @throws NodeStoppingException If node stopping intention was detected.
      */
-    boolean stopRaftNode(RaftGroupId groupId) throws NodeStoppingException;
+    boolean stopRaftNode(RaftNodeId nodeId) throws NodeStoppingException;
 
     /**
      * Stops all local nodes running the given Raft group.
      *
-     * @param replicationGroupId Raft group name.
+     * @param groupId Raft group ID.
      * @return {@code true} if at least one node has been stopped, {@code false} otherwise.
      * @throws NodeStoppingException If node stopping intention was detected.
      */
-    boolean stopRaftNodes(ReplicationGroupId replicationGroupId) throws NodeStoppingException;
+    boolean stopRaftNodes(ReplicationGroupId groupId) throws NodeStoppingException;
 
     /**
-     * Creates and starts a raft group service providing operations on a raft group.
+     * Creates a Raft group service providing operations on a Raft group.
      *
-     * @param groupId Raft group id.
+     * @param groupId Raft group ID.
      * @param configuration Peers and Learners of the Raft group.
-     * @return Future that will be completed with an instance of RAFT group service.
+     * @return Future that will be completed with an instance of a Raft group service.
      * @throws NodeStoppingException If node stopping intention was detected.
      */
     CompletableFuture<RaftGroupService> startRaftGroupService(

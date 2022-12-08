@@ -24,6 +24,8 @@ import org.apache.ignite.internal.tostring.S;
  * A participant of a replication group.
  */
 public final class Peer implements Serializable {
+    private static final long serialVersionUID = 6140534113821565486L;
+
     /**
      * Node consistent ID.
      */
@@ -35,17 +37,12 @@ public final class Peer implements Serializable {
     private final int idx;
 
     /**
-     * Peer's local priority value, if node don't support priority election, this value is {@link ElectionPriority#DISABLED}.
-     */
-    private final int priority;
-
-    /**
      * Constructor.
      *
      * @param consistentId Consistent ID of a node.
      */
     public Peer(String consistentId) {
-        this(consistentId, 0, ElectionPriority.DISABLED);
+        this(consistentId, 0);
     }
 
     /**
@@ -55,20 +52,8 @@ public final class Peer implements Serializable {
      * @param idx Peer index.
      */
     public Peer(String consistentId, int idx) {
-        this(consistentId, idx, ElectionPriority.DISABLED);
-    }
-
-    /**
-     * Constructor.
-     *
-     * @param consistentId Consistent ID of a node.
-     * @param idx Peer index.
-     * @param priority Election priority.
-     */
-    public Peer(String consistentId, int idx, int priority) {
         this.consistentId = consistentId;
         this.idx = idx;
-        this.priority = priority;
     }
 
     /**
@@ -85,13 +70,6 @@ public final class Peer implements Serializable {
         return idx;
     }
 
-    /**
-     * Returns election priority.
-     */
-    public int priority() {
-        return priority;
-    }
-
     @Override
     public boolean equals(Object o) {
         if (this == o) {
@@ -106,9 +84,6 @@ public final class Peer implements Serializable {
         if (idx != peer.idx) {
             return false;
         }
-        if (priority != peer.priority) {
-            return false;
-        }
         return consistentId.equals(peer.consistentId);
     }
 
@@ -116,7 +91,6 @@ public final class Peer implements Serializable {
     public int hashCode() {
         int result = consistentId.hashCode();
         result = 31 * result + idx;
-        result = 31 * result + priority;
         return result;
     }
 

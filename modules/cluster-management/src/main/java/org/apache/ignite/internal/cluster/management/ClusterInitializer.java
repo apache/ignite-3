@@ -85,24 +85,24 @@ public class ClusterInitializer {
         }
 
         try {
-            metaStorageNodeNames = metaStorageNodeNames.stream().map(String::trim).collect(toUnmodifiableSet());
+            Set<String> msNodeNameSet = metaStorageNodeNames.stream().map(String::trim).collect(toUnmodifiableSet());
 
-            cmgNodeNames = cmgNodeNames.isEmpty()
-                    ? metaStorageNodeNames
+            Set<String> cmgNodeNameSet = cmgNodeNames.isEmpty()
+                    ? msNodeNameSet
                     : cmgNodeNames.stream().map(String::trim).collect(toUnmodifiableSet());
 
             // check that provided Meta Storage nodes are present in the topology
-            List<ClusterNode> msNodes = resolveNodes(clusterService, metaStorageNodeNames);
+            List<ClusterNode> msNodes = resolveNodes(clusterService, msNodeNameSet);
 
             LOG.info("Resolved MetaStorage nodes[nodes={}]", msNodes);
 
-            List<ClusterNode> cmgNodes = resolveNodes(clusterService, cmgNodeNames);
+            List<ClusterNode> cmgNodes = resolveNodes(clusterService, cmgNodeNameSet);
 
             LOG.info("Resolved CMG nodes[nodes={}]", cmgNodes);
 
             CmgInitMessage initMessage = msgFactory.cmgInitMessage()
-                    .metaStorageNodes(Set.copyOf(metaStorageNodeNames))
-                    .cmgNodes(Set.copyOf(cmgNodeNames))
+                    .metaStorageNodes(msNodeNameSet)
+                    .cmgNodes(cmgNodeNameSet)
                     .clusterName(clusterName)
                     .build();
 

@@ -35,8 +35,8 @@ import java.util.function.Consumer;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.PeersAndLearners;
-import org.apache.ignite.internal.raft.RaftGroupId;
 import org.apache.ignite.internal.raft.RaftGroupServiceImpl;
+import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
@@ -136,10 +136,8 @@ public abstract class JraftAbstractTest extends RaftServerAbstractTest {
 
             iterSrv.remove();
 
-            Set<RaftGroupId> grps = server.startedGroups();
-
-            for (RaftGroupId grp : grps) {
-                server.stopRaftNode(grp);
+            for (RaftNodeId nodeId : server.localNodes()) {
+                server.stopRaftNode(nodeId);
             }
 
             server.beforeNodeStop();

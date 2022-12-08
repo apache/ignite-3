@@ -115,8 +115,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
      * @param cluster A cluster.
      * @param factory A message factory.
      * @param timeout Request timeout.
-     * @param peers Initial peers list.
-     * @param learners Initial learners list.
+     * @param configuration Raft members configuration.
      * @param leader Group leader.
      * @param retryDelay Retry delay.
      * @param executor Executor for retrying requests.
@@ -127,15 +126,14 @@ public class RaftGroupServiceImpl implements RaftGroupService {
             RaftMessagesFactory factory,
             int timeout,
             int rpcTimeout,
-            Collection<Peer> peers,
-            Collection<Peer> learners,
+            PeersAndLearners configuration,
             @Nullable Peer leader,
             long retryDelay,
             ScheduledExecutorService executor
     ) {
         this.cluster = cluster;
-        this.peers = List.copyOf(peers);
-        this.learners = List.copyOf(learners);
+        this.peers = List.copyOf(configuration.peers());
+        this.learners = List.copyOf(configuration.learners());
         this.factory = factory;
         this.timeout = timeout;
         this.rpcTimeout = rpcTimeout;
@@ -154,7 +152,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
      * @param factory Message factory.
      * @param timeout Timeout.
      * @param rpcTimeout Network call timeout.
-     * @param configuration Raft peer configuration.
+     * @param configuration Raft members configuration.
      * @param getLeader {@code True} to get the group's leader upon service creation.
      * @param retryDelay Retry delay.
      * @param executor Executor for retrying requests.
@@ -177,8 +175,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                 factory,
                 timeout,
                 rpcTimeout,
-                configuration.peers(),
-                configuration.learners(),
+                configuration,
                 null,
                 retryDelay,
                 executor
@@ -501,7 +498,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     /**
      * Retries a request until success or timeout.
      *
-     * @param peer Target peer.
+     * @param peer Initial target peer, request can be sent to a random peer if the target peer is unavailable.
      * @param requestFactory Factory for creating requests to the target peer.
      * @param stopTime Stop time.
      * @param fut The future.
@@ -706,7 +703,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     private static @Nullable Peer parsePeer(@Nullable String peerId) {
         PeerId id = PeerId.parsePeer(peerId);
 
-        return id == null ? null : new Peer(id.getConsistentId(), id.getIdx(), id.getPriority());
+        return id == null ? null : new Peer(id.getConsistentId(), id.getIdx());
     }
 
     /**

@@ -57,7 +57,7 @@ import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorConfigurationSchema;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
-import org.apache.ignite.internal.raft.RaftGroupId;
+import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
@@ -295,15 +295,15 @@ public class ItRebalanceDistributedTest {
 
         var countDownLatch = new CountDownLatch(1);
 
-        RaftGroupId raftGroupNodeName = leaderNode.raftManager.server()
-                .startedGroups()
+        RaftNodeId partitionNodeId = leaderNode.raftManager.server()
+                .localNodes()
                 .stream()
-                .filter(grp -> grp.replicationGroupId().toString().contains("part"))
+                .filter(nodeId -> nodeId.groupId().toString().contains("part"))
                 .findFirst()
                 .orElseThrow();
 
         ((JraftServerImpl) leaderNode.raftManager.server()).blockMessages(
-                raftGroupNodeName, (msg, peerId) -> {
+                partitionNodeId, (msg, peerId) -> {
                     if (peerId.equals(newNode.name) && msg instanceof RpcRequests.PingRequest) {
                         countDownLatch.countDown();
 
@@ -321,7 +321,7 @@ public class ItRebalanceDistributedTest {
 
         nonLeaderTable.internalTable().partitionRaftGroupService(0).transferLeadership(new Peer(nonLeaderNodeConsistentId)).get();
 
-        ((JraftServerImpl) leaderNode.raftManager.server()).stopBlockMessages(raftGroupNodeName);
+        ((JraftServerImpl) leaderNode.raftManager.server()).stopBlockMessages(partitionNodeId);
 
         waitPartitionAssignmentsSyncedToExpected(0, 3);
 
@@ -354,17 +354,17 @@ public class ItRebalanceDistributedTest {
         waitPartitionAssignmentsSyncedToExpected(0, 1);
 
         JraftServerImpl raftServer = (JraftServerImpl) nodes.stream()
-                .filter(n -> n.raftManager.startedGroups().stream().anyMatch(grp -> grp.toString().contains("_part_"))).findFirst()
+                .filter(n -> n.raftManager.localNodes().stream().anyMatch(grp -> grp.toString().contains("_part_"))).findFirst()
                 .get().raftManager.server();
 
         AtomicInteger counter = new AtomicInteger(0);
 
-        RaftGroupId partGrpId = raftServer.startedGroups().stream()
+        RaftNodeId partitionNodeId = raftServer.localNodes().stream()
                 .filter(grp -> grp.toString().contains("_part_"))
                 .findFirst()
                 .orElseThrow();
 
-        raftServer.blockMessages(partGrpId, (msg, peerId) -> {
+        raftServer.blockMessages(partitionNodeId, (msg, peerId) -> {
             if (msg instanceof RpcRequests.PingRequest) {
                 // We block ping request to prevent starting replicator, hence we fail catch up and fail rebalance.
                 assertEquals(1, getPartitionClusterNodes(0, 0).size());

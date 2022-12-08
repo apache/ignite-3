@@ -246,7 +246,7 @@ public class ItRaftGroupServiceTest extends IgniteAbstractTest {
                             : (AutoCloseable) () -> raftGroupService.get(1, TimeUnit.SECONDS).shutdown()
             );
 
-            Stream<AutoCloseable> stopRaftGroups = loza.startedGroups().stream().map(id -> () -> loza.stopRaftNode(id));
+            Stream<AutoCloseable> stopRaftGroups = loza.localNodes().stream().map(id -> () -> loza.stopRaftNode(id));
 
             Stream<AutoCloseable> beforeNodeStop = Stream.of(loza::beforeNodeStop, clusterService::beforeNodeStop);
 

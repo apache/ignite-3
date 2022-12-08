@@ -32,8 +32,8 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
-import org.apache.ignite.internal.raft.RaftGroupId;
 import org.apache.ignite.internal.raft.RaftGroupServiceImpl;
+import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
@@ -107,10 +107,10 @@ class ItSimpleCounterServerTest extends RaftServerAbstractTest {
         Peer serverPeer = configuration.peer(serverNodeName);
 
         assertTrue(
-                server.startRaftGroup(new RaftGroupId(COUNTER_GROUP_ID_0, serverPeer), configuration, new CounterListener(), defaults())
+                server.startRaftNode(new RaftNodeId(COUNTER_GROUP_ID_0, serverPeer), configuration, new CounterListener(), defaults())
         );
         assertTrue(
-                server.startRaftGroup(new RaftGroupId(COUNTER_GROUP_ID_1, serverPeer), configuration, new CounterListener(), defaults())
+                server.startRaftNode(new RaftNodeId(COUNTER_GROUP_ID_1, serverPeer), configuration, new CounterListener(), defaults())
         );
 
         ClusterService clientNode1 = clusterService(PORT + 1, List.of(addr), true);

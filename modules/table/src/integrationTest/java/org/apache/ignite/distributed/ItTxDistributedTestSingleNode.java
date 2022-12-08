@@ -53,8 +53,8 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
-import org.apache.ignite.internal.raft.RaftGroupId;
 import org.apache.ignite.internal.raft.RaftGroupServiceImpl;
+import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
@@ -538,16 +538,12 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
             ReplicaManager replicaMgr = replicaManagers.get(entry.getKey());
 
-            Set<ReplicationGroupId> replicaGrps = replicaMgr.startedGroups();
-
-            for (ReplicationGroupId grp : replicaGrps) {
+            for (ReplicationGroupId grp : replicaMgr.startedGroups()) {
                 replicaMgr.stopReplica(grp);
             }
 
-            Set<RaftGroupId> grps = rs.startedGroups();
-
-            for (RaftGroupId grp : grps) {
-                rs.stopRaftNode(grp);
+            for (RaftNodeId nodeId : rs.localNodes()) {
+                rs.stopRaftNode(nodeId);
             }
 
             replicaMgr.stop();
@@ -618,7 +614,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
             Peer serverPeer = server.localPeers(groupId).get(0);
 
-            org.apache.ignite.raft.jraft.RaftGroupService grp = server.raftGroupService(new RaftGroupId(groupId, serverPeer));
+            org.apache.ignite.raft.jraft.RaftGroupService grp = server.raftGroupService(new RaftNodeId(groupId, serverPeer));
 
             var fsm = (JraftServerImpl.DelegatingStateMachine) grp.getRaftNode().getOptions().getFsm();
 

@@ -50,6 +50,10 @@ public class PeersAndLearners {
 
     /**
      * Creates an instance using peers and learners represented as their consistent IDs.
+     *
+     * <p>The main purpose of this method is to assign correct indices to Raft nodes when a peer and a learner are started on the same
+     * Ignite node. In this case {@code Peer} instances will have the same consistent IDs, but the learner will have an index equal to 1
+     * (having more than one peer and one learner running on the same node is currently prohibited).
      */
     public static PeersAndLearners fromConsistentIds(Set<String> peerNames, Set<String> learnerNames) {
         Set<Peer> peers = peerNames.stream().map(Peer::new).collect(toUnmodifiableSet());

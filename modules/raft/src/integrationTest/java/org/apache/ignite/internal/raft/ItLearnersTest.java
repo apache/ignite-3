@@ -167,7 +167,7 @@ public class ItLearnersTest extends IgniteAbstractTest {
 
         PeersAndLearners configuration = createConfiguration(List.of(follower), learners);
 
-        List<Peer> serverPeers = getPeers(configuration, List.of(follower), learners);
+        List<Peer> serverPeers = nodesToPeers(configuration, List.of(follower), learners);
 
         List<CompletableFuture<RaftGroupService>> services = IntStream.range(0, nodes.size())
                 .mapToObj(i -> startRaftGroup(nodes.get(i), serverPeers.get(i), configuration, listeners.get(i)))
@@ -247,7 +247,7 @@ public class ItLearnersTest extends IgniteAbstractTest {
 
         PeersAndLearners configuration = createConfiguration(List.of(follower), learners);
 
-        List<Peer> serverPeers = getPeers(configuration, List.of(follower), learners);
+        List<Peer> serverPeers = nodesToPeers(configuration, List.of(follower), learners);
 
         List<CompletableFuture<RaftGroupService>> services = IntStream.range(0, nodes.size())
                 .mapToObj(i -> startRaftGroup(nodes.get(i), serverPeers.get(i), configuration, new TestRaftGroupListener()))
@@ -274,7 +274,7 @@ public class ItLearnersTest extends IgniteAbstractTest {
 
         PeersAndLearners configuration = createConfiguration(List.of(follower), learners);
 
-        List<Peer> serverPeers = getPeers(configuration, List.of(follower), learners);
+        List<Peer> serverPeers = nodesToPeers(configuration, List.of(follower), learners);
 
         List<CompletableFuture<RaftGroupService>> services = IntStream.range(0, nodes.size())
                 .mapToObj(i -> startRaftGroup(nodes.get(i), serverPeers.get(i), configuration, new TestRaftGroupListener()))
@@ -329,10 +329,10 @@ public class ItLearnersTest extends IgniteAbstractTest {
     }
 
     /**
-     * Tests adding a new learner to a node that already runs a Raft node.
+     * Tests adding a new learner using {@link RaftGroupService#changePeersAsync} to an Ignite node that is already running a Raft peer.
      */
     @Test
-    void testAddLearnerToSameNodeAsPeer() throws InterruptedException {
+    void testChangePeersToAddLearnerToSameNodeAsPeer() throws InterruptedException {
         List<RaftNode> followers = nodes.subList(0, 2);
         RaftNode learner = nodes.get(0);
 
@@ -387,7 +387,7 @@ public class ItLearnersTest extends IgniteAbstractTest {
         );
     }
 
-    private List<Peer> getPeers(PeersAndLearners configuration, Collection<RaftNode> peers, Collection<RaftNode> learners) {
+    private List<Peer> nodesToPeers(PeersAndLearners configuration, Collection<RaftNode> peers, Collection<RaftNode> learners) {
         return Stream.concat(
                 peers.stream().map(peer -> configuration.peer(peer.consistentId())),
                 learners.stream().map(learner -> configuration.learner(learner.consistentId()))

@@ -44,8 +44,8 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.PeersAndLearners;
-import org.apache.ignite.internal.raft.RaftGroupId;
 import org.apache.ignite.internal.raft.RaftGroupServiceImpl;
+import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -201,10 +201,10 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
                 .findAny()
                 .orElseThrow();
 
-        var raftGroupId = new RaftGroupId(raftGroupId(), toStop.localPeers(raftGroupId()).get(0));
+        var nodeId = new RaftNodeId(raftGroupId(), toStop.localPeers(raftGroupId()).get(0));
 
         // Get the path to that node's raft directory
-        Path serverDataPath = toStop.getServerDataPath(raftGroupId);
+        Path serverDataPath = toStop.getServerDataPath(nodeId);
 
         // Get the path to that node's RocksDB key-value storage
         Path dbPath = getListenerPersistencePath(getListener(toStop, raftGroupId()));
@@ -215,7 +215,7 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
         servers.remove(stopIdx);
 
         // Shutdown that node
-        toStop.stopRaftNode(raftGroupId);
+        toStop.stopRaftNode(nodeId);
         toStop.beforeNodeStop();
         toStop.stop();
 
@@ -316,9 +316,9 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
      * @return Raft group listener.
      */
     protected T getListener(JraftServerImpl server, TestReplicationGroupId grpId) {
-        var raftGroupId = new RaftGroupId(grpId, server.localPeers(grpId).get(0));
+        var nodeId = new RaftNodeId(grpId, server.localPeers(grpId).get(0));
 
-        org.apache.ignite.raft.jraft.RaftGroupService svc = server.raftGroupService(raftGroupId);
+        org.apache.ignite.raft.jraft.RaftGroupService svc = server.raftGroupService(nodeId);
 
         JraftServerImpl.DelegatingStateMachine fsm =
                 (JraftServerImpl.DelegatingStateMachine) svc.getRaftNode().getOptions().getFsm();
@@ -395,8 +395,8 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
 
         servers.add(server);
 
-        server.startRaftGroup(
-                new RaftGroupId(raftGroupId(), initialConf.peer(service.topologyService().localMember().name())),
+        server.startRaftNode(
+                new RaftNodeId(raftGroupId(), initialConf.peer(service.topologyService().localMember().name())),
                 initialConf,
                 createListener(service, listenerPersistencePath),
                 defaults()

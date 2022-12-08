@@ -57,7 +57,7 @@ class RaftGroupEventsListenerAdapter implements JraftGroupEventsListener {
 
     private static Set<Peer> peerIdsToPeers(Collection<PeerId> ids) {
         return ids.stream()
-                .map(id -> new Peer(id.getConsistentId(), id.getIdx(), id.getPriority()))
+                .map(id -> new Peer(id.getConsistentId(), id.getIdx()))
                 .collect(toUnmodifiableSet());
     }
 

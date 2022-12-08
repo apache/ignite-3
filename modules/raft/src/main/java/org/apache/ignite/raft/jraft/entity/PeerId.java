@@ -269,6 +269,6 @@ public class PeerId implements Copiable<PeerId>, Serializable, Checksum {
         if (p == null)
             return null;
         else
-            return new PeerId(p.consistentId(), p.idx(), p.priority());
+            return new PeerId(p.consistentId(), p.idx());
     }
 }

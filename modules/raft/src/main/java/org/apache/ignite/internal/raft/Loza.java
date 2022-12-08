@@ -187,10 +187,11 @@ public class Loza implements RaftManager {
     }
 
     /**
-     * Creates a raft group service providing operations on a raft group. If {@code peerConsistentIds} or {@code learnerConsistentIds}
-     * contains the current node, then raft group starts on the current node.
+     * Optionally starts a Raft node and creates a Raft group service providing operations on a Raft group.
      *
-     * @param groupId Raft group id.
+     * @param groupId Raft group ID.
+     * @param serverPeer Local peer that will host the Raft node. If {@code null} - no nodes will be started, but only the Raft client
+     *      service.
      * @param configuration Peers and Learners of the Raft group.
      * @param lsnrSupplier Raft group listener supplier.
      * @param raftGrpEvtsLsnrSupplier Raft group events listener supplier.
@@ -198,9 +199,9 @@ public class Loza implements RaftManager {
      * @return Future representing pending completion of the operation.
      * @throws NodeStoppingException If node stopping intention was detected.
      */
-    public CompletableFuture<RaftGroupService> prepareRaftGroup(
+    private CompletableFuture<RaftGroupService> prepareRaftGroup(
             ReplicationGroupId groupId,
-            @Nullable Peer localMember,
+            @Nullable Peer serverPeer,
             PeersAndLearners configuration,
             Supplier<RaftGroupListener> lsnrSupplier,
             Supplier<RaftGroupEventsListener> raftGrpEvtsLsnrSupplier,
@@ -211,43 +212,22 @@ public class Loza implements RaftManager {
         }
 
         try {
-            return prepareRaftGroupInternal(groupId, localMember, configuration, lsnrSupplier, raftGrpEvtsLsnrSupplier, groupOptions);
+            if (serverPeer != null) {
+                var nodeId = new RaftNodeId(groupId, serverPeer);
+
+                startRaftGroupNodeInternal(nodeId, configuration, lsnrSupplier.get(), raftGrpEvtsLsnrSupplier.get(), groupOptions);
+            }
+
+            return startRaftGroupServiceInternal(groupId, configuration);
         } finally {
             busyLock.leaveBusy();
         }
     }
 
     /**
-     * Internal method to a raft group creation.
+     * Starts a Raft group on the current node.
      *
-     * @param groupId Raft group id.
-     * @param configuration Peers and Learners of the Raft group.
-     * @param lsnrSupplier Raft group listener supplier.
-     * @param eventsLsnrSupplier Raft group events listener supplier.
-     * @param groupOptions Options to apply to the group.
-     * @return Future representing pending completion of the operation.
-     */
-    private CompletableFuture<RaftGroupService> prepareRaftGroupInternal(
-            ReplicationGroupId groupId,
-            @Nullable Peer localMember,
-            PeersAndLearners configuration,
-            Supplier<RaftGroupListener> lsnrSupplier,
-            Supplier<RaftGroupEventsListener> eventsLsnrSupplier,
-            RaftGroupOptions groupOptions
-    ) {
-        if (localMember != null) {
-            var raftGroupId = new RaftGroupId(groupId, localMember);
-
-            startRaftGroupNodeInternal(raftGroupId, configuration, lsnrSupplier.get(), eventsLsnrSupplier.get(), groupOptions);
-        }
-
-        return startRaftGroupServiceInternal(groupId, configuration);
-    }
-
-    /**
-     * Start RAFT group on the current node.
-     *
-     * @param groupId Raft group id.
+     * @param nodeId Raft node ID.
      * @param configuration Peers and Learners of the Raft group.
      * @param lsnr Raft group listener.
      * @param eventsLsnr Raft group events listener.
@@ -255,7 +235,7 @@ public class Loza implements RaftManager {
      * @throws NodeStoppingException If node stopping intention was detected.
      */
     public void startRaftGroupNode(
-            RaftGroupId groupId,
+            RaftNodeId nodeId,
             PeersAndLearners configuration,
             RaftGroupListener lsnr,
             RaftGroupEventsListener eventsLsnr,
@@ -266,20 +246,12 @@ public class Loza implements RaftManager {
         }
 
         try {
-            startRaftGroupNodeInternal(groupId, configuration, lsnr, eventsLsnr, groupOptions);
+            startRaftGroupNodeInternal(nodeId, configuration, lsnr, eventsLsnr, groupOptions);
         } finally {
             busyLock.leaveBusy();
         }
     }
 
-    /**
-     * Creates and starts a raft group service providing operations on a raft group.
-     *
-     * @param groupId RAFT group id.
-     * @param configuration Peers and Learners of the Raft group.
-     * @return Future that will be completed with an instance of RAFT group service.
-     * @throws NodeStoppingException If node stopping intention was detected.
-     */
     @Override
     public CompletableFuture<RaftGroupService> startRaftGroupService(
             ReplicationGroupId groupId,
@@ -297,22 +269,22 @@ public class Loza implements RaftManager {
     }
 
     private void startRaftGroupNodeInternal(
-            RaftGroupId groupId,
+            RaftNodeId nodeId,
             PeersAndLearners configuration,
             RaftGroupListener lsnr,
             RaftGroupEventsListener raftGrpEvtsLsnr,
             RaftGroupOptions groupOptions
     ) {
         if (LOG.isInfoEnabled()) {
-            LOG.info("Start new raft node for group={} with initial peers={}", groupId, configuration);
+            LOG.info("Start new raft node={} with initial configuration={}", nodeId, configuration);
         }
 
-        boolean started = raftServer.startRaftGroup(groupId, configuration, raftGrpEvtsLsnr, lsnr, groupOptions);
+        boolean started = raftServer.startRaftNode(nodeId, configuration, raftGrpEvtsLsnr, lsnr, groupOptions);
 
         if (!started) {
             throw new IgniteInternalException(IgniteStringFormatter.format(
-                    "Raft group on the node is already started [raftGrp={}]",
-                    groupId
+                    "Raft group on the node is already started [nodeId={}]",
+                    nodeId
             ));
         }
     }
@@ -332,7 +304,24 @@ public class Loza implements RaftManager {
     }
 
     @Override
-    public boolean stopRaftNode(RaftGroupId groupId) throws NodeStoppingException {
+    public boolean stopRaftNode(RaftNodeId nodeId) throws NodeStoppingException {
+        if (!busyLock.enterBusy()) {
+            throw new NodeStoppingException();
+        }
+
+        try {
+            if (LOG.isInfoEnabled()) {
+                LOG.info("Stop raft node={}", nodeId);
+            }
+
+            return raftServer.stopRaftNode(nodeId);
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    @Override
+    public boolean stopRaftNodes(ReplicationGroupId groupId) throws NodeStoppingException {
         if (!busyLock.enterBusy()) {
             throw new NodeStoppingException();
         }
@@ -342,24 +331,7 @@ public class Loza implements RaftManager {
                 LOG.info("Stop raft group={}", groupId);
             }
 
-            return raftServer.stopRaftNode(groupId);
-        } finally {
-            busyLock.leaveBusy();
-        }
-    }
-
-    @Override
-    public boolean stopRaftNodes(ReplicationGroupId replicationGroupId) throws NodeStoppingException {
-        if (!busyLock.enterBusy()) {
-            throw new NodeStoppingException();
-        }
-
-        try {
-            if (LOG.isInfoEnabled()) {
-                LOG.info("Stop raft group={}", replicationGroupId);
-            }
-
-            return raftServer.stopRaftNodes(replicationGroupId);
+            return raftServer.stopRaftNodes(groupId);
         } finally {
             busyLock.leaveBusy();
         }
@@ -408,12 +380,12 @@ public class Loza implements RaftManager {
     }
 
     /**
-     * Returns started groups.
+     * Returns a set of locally running Raft nodes.
      *
-     * @return Started groups.
+     * @return Set of Raft node IDs (can be empty if no local Raft nodes have been started).
      */
     @TestOnly
-    public Set<RaftGroupId> startedGroups() {
-        return raftServer.startedGroups();
+    public Set<RaftNodeId> localNodes() {
+        return raftServer.localNodes();
     }
 }

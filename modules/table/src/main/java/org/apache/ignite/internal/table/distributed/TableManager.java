@@ -91,8 +91,8 @@ import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
-import org.apache.ignite.internal.raft.RaftGroupId;
 import org.apache.ignite.internal.raft.RaftManager;
+import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.ReplicationGroupOptions;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.service.LeaderWithTerm;
@@ -703,7 +703,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         .findAny()
                         .orElse(null);
 
-                PeersAndLearners newConfiguration = parseRaftConfiguration(newPartAssignment);
+                PeersAndLearners newConfiguration = configurationFromAssignments(newPartAssignment);
 
                 TablePartitionId replicaGrpId = new TablePartitionId(tblId, partId);
 
@@ -765,12 +765,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                                         Peer serverPeer = newConfiguration.peer(localMemberName);
 
-                                        var raftGroupId = new RaftGroupId(replicaGrpId, serverPeer);
+                                        var raftNodeId = new RaftNodeId(replicaGrpId, serverPeer);
 
                                         try {
                                             // TODO: use RaftManager interface, see https://issues.apache.org/jira/browse/IGNITE-18273
                                             ((Loza) raftMgr).startRaftGroupNode(
-                                                    raftGroupId,
+                                                    raftNodeId,
                                                     newConfiguration,
                                                     new PartitionListener(
                                                             partitionDataStorage(mvPartitionStorage, internalTbl, partId),
@@ -1797,7 +1797,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     // Assignments of the pending rebalance that we received through the meta storage watch mechanism.
                     Set<Assignment> pendingAssignments = ByteUtils.fromBytes(pendingAssignmentsWatchEvent.value());
 
-                    PeersAndLearners pendingConfiguration = parseRaftConfiguration(pendingAssignments);
+                    PeersAndLearners pendingConfiguration = configurationFromAssignments(pendingAssignments);
 
                     TableImpl tbl = tablesByIdVv.latest().get(tblId);
 
@@ -1812,7 +1812,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             ? ((List<Set<Assignment>>) ByteUtils.fromBytes(tblCfg.assignments().value())).get(partId)
                             : ByteUtils.fromBytes(stableAssignmentsBytes);
 
-                    PeersAndLearners stableConfiguration = parseRaftConfiguration(stableAssignments);
+                    PeersAndLearners stableConfiguration = configurationFromAssignments(stableAssignments);
 
                     placementDriver.updateAssignment(
                             replicaGrpId,
@@ -1867,12 +1867,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                         Peer serverPeer = pendingConfiguration.peer(localMember.name());
 
-                        var raftGroupId = new RaftGroupId(replicaGrpId, serverPeer);
+                        var raftNodeId = new RaftNodeId(replicaGrpId, serverPeer);
 
                         try {
                             // TODO: use RaftManager interface, see https://issues.apache.org/jira/browse/IGNITE-18273
                             ((Loza) raftMgr).startRaftGroupNode(
-                                    raftGroupId,
+                                    raftNodeId,
                                     stableConfiguration,
                                     raftGrpLsnr,
                                     raftGrpEvtsLsnr,
@@ -2095,7 +2095,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         return CompletableFuture.supplyAsync(() -> getOrCreateTxStateStorage(txStateTableStorage, partId), ioExecutor);
     }
 
-    private static PeersAndLearners parseRaftConfiguration(Collection<Assignment> assignments) {
+    private static PeersAndLearners configurationFromAssignments(Collection<Assignment> assignments) {
         var peers = new HashSet<String>();
         var learners = new HashSet<String>();
 

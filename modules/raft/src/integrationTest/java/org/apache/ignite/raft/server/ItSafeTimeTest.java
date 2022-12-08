@@ -27,7 +27,7 @@ import org.apache.ignite.internal.TestHybridClock;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.raft.Peer;
-import org.apache.ignite.internal.raft.RaftGroupId;
+import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.ReplicationGroupOptions;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
@@ -70,9 +70,9 @@ public class ItSafeTimeTest extends JraftAbstractTest {
                         RaftGroupOptions groupOptions = defaults()
                                 .replicationGroupOptions(new ReplicationGroupOptions().safeTime(safeTime));
 
-                        var raftGroupId = new RaftGroupId(RAFT_GROUP_ID, initialConf.peer(localMemberName));
+                        var nodeId = new RaftNodeId(RAFT_GROUP_ID, initialConf.peer(localMemberName));
 
-                        raftServer.startRaftGroup(raftGroupId, initialConf, new CounterListener(), groupOptions);
+                        raftServer.startRaftNode(nodeId, initialConf, new CounterListener(), groupOptions);
                     },
                     opts -> {
                         opts.setClock(clock);
