@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.NoSuchElementException;
+import java.util.function.Function;
 import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
@@ -33,6 +34,7 @@ import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexRowImpl;
+import org.apache.ignite.internal.storage.index.PeekCursor;
 import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbMvPartitionStorage;
@@ -93,7 +95,7 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
     public Cursor<RowId> get(BinaryTuple key) throws StorageException {
         BinaryTuplePrefix keyPrefix = BinaryTuplePrefix.fromBinaryTuple(key);
 
-        return map(scan(keyPrefix, keyPrefix, true, true), this::decodeRowId);
+        return scan(keyPrefix, keyPrefix, true, true, this::decodeRowId);
     }
 
     @Override
@@ -119,18 +121,19 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
     }
 
     @Override
-    public Cursor<IndexRow> scan(@Nullable BinaryTuplePrefix lowerBound, @Nullable BinaryTuplePrefix upperBound, int flags) {
+    public PeekCursor<IndexRow> scan(@Nullable BinaryTuplePrefix lowerBound, @Nullable BinaryTuplePrefix upperBound, int flags) {
         boolean includeLower = (flags & GREATER_OR_EQUAL) != 0;
         boolean includeUpper = (flags & LESS_OR_EQUAL) != 0;
 
-        return map(scan(lowerBound, upperBound, includeLower, includeUpper), this::decodeRow);
+        return scan(lowerBound, upperBound, includeLower, includeUpper, this::decodeRow);
     }
 
-    private Cursor<ByteBuffer> scan(
+    private <T> PeekCursor<T> scan(
             @Nullable BinaryTuplePrefix lowerBound,
             @Nullable BinaryTuplePrefix upperBound,
             boolean includeLower,
-            boolean includeUpper
+            boolean includeUpper,
+            Function<ByteBuffer, T> mapper
     ) {
         byte[] lowerBoundBytes;
 
@@ -158,17 +161,21 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
             }
         }
 
-        return createScanCursor(lowerBoundBytes, upperBoundBytes);
+        return createScanCursor(lowerBoundBytes, upperBoundBytes, mapper);
     }
 
-    private Cursor<ByteBuffer> createScanCursor(byte @Nullable [] lowerBound, byte @Nullable [] upperBound) {
+    private <T> PeekCursor<T> createScanCursor(
+            byte @Nullable [] lowerBound,
+            byte @Nullable [] upperBound,
+            Function<ByteBuffer, T> mapper
+    ) {
         Slice upperBoundSlice = upperBound == null ? new Slice(partitionStorage.partitionEndPrefix()) : new Slice(upperBound);
 
         ReadOptions options = new ReadOptions().setIterateUpperBound(upperBoundSlice);
 
         RocksIterator it = indexCf.newIterator(options);
 
-        return new Cursor<>() {
+        return new PeekCursor<>() {
             @Nullable
             private Boolean hasNext;
 
@@ -191,7 +198,7 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
             }
 
             @Override
-            public ByteBuffer next() {
+            public T next() {
                 advanceIfNeeded();
 
                 boolean hasNext = this.hasNext;
@@ -202,7 +209,13 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
 
                 this.hasNext = null;
 
-                return ByteBuffer.wrap(key).order(ORDER);
+                return mapper.apply(ByteBuffer.wrap(key).order(ORDER));
+            }
+
+            @Override
+            public @Nullable T peek() {
+                // TODO: IGNITE-18243 реализовать
+                return null;
             }
 
             private void advanceIfNeeded() throws StorageException {

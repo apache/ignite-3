@@ -30,6 +30,7 @@ import org.apache.ignite.internal.storage.StorageClosedException;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexRowImpl;
+import org.apache.ignite.internal.storage.index.PeekCursor;
 import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns;
@@ -163,7 +164,7 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
     }
 
     @Override
-    public Cursor<IndexRow> scan(@Nullable BinaryTuplePrefix lowerBound, @Nullable BinaryTuplePrefix upperBound, int flags) {
+    public PeekCursor<IndexRow> scan(@Nullable BinaryTuplePrefix lowerBound, @Nullable BinaryTuplePrefix upperBound, int flags) {
         if (!closeBusyLock.enterBusy()) {
             throwStorageClosedException();
         }
@@ -272,7 +273,7 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
         };
     }
 
-    private class ScanCursor implements Cursor<IndexRow> {
+    private class ScanCursor implements PeekCursor<IndexRow> {
         @Nullable
         private Boolean hasNext;
 
@@ -335,6 +336,12 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
             } finally {
                 closeBusyLock.leaveBusy();
             }
+        }
+
+        @Override
+        public @Nullable IndexRow peek() {
+            // TODO: IGNITE-18243 реализовать
+            return null;
         }
 
         private void advanceIfNeeded() throws IgniteInternalCheckedException {

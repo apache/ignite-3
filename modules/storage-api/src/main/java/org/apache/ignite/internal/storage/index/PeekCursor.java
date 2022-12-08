@@ -25,7 +25,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public interface PeekCursor<T> extends Cursor<T> {
     /**
-     * Returns the next index row without advancing the cursor.
+     * Returns the next element without advancing the cursor, {@code null} if there is no next element.
      */
     @Nullable T peek();
 }

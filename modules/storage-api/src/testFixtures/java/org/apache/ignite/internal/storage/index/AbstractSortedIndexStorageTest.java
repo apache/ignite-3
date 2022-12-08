@@ -40,6 +40,8 @@ import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.hasSize;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -1231,6 +1233,228 @@ public abstract class AbstractSortedIndexStorageTest {
 
         assertFalse(scan.hasNext());
         assertThrows(NoSuchElementException.class, scan::next);
+    }
+
+    @Test
+    void testScanPeekForNotStartedCursor() {
+        SortedIndexDefinition indexDefinition = SchemaBuilders.sortedIndex("TEST_IDX")
+                .addIndexColumn(ColumnType.INT32.typeSpec().name()).asc().done()
+                .build();
+
+        SortedIndexStorage indexStorage = createIndexStorage(indexDefinition);
+
+        BinaryTupleRowSerializer serializer = new BinaryTupleRowSerializer(indexStorage.indexDescriptor());
+
+        RowId rowId0 = new RowId(TEST_PARTITION, 0, 0);
+        RowId rowId1 = new RowId(TEST_PARTITION, 0, 1);
+
+        PeekCursor<IndexRow> scan = indexStorage.scan(null, null, 0);
+
+        assertNull(scan.peek());
+
+        put(indexStorage, serializer.serializeRow(new Object[]{1}, rowId0));
+
+        IndexRow peek = scan.peek();
+
+        assertNotNull(peek);
+        assertEquals(1, serializer.deserializeColumns(peek)[0]);
+        assertEquals(rowId0, peek.rowId());
+
+        put(indexStorage, serializer.serializeRow(new Object[]{2}, rowId1));
+
+        peek = scan.peek();
+
+        assertNotNull(peek);
+        assertEquals(1, serializer.deserializeColumns(peek)[0]);
+        assertEquals(rowId0, peek.rowId());
+
+        put(indexStorage, serializer.serializeRow(new Object[]{0}, rowId1));
+
+        peek = scan.peek();
+
+        assertNotNull(peek);
+        assertEquals(0, serializer.deserializeColumns(peek)[0]);
+        assertEquals(rowId1, peek.rowId());
+
+        put(indexStorage, serializer.serializeRow(new Object[]{0}, rowId0));
+
+        peek = scan.peek();
+
+        assertNotNull(peek);
+        assertEquals(0, serializer.deserializeColumns(peek)[0]);
+        assertEquals(rowId0, peek.rowId());
+    }
+
+    @Test
+    void testScanPeekForFinishedCursor() {
+        SortedIndexDefinition indexDefinition = SchemaBuilders.sortedIndex("TEST_IDX")
+                .addIndexColumn(ColumnType.INT32.typeSpec().name()).asc().done()
+                .build();
+
+        SortedIndexStorage indexStorage = createIndexStorage(indexDefinition);
+
+        BinaryTupleRowSerializer serializer = new BinaryTupleRowSerializer(indexStorage.indexDescriptor());
+
+        RowId rowId0 = new RowId(TEST_PARTITION, 0, 0);
+        RowId rowId1 = new RowId(TEST_PARTITION, 0, 1);
+
+        put(indexStorage, serializer.serializeRow(new Object[]{0}, rowId0));
+
+        PeekCursor<IndexRow> scan = indexStorage.scan(null, null, 0);
+
+        assertNotNull(scan.next());
+
+        assertNull(scan.peek());
+
+        put(indexStorage, serializer.serializeRow(new Object[]{1}, rowId0));
+
+        IndexRow peek = scan.peek();
+
+        assertNotNull(peek);
+        assertEquals(1, serializer.deserializeColumns(peek)[0]);
+        assertEquals(rowId0, peek.rowId());
+
+        put(indexStorage, serializer.serializeRow(new Object[]{0}, rowId1));
+
+        peek = scan.peek();
+
+        assertNotNull(peek);
+        assertEquals(0, serializer.deserializeColumns(peek)[0]);
+        assertEquals(rowId1, peek.rowId());
+    }
+
+    @Test
+    void testScanPeekAddRowsOnly() {
+        SortedIndexDefinition indexDefinition = SchemaBuilders.sortedIndex("TEST_IDX")
+                .addIndexColumn(ColumnType.INT32.typeSpec().name()).asc().done()
+                .build();
+
+        SortedIndexStorage indexStorage = createIndexStorage(indexDefinition);
+
+        BinaryTupleRowSerializer serializer = new BinaryTupleRowSerializer(indexStorage.indexDescriptor());
+
+        RowId rowId0 = new RowId(TEST_PARTITION, 0, 0);
+        RowId rowId1 = new RowId(TEST_PARTITION, 0, 1);
+
+        PeekCursor<IndexRow> scan = indexStorage.scan(null, null, 0);
+
+        put(indexStorage, serializer.serializeRow(new Object[]{0}, rowId0));
+
+        // Got IndexRow[0, rowId0].
+        assertTrue(scan.hasNext());
+
+        assertNull(scan.peek());
+
+        put(indexStorage, serializer.serializeRow(new Object[]{0}, rowId1));
+
+        IndexRow peek = scan.peek();
+
+        assertNotNull(peek);
+        assertEquals(0, serializer.deserializeColumns(peek)[0]);
+        assertEquals(rowId1, peek.rowId());
+
+        IndexRow nextRow = scan.next();
+
+        assertNotNull(nextRow);
+        assertEquals(0, serializer.deserializeColumns(nextRow)[0]);
+        assertEquals(rowId0, nextRow.rowId());
+
+        peek = scan.peek();
+
+        assertNotNull(peek);
+        assertEquals(0, serializer.deserializeColumns(peek)[0]);
+        assertEquals(rowId1, peek.rowId());
+
+        put(indexStorage, serializer.serializeRow(new Object[]{1}, rowId0));
+
+        peek = scan.peek();
+
+        assertNotNull(peek);
+        assertEquals(0, serializer.deserializeColumns(peek)[0]);
+        assertEquals(rowId1, peek.rowId());
+
+        // Got IndexRow[0, rowId1].
+        assertTrue(scan.hasNext());
+
+        peek = scan.peek();
+
+        assertNotNull(peek);
+        assertEquals(1, serializer.deserializeColumns(peek)[0]);
+        assertEquals(rowId0, peek.rowId());
+
+        put(indexStorage, serializer.serializeRow(new Object[]{-1}, rowId1));
+
+        nextRow = scan.next();
+
+        assertNotNull(nextRow);
+        assertEquals(0, serializer.deserializeColumns(nextRow)[0]);
+        assertEquals(rowId1, nextRow.rowId());
+
+        peek = scan.peek();
+
+        assertNotNull(peek);
+        assertEquals(1, serializer.deserializeColumns(peek)[0]);
+        assertEquals(rowId0, peek.rowId());
+
+        nextRow = scan.next();
+
+        assertNotNull(nextRow);
+        assertEquals(1, serializer.deserializeColumns(nextRow)[0]);
+        assertEquals(rowId0, nextRow.rowId());
+
+        assertNull(scan.peek());
+    }
+
+    @Test
+    void testScanPeekRemoveRowsOnly() {
+        SortedIndexDefinition indexDefinition = SchemaBuilders.sortedIndex("TEST_IDX")
+                .addIndexColumn(ColumnType.INT32.typeSpec().name()).asc().done()
+                .build();
+
+        SortedIndexStorage indexStorage = createIndexStorage(indexDefinition);
+
+        BinaryTupleRowSerializer serializer = new BinaryTupleRowSerializer(indexStorage.indexDescriptor());
+
+        RowId rowId0 = new RowId(TEST_PARTITION, 0, 0);
+        RowId rowId1 = new RowId(TEST_PARTITION, 0, 1);
+
+        put(indexStorage, serializer.serializeRow(new Object[]{0}, rowId0));
+        put(indexStorage, serializer.serializeRow(new Object[]{0}, rowId1));
+        put(indexStorage, serializer.serializeRow(new Object[]{1}, rowId0));
+        put(indexStorage, serializer.serializeRow(new Object[]{2}, rowId1));
+
+        PeekCursor<IndexRow> scan = indexStorage.scan(null, null, 0);
+
+        IndexRow peek = scan.peek();
+
+        assertNotNull(peek);
+        assertEquals(0, serializer.deserializeColumns(peek)[0]);
+        assertEquals(rowId0, peek.rowId());
+
+        remove(indexStorage, serializer.serializeRow(new Object[]{0}, rowId0));
+
+        peek = scan.peek();
+
+        assertNotNull(peek);
+        assertEquals(0, serializer.deserializeColumns(peek)[0]);
+        assertEquals(rowId1, peek.rowId());
+
+        assertTrue(scan.hasNext());
+
+        remove(indexStorage, serializer.serializeRow(new Object[]{0}, rowId1));
+        remove(indexStorage, serializer.serializeRow(new Object[]{1}, rowId0));
+
+        peek = scan.peek();
+
+        assertNotNull(peek);
+        assertEquals(2, serializer.deserializeColumns(peek)[0]);
+        assertEquals(rowId1, peek.rowId());
+
+        assertNotNull(scan.next());
+
+        remove(indexStorage, serializer.serializeRow(new Object[]{2}, rowId1));
+
+        assertNull(scan.peek());
     }
 
     private List<ColumnDefinition> shuffledRandomDefinitions() {
