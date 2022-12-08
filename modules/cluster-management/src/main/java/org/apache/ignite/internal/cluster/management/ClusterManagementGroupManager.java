@@ -133,10 +133,9 @@ public class ClusterManagementGroupManager implements IgniteComponent {
      *
      * <p>We need this flag to make sure we handle automatic rejoins correctly. If a short network hiccup happens, CMG leader
      * might lose our node of sight, hence the node will be removed from physical and then from logical topologies. When
-     * the network connectivity is restored, the node will appear in the physical topology, after which it till try to
-     * rejoin the cluster. If such a 'rejoin' was carried unconditionally, it could happen before the first join during
-     * startup, so a not-yet-ready node could join the cluster. That's why we use this flag to only try such automatic
-     * rejoins if the startup was already finished.
+     * the network connectivity is restored, the node will appear in the physical topology, after which it will try to
+     * rejoin the cluster. If such 'rejoin' was carried out unconditionally, it could happen before the first join during
+     * startup, so a not-yet-ready node could join the cluster.
      */
     private volatile boolean attemptedCompleteJoinOnStart = false;
 
