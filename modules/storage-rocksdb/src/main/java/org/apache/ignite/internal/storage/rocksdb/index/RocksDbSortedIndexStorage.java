@@ -214,8 +214,19 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
 
             @Override
             public @Nullable T peek() {
-                // TODO: IGNITE-18243 реализовать
-                return null;
+                T next = null;
+
+                refreshAndPrepareRocksIterator();
+
+                if (!it.isValid()) {
+                    // check the status first. This operation is guaranteed to throw if an internal error has occurred during
+                    // the iteration. Otherwise, we've exhausted the data range.
+                    RocksUtils.checkIterator(it);
+                } else {
+                    next = mapper.apply(ByteBuffer.wrap(it.key()).order(ORDER));
+                }
+
+                return next;
             }
 
             private void advanceIfNeeded() throws StorageException {
@@ -223,6 +234,22 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
                     return;
                 }
 
+                refreshAndPrepareRocksIterator();
+
+                if (!it.isValid()) {
+                    // check the status first. This operation is guaranteed to throw if an internal error has occurred during
+                    // the iteration. Otherwise, we've exhausted the data range.
+                    RocksUtils.checkIterator(it);
+
+                    hasNext = false;
+                } else {
+                    key = it.key();
+
+                    hasNext = true;
+                }
+            }
+
+            private void refreshAndPrepareRocksIterator() {
                 try {
                     it.refresh();
                 } catch (RocksDBException e) {
@@ -235,18 +262,6 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
                     it.seekForPrev(key);
 
                     it.next();
-                }
-
-                if (!it.isValid()) {
-                    // check the status first. This operation is guaranteed to throw if an internal error has occurred during
-                    // the iteration. Otherwise, we've exhausted the data range.
-                    RocksUtils.checkIterator(it);
-
-                    hasNext = false;
-                } else {
-                    key = it.key();
-
-                    hasNext = true;
                 }
             }
         };
