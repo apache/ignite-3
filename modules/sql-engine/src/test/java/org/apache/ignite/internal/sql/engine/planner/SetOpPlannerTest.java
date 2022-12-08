@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.planner;
 
 import java.util.List;
+import org.apache.calcite.rel.RelDistribution.Type;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.ignite.internal.sql.engine.rel.IgniteExchange;
@@ -52,7 +53,8 @@ public class SetOpPlannerTest extends AbstractPlannerTest {
 
     /**
      * Setup.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
+     * <p>Prepares multiple test tables with different distributions.
      */
     @BeforeAll
     public void setup() {
@@ -92,35 +94,10 @@ public class SetOpPlannerTest extends AbstractPlannerTest {
     }
 
     /**
-     * testSetOpAffinityNested
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Tests SET operations on two tables with random distribution.
      *
-     * @throws Exception If failed.
-     */
-    @ParameterizedTest
-    @EnumSource
-    public void testSetOpAffinityNested(SetOp setOp) throws Exception {
-        String sql = "SELECT * FROM affinity_tbl2 " + setOp(setOp) + "("
-                + "   SELECT * FROM affinity_tbl1 "
-                + setOp(setOp)
-                + "   SELECT * FROM affinity_tbl2"
-                + ")";
-
-        assertPlan(sql, publicSchema, isInstanceOf(IgniteExchange.class)
-                        .and(input(isInstanceOf(setOp.colocated)
-                                .and(input(0, isTableScan("affinity_tbl2")))
-                                .and(input(1, isInstanceOf(setOp.colocated)
-                                        .and(input(0, isTableScan("affinity_tbl1")))
-                                        .and(input(1, isTableScan("affinity_tbl2")))
-                                ))
-                        )),
-                "MinusMergeRule", "IntersectMergeRule"
-        );
-    }
-
-    /**
-     * TestSetOpRandom.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * <p>{@link Type#RANDOM_DISTRIBUTED Random} distribution cannot be colocated
+     * with other random distribution.
      *
      * @throws Exception If failed.
      */
@@ -140,8 +117,10 @@ public class SetOpPlannerTest extends AbstractPlannerTest {
     }
 
     /**
-     * TestSetOpAllRandom.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Tests SET operations (with ALL flag enabled) on two tables with random distribution.
+     *
+     * <p>{@link Type#RANDOM_DISTRIBUTED Random} distribution cannot be colocated
+     * with other random distribution.
      *
      * @throws Exception If failed.
      */
@@ -156,13 +135,14 @@ public class SetOpPlannerTest extends AbstractPlannerTest {
                         .and(hasChildThat(isInstanceOf(setOp.map)
                                 .and(input(0, isTableScan("random_tbl1")))
                                 .and(input(1, isTableScan("random_tbl2")))
-                        )),
-                "SingleIntersectConverterRule");
+                        )));
     }
 
     /**
-     * TestSetOpBroadcast.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Tests SET operations on two tables with broadcast distribution.
+     *
+     * <p>The operation is considered colocated because {@link Type#BROADCAST_DISTRIBUTED broadcast}
+     * distribution satisfies any other distribution.
      *
      * @throws Exception If failed.
      */
@@ -180,8 +160,10 @@ public class SetOpPlannerTest extends AbstractPlannerTest {
     }
 
     /**
-     * TestSetOpSingle.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Tests SET operations on two tables with single distribution.
+     *
+     * <p>The operation is considered colocated because {@link Type#SINGLETON single} distribution
+     * satisfies other single distribution.
      *
      * @throws Exception If failed.
      */
@@ -198,8 +180,10 @@ public class SetOpPlannerTest extends AbstractPlannerTest {
     }
 
     /**
-     * TestSetOpSingleAndRandom.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Tests SET operations on two tables with single and random distribution.
+     *
+     * <p>{@link Type#SINGLETON Single} distribution cannot be colocated
+     * with {@link Type#RANDOM_DISTRIBUTED random} distribution.
      *
      * @throws Exception If failed.
      */
@@ -217,8 +201,9 @@ public class SetOpPlannerTest extends AbstractPlannerTest {
     }
 
     /**
-     * TestSetOpSingleAndAffinity.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Tests SET operations on two tables with single and affinity distribution.
+     *
+     * <p>{@link Type#SINGLETON Single} distribution cannot be colocated with affinity distribution.
      *
      * @throws Exception If failed.
      */
@@ -236,8 +221,10 @@ public class SetOpPlannerTest extends AbstractPlannerTest {
     }
 
     /**
-     * TestSetOpSingleAndBroadcast.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Tests SET operations on two tables with single and broadcast distribution.
+     *
+     * <p>The operation is considered colocated because {@link Type#BROADCAST_DISTRIBUTED broadcast}
+     * distribution satisfies any other distribution.
      *
      * @throws Exception If failed.
      */
@@ -254,9 +241,12 @@ public class SetOpPlannerTest extends AbstractPlannerTest {
         );
     }
 
+
     /**
-     * TestSetOpAffinity.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Tests SET operations on tables with the same affinity distribution.
+     *
+     * <p>The operation is considered colocated because the tables are
+     * compared against the corresponding collocation columns.
      *
      * @throws Exception If failed.
      */
@@ -278,8 +268,10 @@ public class SetOpPlannerTest extends AbstractPlannerTest {
     }
 
     /**
-     * testSetOpAffinityAndBroadcast
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Tests SET operations on two tables with affinity and broadcast distribution.
+     *
+     * <p>The operation is considered colocated because {@link Type#BROADCAST_DISTRIBUTED broadcast}
+     * distribution satisfies any other distribution.
      *
      * @throws Exception If failed.
      */
@@ -303,8 +295,9 @@ public class SetOpPlannerTest extends AbstractPlannerTest {
     }
 
     /**
-     * testSetOpNonColocatedAffinity
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Tests SET operations on tables with different affinity distribution.
+     *
+     * <p>Different affinity distribution cannot be colocated.
      *
      * @throws Exception If failed.
      */
@@ -337,8 +330,40 @@ public class SetOpPlannerTest extends AbstractPlannerTest {
     }
 
     /**
-     * TestSetOpBroadcastAndRandom.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Tests two SET operations (nested and outer) on two tables with the same affinity distribution.
+     *
+     * <p>Nested operation is considered colocated because the tables are compared against the corresponding collocation columns.
+     * Outer operation considered colocated because the result of nested operation must have the distribution of one of the participating
+     * tables.
+     *
+     * @throws Exception If failed.
+     */
+    @ParameterizedTest
+    @EnumSource
+    public void testSetOpAffinityNested(SetOp setOp) throws Exception {
+        String sql = "SELECT * FROM affinity_tbl2 " + setOp(setOp) + "("
+                + "   SELECT * FROM affinity_tbl1 "
+                + setOp(setOp)
+                + "   SELECT * FROM affinity_tbl2"
+                + ")";
+
+        assertPlan(sql, publicSchema, isInstanceOf(IgniteExchange.class)
+                        .and(input(isInstanceOf(setOp.colocated)
+                                .and(input(0, isTableScan("affinity_tbl2")))
+                                .and(input(1, isInstanceOf(setOp.colocated)
+                                        .and(input(0, isTableScan("affinity_tbl1")))
+                                        .and(input(1, isTableScan("affinity_tbl2")))
+                                ))
+                        )),
+                "MinusMergeRule", "IntersectMergeRule"
+        );
+    }
+
+    /**
+     * Tests SET operations on two tables with broadcast and random distribution.
+     *
+     * <p>The operation is considered colocated because {@link Type#BROADCAST_DISTRIBUTED broadcast}
+     * distribution satisfies any other distribution.
      *
      * @throws Exception If failed.
      */
@@ -356,8 +381,12 @@ public class SetOpPlannerTest extends AbstractPlannerTest {
     }
 
     /**
-     * TestSetOpRandomNested.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Tests two SET operations (nested and outer) on two tables with random distribution.
+     *
+     * <p>Nested operation cannot be colocated because {@link Type#RANDOM_DISTRIBUTED random}
+     * distribution cannot be colocated with other random distribution.
+     * Outer operation considered colocated because the result of nested operation must have
+     * the distribution of one of the participating tables.
      *
      * @throws Exception If failed.
      */
@@ -379,13 +408,17 @@ public class SetOpPlannerTest extends AbstractPlannerTest {
                                         .and(input(1, isTableScan("random_tbl2")))
                                 ))
                         )),
-                "MinusMergeRule", "IntersectMergeRule"
+                "IntersectMergeRule"
         );
     }
 
     /**
-     * TestSetOpBroadcastAndRandomNested.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Tests two SET operations (nested and outer) on three tables with two random (nested) and one broadcast (outer) distribution.
+     *
+     * <p>Nested operation cannot be colocated because {@link Type#RANDOM_DISTRIBUTED random}
+     * distribution cannot be colocated with other random distribution.
+     * Outer operation considered colocated because because {@link Type#BROADCAST_DISTRIBUTED broadcast}
+     * distribution satisfies any other distribution.
      *
      * @throws Exception If failed.
      */
@@ -408,13 +441,12 @@ public class SetOpPlannerTest extends AbstractPlannerTest {
                                         .and(input(1, isTableScan("random_tbl2")))
                                 ))
                         )),
-                "MinusMergeRule", "IntersectMergeRule"
+                "IntersectMergeRule"
         );
     }
 
     /**
-     * TestSetOpMerge.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Tests multiple SET operations on multiple tables with affinity and random distribution.
      *
      * @throws Exception If failed.
      */
@@ -440,8 +472,7 @@ public class SetOpPlannerTest extends AbstractPlannerTest {
     }
 
     /**
-     * TestSetOpAllMerge.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Tests multiple SET operations (with ALL flag enabled) on multiple tables with affinity and random distribution.
      *
      * @throws Exception If failed.
      */
@@ -467,8 +498,7 @@ public class SetOpPlannerTest extends AbstractPlannerTest {
     }
 
     /**
-     * TestSetOpAllWithExceptMerge.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Tests two SET operations (with ALL flag enabled for the first one) on tables with affinity and random distribution.
      *
      * @throws Exception If failed.
      */
