@@ -52,7 +52,6 @@ task createChecksums(type: Checksum) {
     dependsOn distZip
 
     inputFiles.from distZip.outputs.files
-    outputDirectory = file("$buildDir/distributions")
     checksumAlgorithm = Checksum.Algorithm.SHA512
 }
 
@@ -64,12 +63,11 @@ def zipTokens = tokens + [
 ]
 
 task replaceScriptVarsZip(type: Copy) {
-    from("start.sh")
+    from 'start.sh'
     filter(ReplaceTokens, tokens: zipTokens)
-    fileMode 0755
-    into("$buildDir/zip")
+    into "$buildDir/zip"
     rename {
-        "ignite3"
+        'ignite3'
     }
 }
 
@@ -90,9 +88,6 @@ task windowsCliStartScript(type: Copy) {
     into "$buildDir/windows"
 }
 
-distTar.dependsOn replaceScriptVarsZip, windowsCliStartScript
-distZip.dependsOn replaceScriptVarsZip, windowsCliStartScript
-
 distributions {
     main {
         distributionBaseName = 'ignite3-cli'
@@ -105,9 +100,9 @@ distributions {
             into('bin') {
                 duplicatesStrategy= DuplicatesStrategy.EXCLUDE
                 from configurations.cliScripts
-                from "$buildDir/zip/ignite3"
-                from "$buildDir/windows"
-                fileMode = 0755
+                from replaceScriptVarsZip
+                from windowsCliStartScript
+                fileMode 0755
             }
             into('lib') {
                 from configurations.cliArtifacts
@@ -129,7 +124,8 @@ artifacts {
     cliZip(distZip)
 }
 
-signing {
+// Explicitly create task so that the resulting artifact is not added to the configuration
+tasks.register('signCliZip', Sign) {
     sign configurations.cliZip
 }
 
@@ -141,26 +137,14 @@ def linuxTokens = tokens + [
 ]
 
 task replaceScriptVarsLinux(type: Copy) {
-    from("start.sh")
+    from 'start.sh'
+    from 'postInstall.sh'
     filter(ReplaceTokens, tokens: linuxTokens)
-    fileMode 0755
-    into("$buildDir/linux")
-    rename {
-        "ignite3"
-    }
+    into "$buildDir/linux"
 }
-
-task replacePostInstallScriptVars(type: Copy) {
-    from("postInstall.sh")
-    filter(ReplaceTokens, tokens: linuxTokens)
-    into("${buildDir}")
-}
-
-buildRpm.dependsOn replaceScriptVarsLinux, replacePostInstallScriptVars
-buildDeb.dependsOn replaceScriptVarsLinux, replacePostInstallScriptVars
-
 
 buildDeb {
+    dependsOn replaceScriptVarsLinux
     signingKeyId = project.findProperty("signing.keyId")
     signingKeyPassphrase = project.findProperty("signing.password")
     signingKeyRingFile = project.hasProperty("signing.secretKeyRingFile") ? file(project.property("signing.secretKeyRingFile")) : null
@@ -172,6 +156,8 @@ buildDeb {
 }
 
 buildRpm {
+    dependsOn replaceScriptVarsLinux
+
     into("/etc/bash_completion.d/") {
         from configurations.cliScripts
         fileMode 0755
@@ -188,8 +174,11 @@ ospackage {
     user 'root'
 
     into(linuxTokens.INSTALL_DIR) {
-        from("$buildDir/linux/ignite3")
-        fileMode = 0755
+        from "$buildDir/linux/ignite3"
+        fileMode 0755
+        rename {
+            'ignite3'
+        }
     }
 
     into(linuxTokens.LIB_DIR) {
@@ -197,7 +186,7 @@ ospackage {
         from "$rootDir/packaging/common/setup-java.sh"
     }
 
-    postInstall file("${buildDir}/postInstall.sh")
+    postInstall file("$buildDir/linux/postInstall.sh")
 }
 
 configurations {
@@ -207,8 +196,13 @@ configurations {
     }
 }
 
-artifacts {
-    cliRelease(file("$buildDir/distributions")) {
-        builtBy createChecksums, signCliZip, buildDeb, buildRpm
+if (project.hasProperty('prepareRelease')) {
+    artifacts {
+        cliRelease(file("$buildDir/distributions")) {
+            builtBy signCliZip, buildDeb, buildRpm
+        }
+        cliRelease(file("$buildDir/checksums")) {
+            builtBy createChecksums
+        }
     }
 }
