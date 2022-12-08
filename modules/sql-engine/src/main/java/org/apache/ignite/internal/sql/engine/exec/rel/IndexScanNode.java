@@ -306,14 +306,24 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
                 flags |= (cond.upperInclude()) ? SortedIndex.INCLUDE_RIGHT : 0;
             }
 
-            pub = ((SortedIndex) schemaIndex.index()).scan(
-                    part,
-                    context().transaction(),
-                    lower,
-                    upper,
-                    flags,
-                    requiredColumns
-            );
+            if (context().transactionTime() != null) {
+                pub = ((SortedIndex) schemaIndex.index()).scan(
+                        part,
+                        context().transactionTime(),
+                        context().localNode(),
+                        lower,
+                        upper,
+                        flags,
+                        requiredColumns);
+            } else {
+                pub = ((SortedIndex) schemaIndex.index()).scan(
+                        part,
+                        context().transaction(),
+                        lower,
+                        upper,
+                        flags,
+                        requiredColumns);
+            }
         } else {
             assert schemaIndex.type() == Type.HASH;
             assert cond != null && cond.lower() != null : "Invalid hash index condition.";
