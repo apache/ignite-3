@@ -35,6 +35,7 @@ import java.nio.file.Files;
 import java.sql.SQLException;
 import org.apache.ignite.internal.cli.call.sql.SqlQueryCall;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
+import org.apache.ignite.internal.cli.commands.sql.help.IgniteSqlCommandCompleter;
 import org.apache.ignite.internal.cli.core.CallExecutionPipelineProvider;
 import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
 import org.apache.ignite.internal.cli.core.call.StringCallInput;
@@ -51,6 +52,7 @@ import org.apache.ignite.internal.cli.decorators.SqlQueryResultDecorator;
 import org.apache.ignite.internal.cli.decorators.TableDecorator;
 import org.apache.ignite.internal.cli.sql.SqlManager;
 import org.apache.ignite.internal.cli.sql.SqlSchemaProvider;
+import org.jline.reader.impl.completer.AggregateCompleter;
 import picocli.CommandLine.ArgGroup;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
@@ -98,9 +100,11 @@ public class SqlReplCommand extends BaseCommand implements Runnable {
         try (SqlManager sqlManager = new SqlManager(jdbc)) {
             // When passing white space to this command, picocli will treat it as a positional argument
             if (execOptions == null || (execOptions.command != null && execOptions.command.isBlank())) {
+                SqlCompleter sqlCompleter = new SqlCompleter(new SqlSchemaProvider(sqlManager::getMetadata));
+                IgniteSqlCommandCompleter sqlCommandCompleter = new IgniteSqlCommandCompleter();
                 replExecutorProvider.get().execute(Repl.builder()
                         .withPromptProvider(() -> ansi(fg(Color.GREEN).mark("sql-cli> ")))
-                        .withCompleter(new SqlCompleter(new SqlSchemaProvider(sqlManager::getMetadata)))
+                        .withCompleter(new AggregateCompleter(sqlCommandCompleter, sqlCompleter))
                         .withCommandClass(SqlReplTopLevelCliCommand.class)
                         .withCallExecutionPipelineProvider(provider(sqlManager))
                         .withHistoryFileName("sqlhistory")

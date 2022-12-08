@@ -15,25 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.commands.sql;
+package org.apache.ignite.internal.cli.commands;
 
-import jakarta.inject.Singleton;
-import org.apache.ignite.internal.cli.commands.ExitCommand;
-import org.apache.ignite.internal.cli.commands.sql.help.SqlHelpCommand;
+import org.jline.reader.EndOfFileException;
 import picocli.CommandLine.Command;
-import picocli.shell.jline3.PicocliCommands.ClearScreen;
 
 /**
- * Top level SQL REPL command.
+ * Command to exit from app.
  */
-@Command(name = "",
-        description = {""},
-        subcommands = {
-                ClearScreen.class,
-                ExitCommand.class,
-                SqlHelpCommand.class
-        }
-)
-@Singleton
-public class SqlReplTopLevelCliCommand {
+@Command(name = "exit", description = "Exit")
+public class ExitCommand extends BaseCommand implements Runnable {
+
+    @Override
+    public void run() {
+        throw new EndOfFileException();
+    }
 }
