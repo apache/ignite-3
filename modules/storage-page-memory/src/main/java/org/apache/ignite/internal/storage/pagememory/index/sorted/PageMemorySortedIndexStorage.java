@@ -340,8 +340,23 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
 
         @Override
         public @Nullable IndexRow peek() {
-            // TODO: IGNITE-18243 реализовать
-            return null;
+            try {
+                SortedIndexRow nextTreeRow;
+
+                if (treeRow == null) {
+                    nextTreeRow = lower == null ? sortedIndexTree.findFirst() : sortedIndexTree.findNext(lower, true);
+                } else {
+                    nextTreeRow = sortedIndexTree.findNext(treeRow, false);
+                }
+
+                if (nextTreeRow == null || (upper != null && compareRows(nextTreeRow, upper) >= 0)) {
+                    return null;
+                }
+
+                return toIndexRowImpl(nextTreeRow);
+            } catch (IgniteInternalCheckedException e) {
+                throw new StorageException("Error when peeking next element", e);
+            }
         }
 
         private void advanceIfNeeded() throws IgniteInternalCheckedException {
