@@ -78,6 +78,16 @@ class DistributionZonesUtil {
     }
 
     /**
+     * Sets {@code revision} to {@link DistributionZonesUtil#zonesChangeTriggerKey()}.
+     *
+     * @param revision Revision of the event.
+     * @return Update command for the meta storage.
+     */
+    static Update updateTriggerKey(long revision) {
+        return ops(put(zonesChangeTriggerKey(), ByteUtils.longToBytes(revision))).yield(true);
+    }
+
+    /**
      * Deletes data nodes value for a zone and set {@code revision} to {@link DistributionZonesUtil#zonesChangeTriggerKey()}.
      *
      * @param zoneId Distribution zone id

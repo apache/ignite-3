@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.deleteDataNodesKeyAndUpdateTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.triggerKeyCondition;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.updateDataNodesAndTriggerKey;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.updateTriggerKey;
 import static org.apache.ignite.internal.metastorage.client.Operations.ops;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Common.UNEXPECTED_ERR;
@@ -245,7 +246,7 @@ public class DistributionZoneManager implements IgniteComponent {
     private class ZonesConfigurationListener implements ConfigurationNamedListListener<DistributionZoneView> {
         @Override
         public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<DistributionZoneView> ctx) {
-            updateMetaStorageOnZoneCreateOrUpdate(ctx.newValue().zoneId(), ctx.storageRevision());
+            updateMetaStorageOnZoneCreate(ctx.newValue().zoneId(), ctx.storageRevision());
 
             return completedFuture(null);
         }
@@ -259,7 +260,9 @@ public class DistributionZoneManager implements IgniteComponent {
 
         @Override
         public CompletableFuture<?> onUpdate(ConfigurationNotificationEvent<DistributionZoneView> ctx) {
-            updateMetaStorageOnZoneCreateOrUpdate(ctx.newValue().zoneId(), ctx.storageRevision());
+            updateMetaStorageOnZoneUpdate(ctx.storageRevision());
+
+            //TODO: Also add here rescheduling for the existing timers https://issues.apache.org/jira/browse/IGNITE-18121
 
             return completedFuture(null);
         }
@@ -272,7 +275,7 @@ public class DistributionZoneManager implements IgniteComponent {
      * @param zoneId Unique id of a zone
      * @param revision Revision of an event that has triggered this method.
      */
-    private void updateMetaStorageOnZoneCreateOrUpdate(int zoneId, long revision) {
+    private void updateMetaStorageOnZoneCreate(int zoneId, long revision) {
         if (!busyLock.enterBusy()) {
             throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
         }
@@ -304,6 +307,37 @@ public class DistributionZoneManager implements IgniteComponent {
                     LOG.debug("Update zones' dataNodes value [zoneId = {}, dataNodes = {}", zoneId, nodesConsistentIds);
                 } else {
                     LOG.debug("Failed to update zones' dataNodes value [zoneId = {}]", zoneId);
+                }
+            });
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    /**
+     * Sets {@code revision} to the {@link DistributionZonesUtil#zonesChangeTriggerKey()} if it passes the condition.
+     *
+     * @param revision Revision of an event that has triggered this method.
+     */
+    private void updateMetaStorageOnZoneUpdate(long revision) {
+        if (!busyLock.enterBusy()) {
+            throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
+        }
+
+        try {
+            // Update data nodes for a zone only if the revision of the event is newer than value in that trigger key,
+            // so we do not react on a stale events
+            CompoundCondition triggerKeyCondition = triggerKeyCondition(revision);
+
+            Update triggerKeyUpd = updateTriggerKey(revision);
+
+            If iif = If.iif(triggerKeyCondition, triggerKeyUpd, ops().yield(false));
+
+            metaStorageManager.invoke(iif).thenAccept(res -> {
+                if (res.getAsBoolean()) {
+                    LOG.debug("Distribution zones' trigger key was updated with the revision [revision = {}]", revision);
+                } else {
+                    LOG.debug("Failed to update distribution zones' trigger key with the revision [revision = {}]", revision);
                 }
             });
         } finally {
