@@ -297,7 +297,7 @@ public class SetOpPlannerTest extends AbstractPlannerTest {
     /**
      * Tests SET operations on tables with different affinity distribution.
      *
-     * <p>Different affinity distribution cannot be colocated.
+     * <p>Different affinity distributions cannot be colocated.
      *
      * @throws Exception If failed.
      */
