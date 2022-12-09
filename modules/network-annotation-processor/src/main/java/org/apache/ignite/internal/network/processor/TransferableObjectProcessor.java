@@ -23,6 +23,7 @@ import static java.util.stream.Collectors.toSet;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.JavaFile;
 import com.squareup.javapoet.TypeSpec;
+import java.io.BufferedWriter;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.HashMap;
@@ -40,6 +41,8 @@ import javax.lang.model.element.PackageElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.util.Elements;
 import javax.tools.Diagnostic;
+import javax.tools.FileObject;
+import javax.tools.StandardLocation;
 import org.apache.ignite.internal.network.processor.messages.MessageBuilderGenerator;
 import org.apache.ignite.internal.network.processor.messages.MessageFactoryGenerator;
 import org.apache.ignite.internal.network.processor.messages.MessageImplGenerator;
@@ -53,6 +56,7 @@ import org.apache.ignite.network.annotations.Transferable;
 import org.apache.ignite.network.serialization.MessageDeserializer;
 import org.apache.ignite.network.serialization.MessageSerializationFactory;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
+import org.apache.ignite.network.serialization.MessageSerializationRegistryInitializer;
 import org.apache.ignite.network.serialization.MessageSerializer;
 import org.jetbrains.annotations.Nullable;
 
@@ -60,6 +64,8 @@ import org.jetbrains.annotations.Nullable;
  * Annotation processor for working with the {@link Transferable} annotation.
  */
 public class TransferableObjectProcessor extends AbstractProcessor {
+    private static final String SPI_FILE_NAME = "META-INF/services/" + MessageSerializationRegistryInitializer.class.getName();
+
     /** {@inheritDoc} */
     @Override
     public Set<String> getSupportedAnnotationTypes() {
@@ -220,6 +226,7 @@ public class TransferableObjectProcessor extends AbstractProcessor {
         TypeSpec registryInitializer = initializerGenerator.generateRegistryInitializer(factories);
 
         writeToFile(messageGroup.packageName(), registryInitializer);
+        writeServiceFile(messageGroup.packageName(), registryInitializer);
     }
 
     /**
@@ -322,6 +329,23 @@ public class TransferableObjectProcessor extends AbstractProcessor {
                     .writeTo(processingEnv.getFiler());
         } catch (IOException e) {
             throw new ProcessingException("IO exception during annotation processing", e);
+        }
+    }
+
+    /**
+     * Creates a Java SPI file for the {@link MessageSerializationRegistryInitializer} implementation in a module.
+     */
+    private void writeServiceFile(String packageName, TypeSpec registryInitializer) {
+        try {
+            FileObject resource = processingEnv.getFiler().createResource(StandardLocation.CLASS_OUTPUT, "", SPI_FILE_NAME);
+
+            try (var writer = new BufferedWriter(resource.openWriter())) {
+                writer.write(packageName);
+                writer.write('.');
+                writer.write(registryInitializer.name);
+            }
+        } catch (IOException e) {
+            throw new ProcessingException(e.getMessage(), e);
         }
     }
 }

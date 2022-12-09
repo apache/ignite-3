@@ -44,7 +44,6 @@ dependencies {
     testImplementation project(':ignite-network')
     testImplementation libs.hamcrest.core
     testImplementation libs.mockito.junit
-    testImplementation libs.classgraph
     testImplementation libs.slf4j.jdk14
     testImplementation libs.micronaut.test
     testImplementation libs.micronaut.http.client
