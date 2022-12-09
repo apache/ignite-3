@@ -325,8 +325,6 @@ public class DistributionZoneManager implements IgniteComponent {
         }
 
         try {
-            // Update data nodes for a zone only if the revision of the event is newer than value in that trigger key,
-            // so we do not react on a stale events
             CompoundCondition triggerKeyCondition = triggerKeyCondition(revision);
 
             Update triggerKeyUpd = updateTriggerKey(revision);
