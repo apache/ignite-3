@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.storage.rocksdb.index;
 
 import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
-import static org.apache.ignite.internal.util.CursorUtils.map;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 
 import java.nio.ByteBuffer;
@@ -214,6 +213,10 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
 
             @Override
             public @Nullable T peek() {
+                if (hasNext != null && !hasNext) {
+                    return null;
+                }
+
                 T next = null;
 
                 refreshAndPrepareRocksIterator();

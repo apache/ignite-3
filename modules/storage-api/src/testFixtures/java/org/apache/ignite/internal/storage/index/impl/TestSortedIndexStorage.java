@@ -235,6 +235,10 @@ public class TestSortedIndexStorage implements SortedIndexStorage {
 
         @Override
         public @Nullable IndexRow peek() {
+            if (hasNext != null && !hasNext) {
+                return null;
+            }
+
             Entry<ByteBuffer, NavigableMap<RowId, Object>> entry0 = indexMapEntry == null ? indexMap.firstEntry() : indexMapEntry;
 
             RowId nextRowId = null;
@@ -244,10 +248,10 @@ public class TestSortedIndexStorage implements SortedIndexStorage {
                     nextRowId = getRowId(entry0.getValue().firstEntry());
                 }
             } else {
-                Entry<RowId, Object> entry1 = entry0.getValue().higherEntry(rowId);
+                Entry<RowId, Object> nextRowIdEntry = entry0.getValue().higherEntry(rowId);
 
-                if (entry1 != null) {
-                    nextRowId = entry1.getKey();
+                if (nextRowIdEntry != null) {
+                    nextRowId = nextRowIdEntry.getKey();
                 } else {
                     entry0 = indexMap.higherEntry(entry0.getKey());
 
