@@ -251,6 +251,7 @@ public class PartitionMetaIo extends PageIo {
         sb.app("TablePartitionMeta [").nl()
                 .app("lastAppliedIndex=").app(getLastAppliedIndex(addr)).nl()
                 .app("lastAppliedTerm=").app(getLastAppliedTerm(addr)).nl()
+                .app("lastRaftGroupConfigLink=").app(getLastRaftGroupConfigLink(addr)).nl()
                 .app(", rowVersionFreeListRootPageId=").appendHex(getRowVersionFreeListRootPageId(addr)).nl()
                 .app(", indexColumnsFreeListRootPageId(=").appendHex(getIndexColumnsFreeListRootPageId(addr)).nl()
                 .app(", versionChainTreeRootPageId=").appendHex(getVersionChainTreeRootPageId(addr)).nl()
