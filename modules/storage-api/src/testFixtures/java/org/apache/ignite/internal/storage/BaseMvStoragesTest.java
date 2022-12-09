@@ -152,7 +152,7 @@ public abstract class BaseMvStoragesTest {
         return new IgniteBiTuple<>(key(binaryRow), value(binaryRow));
     }
 
-    protected static List<IgniteBiTuple<TestKey, TestValue>> drainToList(Cursor<ReadResult> cursor) throws Exception {
+    protected static List<IgniteBiTuple<TestKey, TestValue>> drainToList(Cursor<ReadResult> cursor) {
         try (cursor) {
             return cursor.stream().map(BaseMvStoragesTest::unwrap).collect(Collectors.toList());
         }
