@@ -361,6 +361,11 @@ public class IgniteImpl implements Ignite {
 
         metricManager.configure(clusterCfgMgr.configurationRegistry().getConfiguration(MetricConfiguration.KEY));
 
+        DistributionZonesConfiguration zonesConfiguration = clusterCfgMgr.configurationRegistry()
+                .getConfiguration(DistributionZonesConfiguration.KEY);
+
+        distributionZoneManager = new DistributionZoneManager(zonesConfiguration, metaStorageMgr, cmgMgr);
+
         restComponent = createRestComponent(name);
 
         restAddressReporter = new RestAddressReporter(workDir);
