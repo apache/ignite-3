@@ -101,14 +101,14 @@ public class PartitionMetaManagerTest {
 
                 assertEquals(0, meta.lastAppliedIndex());
                 assertEquals(0, meta.lastAppliedTerm());
-                assertEquals(0, meta.lastGroupConfigLink());
+                assertEquals(0, meta.lastRaftGroupConfigLink());
                 assertEquals(0, meta.versionChainTreeRootPageId());
                 assertEquals(0, meta.rowVersionFreeListRootPageId());
                 assertEquals(1, meta.pageCount());
 
                 // Change the meta and write it to the file.
                 meta.lastApplied(null, 50, 10);
-                meta.lastGroupConfigLink(null, 12);
+                meta.lastRaftGroupConfigLink(null, 12);
                 meta.versionChainTreeRootPageId(null, 300);
                 meta.rowVersionFreeListRootPageId(null, 900);
                 meta.incrementPageCount(null);
@@ -128,7 +128,7 @@ public class PartitionMetaManagerTest {
 
                 assertEquals(50, meta.lastAppliedIndex());
                 assertEquals(10, meta.lastAppliedTerm());
-                assertEquals(12, meta.lastGroupConfigLink());
+                assertEquals(12, meta.lastRaftGroupConfigLink());
                 assertEquals(300, meta.versionChainTreeRootPageId());
                 assertEquals(900, meta.rowVersionFreeListRootPageId());
                 assertEquals(2, meta.pageCount());
@@ -155,7 +155,7 @@ public class PartitionMetaManagerTest {
 
                 assertEquals(100, meta.lastAppliedIndex());
                 assertEquals(10, meta.lastAppliedTerm());
-                assertEquals(34, meta.lastGroupConfigLink());
+                assertEquals(34, meta.lastRaftGroupConfigLink());
                 assertEquals(900, meta.rowVersionFreeListRootPageId());
                 assertEquals(500, meta.indexColumnsFreeListRootPageId());
                 assertEquals(300, meta.versionChainTreeRootPageId());
@@ -176,7 +176,7 @@ public class PartitionMetaManagerTest {
 
                 assertEquals(0, meta.lastAppliedIndex());
                 assertEquals(0, meta.lastAppliedTerm());
-                assertEquals(0, meta.lastGroupConfigLink());
+                assertEquals(0, meta.lastRaftGroupConfigLink());
                 assertEquals(0, meta.versionChainTreeRootPageId());
                 assertEquals(0, meta.rowVersionFreeListRootPageId());
                 assertEquals(1, meta.pageCount());

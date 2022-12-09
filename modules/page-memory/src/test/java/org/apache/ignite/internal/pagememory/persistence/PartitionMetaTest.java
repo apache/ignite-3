@@ -70,15 +70,15 @@ public class PartitionMetaTest {
     void testLastGroupConfig() {
         PartitionMeta meta = new PartitionMeta();
 
-        assertThat(meta.lastGroupConfigLink(), is(0L));
+        assertThat(meta.lastRaftGroupConfigLink(), is(0L));
 
-        meta.lastGroupConfigLink(null, 12);
+        meta.lastRaftGroupConfigLink(null, 12);
 
-        assertThat(meta.lastGroupConfigLink(), is(12L));
+        assertThat(meta.lastRaftGroupConfigLink(), is(12L));
 
-        meta.lastGroupConfigLink(UUID.randomUUID(), 34);
+        meta.lastRaftGroupConfigLink(UUID.randomUUID(), 34);
 
-        assertThat(meta.lastGroupConfigLink(), is(34L));
+        assertThat(meta.lastRaftGroupConfigLink(), is(34L));
     }
 
     @Test
@@ -136,7 +136,7 @@ public class PartitionMetaTest {
         checkSnapshot(meta.metaSnapshot(checkpointId = UUID.randomUUID()), 0, 0, 0, 0, 0, 0);
 
         meta.lastApplied(checkpointId, 50, 5);
-        meta.lastGroupConfigLink(checkpointId, 12);
+        meta.lastRaftGroupConfigLink(checkpointId, 12);
         meta.versionChainTreeRootPageId(checkpointId, 300);
         meta.rowVersionFreeListRootPageId(checkpointId, 900);
         meta.incrementPageCount(checkpointId);
@@ -145,7 +145,7 @@ public class PartitionMetaTest {
         checkSnapshot(meta.metaSnapshot(UUID.randomUUID()), 50, 5, 12, 300, 900, 1);
 
         meta.lastApplied(checkpointId = UUID.randomUUID(), 51, 6);
-        meta.lastGroupConfigLink(checkpointId, 34);
+        meta.lastRaftGroupConfigLink(checkpointId, 34);
         checkSnapshot(meta.metaSnapshot(checkpointId), 50, 5, 12, 300, 900, 1);
 
         meta.versionChainTreeRootPageId(checkpointId = UUID.randomUUID(), 303);
@@ -180,7 +180,7 @@ public class PartitionMetaTest {
     ) {
         assertThat(snapshot.lastAppliedIndex(), equalTo(expLastAppliedIndex));
         assertThat(snapshot.lastAppliedTerm(), equalTo(expLastAppliedTerm));
-        assertThat(snapshot.lastGroupConfigLink(), equalTo(expLastGroupConfigLink));
+        assertThat(snapshot.lastRaftGroupConfigLink(), equalTo(expLastGroupConfigLink));
         assertThat(snapshot.versionChainTreeRootPageId(), equalTo(expVersionChainTreeRootPageId));
         assertThat(snapshot.rowVersionFreeListRootPageId(), equalTo(expRowVersionFreeListRootPageId));
         assertThat(snapshot.pageCount(), equalTo(expPageCount));

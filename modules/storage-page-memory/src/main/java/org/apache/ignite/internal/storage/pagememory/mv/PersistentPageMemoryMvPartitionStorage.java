@@ -75,7 +75,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     private final DataPageReader pageReader;
 
     /** Lock that protects group config read/write. */
-    private final ReadWriteLock groupConfigReadWriteLock = new ReentrantReadWriteLock();
+    private final ReadWriteLock raftGroupConfigReadWriteLock = new ReentrantReadWriteLock();
 
     /**
      * Constructor.
@@ -242,10 +242,10 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         }
 
         try {
-            groupConfigReadWriteLock.readLock().lock();
+            raftGroupConfigReadWriteLock.readLock().lock();
 
             try {
-                long configLink = meta.lastGroupConfigLink();
+                long configLink = meta.lastRaftGroupConfigLink();
 
                 if (configLink == 0) {
                     return null;
@@ -255,9 +255,9 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
 
                 pageReader.traverse(configLink, readBlob, null);
 
-                return groupConfigFromBytes(readBlob.result());
+                return raftGroupConfigFromBytes(readBlob.result());
             } finally {
-                groupConfigReadWriteLock.readLock().unlock();
+                raftGroupConfigReadWriteLock.readLock().unlock();
             }
         } catch (IgniteInternalCheckedException e) {
             throw new IgniteInternalException("Failed to read group config", e);
@@ -274,14 +274,14 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
 
         UUID lastCheckpointId = lastCheckpoint == null ? null : lastCheckpoint.id();
 
-        Blob blob = new Blob(partitionId, groupConfigToBytes(config));
+        Blob blob = new Blob(partitionId, raftGroupConfigToBytes(config));
 
-        groupConfigReadWriteLock.writeLock().lock();
+        raftGroupConfigReadWriteLock.writeLock().lock();
 
         try {
-            if (meta.lastGroupConfigLink() != 0) {
+            if (meta.lastRaftGroupConfigLink() != 0) {
                 try {
-                    blobFreeList.removeBlobByLink(meta.lastGroupConfigLink());
+                    blobFreeList.removeBlobByLink(meta.lastRaftGroupConfigLink());
                 } catch (IgniteInternalCheckedException e) {
                     throw new IgniteInternalException("Failed to remove old group config", e);
                 }
@@ -293,14 +293,14 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
                 throw new IgniteInternalException("Failed to save group config", e);
             }
 
-            meta.lastGroupConfigLink(lastCheckpointId, blob.link());
+            meta.lastRaftGroupConfigLink(lastCheckpointId, blob.link());
         } finally {
-            groupConfigReadWriteLock.writeLock().unlock();
+            raftGroupConfigReadWriteLock.writeLock().unlock();
         }
     }
 
     @Nullable
-    private static RaftGroupConfiguration groupConfigFromBytes(byte @Nullable [] bytes) {
+    private static RaftGroupConfiguration raftGroupConfigFromBytes(byte @Nullable [] bytes) {
         if (bytes == null) {
             return null;
         }
@@ -308,7 +308,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         return ByteUtils.fromBytes(bytes);
     }
 
-    private static byte[] groupConfigToBytes(RaftGroupConfiguration config) {
+    private static byte[] raftGroupConfigToBytes(RaftGroupConfiguration config) {
         return ByteUtils.toBytes(config);
     }
 

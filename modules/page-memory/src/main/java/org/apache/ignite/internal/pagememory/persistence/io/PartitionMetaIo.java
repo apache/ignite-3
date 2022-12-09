@@ -35,9 +35,9 @@ public class PartitionMetaIo extends PageIo {
 
     private static final int LAST_APPLIED_TERM_OFF = LAST_APPLIED_INDEX_OFF + Long.BYTES;
 
-    private static final int LAST_GROUP_CONFIG_LINK_OFF = LAST_APPLIED_TERM_OFF + Long.BYTES;
+    private static final int LAST_RAFT_GROUP_CONFIG_LINK_OFF = LAST_APPLIED_TERM_OFF + Long.BYTES;
 
-    private static final int ROW_VERSION_FREE_LIST_ROOT_PAGE_ID_OFF = LAST_GROUP_CONFIG_LINK_OFF + Long.BYTES;
+    private static final int ROW_VERSION_FREE_LIST_ROOT_PAGE_ID_OFF = LAST_RAFT_GROUP_CONFIG_LINK_OFF + Long.BYTES;
 
     private static final int INDEX_COLUMNS_FREE_LIST_ROOT_PAGE_ID_OFF = ROW_VERSION_FREE_LIST_ROOT_PAGE_ID_OFF + Long.BYTES;
 
@@ -69,7 +69,7 @@ public class PartitionMetaIo extends PageIo {
 
         setLastAppliedIndex(pageAddr, 0);
         setLastAppliedTerm(pageAddr, 0);
-        setLastGroupConfig(pageAddr, 0);
+        setLastRaftGroupConfig(pageAddr, 0);
         setRowVersionFreeListRootPageId(pageAddr, 0);
         setIndexColumnsFreeListRootPageId(pageAddr, 0);
         setVersionChainTreeRootPageId(pageAddr, 0);
@@ -102,15 +102,15 @@ public class PartitionMetaIo extends PageIo {
     }
 
     /**
-     * Sets link to blob representing last group config.
+     * Sets link to a blob representing last RAFT group config.
      *
      * @param pageAddr Page address.
-     * @param lastGroupConfigLink Link to blob representing last group config..
+     * @param lastRaftGroupConfigLink Link to a blob representing last RAFT group config..
      */
-    public void setLastGroupConfig(long pageAddr, long lastGroupConfigLink) {
+    public void setLastRaftGroupConfig(long pageAddr, long lastRaftGroupConfigLink) {
         assertPageType(pageAddr);
 
-        putLong(pageAddr, LAST_GROUP_CONFIG_LINK_OFF, lastGroupConfigLink);
+        putLong(pageAddr, LAST_RAFT_GROUP_CONFIG_LINK_OFF, lastRaftGroupConfigLink);
     }
 
     /**
@@ -132,12 +132,12 @@ public class PartitionMetaIo extends PageIo {
     }
 
     /**
-     * Returns link to group config blob.
+     * Returns link to a blob representing last RAFT group config.
      *
      * @param pageAddr Page address.
      */
-    public long getLastGroupConfigLink(long pageAddr) {
-        return getLong(pageAddr, LAST_GROUP_CONFIG_LINK_OFF);
+    public long getLastRaftGroupConfigLink(long pageAddr) {
+        return getLong(pageAddr, LAST_RAFT_GROUP_CONFIG_LINK_OFF);
     }
 
     /**
