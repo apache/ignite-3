@@ -92,6 +92,7 @@ public class PartitionMeta {
             long indexColumnsFreeListRootPageId,
             long versionChainTreeRootPageId,
             long indexTreeMetaPageId,
+            long blobFreeListRootPageId,
             int pageCount
     ) {
         this.lastAppliedIndex = lastAppliedIndex;
@@ -101,6 +102,7 @@ public class PartitionMeta {
         this.indexColumnsFreeListRootPageId = indexColumnsFreeListRootPageId;
         this.versionChainTreeRootPageId = versionChainTreeRootPageId;
         this.indexTreeMetaPageId = indexTreeMetaPageId;
+        this.blobFreeListRootPageId = blobFreeListRootPageId;
         this.pageCount = pageCount;
 
         metaSnapshot = new PartitionMetaSnapshot(checkpointId, this);
@@ -123,6 +125,7 @@ public class PartitionMeta {
                 metaIo.getIndexColumnsFreeListRootPageId(pageAddr),
                 metaIo.getVersionChainTreeRootPageId(pageAddr),
                 metaIo.getIndexTreeMetaPageId(pageAddr),
+                metaIo.getBlobFreeListRootPageId(pageAddr),
                 metaIo.getPageCount(pageAddr)
         );
     }
@@ -336,6 +339,8 @@ public class PartitionMeta {
 
         private final long indexTreeMetaPageId;
 
+        private final long blobFreeListRootPageId;
+
         private final int pageCount;
 
         /**
@@ -353,6 +358,7 @@ public class PartitionMeta {
             rowVersionFreeListRootPageId = partitionMeta.rowVersionFreeListRootPageId;
             indexColumnsFreeListRootPageId = partitionMeta.indexColumnsFreeListRootPageId;
             indexTreeMetaPageId = partitionMeta.indexTreeMetaPageId;
+            blobFreeListRootPageId = partitionMeta.blobFreeListRootPageId;
             pageCount = partitionMeta.pageCount;
         }
 
@@ -406,6 +412,13 @@ public class PartitionMeta {
         }
 
         /**
+         * Returns blob free list root page ID.
+         */
+        public long blobFreeListRootPageId() {
+            return blobFreeListRootPageId;
+        }
+
+        /**
          * Returns count of pages in the partition.
          */
         public int pageCount() {
@@ -425,8 +438,9 @@ public class PartitionMeta {
             metaIo.setVersionChainTreeRootPageId(pageAddr, versionChainTreeRootPageId);
             metaIo.setIndexColumnsFreeListRootPageId(pageAddr, indexColumnsFreeListRootPageId);
             metaIo.setRowVersionFreeListRootPageId(pageAddr, rowVersionFreeListRootPageId);
-            metaIo.setPageCount(pageAddr, pageCount);
             metaIo.setIndexTreeMetaPageId(pageAddr, indexTreeMetaPageId);
+            metaIo.setBlobFreeListRootPageId(pageAddr, blobFreeListRootPageId);
+            metaIo.setPageCount(pageAddr, pageCount);
         }
 
         /** {@inheritDoc} */

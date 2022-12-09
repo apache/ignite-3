@@ -111,6 +111,7 @@ public class PartitionMetaManagerTest {
                 meta.lastRaftGroupConfigLink(null, 12);
                 meta.versionChainTreeRootPageId(null, 300);
                 meta.rowVersionFreeListRootPageId(null, 900);
+                meta.blobFreeListRootPageId(null, 149);
                 meta.incrementPageCount(null);
 
                 manager.writeMetaToBuffer(partId, meta.metaSnapshot(UUID.randomUUID()), buffer);
@@ -131,6 +132,7 @@ public class PartitionMetaManagerTest {
                 assertEquals(12, meta.lastRaftGroupConfigLink());
                 assertEquals(300, meta.versionChainTreeRootPageId());
                 assertEquals(900, meta.rowVersionFreeListRootPageId());
+                assertEquals(149, meta.blobFreeListRootPageId());
                 assertEquals(2, meta.pageCount());
             }
 
@@ -138,7 +140,7 @@ public class PartitionMetaManagerTest {
             try (FilePageStore filePageStore = createFilePageStore(testFilePath)) {
                 manager.writeMetaToBuffer(
                         partId,
-                        new PartitionMeta(UUID.randomUUID(), 100, 10, 34, 900, 500, 300, 200, 4).metaSnapshot(null),
+                        new PartitionMeta(UUID.randomUUID(), 100, 10, 34, 900, 500, 300, 200, 150, 4).metaSnapshot(null),
                         buffer.rewind()
                 );
 
@@ -160,6 +162,7 @@ public class PartitionMetaManagerTest {
                 assertEquals(500, meta.indexColumnsFreeListRootPageId());
                 assertEquals(300, meta.versionChainTreeRootPageId());
                 assertEquals(200, meta.indexTreeMetaPageId());
+                assertEquals(150, meta.blobFreeListRootPageId());
                 assertEquals(4, meta.pageCount());
             }
 
