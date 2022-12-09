@@ -183,7 +183,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
 
             IndexMetaTree indexMetaTree = createIndexMetaTree(tableView, partitionId, rowVersionFreeList, pageMemory, meta);
 
-            BlobFreeList blobFreeList = createBlobFreeList(tableView, partitionId, pageMemory, meta);
+            BlobFreeList blobFreeList = createBlobFreeList(tableView, partitionId, rowVersionFreeList, pageMemory, meta);
 
             return new PersistentPageMemoryMvPartitionStorage(
                     this,
@@ -447,6 +447,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
      *
      * @param tableView Table configuration.
      * @param partId Partition ID.
+     * @param reuseList Reuse list.
      * @param pageMemory Persistent page memory instance.
      * @param meta Partition metadata.
      * @throws StorageException If failed.
@@ -454,6 +455,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
     private BlobFreeList createBlobFreeList(
             TableView tableView,
             int partId,
+            ReuseList reuseList,
             PersistentPageMemory pageMemory,
             PartitionMeta meta
     ) throws StorageException {
@@ -472,7 +474,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
                     tableView.tableId(),
                     partId,
                     dataRegion.pageMemory(),
-                    null,
+                    reuseList,
                     PageLockListenerNoOp.INSTANCE,
                     meta.blobFreeListRootPageId(),
                     initNew,
