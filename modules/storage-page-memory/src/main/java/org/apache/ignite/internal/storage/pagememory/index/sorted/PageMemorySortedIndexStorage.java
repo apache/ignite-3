@@ -323,11 +323,11 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
 
                 boolean hasNext = this.hasNext;
 
-                this.hasNext = null;
-
                 if (!hasNext) {
                     throw new NoSuchElementException();
                 }
+
+                this.hasNext = null;
 
                 return toIndexRowImpl(treeRow);
             } catch (IgniteInternalCheckedException e) {

@@ -785,19 +785,21 @@ public abstract class AbstractSortedIndexStorageTest {
         Cursor<IndexRow> scan = indexStorage.scan(null, null, 0);
 
         // index  =
-        // cursor = ^ with cached empty row
+        // cursor = ^ already finished
         assertFalse(scan.hasNext());
 
         // index  =  [0]
-        // cursor = ^ with cached empty row
+        // cursor = ^ already finished
         put(indexStorage, serializer.serializeRow(new Object[]{0}, new RowId(TEST_PARTITION)));
 
         // index  =  [0]
-        // cursor = ^ with cached empty row
+        // cursor = ^ already finished
         assertFalse(scan.hasNext());
-        // index  =  [0]
-        // cursor = ^ with no cached row
         assertThrows(NoSuchElementException.class, scan::next);
+
+        // index  =  [0]
+        // cursor = ^ no cached row
+        scan = indexStorage.scan(null, null, 0);
 
         // index  = [0]
         // cursor =    ^ with cached [0]
@@ -806,6 +808,19 @@ public abstract class AbstractSortedIndexStorageTest {
         // cursor =    ^ with no cached row
         assertEquals(0, serializer.deserializeColumns(scan.next())[0]);
 
+        // index  = [0] [1]
+        // cursor =    ^ with no cached row
+        put(indexStorage, serializer.serializeRow(new Object[]{1}, new RowId(TEST_PARTITION)));
+
+        // index  = [0] [1]
+        // cursor =        ^ with cached [1]
+        assertTrue(scan.hasNext());
+        // index  = [0] [1]
+        // cursor =        ^ with no cached row
+        assertEquals(1, serializer.deserializeColumns(scan.next())[0]);
+
+        // index  = [0] [1]
+        // cursor =        ^ already finished
         assertFalse(scan.hasNext());
         assertThrows(NoSuchElementException.class, scan::next);
     }
@@ -831,9 +846,18 @@ public abstract class AbstractSortedIndexStorageTest {
         put(indexStorage, serializer.serializeRow(new Object[]{0}, new RowId(TEST_PARTITION)));
 
         // index  = [0]
-        // cursor =    ^ with no cached row
+        // cursor =    ^ already finished
+        assertThrows(NoSuchElementException.class, scan::next);
+
+        // index  =  [0]
+        // cursor = ^ no cached row
+        scan = indexStorage.scan(null, null, 0);
+
+        // index  = [0]
+        // cursor =     ^ no cached row
         assertEquals(0, serializer.deserializeColumns(scan.next())[0]);
 
+        assertThrows(NoSuchElementException.class, scan::next);
         assertThrows(NoSuchElementException.class, scan::next);
     }
 
@@ -915,79 +939,37 @@ public abstract class AbstractSortedIndexStorageTest {
         // index  =
         // cursor = ^ with no cached row
         assertFalse(scan.hasNext());
-        // index  =
-        // cursor = ^ with no cached row
         assertThrows(NoSuchElementException.class, scan::next);
 
-        RowId rowId0 = new RowId(TEST_PARTITION, 0, 0);
-        RowId rowId1 = new RowId(TEST_PARTITION, 0, 1);
+        // index  =  [0]
+        // cursor = ^ already finished
+        put(indexStorage, serializer.serializeRow(new Object[]{0}, new RowId(TEST_PARTITION, 0, 0)));
 
-        // index  =  [0, r0]
-        // cursor = ^ with no cached row
-        put(indexStorage, serializer.serializeRow(new Object[]{0}, rowId0));
+        // index  =  [0]
+        // cursor = ^ already finished
+        assertFalse(scan.hasNext());
+        assertThrows(NoSuchElementException.class, scan::next);
 
-        // index  = [0, r0]
-        // cursor =        ^ with cached [0, r0]
+        scan = indexStorage.scan(null, null, 0);
+
+        // index  = [0]
+        // cursor =     ^ with cached [0, r0]
         assertTrue(scan.hasNext());
+        // index  = [0]
+        // cursor =    ^ with no cached row
+        assertEquals(0, serializer.deserializeColumns(scan.next())[0]);
 
-        // index  = [0, r0]
-        // cursor =        ^ with no cached row
-        IndexRow nextRow = scan.next();
-
-        assertEquals(0, serializer.deserializeColumns(nextRow)[0]);
-        assertEquals(rowId0, nextRow.rowId());
-
+        // index  = [0]
+        // cursor =    ^ already finished
         assertFalse(scan.hasNext());
         assertThrows(NoSuchElementException.class, scan::next);
 
-        // index  = [0, r0]
-        // cursor =        ^ with no cached row
-        put(indexStorage, serializer.serializeRow(new Object[]{0}, rowId0));
+        // index  = [-1] [0]
+        // cursor =     ^ already finished
+        put(indexStorage, serializer.serializeRow(new Object[]{-1}, new RowId(TEST_PARTITION, 0, 0)));
 
-        // We haven't changed anything in the indexStorage.
-        assertFalse(scan.hasNext());
-        assertThrows(NoSuchElementException.class, scan::next);
-
-        // index  = [0, r0] [0, r1]
-        // cursor =        ^ with no cached row
-        put(indexStorage, serializer.serializeRow(new Object[]{0}, rowId1));
-
-        // index  = [0, r0] [0, r1]
-        // cursor =                ^ with cached [0, r1]
-        assertTrue(scan.hasNext());
-
-        // index  = [0, r0] [0, r1]
-        // cursor =                ^ with no cached row
-        nextRow = scan.next();
-
-        assertEquals(0, serializer.deserializeColumns(nextRow)[0]);
-        assertEquals(rowId1, nextRow.rowId());
-
-        assertFalse(scan.hasNext());
-        assertThrows(NoSuchElementException.class, scan::next);
-
-        // index  = [0, r0] [0, r1] [1, r0]
-        // cursor =                ^ with no cached row
-        put(indexStorage, serializer.serializeRow(new Object[]{1}, rowId0));
-
-        // index  = [0, r0] [0, r1] [1, r0]
-        // cursor =                        ^ with cached [1, r0]
-        assertTrue(scan.hasNext());
-
-        // index  = [0, r0] [0, r1] [1, r0]
-        // cursor =                        ^ with no cached row
-        nextRow = scan.next();
-
-        assertEquals(1, serializer.deserializeColumns(nextRow)[0]);
-        assertEquals(rowId0, nextRow.rowId());
-
-        assertFalse(scan.hasNext());
-        assertThrows(NoSuchElementException.class, scan::next);
-
-        // index  = [-1, r0] [0, r0] [0, r1] [1, r0]
-        // cursor =                                 ^ with no cached row
-        put(indexStorage, serializer.serializeRow(new Object[]{-1}, rowId0));
-
+        // index  = [-1] [0]
+        // cursor =     ^ already finished
         assertFalse(scan.hasNext());
         assertThrows(NoSuchElementException.class, scan::next);
     }
@@ -1191,6 +1173,8 @@ public abstract class AbstractSortedIndexStorageTest {
 
         assertFalse(scan.hasNext());
         assertThrows(NoSuchElementException.class, scan::next);
+
+        scan = indexStorage.scan(null, null, 0);
 
         // index  =  [2]
         // cursor = ^ with no cached row

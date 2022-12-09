@@ -19,6 +19,7 @@ package org.apache.ignite.internal.storage.rocksdb.index;
 
 import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
 import static org.apache.ignite.internal.util.CursorUtils.map;
+import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -175,9 +176,11 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
 
             @Override
             public void close() {
-                it.close();
-
-                RocksUtils.closeAll(options, upperBoundSlice);
+                try {
+                    closeAll(it, () -> RocksUtils.closeAll(options, upperBoundSlice));
+                } catch (Exception e) {
+                    throw new StorageException("Error closing cursor", e);
+                }
             }
 
             @Override
@@ -193,11 +196,11 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
 
                 boolean hasNext = this.hasNext;
 
-                this.hasNext = null;
-
                 if (!hasNext) {
                     throw new NoSuchElementException();
                 }
+
+                this.hasNext = null;
 
                 return ByteBuffer.wrap(key).order(ORDER);
             }
