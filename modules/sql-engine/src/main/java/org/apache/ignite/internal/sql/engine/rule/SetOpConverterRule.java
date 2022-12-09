@@ -55,8 +55,8 @@ public class SetOpConverterRule {
         // No-op.
     }
 
-    private abstract static class SingleSetOpConverterRule<T extends SetOp> extends AbstractIgniteConverterRule<T> {
-        SingleSetOpConverterRule(Class<T> cls, String desc) {
+    private abstract static class ColocatedSetOpConverterRule<T extends SetOp> extends AbstractIgniteConverterRule<T> {
+        ColocatedSetOpConverterRule(Class<T> cls, String desc) {
             super(cls, desc);
         }
 
@@ -75,7 +75,7 @@ public class SetOpConverterRule {
         }
     }
 
-    private static class ColocatedMinusConverterRule extends SingleSetOpConverterRule<LogicalMinus> {
+    private static class ColocatedMinusConverterRule extends ColocatedSetOpConverterRule<LogicalMinus> {
         ColocatedMinusConverterRule() {
             super(LogicalMinus.class, "ColocatedMinusConverterRule");
         }
@@ -88,7 +88,7 @@ public class SetOpConverterRule {
         }
     }
 
-    private static class ColocatedIntersectConverterRule extends SingleSetOpConverterRule<LogicalIntersect> {
+    private static class ColocatedIntersectConverterRule extends ColocatedSetOpConverterRule<LogicalIntersect> {
         ColocatedIntersectConverterRule() {
             super(LogicalIntersect.class, "ColocatedIntersectConverterRule");
         }
