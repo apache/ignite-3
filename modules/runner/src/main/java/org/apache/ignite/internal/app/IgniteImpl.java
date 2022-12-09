@@ -426,11 +426,6 @@ public class IgniteImpl implements Ignite {
 
         indexManager = new IndexManager(tablesConfiguration, schemaManager, distributedTblMgr);
 
-        DistributionZonesConfiguration zonesConfiguration = clusterCfgMgr.configurationRegistry()
-                .getConfiguration(DistributionZonesConfiguration.KEY);
-
-        distributionZoneManager = new DistributionZoneManager(zonesConfiguration);
-
         qryEngine = new SqlQueryProcessor(
                 registry,
                 clusterSvc,
