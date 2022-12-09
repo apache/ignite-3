@@ -69,7 +69,7 @@ public class PartitionMetaIo extends PageIo {
 
         setLastAppliedIndex(pageAddr, 0);
         setLastAppliedTerm(pageAddr, 0);
-        setLastRaftGroupConfig(pageAddr, 0);
+        setLastRaftGroupConfigLink(pageAddr, 0);
         setRowVersionFreeListRootPageId(pageAddr, 0);
         setIndexColumnsFreeListRootPageId(pageAddr, 0);
         setVersionChainTreeRootPageId(pageAddr, 0);
@@ -107,7 +107,7 @@ public class PartitionMetaIo extends PageIo {
      * @param pageAddr Page address.
      * @param lastRaftGroupConfigLink Link to a blob representing last RAFT group config..
      */
-    public void setLastRaftGroupConfig(long pageAddr, long lastRaftGroupConfigLink) {
+    public void setLastRaftGroupConfigLink(long pageAddr, long lastRaftGroupConfigLink) {
         assertPageType(pageAddr);
 
         putLong(pageAddr, LAST_RAFT_GROUP_CONFIG_LINK_OFF, lastRaftGroupConfigLink);
