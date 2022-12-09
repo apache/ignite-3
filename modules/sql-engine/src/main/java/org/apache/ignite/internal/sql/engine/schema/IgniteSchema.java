@@ -79,7 +79,7 @@ public class IgniteSchema extends AbstractSchema {
      * @param tbl Table.
      */
     public void addTable(InternalIgniteTable tbl) {
-        tblMap.put(tbl.table().name(), tbl);
+        tblMap.put(tbl.name(), tbl);
     }
 
     /**
@@ -89,8 +89,6 @@ public class IgniteSchema extends AbstractSchema {
      */
     public void removeTable(String tblName) {
         InternalIgniteTable rmv = (InternalIgniteTable) tblMap.remove(tblName);
-
-        idxMap.values().removeIf(idx -> idx.index().tableId().equals(rmv.id()));
     }
 
     /**

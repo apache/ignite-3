@@ -32,7 +32,6 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -446,16 +445,6 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         }
     }
 
-    private static String tableNameById(IgniteSchema schema, UUID tableId) {
-        return schema.getTableMap()
-                .entrySet()
-                .stream()
-                .filter(entry -> tableId
-                        .equals(((InternalIgniteTable) entry.getValue()).id()))
-                .map(Entry::getKey)
-                .findFirst().get();
-    }
-
     /**
      * Index dropped callback method deregisters index from Calcite schema.
      *
@@ -490,10 +479,14 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
                                 Map<UUID, InternalIgniteTable> resTbls = new HashMap<>(tables);
 
-                                InternalIgniteTable table = resTbls.compute(rmvIndex.index().tableId(),
+                                InternalIgniteTable table = resTbls.computeIfPresent(rmvIndex.index().tableId(),
                                         (k, v) -> IgniteTableImpl.copyOf((IgniteTableImpl) v));
 
-                                table.removeIndex(rmvIndex.name());
+                                if (table != null) {
+                                    table.removeIndex(rmvIndex.name());
+                                } else {
+                                    return completedFuture(resTbls);
+                                }
 
                                 return indicesVv.update(causalityToken, (indices, idxEx) -> inBusyLock(busyLock, () -> {
                                             if (idxEx != null) {

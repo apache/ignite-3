@@ -24,16 +24,14 @@ import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
 
 /**
- * AbstractAggregatePlannerTest.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * Base class for further planner test implementations.
  */
 public class AbstractAggregatePlannerTest extends AbstractPlannerTest {
     /**
-     * CreateBroadcastTable.
+     * Creates table with broadcast distribution.
      *
      * @param tblName Table name.
-     *
-     * @return REPLICATED test table (ID, VAL0, VAL1, GRP0, GRP1)
+     * @return Table instance with broadcast distribution and multiple predefined columns.
      */
     protected TestTable createBroadcastTable(String tblName) {
         IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
@@ -56,12 +54,10 @@ public class AbstractAggregatePlannerTest extends AbstractPlannerTest {
     }
 
     /**
-     * CreateAffinityTable.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Creates table with specified affinity distribution.
      *
      * @param tblName Table name.
-     *
-     * @return PARTITIONED test table (ID, VAL0, VAL1, GRP0, GRP1)
+     * @return Table instance with specified affinity distribution and multiple predefined columns.
      */
     protected AbstractPlannerTest.TestTable createAffinityTable(String tblName) {
         IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);

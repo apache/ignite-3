@@ -40,7 +40,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -89,9 +88,7 @@ import org.apache.ignite.internal.index.Index;
 import org.apache.ignite.internal.index.IndexDescriptor;
 import org.apache.ignite.internal.index.SortedIndex;
 import org.apache.ignite.internal.index.SortedIndexDescriptor;
-import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.schema.NativeType;
@@ -125,15 +122,12 @@ import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
-import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.network.ClusterNode;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -761,8 +755,6 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
         private final UUID id = UUID.randomUUID();
 
-        private final InternalTable table;
-
         /** Constructor. */
         public TestTable(RelDataType type) {
             this(type, 100.0);
@@ -785,7 +777,6 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
             this.name = name;
 
             desc = new TestTableDescriptor(this::distribution, type);
-            table = new TestInternalTableImpl(name, id);
         }
 
         /** {@inheritDoc} */
@@ -969,9 +960,8 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
             throw new AssertionError();
         }
 
-        /**
-         * Get name.
-         */
+        /** {@inheritDoc} */
+        @Override
         public String name() {
             return name;
         }
@@ -979,7 +969,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         /** {@inheritDoc} */
         @Override
         public InternalTable table() {
-            return table;
+            throw new AssertionError();
         }
 
         /** {@inheritDoc} */
@@ -993,220 +983,6 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         @Override
         public <RowT> ModifyRow toModifyRow(ExecutionContext<RowT> ectx, RowT row, Operation op, @Nullable List<String> arg) {
             throw new AssertionError();
-        }
-    }
-
-    /** Test purpose implementation. */
-    private static class TestInternalTableImpl implements InternalTable {
-        /** Table name. */
-        private final String tableName;
-
-        /** Table ID. */
-        private final UUID tableId;
-
-        /**
-         * The constructor.
-         *
-         * @param tableName Name.
-         * @param tableId   Id.
-         */
-        public TestInternalTableImpl(String tableName, UUID tableId) {
-            this.tableName = tableName;
-            this.tableId = tableId;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public MvTableStorage storage() {
-            throw new UnsupportedOperationException("Not implemented yet.");
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public UUID tableId() {
-            return tableId;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public String name() {
-            return tableName;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public CompletableFuture<BinaryRow> get(BinaryRowEx keyRow, @Nullable InternalTransaction tx) {
-            throw new UnsupportedOperationException("Not implemented yet.");
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public CompletableFuture<BinaryRow> get(BinaryRowEx keyRow, @NotNull HybridTimestamp readTimestamp,
-                @NotNull ClusterNode recipientNode) {
-            throw new UnsupportedOperationException("Not implemented yet.");
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public CompletableFuture<Collection<BinaryRow>> getAll(Collection<BinaryRowEx> keyRows, @Nullable InternalTransaction tx) {
-            throw new UnsupportedOperationException("Not implemented yet.");
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public CompletableFuture<Collection<BinaryRow>> getAll(Collection<BinaryRowEx> keyRows, @NotNull HybridTimestamp readTimestamp,
-                @NotNull ClusterNode recipientNode) {
-            throw new UnsupportedOperationException("Not implemented yet.");
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public CompletableFuture<Void> upsert(BinaryRowEx row, @Nullable InternalTransaction tx) {
-            throw new UnsupportedOperationException("Not implemented yet.");
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public CompletableFuture<Void> upsertAll(Collection<BinaryRowEx> rows, @Nullable InternalTransaction tx) {
-            throw new UnsupportedOperationException("Not implemented yet.");
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public CompletableFuture<BinaryRow> getAndUpsert(BinaryRowEx row, @Nullable InternalTransaction tx) {
-            throw new UnsupportedOperationException("Not implemented yet.");
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public CompletableFuture<Boolean> insert(BinaryRowEx row, @Nullable InternalTransaction tx) {
-            throw new UnsupportedOperationException("Not implemented yet.");
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public CompletableFuture<Collection<BinaryRow>> insertAll(Collection<BinaryRowEx> rows, @Nullable InternalTransaction tx) {
-            throw new UnsupportedOperationException("Not implemented yet.");
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public CompletableFuture<Boolean> replace(BinaryRowEx row, @Nullable InternalTransaction tx) {
-            throw new UnsupportedOperationException("Not implemented yet.");
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public CompletableFuture<Boolean> replace(BinaryRowEx oldRow, BinaryRowEx newRow, @Nullable InternalTransaction tx) {
-            throw new UnsupportedOperationException("Not implemented yet.");
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public CompletableFuture<BinaryRow> getAndReplace(BinaryRowEx row, @Nullable InternalTransaction tx) {
-            throw new UnsupportedOperationException("Not implemented yet.");
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public CompletableFuture<Boolean> delete(BinaryRowEx keyRow, @Nullable InternalTransaction tx) {
-            throw new UnsupportedOperationException("Not implemented yet.");
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public CompletableFuture<Boolean> deleteExact(BinaryRowEx oldRow, @Nullable InternalTransaction tx) {
-            throw new UnsupportedOperationException("Not implemented yet.");
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public CompletableFuture<BinaryRow> getAndDelete(BinaryRowEx row, @Nullable InternalTransaction tx) {
-            throw new UnsupportedOperationException("Not implemented yet.");
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public CompletableFuture<Collection<BinaryRow>> deleteAll(Collection<BinaryRowEx> rows, @Nullable InternalTransaction tx) {
-            throw new UnsupportedOperationException("Not implemented yet.");
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public CompletableFuture<Collection<BinaryRow>> deleteAllExact(Collection<BinaryRowEx> rows, @Nullable InternalTransaction tx) {
-            throw new UnsupportedOperationException("Not implemented yet.");
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public int partition(BinaryRowEx keyRow) {
-            throw new UnsupportedOperationException("Not implemented yet.");
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public Publisher<BinaryRow> scan(int partId, @NotNull HybridTimestamp readTimestamp, @NotNull ClusterNode recipientNode,
-                @NotNull UUID indexId, @Nullable BinaryTuplePrefix lowerBound, @Nullable BinaryTuplePrefix upperBound, int flags,
-                @Nullable BitSet columnsToInclude) {
-            throw new UnsupportedOperationException("Not implemented yet.");
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public Publisher<BinaryRow> scan(int partId, @Nullable InternalTransaction tx, @Nullable UUID indexId,
-                @Nullable BinaryTuplePrefix lowerBound, @Nullable BinaryTuplePrefix upperBound, int flags,
-                @Nullable BitSet columnsToInclude) {
-            throw new UnsupportedOperationException("Not implemented yet.");
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public Publisher<BinaryRow> lookup(int partId, @NotNull HybridTimestamp readTimestamp, @NotNull ClusterNode recipientNode,
-                @NotNull UUID indexId, BinaryTuple key, @Nullable BitSet columnsToInclude) {
-            throw new UnsupportedOperationException("Not implemented yet.");
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public Publisher<BinaryRow> lookup(int partId, @Nullable InternalTransaction tx, @NotNull UUID indexId, BinaryTuple key,
-                @Nullable BitSet columnsToInclude) {
-            throw new UnsupportedOperationException("Not implemented yet.");
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public int partitions() {
-            throw new UnsupportedOperationException("Not implemented yet.");
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public List<String> assignments() {
-            throw new UnsupportedOperationException("Not implemented yet.");
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public ClusterNode leaderAssignment(int partition) {
-            throw new UnsupportedOperationException("Not implemented yet.");
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public RaftGroupService partitionRaftGroupService(int partition) {
-            throw new UnsupportedOperationException("Not implemented yet.");
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public TxStateTableStorage txStateStorage() {
-            throw new UnsupportedOperationException("Not implemented yet.");
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public void close() {
-            throw new UnsupportedOperationException("Not implemented yet.");
         }
     }
 
