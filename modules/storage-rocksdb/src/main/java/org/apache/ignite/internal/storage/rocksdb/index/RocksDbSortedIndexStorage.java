@@ -171,8 +171,7 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
             @Nullable
             private Boolean hasNext;
 
-            @Nullable
-            private byte[] key;
+            private byte @Nullable [] key;
 
             @Override
             public void close() {
@@ -204,32 +203,34 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
             }
 
             private void advanceIfNeeded() throws StorageException {
-                if (hasNext == null) {
-                    try {
-                        it.refresh();
-                    } catch (RocksDBException e) {
-                        throw new StorageException("Error refreshing an iterator", e);
-                    }
+                if (hasNext != null) {
+                    return;
+                }
 
-                    if (key == null) {
-                        it.seek(lowerBound == null ? partitionStorage.partitionStartPrefix() : lowerBound);
-                    } else {
-                        it.seekForPrev(key);
+                try {
+                    it.refresh();
+                } catch (RocksDBException e) {
+                    throw new StorageException("Error refreshing an iterator", e);
+                }
 
-                        it.next();
-                    }
+                if (key == null) {
+                    it.seek(lowerBound == null ? partitionStorage.partitionStartPrefix() : lowerBound);
+                } else {
+                    it.seekForPrev(key);
 
-                    if (!it.isValid()) {
-                        // check the status first. This operation is guaranteed to throw if an internal error has occurred during
-                        // the iteration. Otherwise, we've exhausted the data range.
-                        RocksUtils.checkIterator(it);
+                    it.next();
+                }
 
-                        hasNext = false;
-                    } else {
-                        key = it.key();
+                if (!it.isValid()) {
+                    // check the status first. This operation is guaranteed to throw if an internal error has occurred during
+                    // the iteration. Otherwise, we've exhausted the data range.
+                    RocksUtils.checkIterator(it);
 
-                        hasNext = true;
-                    }
+                    hasNext = false;
+                } else {
+                    key = it.key();
+
+                    hasNext = true;
                 }
             }
         };

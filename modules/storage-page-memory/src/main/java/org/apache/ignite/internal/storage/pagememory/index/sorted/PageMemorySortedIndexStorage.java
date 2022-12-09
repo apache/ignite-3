@@ -338,23 +338,25 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
         }
 
         private void advanceIfNeeded() throws IgniteInternalCheckedException {
-            if (hasNext == null) {
-                if (treeRow == null) {
-                    treeRow = lower == null ? sortedIndexTree.findFirst() : sortedIndexTree.findNext(lower, true);
-                } else {
-                    SortedIndexRow next = sortedIndexTree.findNext(treeRow, false);
-
-                    if (next == null) {
-                        hasNext = false;
-
-                        return;
-                    } else {
-                        treeRow = next;
-                    }
-                }
-
-                hasNext = treeRow != null && (upper == null || compareRows(treeRow, upper) < 0);
+            if (hasNext != null) {
+                return;
             }
+
+            if (treeRow == null) {
+                treeRow = lower == null ? sortedIndexTree.findFirst() : sortedIndexTree.findNext(lower, true);
+            } else {
+                SortedIndexRow next = sortedIndexTree.findNext(treeRow, false);
+
+                if (next == null) {
+                    hasNext = false;
+
+                    return;
+                } else {
+                    treeRow = next;
+                }
+            }
+
+            hasNext = treeRow != null && (upper == null || compareRows(treeRow, upper) < 0);
         }
 
         private int compareRows(SortedIndexRowKey key1, SortedIndexRowKey key2) {

@@ -233,37 +233,39 @@ public class TestSortedIndexStorage implements SortedIndexStorage {
         }
 
         private void advanceIfNeeded() {
-            if (hasNext == null) {
-                if (indexMapEntry == null) {
-                    indexMapEntry = indexMap.firstEntry();
-                }
+            if (hasNext != null) {
+                return;
+            }
 
-                if (rowId == null) {
-                    if (indexMapEntry != null) {
+            if (indexMapEntry == null) {
+                indexMapEntry = indexMap.firstEntry();
+            }
+
+            if (rowId == null) {
+                if (indexMapEntry != null) {
+                    rowId = getRowId(indexMapEntry.getValue().firstEntry());
+                }
+            } else {
+                Entry<RowId, Object> nextRowIdEntry = indexMapEntry.getValue().higherEntry(rowId);
+
+                if (nextRowIdEntry != null) {
+                    rowId = nextRowIdEntry.getKey();
+                } else {
+                    Entry<ByteBuffer, NavigableMap<RowId, Object>> nextIndexMapEntry = indexMap.higherEntry(indexMapEntry.getKey());
+
+                    if (nextIndexMapEntry == null) {
+                        hasNext = false;
+
+                        return;
+                    } else {
+                        indexMapEntry = nextIndexMapEntry;
+
                         rowId = getRowId(indexMapEntry.getValue().firstEntry());
                     }
-                } else {
-                    Entry<RowId, Object> rowIdEntry = indexMapEntry.getValue().higherEntry(rowId);
-
-                    if (rowIdEntry != null) {
-                        rowId = rowIdEntry.getKey();
-                    } else {
-                        Entry<ByteBuffer, NavigableMap<RowId, Object>> nextIndexMapEntry = indexMap.higherEntry(indexMapEntry.getKey());
-
-                        if (nextIndexMapEntry == null) {
-                            hasNext = false;
-
-                            return;
-                        } else {
-                            indexMapEntry = nextIndexMapEntry;
-
-                            rowId = getRowId(indexMapEntry.getValue().firstEntry());
-                        }
-                    }
                 }
-
-                hasNext = rowId != null;
             }
+
+            hasNext = rowId != null;
         }
 
         @Nullable

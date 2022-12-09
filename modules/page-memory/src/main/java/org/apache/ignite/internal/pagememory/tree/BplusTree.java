@@ -1573,17 +1573,18 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
     }
 
     /**
-     * Searches for the next row from the passed from the arguments.
+     * Searches for the lowerBound that (strictly or loosely, depending on {@code includeRow}) follows the lowerBound passed as an
+     * argument.
      *
-     * @param row Row.
-     * @param includeRow {@code True} if you include the passed row in the result.
-     * @return Next row.
+     * @param lowerBound Lower bound..
+     * @param includeRow {@code True} if you include the passed lowerBound in the result.
+     * @return Next lowerBound.
      * @throws IgniteInternalCheckedException If failed.
      */
-    public final @Nullable T findNext(L row, boolean includeRow) throws IgniteInternalCheckedException {
+    public final @Nullable T findNext(L lowerBound, boolean includeRow) throws IgniteInternalCheckedException {
         checkDestroyed();
 
-        GetNext g = new GetNext(row, includeRow);
+        GetNext g = new GetNext(lowerBound, includeRow);
 
         try {
             doFind(g);
@@ -1592,9 +1593,9 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
         } catch (CorruptedDataStructureException e) {
             throw e;
         } catch (IgniteInternalCheckedException e) {
-            throw new IgniteInternalCheckedException("Runtime failure on lookup next row: " + row, e);
+            throw new IgniteInternalCheckedException("Runtime failure on lookup next lowerBound: " + lowerBound, e);
         } catch (RuntimeException | AssertionError e) {
-            throw corruptedTreeException("Runtime failure on lookup next row: " + row, e, grpId, g.pageId);
+            throw corruptedTreeException("Runtime failure on lookup next lowerBound: " + lowerBound, e, grpId, g.pageId);
         } finally {
             checkDestroyed();
         }
@@ -6283,36 +6284,17 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
             } else {
                 assert io.isLeaf() : io;
                 assert cnt > 0 : cnt;
-                assert idx >= 0 || idx == -1 : idx;
+                assert idx >= 0 : idx;
                 assert cnt >= idx : "cnt=" + cnt + ", idx=" + idx;
 
                 checkDestroyed();
 
-                if (idx == -1) {
-                    idx = findNextRowIdx(pageAddr, io, cnt);
-                }
-
-                if (cnt - idx > 0) {
+                if (idx < cnt) {
                     nextRow = getRow(io, pageAddr, idx);
                 }
             }
 
             return true;
-        }
-
-        int findNextRowIdx(long pageAddr, BplusIo<L> io, int cnt) throws IgniteInternalCheckedException {
-            // Compare with the first row on the page.
-            int cmp = compare(0, io, pageAddr, 0, row);
-
-            if (cmp <= 0) {
-                int idx = findInsertionPoint(0, io, pageAddr, 0, cnt, row, shift);
-
-                assert idx < 0 : idx;
-
-                return fix(idx);
-            }
-
-            return 0;
         }
     }
 
