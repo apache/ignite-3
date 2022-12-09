@@ -11,14 +11,14 @@ INSERT INTO test VALUES (11, 1), (NULL, 2), (13, 3)
 
 # IS NULL/IS NOT NULL
 query TTTT
-SELECT a IS NULL, a IS NOT NULL, _key IS NULL, (a = NULL) IS NULL FROM test ORDER BY b
+SELECT a IS NULL, a IS NOT NULL, "__p_key" IS NULL, (a = NULL) IS NULL FROM test ORDER BY b
 ----
 false	true	false	true
 true	false	false	true
 false	true	false	true
 
 query TTTT
-SELECT a IS NULL, a IS NOT NULL, _key IS NULL, (a = NULL) IS NULL FROM test WHERE b <> 1 ORDER BY b
+SELECT a IS NULL, a IS NOT NULL, "__p_key" IS NULL, (a = NULL) IS NULL FROM test WHERE b <> 1 ORDER BY b
 ----
 true	false	false	true
 false	true	false	true
