@@ -15,25 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.commands.sql;
+package org.apache.ignite.internal.cli.core.repl.completer;
 
-import jakarta.inject.Singleton;
-import org.apache.ignite.internal.cli.commands.ExitCommand;
-import org.apache.ignite.internal.cli.commands.sql.help.SqlHelpCommand;
-import picocli.CommandLine.Command;
-import picocli.shell.jline3.PicocliCommands.ClearScreen;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.hasSize;
 
-/**
- * Top level SQL REPL command.
- */
-@Command(name = "",
-        description = {""},
-        subcommands = {
-                ClearScreen.class,
-                ExitCommand.class,
-                SqlHelpCommand.class
-        }
-)
-@Singleton
-public class SqlReplTopLevelCliCommand {
+import java.util.List;
+import org.junit.jupiter.api.Test;
+
+class ExclusionsCompleterFilterTest {
+
+    @Test
+    void returnsCandidatesWithoutExclusions() {
+        ExclusionsCompleterFilter filter = new ExclusionsCompleterFilter("exclusion1", "exclusion2");
+        String[] candidates = filter.filter(new String[0], new String[]{"exclusion1", "exclusion2", "candidate"});
+        List<String> candidatesList = List.of(candidates);
+        assertThat(candidatesList, hasSize(1));
+        assertThat(candidatesList, contains("candidate"));
+    }
 }

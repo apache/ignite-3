@@ -19,12 +19,16 @@ package org.apache.ignite.internal.cli.core.repl.completer;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.both;
+import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.not;
 
+import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.cli.commands.Options;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -288,5 +292,27 @@ class DynamicCompleterRegistryTest {
                 registry.findCompleters(words("node", "config", "show", "-n", "node", "")),
                 both(hasSize(1)).and(containsInAnyOrder(completer2))
         );
+    }
+
+    @Test
+    void doesNotReturnFilteredCandidates() {
+        // Given
+        registry.register(CompleterConf.builder()
+                .command("command1", "subcommand1")
+                .filter((words, candidates) -> {
+                    return Arrays.stream(candidates)
+                            .filter(it -> !"candidate2".equals(it))
+                            .toArray(String[]::new);
+                }).build(), words -> ignored -> List.of("candidate1", "candidate2"));
+
+        // Then
+        List<DynamicCompleter> completers = registry.findCompleters(words("command1", "subcommand1"));
+        assertThat(completers, not(empty()));
+
+        List<String> candidates = completers.stream()
+                .flatMap(it -> it.complete(words("word")).stream())
+                .collect(Collectors.toList());
+        assertThat(candidates, contains("candidate1"));
+        assertThat(candidates, not(contains("candidate2")));
     }
 }
