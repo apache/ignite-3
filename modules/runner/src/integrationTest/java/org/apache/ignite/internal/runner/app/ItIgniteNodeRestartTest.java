@@ -27,6 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 
@@ -108,6 +109,7 @@ import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
+import org.apache.ignite.tx.TransactionException;
 import org.intellij.lang.annotations.Language;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -799,7 +801,6 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * checks that the table created before node stop, is not available when majority if lost.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17976")
     public void testOneNodeRestartWithGap() {
         Ignite ignite = startNode(0);
 
@@ -813,7 +814,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         assertNotNull(table);
 
-        assertThrowsWithCause(() -> table.keyValueView().get(null, Tuple.create().set("id", 0)), TimeoutException.class);
+        assertThrows(TransactionException.class, () -> table.keyValueView().get(null, Tuple.create().set("id", 0)));
 
         createTableWithData(ignite, TABLE_NAME_2, 1, 1);
 
@@ -1025,10 +1026,10 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
             session.execute(null, "CREATE TABLE " + name
                     + "(id INT PRIMARY KEY, name VARCHAR) WITH replicas=" + replicas + ", partitions=" + partitions);
 
-            for (int i = 0; i < 100; i++) {
-                session.execute(null, "INSERT INTO " + name + "(id, name) VALUES (?, ?)",
-                        i, VALUE_PRODUCER.apply(i));
-            }
+//            for (int i = 0; i < 100; i++) {
+//                session.execute(null, "INSERT INTO " + name + "(id, name) VALUES (?, ?)",
+//                        i, VALUE_PRODUCER.apply(i));
+//            }
         }
     }
 

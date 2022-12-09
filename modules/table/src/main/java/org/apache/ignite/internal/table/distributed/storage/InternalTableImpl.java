@@ -320,7 +320,13 @@ public class InternalTableImpl implements InternalTable {
 
         CompletableFuture<T> fut = reducer.apply(futures);
 
-        return postEnlist(fut, implicit, tx0);
+//        return postEnlist(fut, implicit, tx0);
+
+        return postEnlist(fut, implicit, tx0).exceptionally(e -> {
+            System.out.println("!!!" + e);
+
+            return null;
+        });
     }
 
     /**
@@ -455,7 +461,9 @@ public class InternalTableImpl implements InternalTable {
         return fut.handle(new BiFunction<T, Throwable, CompletableFuture<T>>() {
             @Override
             public CompletableFuture<T> apply(T r, Throwable e) {
+                System.out.println("qqqqq");
                 if (e != null) {
+                    System.out.println("<<<<<<" + e);
                     return tx0.rollbackAsync().handle((ignored, err) -> {
                         if (err != null) {
                             e.addSuppressed(err);
@@ -466,7 +474,12 @@ public class InternalTableImpl implements InternalTable {
                 } else {
                     tx0.enlistResultFuture(fut);
 
-                    return implicit ? tx0.commitAsync().thenApply(ignored -> r) : completedFuture(r);
+                    System.out.println("<<<<<<1" + e);
+
+                    CompletableFuture<T> tCompletableFuture = implicit ? tx0.commitAsync().thenApply(ignored -> r) : completedFuture(r);
+
+                    System.out.println("<<<<<<2" + e);
+                    return tCompletableFuture;
                 }
             }
         }).thenCompose(x -> x);
