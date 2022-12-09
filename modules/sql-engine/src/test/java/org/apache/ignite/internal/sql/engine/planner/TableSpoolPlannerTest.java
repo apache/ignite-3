@@ -49,7 +49,7 @@ public class TableSpoolPlannerTest extends AbstractPlannerTest {
                         .add("ID", f.createJavaType(Integer.class))
                         .add("JID", f.createJavaType(Integer.class))
                         .add("VAL", f.createJavaType(String.class))
-                        .build()) {
+                        .build(), "T0") {
 
             @Override
             public IgniteDistribution distribution() {
@@ -62,7 +62,7 @@ public class TableSpoolPlannerTest extends AbstractPlannerTest {
                         .add("ID", f.createJavaType(Integer.class))
                         .add("JID", f.createJavaType(Integer.class))
                         .add("VAL", f.createJavaType(String.class))
-                        .build()) {
+                        .build(), "T1") {
 
             @Override
             public IgniteDistribution distribution() {
@@ -72,8 +72,8 @@ public class TableSpoolPlannerTest extends AbstractPlannerTest {
 
         IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
 
-        publicSchema.addTable("T0", t0);
-        publicSchema.addTable("T1", t1);
+        publicSchema.addTable(t0);
+        publicSchema.addTable(t1);
 
         String sql = "select * "
                 + "from t0 "

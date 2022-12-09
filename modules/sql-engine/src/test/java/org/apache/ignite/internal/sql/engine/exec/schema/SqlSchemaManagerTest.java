@@ -163,10 +163,9 @@ public class SqlSchemaManagerTest {
 
     @Test
     public void testTableEventIsProcessedRequiredVersionIsSame() {
-        when(table.name()).thenReturn("PUBLIC.T");
-
         InternalTable mock = mock(InternalTable.class);
         when(mock.tableId()).thenReturn(tableId);
+        when(mock.name()).thenReturn("PUBLIC.T");
 
         when(table.internalTable()).thenReturn(mock);
         when(schemaRegistry.schema()).thenReturn(schemaDescriptor);
@@ -186,10 +185,9 @@ public class SqlSchemaManagerTest {
 
     @Test
     public void testTableEventIsProcessedRequiredVersionIsLess() {
-        when(table.name()).thenReturn("PUBLIC.T");
-
         InternalTable mock = mock(InternalTable.class);
         when(mock.tableId()).thenReturn(tableId);
+        when(mock.name()).thenReturn("PUBLIC.T\"");
 
         when(table.internalTable()).thenReturn(mock);
         when(schemaRegistry.schema()).thenReturn(schemaDescriptor);
@@ -210,10 +208,10 @@ public class SqlSchemaManagerTest {
     @Test
     public void testTableEventIsProcessedRequiredVersionIsGreater() throws NodeStoppingException {
         when(table.schemaView()).thenReturn(schemaRegistry);
-        when(table.name()).thenReturn("PUBLIC.T");
 
         InternalTable mock = mock(InternalTable.class);
         when(mock.tableId()).thenReturn(tableId);
+        when(mock.name()).thenReturn("PUBLIC.T");
 
         when(table.internalTable()).thenReturn(mock);
         when(schemaRegistry.schema()).thenReturn(schemaDescriptor);
@@ -244,6 +242,7 @@ public class SqlSchemaManagerTest {
 
         InternalTable mock = mock(InternalTable.class);
         when(mock.tableId()).thenReturn(tableId);
+        when(mock.name()).thenReturn("T");
 
         when(table.internalTable()).thenReturn(mock);
         when(schemaRegistry.schema()).thenReturn(schemaDescriptor);
@@ -267,11 +266,11 @@ public class SqlSchemaManagerTest {
     }
 
     @Test
-    public void testIndexEventHandler() throws Exception {
+    public void testIndexEventHandler() {
         InternalTable mock = mock(InternalTable.class);
         when(mock.tableId()).thenReturn(tableId);
+        when(mock.name()).thenReturn("T");
 
-        when(table.name()).thenReturn("T");
         when(table.internalTable()).thenReturn(mock);
         when(schemaRegistry.schema()).thenReturn(schemaDescriptor);
         when(schemaRegistry.lastSchemaVersion()).thenReturn(schemaDescriptor.version());
@@ -317,8 +316,8 @@ public class SqlSchemaManagerTest {
     public void testIndexEventsProcessed() throws Exception {
         InternalTable mock = mock(InternalTable.class);
         when(mock.tableId()).thenReturn(tableId);
+        when(mock.name()).thenReturn("T");
 
-        when(table.name()).thenReturn("T");
         when(table.internalTable()).thenReturn(mock);
         when(schemaRegistry.schema()).thenReturn(schemaDescriptor);
         when(schemaRegistry.lastSchemaVersion()).thenReturn(schemaDescriptor.version());

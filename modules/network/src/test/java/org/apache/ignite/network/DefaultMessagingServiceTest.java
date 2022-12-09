@@ -18,6 +18,7 @@
 package org.apache.ignite.network;
 
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
+import static org.apache.ignite.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -38,7 +39,6 @@ import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.configuration.NetworkView;
 import org.apache.ignite.internal.network.configuration.OutboundView;
 import org.apache.ignite.internal.network.messages.TestMessage;
-import org.apache.ignite.internal.network.messages.TestMessageSerializationFactory;
 import org.apache.ignite.internal.network.messages.TestMessageTypes;
 import org.apache.ignite.internal.network.messages.TestMessagesFactory;
 import org.apache.ignite.internal.network.netty.ConnectionManager;
@@ -52,6 +52,7 @@ import org.apache.ignite.internal.network.serialization.UserObjectSerializationC
 import org.apache.ignite.internal.network.serialization.marshal.DefaultUserObjectMarshaller;
 import org.apache.ignite.internal.network.serialization.marshal.UserObjectMarshaller;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -86,7 +87,7 @@ class DefaultMessagingServiceTest {
 
     private final NetworkMessagesFactory networkMessagesFactory = new NetworkMessagesFactory();
     private final TestMessagesFactory testMessagesFactory = new TestMessagesFactory();
-    private final MessageSerializationRegistryImpl messageSerializationRegistry = new MessageSerializationRegistryImpl();
+    private final MessageSerializationRegistry messageSerializationRegistry = defaultSerializationRegistry();
 
     private final ClusterNode senderNode = new ClusterNode(
             "sender",
@@ -106,12 +107,6 @@ class DefaultMessagingServiceTest {
         configureReceiver();
 
         lenient().when(topologyService.getByConsistentId(eq(senderNode.name()))).thenReturn(senderNode);
-
-        messageSerializationRegistry.registerFactory(
-                (short) 2,
-                TestMessageTypes.TEST,
-                new TestMessageSerializationFactory(testMessagesFactory)
-        );
     }
 
     @Test

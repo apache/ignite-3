@@ -15,19 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.network.serialization;
+package org.apache.ignite.internal.distributionzones.configuration;
 
-import org.apache.ignite.internal.network.messages.TestMessagesSerializationRegistryInitializer;
-import org.apache.ignite.network.MessageSerializationRegistryImpl;
+import java.util.Collection;
+import java.util.List;
+import org.apache.ignite.configuration.RootKey;
+import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.apache.ignite.internal.configuration.ConfigurationModule;
 
 /**
- * Implementation of a {@link MessageSerializationRegistry} for tests.
+ * Configuration module for distribution zones configs.
  */
-public class TestMessageSerializationRegistryImpl extends MessageSerializationRegistryImpl {
-    /**
-     * Default constructor.
-     */
-    public TestMessageSerializationRegistryImpl() {
-        TestMessagesSerializationRegistryInitializer.registerFactories(this);
+public class DistributionZonesConfigurationModule implements ConfigurationModule {
+    /** {@inheritDoc} */
+    @Override
+    public ConfigurationType type() {
+        return ConfigurationType.DISTRIBUTED;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Collection<RootKey<?, ?>> rootKeys() {
+        return List.of(DistributionZonesConfiguration.KEY);
     }
 }
