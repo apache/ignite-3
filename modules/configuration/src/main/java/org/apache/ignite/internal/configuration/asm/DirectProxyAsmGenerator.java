@@ -81,7 +81,7 @@ class DirectProxyAsmGenerator {
     /** {@link ConfigurationUtil#appendKey(List, Object)}. */
     private static final Method APPEND_KEY;
 
-    /** This generator instance is only used for {@link ConfigurationAsmGenerator#schemaInfo(java.lang.Class)}. */
+    /** This generator instance is only used for {@link ConfigurationAsmGenerator#schemaInfo(Class)}. */
     private final ConfigurationAsmGenerator cgen;
 
     /** Schema class. */
@@ -123,7 +123,7 @@ class DirectProxyAsmGenerator {
             Set<Class<?>> internalExtensions,
             List<Field> schemaFields,
             Collection<Field> internalExtensionsFields,
-            Field internalIdField
+            @Nullable Field internalIdField
     ) {
         this.cgen = cgen;
         this.schemaClass = schemaClass;
