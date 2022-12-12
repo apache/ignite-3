@@ -19,7 +19,12 @@ package org.apache.ignite.internal.storage.pagememory.mv;
 
 import org.apache.ignite.internal.pagememory.PageIdAllocator;
 import org.apache.ignite.internal.pagememory.PageMemory;
+import org.apache.ignite.internal.pagememory.datastructure.DataStructure;
+import org.apache.ignite.internal.pagememory.io.PageIo;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolder;
+import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
+import org.apache.ignite.internal.pagememory.reuse.LongListReuseBag;
+import org.apache.ignite.internal.pagememory.reuse.ReuseBag;
 import org.apache.ignite.internal.pagememory.reuse.ReuseList;
 import org.apache.ignite.internal.pagememory.util.PageHandler;
 import org.apache.ignite.internal.pagememory.util.PageLockListenerNoOp;
@@ -30,7 +35,7 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
 
 public class BlobStorage {
-    public static final long NO_PAGE_ID = 0;
+    static final long NO_PAGE_ID = 0;
 
     private final ReuseList reuseList;
     private final PageMemory pageMemory;
@@ -39,6 +44,8 @@ public class BlobStorage {
     private final int partitionId;
 
     private final IoStatisticsHolder statisticsHolder;
+
+    private final RecycleAndAddToReuseBag recycleAndAddToReuseBag = new RecycleAndAddToReuseBag();
 
     public BlobStorage(ReuseList reuseList, PageMemory pageMemory, int groupId, int partitionId, IoStatisticsHolder statisticsHolder) {
         this.reuseList = reuseList;
@@ -110,6 +117,8 @@ public class BlobStorage {
             pageId = maybePageId;
         }
 
+        long firstPageToFreeId = 0L;
+
         final long page = pageMemory.acquirePage(groupId, pageId, statisticsHolder);
 
         try {
@@ -142,6 +151,10 @@ public class BlobStorage {
                     long newNextPageId = doStore(nextPageId, bytes, newBytesOffset);
 
                     io.setNextPageId(pageAddr, newNextPageId);
+                } else {
+                    io.setNextPageId(pageAddr, NO_PAGE_ID);
+
+                    firstPageToFreeId = nextPageId;
                 }
             } finally {
                 pageMemory.writeUnlock(groupId, pageId, page, wroteSomething);
@@ -149,6 +162,8 @@ public class BlobStorage {
         } finally {
             pageMemory.releasePage(groupId, pageId, page);
         }
+
+        freePagesStartingWith(firstPageToFreeId);
 
         return pageId;
     }
@@ -169,5 +184,44 @@ public class BlobStorage {
         }
 
         return pageId;
+    }
+
+    private void freePagesStartingWith(long pageId) throws IgniteInternalCheckedException {
+        if (pageId != NO_PAGE_ID) {
+            reuseList.addForRecycle(recycleAndCollectPagesStartingWith(pageId));
+        }
+    }
+
+    private ReuseBag recycleAndCollectPagesStartingWith(long startingPageId) throws IgniteInternalCheckedException {
+        ReuseBag reuseBag = new LongListReuseBag();
+
+        long pageId = startingPageId;
+
+        while (pageId != NO_PAGE_ID) {
+            Long nextPageId = PageHandler.writePage(pageMemory, groupId, pageId, PageLockListenerNoOp.INSTANCE,
+                    recycleAndAddToReuseBag, null, reuseBag, 0, pageId, IoStatisticsHolderNoOp.INSTANCE);
+
+            assert nextPageId != pageId : pageId;
+
+            pageId = nextPageId;
+        }
+
+        return reuseBag;
+    }
+
+    private static class RecycleAndAddToReuseBag implements PageHandler<ReuseBag, Long> {
+        @Override
+        public Long run(int groupId, long pageId, long page, long pageAddr, PageIo io, ReuseBag reuseBag, int unused,
+                IoStatisticsHolder statHolder) {
+            BlobIo blobIo = (BlobIo) io;
+
+            long nextPageId = blobIo.getNextPageId(pageAddr);
+
+            long recycledPageId = DataStructure.recyclePage(pageId, pageAddr);
+
+            reuseBag.addFreePage(recycledPageId);
+
+            return nextPageId;
+        }
     }
 }

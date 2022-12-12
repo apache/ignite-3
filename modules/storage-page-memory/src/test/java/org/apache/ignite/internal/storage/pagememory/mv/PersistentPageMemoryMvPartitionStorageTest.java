@@ -65,6 +65,8 @@ class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPar
 
     private PersistentPageMemoryTableStorage table;
 
+    private PersistentPageMemoryMvPartitionStorage pageMemStorage;
+
     @BeforeEach
     void setUp() {
         longJvmPauseDetector = new LongJvmPauseDetector("test", Loggers.forClass(LongJvmPauseDetector.class));
@@ -79,7 +81,8 @@ class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPar
 
         table.start();
 
-        storage = table.createMvPartitionStorage(PARTITION_ID);
+        pageMemStorage = table.createMvPartitionStorage(PARTITION_ID);
+        storage = pageMemStorage;
 
         ((PersistentPageMemoryMvPartitionStorage) storage).start();
     }
@@ -166,5 +169,46 @@ class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPar
         RaftGroupConfiguration readConfig = storage.committedGroupConfiguration();
 
         assertThat(readConfig, is(equalTo(originalConfig)));
+    }
+
+    @Test
+    void groupConfigPagesAreRecycled() throws Exception {
+        List<String> oneMbOfPeers = IntStream.range(0, 100_000)
+                .mapToObj(n -> String.format("peer%06d", n))
+                .collect(toList());
+
+        RaftGroupConfiguration originalConfigOfMoreThanOnePage = new RaftGroupConfiguration(
+                oneMbOfPeers,
+                List.of("old-peer1", "old-peer2"),
+                List.of("learner1", "learner2"),
+                List.of("old-learner1", "old-learner2")
+        );
+
+        storage.runConsistently(() -> {
+            storage.committedGroupConfiguration(originalConfigOfMoreThanOnePage);
+
+            return null;
+        });
+
+        long freeSpaceBeforeTrimming = pageMemStorage.rowVersionFreeList.freeSpace();
+
+        RaftGroupConfiguration configWhichFitsInOnePage = new RaftGroupConfiguration(
+                List.of("peer1", "peer2"),
+                List.of("old-peer1", "old-peer2"),
+                List.of("learner1", "learner2"),
+                List.of("old-learner1", "old-learner2")
+        );
+
+        storage.runConsistently(() -> {
+            storage.committedGroupConfiguration(configWhichFitsInOnePage);
+
+            return null;
+        });
+
+        restartStorage();
+
+        RaftGroupConfiguration readConfig = storage.committedGroupConfiguration();
+
+        assertThat(readConfig, is(equalTo(configWhichFitsInOnePage)));
     }
 }
