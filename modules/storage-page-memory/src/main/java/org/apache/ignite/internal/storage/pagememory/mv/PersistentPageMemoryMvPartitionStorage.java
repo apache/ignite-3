@@ -68,9 +68,6 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     /** Checkpoint listener. */
     private final CheckpointListener checkpointListener;
 
-    /** FreeList for blobs. */
-    private final BlobFreeList blobFreeList;
-
     /** Used to read data from pagememory pages. */
     private final DataPageReader pageReader;
 
@@ -87,7 +84,6 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
      * @param indexFreeList Free list fot {@link IndexColumns}.
      * @param versionChainTree Table tree for {@link VersionChain}.
      * @param indexMetaTree Tree that contains SQL indexes' metadata.
-     * @param blobFreeList Free list for {@link Blob}.
      */
     public PersistentPageMemoryMvPartitionStorage(
             PersistentPageMemoryTableStorage tableStorage,
@@ -97,7 +93,6 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
             IndexColumnsFreeList indexFreeList,
             VersionChainTree versionChainTree,
             IndexMetaTree indexMetaTree,
-            BlobFreeList blobFreeList,
             TablesConfiguration tablesCfg
     ) {
         super(partitionId, tableStorage, rowVersionFreeList, indexFreeList, versionChainTree, indexMetaTree, tablesCfg);
@@ -127,8 +122,6 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         }, dataRegion);
 
         this.meta = meta;
-
-        this.blobFreeList = blobFreeList;
 
         pageReader = new DataPageReader(
                 dataRegion.pageMemory(),
@@ -251,16 +244,20 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
                     return null;
                 }
 
-                ReadBlob readBlob = new ReadBlob();
+                // TODO: implement reading
 
-                pageReader.traverse(configLink, readBlob, null);
+                return null;
 
-                return raftGroupConfigFromBytes(readBlob.result());
+//                ReadBlob readBlob = new ReadBlob();
+//
+//                pageReader.traverse(configLink, readBlob, null);
+//
+//                return raftGroupConfigFromBytes(readBlob.result());
             } finally {
                 raftGroupConfigReadWriteLock.readLock().unlock();
             }
-        } catch (IgniteInternalCheckedException e) {
-            throw new IgniteInternalException("Failed to read group config", e);
+//        } catch (IgniteInternalCheckedException e) {
+//            throw new IgniteInternalException("Failed to read group config", e);
         } finally {
             closeBusyLock.leaveBusy();
         }
@@ -274,26 +271,12 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
 
         UUID lastCheckpointId = lastCheckpoint == null ? null : lastCheckpoint.id();
 
-        Blob blob = new Blob(partitionId, raftGroupConfigToBytes(config));
+//        Blob blob = new Blob(partitionId, raftGroupConfigToBytes(config));
 
         raftGroupConfigReadWriteLock.writeLock().lock();
 
         try {
-            if (meta.lastRaftGroupConfigLink() != 0) {
-                try {
-                    blobFreeList.removeBlobByLink(meta.lastRaftGroupConfigLink());
-                } catch (IgniteInternalCheckedException e) {
-                    throw new IgniteInternalException("Failed to remove old group config", e);
-                }
-            }
-
-            try {
-                blobFreeList.insertBlob(blob);
-            } catch (IgniteInternalCheckedException e) {
-                throw new IgniteInternalException("Failed to save group config", e);
-            }
-
-            meta.lastRaftGroupConfigLink(lastCheckpointId, blob.link());
+            // TODO: save/update blob
         } finally {
             raftGroupConfigReadWriteLock.writeLock().unlock();
         }
@@ -338,8 +321,6 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         versionChainTree.close();
         indexMetaTree.close();
 
-        blobFreeList.close();
-
         for (PageMemoryHashIndexStorage hashIndexStorage : hashIndexes.values()) {
             hashIndexStorage.close();
         }
@@ -363,8 +344,6 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
             rowVersionFreeList.saveMetadata();
 
             indexFreeList.saveMetadata();
-
-            blobFreeList.saveMetadata();
         } else {
             executor.execute(() -> {
                 try {
@@ -379,14 +358,6 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
                     indexFreeList.saveMetadata();
                 } catch (IgniteInternalCheckedException e) {
                     throw new IgniteInternalException("Failed to save IndexColumnsFreeList metadata", e);
-                }
-            });
-
-            executor.execute(() -> {
-                try {
-                    blobFreeList.saveMetadata();
-                } catch (IgniteInternalCheckedException e) {
-                    throw new IgniteInternalException("Failed to save BlobFreeList metadata", e);
                 }
             });
         }

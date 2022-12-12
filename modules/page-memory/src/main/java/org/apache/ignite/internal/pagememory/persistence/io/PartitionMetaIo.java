@@ -76,7 +76,6 @@ public class PartitionMetaIo extends PageIo {
         setIndexColumnsFreeListRootPageId(pageAddr, 0);
         setVersionChainTreeRootPageId(pageAddr, 0);
         setIndexTreeMetaPageId(pageAddr, 0);
-        setBlobFreeListRootPageId(pageAddr, 0);
         setPageCount(pageAddr, 0);
     }
 
@@ -228,27 +227,6 @@ public class PartitionMetaIo extends PageIo {
     }
 
     /**
-     * Sets a blob free list root page id.
-     *
-     * @param pageAddr Page address.
-     * @param pageId Root page id.
-     */
-    public void setBlobFreeListRootPageId(long pageAddr, long pageId) {
-        assertPageType(pageAddr);
-
-        putLong(pageAddr, BLOB_FREE_LIST_ROOT_PAGE_ID_OFF, pageId);
-    }
-
-    /**
-     * Returns a blob free list root page id.
-     *
-     * @param pageAddr Page address.
-     */
-    public long getBlobFreeListRootPageId(long pageAddr) {
-        return getLong(pageAddr, BLOB_FREE_LIST_ROOT_PAGE_ID_OFF);
-    }
-
-    /**
      * Sets the count of pages.
      *
      * @param pageAddr Page address.
@@ -280,7 +258,6 @@ public class PartitionMetaIo extends PageIo {
                 .app(", indexColumnsFreeListRootPageId(=").appendHex(getIndexColumnsFreeListRootPageId(addr)).nl()
                 .app(", versionChainTreeRootPageId=").appendHex(getVersionChainTreeRootPageId(addr)).nl()
                 .app(", indexTreeMetaPageId=").appendHex(getIndexTreeMetaPageId(addr)).nl()
-                .app(", blobFreeListRootPageId(=").appendHex(getBlobFreeListRootPageId(addr)).nl()
                 .app(", pageCount=").app(getPageCount(addr)).nl()
                 .app(']');
     }
