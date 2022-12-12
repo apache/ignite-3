@@ -260,7 +260,40 @@ public partial class LinqTests
     [Test]
     public void TestOuterJoinReferenceTypeKey()
     {
-        Assert.Fail("TODO");
+        var query1 = PocoView.AsQueryable(); // Sequential values.
+        var query2 = PocoStringView.AsQueryable(); // Sequential values times 2.
+
+        var joinQuery = query1.Join(
+                inner: query2.DefaultIfEmpty(),
+                outerKeySelector: a => a.Val,
+                innerKeySelector: b => b.Val,
+                resultSelector: (a, b) => new
+                {
+                    Id = a.Key,
+                    Id2 = b.Key,
+                    Name = b.Val
+                })
+            .OrderBy(x => x.Id);
+
+        var res = joinQuery.ToList();
+
+        Assert.AreEqual(Count, res.Count);
+
+        Assert.AreEqual(1, res[1].Id);
+        Assert.AreEqual(null, res[1].Name);
+
+        Assert.AreEqual(2, res[2].Id);
+        Assert.AreEqual("v-2", res[2].Name);
+
+        Assert.AreEqual(3, res[3].Id);
+        Assert.AreEqual(null, res[3].Name);
+
+        StringAssert.Contains(
+            "select _T0.KEY, _T1.KEY, _T1.VAL " +
+            "from PUBLIC.TBL1 as _T0 " +
+            "left outer join (select * from PUBLIC.TBL_STRING as _T2 ) as _T1 on (_T1.VAL = _T0.VAL) " +
+            "order by (_T0.KEY) asc",
+            joinQuery.ToString());
     }
 
     [Test]

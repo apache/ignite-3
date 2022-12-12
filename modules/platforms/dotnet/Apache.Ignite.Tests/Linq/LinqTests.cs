@@ -50,6 +50,8 @@ public partial class LinqTests : IgniteTestsBase
 
     private IRecordView<PocoDecimal> PocoDecimalView { get; set; } = null!;
 
+    private IRecordView<PocoString> PocoStringView { get; set; } = null!;
+
     [OneTimeSetUp]
     public async Task InsertData()
     {
@@ -60,6 +62,7 @@ public partial class LinqTests : IgniteTestsBase
         PocoFloatView = (await Client.Tables.GetTableAsync(TableFloatName))!.GetRecordView<PocoFloat>();
         PocoDoubleView = (await Client.Tables.GetTableAsync(TableDoubleName))!.GetRecordView<PocoDouble>();
         PocoDecimalView = (await Client.Tables.GetTableAsync(TableDecimalName))!.GetRecordView<PocoDecimal>();
+        PocoStringView = (await Client.Tables.GetTableAsync(TableStringName))!.GetRecordView<PocoString>();
 
         for (int i = 0; i < Count; i++)
         {
@@ -73,6 +76,8 @@ public partial class LinqTests : IgniteTestsBase
             await PocoFloatView.UpsertAsync(null, new(i, i));
             await PocoDoubleView.UpsertAsync(null, new(i, i));
             await PocoDecimalView.UpsertAsync(null, new(i, i));
+
+            await PocoStringView.UpsertAsync(null, new("k-" + i, "v-" + i * 2));
         }
     }
 
@@ -484,4 +489,6 @@ public partial class LinqTests : IgniteTestsBase
     private record PocoDouble(double Key, double Val);
 
     private record PocoDecimal(decimal Key, decimal Val);
+
+    private record PocoString(string Key, string Val);
 }

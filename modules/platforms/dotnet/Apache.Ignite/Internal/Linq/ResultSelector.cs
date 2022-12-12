@@ -126,16 +126,6 @@ internal static class ResultSelector
         }
     }
 
-    private static Guid ReadGuid(BinaryTupleReader reader, int idx)
-    {
-        if (reader.IsNull(idx))
-        {
-            return default;
-        }
-
-        return reader.GetGuid(idx);
-    }
-
     private static RowReader<T> EmitConstructorReader<T>(
         ConstructorInfo ctorInfo,
         IReadOnlyList<IColumnMetadata> columns,
