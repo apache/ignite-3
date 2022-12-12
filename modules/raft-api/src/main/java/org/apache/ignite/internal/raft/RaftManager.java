@@ -41,6 +41,7 @@ public interface RaftManager extends IgniteComponent {
      * @return Future representing pending completion of the operation.
      * @throws NodeStoppingException If node stopping intention was detected.
      */
+    // TODO: remove this method, see https://issues.apache.org/jira/browse/IGNITE-18374
     CompletableFuture<RaftGroupService> prepareRaftGroup(
             ReplicationGroupId groupId,
             @Nullable Peer serverPeer,

@@ -60,6 +60,8 @@ public class PeersAndLearners {
 
         Set<Peer> learners = learnerNames.stream()
                 .map(name -> {
+                    // Learners can be started on the same nodes as peers. However, we can only have at most one learner and one peer on
+                    // the same node.
                     int idx = peerNames.contains(name) ? 1 : 0;
 
                     return new Peer(name, idx);
