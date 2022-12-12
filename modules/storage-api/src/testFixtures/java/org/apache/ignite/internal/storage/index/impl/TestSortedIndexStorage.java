@@ -23,6 +23,7 @@ import java.nio.ByteBuffer;
 import java.util.Iterator;
 import java.util.Map.Entry;
 import java.util.NavigableMap;
+import java.util.NavigableSet;
 import java.util.NoSuchElementException;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
@@ -46,6 +47,10 @@ import org.jetbrains.annotations.Nullable;
 public class TestSortedIndexStorage implements SortedIndexStorage {
     private static final Object NULL = new Object();
 
+    /**
+     * {@code NavigableMap<RowId, Object>} is used as a {@link NavigableSet}, but map was chosen because methods like
+     * {@link NavigableSet#first()} throw an {@link NoSuchElementException} if the set is empty.
+     */
     private final ConcurrentNavigableMap<ByteBuffer, NavigableMap<RowId, Object>> index;
 
     private final SortedIndexDescriptor descriptor;
