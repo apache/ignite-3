@@ -163,8 +163,6 @@ internal static class ResultSelector
             var param = ctorParams[index];
             var col = columns[index];
 
-            // TODO IGNITE-18329 handle nulls.
-            // But this screws up outer joins.
             if (defaultAsNull)
             {
                 Label notNullLabel = il.DefineLabel();
@@ -175,7 +173,10 @@ internal static class ResultSelector
 
                 if (param.ParameterType.IsValueType)
                 {
-                    il.Emit(OpCodes.Initobj, param.ParameterType);
+                    var local = il.DeclareLocal(param.ParameterType);
+                    il.Emit(OpCodes.Ldloca_S, local);
+                    il.Emit(OpCodes.Initobj, param.ParameterType); // Load default value into local.
+                    il.Emit(OpCodes.Ldloc, local); // Load local value onto stack for constructor call.
                 }
                 else
                 {
