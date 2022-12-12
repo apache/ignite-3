@@ -682,9 +682,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 return failedFuture(e);
             }
 
-            // TODO: IGNITE-15554 Add logic for assignment recalculation in case of partitions or replicas changes
-            // TODO: Until IGNITE-15554 is implemented it's safe to iterate over partitions and replicas cause there will
-            // TODO: be exact same amount of partitions and replicas for both old and new assignments
             for (int i = 0; i < partitions; i++) {
                 int partId = i;
 
@@ -733,7 +730,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                         // If Raft is running in in-memory mode or the PDS has been cleared, we need to remove the current node
                         // from the Raft group in order to avoid the double vote problem.
-                        // See https://issues.apache.org/jira/browse/IGNITE-16668 for details.
+                        // <MUTED> See https://issues.apache.org/jira/browse/IGNITE-16668 for details.
                         if (internalTbl.storage().isVolatile() || !hasData) {
                             fut = queryDataNodesCount(tblId, partId, newPeers).thenApply(dataNodesCount -> {
                                 boolean fullPartitionRestart = dataNodesCount == 0;
