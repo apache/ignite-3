@@ -48,6 +48,7 @@ import org.apache.ignite.internal.configuration.notifications.ConfigurationStora
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.configuration.testframework.InjectRevisionListenerHolder;
+import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -167,6 +168,9 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     @Mock
     private ConfigurationRegistry configRegistry;
 
+    @Mock
+    private DistributionZoneManager distributionZoneManager;
+
     DataStorageManager dataStorageManager;
 
     SchemaManager schemaManager;
@@ -244,6 +248,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 schemaManager,
                 dataStorageManager,
                 tm,
+                distributionZoneManager,
                 () -> dataStorageModules.collectSchemasFields(
                         List.of(
                                 RocksDbDataStorageConfigurationSchema.class,

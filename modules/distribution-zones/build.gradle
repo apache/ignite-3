@@ -28,15 +28,21 @@ dependencies {
     implementation project(':ignite-core')
     implementation project(':ignite-configuration')
     implementation project(':ignite-api')
+    implementation project(':ignite-metastorage-client')
+    implementation project(':ignite-cluster-management')
+    implementation project(':ignite-metastorage')
+    implementation project(':ignite-configuration')
 
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
 
     testImplementation libs.mockito.core
     testImplementation libs.mockito.junit
-
+    testImplementation(project(':ignite-raft-api'))
+    testImplementation(project(':ignite-network-api'))
     testImplementation(testFixtures(project(':ignite-core')))
     testImplementation(testFixtures(project(':ignite-configuration')))
+    testImplementation(testFixtures(project(':ignite-metastorage-server')))
 }
 
 description = 'ignite-distribution-zones'

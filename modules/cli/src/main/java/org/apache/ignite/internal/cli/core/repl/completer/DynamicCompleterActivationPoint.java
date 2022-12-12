@@ -55,10 +55,18 @@ public class DynamicCompleterActivationPoint {
         );
         registry.register(
                 CompleterConf.builder()
-                        .command("node", "config", "show")
-                        .command("node", "config", "update").build(),
+                        .command("node", "config", "show").build(),
                 nodeConfigDynamicCompleterFactory
         );
+
+        registry.register(
+                CompleterConf.builder()
+                        .command("node", "config", "update")
+                        .filter(new ExclusionsCompleterFilter("compute", "raft"))
+                        .build(),
+                nodeConfigDynamicCompleterFactory
+        );
+
         // exclusive option that disables other completers for node name
         registry.register(
                 CompleterConf.builder()

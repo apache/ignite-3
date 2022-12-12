@@ -62,7 +62,7 @@ class ItRaftStorageVolatilityTest extends AbstractClusterIntegrationTest {
     private static final String TABLE_NAME = "test";
 
     @Override
-    protected int nodes() {
+    protected int initialNodes() {
         return 1;
     }
 

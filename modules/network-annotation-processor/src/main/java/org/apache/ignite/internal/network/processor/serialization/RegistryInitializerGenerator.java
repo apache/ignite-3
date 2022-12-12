@@ -66,12 +66,12 @@ public class RegistryInitializerGenerator {
 
         processingEnv.getMessager().printMessage(Diagnostic.Kind.NOTE, "Generating " + initializerName);
 
-        TypeSpec.Builder registryInitializer = TypeSpec.classBuilder(initializerName);
-
-        registryInitializer.addSuperinterface(MessageSerializationRegistryInitializer.class);
+        TypeSpec.Builder registryInitializer = TypeSpec.classBuilder(initializerName)
+                .addSuperinterface(MessageSerializationRegistryInitializer.class);
 
         MethodSpec.Builder initializeMethod = MethodSpec.methodBuilder("registerFactories")
-                .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
+                .addAnnotation(Override.class)
+                .addModifiers(Modifier.PUBLIC)
                 .addParameter(TypeName.get(MessageSerializationRegistry.class), "registry")
                 .addStatement("var messageFactory = new $T()", messageGroup.messageFactoryClassName())
                 .addCode("\n");

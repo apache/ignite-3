@@ -18,19 +18,22 @@
 package org.apache.ignite.internal.cli.commands.sql;
 
 import jakarta.inject.Singleton;
-import picocli.CommandLine;
-import picocli.shell.jline3.PicocliCommands;
+import org.apache.ignite.internal.cli.commands.ExitCommand;
+import org.apache.ignite.internal.cli.commands.sql.help.SqlHelpCommand;
+import picocli.CommandLine.Command;
+import picocli.shell.jline3.PicocliCommands.ClearScreen;
 
 /**
  * Top level SQL REPL command.
  */
-@CommandLine.Command(name = "",
+@Command(name = "",
         description = {""},
-        footer = {"", "Press Ctrl-D to exit"},
         subcommands = {
-            CommandLine.HelpCommand.class,
-            PicocliCommands.ClearScreen.class
-        })
+                ClearScreen.class,
+                ExitCommand.class,
+                SqlHelpCommand.class
+        }
+)
 @Singleton
 public class SqlReplTopLevelCliCommand {
 }

@@ -44,6 +44,7 @@ import java.util.concurrent.Flow;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import org.apache.ignite.configuration.ConfigurationValue;
+import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -116,6 +117,9 @@ public class StopCalciteModuleTest {
 
     @Mock
     private TxManager txManager;
+
+    @Mock
+    private DistributionZoneManager distributionZoneManager;
 
     @Mock
     private TopologyService topologySrvc;
@@ -211,6 +215,7 @@ public class StopCalciteModuleTest {
                 schemaManager,
                 dataStorageManager,
                 txManager,
+                distributionZoneManager,
                 Map::of,
                 clock
         );

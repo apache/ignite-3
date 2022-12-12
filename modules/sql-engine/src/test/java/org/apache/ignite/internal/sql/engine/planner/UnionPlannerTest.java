@@ -84,7 +84,7 @@ public class UnionPlannerTest extends AbstractPlannerTest {
                         .add("ID", f.createJavaType(Integer.class))
                         .add("NAME", f.createJavaType(String.class))
                         .add("SALARY", f.createJavaType(Double.class))
-                        .build()) {
+                        .build(), "TABLE1") {
 
             @Override public IgniteDistribution distribution() {
                 return IgniteDistributions.affinity(0, "Table1", "hash");
@@ -96,7 +96,7 @@ public class UnionPlannerTest extends AbstractPlannerTest {
                         .add("ID", f.createJavaType(Integer.class))
                         .add("NAME", f.createJavaType(String.class))
                         .add("SALARY", f.createJavaType(Double.class))
-                        .build()) {
+                        .build(), "TABLE2") {
 
             @Override public IgniteDistribution distribution() {
                 return IgniteDistributions.affinity(0, "Table2", "hash");
@@ -108,7 +108,7 @@ public class UnionPlannerTest extends AbstractPlannerTest {
                         .add("ID", f.createJavaType(Integer.class))
                         .add("NAME", f.createJavaType(String.class))
                         .add("SALARY", f.createJavaType(Double.class))
-                        .build()) {
+                        .build(), "TABLE3") {
 
             @Override public IgniteDistribution distribution() {
                 return IgniteDistributions.affinity(0, "Table3", "hash");
@@ -117,9 +117,9 @@ public class UnionPlannerTest extends AbstractPlannerTest {
 
         IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
 
-        publicSchema.addTable("TABLE1", tbl1);
-        publicSchema.addTable("TABLE2", tbl2);
-        publicSchema.addTable("TABLE3", tbl3);
+        publicSchema.addTable(tbl1);
+        publicSchema.addTable(tbl2);
+        publicSchema.addTable(tbl3);
 
         return publicSchema;
     }

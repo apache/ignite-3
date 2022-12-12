@@ -39,7 +39,7 @@ public class IgniteSqlCreateZone extends SqlCreate {
 
     private final @Nullable SqlNodeList createOptionList;
 
-    private static final SqlOperator OPERATOR = new SqlSpecialOperator("CREATE ZONE", SqlKind.OTHER);
+    private static final SqlOperator OPERATOR = new SqlSpecialOperator("CREATE ZONE", SqlKind.OTHER_DDL);
 
     /** Creates a SqlCreateZone. */
     public IgniteSqlCreateZone(

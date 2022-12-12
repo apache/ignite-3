@@ -22,6 +22,7 @@ import static java.util.stream.Collectors.toUnmodifiableList;
 import java.util.List;
 import java.util.ServiceLoader;
 import java.util.ServiceLoader.Provider;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Provides {@link ConfigurationModule}s using {@link ServiceLoader} mechanism.
@@ -36,7 +37,7 @@ public class ServiceLoaderModulesProvider {
      * @param classLoader the class loader to use
      * @return modules
      */
-    public List<ConfigurationModule> modules(ClassLoader classLoader) {
+    public List<ConfigurationModule> modules(@Nullable ClassLoader classLoader) {
         return ServiceLoader.load(ConfigurationModule.class, classLoader).stream()
                 .map(Provider::get)
                 .collect(toUnmodifiableList());

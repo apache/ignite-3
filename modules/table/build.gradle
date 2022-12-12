@@ -60,7 +60,6 @@ dependencies {
     testImplementation libs.mockito.junit
     testImplementation libs.hamcrest.core
     testImplementation libs.hamcrest.optional
-    testImplementation libs.classgraph
     testImplementation libs.slf4j.jdk14
     testImplementation libs.jmh.core
     testImplementation libs.javax.annotations
