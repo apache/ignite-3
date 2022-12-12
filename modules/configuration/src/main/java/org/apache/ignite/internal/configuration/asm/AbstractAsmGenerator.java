@@ -47,7 +47,7 @@ import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Class that holds {@link Method} constants to be used by generators.
+ * Class that holds constants and commonly used fields for generators.
  */
 abstract class AbstractAsmGenerator {
     /** {@link DynamicConfiguration#DynamicConfiguration} constructor. */
