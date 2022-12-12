@@ -87,7 +87,6 @@ public class ReadOnlyServiceTest {
         opts.setFsmCaller(this.fsmCaller);
         opts.setNode(this.node);
         opts.setRaftOptions(raftOptions);
-        opts.setGroupId("TestSrv");
         opts.setReadOnlyServiceDisruptor(disruptor = new StripedDisruptor<>("TestReadOnlyServiceDisruptor",
             1024,
             () -> new ReadOnlyServiceImpl.ReadIndexEvent(),

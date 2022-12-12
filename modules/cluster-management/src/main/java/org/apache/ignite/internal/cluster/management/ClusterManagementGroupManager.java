@@ -55,7 +55,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
-import org.apache.ignite.internal.raft.Peer;
+import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.Status;
@@ -404,7 +404,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                     raftService = null;
                 }
 
-                raftManager.stopRaftGroup(INSTANCE);
+                raftManager.stopRaftNodes(INSTANCE);
 
                 localStateStorage.clear().get();
             } catch (Exception e) {
@@ -494,20 +494,24 @@ public class ClusterManagementGroupManager implements IgniteComponent {
     /**
      * Starts the CMG Raft service using the provided node names as its peers.
      */
-    private CompletableFuture<CmgRaftService> startCmgRaftService(Collection<String> nodeNames) {
+    private CompletableFuture<CmgRaftService> startCmgRaftService(Set<String> nodeNames) {
         String thisNodeConsistentId = clusterService.topologyService().localMember().name();
 
         // If we are not in the CMG, we must be a learner. List of learners will be updated by a leader accordingly,
         // but just to start a RAFT service we must include ourselves in the initial learners list, that's why we
-        // pass List.of(we) as learners list if we are not in the CMG.
-        List<String> learnerConsistentIds = nodeNames.contains(thisNodeConsistentId) ? List.of() : List.of(thisNodeConsistentId);
+        // pass Set.of(we) as learners list if we are not in the CMG.
+        boolean isLearner = !nodeNames.contains(thisNodeConsistentId);
+
+        Set<String> learnerNames = isLearner ? Set.of(thisNodeConsistentId) : Set.of();
+
+        PeersAndLearners configuration = PeersAndLearners.fromConsistentIds(nodeNames, learnerNames);
 
         try {
             return raftManager
                     .prepareRaftGroup(
                             INSTANCE,
-                            nodeNames,
-                            learnerConsistentIds,
+                            isLearner ? configuration.learner(thisNodeConsistentId) : configuration.peer(thisNodeConsistentId),
+                            configuration,
                             () -> new CmgRaftGroupListener(clusterStateStorage, logicalTopology, this::onLogicalTopologyChanged),
                             this::createCmgRaftGroupEventsListener
                     )
@@ -544,12 +548,12 @@ public class ClusterManagementGroupManager implements IgniteComponent {
             }
 
             @Override
-            public void onNewPeersConfigurationApplied(Collection<Peer> peers, Collection<Peer> learners) {
+            public void onNewPeersConfigurationApplied(PeersAndLearners configuration) {
                 // No-op.
             }
 
             @Override
-            public void onReconfigurationError(Status status, Collection<Peer> peers, Collection<Peer> learners, long term) {
+            public void onReconfigurationError(Status status, PeersAndLearners configuration, long term) {
                 // No-op.
             }
         };
@@ -663,7 +667,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
 
         IgniteUtils.shutdownAndAwaitTermination(scheduledExecutor, 10, TimeUnit.SECONDS);
 
-        raftManager.stopRaftGroup(INSTANCE);
+        raftManager.stopRaftNodes(INSTANCE);
 
         // Fail the future to unblock dependent operations
         joinFuture.completeExceptionally(new NodeStoppingException());
@@ -691,7 +695,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
      *
      * @return Future that, when complete, resolves into a list of node names that host the Meta Storage.
      */
-    public CompletableFuture<Collection<String>> metaStorageNodes() {
+    public CompletableFuture<Set<String>> metaStorageNodes() {
         if (!busyLock.enterBusy()) {
             return failedFuture(new NodeStoppingException());
         }
