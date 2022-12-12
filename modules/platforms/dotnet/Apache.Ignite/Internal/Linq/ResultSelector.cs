@@ -273,7 +273,6 @@ internal static class ResultSelector
         il.Emit(OpCodes.Ldloc_0); // key
         il.Emit(OpCodes.Ldloc_1); // val
 
-        // TODO: Better way to get constructor?
         il.Emit(OpCodes.Newobj, typeof(T).GetConstructor(new[] { keyType, valType })!);
         il.Emit(OpCodes.Ret);
 
