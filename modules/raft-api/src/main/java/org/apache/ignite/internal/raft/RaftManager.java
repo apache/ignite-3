@@ -18,55 +18,30 @@
 package org.apache.ignite.internal.raft;
 
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Supplier;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.lang.NodeStoppingException;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Raft manager.
  */
 public interface RaftManager extends IgniteComponent {
     /**
-     * Optionally starts a Raft node and creates a Raft group service providing operations on a Raft group.
+     * Starts a Raft group and a Raft service on the current node.
      *
-     * @param groupId Raft group ID.
-     * @param serverPeer Local peer that will host the Raft node. If {@code null} - no nodes will be started, but only the Raft client
-     *      service.
+     * @param nodeId Raft node ID.
      * @param configuration Peers and Learners of the Raft group.
-     * @param lsnrSupplier Raft group listener supplier.
-     * @return Future representing pending completion of the operation.
+     * @param lsnr Raft group listener.
+     * @param eventsLsnr Raft group events listener.
      * @throws NodeStoppingException If node stopping intention was detected.
      */
-    // TODO: remove this method, see https://issues.apache.org/jira/browse/IGNITE-18374
-    CompletableFuture<RaftGroupService> prepareRaftGroup(
-            ReplicationGroupId groupId,
-            @Nullable Peer serverPeer,
+    CompletableFuture<RaftGroupService> startRaftGroupNode(
+            RaftNodeId nodeId,
             PeersAndLearners configuration,
-            Supplier<RaftGroupListener> lsnrSupplier
-    ) throws NodeStoppingException;
-
-    /**
-     * Optionally starts a Raft node and creates a Raft group service providing operations on a Raft group.
-     *
-     * @param groupId Raft group ID.
-     * @param serverPeer Local peer that will host the Raft node. If {@code null} - no nodes will be started, but only the Raft client
-     *     service.
-     * @param configuration Peers and Learners of the Raft group.
-     * @param lsnrSupplier Raft group listener supplier.
-     * @param raftGrpEvtsLsnrSupplier Raft group events listener supplier.
-     * @return Future representing pending completion of the operation.
-     * @throws NodeStoppingException If node stopping intention was detected.
-     */
-    CompletableFuture<RaftGroupService> prepareRaftGroup(
-            ReplicationGroupId groupId,
-            @Nullable Peer serverPeer,
-            PeersAndLearners configuration,
-            Supplier<RaftGroupListener> lsnrSupplier,
-            Supplier<RaftGroupEventsListener> raftGrpEvtsLsnrSupplier
+            RaftGroupListener lsnr,
+            RaftGroupEventsListener eventsLsnr
     ) throws NodeStoppingException;
 
     /**

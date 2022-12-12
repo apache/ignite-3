@@ -29,7 +29,6 @@ import static org.apache.ignite.internal.metastorage.client.ItMetaStorageService
 import static org.apache.ignite.internal.metastorage.client.Operations.ops;
 import static org.apache.ignite.internal.metastorage.client.Operations.put;
 import static org.apache.ignite.internal.metastorage.client.Operations.remove;
-import static org.apache.ignite.internal.metastorage.common.MetastorageGroupId.INSTANCE;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.findLocalAddresses;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.waitForTopology;
@@ -69,6 +68,7 @@ import java.util.stream.Stream;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.metastorage.common.MetastorageGroupId;
 import org.apache.ignite.internal.metastorage.common.OperationType;
 import org.apache.ignite.internal.metastorage.server.AbstractCompoundCondition;
 import org.apache.ignite.internal.metastorage.server.AbstractSimpleCondition;
@@ -83,8 +83,11 @@ import org.apache.ignite.internal.metastorage.server.ValueCondition;
 import org.apache.ignite.internal.metastorage.server.ValueCondition.Type;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
 import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
+import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.RaftManager;
+import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -244,7 +247,8 @@ public class ItMetaStorageServiceTest {
     public void afterTest() throws Exception {
         Stream<AutoCloseable> stopRaftGroupServices = raftGroupServices.stream().map(service -> service::shutdown);
 
-        Stream<AutoCloseable> stopRaftGroups = raftManagers.stream().map(manager -> () -> manager.stopRaftNodes(INSTANCE));
+        Stream<AutoCloseable> stopRaftGroups = raftManagers.stream()
+                .map(manager -> () -> manager.stopRaftNodes(MetastorageGroupId.INSTANCE));
 
         Stream<AutoCloseable> beforeNodeStop = Stream.concat(raftManagers.stream(), cluster.stream()).map(c -> c::beforeNodeStop);
 
@@ -906,7 +910,7 @@ public class ItMetaStorageServiceTest {
         PeersAndLearners configuration = PeersAndLearners.fromConsistentIds(Set.of(localName));
 
         RaftGroupService metaStorageRaftSvc2 = raftManagers.get(1)
-                .startRaftGroupService(INSTANCE, configuration)
+                .startRaftGroupService(MetastorageGroupId.INSTANCE, configuration)
                 .get(3, TimeUnit.SECONDS);
 
         raftGroupServices.add(metaStorageRaftSvc2);
@@ -1080,11 +1084,16 @@ public class ItMetaStorageServiceTest {
 
         raftManagers.add(raftManager);
 
-        return raftManager.prepareRaftGroup(
-                INSTANCE,
-                configuration.peer(node.topologyService().localMember().name()),
-                configuration,
-                () -> new MetaStorageListener(mockStorage)
-        );
+        Peer serverPeer = configuration.peer(node.topologyService().localMember().name());
+
+        if (serverPeer == null) {
+            return raftManager.startRaftGroupService(MetastorageGroupId.INSTANCE, configuration);
+        } else {
+            var nodeId = new RaftNodeId(MetastorageGroupId.INSTANCE, serverPeer);
+
+            return raftManager.startRaftGroupNode(
+                    nodeId, configuration, new MetaStorageListener(mockStorage), RaftGroupEventsListener.noopLsnr
+            );
+        }
     }
 }
