@@ -27,7 +27,7 @@ namespace ignite::detail {
 /**
  * Query result set.
  */
-class result_set_impl {
+class result_set_impl : public std::enable_shared_from_this<result_set_impl> {
 public:
     // Default
     result_set_impl() = default;
@@ -53,6 +53,13 @@ public:
             m_meta = std::move(result_set_metadata(columns));
             m_data.assign(data.begin() + (int)reader.position(), data.end());
         }
+    }
+
+    /**
+     * Destructor.
+     */
+    ~result_set_impl() {
+        close_async([](auto){});
     }
 
     /**
@@ -92,6 +99,51 @@ public:
     [[nodiscard]] bool was_applied() const {
         return m_was_applied;
     }
+
+    /**
+     * Close result set asynchronously.
+     *
+     * @param callback Callback to call on completion.
+     * @return @c true if the request was sent, and false if the result set was already closed.
+     */
+    bool close_async(std::function<void(ignite_result<void>)> callback) {
+        if (!m_resource_id)
+            return false;
+
+        auto writer_func = [id = m_resource_id.value()](protocol::writer &writer) {
+            writer.write(id);
+        };
+
+        auto reader_func = [weak_self = weak_from_this()](protocol::reader &reader) {
+            auto self = weak_self.lock();
+            if (!self)
+                return;
+
+            self->m_resource_id = std::nullopt;
+        };
+
+        return m_connection->perform_request<void>(
+            client_operation::SQL_CURSOR_CLOSE, writer_func, std::move(reader_func), std::move(callback));
+    }
+
+    /**
+     * Close result set synchronously.
+     *
+     * @return @c true if the request was sent, and false if the result set was already closed.
+     */
+    bool close() {
+        auto pr = std::make_shared<std::promise<void>>();
+        bool res = close_async([pr](auto) mutable {
+            pr->set_value();
+        });
+
+        if (!res)
+            return res;
+
+        pr->get_future().get();
+        return true;
+    }
+
 
 private:
     /**

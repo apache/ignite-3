@@ -18,9 +18,11 @@
 #pragma once
 
 #include "ignite/client/sql/result_set_metadata.h"
+#include "ignite/common/ignite_result.h"
 #include "ignite/common/config.h"
 
 #include <memory>
+#include <functional>
 
 namespace ignite {
 
@@ -73,6 +75,21 @@ public:
      * @return A value indicating whether a conditional query was applied successfully.
      */
     [[nodiscard]] IGNITE_API bool was_applied() const;
+
+    /**
+     * Close result set asynchronously.
+     *
+     * @param callback Callback to call on completion.
+     * @return @c true if the request was sent, and false if the result set was already closed.
+     */
+    IGNITE_API bool close_async(std::function<void(ignite_result<void>)> callback);
+
+    /**
+     * Close result set synchronously.
+     *
+     * @return @c true if the request was sent, and false if the result set was already closed.
+     */
+    IGNITE_API bool close();
 
 private:
     /** Implementation. */

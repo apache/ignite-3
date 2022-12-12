@@ -124,6 +124,24 @@ public:
     }
 
     /**
+     * Perform request.
+     *
+     * @tparam T Result type.
+     * @param op Operation code.
+     * @param wr Request writer function.
+     * @param rd Response reader function.
+     * @param callback Callback to call on result.
+     * @return Channel used for the request.
+     */
+    template<typename T>
+    bool perform_request(client_operation op, const std::function<void(protocol::writer &)> &wr,
+        std::function<T(protocol::reader &)> rd, ignite_callback<T> callback)
+    {
+        auto handler = std::make_shared<response_handler_reader<T>>(std::move(rd), std::move(callback));
+        return perform_request(op, wr, std::move(handler));
+    }
+
+    /**
      * Perform handshake.
      *
      * @return @c true on success and @c false otherwise.

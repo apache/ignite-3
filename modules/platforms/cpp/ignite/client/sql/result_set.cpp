@@ -36,4 +36,12 @@ bool result_set::was_applied() const {
     return m_impl->was_applied();
 }
 
+bool result_set::close_async(std::function<void(ignite_result<void>)> callback) {
+    return m_impl->close_async(std::move(callback));
+}
+
+bool result_set::close() {
+    return m_impl->close();
+}
+
 } // namespace ignite
