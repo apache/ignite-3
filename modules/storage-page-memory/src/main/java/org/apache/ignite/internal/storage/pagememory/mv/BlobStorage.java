@@ -47,6 +47,8 @@ public class BlobStorage {
 
     private final RecycleAndAddToReuseBag recycleAndAddToReuseBag = new RecycleAndAddToReuseBag();
 
+    private final ReadBytes readBytes = new ReadBytes();
+
     public BlobStorage(ReuseList reuseList, PageMemory pageMemory, int groupId, int partitionId, IoStatisticsHolder statisticsHolder) {
         this.reuseList = reuseList;
         this.pageMemory = pageMemory;
@@ -60,40 +62,17 @@ public class BlobStorage {
     }
 
     private byte[] doRead(long pageId, byte @Nullable [] bytes, int bytesOffset) throws IgniteInternalCheckedException {
-        final long page = pageMemory.acquirePage(groupId, pageId, statisticsHolder);
-
-        try {
-            long pageAddr = pageMemory.readLock(groupId, pageId, page);
-
-            try {
-                BlobIo io = pageMemory.ioRegistry().resolve(pageAddr);
-
-                if (bytes == null) {
-                    assert bytesOffset == 0;
-
-                    bytes = new byte[io.getTotalLength(pageAddr)];
-                }
-
-                int fragmentLength = io.getFragmentLength(pageAddr);
-                io.getFragmentBytes(pageAddr, bytes, bytesOffset, fragmentLength);
-
-                int newBytesOffset = bytesOffset + fragmentLength;
-
-                if (newBytesOffset < bytes.length) {
-                    long nextPageId = io.getNextPageId(pageAddr);
-
-                    assert nextPageId != NO_PAGE_ID;
-
-                    return doRead(nextPageId, bytes, newBytesOffset);
-                } else {
-                    return bytes;
-                }
-            } finally {
-                pageMemory.readUnlock(groupId, pageId, page);
-            }
-        } finally {
-            pageMemory.releasePage(groupId, pageId, page);
-        }
+        return PageHandler.readPage(
+                pageMemory,
+                groupId,
+                pageId,
+                PageLockListenerNoOp.INSTANCE,
+                readBytes,
+                bytes,
+                bytesOffset,
+                null,
+                IoStatisticsHolderNoOp.INSTANCE
+        );
     }
 
     public long addBlob(byte[] bytes) throws IgniteInternalCheckedException {
@@ -222,6 +201,35 @@ public class BlobStorage {
             reuseBag.addFreePage(recycledPageId);
 
             return nextPageId;
+        }
+    }
+
+    private class ReadBytes implements PageHandler<byte[], byte[]> {
+        @Override
+        public byte[] run(int groupId, long pageId, long page, long pageAddr, PageIo io, byte[] bytes, int bytesOffset,
+                IoStatisticsHolder statHolder) throws IgniteInternalCheckedException {
+            BlobIo blobIo = (BlobIo) io;
+
+            if (bytes == null) {
+                assert bytesOffset == 0;
+
+                bytes = new byte[blobIo.getTotalLength(pageAddr)];
+            }
+
+            int fragmentLength = blobIo.getFragmentLength(pageAddr);
+            blobIo.getFragmentBytes(pageAddr, bytes, bytesOffset, fragmentLength);
+
+            int newBytesOffset = bytesOffset + fragmentLength;
+
+            if (newBytesOffset < bytes.length) {
+                long nextPageId = blobIo.getNextPageId(pageAddr);
+
+                assert nextPageId != NO_PAGE_ID;
+
+                return doRead(nextPageId, bytes, newBytesOffset);
+            } else {
+                return bytes;
+            }
         }
     }
 }
