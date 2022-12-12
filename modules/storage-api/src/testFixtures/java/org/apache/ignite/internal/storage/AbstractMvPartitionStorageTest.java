@@ -1338,7 +1338,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
     }
 
     @Test
-    void groupConfigurationIsUpdated() {
+    void groupConfigurationIsSaved() {
         RaftGroupConfiguration configToSave = new RaftGroupConfiguration(
                 List.of("peer1", "peer2"),
                 List.of("learner1", "learner2"),
@@ -1356,6 +1356,40 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
 
         assertThat(returnedConfig, is(notNullValue()));
         assertThat(returnedConfig, is(equalTo(configToSave)));
+    }
+
+    @Test
+    void groupConfigurationIsUpdated() {
+        RaftGroupConfiguration firstConfig = new RaftGroupConfiguration(
+                List.of("peer1", "peer2"),
+                List.of("learner1", "learner2"),
+                List.of("old-peer1", "old-peer2"),
+                List.of("old-learner1", "old-learner2")
+        );
+
+        storage.runConsistently(() -> {
+            storage.committedGroupConfiguration(firstConfig);
+
+            return null;
+        });
+
+        RaftGroupConfiguration secondConfig = new RaftGroupConfiguration(
+                List.of("peer3", "peer4"),
+                List.of("learner3", "learner4"),
+                List.of("old-peer3", "old-peer4"),
+                List.of("old-learner3", "old-learner4")
+        );
+
+        storage.runConsistently(() -> {
+            storage.committedGroupConfiguration(secondConfig);
+
+            return null;
+        });
+
+        RaftGroupConfiguration returnedConfig = storage.committedGroupConfiguration();
+
+        assertThat(returnedConfig, is(notNullValue()));
+        assertThat(returnedConfig, is(equalTo(secondConfig)));
     }
 
     /**
