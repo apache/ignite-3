@@ -25,6 +25,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
     using System.Linq;
     using System.Reflection;
     using System.Reflection.Emit;
+    using Common;
     using MessagePack;
     using Proto;
     using Proto.BinaryTuple;
@@ -288,7 +289,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 return (ReadDelegate<T>)method.CreateDelegate(typeof(ReadDelegate<T>));
             }
 
-            var local = DeclareAndInitLocal(il, type);
+            var local = il.DeclareAndInitLocal(type);
 
             var columns = schema.Columns;
             var count = keyOnly ? schema.KeyColumnCount : columns.Count;
@@ -317,9 +318,9 @@ namespace Apache.Ignite.Internal.Table.Serialization
             var keyMethod = BinaryTupleMethods.GetReadMethodOrNull(keyType);
             var valMethod = BinaryTupleMethods.GetReadMethodOrNull(valType);
 
-            var kvLocal = DeclareAndInitLocal(il, type);
-            var keyLocal = keyMethod == null ? DeclareAndInitLocal(il, keyType) : null;
-            var valLocal = valMethod == null ? DeclareAndInitLocal(il, valType) : null;
+            var kvLocal = il.DeclareAndInitLocal(type);
+            var keyLocal = keyMethod == null ? il.DeclareAndInitLocal(keyType) : null;
+            var valLocal = valMethod == null ? il.DeclareAndInitLocal(valType) : null;
 
             var columns = schema.Columns;
             var count = keyOnly ? schema.KeyColumnCount : columns.Count;
@@ -396,7 +397,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
             }
 
             var il = method.GetILGenerator();
-            var local = DeclareAndInitLocal(il, type); // T res
+            var local = il.DeclareAndInitLocal(type); // T res
 
             var columns = schema.Columns;
 
@@ -433,7 +434,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
             var (_, valType, _, valField) = GetKeyValTypes();
 
             var il = method.GetILGenerator();
-            var kvLocal = DeclareAndInitLocal(il, type);
+            var kvLocal = il.DeclareAndInitLocal(type);
 
             var valReadMethod = BinaryTupleMethods.GetReadMethodOrNull(valType);
 
@@ -450,7 +451,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
             }
             else
             {
-                var valLocal = DeclareAndInitLocal(il, valType);
+                var valLocal = il.DeclareAndInitLocal(valType);
                 var columns = schema.Columns;
 
                 for (var i = schema.KeyColumnCount; i < columns.Count; i++)
@@ -536,26 +537,6 @@ namespace Apache.Ignite.Internal.Table.Serialization
             throw new IgniteClientException(
                 ErrorGroups.Client.Configuration,
                 $"Can't map '{type}' to columns '{columnStr}'. Matching fields not found.");
-        }
-
-        private static LocalBuilder DeclareAndInitLocal(ILGenerator il, Type type)
-        {
-            var local = il.DeclareLocal(type);
-
-            if (type.IsValueType)
-            {
-                il.Emit(OpCodes.Ldloca_S, local);
-                il.Emit(OpCodes.Initobj, type);
-            }
-            else
-            {
-                il.Emit(OpCodes.Ldtoken, type);
-                il.Emit(OpCodes.Call, ReflectionUtils.GetTypeFromHandleMethod);
-                il.Emit(OpCodes.Call, ReflectionUtils.GetUninitializedObjectMethod);
-                il.Emit(OpCodes.Stloc, local);
-            }
-
-            return local;
         }
 
         private static (Type KeyType, Type ValType, FieldInfo KeyField, FieldInfo ValField) GetKeyValTypes()
