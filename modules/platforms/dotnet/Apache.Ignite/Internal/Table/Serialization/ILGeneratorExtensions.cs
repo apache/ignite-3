@@ -82,16 +82,13 @@ internal static class ILGeneratorExtensions
         }
         else if (to == typeof(long))
         {
-            var method = from.GetMethod(
-                "System.IConvertible.ToInt64",
-                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            var method = typeof(Convert).GetMethod("ToInt64", BindingFlags.Static | BindingFlags.Public, new[] { from });
 
             if (method == null)
             {
                 throw GetConversionException(from, to);
             }
 
-            il.Emit(OpCodes.Ldnull);
             il.Emit(OpCodes.Call, method);
         }
         else
@@ -108,7 +105,7 @@ internal static class ILGeneratorExtensions
 
     private static long GetLong(decimal x)
     {
-        return ((IConvertible)x).ToInt64(null);
+        return Convert.ToInt64(x);
     }
 
     private static int GetInt(decimal x)
