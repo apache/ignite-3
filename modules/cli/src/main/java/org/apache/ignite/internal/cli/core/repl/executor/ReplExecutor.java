@@ -33,8 +33,11 @@ import org.apache.ignite.internal.cli.core.flow.question.JlineQuestionWriterRead
 import org.apache.ignite.internal.cli.core.flow.question.QuestionAskerFactory;
 import org.apache.ignite.internal.cli.core.repl.Repl;
 import org.apache.ignite.internal.cli.core.repl.completer.DynamicCompleterActivationPoint;
-import org.apache.ignite.internal.cli.core.repl.completer.DynamicCompleterFilter;
 import org.apache.ignite.internal.cli.core.repl.completer.DynamicCompleterRegistry;
+import org.apache.ignite.internal.cli.core.repl.completer.filter.CompleterFilter;
+import org.apache.ignite.internal.cli.core.repl.completer.filter.DynamicCompleterFilter;
+import org.apache.ignite.internal.cli.core.repl.completer.filter.NonRepeatableOptionsFilter;
+import org.apache.ignite.internal.cli.core.repl.completer.filter.ShortOptionsFilter;
 import org.apache.ignite.internal.cli.core.repl.context.CommandLineContextProvider;
 import org.apache.ignite.internal.cli.core.repl.expander.NoopExpander;
 import org.jline.console.impl.SystemRegistryImpl;
@@ -175,7 +178,11 @@ public class ReplExecutor {
         activationPoint.activateDynamicCompleter(completerRegistry);
 
         DynamicCompleterFilter dynamicCompleterFilter = factory.create(DynamicCompleterFilter.class);
+        List<CompleterFilter> filters = List.of(dynamicCompleterFilter,
+                new ShortOptionsFilter(),
+                new NonRepeatableOptionsFilter(cmd)
+        );
 
-        return new IgnitePicocliCommands(cmd, completerRegistry, List.of(dynamicCompleterFilter));
+        return new IgnitePicocliCommands(cmd, completerRegistry, filters);
     }
 }

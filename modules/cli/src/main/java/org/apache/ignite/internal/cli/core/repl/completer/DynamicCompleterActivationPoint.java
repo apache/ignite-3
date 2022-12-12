@@ -19,6 +19,7 @@ package org.apache.ignite.internal.cli.core.repl.completer;
 
 import jakarta.inject.Singleton;
 import org.apache.ignite.internal.cli.commands.Options;
+import org.apache.ignite.internal.cli.core.repl.completer.filter.ExclusionsCompleterFilter;
 import org.apache.ignite.internal.cli.core.repl.completer.hocon.ClusterConfigDynamicCompleterFactory;
 import org.apache.ignite.internal.cli.core.repl.completer.hocon.NodeConfigDynamicCompleterFactory;
 import org.apache.ignite.internal.cli.core.repl.completer.node.NodeNameDynamicCompleterFactory;
