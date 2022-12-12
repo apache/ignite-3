@@ -197,7 +197,7 @@ public partial class LinqTests
 
         StringAssert.Contains(
             "select _T0.KEY, count(*) as COUNT, sum(_T0.KEY) as SUM, avg(_T0.KEY) as AVG, min(_T0.KEY) as MIN, max(_T0.KEY) as MAX " +
-            "from PUBLIC.TBL_INT32 as _T0 " +
+            "from PUBLIC.TBL1 as _T0 " +
             "group by (_T0.KEY) " +
             "order by (_T0.KEY) asc",
             query.ToString());
