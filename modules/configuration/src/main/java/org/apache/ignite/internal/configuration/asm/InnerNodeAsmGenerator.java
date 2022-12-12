@@ -104,38 +104,10 @@ import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.jetbrains.annotations.Nullable;
 
-class InnerNodeAsmGenerator extends Methods {
-    /** This generator instance. */
-    private final ConfigurationAsmGenerator cgen;
-
-    /** Configuration schema class. */
-    private final Class<?> schemaClass;
-
-    /** Internal extensions of the configuration schema. */
-    private final Set<Class<?>> internalExtensions;
-
-    /** Polymorphic extensions of the configuration schema. */
-    private final Set<Class<?>> polymorphicExtensions;
-
-    /** Fields of the schema class. */
-    private final List<Field> schemaFields;
-
-    /** Fields of internal extensions of the configuration schema. */
-    private final Collection<Field> internalFields;
-
-    /** Fields of polymorphic extensions of the configuration schema. */
-    private final Collection<Field> polymorphicFields;
-
-    /** Internal id field or {@code null} if it's not present. */
-    private final Field internalIdField;
-
+class InnerNodeAsmGenerator extends AbstractAsmGenerator {
     /** Class definition that extends the {@link InnerNode}. */
     private ClassDefinition innerNodeClassDef;
 
-    /**
-     * Constructor.
-     * Please refer to individual fields for comments.
-     */
     InnerNodeAsmGenerator(
             ConfigurationAsmGenerator cgen,
             Class<?> schemaClass,
@@ -146,19 +118,19 @@ class InnerNodeAsmGenerator extends Methods {
             Collection<Field> polymorphicFields,
             @Nullable Field internalIdField
     ) {
-        this.cgen = cgen;
-        this.schemaClass = schemaClass;
-        this.internalExtensions = internalExtensions;
-        this.polymorphicExtensions = polymorphicExtensions;
-        this.schemaFields = schemaFields;
-        this.internalFields = internalFields;
-        this.polymorphicFields = polymorphicFields;
-        this.internalIdField = internalIdField;
+        super(
+                cgen,
+                schemaClass,
+                internalExtensions,
+                polymorphicExtensions,
+                schemaFields,
+                internalFields,
+                polymorphicFields,
+                internalIdField
+        );
     }
 
-    /**
-     * Generates class definition. Expected to be called once at most.
-     */
+    @Override
     public List<ClassDefinition> generate() {
         assert innerNodeClassDef == null;
 

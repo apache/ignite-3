@@ -95,39 +95,11 @@ import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Handle;
 import org.objectweb.asm.Opcodes;
 
-class CfgImplAsmGenerator extends Methods {
-    /** This generator instance. */
-    private final ConfigurationAsmGenerator cgen;
-
-    /** Configuration schema class. */
-    private final Class<?> schemaClass;
-
-    /** Internal extensions of the configuration schema. */
-    private final Set<Class<?>> internalExtensions;
-
-    /** Polymorphic extensions of the configuration schema. */
-    private final Set<Class<?>> polymorphicExtensions;
-
-    /** Fields of the schema class. */
-    private final List<Field> schemaFields;
-
-    /** Fields of internal extensions of the configuration schema. */
-    private final Collection<Field> internalFields;
-
-    /** Fields of polymorphic extensions of the configuration schema. */
-    private final Collection<Field> polymorphicFields;
-
-    /** Internal id field or {@code null} if it's not present. */
-    private final Field internalIdField;
-
+class ConfigurationImplAsmGenerator extends AbstractAsmGenerator {
     /** Class definition that extends the {@link DynamicConfiguration}. */
     private ClassDefinition cfgImplClassDef;
 
-    /**
-     * Constructor.
-     * Please refer to individual fields for comments.
-     */
-    CfgImplAsmGenerator(
+    ConfigurationImplAsmGenerator(
             ConfigurationAsmGenerator cgen,
             Class<?> schemaClass,
             Set<Class<?>> internalExtensions,
@@ -137,19 +109,19 @@ class CfgImplAsmGenerator extends Methods {
             Collection<Field> polymorphicFields,
             @Nullable Field internalIdField
     ) {
-        this.cgen = cgen;
-        this.schemaClass = schemaClass;
-        this.internalExtensions = internalExtensions;
-        this.polymorphicExtensions = polymorphicExtensions;
-        this.schemaFields = schemaFields;
-        this.internalFields = internalFields;
-        this.polymorphicFields = polymorphicFields;
-        this.internalIdField = internalIdField;
+        super(
+                cgen,
+                schemaClass,
+                internalExtensions,
+                polymorphicExtensions,
+                schemaFields,
+                internalFields,
+                polymorphicFields,
+                internalIdField
+        );
     }
 
-    /**
-     * Generates class definition. Expected to be called once at most.
-     */
+    @Override
     public List<ClassDefinition> generate() {
         assert cfgImplClassDef == null;
 

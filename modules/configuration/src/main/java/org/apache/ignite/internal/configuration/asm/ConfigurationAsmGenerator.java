@@ -29,6 +29,8 @@ import static java.lang.invoke.MethodType.methodType;
 import static java.util.Arrays.asList;
 import static java.util.stream.Collectors.toCollection;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.configuration.asm.AbstractAsmGenerator.COPY;
+import static org.apache.ignite.internal.configuration.asm.AbstractAsmGenerator.LAMBDA_METAFACTORY;
 import static org.apache.ignite.internal.configuration.asm.SchemaClassesInfo.changeClassName;
 import static org.apache.ignite.internal.configuration.asm.SchemaClassesInfo.configurationClassName;
 import static org.apache.ignite.internal.configuration.asm.SchemaClassesInfo.viewClassName;
@@ -94,7 +96,7 @@ import org.objectweb.asm.Type;
  * This class is responsible for generating internal implementation classes for configuration schemas. It uses classes from {@code bytecode}
  * module to achieve this goal, like {@link ClassGenerator}, for examples.
  */
-public class ConfigurationAsmGenerator extends Methods {
+public class ConfigurationAsmGenerator {
     /** Information about schema classes - bunch of names and dynamically compiled internal classes. */
     private final Map<Class<?>, SchemaClassesInfo> schemasInfo = new HashMap<>();
 
@@ -242,7 +244,7 @@ public class ConfigurationAsmGenerator extends Methods {
                     internalIdField
             ).generate());
 
-            classDefs.addAll(new CfgImplAsmGenerator(
+            classDefs.addAll(new ConfigurationImplAsmGenerator(
                     this,
                     schemaClass,
                     internalExtensions,
@@ -253,16 +255,14 @@ public class ConfigurationAsmGenerator extends Methods {
                     internalIdField
             ).generate());
 
-            ClassDefinition directProxyClassDef = new DirectProxyAsmGenerator(
+            classDefs.addAll(new DirectProxyAsmGenerator(
                     this,
                     schemaClass,
                     internalExtensions,
                     schemaFields,
                     internalExtensionsFields,
                     internalIdField
-            ).generate();
-
-            classDefs.add(directProxyClassDef);
+            ).generate());
         }
 
         Map<String, Class<?>> definedClasses = generator.defineClasses(classDefs);

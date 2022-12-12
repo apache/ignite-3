@@ -17,33 +17,39 @@
 
 package org.apache.ignite.internal.configuration.asm;
 
+import com.facebook.presto.bytecode.ClassDefinition;
 import java.io.Serializable;
 import java.lang.invoke.LambdaMetafactory;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles.Lookup;
 import java.lang.invoke.MethodType;
 import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.function.Consumer;
 import org.apache.ignite.configuration.ConfigurationProperty;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.internal.configuration.ConfigurationNode;
 import org.apache.ignite.internal.configuration.DynamicConfiguration;
 import org.apache.ignite.internal.configuration.DynamicConfigurationChanger;
+import org.apache.ignite.internal.configuration.direct.DirectConfigurationProxy;
 import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.configuration.tree.ConfigurationVisitor;
 import org.apache.ignite.internal.configuration.tree.ConstructableTreeNode;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
 import org.apache.ignite.internal.configuration.tree.NamedListNode;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Class that holds {@link Method} constants to be used by generators.
  */
-public class Methods {
+abstract class AbstractAsmGenerator {
     /** {@link DynamicConfiguration#DynamicConfiguration} constructor. */
     static final Constructor<?> DYNAMIC_CONFIGURATION_CTOR;
 
@@ -134,6 +140,12 @@ public class Methods {
     /** Field name for method {@link DynamicConfiguration#internalConfigTypes}. */
     static final String INTERNAL_CONFIG_TYPES_FIELD_NAME = "_internalConfigTypes";
 
+    /** {@link DirectConfigurationProxy#DirectConfigurationProxy(List, DynamicConfigurationChanger)}. */
+    static final Constructor<?> DIRECT_CFG_CTOR;
+
+    /** {@link ConfigurationUtil#appendKey(List, Object)}. */
+    static final Method APPEND_KEY;
+
     static {
         try {
             LAMBDA_METAFACTORY = LambdaMetafactory.class.getDeclaredMethod(
@@ -209,8 +221,65 @@ public class Methods {
             IS_POLYMORPHIC_MTD = InnerNode.class.getDeclaredMethod("isPolymorphic");
 
             INTERNAL_SCHEMA_TYPES_MTD = InnerNode.class.getDeclaredMethod("internalSchemaTypes");
+
+            DIRECT_CFG_CTOR = DirectConfigurationProxy.class.getDeclaredConstructor(List.class, DynamicConfigurationChanger.class);
+
+            APPEND_KEY = ConfigurationUtil.class.getDeclaredMethod("appendKey", List.class, Object.class);
         } catch (NoSuchMethodException nsme) {
             throw new ExceptionInInitializerError(nsme);
         }
     }
+
+    /** This generator instance. */
+    final ConfigurationAsmGenerator cgen;
+
+    /** Configuration schema class. */
+    final Class<?> schemaClass;
+
+    /** Internal extensions of the configuration schema. */
+    final Set<Class<?>> internalExtensions;
+
+    /** Polymorphic extensions of the configuration schema. */
+    final Set<Class<?>> polymorphicExtensions;
+
+    /** Fields of the schema class. */
+    final List<Field> schemaFields;
+
+    /** Fields of internal extensions of the configuration schema. */
+    final Collection<Field> internalFields;
+
+    /** Fields of polymorphic extensions of the configuration schema. */
+    final Collection<Field> polymorphicFields;
+
+    /** Internal id field or {@code null} if it's not present. */
+    final Field internalIdField;
+
+    /**
+     * Constructor.
+     * Please refer to individual fields for comments.
+     */
+    AbstractAsmGenerator(
+            ConfigurationAsmGenerator cgen,
+            Class<?> schemaClass,
+            Set<Class<?>> internalExtensions,
+            Set<Class<?>> polymorphicExtensions,
+            List<Field> schemaFields,
+            Collection<Field> internalFields,
+            Collection<Field> polymorphicFields,
+            @Nullable Field internalIdField
+    ) {
+        this.cgen = cgen;
+        this.schemaClass = schemaClass;
+        this.internalExtensions = internalExtensions;
+        this.polymorphicExtensions = polymorphicExtensions;
+        this.schemaFields = schemaFields;
+        this.internalFields = internalFields;
+        this.polymorphicFields = polymorphicFields;
+        this.internalIdField = internalIdField;
+    }
+
+    /**
+     * Generates class definition. Expected to be called once at most.
+     */
+    abstract List<ClassDefinition> generate();
 }
