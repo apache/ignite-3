@@ -23,6 +23,7 @@ import static java.util.stream.Collectors.toUnmodifiableList;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.raft.TestWriteCommand.testWriteCommand;
 import static org.apache.ignite.raft.jraft.test.TestUtils.peersToIds;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
@@ -58,6 +59,7 @@ import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.TopologyService;
+import org.apache.ignite.raft.TestWriteCommand;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.entity.PeerId;
@@ -204,7 +206,7 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
 
         assertThat(service.refreshLeader(), willCompleteSuccessfully());
 
-        assertThat(service.run(new TestCommand()), willBe(instanceOf(TestResponse.class)));
+        assertThat(service.run(testWriteCommand()), willBe(instanceOf(TestResponse.class)));
     }
 
     @Test
@@ -216,7 +218,7 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
 
         assertNull(service.leader());
 
-        assertThat(service.run(new TestCommand()), willBe(instanceOf(TestResponse.class)));
+        assertThat(service.run(testWriteCommand()), willBe(instanceOf(TestResponse.class)));
 
         assertEquals(leader, service.leader());
     }
@@ -228,7 +230,7 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
 
         RaftGroupService service = startRaftGroupService(NODES, false);
 
-        assertThat(service.run(new TestCommand()), willThrow(TimeoutException.class, 500, TimeUnit.MILLISECONDS));
+        assertThat(service.run(testWriteCommand()), willThrow(TimeoutException.class, 500, TimeUnit.MILLISECONDS));
     }
 
     @Test
@@ -246,7 +248,7 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
 
         assertEquals(leader, service.leader());
 
-        assertThat(service.run(new TestCommand()), willThrow(TimeoutException.class));
+        assertThat(service.run(testWriteCommand()), willThrow(TimeoutException.class));
     }
 
     @Test
@@ -266,7 +268,7 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
 
         executor.schedule((Runnable) () -> this.leader = NODES.get(0), 500, TimeUnit.MILLISECONDS);
 
-        assertThat(service.run(new TestCommand()), willBe(instanceOf(TestResponse.class)));
+        assertThat(service.run(testWriteCommand()), willBe(instanceOf(TestResponse.class)));
 
         assertEquals(NODES.get(0), service.leader());
     }
@@ -295,7 +297,7 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
                 500, TimeUnit.MILLISECONDS
         );
 
-        assertThat(service.run(new TestCommand()), willBe(instanceOf(TestResponse.class)));
+        assertThat(service.run(testWriteCommand()), willBe(instanceOf(TestResponse.class)));
 
         assertEquals(NODES.get(1), service.leader());
     }
@@ -319,7 +321,7 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
         assertNotEquals(leader, newLeader);
 
         // Runs the command on an old leader. It should respond with leader changed error, when transparently retry.
-        assertThat(service.run(new TestCommand()), willBe(instanceOf(TestResponse.class)));
+        assertThat(service.run(testWriteCommand()), willBe(instanceOf(TestResponse.class)));
 
         assertEquals(newLeader, service.leader());
     }
@@ -607,7 +609,7 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
                 argThat(new ArgumentMatcher<ActionRequest>() {
                     @Override
                     public boolean matches(ActionRequest arg) {
-                        return arg.command() instanceof TestCommand;
+                        return arg.command() instanceof TestWriteCommand;
                     }
                 }),
                 anyLong()
@@ -699,9 +701,6 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
                 .then(invocation ->
                         completedFuture(FACTORY.learnersOpResponse().newLearnersList(resultLearners).build()));
 
-    }
-
-    private static class TestCommand implements WriteCommand {
     }
 
     private static class TestResponse {

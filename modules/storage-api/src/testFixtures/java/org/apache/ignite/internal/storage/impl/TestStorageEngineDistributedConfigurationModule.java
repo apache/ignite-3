@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.storage.impl;
 
+import com.google.auto.service.AutoService;
 import java.util.Collection;
 import java.util.List;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
@@ -28,6 +29,7 @@ import org.apache.ignite.internal.storage.impl.schema.TestDataStorageConfigurati
 /**
  * Implementation for {@link TestStorageEngine}.
  */
+@AutoService(ConfigurationModule.class)
 public class TestStorageEngineDistributedConfigurationModule implements ConfigurationModule {
     /** {@inheritDoc} */
     @Override

@@ -47,6 +47,7 @@ import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.storage.impl.DefaultLogStorageFactory;
 import org.apache.ignite.internal.raft.storage.impl.IgniteJraftServiceFactory;
+import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -76,7 +77,7 @@ import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotWriter;
 import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
 import org.apache.ignite.raft.jraft.util.ExponentialBackoffTimeoutStrategy;
-import org.apache.ignite.raft.jraft.util.JDKMarshaller;
+import org.apache.ignite.raft.jraft.util.Marshaller;
 import org.apache.ignite.raft.jraft.util.Utils;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -112,6 +113,9 @@ public class JraftServerImpl implements RaftServer {
 
     /** Request executor. */
     private ExecutorService requestExecutor;
+
+    /** Marshaller for RAFT commands. */
+    private final Marshaller commandsMarshaller;
 
     /** The number of parallel raft groups starts. */
     private static final int SIMULTANEOUS_GROUP_START_PARALLELISM = Math.min(Utils.cpus() * 3, 25);
@@ -168,6 +172,8 @@ public class JraftServerImpl implements RaftServer {
         }
 
         startGroupInProgressMonitors = Collections.unmodifiableList(monitors);
+
+        commandsMarshaller = new ThreadLocalOptimizedMarshaller(service.localConfiguration().getSerializationRegistry());
     }
 
     /** {@inheritDoc} */
@@ -387,7 +393,7 @@ public class JraftServerImpl implements RaftServer {
 
             nodeOptions.setSnapshotUri(serverDataPath.resolve("snapshot").toString());
 
-            nodeOptions.setFsm(new DelegatingStateMachine(lsnr));
+            nodeOptions.setFsm(new DelegatingStateMachine(lsnr, commandsMarshaller));
 
             nodeOptions.setRaftGrpEvtsLsnr(new RaftGroupEventsListenerAdapter(evLsnr));
 
@@ -519,13 +525,17 @@ public class JraftServerImpl implements RaftServer {
     public static class DelegatingStateMachine extends StateMachineAdapter {
         private final RaftGroupListener listener;
 
+        private final Marshaller marshaller;
+
         /**
          * Constructor.
          *
          * @param listener The listener.
+         * @param marshaller Marshaller.
          */
-        DelegatingStateMachine(RaftGroupListener listener) {
+        DelegatingStateMachine(RaftGroupListener listener, Marshaller marshaller) {
             this.listener = listener;
+            this.marshaller = marshaller;
         }
 
         public RaftGroupListener getListener() {
@@ -547,7 +557,7 @@ public class JraftServerImpl implements RaftServer {
                         @Nullable CommandClosure<WriteCommand> done = (CommandClosure<WriteCommand>) iter.done();
                         ByteBuffer data = iter.getData();
 
-                        WriteCommand command = done == null ? JDKMarshaller.DEFAULT.unmarshall(data.array()) : done.command();
+                        WriteCommand command = done == null ? marshaller.unmarshall(data.array()) : done.command();
 
                         long commandIndex = iter.getIndex();
                         long commandTerm = iter.getTerm();

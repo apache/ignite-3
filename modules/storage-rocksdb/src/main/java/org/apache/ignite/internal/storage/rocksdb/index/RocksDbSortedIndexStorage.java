@@ -19,12 +19,13 @@ package org.apache.ignite.internal.storage.rocksdb.index;
 
 import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
 import static org.apache.ignite.internal.util.CursorUtils.map;
+import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.NoSuchElementException;
 import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
-import org.apache.ignite.internal.rocksdb.RocksIteratorAdapter;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
@@ -167,23 +168,77 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
 
         RocksIterator it = indexCf.newIterator(options);
 
-        if (lowerBound == null) {
-            it.seek(partitionStorage.partitionStartPrefix());
-        } else {
-            it.seek(lowerBound);
-        }
+        return new Cursor<>() {
+            @Nullable
+            private Boolean hasNext;
 
-        return new RocksIteratorAdapter<>(it) {
-            @Override
-            protected ByteBuffer decodeEntry(byte[] key, byte[] value) {
-                return ByteBuffer.wrap(key).order(ORDER);
-            }
+            private byte @Nullable [] key;
 
             @Override
             public void close() {
-                super.close();
+                try {
+                    closeAll(it, options, upperBoundSlice);
+                } catch (Exception e) {
+                    throw new StorageException("Error closing cursor", e);
+                }
+            }
 
-                RocksUtils.closeAll(options, upperBoundSlice);
+            @Override
+            public boolean hasNext() {
+                advanceIfNeeded();
+
+                return hasNext;
+            }
+
+            @Override
+            public ByteBuffer next() {
+                advanceIfNeeded();
+
+                boolean hasNext = this.hasNext;
+
+                if (!hasNext) {
+                    throw new NoSuchElementException();
+                }
+
+                this.hasNext = null;
+
+                return ByteBuffer.wrap(key).order(ORDER);
+            }
+
+            private void advanceIfNeeded() throws StorageException {
+                if (hasNext != null) {
+                    return;
+                }
+
+                try {
+                    it.refresh();
+                } catch (RocksDBException e) {
+                    throw new StorageException("Error refreshing an iterator", e);
+                }
+
+                if (key == null) {
+                    it.seek(lowerBound == null ? partitionStorage.partitionStartPrefix() : lowerBound);
+                } else {
+                    it.seekForPrev(key);
+
+                    if (it.isValid()) {
+                        it.next();
+                    } else {
+                        RocksUtils.checkIterator(it);
+
+                        it.seek(lowerBound == null ? partitionStorage.partitionStartPrefix() : lowerBound);
+                    }
+                }
+
+                if (!it.isValid()) {
+                    RocksUtils.checkIterator(it);
+
+                    hasNext = false;
+                } else {
+                    key = it.key();
+
+                    hasNext = true;
+                }
             }
         };
     }

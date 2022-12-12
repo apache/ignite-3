@@ -17,34 +17,38 @@
 
 package org.apache.ignite.internal.replicator.message;
 
+import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommand;
 import org.apache.ignite.network.annotations.MessageGroup;
 
 /**
  * Message group for the replication process.
  */
 @MessageGroup(groupType = 8, groupName = "ReplicaMessages")
-public class ReplicaMessageGroup {
+public interface ReplicaMessageGroup {
     /** Message type for {@link ErrorReplicaResponse}. */
-    public static final short ERROR_REPLICA_RESPONSE = 1;
+    short ERROR_REPLICA_RESPONSE = 1;
 
     /** Message type for {@link ReplicaResponse}. */
-    public static final short REPLICA_RESPONSE = 2;
+    short REPLICA_RESPONSE = 2;
 
     /** Message type for {@link TimestampAware}. */
-    public static final short TIMESTAMP_AWARE = 3;
+    short TIMESTAMP_AWARE = 3;
 
     /** Message type for {@link ErrorTimestampAwareReplicaResponse}. */
-    public static final short ERROR_TIMESTAMP_AWARE_REPLICA_RESPONSE = 4;
+    short ERROR_TIMESTAMP_AWARE_REPLICA_RESPONSE = 4;
 
     /** Message type for {@link TimestampAwareReplicaResponse}. */
-    public static final short TIMESTAMP_AWARE_REPLICA_RESPONSE = 5;
+    short TIMESTAMP_AWARE_REPLICA_RESPONSE = 5;
 
     /** Message type for {@link ReplicaSafeTimeSyncRequest}. */
-    public static final short SAFE_TIME_SYNC_REQUEST = 6;
+    short SAFE_TIME_SYNC_REQUEST = 6;
 
     /** Message type for {@link AwaitReplicaRequest}. */
-    public static final short AWAIT_REPLICA_REQUEST = 7;
+    short AWAIT_REPLICA_REQUEST = 7;
 
     /** Message type for {@link AwaitReplicaResponse}. */
-    public static final short AWAIT_REPLICA_RESPONSE = 8;
+    short AWAIT_REPLICA_RESPONSE = 8;
+
+    /** Message type for {@link SafeTimeSyncCommand}. */
+    short SAFE_TIME_SYNC_COMMAND = 40;
 }

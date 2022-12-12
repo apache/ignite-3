@@ -24,6 +24,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
@@ -114,7 +115,8 @@ public class IgniteRpcServer implements RpcServer<Void> {
         registerProcessor(new RemoveLearnersRequestProcessor(rpcExecutor, raftMessagesFactory));
         registerProcessor(new ResetLearnersRequestProcessor(rpcExecutor, raftMessagesFactory));
         // common client integration
-        registerProcessor(new ActionRequestProcessor(rpcExecutor, raftMessagesFactory));
+        var commandsMarshaller = new ThreadLocalOptimizedMarshaller(service.localConfiguration().getSerializationRegistry());
+        registerProcessor(new ActionRequestProcessor(rpcExecutor, raftMessagesFactory, commandsMarshaller));
 
         var messageHandler = new RpcMessageHandler();
 

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv;
 
+import com.google.auto.service.AutoService;
 import java.util.Collection;
 import java.util.List;
 import org.apache.ignite.internal.pagememory.io.IoVersions;
@@ -30,6 +31,7 @@ import org.apache.ignite.internal.storage.pagememory.mv.io.VersionChainMetaIo;
  * {@link PageIoModule} related to {@link VolatilePageMemoryMvPartitionStorage} and {@link PersistentPageMemoryMvPartitionStorage}
  * implementations.
  */
+@AutoService(PageIoModule.class)
 public class MvPageIoModule implements PageIoModule {
     /** {@inheritDoc} */
     @Override
