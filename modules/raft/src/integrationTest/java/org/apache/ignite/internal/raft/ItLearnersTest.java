@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.raft;
 
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.raft.RaftGroupEventsListener.noopLsnr;
+import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.will;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
@@ -31,10 +31,12 @@ import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.not;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
@@ -49,7 +51,6 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
-import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
@@ -126,7 +127,7 @@ public class ItLearnersTest extends IgniteAbstractTest {
         @Override
         public void close() throws Exception {
             closeAll(
-                    loza == null ? null : () -> loza.stopRaftGroup(RAFT_GROUP_ID),
+                    loza == null ? null : () -> loza.stopRaftNodes(RAFT_GROUP_ID),
                     loza == null ? null : loza::beforeNodeStop,
                     clusterService == null ? null : clusterService::beforeNodeStop,
                     loza == null ? null : loza::stop,
@@ -156,7 +157,7 @@ public class ItLearnersTest extends IgniteAbstractTest {
      * Tests that it is possible to replicate and read data from learners.
      */
     @Test
-    public void testReadWriteLearners() throws Exception {
+    void testReadWriteLearners() throws Exception {
         List<TestRaftGroupListener> listeners = IntStream.range(0, nodes.size())
                 .mapToObj(i -> new TestRaftGroupListener())
                 .collect(toList());
@@ -164,8 +165,12 @@ public class ItLearnersTest extends IgniteAbstractTest {
         RaftNode follower = nodes.get(0);
         List<RaftNode> learners = nodes.subList(1, nodes.size());
 
+        PeersAndLearners configuration = createConfiguration(List.of(follower), learners);
+
+        List<Peer> serverPeers = nodesToPeers(configuration, List.of(follower), learners);
+
         List<CompletableFuture<RaftGroupService>> services = IntStream.range(0, nodes.size())
-                .mapToObj(i -> startRaftGroup(nodes.get(i), listeners.get(i), List.of(follower), learners))
+                .mapToObj(i -> startRaftGroup(nodes.get(i), serverPeers.get(i), configuration, listeners.get(i)))
                 .collect(toList());
 
         // Check that learners and peers have been set correctly.
@@ -197,12 +202,14 @@ public class ItLearnersTest extends IgniteAbstractTest {
      * Tests {@link RaftGroupService#addLearners} functionality.
      */
     @Test
-    public void testAddLearners() {
+    void testAddLearners() {
         RaftNode follower = nodes.get(0);
         List<RaftNode> learners = nodes.subList(1, nodes.size());
 
+        PeersAndLearners configuration = createConfiguration(List.of(follower), List.of());
+
         CompletableFuture<RaftGroupService> service1 =
-                startRaftGroup(follower, new TestRaftGroupListener(), List.of(follower), List.of());
+                startRaftGroup(follower, configuration.peer(follower.consistentId()), configuration, new TestRaftGroupListener());
 
         assertThat(service1.thenApply(RaftGroupService::leader), willBe(follower.asPeer()));
         assertThat(service1.thenApply(RaftGroupService::learners), willBe(empty()));
@@ -212,8 +219,12 @@ public class ItLearnersTest extends IgniteAbstractTest {
 
         assertThat(addLearners, willCompleteSuccessfully());
 
+        PeersAndLearners newConfiguration = createConfiguration(List.of(follower), learners);
+
+        RaftNode learner1 = nodes.get(1);
+
         CompletableFuture<RaftGroupService> service2 =
-                startRaftGroup(nodes.get(1), new TestRaftGroupListener(), List.of(follower), learners);
+                startRaftGroup(learner1, configuration.learner(learner1.consistentId()), newConfiguration, new TestRaftGroupListener());
 
         // Check that learners and peers have been set correctly.
         Stream.of(service1, service2).forEach(service -> {
@@ -230,12 +241,16 @@ public class ItLearnersTest extends IgniteAbstractTest {
      * Tests that if the only follower is stopped, then the majority is lost.
      */
     @Test
-    public void testLostLeadership() throws Exception {
+    void testLostLeadership() throws Exception {
         RaftNode follower = nodes.get(0);
         List<RaftNode> learners = nodes.subList(1, nodes.size());
 
-        List<CompletableFuture<RaftGroupService>> services = nodes.stream()
-                .map(node -> startRaftGroup(node, new TestRaftGroupListener(), List.of(follower), learners))
+        PeersAndLearners configuration = createConfiguration(List.of(follower), learners);
+
+        List<Peer> serverPeers = nodesToPeers(configuration, List.of(follower), learners);
+
+        List<CompletableFuture<RaftGroupService>> services = IntStream.range(0, nodes.size())
+                .mapToObj(i -> startRaftGroup(nodes.get(i), serverPeers.get(i), configuration, new TestRaftGroupListener()))
                 .collect(toList());
 
         // Wait for the leader to be elected.
@@ -253,12 +268,16 @@ public class ItLearnersTest extends IgniteAbstractTest {
      * Tests that even if all learners are stopped, then the majority is not lost.
      */
     @Test
-    public void testLostLearners() throws Exception {
+    void testLostLearners() throws Exception {
         RaftNode follower = nodes.get(0);
         List<RaftNode> learners = nodes.subList(1, nodes.size());
 
-        List<CompletableFuture<RaftGroupService>> services = nodes.stream()
-                .map(node -> startRaftGroup(node, new TestRaftGroupListener(), List.of(follower), learners))
+        PeersAndLearners configuration = createConfiguration(List.of(follower), learners);
+
+        List<Peer> serverPeers = nodesToPeers(configuration, List.of(follower), learners);
+
+        List<CompletableFuture<RaftGroupService>> services = IntStream.range(0, nodes.size())
+                .mapToObj(i -> startRaftGroup(nodes.get(i), serverPeers.get(i), configuration, new TestRaftGroupListener()))
                 .collect(toList());
 
         // Wait for the leader to be elected.
@@ -273,20 +292,120 @@ public class ItLearnersTest extends IgniteAbstractTest {
         assertThat(services.get(0).thenCompose(RaftGroupService::refreshLeader), willCompleteSuccessfully());
     }
 
+    /**
+     * Tests a situation when a peer and a learner are started on the same node.
+     */
+    @Test
+    void testLearnersOnTheSameNodeAsPeers() throws InterruptedException {
+        RaftNode node = nodes.get(0);
+
+        PeersAndLearners configuration = createConfiguration(List.of(node), List.of(node));
+
+        var peerListener = new TestRaftGroupListener();
+        var learnerListener = new TestRaftGroupListener();
+
+        Peer peer = configuration.peer(node.consistentId());
+        Peer learner = configuration.learner(node.consistentId());
+
+        CompletableFuture<RaftGroupService> peerService = startRaftGroup(node, peer, configuration, peerListener);
+        CompletableFuture<RaftGroupService> learnerService = startRaftGroup(node, learner, configuration, learnerListener);
+
+        assertThat(peerService.thenApply(RaftGroupService::leader), willBe(peer));
+        assertThat(peerService.thenApply(RaftGroupService::leader), willBe(not(learner)));
+        assertThat(learnerService.thenApply(RaftGroupService::leader), willBe(peer));
+        assertThat(learnerService.thenApply(RaftGroupService::leader), willBe(not(learner)));
+
+        // Test writing data.
+        CompletableFuture<?> writeFuture = peerService
+                .thenCompose(s -> s.run(createWriteCommand("foo")).thenApply(v -> s))
+                .thenCompose(s -> s.run(createWriteCommand("bar")));
+
+        assertThat(writeFuture, willCompleteSuccessfully());
+
+        for (TestRaftGroupListener listener : Arrays.asList(peerListener, learnerListener)) {
+            assertThat(listener.storage.poll(1, TimeUnit.SECONDS), is("foo"));
+            assertThat(listener.storage.poll(1, TimeUnit.SECONDS), is("bar"));
+        }
+    }
+
+    /**
+     * Tests adding a new learner using {@link RaftGroupService#changePeersAsync} to an Ignite node that is already running a Raft peer.
+     */
+    @Test
+    void testChangePeersToAddLearnerToSameNodeAsPeer() throws InterruptedException {
+        List<RaftNode> followers = nodes.subList(0, 2);
+        RaftNode learner = nodes.get(0);
+
+        PeersAndLearners configuration = createConfiguration(followers, List.of(learner));
+
+        CompletableFuture<?>[] followerServices = followers.stream()
+                .map(node -> startRaftGroup(node, configuration.peer(node.consistentId()), configuration, new TestRaftGroupListener()))
+                .toArray(CompletableFuture[]::new);
+
+        assertThat(CompletableFuture.allOf(followerServices), willCompleteSuccessfully());
+
+        var learnerListener = new TestRaftGroupListener();
+
+        CompletableFuture<RaftGroupService> learnerService = startRaftGroup(
+                learner, configuration.learner(learner.consistentId()), configuration, learnerListener
+        );
+
+        CompletableFuture<?> writeFuture = learnerService
+                .thenCompose(s -> s.run(createWriteCommand("foo")).thenApply(v -> s))
+                .thenCompose(s -> s.run(createWriteCommand("bar")));
+
+        assertThat(writeFuture, willCompleteSuccessfully());
+        assertThat(learnerListener.storage.poll(1, TimeUnit.SECONDS), is("foo"));
+        assertThat(learnerListener.storage.poll(1, TimeUnit.SECONDS), is("bar"));
+
+        // Create a new learner on the second node.
+        RaftNode newLearner = nodes.get(1);
+
+        PeersAndLearners newConfiguration = createConfiguration(followers, List.of(learner, newLearner));
+
+        CompletableFuture<Void> changePeersFuture = learnerService.thenCompose(s -> s.refreshAndGetLeaderWithTerm()
+                .thenCompose(leaderWithTerm -> s.changePeersAsync(newConfiguration, leaderWithTerm.term())
+        ));
+
+        assertThat(changePeersFuture, willCompleteSuccessfully());
+
+        var newLearnerListener = new TestRaftGroupListener();
+
+        CompletableFuture<RaftGroupService> newLearnerService = startRaftGroup(
+                newLearner, newConfiguration.learner(newLearner.consistentId()), newConfiguration, newLearnerListener
+        );
+
+        assertThat(newLearnerService, willCompleteSuccessfully());
+        assertThat(newLearnerListener.storage.poll(10, TimeUnit.SECONDS), is("foo"));
+        assertThat(newLearnerListener.storage.poll(10, TimeUnit.SECONDS), is("bar"));
+    }
+
+    private PeersAndLearners createConfiguration(Collection<RaftNode> peers, Collection<RaftNode> learners) {
+        return PeersAndLearners.fromConsistentIds(
+                peers.stream().map(RaftNode::consistentId).collect(toSet()),
+                learners.stream().map(RaftNode::consistentId).collect(toSet())
+        );
+    }
+
+    private List<Peer> nodesToPeers(PeersAndLearners configuration, Collection<RaftNode> peers, Collection<RaftNode> learners) {
+        return Stream.concat(
+                peers.stream().map(peer -> configuration.peer(peer.consistentId())),
+                learners.stream().map(learner -> configuration.learner(learner.consistentId()))
+        ).collect(toList());
+    }
+
     private CompletableFuture<RaftGroupService> startRaftGroup(
-            RaftNode raftNode,
-            RaftGroupListener listener,
-            List<RaftNode> peers,
-            List<RaftNode> learners
+            RaftNode node,
+            Peer serverPeer,
+            PeersAndLearners configuration,
+            RaftGroupListener listener
     ) {
         try {
-            CompletableFuture<RaftGroupService> future = raftNode.loza.prepareRaftGroup(
+            CompletableFuture<RaftGroupService> future = node.loza.prepareRaftGroup(
                     RAFT_GROUP_ID,
-                    peers.stream().map(RaftNode::consistentId).collect(toList()),
-                    learners.stream().map(RaftNode::consistentId).collect(toList()),
-                    () -> listener,
-                    () -> noopLsnr,
-                    RaftGroupOptions.defaults()
+                    serverPeer,
+                    configuration,
+                    () -> listener
             );
 
             return future.thenApply(s -> {

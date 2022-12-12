@@ -17,15 +17,17 @@
 
 package org.apache.ignite.raft.jraft.disruptor;
 
+import org.apache.ignite.raft.jraft.entity.NodeId;
+
 /**
- * Interface provides group id.
+ * Interface provides Raft node id.
  * It allows to determine a stripe in Striped disruptor.
  */
-public interface GroupAware {
+public interface NodeIdAware {
     /**
-     * Gets a group id.
+     * Gets a Raft node id.
      *
-     * @return Group id.
+     * @return Raft node id.
      */
-    String groupId();
+    NodeId nodeId();
 }

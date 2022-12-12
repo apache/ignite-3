@@ -59,6 +59,7 @@ dependencies {
     testFixturesImplementation project(':ignite-raft-api')
     testFixturesImplementation(testFixtures(project(':ignite-core')))
     testFixturesImplementation(testFixtures(project(':ignite-network')))
+    testFixturesImplementation libs.hamcrest.core
     testFixturesImplementation libs.mockito.core
     testFixturesImplementation libs.junit5.api
     testFixturesImplementation libs.junit5.params
