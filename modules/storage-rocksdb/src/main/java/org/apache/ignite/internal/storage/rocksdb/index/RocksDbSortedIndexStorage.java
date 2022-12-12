@@ -19,11 +19,13 @@ package org.apache.ignite.internal.storage.rocksdb.index;
 
 import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
+import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.NoSuchElementException;
 import java.util.function.Function;
+import java.util.NoSuchElementException;
 import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
@@ -183,7 +185,7 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
             @Override
             public void close() {
                 try {
-                    closeAll(it, () -> RocksUtils.closeAll(options, upperBoundSlice));
+                    closeAll(it, options, upperBoundSlice);
                 } catch (Exception e) {
                     throw new StorageException("Error closing cursor", e);
                 }
@@ -197,7 +199,7 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
             }
 
             @Override
-            public T next() {
+            public ByteBuffer next() {
                 advanceIfNeeded();
 
                 boolean hasNext = this.hasNext;
@@ -208,7 +210,7 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
 
                 this.hasNext = null;
 
-                return mapper.apply(ByteBuffer.wrap(key).order(ORDER));
+                return ByteBuffer.wrap(key).order(ORDER);
             }
 
             @Override
@@ -237,11 +239,27 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
                     return;
                 }
 
-                refreshAndPrepareRocksIterator();
+                try {
+                    it.refresh();
+                } catch (RocksDBException e) {
+                    throw new StorageException("Error refreshing an iterator", e);
+                }
+
+                if (key == null) {
+                    it.seek(lowerBound == null ? partitionStorage.partitionStartPrefix() : lowerBound);
+                } else {
+                    it.seekForPrev(key);
+
+                    if (it.isValid()) {
+                        it.next();
+                    } else {
+                        RocksUtils.checkIterator(it);
+
+                        it.seek(lowerBound == null ? partitionStorage.partitionStartPrefix() : lowerBound);
+                    }
+                }
 
                 if (!it.isValid()) {
-                    // check the status first. This operation is guaranteed to throw if an internal error has occurred during
-                    // the iteration. Otherwise, we've exhausted the data range.
                     RocksUtils.checkIterator(it);
 
                     hasNext = false;
