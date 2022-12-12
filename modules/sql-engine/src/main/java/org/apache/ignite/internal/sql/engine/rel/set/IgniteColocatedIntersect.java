@@ -27,10 +27,10 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteRelVisitor;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 
 /**
- * Physical node for INTERSECT operator which inputs satisfy SINGLE distribution.
+ * Physical node for INTERSECT operator which inputs are colocated.
  */
-public class IgniteSingleIntersect extends IgniteIntersect implements IgniteSingleSetOp {
-    public IgniteSingleIntersect(
+public class IgniteColocatedIntersect extends IgniteIntersect implements IgniteColocatedSetOp {
+    public IgniteColocatedIntersect(
             RelOptCluster cluster,
             RelTraitSet traitSet,
             List<RelNode> inputs,
@@ -40,23 +40,24 @@ public class IgniteSingleIntersect extends IgniteIntersect implements IgniteSing
     }
 
     /**
-     * Constructor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Constructor used for deserialization.
+     *
+     * @param input Serialized representation.
      */
-    public IgniteSingleIntersect(RelInput input) {
+    public IgniteColocatedIntersect(RelInput input) {
         super(input);
     }
 
     /** {@inheritDoc} */
     @Override
-    public IgniteSingleIntersect copy(RelTraitSet traitSet, List<RelNode> inputs, boolean all) {
-        return new IgniteSingleIntersect(getCluster(), traitSet, inputs, all);
+    public IgniteColocatedIntersect copy(RelTraitSet traitSet, List<RelNode> inputs, boolean all) {
+        return new IgniteColocatedIntersect(getCluster(), traitSet, inputs, all);
     }
 
     /** {@inheritDoc} */
     @Override
     public IgniteRel clone(RelOptCluster cluster, List<IgniteRel> inputs) {
-        return new IgniteSingleIntersect(cluster, getTraitSet(), Commons.cast(inputs), all);
+        return new IgniteColocatedIntersect(cluster, getTraitSet(), Commons.cast(inputs), all);
     }
 
     /** {@inheritDoc} */

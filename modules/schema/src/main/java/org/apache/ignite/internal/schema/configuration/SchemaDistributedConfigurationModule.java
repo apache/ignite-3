@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.schema.configuration;
 
+import com.google.auto.service.AutoService;
 import java.lang.annotation.Annotation;
 import java.util.Collection;
 import java.util.List;
@@ -40,6 +41,7 @@ import org.apache.ignite.internal.schema.configuration.storage.UnknownDataStorag
 /**
  * {@link ConfigurationModule} for cluster-wide configuration provided by ignite-schema.
  */
+@AutoService(ConfigurationModule.class)
 public class SchemaDistributedConfigurationModule implements ConfigurationModule {
     /** {@inheritDoc} */
     @Override

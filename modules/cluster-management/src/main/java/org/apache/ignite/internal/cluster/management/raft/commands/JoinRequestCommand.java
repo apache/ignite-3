@@ -21,14 +21,13 @@ import org.apache.ignite.internal.cluster.management.ClusterTag;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessageGroup;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.internal.raft.WriteCommand;
-import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
 
 /**
  * Command sent by a node that intends to join a cluster. This command will trigger node validation.
  */
 @Transferable(CmgMessageGroup.Commands.JOIN_REQUEST)
-public interface JoinRequestCommand extends WriteCommand, NetworkMessage {
+public interface JoinRequestCommand extends WriteCommand {
     /**
      * Returns the node that wants to join a cluster.
      */

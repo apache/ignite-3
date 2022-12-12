@@ -19,6 +19,7 @@ package org.apache.ignite.internal.storage.pagememory;
 
 import static org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine.ENGINE_NAME;
 
+import com.google.auto.service.AutoService;
 import java.nio.file.Path;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
@@ -32,6 +33,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Implementation for creating {@link PersistentPageMemoryStorageEngine}.
  */
+@AutoService(DataStorageModule.class)
 public class PersistentPageMemoryDataStorageModule implements DataStorageModule {
     /** {@inheritDoc} */
     @Override

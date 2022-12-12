@@ -29,6 +29,7 @@ import org.apache.ignite.internal.raft.ReadCommand;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
+import org.apache.ignite.raft.TestWriteCommand;
 
 /**
  * The RAFT state machine counts applied write commands and stores the result into {@link java.util.concurrent.atomic.AtomicLong} that is

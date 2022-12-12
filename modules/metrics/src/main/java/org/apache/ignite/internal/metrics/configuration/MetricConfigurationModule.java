@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.metrics.configuration;
 
+import com.google.auto.service.AutoService;
 import java.lang.annotation.Annotation;
 import java.util.Collection;
 import java.util.Collections;
@@ -32,6 +33,7 @@ import org.apache.ignite.internal.metrics.exporters.configuration.JmxExporterCon
 /**
  * Configuration module for metrics' configs.
  */
+@AutoService(ConfigurationModule.class)
 public class MetricConfigurationModule implements ConfigurationModule {
     /** {@inheritDoc} */
     @Override

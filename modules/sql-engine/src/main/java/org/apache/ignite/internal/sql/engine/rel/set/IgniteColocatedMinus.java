@@ -27,10 +27,10 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteRelVisitor;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 
 /**
- * Physical node for MINUS (EXCEPT) operator which inputs satisfy SINGLE distribution.
+ * Physical node for MINUS (EXCEPT) operator which inputs are colocated.
  */
-public class IgniteSingleMinus extends IgniteMinus implements IgniteSingleSetOp {
-    public IgniteSingleMinus(
+public class IgniteColocatedMinus extends IgniteMinus implements IgniteColocatedSetOp {
+    public IgniteColocatedMinus(
             RelOptCluster cluster,
             RelTraitSet traitSet,
             List<RelNode> inputs,
@@ -40,23 +40,24 @@ public class IgniteSingleMinus extends IgniteMinus implements IgniteSingleSetOp 
     }
 
     /**
-     * Constructor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Constructor used for deserialization.
+     *
+     * @param input Serialized representation.
      */
-    public IgniteSingleMinus(RelInput input) {
+    public IgniteColocatedMinus(RelInput input) {
         super(input);
     }
 
     /** {@inheritDoc} */
     @Override
-    public IgniteSingleMinus copy(RelTraitSet traitSet, List<RelNode> inputs, boolean all) {
-        return new IgniteSingleMinus(getCluster(), traitSet, inputs, all);
+    public IgniteColocatedMinus copy(RelTraitSet traitSet, List<RelNode> inputs, boolean all) {
+        return new IgniteColocatedMinus(getCluster(), traitSet, inputs, all);
     }
 
     /** {@inheritDoc} */
     @Override
     public IgniteRel clone(RelOptCluster cluster, List<IgniteRel> inputs) {
-        return new IgniteSingleMinus(cluster, getTraitSet(), Commons.cast(inputs), all);
+        return new IgniteColocatedMinus(cluster, getTraitSet(), Commons.cast(inputs), all);
     }
 
     /** {@inheritDoc} */

@@ -42,7 +42,7 @@ import org.apache.ignite.raft.jraft.rpc.RpcContext;
 import org.apache.ignite.raft.jraft.rpc.RpcProcessor;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests;
 import org.apache.ignite.raft.jraft.util.BytesUtil;
-import org.apache.ignite.raft.jraft.util.JDKMarshaller;
+import org.apache.ignite.raft.jraft.util.Marshaller;
 
 /**
  * Process action request.
@@ -54,9 +54,12 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
 
     private final RaftMessagesFactory factory;
 
-    public ActionRequestProcessor(Executor executor, RaftMessagesFactory factory) {
+    private final Marshaller commandsMarshaller;
+
+    public ActionRequestProcessor(Executor executor, RaftMessagesFactory factory, Marshaller commandsMarshaller) {
         this.executor = executor;
         this.factory = factory;
+        this.commandsMarshaller = commandsMarshaller;
     }
 
     /** {@inheritDoc} */
@@ -83,8 +86,7 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
      * @param rpcCtx  The context.
      */
     private void applyWrite(Node node, ActionRequest request, RpcContext rpcCtx) {
-        // TODO asch get rid of JDK marshaller IGNITE-14832
-        node.apply(new Task(ByteBuffer.wrap(JDKMarshaller.DEFAULT.marshall(request.command())),
+        node.apply(new Task(ByteBuffer.wrap(commandsMarshaller.marshall(request.command())),
                 new CommandClosureImpl<>(request.command()) {
                     @Override
                     public void result(Serializable res) {

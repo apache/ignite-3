@@ -34,8 +34,11 @@ dependencies {
     implementation libs.rocksdb.jni
     implementation libs.dropwizard.metrics
     implementation libs.jctools.core
+    implementation libs.auto.service.annotations
+
     annotationProcessor project(":ignite-network-annotation-processor")
     annotationProcessor libs.jmh.annotation.processor
+    annotationProcessor libs.auto.service
 
     testAnnotationProcessor project(":ignite-network-annotation-processor")
     testImplementation(testFixtures(project(':ignite-core')))

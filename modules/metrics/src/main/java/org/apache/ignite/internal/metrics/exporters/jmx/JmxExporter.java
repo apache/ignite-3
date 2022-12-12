@@ -19,6 +19,7 @@ package org.apache.ignite.internal.metrics.exporters.jmx;
 
 import static org.apache.ignite.internal.util.IgniteUtils.makeMbeanName;
 
+import com.google.auto.service.AutoService;
 import java.lang.management.ManagementFactory;
 import java.util.ArrayList;
 import java.util.List;
@@ -30,6 +31,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metrics.MetricProvider;
 import org.apache.ignite.internal.metrics.MetricSet;
 import org.apache.ignite.internal.metrics.exporters.BasicMetricExporter;
+import org.apache.ignite.internal.metrics.exporters.MetricExporter;
 import org.apache.ignite.internal.metrics.exporters.configuration.JmxExporterView;
 
 /**
@@ -37,6 +39,7 @@ import org.apache.ignite.internal.metrics.exporters.configuration.JmxExporterVie
  * For each enabled {@link org.apache.ignite.internal.metrics.MetricSource} exporter provides
  * a separate MBean with corresponding attribute per source's metric.
  */
+@AutoService(MetricExporter.class)
 public class JmxExporter extends BasicMetricExporter<JmxExporterView> {
     /**
      * Exporter name. Must be the same for configuration and exporter itself.
