@@ -45,6 +45,7 @@ import org.apache.calcite.sql.type.BasicSqlType;
 import org.apache.calcite.sql.type.IntervalSqlType;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NativeTypes;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Ignite type factory.
@@ -351,21 +352,6 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
         }
 
         return super.toSql(type);
-    }
-
-
-    /** Returns custom type.  {@code Null} if custom type not found */
-    public RelDataType createCustomType(Type type) {
-        return createCustomType(type, true);
-    }
-
-    /** Returns nullable custom type. {@code Null} if custom type not found. */
-    public RelDataType createCustomType(Type type, boolean nullable) {
-        if (Object.class == type) {
-            return canonize(new OtherType(nullable));
-        }
-
-        return null;
     }
 
     /** {@inheritDoc} */

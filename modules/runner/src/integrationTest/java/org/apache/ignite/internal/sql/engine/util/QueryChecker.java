@@ -50,6 +50,7 @@ import org.hamcrest.core.SubstringMatcher;
 public abstract class QueryChecker {
     /** Partition release timeout. */
     private static final long PART_RELEASE_TIMEOUT = 5_000L;
+    public static final Object[] NULL_AS_VARARG = {null};
 
     /**
      * Ignite table scan matcher.
@@ -291,6 +292,11 @@ public abstract class QueryChecker {
             expectedResult = new ArrayList<>();
         }
 
+        // let's interpret null array as simple single null.
+        if (res == null) {
+            res = NULL_AS_VARARG;
+        }
+
         expectedResult.add(Arrays.asList(res));
 
         return this;
@@ -357,7 +363,7 @@ public abstract class QueryChecker {
         // Check plan.
         QueryProcessor qryProc = getEngine();
 
-        var explainCursors = qryProc.queryAsync("PUBLIC", "EXPLAIN PLAN FOR " + qry);
+        var explainCursors = qryProc.queryAsync("PUBLIC", "EXPLAIN PLAN FOR " + qry, params);
 
         var explainCursor = explainCursors.get(0).join();
         var explainRes = getAllFromCursor(explainCursor);

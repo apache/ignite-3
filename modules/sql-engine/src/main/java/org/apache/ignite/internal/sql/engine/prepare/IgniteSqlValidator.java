@@ -51,6 +51,7 @@ import org.apache.calcite.sql.SqlUpdate;
 import org.apache.calcite.sql.SqlUtil;
 import org.apache.calcite.sql.dialect.CalciteSqlDialect;
 import org.apache.calcite.sql.parser.SqlParserPos;
+import org.apache.calcite.sql.type.BasicSqlType;
 import org.apache.calcite.sql.type.FamilyOperandTypeChecker;
 import org.apache.calcite.sql.type.SqlOperandTypeChecker;
 import org.apache.calcite.sql.type.SqlOperandTypeInference;
@@ -458,14 +459,14 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     @Override
     protected void inferUnknownTypes(RelDataType inferredType, SqlValidatorScope scope, SqlNode node) {
         if (node instanceof SqlDynamicParam && inferredType.equals(unknownType)) {
-            // Infer type of dynamic parameters of unknown type as OTHER.
-            // Parameter will be converted from Object class to required class in runtime.
-            // Such an approach helps to bypass some cases where parameter types can never be inferred (for example,
-            // in expression "CASE WHEN ... THEN ? ELSE ? END"), but also has new issues: if SQL function's method
-            // has overloads, it's not possible to find correct unique method to call, so random method will be choosen.
-            // For such functions operand type inference should be implemented to find the correct method
-            // (see https://issues.apache.org/jira/browse/CALCITE-4347).
-            setValidatedNodeType(node, typeFactory().createCustomType(Object.class));
+            Object param = parameters[((SqlDynamicParam) node).getIndex()];
+            RelDataType type;
+            if (param == null) {
+                type = typeFactory().createSqlType(SqlTypeName.NULL);
+            } else {
+                type = typeFactory().createType(param.getClass());
+            }
+            setValidatedNodeType(node, type);
         } else if (node instanceof SqlCall) {
             SqlValidatorScope newScope = scopes.get(node);
 
