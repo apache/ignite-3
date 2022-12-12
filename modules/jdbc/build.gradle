@@ -15,8 +15,24 @@
  * limitations under the License.
  */
 
-/**
- * Ignite jdbc client internal classes.
- */
+apply from: "$rootDir/buildscripts/java-core.gradle"
+apply from: "$rootDir/buildscripts/publishing.gradle"
+apply from: "$rootDir/buildscripts/java-junit5.gradle"
 
-package org.apache.ignite.internal.jdbc;
+dependencies {
+    implementation project(':ignite-api')
+    implementation project(':ignite-core')
+    implementation project(':ignite-client')
+    implementation project(':ignite-client-common')
+
+    implementation libs.jetbrains.annotations
+}
+
+description = 'ignite-jdbc'
+
+jar {
+    from {
+        configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+    }
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}

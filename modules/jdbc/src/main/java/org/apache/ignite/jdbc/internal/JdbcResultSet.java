@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.jdbc;
+package org.apache.ignite.jdbc.internal;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 

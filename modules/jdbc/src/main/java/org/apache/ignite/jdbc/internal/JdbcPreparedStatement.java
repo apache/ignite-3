@@ -15,11 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.jdbc;
+package org.apache.ignite.jdbc.internal;
 
 import static org.apache.ignite.internal.util.ArrayUtils.INT_EMPTY_ARRAY;
 
-import io.netty.util.internal.StringUtil;
 import java.io.InputStream;
 import java.io.Reader;
 import java.math.BigDecimal;
@@ -107,7 +106,7 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
 
         closeResults();
 
-        if (CollectionUtils.nullOrEmpty(batchedArgs) || StringUtil.isNullOrEmpty(sql)) {
+        if (CollectionUtils.nullOrEmpty(batchedArgs) || (sql == null || sql.isBlank())) {
             return INT_EMPTY_ARRAY;
         }
 
@@ -650,7 +649,7 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
     /**
      * Execute query with arguments and nullify them afterwards.
      *
-     * @param JdbcStatementType Expected statement type.
+     * @param statementType Expected statement type.
      * @throws SQLException If failed.
      */
     private void executeWithArguments(JdbcStatementType statementType) throws SQLException {
