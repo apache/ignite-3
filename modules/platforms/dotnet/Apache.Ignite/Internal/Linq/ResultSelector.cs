@@ -56,9 +56,9 @@ internal static class ResultSelector
         if (selectorExpression is NewExpression newExpr)
         {
             var ctorInfo = newExpr.Constructor!;
-            var cacheKey = new ResultSelectorCacheKey<ConstructorInfo>(ctorInfo, columns);
+            var cacheKey = new ResultSelectorCacheKey<ConstructorInfo>(ctorInfo, columns, defaultIfNull);
 
-            return (RowReader<T>)CtorCache.GetOrAdd(cacheKey, static k => EmitConstructorReader<T>(k.Target, k.Columns));
+            return (RowReader<T>)CtorCache.GetOrAdd(cacheKey, static k => EmitConstructorReader<T>(k.Target, k.Columns, k.DefaultIfNull));
         }
 
         if (columns.Count == 1 && typeof(T).ToSqlColumnType() is not null)
@@ -126,7 +126,10 @@ internal static class ResultSelector
         }
     }
 
-    private static RowReader<T> EmitConstructorReader<T>(ConstructorInfo ctorInfo, IReadOnlyList<IColumnMetadata> columns)
+    private static RowReader<T> EmitConstructorReader<T>(
+        ConstructorInfo ctorInfo,
+        IReadOnlyList<IColumnMetadata> columns,
+        bool defaultAsNull)
     {
         var method = new DynamicMethod(
             name: "ConstructFromBinaryTupleReader_" + ctorInfo.DeclaringType!.Name,

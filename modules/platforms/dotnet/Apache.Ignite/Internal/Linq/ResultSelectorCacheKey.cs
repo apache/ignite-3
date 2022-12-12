@@ -33,16 +33,23 @@ internal readonly struct ResultSelectorCacheKey<T> : IEquatable<ResultSelectorCa
     /// </summary>
     /// <param name="target">Target object (can be type, constructor, etc).</param>
     /// <param name="columns">Columns.</param>
-    public ResultSelectorCacheKey(T target, IReadOnlyList<IColumnMetadata> columns)
+    /// <param name="defaultIfNull">Whether to read null values as default for value types.</param>
+    public ResultSelectorCacheKey(T target, IReadOnlyList<IColumnMetadata> columns, bool defaultIfNull)
     {
         Target = target;
         Columns = columns;
+        DefaultIfNull = defaultIfNull;
     }
 
     /// <summary>
     /// Gets columns.
     /// </summary>
     public IReadOnlyList<IColumnMetadata> Columns { get; }
+
+    /// <summary>
+    /// Gets a value indicating whether null values should be interpreted as default for value types.
+    /// </summary>
+    public bool DefaultIfNull { get; }
 
     /// <summary>
     /// Gets target object (can be type, constructor, etc).
@@ -63,6 +70,11 @@ internal readonly struct ResultSelectorCacheKey<T> : IEquatable<ResultSelectorCa
     public bool Equals(ResultSelectorCacheKey<T> other)
     {
         if (Target != other.Target)
+        {
+            return false;
+        }
+
+        if (DefaultIfNull != other.DefaultIfNull)
         {
             return false;
         }
@@ -93,6 +105,7 @@ internal readonly struct ResultSelectorCacheKey<T> : IEquatable<ResultSelectorCa
         HashCode hash = default;
 
         hash.Add(Target);
+        hash.Add(DefaultIfNull);
 
         foreach (var column in Columns)
         {
