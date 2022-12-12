@@ -25,9 +25,6 @@ import java.util.Map.Entry;
 import java.util.NavigableMap;
 import java.util.NavigableSet;
 import java.util.NoSuchElementException;
-import java.util.Map.Entry;
-import java.util.NavigableMap;
-import java.util.NoSuchElementException;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
@@ -247,29 +244,30 @@ public class TestSortedIndexStorage implements SortedIndexStorage {
                 return null;
             }
 
-            Entry<ByteBuffer, NavigableMap<RowId, Object>> entry0 = indexMapEntry == null ? indexMap.firstEntry() : indexMapEntry;
+            Entry<ByteBuffer, NavigableMap<RowId, Object>> indexMapEntry0 = indexMapEntry == null ? indexMap.firstEntry() : indexMapEntry;
 
             RowId nextRowId = null;
 
             if (rowId == null) {
-                if (entry0 != null) {
-                    nextRowId = getRowId(entry0.getValue().firstEntry());
+                if (indexMapEntry0 != null) {
+                    nextRowId = getRowId(indexMapEntry0.getValue().firstEntry());
                 }
             } else {
-                Entry<RowId, Object> nextRowIdEntry = entry0.getValue().higherEntry(rowId);
+                Entry<RowId, Object> nextRowIdEntry = indexMapEntry0.getValue().higherEntry(rowId);
 
                 if (nextRowIdEntry != null) {
                     nextRowId = nextRowIdEntry.getKey();
                 } else {
-                    entry0 = indexMap.higherEntry(entry0.getKey());
+                    indexMapEntry0 = indexMap.higherEntry(indexMapEntry0.getKey());
 
-                    if (entry0 != null) {
-                        nextRowId = getRowId(entry0.getValue().firstEntry());
+                    if (indexMapEntry0 != null) {
+                        nextRowId = getRowId(indexMapEntry0.getValue().firstEntry());
                     }
                 }
             }
 
-            return nextRowId == null ? null : new IndexRowImpl(new BinaryTuple(descriptor.binaryTupleSchema(), entry0.getKey()), nextRowId);
+            return nextRowId == null
+                    ? null : new IndexRowImpl(new BinaryTuple(descriptor.binaryTupleSchema(), indexMapEntry0.getKey()), nextRowId);
         }
 
         private void advanceIfNeeded() {
