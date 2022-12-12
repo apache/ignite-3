@@ -89,8 +89,12 @@ public class BlobStorage {
         }
     }
 
-    public long storeBlob(long firstPageId, byte[] bytes) throws IgniteInternalCheckedException {
-        return doStore(firstPageId, bytes, 0);
+    public long addBlob(byte[] bytes) throws IgniteInternalCheckedException {
+        return doStore(NO_PAGE_ID, bytes, 0);
+    }
+
+    public void updateBlob(long firstPageId, byte[] bytes) throws IgniteInternalCheckedException {
+        doStore(firstPageId, bytes, 0);
     }
 
     private long doStore(long maybePageId, byte[] bytes, int bytesOffset) throws IgniteInternalCheckedException {

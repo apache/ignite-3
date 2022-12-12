@@ -269,9 +269,13 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         raftGroupConfigReadWriteLock.writeLock().lock();
 
         try {
-            long configPageId = blobStorage.storeBlob(meta.lastRaftGroupConfigFirstPageId(), raftGroupConfigBytes);
+            if (meta.lastRaftGroupConfigFirstPageId() == 0) {
+                long configPageId = blobStorage.addBlob(raftGroupConfigBytes);
 
-            meta.lastRaftGroupConfigFirstPageId(lastCheckpointId, configPageId);
+                meta.lastRaftGroupConfigFirstPageId(lastCheckpointId, configPageId);
+            } else {
+                blobStorage.updateBlob(meta.lastRaftGroupConfigFirstPageId(), raftGroupConfigBytes);
+            }
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException("Cannot save committed group configuration, groupId=" + groupId + ", partitionId=" + groupId, e);
         } finally {
