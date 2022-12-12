@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.storage.configuration;
 
+import com.google.auto.service.AutoService;
 import java.lang.annotation.Annotation;
 import java.util.Map;
 import java.util.ServiceLoader;
@@ -30,6 +31,7 @@ import org.apache.ignite.internal.storage.DataStorageModule;
 /**
  * {@link ConfigurationModule} for cluster-wide configuration provided by ignite-storage-api.
  */
+@AutoService(ConfigurationModule.class)
 public class StorageEngineDistributedConfigurationModule implements ConfigurationModule {
     /** {@inheritDoc} */
     @Override

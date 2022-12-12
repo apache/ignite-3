@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.pagememory;
 
+import com.google.auto.service.AutoService;
 import java.util.Collection;
 import java.util.List;
 import org.apache.ignite.internal.pagememory.freelist.io.PagesListMetaIo;
@@ -28,6 +29,7 @@ import org.apache.ignite.internal.pagememory.persistence.io.PartitionMetaIo;
 /**
  * {@link PageIoModule} implementation in page-memory module.
  */
+@AutoService(PageIoModule.class)
 public class PageMemoryIoModule implements PageIoModule {
     /** {@inheritDoc} */
     @Override
