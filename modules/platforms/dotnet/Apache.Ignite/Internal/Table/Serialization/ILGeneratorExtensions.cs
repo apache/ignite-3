@@ -74,5 +74,14 @@ internal static class ILGeneratorExtensions
         {
             il.Emit(OpCodes.Conv_R8);
         }
+        else if (to == typeof(long))
+        {
+            il.Emit(OpCodes.Conv_I8);
+        }
+        else
+        {
+            // TODO: ???
+            throw new NotSupportedException("Conversion from " + from + " to " + to + " is not supported.");
+        }
     }
 }
