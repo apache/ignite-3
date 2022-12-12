@@ -65,52 +65,14 @@ internal static class ILGeneratorExtensions
             return;
         }
 
-        if (!from.IsValueType || !to.IsValueType)
+        var methodName = "To" + to.Name;
+        var method = typeof(Convert).GetMethod(methodName, BindingFlags.Static | BindingFlags.Public, new[] { from });
+
+        if (method == null)
         {
-            throw GetConversionException(from, to);
+            throw new NotSupportedException($"Conversion from {from} to {to} is not supported.");
         }
 
-        // TODO: Support all types and test them.
-        // TODO: Use a dictionary of opcodes?
-        if (to == typeof(int))
-        {
-            il.Emit(OpCodes.Conv_I4);
-        }
-        else if (to == typeof(double))
-        {
-            il.Emit(OpCodes.Conv_R8);
-        }
-        else if (to == typeof(long))
-        {
-            var method = typeof(Convert).GetMethod("ToInt64", BindingFlags.Static | BindingFlags.Public, new[] { from });
-
-            if (method == null)
-            {
-                throw GetConversionException(from, to);
-            }
-
-            il.Emit(OpCodes.Call, method);
-        }
-        else
-        {
-            // TODO: ???
-            throw GetConversionException(from, to);
-        }
-    }
-
-    private static NotSupportedException GetConversionException(Type from, Type to)
-    {
-        return new NotSupportedException("Conversion from " + from + " to " + to + " is not supported.");
-    }
-
-    private static long GetLong(decimal x)
-    {
-        return Convert.ToInt64(x);
-    }
-
-    private static int GetInt(decimal x)
-    {
-        int res = (int)x;
-        return res;
+        il.Emit(OpCodes.Call, method);
     }
 }
