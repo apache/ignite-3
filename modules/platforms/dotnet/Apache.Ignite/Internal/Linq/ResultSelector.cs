@@ -158,24 +158,31 @@ internal static class ResultSelector
 
         for (var index = 0; index < ctorParams.Length; index++)
         {
+            Label endParamLabel = il.DefineLabel();
+
             var param = ctorParams[index];
             var col = columns[index];
 
+            // TODO IGNITE-18329 handle nulls.
+            // But this screws up outer joins.
             if (defaultAsNull)
             {
-                var notNullLabel = il.DefineLabel();
+                Label notNullLabel = il.DefineLabel();
                 il.Emit(OpCodes.Ldarg_1); // Reader.
                 il.Emit(OpCodes.Ldc_I4, index); // Index.
                 il.Emit(OpCodes.Call, BinaryTupleMethods.IsNull);
-                il.Emit(OpCodes.Brfalse_S);
+                il.Emit(OpCodes.Brfalse_S, notNullLabel);
 
-                il.Emit(
-                    opcode: param.ParameterType.IsValueType
-                        ? OpCodes.Initobj
-                        : OpCodes.Ldnull,
-                    param.ParameterType);
+                if (param.ParameterType.IsValueType)
+                {
+                    il.Emit(OpCodes.Initobj, param.ParameterType);
+                }
+                else
+                {
+                    il.Emit(OpCodes.Ldnull);
+                }
 
-                il.Emit(OpCodes.Ret);
+                il.Emit(OpCodes.Br_S, endParamLabel);
                 il.MarkLabel(notNullLabel);
             }
 
@@ -192,6 +199,7 @@ internal static class ResultSelector
             il.Emit(OpCodes.Call, BinaryTupleMethods.GetReadMethod(colType));
 
             EmitConv(colType, param.ParameterType, il);
+            il.MarkLabel(endParamLabel);
         }
 
         il.Emit(OpCodes.Newobj, ctorInfo);
