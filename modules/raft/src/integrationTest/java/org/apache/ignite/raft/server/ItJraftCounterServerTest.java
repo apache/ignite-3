@@ -25,6 +25,8 @@ import static org.apache.ignite.raft.jraft.core.State.STATE_ERROR;
 import static org.apache.ignite.raft.jraft.core.State.STATE_LEADER;
 import static org.apache.ignite.raft.jraft.test.TestUtils.waitForCondition;
 import static org.apache.ignite.raft.jraft.test.TestUtils.waitForTopology;
+import static org.apache.ignite.raft.server.counter.GetValueCommand.getValueCommand;
+import static org.apache.ignite.raft.server.counter.IncrementAndGetCommand.incrementAndGetCommand;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -66,11 +68,11 @@ import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftException;
 import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
+import org.apache.ignite.raft.messages.TestRaftMessagesFactory;
 import org.apache.ignite.raft.server.counter.CounterListener;
 import org.apache.ignite.raft.server.counter.GetValueCommand;
 import org.apache.ignite.raft.server.counter.IncrementAndGetCommand;
 import org.apache.ignite.raft.server.snasphot.SnapshotInMemoryStorageFactory;
-import org.apache.ignite.raft.server.snasphot.TestWriteCommand;
 import org.apache.ignite.raft.server.snasphot.UpdateCountRaftListener;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
@@ -208,15 +210,15 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
         assertNotNull(client1.leader());
         assertNotNull(client2.leader());
 
-        assertEquals(2, client1.<Long>run(new IncrementAndGetCommand(2)).get());
-        assertEquals(2, client1.<Long>run(new GetValueCommand()).get());
-        assertEquals(3, client1.<Long>run(new IncrementAndGetCommand(1)).get());
-        assertEquals(3, client1.<Long>run(new GetValueCommand()).get());
+        assertEquals(2, client1.<Long>run(incrementAndGetCommand(2)).get());
+        assertEquals(2, client1.<Long>run(getValueCommand()).get());
+        assertEquals(3, client1.<Long>run(incrementAndGetCommand(1)).get());
+        assertEquals(3, client1.<Long>run(getValueCommand()).get());
 
-        assertEquals(4, client2.<Long>run(new IncrementAndGetCommand(4)).get());
-        assertEquals(4, client2.<Long>run(new GetValueCommand()).get());
-        assertEquals(7, client2.<Long>run(new IncrementAndGetCommand(3)).get());
-        assertEquals(7, client2.<Long>run(new GetValueCommand()).get());
+        assertEquals(4, client2.<Long>run(incrementAndGetCommand(4)).get());
+        assertEquals(4, client2.<Long>run(getValueCommand()).get());
+        assertEquals(7, client2.<Long>run(incrementAndGetCommand(3)).get());
+        assertEquals(7, client2.<Long>run(getValueCommand()).get());
     }
 
     @Test
@@ -384,7 +386,7 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
         assertEquals(sum(9), val3);
 
         try {
-            client1.<Long>run(new IncrementAndGetCommand(10)).get();
+            client1.<Long>run(incrementAndGetCommand(10)).get();
 
             fail();
         } catch (Exception e) {
@@ -399,7 +401,7 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
 
         // Client can't switch to new leader, because only one peer in the list.
         try {
-            client1.<Long>run(new IncrementAndGetCommand(11)).get();
+            client1.<Long>run(incrementAndGetCommand(11)).get();
         } catch (Exception e) {
             boolean isValid = e.getCause() instanceof TimeoutException;
 
@@ -454,7 +456,7 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
         assertNotNull(leader);
 
         try {
-            client1.<Long>run(new IncrementAndGetCommand(3)).get();
+            client1.<Long>run(incrementAndGetCommand(3)).get();
 
             fail();
         } catch (Exception e) {
@@ -467,7 +469,7 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
         }
 
         try {
-            client1.<Long>run(new GetValueCommand()).get();
+            client1.<Long>run(getValueCommand()).get();
 
             fail();
         } catch (Exception e) {
@@ -599,7 +601,9 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
 
         List<Peer> peers = raftClient.peers();
 
-        raftClient.run(new TestWriteCommand());
+        var testWriteCommandBuilder = new TestRaftMessagesFactory().testWriteCommand();
+
+        raftClient.run(testWriteCommandBuilder.build());
 
         Peer peer0 = peers.get(0);
 
@@ -607,7 +611,7 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
 
         raftClient.snapshot(peer0).get();
 
-        raftClient.run(new TestWriteCommand());
+        raftClient.run(testWriteCommandBuilder.build());
 
         Peer peer1 = peers.get(1);
 
@@ -615,7 +619,7 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
 
         raftClient.snapshot(peer1).get();
 
-        raftClient.run(new TestWriteCommand());
+        raftClient.run(testWriteCommandBuilder.build());
 
         for (AtomicInteger counter : counters.values()) {
             assertTrue(waitForCondition(() -> counter.get() == 3, 10_000));
@@ -820,7 +824,7 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
         long val = 0;
 
         for (int i = start; i <= stop; i++) {
-            val = client.<Long>run(new IncrementAndGetCommand(i)).get();
+            val = client.<Long>run(incrementAndGetCommand(i)).get();
 
             logger().info("Val={}, i={}", val, i);
         }

@@ -32,6 +32,9 @@ dependencies {
     implementation libs.netty.common
     implementation libs.netty.buffer
     implementation libs.netty.codec
+    implementation libs.auto.service.annotations
+
+    annotationProcessor libs.auto.service
 
     testImplementation libs.jetbrains.annotations
     testImplementation project(':ignite-client-handler')

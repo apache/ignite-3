@@ -36,6 +36,7 @@ import picocli.shell.jline3.PicocliCommands;
                 SqlReplCommand.class,
                 PicocliCommands.ClearScreen.class,
                 CommandLine.HelpCommand.class,
+                ExitCommand.class,
                 VersionCommand.class,
                 CliReplCommand.class,
                 ConnectReplCommand.class,

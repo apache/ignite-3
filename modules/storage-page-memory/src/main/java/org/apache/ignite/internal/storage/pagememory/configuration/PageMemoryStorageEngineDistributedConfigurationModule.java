@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.storage.pagememory.configuration;
 
+import com.google.auto.service.AutoService;
 import java.lang.annotation.Annotation;
 import java.util.Collection;
 import java.util.List;
@@ -34,6 +35,7 @@ import org.apache.ignite.internal.storage.pagememory.configuration.schema.Volati
 /**
  * {@link ConfigurationModule} for cluster-wide configuration provided by ignite-storage-page-memory.
  */
+@AutoService(ConfigurationModule.class)
 public class PageMemoryStorageEngineDistributedConfigurationModule implements ConfigurationModule {
     /** {@inheritDoc} */
     @Override

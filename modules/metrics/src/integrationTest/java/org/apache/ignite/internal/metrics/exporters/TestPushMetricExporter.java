@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.metrics.exporters;
 
+import com.google.auto.service.AutoService;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
@@ -27,6 +28,7 @@ import org.apache.ignite.internal.metrics.MetricSet;
 /**
  * Test push metrics exporter.
  */
+@AutoService(MetricExporter.class)
 public class TestPushMetricExporter extends PushMetricExporter<TestPushMetricsExporterView> {
     public static final String EXPORTER_NAME = "testPush";
 

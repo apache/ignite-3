@@ -18,14 +18,13 @@
 package org.apache.ignite.internal.metastorage.common.command;
 
 import org.apache.ignite.internal.raft.ReadCommand;
-import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
 
 /**
  * Get command for MetaStorageCommandListener that retrieves an entry for the given key and the revision upper bound, if latter is present.
  */
 @Transferable(MetastorageCommandsMessageGroup.GET)
-public interface GetCommand extends ReadCommand, NetworkMessage {
+public interface GetCommand extends ReadCommand {
     /**
      * Returns key. Couldn't be {@code null}.
      */

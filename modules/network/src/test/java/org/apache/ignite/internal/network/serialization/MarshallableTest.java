@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.network.serialization;
 
+import static org.apache.ignite.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.collection.IsCollectionWithSize.hasSize;
@@ -52,7 +53,6 @@ import org.apache.ignite.internal.network.serialization.marshal.MarshalledObject
 import org.apache.ignite.internal.network.serialization.marshal.UserObjectMarshaller;
 import org.apache.ignite.network.OutNetworkObject;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
-import org.apache.ignite.network.serialization.TestMessageSerializationRegistryImpl;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
@@ -64,7 +64,7 @@ public class MarshallableTest {
     private final UnpooledByteBufAllocator allocator = UnpooledByteBufAllocator.DEFAULT;
 
     /** Registry. */
-    private final MessageSerializationRegistry registry = new TestMessageSerializationRegistryImpl();
+    private final MessageSerializationRegistry registry = defaultSerializationRegistry();
 
     private final TestMessagesFactory msgFactory = new TestMessagesFactory();
 

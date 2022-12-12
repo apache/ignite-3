@@ -56,6 +56,13 @@ public interface IgniteTable extends TranslatableTable, Wrapper {
     int version();
 
     /**
+     * Gets a name of the table.
+     *
+     * @return Table name.
+     */
+    String name();
+
+    /**
      * Returns a descriptor of the table.
      *
      * @return A descriptor of the table.

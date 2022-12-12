@@ -19,6 +19,7 @@ package org.apache.ignite.jdbc;
 
 import static org.apache.ignite.internal.jdbc.ConnectionPropertiesImpl.URL_PREFIX;
 
+import com.google.auto.service.AutoService;
 import java.sql.Connection;
 import java.sql.Driver;
 import java.sql.DriverManager;
@@ -36,6 +37,7 @@ import org.apache.ignite.internal.jdbc.JdbcConnection;
  *
  * <p>Driver allows to get distributed data from Ignite Data Storage using standard SQL queries and standard JDBC API.
  */
+@AutoService(Driver.class)
 public class IgniteJdbcDriver implements Driver {
     /** Driver instance. */
     private static Driver instance;

@@ -19,7 +19,6 @@ package org.apache.ignite.internal.metastorage.common.command;
 
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.lang.IgniteUuid;
-import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
 
 /**
@@ -27,7 +26,7 @@ import org.apache.ignite.network.annotations.Transferable;
  * filtered out by upper bound of given revision number.
  */
 @Transferable(MetastorageCommandsMessageGroup.RANGE)
-public interface RangeCommand extends WriteCommand, NetworkMessage {
+public interface RangeCommand extends WriteCommand {
     /** Default value for {@link #batchSize}. */
     int DEFAULT_BATCH_SIZE = 100;
 

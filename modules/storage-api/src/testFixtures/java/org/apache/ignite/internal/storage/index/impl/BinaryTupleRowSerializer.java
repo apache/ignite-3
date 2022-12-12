@@ -108,7 +108,7 @@ public class BinaryTupleRowSerializer {
     /**
      * Creates a prefix of an {@link IndexRow} using the provided columns.
      */
-    public BinaryTuplePrefix serializeRowPrefix(Object[] prefixColumnValues) {
+    public BinaryTuplePrefix serializeRowPrefix(Object... prefixColumnValues) {
         if (prefixColumnValues.length > schema.size()) {
             throw new IllegalArgumentException(String.format(
                     "Incorrect number of column values passed. Expected not more than %d, got %d",

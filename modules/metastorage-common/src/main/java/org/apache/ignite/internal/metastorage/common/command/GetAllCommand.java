@@ -22,14 +22,13 @@ import java.util.List;
 import java.util.Set;
 import org.apache.ignite.internal.raft.ReadCommand;
 import org.apache.ignite.lang.ByteArray;
-import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
 
 /**
  * Get all command for MetaStorageCommandListener that retrieves entries for given keys and the revision upper bound, if latter is present.
  */
 @Transferable(MetastorageCommandsMessageGroup.GET_ALL)
-public interface GetAllCommand extends ReadCommand, NetworkMessage {
+public interface GetAllCommand extends ReadCommand {
     /**
      * Returns the list of keys.
      */
