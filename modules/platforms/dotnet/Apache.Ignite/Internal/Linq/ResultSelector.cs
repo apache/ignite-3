@@ -51,7 +51,6 @@ internal static class ResultSelector
     /// <returns>Row reader.</returns>
     public static RowReader<T> Get<T>(IReadOnlyList<IColumnMetadata> columns, Expression selectorExpression, bool defaultIfNull)
     {
-        // TODO: IGNITE-18136 Replace reflection with emitted delegates.
         // Anonymous type projections use a constructor call. But user-defined types can also be used with constructor call.
         if (selectorExpression is NewExpression newExpr)
         {
