@@ -15,11 +15,10 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Internal.Common;
+namespace Apache.Ignite.Internal.Table.Serialization;
 
 using System;
 using System.Reflection.Emit;
-using Table.Serialization;
 
 /// <summary>
 /// Extensions for <see cref="ILGenerator"/>.

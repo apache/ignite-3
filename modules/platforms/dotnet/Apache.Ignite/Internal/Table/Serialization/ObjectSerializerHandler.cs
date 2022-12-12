@@ -25,7 +25,6 @@ namespace Apache.Ignite.Internal.Table.Serialization
     using System.Linq;
     using System.Reflection;
     using System.Reflection.Emit;
-    using Common;
     using MessagePack;
     using Proto;
     using Proto.BinaryTuple;
