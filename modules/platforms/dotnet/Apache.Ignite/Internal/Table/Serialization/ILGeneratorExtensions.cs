@@ -50,4 +50,29 @@ internal static class ILGeneratorExtensions
 
         return local;
     }
+
+    /// <summary>
+    /// Emits corresponding Conv op code.
+    /// </summary>
+    /// <param name="il">IL generator.</param>
+    /// <param name="from">Source type.</param>
+    /// <param name="to">Target type.</param>
+    public static void EmitConv(this ILGenerator il, Type from, Type to)
+    {
+        if (from == to)
+        {
+            return;
+        }
+
+        // TODO: Support all types and test them.
+        // TODO: Use a dictionary of opcodes?
+        if (to == typeof(int))
+        {
+            il.Emit(OpCodes.Conv_I4);
+        }
+        else if (to == typeof(double))
+        {
+            il.Emit(OpCodes.Conv_R8);
+        }
+    }
 }

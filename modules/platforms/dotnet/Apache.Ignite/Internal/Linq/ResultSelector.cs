@@ -170,7 +170,7 @@ internal static class ResultSelector
             var colType = col.Type.ToClrType();
             il.Emit(OpCodes.Call, BinaryTupleMethods.GetReadMethod(colType));
 
-            EmitConv(colType, param.ParameterType, il);
+            il.EmitConv(colType, param.ParameterType);
             il.MarkLabel(endParamLabel);
         }
 
@@ -238,7 +238,7 @@ internal static class ResultSelector
         var colType = col.Type.ToClrType();
         il.Emit(OpCodes.Call, BinaryTupleMethods.GetReadMethod(colType));
 
-        EmitConv(colType, field.FieldType, il);
+        il.EmitConv(colType, field.FieldType);
         il.Emit(OpCodes.Stfld, field); // res.field = value
 
         il.MarkLabel(endFieldLabel);
@@ -277,24 +277,5 @@ internal static class ResultSelector
         il.Emit(OpCodes.Ret);
 
         return (RowReader<T>)method.CreateDelegate(typeof(RowReader<T>));
-    }
-
-    private static void EmitConv(Type from, Type to, ILGenerator il)
-    {
-        if (from == to)
-        {
-            return;
-        }
-
-        // TODO: Support all types and test them.
-        // TODO: Use a dictionary of opcodes?
-        if (to == typeof(int))
-        {
-            il.Emit(OpCodes.Conv_I4);
-        }
-        else if (to == typeof(double))
-        {
-            il.Emit(OpCodes.Conv_R8);
-        }
     }
 }
