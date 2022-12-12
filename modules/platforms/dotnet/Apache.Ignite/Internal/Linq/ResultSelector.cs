@@ -42,6 +42,11 @@ internal static class ResultSelector
 
     /// <summary>
     /// Gets the result selector.
+    /// <para />
+    /// Some of the logic here is similar to <see cref="ObjectSerializerHandler{T}"/>, but there are subtle differences:
+    /// SQL has a different set of types;
+    /// LINQ handles type conversion when possible;
+    /// LINQ allows more ways to instantiate resulting objects.
     /// </summary>
     /// <param name="columns">Columns.</param>
     /// <param name="selectorExpression">Selector expression.</param>
