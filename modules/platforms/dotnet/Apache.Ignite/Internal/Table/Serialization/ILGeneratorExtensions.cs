@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Internal.Table.Serialization;
 
 using System;
+using System.Reflection;
 using System.Reflection.Emit;
 
 /// <summary>
@@ -64,6 +65,11 @@ internal static class ILGeneratorExtensions
             return;
         }
 
+        if (!from.IsValueType || !to.IsValueType)
+        {
+            throw GetConversionException(from, to);
+        }
+
         // TODO: Support all types and test them.
         // TODO: Use a dictionary of opcodes?
         if (to == typeof(int))
@@ -76,12 +82,38 @@ internal static class ILGeneratorExtensions
         }
         else if (to == typeof(long))
         {
-            il.Emit(OpCodes.Conv_I8);
+            var method = from.GetMethod(
+                "System.IConvertible.ToInt64",
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+
+            if (method == null)
+            {
+                throw GetConversionException(from, to);
+            }
+
+            il.Emit(OpCodes.Ldnull);
+            il.Emit(OpCodes.Call, method);
         }
         else
         {
             // TODO: ???
-            throw new NotSupportedException("Conversion from " + from + " to " + to + " is not supported.");
+            throw GetConversionException(from, to);
         }
+    }
+
+    private static NotSupportedException GetConversionException(Type from, Type to)
+    {
+        return new NotSupportedException("Conversion from " + from + " to " + to + " is not supported.");
+    }
+
+    private static long GetLong(decimal x)
+    {
+        return ((IConvertible)x).ToInt64(null);
+    }
+
+    private static int GetInt(decimal x)
+    {
+        int res = (int)x;
+        return res;
     }
 }
