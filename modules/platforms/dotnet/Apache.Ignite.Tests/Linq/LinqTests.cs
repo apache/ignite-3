@@ -476,6 +476,20 @@ public partial class LinqTests : IgniteTestsBase
         Assert.AreEqual(expected, query.ToString());
     }
 
+    [Test]
+    public void TestSelectDecimalIntoAnonymousTypeUsesCorrectScale()
+    {
+        var query = PocoDecimalView.AsQueryable()
+            .OrderByDescending(x => x.Val)
+            .Select(x => new
+            {
+                Id = x.Key
+            });
+
+        var res = query.ToList();
+        Assert.AreEqual(9.0m, res[0].Id);
+    }
+
     private record PocoByte(sbyte Key, sbyte Val);
 
     private record PocoShort(short Key, short Val);

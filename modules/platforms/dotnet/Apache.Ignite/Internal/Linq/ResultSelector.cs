@@ -183,7 +183,6 @@ internal static class ResultSelector
 
             if (col.Type == SqlColumnType.Decimal)
             {
-                // TODO: Test for this.
                 il.Emit(OpCodes.Ldc_I4, col.Scale);
             }
 
