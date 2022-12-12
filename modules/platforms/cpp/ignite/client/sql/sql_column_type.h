@@ -78,7 +78,10 @@ enum class column_type {
     DURATION = 17,
 
     /** Number. */
-    NUMBER = 18
+    NUMBER = 18,
+
+    /** Undefined. */
+    UNDEFINED
 };
 
 } // namespace ignite

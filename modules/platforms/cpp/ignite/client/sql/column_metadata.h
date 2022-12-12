@@ -45,12 +45,12 @@ public:
      */
     column_metadata(std::string name, column_type type, std::int32_t precision, std::int32_t scale,
         bool nullable, column_origin origin)
-    : m_name(std::move(name))
-    , m_type(type)
-    , m_precision(precision)
-    , m_scale(scale)
-    , m_nullable(nullable)
-    , m_origin(std::move(origin)) { }
+        : m_name(std::move(name))
+        , m_type(type)
+        , m_precision(precision)
+        , m_scale(scale)
+        , m_nullable(nullable)
+        , m_origin(std::move(origin)) { }
 
     /**
      * Gets the column name.
@@ -107,16 +107,16 @@ private:
     std::string m_name;
 
     /** Column type. */
-    column_type m_type;
+    column_type m_type{column_type::UNDEFINED};
 
     /** Precision. */
-    std::int32_t m_precision;
+    std::int32_t m_precision{0};
 
     /** Scale. */
-    std::int32_t m_scale;
+    std::int32_t m_scale{0};
 
     /** Nullable. */
-    bool m_nullable;
+    bool m_nullable{false};
 
     /** Origin. */
     column_origin m_origin;

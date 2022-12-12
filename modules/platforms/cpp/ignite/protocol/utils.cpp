@@ -69,6 +69,14 @@ std::optional<std::int32_t> try_unpack_object(const msgpack_object &object) {
     return try_unpack_int<std::int32_t>(object);
 }
 
+template<>
+std::optional<std::string> try_unpack_object(const msgpack_object &object) {
+    if (object.type != MSGPACK_OBJECT_STR)
+        return std::nullopt;
+
+    return std::string{object.via.str.ptr, object.via.str.size};
+}
+
 template<typename T>
 T unpack_int(const msgpack_object &object) {
     static_assert(
@@ -78,6 +86,15 @@ T unpack_int(const msgpack_object &object) {
 
     check_int_fits<T>(i64_val);
     return T(i64_val);
+}
+
+
+template<>
+std::optional<std::string> unpack_nullable(const msgpack_object &object) {
+    if (object.type == MSGPACK_OBJECT_NIL)
+        return std::nullopt;
+
+    return unpack_object<std::string>(object);
 }
 
 template<>

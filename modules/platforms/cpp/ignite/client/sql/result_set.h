@@ -49,7 +49,7 @@ public:
      *
      * @return Metadata.
      */
-    [[nodiscard]] const result_set_metadata& metadata() const;
+    [[nodiscard]] IGNITE_API const result_set_metadata& metadata() const;
 
 private:
     /** Implementation. */

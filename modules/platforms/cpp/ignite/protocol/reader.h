@@ -51,7 +51,7 @@ public:
     /**
      * Destructor.
      */
-    ~reader() { msgpack_unpacker_destroy(&m_unpacker); }
+    ~reader() { msgpack_unpacked_destroy(&m_current_val); }
 
     /**
      * Read object of type T from msgpack stream.
@@ -236,10 +236,10 @@ public:
      *
      * @param read_func Object read function.
      */
-    void read_array_raw(const std::function<void(const msgpack_object &)> &read_func) {
+    void read_array_raw(const std::function<void(std::uint32_t idx, const msgpack_object &)> &read_func) {
         auto size = read_array_size();
         for (std::uint32_t i = 0; i < size; ++i) {
-            read_func(m_current_val.data.via.array.ptr[i]);
+            read_func(i, m_current_val.data.via.array.ptr[i]);
         }
         next();
     }
@@ -303,7 +303,7 @@ public:
      * @return Current position in memory.
      */
     [[nodiscard]] size_t position() const {
-        return msgpack_unpacker_parsed_size(&m_unpacker);
+        return m_offset;
     }
 
 private:
@@ -323,14 +323,17 @@ private:
     /** Buffer. */
     bytes_view m_buffer;
 
-    /** Unpacker. */
-    msgpack_unpacker m_unpacker;
-
     /** Current value. */
     msgpack_unpacked m_current_val;
 
     /** Result of the last move operation. */
     msgpack_unpack_return m_move_res;
+
+    /** Offset to next value. */
+    size_t m_offset_next{0};
+
+    /** Offset. */
+    size_t m_offset{0};
 };
 
 } // namespace ignite::protocol

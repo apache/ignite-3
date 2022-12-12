@@ -106,43 +106,59 @@ private:
         std::vector<column_metadata> columns;
         columns.reserve(size);
 
-        for (std::uint32_t i = 0; i < size; ++i) {
-            auto name = reader.read_string();
-            auto nullable = reader.read_bool();
-            auto typ = column_type(reader.read_int32());
-            auto scale = reader.read_int32();
-            auto precision = reader.read_int32();
+        reader.read_array_raw([&columns] (std::uint32_t idx, const msgpack_object &obj) {
+            if (obj.type != MSGPACK_OBJECT_ARRAY)
+                throw ignite_error("Meta column expected to be serialized as array");
 
-            auto origin_name = reader.read_string_nullable();
-            auto origin_schema_id = reader.try_read_int32();
+            const msgpack_object_array &arr = obj.via.array;
+
+            constexpr std::uint32_t minCount = 6;
+            assert(arr.size >= minCount);
+
+            auto name = protocol::unpack_object<std::string>(arr.ptr[0]);
+            auto nullable = protocol::unpack_object<bool>(arr.ptr[1]);
+            auto typ = column_type(protocol::unpack_object<std::int32_t>(arr.ptr[2]));
+            auto scale = protocol::unpack_object<std::int32_t>(arr.ptr[3]);
+            auto precision = protocol::unpack_object<std::int32_t>(arr.ptr[4]);
+
+            bool origin_present = protocol::unpack_object<bool>(arr.ptr[5]);
+
+            if (!origin_present) {
+                columns.emplace_back(std::move(name), typ, precision, scale, nullable, column_origin{});
+                return;
+            }
+
+            auto origin_name = arr.ptr[6].type == MSGPACK_OBJECT_NIL
+                    ? name
+                    : protocol::unpack_object<std::string>(arr.ptr[6]);
+
+            auto origin_schema_id = protocol::try_unpack_object<std::int32_t>(arr.ptr[7]);
             std::string origin_schema;
             if (origin_schema_id) {
                 if (*origin_schema_id >= columns.size()) {
                     throw ignite_error("Origin schema ID is too large: " + std::to_string(*origin_schema_id) +
-                                       ", id=" + std::to_string(i));
+                                       ", id=" + std::to_string(idx));
                 }
                 origin_schema = columns[*origin_schema_id].origin().schema_name();
             } else {
-                origin_schema = reader.read_string();
+                origin_schema = protocol::unpack_object<std::string>(arr.ptr[7]);
             }
 
-            auto origin_table_id = reader.read_object_nullable<std::int32_t>();
+            auto origin_table_id = protocol::try_unpack_object<std::int32_t>(arr.ptr[8]);
             std::string origin_table;
             if (origin_table_id) {
                 if (*origin_table_id >= columns.size()) {
                     throw ignite_error("Origin table ID is too large: " + std::to_string(*origin_table_id) +
-                                       ", id=" + std::to_string(i));
+                                       ", id=" + std::to_string(idx));
                 }
                 origin_table = columns[*origin_table_id].origin().table_name();
             } else {
-                origin_table = reader.read_string();
+                origin_table = protocol::unpack_object<std::string>(arr.ptr[8]);
             }
 
-            column_origin origin{origin_name ? std::move(*origin_name) : name,
-                std::move(origin_table), std::move(origin_schema)};
-
+            column_origin origin{std::move(origin_name), std::move(origin_table), std::move(origin_schema)};
             columns.emplace_back(std::move(name), typ, precision, scale, nullable, std::move(origin));
-        }
+        });
 
         return columns;
     }

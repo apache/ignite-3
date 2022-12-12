@@ -39,7 +39,7 @@ protected:
         ignite_client_configuration cfg{NODE_ADDRS};
         cfg.set_logger(get_logger());
 
-        m_client = ignite_client::start(cfg, std::chrono::seconds(5));
+        m_client = ignite_client::start(cfg, std::chrono::seconds(30));
         auto table = m_client.get_tables().get_table(TABLE_1);
 
         tuple_view = table->record_binary_view();

@@ -38,7 +38,7 @@ protected:
         ignite_client_configuration cfg{NODE_ADDRS};
         cfg.set_logger(get_logger());
 
-        m_client = ignite_client::start(cfg, std::chrono::seconds(5));
+        m_client = ignite_client::start(cfg, std::chrono::seconds(30));
     }
 
     void TearDown() override {
@@ -50,8 +50,10 @@ protected:
 };
 
 TEST_F(sql_test, sql_simple_select) {
-    auto result_set = m_client.get_sql().execute(nullptr, {"select 1"}, {});
+    auto sql = m_client.get_sql();
+    auto result_set = sql.execute(nullptr, {"select 1"}, {});
+    auto &columns = result_set.metadata().columns();
 
-//    ASSERT_TRUE(table.has_value());
-//    EXPECT_EQ(table->name(), "tbl1");
+    ASSERT_EQ(1, columns.size());
+    EXPECT_EQ(column_type::INT32, columns[0].type());
 }

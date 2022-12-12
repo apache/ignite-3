@@ -34,14 +34,22 @@ namespace ignite::detail {
 class sql_impl {
 public:
     // Default
-    sql_impl() = default;
     ~sql_impl() = default;
     sql_impl(sql_impl &&) noexcept = default;
     sql_impl &operator=(sql_impl &&) noexcept = default;
 
     // Deleted
+    sql_impl() = delete;
     sql_impl(const sql_impl &) = delete;
     sql_impl &operator=(const sql_impl &) = delete;
+
+    /**
+     * Constructor.
+     *
+     * @param connection Connection.
+     */
+    explicit sql_impl(std::shared_ptr<cluster_connection> connection)
+        : m_connection(std::move(connection)) {}
 
     /**
      * Executes single SQL statement and returns rows.
