@@ -56,7 +56,7 @@ public class HashAggregatePlannerTest extends AbstractAggregatePlannerTest {
                         .add("ID", f.createJavaType(Integer.class))
                         .add("NAME", f.createJavaType(String.class))
                         .add("SALARY", f.createJavaType(Double.class))
-                        .build()) {
+                        .build(), "EMPS") {
 
             @Override
             public IgniteDistribution distribution() {
@@ -66,7 +66,7 @@ public class HashAggregatePlannerTest extends AbstractAggregatePlannerTest {
 
         IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
 
-        publicSchema.addTable("EMPS", employer);
+        publicSchema.addTable(employer);
 
         String sql = "SELECT * FROM emps WHERE emps.salary = (SELECT AVG(emps.salary) FROM emps)";
 
@@ -100,11 +100,11 @@ public class HashAggregatePlannerTest extends AbstractAggregatePlannerTest {
      */
     @Test
     public void noGroupByAggregate() throws Exception {
-        TestTable tbl = createAffinityTable().addIndex("val0_val1", 1, 2);
+        TestTable tbl = createAffinityTable("TEST").addIndex("val0_val1", 1, 2);
 
         IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
 
-        publicSchema.addTable("TEST", tbl);
+        publicSchema.addTable(tbl);
 
         String sqlCount = "SELECT COUNT(*) FROM test";
 

@@ -130,7 +130,14 @@ public class DynamicCompleterRegistry {
         }
 
         DynamicCompleter completer(String[] words) {
-            return factory.getDynamicCompleter(words);
+            if (conf.hasFilter()) {
+                return input -> {
+                    List<String> candidates = factory.getDynamicCompleter(input).complete(input);
+                    return List.of(conf.getFilter().filter(input, candidates.toArray(new String[0])));
+                };
+            } else {
+                return factory.getDynamicCompleter(words);
+            }
         }
     }
 }

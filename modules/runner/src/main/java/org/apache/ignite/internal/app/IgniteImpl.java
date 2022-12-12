@@ -27,6 +27,7 @@ import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.function.BiPredicate;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import org.apache.ignite.Ignite;
@@ -35,17 +36,16 @@ import org.apache.ignite.client.handler.ClientHandlerModule;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
-import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesSerializationRegistryInitializer;
 import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.rest.ClusterManagementRestFactory;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.component.RestAddressReporter;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.compute.ComputeComponent;
 import org.apache.ignite.internal.compute.ComputeComponentImpl;
-import org.apache.ignite.internal.compute.ComputeMessagesSerializationRegistryInitializer;
 import org.apache.ignite.internal.compute.IgniteComputeImpl;
 import org.apache.ignite.internal.compute.configuration.ComputeConfiguration;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
@@ -79,7 +79,6 @@ import org.apache.ignite.internal.recovery.ConfigurationCatchUpListener;
 import org.apache.ignite.internal.recovery.RecoveryCompletionFutureFactory;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.replicator.message.ReplicaMessagesSerializationRegistryInitializer;
 import org.apache.ignite.internal.rest.RestComponent;
 import org.apache.ignite.internal.rest.RestFactory;
 import org.apache.ignite.internal.rest.configuration.PresentationsFactory;
@@ -90,13 +89,11 @@ import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.sql.api.IgniteSqlImpl;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
-import org.apache.ignite.internal.sql.engine.message.SqlQueryMessagesSerializationRegistryInitializer;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModule;
 import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
-import org.apache.ignite.internal.table.distributed.TableMessagesSerializationRegistryInitializer;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
@@ -104,7 +101,6 @@ import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
-import org.apache.ignite.internal.tx.message.TxMessagesSerializationRegistryInitializer;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.VaultService;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
@@ -114,13 +110,15 @@ import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.LogicalTopologyService;
+import org.apache.ignite.network.DefaultMessagingService;
 import org.apache.ignite.network.MessageSerializationRegistryImpl;
 import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.NodeMetadata;
 import org.apache.ignite.network.scalecube.ScaleCubeClusterServiceFactory;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
+import org.apache.ignite.network.serialization.SerializationRegistryServiceLoader;
 import org.apache.ignite.raft.jraft.RaftMessagesSerializationRegistryInitializer;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.manager.IgniteTables;
@@ -278,16 +276,8 @@ public class IgniteImpl implements Ignite {
         );
 
         NetworkConfiguration networkConfiguration = nodeCfgMgr.configurationRegistry().getConfiguration(NetworkConfiguration.KEY);
-        MessageSerializationRegistry serializationRegistry = new MessageSerializationRegistryImpl();
 
-        MetaStorageCommandsSerializationRegistryInitializer.registerFactories(serializationRegistry);
-        CmgMessagesSerializationRegistryInitializer.registerFactories(serializationRegistry);
-        RaftMessagesSerializationRegistryInitializer.registerFactories(serializationRegistry);
-        SqlQueryMessagesSerializationRegistryInitializer.registerFactories(serializationRegistry);
-        TxMessagesSerializationRegistryInitializer.registerFactories(serializationRegistry);
-        ComputeMessagesSerializationRegistryInitializer.registerFactories(serializationRegistry);
-        TableMessagesSerializationRegistryInitializer.registerFactories(serializationRegistry);
-        ReplicaMessagesSerializationRegistryInitializer.registerFactories(serializationRegistry);
+        MessageSerializationRegistry serializationRegistry = createSerializationRegistry(serviceProviderClassLoader);
 
         var clusterLocalConfiguration = new ClusterLocalConfiguration(name, serializationRegistry);
 
@@ -361,6 +351,11 @@ public class IgniteImpl implements Ignite {
 
         metricManager.configure(clusterCfgMgr.configurationRegistry().getConfiguration(MetricConfiguration.KEY));
 
+        DistributionZonesConfiguration zonesConfiguration = clusterCfgMgr.configurationRegistry()
+                .getConfiguration(DistributionZonesConfiguration.KEY);
+
+        distributionZoneManager = new DistributionZoneManager(zonesConfiguration, metaStorageMgr, cmgMgr);
+
         restComponent = createRestComponent(name);
 
         restAddressReporter = new RestAddressReporter(workDir);
@@ -421,11 +416,6 @@ public class IgniteImpl implements Ignite {
 
         indexManager = new IndexManager(tablesConfiguration, schemaManager, distributedTblMgr);
 
-        DistributionZonesConfiguration zonesConfiguration = clusterCfgMgr.configurationRegistry()
-                .getConfiguration(DistributionZonesConfiguration.KEY);
-
-        distributionZoneManager = new DistributionZoneManager(zonesConfiguration);
-
         qryEngine = new SqlQueryProcessor(
                 registry,
                 clusterSvc,
@@ -471,7 +461,17 @@ public class IgniteImpl implements Ignite {
         );
     }
 
-    private static ConfigurationModules loadConfigurationModules(ClassLoader classLoader) {
+    private static MessageSerializationRegistry createSerializationRegistry(@Nullable ClassLoader classLoader) {
+        var serviceLoader = new SerializationRegistryServiceLoader(classLoader);
+
+        var serializationRegistry = new MessageSerializationRegistryImpl();
+
+        serviceLoader.registerSerializationFactories(serializationRegistry);
+
+        return serializationRegistry;
+    }
+
+    private static ConfigurationModules loadConfigurationModules(@Nullable ClassLoader classLoader) {
         var modulesProvider = new ServiceLoaderModulesProvider();
         List<ConfigurationModule> modules = modulesProvider.modules(classLoader);
 
@@ -822,5 +822,15 @@ public class IgniteImpl implements Ignite {
     @TestOnly
     public LogicalTopologyService logicalTopologyService() {
         return logicalTopologyService;
+    }
+
+    @TestOnly
+    public void dropMessages(BiPredicate<String, NetworkMessage> predicate) {
+        ((DefaultMessagingService) clusterSvc.messagingService()).dropMessages(predicate);
+    }
+
+    @TestOnly
+    public void stopDroppingMessages() {
+        ((DefaultMessagingService) clusterSvc.messagingService()).stopDroppingMessages();
     }
 }

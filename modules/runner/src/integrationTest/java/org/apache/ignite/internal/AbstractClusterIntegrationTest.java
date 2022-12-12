@@ -117,7 +117,7 @@ public abstract class AbstractClusterIntegrationTest extends BaseIgniteAbstractT
      * @param testInfo Test info (used to build node name).
      * @return Started Ignite node.
      */
-    protected Ignite startNode(int nodeIndex, TestInfo testInfo) {
+    protected IgniteImpl startNode(int nodeIndex, TestInfo testInfo) {
         CompletableFuture<Ignite> future = startNode0(nodeIndex, testInfo);
 
         assertThat(future, willSucceedIn(10, TimeUnit.SECONDS));
@@ -133,7 +133,7 @@ public abstract class AbstractClusterIntegrationTest extends BaseIgniteAbstractT
                     + clusterNodes.size() + " nodes");
         }
 
-        return ignite;
+        return (IgniteImpl) ignite;
     }
 
     /**

@@ -34,6 +34,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.BiPredicate;
 import java.util.function.Function;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -53,6 +54,7 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /** Default messaging service implementation. */
 public class DefaultMessagingService extends AbstractMessagingService {
@@ -88,6 +90,9 @@ public class DefaultMessagingService extends AbstractMessagingService {
     private final ExecutorService inboundExecutor = Executors.newSingleThreadExecutor(
             new NamedThreadFactory("MessagingService-inbound-", LOG)
     );
+
+    @Nullable
+    private volatile BiPredicate<String, NetworkMessage> dropMessagePredicate;
 
     /**
      * Constructor.
@@ -159,6 +164,11 @@ public class DefaultMessagingService extends AbstractMessagingService {
     private CompletableFuture<Void> send0(ClusterNode recipient, NetworkMessage msg, @Nullable Long correlationId) {
         if (connectionManager.isStopped()) {
             return failedFuture(new NodeStoppingException());
+        }
+
+        BiPredicate<String, NetworkMessage> dropMessage = dropMessagePredicate;
+        if (dropMessage != null && dropMessage.test(recipient.name(), msg)) {
+            return new CompletableFuture<>();
         }
 
         InetSocketAddress recipientAddress = new InetSocketAddress(recipient.address().host(), recipient.address().port());
@@ -388,5 +398,27 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
         IgniteUtils.shutdownAndAwaitTermination(inboundExecutor, 10, TimeUnit.SECONDS);
         IgniteUtils.shutdownAndAwaitTermination(outboundExecutor, 10, TimeUnit.SECONDS);
+    }
+
+    /**
+     * Installs a predicate, it will be consulted with for each message being sent; when it returns {@code true}, the
+     * message will be silently dropped (it will not be sent, the corresponding future will never complete).
+     *
+     * @param predicate Predicate that will decide whether a message should be dropped. Its first argument is the recipient
+     *     node's consistent ID.
+     */
+    @TestOnly
+    public void dropMessages(BiPredicate<String, NetworkMessage> predicate) {
+        dropMessagePredicate = predicate;
+    }
+
+    /**
+     * Stops dropping messages.
+     *
+     * @see #dropMessages(BiPredicate)
+     */
+    @TestOnly
+    public void stopDroppingMessages() {
+        dropMessagePredicate = null;
     }
 }

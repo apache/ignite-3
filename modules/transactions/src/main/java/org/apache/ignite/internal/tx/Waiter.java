@@ -43,4 +43,11 @@ public interface Waiter {
      * @return Lock mode.
      */
     LockMode lockMode();
+
+    /**
+     * Gets an intended Lock mode.
+     *
+     * @return Lock mode.
+     */
+    LockMode intendedLockMode();
 }

@@ -50,6 +50,7 @@ import org.apache.ignite.internal.cluster.management.raft.JoinDeniedException;
 import org.apache.ignite.internal.cluster.management.raft.commands.JoinReadyCommand;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -66,7 +67,6 @@ import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.LogicalTopologySnapshot;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.TopologyEventHandler;
 import org.apache.ignite.network.TopologyService;
@@ -124,6 +124,20 @@ public class ClusterManagementGroupManager implements IgniteComponent {
 
     /** Handles cluster initialization flow. */
     private final ClusterInitializer clusterInitializer;
+
+    /**
+     * Whether we attempted to complete join (i.e. send JoinReady command) on Ignite node start.
+     *
+     * <p>Such join completion always happens during a start, and it is always the last step during the startup process,
+     * to make sure a node joins the cluster when it's fully ready.
+     *
+     * <p>We need this flag to make sure we handle automatic rejoins correctly. If a short network hiccup happens, CMG leader
+     * might lose our node of sight, hence the node will be removed from physical and then from logical topologies. When
+     * the network connectivity is restored, the node will appear in the physical topology, after which it will try to
+     * rejoin the cluster. If such 'rejoin' was carried out unconditionally, it could happen before the first join during
+     * startup, so a not-yet-ready node could join the cluster.
+     */
+    private volatile boolean attemptedCompleteJoinOnStart = false;
 
     /** Constructor. */
     public ClusterManagementGroupManager(
@@ -420,7 +434,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                             if (service != null && service.nodeNames().equals(state.cmgNodes())) {
                                 LOG.info("ClusterStateMessage received, but the CMG service is already started");
 
-                                return completedFuture(service);
+                                return joinCluster(service, state.clusterTag());
                             }
 
                             if (service == null) {
@@ -448,8 +462,18 @@ public class ClusterManagementGroupManager implements IgniteComponent {
 
                             return initCmgRaftService(state);
                         })
-                        .thenCompose(Function.identity());
+                        .thenCompose(Function.identity())
+                        .thenCompose(this::completeJoinIfTryingToRejoin);
             }
+        }
+    }
+
+    private CompletableFuture<CmgRaftService> completeJoinIfTryingToRejoin(CmgRaftService cmgRaftService) {
+        if (attemptedCompleteJoinOnStart) {
+            return cmgRaftService.completeJoinCluster()
+                    .thenApply(unused -> cmgRaftService);
+        } else {
+            return completedFuture(cmgRaftService);
         }
     }
 
@@ -708,6 +732,8 @@ public class ClusterManagementGroupManager implements IgniteComponent {
         if (!busyLock.enterBusy()) {
             return failedFuture(new NodeStoppingException());
         }
+
+        attemptedCompleteJoinOnStart = true;
 
         try {
             return raftServiceAfterJoin().thenCompose(CmgRaftService::completeJoinCluster);

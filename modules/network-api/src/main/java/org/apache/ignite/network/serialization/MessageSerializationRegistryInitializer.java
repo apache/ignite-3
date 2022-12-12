@@ -17,8 +17,12 @@
 
 package org.apache.ignite.network.serialization;
 
-/** Marker interface for message serialization registry initializers. */
-// TODO: IGNITE-16302 register services to use with ServiceLoader
+/**
+ * Interface intended to be used by the Java SPI mechanism for registering instances of generated {@link MessageSerializationFactory}.
+ */
 public interface MessageSerializationRegistryInitializer {
-
+    /**
+     * Registers all {@link MessageSerializationFactory} implementations of a module.
+     */
+    void registerFactories(MessageSerializationRegistry registry);
 }

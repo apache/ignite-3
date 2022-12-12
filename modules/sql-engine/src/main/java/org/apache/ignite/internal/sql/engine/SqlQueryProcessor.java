@@ -561,9 +561,7 @@ public class SqlQueryProcessor implements QueryProcessor {
     private abstract static class AbstractTableEventListener implements EventListener<TableEventParameters> {
         protected final SqlSchemaManagerImpl schemaHolder;
 
-        private AbstractTableEventListener(
-                SqlSchemaManagerImpl schemaHolder
-        ) {
+        private AbstractTableEventListener(SqlSchemaManagerImpl schemaHolder) {
             this.schemaHolder = schemaHolder;
         }
     }
@@ -577,9 +575,7 @@ public class SqlQueryProcessor implements QueryProcessor {
     }
 
     private static class TableCreatedListener extends AbstractTableEventListener {
-        private TableCreatedListener(
-                SqlSchemaManagerImpl schemaHolder
-        ) {
+        private TableCreatedListener(SqlSchemaManagerImpl schemaHolder) {
             super(schemaHolder);
         }
 
@@ -597,9 +593,7 @@ public class SqlQueryProcessor implements QueryProcessor {
     }
 
     private static class TableUpdatedListener extends AbstractTableEventListener {
-        private TableUpdatedListener(
-                SqlSchemaManagerImpl schemaHolder
-        ) {
+        private TableUpdatedListener(SqlSchemaManagerImpl schemaHolder) {
             super(schemaHolder);
         }
 
@@ -617,9 +611,7 @@ public class SqlQueryProcessor implements QueryProcessor {
     }
 
     private static class TableDroppedListener extends AbstractTableEventListener {
-        private TableDroppedListener(
-                SqlSchemaManagerImpl schemaHolder
-        ) {
+        private TableDroppedListener(SqlSchemaManagerImpl schemaHolder) {
             super(schemaHolder);
         }
 
