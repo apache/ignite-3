@@ -17,18 +17,21 @@
 
 package org.apache.ignite.internal.sql.engine.metadata;
 
+import java.util.UUID;
 import java.util.function.ToIntFunction;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * AffinityService interface.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * Factory for creating a function to calculate the hash of the specified fields of the row.
  */
-public interface AffinityService {
+public interface HashFunctionFactory<T> {
     /**
-     * Creates a partition mapping function on the basis of affinity function of cache with given ID.
+     * Creates a hash function on the basis of which destination nodes are calculated.
      *
-     * @param cacheId Cache ID.
-     * @return Affinity function.
+     * @param typesAware {@code True} to create a hash function that will take into account the types of the row's fields.
+     * @param fields Field ordinals of the row from which the hash is to be calculated.
+     * @param tableId Table ID.
+     * @return Function to compute a composite hash of the specified fields of the row.
      */
-    ToIntFunction<Object> affinity(int cacheId);
+    ToIntFunction<T> create(boolean typesAware, int[] fields, @Nullable UUID tableId);
 }

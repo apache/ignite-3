@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.planner;
 
 import java.util.List;
+import java.util.UUID;
 import org.apache.calcite.rel.RelDistribution.Type;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
@@ -38,7 +39,6 @@ import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -74,23 +74,11 @@ public class SetOpPlannerTest extends AbstractPlannerTest {
         createTable(publicSchema, "BROADCAST_TBL2", type, IgniteDistributions.broadcast());
         createTable(publicSchema, "SINGLE_TBL1", type, IgniteDistributions.single());
         createTable(publicSchema, "SINGLE_TBL2", type, IgniteDistributions.single());
-
-        createTable(publicSchema, "AFFINITY_TBL1", type,
-                // TODO https://issues.apache.org/jira/browse/IGNITE-18211
-                // IgniteDistributions.affinity(0, "Test1", "hash"));
-                IgniteDistributions.hash(List.of(0)));
-
-
-        createTable(publicSchema, "AFFINITY_TBL2", type,
-                // TODO https://issues.apache.org/jira/browse/IGNITE-18211
-                // IgniteDistributions.affinity(0, "Test2", "hash"));
-                IgniteDistributions.hash(List.of(0)));
-
-        createTable(publicSchema, "AFFINITY_TBL3", type,
-                IgniteDistributions.affinity(1, "Test3", "hash"));
-
-        createTable(publicSchema, "AFFINITY_TBL4", type,
-                IgniteDistributions.affinity(0, "Test4", "hash2"));
+        createTable(publicSchema, "AFFINITY_TBL1", type, IgniteDistributions.affinity(0, UUID.randomUUID(), DEFAULT_ZONE_ID));
+        createTable(publicSchema, "HASH_TBL1", type, IgniteDistributions.hash(List.of(0)));
+        createTable(publicSchema, "AFFINITY_TBL2", type, IgniteDistributions.affinity(0, UUID.randomUUID(), DEFAULT_ZONE_ID));
+        createTable(publicSchema, "AFFINITY_TBL3", type, IgniteDistributions.affinity(1, UUID.randomUUID(), DEFAULT_ZONE_ID));
+        createTable(publicSchema, "AFFINITY_TBL4", type, IgniteDistributions.affinity(0, UUID.randomUUID(), DEFAULT_ZONE_ID + 1));
     }
 
     /**
@@ -259,8 +247,7 @@ public class SetOpPlannerTest extends AbstractPlannerTest {
 
         assertPlan(sql, publicSchema, isInstanceOf(IgniteExchange.class)
                 .and(input(isInstanceOf(setOp.colocated)
-                        // TODO https://issues.apache.org/jira/browse/IGNITE-18211
-                        // .and(hasDistribution(IgniteDistributions.affinity(0, null, "hash")))
+                        .and(hasDistribution(IgniteDistributions.affinity(0, UUID.randomUUID(), DEFAULT_ZONE_ID)))
                         .and(input(0, isTableScan("affinity_tbl1")))
                         .and(input(1, isTableScan("affinity_tbl2")))
                 ))
@@ -284,8 +271,7 @@ public class SetOpPlannerTest extends AbstractPlannerTest {
 
         assertPlan(sql, publicSchema, isInstanceOf(IgniteExchange.class)
                 .and(input(isInstanceOf(setOp.colocated)
-                        // TODO https://issues.apache.org/jira/browse/IGNITE-18211
-                        // .and(hasDistribution(IgniteDistributions.affinity(0, null, "hash")))
+                        .and(hasDistribution(IgniteDistributions.affinity(0, UUID.randomUUID(), DEFAULT_ZONE_ID)))
                         .and(input(0, isTableScan("affinity_tbl1")))
                         .and(input(1, isInstanceOf(IgniteTrimExchange.class)
                                 .and(input(isTableScan("broadcast_tbl1")))
@@ -303,7 +289,6 @@ public class SetOpPlannerTest extends AbstractPlannerTest {
      */
     @ParameterizedTest
     @EnumSource
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18211")
     public void testSetOpNonColocatedAffinity(SetOp setOp) throws Exception {
         String sql = "SELECT * FROM affinity_tbl1 "
                 + setOp(setOp)

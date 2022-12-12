@@ -19,7 +19,6 @@ package org.apache.ignite.internal.sql.engine.schema;
 
 import static org.apache.ignite.internal.sql.engine.util.TypeUtils.native2relationalType;
 
-import it.unimi.dsi.fastutil.ints.IntList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -35,7 +34,6 @@ import org.apache.calcite.sql2rel.InitializerContext;
 import org.apache.calcite.sql2rel.NullInitializerExpressionFactory;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
-import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
@@ -48,33 +46,24 @@ import org.jetbrains.annotations.Nullable;
 public class TableDescriptorImpl extends NullInitializerExpressionFactory implements TableDescriptor {
     private static final ColumnDescriptor[] DUMMY = new ColumnDescriptor[0];
 
-    // TODO: IGNITE-18211
-    // Current affinity distribution is designed to be described by cacheId and some identity.
-    // This is subject to change in IGNITE-18211, but for now let's use a dummy description
-    // to create unique affinity for every table.
-    private static final int DUMMY_CACHE_ID = 0;
-
-    private final UUID dummyAffinityIdentity = UUID.randomUUID();
-
     private final ColumnDescriptor[] descriptors;
 
     private final Map<String, ColumnDescriptor> descriptorsMap;
-
-    private final IntList colocationColumns;
 
     private final ImmutableBitSet insertFields;
 
     private final ImmutableBitSet keyFields;
 
+    private final IgniteDistribution distribution;
+
     /**
      * Constructor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
+     * @param columnDescriptors Column descriptors.
+     * @param distribution Distribution specification.
      */
-    public TableDescriptorImpl(
-            List<ColumnDescriptor> columnDescriptors,
-            IntList colocationColumns
-    ) {
-        this.colocationColumns = colocationColumns;
+    public TableDescriptorImpl(List<ColumnDescriptor> columnDescriptors, IgniteDistribution distribution) {
+        this.distribution = distribution;
 
         ImmutableBitSet.Builder keyFieldsBuilder = ImmutableBitSet.builder();
 
@@ -141,12 +130,7 @@ public class TableDescriptorImpl extends NullInitializerExpressionFactory implem
     /** {@inheritDoc} */
     @Override
     public IgniteDistribution distribution() {
-        // TODO: IGNITE-18211
-        // affinity function should be redesigned in IGNITE-18211, but for now
-        // let's create a unique affinity distribution per every table. This is required
-        // for aggregation push down, because we need to verify that grouping columns
-        // is a superset of distribution keys.
-        return IgniteDistributions.affinity(colocationColumns, DUMMY_CACHE_ID, dummyAffinityIdentity);
+        return distribution;
     }
 
     /** {@inheritDoc} */

@@ -29,7 +29,6 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Queue;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -58,6 +57,7 @@ import org.apache.ignite.internal.sql.engine.message.QueryStartResponse;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessageGroup;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessagesFactory;
 import org.apache.ignite.internal.sql.engine.metadata.FragmentDescription;
+import org.apache.ignite.internal.sql.engine.metadata.HashFunctionFactoryImpl;
 import org.apache.ignite.internal.sql.engine.metadata.MappingService;
 import org.apache.ignite.internal.sql.engine.metadata.MappingServiceImpl;
 import org.apache.ignite.internal.sql.engine.metadata.RemoteException;
@@ -149,7 +149,12 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 taskExecutor,
                 handler,
                 exchangeSrvc,
-                ctx -> new LogicalRelImplementor<>(ctx, cacheId -> Objects::hashCode, mailboxRegistry, exchangeSrvc)
+                ctx -> new LogicalRelImplementor<>(
+                        ctx,
+                        new HashFunctionFactoryImpl<>(sqlSchemaManager, handler),
+                        mailboxRegistry,
+                        exchangeSrvc
+                )
         );
     }
 

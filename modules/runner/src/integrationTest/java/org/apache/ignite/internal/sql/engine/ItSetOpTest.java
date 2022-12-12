@@ -186,8 +186,8 @@ public class ItSetOpTest extends AbstractBasicIntegrationTest {
         assertEquals(2, countIf(rows, r -> r.get(0).equals("Igor1")));
     }
 
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18426")
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18211")
     public void testSetOpColocated() {
         sql("CREATE TABLE emp(empid INTEGER, deptid INTEGER, name VARCHAR, PRIMARY KEY(empid, deptid)) COLOCATE BY (deptid)");
         sql("CREATE TABLE dept(deptid INTEGER, name VARCHAR, PRIMARY KEY(deptid))");

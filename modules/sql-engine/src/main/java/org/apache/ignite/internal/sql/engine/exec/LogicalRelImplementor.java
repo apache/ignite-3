@@ -67,8 +67,8 @@ import org.apache.ignite.internal.sql.engine.exec.rel.SortNode;
 import org.apache.ignite.internal.sql.engine.exec.rel.TableScanNode;
 import org.apache.ignite.internal.sql.engine.exec.rel.TableSpoolNode;
 import org.apache.ignite.internal.sql.engine.exec.rel.UnionAllNode;
-import org.apache.ignite.internal.sql.engine.metadata.AffinityService;
 import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
+import org.apache.ignite.internal.sql.engine.metadata.HashFunctionFactory;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
 import org.apache.ignite.internal.sql.engine.rel.IgniteCorrelatedNestedLoopJoin;
 import org.apache.ignite.internal.sql.engine.rel.IgniteExchange;
@@ -119,7 +119,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
 
     private final ExecutionContext<RowT> ctx;
 
-    private final AffinityService affSrvc;
+    private final HashFunctionFactory<RowT> hashFuncFactory;
 
     private final ExchangeService exchangeSvc;
 
@@ -131,17 +131,17 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
      * Constructor.
      *
      * @param ctx Root context.
-     * @param affSrvc Affinity service.
+     * @param hashFuncFactory Factory to create a hash function for the row, from which the destination nodes are calculated.
      * @param mailboxRegistry Mailbox registry.
      * @param exchangeSvc Exchange service.
      */
     public LogicalRelImplementor(
             ExecutionContext<RowT> ctx,
-            AffinityService affSrvc,
+            HashFunctionFactory<RowT> hashFuncFactory,
             MailboxRegistry mailboxRegistry,
             ExchangeService exchangeSvc
     ) {
-        this.affSrvc = affSrvc;
+        this.hashFuncFactory = hashFuncFactory;
         this.mailboxRegistry = mailboxRegistry;
         this.exchangeSvc = exchangeSvc;
         this.ctx = ctx;
@@ -154,11 +154,10 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
     public Node<RowT> visit(IgniteSender rel) {
         IgniteDistribution distribution = rel.distribution();
 
-        Destination<RowT> dest = distribution.destination(ctx, affSrvc, ctx.target());
+        Destination<RowT> dest = distribution.destination(hashFuncFactory, ctx.target());
 
         // Outbox fragment ID is used as exchange ID as well.
-        Outbox<RowT> outbox =
-                new Outbox<>(ctx, exchangeSvc, mailboxRegistry, rel.exchangeId(), rel.targetFragmentId(), dest);
+        Outbox<RowT> outbox = new Outbox<>(ctx, exchangeSvc, mailboxRegistry, rel.exchangeId(), rel.targetFragmentId(), dest);
 
         Node<RowT> input = visit(rel.getInput());
 
@@ -189,7 +188,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
         assert TraitUtils.distribution(rel).getType() == HASH_DISTRIBUTED;
 
         IgniteDistribution distr = rel.distribution();
-        Destination<RowT> dest = distr.destination(ctx, affSrvc, ctx.group(rel.sourceId()));
+        Destination<RowT> dest = distr.destination(hashFuncFactory, ctx.group(rel.sourceId()));
         String localNodeName = ctx.localNode().name();
 
         FilterNode<RowT> node = new FilterNode<>(ctx, r -> Objects.equals(localNodeName, first(dest.targets(r))));

@@ -26,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
+import java.util.UUID;
 import java.util.stream.Stream;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.SingleRel;
@@ -342,14 +343,14 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
     public void colocated(AggregateAlgorithm algo) throws Exception {
         IgniteSchema schema = createSchema(
                 createTable(
-                        "EMP", IgniteDistributions.affinity(1, "emp", "hash"),
+                        "EMP", IgniteDistributions.affinity(1, UUID.randomUUID(), DEFAULT_ZONE_ID),
                         "EMPID", Integer.class,
                         "DEPTID", Integer.class,
                         "NAME", String.class,
                         "SALARY", Integer.class
                 ).addIndex("DEPTID", 1),
                 createTable(
-                        "DEPT", IgniteDistributions.affinity(0, "dept", "hash"),
+                        "DEPT", IgniteDistributions.affinity(0, UUID.randomUUID(), DEFAULT_ZONE_ID),
                         "DEPTID", Integer.class,
                         "NAME", String.class
                 ).addIndex("DEPTID", 0)
@@ -358,7 +359,7 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
         String sql = "SELECT SUM(SALARY) FROM emp GROUP BY deptid";
 
         assertPlan(sql, schema, hasChildThat(isInstanceOf(algo.colocated)
-                        .and(hasDistribution(IgniteDistributions.affinity(0, null, "hash")))),
+                        .and(hasDistribution(IgniteDistributions.affinity(0, UUID.randomUUID(), DEFAULT_ZONE_ID)))),
                 algo.rulesToDisable);
 
         sql = "SELECT dept.deptid, agg.cnt "
@@ -366,8 +367,8 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
                 + "JOIN (SELECT deptid, COUNT(*) AS cnt FROM emp GROUP BY deptid) AS agg ON dept.deptid = agg.deptid";
 
         assertPlan(sql, schema, hasChildThat(isInstanceOf(Join.class)
-                        .and(input(0, hasDistribution(IgniteDistributions.affinity(0, null, "hash"))))
-                        .and(input(1, hasDistribution(IgniteDistributions.affinity(0, null, "hash"))))),
+                        .and(input(0, hasDistribution(IgniteDistributions.affinity(0, UUID.randomUUID(), DEFAULT_ZONE_ID))))
+                        .and(input(1, hasDistribution(IgniteDistributions.affinity(0, UUID.randomUUID(), DEFAULT_ZONE_ID))))),
                 algo.rulesToDisable);
     }
 

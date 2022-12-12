@@ -19,12 +19,12 @@ package org.apache.ignite.internal.sql.engine.planner;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
+import java.util.UUID;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableSpool;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
-import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
@@ -42,38 +42,28 @@ public class TableSpoolPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void tableSpoolDistributed() throws Exception {
+        IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
         IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
 
-        TestTable t0 = new TestTable(
+        createTable(publicSchema,
+                "T0",
                 new RelDataTypeFactory.Builder(f)
                         .add("ID", f.createJavaType(Integer.class))
                         .add("JID", f.createJavaType(Integer.class))
                         .add("VAL", f.createJavaType(String.class))
-                        .build(), "T0") {
+                        .build(),
+                IgniteDistributions.affinity(0, UUID.randomUUID(), DEFAULT_ZONE_ID)
+        );
 
-            @Override
-            public IgniteDistribution distribution() {
-                return IgniteDistributions.affinity(0, "T0", "hash");
-            }
-        };
-
-        TestTable t1 = new TestTable(
+        createTable(publicSchema,
+                "T1",
                 new RelDataTypeFactory.Builder(f)
                         .add("ID", f.createJavaType(Integer.class))
                         .add("JID", f.createJavaType(Integer.class))
                         .add("VAL", f.createJavaType(String.class))
-                        .build(), "T1") {
-
-            @Override
-            public IgniteDistribution distribution() {
-                return IgniteDistributions.affinity(0, "T1", "hash");
-            }
-        };
-
-        IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
-
-        publicSchema.addTable(t0);
-        publicSchema.addTable(t1);
+                        .build(),
+                IgniteDistributions.affinity(0, UUID.randomUUID(), DEFAULT_ZONE_ID)
+        );
 
         String sql = "select * "
                 + "from t0 "

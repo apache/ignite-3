@@ -37,7 +37,6 @@ import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Queue;
 import java.util.UUID;
 import java.util.concurrent.CompletionException;
@@ -64,6 +63,8 @@ import org.apache.ignite.internal.sql.engine.message.MessageService;
 import org.apache.ignite.internal.sql.engine.message.QueryStartRequest;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessagesFactory;
 import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
+import org.apache.ignite.internal.sql.engine.metadata.HashFunctionFactory;
+import org.apache.ignite.internal.sql.engine.metadata.HashFunctionFactoryImpl;
 import org.apache.ignite.internal.sql.engine.metadata.RemoteException;
 import org.apache.ignite.internal.sql.engine.planner.AbstractPlannerTest.TestTable;
 import org.apache.ignite.internal.sql.engine.prepare.MappingQueryContext;
@@ -511,7 +512,9 @@ public class ExecutionServiceImplTest {
                     MailboxRegistry mailboxRegistry,
                     ExchangeService exchangeService
             ) {
-                return new LogicalRelImplementor<>(ctx, cacheId -> Objects::hashCode, mailboxRegistry, exchangeService) {
+                HashFunctionFactory<Object[]> funcFactory = new HashFunctionFactoryImpl<>(mock(SqlSchemaManager.class), ctx.rowHandler());
+
+                return new LogicalRelImplementor<>(ctx, funcFactory, mailboxRegistry, exchangeService) {
                     @Override
                     public Node<Object[]> visit(IgniteTableScan rel) {
                         return new ScanNode<>(ctx, dataset) {
