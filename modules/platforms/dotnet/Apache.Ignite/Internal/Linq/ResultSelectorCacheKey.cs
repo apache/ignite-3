@@ -26,7 +26,7 @@ using Ignite.Sql;
 /// </summary>
 /// <typeparam name="T">Target type.</typeparam>
 internal readonly struct ResultSelectorCacheKey<T> : IEquatable<ResultSelectorCacheKey<T>>
-    where T : class
+    where T : notnull
 {
     /// <summary>
     /// Initializes a new instance of the <see cref="ResultSelectorCacheKey{T}"/> struct.
@@ -69,7 +69,7 @@ internal readonly struct ResultSelectorCacheKey<T> : IEquatable<ResultSelectorCa
     /// <inheritdoc/>
     public bool Equals(ResultSelectorCacheKey<T> other)
     {
-        if (Target != other.Target)
+        if (!Target.Equals(other.Target))
         {
             return false;
         }
