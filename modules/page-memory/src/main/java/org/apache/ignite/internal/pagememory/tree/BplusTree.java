@@ -1573,12 +1573,11 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
     }
 
     /**
-     * Searches for the lowerBound that (strictly or loosely, depending on {@code includeRow}) follows the lowerBound passed as an
-     * argument.
+     * Searches for the row that (strictly or loosely, depending on {@code includeRow}) follows the lowerBound passed as an argument.
      *
-     * @param lowerBound Lower bound..
-     * @param includeRow {@code True} if you include the passed lowerBound in the result.
-     * @return Next lowerBound.
+     * @param lowerBound Lower bound.
+     * @param includeRow {@code True} if you include the passed row in the result.
+     * @return Next row.
      * @throws IgniteInternalCheckedException If failed.
      */
     public final @Nullable T findNext(L lowerBound, boolean includeRow) throws IgniteInternalCheckedException {
@@ -1593,9 +1592,9 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
         } catch (CorruptedDataStructureException e) {
             throw e;
         } catch (IgniteInternalCheckedException e) {
-            throw new IgniteInternalCheckedException("Runtime failure on lookup next lowerBound: " + lowerBound, e);
+            throw new IgniteInternalCheckedException("Runtime failure on lookup next row: " + lowerBound, e);
         } catch (RuntimeException | AssertionError e) {
-            throw corruptedTreeException("Runtime failure on lookup next lowerBound: " + lowerBound, e, grpId, g.pageId);
+            throw corruptedTreeException("Runtime failure on lookup next row: " + lowerBound, e, grpId, g.pageId);
         } finally {
             checkDestroyed();
         }
