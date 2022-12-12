@@ -312,7 +312,6 @@ public class SetOpPlannerTest extends AbstractPlannerTest {
         assertPlan(sql, publicSchema, isInstanceOf(setOp.reduce)
                 .and(hasChildThat(isInstanceOf(setOp.map)
                         .and(input(0, isTableScan("affinity_tbl1")))
-                        .and(input(1, isTableScan("affinity_tbl2")))
                         .and(input(1, isTableScan("affinity_tbl3")))
                 ))
         );
