@@ -34,6 +34,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.BiPredicate;
 import java.util.function.Function;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -53,6 +54,7 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /** Default messaging service implementation. */
 public class DefaultMessagingService extends AbstractMessagingService {
@@ -89,6 +91,9 @@ public class DefaultMessagingService extends AbstractMessagingService {
             new NamedThreadFactory("MessagingService-inbound-", LOG)
     );
 
+    @Nullable
+    private volatile BiPredicate<String, NetworkMessage> dropMessagePredicate;
+
     /**
      * Constructor.
      *
@@ -115,25 +120,34 @@ public class DefaultMessagingService extends AbstractMessagingService {
         connectionManager.addListener(this::onMessage);
     }
 
-    /** {@inheritDoc} */
     @Override
     public void weakSend(ClusterNode recipient, NetworkMessage msg) {
         send(recipient, msg);
     }
 
-    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> send(ClusterNode recipient, NetworkMessage msg) {
         return send0(recipient, msg, null);
     }
 
-    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> respond(ClusterNode recipient, NetworkMessage msg, long correlationId) {
         return send0(recipient, msg, correlationId);
     }
 
-    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Void> respond(String recipientConsistentId, NetworkMessage msg, long correlationId) {
+        ClusterNode recipient = topologyService.getByConsistentId(recipientConsistentId);
+
+        if (recipient == null) {
+            return failedFuture(
+                    new UnresolvableConsistentIdException("Recipient consistent ID cannot be resolved: " + recipientConsistentId)
+            );
+        }
+
+        return respond(recipient, msg, correlationId);
+    }
+
     @Override
     public CompletableFuture<NetworkMessage> invoke(ClusterNode recipient, NetworkMessage msg, long timeout) {
         return invoke0(recipient, msg, timeout);
@@ -150,6 +164,11 @@ public class DefaultMessagingService extends AbstractMessagingService {
     private CompletableFuture<Void> send0(ClusterNode recipient, NetworkMessage msg, @Nullable Long correlationId) {
         if (connectionManager.isStopped()) {
             return failedFuture(new NodeStoppingException());
+        }
+
+        BiPredicate<String, NetworkMessage> dropMessage = dropMessagePredicate;
+        if (dropMessage != null && dropMessage.test(recipient.name(), msg)) {
+            return new CompletableFuture<>();
         }
 
         InetSocketAddress recipientAddress = new InetSocketAddress(recipient.address().host(), recipient.address().port());
@@ -245,7 +264,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
      */
     private void sendToSelf(NetworkMessage msg, @Nullable Long correlationId) {
         for (NetworkMessageHandler networkMessageHandler : getMessageHandlers(msg.groupType())) {
-            networkMessageHandler.onReceived(msg, topologyService.localMember(), correlationId);
+            networkMessageHandler.onReceived(msg, topologyService.localMember().name(), correlationId);
         }
     }
 
@@ -263,7 +282,6 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
         NetworkMessage msg = obj.message();
         DescriptorRegistry registry = obj.registry();
-        String consistentId = obj.consistentId();
         try {
             msg.unmarshal(marshaller, registry);
         } catch (Exception e) {
@@ -285,15 +303,15 @@ public class DefaultMessagingService extends AbstractMessagingService {
             message = messageWithCorrelation.message();
         }
 
-        ClusterNode sender = topologyService.getByConsistentId(consistentId);
+        String senderConsistentId = obj.consistentId();
 
         // Unfortunately, since the Messaging Service is used by ScaleCube itself, some messages can be sent
-        // before the node is added to the topology. ScaleCubeMessage handler guarantees to handle null sender without throwing an
-        // exception.
-        assert message instanceof ScaleCubeMessage || sender != null : consistentId;
+        // before the node is added to the topology. ScaleCubeMessage handler guarantees to handle null sender consistent ID
+        // without throwing an exception.
+        assert message instanceof ScaleCubeMessage || senderConsistentId != null;
 
         for (NetworkMessageHandler networkMessageHandler : getMessageHandlers(message.groupType())) {
-            networkMessageHandler.onReceived(message, sender, correlationId);
+            networkMessageHandler.onReceived(message, senderConsistentId, correlationId);
         }
     }
 
@@ -380,5 +398,27 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
         IgniteUtils.shutdownAndAwaitTermination(inboundExecutor, 10, TimeUnit.SECONDS);
         IgniteUtils.shutdownAndAwaitTermination(outboundExecutor, 10, TimeUnit.SECONDS);
+    }
+
+    /**
+     * Installs a predicate, it will be consulted with for each message being sent; when it returns {@code true}, the
+     * message will be silently dropped (it will not be sent, the corresponding future will never complete).
+     *
+     * @param predicate Predicate that will decide whether a message should be dropped. Its first argument is the recipient
+     *     node's consistent ID.
+     */
+    @TestOnly
+    public void dropMessages(BiPredicate<String, NetworkMessage> predicate) {
+        dropMessagePredicate = predicate;
+    }
+
+    /**
+     * Stops dropping messages.
+     *
+     * @see #dropMessages(BiPredicate)
+     */
+    @TestOnly
+    public void stopDroppingMessages() {
+        dropMessagePredicate = null;
     }
 }

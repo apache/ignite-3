@@ -53,11 +53,11 @@ public class AggregateDistinctPlannerTest extends AbstractAggregatePlannerTest {
     @ParameterizedTest
     @EnumSource
     public void mapReduceDistinctWithIndex(AggregateAlgorithm algo) throws Exception {
-        TestTable tbl = createAffinityTable().addIndex("val0_val1", 1, 2);
+        TestTable tbl = createAffinityTable("TEST").addIndex("val0_val1", 1, 2);
 
         IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
 
-        publicSchema.addTable("TEST", tbl);
+        publicSchema.addTable(tbl);
 
         String sql = "SELECT DISTINCT val0, val1 FROM test";
 

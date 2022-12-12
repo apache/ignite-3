@@ -43,6 +43,7 @@ import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.calcite.util.Pair;
+import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.index.IndexManager;
@@ -141,6 +142,9 @@ public class SqlQueryProcessor implements QueryProcessor {
     /** Transaction manager. */
     private final TxManager txManager;
 
+    /** Distribution zones manager. */
+    private final DistributionZoneManager distributionZoneManager;
+
     /** Clock. */
     private final HybridClock clock;
 
@@ -153,6 +157,7 @@ public class SqlQueryProcessor implements QueryProcessor {
             SchemaManager schemaManager,
             DataStorageManager dataStorageManager,
             TxManager txManager,
+            DistributionZoneManager distributionZoneManager,
             Supplier<Map<String, Map<String, Class<?>>>> dataStorageFieldsSupplier,
             HybridClock clock
     ) {
@@ -163,6 +168,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         this.schemaManager = schemaManager;
         this.dataStorageManager = dataStorageManager;
         this.txManager = txManager;
+        this.distributionZoneManager = distributionZoneManager;
         this.dataStorageFieldsSupplier = dataStorageFieldsSupplier;
         this.clock = clock;
     }
@@ -208,6 +214,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                 clusterSrvc.topologyService(),
                 msgSrvc,
                 sqlSchemaManager,
+                distributionZoneManager,
                 tableManager,
                 indexManager,
                 taskExecutor,
@@ -554,9 +561,7 @@ public class SqlQueryProcessor implements QueryProcessor {
     private abstract static class AbstractTableEventListener implements EventListener<TableEventParameters> {
         protected final SqlSchemaManagerImpl schemaHolder;
 
-        private AbstractTableEventListener(
-                SqlSchemaManagerImpl schemaHolder
-        ) {
+        private AbstractTableEventListener(SqlSchemaManagerImpl schemaHolder) {
             this.schemaHolder = schemaHolder;
         }
     }
@@ -570,9 +575,7 @@ public class SqlQueryProcessor implements QueryProcessor {
     }
 
     private static class TableCreatedListener extends AbstractTableEventListener {
-        private TableCreatedListener(
-                SqlSchemaManagerImpl schemaHolder
-        ) {
+        private TableCreatedListener(SqlSchemaManagerImpl schemaHolder) {
             super(schemaHolder);
         }
 
@@ -590,9 +593,7 @@ public class SqlQueryProcessor implements QueryProcessor {
     }
 
     private static class TableUpdatedListener extends AbstractTableEventListener {
-        private TableUpdatedListener(
-                SqlSchemaManagerImpl schemaHolder
-        ) {
+        private TableUpdatedListener(SqlSchemaManagerImpl schemaHolder) {
             super(schemaHolder);
         }
 
@@ -610,9 +611,7 @@ public class SqlQueryProcessor implements QueryProcessor {
     }
 
     private static class TableDroppedListener extends AbstractTableEventListener {
-        private TableDroppedListener(
-                SqlSchemaManagerImpl schemaHolder
-        ) {
+        private TableDroppedListener(SqlSchemaManagerImpl schemaHolder) {
             super(schemaHolder);
         }
 

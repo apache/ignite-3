@@ -36,6 +36,9 @@ class DistributionZonesUtil {
     /** Key prefix for zone's data nodes. */
     private static final String DISTRIBUTION_ZONE_DATA_NODES_PREFIX = "distributionZone.dataNodes.";
 
+    /** The key, needed for processing the event about zones' update was triggered only once. */
+    private static final ByteArray ZONES_CHANGE_TRIGGER_KEY = new ByteArray("distributionZones.change.trigger");
+
     private static final String DISTRIBUTION_ZONE_LOGICAL_TOPOLOGY = "distributionZone.logicalTopology";
 
     /** ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONE_DATA_NODES_PREFIX}. */
@@ -47,7 +50,7 @@ class DistributionZonesUtil {
      * The key, needed for processing the event about zones' update was triggered only once.
      */
     static ByteArray zonesChangeTriggerKey() {
-        return new ByteArray("distributionZones.change.trigger");
+        return ZONES_CHANGE_TRIGGER_KEY;
     }
 
     /**
@@ -55,7 +58,6 @@ class DistributionZonesUtil {
      */
     public static ByteArray zonesLogicalTopologyKey() {
         return new ByteArray(DISTRIBUTION_ZONE_LOGICAL_TOPOLOGY);
-    }
 
     /**
      * Condition for updating {@link DistributionZonesUtil#zonesChangeTriggerKey()} key.
@@ -84,6 +86,16 @@ class DistributionZonesUtil {
                 put(zoneDataNodesKey(zoneId), logicalTopologyBytes),
                 put(zonesChangeTriggerKey(), ByteUtils.longToBytes(revision))
         ).yield(true);
+    }
+
+    /**
+     * Sets {@code revision} to {@link DistributionZonesUtil#zonesChangeTriggerKey()}.
+     *
+     * @param revision Revision of the event.
+     * @return Update command for the meta storage.
+     */
+    static Update updateTriggerKey(long revision) {
+        return ops(put(zonesChangeTriggerKey(), ByteUtils.longToBytes(revision))).yield(true);
     }
 
     /**

@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.rest;
 
+import static io.micronaut.context.env.Environment.BARE_METAL;
+
 import io.micronaut.context.ApplicationContext;
 import io.micronaut.http.server.exceptions.ServerStartupException;
 import io.micronaut.openapi.annotation.OpenAPIInclude;
@@ -104,7 +106,10 @@ public class RestComponent implements IgniteComponent {
         for (int portCandidate = desiredPort; portCandidate <= desiredPort + portRange; portCandidate++) {
             try {
                 port = portCandidate;
-                context = buildMicronautContext(portCandidate).start();
+                context = buildMicronautContext(portCandidate)
+                        .deduceEnvironment(false)
+                        .environments(BARE_METAL)
+                        .start();
                 LOG.info("REST protocol started successfully");
                 return;
             } catch (ApplicationStartupException e) {

@@ -248,7 +248,7 @@ class ItComputeTest extends AbstractClusterIntegrationTest {
     }
 
     private List<String> allNodeNames() {
-        return IntStream.range(0, nodes())
+        return IntStream.range(0, initialNodes())
                 .mapToObj(this::node)
                 .map(Ignite::name)
                 .collect(toList());

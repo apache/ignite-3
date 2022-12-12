@@ -405,7 +405,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
             }
         };
 
-        schema.addTable(name, table);
+        schema.addTable(table);
     }
 
     /**
@@ -422,7 +422,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
     protected static TestTable createTable(IgniteSchema schema, String name, IgniteDistribution distr, Object... fields) {
         TestTable tbl = createTable(name, DEFAULT_TBL_SIZE, distr, fields);
 
-        schema.addTable(name, tbl);
+        schema.addTable(tbl);
 
         return tbl;
     }
@@ -630,7 +630,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         IgniteSchema schema = new IgniteSchema("PUBLIC");
 
         for (TestTable tbl : tbls) {
-            schema.addTable(tbl.name(), tbl);
+            schema.addTable(tbl);
         }
 
         return schema;
@@ -960,9 +960,8 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
             throw new AssertionError();
         }
 
-        /**
-         * Get name.
-         */
+        /** {@inheritDoc} */
+        @Override
         public String name() {
             return name;
         }

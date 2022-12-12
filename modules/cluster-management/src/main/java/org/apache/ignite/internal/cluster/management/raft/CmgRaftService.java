@@ -33,7 +33,7 @@ import org.apache.ignite.internal.cluster.management.raft.commands.NodesLeaveCom
 import org.apache.ignite.internal.cluster.management.raft.responses.LogicalTopologyResponse;
 import org.apache.ignite.internal.cluster.management.raft.responses.ValidationErrorResponse;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
-import org.apache.ignite.internal.cluster.management.topology.LogicalTopologySnapshot;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.properties.IgniteProductVersion;

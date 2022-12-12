@@ -73,11 +73,11 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
     @ParameterizedTest
     @EnumSource
     public void singleWithoutIndex(AggregateAlgorithm algo) throws Exception {
-        TestTable tbl = createBroadcastTable().addIndex("val0_val1", 1, 2);
+        TestTable tbl = createBroadcastTable("TEST").addIndex("val0_val1", 1, 2);
 
         IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
 
-        publicSchema.addTable("TEST", tbl);
+        publicSchema.addTable(tbl);
 
         String sql = "SELECT AVG(val0) FROM test GROUP BY grp0";
 
@@ -110,11 +110,11 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
     @ParameterizedTest
     @EnumSource
     public void singleWithIndex(AggregateAlgorithm algo) throws Exception {
-        TestTable tbl = createBroadcastTable().addIndex("grp0_grp1", 3, 4);
+        TestTable tbl = createBroadcastTable("TEST").addIndex("grp0_grp1", 3, 4);
 
         IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
 
-        publicSchema.addTable("TEST", tbl);
+        publicSchema.addTable(tbl);
 
         String sql = "SELECT AVG(val0) FILTER(WHERE val1 > 10) FROM test GROUP BY grp0";
 
@@ -147,11 +147,11 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
     @ParameterizedTest
     @EnumSource
     public void mapReduceGroupBy(AggregateAlgorithm algo) throws Exception {
-        TestTable tbl = createAffinityTable();
+        TestTable tbl = createAffinityTable("TEST");
 
         IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
 
-        publicSchema.addTable("TEST", tbl);
+        publicSchema.addTable(tbl);
 
         String sql = "SELECT AVG(val0) FILTER (WHERE val1 > 10) FROM test GROUP BY grp1, grp0";
 
@@ -190,11 +190,11 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
     @ParameterizedTest
     @EnumSource
     public void distribution(AggregateAlgorithm algo) throws Exception {
-        TestTable tbl = createAffinityTable().addIndex("grp0", 3);
+        TestTable tbl = createAffinityTable("TEST").addIndex("grp0", 3);
 
         IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
 
-        publicSchema.addTable("TEST", tbl);
+        publicSchema.addTable(tbl);
 
         String sql = "SELECT AVG(val0), grp0 FROM TEST GROUP BY grp0 UNION ALL SELECT val0, grp0 FROM test";
 
@@ -230,13 +230,13 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
     @ParameterizedTest
     @EnumSource
     public void expandDistinctAggregates(AggregateAlgorithm algo) throws Exception {
-        TestTable tbl = createAffinityTable()
+        TestTable tbl = createAffinityTable("TEST")
                 .addIndex("idx_val0", 3, 1, 0)
                 .addIndex("idx_val1", 3, 2, 0);
 
         IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
 
-        publicSchema.addTable("TEST", tbl);
+        publicSchema.addTable(tbl);
 
         String sql = "SELECT "
                 + "/*+ EXPAND_DISTINCT_AGG */ "

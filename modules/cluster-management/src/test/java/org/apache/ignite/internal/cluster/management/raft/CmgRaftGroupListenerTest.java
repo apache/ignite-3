@@ -23,12 +23,17 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 
 import java.io.Serializable;
+import java.nio.file.Paths;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
@@ -38,6 +43,7 @@ import org.apache.ignite.internal.cluster.management.ClusterTag;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.cluster.management.raft.commands.ClusterNodeMessage;
 import org.apache.ignite.internal.cluster.management.raft.commands.JoinRequestCommand;
+import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.internal.raft.Command;
@@ -51,15 +57,13 @@ import org.junit.jupiter.api.Test;
  * Tests for the {@link CmgRaftGroupListener}.
  */
 public class CmgRaftGroupListenerTest {
-    private final ClusterStateStorage storage = new TestClusterStateStorage();
+    private final ClusterStateStorage storage = spy(new TestClusterStateStorage());
 
     private final LongConsumer onLogicalTopologyChanged = mock(LongConsumer.class);
 
-    private final CmgRaftGroupListener listener = new CmgRaftGroupListener(
-            storage,
-            new LogicalTopologyImpl(storage),
-            onLogicalTopologyChanged
-    );
+    private final LogicalTopology logicalTopology = spy(new LogicalTopologyImpl(storage));
+
+    private final CmgRaftGroupListener listener = new CmgRaftGroupListener(storage, logicalTopology, onLogicalTopologyChanged);
 
     private final CmgMessagesFactory msgFactory = new CmgMessagesFactory();
 
@@ -118,7 +122,7 @@ public class CmgRaftGroupListenerTest {
     }
 
     @Test
-    void unsuccessfulJoinReadyExecutesOnLogicalTopologyChanged() {
+    void unsuccessfulJoinReadyDoesNotExecuteOnLogicalTopologyChanged() {
         listener.onWrite(iterator(msgFactory.joinReadyCommand().node(node).build()));
 
         verify(onLogicalTopologyChanged, never()).accept(anyLong());
@@ -129,6 +133,15 @@ public class CmgRaftGroupListenerTest {
         listener.onWrite(iterator(msgFactory.nodesLeaveCommand().nodes(Set.of(node)).build()));
 
         verify(onLogicalTopologyChanged).accept(anyLong());
+    }
+
+    @Test
+    void restoreFromSnapshotTriggersTopologyLeapEvent() {
+        doNothing().when(storage).restoreSnapshot(any());
+
+        assertTrue(listener.onSnapshotLoad(Paths.get("/unused")));
+
+        verify(logicalTopology).fireTopologyLeap();
     }
 
     private static <T extends Command> Iterator<CommandClosure<T>> iterator(T obj) {

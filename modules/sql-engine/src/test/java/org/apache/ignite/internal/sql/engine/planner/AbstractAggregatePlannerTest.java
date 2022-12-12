@@ -22,20 +22,18 @@ import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
-import org.jetbrains.annotations.NotNull;
 
 /**
- * AbstractAggregatePlannerTest.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * Base class for further planner test implementations.
  */
 public class AbstractAggregatePlannerTest extends AbstractPlannerTest {
     /**
-     * CreateBroadcastTable.
+     * Creates table with broadcast distribution.
      *
-     * @return REPLICATED test table (ID, VAL0, VAL1, GRP0, GRP1)
+     * @param tblName Table name.
+     * @return Table instance with broadcast distribution and multiple predefined columns.
      */
-    @NotNull
-    protected TestTable createBroadcastTable() {
+    protected TestTable createBroadcastTable(String tblName) {
         IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
 
         TestTable tbl = new TestTable(
@@ -45,7 +43,7 @@ public class AbstractAggregatePlannerTest extends AbstractPlannerTest {
                         .add("VAL1", f.createJavaType(Integer.class))
                         .add("GRP0", f.createJavaType(Integer.class))
                         .add("GRP1", f.createJavaType(Integer.class))
-                        .build()) {
+                        .build(), tblName) {
 
             @Override
             public IgniteDistribution distribution() {
@@ -56,13 +54,12 @@ public class AbstractAggregatePlannerTest extends AbstractPlannerTest {
     }
 
     /**
-     * CreateAffinityTable.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Creates table with specified affinity distribution.
      *
-     * @return PARTITIONED test table (ID, VAL0, VAL1, GRP0, GRP1)
+     * @param tblName Table name.
+     * @return Table instance with specified affinity distribution and multiple predefined columns.
      */
-    @NotNull
-    protected AbstractPlannerTest.TestTable createAffinityTable() {
+    protected AbstractPlannerTest.TestTable createAffinityTable(String tblName) {
         IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
 
         return new TestTable(
@@ -72,7 +69,7 @@ public class AbstractAggregatePlannerTest extends AbstractPlannerTest {
                         .add("VAL1", f.createJavaType(Integer.class))
                         .add("GRP0", f.createJavaType(Integer.class))
                         .add("GRP1", f.createJavaType(Integer.class))
-                        .build()) {
+                        .build(), tblName) {
 
             @Override
             public IgniteDistribution distribution() {

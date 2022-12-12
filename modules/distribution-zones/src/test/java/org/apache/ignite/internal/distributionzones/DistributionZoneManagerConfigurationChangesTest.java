@@ -41,7 +41,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
-import org.apache.ignite.internal.cluster.management.topology.LogicalTopologySnapshot;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
@@ -202,7 +202,7 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
     }
 
     @Test
-    void testDataNodesPropagationAfterZoneUpdate() throws Exception {
+    void testTriggerKeyPropagationAfterZoneUpdate() throws Exception {
         Set<ClusterNode> clusterNodes = Set.of(new ClusterNode("1", "name1", null));
 
         LogicalTopologySnapshot logicalTopologySnapshot = mockCmgLocalNodes(clusterNodes);
@@ -223,9 +223,9 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
                 new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).dataNodesAutoAdjust(100).build()
         ).get();
 
-        assertDataNodesForZone(1, clusterNodes2);
-
         assertZonesChangeTriggerKey(2);
+
+        assertDataNodesForZone(1, clusterNodes);
     }
 
     @Test
@@ -295,7 +295,7 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
     }
 
     @Test
-    void testDataNodesNotPropagatedAfterZoneUpdate() throws Exception {
+    void testTriggerKeyNotPropagatedAfterZoneUpdate() throws Exception {
         Set<ClusterNode> clusterNodes = Set.of(new ClusterNode("1", "name1", null));
 
         LogicalTopologySnapshot logicalTopologySnapshot = mockCmgLocalNodes(clusterNodes);

@@ -40,6 +40,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.ignite.configuration.ConfigurationChangeException;
+import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -130,6 +131,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             TopologyService topSrvc,
             MessageService msgSrvc,
             SqlSchemaManager sqlSchemaManager,
+            DistributionZoneManager distributionZoneManager,
             TableManager tblManager,
             IndexManager indexManager,
             QueryTaskExecutor taskExecutor,
@@ -143,7 +145,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 msgSrvc,
                 new MappingServiceImpl(topSrvc),
                 sqlSchemaManager,
-                new DdlCommandHandler(tblManager, indexManager, dataStorageManager),
+                new DdlCommandHandler(distributionZoneManager, tblManager, indexManager, dataStorageManager),
                 taskExecutor,
                 handler,
                 exchangeSrvc,

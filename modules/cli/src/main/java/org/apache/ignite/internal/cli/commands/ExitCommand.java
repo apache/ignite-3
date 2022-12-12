@@ -15,19 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.network.serialization;
+package org.apache.ignite.internal.cli.commands;
 
-import org.apache.ignite.internal.network.messages.TestMessagesSerializationRegistryInitializer;
-import org.apache.ignite.network.MessageSerializationRegistryImpl;
+import org.jline.reader.EndOfFileException;
+import picocli.CommandLine.Command;
 
 /**
- * Implementation of a {@link MessageSerializationRegistry} for tests.
+ * Command to exit from app.
  */
-public class TestMessageSerializationRegistryImpl extends MessageSerializationRegistryImpl {
-    /**
-     * Default constructor.
-     */
-    public TestMessageSerializationRegistryImpl() {
-        TestMessagesSerializationRegistryInitializer.registerFactories(this);
+@Command(name = "exit", description = "Exit")
+public class ExitCommand extends BaseCommand implements Runnable {
+
+    @Override
+    public void run() {
+        throw new EndOfFileException();
     }
 }

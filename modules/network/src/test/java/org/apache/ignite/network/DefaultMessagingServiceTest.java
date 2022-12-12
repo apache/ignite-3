@@ -17,14 +17,19 @@
 
 package org.apache.ignite.network;
 
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
+import static org.apache.ignite.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -34,7 +39,6 @@ import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.configuration.NetworkView;
 import org.apache.ignite.internal.network.configuration.OutboundView;
 import org.apache.ignite.internal.network.messages.TestMessage;
-import org.apache.ignite.internal.network.messages.TestMessageSerializationFactory;
 import org.apache.ignite.internal.network.messages.TestMessageTypes;
 import org.apache.ignite.internal.network.messages.TestMessagesFactory;
 import org.apache.ignite.internal.network.netty.ConnectionManager;
@@ -48,6 +52,7 @@ import org.apache.ignite.internal.network.serialization.UserObjectSerializationC
 import org.apache.ignite.internal.network.serialization.marshal.DefaultUserObjectMarshaller;
 import org.apache.ignite.internal.network.serialization.marshal.UserObjectMarshaller;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -82,7 +87,7 @@ class DefaultMessagingServiceTest {
 
     private final NetworkMessagesFactory networkMessagesFactory = new NetworkMessagesFactory();
     private final TestMessagesFactory testMessagesFactory = new TestMessagesFactory();
-    private final MessageSerializationRegistryImpl messageSerializationRegistry = new MessageSerializationRegistryImpl();
+    private final MessageSerializationRegistry messageSerializationRegistry = defaultSerializationRegistry();
 
     private final ClusterNode senderNode = new ClusterNode(
             "sender",
@@ -101,13 +106,7 @@ class DefaultMessagingServiceTest {
         configureSender();
         configureReceiver();
 
-        when(topologyService.getByConsistentId(eq(senderNode.name()))).thenReturn(senderNode);
-
-        messageSerializationRegistry.registerFactory(
-                (short) 2,
-                TestMessageTypes.TEST,
-                new TestMessageSerializationFactory(testMessagesFactory)
-        );
+        lenient().when(topologyService.getByConsistentId(eq(senderNode.name()))).thenReturn(senderNode);
     }
 
     @Test
@@ -140,13 +139,22 @@ class DefaultMessagingServiceTest {
         }
     }
 
+    @Test
+    void respondingWhenSenderIsNotInTopologyResultsInFailingFuture() throws Exception {
+        try (Services services = createMessagingService(senderNode, senderNetworkConfig, () -> {})) {
+            CompletableFuture<Void> resultFuture = services.messagingService.respond("no-such-node", mock(NetworkMessage.class), 123);
+
+            assertThat(resultFuture, willThrow(UnresolvableConsistentIdException.class));
+        }
+    }
+
     private void configureSender() {
         when(senderNetworkConfigView.port()).thenReturn(SENDER_PORT);
         configureNetworkDefaults(senderNetworkConfig, senderNetworkConfigView, senderOutboundConfig, senderInboundConfig);
     }
 
     private void configureReceiver() {
-        when(receiverNetworkConfigView.port()).thenReturn(RECEIVER_PORT);
+        lenient().when(receiverNetworkConfigView.port()).thenReturn(RECEIVER_PORT);
         configureNetworkDefaults(receiverNetworkConfig, receiverNetworkConfigView, receiverOutboundConfig, receiverInboundConfig);
     }
 
@@ -156,10 +164,10 @@ class DefaultMessagingServiceTest {
             OutboundView outboundConfig,
             InboundView inboundConfig
     ) {
-        when(networkConfig.value()).thenReturn(networkConfigView);
-        when(networkConfigView.portRange()).thenReturn(0);
-        when(networkConfigView.outbound()).thenReturn(outboundConfig);
-        when(networkConfigView.inbound()).thenReturn(inboundConfig);
+        lenient().when(networkConfig.value()).thenReturn(networkConfigView);
+        lenient().when(networkConfigView.portRange()).thenReturn(0);
+        lenient().when(networkConfigView.outbound()).thenReturn(outboundConfig);
+        lenient().when(networkConfigView.inbound()).thenReturn(inboundConfig);
     }
 
     private static void awaitQuietly(CountDownLatch latch) {

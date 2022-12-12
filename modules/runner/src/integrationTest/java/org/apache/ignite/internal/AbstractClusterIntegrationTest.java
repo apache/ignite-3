@@ -20,13 +20,18 @@ package org.apache.ignite.internal;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.sql.engine.util.CursorUtils.getAllFromCursor;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.greaterThan;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.notNullValue;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
@@ -47,6 +52,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 /**
  * Abstract integration test that starts and stops a cluster.
  */
+@SuppressWarnings("ALL")
 @ExtendWith(WorkDirectoryExtension.class)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public abstract class AbstractClusterIntegrationTest extends BaseIgniteAbstractTest {
@@ -79,55 +85,111 @@ public abstract class AbstractClusterIntegrationTest extends BaseIgniteAbstractT
      */
     @BeforeEach
     void startNodes(TestInfo testInfo) {
-        String connectNodeAddr = "\"localhost:" + BASE_PORT + '\"';
-
-        List<CompletableFuture<Ignite>> futures = IntStream.range(0, nodes())
-                .mapToObj(i -> {
-                    String nodeName = testNodeName(testInfo, i);
-
-                    String config = IgniteStringFormatter.format(NODE_BOOTSTRAP_CFG, BASE_PORT + i, connectNodeAddr);
-
-                    return IgnitionManager.start(nodeName, config, WORK_DIR.resolve(nodeName));
-                })
+        List<CompletableFuture<Ignite>> futures = IntStream.range(0, initialNodes())
+                .mapToObj(i -> startNode0(i, testInfo))
                 .collect(toList());
 
-        String metaStorageNodeName = testNodeName(testInfo, nodes() - 1);
+        String metaStorageNodeName = testNodeName(testInfo, initialNodes() - 1);
 
         IgnitionManager.init(metaStorageNodeName, List.of(metaStorageNodeName), "cluster");
 
         for (CompletableFuture<Ignite> future : futures) {
-            assertThat(future, willCompleteSuccessfully());
+            assertThat(future, willSucceedIn(10, TimeUnit.SECONDS));
 
             clusterNodes.add(future.join());
         }
     }
 
+    private static CompletableFuture<Ignite> startNode0(int nodeIndex, TestInfo testInfo) {
+        String connectNodeAddr = "\"localhost:" + BASE_PORT + '\"';
+
+        String nodeName = testNodeName(testInfo, nodeIndex);
+
+        String config = IgniteStringFormatter.format(NODE_BOOTSTRAP_CFG, BASE_PORT + nodeIndex, connectNodeAddr);
+
+        return IgnitionManager.start(nodeName, config, WORK_DIR.resolve(nodeName));
+    }
+
     /**
-     * Get a count of nodes in the Ignite cluster.
+     * Starts an Ignite node with the given index.
      *
-     * @return Count of nodes.
+     * @param nodeIndex Zero-based index (used to build node name).
+     * @param testInfo Test info (used to build node name).
+     * @return Started Ignite node.
      */
-    protected int nodes() {
+    protected IgniteImpl startNode(int nodeIndex, TestInfo testInfo) {
+        CompletableFuture<Ignite> future = startNode0(nodeIndex, testInfo);
+
+        assertThat(future, willSucceedIn(10, TimeUnit.SECONDS));
+
+        Ignite ignite = future.join();
+
+        if (nodeIndex < clusterNodes.size()) {
+            clusterNodes.set(nodeIndex, ignite);
+        } else if (nodeIndex == clusterNodes.size()) {
+            clusterNodes.add(ignite);
+        } else {
+            throw new IllegalArgumentException("Cannot start node with index " + nodeIndex + " because we only have "
+                    + clusterNodes.size() + " nodes");
+        }
+
+        return (IgniteImpl) ignite;
+    }
+
+    /**
+     * Returns count of nodes in the Ignite cluster started before each test.
+     *
+     * @return Count of nodes in initial cluster.
+     */
+    protected int initialNodes() {
         return 3;
     }
 
     /**
-     * After all.
+     * Stops all nodes that are not stopped yet.
      */
     @AfterEach
     void stopNodes(TestInfo testInfo) throws Exception {
         LOG.info("Start tearDown()");
 
-        clusterNodes.clear();
-
-        List<AutoCloseable> closeables = IntStream.range(0, nodes())
-                .mapToObj(i -> testNodeName(testInfo, i))
-                .map(nodeName -> (AutoCloseable) () -> IgnitionManager.stop(nodeName))
+        List<AutoCloseable> closeables = clusterNodes.stream()
+                .filter(Objects::nonNull)
+                .map(node -> (AutoCloseable) () -> IgnitionManager.stop(node.name()))
                 .collect(toList());
 
         IgniteUtils.closeAll(closeables);
 
+        clusterNodes.clear();
+
         LOG.info("End tearDown()");
+    }
+
+    /**
+     * Stops a node by index.
+     *
+     * @param nodeIndex Node index.
+     * @param testInfo Test info (used to construct node name).
+     */
+    protected final void stopNode(int nodeIndex, TestInfo testInfo) {
+        assertThat(clusterNodes.size(), is(greaterThan(nodeIndex)));
+        assertThat(clusterNodes.get(nodeIndex), is(notNullValue()));
+
+        IgnitionManager.stop(testNodeName(testInfo, nodeIndex));
+
+        clusterNodes.set(nodeIndex, null);
+    }
+
+    /**
+     * Restarts a node by index.
+     *
+     * @param nodeIndex Node index.
+     * @param testInfo Test info (used to construct node name).
+     * @return New node instance.
+     */
+    protected final Ignite restartNode(int nodeIndex, TestInfo testInfo) {
+        stopNode(nodeIndex, testInfo);
+
+        return startNode(nodeIndex, testInfo);
     }
 
     /**

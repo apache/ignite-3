@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.network.netty;
 
+import static org.apache.ignite.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -50,7 +51,6 @@ import org.apache.ignite.internal.network.serialization.marshal.DefaultUserObjec
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.OutNetworkObject;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
-import org.apache.ignite.network.serialization.TestMessageSerializationRegistryImpl;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -61,7 +61,7 @@ public class RecoveryHandshakeTest {
     private static final short CONNECTION_ID = 1337;
 
     /** Serialization registry. */
-    private static final MessageSerializationRegistry MESSAGE_REGISTRY = new TestMessageSerializationRegistryImpl();
+    private static final MessageSerializationRegistry MESSAGE_REGISTRY = defaultSerializationRegistry();
 
     /** Message factory. */
     private static final NetworkMessagesFactory MESSAGE_FACTORY = new NetworkMessagesFactory();
