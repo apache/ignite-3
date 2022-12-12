@@ -21,6 +21,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Reflection.Emit;
@@ -44,9 +45,11 @@ internal static class ResultSelector
     /// </summary>
     /// <param name="columns">Columns.</param>
     /// <param name="selectorExpression">Selector expression.</param>
+    /// <param name="defaultIfNull">Whether to read null values as default for value types
+    /// (when <see cref="Queryable.DefaultIfEmpty{TSource}(System.Linq.IQueryable{TSource})"/> is used).</param>
     /// <typeparam name="T">Result type.</typeparam>
     /// <returns>Row reader.</returns>
-    public static RowReader<T> Get<T>(IReadOnlyList<IColumnMetadata> columns, Expression selectorExpression)
+    public static RowReader<T> Get<T>(IReadOnlyList<IColumnMetadata> columns, Expression selectorExpression, bool defaultIfNull)
     {
         // TODO: IGNITE-18136 Replace reflection with emitted delegates.
         // Anonymous type projections use a constructor call. But user-defined types can also be used with constructor call.
@@ -91,7 +94,7 @@ internal static class ResultSelector
             })
         {
             // Select everything from a sub-query - use nested selector.
-            return Get<T>(columns, subQuery.QueryModel.SelectClause.Selector);
+            return Get<T>(columns, subQuery.QueryModel.SelectClause.Selector, defaultIfNull);
         }
 
         return (IReadOnlyList<IColumnMetadata> cols, ref BinaryTupleReader reader) =>

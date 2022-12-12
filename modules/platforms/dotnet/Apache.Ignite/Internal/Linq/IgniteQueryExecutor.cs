@@ -114,7 +114,7 @@ internal sealed class IgniteQueryExecutor : IQueryExecutor
         IResultSet<T> resultSet = await _sql.ExecuteAsyncInternal(
             _transaction,
             statement,
-            cols => ResultSelector.Get<T>(cols, queryModel.SelectClause.Selector),
+            cols => ResultSelector.Get<T>(cols, queryModel.SelectClause.Selector, defaultIfNull: qryData.HasOuterJoins),
             qryData.Parameters)
             .ConfigureAwait(false);
 
