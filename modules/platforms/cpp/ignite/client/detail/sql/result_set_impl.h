@@ -128,6 +128,7 @@ private:
                 return;
             }
 
+            assert(arr.size >= minCount + 3);
             auto origin_name = arr.ptr[6].type == MSGPACK_OBJECT_NIL
                     ? name
                     : protocol::unpack_object<std::string>(arr.ptr[6]);
