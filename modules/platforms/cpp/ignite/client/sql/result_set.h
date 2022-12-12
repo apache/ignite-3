@@ -51,6 +51,29 @@ public:
      */
     [[nodiscard]] IGNITE_API const result_set_metadata& metadata() const;
 
+    /**
+     * Gets a value indicating whether this result set contains a collection of rows.
+     *
+     * @return A value indicating whether this result set contains a collection of rows.
+     */
+    [[nodiscard]] IGNITE_API bool has_rowset() const;
+
+    /**
+     * Gets the number of rows affected by the DML statement execution (such as "INSERT", "UPDATE", etc.), or 0 if
+     * the statement returns nothing (such as "ALTER TABLE", etc), or -1 if not applicable.
+     *
+     * @return The number of rows affected by the DML statement execution.
+     */
+    [[nodiscard]] IGNITE_API std::int64_t affected_rows() const;
+
+    /**
+     * Gets a value indicating whether a conditional query (such as "CREATE TABLE IF NOT EXISTS") was applied
+     * successfully.
+     *
+     * @return A value indicating whether a conditional query was applied successfully.
+     */
+    [[nodiscard]] IGNITE_API bool was_applied() const;
+
 private:
     /** Implementation. */
     std::shared_ptr<detail::result_set_impl> m_impl;

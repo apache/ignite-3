@@ -24,4 +24,16 @@ const result_set_metadata& result_set::metadata() const {
     return m_impl->metadata();
 }
 
+bool result_set::has_rowset() const {
+    return m_impl->has_rowset();
+}
+
+std::int64_t result_set::affected_rows() const {
+    return m_impl->affected_rows();
+}
+
+bool result_set::was_applied() const {
+    return m_impl->was_applied();
+}
+
 } // namespace ignite

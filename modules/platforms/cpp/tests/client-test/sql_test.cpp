@@ -51,6 +51,11 @@ protected:
 TEST_F(sql_test, sql_simple_select) {
     auto sql = m_client.get_sql();
     auto result_set = sql.execute(nullptr, {"select 1, 'Lorem'"}, {});
+
+    EXPECT_FALSE(result_set.was_applied());
+    EXPECT_TRUE(result_set.has_rowset());
+    EXPECT_EQ(-1, result_set.affected_rows());
+
     auto &meta = result_set.metadata();
 
     ASSERT_EQ(2, meta.columns().size());
