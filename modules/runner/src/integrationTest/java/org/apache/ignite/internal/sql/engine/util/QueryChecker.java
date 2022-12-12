@@ -50,7 +50,8 @@ import org.hamcrest.core.SubstringMatcher;
 public abstract class QueryChecker {
     /** Partition release timeout. */
     private static final long PART_RELEASE_TIMEOUT = 5_000L;
-    public static final Object[] NULL_AS_VARARG = {null};
+
+    private static final Object[] NULL_AS_VARARG = {null};
 
     /**
      * Ignite table scan matcher.
