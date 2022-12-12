@@ -61,15 +61,21 @@ internal static class ResultSelector
             return (RowReader<T>)CtorCache.GetOrAdd(cacheKey, static k => EmitConstructorReader<T>(k.Target, k.Columns, k.DefaultIfNull));
         }
 
-        if (columns.Count == 1 && typeof(T).ToSqlColumnType() is not null)
+        if (columns.Count == 1 && typeof(T).ToSqlColumnType() is { } resType)
         {
-            // TODO: No need for emit, but cache the logic based on column type and result type to avoid conversions and switch.
-            return (IReadOnlyList<IColumnMetadata> cols, ref BinaryTupleReader reader) =>
+            if (columns[0].Type == resType)
+            {
+                return static (IReadOnlyList<IColumnMetadata> cols, ref BinaryTupleReader reader) =>
+                    (T)Sql.ReadColumnValue(ref reader, cols[0], 0)!;
+            }
+
+            return static (IReadOnlyList<IColumnMetadata> cols, ref BinaryTupleReader reader) =>
                 (T)Convert.ChangeType(Sql.ReadColumnValue(ref reader, cols[0], 0)!, typeof(T), CultureInfo.InvariantCulture);
         }
 
         if (typeof(T).GetKeyValuePairTypes() is var (keyType, valType))
         {
+            // TODO: Emit code.
             return (IReadOnlyList<IColumnMetadata> cols, ref BinaryTupleReader reader) =>
             {
                 var key = FormatterServices.GetUninitializedObject(keyType);
@@ -99,6 +105,7 @@ internal static class ResultSelector
 
         return (IReadOnlyList<IColumnMetadata> cols, ref BinaryTupleReader reader) =>
         {
+            // TODO: Emit code.
             var res = (T)FormatterServices.GetUninitializedObject(typeof(T));
 
             for (int i = 0; i < cols.Count; i++)
