@@ -223,6 +223,8 @@ internal static class ResultSelector
 
         var il = method.GetILGenerator();
 
+        var local = il.DeclareAndInitLocal(typeof(T));
+
         for (var index = 0; index < columns.Count; index++)
         {
             var col = columns[index];
@@ -232,7 +234,7 @@ internal static class ResultSelector
                 continue;
             }
 
-            Label endParamLabel = il.DefineLabel();
+            Label endFieldLabel = il.DefineLabel();
 
             if (defaultAsNull)
             {
@@ -240,9 +242,10 @@ internal static class ResultSelector
                 il.Emit(OpCodes.Ldarg_1); // Reader.
                 il.Emit(OpCodes.Ldc_I4, index); // Index.
                 il.Emit(OpCodes.Call, BinaryTupleMethods.IsNull);
-                il.Emit(OpCodes.Brtrue_S, endParamLabel);
+                il.Emit(OpCodes.Brtrue_S, endFieldLabel);
             }
 
+            il.Emit(local.LocalType.IsValueType ? OpCodes.Ldloca_S : OpCodes.Ldloc, local); // res
             il.Emit(OpCodes.Ldarg_1); // Reader.
             il.Emit(OpCodes.Ldc_I4, index); // Index.
 
@@ -254,11 +257,13 @@ internal static class ResultSelector
             var colType = col.Type.ToClrType();
             il.Emit(OpCodes.Call, BinaryTupleMethods.GetReadMethod(colType));
 
-            EmitConv(colType, param.ParameterType, il);
-            il.MarkLabel(endParamLabel);
+            EmitConv(colType, field.FieldType, il);
+            il.Emit(OpCodes.Stfld, field); // res.field = value
+
+            il.MarkLabel(endFieldLabel);
         }
 
-        il.Emit(OpCodes.Newobj, ctorInfo);
+        il.Emit(OpCodes.Ldloc_0); // res
         il.Emit(OpCodes.Ret);
 
         return (RowReader<T>)method.CreateDelegate(typeof(RowReader<T>));
