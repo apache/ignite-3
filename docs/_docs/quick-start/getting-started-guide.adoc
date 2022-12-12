@@ -82,6 +82,27 @@ This command creates a simple cluster you can interact with. For example, you ca
 NOTE: If you have issues with Ignite 3 Alpha, check the logs in the `ignite3-db-3.0.0-beta1/log` folder.
 
 
+* Use the `CREATE TABLE` statement to create a new table:
++
+----
+sql "CREATE TABLE IF NOT EXISTS Person (id int primary key,  city varchar,  name varchar,  age int,  company varchar)"
+----
++
+* Fill the table with data by using `INSERT` statement:
++
+----
+sql "INSERT INTO Person (id, city, name, age, company) VALUES ('1', 'London', 'John Doe', '42', 'Apache')"
+sql "INSERT INTO Person (id, city, name, age, company) VALUES ('2', 'New York', 'Jane Doe', '36', 'Apache')"
+----
++
+* Get all data you inserted on previous step:
++
+----
+sql "SELECT * FROM Person"
+----
+
+NOTE: For more information about available SQL statements, see the link:sql-reference/ddl[SQL Reference] section.
+
 == Stopping the Cluster
 
 After you are done working on the cluster, you need to stop the node. Go to the `ignite3-db-3.0.0-beta1` folder and run the following command:
