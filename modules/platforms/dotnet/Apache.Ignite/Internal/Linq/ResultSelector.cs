@@ -138,7 +138,7 @@ internal static class ResultSelector
         bool defaultAsNull)
     {
         var method = new DynamicMethod(
-            name: "ConstructFromBinaryTupleReader_" + ctorInfo.DeclaringType!.Name,
+            name: "ConstructorFromBinaryTupleReader_" + typeof(T).FullName,
             returnType: typeof(T),
             parameterTypes: new[] { typeof(IReadOnlyList<IColumnMetadata>), typeof(BinaryTupleReader).MakeByRefType() },
             m: typeof(IIgnite).Module,
@@ -182,6 +182,60 @@ internal static class ResultSelector
 
                 il.Emit(OpCodes.Br_S, endParamLabel);
                 il.MarkLabel(notNullLabel);
+            }
+
+            il.Emit(OpCodes.Ldarg_1); // Reader.
+            il.Emit(OpCodes.Ldc_I4, index); // Index.
+
+            if (col.Type == SqlColumnType.Decimal)
+            {
+                il.Emit(OpCodes.Ldc_I4, col.Scale);
+            }
+
+            var colType = col.Type.ToClrType();
+            il.Emit(OpCodes.Call, BinaryTupleMethods.GetReadMethod(colType));
+
+            EmitConv(colType, param.ParameterType, il);
+            il.MarkLabel(endParamLabel);
+        }
+
+        il.Emit(OpCodes.Newobj, ctorInfo);
+        il.Emit(OpCodes.Ret);
+
+        return (RowReader<T>)method.CreateDelegate(typeof(RowReader<T>));
+    }
+
+    private static RowReader<T> EmitUninitializedObjectReader<T>(
+        IReadOnlyList<IColumnMetadata> columns,
+        bool defaultAsNull)
+    {
+        var method = new DynamicMethod(
+            name: "UninitializedObjectFromBinaryTupleReader_" + typeof(T).FullName,
+            returnType: typeof(T),
+            parameterTypes: new[] { typeof(IReadOnlyList<IColumnMetadata>), typeof(BinaryTupleReader).MakeByRefType() },
+            m: typeof(IIgnite).Module,
+            skipVisibility: true);
+
+        var il = method.GetILGenerator();
+
+        for (var index = 0; index < columns.Count; index++)
+        {
+            var col = columns[index];
+
+            if (typeof(T).GetFieldByColumnName(col.Name) is not { } field)
+            {
+                continue;
+            }
+
+            Label endParamLabel = il.DefineLabel();
+
+            if (defaultAsNull)
+            {
+                // if (reader.IsNull(index)) continue;
+                il.Emit(OpCodes.Ldarg_1); // Reader.
+                il.Emit(OpCodes.Ldc_I4, index); // Index.
+                il.Emit(OpCodes.Call, BinaryTupleMethods.IsNull);
+                il.Emit(OpCodes.Brtrue_S, endParamLabel);
             }
 
             il.Emit(OpCodes.Ldarg_1); // Reader.
