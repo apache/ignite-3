@@ -126,6 +126,16 @@ internal static class ResultSelector
         }
     }
 
+    private static Guid ReadGuid(BinaryTupleReader reader, int idx)
+    {
+        if (reader.IsNull(idx))
+        {
+            return default;
+        }
+
+        return reader.GetGuid(idx);
+    }
+
     private static RowReader<T> EmitConstructorReader<T>(
         ConstructorInfo ctorInfo,
         IReadOnlyList<IColumnMetadata> columns,
@@ -148,10 +158,26 @@ internal static class ResultSelector
 
         for (var index = 0; index < ctorParams.Length; index++)
         {
-            // TODO IGNITE-18329 handle nulls.
-            // But this screws up outer joins.
             var param = ctorParams[index];
             var col = columns[index];
+
+            if (defaultAsNull)
+            {
+                var notNullLabel = il.DefineLabel();
+                il.Emit(OpCodes.Ldarg_1); // Reader.
+                il.Emit(OpCodes.Ldc_I4, index); // Index.
+                il.Emit(OpCodes.Call, BinaryTupleMethods.IsNull);
+                il.Emit(OpCodes.Brfalse_S);
+
+                il.Emit(
+                    opcode: param.ParameterType.IsValueType
+                        ? OpCodes.Initobj
+                        : OpCodes.Ldnull,
+                    param.ParameterType);
+
+                il.Emit(OpCodes.Ret);
+                il.MarkLabel(notNullLabel);
+            }
 
             il.Emit(OpCodes.Ldarg_1); // Reader.
             il.Emit(OpCodes.Ldc_I4, index); // Index.
