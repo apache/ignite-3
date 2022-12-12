@@ -25,7 +25,6 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Reflection.Emit;
-using System.Runtime.Serialization;
 using Ignite.Sql;
 using Proto.BinaryTuple;
 using Remotion.Linq.Clauses;
@@ -87,25 +86,9 @@ internal static class ResultSelector
         {
             var kvCacheKey = new ResultSelectorCacheKey<(Type Key, Type Val)>((keyType, valType), columns, defaultIfNull);
 
-            KvReaderCache.GetOrAdd(kvCacheKey, static k => EmitKvPairReader<T>(k.Columns, k.Target.Key, k.Target.Val, k.DefaultIfNull));
-
-            // TODO: Emit code.
-            return (IReadOnlyList<IColumnMetadata> cols, ref BinaryTupleReader reader) =>
-            {
-                var key = FormatterServices.GetUninitializedObject(keyType);
-                var val = FormatterServices.GetUninitializedObject(valType);
-
-                for (int i = 0; i < cols.Count; i++)
-                {
-                    var col = cols[i];
-                    var colVal = Sql.ReadColumnValue(ref reader, col, i);
-
-                    SetColumnValue(col, colVal, key, keyType);
-                    SetColumnValue(col, colVal, val, valType);
-                }
-
-                return (T)Activator.CreateInstance(typeof(T), key, val)!;
-            };
+            return (RowReader<T>)KvReaderCache.GetOrAdd(
+                kvCacheKey,
+                static k => EmitKvPairReader<T>(k.Columns, k.Target.Key, k.Target.Val, k.DefaultIfNull));
         }
 
         if (selectorExpression is QuerySourceReferenceExpression
@@ -122,19 +105,6 @@ internal static class ResultSelector
         return (RowReader<T>)ReaderCache.GetOrAdd(
             readerCacheKey,
             static k => EmitUninitializedObjectReader<T>(k.Columns, k.DefaultIfNull));
-    }
-
-    private static void SetColumnValue<T>(IColumnMetadata col, object? val, T res, Type type)
-    {
-        if (type.GetFieldByColumnName(col.Name) is {} field)
-        {
-            if (val != null)
-            {
-                val = Convert.ChangeType(val, field.FieldType, CultureInfo.InvariantCulture);
-            }
-
-            field.SetValue(res, val);
-        }
     }
 
     private static RowReader<T> EmitConstructorReader<T>(
@@ -301,7 +271,7 @@ internal static class ResultSelector
         }
 
         il.Emit(OpCodes.Ldloc_0); // key
-        il.Emit(OpCodes.Ldloc_0); // val
+        il.Emit(OpCodes.Ldloc_1); // val
 
         // TODO: Better way to get constructor?
         il.Emit(OpCodes.Newobj, typeof(T).GetConstructor(new[] { keyType, valType })!);
