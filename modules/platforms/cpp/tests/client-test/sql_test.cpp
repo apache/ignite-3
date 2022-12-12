@@ -23,7 +23,6 @@
 
 #include <gtest/gtest.h>
 
-#include <algorithm>
 #include <chrono>
 
 using namespace ignite;
@@ -51,9 +50,17 @@ protected:
 
 TEST_F(sql_test, sql_simple_select) {
     auto sql = m_client.get_sql();
-    auto result_set = sql.execute(nullptr, {"select 1"}, {});
-    auto &columns = result_set.metadata().columns();
+    auto result_set = sql.execute(nullptr, {"select 1, 'Lorem'"}, {});
+    auto &meta = result_set.metadata();
 
-    ASSERT_EQ(1, columns.size());
-    EXPECT_EQ(column_type::INT32, columns[0].type());
+    ASSERT_EQ(2, meta.columns().size());
+
+    EXPECT_EQ(0, meta.index_of("1"));
+    EXPECT_EQ(1, meta.index_of("'Lorem'"));
+
+    EXPECT_EQ(column_type::INT32, meta.columns()[0].type());
+    EXPECT_EQ("1", meta.columns()[0].name());
+
+    EXPECT_EQ(column_type::STRING, meta.columns()[1].type());
+    EXPECT_EQ("'Lorem'", meta.columns()[1].name());
 }

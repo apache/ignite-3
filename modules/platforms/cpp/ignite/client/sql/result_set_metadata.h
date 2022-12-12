@@ -54,7 +54,7 @@ public:
      * @param name The column name.
      * @return Column index.
      */
-    [[nodiscard]] std::int32_t index_of(const std::string& name) {
+    [[nodiscard]] std::int32_t index_of(const std::string& name) const {
         if (m_indices.empty()) {
             for (size_t i = 0; i < m_columns.size(); ++i) {
                 m_indices[m_columns[i].name()] = i;
@@ -72,7 +72,7 @@ private:
     std::vector<column_metadata> m_columns;
 
     /** Indices of the columns corresponding to their names. */
-    std::unordered_map<std::string, size_t> m_indices;
+    mutable std::unordered_map<std::string, size_t> m_indices;
 };
 
 } // namespace ignite
