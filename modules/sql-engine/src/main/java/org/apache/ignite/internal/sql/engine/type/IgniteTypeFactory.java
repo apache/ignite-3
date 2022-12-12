@@ -45,7 +45,6 @@ import org.apache.calcite.sql.type.BasicSqlType;
 import org.apache.calcite.sql.type.IntervalSqlType;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NativeTypes;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Ignite type factory.
