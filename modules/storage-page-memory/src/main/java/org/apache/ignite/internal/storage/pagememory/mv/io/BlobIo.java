@@ -44,5 +44,7 @@ public abstract class BlobIo extends PageIo {
 
     public abstract void setFragmentLength(long pageAddr, int fragmentLength);
 
+    public abstract void getFragmentBytes(long pageAddr, byte[] destArray, int destOffset, int fragmentLength);
+
     public abstract void setFragmentBytes(long pageAddr, byte[] bytes, int bytesOffset, int fragmentLength);
 }

@@ -27,6 +27,7 @@ import org.apache.ignite.internal.storage.pagememory.mv.io.BlobDataIo;
 import org.apache.ignite.internal.storage.pagememory.mv.io.BlobFirstIo;
 import org.apache.ignite.internal.storage.pagememory.mv.io.BlobIo;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
+import org.jetbrains.annotations.Nullable;
 
 public class BlobStorage {
     public static final long NO_PAGE_ID = 0;
@@ -47,8 +48,49 @@ public class BlobStorage {
         this.statisticsHolder = statisticsHolder;
     }
 
-    public long storeBlob(long pageId, byte[] bytes) throws IgniteInternalCheckedException {
-        return doStore(pageId, bytes, 0);
+    public byte[] readBlob(long firstPageId) throws IgniteInternalCheckedException {
+        return doRead(firstPageId, null, 0);
+    }
+
+    private byte[] doRead(long pageId, byte @Nullable [] bytes, int bytesOffset) throws IgniteInternalCheckedException {
+        final long page = pageMemory.acquirePage(groupId, pageId, statisticsHolder);
+
+        try {
+            long pageAddr = pageMemory.readLock(groupId, pageId, page);
+
+            try {
+                BlobIo io = pageMemory.ioRegistry().resolve(pageAddr);
+
+                if (bytes == null) {
+                    assert bytesOffset == 0;
+
+                    bytes = new byte[io.getTotalLength(pageAddr)];
+                }
+
+                int fragmentLength = io.getFragmentLength(pageAddr);
+                io.getFragmentBytes(pageAddr, bytes, bytesOffset, fragmentLength);
+
+                int newBytesOffset = bytesOffset + fragmentLength;
+
+                if (newBytesOffset < bytes.length) {
+                    long nextPageId = io.getNextPageId(pageAddr);
+
+                    assert nextPageId != NO_PAGE_ID;
+
+                    return doRead(nextPageId, bytes, newBytesOffset);
+                } else {
+                    return bytes;
+                }
+            } finally {
+                pageMemory.readUnlock(groupId, pageId, page);
+            }
+        } finally {
+            pageMemory.releasePage(groupId, pageId, page);
+        }
+    }
+
+    public long storeBlob(long firstPageId, byte[] bytes) throws IgniteInternalCheckedException {
+        return doStore(firstPageId, bytes, 0);
     }
 
     private long doStore(long maybePageId, byte[] bytes, int bytesOffset) throws IgniteInternalCheckedException {

@@ -244,20 +244,14 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
                     return null;
                 }
 
-                // TODO: implement reading
+                byte[] bytes = blobStorage.readBlob(meta.lastRaftGroupConfigFirstPageId());
 
-                return null;
-
-//                ReadBlob readBlob = new ReadBlob();
-//
-//                pageReader.traverse(configLink, readBlob, null);
-//
-//                return raftGroupConfigFromBytes(readBlob.result());
+                return raftGroupConfigFromBytes(bytes);
             } finally {
                 raftGroupConfigReadWriteLock.readLock().unlock();
             }
-//        } catch (IgniteInternalCheckedException e) {
-//            throw new IgniteInternalException("Failed to read group config", e);
+        } catch (IgniteInternalCheckedException e) {
+            throw new IgniteInternalException("Failed to read group config, groupId=" + groupId + ", partitionId=" + partitionId, e);
         } finally {
             closeBusyLock.leaveBusy();
         }

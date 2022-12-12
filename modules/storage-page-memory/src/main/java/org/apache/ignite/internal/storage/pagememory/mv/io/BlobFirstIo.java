@@ -96,6 +96,11 @@ public class BlobFirstIo extends BlobIo {
     }
 
     @Override
+    public void getFragmentBytes(long pageAddr, byte[] destArray, int destOffset, int fragmentLength) {
+        PageUtils.getBytes(pageAddr, FRAGMENT_BYTES_OFF, destArray, destOffset, fragmentLength);
+    }
+
+    @Override
     public void setFragmentBytes(long pageAddr, byte[] bytes, int bytesOffset, int fragmentLength) {
         PageUtils.putBytes(pageAddr, FRAGMENT_BYTES_OFF, bytes, bytesOffset, fragmentLength);
     }
