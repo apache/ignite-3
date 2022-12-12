@@ -177,7 +177,7 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
             @Override
             public void close() {
                 try {
-                    closeAll(it, () -> RocksUtils.closeAll(options, upperBoundSlice));
+                    closeAll(it, options, upperBoundSlice);
                 } catch (Exception e) {
                     throw new StorageException("Error closing cursor", e);
                 }
@@ -221,12 +221,16 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
                 } else {
                     it.seekForPrev(key);
 
-                    it.next();
+                    if (it.isValid()) {
+                        it.next();
+                    } else {
+                        RocksUtils.checkIterator(it);
+
+                        it.seek(lowerBound == null ? partitionStorage.partitionStartPrefix() : lowerBound);
+                    }
                 }
 
                 if (!it.isValid()) {
-                    // check the status first. This operation is guaranteed to throw if an internal error has occurred during
-                    // the iteration. Otherwise, we've exhausted the data range.
                     RocksUtils.checkIterator(it);
 
                     hasNext = false;
