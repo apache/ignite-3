@@ -104,6 +104,7 @@ import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.jetbrains.annotations.Nullable;
 
+//TODO Simplify code generation process: https://issues.apache.org/jira/browse/IGNITE-18366
 class InnerNodeAsmGenerator extends AbstractAsmGenerator {
     /** Class definition that extends the {@link InnerNode}. */
     private ClassDefinition innerNodeClassDef;
