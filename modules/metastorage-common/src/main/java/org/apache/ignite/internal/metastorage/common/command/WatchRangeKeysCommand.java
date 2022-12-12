@@ -19,7 +19,6 @@ package org.apache.ignite.internal.metastorage.common.command;
 
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.lang.IgniteUuid;
-import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
 import org.jetbrains.annotations.Nullable;
 
@@ -27,7 +26,7 @@ import org.jetbrains.annotations.Nullable;
  * Watch command for MetaStorageCommandListener that subscribes on meta storage updates matching the parameters.
  */
 @Transferable(MetastorageCommandsMessageGroup.WATCH_RANGE_KEYS)
-public interface WatchRangeKeysCommand extends NetworkMessage, WriteCommand {
+public interface WatchRangeKeysCommand extends WriteCommand {
     /**
      * Returns start key of range (inclusive). Couldn't be {@code null}.
      */

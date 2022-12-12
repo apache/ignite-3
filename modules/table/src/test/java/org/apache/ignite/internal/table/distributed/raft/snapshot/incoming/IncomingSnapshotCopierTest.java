@@ -355,7 +355,7 @@ public class IncomingSnapshotCopierTest {
 
             responseEntries.add(
                     TABLE_MSG_FACTORY.responseEntry()
-                            .rowId(new UUID(rowId.mostSignificantBits(), rowId.leastSignificantBits()))
+                            .rowId(rowId.uuid())
                             .rowVersions(rowVersions)
                             .timestamps(timestamps)
                             .txId(txId)
