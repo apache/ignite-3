@@ -28,8 +28,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="JetBrains.Annotations" Version="2022.1.0" PrivateAssets="all" />
-    <PackageReference Include="MessagePack" Version="[2.1.80,)" />
+    <PackageReference Include="JetBrains.Annotations" Version="2022.3.1" PrivateAssets="all" />
+    <PackageReference Include="MessagePack" Version="[2.1.90,)" />
     <PackageReference Include="NodaTime" Version="[3.*,)" />
     <PackageReference Include="Remotion.Linq" Version="2.2.0" />
   </ItemGroup>

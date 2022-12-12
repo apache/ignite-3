@@ -26,7 +26,6 @@ using System.Reflection;
 using System.Reflection.Emit;
 using System.Runtime.Serialization;
 using Ignite.Sql;
-using Proto;
 using Proto.BinaryTuple;
 using Remotion.Linq.Clauses;
 using Remotion.Linq.Clauses.Expressions;
