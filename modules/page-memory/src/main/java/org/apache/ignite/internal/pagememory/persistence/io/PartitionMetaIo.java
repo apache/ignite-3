@@ -71,7 +71,7 @@ public class PartitionMetaIo extends PageIo {
 
         setLastAppliedIndex(pageAddr, 0);
         setLastAppliedTerm(pageAddr, 0);
-        setLastRaftGroupConfigLink(pageAddr, 0);
+        setLastRaftGroupConfigFirstPageId(pageAddr, 0);
         setRowVersionFreeListRootPageId(pageAddr, 0);
         setIndexColumnsFreeListRootPageId(pageAddr, 0);
         setVersionChainTreeRootPageId(pageAddr, 0);
@@ -104,15 +104,15 @@ public class PartitionMetaIo extends PageIo {
     }
 
     /**
-     * Sets link to a blob representing last RAFT group config.
+     * Sets ID of the first page in a chain storing a blob representing last RAFT group config.
      *
      * @param pageAddr Page address.
-     * @param lastRaftGroupConfigLink Link to a blob representing last RAFT group config..
+     * @param pageId Page ID.
      */
-    public void setLastRaftGroupConfigLink(long pageAddr, long lastRaftGroupConfigLink) {
+    public void setLastRaftGroupConfigFirstPageId(long pageAddr, long pageId) {
         assertPageType(pageAddr);
 
-        putLong(pageAddr, LAST_RAFT_GROUP_CONFIG_LINK_OFF, lastRaftGroupConfigLink);
+        putLong(pageAddr, LAST_RAFT_GROUP_CONFIG_LINK_OFF, pageId);
     }
 
     /**
@@ -134,11 +134,11 @@ public class PartitionMetaIo extends PageIo {
     }
 
     /**
-     * Returns link to a blob representing last RAFT group config.
+     * Returns ID of the first page in a chain storing a blob representing last RAFT group config.
      *
      * @param pageAddr Page address.
      */
-    public long getLastRaftGroupConfigLink(long pageAddr) {
+    public long getLastRaftGroupConfigFirstPageId(long pageAddr) {
         return getLong(pageAddr, LAST_RAFT_GROUP_CONFIG_LINK_OFF);
     }
 
@@ -253,7 +253,7 @@ public class PartitionMetaIo extends PageIo {
         sb.app("TablePartitionMeta [").nl()
                 .app("lastAppliedIndex=").app(getLastAppliedIndex(addr)).nl()
                 .app("lastAppliedTerm=").app(getLastAppliedTerm(addr)).nl()
-                .app("lastRaftGroupConfigLink=").app(getLastRaftGroupConfigLink(addr)).nl()
+                .app("lastRaftGroupConfigFirstPageId=").app(getLastRaftGroupConfigFirstPageId(addr)).nl()
                 .app(", rowVersionFreeListRootPageId=").appendHex(getRowVersionFreeListRootPageId(addr)).nl()
                 .app(", indexColumnsFreeListRootPageId(=").appendHex(getIndexColumnsFreeListRootPageId(addr)).nl()
                 .app(", versionChainTreeRootPageId=").appendHex(getVersionChainTreeRootPageId(addr)).nl()

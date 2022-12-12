@@ -50,7 +50,7 @@ public class PartitionMeta {
 
     private volatile long lastAppliedTerm;
 
-    private volatile long lastRaftGroupConfigLink;
+    private volatile long lastRaftGroupConfigFirstPageId;
 
     private volatile long rowVersionFreeListRootPageId;
 
@@ -85,7 +85,7 @@ public class PartitionMeta {
             @Nullable UUID checkpointId,
             long lastAppliedIndex,
             long lastAppliedTerm,
-            long lastRaftGroupConfigLink,
+            long lastRaftGroupConfigFirstPageId,
             long rowVersionFreeListRootPageId,
             long indexColumnsFreeListRootPageId,
             long versionChainTreeRootPageId,
@@ -94,7 +94,7 @@ public class PartitionMeta {
     ) {
         this.lastAppliedIndex = lastAppliedIndex;
         this.lastAppliedTerm = lastAppliedTerm;
-        this.lastRaftGroupConfigLink = lastRaftGroupConfigLink;
+        this.lastRaftGroupConfigFirstPageId = lastRaftGroupConfigFirstPageId;
         this.rowVersionFreeListRootPageId = rowVersionFreeListRootPageId;
         this.indexColumnsFreeListRootPageId = indexColumnsFreeListRootPageId;
         this.versionChainTreeRootPageId = versionChainTreeRootPageId;
@@ -116,7 +116,7 @@ public class PartitionMeta {
                 checkpointId,
                 metaIo.getLastAppliedIndex(pageAddr),
                 metaIo.getLastAppliedTerm(pageAddr),
-                metaIo.getLastRaftGroupConfigLink(pageAddr),
+                metaIo.getLastRaftGroupConfigFirstPageId(pageAddr),
                 metaIo.getRowVersionFreeListRootPageId(pageAddr),
                 metaIo.getIndexColumnsFreeListRootPageId(pageAddr),
                 metaIo.getVersionChainTreeRootPageId(pageAddr),
@@ -154,22 +154,22 @@ public class PartitionMeta {
     }
 
     /**
-     * Returns link to a blob representing last RAFT group config.
+     * Returns ID of the first page in a chain storing a blob representing last RAFT group config.
      */
-    public long lastRaftGroupConfigLink() {
-        return lastRaftGroupConfigLink;
+    public long lastRaftGroupConfigFirstPageId() {
+        return lastRaftGroupConfigFirstPageId;
     }
 
     /**
-     * Sets link to a blob representing last RAFT group config.
+     * Sets ID of the first page in a chain storing a blob representing last RAFT group config.
      *
      * @param checkpointId Checkpoint ID.
-     * @param groupConfigLink Link to a blob representing a RAFT group config.
+     * @param pageId PageId.
      */
-    public void lastRaftGroupConfigLink(@Nullable UUID checkpointId, long groupConfigLink) {
+    public void lastRaftGroupConfigFirstPageId(@Nullable UUID checkpointId, long pageId) {
         updateSnapshot(checkpointId);
 
-        this.lastRaftGroupConfigLink = groupConfigLink;
+        this.lastRaftGroupConfigFirstPageId = pageId;
     }
 
     /**
@@ -305,7 +305,7 @@ public class PartitionMeta {
 
         private final long lastAppliedTerm;
 
-        private final long lastRaftGroupConfigLink;
+        private final long lastRaftGroupConfigFirstPageId;
 
         private final long versionChainTreeRootPageId;
 
@@ -327,7 +327,7 @@ public class PartitionMeta {
             this.checkpointId = checkpointId;
             lastAppliedIndex = partitionMeta.lastAppliedIndex;
             lastAppliedTerm = partitionMeta.lastAppliedTerm;
-            lastRaftGroupConfigLink = partitionMeta.lastRaftGroupConfigLink;
+            lastRaftGroupConfigFirstPageId = partitionMeta.lastRaftGroupConfigFirstPageId;
             versionChainTreeRootPageId = partitionMeta.versionChainTreeRootPageId;
             rowVersionFreeListRootPageId = partitionMeta.rowVersionFreeListRootPageId;
             indexColumnsFreeListRootPageId = partitionMeta.indexColumnsFreeListRootPageId;
@@ -350,10 +350,10 @@ public class PartitionMeta {
         }
 
         /**
-         * Returns link to a blob representing last RAFT group config.
+         * Returns ID of the first page in a chain storing a blob representing last RAFT group config.
          */
-        public long lastRaftGroupConfigLink() {
-            return lastRaftGroupConfigLink;
+        public long lastRaftGroupConfigFirstPageId() {
+            return lastRaftGroupConfigFirstPageId;
         }
 
         /**
@@ -400,7 +400,7 @@ public class PartitionMeta {
         void writeTo(PartitionMetaIo metaIo, long pageAddr) {
             metaIo.setLastAppliedIndex(pageAddr, lastAppliedIndex);
             metaIo.setLastAppliedTerm(pageAddr, lastAppliedTerm);
-            metaIo.setLastRaftGroupConfigLink(pageAddr, lastRaftGroupConfigLink);
+            metaIo.setLastRaftGroupConfigFirstPageId(pageAddr, lastRaftGroupConfigFirstPageId);
             metaIo.setVersionChainTreeRootPageId(pageAddr, versionChainTreeRootPageId);
             metaIo.setIndexColumnsFreeListRootPageId(pageAddr, indexColumnsFreeListRootPageId);
             metaIo.setRowVersionFreeListRootPageId(pageAddr, rowVersionFreeListRootPageId);

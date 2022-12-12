@@ -238,9 +238,9 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
             raftGroupConfigReadWriteLock.readLock().lock();
 
             try {
-                long configLink = meta.lastRaftGroupConfigLink();
+                long configFirstPageId = meta.lastRaftGroupConfigFirstPageId();
 
-                if (configLink == 0) {
+                if (configFirstPageId == BlobStorage.NO_PAGE_ID) {
                     return null;
                 }
 
@@ -275,9 +275,9 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         raftGroupConfigReadWriteLock.writeLock().lock();
 
         try {
-            long configPageId = blobStorage.storeBlob(meta.lastRaftGroupConfigLink(), raftGroupConfigBytes);
+            long configPageId = blobStorage.storeBlob(meta.lastRaftGroupConfigFirstPageId(), raftGroupConfigBytes);
 
-            meta.lastRaftGroupConfigLink(lastCheckpointId, configPageId);
+            meta.lastRaftGroupConfigFirstPageId(lastCheckpointId, configPageId);
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException("Cannot save committed group configuration, groupId=" + groupId + ", partitionId=" + groupId, e);
         } finally {

@@ -29,7 +29,7 @@ import org.apache.ignite.internal.storage.pagememory.mv.io.BlobIo;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 public class BlobStorage {
-    private static final long NO_PAGE_ID = 0;
+    public static final long NO_PAGE_ID = 0;
 
     private final ReuseList reuseList;
     private final PageMemory pageMemory;
