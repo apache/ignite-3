@@ -1279,7 +1279,7 @@ public abstract class AbstractSortedIndexStorageTest {
         // index   = [0]
         // cursor0 =    ^ cached [0]
         assertTrue(scan0.hasNext());
-        assertNull(scan0.peek());
+        assertEquals(0, serializer.deserializeColumns(scan0.peek())[0]);
 
         // index   = [0]
         // cursor0 =    ^ no cached row
@@ -1334,19 +1334,19 @@ public abstract class AbstractSortedIndexStorageTest {
         // cursor =        ^ cached [0, r0]
         assertTrue(scan.hasNext());
 
-        assertEquals(SimpleRow.of(0, rowId1), SimpleRow.of(scan.peek(), firstColumn(serializer)));
+        assertEquals(SimpleRow.of(0, rowId0), SimpleRow.of(scan.peek(), firstColumn(serializer)));
 
         // index  = [-1, r0] [0, r0] [0, r1]
         // cursor =                 ^ cached [0, r0]
         put(indexStorage, serializer.serializeRow(new Object[]{-1}, rowId0));
 
-        assertEquals(SimpleRow.of(0, rowId1), SimpleRow.of(scan.peek(), firstColumn(serializer)));
+        assertEquals(SimpleRow.of(0, rowId0), SimpleRow.of(scan.peek(), firstColumn(serializer)));
 
         // index  = [-1, r0] [0, r0] [0, r1] [1, r1]
         // cursor =                 ^ cached [0, r0]
         put(indexStorage, serializer.serializeRow(new Object[]{1}, rowId1));
 
-        assertEquals(SimpleRow.of(0, rowId1), SimpleRow.of(scan.peek(), firstColumn(serializer)));
+        assertEquals(SimpleRow.of(0, rowId0), SimpleRow.of(scan.peek(), firstColumn(serializer)));
 
         // index  = [-1, r0] [0, r0] [0, r1] [1, r1]
         // cursor =                 ^ no cached row
@@ -1356,7 +1356,7 @@ public abstract class AbstractSortedIndexStorageTest {
         // index  = [-1, r0] [0, r0] [0, r1] [1, r1]
         // cursor =                         ^ cached [0, r1]
         assertTrue(scan.hasNext());
-        assertEquals(SimpleRow.of(1, rowId1), SimpleRow.of(scan.peek(), firstColumn(serializer)));
+        assertEquals(SimpleRow.of(0, rowId1), SimpleRow.of(scan.peek(), firstColumn(serializer)));
 
         // index  = [-1, r0] [0, r0] [0, r1] [1, r1]
         // cursor =                         ^ no cached row
@@ -1366,7 +1366,7 @@ public abstract class AbstractSortedIndexStorageTest {
         // index  = [-1, r0] [0, r0] [0, r1] [1, r1]
         // cursor =                                 ^ cached [1, r1]
         assertTrue(scan.hasNext());
-        assertNull(scan.peek());
+        assertEquals(SimpleRow.of(1, rowId1), SimpleRow.of(scan.peek(), firstColumn(serializer)));
 
         // index  = [-1, r0] [0, r0] [0, r1] [1, r1]
         // cursor =                                 ^ no cached row
@@ -1425,13 +1425,13 @@ public abstract class AbstractSortedIndexStorageTest {
         // index  = [1, r0] [2, r1]
         // cursor =        ^ cached [1, r0]
         assertTrue(scan.hasNext());
-        assertEquals(SimpleRow.of(2, rowId1), SimpleRow.of(scan.peek(), firstColumn(serializer)));
+        assertEquals(SimpleRow.of(1, rowId0), SimpleRow.of(scan.peek(), firstColumn(serializer)));
 
         // index  = [1, r0]
         // cursor =        ^ cached [1, r0]
         remove(indexStorage, serializer.serializeRow(new Object[]{2}, rowId1));
 
-        assertNull(scan.peek());
+        assertEquals(SimpleRow.of(1, rowId0), SimpleRow.of(scan.peek(), firstColumn(serializer)));
 
         assertEquals(SimpleRow.of(1, rowId0), SimpleRow.of(scan.next(), firstColumn(serializer)));
         assertNull(scan.peek());
@@ -1470,14 +1470,14 @@ public abstract class AbstractSortedIndexStorageTest {
         // cursor =    ^ with cached [0]
         assertTrue(scan.hasNext());
 
-        assertEquals(SimpleRow.of(1, rowId), SimpleRow.of(scan.peek(), firstColumn(serializer)));
+        assertEquals(SimpleRow.of(0, rowId), SimpleRow.of(scan.peek(), firstColumn(serializer)));
 
         // index  = [0] [2]
         // cursor =    ^ with cached [0]
         remove(indexStorage, serializer.serializeRow(new Object[]{1}, rowId));
         put(indexStorage, serializer.serializeRow(new Object[]{2}, rowId));
 
-        assertEquals(SimpleRow.of(2, rowId), SimpleRow.of(scan.peek(), firstColumn(serializer)));
+        assertEquals(SimpleRow.of(0, rowId), SimpleRow.of(scan.peek(), firstColumn(serializer)));
 
         // index  = [0] [2]
         // cursor =    ^ with no cached row
@@ -1488,7 +1488,7 @@ public abstract class AbstractSortedIndexStorageTest {
         // cursor =    ^ with cached [2]
         assertTrue(scan.hasNext());
 
-        assertNull(scan.peek());
+        assertEquals(SimpleRow.of(2, rowId), SimpleRow.of(scan.peek(), firstColumn(serializer)));
 
         // index  = [0] [2]
         // cursor =        ^ with no cached row

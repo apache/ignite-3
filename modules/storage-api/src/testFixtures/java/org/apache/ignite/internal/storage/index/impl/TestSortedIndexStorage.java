@@ -240,7 +240,11 @@ public class TestSortedIndexStorage implements SortedIndexStorage {
 
         @Override
         public @Nullable IndexRow peek() {
-            if (hasNext != null && !hasNext) {
+            if (hasNext != null) {
+                if (hasNext) {
+                    return new IndexRowImpl(new BinaryTuple(descriptor.binaryTupleSchema(), indexMapEntry.getKey()), rowId);
+                }
+
                 return null;
             }
 

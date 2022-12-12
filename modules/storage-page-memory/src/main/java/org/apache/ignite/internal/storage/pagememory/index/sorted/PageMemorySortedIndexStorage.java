@@ -340,7 +340,11 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
 
         @Override
         public @Nullable IndexRow peek() {
-            if (hasNext != null && !hasNext) {
+            if (hasNext != null) {
+                if (hasNext) {
+                    return toIndexRowImpl(treeRow);
+                }
+
                 return null;
             }
 

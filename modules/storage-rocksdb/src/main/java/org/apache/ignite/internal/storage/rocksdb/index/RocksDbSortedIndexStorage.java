@@ -213,7 +213,11 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
 
             @Override
             public @Nullable T peek() {
-                if (hasNext != null && !hasNext) {
+                if (hasNext != null) {
+                    if (hasNext) {
+                        return mapper.apply(ByteBuffer.wrap(key).order(ORDER));
+                    }
+
                     return null;
                 }
 
