@@ -23,7 +23,6 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.internal.pagememory.DataRegion;
-import org.apache.ignite.internal.pagememory.datapage.DataPageReader;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMeta;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
@@ -68,8 +67,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     /** Checkpoint listener. */
     private final CheckpointListener checkpointListener;
 
-    /** Used to read data from pagememory pages. */
-    private final DataPageReader pageReader;
+    private final BlobStorage blobStorage;
 
     /** Lock that protects group config read/write. */
     private final ReadWriteLock raftGroupConfigReadWriteLock = new ReentrantReadWriteLock();
@@ -123,9 +121,11 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
 
         this.meta = meta;
 
-        pageReader = new DataPageReader(
+        blobStorage = new BlobStorage(
+                rowVersionFreeList,
                 dataRegion.pageMemory(),
                 tableStorage.configuration().value().tableId(),
+                partitionId,
                 IoStatisticsHolderNoOp.INSTANCE
         );
     }
@@ -268,15 +268,18 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         assert checkpointTimeoutLock.checkpointLockIsHeldByThread();
 
         CheckpointProgress lastCheckpoint = checkpointManager.lastCheckpointProgress();
-
         UUID lastCheckpointId = lastCheckpoint == null ? null : lastCheckpoint.id();
 
-//        Blob blob = new Blob(partitionId, raftGroupConfigToBytes(config));
+        byte[] raftGroupConfigBytes = raftGroupConfigToBytes(config);
 
         raftGroupConfigReadWriteLock.writeLock().lock();
 
         try {
-            // TODO: save/update blob
+            long configPageId = blobStorage.storeBlob(meta.lastRaftGroupConfigLink(), raftGroupConfigBytes);
+
+            meta.lastRaftGroupConfigLink(lastCheckpointId, configPageId);
+        } catch (IgniteInternalCheckedException e) {
+            throw new StorageException("Cannot save committed group configuration, groupId=" + groupId + ", partitionId=" + groupId, e);
         } finally {
             raftGroupConfigReadWriteLock.writeLock().unlock();
         }
