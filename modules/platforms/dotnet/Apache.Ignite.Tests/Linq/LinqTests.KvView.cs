@@ -170,6 +170,39 @@ public partial class LinqTests
             query.ToString());
     }
 
+    [Test]
+    public void TestGroupByAllAggregatesKv()
+    {
+        var query = KvView.AsQueryable()
+            .GroupBy(x => x.Key.Key)
+            .Select(x => new
+            {
+                x.Key,
+                Count = x.Count(),
+                Sum = x.Sum(a => a.Key.Key),
+                Avg = x.Average(a => a.Key.Key),
+                Min = x.Min(a => a.Key.Key),
+                Max = x.Max(a => a.Key.Key)
+            })
+            .OrderBy(x => x.Key);
+
+        var res = query.ToList();
+
+        Assert.AreEqual(2, res[2].Key);
+        Assert.AreEqual(1, res[2].Count);
+        Assert.AreEqual(2, res[2].Sum);
+        Assert.AreEqual(2, res[2].Avg);
+        Assert.AreEqual(2, res[2].Min);
+        Assert.AreEqual(2, res[2].Max);
+
+        StringAssert.Contains(
+            "select _T0.KEY, count(*) as COUNT, sum(_T0.KEY) as SUM, avg(_T0.KEY) as AVG, min(_T0.KEY) as MIN, max(_T0.KEY) as MAX " +
+            "from PUBLIC.TBL_INT32 as _T0 " +
+            "group by (_T0.KEY) " +
+            "order by (_T0.KEY) asc",
+            query.ToString());
+    }
+
     [OneTimeSetUp]
     protected void InitKvView()
     {
