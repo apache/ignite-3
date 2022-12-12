@@ -31,16 +31,12 @@ public class ItDynamicParameterTest extends AbstractBasicIntegrationTest {
         assertQuery("SELECT COALESCE(null, ?)").withParams(13).returns(13).check();
         assertQuery("SELECT LOWER(?)").withParams("ASD").returns("asd").check();
         assertQuery("SELECT ?").withParams("asd").returns("asd").check();
-        assertQuery("SELECT ? + ?, LOWER(?) ").withParams(2,2, "TeSt").returns(4, "test").check();
-        assertQuery("SELECT LOWER(?), ? + ? ").withParams("TeSt",2,2).returns("test", 4).check();
+        assertQuery("SELECT ? + ?, LOWER(?) ").withParams(2, 2, "TeSt").returns(4, "test").check();
+        assertQuery("SELECT LOWER(?), ? + ? ").withParams("TeSt", 2, 2).returns("test", 4).check();
 
         createAndPopulateTable();
-        assertQuery("SELECT name LIKE '%' || ? || '%' FROM person where name is not null").withParams("go")
-                .returns(true)
-                .returns(false)
-                .returns(false)
-                .returns(false)
-                .check();
+        assertQuery("SELECT name LIKE '%' || ? || '%' FROM person where name is not null").withParams("go").returns(true).returns(false)
+                .returns(false).returns(false).check();
     }
 
     // After fix the mute reason need to merge the test with above testDynamicParameters
@@ -56,17 +52,15 @@ public class ItDynamicParameterTest extends AbstractBasicIntegrationTest {
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-18345")
     @Test
     public void testDynamicParameters3() {
-        assertQuery("SELECT LAST_DAY(?)").withParams(Date.valueOf("2022-01-01"))
-                .returns(Date.valueOf("2022-01-31")).check();
-        assertQuery("SELECT LAST_DAY(?)").withParams(LocalDate.parse("2022-01-01"))
-                .returns(Date.valueOf("2022-01-31")).check();
+        assertQuery("SELECT LAST_DAY(?)").withParams(Date.valueOf("2022-01-01")).returns(Date.valueOf("2022-01-31")).check();
+        assertQuery("SELECT LAST_DAY(?)").withParams(LocalDate.parse("2022-01-01")).returns(Date.valueOf("2022-01-31")).check();
     }
 
     /** Need to test the same query with different type of parameters to cover case with check right plans cache work. **/
     @Test
-    public void testWithDifferentParametersTypes(){
-        assertQuery("SELECT ? + ?, LOWER(?) ").withParams(2,2, "TeSt").returns(4, "test").check();
-        assertQuery("SELECT ? + ?, LOWER(?) ").withParams(2.2,2.2, "TeSt").returns(4.4, "test").check();
+    public void testWithDifferentParametersTypes() {
+        assertQuery("SELECT ? + ?, LOWER(?) ").withParams(2, 2, "TeSt").returns(4, "test").check();
+        assertQuery("SELECT ? + ?, LOWER(?) ").withParams(2.2, 2.2, "TeSt").returns(4.4, "test").check();
 
         assertQuery("SELECT COALESCE(?, ?)").withParams(null, null).returns(null).check();
         assertQuery("SELECT COALESCE(?, ?)").withParams(null, 13).returns(13).check();
@@ -78,7 +72,7 @@ public class ItDynamicParameterTest extends AbstractBasicIntegrationTest {
     // After fix the mute reason need to merge the test with above testWithDifferentParametersTypes
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-18369")
     @Test
-    public void testWithDifferentParametersTypes2(){
+    public void testWithDifferentParametersTypes2() {
         assertQuery("SELECT COALESCE(?, ?)").withParams(12.2, "b").returns(12.2).check();
         assertQuery("SELECT COALESCE(?, ?)").withParams(12, "b").returns(12).check();
     }
