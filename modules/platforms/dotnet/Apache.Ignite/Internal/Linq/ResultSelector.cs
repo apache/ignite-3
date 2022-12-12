@@ -165,6 +165,7 @@ internal static class ResultSelector
 
             if (defaultAsNull)
             {
+                // if (reader.IsNull(index)) return default;
                 Label notNullLabel = il.DefineLabel();
                 il.Emit(OpCodes.Ldarg_1); // Reader.
                 il.Emit(OpCodes.Ldc_I4, index); // Index.

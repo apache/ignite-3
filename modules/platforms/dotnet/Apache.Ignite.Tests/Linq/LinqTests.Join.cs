@@ -220,7 +220,7 @@ public partial class LinqTests
     }
 
     [Test]
-    public void TestOuterJoin()
+    public void TestOuterJoinValueTypeKey()
     {
         var query1 = PocoIntView.AsQueryable(); // Sequential keys.
         var query2 = PocoShortView.AsQueryable(); // Sequential keys times 2.
@@ -255,6 +255,12 @@ public partial class LinqTests
             "left outer join (select * from PUBLIC.TBL_INT16 as _T2 ) as _T1 " +
             "on (cast(_T1.KEY as int) = _T0.KEY)",
             joinQuery.ToString());
+    }
+
+    [Test]
+    public void TestOuterJoinReferenceTypeKey()
+    {
+        Assert.Fail("TODO");
     }
 
     [Test]
