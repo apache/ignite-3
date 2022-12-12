@@ -40,6 +40,8 @@ internal static class ResultSelector
 {
     private static readonly ConcurrentDictionary<ResultSelectorCacheKey<ConstructorInfo>, object> CtorCache = new();
 
+    private static readonly ConcurrentDictionary<ResultSelectorCacheKey<Type>, object> ReaderCache = new();
+
     /// <summary>
     /// Gets the result selector.
     /// <para />
@@ -60,9 +62,11 @@ internal static class ResultSelector
         if (selectorExpression is NewExpression newExpr)
         {
             var ctorInfo = newExpr.Constructor!;
-            var cacheKey = new ResultSelectorCacheKey<ConstructorInfo>(ctorInfo, columns, defaultIfNull);
+            var ctorCacheKey = new ResultSelectorCacheKey<ConstructorInfo>(ctorInfo, columns, defaultIfNull);
 
-            return (RowReader<T>)CtorCache.GetOrAdd(cacheKey, static k => EmitConstructorReader<T>(k.Target, k.Columns, k.DefaultIfNull));
+            return (RowReader<T>)CtorCache.GetOrAdd(
+                ctorCacheKey,
+                static k => EmitConstructorReader<T>(k.Target, k.Columns, k.DefaultIfNull));
         }
 
         if (columns.Count == 1 && typeof(T).ToSqlColumnType() is { } resType)
@@ -107,21 +111,11 @@ internal static class ResultSelector
             return Get<T>(columns, subQuery.QueryModel.SelectClause.Selector, defaultIfNull);
         }
 
-        return (IReadOnlyList<IColumnMetadata> cols, ref BinaryTupleReader reader) =>
-        {
-            // TODO: Emit code.
-            var res = (T)FormatterServices.GetUninitializedObject(typeof(T));
+        var readerCacheKey = new ResultSelectorCacheKey<Type>(typeof(T), columns, defaultIfNull);
 
-            for (int i = 0; i < cols.Count; i++)
-            {
-                var col = cols[i];
-                var val = Sql.ReadColumnValue(ref reader, col, i);
-
-                SetColumnValue(col, val, res, typeof(T));
-            }
-
-            return res;
-        };
+        return (RowReader<T>)ReaderCache.GetOrAdd(
+            readerCacheKey,
+            static k => EmitUninitializedObjectReader<T>(k.Columns, k.DefaultIfNull));
     }
 
     private static void SetColumnValue<T>(IColumnMetadata col, object? val, T res, Type type)
