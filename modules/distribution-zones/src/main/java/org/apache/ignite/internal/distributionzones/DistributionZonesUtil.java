@@ -58,6 +58,7 @@ class DistributionZonesUtil {
      */
     public static ByteArray zonesLogicalTopologyKey() {
         return new ByteArray(DISTRIBUTION_ZONE_LOGICAL_TOPOLOGY);
+    }
 
     /**
      * Condition for updating {@link DistributionZonesUtil#zonesChangeTriggerKey()} key.

@@ -96,12 +96,6 @@ public class DistributionZoneManager implements IgniteComponent {
     /* Cluster Management manager. */
     private final ClusterManagementGroupManager cmgManager;
 
-    /** Meta Storage manager. */
-    private final MetaStorageManager metaStorageManager;
-
-    /* Cluster Management manager. */
-    private final ClusterManagementGroupManager cmgManager;
-
     private final VaultManager vaultMgr;
 
     /** Busy lock to stop synchronously. */
@@ -122,14 +116,7 @@ public class DistributionZoneManager implements IgniteComponent {
             ClusterManagementGroupManager cmgManager,
             VaultManager vaultMgr
     ) {
-    public DistributionZoneManager(
-            DistributionZonesConfiguration zonesConfiguration,
-            MetaStorageManager metaStorageManager,
-            ClusterManagementGroupManager cmgManager
-    ) {
         this.zonesConfiguration = zonesConfiguration;
-        this.metaStorageManager = metaStorageManager;
-        this.cmgManager = cmgManager;
         this.metaStorageManager = metaStorageManager;
         this.cmgManager = cmgManager;
         this.vaultMgr = vaultMgr;
@@ -535,105 +522,5 @@ public class DistributionZoneManager implements IgniteComponent {
                 LOG.info("");
             }
         });
-    }
-
-    private class ZonesConfigurationListener implements ConfigurationNamedListListener<DistributionZoneView> {
-        @Override
-        public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<DistributionZoneView> ctx) {
-            updateMetaStorageOnZoneCreateOrUpdate(ctx.newValue().zoneId(), ctx.storageRevision());
-
-            return completedFuture(null);
-        }
-
-        @Override
-        public CompletableFuture<?> onDelete(ConfigurationNotificationEvent<DistributionZoneView> ctx) {
-            updateMetaStorageOnZoneDelete(ctx.oldValue().zoneId(), ctx.storageRevision());
-
-            return completedFuture(null);
-        }
-
-        @Override
-        public CompletableFuture<?> onUpdate(ConfigurationNotificationEvent<DistributionZoneView> ctx) {
-            updateMetaStorageOnZoneCreateOrUpdate(ctx.newValue().zoneId(), ctx.storageRevision());
-
-            return completedFuture(null);
-        }
-    }
-
-    /**
-     * Method updates data nodes value for the specified zone,
-     * also sets {@code revision} to the {@link DistributionZonesUtil#zonesChangeTriggerKey()} if it passes the condition.
-     *
-     * @param zoneId Unique id of a zone
-     * @param revision Revision of an event that has triggered this method.
-     */
-    private void updateMetaStorageOnZoneCreateOrUpdate(int zoneId, long revision) {
-        if (!busyLock.enterBusy()) {
-            throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
-        }
-
-        try {
-            Set<ClusterNode> clusterNodes;
-
-            //TODO temporary code, will be removed in https://issues.apache.org/jira/browse/IGNITE-18087
-            try {
-                clusterNodes = cmgManager.logicalTopology().get().nodes();
-            } catch (InterruptedException | ExecutionException e) {
-                throw new IgniteInternalException(e);
-            }
-
-            // Update data nodes for a zone only if the revision of the event is newer than value in that trigger key,
-            // so we do not react on a stale events
-            CompoundCondition triggerKeyCondition = triggerKeyCondition(revision);
-
-            Set<String> nodesConsistentIds = clusterNodes.stream().map(ClusterNode::name).collect(Collectors.toSet());
-
-            byte[] logicalTopologyBytes = ByteUtils.toBytes(nodesConsistentIds);
-
-            Update dataNodesAndTriggerKeyUpd = updateDataNodesAndTriggerKey(zoneId, revision, logicalTopologyBytes);
-
-            If iif = If.iif(triggerKeyCondition, dataNodesAndTriggerKeyUpd, ops().yield(false));
-
-            metaStorageManager.invoke(iif).thenAccept(res -> {
-                if (res.getAsBoolean()) {
-                    LOG.debug("Update zones' dataNodes value [zoneId = {}, dataNodes = {}", zoneId, nodesConsistentIds);
-                } else {
-                    LOG.debug("Failed to update zones' dataNodes value [zoneId = {}]", zoneId);
-                }
-            });
-        } finally {
-            busyLock.leaveBusy();
-        }
-    }
-
-    /**
-     * Method deleted data nodes value for the specified zone,
-     * also sets {@code revision} to the {@link DistributionZonesUtil#zonesChangeTriggerKey()} if it passes the condition.
-     *
-     * @param zoneId Unique id of a zone
-     * @param revision Revision of an event that has triggered this method.
-     */
-    private void updateMetaStorageOnZoneDelete(int zoneId, long revision) {
-        if (!busyLock.enterBusy()) {
-            throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
-        }
-
-        try {
-            CompoundCondition triggerKeyCondition = triggerKeyCondition(revision);
-
-            Update dataNodesRemoveUpd = deleteDataNodesKeyAndUpdateTriggerKey(zoneId, revision);
-
-            If iif = If.iif(triggerKeyCondition, dataNodesRemoveUpd, ops().yield(false));
-
-            metaStorageManager.invoke(iif).thenAccept(res -> {
-                if (res.getAsBoolean()) {
-                    LOG.debug("Delete zones' dataNodes key [zoneId = {}", zoneId);
-                } else {
-                    LOG.debug("Failed to delete zones' dataNodes key [zoneId = {}]", zoneId);
-                }
-            });
-        } finally {
-            busyLock.leaveBusy();
-        }
     }
 }
