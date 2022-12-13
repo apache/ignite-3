@@ -268,7 +268,6 @@ public class DistributionZoneManager implements IgniteComponent {
             throw new IgniteInternalException(e);
         }
 
-
         if (vaultEntry != null && vaultEntry.value() != null) {
             byte[] newLogicalTopology = vaultEntry.value();
 
