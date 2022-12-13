@@ -15,31 +15,14 @@
  * limitations under the License.
  */
 
-#include "ignite_runner_suite.h"
+#include "ignite/client/sql/sql.h"
+#include "ignite/client/detail/sql/sql_impl.h"
 
-#include <ignite/client/ignite_client.h>
-#include <ignite/client/ignite_client_configuration.h>
+namespace ignite {
 
-#include <gtest/gtest.h>
-
-#include <chrono>
-
-using namespace ignite;
-
-/**
- * Test suite.
- */
-class client_test : public ignite_runner_suite {};
-
-TEST_F(client_test, get_configuration) {
-    ignite_client_configuration cfg{NODE_ADDRS};
-    cfg.set_logger(get_logger());
-    cfg.set_connection_limit(42);
-
-    auto client = ignite_client::start(cfg, std::chrono::seconds(30));
-
-    const auto &cfg2 = client.configuration();
-
-    EXPECT_EQ(cfg.get_endpoints(), cfg2.get_endpoints());
-    EXPECT_EQ(cfg.get_connection_limit(), cfg2.get_connection_limit());
+void sql::execute_async(
+    transaction *tx, const sql_statement &statement, std::vector<primitive> args, ignite_callback<result_set> callback) {
+    m_impl->execute_async(tx, statement, std::move(args), std::move(callback));
 }
+
+} // namespace ignite

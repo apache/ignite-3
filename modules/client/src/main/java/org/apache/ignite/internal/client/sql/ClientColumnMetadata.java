@@ -52,6 +52,10 @@ public class ClientColumnMetadata implements ColumnMetadata {
      * @param prevColumns Previous columns.
      */
     public ClientColumnMetadata(ClientMessageUnpacker unpacker, List<ColumnMetadata> prevColumns) {
+        var propCnt = unpacker.unpackArrayHeader();
+
+        assert propCnt >= 6;
+
         name = unpacker.unpackString();
         nullable = unpacker.unpackBoolean();
         type = ClientSqlColumnTypeConverter.ordinalToColumnType(unpacker.unpackInt());
@@ -59,6 +63,8 @@ public class ClientColumnMetadata implements ColumnMetadata {
         precision = unpacker.unpackInt();
 
         if (unpacker.unpackBoolean()) {
+            assert propCnt >= 9;
+
             origin = new ClientColumnOrigin(unpacker, name, prevColumns);
         } else {
             origin = null;

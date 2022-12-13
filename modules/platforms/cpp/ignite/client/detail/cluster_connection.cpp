@@ -75,7 +75,7 @@ void cluster_connection::on_connection_success(const network::end_point &addr, u
     m_logger->log_info("Established connection with remote host " + addr.to_string());
     m_logger->log_debug("Connection ID: " + std::to_string(id));
 
-    auto connection = std::make_shared<node_connection>(id, m_pool, m_logger);
+    auto connection = node_connection::make_new(id, m_pool, m_logger);
     {
         [[maybe_unused]] std::unique_lock<std::recursive_mutex> lock(m_connections_mutex);
 

@@ -76,6 +76,15 @@ enum class client_operation {
 
     /** Get and delete tuple. */
     TUPLE_GET_AND_DELETE = 32,
+
+    /** Execute SQL query. */
+    SQL_EXEC = 50,
+
+    /** Get next page. */
+    SQL_CURSOR_NEXT_PAGE = 51,
+
+    /** Close cursor. */
+    SQL_CURSOR_CLOSE = 52,
 };
 
 /**
