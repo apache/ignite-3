@@ -79,8 +79,6 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
     @Mock
     private ClusterManagementGroupManager cmgManager;
 
-    private VaultManager vaultMgr;
-
     private DistributionZoneManager distributionZoneManager;
 
     private SimpleInMemoryKeyValueStorage keyValueStorage;
@@ -104,7 +102,7 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
 
         cmgManager = mock(ClusterManagementGroupManager.class);
 
-        vaultMgr = mock(VaultManager.class);
+        VaultManager vaultMgr = mock(VaultManager.class);
 
         distributionZoneManager = new DistributionZoneManager(
                 zonesConfiguration,

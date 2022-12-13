@@ -39,6 +39,7 @@ class DistributionZonesUtil {
     /** The key, needed for processing the event about zones' update was triggered only once. */
     private static final ByteArray ZONES_CHANGE_TRIGGER_KEY = new ByteArray("distributionZones.change.trigger");
 
+    /** The key for distribution zone logical topology. */
     private static final String DISTRIBUTION_ZONE_LOGICAL_TOPOLOGY = "distributionZone.logicalTopology";
 
     /** ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONE_DATA_NODES_PREFIX}. */
@@ -54,9 +55,9 @@ class DistributionZonesUtil {
     }
 
     /**
-     * The key, needed for processing the event about zones' update was triggered only once.
+     * The key for distribution zone logical topology.
      */
-    public static ByteArray zonesLogicalTopologyKey() {
+    static ByteArray zonesLogicalTopologyKey() {
         return new ByteArray(DISTRIBUTION_ZONE_LOGICAL_TOPOLOGY);
     }
 

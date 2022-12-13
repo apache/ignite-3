@@ -27,13 +27,7 @@ import static org.apache.ignite.internal.metastorage.MetaStorageManager.APPLIED_
 import static org.apache.ignite.internal.metastorage.client.Operations.ops;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
-import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.deleteDataNodesKeyAndUpdateTriggerKey;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.triggerKeyCondition;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.updateDataNodesAndTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.updateTriggerKey;
-import static org.apache.ignite.internal.metastorage.client.Operations.ops;
-import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Common.UNEXPECTED_ERR;
 
 import java.util.Collections;
@@ -65,18 +59,12 @@ import org.apache.ignite.internal.metastorage.client.Update;
 import org.apache.ignite.internal.metastorage.client.WatchEvent;
 import org.apache.ignite.internal.metastorage.client.WatchListener;
 import org.apache.ignite.internal.util.ByteUtils;
-import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.metastorage.client.CompoundCondition;
-import org.apache.ignite.internal.metastorage.client.If;
-import org.apache.ignite.internal.metastorage.client.Update;
-import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.NodeStoppingException;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.NotNull;
 
@@ -93,7 +81,7 @@ public class DistributionZoneManager implements IgniteComponent {
     /** Meta Storage manager. */
     private final MetaStorageManager metaStorageManager;
 
-    /* Cluster Management manager. */
+    /** Cluster Management manager. */
     private final ClusterManagementGroupManager cmgManager;
 
     private final VaultManager vaultMgr;
@@ -109,6 +97,7 @@ public class DistributionZoneManager implements IgniteComponent {
      * @param zonesConfiguration Distribution zones configuration.
      * @param metaStorageManager Meta Storage manager.
      * @param cmgManager Cluster management group manager.
+     * @param vaultMgr Vault manager.
      */
     public DistributionZoneManager(
             DistributionZonesConfiguration zonesConfiguration,
@@ -277,7 +266,7 @@ public class DistributionZoneManager implements IgniteComponent {
             throw new IgniteInternalException(e);
         }
 
-        if (vaultEntry != null) {
+        if (vaultEntry.value() != null) {
             byte[] newLogicalTopology = vaultEntry.value();
 
             logicalTopology = ByteUtils.fromBytes(newLogicalTopology);
@@ -290,7 +279,7 @@ public class DistributionZoneManager implements IgniteComponent {
                     });
         }
 
-        metaStorageManager.registerWatchByPrefix(zonesLogicalTopologyKey(), new WatchListener() {
+        metaStorageManager.registerWatch(zonesLogicalTopologyKey(), new WatchListener() {
             @Override
             public boolean onUpdate(@NotNull WatchEvent evt) {
                 if (!busyLock.enterBusy()) {
@@ -300,9 +289,9 @@ public class DistributionZoneManager implements IgniteComponent {
                 try {
                     assert evt.single();
 
-                    Entry newLogicalTopology = evt.entryEvent().newEntry();
+                    Entry newEntry = evt.entryEvent().newEntry();
 
-                    Set<String> newlogicalTopology = ByteUtils.fromBytes(newLogicalTopology.value());
+                    Set<String> newlogicalTopology = ByteUtils.fromBytes(newEntry.value());
 
                     List<String> removedNodes =
                             logicalTopology.stream().filter(node -> !newlogicalTopology.contains(node)).collect(toList());
@@ -317,19 +306,19 @@ public class DistributionZoneManager implements IgniteComponent {
                                 DistributionZoneConfiguration zoneCfg = zonesConfiguration.distributionZones().get(zoneName);
 
                                 int autoAdjust = zoneCfg.dataNodesAutoAdjust().value();
-                                int scaleDown = zoneCfg.dataNodesAutoAdjustScaleDown().value();
-                                int scaleUp = zoneCfg.dataNodesAutoAdjustScaleUp().value();
+                                int autoAdjustScaleDown = zoneCfg.dataNodesAutoAdjustScaleDown().value();
+                                int autoAdjustScaleUp = zoneCfg.dataNodesAutoAdjustScaleUp().value();
 
                                 Integer zoneId = zoneCfg.zoneId().value();
 
                                 if (!removedNodes.isEmpty()) {
                                     if (autoAdjust != Integer.MAX_VALUE) {
                                         saveDataNodesToMetastorage(
-                                                zoneId, newLogicalTopology.value(), newLogicalTopology.revision()
+                                                zoneId, newEntry.value(), newEntry.revision()
                                         );
-                                    } else if (scaleDown != Integer.MAX_VALUE) {
+                                    } else if (autoAdjustScaleDown != Integer.MAX_VALUE) {
                                         saveDataNodesToMetastorage(
-                                                zoneId, newLogicalTopology.value(), newLogicalTopology.revision()
+                                                zoneId, newEntry.value(), newEntry.revision()
                                         );
                                     }
                                 }
@@ -337,11 +326,11 @@ public class DistributionZoneManager implements IgniteComponent {
                                 if (!addedNodes.isEmpty()) {
                                     if (autoAdjust != Integer.MAX_VALUE) {
                                         saveDataNodesToMetastorage(
-                                                zoneId, newLogicalTopology.value(), newLogicalTopology.revision()
+                                                zoneId, newEntry.value(), newEntry.revision()
                                         );
-                                    } else if (scaleUp != Integer.MAX_VALUE) {
+                                    } else if (autoAdjustScaleUp != Integer.MAX_VALUE) {
                                         saveDataNodesToMetastorage(
-                                                zoneId, newLogicalTopology.value(), newLogicalTopology.revision()
+                                                zoneId, newEntry.value(), newEntry.revision()
                                         );
                                     }
                                 }
@@ -498,9 +487,9 @@ public class DistributionZoneManager implements IgniteComponent {
     }
 
     /**
-     * Returns applied revision for {@link VaultManager#putAll} operation.
+     * Returns applied vault revision.
      */
-    public long appliedRevision() {
+    private long appliedRevision() {
         try {
             return vaultMgr.get(APPLIED_REV)
                     .thenApply(appliedRevision -> appliedRevision == null ? 0L : bytesToLong(appliedRevision.value()))
@@ -510,16 +499,24 @@ public class DistributionZoneManager implements IgniteComponent {
         }
     }
 
-    private void saveDataNodesToMetastorage(int zoneId, byte[] newLogicalTopology, long revision) {
-        Update dataNodesAndTriggerKeyUpd = updateDataNodesAndTriggerKey(zoneId, revision, newLogicalTopology);
+    /**
+     * Method updates data nodes value for the specified zone,
+     * also sets {@code revision} to the {@link DistributionZonesUtil#zonesChangeTriggerKey()} if it passes the condition.
+     *
+     * @param zoneId Unique id of a zone
+     * @param dataNodes Data nodes of a zone
+     * @param revision Revision of an event that has triggered this method.
+     */
+    private void saveDataNodesToMetastorage(int zoneId, byte[] dataNodes, long revision) {
+        Update dataNodesAndTriggerKeyUpd = updateDataNodesAndTriggerKey(zoneId, revision, dataNodes);
 
         var iif = If.iif(triggerKeyCondition(revision), dataNodesAndTriggerKeyUpd, ops().yield(false));
 
         metaStorageManager.invoke(iif).thenAccept(res -> {
             if (res.getAsBoolean()) {
-                LOG.info("");
+                LOG.info("Delete zones' dataNodes key [zoneId = {}", zoneId);
             } else {
-                LOG.info("");
+                LOG.info("Failed to delete zones' dataNodes key [zoneId = {}]", zoneId);
             }
         });
     }
