@@ -72,6 +72,7 @@ internal static class ResultSelector
 
         if (columns.Count == 1 && typeof(T).ToSqlColumnType() is { } resType)
         {
+            // TODO: Emit methods here too to avoid casts.
             if (columns[0].Type == resType)
             {
                 return static (IReadOnlyList<IColumnMetadata> cols, ref BinaryTupleReader reader) =>

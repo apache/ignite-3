@@ -90,6 +90,11 @@ internal readonly struct ResultSelectorCacheKey<T> : IEquatable<ResultSelectorCa
             {
                 return false;
             }
+
+            if (Columns[i].Scale != other.Columns[i].Scale)
+            {
+                return false;
+            }
         }
 
         return true;
@@ -110,6 +115,7 @@ internal readonly struct ResultSelectorCacheKey<T> : IEquatable<ResultSelectorCa
         foreach (var column in Columns)
         {
             hash.Add(column.Type);
+            hash.Add(column.Scale);
         }
 
         return hash.ToHashCode();
