@@ -50,6 +50,8 @@ public class BlobStorage {
 
     private final ReadBytes readBytes = new ReadBytes();
 
+    private final WriteBytes writeBytes = new WriteBytes();
+
     public BlobStorage(ReuseList reuseList, PageMemory pageMemory, int groupId, int partitionId, IoStatisticsHolder statisticsHolder) {
         this.reuseList = reuseList;
         this.pageMemory = pageMemory;
@@ -94,70 +96,39 @@ public class BlobStorage {
         doStore(firstPageId, bytes);
     }
 
-    private long doStore(long maybePageId, byte[] bytes) throws IgniteInternalCheckedException {
+    private long doStore(long maybeFirstPageId, byte[] bytes) throws IgniteInternalCheckedException {
         Objects.requireNonNull(bytes, "bytes is null");
 
-        int bytesOffset = 0;
-        long firstPageToFreeId;
+        long firstPageId = allocatePageIfNeeded(maybeFirstPageId, true);
 
-        long firstPageId = allocatePageIfNeeded(maybePageId, true);
-        long pageId = firstPageId;
+        WriteState state = new WriteState(bytes);
+        state.pageId = firstPageId;
 
-        while (true) {
-            final long page = pageMemory.acquirePage(groupId, pageId, statisticsHolder);
+        do {
+            Boolean ok = PageHandler.writePage(
+                    pageMemory,
+                    groupId,
+                    state.pageId,
+                    PageLockListenerNoOp.INSTANCE,
+                    writeBytes,
+                    null,
+                    state,
+                    0,
+                    false,
+                    statisticsHolder
+            );
 
-            try {
-                boolean wroteSomething = false;
+            assert ok : state.pageId;
+        } while (!state.stop);
 
-                long pageAddr = pageMemory.writeLock(groupId, pageId, page);
-
-                try {
-                    BlobIo io = pageMemory.ioRegistry().resolve(pageAddr);
-
-                    int currentPageCapacity = pageMemory.realPageSize(groupId) - io.fullHeaderSize();
-                    int currentFragmentLength = Math.min(currentPageCapacity, bytes.length - bytesOffset);
-
-                    if (bytesOffset == 0) {
-                        io.setTotalLength(pageAddr, bytes.length);
-                    }
-                    io.setFragmentLength(pageAddr, currentFragmentLength);
-                    io.setFragmentBytes(pageAddr, bytes, bytesOffset, currentFragmentLength);
-
-                    wroteSomething = true;
-
-                    int newBytesOffset = bytesOffset + currentFragmentLength;
-
-                    long maybeNextPageId = io.getNextPageId(pageAddr);
-
-                    if (newBytesOffset >= bytes.length) {
-                        io.setNextPageId(pageAddr, NO_PAGE_ID);
-
-                        firstPageToFreeId = maybeNextPageId;
-
-                        break;
-                    }
-
-                    long nextPageId = allocatePageIfNeeded(maybeNextPageId, false);
-
-                    io.setNextPageId(pageAddr, nextPageId);
-
-                    bytesOffset = newBytesOffset;
-                    pageId = nextPageId;
-                } finally {
-                    pageMemory.writeUnlock(groupId, pageId, page, wroteSomething);
-                }
-            } finally {
-                pageMemory.releasePage(groupId, pageId, page);
-            }
-        }
-
-        freePagesStartingWith(firstPageToFreeId);
+        freePagesStartingWith(state.firstPageToFreeId);
 
         return firstPageId;
     }
 
     private long allocatePageIfNeeded(long maybePageId, boolean firstPage) throws IgniteInternalCheckedException {
-        final long pageId;
+        long pageId;
+
         if (maybePageId == NO_PAGE_ID) {
             pageId = allocatePage();
 
@@ -165,6 +136,7 @@ public class BlobStorage {
         } else {
             pageId = maybePageId;
         }
+
         return pageId;
     }
 
@@ -261,6 +233,61 @@ public class BlobStorage {
             }
 
             state.bytesOffset = newBytesOffset;
+
+            return true;
+        }
+    }
+
+    private static class WriteState {
+        private final byte[] bytes;
+        private int bytesOffset;
+
+        private long pageId;
+
+        private boolean stop;
+        private long firstPageToFreeId = NO_PAGE_ID;
+
+        private WriteState(byte[] bytes) {
+            this.bytes = bytes;
+        }
+
+        private boolean isFirstPage() {
+            return bytesOffset == 0;
+        }
+    }
+
+    private class WriteBytes implements PageHandler<WriteState, Boolean> {
+        @Override
+        public Boolean run(int groupId, long pageId, long page, long pageAddr, PageIo io, WriteState state, int unused,
+                IoStatisticsHolder statHolder) throws IgniteInternalCheckedException {
+            BlobIo blobIo = (BlobIo) io;
+
+            int currentPageCapacity = pageMemory.realPageSize(groupId) - blobIo.fullHeaderSize();
+            int currentFragmentLength = Math.min(currentPageCapacity, state.bytes.length - state.bytesOffset);
+
+            if (state.isFirstPage()) {
+                blobIo.setTotalLength(pageAddr, state.bytes.length);
+            }
+            blobIo.setFragmentLength(pageAddr, currentFragmentLength);
+            blobIo.setFragmentBytes(pageAddr, state.bytes, state.bytesOffset, currentFragmentLength);
+
+            int newBytesOffset = state.bytesOffset + currentFragmentLength;
+
+            long maybeNextPageId = blobIo.getNextPageId(pageAddr);
+
+            if (newBytesOffset < state.bytes.length) {
+                long nextPageId = allocatePageIfNeeded(maybeNextPageId, false);
+
+                blobIo.setNextPageId(pageAddr, nextPageId);
+
+                state.bytesOffset = newBytesOffset;
+                state.pageId = nextPageId;
+            } else {
+                blobIo.setNextPageId(pageAddr, NO_PAGE_ID);
+
+                state.firstPageToFreeId = maybeNextPageId;
+                state.stop = true;
+            }
 
             return true;
         }
