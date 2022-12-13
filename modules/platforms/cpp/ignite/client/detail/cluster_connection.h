@@ -204,11 +204,18 @@ private:
     void remove_client(uint64_t id);
 
     /**
-     * Handle initial connection result.
+     * Handle failed initial connection result.
      *
      * @param res Connect result.
      */
     void initial_connect_result(ignite_result<void> &&res);
+
+    /**
+     * Handle successful initial connection result.
+     *
+     * @param context Protocol context.
+     */
+    void initial_connect_result(const protocol_context& context);
 
     /**
      * Find and return client.
@@ -223,6 +230,9 @@ private:
 
     /** Callback to call on initial connect. */
     std::function<void(ignite_result<void>)> m_on_initial_connect;
+
+    /** Cluster ID. */
+    uuid m_cluster_id;
 
     /** Initial connect mutex. */
     std::mutex m_on_initial_connect_mutex;
