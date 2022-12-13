@@ -22,4 +22,4 @@ using System.Collections.Generic;
 /// <summary>
 /// Query data holder.
 /// </summary>
-internal sealed record QueryData(string QueryText, ICollection<object?> Parameters);
+internal sealed record QueryData(string QueryText, ICollection<object?> Parameters, bool HasOuterJoins);

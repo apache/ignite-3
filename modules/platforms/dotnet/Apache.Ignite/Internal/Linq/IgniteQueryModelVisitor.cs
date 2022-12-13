@@ -46,6 +46,9 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
     /** */
     private readonly AliasDictionary _aliases = new();
 
+    /** */
+    private bool _hasOuterJoins;
+
     /// <summary>
     /// Gets the builder.
     /// </summary>
@@ -72,7 +75,7 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
 
         var qryText = _builder.TrimEnd().ToString();
 
-        return new QueryData(qryText, _parameters);
+        return new QueryData(qryText, _parameters, _hasOuterJoins);
     }
 
     /** <inheritdoc /> */
@@ -125,11 +128,10 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
 
         if (queryable != null)
         {
-            var subQuery = joinClause.InnerSequence as SubQueryExpression;
-
-            if (subQuery != null)
+            if (joinClause.InnerSequence is SubQueryExpression subQuery)
             {
                 var isOuter = subQuery.QueryModel.ResultOperators.OfType<DefaultIfEmptyResultOperator>().Any();
+                _hasOuterJoins |= isOuter;
 
                 _builder.AppendFormat(CultureInfo.InvariantCulture, "{0} join (", isOuter ? "left outer" : "inner");
 

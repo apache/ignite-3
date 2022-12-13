@@ -20,18 +20,11 @@ namespace Apache.Ignite.Internal.Linq;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
-using System.Globalization;
-using System.Linq.Expressions;
-using System.Runtime.Serialization;
 using System.Threading.Tasks;
 using Ignite.Sql;
 using Ignite.Transactions;
-using Proto.BinaryTuple;
 using Remotion.Linq;
-using Remotion.Linq.Clauses;
-using Remotion.Linq.Clauses.Expressions;
 using Sql;
-using Table.Serialization;
 
 /// <summary>
 /// Fields query executor.
@@ -121,103 +114,11 @@ internal sealed class IgniteQueryExecutor : IQueryExecutor
         IResultSet<T> resultSet = await _sql.ExecuteAsyncInternal(
             _transaction,
             statement,
-            cols => GetResultSelector<T>(cols, queryModel.SelectClause.Selector),
+            cols => ResultSelector.Get<T>(cols, queryModel.SelectClause.Selector, defaultIfNull: qryData.HasOuterJoins),
             qryData.Parameters)
             .ConfigureAwait(false);
 
         return resultSet;
-    }
-
-    /// <summary>
-    /// Gets the result selector.
-    /// </summary>
-    private static RowReader<T> GetResultSelector<T>(IReadOnlyList<IColumnMetadata> columns, Expression selectorExpression)
-    {
-        // TODO: IGNITE-18136 Replace reflection with emitted delegates.
-        if (selectorExpression is NewExpression newExpr)
-        {
-            return (IReadOnlyList<IColumnMetadata> cols, ref BinaryTupleReader reader) =>
-            {
-                var args = new object?[cols.Count];
-
-                for (int i = 0; i < cols.Count; i++)
-                {
-                    var val = Sql.ReadColumnValue(ref reader, cols[i], i);
-
-                    if (val != null)
-                    {
-                        val = Convert.ChangeType(val, newExpr.Arguments[i].Type, CultureInfo.InvariantCulture);
-                    }
-
-                    args[i] = val;
-                }
-
-                return (T)newExpr.Constructor!.Invoke(args);
-            };
-        }
-
-        if (columns.Count == 1 && typeof(T).ToSqlColumnType() is not null)
-        {
-            return (IReadOnlyList<IColumnMetadata> cols, ref BinaryTupleReader reader) =>
-                (T)Convert.ChangeType(Sql.ReadColumnValue(ref reader, cols[0], 0)!, typeof(T), CultureInfo.InvariantCulture);
-        }
-
-        if (typeof(T).GetKeyValuePairTypes() is var (keyType, valType))
-        {
-            return (IReadOnlyList<IColumnMetadata> cols, ref BinaryTupleReader reader) =>
-            {
-                var key = FormatterServices.GetUninitializedObject(keyType);
-                var val = FormatterServices.GetUninitializedObject(valType);
-
-                for (int i = 0; i < cols.Count; i++)
-                {
-                    var col = cols[i];
-                    var colVal = Sql.ReadColumnValue(ref reader, col, i);
-
-                    SetColumnValue(col, colVal, key, keyType);
-                    SetColumnValue(col, colVal, val, valType);
-                }
-
-                return (T)Activator.CreateInstance(typeof(T), key, val)!;
-            };
-        }
-
-        if (selectorExpression is QuerySourceReferenceExpression
-            {
-                ReferencedQuerySource: IFromClause { FromExpression: SubQueryExpression subQuery }
-            })
-        {
-            // Select everything from a sub-query - use nested selector.
-            return GetResultSelector<T>(columns, subQuery.QueryModel.SelectClause.Selector);
-        }
-
-        return (IReadOnlyList<IColumnMetadata> cols, ref BinaryTupleReader reader) =>
-        {
-            var res = (T)FormatterServices.GetUninitializedObject(typeof(T));
-
-            for (int i = 0; i < cols.Count; i++)
-            {
-                var col = cols[i];
-                var val = Sql.ReadColumnValue(ref reader, col, i);
-
-                SetColumnValue(col, val, res, typeof(T));
-            }
-
-            return res;
-        };
-    }
-
-    private static void SetColumnValue<T>(IColumnMetadata col, object? val, T res, Type type)
-    {
-        if (type.GetFieldByColumnName(col.Name) is {} field)
-        {
-            if (val != null)
-            {
-                val = Convert.ChangeType(val, field.FieldType, CultureInfo.InvariantCulture);
-            }
-
-            field.SetValue(res, val);
-        }
     }
 
     [SuppressMessage("Reliability", "CA2007:Consider calling ConfigureAwait on the awaited task", Justification = "False positive.")]

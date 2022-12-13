@@ -121,7 +121,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
                 if (col.Type == ClientDataType.Decimal)
                 {
-                    EmitLdcI4(il, col.Scale);
+                    il.Emit(OpCodes.Ldc_I4, col.Scale);
                 }
 
                 il.Emit(OpCodes.Call, directWriteMethod);
@@ -160,7 +160,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
                     if (col.Type == ClientDataType.Decimal)
                     {
-                        EmitLdcI4(il, col.Scale);
+                        il.Emit(OpCodes.Ldc_I4, col.Scale);
                     }
 
                     var writeMethod = BinaryTupleMethods.GetWriteMethod(fieldInfo.FieldType);
@@ -236,7 +236,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
                     if (col.Type == ClientDataType.Decimal)
                     {
-                        EmitLdcI4(il, col.Scale);
+                        il.Emit(OpCodes.Ldc_I4, col.Scale);
                     }
 
                     var writeMethod = BinaryTupleMethods.GetWriteMethod(fieldInfo.FieldType);
@@ -279,7 +279,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
                 if (schema.Columns[0] is { Type: ClientDataType.Decimal } col)
                 {
-                    EmitLdcI4(il, col.Scale);
+                    il.Emit(OpCodes.Ldc_I4, col.Scale);
                 }
 
                 il.Emit(OpCodes.Call, readMethod);
@@ -288,7 +288,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 return (ReadDelegate<T>)method.CreateDelegate(typeof(ReadDelegate<T>));
             }
 
-            var local = DeclareAndInitLocal(il, type);
+            var local = il.DeclareAndInitLocal(type);
 
             var columns = schema.Columns;
             var count = keyOnly ? schema.KeyColumnCount : columns.Count;
@@ -317,9 +317,9 @@ namespace Apache.Ignite.Internal.Table.Serialization
             var keyMethod = BinaryTupleMethods.GetReadMethodOrNull(keyType);
             var valMethod = BinaryTupleMethods.GetReadMethodOrNull(valType);
 
-            var kvLocal = DeclareAndInitLocal(il, type);
-            var keyLocal = keyMethod == null ? DeclareAndInitLocal(il, keyType) : null;
-            var valLocal = valMethod == null ? DeclareAndInitLocal(il, valType) : null;
+            var kvLocal = il.DeclareAndInitLocal(type);
+            var keyLocal = keyMethod == null ? il.DeclareAndInitLocal(keyType) : null;
+            var valLocal = valMethod == null ? il.DeclareAndInitLocal(valType) : null;
 
             var columns = schema.Columns;
             var count = keyOnly ? schema.KeyColumnCount : columns.Count;
@@ -396,7 +396,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
             }
 
             var il = method.GetILGenerator();
-            var local = DeclareAndInitLocal(il, type); // T res
+            var local = il.DeclareAndInitLocal(type); // T res
 
             var columns = schema.Columns;
 
@@ -433,7 +433,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
             var (_, valType, _, valField) = GetKeyValTypes();
 
             var il = method.GetILGenerator();
-            var kvLocal = DeclareAndInitLocal(il, type);
+            var kvLocal = il.DeclareAndInitLocal(type);
 
             var valReadMethod = BinaryTupleMethods.GetReadMethodOrNull(valType);
 
@@ -450,7 +450,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
             }
             else
             {
-                var valLocal = DeclareAndInitLocal(il, valType);
+                var valLocal = il.DeclareAndInitLocal(valType);
                 var columns = schema.Columns;
 
                 for (var i = schema.KeyColumnCount; i < columns.Count; i++)
@@ -486,61 +486,16 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
             il.Emit(local.LocalType.IsValueType ? OpCodes.Ldloca_S : OpCodes.Ldloc, local); // res
             il.Emit(OpCodes.Ldarg_0); // reader
-            EmitLdcI4(il, elemIdx); // index
+            il.Emit(OpCodes.Ldc_I4, elemIdx); // index
 
             if (col.Type == ClientDataType.Decimal)
             {
-                EmitLdcI4(il, col.Scale);
+                il.Emit(OpCodes.Ldc_I4, col.Scale);
             }
 
+            // TODO IGNITE-18329 Handle nullable types.
             il.Emit(OpCodes.Call, readMethod);
             il.Emit(OpCodes.Stfld, fieldInfo); // res.field = value
-        }
-
-        private static void EmitLdcI4(ILGenerator il, int val)
-        {
-            switch (val)
-            {
-                case 0:
-                    il.Emit(OpCodes.Ldc_I4_0);
-                    break;
-
-                case 1:
-                    il.Emit(OpCodes.Ldc_I4_1);
-                    break;
-
-                case 2:
-                    il.Emit(OpCodes.Ldc_I4_2);
-                    break;
-
-                case 3:
-                    il.Emit(OpCodes.Ldc_I4_3);
-                    break;
-
-                case 4:
-                    il.Emit(OpCodes.Ldc_I4_4);
-                    break;
-
-                case 5:
-                    il.Emit(OpCodes.Ldc_I4_5);
-                    break;
-
-                case 6:
-                    il.Emit(OpCodes.Ldc_I4_6);
-                    break;
-
-                case 7:
-                    il.Emit(OpCodes.Ldc_I4_7);
-                    break;
-
-                case 8:
-                    il.Emit(OpCodes.Ldc_I4_8);
-                    break;
-
-                default:
-                    il.Emit(OpCodes.Ldc_I4, val);
-                    break;
-            }
         }
 
         private static void ValidateFieldType(FieldInfo fieldInfo, Column column)
@@ -581,26 +536,6 @@ namespace Apache.Ignite.Internal.Table.Serialization
             throw new IgniteClientException(
                 ErrorGroups.Client.Configuration,
                 $"Can't map '{type}' to columns '{columnStr}'. Matching fields not found.");
-        }
-
-        private static LocalBuilder DeclareAndInitLocal(ILGenerator il, Type type)
-        {
-            var local = il.DeclareLocal(type);
-
-            if (type.IsValueType)
-            {
-                il.Emit(OpCodes.Ldloca_S, local);
-                il.Emit(OpCodes.Initobj, type);
-            }
-            else
-            {
-                il.Emit(OpCodes.Ldtoken, type);
-                il.Emit(OpCodes.Call, ReflectionUtils.GetTypeFromHandleMethod);
-                il.Emit(OpCodes.Call, ReflectionUtils.GetUninitializedObjectMethod);
-                il.Emit(OpCodes.Stloc, local);
-            }
-
-            return local;
         }
 
         private static (Type KeyType, Type ValType, FieldInfo KeyField, FieldInfo ValField) GetKeyValTypes()
