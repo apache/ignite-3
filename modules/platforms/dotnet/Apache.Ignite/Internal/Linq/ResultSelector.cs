@@ -20,8 +20,6 @@ namespace Apache.Ignite.Internal.Linq;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.Globalization;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
@@ -39,6 +37,9 @@ using Table.Serialization;
 /// </summary>
 internal static class ResultSelector
 {
+    private static readonly MethodInfo ReadByteAsBooleanMethod =
+        typeof(ResultSelector).GetMethod(nameof(ReadByteAsBoolean), BindingFlags.NonPublic | BindingFlags.Static)!;
+
     private static readonly ConcurrentDictionary<ResultSelectorCacheKey<ConstructorInfo>, object> CtorCache = new();
 
     private static readonly ConcurrentDictionary<ResultSelectorCacheKey<Type>, object> SingleColumnReaderCache = new();
@@ -261,7 +262,7 @@ internal static class ResultSelector
         }
 
         var colType = col.Type.ToClrType();
-        il.Emit(OpCodes.Call, BinaryTupleMethods.GetReadMethod(colType));
+        il.Emit(OpCodes.Call, GetReadMethod(colType));
 
         il.EmitConv(colType, targetType);
         il.MarkLabel(endParamLabel);
@@ -295,7 +296,7 @@ internal static class ResultSelector
         }
 
         var colType = col.Type.ToClrType();
-        il.Emit(OpCodes.Call, BinaryTupleMethods.GetReadMethod(colType));
+        il.Emit(OpCodes.Call, GetReadMethod(colType));
 
         il.EmitConv(colType, field.FieldType);
         il.Emit(OpCodes.Stfld, field); // res.field = value
@@ -304,6 +305,11 @@ internal static class ResultSelector
     }
 
     private static long GetNextId() => Interlocked.Increment(ref _idCounter);
+
+    private static MethodInfo GetReadMethod(Type type) =>
+        type == typeof(bool)
+            ? ReadByteAsBooleanMethod
+            : BinaryTupleMethods.GetReadMethod(type);
 
     /// <summary>
     /// Reads a byte as boolean from a binary tuple reader.
