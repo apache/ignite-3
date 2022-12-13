@@ -276,6 +276,7 @@ namespace Apache.Ignite.Tests
 
                 writer.WriteArrayHeader(2); // Meta.
 
+                writer.WriteArrayHeader(6); // Column props.
                 writer.Write("NAME"); // Column name.
                 writer.Write(false); // Nullable.
                 writer.Write((int)SqlColumnType.String);
@@ -283,6 +284,7 @@ namespace Apache.Ignite.Tests
                 writer.Write(0); // Precision.
                 writer.Write(false); // No origin.
 
+                writer.WriteArrayHeader(6); // Column props.
                 writer.Write("VAL"); // Column name.
                 writer.Write(false); // Nullable.
                 writer.Write((int)SqlColumnType.String);
@@ -307,6 +309,7 @@ namespace Apache.Ignite.Tests
                 writer.Write(0); // AffectedRows.
 
                 writer.WriteArrayHeader(1); // Meta.
+                writer.WriteArrayHeader(6); // Column props.
                 writer.Write("ID"); // Column name.
                 writer.Write(false); // Nullable.
                 writer.Write((int)SqlColumnType.Int32);
