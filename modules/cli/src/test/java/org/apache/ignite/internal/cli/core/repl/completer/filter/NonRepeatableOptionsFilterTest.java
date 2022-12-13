@@ -47,7 +47,7 @@ class NonRepeatableOptionsFilterTest {
 
     @Test
     void filterNonRepeatableOptions() {
-        NonRepeatableOptionsFilter filter = new NonRepeatableOptionsFilter(cmd);
+        NonRepeatableOptionsFilter filter = new NonRepeatableOptionsFilter(cmd.getCommandSpec());
         String[] words = {"cluster", "init", "--cluster-name", "name", "--cmg-node", "node"};
         String[] candidates = {"--cluster-name", "--cmg-node", "--cluster-endpoint-url", "--meta-storage-node"};
         List<String> filteredCandidates = Arrays.asList(filter.filter(words, candidates));

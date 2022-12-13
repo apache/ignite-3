@@ -180,7 +180,7 @@ public class ReplExecutor {
         DynamicCompleterFilter dynamicCompleterFilter = factory.create(DynamicCompleterFilter.class);
         List<CompleterFilter> filters = List.of(dynamicCompleterFilter,
                 new ShortOptionsFilter(),
-                new NonRepeatableOptionsFilter(cmd)
+                new NonRepeatableOptionsFilter(cmd.getCommandSpec())
         );
 
         return new IgnitePicocliCommands(cmd, completerRegistry, filters);

@@ -21,17 +21,16 @@ import java.util.Arrays;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
-import picocli.CommandLine;
 import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Model.ITypeInfo;
 
 /** Filters out non-repeatable options from candidates. */
 public class NonRepeatableOptionsFilter implements CompleterFilter {
 
-    private final CommandLine cmd;
+    private final CommandSpec topCommandSpec;
 
-    public NonRepeatableOptionsFilter(CommandLine cmd) {
-        this.cmd = cmd;
+    public NonRepeatableOptionsFilter(CommandSpec spec) {
+        this.topCommandSpec = spec;
     }
 
     /** Filters candidates. */
@@ -52,7 +51,7 @@ public class NonRepeatableOptionsFilter implements CompleterFilter {
 
     private CommandSpec findCommandSpec(String[] words) {
         int cursor = 0;
-        CommandSpec commandSpec = cmd.getCommandSpec();
+        CommandSpec commandSpec = topCommandSpec;
         while (commandSpec.subcommands().containsKey(words[cursor])) {
             commandSpec = commandSpec.subcommands().get(words[cursor]).getCommandSpec();
             cursor++;
