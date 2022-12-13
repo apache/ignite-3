@@ -58,21 +58,31 @@ public class BlobStorage {
     }
 
     public byte[] readBlob(long firstPageId) throws IgniteInternalCheckedException {
-        return doRead(firstPageId, null, 0);
-    }
+        ReadState readState = new ReadState();
 
-    private byte[] doRead(long pageId, byte @Nullable [] bytes, int bytesOffset) throws IgniteInternalCheckedException {
-        return PageHandler.readPage(
-                pageMemory,
-                groupId,
-                pageId,
-                PageLockListenerNoOp.INSTANCE,
-                readBytes,
-                bytes,
-                bytesOffset,
-                null,
-                IoStatisticsHolderNoOp.INSTANCE
-        );
+        long pageId = firstPageId;
+
+        while (pageId != NO_PAGE_ID) {
+            Boolean ok = PageHandler.readPage(
+                    pageMemory,
+                    groupId,
+                    pageId,
+                    PageLockListenerNoOp.INSTANCE,
+                    readBytes,
+                    readState,
+                    0,
+                    false,
+                    IoStatisticsHolderNoOp.INSTANCE
+            );
+
+            assert ok : pageId;
+
+            pageId = readState.nextPageId;
+        }
+
+        assert readState.bytes != null;
+
+        return readState.bytes;
     }
 
     public long addBlob(byte[] bytes) throws IgniteInternalCheckedException {
@@ -204,32 +214,44 @@ public class BlobStorage {
         }
     }
 
-    private class ReadBytes implements PageHandler<byte[], byte[]> {
+    private static class ReadState {
+        private byte @Nullable [] bytes;
+
+        private int bytesOffset;
+
+        private long nextPageId;
+    }
+
+    private static class ReadBytes implements PageHandler<ReadState, Boolean> {
         @Override
-        public byte[] run(int groupId, long pageId, long page, long pageAddr, PageIo io, byte[] bytes, int bytesOffset,
+        public Boolean run(int groupId, long pageId, long page, long pageAddr, PageIo io, ReadState state, int unused,
                 IoStatisticsHolder statHolder) throws IgniteInternalCheckedException {
             BlobIo blobIo = (BlobIo) io;
 
-            if (bytes == null) {
-                assert bytesOffset == 0;
+            if (state.bytes == null) {
+                assert state.bytesOffset == 0;
 
-                bytes = new byte[blobIo.getTotalLength(pageAddr)];
+                state.bytes = new byte[blobIo.getTotalLength(pageAddr)];
             }
 
             int fragmentLength = blobIo.getFragmentLength(pageAddr);
-            blobIo.getFragmentBytes(pageAddr, bytes, bytesOffset, fragmentLength);
+            blobIo.getFragmentBytes(pageAddr, state.bytes, state.bytesOffset, fragmentLength);
 
-            int newBytesOffset = bytesOffset + fragmentLength;
+            int newBytesOffset = state.bytesOffset + fragmentLength;
 
-            if (newBytesOffset < bytes.length) {
+            if (newBytesOffset < state.bytes.length) {
                 long nextPageId = blobIo.getNextPageId(pageAddr);
 
                 assert nextPageId != NO_PAGE_ID;
 
-                return doRead(nextPageId, bytes, newBytesOffset);
+                state.nextPageId = nextPageId;
             } else {
-                return bytes;
+                state.nextPageId = NO_PAGE_ID;
             }
+
+            state.bytesOffset = newBytesOffset;
+
+            return true;
         }
     }
 }
