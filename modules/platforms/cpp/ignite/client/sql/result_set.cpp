@@ -48,4 +48,12 @@ std::vector<ignite_tuple> result_set::current_page() {
     return m_impl->current_page();
 }
 
+bool result_set::has_more_pages() {
+    return m_impl->has_more_pages();
+}
+
+void result_set::fetch_next_page_async(std::function<void(ignite_result<void>)> callback) {
+    m_impl->fetch_next_page_async(std::move(callback));
+}
+
 } // namespace ignite

@@ -101,6 +101,31 @@ public:
      */
     [[nodiscard]] IGNITE_API std::vector<ignite_tuple> current_page();
 
+    /**
+     * Checks whether there are more pages of results.
+     *
+     * @return @c true if there are more pages with results and @c false otherwise.
+     */
+    [[nodiscard]] IGNITE_API bool has_more_pages();
+
+    /**
+     * Fetch the next page of results asynchronously.
+     * The current page is changed after the operation is complete.
+     *
+     * @param callback Callback to call on completion.
+     */
+    IGNITE_API void fetch_next_page_async(std::function<void(ignite_result<void>)> callback);
+
+    /**
+     * Fetch the next page of results synchronously.
+     * The current page is changed after the operation is complete.
+     */
+    IGNITE_API void fetch_next_page() {
+        return sync<void>([this](auto callback) mutable {
+            fetch_next_page_async(std::move(callback));
+        });
+    }
+
 private:
     /** Implementation. */
     std::shared_ptr<detail::result_set_impl> m_impl;

@@ -72,6 +72,19 @@ protected:
     ignite_client m_client;
 };
 
+void check_columns(const result_set_metadata& meta,
+    std::initializer_list<std::tuple<std::string, column_type>> columns) {
+
+    ASSERT_EQ(columns.size(), meta.columns().size());
+    size_t i = 0;
+    for (auto &column : columns) {
+        EXPECT_EQ(i, meta.index_of(std::get<0>(column)));
+        EXPECT_EQ(meta.columns()[i].name(), std::get<0>(column));
+        EXPECT_EQ(meta.columns()[i].type(), std::get<1>(column));
+        ++i;
+    }
+}
+
 TEST_F(sql_test, sql_simple_select) {
     auto result_set = m_client.get_sql().execute(nullptr, {"select 42, 'Lorem'"}, {});
 
@@ -79,18 +92,7 @@ TEST_F(sql_test, sql_simple_select) {
     EXPECT_TRUE(result_set.has_rowset());
     EXPECT_EQ(-1, result_set.affected_rows());
 
-    auto &meta = result_set.metadata();
-
-    ASSERT_EQ(2, meta.columns().size());
-
-    EXPECT_EQ(0, meta.index_of("42"));
-    EXPECT_EQ(1, meta.index_of("'Lorem'"));
-
-    EXPECT_EQ(column_type::INT32, meta.columns()[0].type());
-    EXPECT_EQ("42", meta.columns()[0].name());
-
-    EXPECT_EQ(column_type::STRING, meta.columns()[1].type());
-    EXPECT_EQ("'Lorem'", meta.columns()[1].name());
+    check_columns(result_set.metadata(), {{"42", column_type::INT32}, {"'Lorem'", column_type::STRING}});
 
     auto page = result_set.current_page();
 
@@ -106,18 +108,7 @@ TEST_F(sql_test, sql_table_select) {
     EXPECT_TRUE(result_set.has_rowset());
     EXPECT_EQ(-1, result_set.affected_rows());
 
-    auto &meta = result_set.metadata();
-
-    ASSERT_EQ(2, meta.columns().size());
-
-    EXPECT_EQ(0, meta.index_of("ID"));
-    EXPECT_EQ(1, meta.index_of("VAL"));
-
-    EXPECT_EQ(column_type::INT32, meta.columns()[0].type());
-    EXPECT_EQ("ID", meta.columns()[0].name());
-
-    EXPECT_EQ(column_type::STRING, meta.columns()[1].type());
-    EXPECT_EQ("VAL", meta.columns()[1].name());
+    check_columns(result_set.metadata(), {{"ID", column_type::INT32}, {"VAL", column_type::STRING}});
 
     auto page = result_set.current_page();
 
@@ -127,4 +118,31 @@ TEST_F(sql_test, sql_table_select) {
         EXPECT_EQ(i, page[i].get(0).get<std::int32_t>());
         EXPECT_EQ("s-" + std::to_string(i), page[i].get(1).get<std::string>());
     }
+}
+
+
+TEST_F(sql_test, sql_select_multiple_pages) {
+    sql_statement statement{"select id, val from TEST order by id"};
+    statement.page_size(1);
+
+    auto result_set = m_client.get_sql().execute(nullptr, statement, {});
+
+    EXPECT_FALSE(result_set.was_applied());
+    EXPECT_TRUE(result_set.has_rowset());
+    EXPECT_EQ(-1, result_set.affected_rows());
+
+    check_columns(result_set.metadata(), {{"ID", column_type::INT32}, {"VAL", column_type::STRING}});
+
+    for (std::int32_t i = 0; i < 9; ++i) {
+        auto page = result_set.current_page();
+
+        EXPECT_EQ(1, page.size()) << "i=" << i;
+        EXPECT_EQ(i, page.front().get(0).get<std::int32_t>());
+        EXPECT_EQ("s-" + std::to_string(i), page.front().get(1).get<std::string>());
+
+        ASSERT_TRUE(result_set.has_more_pages());
+        result_set.fetch_next_page();
+    }
+
+    EXPECT_FALSE(result_set.has_more_pages());
 }

@@ -54,7 +54,7 @@ public:
         if (m_has_rowset) {
             auto columns = read_meta(reader);
             m_meta = std::move(result_set_metadata(columns));
-            m_page = read_page(reader);
+            m_page = read_page(reader, m_meta);
         }
     }
 
@@ -153,13 +153,64 @@ public:
      * @return Current page size.
      */
     [[nodiscard]] std::vector<ignite_tuple> current_page() {
+        require_result_set();
+
         auto ret = std::move(m_page);
         m_page.clear();
 
         return ret;
     }
 
+    /**
+     * Checks whether there are more pages of results.
+     *
+     * @return @c true if there are more pages with results and @c false otherwise.
+     */
+    [[nodiscard]] IGNITE_API bool has_more_pages() {
+        return m_resource_id.has_value() && m_has_more_pages;
+    }
+
+    /**
+     * Fetch the next page of results asynchronously.
+     * The current page is changed after the operation is complete.
+     *
+     * @param callback Callback to call on completion.
+     */
+    IGNITE_API void fetch_next_page_async(std::function<void(ignite_result<void>)> callback) {
+        require_result_set();
+
+        if (!m_resource_id)
+            throw ignite_error("Query cursor is closed");
+
+        if (!m_has_more_pages)
+            throw ignite_error("There are no more pages");
+
+        auto writer_func = [id = m_resource_id.value()](protocol::writer &writer) {
+            writer.write(id);
+        };
+
+        auto reader_func = [weak_self = weak_from_this()](protocol::reader &reader) {
+            auto self = weak_self.lock();
+            if (!self)
+                return;
+
+            self->m_page = read_page(reader, self->m_meta);
+            self->m_has_more_pages = reader.read_bool();
+        };
+
+        m_connection->perform_request<void>(
+            client_operation::SQL_CURSOR_NEXT_PAGE, writer_func, std::move(reader_func), std::move(callback));
+    }
+
 private:
+    /**
+     * Checks that query has result set and throws error if it has not.
+     */
+    void require_result_set() const {
+        if (!m_has_rowset)
+            throw ignite_error("Query does not produce result set");
+    }
+
     /**
      * Reads result set metadata.
      *
@@ -236,13 +287,13 @@ private:
      * @param reader Reader to use.
      * @return Page.
      */
-    std::vector<ignite_tuple> read_page(protocol::reader &reader) {
+    static std::vector<ignite_tuple> read_page(protocol::reader &reader, const result_set_metadata &meta) {
         auto size = reader.read_array_size();
 
         std::vector<ignite_tuple> page;
         page.reserve(size);
 
-        reader.read_array_raw([&columns = m_meta.columns(), &page] (std::uint32_t idx, const msgpack_object &obj) {
+        reader.read_array_raw([&columns = meta.columns(), &page] (std::uint32_t idx, const msgpack_object &obj) {
             auto tuple_data = protocol::unpack_binary(obj);
 
             auto columns_cnt = columns.size();
