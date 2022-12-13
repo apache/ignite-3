@@ -1573,6 +1573,34 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
     }
 
     /**
+     * Searches for the row that (strictly or loosely, depending on {@code includeRow}) follows the lowerBound passed as an argument.
+     *
+     * @param lowerBound Lower bound.
+     * @param includeRow {@code True} if you include the passed row in the result.
+     * @return Next row.
+     * @throws IgniteInternalCheckedException If failed.
+     */
+    public final @Nullable T findNext(L lowerBound, boolean includeRow) throws IgniteInternalCheckedException {
+        checkDestroyed();
+
+        GetNext g = new GetNext(lowerBound, includeRow);
+
+        try {
+            doFind(g);
+
+            return g.nextRow;
+        } catch (CorruptedDataStructureException e) {
+            throw e;
+        } catch (IgniteInternalCheckedException e) {
+            throw new IgniteInternalCheckedException("Runtime failure on lookup next row: " + lowerBound, e);
+        } catch (RuntimeException | AssertionError e) {
+            throw corruptedTreeException("Runtime failure on lookup next row: " + lowerBound, e, grpId, g.pageId);
+        } finally {
+            checkDestroyed();
+        }
+    }
+
+    /**
      * Tries to find.
      *
      * @param g Get.
@@ -6219,6 +6247,53 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
         @Override
         public void close() {
             // No-op.
+        }
+    }
+
+    /**
+     * Class for getting the next row.
+     */
+    private final class GetNext extends Get {
+        @Nullable
+        private T nextRow;
+
+        private GetNext(L row, boolean includeRow) {
+            super(row, false);
+
+            shift = includeRow ? -1 : 1;
+        }
+
+        @Override
+        boolean found(BplusIo<L> io, long pageAddr, int idx, int lvl) {
+            // Must never be called because we always have a shift.
+            throw new IllegalStateException();
+        }
+
+        @Override
+        boolean notFound(BplusIo<L> io, long pageAddr, int idx, int lvl) throws IgniteInternalCheckedException {
+            if (lvl != 0) {
+                return false;
+            }
+
+            int cnt = io.getCount(pageAddr);
+
+            if (cnt == 0) {
+                // Empty tree.
+                assert io.getForward(pageAddr, partId) == 0L;
+            } else {
+                assert io.isLeaf() : io;
+                assert cnt > 0 : cnt;
+                assert idx >= 0 : idx;
+                assert cnt >= idx : "cnt=" + cnt + ", idx=" + idx;
+
+                checkDestroyed();
+
+                if (idx < cnt) {
+                    nextRow = getRow(io, pageAddr, idx);
+                }
+            }
+
+            return true;
         }
     }
 

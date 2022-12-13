@@ -20,13 +20,12 @@ package org.apache.ignite.internal.table.distributed;
 import static org.apache.ignite.internal.utils.RebalanceUtil.recoverable;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
-import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.raft.Peer;
+import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -58,14 +57,14 @@ public class PartitionMover {
      *
      * @return Function which performs {@link RaftGroupService#changePeersAsync}.
      */
-    public CompletableFuture<Void> movePartition(Collection<Peer> peers, Collection<Peer> learners, long term) {
+    public CompletableFuture<Void> movePartition(PeersAndLearners peersAndLearners, long term) {
         if (!busyLock.enterBusy()) {
             throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
         }
 
         try {
             return raftGroupServiceSupplier.get()
-                    .changePeersAsync(peers, learners, term)
+                    .changePeersAsync(peersAndLearners, term)
                     .handle((resp, err) -> {
                         if (!busyLock.enterBusy()) {
                             throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
@@ -83,7 +82,7 @@ public class PartitionMover {
                                     LOG.debug("Unrecoverable error received during changePeersAsync invocation, retrying", err);
                                 }
 
-                                return movePartition(peers, learners, term);
+                                return movePartition(peersAndLearners, term);
                             }
 
                             return CompletableFuture.<Void>completedFuture(null);

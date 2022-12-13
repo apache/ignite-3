@@ -20,6 +20,7 @@ package org.apache.ignite.internal.storage.pagememory.index.sorted;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
 import java.nio.ByteBuffer;
+import java.util.NoSuchElementException;
 import java.util.function.Function;
 import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
 import org.apache.ignite.internal.schema.BinaryTuple;
@@ -29,6 +30,7 @@ import org.apache.ignite.internal.storage.StorageClosedException;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexRowImpl;
+import org.apache.ignite.internal.storage.index.PeekCursor;
 import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns;
@@ -162,7 +164,7 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
     }
 
     @Override
-    public Cursor<IndexRow> scan(@Nullable BinaryTuplePrefix lowerBound, @Nullable BinaryTuplePrefix upperBound, int flags) {
+    public PeekCursor<IndexRow> scan(@Nullable BinaryTuplePrefix lowerBound, @Nullable BinaryTuplePrefix upperBound, int flags) {
         if (!closeBusyLock.enterBusy()) {
             throwStorageClosedException();
         }
@@ -175,9 +177,7 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
 
             SortedIndexRowKey upper = createBound(upperBound, includeUpper);
 
-            return convertCursor(sortedIndexTree.find(lower, upper), this::toIndexRowImpl);
-        } catch (IgniteInternalCheckedException e) {
-            throw new StorageException("Failed to create scan cursor", e);
+            return new ScanCursor(lower, upper);
         } finally {
             closeBusyLock.leaveBusy();
         }
@@ -271,5 +271,129 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
                 }
             }
         };
+    }
+
+    private class ScanCursor implements PeekCursor<IndexRow> {
+        @Nullable
+        private Boolean hasNext;
+
+        @Nullable
+        private final SortedIndexRowKey lower;
+
+        @Nullable
+        private final SortedIndexRowKey upper;
+
+        @Nullable
+        private SortedIndexRow treeRow;
+
+        private ScanCursor(@Nullable SortedIndexRowKey lower, @Nullable SortedIndexRowKey upper) {
+            this.lower = lower;
+            this.upper = upper;
+        }
+
+        @Override
+        public void close() {
+            // No-op.
+        }
+
+        @Override
+        public boolean hasNext() {
+            if (!closeBusyLock.enterBusy()) {
+                throwStorageClosedException();
+            }
+
+            try {
+                advanceIfNeeded();
+
+                return hasNext;
+            } catch (IgniteInternalCheckedException e) {
+                throw new StorageException("Error while advancing the cursor", e);
+            } finally {
+                closeBusyLock.leaveBusy();
+            }
+        }
+
+        @Override
+        public IndexRow next() {
+            if (!closeBusyLock.enterBusy()) {
+                throwStorageClosedException();
+            }
+
+            try {
+                advanceIfNeeded();
+
+                boolean hasNext = this.hasNext;
+
+                if (!hasNext) {
+                    throw new NoSuchElementException();
+                }
+
+                this.hasNext = null;
+
+                return toIndexRowImpl(treeRow);
+            } catch (IgniteInternalCheckedException e) {
+                throw new StorageException("Error while advancing the cursor", e);
+            } finally {
+                closeBusyLock.leaveBusy();
+            }
+        }
+
+        @Override
+        public @Nullable IndexRow peek() {
+            if (hasNext != null) {
+                if (hasNext) {
+                    return toIndexRowImpl(treeRow);
+                }
+
+                return null;
+            }
+
+            try {
+                SortedIndexRow nextTreeRow;
+
+                if (treeRow == null) {
+                    nextTreeRow = lower == null ? sortedIndexTree.findFirst() : sortedIndexTree.findNext(lower, true);
+                } else {
+                    nextTreeRow = sortedIndexTree.findNext(treeRow, false);
+                }
+
+                if (nextTreeRow == null || (upper != null && compareRows(nextTreeRow, upper) >= 0)) {
+                    return null;
+                }
+
+                return toIndexRowImpl(nextTreeRow);
+            } catch (IgniteInternalCheckedException e) {
+                throw new StorageException("Error when peeking next element", e);
+            }
+        }
+
+        private void advanceIfNeeded() throws IgniteInternalCheckedException {
+            if (hasNext != null) {
+                return;
+            }
+
+            if (treeRow == null) {
+                treeRow = lower == null ? sortedIndexTree.findFirst() : sortedIndexTree.findNext(lower, true);
+            } else {
+                SortedIndexRow next = sortedIndexTree.findNext(treeRow, false);
+
+                if (next == null) {
+                    hasNext = false;
+
+                    return;
+                } else {
+                    treeRow = next;
+                }
+            }
+
+            hasNext = treeRow != null && (upper == null || compareRows(treeRow, upper) < 0);
+        }
+
+        private int compareRows(SortedIndexRowKey key1, SortedIndexRowKey key2) {
+            return sortedIndexTree.getBinaryTupleComparator().compare(
+                    key1.indexColumns().valueBuffer(),
+                    key2.indexColumns().valueBuffer()
+            );
+        }
     }
 }

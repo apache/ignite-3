@@ -88,7 +88,7 @@ public class IgniteSchema extends AbstractSchema {
      * @param tblName Table name.
      */
     public void removeTable(String tblName) {
-        InternalIgniteTable rmv = (InternalIgniteTable) tblMap.remove(tblName);
+        tblMap.remove(tblName);
     }
 
     /**

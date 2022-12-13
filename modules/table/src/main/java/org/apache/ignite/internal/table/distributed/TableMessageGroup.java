@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.table.distributed;
 
+import static org.apache.ignite.internal.table.distributed.TableMessageGroup.GROUP_TYPE;
+
 import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
 import org.apache.ignite.internal.table.distributed.command.HybridTimestampMessage;
 import org.apache.ignite.internal.table.distributed.command.TablePartitionIdMessage;
@@ -45,8 +47,11 @@ import org.apache.ignite.network.annotations.MessageGroup;
 /**
  * Message group for the table module.
  */
-@MessageGroup(groupType = 9, groupName = "TableMessages")
+@MessageGroup(groupType = GROUP_TYPE, groupName = "TableMessages")
 public interface TableMessageGroup {
+    /** Table message group type. */
+    short GROUP_TYPE = 9;
+
     /**
      * Message type for {@link ReadWriteSingleRowReplicaRequest}.
      */
@@ -135,7 +140,7 @@ public interface TableMessageGroup {
     /**
      * Message types for Table module RAFT commands.
      */
-    public interface Commands {
+    interface Commands {
         /** Message type for {@link FinishTxCommand}. */
         short FINISH_TX = 40;
 

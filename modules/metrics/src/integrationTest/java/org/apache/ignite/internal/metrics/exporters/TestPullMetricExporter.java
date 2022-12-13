@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.metrics.exporters;
 
+import com.google.auto.service.AutoService;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
@@ -30,6 +31,7 @@ import org.apache.ignite.internal.metrics.MetricSet;
  * Simple pull exporter, which simulate the pull principe throw primitive wait/notify API
  * instead of the complex TCP/IP etc. endpoints.
  */
+@AutoService(MetricExporter.class)
 public class TestPullMetricExporter extends BasicMetricExporter<TestPullMetricsExporterView> {
     public static final String EXPORTER_NAME = "testPull";
 

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.raft.configuration;
 
+import com.google.auto.service.AutoService;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -27,6 +28,7 @@ import org.apache.ignite.internal.configuration.ConfigurationModule;
 /**
  * {@link ConfigurationModule} for node-local configuration provided by ignite-raft.
  */
+@AutoService(ConfigurationModule.class)
 public class RaftConfigurationModule implements ConfigurationModule {
     @Override
     public ConfigurationType type() {

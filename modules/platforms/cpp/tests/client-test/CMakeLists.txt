@@ -25,6 +25,7 @@ set(SOURCES
     ignite_runner_suite.h
     main.cpp
     record_binary_view_test.cpp
+    sql_test.cpp
     tables_test.cpp
 )
 

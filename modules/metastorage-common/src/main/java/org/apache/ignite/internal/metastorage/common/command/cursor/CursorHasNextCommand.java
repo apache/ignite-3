@@ -20,14 +20,13 @@ package org.apache.ignite.internal.metastorage.common.command.cursor;
 import org.apache.ignite.internal.metastorage.common.command.MetastorageCommandsMessageGroup;
 import org.apache.ignite.internal.raft.ReadCommand;
 import org.apache.ignite.lang.IgniteUuid;
-import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
 
 /**
  * Cursor {@code hasNext} command for MetaStorageCommandListener that checks whether next element is available.
  */
 @Transferable(MetastorageCommandsMessageGroup.CURSOR_HAS_NEXT)
-public interface CursorHasNextCommand extends NetworkMessage, ReadCommand {
+public interface CursorHasNextCommand extends ReadCommand {
     /**
      * Returns cursor id.
      */

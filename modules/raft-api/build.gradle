@@ -26,9 +26,10 @@ dependencies {
     implementation project(':ignite-network-api')
     implementation project(':ignite-configuration')
     implementation libs.jetbrains.annotations
+    implementation libs.auto.service.annotations
 
     annotationProcessor project(":ignite-configuration-annotation-processor")
+    annotationProcessor libs.auto.service
 
-    testImplementation libs.mockito.junit
-    testImplementation libs.mockito.core
+    testImplementation libs.hamcrest.core
 }

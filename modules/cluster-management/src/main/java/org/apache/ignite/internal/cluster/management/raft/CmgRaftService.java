@@ -38,6 +38,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.internal.raft.Peer;
+import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
@@ -223,20 +224,15 @@ public class CmgRaftService {
      * @return Future that completes when the request is processed.
      */
     public CompletableFuture<Void> updateLearners(long term) {
-        List<Peer> currentPeers = raftService.peers();
+        Set<String> currentPeers = nodeNames();
 
-        assert currentPeers != null : "Raft service is not yet initialized";
-
-        Set<String> peersConsistentIds = currentPeers.stream()
-                .map(Peer::consistentId)
-                .collect(toSet());
-
-        Set<Peer> newLearners = logicalTopology.getLogicalTopology().nodes().stream()
+        Set<String> newLearners = logicalTopology.getLogicalTopology().nodes().stream()
                 .map(ClusterNode::name)
-                .filter(name -> !peersConsistentIds.contains(name))
-                .map(Peer::new)
+                .filter(name -> !currentPeers.contains(name))
                 .collect(toSet());
 
-        return raftService.changePeersAsync(currentPeers, newLearners, term);
+        PeersAndLearners newConfiguration = PeersAndLearners.fromConsistentIds(currentPeers, newLearners);
+
+        return raftService.changePeersAsync(newConfiguration, term);
     }
 }

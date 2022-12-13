@@ -48,7 +48,7 @@ task buildNuGet(type: Exec) {
 }
 
 task zipNuGet(type: Zip) {
-    archiveName "apache-ignite-${project.version}-nuget.zip"
+    archiveFileName = "apache-ignite-${project.version}-nuget.zip"
 
     from ("$buildDir/nupkg") {
         include "*.nupkg"
@@ -59,7 +59,7 @@ task zipNuGet(type: Zip) {
 }
 
 task zipCppClient(type: Zip) {
-    archiveName "apache-ignite-${project.version}-cpp.zip"
+    archiveFileName = "apache-ignite-${project.version}-cpp.zip"
 
     from ("$projectDir/cpp") {
         exclude "CMakeFiles"
@@ -71,18 +71,26 @@ task zipCppClient(type: Zip) {
 
 task createChecksums(type: Checksum) {
     dependsOn zipCppClient, zipNuGet
-    //TODO: remove distribution name hard code IGNITE-18092
-    files = files("${buildDir}/distributions/apache-ignite-${project.version}-cpp.zip",
-            "${buildDir}/distributions/apache-ignite-${project.version}-nuget.zip")
-    outputDir = new File("${buildDir}/distributions")
-    algorithm = Checksum.Algorithm.SHA512
+
+    inputFiles.from zipCppClient.outputs.files, zipNuGet.outputs.files
+    outputDirectory = file("$buildDir/distributions")
+    checksumAlgorithm = Checksum.Algorithm.SHA512
 }
 
-task buildAndSignNuGetZip(type: Sign) {
+signing {
     sign zipNuGet
+    sign zipCppClient
 }
 
-task buildAndSignCppClient(type: Sign) {
-    dependsOn createChecksums
-    sign zipCppClient
+configurations {
+    platformsRelease {
+        canBeConsumed = true
+        canBeResolved = false
+    }
+}
+
+artifacts {
+    platformsRelease(file("$buildDir/distributions")) {
+        builtBy createChecksums, signZipNuGet, signZipCppClient
+    }
 }

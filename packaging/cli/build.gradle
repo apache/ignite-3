@@ -49,14 +49,12 @@ def tokens = [
 ]
 
 task createChecksums(type: Checksum) {
-    //TODO: remove distribution name hard code IGNITE-18092
-    files = files(file("${buildDir}/distributions/ignite3-cli-${project.version}.zip"))
-    outputDir = new File("${buildDir}/distributions")
-    algorithm = Checksum.Algorithm.SHA512
-}
+    dependsOn distZip
 
-distTar.finalizedBy(createChecksums)
-distZip.finalizedBy(createChecksums)
+    inputFiles.from distZip.outputs.files
+    outputDirectory = file("$buildDir/distributions")
+    checksumAlgorithm = Checksum.Algorithm.SHA512
+}
 
 
 // ZIP packaging
@@ -81,7 +79,7 @@ task cliStartScript(type: CreateStartScripts) {
     mainClass = "org.apache.ignite.internal.cli.Main"
     // forms a classpath string that will be passed to exec "java -cp <classpath> .."
     // it is expected to locate the "lib" dir together with "bin"
-    classpath = files(new File("../lib/${project(':ignite-cli').name}-${project(':ignite-cli').version}.jar"), new File("../lib/*"))
+    classpath = files(new File("../lib/*"))
     outputDir = file "$buildDir/scripts"
     applicationName = 'ignite3'
 }
@@ -128,15 +126,12 @@ configurations {
 }
 
 artifacts {
-    cliZip(distZip) {
-        builtBy(distZip)
-    }
+    cliZip(distZip)
 }
 
 signing {
     sign configurations.cliZip
 }
-
 
 // DEB/RPM packaging
 
@@ -203,4 +198,17 @@ ospackage {
     }
 
     postInstall file("${buildDir}/postInstall.sh")
+}
+
+configurations {
+    cliRelease {
+        canBeConsumed = true
+        canBeResolved = false
+    }
+}
+
+artifacts {
+    cliRelease(file("$buildDir/distributions")) {
+        builtBy createChecksums, signCliZip, buildDeb, buildRpm
+    }
 }

@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.cluster.management.network.messages;
 
-import java.util.Collection;
+import java.util.Set;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
 
@@ -29,12 +29,12 @@ public interface CmgInitMessage extends NetworkMessage {
     /**
      * Consistent IDs of nodes that host the CMG.
      */
-    Collection<String> cmgNodes();
+    Set<String> cmgNodes();
 
     /**
      * Consistent IDs of nodes that host the Meta Storage.
      */
-    Collection<String> metaStorageNodes();
+    Set<String> metaStorageNodes();
 
     /**
      * Name of the cluster that will be a part of the generated cluster tag.

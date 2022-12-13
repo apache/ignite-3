@@ -19,6 +19,7 @@ package org.apache.ignite.internal.storage.pagememory;
 
 import static org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryStorageEngine.ENGINE_NAME;
 
+import com.google.auto.service.AutoService;
 import java.nio.file.Path;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
@@ -32,6 +33,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Implementation for creating {@link VolatilePageMemoryStorageEngine}.
  */
+@AutoService(DataStorageModule.class)
 public class VolatilePageMemoryDataStorageModule implements DataStorageModule {
     /** {@inheritDoc} */
     @Override

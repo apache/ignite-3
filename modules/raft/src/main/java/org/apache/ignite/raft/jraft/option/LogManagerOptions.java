@@ -30,9 +30,6 @@ import org.apache.ignite.raft.jraft.storage.impl.LogManagerImpl;
  * Options for log manager.
  */
 public class LogManagerOptions {
-    /** Raft group id. */
-    private String groupId;
-
     private Node node;
     private LogStorage logStorage;
     private ConfigurationManager configurationManager;
@@ -41,14 +38,6 @@ public class LogManagerOptions {
     private NodeMetrics nodeMetrics;
     private LogEntryCodecFactory logEntryCodecFactory = LogEntryV1CodecFactory.getInstance();
     private StripedDisruptor<LogManagerImpl.StableClosureEvent> logManagerDisruptor;
-
-    public String getGroupId() {
-        return groupId;
-    }
-
-    public void setGroupId(String groupId) {
-        this.groupId = groupId;
-    }
 
     public StripedDisruptor<LogManagerImpl.StableClosureEvent> getLogManagerDisruptor() {
         return logManagerDisruptor;
