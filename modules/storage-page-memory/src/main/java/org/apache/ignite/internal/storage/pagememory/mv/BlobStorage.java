@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv;
 
+import java.util.Objects;
 import org.apache.ignite.internal.pagememory.PageIdAllocator;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.datastructure.DataStructure;
@@ -86,74 +87,84 @@ public class BlobStorage {
     }
 
     public long addBlob(byte[] bytes) throws IgniteInternalCheckedException {
-        return doStore(NO_PAGE_ID, bytes, 0);
+        return doStore(NO_PAGE_ID, bytes);
     }
 
     public void updateBlob(long firstPageId, byte[] bytes) throws IgniteInternalCheckedException {
-        doStore(firstPageId, bytes, 0);
+        doStore(firstPageId, bytes);
     }
 
-    private long doStore(long maybePageId, byte[] bytes, int bytesOffset) throws IgniteInternalCheckedException {
-        final boolean mustAllocatePage = maybePageId == NO_PAGE_ID;
-        final boolean firstPage = bytesOffset == 0;
+    private long doStore(long maybePageId, byte[] bytes) throws IgniteInternalCheckedException {
+        Objects.requireNonNull(bytes, "bytes is null");
 
+        int bytesOffset = 0;
+        long firstPageToFreeId;
+
+        long firstPageId = allocatePageIfNeeded(maybePageId, true);
+        long pageId = firstPageId;
+
+        while (true) {
+            final long page = pageMemory.acquirePage(groupId, pageId, statisticsHolder);
+
+            try {
+                boolean wroteSomething = false;
+
+                long pageAddr = pageMemory.writeLock(groupId, pageId, page);
+
+                try {
+                    BlobIo io = pageMemory.ioRegistry().resolve(pageAddr);
+
+                    int currentPageCapacity = pageMemory.realPageSize(groupId) - io.fullHeaderSize();
+                    int currentFragmentLength = Math.min(currentPageCapacity, bytes.length - bytesOffset);
+
+                    if (bytesOffset == 0) {
+                        io.setTotalLength(pageAddr, bytes.length);
+                    }
+                    io.setFragmentLength(pageAddr, currentFragmentLength);
+                    io.setFragmentBytes(pageAddr, bytes, bytesOffset, currentFragmentLength);
+
+                    wroteSomething = true;
+
+                    int newBytesOffset = bytesOffset + currentFragmentLength;
+
+                    long maybeNextPageId = io.getNextPageId(pageAddr);
+
+                    if (newBytesOffset >= bytes.length) {
+                        io.setNextPageId(pageAddr, NO_PAGE_ID);
+
+                        firstPageToFreeId = maybeNextPageId;
+
+                        break;
+                    }
+
+                    long nextPageId = allocatePageIfNeeded(maybeNextPageId, false);
+
+                    io.setNextPageId(pageAddr, nextPageId);
+
+                    bytesOffset = newBytesOffset;
+                    pageId = nextPageId;
+                } finally {
+                    pageMemory.writeUnlock(groupId, pageId, page, wroteSomething);
+                }
+            } finally {
+                pageMemory.releasePage(groupId, pageId, page);
+            }
+        }
+
+        freePagesStartingWith(firstPageToFreeId);
+
+        return firstPageId;
+    }
+
+    private long allocatePageIfNeeded(long maybePageId, boolean firstPage) throws IgniteInternalCheckedException {
         final long pageId;
-        if (mustAllocatePage) {
+        if (maybePageId == NO_PAGE_ID) {
             pageId = allocatePage();
 
             PageHandler.initPage(pageMemory, groupId, pageId, latestBlobIo(firstPage), PageLockListenerNoOp.INSTANCE, statisticsHolder);
         } else {
             pageId = maybePageId;
         }
-
-        long firstPageToFreeId = 0L;
-
-        final long page = pageMemory.acquirePage(groupId, pageId, statisticsHolder);
-
-        try {
-            boolean wroteSomething = false;
-
-            long pageAddr = pageMemory.writeLock(groupId, pageId, page);
-
-            try {
-                BlobIo io;
-                if (mustAllocatePage) {
-                    io = latestBlobIo(firstPage);
-                } else {
-                    io = pageMemory.ioRegistry().resolve(pageAddr);
-                }
-
-                long nextPageId = mustAllocatePage ? NO_PAGE_ID : io.getNextPageId(pageAddr);
-                int currentPageCapacity = pageMemory.realPageSize(groupId) - io.fullHeaderSize();
-                int currentFragmentLength = Math.min(currentPageCapacity, bytes.length - bytesOffset);
-
-                if (firstPage) {
-                    io.setTotalLength(pageAddr, bytes.length);
-                }
-                io.setFragmentLength(pageAddr, currentFragmentLength);
-                io.setFragmentBytes(pageAddr, bytes, bytesOffset, currentFragmentLength);
-
-                wroteSomething = true;
-
-                int newBytesOffset = bytesOffset + currentFragmentLength;
-                if (newBytesOffset < bytes.length) {
-                    long newNextPageId = doStore(nextPageId, bytes, newBytesOffset);
-
-                    io.setNextPageId(pageAddr, newNextPageId);
-                } else {
-                    io.setNextPageId(pageAddr, NO_PAGE_ID);
-
-                    firstPageToFreeId = nextPageId;
-                }
-            } finally {
-                pageMemory.writeUnlock(groupId, pageId, page, wroteSomething);
-            }
-        } finally {
-            pageMemory.releasePage(groupId, pageId, page);
-        }
-
-        freePagesStartingWith(firstPageToFreeId);
-
         return pageId;
     }
 
@@ -219,7 +230,7 @@ public class BlobStorage {
 
         private int bytesOffset;
 
-        private long nextPageId;
+        private long nextPageId = NO_PAGE_ID;
     }
 
     private static class ReadBytes implements PageHandler<ReadState, Boolean> {

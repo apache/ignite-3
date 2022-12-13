@@ -90,6 +90,31 @@ class BlobStorageTest {
     }
 
     @Test
+    void allocatesOnlyRequiredNumberOfPages() throws Exception {
+        blobStorage.addBlob(new byte[(int) (PAGE_SIZE * 1.5)]);
+
+        verify(pageMemory, times(2)).allocatePage(anyInt(), anyInt(), anyByte());
+    }
+
+    @Test
+    void allocatesOnlyRequiredNumberOfPagesOnUpdate() throws Exception {
+        long pageId = blobStorage.addBlob(new byte[(int) (PAGE_SIZE * 1.5)]);
+
+        blobStorage.updateBlob(pageId, new byte[(int) (PAGE_SIZE * 2.5)]);
+
+        verify(pageMemory, times(3)).allocatePage(anyInt(), anyInt(), anyByte());
+    }
+
+    @Test
+    void doesNotAllocateOnShortening() throws Exception {
+        long pageId = blobStorage.addBlob(new byte[(int) (PAGE_SIZE * 1.5)]);
+
+        blobStorage.updateBlob(pageId, new byte[(int) (PAGE_SIZE * 0.5)]);
+
+        verify(pageMemory, times(2)).allocatePage(anyInt(), anyInt(), anyByte());
+    }
+
+    @Test
     void returnsAddedBlob() throws Exception {
         byte[] payload = "test".getBytes(UTF_8);
 
