@@ -304,4 +304,14 @@ internal static class ResultSelector
     }
 
     private static long GetNextId() => Interlocked.Increment(ref _idCounter);
+
+    /// <summary>
+    /// Reads a byte as boolean from a binary tuple reader.
+    /// <para />
+    /// Binary tuple does not support boolean, but SQL does, so we use byte instead.
+    /// </summary>
+    /// <param name="reader">Reader.</param>
+    /// <param name="index">Index.</param>
+    /// <returns>Byte as boolean.</returns>
+    private static bool ReadByteAsBoolean(BinaryTupleReader reader, int index) => reader.GetByte(index) != 0;
 }
