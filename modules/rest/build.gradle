@@ -42,3 +42,8 @@ dependencies {
     testImplementation project(':ignite-configuration')
     testImplementation libs.slf4j.jdk14
 }
+
+compileJava {
+    options.fork = true
+    options.forkOptions.jvmArgs += '-Dmicronaut.openapi.config.file=openapi/openapi.properties'
+}
