@@ -98,3 +98,33 @@ TEST_F(sql_test, sql_simple_select) {
     EXPECT_EQ(42, page.front().get(0).get<std::int32_t>());
     EXPECT_EQ("Lorem", page.front().get(1).get<std::string>());
 }
+
+TEST_F(sql_test, sql_table_select) {
+    auto result_set = m_client.get_sql().execute(nullptr, {"select id, val from TEST order by id"}, {});
+
+    EXPECT_FALSE(result_set.was_applied());
+    EXPECT_TRUE(result_set.has_rowset());
+    EXPECT_EQ(-1, result_set.affected_rows());
+
+    auto &meta = result_set.metadata();
+
+    ASSERT_EQ(2, meta.columns().size());
+
+    EXPECT_EQ(0, meta.index_of("ID"));
+    EXPECT_EQ(1, meta.index_of("VAL"));
+
+    EXPECT_EQ(column_type::INT32, meta.columns()[0].type());
+    EXPECT_EQ("ID", meta.columns()[0].name());
+
+    EXPECT_EQ(column_type::STRING, meta.columns()[1].type());
+    EXPECT_EQ("VAL", meta.columns()[1].name());
+
+    auto page = result_set.current_page();
+
+    EXPECT_EQ(10, page.size());
+
+    for (std::int32_t i = 0; i < page.size(); ++i) {
+        EXPECT_EQ(i, page[i].get(0).get<std::int32_t>());
+        EXPECT_EQ("s-" + std::to_string(i), page[i].get(1).get<std::string>());
+    }
+}
