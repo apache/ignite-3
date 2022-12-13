@@ -36,6 +36,7 @@ import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.index.BinaryTupleComparator;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexRowImpl;
+import org.apache.ignite.internal.storage.index.PeekCursor;
 import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.util.Cursor;
@@ -123,7 +124,7 @@ public class TestSortedIndexStorage implements SortedIndexStorage {
     }
 
     @Override
-    public Cursor<IndexRow> scan(
+    public PeekCursor<IndexRow> scan(
             @Nullable BinaryTuplePrefix lowerBound,
             @Nullable BinaryTuplePrefix upperBound,
             int flags
@@ -190,14 +191,14 @@ public class TestSortedIndexStorage implements SortedIndexStorage {
         }
     }
 
-    private class ScanCursor implements Cursor<IndexRow> {
+    private class ScanCursor implements PeekCursor<IndexRow> {
         private final NavigableMap<ByteBuffer, NavigableMap<RowId, Object>> indexMap;
 
         @Nullable
         private Boolean hasNext;
 
         @Nullable
-        private Entry<ByteBuffer, NavigableMap<RowId, Object>> indexMapEntry;
+        private Entry<ByteBuffer, NavigableMap<RowId, Object>> currentEntry;
 
         @Nullable
         private RowId rowId;
@@ -234,7 +235,43 @@ public class TestSortedIndexStorage implements SortedIndexStorage {
 
             this.hasNext = null;
 
-            return new IndexRowImpl(new BinaryTuple(descriptor.binaryTupleSchema(), indexMapEntry.getKey()), rowId);
+            return new IndexRowImpl(new BinaryTuple(descriptor.binaryTupleSchema(), currentEntry.getKey()), rowId);
+        }
+
+        @Override
+        public @Nullable IndexRow peek() {
+            if (hasNext != null) {
+                if (hasNext) {
+                    return new IndexRowImpl(new BinaryTuple(descriptor.binaryTupleSchema(), currentEntry.getKey()), rowId);
+                }
+
+                return null;
+            }
+
+            Entry<ByteBuffer, NavigableMap<RowId, Object>> indexMapEntry0 = currentEntry == null ? indexMap.firstEntry() : currentEntry;
+
+            RowId nextRowId = null;
+
+            if (rowId == null) {
+                if (indexMapEntry0 != null) {
+                    nextRowId = getRowId(indexMapEntry0.getValue().firstEntry());
+                }
+            } else {
+                Entry<RowId, Object> nextRowIdEntry = indexMapEntry0.getValue().higherEntry(rowId);
+
+                if (nextRowIdEntry != null) {
+                    nextRowId = nextRowIdEntry.getKey();
+                } else {
+                    indexMapEntry0 = indexMap.higherEntry(indexMapEntry0.getKey());
+
+                    if (indexMapEntry0 != null) {
+                        nextRowId = getRowId(indexMapEntry0.getValue().firstEntry());
+                    }
+                }
+            }
+
+            return nextRowId == null
+                    ? null : new IndexRowImpl(new BinaryTuple(descriptor.binaryTupleSchema(), indexMapEntry0.getKey()), nextRowId);
         }
 
         private void advanceIfNeeded() {
@@ -242,30 +279,30 @@ public class TestSortedIndexStorage implements SortedIndexStorage {
                 return;
             }
 
-            if (indexMapEntry == null) {
-                indexMapEntry = indexMap.firstEntry();
+            if (currentEntry == null) {
+                currentEntry = indexMap.firstEntry();
             }
 
             if (rowId == null) {
-                if (indexMapEntry != null) {
-                    rowId = getRowId(indexMapEntry.getValue().firstEntry());
+                if (currentEntry != null) {
+                    rowId = getRowId(currentEntry.getValue().firstEntry());
                 }
             } else {
-                Entry<RowId, Object> nextRowIdEntry = indexMapEntry.getValue().higherEntry(rowId);
+                Entry<RowId, Object> nextRowIdEntry = currentEntry.getValue().higherEntry(rowId);
 
                 if (nextRowIdEntry != null) {
                     rowId = nextRowIdEntry.getKey();
                 } else {
-                    Entry<ByteBuffer, NavigableMap<RowId, Object>> nextIndexMapEntry = indexMap.higherEntry(indexMapEntry.getKey());
+                    Entry<ByteBuffer, NavigableMap<RowId, Object>> nextIndexMapEntry = indexMap.higherEntry(currentEntry.getKey());
 
                     if (nextIndexMapEntry == null) {
                         hasNext = false;
 
                         return;
                     } else {
-                        indexMapEntry = nextIndexMapEntry;
+                        currentEntry = nextIndexMapEntry;
 
-                        rowId = getRowId(indexMapEntry.getValue().firstEntry());
+                        rowId = getRowId(currentEntry.getValue().firstEntry());
                     }
                 }
             }

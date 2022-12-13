@@ -30,6 +30,7 @@ import org.apache.ignite.internal.storage.StorageClosedException;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexRowImpl;
+import org.apache.ignite.internal.storage.index.PeekCursor;
 import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns;
@@ -163,7 +164,7 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
     }
 
     @Override
-    public Cursor<IndexRow> scan(@Nullable BinaryTuplePrefix lowerBound, @Nullable BinaryTuplePrefix upperBound, int flags) {
+    public PeekCursor<IndexRow> scan(@Nullable BinaryTuplePrefix lowerBound, @Nullable BinaryTuplePrefix upperBound, int flags) {
         if (!closeBusyLock.enterBusy()) {
             throwStorageClosedException();
         }
@@ -272,7 +273,7 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
         };
     }
 
-    private class ScanCursor implements Cursor<IndexRow> {
+    private class ScanCursor implements PeekCursor<IndexRow> {
         @Nullable
         private Boolean hasNext;
 
@@ -334,6 +335,35 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
                 throw new StorageException("Error while advancing the cursor", e);
             } finally {
                 closeBusyLock.leaveBusy();
+            }
+        }
+
+        @Override
+        public @Nullable IndexRow peek() {
+            if (hasNext != null) {
+                if (hasNext) {
+                    return toIndexRowImpl(treeRow);
+                }
+
+                return null;
+            }
+
+            try {
+                SortedIndexRow nextTreeRow;
+
+                if (treeRow == null) {
+                    nextTreeRow = lower == null ? sortedIndexTree.findFirst() : sortedIndexTree.findNext(lower, true);
+                } else {
+                    nextTreeRow = sortedIndexTree.findNext(treeRow, false);
+                }
+
+                if (nextTreeRow == null || (upper != null && compareRows(nextTreeRow, upper) >= 0)) {
+                    return null;
+                }
+
+                return toIndexRowImpl(nextTreeRow);
+            } catch (IgniteInternalCheckedException e) {
+                throw new StorageException("Error when peeking next element", e);
             }
         }
 
