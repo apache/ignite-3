@@ -50,6 +50,8 @@ import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
 import org.apache.ignite.internal.metastorage.watch.AggregatedWatch;
 import org.apache.ignite.internal.metastorage.watch.KeyCriterion;
 import org.apache.ignite.internal.metastorage.watch.WatchAggregator;
+import org.apache.ignite.internal.raft.Peer;
+import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.util.Cursor;
@@ -157,24 +159,29 @@ public class MetaStorageManager implements IgniteComponent {
         this.storage = storage;
     }
 
-    private CompletableFuture<MetaStorageService> initializeMetaStorage(Collection<String> metaStorageNodes) {
+    private CompletableFuture<MetaStorageService> initializeMetaStorage(Set<String> metaStorageNodes) {
         ClusterNode thisNode = clusterService.topologyService().localMember();
 
-        if (metaStorageNodes.contains(thisNode.name())) {
+        PeersAndLearners configuration = PeersAndLearners.fromConsistentIds(metaStorageNodes);
+
+        Peer localPeer = configuration.peer(thisNode.name());
+
+        if (localPeer != null) {
             clusterService.topologyService().addEventHandler(new TopologyEventHandler() {
                 @Override
                 public void onDisappeared(ClusterNode member) {
                     metaStorageSvcFut.thenAccept(svc -> svc.closeCursors(member.id()));
                 }
             });
-        }
 
-        storage.start();
+            storage.start();
+        }
 
         try {
             CompletableFuture<RaftGroupService> raftServiceFuture = raftMgr.prepareRaftGroup(
                     INSTANCE,
-                    metaStorageNodes,
+                    localPeer,
+                    configuration,
                     () -> new MetaStorageListener(storage)
             );
 
@@ -221,8 +228,11 @@ public class MetaStorageManager implements IgniteComponent {
         synchronized (this) {
             IgniteUtils.closeAll(
                     this::stopDeployedWatches,
-                    () -> raftMgr.stopRaftGroup(INSTANCE),
-                    storage::close
+                    () -> {
+                        if (raftMgr.stopRaftNodes(INSTANCE)) {
+                            storage.close();
+                        }
+                    }
             );
         }
     }

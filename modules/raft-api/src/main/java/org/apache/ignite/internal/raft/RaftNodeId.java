@@ -17,57 +17,41 @@
 
 package org.apache.ignite.internal.raft;
 
-import java.io.Serializable;
+import java.util.Objects;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.tostring.S;
 
 /**
- * A participant of a replication group.
+ * Raft node identifier, consists of a Raft group ID and a Peer ID.
  */
-public final class Peer implements Serializable {
-    private static final long serialVersionUID = 6140534113821565486L;
+public class RaftNodeId {
+    private final ReplicationGroupId groupId;
+
+    private final Peer peer;
 
     /**
-     * Node consistent ID.
-     */
-    private final String consistentId;
-
-    /**
-     * Peer index. Used when multiple Raft nodes are started on the same Ignite node.
-     */
-    private final int idx;
-
-    /**
-     * Constructor.
+     * Creates an instance.
      *
-     * @param consistentId Consistent ID of a node.
+     * @param groupId Raft group name.
+     * @param peer Peer running a Raft node.
      */
-    public Peer(String consistentId) {
-        this(consistentId, 0);
+    public RaftNodeId(ReplicationGroupId groupId, Peer peer) {
+        this.groupId = groupId;
+        this.peer = Objects.requireNonNull(peer);
     }
 
     /**
-     * Constructor.
-     *
-     * @param consistentId Consistent ID of a node.
-     * @param idx Peer index.
+     * Return the ID of this Raft group.
      */
-    public Peer(String consistentId, int idx) {
-        this.consistentId = consistentId;
-        this.idx = idx;
+    public ReplicationGroupId groupId() {
+        return groupId;
     }
 
     /**
-     * Returns this node's consistent ID.
+     * Returns the peer running a Raft node.
      */
-    public String consistentId() {
-        return consistentId;
-    }
-
-    /**
-     * Returns this node's index.
-     */
-    public int idx() {
-        return idx;
+    public Peer peer() {
+        return peer;
     }
 
     @Override
@@ -79,23 +63,23 @@ public final class Peer implements Serializable {
             return false;
         }
 
-        Peer peer = (Peer) o;
+        RaftNodeId that = (RaftNodeId) o;
 
-        if (idx != peer.idx) {
+        if (!groupId.equals(that.groupId)) {
             return false;
         }
-        return consistentId.equals(peer.consistentId);
+        return peer.equals(that.peer);
     }
 
     @Override
     public int hashCode() {
-        int result = consistentId.hashCode();
-        result = 31 * result + idx;
+        int result = groupId.hashCode();
+        result = 31 * result + peer.hashCode();
         return result;
     }
 
     @Override
     public String toString() {
-        return S.toString(Peer.class, this);
+        return S.toString(RaftNodeId.class, this);
     }
 }

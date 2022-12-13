@@ -127,11 +127,13 @@ ignite_result<void> node_connection::process_handshake_rsp(bytes_view msg) {
     (void) reader.read_string_nullable(); // Cluster node ID. Needed for partition-aware compute.
     (void) reader.read_string_nullable(); // Cluster node name. Needed for partition-aware compute.
 
-    reader.skip(); // TODO: IGNITE-18053 Get and verify cluster id on connection
+    auto cluster_id = reader.read_uuid();
     reader.skip(); // Features.
     reader.skip(); // Extensions.
 
     m_protocol_context.set_version(ver);
+    m_protocol_context.set_cluster_id(cluster_id);
+
     m_handshake_complete = true;
 
     return {};
