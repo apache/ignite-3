@@ -70,11 +70,25 @@ public:
     [[nodiscard]] const std::string &query() const { return m_query; }
 
     /**
+     * Sets the query text.
+     *
+     * @param val Query text.
+     */
+    void query(std::string val) { m_query = std::move(val); }
+
+    /**
      * Gets the query timeout (zero means no timeout).
      *
      * @return Query timeout (zero means no timeout).
      */
     [[nodiscard]] std::chrono::milliseconds timeout() const { return m_timeout; }
+
+    /**
+     * Sets the query timeout (zero means no timeout).
+     *
+     * @param val Query timeout (zero means no timeout).
+     */
+    void timeout(std::chrono::milliseconds val) { m_timeout = val; }
 
     /**
      * Gets the SQL schema name.
@@ -84,6 +98,13 @@ public:
     [[nodiscard]] const std::string &schema() const { return m_schema; }
 
     /**
+     * Sets the SQL schema name.
+     *
+     * @param val Schema name.
+     */
+    void schema(std::string val) { m_schema = std::move(val); }
+
+    /**
      * Gets the number of rows per data page.
      *
      * @return Number of rows per data page.
@@ -91,11 +112,25 @@ public:
     [[nodiscard]] std::int32_t page_size() const { return m_page_size; }
 
     /**
+     * Sets the number of rows per data page.
+     *
+     * @param val Number of rows per data page.
+     */
+    void page_size(std::int32_t val) { m_page_size = val; }
+
+    /**
      * Gets the statement properties.
      *
      * @return Properties.
      */
     [[nodiscard]] const std::unordered_map<std::string, primitive>& properties() const { return m_properties; }
+
+    /**
+     * Sets the statement properties.
+     *
+     * @param val Properties.
+     */
+    void properties(std::initializer_list<std::pair<const std::string, primitive>> val) { m_properties = val; }
 
 private:
     /** Query text. */

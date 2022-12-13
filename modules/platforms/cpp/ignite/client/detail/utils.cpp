@@ -42,8 +42,8 @@ void claim_type_and_scale(binary_tuple_builder &builder, ignite_type typ, std::i
  * @param scale Scale.
  */
 void append_type_and_scale(binary_tuple_builder &builder, ignite_type typ, std::int32_t scale = 0) {
-    builder.claim_int32(std::int32_t(typ));
-    builder.claim_int32(scale);
+    builder.append_int32(std::int32_t(typ));
+    builder.append_int32(scale);
 }
 
 void claim_primitive_with_type(binary_tuple_builder &builder, const primitive &value) {

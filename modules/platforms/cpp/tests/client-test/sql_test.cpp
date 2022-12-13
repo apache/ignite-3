@@ -16,7 +16,6 @@
  */
 
 #include "ignite_runner_suite.h"
-#include "tests/test-common/test_utils.h"
 
 #include "ignite/client/ignite_client.h"
 #include "ignite/client/ignite_client_configuration.h"
