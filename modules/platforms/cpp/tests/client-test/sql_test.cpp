@@ -126,7 +126,6 @@ TEST_F(sql_test, sql_table_select) {
     EXPECT_EQ(0, result_set.current_page().size());
 }
 
-
 TEST_F(sql_test, sql_select_multiple_pages) {
     sql_statement statement{"select id, val from TEST order by id"};
     statement.page_size(1);
@@ -154,4 +153,83 @@ TEST_F(sql_test, sql_select_multiple_pages) {
 
     EXPECT_FALSE(result_set.has_more_pages());
     EXPECT_EQ(0, result_set.current_page().size());
+}
+
+TEST_F(sql_test, sql_close_non_empty_cursor) {
+    sql_statement statement{"select id, val from TEST order by id"};
+    statement.page_size(3);
+
+    auto result_set = m_client.get_sql().execute(nullptr, statement, {});
+
+    EXPECT_FALSE(result_set.was_applied());
+    EXPECT_TRUE(result_set.has_rowset());
+    EXPECT_EQ(-1, result_set.affected_rows());
+
+    auto page = result_set.current_page();
+    ASSERT_TRUE(result_set.has_more_pages());
+
+    result_set.close();
+}
+
+TEST_F(sql_test, sql_ddl_dml) {
+    auto result_set = m_client.get_sql().execute(nullptr, {"DROP TABLE IF EXISTS SQL_DDL_DML_TEST"}, {});
+
+    EXPECT_FALSE(result_set.has_rowset());
+    EXPECT_EQ(-1, result_set.affected_rows());
+    EXPECT_TRUE(result_set.metadata().columns().empty());
+
+    result_set = m_client.get_sql().execute(nullptr,
+        {"CREATE TABLE SQL_DDL_DML_TEST(ID BIGINT PRIMARY KEY, VAL VARCHAR)"}, {});
+
+    EXPECT_TRUE(result_set.was_applied());
+    EXPECT_FALSE(result_set.has_rowset());
+    EXPECT_EQ(-1, result_set.affected_rows());
+    EXPECT_TRUE(result_set.metadata().columns().empty());
+
+    result_set = m_client.get_sql().execute(nullptr, {"INSERT INTO SQL_DDL_DML_TEST VALUES (?, ?)"}, {13LL, "Hello"});
+
+    EXPECT_FALSE(result_set.was_applied());
+    EXPECT_FALSE(result_set.has_rowset());
+    EXPECT_EQ(1, result_set.affected_rows());
+    EXPECT_TRUE(result_set.metadata().columns().empty());
+
+    result_set = m_client.get_sql().execute(nullptr, {"INSERT INTO SQL_DDL_DML_TEST VALUES (?, ?)"}, {14LL, "World"});
+
+    EXPECT_FALSE(result_set.was_applied());
+    EXPECT_FALSE(result_set.has_rowset());
+    EXPECT_EQ(1, result_set.affected_rows());
+    EXPECT_TRUE(result_set.metadata().columns().empty());
+
+
+    result_set = m_client.get_sql().execute(nullptr, {"UPDATE SQL_DDL_DML_TEST SET VAL = ?"}, {"Test"});
+
+    EXPECT_FALSE(result_set.was_applied());
+    EXPECT_FALSE(result_set.has_rowset());
+    EXPECT_EQ(2, result_set.affected_rows());
+    EXPECT_TRUE(result_set.metadata().columns().empty());
+
+    result_set = m_client.get_sql().execute(nullptr, {"DROP TABLE SQL_DDL_DML_TEST"}, {});
+
+    EXPECT_TRUE(result_set.was_applied());
+    EXPECT_FALSE(result_set.has_rowset());
+    EXPECT_EQ(-1, result_set.affected_rows());
+    EXPECT_TRUE(result_set.metadata().columns().empty());
+}
+
+TEST_F(sql_test, sql_insert_null) {
+    auto result_set = m_client.get_sql().execute(nullptr, {"DROP TABLE IF EXISTS SQL_INSERT_NULL_TEST"}, {});
+    result_set = m_client.get_sql().execute(nullptr,
+        {"CREATE TABLE SQL_INSERT_NULL_TEST(ID INT PRIMARY KEY, VAL VARCHAR)"}, {});
+
+    ASSERT_TRUE(result_set.was_applied());
+
+    result_set = m_client.get_sql().execute(nullptr, {"INSERT INTO SQL_INSERT_NULL_TEST VALUES (13, NULL)"}, {});
+
+    EXPECT_FALSE(result_set.was_applied());
+    EXPECT_FALSE(result_set.has_rowset());
+    EXPECT_EQ(1, result_set.affected_rows());
+    EXPECT_TRUE(result_set.metadata().columns().empty());
+
+    result_set = m_client.get_sql().execute(nullptr, {"DROP TABLE SQL_INSERT_NULL_TEST"}, {});
+    EXPECT_TRUE(result_set.was_applied());
 }
