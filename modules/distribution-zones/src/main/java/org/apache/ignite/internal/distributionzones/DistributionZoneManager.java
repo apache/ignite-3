@@ -270,7 +270,7 @@ public class DistributionZoneManager implements IgniteComponent {
 
         if (vaultEntry != null && vaultEntry.value() != null) {
             byte[] newLogicalTopology = vaultEntry.value();
-            System.out.println();
+
             logicalTopology = ByteUtils.fromBytes(newLogicalTopology);
 
             zonesConfiguration.distributionZones().value().namedListKeys()

@@ -104,6 +104,8 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
 
         VaultManager vaultMgr = mock(VaultManager.class);
 
+        when(vaultMgr.get(any())).thenReturn(completedFuture(null));
+
         distributionZoneManager = new DistributionZoneManager(
                 zonesConfiguration,
                 metaStorageManager,
