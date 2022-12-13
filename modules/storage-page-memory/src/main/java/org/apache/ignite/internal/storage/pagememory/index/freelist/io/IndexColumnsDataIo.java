@@ -48,7 +48,7 @@ public class IndexColumnsDataIo extends AbstractDataPageIo<IndexColumns> {
     protected void writeRowData(long pageAddr, int dataOff, int payloadSize, IndexColumns row, boolean newRow) {
         assertPageType(pageAddr);
 
-        putShort(pageAddr, dataOff, narrowIntToShort(payloadSize));
+        putShort(pageAddr, dataOff, (short) payloadSize);
 
         dataOff += Short.BYTES;
 

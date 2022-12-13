@@ -58,7 +58,7 @@ public class RowVersionDataIo extends AbstractDataPageIo<RowVersion> {
 
         long addr = pageAddr + dataOff;
 
-        putShort(addr, 0, narrowIntToShort(payloadSize));
+        putShort(addr, 0, (short) payloadSize);
         addr += Short.BYTES;
 
         addr += HybridTimestamps.writeTimestampToMemory(addr, 0, row.timestamp());

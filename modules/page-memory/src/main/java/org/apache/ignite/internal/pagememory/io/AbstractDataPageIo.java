@@ -1438,22 +1438,6 @@ public abstract class AbstractDataPageIo<T extends Storable> extends PageIo {
             boolean newRow
     ) throws IgniteInternalCheckedException;
 
-
-    /**
-     * Narrows an {@code int} down to {@code short} throwing an exception if the value cannot be exactly represented as a {@code short}.
-     *
-     * @param intValue Value to narrow down.
-     * @return Resulting short value.
-     * @throws IllegalArgumentException If the provided value does not fit the {@code short} range.
-     */
-    protected static short narrowIntToShort(int intValue) {
-        if (intValue < Short.MIN_VALUE || intValue > Short.MAX_VALUE) {
-            throw new IllegalArgumentException(intValue + " cannot be converted to short without a loss");
-        }
-
-        return (short) intValue;
-    }
-
     /**
      * Defines closure interface for applying computations to data page items.
      *
