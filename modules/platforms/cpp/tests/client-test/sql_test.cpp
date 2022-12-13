@@ -21,6 +21,7 @@
 #include "ignite/client/ignite_client_configuration.h"
 
 #include <gtest/gtest.h>
+#include <gmock/gmock-matchers.h>
 
 #include <chrono>
 
@@ -233,3 +234,90 @@ TEST_F(sql_test, sql_insert_null) {
     result_set = m_client.get_sql().execute(nullptr, {"DROP TABLE SQL_INSERT_NULL_TEST"}, {});
     EXPECT_TRUE(result_set.was_applied());
 }
+
+TEST_F(sql_test, sql_invalid_query) {
+    EXPECT_THROW(
+        {
+            try {
+                m_client.get_sql().execute(nullptr, {"not a query"}, {});
+            } catch (const ignite_error &e) {
+                EXPECT_THAT(e.what_str(), ::testing::HasSubstr("Failed to parse query: Non-query expression"));
+                throw;
+            }
+        },
+        ignite_error);
+}
+
+TEST_F(sql_test, sql_unknown_table) {
+    EXPECT_THROW(
+        {
+            try {
+                m_client.get_sql().execute(nullptr, {"select id from unknown_table"}, {});
+            } catch (const ignite_error &e) {
+                EXPECT_THAT(e.what_str(), ::testing::HasSubstr("Object 'UNKNOWN_TABLE' not found"));
+                throw;
+            }
+        },
+        ignite_error);
+}
+
+TEST_F(sql_test, sql_unknown_column) {
+    EXPECT_THROW(
+        {
+            try {
+                m_client.get_sql().execute(nullptr, {"select unknown_column from test"}, {});
+            } catch (const ignite_error &e) {
+                EXPECT_THAT(e.what_str(), ::testing::HasSubstr("Column 'UNKNOWN_COLUMN' not found in any table"));
+                throw;
+            }
+        },
+        ignite_error);
+}
+
+TEST_F(sql_test, sql_create_existing_table) {
+    EXPECT_THROW(
+        {
+            try {
+                m_client.get_sql().execute(nullptr, {"CREATE TABLE TEST(ID INT PRIMARY KEY, VAL VARCHAR)"}, {});
+            } catch (const ignite_error &e) {
+                EXPECT_THAT(e.what_str(), ::testing::HasSubstr("Table already exists"));
+                throw;
+            }
+        },
+        ignite_error);
+}
+
+TEST_F(sql_test, sql_add_existing_column) {
+    EXPECT_THROW(
+        {
+            try {
+                m_client.get_sql().execute(nullptr, {"ALTER TABLE TEST ADD COLUMN ID INT"}, {});
+            } catch (const ignite_error &e) {
+                EXPECT_THAT(e.what_str(), ::testing::HasSubstr("Column already exists"));
+                throw;
+            }
+        },
+        ignite_error);
+}
+
+TEST_F(sql_test, sql_alter_nonexisting_table) {
+    EXPECT_THROW(
+        {
+            try {
+                m_client.get_sql().execute(nullptr, {"ALTER TABLE UNKNOWN_TABLE ADD COLUMN ID INT"}, {});
+            } catch (const ignite_error &e) {
+                EXPECT_THAT(e.what_str(), ::testing::HasSubstr("The table does not exist"));
+                throw;
+            }
+        },
+        ignite_error);
+}
+
+TEST_F(sql_test, sql_statement_defaults) {
+    sql_statement statement;
+
+    EXPECT_EQ(statement.page_size(), sql_statement::DEFAULT_PAGE_SIZE);
+    EXPECT_EQ(statement.schema(), sql_statement::DEFAULT_SCHEMA);
+    EXPECT_EQ(statement.timeout(), sql_statement::DEFAULT_TIMEOUT);
+}
+
