@@ -269,7 +269,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         raftGroupConfigReadWriteLock.writeLock().lock();
 
         try {
-            if (meta.lastRaftGroupConfigFirstPageId() == 0) {
+            if (meta.lastRaftGroupConfigFirstPageId() == BlobStorage.NO_PAGE_ID) {
                 long configPageId = blobStorage.addBlob(raftGroupConfigBytes);
 
                 meta.lastRaftGroupConfigFirstPageId(lastCheckpointId, configPageId);

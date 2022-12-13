@@ -35,6 +35,13 @@ import org.apache.ignite.internal.storage.pagememory.mv.io.BlobIo;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
 
+/**
+ * Used to store a limited number of blobs (just byte arrays) per partition. Each blob is stored in a sequence
+ * of pages forming a linked list (a previous page links to the next one).
+ *
+ * <p>If a lot of blobs (comparable with the number of rows) needs to be stored in a partition, another mechanism
+ * (probably using a {@link org.apache.ignite.internal.pagememory.freelist.FreeList}) should be used.
+ */
 public class BlobStorage {
     static final long NO_PAGE_ID = 0;
 
@@ -48,10 +55,13 @@ public class BlobStorage {
 
     private final RecycleAndAddToReuseBag recycleAndAddToReuseBag = new RecycleAndAddToReuseBag();
 
-    private final ReadBytes readBytes = new ReadBytes();
+    private final ReadFragment readFragment = new ReadFragment();
 
-    private final WriteBytes writeBytes = new WriteBytes();
+    private final WriteFragment writeFragment = new WriteFragment();
 
+    /**
+     * Creates a new instance.
+     */
     public BlobStorage(ReuseList reuseList, PageMemory pageMemory, int groupId, int partitionId, IoStatisticsHolder statisticsHolder) {
         this.reuseList = reuseList;
         this.pageMemory = pageMemory;
@@ -60,6 +70,13 @@ public class BlobStorage {
         this.statisticsHolder = statisticsHolder;
     }
 
+    /**
+     * Reads a blob stored starting at a page with the given ID.
+     *
+     * @param firstPageId ID of first page.
+     * @return Byte array for the blob.
+     * @throws IgniteInternalCheckedException If something goes wrong.
+     */
     public byte[] readBlob(long firstPageId) throws IgniteInternalCheckedException {
         ReadState readState = new ReadState();
 
@@ -71,7 +88,7 @@ public class BlobStorage {
                     groupId,
                     pageId,
                     PageLockListenerNoOp.INSTANCE,
-                    readBytes,
+                    readFragment,
                     readState,
                     0,
                     false,
@@ -88,10 +105,24 @@ public class BlobStorage {
         return readState.bytes;
     }
 
+    /**
+     * Adds a new blob to the storage.
+     *
+     * @param bytes Blob bytes.
+     * @return ID of the page starting the chain representing the blob.
+     * @throws IgniteInternalCheckedException If something goes wrong.
+     */
     public long addBlob(byte[] bytes) throws IgniteInternalCheckedException {
         return doStore(NO_PAGE_ID, bytes);
     }
 
+    /**
+     * Updates the blob content.
+     *
+     * @param firstPageId ID of the first page in the chain storing the blob.
+     * @param bytes New blob content.
+     * @throws IgniteInternalCheckedException If something goes wrong.
+     */
     public void updateBlob(long firstPageId, byte[] bytes) throws IgniteInternalCheckedException {
         doStore(firstPageId, bytes);
     }
@@ -110,7 +141,7 @@ public class BlobStorage {
                     groupId,
                     state.pageId,
                     PageLockListenerNoOp.INSTANCE,
-                    writeBytes,
+                    writeFragment,
                     null,
                     state,
                     0,
@@ -140,10 +171,6 @@ public class BlobStorage {
         return pageId;
     }
 
-    private static BlobIo latestBlobIo(boolean firstPage) {
-        return firstPage ? BlobFirstIo.VERSIONS.latest() : BlobDataIo.VERSIONS.latest();
-    }
-
     private long allocatePage() throws IgniteInternalCheckedException {
         long pageId = reuseList.takeRecycledPage();
 
@@ -156,6 +183,10 @@ public class BlobStorage {
         }
 
         return pageId;
+    }
+
+    private static BlobIo latestBlobIo(boolean firstPage) {
+        return firstPage ? BlobFirstIo.VERSIONS.latest() : BlobDataIo.VERSIONS.latest();
     }
 
     private void freePagesStartingWith(long pageId) throws IgniteInternalCheckedException {
@@ -181,22 +212,9 @@ public class BlobStorage {
         return reuseBag;
     }
 
-    private static class RecycleAndAddToReuseBag implements PageHandler<ReuseBag, Long> {
-        @Override
-        public Long run(int groupId, long pageId, long page, long pageAddr, PageIo io, ReuseBag reuseBag, int unused,
-                IoStatisticsHolder statHolder) {
-            BlobIo blobIo = (BlobIo) io;
-
-            long nextPageId = blobIo.getNextPageId(pageAddr);
-
-            long recycledPageId = DataStructure.recyclePage(pageId, pageAddr);
-
-            reuseBag.addFreePage(recycledPageId);
-
-            return nextPageId;
-        }
-    }
-
+    /**
+     * State of a read operation.
+     */
     private static class ReadState {
         private byte @Nullable [] bytes;
 
@@ -205,7 +223,10 @@ public class BlobStorage {
         private long nextPageId = NO_PAGE_ID;
     }
 
-    private static class ReadBytes implements PageHandler<ReadState, Boolean> {
+    /**
+     * Reads a fragment stored in a page.
+     */
+    private static class ReadFragment implements PageHandler<ReadState, Boolean> {
         @Override
         public Boolean run(int groupId, long pageId, long page, long pageAddr, PageIo io, ReadState state, int unused,
                 IoStatisticsHolder statHolder) throws IgniteInternalCheckedException {
@@ -238,6 +259,9 @@ public class BlobStorage {
         }
     }
 
+    /**
+     * State of a write operation.
+     */
     private static class WriteState {
         private final byte[] bytes;
         private int bytesOffset;
@@ -256,7 +280,10 @@ public class BlobStorage {
         }
     }
 
-    private class WriteBytes implements PageHandler<WriteState, Boolean> {
+    /**
+     * Writes a fragment to a page.
+     */
+    private class WriteFragment implements PageHandler<WriteState, Boolean> {
         @Override
         public Boolean run(int groupId, long pageId, long page, long pageAddr, PageIo io, WriteState state, int unused,
                 IoStatisticsHolder statHolder) throws IgniteInternalCheckedException {
@@ -290,6 +317,25 @@ public class BlobStorage {
             }
 
             return true;
+        }
+    }
+
+    /**
+     * Recycles a page and adds it to a {@link ReuseBag}.
+     */
+    private static class RecycleAndAddToReuseBag implements PageHandler<ReuseBag, Long> {
+        @Override
+        public Long run(int groupId, long pageId, long page, long pageAddr, PageIo io, ReuseBag reuseBag, int unused,
+                IoStatisticsHolder statHolder) {
+            BlobIo blobIo = (BlobIo) io;
+
+            long nextPageId = blobIo.getNextPageId(pageAddr);
+
+            long recycledPageId = DataStructure.recyclePage(pageId, pageAddr);
+
+            reuseBag.addFreePage(recycledPageId);
+
+            return nextPageId;
         }
     }
 }
