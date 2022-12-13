@@ -142,6 +142,13 @@ public:
      */
     ignite_result<void> process_handshake_rsp(bytes_view msg);
 
+    /**
+     * Gets protocol context.
+     *
+     * @return Protocol context.
+     */
+    const protocol_context& get_protocol_context() const { return m_protocol_context; }
+
 private:
     /**
      * Generate next request ID.

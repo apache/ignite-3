@@ -125,10 +125,23 @@ void cluster_connection::on_message_received(uint64_t id, bytes_view msg) {
     }
 
     auto res = connection->process_handshake_rsp(msg);
-    if (res.has_error())
+    if (res.has_error()) {
+        initial_connect_result(std::move(res));
         remove_client(connection->id());
+        return;
+    }
 
-    initial_connect_result(std::move(res));
+    auto& context = connection->get_protocol_context();
+    initial_connect_result(context);
+
+    if (context.get_cluster_id() != m_cluster_id) {
+        std::stringstream message;
+        message << "Node from unknown cluster: current_cluster_id=" << m_cluster_id
+                << ", node_cluster_id=" << context.get_cluster_id();
+
+        m_logger->log_warning(message.str());
+        remove_client(connection->id());
+    }
 }
 
 std::shared_ptr<node_connection> cluster_connection::find_client(uint64_t id) {
@@ -158,6 +171,17 @@ void cluster_connection::initial_connect_result(ignite_result<void> &&res) {
         return;
 
     m_on_initial_connect(std::move(res));
+    m_on_initial_connect = {};
+}
+
+void cluster_connection::initial_connect_result(const protocol_context& context) {
+    [[maybe_unused]] std::lock_guard<std::mutex> lock(m_on_initial_connect_mutex);
+
+    if (!m_on_initial_connect)
+        return;
+
+    m_cluster_id = context.get_cluster_id();
+    m_on_initial_connect({});
     m_on_initial_connect = {};
 }
 
