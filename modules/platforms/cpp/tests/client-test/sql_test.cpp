@@ -99,6 +99,9 @@ TEST_F(sql_test, sql_simple_select) {
     EXPECT_EQ(1, page.size());
     EXPECT_EQ(42, page.front().get(0).get<std::int32_t>());
     EXPECT_EQ("Lorem", page.front().get(1).get<std::string>());
+
+    EXPECT_FALSE(result_set.has_more_pages());
+    EXPECT_EQ(0, result_set.current_page().size());
 }
 
 TEST_F(sql_test, sql_table_select) {
@@ -118,6 +121,9 @@ TEST_F(sql_test, sql_table_select) {
         EXPECT_EQ(i, page[i].get(0).get<std::int32_t>());
         EXPECT_EQ("s-" + std::to_string(i), page[i].get(1).get<std::string>());
     }
+
+    EXPECT_FALSE(result_set.has_more_pages());
+    EXPECT_EQ(0, result_set.current_page().size());
 }
 
 
@@ -133,16 +139,19 @@ TEST_F(sql_test, sql_select_multiple_pages) {
 
     check_columns(result_set.metadata(), {{"ID", column_type::INT32}, {"VAL", column_type::STRING}});
 
-    for (std::int32_t i = 0; i < 9; ++i) {
+    for (std::int32_t i = 0; i < 10; ++i) {
         auto page = result_set.current_page();
 
         EXPECT_EQ(1, page.size()) << "i=" << i;
         EXPECT_EQ(i, page.front().get(0).get<std::int32_t>());
         EXPECT_EQ("s-" + std::to_string(i), page.front().get(1).get<std::string>());
 
-        ASSERT_TRUE(result_set.has_more_pages());
-        result_set.fetch_next_page();
+        if (i < 9) {
+            ASSERT_TRUE(result_set.has_more_pages());
+            result_set.fetch_next_page();
+        }
     }
 
     EXPECT_FALSE(result_set.has_more_pages());
+    EXPECT_EQ(0, result_set.current_page().size());
 }
