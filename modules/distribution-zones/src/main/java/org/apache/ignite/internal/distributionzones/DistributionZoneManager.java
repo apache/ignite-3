@@ -84,11 +84,13 @@ public class DistributionZoneManager implements IgniteComponent {
     /** Cluster Management manager. */
     private final ClusterManagementGroupManager cmgManager;
 
+    /** Vault manager. */
     private final VaultManager vaultMgr;
 
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
+    /** The logical topology on the last watch event. */
     private Set<String> logicalTopology = Collections.emptySet();
 
     /**
@@ -256,7 +258,7 @@ public class DistributionZoneManager implements IgniteComponent {
     public void start() {
         zonesConfiguration.distributionZones().listenElements(new ZonesConfigurationListener());
 
-        long appliedRevision = appliedRevision();
+        long vaultAppliedRevision = vaultAppliedRevision();
 
         VaultEntry vaultEntry;
 
@@ -266,7 +268,8 @@ public class DistributionZoneManager implements IgniteComponent {
             throw new IgniteInternalException(e);
         }
 
-        if (vaultEntry.value() != null) {
+
+        if (vaultEntry != null && vaultEntry.value() != null) {
             byte[] newLogicalTopology = vaultEntry.value();
 
             logicalTopology = ByteUtils.fromBytes(newLogicalTopology);
@@ -275,7 +278,7 @@ public class DistributionZoneManager implements IgniteComponent {
                     .forEach(zoneName -> {
                         int zoneId = zonesConfiguration.distributionZones().get(zoneName).zoneId().value();
 
-                        saveDataNodesToMetastorage(zoneId, newLogicalTopology, appliedRevision);
+                        saveDataNodesToMetastorage(zoneId, newLogicalTopology, vaultAppliedRevision);
                     });
         }
 
@@ -489,7 +492,7 @@ public class DistributionZoneManager implements IgniteComponent {
     /**
      * Returns applied vault revision.
      */
-    private long appliedRevision() {
+    private long vaultAppliedRevision() {
         try {
             return vaultMgr.get(APPLIED_REV)
                     .thenApply(appliedRevision -> appliedRevision == null ? 0L : bytesToLong(appliedRevision.value()))

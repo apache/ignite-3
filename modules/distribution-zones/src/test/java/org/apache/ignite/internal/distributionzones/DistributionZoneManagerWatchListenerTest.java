@@ -88,7 +88,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 
 /**
- * Tests distribution zones configuration changes and reaction to that changes.
+ * Tests distribution zones logical topology changes and reaction to that changes.
  */
 public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest {
     private static final String ZONE_NAME = "zone1";
