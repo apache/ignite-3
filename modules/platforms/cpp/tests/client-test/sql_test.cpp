@@ -31,8 +31,33 @@ using namespace ignite;
  * Test suite.
  */
 class sql_test : public ignite_runner_suite {
-
 protected:
+    static void SetUpTestSuite() {
+        ignite_client_configuration cfg{NODE_ADDRS};
+        cfg.set_logger(get_logger());
+        auto client = ignite_client::start(cfg, std::chrono::seconds(30));
+
+        auto res = client.get_sql().execute(nullptr,
+            {"CREATE TABLE IF NOT EXISTS TEST(ID INT PRIMARY KEY, VAL VARCHAR)"}, {});
+
+        if (!res.was_applied()) {
+            client.get_sql().execute(nullptr, {"DELETE FROM TEST"}, {});
+        }
+
+        for (std::int32_t i = 0; i < 10; ++i) {
+            client.get_sql().execute(nullptr, {"INSERT INTO TEST VALUES (?, ?)"}, {i, "s-" + std::to_string(i)});
+        }
+    }
+
+    static void TearDownTestSuite() {
+        ignite_client_configuration cfg{NODE_ADDRS};
+        cfg.set_logger(get_logger());
+        auto client = ignite_client::start(cfg, std::chrono::seconds(30));
+
+        client.get_sql().execute(nullptr, {"DROP TABLE TEST"}, {});
+        client.get_sql().execute(nullptr, {"DROP TABLE IF EXISTS TestDdlDml"}, {});
+    }
+
     void SetUp() override {
         ignite_client_configuration cfg{NODE_ADDRS};
         cfg.set_logger(get_logger());
@@ -49,8 +74,7 @@ protected:
 };
 
 TEST_F(sql_test, sql_simple_select) {
-    auto sql = m_client.get_sql();
-    auto result_set = sql.execute(nullptr, {"select 42, 'Lorem'"}, {});
+    auto result_set = m_client.get_sql().execute(nullptr, {"select 42, 'Lorem'"}, {});
 
     EXPECT_FALSE(result_set.was_applied());
     EXPECT_TRUE(result_set.has_rowset());
