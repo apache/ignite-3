@@ -37,9 +37,6 @@ using Table.Serialization;
 /// </summary>
 internal static class ResultSelector
 {
-    private static readonly MethodInfo ReadByteAsBooleanMethod =
-        typeof(ResultSelector).GetMethod(nameof(ReadByteAsBoolean), BindingFlags.NonPublic | BindingFlags.Static)!;
-
     private static readonly ConcurrentDictionary<ResultSelectorCacheKey<ConstructorInfo>, object> CtorCache = new();
 
     private static readonly ConcurrentDictionary<ResultSelectorCacheKey<Type>, object> SingleColumnReaderCache = new();
@@ -262,7 +259,7 @@ internal static class ResultSelector
         }
 
         var colType = col.Type.ToClrType();
-        il.Emit(OpCodes.Call, GetReadMethod(colType));
+        il.Emit(OpCodes.Call, BinaryTupleMethods.GetReadMethod(colType));
 
         il.EmitConv(colType, targetType);
         il.MarkLabel(endParamLabel);
@@ -296,7 +293,7 @@ internal static class ResultSelector
         }
 
         var colType = col.Type.ToClrType();
-        il.Emit(OpCodes.Call, GetReadMethod(colType));
+        il.Emit(OpCodes.Call, BinaryTupleMethods.GetReadMethod(colType));
 
         il.EmitConv(colType, field.FieldType);
         il.Emit(OpCodes.Stfld, field); // res.field = value
@@ -305,19 +302,4 @@ internal static class ResultSelector
     }
 
     private static long GetNextId() => Interlocked.Increment(ref _idCounter);
-
-    private static MethodInfo GetReadMethod(Type type) =>
-        type == typeof(bool)
-            ? ReadByteAsBooleanMethod
-            : BinaryTupleMethods.GetReadMethod(type);
-
-    /// <summary>
-    /// Reads a byte as boolean from a binary tuple reader.
-    /// <para />
-    /// Binary tuple does not support boolean, but SQL does, so we use byte instead.
-    /// </summary>
-    /// <param name="reader">Reader.</param>
-    /// <param name="index">Index.</param>
-    /// <returns>Byte as boolean.</returns>
-    private static bool ReadByteAsBoolean(BinaryTupleReader reader, int index) => reader.GetByte(index) != 0;
 }
