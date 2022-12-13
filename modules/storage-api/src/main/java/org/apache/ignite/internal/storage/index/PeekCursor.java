@@ -27,7 +27,15 @@ public interface PeekCursor<T> extends Cursor<T> {
     /**
      * Returns the next element without advancing the cursor, {@code null} if there is no next element.
      *
-     * <p>If the cursor indicates that there are no more elements, then {@code null} will always be returned.
+     * <p>Usage notes:
+     * <ul>
+     *     <li>After the cursor is created, {@code #peek()} will return the actual (up-to-date) next element;</li>
+     *     <li>After calling {@link #hasNext()}, if it returned {@code true}, then {@code peek()} will return the element (cached) that
+     *     {@link #next()} would return, but without advancing the cursor;</li>
+     *     <li>After calling {@link #hasNext()}, if it returned {@code false}, then {@code peek()} will always return {@code null};</li>
+     *     <li>After {@link #next()} is called, but before {@link #hasNext()} is called, {@code peek()} will always return the actual
+     *     (up-to-date) next element without advancing the cursor.</li>
+     * </ul>
      */
     @Nullable T peek();
 }

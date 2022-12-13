@@ -221,17 +221,15 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
                     return null;
                 }
 
-                T next = null;
-
                 refreshAndPrepareRocksIterator();
 
                 if (!it.isValid()) {
                     RocksUtils.checkIterator(it);
-                } else {
-                    next = mapper.apply(ByteBuffer.wrap(it.key()).order(ORDER));
-                }
 
-                return next;
+                    return null;
+                } else {
+                    return mapper.apply(ByteBuffer.wrap(it.key()).order(ORDER));
+                }
             }
 
             private void advanceIfNeeded() throws StorageException {
