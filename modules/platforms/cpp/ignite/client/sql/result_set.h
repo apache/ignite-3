@@ -18,6 +18,7 @@
 #pragma once
 
 #include "ignite/client/sql/result_set_metadata.h"
+#include "ignite/client/table/ignite_tuple.h"
 #include "ignite/common/ignite_result.h"
 #include "ignite/common/config.h"
 
@@ -90,6 +91,15 @@ public:
      * @return @c true if the request was sent, and false if the result set was already closed.
      */
     IGNITE_API bool close();
+
+    /**
+     * Retrieves current page.
+     * Result set is left empty after this operation and will return empty page on subsequent request
+     * unless there are more available pages and you call @c fetch_next_page().
+     *
+     * @return Current page.
+     */
+    [[nodiscard]] IGNITE_API std::vector<ignite_tuple> current_page();
 
 private:
     /** Implementation. */

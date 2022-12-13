@@ -21,6 +21,7 @@
 #include "ignite/client/primitive.h"
 #include "ignite/schema/binary_tuple_builder.h"
 #include "ignite/schema/ignite_type.h"
+#include "ignite/schema/binary_tuple_parser.h"
 
 namespace ignite::detail {
 
@@ -50,5 +51,24 @@ inline void transactions_not_implemented(transaction *tx) {
     if (tx)
         throw ignite_error("Transactions are not implemented");
 }
+
+
+/**
+ * Read column value from binary tuple.
+ *
+ * @param parser Binary tuple parser.
+ * @param typ Column type.
+ * @return Column value.
+ */
+[[nodiscard]] primitive read_next_column(binary_tuple_parser &parser, ignite_type typ);
+
+/**
+ * Read column value from binary tuple.
+ *
+ * @param parser Binary tuple parser.
+ * @param typ Column type.
+ * @return Column value.
+ */
+[[nodiscard]] primitive read_next_column(binary_tuple_parser &parser, column_type typ);
 
 } // namespace ignite::detail

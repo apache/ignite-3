@@ -118,45 +118,6 @@ void append_column(binary_tuple_builder &builder, ignite_type typ, std::int32_t 
 }
 
 /**
- * Read column value from binary tuple.
- *
- * @param parser Binary tuple parser.
- * @param typ Column type.
- * @return Column value.
- */
-primitive read_next_column(binary_tuple_parser &parser, ignite_type typ) {
-    auto val_opt = parser.get_next();
-    if (!val_opt)
-        return {};
-
-    auto val = val_opt.value();
-
-    switch (typ) {
-        case ignite_type::INT8:
-            return binary_tuple_parser::get_int8(val);
-        case ignite_type::INT16:
-            return binary_tuple_parser::get_int16(val);
-        case ignite_type::INT32:
-            return binary_tuple_parser::get_int32(val);
-        case ignite_type::INT64:
-            return binary_tuple_parser::get_int64(val);
-        case ignite_type::FLOAT:
-            return binary_tuple_parser::get_float(val);
-        case ignite_type::DOUBLE:
-            return binary_tuple_parser::get_double(val);
-        case ignite_type::UUID:
-            return binary_tuple_parser::get_uuid(val);
-        case ignite_type::STRING:
-            return std::string(reinterpret_cast<const char *>(val.data()), val.size());
-        case ignite_type::BINARY:
-            return std::vector<std::byte>(val);
-        default:
-            // TODO: IGNITE-18035 Support other types
-            throw ignite_error("Type with id " + std::to_string(int(typ)) + " is not yet supported");
-    }
-}
-
-/**
  * Serialize tuple using table schema.
  *
  * @param sch Schema.

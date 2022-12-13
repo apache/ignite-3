@@ -44,4 +44,8 @@ bool result_set::close() {
     return m_impl->close();
 }
 
+std::vector<ignite_tuple> result_set::current_page() {
+    return m_impl->current_page();
+}
+
 } // namespace ignite

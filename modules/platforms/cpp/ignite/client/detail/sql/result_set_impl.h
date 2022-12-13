@@ -18,7 +18,10 @@
 #pragma once
 
 #include "ignite/client/sql/result_set_metadata.h"
+#include "ignite/client/table/ignite_tuple.h"
 #include "ignite/client/detail/node_connection.h"
+#include "ignite/client/detail/utils.h"
+#include "ignite/schema/binary_tuple_parser.h"
 
 #include <cstdint>
 
@@ -51,7 +54,7 @@ public:
         if (m_has_rowset) {
             auto columns = read_meta(reader);
             m_meta = std::move(result_set_metadata(columns));
-            m_data.assign(data.begin() + (int)reader.position(), data.end());
+            m_page = read_page(reader);
         }
     }
 
@@ -144,6 +147,17 @@ public:
         return true;
     }
 
+    /**
+     * Get current page size.
+     *
+     * @return Current page size.
+     */
+    [[nodiscard]] std::vector<ignite_tuple> current_page() {
+        auto ret = std::move(m_page);
+        m_page.clear();
+
+        return ret;
+    }
 
 private:
     /**
@@ -216,6 +230,35 @@ private:
         return columns;
     }
 
+    /**
+     * Read page.
+     *
+     * @param reader Reader to use.
+     * @return Page.
+     */
+    std::vector<ignite_tuple> read_page(protocol::reader &reader) {
+        auto size = reader.read_array_size();
+
+        std::vector<ignite_tuple> page;
+        page.reserve(size);
+
+        reader.read_array_raw([&columns = m_meta.columns(), &page] (std::uint32_t idx, const msgpack_object &obj) {
+            auto tuple_data = protocol::unpack_binary(obj);
+
+            auto columns_cnt = columns.size();
+            ignite_tuple res(columns_cnt);
+            binary_tuple_parser parser(std::int32_t(columns_cnt), tuple_data);
+
+            for (size_t i = 0; i < columns_cnt; ++i) {
+                auto &column = columns[i];
+                res.set(column.name(), read_next_column(parser, column.type()));
+            }
+            page.emplace_back(std::move(res));
+        });
+
+        return page;
+    }
+
     /** Result set metadata. */
     result_set_metadata m_meta;
 
@@ -237,11 +280,8 @@ private:
     /** Has more pages. */
     bool m_has_more_pages{false};
 
-    /** Row set data. */
-    std::vector<std::byte> m_data;
-
-    /** Position in buffer. */
-    size_t m_data_pos{0};
+    /** Current page. */
+    std::vector<ignite_tuple> m_page;
 };
 
 } // namespace ignite::detail

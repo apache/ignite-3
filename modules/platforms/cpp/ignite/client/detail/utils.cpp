@@ -182,4 +182,70 @@ void append_primitive_with_type(binary_tuple_builder &builder, const primitive &
     }
 }
 
+primitive read_next_column(binary_tuple_parser &parser, ignite_type typ) {
+    auto val_opt = parser.get_next();
+    if (!val_opt)
+        return {};
+
+    auto val = val_opt.value();
+
+    switch (typ) {
+        case ignite_type::INT8:
+            return binary_tuple_parser::get_int8(val);
+        case ignite_type::INT16:
+            return binary_tuple_parser::get_int16(val);
+        case ignite_type::INT32:
+            return binary_tuple_parser::get_int32(val);
+        case ignite_type::INT64:
+            return binary_tuple_parser::get_int64(val);
+        case ignite_type::FLOAT:
+            return binary_tuple_parser::get_float(val);
+        case ignite_type::DOUBLE:
+            return binary_tuple_parser::get_double(val);
+        case ignite_type::UUID:
+            return binary_tuple_parser::get_uuid(val);
+        case ignite_type::STRING:
+            return std::string(reinterpret_cast<const char *>(val.data()), val.size());
+        case ignite_type::BINARY:
+            return std::vector<std::byte>(val);
+        default:
+            // TODO: IGNITE-18035 Support other types
+            throw ignite_error("Type with id " + std::to_string(int(typ)) + " is not yet supported");
+    }
+}
+
+primitive read_next_column(binary_tuple_parser &parser, column_type typ) {
+    auto val_opt = parser.get_next();
+    if (!val_opt)
+        return {};
+
+    auto val = val_opt.value();
+
+    switch (typ) {
+        case column_type::BOOLEAN:
+            return binary_tuple_parser::get_int8(val) != 0;
+        case column_type::INT8:
+            return binary_tuple_parser::get_int8(val);
+        case column_type::INT16:
+            return binary_tuple_parser::get_int16(val);
+        case column_type::INT32:
+            return binary_tuple_parser::get_int32(val);
+        case column_type::INT64:
+            return binary_tuple_parser::get_int64(val);
+        case column_type::FLOAT:
+            return binary_tuple_parser::get_float(val);
+        case column_type::DOUBLE:
+            return binary_tuple_parser::get_double(val);
+        case column_type::UUID:
+            return binary_tuple_parser::get_uuid(val);
+        case column_type::STRING:
+            return std::string(reinterpret_cast<const char *>(val.data()), val.size());
+        case column_type::BYTE_ARRAY:
+            return std::vector<std::byte>(val);
+        default:
+            // TODO: IGNITE-18035 Support other types
+            throw ignite_error("Type with id " + std::to_string(int(typ)) + " is not yet supported");
+    }
+}
+
 } // namespace ignite::detail

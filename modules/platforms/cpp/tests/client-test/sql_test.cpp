@@ -50,7 +50,7 @@ protected:
 
 TEST_F(sql_test, sql_simple_select) {
     auto sql = m_client.get_sql();
-    auto result_set = sql.execute(nullptr, {"select 1, 'Lorem'"}, {});
+    auto result_set = sql.execute(nullptr, {"select 42, 'Lorem'"}, {});
 
     EXPECT_FALSE(result_set.was_applied());
     EXPECT_TRUE(result_set.has_rowset());
@@ -60,12 +60,18 @@ TEST_F(sql_test, sql_simple_select) {
 
     ASSERT_EQ(2, meta.columns().size());
 
-    EXPECT_EQ(0, meta.index_of("1"));
+    EXPECT_EQ(0, meta.index_of("42"));
     EXPECT_EQ(1, meta.index_of("'Lorem'"));
 
     EXPECT_EQ(column_type::INT32, meta.columns()[0].type());
-    EXPECT_EQ("1", meta.columns()[0].name());
+    EXPECT_EQ("42", meta.columns()[0].name());
 
     EXPECT_EQ(column_type::STRING, meta.columns()[1].type());
     EXPECT_EQ("'Lorem'", meta.columns()[1].name());
+
+    auto page = result_set.current_page();
+
+    EXPECT_EQ(1, page.size());
+    EXPECT_EQ(42, page.front().get(0).get<std::int32_t>());
+    EXPECT_EQ("Lorem", page.front().get(1).get<std::string>());
 }
