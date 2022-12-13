@@ -204,7 +204,7 @@ namespace Apache.Ignite.Internal.Sql
                 const int minCount = 6;
 
                 Debug.Assert(propertyCount >= minCount, "propertyCount >= " + minCount);
-                
+
                 var name = reader.ReadString();
                 var nullable = reader.ReadBoolean();
                 var type = (SqlColumnType)reader.ReadInt32();
