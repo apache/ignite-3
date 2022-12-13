@@ -33,6 +33,7 @@ dependencies {
     implementation project(':ignite-metastorage-client')
     implementation project(':ignite-cluster-management')
     implementation project(':ignite-metastorage')
+    implementation project(':ignite-vault')
     implementation project(':ignite-configuration')
 
     implementation libs.jetbrains.annotations
