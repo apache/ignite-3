@@ -28,6 +28,7 @@ import org.gradle.crypto.checksum.Checksum
 
 configurations {
     dbArtifacts
+    cliArtifacts
     cliZip
     dbZip
     cliRelease
@@ -37,6 +38,7 @@ configurations {
 
 dependencies {
     dbArtifacts(project(':ignite-runner'))
+    cliArtifacts(project(':ignite-cli'))
     cliZip(project(path: ':packaging-cli', configuration: 'cliZip'))
     dbZip(project(path: ':packaging-db', configuration: 'dbZip'))
     cliRelease(project(path: ':packaging-cli', configuration: 'cliRelease'))
