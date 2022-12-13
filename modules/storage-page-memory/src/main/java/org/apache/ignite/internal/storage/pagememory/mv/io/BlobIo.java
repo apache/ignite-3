@@ -21,30 +21,60 @@ import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
 
 import org.apache.ignite.internal.pagememory.io.PageIo;
 
+/**
+ * Base for {@link PageIo} implementations working with blobs.
+ */
 public abstract class BlobIo extends PageIo {
     protected BlobIo(int type, int ver) {
         super(type, ver, FLAG_AUX);
     }
 
+    /**
+     * Returns full header size in bytes.
+     */
     public abstract int fullHeaderSize();
 
+    /**
+     * Reads next page ID.
+     */
     public abstract long getNextPageId(long pageAddr);
 
+    /**
+     * Writes next page ID.
+     */
     public abstract void setNextPageId(long pageAddr, long nextPageId);
 
+    /**
+     * Reads total blob length.
+     */
     public int getTotalLength(long pageAddr) {
         throw new UnsupportedOperationException();
     }
 
+    /**
+     * Writes total blob length.
+     */
     public void setTotalLength(long pageAddr, int totalLength) {
         throw new UnsupportedOperationException();
     }
 
+    /**
+     * Reads current fragment length.
+     */
     public abstract int getFragmentLength(long pageAddr);
 
+    /**
+     * Sets current fragment length.
+     */
     public abstract void setFragmentLength(long pageAddr, int fragmentLength);
 
+    /**
+     * Reads fragment bytes to the given array.
+     */
     public abstract void getFragmentBytes(long pageAddr, byte[] destArray, int destOffset, int fragmentLength);
 
+    /**
+     * Writes fragment bytes from the given array.
+     */
     public abstract void setFragmentBytes(long pageAddr, byte[] bytes, int bytesOffset, int fragmentLength);
 }

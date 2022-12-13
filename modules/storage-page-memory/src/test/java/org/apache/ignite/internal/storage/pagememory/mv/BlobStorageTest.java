@@ -71,10 +71,12 @@ class BlobStorageTest {
 
     @BeforeEach
     void createStorage() {
-        PageIoRegistry pageIoRegistry = new PageIoRegistry() {{
-            ioVersions[BlobFirstIo.T_BLOB_FIRST_IO] = BlobFirstIo.VERSIONS;
-            ioVersions[BlobDataIo.T_BLOB_DATA_IO] = BlobDataIo.VERSIONS;
-        }};
+        PageIoRegistry pageIoRegistry = new PageIoRegistry() {
+            {
+                ioVersions[BlobFirstIo.T_BLOB_FIRST_IO] = BlobFirstIo.VERSIONS;
+                ioVersions[BlobDataIo.T_BLOB_DATA_IO] = BlobDataIo.VERSIONS;
+            }
+        };
 
         pageMemory = spy(new VolatilePageMemory(dataRegionConfiguration, pageIoRegistry, PAGE_SIZE));
         pageMemory.start();

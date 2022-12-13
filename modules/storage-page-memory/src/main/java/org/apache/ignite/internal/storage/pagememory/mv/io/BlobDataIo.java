@@ -28,7 +28,7 @@ import org.apache.ignite.internal.pagememory.util.PageUtils;
 import org.apache.ignite.lang.IgniteStringBuilder;
 
 /**
- * Pages IO for first blob page.
+ * Pages IO for blob pages after the first page.
  */
 public class BlobDataIo extends BlobIo {
     /** Page IO type. */
