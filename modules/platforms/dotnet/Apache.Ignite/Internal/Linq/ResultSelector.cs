@@ -20,11 +20,13 @@ namespace Apache.Ignite.Internal.Linq;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Reflection.Emit;
+using System.Threading;
 using Ignite.Sql;
 using Proto.BinaryTuple;
 using Remotion.Linq.Clauses;
@@ -39,9 +41,13 @@ internal static class ResultSelector
 {
     private static readonly ConcurrentDictionary<ResultSelectorCacheKey<ConstructorInfo>, object> CtorCache = new();
 
+    private static readonly ConcurrentDictionary<ResultSelectorCacheKey<Type>, object> SingleColumnReaderCache = new();
+
     private static readonly ConcurrentDictionary<ResultSelectorCacheKey<Type>, object> ReaderCache = new();
 
     private static readonly ConcurrentDictionary<ResultSelectorCacheKey<(Type Key, Type Val)>, object> KvReaderCache = new();
+
+    private static long _idCounter;
 
     /// <summary>
     /// Gets the result selector.
@@ -70,17 +76,13 @@ internal static class ResultSelector
                 static k => EmitConstructorReader<T>(k.Target, k.Columns, k.DefaultIfNull));
         }
 
-        if (columns.Count == 1 && typeof(T).ToSqlColumnType() is { } resType)
+        if (columns.Count == 1 && typeof(T).ToSqlColumnType() is not null)
         {
-            // TODO: Emit methods here too to avoid casts.
-            if (columns[0].Type == resType)
-            {
-                return static (IReadOnlyList<IColumnMetadata> cols, ref BinaryTupleReader reader) =>
-                    (T)Sql.ReadColumnValue(ref reader, cols[0], 0)!;
-            }
+            var singleColumnCacheKey = new ResultSelectorCacheKey<Type>(typeof(T), columns, defaultIfNull);
 
-            return static (IReadOnlyList<IColumnMetadata> cols, ref BinaryTupleReader reader) =>
-                (T)Convert.ChangeType(Sql.ReadColumnValue(ref reader, cols[0], 0)!, typeof(T), CultureInfo.InvariantCulture);
+            return (RowReader<T>)SingleColumnReaderCache.GetOrAdd(
+                singleColumnCacheKey,
+                static k => EmitSingleColumnReader<T>(k.Columns[0], k.DefaultIfNull));
         }
 
         if (typeof(T).GetKeyValuePairTypes() is var (keyType, valType))
@@ -108,13 +110,30 @@ internal static class ResultSelector
             static k => EmitUninitializedObjectReader<T>(k.Columns, k.DefaultIfNull));
     }
 
+    private static RowReader<T> EmitSingleColumnReader<T>(IColumnMetadata column, bool defaultIfNull)
+    {
+        var method = new DynamicMethod(
+            name: $"SingleColumnFromBinaryTupleReader_{typeof(T).FullName}_{GetNextId()}",
+            returnType: typeof(T),
+            parameterTypes: new[] { typeof(IReadOnlyList<IColumnMetadata>), typeof(BinaryTupleReader).MakeByRefType() },
+            m: typeof(IIgnite).Module,
+            skipVisibility: true);
+
+        var il = method.GetILGenerator();
+
+        EmitReadToStack(il, column, typeof(T), 0, defaultIfNull);
+        il.Emit(OpCodes.Ret);
+
+        return (RowReader<T>)method.CreateDelegate(typeof(RowReader<T>));
+    }
+
     private static RowReader<T> EmitConstructorReader<T>(
         ConstructorInfo ctorInfo,
         IReadOnlyList<IColumnMetadata> columns,
         bool defaultAsNull)
     {
         var method = new DynamicMethod(
-            name: "ConstructorFromBinaryTupleReader_" + typeof(T).FullName,
+            name: $"ConstructorFromBinaryTupleReader_{typeof(T).FullName}_{GetNextId()}",
             returnType: typeof(T),
             parameterTypes: new[] { typeof(IReadOnlyList<IColumnMetadata>), typeof(BinaryTupleReader).MakeByRefType() },
             m: typeof(IIgnite).Module,
@@ -128,51 +147,11 @@ internal static class ResultSelector
             throw new InvalidOperationException("Constructor parameter count does not match column count, can't emit row reader.");
         }
 
+        // Read all constructor parameters and push them to the evaluation stack.
         for (var index = 0; index < ctorParams.Length; index++)
         {
-            Label endParamLabel = il.DefineLabel();
-
-            var param = ctorParams[index];
-            var col = columns[index];
-
-            if (defaultAsNull)
-            {
-                // if (reader.IsNull(index)) return default;
-                Label notNullLabel = il.DefineLabel();
-                il.Emit(OpCodes.Ldarg_1); // Reader.
-                il.Emit(OpCodes.Ldc_I4, index); // Index.
-                il.Emit(OpCodes.Call, BinaryTupleMethods.IsNull);
-                il.Emit(OpCodes.Brfalse_S, notNullLabel);
-
-                if (param.ParameterType.IsValueType)
-                {
-                    var local = il.DeclareLocal(param.ParameterType);
-                    il.Emit(OpCodes.Ldloca_S, local);
-                    il.Emit(OpCodes.Initobj, param.ParameterType); // Load default value into local.
-                    il.Emit(OpCodes.Ldloc, local); // Load local value onto stack for constructor call.
-                }
-                else
-                {
-                    il.Emit(OpCodes.Ldnull);
-                }
-
-                il.Emit(OpCodes.Br_S, endParamLabel);
-                il.MarkLabel(notNullLabel);
-            }
-
-            il.Emit(OpCodes.Ldarg_1); // Reader.
-            il.Emit(OpCodes.Ldc_I4, index); // Index.
-
-            if (col.Type == SqlColumnType.Decimal)
-            {
-                il.Emit(OpCodes.Ldc_I4, col.Scale);
-            }
-
-            var colType = col.Type.ToClrType();
-            il.Emit(OpCodes.Call, BinaryTupleMethods.GetReadMethod(colType));
-
-            il.EmitConv(colType, param.ParameterType);
-            il.MarkLabel(endParamLabel);
+            var paramType = ctorParams[index].ParameterType;
+            EmitReadToStack(il, columns[index], paramType, index, defaultAsNull);
         }
 
         il.Emit(OpCodes.Newobj, ctorInfo);
@@ -186,7 +165,7 @@ internal static class ResultSelector
         bool defaultAsNull)
     {
         var method = new DynamicMethod(
-            name: "UninitializedObjectFromBinaryTupleReader_" + typeof(T).FullName,
+            name: $"UninitializedObjectFromBinaryTupleReader_{typeof(T).FullName}_{GetNextId()}",
             returnType: typeof(T),
             parameterTypes: new[] { typeof(IReadOnlyList<IColumnMetadata>), typeof(BinaryTupleReader).MakeByRefType() },
             m: typeof(IIgnite).Module,
@@ -207,6 +186,85 @@ internal static class ResultSelector
         il.Emit(OpCodes.Ret);
 
         return (RowReader<T>)method.CreateDelegate(typeof(RowReader<T>));
+    }
+
+    private static RowReader<T> EmitKvPairReader<T>(
+        IReadOnlyList<IColumnMetadata> columns,
+        Type keyType,
+        Type valType,
+        bool defaultAsNull)
+    {
+        var method = new DynamicMethod(
+            name: $"KvPairFromBinaryTupleReader_{typeof(T).FullName}_{GetNextId()}",
+            returnType: typeof(T),
+            parameterTypes: new[] { typeof(IReadOnlyList<IColumnMetadata>), typeof(BinaryTupleReader).MakeByRefType() },
+            m: typeof(IIgnite).Module,
+            skipVisibility: true);
+
+        var il = method.GetILGenerator();
+
+        var key = il.DeclareAndInitLocal(keyType);
+        var val = il.DeclareAndInitLocal(valType);
+
+        for (var index = 0; index < columns.Count; index++)
+        {
+            var col = columns[index];
+
+            EmitFieldRead(il, key, col, index, defaultAsNull);
+            EmitFieldRead(il, val, col, index, defaultAsNull);
+        }
+
+        il.Emit(OpCodes.Ldloc_0); // key
+        il.Emit(OpCodes.Ldloc_1); // val
+
+        il.Emit(OpCodes.Newobj, typeof(T).GetConstructor(new[] { keyType, valType })!);
+        il.Emit(OpCodes.Ret);
+
+        return (RowReader<T>)method.CreateDelegate(typeof(RowReader<T>));
+    }
+
+    private static void EmitReadToStack(ILGenerator il, IColumnMetadata col, Type targetType, int index, bool defaultAsNull)
+    {
+        Label endParamLabel = il.DefineLabel();
+
+        if (defaultAsNull)
+        {
+            // if (reader.IsNull(index)) return default;
+            Label notNullLabel = il.DefineLabel();
+            il.Emit(OpCodes.Ldarg_1); // Reader.
+            il.Emit(OpCodes.Ldc_I4, index); // Index.
+            il.Emit(OpCodes.Call, BinaryTupleMethods.IsNull);
+            il.Emit(OpCodes.Brfalse_S, notNullLabel);
+
+            if (targetType.IsValueType)
+            {
+                var local = il.DeclareLocal(targetType);
+                il.Emit(OpCodes.Ldloca_S, local);
+                il.Emit(OpCodes.Initobj, targetType); // Load default value into local.
+                il.Emit(OpCodes.Ldloc, local); // Load local value onto stack for constructor call.
+            }
+            else
+            {
+                il.Emit(OpCodes.Ldnull);
+            }
+
+            il.Emit(OpCodes.Br_S, endParamLabel);
+            il.MarkLabel(notNullLabel);
+        }
+
+        il.Emit(OpCodes.Ldarg_1); // Reader.
+        il.Emit(OpCodes.Ldc_I4, index); // Index.
+
+        if (col.Type == SqlColumnType.Decimal)
+        {
+            il.Emit(OpCodes.Ldc_I4, col.Scale);
+        }
+
+        var colType = col.Type.ToClrType();
+        il.Emit(OpCodes.Call, BinaryTupleMethods.GetReadMethod(colType));
+
+        il.EmitConv(colType, targetType);
+        il.MarkLabel(endParamLabel);
     }
 
     private static void EmitFieldRead(ILGenerator il, LocalBuilder targetObj, IColumnMetadata col, int colIndex, bool defaultAsNull)
@@ -245,38 +303,5 @@ internal static class ResultSelector
         il.MarkLabel(endFieldLabel);
     }
 
-    private static RowReader<T> EmitKvPairReader<T>(
-        IReadOnlyList<IColumnMetadata> columns,
-        Type keyType,
-        Type valType,
-        bool defaultAsNull)
-    {
-        var method = new DynamicMethod(
-            name: "KvPairFromBinaryTupleReader_" + typeof(T).FullName,
-            returnType: typeof(T),
-            parameterTypes: new[] { typeof(IReadOnlyList<IColumnMetadata>), typeof(BinaryTupleReader).MakeByRefType() },
-            m: typeof(IIgnite).Module,
-            skipVisibility: true);
-
-        var il = method.GetILGenerator();
-
-        var key = il.DeclareAndInitLocal(keyType);
-        var val = il.DeclareAndInitLocal(valType);
-
-        for (var index = 0; index < columns.Count; index++)
-        {
-            var col = columns[index];
-
-            EmitFieldRead(il, key, col, index, defaultAsNull);
-            EmitFieldRead(il, val, col, index, defaultAsNull);
-        }
-
-        il.Emit(OpCodes.Ldloc_0); // key
-        il.Emit(OpCodes.Ldloc_1); // val
-
-        il.Emit(OpCodes.Newobj, typeof(T).GetConstructor(new[] { keyType, valType })!);
-        il.Emit(OpCodes.Ret);
-
-        return (RowReader<T>)method.CreateDelegate(typeof(RowReader<T>));
-    }
+    private static long GetNextId() => Interlocked.Increment(ref _idCounter);
 }
