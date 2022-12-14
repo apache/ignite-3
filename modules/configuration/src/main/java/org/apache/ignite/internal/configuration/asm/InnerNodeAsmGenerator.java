@@ -38,7 +38,6 @@ import static com.facebook.presto.bytecode.expression.BytecodeExpressions.newIns
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.not;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.set;
 import static java.util.Collections.singleton;
-import static java.util.EnumSet.of;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
@@ -74,15 +73,18 @@ import com.facebook.presto.bytecode.ParameterizedType;
 import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.bytecode.control.IfStatement;
 import com.facebook.presto.bytecode.expression.BytecodeExpression;
+import java.io.Serializable;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.BiFunction;
@@ -95,6 +97,7 @@ import org.apache.ignite.configuration.annotation.InjectedName;
 import org.apache.ignite.configuration.annotation.Name;
 import org.apache.ignite.configuration.annotation.PolymorphicConfig;
 import org.apache.ignite.configuration.annotation.PolymorphicId;
+import org.apache.ignite.internal.configuration.ConfigurationNode;
 import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.configuration.tree.ConfigurationVisitor;
 import org.apache.ignite.internal.configuration.tree.ConstructableTreeNode;
@@ -106,6 +109,112 @@ import org.jetbrains.annotations.Nullable;
 
 //TODO Simplify code generation process: https://issues.apache.org/jira/browse/IGNITE-18366
 class InnerNodeAsmGenerator extends AbstractAsmGenerator {
+    /** {@link Consumer#accept(Object)}. */
+    private static final Method ACCEPT;
+
+    /** {@link ConfigurationVisitor#visitLeafNode(String, Serializable)}. */
+    private static final Method VISIT_LEAF;
+
+    /** {@link ConfigurationVisitor#visitInnerNode(String, InnerNode)}. */
+    private static final Method VISIT_INNER;
+
+    /** {@link ConfigurationVisitor#visitNamedListNode(String, NamedListNode)}. */
+    private static final Method VISIT_NAMED;
+
+    /** {@link ConfigurationSource#unwrap(Class)}. */
+    private static final Method UNWRAP;
+
+    /** {@link ConfigurationSource#descend(ConstructableTreeNode)}. */
+    private static final Method DESCEND;
+
+    /** {@link InnerNode#internalId()}. */
+    private static final Method INTERNAL_ID;
+
+    /** {@link Objects#requireNonNull(Object, String)}. */
+    private static final Method REQUIRE_NON_NULL;
+
+    /** {@link Class#getName} method. */
+    private static final Method CLASS_GET_NAME_MTD;
+
+    /** {@link String#equals} method. */
+    private static final Method STRING_EQUALS_MTD;
+
+    /** {@link ConfigurationSource#polymorphicTypeId} method. */
+    private static final Method POLYMORPHIC_TYPE_ID_MTD;
+
+    /** {@link InnerNode#constructDefault} method. */
+    private static final Method CONSTRUCT_DEFAULT_MTD;
+
+    /** {@link InnerNode#specificNode} method. */
+    private static final Method SPECIFIC_NODE_MTD;
+
+    /** {@link ConfigurationUtil#addDefaults}. */
+    private static final Method ADD_DEFAULTS_MTD;
+
+    /** {@link InnerNode#setInjectedNameFieldValue}. */
+    private static final Method SET_INJECTED_NAME_FIELD_VALUE_MTD;
+
+    /** {@code ConfigurationNode#currentValue}. */
+    private static final Method CURRENT_VALUE_MTD;
+
+    /** {@link InnerNode#isPolymorphic}. */
+    private static final Method IS_POLYMORPHIC_MTD;
+
+    /** {@link InnerNode#internalSchemaTypes}. */
+    private static final Method INTERNAL_SCHEMA_TYPES_MTD;
+
+    /** {@code Node#convert} method name. */
+    private static final String CONVERT_MTD_NAME = "convert";
+
+    /** {@link ConstructableTreeNode#construct(String, ConfigurationSource, boolean)} method name. */
+    private static final String CONSTRUCT_MTD_NAME = "construct";
+
+    static {
+        try {
+            ACCEPT = Consumer.class.getDeclaredMethod("accept", Object.class);
+
+            VISIT_LEAF = ConfigurationVisitor.class
+                    .getDeclaredMethod("visitLeafNode", String.class, Serializable.class);
+
+            VISIT_INNER = ConfigurationVisitor.class
+                    .getDeclaredMethod("visitInnerNode", String.class, InnerNode.class);
+
+            VISIT_NAMED = ConfigurationVisitor.class
+                    .getDeclaredMethod("visitNamedListNode", String.class, NamedListNode.class);
+
+            UNWRAP = ConfigurationSource.class.getDeclaredMethod("unwrap", Class.class);
+
+            DESCEND = ConfigurationSource.class.getDeclaredMethod("descend", ConstructableTreeNode.class);
+
+            INTERNAL_ID = InnerNode.class.getDeclaredMethod("internalId");
+
+            REQUIRE_NON_NULL = Objects.class.getDeclaredMethod("requireNonNull", Object.class, String.class);
+
+            CLASS_GET_NAME_MTD = Class.class.getDeclaredMethod("getName");
+
+            STRING_EQUALS_MTD = String.class.getDeclaredMethod("equals", Object.class);
+
+            POLYMORPHIC_TYPE_ID_MTD = ConfigurationSource.class.getDeclaredMethod("polymorphicTypeId", String.class);
+
+            CONSTRUCT_DEFAULT_MTD = InnerNode.class.getDeclaredMethod("constructDefault", String.class);
+
+            SPECIFIC_NODE_MTD = InnerNode.class.getDeclaredMethod("specificNode");
+
+            ADD_DEFAULTS_MTD = ConfigurationUtil.class.getDeclaredMethod("addDefaults", InnerNode.class);
+
+            SET_INJECTED_NAME_FIELD_VALUE_MTD = InnerNode.class.getDeclaredMethod("setInjectedNameFieldValue", String.class);
+
+            CURRENT_VALUE_MTD = ConfigurationNode.class.getDeclaredMethod("currentValue");
+
+            IS_POLYMORPHIC_MTD = InnerNode.class.getDeclaredMethod("isPolymorphic");
+
+            INTERNAL_SCHEMA_TYPES_MTD = InnerNode.class.getDeclaredMethod("internalSchemaTypes");
+
+        } catch (NoSuchMethodException nsme) {
+            throw new ExceptionInInitializerError(nsme);
+        }
+    }
+
     /** Class definition that extends the {@link InnerNode}. */
     private ClassDefinition innerNodeClassDef;
 
@@ -162,7 +271,7 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
 
         // Node class definition.
         innerNodeClassDef = new ClassDefinition(
-                of(PUBLIC, FINAL),
+                EnumSet.of(PUBLIC, FINAL),
                 internalName(schemaClassInfo.nodeClassName),
                 type(InnerNode.class),
                 nodeClassInterfaces(schemaClass, internalExtensions)
@@ -174,7 +283,7 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
         int i = 0;
 
         for (Class<?> clazz : concat(List.of(schemaClass), internalExtensions, polymorphicExtensions)) {
-            specFields.put(clazz, innerNodeClassDef.declareField(of(PRIVATE, FINAL), "_spec" + i++, clazz));
+            specFields.put(clazz, innerNodeClassDef.declareField(EnumSet.of(PRIVATE, FINAL), "_spec" + i++, clazz));
         }
 
         // Define the rest of the fields.
@@ -205,7 +314,7 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
 
         if (!internalExtensions.isEmpty()) {
             internalSchemaTypesFieldDef = innerNodeClassDef.declareField(
-                    of(PRIVATE, FINAL),
+                    EnumSet.of(PRIVATE, FINAL),
                     "_" + INTERNAL_SCHEMA_TYPES_MTD.getName(),
                     Class[].class
             );
@@ -334,7 +443,7 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
      */
     private void addNodeSchemaTypeMethod(@Nullable FieldDefinition polymorphicTypeIdFieldDef) {
         MethodDefinition schemaTypeMtd = innerNodeClassDef.declareMethod(
-                of(PUBLIC),
+                EnumSet.of(PUBLIC),
                 "schemaType",
                 type(Class.class)
         );
@@ -360,7 +469,7 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
     }
 
     /**
-     * Declares field that corresponds to configuration value. Depending on the schema, 5 options possible:
+     * Declares a field that corresponds to configuration value. Depending on the schema, 5 options are possible:
      * <ul>
      *     <li>
      *         {@code @Value public type fieldName}<br/>becomes<br/>
@@ -405,7 +514,7 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
             throw new IllegalArgumentException("Unsupported field: " + schemaField);
         }
 
-        return innerNodeClassDef.declareField(of(PUBLIC), fieldName, nodeFieldType);
+        return innerNodeClassDef.declareField(EnumSet.of(PUBLIC), fieldName, nodeFieldType);
     }
 
     /**
@@ -422,7 +531,7 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
             Map<String, FieldDefinition> fieldDefs,
             @Nullable FieldDefinition internalSchemaTypesFieldDef
     ) {
-        MethodDefinition ctor = innerNodeClassDef.declareConstructor(of(PUBLIC));
+        MethodDefinition ctor = innerNodeClassDef.declareConstructor(EnumSet.of(PUBLIC));
 
         BytecodeBlock ctorBody = ctor.getBody();
 
@@ -484,7 +593,7 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
      */
     private void addNodeInternalIdMethod() {
         MethodDefinition internalIdMtd = innerNodeClassDef.declareMethod(
-                of(PUBLIC),
+                EnumSet.of(PUBLIC),
                 internalIdField.getName(),
                 type(UUID.class)
         );
@@ -528,7 +637,7 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
         String fieldName = schemaField.getName();
 
         MethodDefinition viewMtd = classDef.declareMethod(
-                of(PUBLIC),
+                EnumSet.of(PUBLIC),
                 fieldName,
                 returnType
         );
@@ -593,7 +702,7 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
         Class<?> schemaFieldType = schemaField.getType();
 
         MethodDefinition changeMtd = classDef.declareMethod(
-                of(PUBLIC),
+                EnumSet.of(PUBLIC),
                 changeMethodName(schemaField.getName()),
                 classDef.getType(),
                 // Change argument type is a Consumer for all inner or named fields.
@@ -693,7 +802,7 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
             MethodDefinition changeMtd
     ) {
         MethodDefinition bridgeMtd = classDef.declareMethod(
-                of(PUBLIC, SYNTHETIC, BRIDGE),
+                EnumSet.of(PUBLIC, SYNTHETIC, BRIDGE),
                 changeMtd.getName(),
                 typeFromJavaClassName(changeClassName),
                 changeMtd.getParameters()
@@ -721,7 +830,7 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
             @Nullable FieldDefinition polymorphicTypeIdFieldDef
     ) {
         MethodDefinition traverseChildrenMtd = innerNodeClassDef.declareMethod(
-                of(PUBLIC),
+                EnumSet.of(PUBLIC),
                 "traverseChildren",
                 type(void.class),
                 arg("visitor", type(ConfigurationVisitor.class)),
@@ -801,7 +910,7 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
             @Nullable FieldDefinition polymorphicTypeIdFieldDef
     ) {
         MethodDefinition traverseChildMtd = innerNodeClassDef.declareMethod(
-                of(PUBLIC),
+                EnumSet.of(PUBLIC),
                 "traverseChild",
                 type(Object.class),
                 arg("key", type(String.class)),
@@ -934,7 +1043,7 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
             @Nullable MethodDefinition changePolymorphicTypeIdMtd
     ) {
         MethodDefinition constructMtd = innerNodeClassDef.declareMethod(
-                of(PUBLIC),
+                EnumSet.of(PUBLIC),
                 CONSTRUCT_MTD_NAME,
                 type(void.class),
                 arg("key", type(String.class)),
@@ -1192,7 +1301,7 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
             @Nullable FieldDefinition polymorphicTypeIdFieldDef
     ) {
         MethodDefinition constructDfltMtd = innerNodeClassDef.declareMethod(
-                of(PUBLIC),
+                EnumSet.of(PUBLIC),
                 "constructDefault",
                 type(void.class),
                 arg("key", String.class)
@@ -1332,7 +1441,7 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
      */
     private void addInjectedNameFieldMethods(FieldDefinition injectedNameFieldDef) {
         MethodDefinition getInjectedNameFieldValueMtd = innerNodeClassDef.declareMethod(
-                of(PUBLIC),
+                EnumSet.of(PUBLIC),
                 "getInjectedNameFieldValue",
                 type(String.class)
         );
@@ -1342,7 +1451,7 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
                 .retObject();
 
         MethodDefinition setInjectedNameFieldValueMtd = innerNodeClassDef.declareMethod(
-                of(PUBLIC),
+                EnumSet.of(PUBLIC),
                 "setInjectedNameFieldValue",
                 type(void.class),
                 arg("value", String.class)
@@ -1364,7 +1473,7 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
      */
     private void addIsPolymorphicMethod() {
         MethodDefinition mtd = innerNodeClassDef.declareMethod(
-                of(PUBLIC),
+                EnumSet.of(PUBLIC),
                 IS_POLYMORPHIC_MTD.getName(),
                 type(boolean.class)
         );
@@ -1383,7 +1492,7 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
             FieldDefinition internalSchemaTypesFieldDef
     ) {
         MethodDefinition mtd = innerNodeClassDef.declareMethod(
-                of(PUBLIC),
+                EnumSet.of(PUBLIC),
                 INTERNAL_SCHEMA_TYPES_MTD.getName(),
                 type(Class[].class)
         );
@@ -1398,7 +1507,7 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
      */
     private void addIsExtendAbstractConfigurationMethod() {
         MethodDefinition mtd = innerNodeClassDef.declareMethod(
-                of(PUBLIC),
+                EnumSet.of(PUBLIC),
                 "extendsAbstractConfiguration",
                 type(boolean.class)
         );
@@ -1423,7 +1532,7 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
 
         // Node class definition.
         ClassDefinition classDef = new ClassDefinition(
-                of(PUBLIC, FINAL),
+                EnumSet.of(PUBLIC, FINAL),
                 internalName(polymorphicExtensionClassInfo.nodeClassName),
                 type(Object.class),
                 ArrayUtils.concat(nodeClassInterfaces(polymorphicExtension, Set.of()), type(ConstructableTreeNode.class))
@@ -1431,14 +1540,14 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
 
         // private final ParentNode this$0;
         FieldDefinition parentInnerNodeFieldDef = classDef.declareField(
-                of(PRIVATE, FINAL),
+                EnumSet.of(PRIVATE, FINAL),
                 "this$0",
                 typeFromJavaClassName(schemaClassInfo.nodeClassName)
         );
 
         // Constructor.
         MethodDefinition constructorMtd = classDef.declareConstructor(
-                of(PUBLIC),
+                EnumSet.of(PUBLIC),
                 arg("delegate", typeFromJavaClassName(schemaClassInfo.nodeClassName))
         );
 
@@ -1522,7 +1631,7 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
 
         // Creates Node#convert(Class<T> changeClass).
         MethodDefinition convertByChangeClassMtd = classDef.declareMethod(
-                of(PUBLIC),
+                EnumSet.of(PUBLIC),
                 CONVERT_MTD_NAME,
                 returnType,
                 arg("changeClass", Class.class)
@@ -1537,7 +1646,7 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
 
         // Creates Node#convert(String polymorphicId).
         MethodDefinition convertByPolymorphicTypeIdMtd = classDef.declareMethod(
-                of(PUBLIC),
+                EnumSet.of(PUBLIC),
                 CONVERT_MTD_NAME,
                 returnType,
                 arg("polymorphicTypeId", String.class)
@@ -1552,7 +1661,7 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
 
         // Creates ConstructableTreeNode#construct.
         MethodDefinition constructMtd = classDef.declareMethod(
-                of(PUBLIC),
+                EnumSet.of(PUBLIC),
                 CONSTRUCT_MTD_NAME,
                 type(void.class),
                 arg("key", type(String.class)),
@@ -1576,7 +1685,7 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
 
         // Creates ConstructableTreeNode#copy.
         MethodDefinition copyMtd = classDef.declareMethod(
-                of(PUBLIC),
+                EnumSet.of(PUBLIC),
                 "copy",
                 type(ConstructableTreeNode.class)
         );
@@ -1597,7 +1706,7 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
      */
     private void addNodeSpecificNodeMethod(FieldDefinition polymorphicTypeIdFieldDef) {
         MethodDefinition specificNodeMtd = innerNodeClassDef.declareMethod(
-                of(PUBLIC),
+                EnumSet.of(PUBLIC),
                 SPECIFIC_NODE_MTD.getName(),
                 type(Object.class)
         );
@@ -1629,14 +1738,14 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
         SchemaClassesInfo schemaClassInfo = cgen.schemaInfo(schemaClass);
 
         MethodDefinition convertByChangeClassMtd = innerNodeClassDef.declareMethod(
-                of(PUBLIC),
+                EnumSet.of(PUBLIC),
                 CONVERT_MTD_NAME,
                 typeFromJavaClassName(schemaClassInfo.changeClassName),
                 arg("changeClass", Class.class)
         );
 
         MethodDefinition convertByPolymorphicTypeIdMtd = innerNodeClassDef.declareMethod(
-                of(PUBLIC),
+                EnumSet.of(PUBLIC),
                 CONVERT_MTD_NAME,
                 typeFromJavaClassName(schemaClassInfo.changeClassName),
                 arg("polymorphicTypeId", String.class)
@@ -1717,7 +1826,7 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
             FieldDefinition polymorphicTypeIdFieldDef
     ) {
         MethodDefinition changePolymorphicTypeIdMtd = innerNodeClassDef.declareMethod(
-                of(PUBLIC),
+                EnumSet.of(PUBLIC),
                 changeMethodName(polymorphicTypeIdFieldDef.getName()),
                 type(void.class),
                 arg("typeId", String.class)

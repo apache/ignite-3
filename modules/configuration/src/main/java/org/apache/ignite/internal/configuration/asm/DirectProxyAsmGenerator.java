@@ -28,7 +28,6 @@ import static com.facebook.presto.bytecode.expression.BytecodeExpressions.invoke
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.newInstance;
 import static java.lang.invoke.MethodType.methodType;
 import static java.util.Arrays.asList;
-import static java.util.EnumSet.of;
 import static org.apache.ignite.internal.configuration.asm.ConfigurationAsmGenerator.internalName;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.isConfigValue;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.isInjectedName;
@@ -48,8 +47,11 @@ import com.facebook.presto.bytecode.ClassDefinition;
 import com.facebook.presto.bytecode.MethodDefinition;
 import com.facebook.presto.bytecode.ParameterizedType;
 import com.facebook.presto.bytecode.expression.BytecodeExpression;
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.util.Collection;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
 import java.util.function.BiFunction;
@@ -61,6 +63,7 @@ import org.apache.ignite.internal.configuration.direct.DirectNamedListProxy;
 import org.apache.ignite.internal.configuration.direct.DirectValueProxy;
 import org.apache.ignite.internal.configuration.direct.KeyPathNode;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
+import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Handle;
@@ -70,6 +73,21 @@ import org.objectweb.asm.Handle;
  * All that's required here is to generate constructor and a bunch of getter methods.
  */
 class DirectProxyAsmGenerator extends AbstractAsmGenerator {
+    /** {@link DirectConfigurationProxy#DirectConfigurationProxy(List, DynamicConfigurationChanger)}. */
+    private static final Constructor<?> DIRECT_CFG_CTOR;
+
+    /** {@link ConfigurationUtil#appendKey(List, Object)}. */
+    private static final Method APPEND_KEY;
+
+    static {
+        try {
+            DIRECT_CFG_CTOR = DirectConfigurationProxy.class.getDeclaredConstructor(List.class, DynamicConfigurationChanger.class);
+
+            APPEND_KEY = ConfigurationUtil.class.getDeclaredMethod("appendKey", List.class, Object.class);
+        } catch (NoSuchMethodException nsme) {
+            throw new ExceptionInInitializerError(nsme);
+        }
+    }
     /** Class definition that extends the {@link DirectConfigurationProxy}. */
     private ClassDefinition classDef;
 
@@ -105,7 +123,7 @@ class DirectProxyAsmGenerator extends AbstractAsmGenerator {
 
         // public final class FooDirectProxy extends DirectConfigurationProxy<Object, Object> implements FooConfiguration, ...
         classDef = new ClassDefinition(
-                of(PUBLIC, FINAL),
+                EnumSet.of(PUBLIC, FINAL),
                 internalName(schemaClassInfo.directProxyClassName),
                 type(DirectConfigurationProxy.class),
                 cgen.configClassInterfaces(schemaClass, internalExtensions)
@@ -130,7 +148,7 @@ class DirectProxyAsmGenerator extends AbstractAsmGenerator {
     private void addConstructor() {
         // public FooDirectProxy(List<KeyPathNode> keys, DynamicConfigurationChanger changer) {
         MethodDefinition ctor = classDef.declareConstructor(
-                of(PUBLIC),
+                EnumSet.of(PUBLIC),
                 arg("keys", List.class),
                 arg("changer", DynamicConfigurationChanger.class)
         );
@@ -170,7 +188,7 @@ class DirectProxyAsmGenerator extends AbstractAsmGenerator {
         }
 
         MethodDefinition methodDef = classDef.declareMethod(
-                of(PUBLIC),
+                EnumSet.of(PUBLIC),
                 fieldName,
                 returnType
         );

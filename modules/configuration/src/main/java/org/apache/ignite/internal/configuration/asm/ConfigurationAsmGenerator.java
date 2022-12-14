@@ -87,14 +87,13 @@ import org.apache.ignite.internal.configuration.TypeUtils;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
 import org.apache.ignite.internal.configuration.tree.NamedListNode;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Handle;
 import org.objectweb.asm.Type;
 
 /**
  * This class is responsible for generating internal implementation classes for configuration schemas. It uses classes from {@code bytecode}
- * module to achieve this goal, like {@link ClassGenerator}, for examples.
+ * module to achieve this goal, like {@link ClassGenerator}, for example.
  */
 public class ConfigurationAsmGenerator {
     /** Information about schema classes - bunch of names and dynamically compiled internal classes. */
@@ -351,7 +350,6 @@ public class ConfigurationAsmGenerator {
      * @param nodeClassName Name of the {@code *Node} class.
      * @return InvokeDynamic bytecode expression.
      */
-    @NotNull
     private static BytecodeExpression newNamedListElementLambda(String nodeClassName) {
         return invokeDynamic(
                 LAMBDA_METAFACTORY,
@@ -382,13 +380,12 @@ public class ConfigurationAsmGenerator {
     }
 
     /**
-     * Returns internalized version of class name, replacing dots with slashes.
+     * Converts a public class name into an internal class name, replacing dots with slashes.
      *
      * @param className Class name (with package).
      * @return Internal class name.
      * @see Type#getInternalName(Class)
      */
-    @NotNull
     static String internalName(String className) {
         return className.replace('.', '/');
     }

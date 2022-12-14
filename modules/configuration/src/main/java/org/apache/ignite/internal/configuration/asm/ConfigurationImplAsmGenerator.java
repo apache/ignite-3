@@ -36,7 +36,6 @@ import static com.facebook.presto.bytecode.expression.BytecodeExpressions.newIns
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.set;
 import static java.util.Arrays.asList;
 import static java.util.Collections.emptyList;
-import static java.util.EnumSet.of;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
@@ -69,9 +68,12 @@ import com.facebook.presto.bytecode.MethodDefinition;
 import com.facebook.presto.bytecode.ParameterizedType;
 import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.bytecode.expression.BytecodeExpression;
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -96,6 +98,63 @@ import org.objectweb.asm.Handle;
 import org.objectweb.asm.Opcodes;
 
 class ConfigurationImplAsmGenerator extends AbstractAsmGenerator {
+    /** {@link DynamicConfiguration#DynamicConfiguration} constructor. */
+    private static final Constructor<?> DYNAMIC_CONFIGURATION_CTOR;
+
+    /** {@code DynamicConfiguration#add} method. */
+    private static final Method DYNAMIC_CONFIGURATION_ADD_MTD;
+
+    /** {@code ConfigurationNode#refreshValue} method. */
+    private static final Method REFRESH_VALUE_MTD;
+
+    /** {@code DynamicConfiguration#addMember} method. */
+    private static final Method ADD_MEMBER_MTD;
+
+    /** {@code DynamicConfiguration#removeMember} method. */
+    private static final Method REMOVE_MEMBER_MTD;
+
+    /** {@link DynamicConfiguration#specificConfigTree} method. */
+    private static final Method SPECIFIC_CONFIG_TREE_MTD;
+
+    /** {@code ConfigurationNode#currentValue}. */
+    private static final Method CURRENT_VALUE_MTD;
+
+    /** {@link DynamicConfiguration#isRemovedFromNamedList}. */
+    private static final Method IS_REMOVED_FROM_NAMED_LIST_MTD;
+
+    /** Field name for method {@link DynamicConfiguration#internalConfigTypes}. */
+    private static final String INTERNAL_CONFIG_TYPES_FIELD_NAME = "_internalConfigTypes";
+
+    static {
+        try {
+            DYNAMIC_CONFIGURATION_CTOR = DynamicConfiguration.class.getDeclaredConstructor(
+                    List.class,
+                    String.class,
+                    RootKey.class,
+                    DynamicConfigurationChanger.class,
+                    boolean.class
+            );
+
+            DYNAMIC_CONFIGURATION_ADD_MTD = DynamicConfiguration.class.getDeclaredMethod(
+                    "add",
+                    ConfigurationProperty.class
+            );
+
+            REFRESH_VALUE_MTD = ConfigurationNode.class.getDeclaredMethod("refreshValue");
+
+            ADD_MEMBER_MTD = DynamicConfiguration.class.getDeclaredMethod("addMember", Map.class, ConfigurationProperty.class);
+
+            REMOVE_MEMBER_MTD = DynamicConfiguration.class.getDeclaredMethod("removeMember", Map.class, ConfigurationProperty.class);
+
+            SPECIFIC_CONFIG_TREE_MTD = DynamicConfiguration.class.getDeclaredMethod("specificConfigTree");
+
+            CURRENT_VALUE_MTD = ConfigurationNode.class.getDeclaredMethod("currentValue");
+
+            IS_REMOVED_FROM_NAMED_LIST_MTD = DynamicConfiguration.class.getDeclaredMethod("isRemovedFromNamedList");
+        } catch (NoSuchMethodException nsme) {
+            throw new ExceptionInInitializerError(nsme);
+        }
+    }
     /** Class definition that extends the {@link DynamicConfiguration}. */
     private ClassDefinition cfgImplClassDef;
 
@@ -151,13 +210,12 @@ class ConfigurationImplAsmGenerator extends AbstractAsmGenerator {
 
         // Configuration impl class definition.
         cfgImplClassDef = new ClassDefinition(
-                of(PUBLIC, FINAL),
+                EnumSet.of(PUBLIC, FINAL),
                 internalName(schemaClassInfo.cfgImplClassName),
                 type(DynamicConfiguration.class),
                 cgen.configClassInterfaces(schemaClass, internalExtensions)
         );
 
-        // Fields.
         Map<String, FieldDefinition> fieldDefs = new HashMap<>();
 
         // To store the id of the polymorphic configuration instance.
@@ -188,7 +246,7 @@ class ConfigurationImplAsmGenerator extends AbstractAsmGenerator {
 
         if (!internalExtensions.isEmpty()) {
             internalConfigTypesFieldDef = cfgImplClassDef.declareField(
-                    of(PRIVATE, FINAL),
+                    EnumSet.of(PRIVATE, FINAL),
                     INTERNAL_CONFIG_TYPES_FIELD_NAME,
                     Class[].class
             );
@@ -230,7 +288,7 @@ class ConfigurationImplAsmGenerator extends AbstractAsmGenerator {
     }
 
     /**
-     * Declares field that corresponds to configuration value. Depending on the schema, 3 options possible:
+     * Declares a field that corresponds to configuration value. Depending on the schema, the following options are possible:
      * <ul>
      *     <li>
      *         {@code @Value public type fieldName}<br/>becomes<br/>
@@ -268,7 +326,7 @@ class ConfigurationImplAsmGenerator extends AbstractAsmGenerator {
             fieldType = type(DynamicProperty.class);
         }
 
-        return cfgImplClassDef.declareField(of(PUBLIC), fieldName, fieldType);
+        return cfgImplClassDef.declareField(EnumSet.of(PUBLIC), fieldName, fieldType);
     }
 
     /**
@@ -283,7 +341,7 @@ class ConfigurationImplAsmGenerator extends AbstractAsmGenerator {
             @Nullable FieldDefinition internalConfigTypesFieldDef
     ) {
         MethodDefinition ctor = cfgImplClassDef.declareConstructor(
-                of(PUBLIC),
+                EnumSet.of(PUBLIC),
                 arg("prefix", List.class),
                 arg("key", String.class),
                 arg("rootKey", RootKey.class),
@@ -354,7 +412,7 @@ class ConfigurationImplAsmGenerator extends AbstractAsmGenerator {
                     // We have to create method "$new$<idx>" to reference it in lambda expression. That's the way it
                     // works, it'll invoke constructor with all 5 arguments, not just 2 as in BiFunction.
                     MethodDefinition newMtd = cfgImplClassDef.declareMethod(
-                            of(PRIVATE, STATIC, SYNTHETIC),
+                            EnumSet.of(PRIVATE, STATIC, SYNTHETIC),
                             "$new$" + newIdx++,
                             typeFromJavaClassName(fieldInfo.cfgClassName),
                             arg("rootKey", RootKey.class),
@@ -472,7 +530,7 @@ class ConfigurationImplAsmGenerator extends AbstractAsmGenerator {
      */
     private void addDirectProxyMethod(SchemaClassesInfo schemaClassInfo) {
         MethodDefinition methodDef = cfgImplClassDef.declareMethod(
-                of(PUBLIC), "directProxy", type(DirectPropertyProxy.class)
+                EnumSet.of(PUBLIC), "directProxy", type(DirectPropertyProxy.class)
         );
 
         methodDef.getBody().append(newInstance(
@@ -489,7 +547,8 @@ class ConfigurationImplAsmGenerator extends AbstractAsmGenerator {
      *
      * @param classDef    Configuration impl class definition.
      * @param schemaField Configuration Schema class field.
-     * @param fieldDefs   Field definitions.
+     * @param fieldDefs   A chain of field definitions to access. For example, for fields "a", "b" and "c" the access would be
+     *      {@code this.a.b.c}.
      */
     private void addConfigurationImplGetMethod(
             ClassDefinition classDef,
@@ -519,7 +578,7 @@ class ConfigurationImplAsmGenerator extends AbstractAsmGenerator {
 
         // public ConfigurationProperty fieldName()
         MethodDefinition viewMtd = classDef.declareMethod(
-                of(PUBLIC),
+                EnumSet.of(PUBLIC),
                 fieldName,
                 returnType
         );
@@ -549,7 +608,7 @@ class ConfigurationImplAsmGenerator extends AbstractAsmGenerator {
      * @param clazz Definition of the configuration interface, for example {@code RootConfiguration}.
      */
     private void addCfgImplConfigTypeMethod(ParameterizedType clazz) {
-        cfgImplClassDef.declareMethod(of(PUBLIC), "configType", type(Class.class))
+        cfgImplClassDef.declareMethod(EnumSet.of(PUBLIC), "configType", type(Class.class))
                 .getBody()
                 .append(constantClass(clazz))
                 .retObject();
@@ -569,7 +628,7 @@ class ConfigurationImplAsmGenerator extends AbstractAsmGenerator {
      * @param internalConfigTypesDef Definition of the field in which the interfaces of the internal configuration extensions are stored.
      */
     private static void addCfgImplInternalConfigTypesMethod(ClassDefinition classDef, FieldDefinition internalConfigTypesDef) {
-        MethodDefinition internalConfigTypesMtd = classDef.declareMethod(of(PUBLIC), "internalConfigTypes", type(Class[].class));
+        MethodDefinition internalConfigTypesMtd = classDef.declareMethod(EnumSet.of(PUBLIC), "internalConfigTypes", type(Class[].class));
 
         internalConfigTypesMtd
                 .getBody()
@@ -600,7 +659,7 @@ class ConfigurationImplAsmGenerator extends AbstractAsmGenerator {
      */
     private void addCfgImplPolymorphicInstanceConfigTypeMethod(FieldDefinition polymorphicTypeIdFieldDef) {
         MethodDefinition polymorphicInstanceConfigTypeMtd = cfgImplClassDef.declareMethod(
-                of(PUBLIC),
+                EnumSet.of(PUBLIC),
                 "polymorphicInstanceConfigType",
                 type(Class.class)
         );
@@ -657,7 +716,7 @@ class ConfigurationImplAsmGenerator extends AbstractAsmGenerator {
 
         // Configuration impl class definition.
         ClassDefinition classDef = new ClassDefinition(
-                of(PUBLIC, FINAL),
+                EnumSet.of(PUBLIC, FINAL),
                 internalName(polymorphicExtensionClassInfo.cfgImplClassName),
                 type(ConfigurationTreeWrapper.class),
                 cgen.configClassInterfaces(polymorphicExtension, Set.of())
@@ -665,14 +724,14 @@ class ConfigurationImplAsmGenerator extends AbstractAsmGenerator {
 
         // private final ParentCfgImpl this$0;
         FieldDefinition parentCfgImplFieldDef = classDef.declareField(
-                of(PRIVATE, FINAL),
+                EnumSet.of(PRIVATE, FINAL),
                 "this$0",
                 typeFromJavaClassName(schemaClassInfo.cfgImplClassName)
         );
 
         // Constructor.
         MethodDefinition constructorMtd = classDef.declareConstructor(
-                of(PUBLIC),
+                EnumSet.of(PUBLIC),
                 arg("delegate", typeFromJavaClassName(schemaClassInfo.cfgImplClassName))
         );
 
@@ -712,7 +771,7 @@ class ConfigurationImplAsmGenerator extends AbstractAsmGenerator {
      */
     private void addCfgSpecificConfigTreeMethod(FieldDefinition polymorphicTypeIdFieldDef) {
         MethodDefinition specificConfigMtd = cfgImplClassDef.declareMethod(
-                of(PUBLIC),
+                EnumSet.of(PUBLIC),
                 SPECIFIC_CONFIG_TREE_MTD.getName(),
                 type(ConfigurationTree.class)
         );
@@ -759,7 +818,7 @@ class ConfigurationImplAsmGenerator extends AbstractAsmGenerator {
      */
     private void addCfgRemoveMembersMethod(Map<String, FieldDefinition> fieldDefs, FieldDefinition polymorphicTypeIdFieldDef) {
         MethodDefinition removeMembersMtd = cfgImplClassDef.declareMethod(
-                of(PUBLIC),
+                EnumSet.of(PUBLIC),
                 "removeMembers",
                 type(void.class),
                 arg("oldValue", type(Object.class)),
@@ -820,7 +879,7 @@ class ConfigurationImplAsmGenerator extends AbstractAsmGenerator {
             FieldDefinition polymorphicTypeIdFieldDef
     ) {
         MethodDefinition removeMembersMtd = cfgImplClassDef.declareMethod(
-                of(PUBLIC),
+                EnumSet.of(PUBLIC),
                 "addMembers",
                 type(void.class),
                 arg("newValue", type(Object.class)),
