@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.client;
 
-import java.lang.System.Logger;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import org.apache.ignite.client.ClientOperationType;

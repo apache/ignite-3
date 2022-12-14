@@ -23,7 +23,6 @@ import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_ERR;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelFuture;
-import java.lang.System.Logger;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.net.InetSocketAddress;
