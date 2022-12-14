@@ -20,8 +20,12 @@ package org.apache.ignite.internal.client;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import org.apache.ignite.client.ClientOperationType;
+import org.apache.ignite.client.IgniteClientConfiguration;
 import org.apache.ignite.internal.client.proto.ClientOp;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.LoggerFactory;
 
 /**
  * Client utilities.
@@ -177,5 +181,21 @@ public class ClientUtils {
             default:
                 throw new UnsupportedOperationException("Invalid op code: " + opCode);
         }
+    }
+
+    /**
+     * Gets a logger for the given class.
+     *
+     * @param cls Class.
+     * @return Logger.
+     */
+    public static <T> IgniteLogger logger(IgniteClientConfiguration cfg, Class<T> cls) {
+        var loggerFactory = cfg.loggerFactory() == null
+                ? (LoggerFactory) System::getLogger
+                : cfg.loggerFactory();
+
+        return loggerFactory == null
+                ? Loggers.voidLogger()
+                : Loggers.forClass(cls, loggerFactory);
     }
 }

@@ -74,7 +74,7 @@ public class TestServer implements AutoCloseable {
             long idleTimeout,
             Ignite ignite
     ) {
-        this(port, portRange, idleTimeout, ignite, null, null, UUID.randomUUID());
+        this(port, portRange, idleTimeout, ignite, null, null, null, UUID.randomUUID());
     }
 
     /**
@@ -91,7 +91,8 @@ public class TestServer implements AutoCloseable {
             long idleTimeout,
             Ignite ignite,
             @Nullable Function<Integer, Boolean> shouldDropConnection,
-            String nodeName,
+            @Nullable Function<Integer, Integer> responseDelay,
+            @Nullable String nodeName,
             UUID clusterId
     ) {
         cfg = new ConfigurationRegistry(
@@ -131,7 +132,15 @@ public class TestServer implements AutoCloseable {
                 compute.executeColocated(anyString(), any(), anyString(), any())).thenReturn(CompletableFuture.completedFuture(nodeName));
 
         module = shouldDropConnection != null
-                ? new TestClientHandlerModule(ignite, cfg, bootstrapFactory, shouldDropConnection, clusterService, compute, clusterId)
+                ? new TestClientHandlerModule(
+                        ignite,
+                        cfg,
+                        bootstrapFactory,
+                        shouldDropConnection,
+                        responseDelay,
+                        clusterService,
+                        compute,
+                        clusterId)
                 : new ClientHandlerModule(
                         ((FakeIgnite) ignite).queryEngine(),
                         (IgniteTablesInternal) ignite.tables(),
