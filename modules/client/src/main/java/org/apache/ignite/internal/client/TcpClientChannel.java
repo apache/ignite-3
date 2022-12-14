@@ -526,16 +526,17 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                     var fut = serviceAsync(ClientOp.HEARTBEAT, null, null);
 
                     if (connectTimeout > 0) {
-                        fut.orTimeout(heartbeatTimeout, TimeUnit.MILLISECONDS)
-                            .exceptionally(e -> {
-                                if (e instanceof TimeoutException) {
-                                    log.warn("Heartbeat timeout, closing the channel");
+                        fut
+                                .orTimeout(heartbeatTimeout, TimeUnit.MILLISECONDS)
+                                .exceptionally(e -> {
+                                    if (e instanceof TimeoutException) {
+                                        log.warn("Heartbeat timeout, closing the channel");
 
-                                    close((TimeoutException) e);
-                                }
+                                        close((TimeoutException) e);
+                                    }
 
-                                return null;
-                            });
+                                    return null;
+                                });
                     }
                 }
             } catch (Throwable ignored) {
