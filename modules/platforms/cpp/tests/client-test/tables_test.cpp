@@ -37,7 +37,7 @@ TEST_F(tables_test, tables_get_table) {
     ignite_client_configuration cfg{NODE_ADDRS};
     cfg.set_logger(get_logger());
 
-    auto client = ignite_client::start(cfg, std::chrono::seconds(5));
+    auto client = ignite_client::start(cfg, std::chrono::seconds(30));
     auto tables = client.get_tables();
 
     auto tableUnknown = tables.get_table("some_unknown");
@@ -53,7 +53,7 @@ TEST_F(tables_test, tables_get_table_async_promises) {
     cfg.set_logger(get_logger());
 
     auto clientPromise = std::make_shared<std::promise<ignite_client>>();
-    ignite_client::start_async(cfg, std::chrono::seconds(5), result_promise_setter(clientPromise));
+    ignite_client::start_async(cfg, std::chrono::seconds(30), result_promise_setter(clientPromise));
 
     auto client = clientPromise->get_future().get();
 
@@ -83,7 +83,7 @@ TEST_F(tables_test, tables_get_table_async_callbacks) {
 
     ignite_client client;
 
-    ignite_client::start_async(cfg, std::chrono::seconds(5), [&](ignite_result<ignite_client> clientRes) {
+    ignite_client::start_async(cfg, std::chrono::seconds(30), [&](ignite_result<ignite_client> clientRes) {
         if (!check_and_set_operation_error(*operation0, clientRes))
             return;
 
@@ -133,7 +133,7 @@ TEST_F(tables_test, tables_get_tables) {
     ignite_client_configuration cfg{NODE_ADDRS};
     cfg.set_logger(get_logger());
 
-    auto client = ignite_client::start(cfg, std::chrono::seconds(5));
+    auto client = ignite_client::start(cfg, std::chrono::seconds(30));
 
     auto tablesApi = client.get_tables();
 
@@ -149,7 +149,7 @@ TEST_F(tables_test, tables_get_tables_async_promises) {
     ignite_client_configuration cfg{NODE_ADDRS};
     cfg.set_logger(get_logger());
 
-    auto client = ignite_client::start(cfg, std::chrono::seconds(5));
+    auto client = ignite_client::start(cfg, std::chrono::seconds(30));
 
     auto tablesApi = client.get_tables();
 

@@ -53,6 +53,11 @@
             <artifactId>ignite-file-io</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>com.google.auto.service</groupId>
+            <artifactId>auto-service-annotations</artifactId>
+        </dependency>
+
         <!-- Test dependencies -->
 
         <dependency>
@@ -112,6 +117,11 @@
                             <groupId>org.apache.ignite</groupId>
                             <artifactId>ignite-configuration-annotation-processor</artifactId>
                             <version>${project.version}</version>
+                        </path>
+                        <path>
+                            <groupId>com.google.auto.service</groupId>
+                            <artifactId>auto-service</artifactId>
+                            <version>${auto-service.version}</version>
                         </path>
                     </annotationProcessorPaths>
                 </configuration>

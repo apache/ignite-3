@@ -21,11 +21,15 @@ set(TARGET ${PROJECT_NAME})
 
 set(SOURCES
     ignite_client.cpp
+    sql/sql.cpp
+    sql/result_set.cpp
     table/record_view.cpp
     table/table.cpp
     table/tables.cpp
     detail/cluster_connection.cpp
+    detail/utils.cpp
     detail/node_connection.cpp
+    detail/sql/sql_impl.cpp
     detail/table/table_impl.cpp
     detail/table/tables_impl.cpp
 )
@@ -34,6 +38,7 @@ set(PUBLIC_HEADERS
     ignite_client.h
     ignite_client_configuration.h
     ignite_logger.h
+    sql/sql.h
     table/ignite_tuple.h
     table/record_view.h
     table/table.h

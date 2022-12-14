@@ -29,7 +29,10 @@ dependencies {
     implementation project(':ignite-configuration')
     implementation project(':ignite-transactions')
     implementation libs.jetbrains.annotations
+    implementation libs.auto.service.annotations
+
     annotationProcessor project(':ignite-configuration-annotation-processor')
+    annotationProcessor libs.auto.service
 
     testImplementation project(':ignite-core')
     testImplementation project(':ignite-storage-api')

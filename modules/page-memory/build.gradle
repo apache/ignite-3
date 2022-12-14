@@ -27,7 +27,10 @@ dependencies {
     implementation project(':ignite-file-io')
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
+    implementation libs.auto.service.annotations
+
     annotationProcessor project(':ignite-configuration-annotation-processor')
+    annotationProcessor libs.auto.service
 
     testImplementation project(':ignite-core')
     testImplementation(testFixtures(project(':ignite-core')))
@@ -35,6 +38,9 @@ dependencies {
     testImplementation(testFixtures(project(':ignite-configuration')))
     testImplementation libs.mockito.core
     testImplementation libs.hamcrest.core
+    testImplementation libs.auto.service.annotations
+
+    testAnnotationProcessor libs.auto.service
 
     integrationTestImplementation(testFixtures(project(':ignite-core')))
     integrationTestImplementation(testFixtures(project(':ignite-configuration')))

@@ -19,12 +19,11 @@ package org.apache.ignite.internal.cluster.management.raft.commands;
 
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessageGroup;
 import org.apache.ignite.internal.raft.ReadCommand;
-import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
 
 /**
  * Command for retrieving the current logical topology.
  */
 @Transferable(CmgMessageGroup.Commands.READ_LOGICAL_TOPOLOGY)
-public interface ReadLogicalTopologyCommand extends ReadCommand, NetworkMessage {
+public interface ReadLogicalTopologyCommand extends ReadCommand {
 }

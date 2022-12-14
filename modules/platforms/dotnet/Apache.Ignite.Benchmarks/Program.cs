@@ -15,16 +15,15 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Benchmarks
-{
-    using BenchmarkDotNet.Running;
-    using Table.Serialization;
+namespace Apache.Ignite.Benchmarks;
 
-    internal static class Program
+using BenchmarkDotNet.Running;
+using Sql;
+
+internal static class Program
+{
+    private static void Main()
     {
-        private static void Main()
-        {
-            BenchmarkRunner.Run<SerializerHandlerReadBenchmarks>();
-        }
+        BenchmarkRunner.Run<ResultSetBenchmarks>();
     }
 }

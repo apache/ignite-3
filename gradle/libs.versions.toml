@@ -70,6 +70,7 @@ mockServer = "5.13.2"
 archunit = "0.23.1"
 testkit = "1.8.1"
 openapi = "3.2.0"
+autoService = "1.0.1"
 
 #Tools
 pmdTool = "6.28.0"
@@ -221,3 +222,6 @@ janino-compiler = { module = "org.codehaus.janino:commons-compiler", version.ref
 javassist = { module = "org.javassist:javassist", version.ref = "javassist" }
 
 checker-qual = { module = "org.checkerframework:checker-qual", version.ref = "checker" }
+
+auto-service = { module = "com.google.auto.service:auto-service", version.ref = "autoService" }
+auto-service-annotations = { module = "com.google.auto.service:auto-service-annotations", version.ref = "autoService" }

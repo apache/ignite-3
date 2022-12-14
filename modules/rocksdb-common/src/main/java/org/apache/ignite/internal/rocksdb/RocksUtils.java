@@ -69,6 +69,9 @@ public class RocksUtils {
     /**
      * Checks the status of the iterator and throws an exception if it is not correct.
      *
+     * <p>Check the status first. This operation is guaranteed to throw if an internal error has occurred during the iteration. Otherwise,
+     * we've exhausted the data range.
+     *
      * @param it RocksDB iterator.
      * @throws IgniteInternalException if the iterator has an incorrect status.
      */
