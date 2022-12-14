@@ -176,9 +176,9 @@ public class ClientComputeTest {
 
         var clusterId = UUID.randomUUID();
 
-        server1 = new TestServer(10900, 10, 0, ignite, shouldDropConnection, "s1", clusterId);
-        server2 = new TestServer(10910, 10, 0, ignite, shouldDropConnection, "s2", clusterId);
-        server3 = new TestServer(10920, 10, 0, ignite, shouldDropConnection, "s3", clusterId);
+        server1 = new TestServer(10900, 10, 0, ignite, shouldDropConnection, 0, "s1", clusterId);
+        server2 = new TestServer(10910, 10, 0, ignite, shouldDropConnection, 0, "s2", clusterId);
+        server3 = new TestServer(10920, 10, 0, ignite, shouldDropConnection, 0, "s3", clusterId);
     }
 
     private Set<ClusterNode> getClusterNodes(String... names) {

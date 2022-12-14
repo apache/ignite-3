@@ -60,6 +60,9 @@ public class TestClientHandlerModule implements IgniteComponent {
     /** Connection drop condition. */
     private final Function<Integer, Boolean> shouldDropConnection;
 
+    /** Server response delay. */
+    private final long responseDelayMs;
+
     /** Cluster service. */
     private final ClusterService clusterService;
 
@@ -82,6 +85,7 @@ public class TestClientHandlerModule implements IgniteComponent {
      * @param registry Configuration registry.
      * @param bootstrapFactory Bootstrap factory.
      * @param shouldDropConnection Connection drop condition.
+     * @param responseDelayMs Response delay, in milliseconds.
      * @param clusterService Cluster service.
      * @param compute Compute.
      * @param clusterId Cluster id.
@@ -91,6 +95,7 @@ public class TestClientHandlerModule implements IgniteComponent {
             ConfigurationRegistry registry,
             NettyBootstrapFactory bootstrapFactory,
             Function<Integer, Boolean> shouldDropConnection,
+            long responseDelayMs,
             ClusterService clusterService,
             IgniteCompute compute,
             UUID clusterId) {
@@ -102,6 +107,7 @@ public class TestClientHandlerModule implements IgniteComponent {
         this.registry = registry;
         this.bootstrapFactory = bootstrapFactory;
         this.shouldDropConnection = shouldDropConnection;
+        this.responseDelayMs = responseDelayMs;
         this.clusterService = clusterService;
         this.compute = compute;
         this.clusterId = clusterId;
