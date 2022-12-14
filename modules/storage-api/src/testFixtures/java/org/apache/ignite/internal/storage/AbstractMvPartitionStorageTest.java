@@ -319,7 +319,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
 
     @SuppressWarnings("ConstantConditions")
     @Test
-    public void testTransactionScanCursorInvariants() throws Exception {
+    public void testTransactionScanCursorInvariants() {
         TestValue value1 = new TestValue(10, "xxx");
 
         TestValue value2 = new TestValue(20, "yyy");
@@ -354,7 +354,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
 
     @SuppressWarnings("ConstantConditions")
     @Test
-    public void testTimestampScanCursorInvariants() throws Exception {
+    public void testTimestampScanCursorInvariants() {
         TestValue value11 = new TestValue(10, "xxx");
         TestValue value12 = new TestValue(11, "xxx");
 
@@ -430,7 +430,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
         }
     }
 
-    private List<TestValue> convert(PartitionTimestampCursor cursor) throws Exception {
+    private List<TestValue> convert(PartitionTimestampCursor cursor) {
         try (cursor) {
             return cursor.stream()
                     .map((ReadResult rs) -> BaseMvStoragesTest.value(rs.binaryRow()))
@@ -846,7 +846,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
 
     @ParameterizedTest
     @EnumSource(ScanTimestampProvider.class)
-    void scanWorksCorrectlyAfterCommitAndAbortFollowedByUncommittedWrite(ScanTimestampProvider tsProvider) throws Exception {
+    void scanWorksCorrectlyAfterCommitAndAbortFollowedByUncommittedWrite(ScanTimestampProvider tsProvider) {
         commitAbortAndAddUncommitted();
 
         try (Cursor<ReadResult> cursor = storage.scan(tsProvider.scanTimestamp(clock))) {
@@ -1068,7 +1068,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
     }
 
     @Test
-    void testScanVersions() throws Exception {
+    void testScanVersions() {
         RowId rowId = new RowId(PARTITION_ID, 100, 0);
 
         // Populate storage with several versions for the same row id.
@@ -1108,7 +1108,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
 
     @ParameterizedTest
     @EnumSource(ScanTimestampProvider.class)
-    void testScanWithWriteIntent(ScanTimestampProvider tsProvider) throws Exception {
+    void testScanWithWriteIntent(ScanTimestampProvider tsProvider) {
         HybridTimestamp commitTs = addCommittedVersionAndWriteIntent();
 
         try (PartitionTimestampCursor cursor = storage.scan(tsProvider.scanTimestamp(clock))) {
@@ -1145,7 +1145,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
     }
 
     @Test
-    void testScanVersionsWithWriteIntent() throws Exception {
+    void testScanVersionsWithWriteIntent() {
         RowId rowId = new RowId(PARTITION_ID, 100, 0);
 
         addWrite(rowId, binaryRow(key, value), newTransactionId());
@@ -1228,7 +1228,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
     }
 
     @Test
-    public void scanVersionsReturnsUncommittedVersionsAsUncommitted() throws Exception {
+    public void scanVersionsReturnsUncommittedVersionsAsUncommitted() {
         RowId rowId = insert(binaryRow, txId);
         commitWrite(rowId, clock.now());
         addWrite(rowId, binaryRow2, newTransactionId());
@@ -1246,7 +1246,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
     }
 
     @Test
-    public void scanVersionsReturnsCommittedVersionsAsCommitted() throws Exception {
+    public void scanVersionsReturnsCommittedVersionsAsCommitted() {
         RowId rowId = insert(binaryRow, txId);
         commitWrite(rowId, clock.now());
 
@@ -1264,7 +1264,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
 
     @ParameterizedTest
     @EnumSource(ScanTimestampProvider.class)
-    public void scanCursorHasNextReturnsFalseEachTimeAfterExhaustion(ScanTimestampProvider tsProvider) throws Exception {
+    public void scanCursorHasNextReturnsFalseEachTimeAfterExhaustion(ScanTimestampProvider tsProvider) {
         RowId rowId = insert(binaryRow, txId);
         commitWrite(rowId, clock.now());
 
@@ -1279,7 +1279,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
 
     @ParameterizedTest
     @EnumSource(ScanTimestampProvider.class)
-    public void scanSeesTombstonesWhenTombstoneIsNotCommitted(ScanTimestampProvider tsProvider) throws Exception {
+    public void scanSeesTombstonesWhenTombstoneIsNotCommitted(ScanTimestampProvider tsProvider) {
         RowId rowId = insert(binaryRow, txId);
         HybridTimestamp commitTs = clock.now();
         commitWrite(rowId, commitTs);
@@ -1299,7 +1299,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
 
     @ParameterizedTest
     @EnumSource(ScanTimestampProvider.class)
-    public void scanDoesNotSeeTombstonesWhenTombstoneIsCommitted(ScanTimestampProvider tsProvider) throws Exception {
+    public void scanDoesNotSeeTombstonesWhenTombstoneIsCommitted(ScanTimestampProvider tsProvider) {
         RowId rowId = insert(binaryRow, txId);
         commitWrite(rowId, clock.now());
 
@@ -1313,7 +1313,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
 
     @ParameterizedTest
     @EnumSource(ScanTimestampProvider.class)
-    void committedMethodCallDoesNotInterfereWithIteratingOverScanCursor(ScanTimestampProvider scanTsProvider) throws Exception {
+    void committedMethodCallDoesNotInterfereWithIteratingOverScanCursor(ScanTimestampProvider scanTsProvider) {
         RowId rowId1 = insert(binaryRow, txId, new UUID(0, 0));
         HybridTimestamp commitTs1 = clock.now();
         commitWrite(rowId1, commitTs1);

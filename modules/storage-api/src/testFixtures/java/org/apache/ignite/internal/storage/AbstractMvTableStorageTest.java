@@ -129,7 +129,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
      * Tests that partition data does not overlap.
      */
     @Test
-    void testPartitionIndependence() throws Exception {
+    void testPartitionIndependence() {
         MvPartitionStorage partitionStorage0 = tableStorage.getOrCreateMvPartition(PARTITION_ID_0);
         // Using a shifted ID value to test a multibyte scenario.
         MvPartitionStorage partitionStorage1 = tableStorage.getOrCreateMvPartition(PARTITION_ID_1);
@@ -505,7 +505,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         assertThat(createTableFuture, willCompleteSuccessfully());
     }
 
-    private static <T> List<T> getAll(Cursor<T> cursor) throws Exception {
+    private static <T> List<T> getAll(Cursor<T> cursor) {
         try (cursor) {
             return cursor.stream().collect(Collectors.toList());
         }
