@@ -35,9 +35,9 @@ public class PartitionMetaIo extends PageIo {
 
     private static final int LAST_APPLIED_TERM_OFF = LAST_APPLIED_INDEX_OFF + Long.BYTES;
 
-    private static final int LAST_RAFT_GROUP_CONFIG_LINK_OFF = LAST_APPLIED_TERM_OFF + Long.BYTES;
+    private static final int LAST_RAFT_GROUP_CONFIG_FIRST_PAGE_ID_OFF = LAST_APPLIED_TERM_OFF + Long.BYTES;
 
-    private static final int ROW_VERSION_FREE_LIST_ROOT_PAGE_ID_OFF = LAST_RAFT_GROUP_CONFIG_LINK_OFF + Long.BYTES;
+    private static final int ROW_VERSION_FREE_LIST_ROOT_PAGE_ID_OFF = LAST_RAFT_GROUP_CONFIG_FIRST_PAGE_ID_OFF + Long.BYTES;
 
     private static final int INDEX_COLUMNS_FREE_LIST_ROOT_PAGE_ID_OFF = ROW_VERSION_FREE_LIST_ROOT_PAGE_ID_OFF + Long.BYTES;
 
@@ -110,7 +110,7 @@ public class PartitionMetaIo extends PageIo {
     public void setLastRaftGroupConfigFirstPageId(long pageAddr, long pageId) {
         assertPageType(pageAddr);
 
-        putLong(pageAddr, LAST_RAFT_GROUP_CONFIG_LINK_OFF, pageId);
+        putLong(pageAddr, LAST_RAFT_GROUP_CONFIG_FIRST_PAGE_ID_OFF, pageId);
     }
 
     /**
@@ -137,7 +137,7 @@ public class PartitionMetaIo extends PageIo {
      * @param pageAddr Page address.
      */
     public long getLastRaftGroupConfigFirstPageId(long pageAddr) {
-        return getLong(pageAddr, LAST_RAFT_GROUP_CONFIG_LINK_OFF);
+        return getLong(pageAddr, LAST_RAFT_GROUP_CONFIG_FIRST_PAGE_ID_OFF);
     }
 
     /**
