@@ -17,17 +17,12 @@
 
 package org.apache.ignite.internal.tx.impl;
 
-import static org.apache.ignite.internal.tx.LockMode.IS;
-import static org.apache.ignite.internal.tx.LockMode.IX;
-import static org.apache.ignite.internal.tx.LockMode.NL;
-import static org.apache.ignite.internal.tx.LockMode.S;
-import static org.apache.ignite.internal.tx.LockMode.SIX;
-import static org.apache.ignite.internal.tx.LockMode.X;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.ACQUIRE_LOCK_ERR;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -37,8 +32,8 @@ import java.util.TreeMap;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import org.apache.ignite.internal.tostring.IgniteToStringBuilder;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
+import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.tx.DeadlockPreventionPolicy;
 import org.apache.ignite.internal.tx.Lock;
 import org.apache.ignite.internal.tx.LockException;
@@ -418,25 +413,17 @@ public class HeapLockManager implements LockManager {
      * A waiter implementation.
      */
     private static class WaiterImpl implements Comparable<WaiterImpl>, Waiter {
-        /** Bit mask for lock counter. */
-        private static final long COUNTER_MASK = 0x3FF;
-
-        /** Bit mask for lock intention flag. */
-        private static final long INTENTION_MASK = 1 << 10;
-
-        /** Number of bits occupied for lock counter and intention flag. */
-        private static final int COUNTER_FLAG_BITS = 11;
-
-        /** Lock modes that are considered as valid for lock counters and intention flag. Includes all lock modes except NL. */
-        private static final LockMode[] LOCK_MODES = { IS, IX, S, SIX, X };
+        /**
+         * Holding locks by type.
+         * TODO: IGNITE-18350 Abandon the collection in favor of BitSet.
+         */
+        private final Map<LockMode, Integer> locks = new HashMap<>();
 
         /**
-         * Lock counters. Should be considered as a bit map. Each counter occupies 10 bits, allowing {@code 2^10 -1} locks for
-         * each lock mode within one transaction, and lock intention flag occupies additional 1 bit, {@link WaiterImpl#COUNTER_FLAG_BITS}
-         * in total. So the 55 least significant bits of this long number are used as a map of {@link LockMode} to a pair of
-         * { lock intention flag, lock counter }, assuming we have just 5 lock modes to use.
+         * Lock modes are marked as intended, but have not taken yet.
+         * TODO: IGNITE-18350 Abandon the collection in favor of BitSet.
          */
-        private long lockCounters = 0;
+        private final Set<LockMode> intendedLocks = new HashSet<>();
 
         /** Locked future. */
         @IgniteToStringExclude
@@ -467,84 +454,8 @@ public class HeapLockManager implements LockManager {
             this.txId = txId;
             this.intendedLockMode = lockMode;
 
-            lockCounters = setIntention(addLockCounter(0, lockMode, 1), lockMode, true);
-        }
-
-        /**
-         * Add a value to lock counter given as a short. Returns a result that is aware of intention flag of {@code counter} argument.
-         *
-         * @param counter Counter.
-         * @param lockMode Lock mode.
-         * @param value Value to add.
-         * @return Result that is aware of intention flag of {@code counter} argument.
-         */
-        private long addLockCounter(long counter, LockMode lockMode, int value) {
-            assert lockMode != NL;
-            int offset = COUNTER_FLAG_BITS * (lockMode.ordinal() - 1);
-
-            long newCount = ((counter >> offset) & COUNTER_MASK) + value;
-
-            assert newCount >= 0 : "Incorrect lock counter change, lockMode=" + lockMode + ", txId=" + txId;
-            assert newCount <= COUNTER_MASK : "Too many locks acquired by one transaction on one key in the same mode, "
-                    + ", lockMode=" + lockMode + ", txId=" + txId;
-
-            long mask = ~(COUNTER_MASK << offset);
-            return (counter & mask) | (newCount << offset);
-        }
-
-        /**
-         * Get lock count from the given counter.
-         *
-         * @param counter Counter.
-         * @param lockMode Lock mode.
-         * @return Result without an intention flag.
-         */
-        private static long getLockCount(long counter, LockMode lockMode) {
-            assert lockMode != NL;
-            int offset = COUNTER_FLAG_BITS * (lockMode.ordinal() - 1);
-            return (counter >> offset) & COUNTER_MASK;
-        }
-
-        /**
-         * Sets intention flag for given counter.
-         *
-         * @param counter Counter.
-         * @param lockMode Lock mode.
-         * @param intention Intention flag.
-         * @return Result combining lock count and intention flag.
-         */
-        private static long setIntention(long counter, LockMode lockMode, boolean intention) {
-            assert lockMode != NL;
-            int offset = COUNTER_FLAG_BITS * (lockMode.ordinal() - 1);
-            long intentionMask = INTENTION_MASK << offset;
-            return intention ? counter | intentionMask : counter & ~intentionMask;
-        }
-
-        /**
-         * Get intention flag from given counter.
-         *
-         * @param counter Counter.
-         * @param lockMode Lock mode.
-         * @return Intention flag.
-         */
-        private static boolean isIntention(long counter, LockMode lockMode) {
-            assert lockMode != NL;
-            int offset = COUNTER_FLAG_BITS * (lockMode.ordinal() - 1);
-            return ((counter >> offset) & INTENTION_MASK) == INTENTION_MASK;
-        }
-
-        /**
-         * Drop counter and intention flag for given lock mode.
-         *
-         * @param counter Counter.
-         * @param lockMode Lock mode.
-         * @return New counter.
-         */
-        private static long dropCounter(long counter, LockMode lockMode) {
-            assert lockMode != NL;
-            int offset = COUNTER_FLAG_BITS * (lockMode.ordinal() - 1);
-            long mask = ~((COUNTER_MASK | INTENTION_MASK) << offset);
-            return counter & mask;
+            locks.put(lockMode, 1);
+            intendedLocks.add(lockMode);
         }
 
         /**
@@ -554,7 +465,7 @@ public class HeapLockManager implements LockManager {
          * @param increment Value to increment amount.
          */
         void addLock(LockMode lockMode, int increment) {
-            lockCounters = addLockCounter(lockCounters, lockMode, increment);
+            locks.merge(lockMode, increment, Integer::sum);
         }
 
         /**
@@ -564,14 +475,14 @@ public class HeapLockManager implements LockManager {
          * @return True if the lock mode was removed, false otherwise.
          */
         private boolean removeLock(LockMode lockMode) {
-            long counter = getLockCount(lockCounters, lockMode);
+            Integer counter = locks.get(lockMode);
 
-            if (counter < 2) {
-                lockCounters = dropCounter(lockCounters, lockMode);
+            if (counter == null || counter < 2) {
+                locks.remove(lockMode);
 
                 return true;
             } else {
-                lockCounters = addLockCounter(lockCounters, lockMode, -1);
+                locks.put(lockMode, counter - 1);
 
                 return false;
             }
@@ -600,13 +511,13 @@ public class HeapLockManager implements LockManager {
             LockMode newIntendedLockMode = null;
             LockMode newLockMode = null;
 
-            for (LockMode mode : LOCK_MODES) {
-                if (getLockCount(lockCounters, mode) > 0) {
-                    if (isIntention(lockCounters, mode)) {
-                        newIntendedLockMode = newIntendedLockMode == null ? mode : LockMode.supremum(newIntendedLockMode, mode);
-                    } else {
-                        newLockMode = newLockMode == null ? mode : LockMode.supremum(newLockMode, mode);
-                    }
+            for (LockMode mode : locks.keySet()) {
+                assert locks.get(mode) > 0 : "Incorrect lock counter [txId=" + txId + ", mode=" + mode + "]";
+
+                if (intendedLocks.contains(mode)) {
+                    newIntendedLockMode = newIntendedLockMode == null ? mode : LockMode.supremum(newIntendedLockMode, mode);
+                } else {
+                    newLockMode = newLockMode == null ? mode : LockMode.supremum(newLockMode, mode);
                 }
             }
 
@@ -625,13 +536,9 @@ public class HeapLockManager implements LockManager {
          * @param other Other waiter.
          */
         void upgrade(WaiterImpl other) {
-            for (LockMode mode : LOCK_MODES) {
-                if (isIntention(other.lockCounters, mode)) {
-                    lockCounters = setIntention(lockCounters, mode, true);
-                }
+            intendedLocks.addAll(other.intendedLocks);
 
-                addLock(mode, (int) getLockCount(other.lockCounters, mode));
-            }
+            other.locks.entrySet().forEach(entry -> addLock(entry.getKey(), entry.getValue()));
 
             recalculate();
 
@@ -644,12 +551,11 @@ public class HeapLockManager implements LockManager {
          * Removes all locks that were intended to hold.
          */
         void refuseIntent() {
-            for (LockMode mode : LOCK_MODES) {
-                if (isIntention(lockCounters, mode)) {
-                    lockCounters = dropCounter(lockCounters, mode);
-                }
+            for (LockMode mode : intendedLocks) {
+                locks.remove(mode);
             }
 
+            intendedLocks.clear();
             intendedLockMode = null;
         }
 
@@ -703,9 +609,7 @@ public class HeapLockManager implements LockManager {
 
             intendedLockMode = null;
 
-            for (LockMode mode : LOCK_MODES) {
-                lockCounters = setIntention(lockCounters, mode, false);
-            }
+            intendedLocks.clear();
         }
 
         /**
@@ -742,7 +646,7 @@ public class HeapLockManager implements LockManager {
         /** {@inheritDoc} */
         @Override
         public String toString() {
-            return IgniteToStringBuilder.toString(WaiterImpl.class, this, "isDone", fut.isDone());
+            return S.toString(WaiterImpl.class, this, "isDone", fut.isDone());
         }
     }
 
