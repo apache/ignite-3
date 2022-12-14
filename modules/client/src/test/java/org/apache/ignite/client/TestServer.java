@@ -74,7 +74,7 @@ public class TestServer implements AutoCloseable {
             long idleTimeout,
             Ignite ignite
     ) {
-        this(port, portRange, idleTimeout, ignite, null, 0, null, UUID.randomUUID());
+        this(port, portRange, idleTimeout, ignite, null, null, null, UUID.randomUUID());
     }
 
     /**
@@ -91,7 +91,7 @@ public class TestServer implements AutoCloseable {
             long idleTimeout,
             Ignite ignite,
             @Nullable Function<Integer, Boolean> shouldDropConnection,
-            long responseDelayMs,
+            @Nullable Function<Integer, Integer> responseDelay,
             @Nullable String nodeName,
             UUID clusterId
     ) {
@@ -137,7 +137,7 @@ public class TestServer implements AutoCloseable {
                         cfg,
                         bootstrapFactory,
                         shouldDropConnection,
-                        responseDelayMs,
+                        responseDelay,
                         clusterService,
                         compute,
                         clusterId)
