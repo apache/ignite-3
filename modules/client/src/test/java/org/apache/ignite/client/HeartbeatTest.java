@@ -24,6 +24,7 @@ import java.util.UUID;
 import java.util.function.Function;
 import org.apache.ignite.client.IgniteClient.Builder;
 import org.apache.ignite.client.fakes.FakeIgnite;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -82,6 +83,7 @@ public class HeartbeatTest {
     @Test
     public void testHeartbeatTimeoutClosesConnection() throws Exception {
         Function<Integer, Integer> responseDelayFunc = requestCount -> requestCount > 1 ? 500 : 0;
+        var loggerFactory = new TestLoggerFactory("client");
 
         try (var srv = new TestServer(10800, 10, 300, new FakeIgnite(), x -> false, responseDelayFunc, null, UUID.randomUUID())) {
             int srvPort = srv.port();
@@ -92,10 +94,13 @@ public class HeartbeatTest {
                     .heartbeatTimeout(30)
                     .reconnectThrottlingPeriod(5000)
                     .reconnectThrottlingRetries(0)
-                    .heartbeatInterval(50);
+                    .heartbeatInterval(50)
+                    .loggerFactory(loggerFactory);
 
-            try (var client = builder.build()) {
-                Thread.sleep(300);
+            try (var ignored = builder.build()) {
+                IgniteTestUtils.waitForCondition(
+                        () -> loggerFactory.logger.entries().stream().anyMatch(x -> x.contains("Heartbeat timeout, closing the channel")),
+                        3000);
             }
         }
     }
