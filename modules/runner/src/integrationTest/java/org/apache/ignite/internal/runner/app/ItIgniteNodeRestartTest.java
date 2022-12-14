@@ -70,7 +70,7 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.manager.IgniteComponent;
-import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.raft.Loza;
@@ -258,7 +258,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 logicalTopologyService
         );
 
-        var metaStorageMgr = new MetaStorageManager(
+        var metaStorageMgr = new MetaStorageManagerImpl(
                 vault,
                 clusterSvc,
                 cmgManager,

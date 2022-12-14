@@ -16,10 +16,13 @@
  */
 
 apply from: "$rootDir/buildscripts/java-core.gradle"
-apply from: "$rootDir/buildscripts/publishing.gradle"
 apply from: "$rootDir/buildscripts/java-junit5.gradle"
+apply from: "$rootDir/buildscripts/java-integration-test.gradle"
+apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
 
 dependencies {
+    api project(':ignite-metastorage-api')
+
     implementation project(':ignite-configuration')
     implementation project(':ignite-cluster-management')
     implementation project(':ignite-network-api')
@@ -27,13 +30,23 @@ dependencies {
     implementation project(':ignite-raft-api')
     implementation project(':ignite-api')
     implementation project(':ignite-core')
-
-    api project(':ignite-metastorage-client')
-    api project(':ignite-metastorage-server')
-    api project(':ignite-metastorage-common')
-
+    implementation project(':ignite-rocksdb-common')
     implementation libs.jetbrains.annotations
+    implementation libs.fastutil.core
+
+    annotationProcessor project(":ignite-network-annotation-processor")
+
+    testImplementation testFixtures(project(':ignite-core'))
     testImplementation libs.mockito.junit
+
+    integrationTestImplementation project(':ignite-network')
+    integrationTestImplementation project(':ignite-raft')
+    integrationTestImplementation testFixtures(project(':ignite-core'))
+    integrationTestImplementation testFixtures(project(':ignite-network'))
+    integrationTestImplementation testFixtures(project(':ignite-raft'))
+
+    testFixturesImplementation project(':ignite-core')
+    testFixturesImplementation libs.jetbrains.annotations
 }
 
 description = 'ignite-metastorage'
