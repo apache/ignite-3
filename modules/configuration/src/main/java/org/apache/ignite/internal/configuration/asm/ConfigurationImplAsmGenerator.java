@@ -155,6 +155,7 @@ class ConfigurationImplAsmGenerator extends AbstractAsmGenerator {
             throw new ExceptionInInitializerError(nsme);
         }
     }
+
     /** Class definition that extends the {@link DynamicConfiguration}. */
     private ClassDefinition cfgImplClassDef;
 

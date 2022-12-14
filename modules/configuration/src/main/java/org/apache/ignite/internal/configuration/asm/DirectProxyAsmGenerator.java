@@ -88,6 +88,7 @@ class DirectProxyAsmGenerator extends AbstractAsmGenerator {
             throw new ExceptionInInitializerError(nsme);
         }
     }
+
     /** Class definition that extends the {@link DirectConfigurationProxy}. */
     private ClassDefinition classDef;
 
