@@ -514,9 +514,8 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         @Override public void run() {
             try {
                 if (System.currentTimeMillis() - lastSendMillis > interval) {
-                    // TODO: Get timeout from config.
                     serviceAsync(ClientOp.HEARTBEAT, null, null)
-                            .orTimeout(100, TimeUnit.MILLISECONDS)
+                            .orTimeout(connectTimeout, TimeUnit.MILLISECONDS)
                             .exceptionally(e -> {
                                 if (e instanceof TimeoutException) {
                                     log.warn("Heartbeat timeout, closing the channel");
