@@ -20,6 +20,11 @@ package org.apache.ignite.internal.tx;
 import java.util.Comparator;
 import java.util.UUID;
 
+/**
+ * Deadlock prevention policy. Provides comparator for transaction ids, that allows to compare transactions in order to define
+ * which one is allowed to wait and which one should be aborted in case of possible deadlock.
+ * See also {@link org.apache.ignite.internal.tx.impl.HeapLockManager}.
+ */
 public interface DeadlockPreventionPolicy {
     Comparator<UUID> txIdComparator();
 }

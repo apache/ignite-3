@@ -42,7 +42,7 @@ import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.junit.jupiter.api.Test;
 
 /**
- * Tests for deadlock prevention scenarios.
+ * Tests for deadlock prevention scenarios with default WaitDie deadlock prevention policy.
  */
 public class DeadlockPreventionTest {
     private LockManager lockManager = createLockManager();

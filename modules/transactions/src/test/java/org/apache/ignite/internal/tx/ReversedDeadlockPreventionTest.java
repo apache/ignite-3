@@ -22,6 +22,10 @@ import java.util.UUID;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.junit.jupiter.api.BeforeEach;
 
+/**
+ * Deadlock prevention test with modified prevention policy and transaction id generation algorithm, it is intended to test alternative
+ * deadlock prevention policy.
+ */
 public class ReversedDeadlockPreventionTest extends DeadlockPreventionTest {
     private long counter;
 

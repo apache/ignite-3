@@ -22,6 +22,10 @@ import java.util.Comparator;
 import java.util.UUID;
 import org.apache.ignite.internal.tx.DeadlockPreventionPolicy;
 
+/**
+ * Deadlock prevention policy that, in case of conflict of transactions tx1 and tx2 on the same key, assuming tx1 is holding the lock,
+ * allows tx2 to wait for the lock if tx2 is older than tx1, and aborts tx2 is tx2 is younger than tx1.
+ */
 public class WaitDieDeadlockPreventionPolicy implements DeadlockPreventionPolicy {
     @Override
     public Comparator<UUID> txIdComparator() {

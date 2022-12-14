@@ -53,23 +53,12 @@ import org.jetbrains.annotations.Nullable;
 /**
  * A {@link LockManager} implementation which stores lock queues in the heap.
  *
- * <p>Lock waiters are placed in the queue, ordered from oldest to youngest (highest txId). When
- * a new waiter is placed in the queue, it's validated against current lock owner: if where is an owner with a higher timestamp lock request
- * is denied.
+ * <p>Lock waiters are placed in the queue, ordered according to comparator provided by {@link HeapLockManager#deadlockPreventionPolicy}.
+ * When a new waiter is placed in the queue, it's validated against current lock owner: if there is an owner with a higher transaction id
+ * lock request is denied.
  *
- * <p>Read lock can be upgraded to write lock (only available for the oldest read-locked entry of
+ * <p>Read lock can be upgraded to write lock (only available for the lowest read-locked entry of
  * the queue).
- *
- * <p>If a younger read lock was upgraded, it will be invalidated if a oldest read-locked entry was upgraded. This corresponds
- * to the following scenario:
- *
- * <p>v1 = get(k, timestamp1) // timestamp1 < timestamp2
- *
- * <p>v2 = get(k, timestamp2)
- *
- * <p>put(k, v1, timestamp2) // Upgrades a younger read-lock to write-lock and waits for acquisition.
- *
- * <p>put(k, v1, timestamp1) // Upgrades an older read-lock. This will invalidate the younger write-lock.
  */
 public class HeapLockManager implements LockManager {
     private ConcurrentHashMap<LockKey, LockState> locks = new ConcurrentHashMap<>();
@@ -546,6 +535,7 @@ public class HeapLockManager implements LockManager {
 
         /**
          * Drop counter and intention flag for given lock mode.
+         *
          * @param counter Counter.
          * @param lockMode Lock mode.
          * @return New counter.
