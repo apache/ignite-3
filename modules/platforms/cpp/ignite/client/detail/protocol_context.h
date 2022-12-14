@@ -17,7 +17,9 @@
 
 #pragma once
 
-#include "protocol_version.h"
+#include "ignite/client/detail/protocol_version.h"
+
+#include "ignite/common/uuid.h"
 
 namespace ignite::detail {
 
@@ -45,9 +47,26 @@ public:
      */
     void set_version(protocol_version ver) { m_version = ver; }
 
+    /**
+     * Get cluster ID.
+     *
+     * @return Cluster ID.
+     */
+    [[nodiscard]] uuid get_cluster_id() const { return m_cluster_id; }
+
+    /**
+     * Set Cluster ID.
+     *
+     * @param id Cluster ID to set.
+     */
+    void set_cluster_id(uuid id) { m_cluster_id = id; }
+
 private:
     /** Protocol version. */
     protocol_version m_version{CURRENT_VERSION};
+
+    /** Cluster ID. */
+    uuid m_cluster_id;
 };
 
 } // namespace ignite::detail

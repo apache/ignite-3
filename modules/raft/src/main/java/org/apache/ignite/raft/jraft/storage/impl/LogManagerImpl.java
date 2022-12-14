@@ -36,12 +36,13 @@ import org.apache.ignite.raft.jraft.conf.Configuration;
 import org.apache.ignite.raft.jraft.conf.ConfigurationEntry;
 import org.apache.ignite.raft.jraft.conf.ConfigurationManager;
 import org.apache.ignite.raft.jraft.core.NodeMetrics;
-import org.apache.ignite.raft.jraft.disruptor.GroupAware;
+import org.apache.ignite.raft.jraft.disruptor.NodeIdAware;
 import org.apache.ignite.raft.jraft.disruptor.StripedDisruptor;
 import org.apache.ignite.raft.jraft.entity.EnumOutter.EntryType;
 import org.apache.ignite.raft.jraft.entity.EnumOutter.ErrorType;
 import org.apache.ignite.raft.jraft.entity.LogEntry;
 import org.apache.ignite.raft.jraft.entity.LogId;
+import org.apache.ignite.raft.jraft.entity.NodeId;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 import org.apache.ignite.raft.jraft.error.LogEntryCorruptedException;
@@ -68,8 +69,8 @@ public class LogManagerImpl implements LogManager {
 
     private static final IgniteLogger LOG = Loggers.forClass(LogManagerImpl.class);
 
-    /** Raft group id. */
-    String groupId;
+    /** Raft node id. */
+    private NodeId nodeId;
 
     private LogStorage logStorage;
     private ConfigurationManager configManager;
@@ -104,20 +105,20 @@ public class LogManagerImpl implements LogManager {
         LAST_LOG_ID // get last log id
     }
 
-    public static class StableClosureEvent implements GroupAware {
-        /** Raft group id. */
-        String groupId;
+    public static class StableClosureEvent implements NodeIdAware {
+        /** Raft node id. */
+        NodeId nodeId;
 
         StableClosure done;
         EventType type;
 
-        /** {@inheritDoc} */
-        @Override public String groupId() {
-            return groupId;
+        @Override
+        public NodeId nodeId() {
+            return nodeId;
         }
 
         void reset() {
-            this.groupId = null;
+            this.nodeId = null;
             this.done = null;
             this.type = null;
         }
@@ -175,7 +176,7 @@ public class LogManagerImpl implements LogManager {
             this.logStorage = opts.getLogStorage();
             this.configManager = opts.getConfigurationManager();
             this.nodeOptions = opts.getNode().getOptions();
-            this.groupId = opts.getGroupId();
+            this.nodeId = opts.getNode().getNodeId();
 
             LogStorageOptions lsOpts = new LogStorageOptions();
             lsOpts.setConfigurationManager(this.configManager);
@@ -191,7 +192,7 @@ public class LogManagerImpl implements LogManager {
             this.fsmCaller = opts.getFsmCaller();
             this.disruptor = opts.getLogManagerDisruptor();
 
-            this.diskQueue = disruptor.subscribe(groupId, new StableClosureEventHandler(),
+            this.diskQueue = disruptor.subscribe(this.nodeId, new StableClosureEventHandler(),
                 (event, ex) -> reportError(-1, "LogManager handle event error"));
 
             if (this.nodeMetrics.getMetricRegistry() != null) {
@@ -212,7 +213,7 @@ public class LogManagerImpl implements LogManager {
         this.shutDownLatch = new CountDownLatch(1);
         Utils.runInThread(nodeOptions.getCommonExecutor(), () -> this.diskQueue.publishEvent((event, sequence) -> {
             event.reset();
-            event.groupId = groupId;
+            event.nodeId = this.nodeId;
             event.type = EventType.SHUTDOWN;
         }));
     }
@@ -223,7 +224,7 @@ public class LogManagerImpl implements LogManager {
             return;
         }
         this.shutDownLatch.await();
-        this.disruptor.unsubscribe(groupId);
+        this.disruptor.unsubscribe(this.nodeId);
     }
 
     @Override
@@ -322,7 +323,7 @@ public class LogManagerImpl implements LogManager {
             int retryTimes = 0;
             final EventTranslator<StableClosureEvent> translator = (event, sequence) -> {
                 event.reset();
-                event.groupId = groupId;
+                event.nodeId = this.nodeId;
                 event.type = EventType.OTHER;
                 event.done = done;
             };
@@ -358,7 +359,7 @@ public class LogManagerImpl implements LogManager {
         }
         if (!this.diskQueue.tryPublishEvent((event, sequence) -> {
             event.reset();
-            event.groupId = groupId;
+            event.nodeId = this.nodeId;
             event.type = type;
             event.done = done;
         })) {

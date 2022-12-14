@@ -16,6 +16,7 @@
  */
 
 #include "ignite/client/detail/table/table_impl.h"
+#include "ignite/client/detail/utils.h"
 
 #include "ignite/common/bits.h"
 #include "ignite/common/ignite_error.h"
@@ -59,10 +60,10 @@ void claim_column(binary_tuple_builder &builder, ignite_type typ, std::int32_t i
             builder.claim_uuid(tuple.get<uuid>(index));
             break;
         case ignite_type::STRING:
-            builder.claim(SizeT(tuple.get<const std::string &>(index).size()));
+            builder.claim(SizeT(tuple.get<std::string>(index).size()));
             break;
         case ignite_type::BINARY:
-            builder.claim(SizeT(tuple.get<const std::vector<std::byte> &>(index).size()));
+            builder.claim(SizeT(tuple.get<std::vector<std::byte>>(index).size()));
             break;
         default:
             // TODO: IGNITE-18035 Support other types
@@ -102,68 +103,18 @@ void append_column(binary_tuple_builder &builder, ignite_type typ, std::int32_t 
             builder.append_uuid(tuple.get<uuid>(index));
             break;
         case ignite_type::STRING: {
-            const auto &str = tuple.get<const std::string &>(index);
+            const auto &str = tuple.get<std::string>(index);
             bytes_view view{reinterpret_cast<const std::byte *>(str.data()), str.size()};
             builder.append(typ, view);
             break;
         }
         case ignite_type::BINARY:
-            builder.append(typ, tuple.get<const std::vector<std::byte> &>(index));
+            builder.append(typ, tuple.get<std::vector<std::byte>>(index));
             break;
         default:
             // TODO: IGNITE-18035 Support other types
             throw ignite_error("Type with id " + std::to_string(int(typ)) + " is not yet supported");
     }
-}
-
-/**
- * Read column value from binary tuple.
- *
- * @param parser Binary tuple parser.
- * @param typ Column type.
- * @return Column value.
- */
-std::any read_next_column(binary_tuple_parser &parser, ignite_type typ) {
-    auto val_opt = parser.get_next();
-    if (!val_opt)
-        return {};
-
-    auto val = val_opt.value();
-
-    switch (typ) {
-        case ignite_type::INT8:
-            return binary_tuple_parser::get_int8(val);
-        case ignite_type::INT16:
-            return binary_tuple_parser::get_int16(val);
-        case ignite_type::INT32:
-            return binary_tuple_parser::get_int32(val);
-        case ignite_type::INT64:
-            return binary_tuple_parser::get_int64(val);
-        case ignite_type::FLOAT:
-            return binary_tuple_parser::get_float(val);
-        case ignite_type::DOUBLE:
-            return binary_tuple_parser::get_double(val);
-        case ignite_type::UUID:
-            return binary_tuple_parser::get_uuid(val);
-        case ignite_type::STRING:
-            return std::string(reinterpret_cast<const char *>(val.data()), val.size());
-        case ignite_type::BINARY:
-            return std::vector<std::byte>(val);
-        default:
-            // TODO: IGNITE-18035 Support other types
-            throw ignite_error("Type with id " + std::to_string(int(typ)) + " is not yet supported");
-    }
-}
-
-/**
- * Check transaction and throw an exception if it is not nullptr.
- *
- * @param tx Transaction.
- */
-void transactions_not_implemented(transaction *tx) {
-    // TODO: IGNITE-17604 Implement transactions
-    if (tx)
-        throw ignite_error("Transactions are not implemented");
 }
 
 /**

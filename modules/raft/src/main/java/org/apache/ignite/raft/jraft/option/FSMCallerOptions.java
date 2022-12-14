@@ -31,9 +31,6 @@ import org.apache.ignite.raft.jraft.util.SafeTimeCandidateManager;
  * FSM caller options.
  */
 public class FSMCallerOptions {
-    /** Raft group id. */
-    private String groupId;
-
     private LogManager logManager;
     private StateMachine fsm;
     private Closure afterShutdown;
@@ -43,14 +40,6 @@ public class FSMCallerOptions {
     private RaftMessagesFactory raftMessagesFactory;
     private StripedDisruptor<FSMCallerImpl.ApplyTask> fSMCallerExecutorDisruptor;
     private SafeTimeCandidateManager safeTimeCandidateManager;
-
-    public String getGroupId() {
-        return groupId;
-    }
-
-    public void setGroupId(String groupId) {
-        this.groupId = groupId;
-    }
 
     public StripedDisruptor<FSMCallerImpl.ApplyTask> getfSMCallerExecutorDisruptor() {
         return fSMCallerExecutorDisruptor;

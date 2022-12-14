@@ -24,6 +24,8 @@ description = 'ignite-schema'
 
 dependencies {
     annotationProcessor project(':ignite-configuration-annotation-processor')
+    annotationProcessor libs.auto.service
+
     api project(':ignite-binary-tuple')
     implementation project(':ignite-api')
     implementation project(':ignite-bytecode')
@@ -31,6 +33,7 @@ dependencies {
     implementation project(':ignite-configuration')
     implementation project(':ignite-metastorage')
     implementation libs.jetbrains.annotations
+    implementation libs.auto.service.annotations
 
     testAnnotationProcessor project(':ignite-configuration-annotation-processor')
     testImplementation project(':ignite-configuration')

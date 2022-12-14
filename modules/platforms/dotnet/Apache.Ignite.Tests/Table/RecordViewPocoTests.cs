@@ -650,6 +650,34 @@ namespace Apache.Ignite.Tests.Table
         }
 
         [Test]
+        [Ignore("IGNITE-18329 Add support for nullable value type mapping")]
+        public async Task TestAllColumnsPocoNullable()
+        {
+            var pocoView = PocoAllColumnsNullableView;
+
+            var poco = new PocoAllColumnsNullable(123);
+            await pocoView.UpsertAsync(null, poco);
+
+            var res = (await pocoView.GetAsync(null, poco)).Value;
+
+            Assert.AreEqual(poco.Blob, res.Blob);
+            Assert.AreEqual(poco.Date, res.Date);
+            Assert.AreEqual(poco.Decimal, res.Decimal);
+            Assert.AreEqual(poco.Double, res.Double);
+            Assert.AreEqual(poco.Float, res.Float);
+            Assert.AreEqual(poco.Int8, res.Int8);
+            Assert.AreEqual(poco.Int16, res.Int16);
+            Assert.AreEqual(poco.Int32, res.Int32);
+            Assert.AreEqual(poco.Int64, res.Int64);
+            Assert.AreEqual(poco.Str, res.Str);
+            Assert.AreEqual(poco.Uuid, res.Uuid);
+            Assert.AreEqual(poco.BitMask, res.BitMask);
+            Assert.AreEqual(poco.Timestamp, res.Timestamp);
+            Assert.AreEqual(poco.Time, res.Time);
+            Assert.AreEqual(poco.DateTime, res.DateTime);
+        }
+
+        [Test]
         public async Task TestUnsupportedColumnTypeThrowsException()
         {
             var table = await Client.Tables.GetTableAsync(TableAllColumnsName);

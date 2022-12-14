@@ -20,7 +20,6 @@ package org.apache.ignite.internal.cluster.management.raft.commands;
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessageGroup;
 import org.apache.ignite.internal.raft.WriteCommand;
-import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
 
 /**
@@ -28,7 +27,7 @@ import org.apache.ignite.network.annotations.Transferable;
  * existing state.
  */
 @Transferable(CmgMessageGroup.Commands.INIT_CMG_STATE)
-public interface InitCmgStateCommand extends WriteCommand, NetworkMessage {
+public interface InitCmgStateCommand extends WriteCommand {
     /**
      * Returns the node that wants to initialize the CMG state.
      */

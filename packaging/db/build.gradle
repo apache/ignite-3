@@ -23,13 +23,12 @@ plugins {
     alias(libs.plugins.checksum)
 }
 
+import org.apache.tools.ant.filters.ReplaceTokens
 import org.gradle.crypto.checksum.Checksum
 
 configurations {
     dbArtifacts
 }
-
-import org.apache.tools.ant.filters.ReplaceTokens
 
 dependencies {
     dbArtifacts(project(':ignite-runner'))
@@ -105,15 +104,12 @@ distributions {
 distZip.dependsOn replaceZipScriptVars
 
 task createChecksums(type: Checksum) {
-    //TODO: remove distribution name hard code IGNITE-18092
-    files = files(file("${buildDir}/distributions/ignite3-db-${project.version}.zip"))
-    outputDir = new File("${buildDir}/distributions")
-    algorithm = Checksum.Algorithm.SHA512
+    dependsOn distZip
+
+    inputFiles.from distZip.outputs.files
+    outputDirectory = file("$buildDir/distributions")
+    checksumAlgorithm = Checksum.Algorithm.SHA512
 }
-
-distTar.finalizedBy(createChecksums)
-distZip.finalizedBy(createChecksums)
-
 
 // Expose zip artifacts to be consumed by others
 configurations {
@@ -124,9 +120,7 @@ configurations {
 }
 
 artifacts {
-    dbZip(distZip) {
-        builtBy(distZip)
-    }
+    dbZip(distZip)
 }
 
 signing {
@@ -221,4 +215,17 @@ ospackage {
     }
     link "/etc/ignite3db", "${packageTokens.INSTALL_DIR}/etc/"
     link "/opt/ignite3db", "${packageTokens.INSTALL_DIR}"
+}
+
+configurations {
+    dbRelease {
+        canBeConsumed = true
+        canBeResolved = false
+    }
+}
+
+artifacts {
+    dbRelease(file("$buildDir/distributions")) {
+        builtBy createChecksums, signDbZip, buildDeb, buildRpm
+    }
 }

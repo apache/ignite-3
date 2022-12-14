@@ -51,7 +51,7 @@ public:
     /**
      * Destructor.
      */
-    ~reader() { msgpack_unpacker_destroy(&m_unpacker); }
+    ~reader() { msgpack_unpacked_destroy(&m_current_val); }
 
     /**
      * Read object of type T from msgpack stream.
@@ -66,6 +66,24 @@ public:
 
         auto res = unpack_object<T>(m_current_val.data);
         next();
+
+        return res;
+    }
+
+    /**
+     * Read object of type T from msgpack stream.
+     *
+     * @tparam T Type of the object to read.
+     * @return Object of type T or @c nullopt if there is object of other type in the stream.
+     * @throw ignite_error if there is no data left in the stream.
+     */
+    template<typename T>
+    [[nodiscard]] std::optional<T> try_read_object() {
+        check_data_in_stream();
+
+        auto res = try_unpack_object<T>(m_current_val.data);
+        if (res)
+            next();
 
         return res;
     }
@@ -114,6 +132,13 @@ public:
      * @return Value.
      */
     [[nodiscard]] std::int32_t read_int32() { return read_object<std::int32_t>(); }
+
+    /**
+     * Read int32 or nullopt.
+     *
+     * @return Value or nullopt if the next value in stream is not integer.
+     */
+    [[nodiscard]] std::optional<std::int32_t> try_read_int32() { return try_read_object<std::int32_t>(); }
 
     /**
      * Read int64 number.
@@ -211,10 +236,10 @@ public:
      *
      * @param read_func Object read function.
      */
-    void read_array_raw(const std::function<void(const msgpack_object &)> &read_func) {
+    void read_array_raw(const std::function<void(std::uint32_t idx, const msgpack_object &)> &read_func) {
         auto size = read_array_size();
         for (std::uint32_t i = 0; i < size; ++i) {
-            read_func(m_current_val.data.via.array.ptr[i]);
+            read_func(i, m_current_val.data.via.array.ptr[i]);
         }
         next();
     }
@@ -272,6 +297,15 @@ public:
      */
     void skip() { next(); }
 
+    /**
+     * Position.
+     *
+     * @return Current position in memory.
+     */
+    [[nodiscard]] size_t position() const {
+        return m_offset;
+    }
+
 private:
     /**
      * Move to the next value.
@@ -289,14 +323,17 @@ private:
     /** Buffer. */
     bytes_view m_buffer;
 
-    /** Unpacker. */
-    msgpack_unpacker m_unpacker;
-
     /** Current value. */
     msgpack_unpacked m_current_val;
 
     /** Result of the last move operation. */
     msgpack_unpack_return m_move_res;
+
+    /** Offset to next value. */
+    size_t m_offset_next{0};
+
+    /** Offset. */
+    size_t m_offset{0};
 };
 
 } // namespace ignite::protocol

@@ -164,4 +164,11 @@ public class SortedIndexTree extends BplusTree<SortedIndexRowKey, SortedIndexRow
 
         assert result == Boolean.TRUE : result;
     }
+
+    /**
+     * Returns comparator of index columns {@link BinaryTuple}s.
+     */
+    BinaryTupleComparator getBinaryTupleComparator() {
+        return binaryTupleComparator;
+    }
 }

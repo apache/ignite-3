@@ -35,7 +35,15 @@ dependencies {
     implementation libs.micronaut.http.server.netty
     implementation libs.micronaut.openapi
     implementation libs.jackson.databind
+    implementation libs.auto.service.annotations
+
+    annotationProcessor libs.auto.service
 
     testImplementation project(':ignite-configuration')
     testImplementation libs.slf4j.jdk14
+}
+
+compileJava {
+    options.fork = true
+    options.forkOptions.jvmArgs += '-Dmicronaut.openapi.config.file=openapi/openapi.properties'
 }

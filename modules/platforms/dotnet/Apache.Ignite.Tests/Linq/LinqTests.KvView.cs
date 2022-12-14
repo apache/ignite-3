@@ -29,6 +29,8 @@ public partial class LinqTests
 {
     private IKeyValueView<KeyPoco, ValPoco> KvView { get; set; } = null!;
 
+    private IKeyValueView<KeyValPoco, KeyValPoco> KvView2 { get; set; } = null!;
+
     [Test]
     public void TestSelectPairKv()
     {
@@ -39,6 +41,30 @@ public partial class LinqTests
         List<KeyValuePair<KeyPoco, ValPoco>> res = query.ToList();
 
         Assert.AreEqual(4, res[0].Key.Key);
+        Assert.AreEqual("v-4", res[0].Value.Val);
+
+        StringAssert.Contains(
+            "select _T0.KEY, _T0.VAL " +
+            "from PUBLIC.TBL1 as _T0 " +
+            "where ((_T0.KEY > ?) and (_T0.VAL IS DISTINCT FROM ?)) " +
+            "order by (_T0.KEY) asc",
+            query.ToString());
+    }
+
+    [Test]
+    public void TestSelectPairIntersectingColumnsKv()
+    {
+        var query = KvView2.AsQueryable()
+            .Where(x => x.Key.Key > 3 && x.Value.Val != null)
+            .OrderBy(x => x.Key.Key);
+
+        // Key and value types share columns, all of them are populated.
+        List<KeyValuePair<KeyValPoco, KeyValPoco>> res = query.ToList();
+
+        Assert.AreEqual(4, res[0].Key.Key);
+        Assert.AreEqual(4, res[0].Value.Key);
+
+        Assert.AreEqual("v-4", res[0].Key.Val);
         Assert.AreEqual("v-4", res[0].Value.Val);
 
         StringAssert.Contains(
@@ -144,14 +170,50 @@ public partial class LinqTests
             query.ToString());
     }
 
+    [Test]
+    public void TestGroupByAllAggregatesKv()
+    {
+        var query = KvView.AsQueryable()
+            .GroupBy(x => x.Key.Key)
+            .Select(x => new
+            {
+                x.Key,
+                Count = x.Count(),
+                Sum = x.Sum(a => a.Key.Key),
+                Avg = x.Average(a => a.Key.Key),
+                Min = x.Min(a => a.Key.Key),
+                Max = x.Max(a => a.Key.Key)
+            })
+            .OrderBy(x => x.Key);
+
+        var res = query.ToList();
+
+        Assert.AreEqual(2, res[2].Key);
+        Assert.AreEqual(1, res[2].Count);
+        Assert.AreEqual(2, res[2].Sum);
+        Assert.AreEqual(2, res[2].Avg);
+        Assert.AreEqual(2, res[2].Min);
+        Assert.AreEqual(2, res[2].Max);
+
+        StringAssert.Contains(
+            "select _T0.KEY, count(*) as COUNT, sum(_T0.KEY) as SUM, avg(_T0.KEY) as AVG, min(_T0.KEY) as MIN, max(_T0.KEY) as MAX " +
+            "from PUBLIC.TBL1 as _T0 " +
+            "group by (_T0.KEY) " +
+            "order by (_T0.KEY) asc",
+            query.ToString());
+    }
+
     [OneTimeSetUp]
     protected void InitKvView()
     {
         KvView = Table.GetKeyValueView<KeyPoco, ValPoco>();
+        KvView2 = Table.GetKeyValueView<KeyValPoco, KeyValPoco>();
     }
 
     // ReSharper disable ClassNeverInstantiated.Local
     private record KeyPoco(long Key);
 
     private record ValPoco(string? Val);
+
+    private record KeyValPoco(long Key, string? Val);
 }

@@ -36,6 +36,11 @@ namespace Apache.Ignite.Internal.Table.Serialization
         public static readonly MethodInfo WriteNoValue =
             typeof(BinaryTupleBuilderExtensions).GetMethod(nameof(BinaryTupleBuilderExtensions.AppendNoValue))!;
 
+        /// <summary>
+        /// <see cref="BinaryTupleReader.IsNull"/>.
+        /// </summary>
+        public static readonly MethodInfo IsNull = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.IsNull))!;
+
         private static readonly MethodInfo AppendByte = typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendByte))!;
         private static readonly MethodInfo AppendShort = typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendShort))!;
         private static readonly MethodInfo AppendInt = typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendInt))!;
@@ -55,6 +60,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
             typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendBytes), new[] { typeof(byte[]) })!;
 
         private static readonly MethodInfo GetByte = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetByte))!;
+        private static readonly MethodInfo GetByteAsBool = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetByteAsBool))!;
         private static readonly MethodInfo GetShort = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetShort))!;
         private static readonly MethodInfo GetInt = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetInt))!;
         private static readonly MethodInfo GetLong = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetLong))!;
@@ -95,6 +101,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
         {
             { typeof(string), GetString },
             { typeof(sbyte), GetByte },
+            { typeof(bool), GetByteAsBool },
             { typeof(short), GetShort },
             { typeof(int), GetInt },
             { typeof(long), GetLong },
