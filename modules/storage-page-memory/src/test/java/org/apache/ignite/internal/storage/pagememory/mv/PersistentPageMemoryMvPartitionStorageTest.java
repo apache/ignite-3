@@ -172,7 +172,7 @@ class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPar
     }
 
     @Test
-    void groupConfigPagesAreRecycled() throws Exception {
+    void groupConfigShorteningWorksCorrectly() throws Exception {
         List<String> oneMbOfPeers = IntStream.range(0, 100_000)
                 .mapToObj(n -> String.format("peer%06d", n))
                 .collect(toList());
@@ -189,8 +189,6 @@ class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPar
 
             return null;
         });
-
-        long freeSpaceBeforeTrimming = pageMemStorage.rowVersionFreeList.freeSpace();
 
         RaftGroupConfiguration configWhichFitsInOnePage = new RaftGroupConfiguration(
                 List.of("peer1", "peer2"),
