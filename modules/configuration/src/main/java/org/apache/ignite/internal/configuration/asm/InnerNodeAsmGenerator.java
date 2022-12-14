@@ -154,9 +154,6 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
     /** {@link InnerNode#setInjectedNameFieldValue}. */
     private static final Method SET_INJECTED_NAME_FIELD_VALUE_MTD;
 
-    /** {@code ConfigurationNode#currentValue}. */
-    private static final Method CURRENT_VALUE_MTD;
-
     /** {@link InnerNode#isPolymorphic}. */
     private static final Method IS_POLYMORPHIC_MTD;
 
