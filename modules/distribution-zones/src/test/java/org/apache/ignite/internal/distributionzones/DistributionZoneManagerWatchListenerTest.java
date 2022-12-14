@@ -25,12 +25,15 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.metastorage.MetaStorageManager.APPLIED_REV;
 import static org.apache.ignite.internal.metastorage.client.MetaStorageServiceImpl.toIfInfo;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
+import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.after;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
@@ -75,7 +78,6 @@ import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
-import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
@@ -144,7 +146,7 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
         when(metaStorageManager.registerWatch(any(ByteArray.class), any())).then(invocation -> {
             watchListener = invocation.getArgument(1);
 
-            return CompletableFuture.completedFuture(null);
+            return completedFuture(null);
         });
 
         mockEmptyZonesList();
@@ -238,7 +240,7 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
 
         Entry entry = keyValueStorage.get(zoneDataNodesKey(1).bytes());
 
-        Set<String> newDataNodes = ByteUtils.fromBytes(entry.value());
+        Set<String> newDataNodes = fromBytes(entry.value());
 
         assertTrue(newDataNodes.containsAll(nodes));
         assertEquals(nodes.size(), newDataNodes.size());
@@ -253,7 +255,7 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
 
         entry = keyValueStorage.get(zoneDataNodesKey(1).bytes());
 
-        newDataNodes = ByteUtils.fromBytes(entry.value());
+        newDataNodes = fromBytes(entry.value());
 
         assertTrue(newDataNodes.containsAll(nodes));
         assertEquals(nodes.size(), newDataNodes.size());
@@ -268,7 +270,7 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
 
         entry = keyValueStorage.get(zoneDataNodesKey(1).bytes());
 
-        newDataNodes = ByteUtils.fromBytes(entry.value());
+        newDataNodes = fromBytes(entry.value());
 
         assertTrue(newDataNodes.isEmpty());
     }
@@ -283,7 +285,7 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
 
         long revision = 100;
 
-        keyValueStorage.put(zonesChangeTriggerKey().bytes(), ByteUtils.longToBytes(revision));
+        keyValueStorage.put(zonesChangeTriggerKey().bytes(), longToBytes(revision));
 
         Set<String> nodes = Set.of("node1", "node2");
 
@@ -302,7 +304,7 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
 
         long revision = 100;
 
-        keyValueStorage.put(zonesChangeTriggerKey().bytes(), ByteUtils.longToBytes(revision));
+        keyValueStorage.put(zonesChangeTriggerKey().bytes(), longToBytes(revision));
 
         Set<String> nodes = Set.of("node1", "node2");
 
@@ -335,10 +337,28 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
 
         Entry entry = keyValueStorage.get(zoneDataNodesKey(1).bytes());
 
-        Set<String> newDataNodes = ByteUtils.fromBytes(entry.value());
+        Set<String> newDataNodes = fromBytes(entry.value());
 
         assertTrue(newDataNodes.containsAll(nodes));
         assertEquals(2, newDataNodes.size());
+    }
+
+    @Test
+    void testLogicalTopologyIsNullOnZoneManagerStart1() {
+        mockCreateZone();
+
+        mockVaultAppliedRevision(2);
+
+        when(vaultMgr.get(zonesLogicalTopologyKey()))
+                .thenReturn(completedFuture(new VaultEntry(zonesLogicalTopologyKey(), null)));
+
+        distributionZoneManager.start();
+
+        verify(keyValueStorage, after(500).never()).invoke(any());
+
+        Entry entry = keyValueStorage.get(zoneDataNodesKey(1).bytes());
+
+        assertNull(entry.value());
     }
 
     private void mockEmptyZonesList() {
@@ -393,7 +413,7 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
         byte[] newlogicalTopology = toBytes(nodes);
 
         org.apache.ignite.internal.metastorage.client.Entry newEntry =
-                new org.apache.ignite.internal.metastorage.client.EntryImpl(null, newlogicalTopology, rev, 1);
+                new org.apache.ignite.internal.metastorage.client.EntryImpl(zonesLogicalTopologyKey(), newlogicalTopology, rev, 1);
 
         EntryEvent entryEvent = new EntryEvent(null, newEntry);
 
@@ -419,7 +439,7 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
     private void assertDataNodesForZone(int zoneId, @Nullable Set<ClusterNode> clusterNodes) throws InterruptedException {
         byte[] nodes = clusterNodes == null
                 ? null
-                : ByteUtils.toBytes(clusterNodes.stream().map(ClusterNode::name).collect(Collectors.toSet()));
+                : toBytes(clusterNodes.stream().map(ClusterNode::name).collect(Collectors.toSet()));
 
         assertTrue(waitForCondition(() -> Arrays.equals(keyValueStorage.get(zoneDataNodesKey(zoneId).bytes()).value(), nodes), 1000));
     }
@@ -427,7 +447,7 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
     private void assertZonesChangeTriggerKey(int revision) throws InterruptedException {
         assertTrue(
                 waitForCondition(
-                        () -> ByteUtils.bytesToLong(keyValueStorage.get(zonesChangeTriggerKey().bytes()).value()) == revision, 1000
+                        () -> bytesToLong(keyValueStorage.get(zonesChangeTriggerKey().bytes()).value()) == revision, 1000
                 )
         );
     }
