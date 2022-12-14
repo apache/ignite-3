@@ -88,7 +88,7 @@ public class HeartbeatTest {
 
             Builder builder = IgniteClient.builder()
                     .addresses("127.0.0.1:" + srvPort)
-                    .retryPolicy(new RetryLimitPolicy().retryLimit(0))
+                    .retryPolicy(new RetryLimitPolicy().retryLimit(1))
                     .heartbeatTimeout(30)
                     .reconnectThrottlingPeriod(5000)
                     .reconnectThrottlingRetries(0)
