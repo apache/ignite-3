@@ -19,6 +19,7 @@ package org.apache.ignite.client;
 
 import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_CONNECT_TIMEOUT;
 import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_HEARTBEAT_INTERVAL;
+import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_HEARTBEAT_TIMEOUT;
 import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_RECONNECT_THROTTLING_PERIOD;
 import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_RECONNECT_THROTTLING_RETRIES;
 import static org.apache.ignite.internal.client.ClientUtils.sync;
@@ -34,6 +35,7 @@ import org.apache.ignite.internal.client.IgniteClientConfigurationImpl;
 import org.apache.ignite.internal.client.TcpIgniteClient;
 import org.apache.ignite.lang.LoggerFactory;
 import org.apache.ignite.network.ClusterNode;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Ignite client entry point.
@@ -86,10 +88,13 @@ public interface IgniteClient extends Ignite {
         /** Heartbeat interval. */
         private long heartbeatInterval = DFLT_HEARTBEAT_INTERVAL;
 
-        /** Retry policy. */
-        private RetryPolicy retryPolicy = new RetryReadPolicy();
+        /** Heartbeat timeout. */
+        private long heartbeatTimeout = DFLT_HEARTBEAT_TIMEOUT;
 
-        private LoggerFactory loggerFactory;
+        /** Retry policy. */
+        private @Nullable RetryPolicy retryPolicy = new RetryReadPolicy();
+
+        private @Nullable LoggerFactory loggerFactory;
 
         /**
          * Sets the addresses of Ignite server nodes within a cluster. An address can be an IP address or a hostname, with or without port.
@@ -116,7 +121,7 @@ public interface IgniteClient extends Ignite {
          * @param retryPolicy Retry policy.
          * @return This instance.
          */
-        public Builder retryPolicy(RetryPolicy retryPolicy) {
+        public Builder retryPolicy(@Nullable RetryPolicy retryPolicy) {
             this.retryPolicy = retryPolicy;
 
             return this;
@@ -241,6 +246,20 @@ public interface IgniteClient extends Ignite {
         }
 
         /**
+         * Sets the heartbeat message timeout, in milliseconds. Default is <code>5000</code>.
+         *
+         * <p>When a server does not respond to a heartbeat within the specified timeout, client will close the connection.
+         *
+         * @param heartbeatTimeout Heartbeat timeout.
+         * @return This instance.
+         */
+        public Builder heartbeatTimeout(long heartbeatTimeout) {
+            this.heartbeatTimeout = heartbeatTimeout;
+
+            return this;
+        }
+
+        /**
          * Builds the client.
          *
          * @return Ignite client.
@@ -263,6 +282,7 @@ public interface IgniteClient extends Ignite {
                     reconnectThrottlingRetries,
                     asyncContinuationExecutor,
                     heartbeatInterval,
+                    heartbeatTimeout,
                     retryPolicy,
                     loggerFactory
             );

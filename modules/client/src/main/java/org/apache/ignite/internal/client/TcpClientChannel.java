@@ -99,6 +99,9 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     /** Connect timeout in milliseconds. */
     private final long connectTimeout;
 
+    /** Heartbeat timeout in milliseconds. */
+    private final long heartbeatTimeout;
+
     /** Heartbeat timer. */
     private final Timer heartbeatTimer;
 
@@ -124,6 +127,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                 : cfg.clientConfiguration().asyncContinuationExecutor();
 
         connectTimeout = cfg.clientConfiguration().connectTimeout();
+        heartbeatTimeout = cfg.clientConfiguration().heartbeatTimeout();
 
         sock = connMgr.open(cfg.getAddress(), this, this);
 
@@ -514,7 +518,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             try {
                 if (System.currentTimeMillis() - lastSendMillis > interval) {
                     serviceAsync(ClientOp.HEARTBEAT, null, null)
-                            .orTimeout(connectTimeout, TimeUnit.MILLISECONDS)
+                            .orTimeout(heartbeatTimeout, TimeUnit.MILLISECONDS)
                             .exceptionally(e -> {
                                 if (e instanceof TimeoutException) {
                                     log.warn("Heartbeat timeout, closing the channel");

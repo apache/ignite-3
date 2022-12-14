@@ -21,6 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.UUID;
+import java.util.function.Function;
 import org.apache.ignite.client.IgniteClient.Builder;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.junit.jupiter.api.Test;
@@ -80,19 +81,21 @@ public class HeartbeatTest {
 
     @Test
     public void testHeartbeatTimeoutClosesConnection() throws Exception {
-        try (var srv = new TestServer(10800, 10, 300, new FakeIgnite(), x -> false, x -> x > 1 ? 500 : 0, null, UUID.randomUUID())) {
+        Function<Integer, Integer> responseDelayFunc = requestCount -> requestCount > 1 ? 500 : 0;
+
+        try (var srv = new TestServer(10800, 10, 300, new FakeIgnite(), x -> false, responseDelayFunc, null, UUID.randomUUID())) {
             int srvPort = srv.port();
 
             Builder builder = IgniteClient.builder()
                     .addresses("127.0.0.1:" + srvPort)
                     .retryPolicy(new RetryLimitPolicy().retryLimit(0))
-                    .connectTimeout(50)
+                    .heartbeatTimeout(30)
+                    .reconnectThrottlingPeriod(5000)
+                    .reconnectThrottlingRetries(0)
                     .heartbeatInterval(50);
 
             try (var client = builder.build()) {
-                Thread.sleep(900);
-
-                assertEquals(0, client.tables().tables().size());
+                Thread.sleep(300);
             }
         }
     }
