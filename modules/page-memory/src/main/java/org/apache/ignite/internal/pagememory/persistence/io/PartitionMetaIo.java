@@ -252,11 +252,11 @@ public class PartitionMetaIo extends PageIo {
                 .app("lastAppliedIndex=").app(getLastAppliedIndex(addr)).nl()
                 .app("lastAppliedTerm=").app(getLastAppliedTerm(addr)).nl()
                 .app("lastRaftGroupConfigFirstPageId=").app(getLastRaftGroupConfigFirstPageId(addr)).nl()
-                .app(", rowVersionFreeListRootPageId=").appendHex(getRowVersionFreeListRootPageId(addr)).nl()
-                .app(", indexColumnsFreeListRootPageId(=").appendHex(getIndexColumnsFreeListRootPageId(addr)).nl()
-                .app(", versionChainTreeRootPageId=").appendHex(getVersionChainTreeRootPageId(addr)).nl()
-                .app(", indexTreeMetaPageId=").appendHex(getIndexTreeMetaPageId(addr)).nl()
-                .app(", pageCount=").app(getPageCount(addr)).nl()
+                .app("rowVersionFreeListRootPageId=").appendHex(getRowVersionFreeListRootPageId(addr)).nl()
+                .app("indexColumnsFreeListRootPageId(=").appendHex(getIndexColumnsFreeListRootPageId(addr)).nl()
+                .app("versionChainTreeRootPageId=").appendHex(getVersionChainTreeRootPageId(addr)).nl()
+                .app("indexTreeMetaPageId=").appendHex(getIndexTreeMetaPageId(addr)).nl()
+                .app("pageCount=").app(getPageCount(addr)).nl()
                 .app(']');
     }
 }
