@@ -97,7 +97,6 @@ import org.apache.ignite.configuration.annotation.InjectedName;
 import org.apache.ignite.configuration.annotation.Name;
 import org.apache.ignite.configuration.annotation.PolymorphicConfig;
 import org.apache.ignite.configuration.annotation.PolymorphicId;
-import org.apache.ignite.internal.configuration.ConfigurationNode;
 import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.configuration.tree.ConfigurationVisitor;
 import org.apache.ignite.internal.configuration.tree.ConstructableTreeNode;
@@ -200,8 +199,6 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
             ADD_DEFAULTS_MTD = ConfigurationUtil.class.getDeclaredMethod("addDefaults", InnerNode.class);
 
             SET_INJECTED_NAME_FIELD_VALUE_MTD = InnerNode.class.getDeclaredMethod("setInjectedNameFieldValue", String.class);
-
-            CURRENT_VALUE_MTD = ConfigurationNode.class.getDeclaredMethod("currentValue");
 
             IS_POLYMORPHIC_MTD = InnerNode.class.getDeclaredMethod("isPolymorphic");
 
