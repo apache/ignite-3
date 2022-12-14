@@ -90,6 +90,8 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         kinds.add(SqlKind.FLOOR);
         kinds.add(SqlKind.LITERAL);
 
+        kinds.add(SqlKind.PROCEDURE_CALL);
+
         HUMAN_READABLE_ALIASES_FOR = Collections.unmodifiableSet(kinds);
     }
 
@@ -463,7 +465,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
             if (param == null) {
                 type = typeFactory().createSqlType(SqlTypeName.NULL);
             } else {
-                type = typeFactory().createType(param.getClass());
+                type = typeFactory().toSql(typeFactory().createType(param.getClass()));
             }
             setValidatedNodeType(node, type);
         } else if (node instanceof SqlCall) {

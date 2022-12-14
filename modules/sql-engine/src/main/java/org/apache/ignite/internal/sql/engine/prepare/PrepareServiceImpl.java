@@ -33,7 +33,6 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import javax.lang.model.type.NullType;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeField;
@@ -223,7 +222,7 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
 
         Class[] paramTypes = ctx.parameters().length == 0
                 ? EMPTY_CLASS_ARRAY :
-                Arrays.stream(ctx.parameters()).map(p -> (p != null) ? p.getClass() : NullType.class).toArray(Class[]::new);
+                Arrays.stream(ctx.parameters()).map(p -> (p != null) ? p.getClass() : Void.class).toArray(Class[]::new);
 
         var key = new CacheKey(ctx.schemaName(), sqlNode.toString(), distributed, paramTypes);
 

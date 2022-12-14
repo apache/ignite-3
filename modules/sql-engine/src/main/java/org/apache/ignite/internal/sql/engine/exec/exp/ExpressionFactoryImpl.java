@@ -32,6 +32,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.StringJoiner;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.BiPredicate;
 import java.util.function.Function;
@@ -52,6 +53,7 @@ import org.apache.calcite.rel.core.AggregateCall;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rex.RexBuilder;
+import org.apache.calcite.rex.RexCall;
 import org.apache.calcite.rex.RexCorrelVariable;
 import org.apache.calcite.rex.RexFieldAccess;
 import org.apache.calcite.rex.RexLiteral;
@@ -549,6 +551,18 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
 
             if (node == null) {
                 continue;
+            }
+
+            if (node instanceof RexCall) {
+                RexCall call = (RexCall) node;
+                if (!call.operands.isEmpty()) {
+                    StringJoiner sj = new StringJoiner("[", ",", "]");
+                    for (RexNode rn : call.operands) {
+                        sj.add(rn.getType().toString());
+                    }
+
+                    b.append(sj);
+                }
             }
 
             b.append(':');

@@ -87,7 +87,11 @@ public enum SqlColumnType {
     DURATION,
 
     /** Number. */
-    NUMBER;
+    NUMBER,
+
+    /** Null. */
+    NULL;
+
 
     /**
      * Column type to Java class.
@@ -152,6 +156,9 @@ public enum SqlColumnType {
 
             case DURATION:
                 return Duration.class;
+
+            case NULL:
+                return Void.class;
 
             default:
                 throw new IllegalArgumentException("Unsupported type " + type);

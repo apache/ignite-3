@@ -76,6 +76,9 @@ public class ItMetadataTest extends AbstractBasicIntegrationTest {
         assertQuery("select aVg(salary) from person").columnNames("AVG(SALARY)").check();
         assertQuery("select sum(salary) from person").columnNames("SUM(SALARY)").check();
 
+        assertQuery("select typeOf(salary) from person").columnNames("TYPEOF(SALARY)").check();
+        assertQuery("select typeOf(null) from person").columnNames("TYPEOF(NULL)").check();
+
         assertQuery("select salary, count(name) from person group by salary").columnNames("SALARY", "COUNT(NAME)").check();
 
         assertQuery("select 1, -1, 'some string' from person").columnNames("1", "-1", "'some string'").check();

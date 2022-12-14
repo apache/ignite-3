@@ -22,10 +22,11 @@ import java.util.Objects;
 
 /**
  * CacheKey.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * The class uses to distinguish different query plans which could be various for the same query text but different context. As example such
+ * context could be schema name, dynamic parameters, and so on...
  */
 public class CacheKey {
-    public static final Class[] EMPTY_CLASS_ARRAY = new Class[0];
+    public static final Class[] EMPTY_CLASS_ARRAY = {};
 
     private final String schemaName;
 
@@ -42,7 +43,7 @@ public class CacheKey {
      * @param query      Query string.
      * @param contextKey Optional context key to differ queries with and without/different flags, having an impact on result plan (like
      *                   LOCAL flag)
-     * @param paramTypes Types of all dynamic parameters, no any type can be {code null}.
+     * @param paramTypes Types of all dynamic parameters, no any type can be {@code null}.
      */
     public CacheKey(String schemaName, String query, Object contextKey, Class[] paramTypes) {
         this.schemaName = schemaName;

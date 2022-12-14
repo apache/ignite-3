@@ -278,13 +278,20 @@ public abstract class QueryChecker {
      * @return This.
      */
     public QueryChecker withParams(Object... params) {
+        // let's interpret null array as simple single null.
+        if (params == null) {
+            params = NULL_AS_VARARG;
+        }
+
         this.params = params;
 
         return this;
     }
 
     /**
-     * Sets returns.
+     * This method add the given row to the list of expected, the order of enumeration does not matter unless #ordered() is set.
+     *
+     * @param res Array with values one returning tuple. {@code null} array will be interpreted as single-column-null row,
      *
      * @return This.
      */

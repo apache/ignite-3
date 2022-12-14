@@ -345,6 +345,8 @@ public class TypeUtils {
             case INTERVAL_SECOND:
             case INTERVAL_DAY:
                 return SqlColumnType.DURATION;
+            case NULL:
+                return SqlColumnType.NULL;
             default:
                 assert false : "Unexpected type of result: " + type.getSqlTypeName();
                 return null;
