@@ -323,7 +323,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
      * @param unpacker Unpacker.
      * @return Exception.
      */
-    private IgniteException readError(ClientMessageUnpacker unpacker) {
+    private static IgniteException readError(ClientMessageUnpacker unpacker) {
         var traceId = unpacker.unpackUuid();
         var code = unpacker.unpackInt();
         var errClassName = unpacker.unpackString();
@@ -390,8 +390,13 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         try {
             handshakeReq(ver);
 
-            var res = connectTimeout > 0 ? fut.get(connectTimeout, TimeUnit.MILLISECONDS) : fut.get();
-            handshakeRes(res, ver);
+            var resFut = fut.thenAccept(res -> handshakeRes(res, ver));
+
+            if (connectTimeout > 0) {
+                resFut = resFut.orTimeout(connectTimeout, TimeUnit.MILLISECONDS);
+            }
+
+            resFut.get();
         } catch (Throwable e) {
             throw IgniteException.wrap(e);
         }
@@ -509,7 +514,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         private final long interval;
 
         /** Constructor. */
-        public HeartbeatTask(long interval) {
+        HeartbeatTask(long interval) {
             this.interval = interval;
         }
 
@@ -517,8 +522,10 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         @Override public void run() {
             try {
                 if (System.currentTimeMillis() - lastSendMillis > interval) {
-                    serviceAsync(ClientOp.HEARTBEAT, null, null)
-                            .orTimeout(heartbeatTimeout, TimeUnit.MILLISECONDS)
+                    var fut = serviceAsync(ClientOp.HEARTBEAT, null, null);
+
+                    if (connectTimeout > 0) {
+                        fut.orTimeout(heartbeatTimeout, TimeUnit.MILLISECONDS)
                             .exceptionally(e -> {
                                 if (e instanceof TimeoutException) {
                                     log.warn("Heartbeat timeout, closing the channel");
@@ -528,6 +535,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
                                 return null;
                             });
+                    }
                 }
             } catch (Throwable ignored) {
                 // Ignore failed heartbeats.
