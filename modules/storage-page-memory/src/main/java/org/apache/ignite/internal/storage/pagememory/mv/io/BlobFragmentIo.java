@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv.io;
 
+import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.getInt;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.getLong;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putInt;
@@ -28,27 +29,25 @@ import org.apache.ignite.internal.pagememory.util.PageUtils;
 import org.apache.ignite.lang.IgniteStringBuilder;
 
 /**
- * Pages IO for first blob page.
+ * Pages IO for blob fragments.
  */
-public class BlobFirstIo extends BlobIo {
+public class BlobFragmentIo extends PageIo {
     /** Page IO type. */
-    public static final short T_BLOB_FIRST_IO = 13;
+    public static final short T_BLOB_FRAGMENT_IO = 13;
 
     private static final int NEXT_PAGE_ID_OFF = PageIo.COMMON_HEADER_END;
-    private static final int TOTAL_LENGTH_OFF = NEXT_PAGE_ID_OFF + Long.BYTES;
-    private static final int FRAGMENT_LENGTH_OFF = TOTAL_LENGTH_OFF + Long.BYTES;
-    private static final int FRAGMENT_BYTES_OFF = FRAGMENT_LENGTH_OFF + Integer.BYTES;
+    private static final int FRAGMENT_BYTES_OFF = NEXT_PAGE_ID_OFF + Long.BYTES;
 
     /** I/O versions. */
-    public static final IoVersions<BlobFirstIo> VERSIONS = new IoVersions<>(new BlobFirstIo(1));
+    public static final IoVersions<BlobFragmentIo> VERSIONS = new IoVersions<>(new BlobFragmentIo(1));
 
     /**
      * Constructor.
      *
      * @param ver Page format version.
      */
-    private BlobFirstIo(int ver) {
-        super(T_BLOB_FIRST_IO, ver);
+    private BlobFragmentIo(int ver) {
+        super(T_BLOB_FRAGMENT_IO, ver, FLAG_AUX);
     }
 
     @Override
@@ -56,61 +55,69 @@ public class BlobFirstIo extends BlobIo {
         super.initNewPage(pageAddr, pageId, pageSize);
 
         setNextPageId(pageAddr, 0);
-        setTotalLength(pageAddr, 0);
-        setFragmentLength(pageAddr, 0);
     }
 
-    @Override
+    /**
+     * Returns full header size in bytes.
+     */
     public int fullHeaderSize() {
         return FRAGMENT_BYTES_OFF;
     }
 
-    @Override
+    public int getCapacityForFragmentBytes(int pageSize, boolean firstPage) {
+        return pageSize - fullHeaderSize() - fragmentBytesOffset(firstPage);
+    }
+
+    /**
+     * Reads next page ID.
+     */
     public long getNextPageId(long pageAddr) {
         return getLong(pageAddr, NEXT_PAGE_ID_OFF);
     }
 
-    @Override
+    /**
+     * Writes next page ID.
+     */
     public void setNextPageId(long pageAddr, long nextPageId) {
         putLong(pageAddr, NEXT_PAGE_ID_OFF, nextPageId);
     }
 
-    @Override
+    /**
+     * Reads total blob length.
+     */
     public int getTotalLength(long pageAddr) {
-        return getInt(pageAddr, TOTAL_LENGTH_OFF);
+        return getInt(pageAddr, FRAGMENT_BYTES_OFF);
     }
 
-    @Override
+    /**
+     * Writes total blob length.
+     */
     public void setTotalLength(long pageAddr, int totalLength) {
-        putInt(pageAddr, TOTAL_LENGTH_OFF, totalLength);
+        putInt(pageAddr, FRAGMENT_BYTES_OFF, totalLength);
     }
 
-    @Override
-    public int getFragmentLength(long pageAddr) {
-        return getInt(pageAddr, FRAGMENT_LENGTH_OFF);
+    /**
+     * Reads fragment bytes to the given array.
+     */
+    public void getFragmentBytes(long pageAddr, boolean firstPage, byte[] destArray, int destOffset, int fragmentLength) {
+        PageUtils.getBytes(pageAddr, FRAGMENT_BYTES_OFF + fragmentBytesOffset(firstPage), destArray, destOffset, fragmentLength);
     }
 
-    @Override
-    public void setFragmentLength(long pageAddr, int fragmentLength) {
-        putInt(pageAddr, FRAGMENT_LENGTH_OFF, fragmentLength);
+    /**
+     * Writes fragment bytes from the given array.
+     */
+    public void setFragmentBytes(long pageAddr, boolean firstPage, byte[] bytes, int bytesOffset, int fragmentLength) {
+        PageUtils.putBytes(pageAddr, FRAGMENT_BYTES_OFF + fragmentBytesOffset(firstPage), bytes, bytesOffset, fragmentLength);
     }
 
-    @Override
-    public void getFragmentBytes(long pageAddr, byte[] destArray, int destOffset, int fragmentLength) {
-        PageUtils.getBytes(pageAddr, FRAGMENT_BYTES_OFF, destArray, destOffset, fragmentLength);
+    private static int fragmentBytesOffset(boolean firstPage) {
+        return firstPage ? Integer.BYTES : 0;
     }
 
-    @Override
-    public void setFragmentBytes(long pageAddr, byte[] bytes, int bytesOffset, int fragmentLength) {
-        PageUtils.putBytes(pageAddr, FRAGMENT_BYTES_OFF, bytes, bytesOffset, fragmentLength);
-    }
-
-    /** {@inheritDoc} */
     @Override
     protected void printPage(long addr, int pageSize, IgniteStringBuilder sb) {
-        sb.app("BlobFirstIo [").nl()
+        sb.app("BlobFragmentIo [").nl()
                 .app("nextPageId=").app(getNextPageId(addr)).nl()
-                .app("fragmentLength=").app(getFragmentLength(addr)).nl()
                 .app(']');
     }
 }

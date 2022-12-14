@@ -41,8 +41,7 @@ import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
 import org.apache.ignite.internal.pagememory.reuse.ReuseBag;
 import org.apache.ignite.internal.pagememory.reuse.ReuseList;
-import org.apache.ignite.internal.storage.pagememory.mv.io.BlobDataIo;
-import org.apache.ignite.internal.storage.pagememory.mv.io.BlobFirstIo;
+import org.apache.ignite.internal.storage.pagememory.mv.io.BlobFragmentIo;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -73,8 +72,7 @@ class BlobStorageTest {
     void createStorage() {
         PageIoRegistry pageIoRegistry = new PageIoRegistry() {
             {
-                ioVersions[BlobFirstIo.T_BLOB_FIRST_IO] = BlobFirstIo.VERSIONS;
-                ioVersions[BlobDataIo.T_BLOB_DATA_IO] = BlobDataIo.VERSIONS;
+                ioVersions[BlobFragmentIo.T_BLOB_FRAGMENT_IO] = BlobFragmentIo.VERSIONS;
             }
         };
 
