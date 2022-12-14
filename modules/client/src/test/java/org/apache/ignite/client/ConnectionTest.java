@@ -17,12 +17,15 @@
 
 package org.apache.ignite.client;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.endsWith;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.UUID;
+import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
 import org.apache.ignite.client.IgniteClient.Builder;
 import org.apache.ignite.client.fakes.FakeIgnite;
@@ -75,20 +78,18 @@ public class ConnectionTest extends AbstractClientTest {
         testConnection("[::1]:" + serverPort);
     }
 
+    @SuppressWarnings("ThrowableNotThrown")
     @Test
     public void testNoResponseFromServerWithinConnectTimeoutThrowsException() throws Exception {
         Function<Integer, Integer> responseDelay = x -> 500;
 
         try (var srv = new TestServer(10800, 10, 300, new FakeIgnite(), x -> false, responseDelay, null, UUID.randomUUID())) {
-            int srvPort = srv.port();
-
             Builder builder = IgniteClient.builder()
-                    .addresses("127.0.0.1:" + srvPort)
+                    .addresses("127.0.0.1:" + srv.port())
                     .retryPolicy(new RetryLimitPolicy().retryLimit(1))
                     .connectTimeout(50);
 
-            try (var client = builder.build()) {
-            }
+            assertThrowsWithCause(builder::build, TimeoutException.class);
         }
     }
 
