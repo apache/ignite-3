@@ -12,8 +12,8 @@
     <inspection_tool class="AccessToStaticFieldLockedOnInstance" enabled="true" level="WARNING" enabled_by_default="true">
       <option name="ignoredClasses">
         <set>
-          <option value="org.apache.ignite.internal.logger.IgniteLogger" />
           <option value="org.apache.ignite.lang.ByteArray" />
+          <option value="org.apache.ignite.internal.logger.IgniteLogger" />
         </set>
       </option>
     </inspection_tool>
