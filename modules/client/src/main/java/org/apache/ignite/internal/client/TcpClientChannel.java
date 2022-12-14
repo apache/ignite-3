@@ -390,13 +390,14 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         try {
             handshakeReq(ver);
 
+            // handshakeRes must be called even in case of timeout to release the buffer.
             var resFut = fut.thenAccept(res -> handshakeRes(res, ver));
 
             if (connectTimeout > 0) {
-                resFut = resFut.orTimeout(connectTimeout, TimeUnit.MILLISECONDS);
+                resFut.get(connectTimeout, TimeUnit.MILLISECONDS);
+            } else {
+                resFut.get();
             }
-
-            resFut.get();
         } catch (Throwable e) {
             throw IgniteException.wrap(e);
         }
