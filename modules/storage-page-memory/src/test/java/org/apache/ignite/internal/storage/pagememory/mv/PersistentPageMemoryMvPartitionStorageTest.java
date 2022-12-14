@@ -21,6 +21,8 @@ import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.FINISHED;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.greaterThan;
+import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 
 import java.nio.file.Path;
@@ -176,6 +178,8 @@ class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPar
         List<String> oneMbOfPeers = IntStream.range(0, 100_000)
                 .mapToObj(n -> String.format("peer%06d", n))
                 .collect(toList());
+
+        assertThat(oneMbOfPeers.size() * oneMbOfPeers.get(0).length(), is(greaterThan(5 * pageSize())));
 
         RaftGroupConfiguration originalConfigOfMoreThanOnePage = new RaftGroupConfiguration(
                 oneMbOfPeers,
