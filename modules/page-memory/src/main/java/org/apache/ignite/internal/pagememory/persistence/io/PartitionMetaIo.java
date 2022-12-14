@@ -35,9 +35,9 @@ public class PartitionMetaIo extends PageIo {
 
     private static final int LAST_APPLIED_TERM_OFF = LAST_APPLIED_INDEX_OFF + Long.BYTES;
 
-    private static final int LAST_RAFT_GROUP_CONFIG_FIRST_PAGE_ID_OFF = LAST_APPLIED_TERM_OFF + Long.BYTES;
+    private static final int LAST_REPLICATION_PROTOCOL_GROUP_CONFIG_FIRST_PAGE_ID_OFF = LAST_APPLIED_TERM_OFF + Long.BYTES;
 
-    private static final int ROW_VERSION_FREE_LIST_ROOT_PAGE_ID_OFF = LAST_RAFT_GROUP_CONFIG_FIRST_PAGE_ID_OFF + Long.BYTES;
+    private static final int ROW_VERSION_FREE_LIST_ROOT_PAGE_ID_OFF = LAST_REPLICATION_PROTOCOL_GROUP_CONFIG_FIRST_PAGE_ID_OFF + Long.BYTES;
 
     private static final int INDEX_COLUMNS_FREE_LIST_ROOT_PAGE_ID_OFF = ROW_VERSION_FREE_LIST_ROOT_PAGE_ID_OFF + Long.BYTES;
 
@@ -69,7 +69,7 @@ public class PartitionMetaIo extends PageIo {
 
         setLastAppliedIndex(pageAddr, 0);
         setLastAppliedTerm(pageAddr, 0);
-        setLastRaftGroupConfigFirstPageId(pageAddr, 0);
+        setLastReplicationProtocolGroupConfigFirstPageId(pageAddr, 0);
         setRowVersionFreeListRootPageId(pageAddr, 0);
         setIndexColumnsFreeListRootPageId(pageAddr, 0);
         setVersionChainTreeRootPageId(pageAddr, 0);
@@ -102,15 +102,15 @@ public class PartitionMetaIo extends PageIo {
     }
 
     /**
-     * Sets ID of the first page in a chain storing a blob representing last RAFT group config.
+     * Sets ID of the first page in a chain storing a blob representing last replication protocol group config.
      *
      * @param pageAddr Page address.
      * @param pageId Page ID.
      */
-    public void setLastRaftGroupConfigFirstPageId(long pageAddr, long pageId) {
+    public void setLastReplicationProtocolGroupConfigFirstPageId(long pageAddr, long pageId) {
         assertPageType(pageAddr);
 
-        putLong(pageAddr, LAST_RAFT_GROUP_CONFIG_FIRST_PAGE_ID_OFF, pageId);
+        putLong(pageAddr, LAST_REPLICATION_PROTOCOL_GROUP_CONFIG_FIRST_PAGE_ID_OFF, pageId);
     }
 
     /**
@@ -132,12 +132,12 @@ public class PartitionMetaIo extends PageIo {
     }
 
     /**
-     * Returns ID of the first page in a chain storing a blob representing last RAFT group config.
+     * Returns ID of the first page in a chain storing a blob representing last replication protocol group config.
      *
      * @param pageAddr Page address.
      */
-    public long getLastRaftGroupConfigFirstPageId(long pageAddr) {
-        return getLong(pageAddr, LAST_RAFT_GROUP_CONFIG_FIRST_PAGE_ID_OFF);
+    public long getLastReplicationProtocolGroupConfigFirstPageId(long pageAddr) {
+        return getLong(pageAddr, LAST_REPLICATION_PROTOCOL_GROUP_CONFIG_FIRST_PAGE_ID_OFF);
     }
 
     /**
@@ -251,7 +251,7 @@ public class PartitionMetaIo extends PageIo {
         sb.app("TablePartitionMeta [").nl()
                 .app("lastAppliedIndex=").app(getLastAppliedIndex(addr)).nl()
                 .app("lastAppliedTerm=").app(getLastAppliedTerm(addr)).nl()
-                .app("lastRaftGroupConfigFirstPageId=").app(getLastRaftGroupConfigFirstPageId(addr)).nl()
+                .app("lastReplicationProtocolGroupConfigFirstPageId=").app(getLastReplicationProtocolGroupConfigFirstPageId(addr)).nl()
                 .app("rowVersionFreeListRootPageId=").appendHex(getRowVersionFreeListRootPageId(addr)).nl()
                 .app("indexColumnsFreeListRootPageId(=").appendHex(getIndexColumnsFreeListRootPageId(addr)).nl()
                 .app("versionChainTreeRootPageId=").appendHex(getVersionChainTreeRootPageId(addr)).nl()

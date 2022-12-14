@@ -50,7 +50,7 @@ public class PartitionMeta {
 
     private volatile long lastAppliedTerm;
 
-    private volatile long lastRaftGroupConfigFirstPageId;
+    private volatile long lastReplicationProtocolGroupConfigFirstPageId;
 
     private volatile long rowVersionFreeListRootPageId;
 
@@ -85,7 +85,7 @@ public class PartitionMeta {
             @Nullable UUID checkpointId,
             long lastAppliedIndex,
             long lastAppliedTerm,
-            long lastRaftGroupConfigFirstPageId,
+            long lastReplicationProtocolGroupConfigFirstPageId,
             long rowVersionFreeListRootPageId,
             long indexColumnsFreeListRootPageId,
             long versionChainTreeRootPageId,
@@ -94,7 +94,7 @@ public class PartitionMeta {
     ) {
         this.lastAppliedIndex = lastAppliedIndex;
         this.lastAppliedTerm = lastAppliedTerm;
-        this.lastRaftGroupConfigFirstPageId = lastRaftGroupConfigFirstPageId;
+        this.lastReplicationProtocolGroupConfigFirstPageId = lastReplicationProtocolGroupConfigFirstPageId;
         this.rowVersionFreeListRootPageId = rowVersionFreeListRootPageId;
         this.indexColumnsFreeListRootPageId = indexColumnsFreeListRootPageId;
         this.versionChainTreeRootPageId = versionChainTreeRootPageId;
@@ -116,7 +116,7 @@ public class PartitionMeta {
                 checkpointId,
                 metaIo.getLastAppliedIndex(pageAddr),
                 metaIo.getLastAppliedTerm(pageAddr),
-                metaIo.getLastRaftGroupConfigFirstPageId(pageAddr),
+                metaIo.getLastReplicationProtocolGroupConfigFirstPageId(pageAddr),
                 metaIo.getRowVersionFreeListRootPageId(pageAddr),
                 metaIo.getIndexColumnsFreeListRootPageId(pageAddr),
                 metaIo.getVersionChainTreeRootPageId(pageAddr),
@@ -154,22 +154,22 @@ public class PartitionMeta {
     }
 
     /**
-     * Returns ID of the first page in a chain storing a blob representing last RAFT group config.
+     * Returns ID of the first page in a chain storing a blob representing last replication protocol group config.
      */
-    public long lastRaftGroupConfigFirstPageId() {
-        return lastRaftGroupConfigFirstPageId;
+    public long lastReplicationProtocolGroupConfigFirstPageId() {
+        return lastReplicationProtocolGroupConfigFirstPageId;
     }
 
     /**
-     * Sets ID of the first page in a chain storing a blob representing last RAFT group config.
+     * Sets ID of the first page in a chain storing a blob representing last replication protocol group config.
      *
      * @param checkpointId Checkpoint ID.
      * @param pageId PageId.
      */
-    public void lastRaftGroupConfigFirstPageId(@Nullable UUID checkpointId, long pageId) {
+    public void lastReplicationProtocolGroupConfigFirstPageId(@Nullable UUID checkpointId, long pageId) {
         updateSnapshot(checkpointId);
 
-        this.lastRaftGroupConfigFirstPageId = pageId;
+        this.lastReplicationProtocolGroupConfigFirstPageId = pageId;
     }
 
     /**
@@ -305,7 +305,7 @@ public class PartitionMeta {
 
         private final long lastAppliedTerm;
 
-        private final long lastRaftGroupConfigFirstPageId;
+        private final long lastReplicationProtocolGroupConfigFirstPageId;
 
         private final long versionChainTreeRootPageId;
 
@@ -327,7 +327,7 @@ public class PartitionMeta {
             this.checkpointId = checkpointId;
             lastAppliedIndex = partitionMeta.lastAppliedIndex;
             lastAppliedTerm = partitionMeta.lastAppliedTerm;
-            lastRaftGroupConfigFirstPageId = partitionMeta.lastRaftGroupConfigFirstPageId;
+            lastReplicationProtocolGroupConfigFirstPageId = partitionMeta.lastReplicationProtocolGroupConfigFirstPageId;
             versionChainTreeRootPageId = partitionMeta.versionChainTreeRootPageId;
             rowVersionFreeListRootPageId = partitionMeta.rowVersionFreeListRootPageId;
             indexColumnsFreeListRootPageId = partitionMeta.indexColumnsFreeListRootPageId;
@@ -350,10 +350,10 @@ public class PartitionMeta {
         }
 
         /**
-         * Returns ID of the first page in a chain storing a blob representing last RAFT group config.
+         * Returns ID of the first page in a chain storing a blob representing last replication protocol group config.
          */
-        public long lastRaftGroupConfigFirstPageId() {
-            return lastRaftGroupConfigFirstPageId;
+        public long lastReplicationProtocolGroupConfigFirstPageId() {
+            return lastReplicationProtocolGroupConfigFirstPageId;
         }
 
         /**
@@ -400,7 +400,7 @@ public class PartitionMeta {
         void writeTo(PartitionMetaIo metaIo, long pageAddr) {
             metaIo.setLastAppliedIndex(pageAddr, lastAppliedIndex);
             metaIo.setLastAppliedTerm(pageAddr, lastAppliedTerm);
-            metaIo.setLastRaftGroupConfigFirstPageId(pageAddr, lastRaftGroupConfigFirstPageId);
+            metaIo.setLastReplicationProtocolGroupConfigFirstPageId(pageAddr, lastReplicationProtocolGroupConfigFirstPageId);
             metaIo.setVersionChainTreeRootPageId(pageAddr, versionChainTreeRootPageId);
             metaIo.setIndexColumnsFreeListRootPageId(pageAddr, indexColumnsFreeListRootPageId);
             metaIo.setRowVersionFreeListRootPageId(pageAddr, rowVersionFreeListRootPageId);

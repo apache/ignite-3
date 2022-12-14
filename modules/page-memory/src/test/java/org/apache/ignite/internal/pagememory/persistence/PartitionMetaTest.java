@@ -70,15 +70,15 @@ public class PartitionMetaTest {
     void testLastGroupConfig() {
         PartitionMeta meta = new PartitionMeta();
 
-        assertThat(meta.lastRaftGroupConfigFirstPageId(), is(0L));
+        assertThat(meta.lastReplicationProtocolGroupConfigFirstPageId(), is(0L));
 
-        meta.lastRaftGroupConfigFirstPageId(null, 12);
+        meta.lastReplicationProtocolGroupConfigFirstPageId(null, 12);
 
-        assertThat(meta.lastRaftGroupConfigFirstPageId(), is(12L));
+        assertThat(meta.lastReplicationProtocolGroupConfigFirstPageId(), is(12L));
 
-        meta.lastRaftGroupConfigFirstPageId(UUID.randomUUID(), 34);
+        meta.lastReplicationProtocolGroupConfigFirstPageId(UUID.randomUUID(), 34);
 
-        assertThat(meta.lastRaftGroupConfigFirstPageId(), is(34L));
+        assertThat(meta.lastReplicationProtocolGroupConfigFirstPageId(), is(34L));
     }
 
     @Test
@@ -136,7 +136,7 @@ public class PartitionMetaTest {
         checkSnapshot(meta.metaSnapshot(checkpointId = UUID.randomUUID()), 0, 0, 0, 0, 0, 0);
 
         meta.lastApplied(checkpointId, 50, 5);
-        meta.lastRaftGroupConfigFirstPageId(checkpointId, 12);
+        meta.lastReplicationProtocolGroupConfigFirstPageId(checkpointId, 12);
         meta.versionChainTreeRootPageId(checkpointId, 300);
         meta.rowVersionFreeListRootPageId(checkpointId, 900);
         meta.incrementPageCount(checkpointId);
@@ -145,7 +145,7 @@ public class PartitionMetaTest {
         checkSnapshot(meta.metaSnapshot(UUID.randomUUID()), 50, 5, 12, 300, 900, 1);
 
         meta.lastApplied(checkpointId = UUID.randomUUID(), 51, 6);
-        meta.lastRaftGroupConfigFirstPageId(checkpointId, 34);
+        meta.lastReplicationProtocolGroupConfigFirstPageId(checkpointId, 34);
         checkSnapshot(meta.metaSnapshot(checkpointId), 50, 5, 12, 300, 900, 1);
 
         meta.versionChainTreeRootPageId(checkpointId = UUID.randomUUID(), 303);
@@ -180,7 +180,7 @@ public class PartitionMetaTest {
     ) {
         assertThat(snapshot.lastAppliedIndex(), equalTo(expLastAppliedIndex));
         assertThat(snapshot.lastAppliedTerm(), equalTo(expLastAppliedTerm));
-        assertThat(snapshot.lastRaftGroupConfigFirstPageId(), equalTo(expLastGroupConfigFirstPageId));
+        assertThat(snapshot.lastReplicationProtocolGroupConfigFirstPageId(), equalTo(expLastGroupConfigFirstPageId));
         assertThat(snapshot.versionChainTreeRootPageId(), equalTo(expVersionChainTreeRootPageId));
         assertThat(snapshot.rowVersionFreeListRootPageId(), equalTo(expRowVersionFreeListRootPageId));
         assertThat(snapshot.pageCount(), equalTo(expPageCount));

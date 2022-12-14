@@ -70,7 +70,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     private final BlobStorage blobStorage;
 
     /** Lock that protects group config read/write. */
-    private final ReadWriteLock raftGroupConfigReadWriteLock = new ReentrantReadWriteLock();
+    private final ReadWriteLock replicationProtocolGroupConfigReadWriteLock = new ReentrantReadWriteLock();
 
     /**
      * Constructor.
@@ -235,20 +235,20 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         }
 
         try {
-            raftGroupConfigReadWriteLock.readLock().lock();
+            replicationProtocolGroupConfigReadWriteLock.readLock().lock();
 
             try {
-                long configFirstPageId = meta.lastRaftGroupConfigFirstPageId();
+                long configFirstPageId = meta.lastReplicationProtocolGroupConfigFirstPageId();
 
                 if (configFirstPageId == BlobStorage.NO_PAGE_ID) {
                     return null;
                 }
 
-                byte[] bytes = blobStorage.readBlob(meta.lastRaftGroupConfigFirstPageId());
+                byte[] bytes = blobStorage.readBlob(meta.lastReplicationProtocolGroupConfigFirstPageId());
 
-                return raftGroupConfigFromBytes(bytes);
+                return replicationProtocolGroupConfigFromBytes(bytes);
             } finally {
-                raftGroupConfigReadWriteLock.readLock().unlock();
+                replicationProtocolGroupConfigReadWriteLock.readLock().unlock();
             }
         } catch (IgniteInternalCheckedException e) {
             throw new IgniteInternalException("Failed to read group config, groupId=" + groupId + ", partitionId=" + partitionId, e);
@@ -264,27 +264,27 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         CheckpointProgress lastCheckpoint = checkpointManager.lastCheckpointProgress();
         UUID lastCheckpointId = lastCheckpoint == null ? null : lastCheckpoint.id();
 
-        byte[] raftGroupConfigBytes = raftGroupConfigToBytes(config);
+        byte[] groupConfigBytes = replicationProtocolGroupConfigToBytes(config);
 
-        raftGroupConfigReadWriteLock.writeLock().lock();
+        replicationProtocolGroupConfigReadWriteLock.writeLock().lock();
 
         try {
-            if (meta.lastRaftGroupConfigFirstPageId() == BlobStorage.NO_PAGE_ID) {
-                long configPageId = blobStorage.addBlob(raftGroupConfigBytes);
+            if (meta.lastReplicationProtocolGroupConfigFirstPageId() == BlobStorage.NO_PAGE_ID) {
+                long configPageId = blobStorage.addBlob(groupConfigBytes);
 
-                meta.lastRaftGroupConfigFirstPageId(lastCheckpointId, configPageId);
+                meta.lastReplicationProtocolGroupConfigFirstPageId(lastCheckpointId, configPageId);
             } else {
-                blobStorage.updateBlob(meta.lastRaftGroupConfigFirstPageId(), raftGroupConfigBytes);
+                blobStorage.updateBlob(meta.lastReplicationProtocolGroupConfigFirstPageId(), groupConfigBytes);
             }
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException("Cannot save committed group configuration, groupId=" + groupId + ", partitionId=" + groupId, e);
         } finally {
-            raftGroupConfigReadWriteLock.writeLock().unlock();
+            replicationProtocolGroupConfigReadWriteLock.writeLock().unlock();
         }
     }
 
     @Nullable
-    private static RaftGroupConfiguration raftGroupConfigFromBytes(byte @Nullable [] bytes) {
+    private static RaftGroupConfiguration replicationProtocolGroupConfigFromBytes(byte @Nullable [] bytes) {
         if (bytes == null) {
             return null;
         }
@@ -292,7 +292,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         return ByteUtils.fromBytes(bytes);
     }
 
-    private static byte[] raftGroupConfigToBytes(RaftGroupConfiguration config) {
+    private static byte[] replicationProtocolGroupConfigToBytes(RaftGroupConfiguration config) {
         return ByteUtils.toBytes(config);
     }
 
