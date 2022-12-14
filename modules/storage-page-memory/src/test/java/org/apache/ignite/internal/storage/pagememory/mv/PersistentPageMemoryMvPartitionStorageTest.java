@@ -22,7 +22,6 @@ import static org.apache.ignite.internal.pagememory.persistence.checkpoint.Check
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThan;
-import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 
 import java.nio.file.Path;
