@@ -23,9 +23,17 @@ import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIn
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsSubPlan;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsTableScan;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsUnion;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.hamcrest.Matchers.not;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
+import java.util.Objects;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
+import org.apache.ignite.internal.schema.configuration.index.TableIndexConfiguration;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -46,11 +54,15 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
      * Before all.
      */
     @BeforeAll
-    static void initTestData() {
+    static void initTestData() throws InterruptedException {
         sql("CREATE TABLE developer (id INT PRIMARY KEY, name VARCHAR, depid INT, city VARCHAR, age INT)");
         sql("CREATE INDEX " + DEPID_IDX + " ON developer (depid)");
         sql("CREATE INDEX " + NAME_CITY_IDX + " ON developer (name DESC, city DESC)");
         sql("CREATE INDEX " + NAME_DEPID_CITY_IDX + " ON developer (name DESC, depid DESC, city DESC)");
+
+        waitForIndex(DEPID_IDX);
+        waitForIndex(NAME_CITY_IDX);
+        waitForIndex(NAME_DEPID_CITY_IDX);
 
         insertData("DEVELOPER", List.of("ID", "NAME", "DEPID", "CITY", "AGE"), new Object[][]{
                 {1, "Mozart", 3, "Vienna", 33},
@@ -81,6 +93,8 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
         sql("CREATE TABLE unwrap_pk(f1 VARCHAR, f2 BIGINT, f3 BIGINT, f4 BIGINT, primary key(f2, f1))");
         sql("CREATE INDEX " + PK_SORTED_IDX + " ON unwrap_pk(f2, f1)");
 
+        waitForIndex(PK_SORTED_IDX);
+
         insertData("UNWRAP_PK", List.of("F1", "F2", "F3", "F4"), new Object[][]{
                 {"Petr", 1L, 2L, 3L},
                 {"Ivan", 2L, 2L, 4L},
@@ -94,6 +108,8 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
         sql("CREATE TABLE t1 (id INT PRIMARY KEY, val INT)");
         sql("CREATE INDEX t1_idx on t1(val DESC)");
 
+        waitForIndex("t1_idx");
+
         insertData("T1", List.of("ID", "VAL"), new Object[][]{
                 {1, null},
                 {2, null},
@@ -103,6 +119,22 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 {6, 6},
                 {7, null}
         });
+    }
+
+    private static void waitForIndex(String indexName) throws InterruptedException {
+        // FIXME: Wait for the sorted index to be created on all nodes,
+        //  this is a workaround for https://issues.apache.org/jira/browse/IGNITE-18203 to avoid missed updates to the sorted index.
+        assertTrue(waitForCondition(
+                () -> CLUSTER_NODES.stream().map(node -> getSortedIndexConfig(node, indexName)).allMatch(Objects::nonNull),
+                10_000)
+        );
+    }
+
+    private static @Nullable TableIndexConfiguration getSortedIndexConfig(Ignite node, String indexName) {
+        return ((IgniteImpl) node).clusterConfiguration()
+                .getConfiguration(TablesConfiguration.KEY)
+                .indexes()
+                .get(indexName.toUpperCase());
     }
 
     @Test

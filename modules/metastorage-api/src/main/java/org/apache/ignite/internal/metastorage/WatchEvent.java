@@ -19,7 +19,7 @@ package org.apache.ignite.internal.metastorage;
 
 import java.util.Collection;
 import java.util.List;
-import org.jetbrains.annotations.NotNull;
+import org.apache.ignite.internal.tostring.S;
 
 /**
  * Watch event contains all entry updates done under one revision. Each particular entry update in this revision is represented by {@link
@@ -29,19 +29,19 @@ public class WatchEvent {
     /** Events about each entry update in the revision. */
     private final List<EntryEvent> entryEvts;
 
-    /** Designates that watch event contains only one update revision. */
-    private final boolean single;
+    private final long revision;
 
     /**
      * Constructs an watch event with given entry events collection.
      *
      * @param entryEvts Events for entries corresponding to an update under one revision.
+     * @param revision Revision of the updated entries.
      */
-    public WatchEvent(List<EntryEvent> entryEvts) {
+    public WatchEvent(List<EntryEvent> entryEvts, long revision) {
         assert entryEvts != null && !entryEvts.isEmpty();
 
-        this.single = entryEvts.size() == 1;
         this.entryEvts = entryEvts;
+        this.revision = revision;
     }
 
     /**
@@ -49,8 +49,8 @@ public class WatchEvent {
      *
      * @param entryEvt Entry event.
      */
-    public WatchEvent(@NotNull EntryEvent entryEvt) {
-        this(List.of(entryEvt));
+    public WatchEvent(EntryEvent entryEvt) {
+        this(List.of(entryEvt), entryEvt.newEntry().revision());
     }
 
     /**
@@ -59,7 +59,7 @@ public class WatchEvent {
      * @return {@code True} if watch event contains only one entry event.
      */
     public boolean single() {
-        return single;
+        return entryEvts.size() == 1;
     }
 
     /**
@@ -78,5 +78,19 @@ public class WatchEvent {
      */
     public EntryEvent entryEvent() {
         return entryEvts.get(0);
+    }
+
+    /**
+     * Returns the revision of the modified entries.
+     *
+     * @return Event revision.
+     */
+    public long revision() {
+        return revision;
+    }
+
+    @Override
+    public String toString() {
+        return S.toString(this);
     }
 }

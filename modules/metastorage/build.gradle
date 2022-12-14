@@ -39,6 +39,7 @@ dependencies {
 
     testImplementation testFixtures(project(':ignite-core'))
     testImplementation libs.mockito.junit
+    testImplementation libs.hamcrest.core
 
     integrationTestImplementation libs.jetbrains.annotations
     integrationTestImplementation project(":ignite-cluster-management")

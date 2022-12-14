@@ -23,26 +23,16 @@ import static org.apache.ignite.internal.metastorage.command.GetAndPutAllCommand
 import static org.apache.ignite.internal.metastorage.command.GetAndRemoveAllCommand.getAndRemoveAllCommand;
 import static org.apache.ignite.internal.metastorage.command.PutAllCommand.putAllCommand;
 import static org.apache.ignite.internal.metastorage.command.RemoveAllCommand.removeAllCommand;
-import static org.apache.ignite.internal.metastorage.command.WatchExactKeysCommand.watchExactKeysCommand;
-import static org.apache.ignite.lang.ErrorGroups.MetaStorage.WATCH_STOPPING_ERR;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.RejectedExecutionException;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.Entry;
-import org.apache.ignite.internal.metastorage.EntryEvent;
-import org.apache.ignite.internal.metastorage.WatchEvent;
-import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.command.GetAllCommand;
 import org.apache.ignite.internal.metastorage.command.GetAndPutAllCommand;
 import org.apache.ignite.internal.metastorage.command.GetAndPutCommand;
@@ -79,23 +69,17 @@ import org.apache.ignite.internal.metastorage.dsl.SimpleCondition.ValueCondition
 import org.apache.ignite.internal.metastorage.dsl.Statement;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.dsl.Update;
-import org.apache.ignite.internal.metastorage.exceptions.MetaStorageException;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.ByteArray;
-import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.lang.IgniteUuidGenerator;
-import org.apache.ignite.lang.NodeStoppingException;
+import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * {@link MetaStorageService} implementation.
  */
 public class MetaStorageServiceImpl implements MetaStorageService {
-    /** The logger. */
-    private static final IgniteLogger LOG = Loggers.forClass(MetaStorageServiceImpl.class);
-
     /** IgniteUuid generator. */
     private static final IgniteUuidGenerator uuidGenerator = new IgniteUuidGenerator(UUID.randomUUID(), 0);
 
@@ -105,28 +89,22 @@ public class MetaStorageServiceImpl implements MetaStorageService {
     /** Meta storage raft group service. */
     private final RaftGroupService metaStorageRaftGrpSvc;
 
-    // TODO: IGNITE-14691 Temporally solution that should be removed after implementing reactive watches.
-    /** Watch processor, that uses pulling logic in order to retrieve watch notifications from server. */
-    private final WatchProcessor watchProcessor;
-
-    /** Local node id. */
-    private final String localNodeId;
-
-    /** Local node name. */
-    private final String localNodeName;
+    /** Local node. */
+    private final ClusterNode localNode;
 
     /**
      * Constructor.
      *
      * @param metaStorageRaftGrpSvc Meta storage raft group service.
-     * @param localNodeId Local node id.
-     * @param localNodeName Local node name.
+     * @param localNode Local node.
      */
-    public MetaStorageServiceImpl(RaftGroupService metaStorageRaftGrpSvc, String localNodeId, String localNodeName) {
+    public MetaStorageServiceImpl(RaftGroupService metaStorageRaftGrpSvc, ClusterNode localNode) {
         this.metaStorageRaftGrpSvc = metaStorageRaftGrpSvc;
-        this.watchProcessor = new WatchProcessor();
-        this.localNodeId = localNodeId;
-        this.localNodeName = localNodeName;
+        this.localNode = localNode;
+    }
+
+    RaftGroupService raftGroupService() {
+        return metaStorageRaftGrpSvc;
     }
 
     /** {@inheritDoc} */
@@ -282,7 +260,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
                         commandsFactory.rangeCommand()
                                 .keyFrom(keyFrom.bytes())
                                 .keyTo(keyTo == null ? null : keyTo.bytes())
-                                .requesterNodeId(localNodeId)
+                                .requesterNodeId(localNode.id())
                                 .cursorId(uuidGenerator.randomUuid())
                                 .revUpperBound(revUpperBound)
                                 .includeTombstones(includeTombstones)
@@ -314,7 +292,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
                         commandsFactory.prefixCommand()
                                 .prefix(prefix.bytes())
                                 .revUpperBound(revUpperBound)
-                                .requesterNodeId(localNodeId)
+                                .requesterNodeId(localNode.id())
                                 .cursorId(uuidGenerator.randomUuid())
                                 .includeTombstones(false)
                                 .batchSize(PrefixCommand.DEFAULT_BATCH_SIZE)
@@ -324,74 +302,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
         );
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<IgniteUuid> watch(
-            @Nullable ByteArray keyFrom,
-            @Nullable ByteArray keyTo,
-            long revision,
-            WatchListener lsnr
-    ) {
-        CompletableFuture<IgniteUuid> watchRes = metaStorageRaftGrpSvc.run(commandsFactory.watchRangeKeysCommand()
-                .keyFrom(keyFrom == null ? null : keyFrom.bytes())
-                .keyTo(keyTo == null ? null : keyTo.bytes())
-                .revision(revision)
-                .requesterNodeId(localNodeId)
-                .cursorId(uuidGenerator.randomUuid())
-                .build()
-        );
-
-        watchRes.thenAccept(
-                watchId -> watchProcessor.addWatch(
-                        watchId,
-                        new CursorImpl<>(commandsFactory, metaStorageRaftGrpSvc, watchRes, MetaStorageServiceImpl::watchResponse),
-                        lsnr
-                )
-        );
-
-        return watchRes;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<IgniteUuid> watch(
-            ByteArray key,
-            long revision,
-            WatchListener lsnr
-    ) {
-        return watch(key, null, revision, lsnr);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<IgniteUuid> watch(
-            Set<ByteArray> keys,
-            long revision,
-            WatchListener lsnr
-    ) {
-        CompletableFuture<IgniteUuid> watchRes =
-                metaStorageRaftGrpSvc.run(watchExactKeysCommand(commandsFactory, keys, revision, localNodeId, uuidGenerator.randomUuid()));
-
-        watchRes.thenAccept(
-                watchId -> watchProcessor.addWatch(
-                        watchId,
-                        new CursorImpl<>(commandsFactory, metaStorageRaftGrpSvc, watchRes, MetaStorageServiceImpl::watchResponse),
-                        lsnr
-                )
-        );
-
-        return watchRes;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<Void> stopWatch(IgniteUuid id) {
-        return CompletableFuture.runAsync(() -> watchProcessor.stopWatch(id));
-    }
-
     // TODO: IGNITE-14734 Implement.
-
-    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> compact() {
         throw new UnsupportedOperationException();
@@ -489,9 +400,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
                     .conditionType(cond.compoundConditionType().ordinal())
                     .build();
         } else {
-            assert false : "Unknown condition type: " + condition.getClass().getSimpleName();
-
-            return null;
+            throw new IllegalArgumentException("Unknown condition type: " + condition.getClass().getSimpleName());
         }
     }
 
@@ -519,154 +428,5 @@ public class MetaStorageServiceImpl implements MetaStorageService {
         SingleEntryResponse resp = (SingleEntryResponse) obj;
 
         return new EntryImpl(resp.key(), resp.value(), resp.revision(), resp.updateCounter());
-    }
-
-    private static WatchEvent watchResponse(Object obj) {
-        MultipleEntryResponse resp = (MultipleEntryResponse) obj;
-
-        List<EntryEvent> evts = new ArrayList<>(resp.entries().size() / 2);
-
-        Entry o = null;
-        Entry n;
-
-        for (int i = 0; i < resp.entries().size(); i++) {
-            SingleEntryResponse s = resp.entries().get(i);
-
-            EntryImpl e = new EntryImpl(s.key(), s.value(), s.revision(), s.updateCounter());
-
-            if (i % 2 == 0) {
-                o = e;
-            } else {
-                n = e;
-
-                evts.add(new EntryEvent(o, n));
-            }
-        }
-
-        return new WatchEvent(evts);
-    }
-
-    // TODO: IGNITE-14691 Temporally solution that should be removed after implementing reactive watches.
-
-    /** Watch processor, that manages {@link Watcher} threads. */
-    private final class WatchProcessor {
-        /** Active Watcher threads that process notification pulling logic. */
-        private final Map<IgniteUuid, Watcher> watchers = new ConcurrentHashMap<>();
-
-        /**
-         * Starts exclusive thread per watch that implement watch pulling logic and calls {@link WatchListener#onUpdate(WatchEvent)}} or
-         * {@link WatchListener#onError(Throwable)}.
-         *
-         * @param watchId Watch id.
-         * @param cursor Watch Cursor.
-         * @param lsnr The listener which receives and handles watch updates.
-         */
-        private void addWatch(IgniteUuid watchId, CursorImpl<WatchEvent> cursor, WatchListener lsnr) {
-            Watcher watcher = new Watcher(cursor, lsnr);
-
-            watchers.put(watchId, watcher);
-
-            watcher.start();
-        }
-
-        /**
-         * Closes server cursor and interrupts watch pulling thread.
-         *
-         * @param watchId Watch id.
-         */
-        private void stopWatch(IgniteUuid watchId) {
-            watchers.computeIfPresent(
-                    watchId,
-                    (k, v) -> {
-                        CompletableFuture.runAsync(() -> {
-                            v.stop = true;
-
-                            v.interrupt();
-                        }).thenRun(() -> {
-                            try {
-                                Thread.sleep(100);
-
-                                v.cursor.close();
-                            } catch (InterruptedException e) {
-                                throw new MetaStorageException(WATCH_STOPPING_ERR, e);
-                            } catch (Exception e) {
-                                if (e instanceof IgniteInternalException && e.getCause().getCause() instanceof RejectedExecutionException) {
-                                    LOG.debug("Cursor close command was rejected because raft executor has been already stopped");
-                                    return;
-                                }
-
-                                // TODO: IGNITE-14693 Implement Meta storage exception handling logic.
-                                LOG.warn("Unexpected exception", e);
-                            }
-                        });
-                        return null;
-                    }
-            );
-        }
-
-        /** Watcher thread, uses pulling logic in order to retrieve watch notifications from server. */
-        private final class Watcher extends Thread {
-            private volatile boolean stop = false;
-
-            /** Watch event cursor. */
-            private Cursor<WatchEvent> cursor;
-
-            /** The listener which receives and handles watch updates. */
-            private WatchListener lsnr;
-
-            /**
-             * Constructor.
-             *
-             * @param cursor Watch event cursor.
-             * @param lsnr The listener which receives and handles watch updates.
-             */
-            Watcher(Cursor<WatchEvent> cursor, WatchListener lsnr) {
-                setName("ms-watcher-" + localNodeName);
-                this.cursor = cursor;
-                this.lsnr = lsnr;
-            }
-
-            /**
-             * Pulls watch events from server side with the help of cursor.iterator.hasNext()/next() in the while(true) loop. Collects watch
-             * events with same revision and fires either onUpdate or onError().
-             */
-            @Override
-            public void run() {
-                Iterator<WatchEvent> watchEvtsIter = cursor.iterator();
-
-                while (!stop) {
-                    try {
-                        if (watchEvtsIter.hasNext()) {
-                            WatchEvent watchEvt = null;
-
-                            try {
-                                watchEvt = watchEvtsIter.next();
-                            } catch (Throwable e) {
-                                lsnr.onError(e);
-
-                                throw e;
-                            }
-
-                            assert watchEvt != null;
-
-                            lsnr.onUpdate(watchEvt);
-                        } else {
-                            Thread.sleep(10);
-                        }
-                    } catch (Throwable e) {
-                        if (e instanceof NodeStoppingException || e.getCause() instanceof NodeStoppingException) {
-                            break;
-                        } else if ((e instanceof InterruptedException || e.getCause() instanceof InterruptedException) && stop) {
-                            LOG.debug("Watcher has been stopped during node's stop");
-
-                            break;
-                        } else {
-                            // TODO: IGNITE-14693 Implement Meta storage exception handling logic.
-                            LOG.warn("Unexpected exception", e);
-                        }
-                    }
-                }
-            }
-        }
     }
 }

@@ -115,8 +115,6 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
 
         MetaStorageManager metaStorageManager = mock(MetaStorageManager.class);
 
-        when(metaStorageManager.registerExactWatch(any(), any())).thenReturn(completedFuture(null));
-
         logicalTopologyService = mock(LogicalTopologyServiceImpl.class);
 
         vaultMgr = mock(VaultManager.class);
@@ -155,7 +153,7 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
 
         AtomicLong raftIndex = new AtomicLong();
 
-        keyValueStorage = spy(new SimpleInMemoryKeyValueStorage());
+        keyValueStorage = spy(new SimpleInMemoryKeyValueStorage("test"));
 
         MetaStorageListener metaStorageListener = new MetaStorageListener(keyValueStorage);
 

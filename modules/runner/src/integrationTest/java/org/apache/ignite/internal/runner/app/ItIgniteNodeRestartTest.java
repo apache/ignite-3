@@ -263,7 +263,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 clusterSvc,
                 cmgManager,
                 raftMgr,
-                new RocksDbKeyValueStorage(dir.resolve("metastorage"))
+                new RocksDbKeyValueStorage(name, dir.resolve("metastorage"))
         );
 
         var cfgStorage = new DistributedConfigurationStorage(metaStorageMgr, vault);

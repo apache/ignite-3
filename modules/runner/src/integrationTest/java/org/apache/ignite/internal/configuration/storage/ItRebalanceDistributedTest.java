@@ -510,7 +510,7 @@ public class ItRebalanceDistributedTest {
                     clusterService,
                     cmgManager,
                     raftManager,
-                    new SimpleInMemoryKeyValueStorage()
+                    new SimpleInMemoryKeyValueStorage(clusterService.localConfiguration().getName())
             );
 
             cfgStorage = new DistributedConfigurationStorage(metaStorageManager, vaultManager);
