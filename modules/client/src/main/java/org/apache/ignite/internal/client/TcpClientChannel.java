@@ -23,6 +23,7 @@ import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_ERR;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelFuture;
+import java.lang.System.Logger;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.net.InetSocketAddress;
@@ -38,6 +39,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
@@ -53,6 +55,7 @@ import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
 import org.apache.ignite.internal.client.proto.ResponseFlags;
 import org.apache.ignite.internal.client.proto.ServerMessageType;
+import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
@@ -100,6 +103,9 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     /** Heartbeat timer. */
     private final Timer heartbeatTimer;
 
+    /** Logger. */
+    private final IgniteLogger log;
+
     /** Last send operation timestamp. */
     private volatile long lastSendMillis;
 
@@ -111,6 +117,8 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
      */
     TcpClientChannel(ClientChannelConfiguration cfg, ClientConnectionMultiplexer connMgr) {
         validateConfiguration(cfg);
+
+        log = ClientUtils.logger(cfg.clientConfiguration(), TcpClientChannel.class);
 
         asyncContinuationExecutor = cfg.clientConfiguration().asyncContinuationExecutor() == null
                 ? ForkJoinPool.commonPool()
@@ -136,7 +144,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     /**
      * Close the channel with cause.
      */
-    private void close(Exception cause) {
+    private void close(@Nullable Exception cause) {
         if (closed.compareAndSet(false, true)) {
             // Disconnect can happen before we initialize the timer.
             var timer = heartbeatTimer;
@@ -506,7 +514,18 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         @Override public void run() {
             try {
                 if (System.currentTimeMillis() - lastSendMillis > interval) {
-                    serviceAsync(ClientOp.HEARTBEAT, null, null);
+                    // TODO: Get timeout from config.
+                    serviceAsync(ClientOp.HEARTBEAT, null, null)
+                            .orTimeout(100, TimeUnit.MILLISECONDS)
+                            .exceptionally(e -> {
+                                if (e instanceof TimeoutException) {
+                                    log.warn("Heartbeat timeout, closing the channel");
+
+                                    close((TimeoutException) e);
+                                }
+
+                                return null;
+                            });
                 }
             } catch (Throwable ignored) {
                 // Ignore failed heartbeats.

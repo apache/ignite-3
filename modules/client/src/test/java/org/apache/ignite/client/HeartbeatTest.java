@@ -75,4 +75,22 @@ public class HeartbeatTest {
             assertEquals("Negative delay.", ex.getMessage());
         }
     }
+
+
+    @Test
+    public void testHeartbeatTimeout() throws Exception {
+        try (var srv = new TestServer(10800, 10, 300, new FakeIgnite())) {
+            int srvPort = srv.port();
+
+            Builder builder = IgniteClient.builder()
+                    .addresses("127.0.0.1:" + srvPort)
+                    .heartbeatInterval(50);
+
+            try (var client = builder.build()) {
+                Thread.sleep(900);
+
+                assertEquals(0, client.tables().tables().size());
+            }
+        }
+    }
 }
