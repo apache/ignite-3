@@ -45,9 +45,7 @@ public class PartitionMetaIo extends PageIo {
 
     public static final int INDEX_TREE_META_PAGE_ID_OFF = VERSION_CHAIN_TREE_ROOT_PAGE_ID_OFF + Long.BYTES;
 
-    private static final int BLOB_FREE_LIST_ROOT_PAGE_ID_OFF = INDEX_TREE_META_PAGE_ID_OFF + Long.BYTES;
-
-    private static final int PAGE_COUNT_OFF = BLOB_FREE_LIST_ROOT_PAGE_ID_OFF + Long.BYTES;
+    private static final int PAGE_COUNT_OFF = INDEX_TREE_META_PAGE_ID_OFF + Long.BYTES;
 
     /** Page IO type. */
     public static final short T_TABLE_PARTITION_META_IO = 7;
