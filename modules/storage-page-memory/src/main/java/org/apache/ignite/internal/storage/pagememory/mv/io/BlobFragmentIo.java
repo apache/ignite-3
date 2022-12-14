@@ -30,13 +30,21 @@ import org.apache.ignite.lang.IgniteStringBuilder;
 
 /**
  * Pages IO for blob fragments.
+ *
+ * <p>First, ID of the next page in the chain is stored (0 if current page is the last one in the chain).
+ * Then, if the page is the first in the chain, total blob length is stored as 4 bytes.
+ * Finally, bytes of a blob fragment are stored.
  */
 public class BlobFragmentIo extends PageIo {
     /** Page IO type. */
     public static final short T_BLOB_FRAGMENT_IO = 13;
 
     private static final int NEXT_PAGE_ID_OFF = PageIo.COMMON_HEADER_END;
+
     private static final int FRAGMENT_BYTES_OFF = NEXT_PAGE_ID_OFF + Long.BYTES;
+
+    /** Total length precedes the actual bytes of the first fragment. */
+    private static final int TOTAL_LENGTH_OFF = FRAGMENT_BYTES_OFF;
 
     /** I/O versions. */
     public static final IoVersions<BlobFragmentIo> VERSIONS = new IoVersions<>(new BlobFragmentIo(1));
@@ -58,14 +66,13 @@ public class BlobFragmentIo extends PageIo {
     }
 
     /**
-     * Returns full header size in bytes.
+     * Returns number of bytes of a blob that can be stored in a page.
+     *
+     * @param pageSize Page size in bytes.
+     * @param firstPage Whether this is the first page of a chain representing a blob.
      */
-    public int fullHeaderSize() {
-        return FRAGMENT_BYTES_OFF;
-    }
-
     public int getCapacityForFragmentBytes(int pageSize, boolean firstPage) {
-        return pageSize - fullHeaderSize() - fragmentBytesOffset(firstPage);
+        return pageSize - FRAGMENT_BYTES_OFF - fragmentBytesOffset(firstPage);
     }
 
     /**
@@ -86,14 +93,14 @@ public class BlobFragmentIo extends PageIo {
      * Reads total blob length.
      */
     public int getTotalLength(long pageAddr) {
-        return getInt(pageAddr, FRAGMENT_BYTES_OFF);
+        return getInt(pageAddr, TOTAL_LENGTH_OFF);
     }
 
     /**
      * Writes total blob length.
      */
     public void setTotalLength(long pageAddr, int totalLength) {
-        putInt(pageAddr, FRAGMENT_BYTES_OFF, totalLength);
+        putInt(pageAddr, TOTAL_LENGTH_OFF, totalLength);
     }
 
     /**
