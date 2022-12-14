@@ -46,7 +46,6 @@ import org.apache.ignite.lang.IgniteStringFormatter;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInfo;
-import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
@@ -54,7 +53,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @SuppressWarnings("ALL")
 @ExtendWith(WorkDirectoryExtension.class)
-@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public abstract class AbstractClusterIntegrationTest extends BaseIgniteAbstractTest {
     private static final IgniteLogger LOG = Loggers.forClass(AbstractClusterIntegrationTest.class);
 
