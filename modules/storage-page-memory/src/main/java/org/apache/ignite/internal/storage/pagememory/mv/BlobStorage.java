@@ -241,15 +241,17 @@ public class BlobStorage {
             int fragmentLength = blobIo.getFragmentLength(pageAddr);
             blobIo.getFragmentBytes(pageAddr, state.bytes, state.bytesOffset, fragmentLength);
 
+            long nextPageId = blobIo.getNextPageId(pageAddr);
+
             int newBytesOffset = state.bytesOffset + fragmentLength;
 
             if (newBytesOffset < state.bytes.length) {
-                long nextPageId = blobIo.getNextPageId(pageAddr);
-
                 assert nextPageId != NO_PAGE_ID;
 
                 state.nextPageId = nextPageId;
             } else {
+                assert nextPageId == NO_PAGE_ID;
+
                 state.nextPageId = NO_PAGE_ID;
             }
 
