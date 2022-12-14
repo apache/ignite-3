@@ -40,14 +40,8 @@ import org.jetbrains.annotations.Nullable;
  * <p>If a lot of blobs (comparable with the number of rows) needs to be stored in a partition, another mechanism
  * (probably using a {@link org.apache.ignite.internal.pagememory.freelist.FreeList}) should be used.
  */
-public class BlobStorage {
+public class BlobStorage extends DataStructure {
     static final long NO_PAGE_ID = 0;
-
-    private final ReuseList reuseList;
-    private final PageMemory pageMemory;
-
-    private final int groupId;
-    private final int partitionId;
 
     private final IoStatisticsHolder statisticsHolder;
 
@@ -61,10 +55,9 @@ public class BlobStorage {
      * Creates a new instance.
      */
     public BlobStorage(ReuseList reuseList, PageMemory pageMemory, int groupId, int partitionId, IoStatisticsHolder statisticsHolder) {
-        this.reuseList = reuseList;
-        this.pageMemory = pageMemory;
-        this.groupId = groupId;
-        this.partitionId = partitionId;
+        super("BlobStorage", groupId, null, partitionId, pageMemory, PageLockListenerNoOp.INSTANCE, PageIdAllocator.FLAG_AUX);
+
+        super.reuseList = reuseList;
         this.statisticsHolder = statisticsHolder;
     }
 
@@ -82,8 +75,8 @@ public class BlobStorage {
 
         while (pageId != NO_PAGE_ID) {
             Boolean ok = PageHandler.readPage(
-                    pageMemory,
-                    groupId,
+                    pageMem,
+                    grpId,
                     pageId,
                     PageLockListenerNoOp.INSTANCE,
                     readFragment,
@@ -135,8 +128,8 @@ public class BlobStorage {
 
         do {
             Boolean ok = PageHandler.writePage(
-                    pageMemory,
-                    groupId,
+                    pageMem,
+                    grpId,
                     state.pageId,
                     PageLockListenerNoOp.INSTANCE,
                     writeFragment,
@@ -161,8 +154,7 @@ public class BlobStorage {
         if (maybePageId == NO_PAGE_ID) {
             pageId = allocatePage();
 
-            BlobFragmentIo io = BlobFragmentIo.VERSIONS.latest();
-            PageHandler.initPage(pageMemory, groupId, pageId, io, PageLockListenerNoOp.INSTANCE, statisticsHolder);
+            init(pageId, BlobFragmentIo.VERSIONS.latest());
         } else {
             pageId = maybePageId;
         }
@@ -171,17 +163,7 @@ public class BlobStorage {
     }
 
     private long allocatePage() throws IgniteInternalCheckedException {
-        long pageId = reuseList.takeRecycledPage();
-
-        if (pageId != 0) {
-            pageId = reuseList.initRecycledPage(pageId, PageIdAllocator.FLAG_AUX, null);
-        }
-
-        if (pageId == 0) {
-            pageId = pageMemory.allocatePage(groupId, partitionId, PageIdAllocator.FLAG_AUX);
-        }
-
-        return pageId;
+        return allocatePage(null);
     }
 
     private void freePagesStartingWith(long pageId) throws IgniteInternalCheckedException {
@@ -196,7 +178,7 @@ public class BlobStorage {
         long pageId = startingPageId;
 
         while (pageId != NO_PAGE_ID) {
-            Long nextPageId = PageHandler.writePage(pageMemory, groupId, pageId, PageLockListenerNoOp.INSTANCE,
+            Long nextPageId = PageHandler.writePage(pageMem, grpId, pageId, PageLockListenerNoOp.INSTANCE,
                     recycleAndAddToReuseBag, null, reuseBag, 0, pageId, IoStatisticsHolderNoOp.INSTANCE);
 
             assert nextPageId != pageId : pageId;
@@ -205,14 +187,6 @@ public class BlobStorage {
         }
 
         return reuseBag;
-    }
-
-    private int pageCapacity(int groupId, BlobFragmentIo blobIo) {
-        return pageMemory.realPageSize(groupId) - blobIo.fullHeaderSize();
-    }
-
-    private int pageSize() {
-        return pageMemory.realPageSize(groupId);
     }
 
     /**
@@ -337,7 +311,7 @@ public class BlobStorage {
     /**
      * Recycles a page and adds it to a {@link ReuseBag}.
      */
-    private static class RecycleAndAddToReuseBag implements PageHandler<ReuseBag, Long> {
+    private class RecycleAndAddToReuseBag implements PageHandler<ReuseBag, Long> {
         @Override
         public Long run(int groupId, long pageId, long page, long pageAddr, PageIo io, ReuseBag reuseBag, int unused,
                 IoStatisticsHolder statHolder) {
@@ -345,7 +319,7 @@ public class BlobStorage {
 
             long nextPageId = blobIo.getNextPageId(pageAddr);
 
-            long recycledPageId = DataStructure.recyclePage(pageId, pageAddr);
+            long recycledPageId = recyclePage(pageId, pageAddr);
 
             reuseBag.addFreePage(recycledPageId);
 
