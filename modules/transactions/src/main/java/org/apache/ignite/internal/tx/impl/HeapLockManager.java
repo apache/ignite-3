@@ -39,6 +39,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.internal.tostring.IgniteToStringBuilder;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
+import org.apache.ignite.internal.tx.DeadlockPreventionPolicy;
 import org.apache.ignite.internal.tx.Lock;
 import org.apache.ignite.internal.tx.LockException;
 import org.apache.ignite.internal.tx.LockKey;
@@ -72,6 +73,16 @@ import org.jetbrains.annotations.Nullable;
  */
 public class HeapLockManager implements LockManager {
     private ConcurrentHashMap<LockKey, LockState> locks = new ConcurrentHashMap<>();
+
+    private final DeadlockPreventionPolicy deadlockPreventionPolicy;
+
+    public HeapLockManager() {
+        this(new WaitDieDeadlockPreventionPolicy());
+    }
+
+    public HeapLockManager(DeadlockPreventionPolicy deadlockPreventionPolicy) {
+        this.deadlockPreventionPolicy = deadlockPreventionPolicy;
+    }
 
     @Override
     public CompletableFuture<Lock> acquire(UUID txId, LockKey lockKey, LockMode lockMode) {
@@ -136,7 +147,7 @@ public class HeapLockManager implements LockManager {
      * @param key The key.
      */
     private @NotNull LockState lockState(LockKey key) {
-        return locks.computeIfAbsent(key, k -> new LockState());
+        return locks.computeIfAbsent(key, k -> new LockState(deadlockPreventionPolicy));
     }
 
     /** {@inheritDoc} */
@@ -156,10 +167,14 @@ public class HeapLockManager implements LockManager {
      */
     private static class LockState {
         /** Waiters. */
-        private final TreeMap<UUID, WaiterImpl> waiters = new TreeMap<>();
+        private final TreeMap<UUID, WaiterImpl> waiters;
 
         /** Marked for removal flag. */
         private boolean markedForRemove = false;
+
+        public LockState(DeadlockPreventionPolicy deadlockPreventionPolicy) {
+            this.waiters = new TreeMap<>(deadlockPreventionPolicy.txIdComparator());
+        }
 
         /**
          * Attempts to acquire a lock for the specified {@code key} in specified lock mode.

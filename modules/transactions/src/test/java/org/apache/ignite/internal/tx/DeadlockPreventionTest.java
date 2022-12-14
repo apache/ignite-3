@@ -45,7 +45,7 @@ import org.junit.jupiter.api.Test;
  * Tests for deadlock prevention scenarios.
  */
 public class DeadlockPreventionTest {
-    private LockManager lockManager = new HeapLockManager();
+    private LockManager lockManager = createLockManager();
     private Map<UUID, List<CompletableFuture<Lock>>> locks = new HashMap<>();
 
     @Test
@@ -292,7 +292,11 @@ public class DeadlockPreventionTest {
         assertThat(futTx1, willSucceedFast());
     }
 
-    private UUID beginTx() {
+    protected LockManager createLockManager() {
+        return new HeapLockManager();
+    }
+
+    protected UUID beginTx() {
         return Timestamp.nextVersion().toUuid();
     }
 
