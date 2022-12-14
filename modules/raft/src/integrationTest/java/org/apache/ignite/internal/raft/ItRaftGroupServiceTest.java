@@ -224,14 +224,14 @@ public class ItRaftGroupServiceTest extends IgniteAbstractTest {
         }
 
         CompletableFuture<RaftGroupService> startRaftGroup(PeersAndLearners configuration) {
+            String nodeName = clusterService.topologyService().localMember().name();
+
+            Peer serverPeer = configuration.peer(nodeName);
+
+            var nodeId = new RaftNodeId(RAFT_GROUP_NAME, serverPeer == null ? configuration.learner(nodeName) : serverPeer);
+
             try {
-                raftGroupService = loza.prepareRaftGroup(
-                        RAFT_GROUP_NAME,
-                        configuration.peer(clusterService.topologyService().localMember().name()),
-                        configuration,
-                        () -> mock(RaftGroupListener.class),
-                        () -> eventsListener
-                );
+                raftGroupService = loza.startRaftGroupNode(nodeId, configuration, mock(RaftGroupListener.class), eventsListener);
             } catch (NodeStoppingException e) {
                 return CompletableFuture.failedFuture(e);
             }
