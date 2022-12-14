@@ -79,7 +79,6 @@ public class HeartbeatTest {
         }
     }
 
-
     @Test
     public void testHeartbeatTimeoutClosesConnection() throws Exception {
         Function<Integer, Integer> responseDelayFunc = requestCount -> requestCount > 1 ? 500 : 0;

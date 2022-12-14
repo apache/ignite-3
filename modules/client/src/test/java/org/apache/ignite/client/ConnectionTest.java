@@ -22,6 +22,11 @@ import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.endsWith;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.util.UUID;
+import java.util.function.Function;
+import org.apache.ignite.client.IgniteClient.Builder;
+import org.apache.ignite.client.fakes.FakeIgnite;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -70,7 +75,24 @@ public class ConnectionTest extends AbstractClientTest {
         testConnection("[::1]:" + serverPort);
     }
 
-    private void testConnection(String... addrs) throws Exception {
+    @Test
+    public void testNoResponseFromServerWithinConnectTimeoutThrowsException() throws Exception {
+        Function<Integer, Integer> responseDelay = x -> 500;
+
+        try (var srv = new TestServer(10800, 10, 300, new FakeIgnite(), x -> false, responseDelay, null, UUID.randomUUID())) {
+            int srvPort = srv.port();
+
+            Builder builder = IgniteClient.builder()
+                    .addresses("127.0.0.1:" + srvPort)
+                    .retryPolicy(new RetryLimitPolicy().retryLimit(1))
+                    .connectTimeout(50);
+
+            try (var client = builder.build()) {
+            }
+        }
+    }
+
+    private static void testConnection(String... addrs) throws Exception {
         AbstractClientTest.startClient(addrs).close();
     }
 }
