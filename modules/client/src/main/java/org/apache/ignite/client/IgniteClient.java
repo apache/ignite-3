@@ -94,6 +94,7 @@ public interface IgniteClient extends Ignite {
         /** Retry policy. */
         private @Nullable RetryPolicy retryPolicy = new RetryReadPolicy();
 
+        /** Logger factory. */
         private @Nullable LoggerFactory loggerFactory;
 
         /**
