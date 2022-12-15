@@ -172,6 +172,22 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         }
 
         /// <summary>
+        /// Appends a byte.
+        /// </summary>
+        /// <param name="value">Value.</param>
+        public void AppendByteNullable(sbyte? value)
+        {
+            if (value == null)
+            {
+                AppendNull();
+            }
+            else
+            {
+                AppendByte(value.Value);
+            }
+        }
+
+        /// <summary>
         /// Appends a short.
         /// </summary>
         /// <param name="value">Value.</param>
@@ -691,6 +707,22 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         }
 
         /// <summary>
+        /// Appends a timestamp (instant).
+        /// </summary>
+        /// <param name="value">Value.</param>
+        public void AppendTimestampNullable(Instant? value)
+        {
+            if (value == null)
+            {
+                AppendNull();
+            }
+            else
+            {
+                AppendTimestamp(value.Value);
+            }
+        }
+
+        /// <summary>
         /// Appends a duration.
         /// </summary>
         /// <param name="value">Value.</param>
@@ -711,6 +743,22 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         }
 
         /// <summary>
+        /// Appends a duration.
+        /// </summary>
+        /// <param name="value">Value.</param>
+        public void AppendDurationNullable(Duration? value)
+        {
+            if (value == null)
+            {
+                AppendNull();
+            }
+            else
+            {
+                AppendDuration(value.Value);
+            }
+        }
+
+        /// <summary>
         /// Appends a period.
         /// </summary>
         /// <param name="value">Value.</param>
@@ -728,6 +776,22 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             }
 
             OnWrite();
+        }
+
+        /// <summary>
+        /// Appends a period.
+        /// </summary>
+        /// <param name="value">Value.</param>
+        public void AppendPeriodNullable(Period? value)
+        {
+            if (value == null)
+            {
+                AppendNull();
+            }
+            else
+            {
+                AppendPeriod(value);
+            }
         }
 
         /// <summary>
