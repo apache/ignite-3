@@ -152,7 +152,7 @@ public class BlobStorage extends DataStructure {
         long pageId;
 
         if (maybePageId == NO_PAGE_ID) {
-            pageId = allocatePage();
+            pageId = allocatePage(null);
 
             init(pageId, BlobFragmentIo.VERSIONS.latest());
         } else {
@@ -160,10 +160,6 @@ public class BlobStorage extends DataStructure {
         }
 
         return pageId;
-    }
-
-    private long allocatePage() throws IgniteInternalCheckedException {
-        return allocatePage(null);
     }
 
     private void freePagesStartingWith(long pageId) throws IgniteInternalCheckedException {
