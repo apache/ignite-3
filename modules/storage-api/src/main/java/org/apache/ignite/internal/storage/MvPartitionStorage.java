@@ -95,6 +95,7 @@ public interface MvPartitionStorage extends ManuallyCloseable {
      * {@code null} if it was never saved.
      */
     @Nullable
+    // TODO: IGNITE-18408 - store bytes in the storage, not a configuration object
     RaftGroupConfiguration committedGroupConfiguration();
 
     /**
@@ -102,6 +103,7 @@ public interface MvPartitionStorage extends ManuallyCloseable {
      *
      * @param config Configuration to save.
      */
+    // TODO: IGNITE-18408 - store bytes in the storage, not a configuration object
     void committedGroupConfiguration(RaftGroupConfiguration config);
 
     /**

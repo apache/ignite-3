@@ -28,6 +28,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * A RAFT group configuration at which it was committed.
  */
+// TODO: IGNITE-18405 - rename this to avoid mentioning RAFT
 public class RaftGroupConfiguration implements Serializable {
     private static final long serialVersionUID = 0;
 

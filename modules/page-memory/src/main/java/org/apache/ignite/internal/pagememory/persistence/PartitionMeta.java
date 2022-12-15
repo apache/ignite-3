@@ -50,7 +50,7 @@ public class PartitionMeta {
 
     private volatile long lastAppliedTerm;
 
-    private volatile byte @Nullable [] lastGroupConfig;
+    private volatile long lastReplicationProtocolGroupConfigFirstPageId;
 
     private volatile long rowVersionFreeListRootPageId;
 
@@ -85,7 +85,7 @@ public class PartitionMeta {
             @Nullable UUID checkpointId,
             long lastAppliedIndex,
             long lastAppliedTerm,
-            byte @Nullable [] lastGroupConfig,
+            long lastReplicationProtocolGroupConfigFirstPageId,
             long rowVersionFreeListRootPageId,
             long indexColumnsFreeListRootPageId,
             long versionChainTreeRootPageId,
@@ -94,7 +94,7 @@ public class PartitionMeta {
     ) {
         this.lastAppliedIndex = lastAppliedIndex;
         this.lastAppliedTerm = lastAppliedTerm;
-        this.lastGroupConfig = lastGroupConfig;
+        this.lastReplicationProtocolGroupConfigFirstPageId = lastReplicationProtocolGroupConfigFirstPageId;
         this.rowVersionFreeListRootPageId = rowVersionFreeListRootPageId;
         this.indexColumnsFreeListRootPageId = indexColumnsFreeListRootPageId;
         this.versionChainTreeRootPageId = versionChainTreeRootPageId;
@@ -116,7 +116,7 @@ public class PartitionMeta {
                 checkpointId,
                 metaIo.getLastAppliedIndex(pageAddr),
                 metaIo.getLastAppliedTerm(pageAddr),
-                metaIo.getLastGroupConfig(pageAddr),
+                metaIo.getLastReplicationProtocolGroupConfigFirstPageId(pageAddr),
                 metaIo.getRowVersionFreeListRootPageId(pageAddr),
                 metaIo.getIndexColumnsFreeListRootPageId(pageAddr),
                 metaIo.getVersionChainTreeRootPageId(pageAddr),
@@ -154,22 +154,22 @@ public class PartitionMeta {
     }
 
     /**
-     * Returns byte array representation of last group config.
+     * Returns ID of the first page in a chain storing a blob representing last replication protocol group config.
      */
-    public byte @Nullable [] lastGroupConfig() {
-        return lastGroupConfig;
+    public long lastReplicationProtocolGroupConfigFirstPageId() {
+        return lastReplicationProtocolGroupConfigFirstPageId;
     }
 
     /**
-     * Sets last group config.
+     * Sets ID of the first page in a chain storing a blob representing last replication protocol group config.
      *
      * @param checkpointId Checkpoint ID.
-     * @param groupConfig Byte array representation of a group config.
+     * @param pageId PageId.
      */
-    public void lastGroupConfig(@Nullable UUID checkpointId, byte[] groupConfig) {
+    public void lastReplicationProtocolGroupConfigFirstPageId(@Nullable UUID checkpointId, long pageId) {
         updateSnapshot(checkpointId);
 
-        this.lastGroupConfig = groupConfig;
+        this.lastReplicationProtocolGroupConfigFirstPageId = pageId;
     }
 
     /**
@@ -305,7 +305,7 @@ public class PartitionMeta {
 
         private final long lastAppliedTerm;
 
-        private final byte[] lastGroupConfig;
+        private final long lastReplicationProtocolGroupConfigFirstPageId;
 
         private final long versionChainTreeRootPageId;
 
@@ -327,7 +327,7 @@ public class PartitionMeta {
             this.checkpointId = checkpointId;
             lastAppliedIndex = partitionMeta.lastAppliedIndex;
             lastAppliedTerm = partitionMeta.lastAppliedTerm;
-            lastGroupConfig = partitionMeta.lastGroupConfig;
+            lastReplicationProtocolGroupConfigFirstPageId = partitionMeta.lastReplicationProtocolGroupConfigFirstPageId;
             versionChainTreeRootPageId = partitionMeta.versionChainTreeRootPageId;
             rowVersionFreeListRootPageId = partitionMeta.rowVersionFreeListRootPageId;
             indexColumnsFreeListRootPageId = partitionMeta.indexColumnsFreeListRootPageId;
@@ -350,10 +350,10 @@ public class PartitionMeta {
         }
 
         /**
-         * Returns last group config.
+         * Returns ID of the first page in a chain storing a blob representing last replication protocol group config.
          */
-        public byte @Nullable [] lastGroupConfig() {
-            return lastGroupConfig;
+        public long lastReplicationProtocolGroupConfigFirstPageId() {
+            return lastReplicationProtocolGroupConfigFirstPageId;
         }
 
         /**
@@ -400,12 +400,12 @@ public class PartitionMeta {
         void writeTo(PartitionMetaIo metaIo, long pageAddr) {
             metaIo.setLastAppliedIndex(pageAddr, lastAppliedIndex);
             metaIo.setLastAppliedTerm(pageAddr, lastAppliedTerm);
-            metaIo.setLastGroupConfig(pageAddr, lastGroupConfig);
+            metaIo.setLastReplicationProtocolGroupConfigFirstPageId(pageAddr, lastReplicationProtocolGroupConfigFirstPageId);
             metaIo.setVersionChainTreeRootPageId(pageAddr, versionChainTreeRootPageId);
             metaIo.setIndexColumnsFreeListRootPageId(pageAddr, indexColumnsFreeListRootPageId);
             metaIo.setRowVersionFreeListRootPageId(pageAddr, rowVersionFreeListRootPageId);
-            metaIo.setPageCount(pageAddr, pageCount);
             metaIo.setIndexTreeMetaPageId(pageAddr, indexTreeMetaPageId);
+            metaIo.setPageCount(pageAddr, pageCount);
         }
 
         /** {@inheritDoc} */
