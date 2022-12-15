@@ -166,6 +166,8 @@ public class HeapLockManager implements LockManager {
         public @Nullable IgniteBiTuple<CompletableFuture<Void>, LockMode> tryAcquire(UUID txId, LockMode lockMode) {
             WaiterImpl waiter = new WaiterImpl(txId, lockMode);
 
+            Runnable notifier;
+
             synchronized (waiters) {
                 if (markedForRemove) {
                     return new IgniteBiTuple(null, lockMode);
@@ -200,10 +202,12 @@ public class HeapLockManager implements LockManager {
                 } else if (waiter.hasLockIntent()) {
                     waiter.refuseIntent(); // Restore old lock.
                 }
+
+                notifier = waiter.notifier();
             }
 
             // Notify outside the monitor.
-            waiter.notifyLocked();
+            notifier.run();
 
             return new IgniteBiTuple(waiter.fut, waiter.lockMode());
         }
@@ -252,15 +256,23 @@ public class HeapLockManager implements LockManager {
          * @return {@code True} if the queue is empty.
          */
         public boolean tryRelease(UUID txId) {
-            Collection<WaiterImpl> toNotify;
+            Collection<Runnable> notifiers = Collections.emptyList();
 
             synchronized (waiters) {
-                toNotify = release(txId);
+                Collection<WaiterImpl> toNotify = release(txId);
+
+                if (!toNotify.isEmpty()) {
+                    notifiers = new ArrayList<>();
+
+                    for (WaiterImpl w : toNotify) {
+                        notifiers.add(w.notifier());
+                    }
+                }
             }
 
             // Notify outside the monitor.
-            for (WaiterImpl waiter : toNotify) {
-                waiter.notifyLocked();
+            for (Runnable notifier : notifiers) {
+                notifier.run();
             }
 
             return markedForRemove;
@@ -274,7 +286,8 @@ public class HeapLockManager implements LockManager {
          * @return If the value is true, no one waits of any lock of the key, false otherwise.
          */
         public boolean tryRelease(UUID txId, LockMode lockMode) {
-            List<WaiterImpl> toNotify = Collections.emptyList();
+            Collection<Runnable> notifiers = Collections.emptyList();
+
             synchronized (waiters) {
                 WaiterImpl waiter = waiters.get(txId);
 
@@ -284,17 +297,27 @@ public class HeapLockManager implements LockManager {
 
                     LockMode modeFromDowngrade = waiter.recalculateMode(lockMode);
 
+                    List<WaiterImpl> toNotify = Collections.emptyList();
+
                     if (!waiter.locked() && !waiter.hasLockIntent()) {
                         toNotify = release(txId);
                     } else if (modeFromDowngrade != waiter.lockMode()) {
                         toNotify = unlockCompatibleWaiters();
                     }
+
+                    if (!toNotify.isEmpty()) {
+                        notifiers = new ArrayList<>();
+
+                        for (WaiterImpl w : toNotify) {
+                            notifiers.add(w.notifier());
+                        }
+                    }
                 }
             }
 
             // Notify outside the monitor.
-            for (WaiterImpl waiter : toNotify) {
-                waiter.notifyLocked();
+            for (Runnable notifier : notifiers) {
+                notifier.run();
             }
 
             return markedForRemove;
@@ -562,15 +585,25 @@ public class HeapLockManager implements LockManager {
             return txId.compareTo(o.txId);
         }
 
-        /** Notifies a future listeners. */
-        private void notifyLocked() {
-            if (ex != null) {
-                fut.completeExceptionally(ex);
-            } else {
-                assert lockMode != null;
+        /**
+         * Creates a notifier that completes the lock future.
+         *
+         * @return Notifier.
+         */
+        private Runnable notifier() {
+            Exception e = ex;
+            CompletableFuture<Void> f = fut;
+            LockMode mode = lockMode;
 
-                fut.complete(null);
-            }
+            return () -> {
+                if (e != null) {
+                    f.completeExceptionally(e);
+                } else {
+                    assert mode != null;
+
+                    f.complete(null);
+                }
+            };
         }
 
         /** {@inheritDoc} */
