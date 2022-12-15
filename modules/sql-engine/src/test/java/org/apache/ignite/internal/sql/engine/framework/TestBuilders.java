@@ -18,24 +18,36 @@
 package org.apache.ignite.internal.sql.engine.framework;
 
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
+import static org.mockito.Mockito.mock;
 
+import it.unimi.dsi.fastutil.longs.Long2ObjectMaps;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.calcite.schema.Table;
 import org.apache.ignite.internal.schema.NativeType;
+import org.apache.ignite.internal.sql.engine.exec.ArrayRowHandler;
+import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
+import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
+import org.apache.ignite.internal.sql.engine.metadata.FragmentDescription;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptorImpl;
 import org.apache.ignite.internal.sql.engine.schema.DefaultValueStrategy;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptorImpl;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
+import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
+import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.ClusterService;
 
 /**
  * A collection of builders to create test objects.
@@ -49,6 +61,16 @@ public class TestBuilders {
     /** Returns a builder of the test table object. */
     public static TableBuilder table() {
         return new TableBuilderImpl();
+    }
+
+    /** Returns a builder of the execution context. */
+    public static ExecutionContextBuilder executionContext() {
+        return new ExecutionContextBuilderImpl();
+    }
+
+    /** Factory method to create a cluster service for a single node. */
+    public static ClusterService clusterService(String nodeName) {
+        return new TestClusterService(List.of(nodeName)).spawnForNode(nodeName);
     }
 
     /**
@@ -109,6 +131,88 @@ public class TestBuilders {
          * <p>Note: this method will force all nodes in the cluster to have a data provider for the given table.
          */
         ClusterTableBuilder defaultDataProvider(DataProvider<?> dataProvider);
+    }
+
+    /**
+     * A builder to create an execution context.
+     *
+     * @see ExecutionContext
+     */
+    public interface ExecutionContextBuilder {
+        /** Sets the identifier of the query. */
+        ExecutionContextBuilder queryId(UUID queryId);
+
+        /** Sets the description of the fragment this context will be created for. */
+        ExecutionContextBuilder fragment(FragmentDescription fragmentDescription);
+
+        /** Sets the query task executor. */
+        ExecutionContextBuilder executor(QueryTaskExecutor executor);
+
+        /** Sets the node this fragment will be executed on. */
+        ExecutionContextBuilder localNode(ClusterNode node);
+
+        /**
+         * Builds the context object.
+         *
+         * @return Created context object.
+         */
+        ExecutionContext<Object[]> build();
+    }
+
+    private static class ExecutionContextBuilderImpl implements ExecutionContextBuilder {
+        private FragmentDescription description = new FragmentDescription(0, null, null, Long2ObjectMaps.emptyMap());
+
+        private UUID queryId = null;
+        private QueryTaskExecutor executor = null;
+        private ClusterNode node = null;
+
+        /** {@inheritDoc} */
+        @Override
+        public ExecutionContextBuilder queryId(UUID queryId) {
+            this.queryId = Objects.requireNonNull(queryId, "queryId");
+
+            return this;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public ExecutionContextBuilder fragment(FragmentDescription fragmentDescription) {
+            this.description = Objects.requireNonNull(fragmentDescription, "fragmentDescription");
+
+            return this;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public ExecutionContextBuilder executor(QueryTaskExecutor executor) {
+            this.executor = Objects.requireNonNull(executor, "executor");
+
+            return this;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public ExecutionContextBuilder localNode(ClusterNode node) {
+            this.node = Objects.requireNonNull(node, "node");
+
+            return this;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public ExecutionContext<Object[]> build() {
+            return new ExecutionContext<>(
+                    BaseQueryContext.builder().build(),
+                    Objects.requireNonNull(executor, "executor"),
+                    queryId,
+                    Objects.requireNonNull(node, "node"),
+                    node.name(),
+                    description,
+                    ArrayRowHandler.INSTANCE,
+                    Map.of(),
+                    mock(InternalTransaction.class)
+            );
+        }
     }
 
     private static class ClusterBuilderImpl implements ClusterBuilder {

@@ -20,23 +20,21 @@ package org.apache.ignite.internal.sql.engine.exec;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.lang.ErrorGroups.Common.UNEXPECTED_ERR;
 
-import it.unimi.dsi.fastutil.longs.Long2ObjectMaps;
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.exec.rel.Inbox;
 import org.apache.ignite.internal.sql.engine.exec.rel.Outbox;
 import org.apache.ignite.internal.sql.engine.message.InboxCloseMessage;
 import org.apache.ignite.internal.sql.engine.message.MessageService;
-import org.apache.ignite.internal.sql.engine.message.QueryBatchAcknowledgeMessage;
 import org.apache.ignite.internal.sql.engine.message.QueryBatchMessage;
+import org.apache.ignite.internal.sql.engine.message.QueryBatchRequestMessage;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessageGroup;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessagesFactory;
-import org.apache.ignite.internal.sql.engine.metadata.FragmentDescription;
-import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -49,10 +47,6 @@ public class ExchangeServiceImpl implements ExchangeService {
     private static final IgniteLogger LOG = Loggers.forClass(ExchangeServiceImpl.class);
 
     private static final SqlQueryMessagesFactory FACTORY = new SqlQueryMessagesFactory();
-
-    private final ClusterNode localNode;
-
-    private final QueryTaskExecutor taskExecutor;
 
     private final MailboxRegistry mailboxRegistry;
 
@@ -67,8 +61,6 @@ public class ExchangeServiceImpl implements ExchangeService {
             MailboxRegistry mailboxRegistry,
             MessageService msgSrvc
     ) {
-        this.localNode = localNode;
-        this.taskExecutor = taskExecutor;
         this.mailboxRegistry = mailboxRegistry;
         this.msgSrvc = msgSrvc;
     }
@@ -77,7 +69,7 @@ public class ExchangeServiceImpl implements ExchangeService {
     @Override
     public void start() {
         msgSrvc.register((n, m) -> onMessage(n, (InboxCloseMessage) m), SqlQueryMessageGroup.INBOX_CLOSE_MESSAGE);
-        msgSrvc.register((n, m) -> onMessage(n, (QueryBatchAcknowledgeMessage) m), SqlQueryMessageGroup.QUERY_BATCH_ACK);
+        msgSrvc.register((n, m) -> onMessage(n, (QueryBatchRequestMessage) m), SqlQueryMessageGroup.QUERY_BATCH_REQUEST);
         msgSrvc.register((n, m) -> onMessage(n, (QueryBatchMessage) m), SqlQueryMessageGroup.QUERY_BATCH_MESSAGE);
     }
 
@@ -100,15 +92,15 @@ public class ExchangeServiceImpl implements ExchangeService {
 
     /** {@inheritDoc} */
     @Override
-    public void acknowledge(String nodeName, UUID qryId, long fragmentId, long exchangeId, int batchId)
+    public void request(String nodeName, UUID queryId, long fragmentId, long exchangeId, int amountOfBatches)
             throws IgniteInternalCheckedException {
         msgSrvc.send(
                 nodeName,
-                FACTORY.queryBatchAcknowledgeMessage()
-                        .queryId(qryId)
+                FACTORY.queryBatchRequestMessage()
+                        .queryId(queryId)
                         .fragmentId(fragmentId)
                         .exchangeId(exchangeId)
-                        .batchId(batchId)
+                        .amountOfBatches(amountOfBatches)
                         .build()
         );
     }
@@ -169,34 +161,28 @@ public class ExchangeServiceImpl implements ExchangeService {
         }
     }
 
-    private void onMessage(String nodeName, QueryBatchAcknowledgeMessage msg) {
-        Outbox<?> outbox = mailboxRegistry.outbox(msg.queryId(), msg.exchangeId());
+    private void onMessage(String nodeName, QueryBatchRequestMessage msg) {
+        CompletableFuture<Outbox<?>> outboxFut = mailboxRegistry.outbox(msg.queryId(), msg.exchangeId());
 
-        if (outbox != null) {
+        Consumer<Outbox<?>> onRequestHandler = outbox -> {
             try {
-                outbox.onAcknowledge(nodeName, msg.batchId());
+                outbox.onRequest(nodeName, msg.amountOfBatches());
             } catch (Throwable e) {
                 outbox.onError(e);
 
                 throw new IgniteInternalException(UNEXPECTED_ERR, "Unexpected exception", e);
             }
-        } else if (LOG.isDebugEnabled()) {
-            LOG.debug("Stale acknowledge message received: [nodeName={}, queryId={}, fragmentId={}, exchangeId={}, batchId={}]",
-                    nodeName, msg.queryId(), msg.fragmentId(), msg.exchangeId(), msg.batchId());
+        };
+
+        if (outboxFut.isDone()) {
+            onRequestHandler.accept(outboxFut.join());
+        } else {
+            outboxFut.thenAccept(onRequestHandler);
         }
     }
 
     private void onMessage(String nodeName, QueryBatchMessage msg) {
         Inbox<?> inbox = mailboxRegistry.inbox(msg.queryId(), msg.exchangeId());
-
-        if (inbox == null && msg.batchId() == 0) {
-            // first message sent before a fragment is built
-            // note that an inbox source fragment id is also used as an exchange id
-            Inbox<?> newInbox = new Inbox<>(baseInboxContext(nodeName, msg.queryId(), msg.fragmentId()),
-                    this, mailboxRegistry, msg.exchangeId(), msg.exchangeId());
-
-            inbox = mailboxRegistry.register(newInbox);
-        }
 
         if (inbox != null) {
             try {
@@ -210,28 +196,6 @@ public class ExchangeServiceImpl implements ExchangeService {
             LOG.debug("Stale batch message received: [nodeName={}, queryId={}, fragmentId={}, exchangeId={}, batchId={}]",
                     nodeName, msg.queryId(), msg.fragmentId(), msg.exchangeId(), msg.batchId());
         }
-    }
-
-    /**
-     * Get minimal execution context to meet Inbox needs.
-     */
-    private ExecutionContext<?> baseInboxContext(String nodeName, UUID qryId, long fragmentId) {
-        return new ExecutionContext<>(
-                BaseQueryContext.builder()
-                        .logger(LOG)
-                        .build(),
-                taskExecutor,
-                qryId,
-                localNode,
-                nodeName,
-                new FragmentDescription(
-                        fragmentId,
-                        null,
-                        null,
-                        Long2ObjectMaps.emptyMap()),
-                null,
-                Map.of(),
-                null);
     }
 
     /** {@inheritDoc} */

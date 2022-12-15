@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.exec;
 
 import java.util.Collection;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.sql.engine.exec.rel.Inbox;
 import org.apache.ignite.internal.sql.engine.exec.rel.Outbox;
 import org.jetbrains.annotations.Nullable;
@@ -29,12 +30,11 @@ import org.jetbrains.annotations.Nullable;
  */
 public interface MailboxRegistry extends LifecycleAware {
     /**
-     * Tries to register and inbox node and returns it if success or returns previously registered inbox otherwise.
+     * Registers an inbox.
      *
-     * @param inbox Inbox.
-     * @return Registered inbox.
+     * @param inbox Inbox to register.
      */
-    <T> Inbox<T> register(Inbox<T> inbox);
+    void register(Inbox<?> inbox);
 
     /**
      * Registers an outbox.
@@ -64,7 +64,7 @@ public interface MailboxRegistry extends LifecycleAware {
      * @param exchangeId Exchange ID.
      * @return Registered outbox. May be {@code null} if execution was cancelled.
      */
-    Outbox<?> outbox(UUID qryId, long exchangeId);
+    CompletableFuture<Outbox<?>> outbox(UUID qryId, long exchangeId);
 
     /**
      * Returns a registered inbox by provided query ID, exchange ID pair.
@@ -84,14 +84,4 @@ public interface MailboxRegistry extends LifecycleAware {
      * @return Registered inboxes.
      */
     Collection<Inbox<?>> inboxes(@Nullable UUID qryId, long fragmentId, long exchangeId);
-
-    /**
-     * Returns all registered outboxes for provided query ID.
-     *
-     * @param qryId      Query ID. {@code null} means return outboxes with any query id.
-     * @param fragmentId Fragment Id. {@code -1} means return outboxes with any fragment id.
-     * @param exchangeId Exchange Id. {@code -1} means return outboxes with any exchange id.
-     * @return Registered outboxes.
-     */
-    Collection<Outbox<?>> outboxes(@Nullable UUID qryId, long fragmentId, long exchangeId);
 }

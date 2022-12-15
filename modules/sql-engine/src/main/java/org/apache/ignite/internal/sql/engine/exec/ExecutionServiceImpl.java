@@ -499,6 +499,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 });
                 node.onRegister(rootNode);
 
+                rootNode.prefetch();
+
                 root.complete(rootNode);
             }
 
@@ -515,7 +517,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             }
 
             if (node instanceof Outbox) {
-                ((Outbox<?>) node).init();
+                ((Outbox<?>) node).prefetch();
             }
         }
 

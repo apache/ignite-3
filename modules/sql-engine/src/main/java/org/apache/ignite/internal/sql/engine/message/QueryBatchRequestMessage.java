@@ -20,18 +20,13 @@ package org.apache.ignite.internal.sql.engine.message;
 import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * QueryBatchAcknowledgeMessage interface.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * A message to notify remote fragment (aka remote source) that more batches required to fulfil the result.
  */
-@Transferable(value = SqlQueryMessageGroup.QUERY_BATCH_ACK)
-public interface QueryBatchAcknowledgeMessage extends ExecutionContextAwareMessage {
-    /**
-     * Get exchange ID.
-     */
+@Transferable(SqlQueryMessageGroup.QUERY_BATCH_REQUEST)
+public interface QueryBatchRequestMessage extends ExecutionContextAwareMessage {
+    /** Returns an identifier of the exchange to request batches from. */
     long exchangeId();
 
-    /**
-     * Get batch ID.
-     */
-    int batchId();
+    /** Returns amount of batches to request. */
+    int amountOfBatches();
 }

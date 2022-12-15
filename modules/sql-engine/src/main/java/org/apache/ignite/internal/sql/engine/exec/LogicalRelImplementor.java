@@ -587,12 +587,11 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
     /** {@inheritDoc} */
     @Override
     public Node<RowT> visit(IgniteReceiver rel) {
-        Inbox<RowT> inbox = mailboxRegistry.register(
-                new Inbox<>(ctx, exchangeSvc, mailboxRegistry, rel.exchangeId(), rel.sourceFragmentId()));
+        Inbox<RowT> inbox = new Inbox<>(ctx, exchangeSvc, mailboxRegistry,
+                ctx.remotes(rel.exchangeId()), expressionFactory.comparator(rel.collation()),
+                rel.exchangeId(), rel.sourceFragmentId());
 
-        // here may be an already created (to consume rows from remote nodes) inbox
-        // without proper context, we need to init it with a right one.
-        inbox.init(ctx, ctx.remotes(rel.exchangeId()), expressionFactory.comparator(rel.collation()));
+        mailboxRegistry.register(inbox);
 
         return inbox;
     }

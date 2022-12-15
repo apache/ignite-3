@@ -34,13 +34,13 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
  * Abstract node of execution tree.
  */
 public abstract class AbstractNode<RowT> implements Node<RowT> {
-    public static final int MODIFY_BATCH_SIZE = 100; //IgniteSystemProperties.getInteger("IGNITE_CALCITE_EXEC_BATCH_SIZE", 100);
+    public static final int MODIFY_BATCH_SIZE = 100;
 
-    protected static final int IO_BATCH_SIZE = 256; //IgniteSystemProperties.getInteger("IGNITE_CALCITE_EXEC_IO_BATCH_SIZE", 256);
+    protected static final int IO_BATCH_SIZE = Commons.IO_BATCH_SIZE;
 
-    protected static final int IO_BATCH_CNT = 4; //IgniteSystemProperties.getInteger("IGNITE_CALCITE_EXEC_IO_BATCH_CNT", 4);
+    protected static final int IO_BATCH_CNT = Commons.IO_BATCH_COUNT;
 
-    protected final int inBufSize = Commons.IN_BUFFER_SIZE; //IgniteSystemProperties.getInteger("IGNITE_CALCITE_EXEC_IN_BUFFER_SIZE", 2);
+    protected final int inBufSize = Commons.IN_BUFFER_SIZE;
 
     /** For debug purpose. */
     private volatile Thread thread;
