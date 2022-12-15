@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.tx.impl;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.ACQUIRE_LOCK_ERR;
 
 import java.util.ArrayList;
@@ -32,6 +33,7 @@ import java.util.TreeMap;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.tx.DeadlockPreventionPolicy;
@@ -153,11 +155,14 @@ public class HeapLockManager implements LockManager {
         /** Waiters. */
         private final TreeMap<UUID, WaiterImpl> waiters;
 
+        private final DeadlockPreventionPolicy deadlockPreventionPolicy;
+
         /** Marked for removal flag. */
         private boolean markedForRemove = false;
 
         public LockState(DeadlockPreventionPolicy deadlockPreventionPolicy) {
             this.waiters = new TreeMap<>(deadlockPreventionPolicy.txIdComparator());
+            this.deadlockPreventionPolicy = deadlockPreventionPolicy;
         }
 
         /**
@@ -184,7 +189,7 @@ public class HeapLockManager implements LockManager {
 
                         prev.upgrade(waiter);
 
-                        return new IgniteBiTuple(CompletableFuture.completedFuture(null), prev.lockMode());
+                        return new IgniteBiTuple(completedFuture(null), prev.lockMode());
                     } else {
                         waiter.upgrade(prev);
 
@@ -196,6 +201,10 @@ public class HeapLockManager implements LockManager {
                 }
 
                 if (!isWaiterReadyToNotify(waiter, false)) {
+                    if (!deadlockPreventionPolicy.allowWaitOnConflict()) {
+                        return new IgniteBiTuple<>(CompletableFuture.failedFuture(new LockException(ACQUIRE_LOCK_ERR, "")), waiter.lockMode);
+                    }
+
                     return new IgniteBiTuple(waiter.fut, waiter.lockMode());
                 }
 
@@ -236,10 +245,18 @@ public class HeapLockManager implements LockManager {
                     if (skipFail) {
                         return false;
                     } else {
-                        waiter.fail(new LockException(ACQUIRE_LOCK_ERR, "Failed to acquire a lock due to a conflict [txId=" + waiter.txId()
-                                + ", waiter=" + tmp + ']'));
+                        LockException e = new LockException(ACQUIRE_LOCK_ERR, "Failed to acquire a lock due to a conflict [txId=" + waiter.txId()
+                                + ", waiter=" + tmp + ']');
 
-                        return true;
+                        if (deadlockPreventionPolicy.timeout() > 0) {
+                            waiter.failAfterTimeout(waiters, e, deadlockPreventionPolicy.timeout());
+
+                            return false;
+                        } else {
+                            waiter.fail(e);
+
+                            return true;
+                        }
                     }
                 }
             }
@@ -619,6 +636,20 @@ public class HeapLockManager implements LockManager {
          */
         private void fail(LockException e) {
             ex = e;
+        }
+
+        public void failAfterTimeout(Object mutex, LockException e, long timeout) {
+            CompletableFuture.delayedExecutor(timeout, TimeUnit.MILLISECONDS).execute(() -> {
+                synchronized (mutex) {
+                    if (!fut.isDone()) {
+                        ex = e;
+                    }
+                }
+
+                if (!fut.isDone()) {
+                    fut.completeExceptionally(ex);
+                }
+            });
         }
 
         /** {@inheritDoc} */

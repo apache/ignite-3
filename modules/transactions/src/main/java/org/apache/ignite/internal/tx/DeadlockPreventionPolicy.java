@@ -27,4 +27,12 @@ import java.util.UUID;
  */
 public interface DeadlockPreventionPolicy {
     Comparator<UUID> txIdComparator();
+
+    default boolean allowWaitOnConflict() {
+        return true;
+    }
+
+    default long timeout() {
+        return 0;
+    }
 }
