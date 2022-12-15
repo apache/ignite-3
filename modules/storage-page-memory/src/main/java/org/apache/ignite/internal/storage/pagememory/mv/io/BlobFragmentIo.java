@@ -29,7 +29,7 @@ import org.apache.ignite.internal.pagememory.util.PageUtils;
 import org.apache.ignite.lang.IgniteStringBuilder;
 
 /**
- * Pages IO for blob fragments.
+ * Pages IO for blob fragments. The blob itself is stored as a chain of fragments, one fragment per page.
  *
  * <p>First, ID of the next page in the chain is stored (0 if current page is the last one in the chain).
  * Then, if the page is the first in the chain, total blob length is stored as 4 bytes.
