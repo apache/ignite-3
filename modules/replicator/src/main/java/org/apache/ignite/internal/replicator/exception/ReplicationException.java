@@ -56,7 +56,6 @@ public class ReplicationException extends IgniteInternalException {
         super(code, message);
     }
 
-
     /**
      * The constructor.
      *

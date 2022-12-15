@@ -39,6 +39,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiFunction;
@@ -325,13 +326,7 @@ public class InternalTableImpl implements InternalTable {
 
         CompletableFuture<T> fut = reducer.apply(futures);
 
-//        return postEnlist(fut, implicit, tx0);
-
-        return postEnlist(fut, implicit, tx0).exceptionally(e -> {
-            System.out.println("!!!" + e);
-
-            return null;
-        });
+        return postEnlist(fut, implicit, tx0);
     }
 
     /**
@@ -1349,13 +1344,14 @@ public class InternalTableImpl implements InternalTable {
     /**
      * Wraps {@code ReplicationException} or {@code ConnectException} with {@code TransactionException}.
      *
-     * @param e {@code ReplicationException} or {@code ConnectException}
+     * @param e {@code ReplicationException} or {@CompletionException} with cause {@code ConnectException} or {@code TimeoutException}
      * @return {@code TransactionException}
      */
     private RuntimeException wrapReplicationException(RuntimeException e) {
         RuntimeException e0;
 
-        if (e instanceof ReplicationException || e.getCause() instanceof ReplicationException || e.getCause() instanceof ConnectException) {
+        if (e instanceof ReplicationException || e.getCause() instanceof ReplicationException || e.getCause() instanceof ConnectException
+                || e.getCause() instanceof TimeoutException) {
             e0 = withCause(TransactionException::new, TX_REPLICA_UNAVAILABLE_ERR, e);
         } else {
             e0 = e;

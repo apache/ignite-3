@@ -141,7 +141,6 @@ public class ReplicaService {
                                             REPLICA_COMMON_ERR,
                                             "Failed to process replica request [replicaGroupId=" + req.groupId() + ']',
                                             throwable0));
-
                                 } else {
                                     res.get().thenCompose(ignore -> sendToReplica(node, req));
 

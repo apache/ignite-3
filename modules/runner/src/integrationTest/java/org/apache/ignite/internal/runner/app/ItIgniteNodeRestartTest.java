@@ -1026,10 +1026,10 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
             session.execute(null, "CREATE TABLE " + name
                     + "(id INT PRIMARY KEY, name VARCHAR) WITH replicas=" + replicas + ", partitions=" + partitions);
 
-//            for (int i = 0; i < 100; i++) {
-//                session.execute(null, "INSERT INTO " + name + "(id, name) VALUES (?, ?)",
-//                        i, VALUE_PRODUCER.apply(i));
-//            }
+            for (int i = 0; i < 100; i++) {
+                session.execute(null, "INSERT INTO " + name + "(id, name) VALUES (?, ?)",
+                        i, VALUE_PRODUCER.apply(i));
+            }
         }
     }
 
