@@ -199,8 +199,6 @@ public class BlobStorage extends DataStructure {
 
         private long nextPageId = NO_PAGE_ID;
 
-        private int totalLength;
-
         private boolean isFirstPage() {
             return bytesOffset == 0;
         }
@@ -219,11 +217,10 @@ public class BlobStorage extends DataStructure {
                 assert state.isFirstPage();
 
                 state.bytes = new byte[blobIo.getTotalLength(pageAddr)];
-                state.totalLength = blobIo.getTotalLength(pageAddr);
             }
 
             int capacityForBytes = blobIo.getCapacityForFragmentBytes(pageSize(), state.isFirstPage());
-            int fragmentLength = Math.min(capacityForBytes, state.totalLength - state.bytesOffset);
+            int fragmentLength = Math.min(capacityForBytes, state.bytes.length - state.bytesOffset);
 
             blobIo.getFragmentBytes(pageAddr, state.isFirstPage(), state.bytes, state.bytesOffset, fragmentLength);
 
