@@ -650,7 +650,6 @@ namespace Apache.Ignite.Tests.Table
         }
 
         [Test]
-        [Ignore("IGNITE-18329 Add support for nullable value type mapping")]
         public async Task TestAllColumnsPocoNullable()
         {
             var pocoView = PocoAllColumnsNullableView;
