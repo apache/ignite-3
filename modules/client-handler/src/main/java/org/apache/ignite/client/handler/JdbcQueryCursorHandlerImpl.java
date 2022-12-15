@@ -34,8 +34,8 @@ import org.apache.ignite.internal.jdbc.proto.event.Response;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.sql.ColumnMetadata;
-import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.ColumnType;
+import org.apache.ignite.sql.ResultSetMetadata;
 
 /**
  * Jdbc query event handler implementation.

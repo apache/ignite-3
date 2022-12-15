@@ -21,9 +21,9 @@ import org.apache.ignite.sql.ColumnType;
 
 /** Utility class for work with SQL types. */
 public class SqlTypeUtils {
-    /** Converting  from {@code SqlColumnType} type to SQL type name. */
-    public static String toSqlType(ColumnType sqlColumnType) {
-        switch (sqlColumnType) {
+    /** Converting  from {@code ColumnType} type to SQL type name. */
+    public static String toSqlType(ColumnType columnType) {
+        switch (columnType) {
             case BOOLEAN:
                 return "BOOLEAN";
             case INT8:
@@ -65,7 +65,7 @@ public class SqlTypeUtils {
             case NULL:
                 return "NULL";
             default:
-                throw new IllegalArgumentException("Unsupported type " + sqlColumnType);
+                throw new IllegalArgumentException("Unsupported type " + columnType);
         }
     }
 }

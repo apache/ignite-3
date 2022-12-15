@@ -25,12 +25,12 @@ import org.junit.jupiter.api.Test;
 /**
  * Tests column type converter.
  */
-public class ClientSqlColumnTypeConverterTest {
+public class ClientColumnTypeConverterTest {
     @Test
     public void testConvertAllTypes() {
         for (ColumnType columnType : ColumnType.values()) {
-            int ordinal = ClientSqlColumnTypeConverter.columnTypeToOrdinal(columnType);
-            ColumnType resColumnType = ClientSqlColumnTypeConverter.ordinalToColumnType(ordinal);
+            int ordinal = ClientColumnTypeConverter.columnTypeToOrdinal(columnType);
+            ColumnType resColumnType = ClientColumnTypeConverter.ordinalToColumnType(ordinal);
 
             assertEquals(columnType, resColumnType);
         }

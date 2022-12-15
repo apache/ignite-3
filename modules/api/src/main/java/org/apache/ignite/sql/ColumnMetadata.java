@@ -47,7 +47,7 @@ public interface ColumnMetadata {
     Class<?> valueClass();
 
     /**
-     * Returns SQL column type.
+     * Returns column type.
      *
      * @return Value type.
      */

@@ -20,30 +20,42 @@ package org.apache.ignite.internal.sql.engine;
 import static org.apache.ignite.internal.sql.engine.util.SqlTypeUtils.toSqlType;
 
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.sql.Date;
+import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.Period;
+import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
 import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
 import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.EnumSource.Mode;
 
 /** Dynamic parameters checks. */
 public class ItDynamicParameterTest extends AbstractBasicIntegrationTest {
-    private static final Object UNSUPPORTED_SIGN = new Object();
+    private static final ThreadLocalRandom RND = ThreadLocalRandom.current();
 
-    @Test
-    void testMetadataTypesForDynamicParameters() {
-        int i = 1;
-        for (ColumnType type : ColumnType.values()) {
-            Object param = generateValueByType(i++, type);
-            if (param == UNSUPPORTED_SIGN) {
-                continue;
-            }
+    @ParameterizedTest
+    @EnumSource(value = ColumnType.class,
+            //    https://issues.apache.org/jira/browse/IGNITE-18258
+            //    https://issues.apache.org/jira/browse/IGNITE-18414
+            //    https://issues.apache.org/jira/browse/IGNITE-18415
+            //    https://issues.apache.org/jira/browse/IGNITE-18345
+            names = {"DECIMAL", "NUMBER", "UUID", "BITMASK", "DURATION", "DATETIME", "TIMESTAMP", "DATE", "TIME", "PERIOD"},
+            mode = Mode.EXCLUDE
+    )
+    void testMetadataTypesForDynamicParameters(ColumnType type) {
+        Object param = generateValueByType(RND.nextInt(), type);
 
-            assertQuery("SELECT typeof(?)").withParams(param).returns(toSqlType(type)).check();
-            ;
-            assertQuery("SELECT ?").withParams(param).returns(param).columnMetadata(new MetadataMatcher().type(type)).check();
-        }
+        assertQuery("SELECT typeof(?)").withParams(param).returns(toSqlType(type)).check();
+        assertQuery("SELECT ?").withParams(param).returns(param).columnMetadata(new MetadataMatcher().type(type)).check();
     }
 
     @Test
@@ -125,41 +137,31 @@ public class ItDynamicParameterTest extends AbstractBasicIntegrationTest {
                 return new byte[]{(byte) i, (byte) (i + 1), (byte) (i + 2)};
             case NULL:
                 return null;
-
-            // https://issues.apache.org/jira/browse/IGNITE-18258
-            //            case DECIMAL:
-            //                return BigDecimal.valueOf((double) i + ((double) i / 1000));
-
-            // https://issues.apache.org/jira/browse/IGNITE-18414
-            //            case NUMBER:
-            //                return BigInteger.valueOf(i);
-            //https://issues.apache.org/jira/browse/IGNITE-18415
-            //            case UUID:
-            //                return new UUID(i, i);
-            //
-            //            case BITMASK:
-            //                return new byte[]{(byte) i};
-
-            // https://issues.apache.org/jira/browse/IGNITE-18345
-            //            case DURATION:
-            //                return Duration.ofNanos(i);
-            //            case DATETIME:
-            //                return LocalDateTime.of(
-            //                        (LocalDate) generateValueByType(i, SqlColumnType.DATE),
-            //                        (LocalTime) generateValueByType(i, SqlColumnType.TIME)
-            //                );
-            //            case TIMESTAMP:
-            //                return Instant.from((LocalDateTime) generateValueByType(i, SqlColumnType.DATETIME));
-            //            case DATE:
-            //                return LocalDate.of(2022, 01, 01).plusDays(i);
-            //            case TIME:
-            //                return LocalTime.of(0, 00, 00).plusSeconds(i);
-            //            case PERIOD:
-            //                return Period.of(i%2, i%12, i%29);
-
+            case DECIMAL:
+                return BigDecimal.valueOf((double) i + ((double) i / 1000));
+            case NUMBER:
+                return BigInteger.valueOf(i);
+            case UUID:
+                return new UUID(i, i);
+            case BITMASK:
+                return new byte[]{(byte) i};
+            case DURATION:
+                return Duration.ofNanos(i);
+            case DATETIME:
+                return LocalDateTime.of(
+                        (LocalDate) generateValueByType(i, ColumnType.DATE),
+                        (LocalTime) generateValueByType(i, ColumnType.TIME)
+                );
+            case TIMESTAMP:
+                return Instant.from((LocalDateTime) generateValueByType(i, ColumnType.DATETIME));
+            case DATE:
+                return LocalDate.of(2022, 01, 01).plusDays(i);
+            case TIME:
+                return LocalTime.of(0, 00, 00).plusSeconds(i);
+            case PERIOD:
+                return Period.of(i % 2, i % 12, i % 29);
             default:
-                return UNSUPPORTED_SIGN;
+                throw new IllegalArgumentException("unsupported type " + type);
         }
-
     }
 }

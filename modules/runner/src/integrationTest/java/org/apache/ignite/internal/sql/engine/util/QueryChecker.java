@@ -289,9 +289,9 @@ public abstract class QueryChecker {
     }
 
     /**
-     * This method add the given row to the list of expected, the order of enumeration does not matter unless #ordered() is set.
+     * This method add the given row to the list of expected, the order of enumeration does not matter unless {@link #ordered()} is set.
      *
-     * @param res Array with values one returning tuple. {@code null} array will be interpreted as single-column-null row,
+     * @param res Array with values one returning tuple. {@code null} array will be interpreted as single-column-null row.
      *
      * @return This.
      */

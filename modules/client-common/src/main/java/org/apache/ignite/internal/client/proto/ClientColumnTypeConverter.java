@@ -22,7 +22,7 @@ import org.apache.ignite.sql.ColumnType;
 /**
  * SQL column type utils.
  */
-public class ClientSqlColumnTypeConverter {
+public class ClientColumnTypeConverter {
     /**
      * Converts column type to wire code.
      *
