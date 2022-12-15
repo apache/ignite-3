@@ -85,6 +85,24 @@ public class DistributionZoneManager implements IgniteComponent {
     /** Logical topology service to track topology changes. */
     private final LogicalTopologyService logicalTopologyService;
 
+    /** Listener for a topology events. */
+    private final LogicalTopologyEventListener topologyEventListener = new LogicalTopologyEventListener() {
+        @Override
+        public void onAppeared(ClusterNode appearedNode, LogicalTopologySnapshot newTopology) {
+            updateMetaStorageKeys(newTopology, false);
+        }
+
+        @Override
+        public void onDisappeared(ClusterNode disappearedNode, LogicalTopologySnapshot newTopology) {
+            updateMetaStorageKeys(newTopology, false);
+        }
+
+        @Override
+        public void onTopologyLeap(LogicalTopologySnapshot newTopology) {
+            updateMetaStorageKeys(newTopology, true);
+        }
+    };
+
     /**
      * Creates a new distribution zone manager.
      *
@@ -250,22 +268,7 @@ public class DistributionZoneManager implements IgniteComponent {
     public void start() {
         zonesConfiguration.distributionZones().listenElements(new ZonesConfigurationListener());
 
-        logicalTopologyService.addEventListener(new LogicalTopologyEventListener() {
-            @Override
-            public void onAppeared(ClusterNode appearedNode, LogicalTopologySnapshot newTopology) {
-                updateMetaStorageKeys(newTopology, false);
-            }
-
-            @Override
-            public void onDisappeared(ClusterNode disappearedNode, LogicalTopologySnapshot newTopology) {
-                updateMetaStorageKeys(newTopology, false);
-            }
-
-            @Override
-            public void onTopologyLeap(LogicalTopologySnapshot newTopology) {
-                updateMetaStorageKeys(newTopology, true);
-            }
-        });
+        logicalTopologyService.addEventListener(topologyEventListener);
 
         initMetaStorageKeysOnStart();
     }
@@ -273,7 +276,7 @@ public class DistributionZoneManager implements IgniteComponent {
     /** {@inheritDoc} */
     @Override
     public void stop() throws Exception {
-
+        logicalTopologyService.removeEventListener(topologyEventListener);
     }
 
     private class ZonesConfigurationListener implements ConfigurationNamedListListener<DistributionZoneView> {
@@ -461,7 +464,7 @@ public class DistributionZoneManager implements IgniteComponent {
             try {
                 topVerFromMetastorage = metaStorageManager.get(zonesLogicalTopologyVersionKey()).get().value();
             } catch (InterruptedException | ExecutionException e) {
-                throw new RuntimeException(e);
+                throw new IgniteInternalException(UNEXPECTED_ERR, e);
             }
 
             if (topVerFromMetastorage == null || ByteUtils.bytesToLong(topVerFromMetastorage) < topologyVersionFromCmg) {
