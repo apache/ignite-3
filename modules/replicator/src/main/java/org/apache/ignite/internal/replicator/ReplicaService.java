@@ -96,13 +96,13 @@ public class ReplicaService {
 
                 if (throwable instanceof TimeoutException) {
                     res.get().completeExceptionally(new ReplicationTimeoutException(req.groupId()));
-                } else {
-                    res.get().completeExceptionally(withCause(
-                            ReplicationException::new,
-                            REPLICA_COMMON_ERR,
-                            "Failed to process replica request [replicaGroupId=" + req.groupId() + ']',
-                            throwable));
                 }
+
+                res.get().completeExceptionally(withCause(
+                        ReplicationException::new,
+                        REPLICA_COMMON_ERR,
+                        "Failed to process replica request [replicaGroupId=" + req.groupId() + ']',
+                        throwable));
             } else {
                 assert response instanceof ReplicaResponse : "Unexpected message response [resp=" + response + ']';
 
@@ -134,13 +134,14 @@ public class ReplicaService {
 
                                     if (throwable0 instanceof TimeoutException) {
                                         res.get().completeExceptionally(errResp.throwable());
-                                    } else {
-                                        res.get().completeExceptionally(withCause(
-                                                ReplicationException::new,
-                                                REPLICA_COMMON_ERR,
-                                                "Failed to process replica request [replicaGroupId=" + req.groupId() + ']',
-                                                throwable0));
                                     }
+
+                                    res.get().completeExceptionally(withCause(
+                                            ReplicationException::new,
+                                            REPLICA_COMMON_ERR,
+                                            "Failed to process replica request [replicaGroupId=" + req.groupId() + ']',
+                                            throwable0));
+
                                 } else {
                                     res.get().thenCompose(ignore -> sendToReplica(node, req));
 

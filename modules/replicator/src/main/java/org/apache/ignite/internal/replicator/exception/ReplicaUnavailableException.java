@@ -27,7 +27,7 @@ import org.apache.ignite.network.ClusterNode;
 /**
  * The exception is thrown when a replica is not ready to handle a request.
  */
-public class ReplicaUnavailableException extends IgniteInternalException {
+public class ReplicaUnavailableException extends ReplicationException {
     /**
      * The constructor.
      *

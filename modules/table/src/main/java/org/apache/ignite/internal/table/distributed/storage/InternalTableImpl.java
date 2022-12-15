@@ -20,11 +20,15 @@ package org.apache.ignite.internal.table.distributed.storage;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
+import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_COMMON_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_TIMEOUT_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_UNAVAILABLE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_INSUFFICIENT_READ_WRITE_OPERATION_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_REPLICA_UNAVAILABLE_ERR;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
+import java.net.ConnectException;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Collection;
@@ -34,6 +38,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
@@ -49,6 +55,9 @@ import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
+import org.apache.ignite.internal.replicator.exception.ReplicaUnavailableException;
+import org.apache.ignite.internal.replicator.exception.ReplicationException;
+import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
@@ -66,6 +75,7 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.lang.IgniteBiTuple;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteFiveFunction;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
@@ -461,25 +471,28 @@ public class InternalTableImpl implements InternalTable {
         return fut.handle(new BiFunction<T, Throwable, CompletableFuture<T>>() {
             @Override
             public CompletableFuture<T> apply(T r, Throwable e) {
-                System.out.println("qqqqq");
                 if (e != null) {
-                    System.out.println("<<<<<<" + e);
-                    return tx0.rollbackAsync().handle((ignored, err) -> {
-                        if (err != null) {
-                            e.addSuppressed(err);
-                        }
+                    Throwable e0 = wrapReplicationException((RuntimeException) e);
 
-                        throw (RuntimeException) e;
+                    return tx0.rollbackAsync().handle((ignored, err) -> {
+
+                        if (err != null) {
+                            e0.addSuppressed(err);
+                        }
+                        throw (RuntimeException) e0;
                     }); // Preserve failed state.
                 } else {
                     tx0.enlistResultFuture(fut);
 
-                    System.out.println("<<<<<<1" + e);
-
-                    CompletableFuture<T> tCompletableFuture = implicit ? tx0.commitAsync().thenApply(ignored -> r) : completedFuture(r);
-
-                    System.out.println("<<<<<<2" + e);
-                    return tCompletableFuture;
+                    if (implicit) {
+                        return tx0.commitAsync()
+                                .exceptionally(ex -> {
+                                    throw wrapReplicationException((RuntimeException) ex);
+                                })
+                                .thenApply(ignored -> r);
+                    } else {
+                        return completedFuture(r);
+                    }
                 }
             }
         }).thenCompose(x -> x);
@@ -1336,5 +1349,23 @@ public class InternalTableImpl implements InternalTable {
                 }
             }
         });
+    }
+
+    /**
+     * Wraps {@code ReplicationException} or {@code ConnectException} with {@code TransactionException}.
+     *
+     * @param e {@code ReplicationException} or {@code ConnectException}
+     * @return {@code TransactionException}
+     */
+    private RuntimeException wrapReplicationException(RuntimeException e) {
+        RuntimeException e0;
+
+        if (e instanceof ReplicationException || e.getCause() instanceof ReplicationException || e.getCause() instanceof ConnectException) {
+            e0 = withCause(TransactionException::new, TX_REPLICA_UNAVAILABLE_ERR, e);
+        } else {
+            e0 = e;
+        }
+
+        return e0;
     }
 }

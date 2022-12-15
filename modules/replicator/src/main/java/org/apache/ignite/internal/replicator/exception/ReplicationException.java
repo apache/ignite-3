@@ -51,6 +51,17 @@ public class ReplicationException extends IgniteInternalException {
      *
      * @param code    Exception code.
      * @param message Exception message.
+     */
+    public ReplicationException(int code, String message) {
+        super(code, message);
+    }
+
+
+    /**
+     * The constructor.
+     *
+     * @param code    Exception code.
+     * @param message Exception message.
      * @param cause   Optional nested exception (can be {@code null}).
      */
     public ReplicationException(int code, String message, Throwable cause) {

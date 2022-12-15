@@ -26,7 +26,7 @@ import org.apache.ignite.lang.IgniteStringFormatter;
 /**
  * The exception is thrown when a replication process has been timed out.
  */
-public class ReplicationTimeoutException extends IgniteInternalException {
+public class ReplicationTimeoutException extends ReplicationException {
     /**
      * The constructor.
      *
