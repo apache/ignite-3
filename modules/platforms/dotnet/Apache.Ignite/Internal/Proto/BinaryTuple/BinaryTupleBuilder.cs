@@ -356,6 +356,22 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         public void AppendBytes(byte[] value) => AppendBytes(value.AsSpan());
 
         /// <summary>
+        /// Appends bytes.
+        /// </summary>
+        /// <param name="value">Value.</param>
+        public void AppendBytesNullable(byte[]? value)
+        {
+            if (value == null)
+            {
+                AppendNull();
+            }
+            else
+            {
+                AppendBytes(value);
+            }
+        }
+
+        /// <summary>
         /// Appends a guid.
         /// </summary>
         /// <param name="value">Value.</param>
@@ -382,6 +398,22 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             }
 
             OnWrite();
+        }
+
+        /// <summary>
+        /// Appends a guid.
+        /// </summary>
+        /// <param name="value">Value.</param>
+        public void AppendGuidNullable(Guid? value)
+        {
+            if (value == null)
+            {
+                AppendNull();
+            }
+            else
+            {
+                AppendGuid(value.Value);
+            }
         }
 
         /// <summary>
@@ -421,6 +453,22 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         }
 
         /// <summary>
+        /// Appends a bitmask.
+        /// </summary>
+        /// <param name="value">Value.</param>
+        public void AppendBitmaskNullable(BitArray? value)
+        {
+            if (value == null)
+            {
+                AppendNull();
+            }
+            else
+            {
+                AppendBitmask(value);
+            }
+        }
+
+        /// <summary>
         /// Appends a decimal.
         /// </summary>
         /// <param name="value">Value.</param>
@@ -442,6 +490,23 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             }
 
             OnWrite();
+        }
+
+        /// <summary>
+        /// Appends a decimal.
+        /// </summary>
+        /// <param name="value">Value.</param>
+        /// <param name="scale">Decimal scale from schema.</param>
+        public void AppendDecimalNullable(decimal? value, int scale)
+        {
+            if (value == null)
+            {
+                AppendNull();
+            }
+            else
+            {
+                AppendDecimal(value.Value, scale);
+            }
         }
 
         /// <summary>
@@ -476,6 +541,22 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         }
 
         /// <summary>
+        /// Appends a number.
+        /// </summary>
+        /// <param name="value">Value.</param>
+        public void AppendNumberNullable(BigInteger? value)
+        {
+            if (value == null)
+            {
+                AppendNull();
+            }
+            else
+            {
+                AppendNumber(value.Value);
+            }
+        }
+
+        /// <summary>
         /// Appends a date.
         /// </summary>
         /// <param name="value">Value.</param>
@@ -492,6 +573,22 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             }
 
             OnWrite();
+        }
+
+        /// <summary>
+        /// Appends a date.
+        /// </summary>
+        /// <param name="value">Value.</param>
+        public void AppendDateNullable(LocalDate? value)
+        {
+            if (value == null)
+            {
+                AppendNull();
+            }
+            else
+            {
+                AppendDate(value.Value);
+            }
         }
 
         /// <summary>
@@ -514,6 +611,22 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         }
 
         /// <summary>
+        /// Appends a time.
+        /// </summary>
+        /// <param name="value">Value.</param>
+        public void AppendTimeNullable(LocalTime? value)
+        {
+            if (value == null)
+            {
+                AppendNull();
+            }
+            else
+            {
+                AppendTime(value.Value);
+            }
+        }
+
+        /// <summary>
         /// Appends a date and time.
         /// </summary>
         /// <param name="value">Value.</param>
@@ -531,6 +644,22 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             }
 
             OnWrite();
+        }
+
+        /// <summary>
+        /// Appends a date and time.
+        /// </summary>
+        /// <param name="value">Value.</param>
+        public void AppendDateTimeNullable(LocalDateTime? value)
+        {
+            if (value == null)
+            {
+                AppendNull();
+            }
+            else
+            {
+                AppendDateTime(value.Value);
+            }
         }
 
         /// <summary>
