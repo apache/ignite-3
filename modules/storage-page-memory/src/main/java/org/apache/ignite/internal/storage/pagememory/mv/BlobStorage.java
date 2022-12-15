@@ -281,6 +281,7 @@ public class BlobStorage extends DataStructure {
             if (state.isFirstPage()) {
                 blobIo.setTotalLength(pageAddr, state.bytes.length);
             }
+
             blobIo.setFragmentBytes(pageAddr, state.isFirstPage(), state.bytes, state.bytesOffset, fragmentLength);
 
             int newBytesOffset = state.bytesOffset + fragmentLength;
