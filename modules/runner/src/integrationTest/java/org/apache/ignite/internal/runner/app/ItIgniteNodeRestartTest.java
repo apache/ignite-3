@@ -1032,7 +1032,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     }
 
     /**
-     * Creates a table and load data to it.
+     * Creates a table.
      *
      * @param ignite Ignite.
      * @param name Table name.
