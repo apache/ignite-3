@@ -31,9 +31,12 @@ import org.apache.ignite.lang.IgniteStringBuilder;
 /**
  * Pages IO for blob fragments. The blob itself is stored as a chain of fragments, one fragment per page.
  *
- * <p>First, ID of the next page in the chain is stored (0 if current page is the last one in the chain).
- * Then, if the page is the first in the chain, total blob length is stored as 4 bytes.
- * Finally, bytes of a blob fragment are stored.
+ * <p>A page layout is as follows:
+ * <ul>
+ *     <li>ID of the next page in the chain is stored (0 if current page is the last one in the chain) [8 bytes]</li>
+ *     <li>Total blob length (only present if the page is the first page in a chain, otherwise this field is skipped) [4 bytes]</li>
+ *     <li>Bytes representing the current fragment</li>
+ * </ul>
  */
 public class BlobFragmentIo extends PageIo {
     /** Page IO type. */
@@ -41,10 +44,7 @@ public class BlobFragmentIo extends PageIo {
 
     private static final int NEXT_PAGE_ID_OFF = PageIo.COMMON_HEADER_END;
 
-    private static final int FRAGMENT_BYTES_OFF = NEXT_PAGE_ID_OFF + Long.BYTES;
-
-    /** Total length precedes the actual bytes of the first fragment. */
-    private static final int TOTAL_LENGTH_OFF = FRAGMENT_BYTES_OFF;
+    private static final int FRAGMENT_BYTES_OR_TOTAL_LENGTH_OFF = NEXT_PAGE_ID_OFF + Long.BYTES;
 
     /** I/O versions. */
     public static final IoVersions<BlobFragmentIo> VERSIONS = new IoVersions<>(new BlobFragmentIo(1));
@@ -72,7 +72,7 @@ public class BlobFragmentIo extends PageIo {
      * @param firstPage Whether this is the first page of a chain representing a blob.
      */
     public int getCapacityForFragmentBytes(int pageSize, boolean firstPage) {
-        return pageSize - FRAGMENT_BYTES_OFF - fragmentBytesOffset(firstPage);
+        return pageSize - fragmentBytesOffset(firstPage);
     }
 
     /**
@@ -93,32 +93,32 @@ public class BlobFragmentIo extends PageIo {
      * Reads total blob length.
      */
     public int getTotalLength(long pageAddr) {
-        return getInt(pageAddr, TOTAL_LENGTH_OFF);
+        return getInt(pageAddr, FRAGMENT_BYTES_OR_TOTAL_LENGTH_OFF);
     }
 
     /**
      * Writes total blob length.
      */
     public void setTotalLength(long pageAddr, int totalLength) {
-        putInt(pageAddr, TOTAL_LENGTH_OFF, totalLength);
+        putInt(pageAddr, FRAGMENT_BYTES_OR_TOTAL_LENGTH_OFF, totalLength);
     }
 
     /**
      * Reads fragment bytes to the given array.
      */
     public void getFragmentBytes(long pageAddr, boolean firstPage, byte[] destArray, int destOffset, int fragmentLength) {
-        PageUtils.getBytes(pageAddr, FRAGMENT_BYTES_OFF + fragmentBytesOffset(firstPage), destArray, destOffset, fragmentLength);
+        PageUtils.getBytes(pageAddr, fragmentBytesOffset(firstPage), destArray, destOffset, fragmentLength);
     }
 
     /**
      * Writes fragment bytes from the given array.
      */
     public void setFragmentBytes(long pageAddr, boolean firstPage, byte[] bytes, int bytesOffset, int fragmentLength) {
-        PageUtils.putBytes(pageAddr, FRAGMENT_BYTES_OFF + fragmentBytesOffset(firstPage), bytes, bytesOffset, fragmentLength);
+        PageUtils.putBytes(pageAddr, fragmentBytesOffset(firstPage), bytes, bytesOffset, fragmentLength);
     }
 
     private static int fragmentBytesOffset(boolean firstPage) {
-        return firstPage ? Integer.BYTES : 0;
+        return FRAGMENT_BYTES_OR_TOTAL_LENGTH_OFF + (firstPage ? Integer.BYTES : 0);
     }
 
     @Override
