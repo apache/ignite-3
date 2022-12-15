@@ -69,7 +69,7 @@ import org.apache.ignite.sql.NoRowSetExpectedException;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlBatchException;
-import org.apache.ignite.sql.SqlColumnType;
+import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.async.AsyncResultSet;
@@ -430,7 +430,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
 
         checkMetadata(new ColumnMetadataImpl(
                         "COL1",
-                        SqlColumnType.STRING,
+                        ColumnType.STRING,
                         2 << 15,
                         ColumnMetadata.UNDEFINED_SCALE,
                         false,
@@ -438,7 +438,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
                 meta.columns().get(0));
         checkMetadata(new ColumnMetadataImpl(
                         "COL0",
-                        SqlColumnType.INT64,
+                        ColumnType.INT64,
                         19,
                         0,
                         false,

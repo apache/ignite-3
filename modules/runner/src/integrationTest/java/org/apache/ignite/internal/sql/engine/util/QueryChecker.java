@@ -39,7 +39,7 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.sql.ColumnMetadata;
-import org.apache.ignite.sql.SqlColumnType;
+import org.apache.ignite.sql.ColumnType;
 import org.hamcrest.CoreMatchers;
 import org.hamcrest.Matcher;
 import org.hamcrest.core.SubstringMatcher;
@@ -403,7 +403,7 @@ public abstract class QueryChecker {
         if (expectedColumnTypes != null) {
             List<Type> colTypes = cur.metadata().columns().stream()
                     .map(ColumnMetadata::type)
-                    .map(SqlColumnType::columnTypeToClass)
+                    .map(ColumnType::columnTypeToClass)
                     .collect(Collectors.toList());
 
             assertThat("Column types don't match", colTypes, equalTo(expectedColumnTypes));

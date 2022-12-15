@@ -21,7 +21,7 @@ import java.util.List;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientSqlColumnTypeConverter;
 import org.apache.ignite.sql.ColumnMetadata;
-import org.apache.ignite.sql.SqlColumnType;
+import org.apache.ignite.sql.ColumnType;
 
 /**
  * Client column metadata.
@@ -31,7 +31,7 @@ public class ClientColumnMetadata implements ColumnMetadata {
     private final String name;
 
     /** Type. */
-    private final SqlColumnType type;
+    private final ColumnType type;
 
     /** Nullable flag. */
     private final boolean nullable;
@@ -74,12 +74,12 @@ public class ClientColumnMetadata implements ColumnMetadata {
     /** {@inheritDoc} */
     @Override
     public Class<?> valueClass() {
-        return SqlColumnType.columnTypeToClass(type);
+        return ColumnType.columnTypeToClass(type);
     }
 
     /** {@inheritDoc} */
     @Override
-    public SqlColumnType type() {
+    public ColumnType type() {
         return type;
     }
 

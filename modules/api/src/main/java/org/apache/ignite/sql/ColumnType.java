@@ -31,7 +31,7 @@ import java.util.UUID;
 /**
  * Predefined column types.
  */
-public enum SqlColumnType {
+public enum ColumnType {
     /** Boolaen. */
     BOOLEAN,
 
@@ -96,7 +96,7 @@ public enum SqlColumnType {
     /**
      * Column type to Java class.
      */
-    public static Class<?> columnTypeToClass(SqlColumnType type) {
+    public static Class<?> columnTypeToClass(ColumnType type) {
         assert type != null;
 
         switch (type) {

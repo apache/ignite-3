@@ -19,7 +19,7 @@ package org.apache.ignite.internal.client.proto;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import org.apache.ignite.sql.SqlColumnType;
+import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -28,9 +28,9 @@ import org.junit.jupiter.api.Test;
 public class ClientSqlColumnTypeConverterTest {
     @Test
     public void testConvertAllTypes() {
-        for (SqlColumnType columnType : SqlColumnType.values()) {
+        for (ColumnType columnType : ColumnType.values()) {
             int ordinal = ClientSqlColumnTypeConverter.columnTypeToOrdinal(columnType);
-            SqlColumnType resColumnType = ClientSqlColumnTypeConverter.ordinalToColumnType(ordinal);
+            ColumnType resColumnType = ClientSqlColumnTypeConverter.ordinalToColumnType(ordinal);
 
             assertEquals(columnType, resColumnType);
         }

@@ -21,7 +21,7 @@ import java.util.List;
 import org.apache.ignite.internal.sql.api.ColumnMetadataImpl;
 import org.apache.ignite.internal.sql.api.ResultSetMetadataImpl;
 import org.apache.ignite.sql.ResultSetMetadata;
-import org.apache.ignite.sql.SqlColumnType;
+import org.apache.ignite.sql.ColumnType;
 
 /**
  * Query explain plan.
@@ -29,7 +29,7 @@ import org.apache.ignite.sql.SqlColumnType;
 public class ExplainPlan implements QueryPlan {
     /** Explain metadata holder. */
     private static final ResultSetMetadata EXPLAIN_METADATA = new ResultSetMetadataImpl(List.of(
-            new ColumnMetadataImpl("PLAN", SqlColumnType.STRING, -1, Integer.MIN_VALUE, true, null)));
+            new ColumnMetadataImpl("PLAN", ColumnType.STRING, -1, Integer.MIN_VALUE, true, null)));
 
     private final String plan;
 

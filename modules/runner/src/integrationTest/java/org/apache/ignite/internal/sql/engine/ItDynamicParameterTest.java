@@ -23,7 +23,7 @@ import java.math.BigDecimal;
 import java.sql.Date;
 import java.time.LocalDate;
 import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
-import org.apache.ignite.sql.SqlColumnType;
+import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
@@ -34,7 +34,7 @@ public class ItDynamicParameterTest extends AbstractBasicIntegrationTest {
     @Test
     void testMetadataTypesForDynamicParameters() {
         int i = 1;
-        for (SqlColumnType type : SqlColumnType.values()) {
+        for (ColumnType type : ColumnType.values()) {
             Object param = generateValueByType(i++, type);
             if (param == UNSUPPORTED_SIGN) {
                 continue;
@@ -103,7 +103,7 @@ public class ItDynamicParameterTest extends AbstractBasicIntegrationTest {
         assertQuery("SELECT COALESCE(?, ?)").withParams(12, "b").returns(12).check();
     }
 
-    private Object generateValueByType(int i, SqlColumnType type) {
+    private Object generateValueByType(int i, ColumnType type) {
         switch (type) {
             case BOOLEAN:
                 return i % 2 == 0;

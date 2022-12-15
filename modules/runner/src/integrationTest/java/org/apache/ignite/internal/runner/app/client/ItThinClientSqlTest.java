@@ -34,7 +34,7 @@ import org.apache.ignite.sql.NoRowSetExpectedException;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.Session;
-import org.apache.ignite.sql.SqlColumnType;
+import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.async.AsyncResultSet;
@@ -271,7 +271,7 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         assertEquals("TESTEXECUTEDDLDML", columns.get(0).origin().tableName());
         assertTrue(columns.get(0).nullable());
         assertEquals(String.class, columns.get(0).valueClass());
-        assertEquals(SqlColumnType.STRING, columns.get(0).type());
+        assertEquals(ColumnType.STRING, columns.get(0).type());
 
         assertEquals(ColumnMetadata.UNDEFINED_SCALE, columns.get(0).scale());
         assertEquals(2 << 15, columns.get(0).precision());

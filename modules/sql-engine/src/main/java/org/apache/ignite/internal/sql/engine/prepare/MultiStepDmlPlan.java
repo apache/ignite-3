@@ -21,7 +21,7 @@ import java.util.List;
 import org.apache.ignite.internal.sql.api.ColumnMetadataImpl;
 import org.apache.ignite.internal.sql.api.ResultSetMetadataImpl;
 import org.apache.ignite.sql.ResultSetMetadata;
-import org.apache.ignite.sql.SqlColumnType;
+import org.apache.ignite.sql.ColumnType;
 
 /**
  * Distributed dml plan.
@@ -29,7 +29,7 @@ import org.apache.ignite.sql.SqlColumnType;
 public class MultiStepDmlPlan extends AbstractMultiStepPlan {
     /** DML metadata holder. */
     private static final ResultSetMetadata DML_METADATA = new ResultSetMetadataImpl(List.of(
-            new ColumnMetadataImpl("ROWCOUNT", SqlColumnType.INT64, -1, Integer.MIN_VALUE, false, null)));
+            new ColumnMetadataImpl("ROWCOUNT", ColumnType.INT64, -1, Integer.MIN_VALUE, false, null)));
 
     /**
      * Constructor.

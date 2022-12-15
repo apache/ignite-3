@@ -51,7 +51,7 @@ public interface ColumnMetadata {
      *
      * @return Value type.
      */
-    SqlColumnType type();
+    ColumnType type();
 
     /**
      * Returns SQL column precision or {@code -1} if precision is not applicable for the type.

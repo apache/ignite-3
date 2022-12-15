@@ -17,12 +17,12 @@
 
 package org.apache.ignite.internal.sql.engine.util;
 
-import org.apache.ignite.sql.SqlColumnType;
+import org.apache.ignite.sql.ColumnType;
 
 /** Utility class for work with SQL types. */
 public class SqlTypeUtils {
     /** Converting  from {@code SqlColumnType} type to SQL type name. */
-    public static String toSqlType(SqlColumnType sqlColumnType) {
+    public static String toSqlType(ColumnType sqlColumnType) {
         switch (sqlColumnType) {
             case BOOLEAN:
                 return "BOOLEAN";
