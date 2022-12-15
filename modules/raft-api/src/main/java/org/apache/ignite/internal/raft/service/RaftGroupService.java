@@ -23,6 +23,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeoutException;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.Peer;
+import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.network.ClusterService;
 import org.jetbrains.annotations.Nullable;
@@ -163,13 +164,12 @@ public interface RaftGroupService {
      *
      * <p>This operation is executed on a group leader.
      *
-     * @param peers New peers.
-     * @param learners New learners.
+     * @param peersAndLearners New peers and Learners of the Raft group.
      * @param term Current known leader term.
      *             If real raft group term will be different - changePeers will be skipped.
      * @return A future.
      */
-    CompletableFuture<Void> changePeersAsync(Collection<Peer> peers, Collection<Peer> learners, long term);
+    CompletableFuture<Void> changePeersAsync(PeersAndLearners peersAndLearners, long term);
 
     /**
      * Adds learners (non-voting members).

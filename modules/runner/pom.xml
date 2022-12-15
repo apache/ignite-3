@@ -139,6 +139,11 @@
             <artifactId>config</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>com.google.auto.service</groupId>
+            <artifactId>auto-service-annotations</artifactId>
+        </dependency>
+
         <!-- Test dependencies -->
         <dependency>
             <groupId>org.hamcrest</groupId>
@@ -214,12 +219,6 @@
             <groupId>org.apache.ignite</groupId>
             <artifactId>ignite-vault</artifactId>
             <type>test-jar</type>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.github.classgraph</groupId>
-            <artifactId>classgraph</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -300,6 +299,11 @@
                             <groupId>io.micronaut</groupId>
                             <artifactId>micronaut-inject-java</artifactId>
                             <version>${micronaut.version}</version>
+                        </path>
+                        <path>
+                            <groupId>com.google.auto.service</groupId>
+                            <artifactId>auto-service</artifactId>
+                            <version>${auto-service.version}</version>
                         </path>
                     </annotationProcessorPaths>
                 </configuration>

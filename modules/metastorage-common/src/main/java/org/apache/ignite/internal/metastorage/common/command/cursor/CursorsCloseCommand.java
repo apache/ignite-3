@@ -19,7 +19,6 @@ package org.apache.ignite.internal.metastorage.common.command.cursor;
 
 import org.apache.ignite.internal.metastorage.common.command.MetastorageCommandsMessageGroup;
 import org.apache.ignite.internal.raft.WriteCommand;
-import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
 
 /**
@@ -27,7 +26,7 @@ import org.apache.ignite.network.annotations.Transferable;
  * topology.
  */
 @Transferable(MetastorageCommandsMessageGroup.CURSORS_CLOSE)
-public interface CursorsCloseCommand extends NetworkMessage, WriteCommand {
+public interface CursorsCloseCommand extends WriteCommand {
     /**
      * Returns cursor id.
      */

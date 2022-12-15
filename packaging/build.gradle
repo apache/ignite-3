@@ -23,23 +23,38 @@ plugins {
     alias(libs.plugins.checksum)
 }
 
-import org.gradle.crypto.checksum.Checksum
 import org.apache.tools.ant.filters.ReplaceTokens
+import org.gradle.crypto.checksum.Checksum
 
 configurations {
     dbArtifacts
     cliArtifacts
-    cliScripts
     cliZip
     dbZip
+    cliRelease
+    dbRelease
+    platformsRelease
 }
 
 dependencies {
     dbArtifacts(project(':ignite-runner'))
     cliArtifacts(project(':ignite-cli'))
-    cliScripts(project(path: ':ignite-cli', configuration: 'cliScripts'))
     cliZip(project(path: ':packaging-cli', configuration: 'cliZip'))
     dbZip(project(path: ':packaging-db', configuration: 'dbZip'))
+    cliRelease(project(path: ':packaging-cli', configuration: 'cliRelease'))
+    dbRelease(project(path: ':packaging-db', configuration: 'dbRelease'))
+    platformsRelease(project(path: ':platforms', configuration: 'platformsRelease'))
+}
+
+// Task that generates start script for cli
+task cliStartScript(type: CreateStartScripts) {
+    // Will be passed to exec "java ... <mainClassName>"
+    mainClass = "org.apache.ignite.internal.cli.Main"
+    // Forms a classpath string that will be passed to exec "java -cp <classpath> .."
+    // it is expected to locate the "lib" dir together with "bin"
+    classpath = files 'lib/*'
+    outputDir = file "$buildDir/scripts"
+    applicationName = 'ignite3'
 }
 
 def tokens = [
@@ -65,28 +80,44 @@ docker {
 
     copySpec.into 'dist', {
         into('') {
-            File.createTempDir().with {
-                ['etc', 'work'].each { new File(absolutePath, it).mkdirs() }
-                from(absolutePath) {
-                    includeEmptyDirs = true
-                }
-            }
-            from("$rootDir/LICENSE")
-            from("$rootDir/NOTICE")
-            from("$rootDir/assembly/README.md")
-        }
-        into('etc') {
-            from('config/ignite-config.conf')
-            from('docker/ignite.java.util.logging.properties')
-        }
-        into('bin') {
             fileMode 0755
             from("$buildDir/docker/docker-entrypoint.sh")
         }
-        into('lib') {
-            from(configurations.dbArtifacts)
-            from("$buildDir/docker/$tokens.BOOTSTRAP_FILE_NAME")
-            from("$buildDir/docker/$tokens.SETUP_JAVA_FILE_NAME")
+        into('db') {
+            into('') {
+                File.createTempDir().with {
+                    ['etc', 'work'].each { new File(absolutePath, it).mkdirs() }
+                    from(absolutePath) {
+                        includeEmptyDirs = true
+                    }
+                }
+                from("$rootDir/LICENSE")
+                from("$rootDir/NOTICE")
+                from("$rootDir/assembly/README.md")
+            }
+            into('etc') {
+                from('config/ignite-config.conf')
+                from('docker/ignite.java.util.logging.properties')
+            }
+            into('lib') {
+                from(configurations.dbArtifacts)
+                from("$buildDir/docker/$tokens.BOOTSTRAP_FILE_NAME")
+                from("$buildDir/docker/$tokens.SETUP_JAVA_FILE_NAME")
+            }
+        }
+        into('cli') {
+            into('') {
+                from("$rootDir/LICENSE")
+                from("$rootDir/NOTICE")
+                from("$rootDir/assembly/README.md")
+            }
+            into('bin') {
+                fileMode 0755
+                from(cliStartScript)
+            }
+            into('lib') {
+                from(configurations.cliArtifacts)
+            }
         }
     }
 }
@@ -104,37 +135,43 @@ task allDistZip(type: Zip) {
     }
 }
 
-task createDistZipChecksums(type: Checksum) {
-    //TODO: remove distribution name hard code IGNITE-18092
-    files = files(files("${buildDir}/distributions/ignite3-${project.version}.zip"))
-    outputDir = new File("${buildDir}/distributions")
-    algorithm = Checksum.Algorithm.SHA512
-}
-
-task createSrcZipChecksums(type: Checksum) {
-    //TODO: remove distribution name hard code IGNITE-18092
-    files = files(files("${buildDir}/distributions/apache-ignite-${project.version}-src.zip"))
-    outputDir = new File("${buildDir}/distributions")
-    algorithm = Checksum.Algorithm.SHA512
-}
-
-allDistZip.finalizedBy(createDistZipChecksums)
-
 task allSrcZip(type: Exec) {
     workingDir rootDir
 
+    def outFile = "$buildDir/distributions/apache-ignite-${project.version}-src.zip"
     commandLine "git", "archive",
             "--prefix=apache-ignite-${project.version}-src",
-            "-o", "$buildDir/distributions/apache-ignite-${project.version}-src.zip",
+            "-o", outFile,
             "HEAD"
+    outputs.file outFile
 }
 
-task buildAndSignAllSrcZip(type: Sign) {
-    dependsOn allSrcZip, createSrcZipChecksums
+task createChecksums(type: Checksum) {
+    dependsOn allDistZip, allSrcZip
 
-    sign file("$buildDir/distributions/apache-ignite-${project.version}-src.zip")
+    inputFiles.from allDistZip.outputs.files, allSrcZip.outputs.files
+    outputDirectory = file("$buildDir/distributions")
+    checksumAlgorithm = Checksum.Algorithm.SHA512
+}
+
+// Need to create a separate task since signing single file doesn't automatically create a task
+task signAllSrcZip(type: Sign) {
+    dependsOn allSrcZip
+
+    sign allSrcZip.outputs.files.singleFile
 }
 
 signing {
     sign allDistZip
+}
+
+task prepareRelease(type: Copy) {
+    from configurations.cliRelease
+    from configurations.dbRelease
+    from configurations.platformsRelease
+    dependsOn createChecksums, signAllSrcZip, signAllDistZip
+    from file("$buildDir/distributions")
+    include '*.zip', '*.asc', '*.sha512'
+    include '*.rpm', '*.deb', '*.changes'
+    into file("$buildDir/release")
 }

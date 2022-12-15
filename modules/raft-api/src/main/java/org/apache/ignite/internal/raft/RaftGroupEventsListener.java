@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.raft;
 
-import java.util.Collection;
-
 /**
  * Listener for group membership and other events.
  */
@@ -33,20 +31,18 @@ public interface RaftGroupEventsListener {
     /**
      * Invoked on the leader, when new peers' configuration applied to raft group.
      *
-     * @param peers Collection of peers, which was applied by raft group membership configuration.
-     * @param learners Collection of learners, which was applied by raft group membership configuration.
+     * @param configuration New Raft group configuration.
      */
-    void onNewPeersConfigurationApplied(Collection<Peer> peers, Collection<Peer> learners);
+    void onNewPeersConfigurationApplied(PeersAndLearners configuration);
 
     /**
      * Invoked on the leader if membership reconfiguration failed, because of {@link Status}.
      *
      * @param status Description of failure.
-     * @param peers Collection of peers, which was as a target of reconfiguration.
-     * @param learners Collection of learners, which was as a target of reconfiguration.
+     * @param configuration Configuration that failed to be applied.
      * @param term Raft term of the current leader.
      */
-    void onReconfigurationError(Status status, Collection<Peer> peers, Collection<Peer> learners, long term);
+    void onReconfigurationError(Status status, PeersAndLearners configuration, long term);
 
     /**
      * No-op raft group events listener.
@@ -58,10 +54,10 @@ public interface RaftGroupEventsListener {
 
         /** {@inheritDoc} */
         @Override
-        public void onNewPeersConfigurationApplied(Collection<Peer> peers, Collection<Peer> learners) { }
+        public void onNewPeersConfigurationApplied(PeersAndLearners configuration) { }
 
         /** {@inheritDoc} */
         @Override
-        public void onReconfigurationError(Status status, Collection<Peer> peers, Collection<Peer> learners, long term) {}
+        public void onReconfigurationError(Status status, PeersAndLearners configuration, long term) {}
     };
 }

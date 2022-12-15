@@ -82,7 +82,6 @@ void node_connection::process_message(bytes_view msg) {
     (void) flags; // Flags are unused for now.
 
     auto handler = get_and_remove_handler(reqId);
-
     if (!handler) {
         m_logger->log_error("Missing handler for request with id=" + std::to_string(reqId));
         return;
@@ -98,7 +97,9 @@ void node_connection::process_message(bytes_view msg) {
         return;
     }
 
-    auto handlingRes = handler->handle(reader);
+    auto pos = reader.position();
+    bytes_view data{msg.data() + pos, msg.size() - pos};
+    auto handlingRes = handler->handle(shared_from_this(), data);
     if (handlingRes.has_error())
         m_logger->log_error("Uncaught user callback exception: " + handlingRes.error().what_str());
 }
@@ -127,11 +128,13 @@ ignite_result<void> node_connection::process_handshake_rsp(bytes_view msg) {
     (void) reader.read_string_nullable(); // Cluster node ID. Needed for partition-aware compute.
     (void) reader.read_string_nullable(); // Cluster node name. Needed for partition-aware compute.
 
-    reader.skip(); // TODO: IGNITE-18053 Get and verify cluster id on connection
+    auto cluster_id = reader.read_uuid();
     reader.skip(); // Features.
     reader.skip(); // Extensions.
 
     m_protocol_context.set_version(ver);
+    m_protocol_context.set_cluster_id(cluster_id);
+
     m_handshake_complete = true;
 
     return {};

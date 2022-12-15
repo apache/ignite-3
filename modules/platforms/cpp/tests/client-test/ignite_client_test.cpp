@@ -36,7 +36,7 @@ TEST_F(client_test, get_configuration) {
     cfg.set_logger(get_logger());
     cfg.set_connection_limit(42);
 
-    auto client = ignite_client::start(cfg, std::chrono::seconds(5));
+    auto client = ignite_client::start(cfg, std::chrono::seconds(30));
 
     const auto &cfg2 = client.configuration();
 

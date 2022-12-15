@@ -17,9 +17,10 @@
 
 package org.apache.ignite.internal.cluster.management.raft;
 
+import static java.util.stream.Collectors.collectingAndThen;
+import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.cluster.management.ClusterState.clusterState;
 import static org.apache.ignite.internal.cluster.management.ClusterTag.clusterTag;
-import static org.apache.ignite.internal.cluster.management.CmgGroupId.INSTANCE;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.will;
@@ -39,9 +40,9 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.ClusterTag;
+import org.apache.ignite.internal.cluster.management.CmgGroupId;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.cluster.management.raft.commands.JoinReadyCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.JoinRequestCommand;
@@ -53,7 +54,11 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.raft.Peer;
+import org.apache.ignite.internal.raft.PeersAndLearners;
+import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.RaftManager;
+import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -111,15 +116,24 @@ public class ItCmgRaftServiceTest {
 
                 raftStorage.start();
 
-                List<String> nodeIds = clusterService.topologyService().allMembers().stream()
+                PeersAndLearners configuration = clusterService.topologyService().allMembers().stream()
                         .map(ClusterNode::name)
-                        .collect(Collectors.toList());
+                        .collect(collectingAndThen(toSet(), PeersAndLearners::fromConsistentIds));
 
-                CompletableFuture<RaftGroupService> raftService = raftManager.prepareRaftGroup(
-                        INSTANCE,
-                        nodeIds,
-                        () -> new CmgRaftGroupListener(raftStorage, new LogicalTopologyImpl(raftStorage), term -> {})
-                );
+                Peer serverPeer = configuration.peer(localMember().name());
+
+                CompletableFuture<RaftGroupService> raftService;
+
+                if (serverPeer == null) {
+                    raftService = raftManager.startRaftGroupService(CmgGroupId.INSTANCE, configuration);
+                } else {
+                    raftService = raftManager.startRaftGroupNode(
+                            new RaftNodeId(CmgGroupId.INSTANCE, serverPeer),
+                            configuration,
+                            new CmgRaftGroupListener(raftStorage, new LogicalTopologyImpl(raftStorage), term -> {}),
+                            RaftGroupEventsListener.noopLsnr
+                    );
+                }
 
                 assertThat(raftService, willCompleteSuccessfully());
 
@@ -129,12 +143,8 @@ public class ItCmgRaftServiceTest {
             }
         }
 
-        void beforeNodeStop() {
-            try {
-                raftManager.stopRaftGroup(INSTANCE);
-            } catch (NodeStoppingException e) {
-                throw new RuntimeException(e);
-            }
+        void beforeNodeStop() throws NodeStoppingException {
+            raftManager.stopRaftNodes(CmgGroupId.INSTANCE);
 
             raftManager.beforeNodeStop();
             clusterService.beforeNodeStop();
@@ -178,9 +188,10 @@ public class ItCmgRaftServiceTest {
     }
 
     @AfterEach
-    void tearDown() {
-        cluster.parallelStream().forEach(Node::beforeNodeStop);
-        cluster.parallelStream().forEach(Node::stop);
+    void tearDown() throws Exception {
+        IgniteUtils.closeAll(cluster.parallelStream().map(node -> node::beforeNodeStop));
+
+        IgniteUtils.closeAll(cluster.parallelStream().map(node -> node::stop));
     }
 
     /**

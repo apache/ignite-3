@@ -202,14 +202,14 @@ public:
      *
      * @param value Element value.
      */
-    void claim_string(const std::string &value) noexcept { claim(value.size()); }
+    void claim_string(const std::string &value) noexcept { claim(SizeT(value.size())); }
 
     /**
      * @brief Assigns a binary value for the next element.
      *
      * @param value Element value.
      */
-    void claim_bytes(const bytes_view &value) noexcept { claim(value.size()); }
+    void claim_bytes(const bytes_view &value) noexcept { claim(SizeT(value.size())); }
 
     /**
      * @brief Assigns a binary value for the next element.
@@ -659,7 +659,7 @@ private:
      * @return Required size.
      */
     static SizeT gauge_double(double value) noexcept {
-        float floatValue = static_cast<float>(value);
+        auto floatValue = static_cast<float>(value);
         return floatValue == value ? gauge_float(floatValue) : sizeof(double);
     }
 

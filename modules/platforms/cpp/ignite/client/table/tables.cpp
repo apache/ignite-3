@@ -15,12 +15,8 @@
  * limitations under the License.
  */
 
-#include "tables.h"
-
+#include "ignite/client/table/tables.h"
 #include "ignite/client/detail/table/tables_impl.h"
-
-#include <future>
-#include <utility>
 
 namespace ignite {
 

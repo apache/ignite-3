@@ -17,21 +17,14 @@
 
 #include "ignite/protocol/reader.h"
 
-#include <ignite/common/bytes.h>
 #include <ignite/protocol/utils.h>
 
 namespace ignite::protocol {
 
 reader::reader(bytes_view buffer)
     : m_buffer(buffer)
-    , m_unpacker()
     , m_current_val()
     , m_move_res(MSGPACK_UNPACK_SUCCESS) {
-    // TODO: Research if we can get rid of copying here.
-    msgpack_unpacker_init(&m_unpacker, MSGPACK_UNPACKER_INIT_BUFFER_SIZE);
-    msgpack_unpacker_reserve_buffer(&m_unpacker, m_buffer.size());
-    memcpy(msgpack_unpacker_buffer(&m_unpacker), m_buffer.data(), m_buffer.size());
-    msgpack_unpacker_buffer_consumed(&m_unpacker, m_buffer.size());
 
     msgpack_unpacked_init(&m_current_val);
 
@@ -49,7 +42,9 @@ bool reader::try_read_nil() {
 void reader::next() {
     check_data_in_stream();
 
-    m_move_res = msgpack_unpacker_next(&m_unpacker, &m_current_val);
+    m_offset = m_offset_next;
+    m_move_res = msgpack_unpack_next(
+            &m_current_val, reinterpret_cast<const char *>(m_buffer.data()), m_buffer.size(), &m_offset_next);
 }
 
 } // namespace ignite::protocol

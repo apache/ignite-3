@@ -34,6 +34,7 @@ using namespace std::string_view_literals;
 class ignite_runner_suite : public ::testing::Test {
 protected:
     static constexpr std::initializer_list<std::string_view> NODE_ADDRS = {"127.0.0.1:10942"sv, "127.0.0.1:10943"sv};
+    static constexpr std::string_view TABLE_1 = "tbl1"sv;
 
     /**
      * Get logger.

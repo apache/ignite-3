@@ -32,7 +32,6 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -241,7 +240,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                                             });
                                 }))
                         .thenCombine(igniteTableFuture, (v, igniteTable) -> {
-                            schema.addTable(table.name(), igniteTable);
+                            schema.addTable(igniteTable);
 
                             return res;
                         });
@@ -430,10 +429,8 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                                         return CompletableFuture.completedFuture(resIdxs);
                                     })
                             ).thenCompose(ignore -> {
-                                String tblName = tableNameById(schema, index.tableId());
-
                                 table.addIndex(schemaIndex);
-                                schema.addTable(tblName, table);
+                                schema.addTable(table);
                                 schema.addIndex(index.id(), schemaIndex);
 
                                 return completedFuture(resTbls);
@@ -446,16 +443,6 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         } finally {
             busyLock.leaveBusy();
         }
-    }
-
-    private static String tableNameById(IgniteSchema schema, UUID tableId) {
-        return schema.getTableMap()
-                .entrySet()
-                .stream()
-                .filter(entry -> tableId
-                        .equals(((InternalIgniteTable) entry.getValue()).id()))
-                .map(Entry::getKey)
-                .findFirst().get();
     }
 
     /**
@@ -492,10 +479,14 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
                                 Map<UUID, InternalIgniteTable> resTbls = new HashMap<>(tables);
 
-                                InternalIgniteTable table = resTbls.compute(rmvIndex.index().tableId(),
+                                InternalIgniteTable table = resTbls.computeIfPresent(rmvIndex.index().tableId(),
                                         (k, v) -> IgniteTableImpl.copyOf((IgniteTableImpl) v));
 
-                                table.removeIndex(rmvIndex.name());
+                                if (table != null) {
+                                    table.removeIndex(rmvIndex.name());
+                                } else {
+                                    return completedFuture(resTbls);
+                                }
 
                                 return indicesVv.update(causalityToken, (indices, idxEx) -> inBusyLock(busyLock, () -> {
                                             if (idxEx != null) {
@@ -508,8 +499,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
                                             assert table.id().equals(rmvIdx.index().tableId());
 
-                                            String tblName = tableNameById(schema, rmvIdx.index().tableId());
-                                            schema.addTable(tblName, table);
+                                            schema.addTable(table);
 
                                             return completedFuture(resIdxs);
                                         }

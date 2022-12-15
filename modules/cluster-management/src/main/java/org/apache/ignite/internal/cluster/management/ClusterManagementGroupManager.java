@@ -22,7 +22,6 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toSet;
 import static java.util.stream.Collectors.toUnmodifiableSet;
 import static org.apache.ignite.internal.cluster.management.ClusterTag.clusterTag;
-import static org.apache.ignite.internal.cluster.management.CmgGroupId.INSTANCE;
 
 import java.util.Collection;
 import java.util.List;
@@ -56,8 +55,10 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.internal.raft.Peer;
+import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.RaftManager;
+import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.Status;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -124,6 +125,20 @@ public class ClusterManagementGroupManager implements IgniteComponent {
 
     /** Handles cluster initialization flow. */
     private final ClusterInitializer clusterInitializer;
+
+    /**
+     * Whether we attempted to complete join (i.e. send JoinReady command) on Ignite node start.
+     *
+     * <p>Such join completion always happens during a start, and it is always the last step during the startup process,
+     * to make sure a node joins the cluster when it's fully ready.
+     *
+     * <p>We need this flag to make sure we handle automatic rejoins correctly. If a short network hiccup happens, CMG leader
+     * might lose our node of sight, hence the node will be removed from physical and then from logical topologies. When
+     * the network connectivity is restored, the node will appear in the physical topology, after which it will try to
+     * rejoin the cluster. If such 'rejoin' was carried out unconditionally, it could happen before the first join during
+     * startup, so a not-yet-ready node could join the cluster.
+     */
+    private volatile boolean attemptedCompleteJoinOnStart = false;
 
     /** Constructor. */
     public ClusterManagementGroupManager(
@@ -390,7 +405,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                     raftService = null;
                 }
 
-                raftManager.stopRaftGroup(INSTANCE);
+                raftManager.stopRaftNodes(CmgGroupId.INSTANCE);
 
                 localStateStorage.clear().get();
             } catch (Exception e) {
@@ -420,7 +435,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                             if (service != null && service.nodeNames().equals(state.cmgNodes())) {
                                 LOG.info("ClusterStateMessage received, but the CMG service is already started");
 
-                                return completedFuture(service);
+                                return joinCluster(service, state.clusterTag());
                             }
 
                             if (service == null) {
@@ -448,8 +463,18 @@ public class ClusterManagementGroupManager implements IgniteComponent {
 
                             return initCmgRaftService(state);
                         })
-                        .thenCompose(Function.identity());
+                        .thenCompose(Function.identity())
+                        .thenCompose(this::completeJoinIfTryingToRejoin);
             }
+        }
+    }
+
+    private CompletableFuture<CmgRaftService> completeJoinIfTryingToRejoin(CmgRaftService cmgRaftService) {
+        if (attemptedCompleteJoinOnStart) {
+            return cmgRaftService.completeJoinCluster()
+                    .thenApply(unused -> cmgRaftService);
+        } else {
+            return completedFuture(cmgRaftService);
         }
     }
 
@@ -470,22 +495,29 @@ public class ClusterManagementGroupManager implements IgniteComponent {
     /**
      * Starts the CMG Raft service using the provided node names as its peers.
      */
-    private CompletableFuture<CmgRaftService> startCmgRaftService(Collection<String> nodeNames) {
+    private CompletableFuture<CmgRaftService> startCmgRaftService(Set<String> nodeNames) {
         String thisNodeConsistentId = clusterService.topologyService().localMember().name();
 
         // If we are not in the CMG, we must be a learner. List of learners will be updated by a leader accordingly,
         // but just to start a RAFT service we must include ourselves in the initial learners list, that's why we
-        // pass List.of(we) as learners list if we are not in the CMG.
-        List<String> learnerConsistentIds = nodeNames.contains(thisNodeConsistentId) ? List.of() : List.of(thisNodeConsistentId);
+        // pass Set.of(we) as learners list if we are not in the CMG.
+        boolean isLearner = !nodeNames.contains(thisNodeConsistentId);
+
+        Set<String> learnerNames = isLearner ? Set.of(thisNodeConsistentId) : Set.of();
+
+        PeersAndLearners configuration = PeersAndLearners.fromConsistentIds(nodeNames, learnerNames);
+
+        Peer serverPeer = isLearner ? configuration.learner(thisNodeConsistentId) : configuration.peer(thisNodeConsistentId);
+
+        assert serverPeer != null;
 
         try {
             return raftManager
-                    .prepareRaftGroup(
-                            INSTANCE,
-                            nodeNames,
-                            learnerConsistentIds,
-                            () -> new CmgRaftGroupListener(clusterStateStorage, logicalTopology, this::onLogicalTopologyChanged),
-                            this::createCmgRaftGroupEventsListener
+                    .startRaftGroupNode(
+                            new RaftNodeId(CmgGroupId.INSTANCE, serverPeer),
+                            configuration,
+                            new CmgRaftGroupListener(clusterStateStorage, logicalTopology, this::onLogicalTopologyChanged),
+                            createCmgRaftGroupEventsListener()
                     )
                     .thenApply(service -> new CmgRaftService(service, clusterService, logicalTopology));
         } catch (Exception e) {
@@ -520,12 +552,12 @@ public class ClusterManagementGroupManager implements IgniteComponent {
             }
 
             @Override
-            public void onNewPeersConfigurationApplied(Collection<Peer> peers, Collection<Peer> learners) {
+            public void onNewPeersConfigurationApplied(PeersAndLearners configuration) {
                 // No-op.
             }
 
             @Override
-            public void onReconfigurationError(Status status, Collection<Peer> peers, Collection<Peer> learners, long term) {
+            public void onReconfigurationError(Status status, PeersAndLearners configuration, long term) {
                 // No-op.
             }
         };
@@ -639,7 +671,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
 
         IgniteUtils.shutdownAndAwaitTermination(scheduledExecutor, 10, TimeUnit.SECONDS);
 
-        raftManager.stopRaftGroup(INSTANCE);
+        raftManager.stopRaftNodes(CmgGroupId.INSTANCE);
 
         // Fail the future to unblock dependent operations
         joinFuture.completeExceptionally(new NodeStoppingException());
@@ -667,7 +699,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
      *
      * @return Future that, when complete, resolves into a list of node names that host the Meta Storage.
      */
-    public CompletableFuture<Collection<String>> metaStorageNodes() {
+    public CompletableFuture<Set<String>> metaStorageNodes() {
         if (!busyLock.enterBusy()) {
             return failedFuture(new NodeStoppingException());
         }
@@ -708,6 +740,8 @@ public class ClusterManagementGroupManager implements IgniteComponent {
         if (!busyLock.enterBusy()) {
             return failedFuture(new NodeStoppingException());
         }
+
+        attemptedCompleteJoinOnStart = true;
 
         try {
             return raftServiceAfterJoin().thenCompose(CmgRaftService::completeJoinCluster);

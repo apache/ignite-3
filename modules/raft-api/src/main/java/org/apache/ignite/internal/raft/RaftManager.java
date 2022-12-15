@@ -17,9 +17,7 @@
 
 package org.apache.ignite.internal.raft;
 
-import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Supplier;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
@@ -31,61 +29,52 @@ import org.apache.ignite.lang.NodeStoppingException;
  */
 public interface RaftManager extends IgniteComponent {
     /**
-     * Creates a raft group service providing operations on a raft group. If {@code nodes} contains the current node, then raft group starts
-     * on the current node.
+     * Starts a Raft group and a Raft service on the current node.
      *
-     * @param groupId Raft group id.
-     * @param peerConsistentIds Consistent IDs of Raft peers.
-     * @param lsnrSupplier Raft group listener supplier.
-     * @return Future representing pending completion of the operation.
+     * @param nodeId Raft node ID.
+     * @param configuration Peers and Learners of the Raft group.
+     * @param lsnr Raft group listener.
+     * @param eventsLsnr Raft group events listener.
      * @throws NodeStoppingException If node stopping intention was detected.
      */
-    CompletableFuture<RaftGroupService> prepareRaftGroup(
-            ReplicationGroupId groupId,
-            Collection<String> peerConsistentIds,
-            Supplier<RaftGroupListener> lsnrSupplier
+    CompletableFuture<RaftGroupService> startRaftGroupNode(
+            RaftNodeId nodeId,
+            PeersAndLearners configuration,
+            RaftGroupListener lsnr,
+            RaftGroupEventsListener eventsLsnr
     ) throws NodeStoppingException;
 
     /**
-     * Creates a raft group service providing operations on a raft group. If {@code nodeConsistentIds} or {@code learnerConsistentIds}
-     * contains the current node, then raft group starts on the current node.
+     * Stops a given local Raft node.
      *
-     * @param groupId Raft group id.
-     * @param peerConsistentIds Consistent IDs of Raft peers.
-     * @param learnerConsistentIds Consistent IDs of Raft learner nodes.
-     * @param lsnrSupplier Raft group listener supplier.
-     * @param raftGrpEvtsLsnrSupplier Raft group events listener supplier.
-     * @return Future representing pending completion of the operation.
+     * @param nodeId Raft node ID.
+     * @return {@code true} if the node has been stopped, {@code false} otherwise.
      * @throws NodeStoppingException If node stopping intention was detected.
      */
-    CompletableFuture<RaftGroupService> prepareRaftGroup(
-            ReplicationGroupId groupId,
-            Collection<String> peerConsistentIds,
-            Collection<String> learnerConsistentIds,
-            Supplier<RaftGroupListener> lsnrSupplier,
-            Supplier<RaftGroupEventsListener> raftGrpEvtsLsnrSupplier
-    ) throws NodeStoppingException;
+    boolean stopRaftNode(RaftNodeId nodeId) throws NodeStoppingException;
 
     /**
-     * Stops a raft group on the current node.
+     * Stops all local nodes running the given Raft group.
      *
-     * @param groupId Raft group id.
+     * <p>This method is different from {@link #stopRaftNode} as it stops all nodes that belong to the same Raft group. This can happen
+     * when a Peer and a Learner are started on the same Ignite node.
+     *
+     * @param groupId Raft group ID.
+     * @return {@code true} if at least one node has been stopped, {@code false} otherwise.
      * @throws NodeStoppingException If node stopping intention was detected.
      */
-    void stopRaftGroup(ReplicationGroupId groupId) throws NodeStoppingException;
+    boolean stopRaftNodes(ReplicationGroupId groupId) throws NodeStoppingException;
 
     /**
-     * Creates and starts a raft group service providing operations on a raft group.
+     * Creates a Raft group service providing operations on a Raft group.
      *
-     * @param grpId RAFT group id.
-     * @param peerConsistentIds Consistent IDs of Raft peers.
-     * @param learnerConsistentIds Consistent IDs of Raft learners.
-     * @return Future that will be completed with an instance of RAFT group service.
+     * @param groupId Raft group ID.
+     * @param configuration Peers and Learners of the Raft group.
+     * @return Future that will be completed with an instance of a Raft group service.
      * @throws NodeStoppingException If node stopping intention was detected.
      */
     CompletableFuture<RaftGroupService> startRaftGroupService(
-            ReplicationGroupId grpId,
-            Collection<String> peerConsistentIds,
-            Collection<String> learnerConsistentIds
+            ReplicationGroupId groupId,
+            PeersAndLearners configuration
     ) throws NodeStoppingException;
 }

@@ -17,12 +17,11 @@
 
 package org.apache.ignite.internal.table.distributed.command;
 
+import java.nio.ByteBuffer;
 import java.util.Map;
 import java.util.UUID;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
-import org.apache.ignite.network.annotations.Marshallable;
 import org.apache.ignite.network.annotations.Transferable;
-import org.apache.ignite.raft.jraft.util.ByteString;
 
 /**
  * State machine command for updating a batch of entries.
@@ -31,6 +30,5 @@ import org.apache.ignite.raft.jraft.util.ByteString;
 public interface UpdateAllCommand extends PartitionCommand {
     TablePartitionIdMessage tablePartitionId();
 
-    @Marshallable
-    Map<UUID, ByteString> rowsToUpdate();
+    Map<UUID, ByteBuffer> rowsToUpdate();
 }

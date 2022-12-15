@@ -62,11 +62,11 @@ public class SortAggregatePlannerTest extends AbstractAggregatePlannerTest {
      */
     @Test
     public void notApplicableForSortAggregate() {
-        TestTable tbl = createAffinityTable().addIndex("val0_val1", 1, 2);
+        TestTable tbl = createAffinityTable("TEST").addIndex("val0_val1", 1, 2);
 
         IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
 
-        publicSchema.addTable("TEST", tbl);
+        publicSchema.addTable(tbl);
 
         String sqlMin = "SELECT MIN(val0) FROM test";
 
@@ -87,11 +87,11 @@ public class SortAggregatePlannerTest extends AbstractAggregatePlannerTest {
     public void testNoSortAppendingWithCorrectCollation() throws Exception {
         RelFieldCollation coll = new RelFieldCollation(1, RelFieldCollation.Direction.DESCENDING);
 
-        TestTable tbl = createAffinityTable().addIndex(RelCollations.of(coll), "val0Idx");
+        TestTable tbl = createAffinityTable("TEST").addIndex(RelCollations.of(coll), "val0Idx");
 
         IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
 
-        publicSchema.addTable("TEST", tbl);
+        publicSchema.addTable(tbl);
 
         String sql = "SELECT ID FROM test WHERE VAL0 IN (SELECT VAL0 FROM test)";
 
@@ -130,7 +130,7 @@ public class SortAggregatePlannerTest extends AbstractAggregatePlannerTest {
                         .add("VAL1", f.createJavaType(Integer.class))
                         .add("GRP0", f.createJavaType(Integer.class))
                         .add("GRP1", f.createJavaType(Integer.class))
-                        .build()) {
+                        .build(), "TEST") {
 
             @Override
             public IgniteDistribution distribution() {
@@ -141,7 +141,7 @@ public class SortAggregatePlannerTest extends AbstractAggregatePlannerTest {
 
         IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
 
-        publicSchema.addTable("TEST", tbl);
+        publicSchema.addTable(tbl);
 
         String sql = "SELECT MIN(val0) FROM test GROUP BY grp1, grp0";
 
@@ -178,7 +178,7 @@ public class SortAggregatePlannerTest extends AbstractAggregatePlannerTest {
                         .add("VAL1", f.createJavaType(Integer.class))
                         .add("GRP0", f.createJavaType(Integer.class))
                         .add("GRP1", f.createJavaType(Integer.class))
-                        .build()) {
+                        .build(), "TEST") {
 
             @Override
             public IgniteDistribution distribution() {
@@ -189,7 +189,7 @@ public class SortAggregatePlannerTest extends AbstractAggregatePlannerTest {
 
         IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
 
-        publicSchema.addTable("TEST", tbl);
+        publicSchema.addTable(tbl);
 
         String sql = "SELECT MIN(val0) FROM test GROUP BY grp1, grp0";
 

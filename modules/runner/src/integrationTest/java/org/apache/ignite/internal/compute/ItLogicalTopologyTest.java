@@ -26,11 +26,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.AbstractClusterIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.network.message.ScaleCubeMessage;
+import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.network.ClusterNode;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
@@ -93,7 +97,7 @@ class ItLogicalTopologyTest extends AbstractClusterIntegrationTest {
     }
 
     @Test
-    void receivesLogicalTopologyEventsFromRestart(TestInfo testInfo) throws Exception {
+    void receivesLogicalTopologyEventsCausedByNodeRestart(TestInfo testInfo) throws Exception {
         IgniteImpl entryNode = node(0);
 
         Ignite secondIgnite = startNode(1, testInfo);
@@ -102,21 +106,64 @@ class ItLogicalTopologyTest extends AbstractClusterIntegrationTest {
 
         restartNode(1, testInfo);
 
-        assertTrue(waitForCondition(() -> events.size() >= 4, 10_000));
+        waitForCondition(() -> events.size() >= 2, 10_000);
 
-        assertThat(events, hasSize(4));
+        assertThat(events, hasSize(2));
 
-        Event leaveEvent = events.get(2);
+        Event leaveEvent = events.get(0);
 
         assertFalse(leaveEvent.appeared);
         assertThat(leaveEvent.node.name(), is(secondIgnite.name()));
         assertThat(leaveEvent.topologyVersion, is(3L));
 
-        Event joinEvent = events.get(3);
+        Event joinEvent = events.get(1);
 
         assertTrue(joinEvent.appeared);
         assertThat(joinEvent.node.name(), is(secondIgnite.name()));
         assertThat(joinEvent.topologyVersion, is(4L));
+    }
+
+    @Test
+    void nodeReturnedToPhysicalTopologyReturnsToLogicalTopology(TestInfo testInfo) throws Exception {
+        IgniteImpl entryNode = node(0);
+
+        IgniteImpl secondIgnite = startNode(1, testInfo);
+
+        makeSecondNodeDisappearForFirstNode(entryNode, secondIgnite);
+
+        CountDownLatch secondIgniteAppeared = new CountDownLatch(1);
+
+        entryNode.logicalTopologyService().addEventListener(new LogicalTopologyEventListener() {
+            @Override
+            public void onAppeared(ClusterNode appearedNode, LogicalTopologySnapshot newTopology) {
+                if (appearedNode.name().equals(secondIgnite.name())) {
+                    secondIgniteAppeared.countDown();
+                }
+
+            }
+        });
+
+        entryNode.stopDroppingMessages();
+
+        assertTrue(secondIgniteAppeared.await(10, TimeUnit.SECONDS), "Did not see second node coming back in time");
+    }
+
+    private static void makeSecondNodeDisappearForFirstNode(IgniteImpl firstIgnite, IgniteImpl secondIgnite) throws InterruptedException {
+        CountDownLatch secondIgniteDisappeared = new CountDownLatch(1);
+
+        firstIgnite.logicalTopologyService().addEventListener(new LogicalTopologyEventListener() {
+            @Override
+            public void onDisappeared(ClusterNode disappearedNode, LogicalTopologySnapshot newTopology) {
+                if (disappearedNode.name().equals(secondIgnite.name())) {
+                    secondIgniteDisappeared.countDown();
+                }
+            }
+        });
+
+        firstIgnite.dropMessages((recipientConsistentId, message) ->
+                secondIgnite.node().name().equals(recipientConsistentId) && message instanceof ScaleCubeMessage);
+
+        assertTrue(secondIgniteDisappeared.await(10, TimeUnit.SECONDS), "Did not see second node leaving in time");
     }
 
     private static class Event {
@@ -128,6 +175,11 @@ class ItLogicalTopologyTest extends AbstractClusterIntegrationTest {
             this.appeared = appeared;
             this.node = node;
             this.topologyVersion = topologyVersion;
+        }
+
+        @Override
+        public String toString() {
+            return S.toString(this);
         }
     }
 }

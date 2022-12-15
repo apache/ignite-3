@@ -122,7 +122,7 @@ public class CmgRaftGroupListenerTest {
     }
 
     @Test
-    void unsuccessfulJoinReadyExecutesOnLogicalTopologyChanged() {
+    void unsuccessfulJoinReadyDoesNotExecuteOnLogicalTopologyChanged() {
         listener.onWrite(iterator(msgFactory.joinReadyCommand().node(node).build()));
 
         verify(onLogicalTopologyChanged, never()).accept(anyLong());

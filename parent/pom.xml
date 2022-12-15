@@ -103,6 +103,7 @@
         <bytebuddy.version>1.12.8</bytebuddy.version>
         <mock-server.version>5.13.2</mock-server.version>
         <archunit.version>0.23.1</archunit.version>
+        <auto-service.version>1.0.1</auto-service.version>
 
         <!-- Plugins versions -->
         <apache.rat.plugin.version>0.13</apache.rat.plugin.version>
@@ -631,7 +632,6 @@
                 <version>${swagger.annotations.legacy.version}</version>
             </dependency>
 
-
             <dependency>
                 <groupId>com.typesafe</groupId>
                 <artifactId>config</artifactId>
@@ -957,6 +957,12 @@
                 <groupId>org.mock-server</groupId>
                 <artifactId>mockserver-junit-jupiter</artifactId>
                 <version>${mock-server.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.google.auto.service</groupId>
+                <artifactId>auto-service-annotations</artifactId>
+                <version>${auto-service.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

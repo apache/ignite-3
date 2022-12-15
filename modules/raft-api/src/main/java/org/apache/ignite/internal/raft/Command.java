@@ -17,10 +17,10 @@
 
 package org.apache.ignite.internal.raft;
 
-import java.io.Serializable;
+import org.apache.ignite.network.NetworkMessage;
 
 /**
  * A marker interface for replication group command.
  */
-public interface Command extends Serializable {
+public interface Command extends NetworkMessage {
 }

@@ -51,6 +51,7 @@ import picocli.shell.jline3.PicocliCommands;
 public class IgnitePicocliCommands implements CommandRegistry {
 
     private final CommandLine cmd;
+
     private final Set<String> commands;
     private final Map<String, String> aliasCommand = new HashMap<>();
     private final DynamicCompleterRegistry completerRegistry;
@@ -73,9 +74,9 @@ public class IgnitePicocliCommands implements CommandRegistry {
         }
     }
 
-    /** Returns the usage help message as a String. */
-    public String usageMessage() {
-        return cmd.getUsageMessage();
+    /** Returns the {@link CommandLine} instance. */
+    public CommandLine getCmd() {
+        return cmd;
     }
 
     /** {@inheritDoc} */
@@ -156,12 +157,16 @@ public class IgnitePicocliCommands implements CommandRegistry {
     }
 
     @Override
-    public Object invoke(CommandRegistry.CommandSession session, String command, Object[] args) throws Exception {
+    public Object invoke(CommandRegistry.CommandSession session, String command, Object[] args) {
         List<String> arguments = new ArrayList<>();
         arguments.add(command);
         Arrays.stream(args).map(Object::toString).forEach(arguments::add);
         cmd.execute(arguments.toArray(new String[0]));
         return null;
+    }
+
+    public Object executeHelp(Object[] args) {
+        return invoke(new CommandSession(), "help", args);
     }
 
     @Override

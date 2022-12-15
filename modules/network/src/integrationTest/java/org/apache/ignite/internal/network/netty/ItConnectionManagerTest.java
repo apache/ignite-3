@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.network.netty;
 
+import static org.apache.ignite.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.isA;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -55,7 +56,6 @@ import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.OutNetworkObject;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
-import org.apache.ignite.network.serialization.TestMessageSerializationRegistryImpl;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -315,7 +315,7 @@ public class ItConnectionManagerTest {
      * @return Connection manager.
      */
     private ConnectionManagerWrapper startManager(int port) throws Exception {
-        return startManager(port, new TestMessageSerializationRegistryImpl());
+        return startManager(port, defaultSerializationRegistry());
     }
 
     /**
