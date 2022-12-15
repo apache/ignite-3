@@ -501,7 +501,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
         private static void ValidateFieldType(FieldInfo fieldInfo, Column column)
         {
             var columnType = column.Type.ToType();
-            var fieldType = fieldInfo.FieldType;
+            var fieldType = Nullable.GetUnderlyingType(fieldInfo.FieldType) ?? fieldInfo.FieldType;
 
             if (fieldType != columnType)
             {
