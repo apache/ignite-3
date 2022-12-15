@@ -88,6 +88,9 @@ public class ClientSqlColumnTypeConverter {
             case NUMBER:
                 return 18;
 
+            case NULL:
+                return 19;
+
             default:
                 throw new IllegalArgumentException("Invalid column type: " + columnType);
         }
@@ -157,6 +160,9 @@ public class ClientSqlColumnTypeConverter {
 
             case 18:
                 return SqlColumnType.NUMBER;
+
+            case 19:
+                return SqlColumnType.NULL;
 
             default:
                 throw new IllegalArgumentException("Invalid column type code: " + ordinal);
