@@ -42,6 +42,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
         public static readonly MethodInfo IsNull = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.IsNull))!;
 
         private static readonly MethodInfo AppendByte = typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendByte))!;
+        private static readonly MethodInfo AppendByteNullable = typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendByteNullable))!;
         private static readonly MethodInfo AppendShort = typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendShort))!;
         private static readonly MethodInfo AppendInt = typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendInt))!;
         private static readonly MethodInfo AppendLong = typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendLong))!;
@@ -81,6 +82,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
         {
             { typeof(string), AppendString },
             { typeof(sbyte), AppendByte },
+            { typeof(sbyte?), AppendByteNullable },
             { typeof(short), AppendShort },
             { typeof(int), AppendInt },
             { typeof(long), AppendLong },
