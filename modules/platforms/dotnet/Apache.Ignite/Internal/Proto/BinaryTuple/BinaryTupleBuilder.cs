@@ -214,6 +214,22 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         }
 
         /// <summary>
+        /// Appends a short.
+        /// </summary>
+        /// <param name="value">Value.</param>
+        public void AppendShortNullable(short? value)
+        {
+            if (value == null)
+            {
+                AppendNull();
+            }
+            else
+            {
+                AppendShort(value.Value);
+            }
+        }
+
+        /// <summary>
         /// Appends an int.
         /// </summary>
         /// <param name="value">Value.</param>
@@ -241,6 +257,22 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             }
 
             OnWrite();
+        }
+
+        /// <summary>
+        /// Appends an int.
+        /// </summary>
+        /// <param name="value">Value.</param>
+        public void AppendIntNullable(int? value)
+        {
+            if (value == null)
+            {
+                AppendNull();
+            }
+            else
+            {
+                AppendInt(value.Value);
+            }
         }
 
         /// <summary>
@@ -278,6 +310,22 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         }
 
         /// <summary>
+        /// Appends a long.
+        /// </summary>
+        /// <param name="value">Value.</param>
+        public void AppendLongNullable(long? value)
+        {
+            if (value == null)
+            {
+                AppendNull();
+            }
+            else
+            {
+                AppendLong(value.Value);
+            }
+        }
+
+        /// <summary>
         /// Appends a gloat.
         /// </summary>
         /// <param name="value">Value.</param>
@@ -294,6 +342,22 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             }
 
             OnWrite();
+        }
+
+        /// <summary>
+        /// Appends a gloat.
+        /// </summary>
+        /// <param name="value">Value.</param>
+        public void AppendFloatNullable(float? value)
+        {
+            if (value == null)
+            {
+                AppendNull();
+            }
+            else
+            {
+                AppendFloat(value.Value);
+            }
         }
 
         /// <summary>
@@ -321,6 +385,22 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             }
 
             OnWrite();
+        }
+
+        /// <summary>
+        /// Appends a double.
+        /// </summary>
+        /// <param name="value">Value.</param>
+        public void AppendDoubleNullable(double? value)
+        {
+            if (value == null)
+            {
+                AppendNull();
+            }
+            else
+            {
+                AppendDouble(value.Value);
+            }
         }
 
         /// <summary>
