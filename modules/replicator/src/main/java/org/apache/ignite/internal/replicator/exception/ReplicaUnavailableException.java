@@ -21,7 +21,6 @@ import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_UNAVAILABLE_
 
 import java.util.UUID;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
 
 /**
