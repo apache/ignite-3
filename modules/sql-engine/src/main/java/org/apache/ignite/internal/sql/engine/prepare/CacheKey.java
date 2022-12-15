@@ -17,18 +17,24 @@
 
 package org.apache.ignite.internal.sql.engine.prepare;
 
+import java.util.Arrays;
 import java.util.Objects;
 
 /**
  * CacheKey.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * The class uses to distinguish different query plans which could be various for the same query text but different context. As example such
+ * context could be schema name, dynamic parameters, and so on...
  */
 public class CacheKey {
+    public static final Class[] EMPTY_CLASS_ARRAY = {};
+
     private final String schemaName;
 
     private final String query;
 
     private final Object contextKey;
+
+    private final Class[] paramTypes;
 
     /**
      * Constructor.
@@ -37,11 +43,13 @@ public class CacheKey {
      * @param query      Query string.
      * @param contextKey Optional context key to differ queries with and without/different flags, having an impact on result plan (like
      *                   LOCAL flag)
+     * @param paramTypes Types of all dynamic parameters, no any type can be {@code null}.
      */
-    public CacheKey(String schemaName, String query, Object contextKey) {
+    public CacheKey(String schemaName, String query, Object contextKey, Class[] paramTypes) {
         this.schemaName = schemaName;
         this.query = query;
         this.contextKey = contextKey;
+        this.paramTypes = paramTypes;
     }
 
     /**
@@ -51,7 +59,7 @@ public class CacheKey {
      * @param query      Query string.
      */
     public CacheKey(String schemaName, String query) {
-        this(schemaName, query, null);
+        this(schemaName, query, null, EMPTY_CLASS_ARRAY);
     }
 
     /** {@inheritDoc} */
@@ -72,15 +80,19 @@ public class CacheKey {
         if (!query.equals(cacheKey.query)) {
             return false;
         }
-        return Objects.equals(contextKey, cacheKey.contextKey);
+        if (Objects.equals(contextKey, cacheKey.contextKey)) {
+            return false;
+        }
+
+        return Arrays.deepEquals(paramTypes, cacheKey.paramTypes);
     }
 
-    /** {@inheritDoc} */
     @Override
     public int hashCode() {
         int result = schemaName.hashCode();
         result = 31 * result + query.hashCode();
         result = 31 * result + (contextKey != null ? contextKey.hashCode() : 0);
+        result = 31 * result + Arrays.deepHashCode(paramTypes);
         return result;
     }
 }

@@ -304,7 +304,7 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
                 // .matches(containsIndexScan("PUBLIC", "TEST_TBL", "IDX_ASC"))
                 // .matches(not(containsSubPlan("IgniteSort")))
                 .ordered()
-                .returns(new Object[]{null})
+                .returns(null)
                 .returns(1)
                 .returns(2)
                 .returns(3)
@@ -314,7 +314,7 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
                 .matches(containsIndexScan("PUBLIC", "TEST_TBL", "IDX_ASC"))
                 .matches(not(containsSubPlan("IgniteSort")))
                 .ordered()
-                .returns(new Object[]{null})
+                .returns(null)
                 .returns(1)
                 .returns(2)
                 .returns(3)
@@ -326,7 +326,7 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
                 .returns(1)
                 .returns(2)
                 .returns(3)
-                .returns(new Object[]{null})
+                .returns(null)
                 .check();
 
         assertQuery("select c1 from test_tbl ORDER BY c1 desc")
@@ -336,13 +336,13 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
                 .returns(3)
                 .returns(2)
                 .returns(1)
-                .returns(new Object[]{null})
+                .returns(null)
                 .check();
 
         assertQuery("select c1 from test_tbl ORDER BY c1 desc nulls first")
                 .matches(containsSubPlan("IgniteSort"))
                 .ordered()
-                .returns(new Object[]{null})
+                .returns(null)
                 .returns(3)
                 .returns(2)
                 .returns(1)
@@ -355,7 +355,7 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
                 .returns(3)
                 .returns(2)
                 .returns(1)
-                .returns(new Object[]{null})
+                .returns(null)
                 .check();
     }
 
