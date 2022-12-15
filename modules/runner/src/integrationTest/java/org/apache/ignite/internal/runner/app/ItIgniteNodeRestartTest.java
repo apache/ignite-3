@@ -816,7 +816,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         assertThrows(TransactionException.class, () -> table.keyValueView().get(null, Tuple.create().set("id", 0)));
 
-        createTableWithData(ignite, TABLE_NAME_2, 1, 1);
+        createTableWithoutData(ignite, TABLE_NAME_2, 1, 1);
 
         components = startPartialNode(1, null);
 
@@ -1030,6 +1030,21 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 session.execute(null, "INSERT INTO " + name + "(id, name) VALUES (?, ?)",
                         i, VALUE_PRODUCER.apply(i));
             }
+        }
+    }
+
+    /**
+     * Creates a table and load data to it.
+     *
+     * @param ignite Ignite.
+     * @param name Table name.
+     * @param replicas Replica factor.
+     * @param partitions Partitions count.
+     */
+    private static void createTableWithoutData(Ignite ignite, String name, int replicas, int partitions) {
+        try (Session session = ignite.sql().createSession()) {
+            session.execute(null, "CREATE TABLE " + name
+                    + "(id INT PRIMARY KEY, name VARCHAR) WITH replicas=" + replicas + ", partitions=" + partitions);
         }
     }
 
