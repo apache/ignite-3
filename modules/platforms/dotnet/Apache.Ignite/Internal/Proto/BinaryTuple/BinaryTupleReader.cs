@@ -96,20 +96,18 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// </summary>
         /// <param name="index">Index.</param>
         /// <returns>Value.</returns>
-        public sbyte GetByte(int index) => GetByteNullable(index) ?? throw GetNullElementException(index);
+        public sbyte GetByte(int index) => Seek(index) switch
+        {
+            { IsEmpty: true } => default,
+            var s => unchecked((sbyte)s[0])
+        };
 
         /// <summary>
         /// Gets a byte value.
         /// </summary>
         /// <param name="index">Index.</param>
         /// <returns>Value.</returns>
-        public sbyte? GetByteNullable(int index) => IsNull(index)
-            ? null
-            : Seek(index, skipNullCheck: true) switch
-            {
-                { IsEmpty: true } => default,
-                var s => unchecked((sbyte)s[0])
-            };
+        public sbyte? GetByteNullable(int index) => IsNull(index) ? null : GetByte(index);
 
         /// <summary>
         /// Gets a byte value as bool.
@@ -491,7 +489,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             }
         }
 
-        private ReadOnlySpan<byte> Seek(int index, bool skipNullCheck = false)
+        private ReadOnlySpan<byte> Seek(int index)
         {
             Debug.Assert(index >= 0, "index >= 0");
             Debug.Assert(index < _numElements, "index < numElements");
@@ -511,7 +509,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                 throw new InvalidOperationException("Corrupted offset table");
             }
 
-            if (!skipNullCheck && offset == nextOffset && IsNull(index))
+            if (offset == nextOffset && IsNull(index))
             {
                 throw GetNullElementException(index);
             }
