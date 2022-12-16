@@ -716,13 +716,15 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
                     b.AppendTimestampNullable(null);
                     b.AppendDurationNullable(Duration.FromMinutes(1));
                     b.AppendDurationNullable(null);
-                    b.AppendPeriodNullable(Period.FromMinutes(1));
+                    b.AppendPeriodNullable(Period.FromDays(1));
                     b.AppendPeriodNullable(null);
                 },
                 100);
 
             Assert.AreEqual(1, reader.GetByteNullable(0));
             Assert.IsNull(reader.GetByteNullable(1));
+            Assert.AreEqual(1, reader.GetShortNullable(2));
+            Assert.IsNull(reader.GetShortNullable(3));
         }
 
         [Test]
