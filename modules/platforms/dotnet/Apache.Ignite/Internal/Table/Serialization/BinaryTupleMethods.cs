@@ -74,21 +74,35 @@ namespace Apache.Ignite.Internal.Table.Serialization
             typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendBytesNullable), new[] { typeof(byte[]) })!;
 
         private static readonly MethodInfo GetByte = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetByte))!;
+        private static readonly MethodInfo GetByteNullable = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetByteNullable))!;
         private static readonly MethodInfo GetByteAsBool = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetByteAsBool))!;
+        private static readonly MethodInfo GetByteAsBoolNullable = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetByteAsBoolNullable))!;
         private static readonly MethodInfo GetShort = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetShort))!;
+        private static readonly MethodInfo GetShortNullable = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetShortNullable))!;
         private static readonly MethodInfo GetInt = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetInt))!;
+        private static readonly MethodInfo GetIntNullable = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetIntNullable))!;
         private static readonly MethodInfo GetLong = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetLong))!;
+        private static readonly MethodInfo GetLongNullable = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetLongNullable))!;
         private static readonly MethodInfo GetFloat = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetFloat))!;
+        private static readonly MethodInfo GetFloatNullable = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetFloatNullable))!;
         private static readonly MethodInfo GetDouble = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetDouble))!;
+        private static readonly MethodInfo GetDoubleNullable = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetDoubleNullable))!;
         private static readonly MethodInfo GetGuid = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetGuid))!;
+        private static readonly MethodInfo GetGuidNullable = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetGuidNullable))!;
         private static readonly MethodInfo GetString = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetStringNullable))!;
         private static readonly MethodInfo GetDate = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetDate))!;
-        private static readonly MethodInfo GetBitmask = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetBitmask))!;
+        private static readonly MethodInfo GetDateNullable = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetDateNullable))!;
+        private static readonly MethodInfo GetBitmask = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetBitmaskNullable))!;
         private static readonly MethodInfo GetTime = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetTime))!;
+        private static readonly MethodInfo GetTimeNullable = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetTimeNullable))!;
         private static readonly MethodInfo GetDateTime = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetDateTime))!;
+        private static readonly MethodInfo GetDateTimeNullable = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetDateTimeNullable))!;
         private static readonly MethodInfo GetTimestamp = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetTimestamp))!;
+        private static readonly MethodInfo GetTimestampNullable = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetTimestampNullable))!;
         private static readonly MethodInfo GetDecimal = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetDecimal))!;
+        private static readonly MethodInfo GetDecimalNullable = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetDecimalNullable))!;
         private static readonly MethodInfo GetNumber = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetNumber))!;
+        private static readonly MethodInfo GetNumberNullable = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetNumberNullable))!;
         private static readonly MethodInfo GetBytes = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetBytesNullable))!;
 
         private static readonly IReadOnlyDictionary<Type, MethodInfo> WriteMethods = new Dictionary<Type, MethodInfo>
@@ -128,20 +142,34 @@ namespace Apache.Ignite.Internal.Table.Serialization
         {
             { typeof(string), GetString },
             { typeof(sbyte), GetByte },
+            { typeof(sbyte?), GetByteNullable },
             { typeof(bool), GetByteAsBool },
+            { typeof(bool?), GetByteAsBoolNullable },
             { typeof(short), GetShort },
+            { typeof(short?), GetShortNullable },
             { typeof(int), GetInt },
+            { typeof(int?), GetIntNullable },
             { typeof(long), GetLong },
+            { typeof(long?), GetLongNullable },
             { typeof(float), GetFloat },
+            { typeof(float?), GetFloatNullable },
             { typeof(double), GetDouble },
+            { typeof(double?), GetDoubleNullable },
             { typeof(Guid), GetGuid },
+            { typeof(Guid?), GetGuidNullable },
             { typeof(LocalDate), GetDate },
+            { typeof(LocalDate?), GetDateNullable },
             { typeof(BitArray), GetBitmask },
             { typeof(LocalTime), GetTime },
+            { typeof(LocalTime?), GetTimeNullable },
             { typeof(LocalDateTime), GetDateTime },
+            { typeof(LocalDateTime?), GetDateTimeNullable },
             { typeof(Instant), GetTimestamp },
+            { typeof(Instant?), GetTimestampNullable },
             { typeof(decimal), GetDecimal },
+            { typeof(decimal?), GetDecimalNullable },
             { typeof(BigInteger), GetNumber },
+            { typeof(BigInteger?), GetNumberNullable },
             { typeof(byte[]), GetBytes }
         };
 
