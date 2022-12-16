@@ -144,6 +144,13 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         };
 
         /// <summary>
+        /// Gets an int value.
+        /// </summary>
+        /// <param name="index">Index.</param>
+        /// <returns>Value.</returns>
+        public int? GetIntNullable(int index) => IsNull(index) ? null : GetInt(index);
+
+        /// <summary>
         /// Gets a long value.
         /// </summary>
         /// <param name="index">Index.</param>
