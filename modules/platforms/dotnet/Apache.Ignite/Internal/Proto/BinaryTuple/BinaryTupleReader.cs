@@ -96,11 +96,20 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// </summary>
         /// <param name="index">Index.</param>
         /// <returns>Value.</returns>
-        public sbyte GetByte(int index) => Seek(index) switch
-        {
-            { IsEmpty: true } => default,
-            var s => unchecked((sbyte)s[0])
-        };
+        public sbyte GetByte(int index) => GetByteNullable(index) ?? throw GetNullElementException(index);
+
+        /// <summary>
+        /// Gets a byte value.
+        /// </summary>
+        /// <param name="index">Index.</param>
+        /// <returns>Value.</returns>
+        public sbyte? GetByteNullable(int index) => IsNull(index)
+            ? null
+            : Seek(index, skipNullCheck: true) switch
+            {
+                { IsEmpty: true } => default,
+                var s => unchecked((sbyte)s[0])
+            };
 
         /// <summary>
         /// Gets a byte value as bool.
@@ -443,6 +452,9 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             return res;
         }
 
+        private static InvalidOperationException GetNullElementException(int index) =>
+            new($"Binary tuple element with index {index} is null.");
+
         private int GetOffset(int position)
         {
             var span = _buffer.Span[position..];
@@ -472,7 +484,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             }
         }
 
-        private ReadOnlySpan<byte> Seek(int index)
+        private ReadOnlySpan<byte> Seek(int index, bool skipNullCheck = false)
         {
             Debug.Assert(index >= 0, "index >= 0");
             Debug.Assert(index < _numElements, "index < numElements");
@@ -492,9 +504,9 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                 throw new InvalidOperationException("Corrupted offset table");
             }
 
-            if (offset == nextOffset && IsNull(index))
+            if (!skipNullCheck && offset == nextOffset && IsNull(index))
             {
-                throw new InvalidOperationException($"Binary tuple element with index {index} is null.");
+                throw GetNullElementException(index);
             }
 
             return _buffer.Span.Slice(offset, nextOffset - offset);
