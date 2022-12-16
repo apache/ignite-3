@@ -34,6 +34,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.NamedListChange;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
@@ -82,6 +83,9 @@ public class DistributionZoneManager implements IgniteComponent {
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
+    /** Prevents double stopping of the component. */
+    private final AtomicBoolean stopGuard = new AtomicBoolean();
+
     /** Logical topology service to track topology changes. */
     private final LogicalTopologyService logicalTopologyService;
 
@@ -89,17 +93,17 @@ public class DistributionZoneManager implements IgniteComponent {
     private final LogicalTopologyEventListener topologyEventListener = new LogicalTopologyEventListener() {
         @Override
         public void onAppeared(ClusterNode appearedNode, LogicalTopologySnapshot newTopology) {
-            updateMetaStorageKeys(newTopology, false);
+            updateLogicalTopologyInMetaStorage(newTopology, false);
         }
 
         @Override
         public void onDisappeared(ClusterNode disappearedNode, LogicalTopologySnapshot newTopology) {
-            updateMetaStorageKeys(newTopology, false);
+            updateLogicalTopologyInMetaStorage(newTopology, false);
         }
 
         @Override
         public void onTopologyLeap(LogicalTopologySnapshot newTopology) {
-            updateMetaStorageKeys(newTopology, true);
+            updateLogicalTopologyInMetaStorage(newTopology, true);
         }
     };
 
@@ -276,6 +280,12 @@ public class DistributionZoneManager implements IgniteComponent {
     /** {@inheritDoc} */
     @Override
     public void stop() throws Exception {
+        if (!stopGuard.compareAndSet(false, true)) {
+            return;
+        }
+
+        busyLock.block();
+
         logicalTopologyService.removeEventListener(topologyEventListener);
     }
 
@@ -325,6 +335,8 @@ public class DistributionZoneManager implements IgniteComponent {
             } catch (InterruptedException | ExecutionException e) {
                 throw new IgniteInternalException(e);
             }
+
+            assert !logicalTopology.isEmpty() : "Logical topology cannot be empty.";
 
             // Update data nodes for a zone only if the revision of the event is newer than value in that trigger key,
             // so we do not react on a stale events
@@ -416,39 +428,47 @@ public class DistributionZoneManager implements IgniteComponent {
      * @param topologyLeap Flag that indicates whether this updates was trigger by
      *                     {@link LogicalTopologyEventListener#onTopologyLeap(LogicalTopologySnapshot)} or not.
      */
-    private void updateMetaStorageKeys(LogicalTopologySnapshot newTopology, boolean topologyLeap) {
-        Set<String> topologyFromCmg = newTopology.nodes().stream().map(ClusterNode::name).collect(Collectors.toSet());
-
-        Condition updateCondition;
-
-        if (topologyLeap) {
-            updateCondition = value(zonesLogicalTopologyVersionKey()).lt(ByteUtils.longToBytes(newTopology.version()));
-        } else {
-            // This condition may be stronger, as far as we receive topology events one by one.
-            updateCondition = value(zonesLogicalTopologyVersionKey()).eq(ByteUtils.longToBytes(newTopology.version() - 1));
+    private void updateLogicalTopologyInMetaStorage(LogicalTopologySnapshot newTopology, boolean topologyLeap) {
+        if (!busyLock.enterBusy()) {
+            throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
         }
 
-        If iff = If.iif(
-                updateCondition,
-                updateLogicalTopologyAndVersion(topologyFromCmg, newTopology.version()),
-                ops().yield(false)
-        );
+        try {
+            Set<String> topologyFromCmg = newTopology.nodes().stream().map(ClusterNode::name).collect(Collectors.toSet());
 
-        metaStorageManager.invoke(iff).thenAccept(res -> {
-            if (res.getAsBoolean()) {
-                LOG.debug(
-                        "Distribution zones' logical topology and version keys were updated [topology = {}, version = {}]",
-                        Arrays.toString(topologyFromCmg.toArray()),
-                        newTopology.version()
-                );
+            Condition updateCondition;
+
+            if (topologyLeap) {
+                updateCondition = value(zonesLogicalTopologyVersionKey()).lt(ByteUtils.longToBytes(newTopology.version()));
             } else {
-                LOG.debug(
-                        "Failed to update distribution zones' logical topology and version keys [topology = {}, version = {}]",
-                        Arrays.toString(topologyFromCmg.toArray()),
-                        newTopology.version()
-                );
+                // This condition may be stronger, as far as we receive topology events one by one.
+                updateCondition = value(zonesLogicalTopologyVersionKey()).eq(ByteUtils.longToBytes(newTopology.version() - 1));
             }
-        });
+
+            If iff = If.iif(
+                    updateCondition,
+                    updateLogicalTopologyAndVersion(topologyFromCmg, newTopology.version()),
+                    ops().yield(false)
+            );
+
+            metaStorageManager.invoke(iff).thenAccept(res -> {
+                if (res.getAsBoolean()) {
+                    LOG.debug(
+                            "Distribution zones' logical topology and version keys were updated [topology = {}, version = {}]",
+                            Arrays.toString(topologyFromCmg.toArray()),
+                            newTopology.version()
+                    );
+                } else {
+                    LOG.debug(
+                            "Failed to update distribution zones' logical topology and version keys [topology = {}, version = {}]",
+                            Arrays.toString(topologyFromCmg.toArray()),
+                            newTopology.version()
+                    );
+                }
+            });
+        } finally {
+            busyLock.leaveBusy();
+        }
     }
 
     /**
@@ -457,41 +477,50 @@ public class DistributionZoneManager implements IgniteComponent {
      */
     private void initMetaStorageKeysOnStart() {
         logicalTopologyService.logicalTopologyOnLeader().thenAccept(snapshot -> {
-            long topologyVersionFromCmg = snapshot.version();
-
-            byte[] topVerFromMetastorage;
-
-            try {
-                topVerFromMetastorage = metaStorageManager.get(zonesLogicalTopologyVersionKey()).get().value();
-            } catch (InterruptedException | ExecutionException e) {
-                throw new IgniteInternalException(UNEXPECTED_ERR, e);
+            if (!busyLock.enterBusy()) {
+                throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
             }
 
-            if (topVerFromMetastorage == null || ByteUtils.bytesToLong(topVerFromMetastorage) < topologyVersionFromCmg) {
-                Set<String> topologyFromCmg = snapshot.nodes().stream().map(ClusterNode::name).collect(Collectors.toSet());
+            try {
+                long topologyVersionFromCmg = snapshot.version();
 
-                Condition topologyVersionCondition = value(zonesLogicalTopologyVersionKey()).eq(topVerFromMetastorage);
+                byte[] topVerFromMetastorage;
 
-                If iff = If.iif(topologyVersionCondition,
-                        updateLogicalTopologyAndVersion(topologyFromCmg, topologyVersionFromCmg),
-                        ops().yield(false)
-                );
+                try {
+                    topVerFromMetastorage = metaStorageManager.get(zonesLogicalTopologyVersionKey()).get().value();
+                } catch (InterruptedException | ExecutionException e) {
+                    throw new IgniteInternalException(UNEXPECTED_ERR, e);
+                }
 
-                metaStorageManager.invoke(iff).thenAccept(res -> {
-                    if (res.getAsBoolean()) {
-                        LOG.debug(
-                                "Distribution zones' logical topology and version keys were initialised [topology = {}, version = {}]",
-                                Arrays.toString(topologyFromCmg.toArray()),
-                                topologyVersionFromCmg
-                        );
-                    } else {
-                        LOG.debug(
-                                "Failed to initialize distribution zones' logical topology and version keys [topology = {}, version = {}]",
-                                Arrays.toString(topologyFromCmg.toArray()),
-                                topologyVersionFromCmg
-                        );
-                    }
-                });
+                if (topVerFromMetastorage == null || ByteUtils.bytesToLong(topVerFromMetastorage) < topologyVersionFromCmg) {
+                    Set<String> topologyFromCmg = snapshot.nodes().stream().map(ClusterNode::name).collect(Collectors.toSet());
+
+                    Condition topologyVersionCondition = value(zonesLogicalTopologyVersionKey()).eq(topVerFromMetastorage);
+
+                    If iff = If.iif(topologyVersionCondition,
+                            updateLogicalTopologyAndVersion(topologyFromCmg, topologyVersionFromCmg),
+                            ops().yield(false)
+                    );
+
+                    metaStorageManager.invoke(iff).thenAccept(res -> {
+                        if (res.getAsBoolean()) {
+                            LOG.debug(
+                                    "Distribution zones' logical topology and version keys were initialised [topology = {}, version = {}]",
+                                    Arrays.toString(topologyFromCmg.toArray()),
+                                    topologyVersionFromCmg
+                            );
+                        } else {
+                            LOG.debug(
+                                    "Failed to initialize distribution zones' logical topology "
+                                            + "and version keys [topology = {}, version = {}]",
+                                    Arrays.toString(topologyFromCmg.toArray()),
+                                    topologyVersionFromCmg
+                            );
+                        }
+                    });
+                }
+            } finally {
+                busyLock.leaveBusy();
             }
         });
     }
