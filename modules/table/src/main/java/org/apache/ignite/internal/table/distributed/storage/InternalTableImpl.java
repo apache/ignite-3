@@ -36,6 +36,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
@@ -1340,10 +1341,10 @@ public class InternalTableImpl implements InternalTable {
     }
 
     /**
-     * Wraps {@code ReplicationException} or {@code ConnectException} with {@code TransactionException}.
+     * Wraps {@link ReplicationException} or {@link ConnectException} with {@link TransactionException}.
      *
-     * @param e {@code ReplicationException} or {@CompletionException} with cause {@code ConnectException} or {@code TimeoutException}
-     * @return {@code TransactionException}
+     * @param e {@link ReplicationException} or {@link CompletionException} with cause {@link ConnectException} or {@link TimeoutException}
+     * @return {@link TransactionException}
      */
     private RuntimeException wrapReplicationException(RuntimeException e) {
         RuntimeException e0;
