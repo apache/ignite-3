@@ -231,6 +231,13 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         };
 
         /// <summary>
+        /// Gets a float value.
+        /// </summary>
+        /// <param name="index">Index.</param>
+        /// <returns>Value.</returns>
+        public float? GetFloatNullable(int index) => IsNull(index) ? null : GetFloat(index);
+
+        /// <summary>
         /// Gets a double value.
         /// </summary>
         /// <param name="index">Index.</param>
@@ -243,6 +250,13 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         };
 
         /// <summary>
+        /// Gets a double value.
+        /// </summary>
+        /// <param name="index">Index.</param>
+        /// <returns>Value.</returns>
+        public double? GetDoubleNullable(int index) => IsNull(index) ? null : GetDouble(index);
+
+        /// <summary>
         /// Gets a bit mask value.
         /// </summary>
         /// <param name="index">Index.</param>
@@ -252,6 +266,13 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             { IsEmpty: true } => new BitArray(0),
             var s => new BitArray(s.ToArray())
         };
+
+        /// <summary>
+        /// Gets a bit mask value.
+        /// </summary>
+        /// <param name="index">Index.</param>
+        /// <returns>Value.</returns>
+        public BitArray? GetBitmaskNullable(int index) => IsNull(index) ? null : GetBitmask(index);
 
         /// <summary>
         /// Gets a decimal value.
