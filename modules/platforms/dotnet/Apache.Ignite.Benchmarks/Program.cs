@@ -19,7 +19,6 @@ namespace Apache.Ignite.Benchmarks;
 
 using BenchmarkDotNet.Running;
 using Proto.BinaryTuple;
-using Sql;
 
 internal static class Program
 {

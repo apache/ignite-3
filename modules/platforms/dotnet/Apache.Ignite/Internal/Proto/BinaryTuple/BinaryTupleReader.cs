@@ -360,6 +360,13 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         };
 
         /// <summary>
+        /// Gets a local date and time value.
+        /// </summary>
+        /// <param name="index">Index.</param>
+        /// <returns>Value.</returns>
+        public LocalDateTime? GetDateTimeNullable(int index) => IsNull(index) ? null : GetDateTime(index);
+
+        /// <summary>
         /// Gets a timestamp (instant) value.
         /// </summary>
         /// <param name="index">Index.</param>
@@ -373,6 +380,13 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         };
 
         /// <summary>
+        /// Gets a timestamp (instant) value.
+        /// </summary>
+        /// <param name="index">Index.</param>
+        /// <returns>Value.</returns>
+        public Instant? GetTimestampNullable(int index) => IsNull(index) ? null : GetTimestamp(index);
+
+        /// <summary>
         /// Gets a duration value.
         /// </summary>
         /// <param name="index">Index.</param>
@@ -384,6 +398,13 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                 .FromSeconds(BinaryPrimitives.ReadInt64LittleEndian(s))
                 .Plus(Duration.FromNanoseconds(s.Length == 8 ? 0 : BinaryPrimitives.ReadInt32LittleEndian(s[8..])))
         };
+
+        /// <summary>
+        /// Gets a duration value.
+        /// </summary>
+        /// <param name="index">Index.</param>
+        /// <returns>Value.</returns>
+        public Duration? GetDurationNullable(int index) => IsNull(index) ? null : GetDuration(index);
 
         /// <summary>
         /// Gets a period value.
@@ -403,6 +424,13 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                      Period.FromMonths(BinaryPrimitives.ReadInt32LittleEndian(s[4..])) +
                      Period.FromDays(BinaryPrimitives.ReadInt32LittleEndian(s[8..]))
         };
+
+        /// <summary>
+        /// Gets a period value.
+        /// </summary>
+        /// <param name="index">Index.</param>
+        /// <returns>Value.</returns>
+        public Period? GetPeriodNullable(int index) => IsNull(index) ? null : GetPeriod(index);
 
         /// <summary>
         /// Gets bytes.
