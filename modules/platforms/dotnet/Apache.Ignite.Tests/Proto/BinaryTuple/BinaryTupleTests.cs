@@ -747,6 +747,16 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
             Assert.IsNull(reader.GetNumberNullable(23));
             Assert.AreEqual(date, reader.GetDateNullable(24));
             Assert.IsNull(reader.GetDateNullable(25));
+            Assert.AreEqual(dateTime.TimeOfDay, reader.GetTimeNullable(26));
+            Assert.IsNull(reader.GetTimeNullable(27));
+            Assert.AreEqual(dateTime, reader.GetDateTimeNullable(28));
+            Assert.IsNull(reader.GetDateTimeNullable(29));
+            Assert.AreEqual(Instant.FromDateTimeUtc(utcNow), reader.GetTimestampNullable(30));
+            Assert.IsNull(reader.GetTimestampNullable(31));
+            Assert.AreEqual(Duration.FromMinutes(1), reader.GetDurationNullable(32));
+            Assert.IsNull(reader.GetDurationNullable(33));
+            Assert.AreEqual(Period.FromDays(1), reader.GetPeriodNullable(34));
+            Assert.IsNull(reader.GetPeriodNullable(35));
         }
 
         [Test]
