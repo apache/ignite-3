@@ -30,6 +30,7 @@ import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Common.UNEXPECTED_ERR;
+import static org.apache.ignite.lang.ErrorGroups.DistributionZones.ZONE_UPDATE_ERR;
 
 import java.util.Collections;
 import java.util.List;
@@ -37,7 +38,6 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.stream.Collectors;
 import org.apache.ignite.configuration.NamedListChange;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
@@ -66,7 +66,6 @@ import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.NodeStoppingException;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -94,6 +93,7 @@ public class DistributionZoneManager implements IgniteComponent {
     /** The logical topology on the last watch event. */
     private Set<String> logicalTopology = Collections.emptySet();
 
+    /** Watch listener id to unregister the watch listener on {@link DistributionZoneManager#stop()} */
     private Long watchListenerId;
 
     /**
@@ -312,22 +312,11 @@ public class DistributionZoneManager implements IgniteComponent {
         }
 
         try {
-            Set<ClusterNode> clusterNodes;
-
-            //TODO temporary code, will be removed in https://issues.apache.org/jira/browse/IGNITE-18087
-            try {
-                clusterNodes = cmgManager.logicalTopology().get().nodes();
-            } catch (InterruptedException | ExecutionException e) {
-                throw new IgniteInternalException(e);
-            }
-
             // Update data nodes for a zone only if the revision of the event is newer than value in that trigger key,
             // so we do not react on a stale events
             CompoundCondition triggerKeyCondition = triggerKeyCondition(revision);
 
-            Set<String> nodesConsistentIds = clusterNodes.stream().map(ClusterNode::name).collect(Collectors.toSet());
-
-            byte[] logicalTopologyBytes = ByteUtils.toBytes(logicalTopology);
+            byte[] logicalTopologyBytes = toBytes(logicalTopology);
 
             Update dataNodesAndTriggerKeyUpd = updateDataNodesAndTriggerKey(zoneId, revision, logicalTopologyBytes);
 
@@ -413,29 +402,19 @@ public class DistributionZoneManager implements IgniteComponent {
         try {
             vaultEntry = vaultMgr.get(zonesLogicalTopologyKey()).get();
         } catch (InterruptedException | ExecutionException e) {
-            throw new IgniteInternalException(e);
+            throw new IgniteInternalException(ZONE_UPDATE_ERR, e);
         }
 
         if (vaultEntry != null && vaultEntry.value() != null) {
             logicalTopology = ByteUtils.fromBytes(vaultEntry.value());
-        } else {
-            Set<ClusterNode> clusterNodes;
 
-            try {
-                clusterNodes = cmgManager.logicalTopology().get().nodes();
-            } catch (InterruptedException | ExecutionException e) {
-                throw new IgniteInternalException(e);
-            }
+            zonesConfiguration.distributionZones().value().namedListKeys()
+                    .forEach(zoneName -> {
+                        int zoneId = zonesConfiguration.distributionZones().get(zoneName).zoneId().value();
 
-            logicalTopology = clusterNodes.stream().map(ClusterNode::name).collect(Collectors.toSet());
+                        saveDataNodesToMetaStorage(zoneId, toBytes(logicalTopology), vaultAppliedRevision);
+                    });
         }
-
-        zonesConfiguration.distributionZones().value().namedListKeys()
-                .forEach(zoneName -> {
-                    int zoneId = zonesConfiguration.distributionZones().get(zoneName).zoneId().value();
-
-                    saveDataNodesToMetaStorage(zoneId, toBytes(logicalTopology), vaultAppliedRevision);
-                });
     }
 
     private void registerMetaStorageWatchListener() {
@@ -516,7 +495,7 @@ public class DistributionZoneManager implements IgniteComponent {
                     .thenApply(appliedRevision -> appliedRevision == null ? 0L : bytesToLong(appliedRevision.value()))
                     .get();
         } catch (InterruptedException | ExecutionException e) {
-            throw new IgniteInternalException(e);
+            throw new IgniteInternalException(ZONE_UPDATE_ERR, e);
         }
     }
 

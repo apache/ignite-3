@@ -342,7 +342,7 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
     }
 
     @Test
-    void testLogicalTopologyFromCmgOnZoneManagerStart() {
+    void testLogicalTopologyIsNullOnZoneManagerStart1() {
         mockZones(mockZoneWithAutoAdjust());
 
         mockVaultAppliedRevision(2);
@@ -350,13 +350,13 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
         when(vaultMgr.get(zonesLogicalTopologyKey()))
                 .thenReturn(completedFuture(new VaultEntry(zonesLogicalTopologyKey(), null)));
 
-        mockCmgLocalNodes(Set.of(new ClusterNode("1", "node1", null)));
-
         distributionZoneManager.start();
 
-        verify(keyValueStorage, timeout(1000).times(1)).invoke(any());
+        verify(keyValueStorage, after(500).never()).invoke(any());
 
-        checkDataNodesOfZone(1, Set.of("node1"));
+        Entry entry = keyValueStorage.get(zoneDataNodesKey(1).bytes());
+
+        assertNull(entry.value());
     }
 
     private void mockEmptyZonesList() {

@@ -21,8 +21,13 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesChangeTriggerKey;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
 import static org.apache.ignite.internal.metastorage.client.MetaStorageServiceImpl.toIfInfo;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
+import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
+import static org.apache.ignite.internal.util.ByteUtils.toBytes;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
@@ -33,15 +38,12 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.io.Serializable;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.stream.Collectors;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
-import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
@@ -59,9 +61,10 @@ import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.util.ByteUtils;
+import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultManager;
+import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -76,6 +79,8 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
 
     private static final String NEW_ZONE_NAME = "zone2";
 
+    private static final Set<String> nodes = Set.of("name1");
+
     @Mock
     private ClusterManagementGroupManager cmgManager;
 
@@ -84,6 +89,8 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
     private SimpleInMemoryKeyValueStorage keyValueStorage;
 
     private ConfigurationManager clusterCfgMgr;
+
+    private VaultManager vaultMgr;
 
     @BeforeEach
     public void setUp() {
@@ -100,9 +107,11 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
 
         MetaStorageManager metaStorageManager = mock(MetaStorageManager.class);
 
+        when(metaStorageManager.registerWatch(any(ByteArray.class), any())).thenReturn(completedFuture(null));
+
         cmgManager = mock(ClusterManagementGroupManager.class);
 
-        VaultManager vaultMgr = mock(VaultManager.class);
+        vaultMgr = mock(VaultManager.class);
 
         when(vaultMgr.get(any())).thenReturn(completedFuture(null));
 
@@ -114,6 +123,8 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
         );
 
         clusterCfgMgr.start();
+
+        mockVaultZonesLogicalTopologyKey(nodes);
 
         distributionZoneManager.start();
 
@@ -190,33 +201,18 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
 
     @Test
     void testDataNodesPropagationAfterZoneCreation() throws Exception {
-        Set<ClusterNode> clusterNodes = Set.of(new ClusterNode("1", "name1", null));
-
-        mockCmgLocalNodes(clusterNodes);
-
         distributionZoneManager.createZone(new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).build()).get();
 
-        assertDataNodesForZone(1, clusterNodes);
+        assertDataNodesForZone(1, nodes);
 
         assertZonesChangeTriggerKey(1);
     }
 
     @Test
     void testTriggerKeyPropagationAfterZoneUpdate() throws Exception {
-        Set<ClusterNode> clusterNodes = Set.of(new ClusterNode("1", "name1", null));
-
-        LogicalTopologySnapshot logicalTopologySnapshot = mockCmgLocalNodes(clusterNodes);
-
         distributionZoneManager.createZone(new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).build()).get();
 
         assertZonesChangeTriggerKey(1);
-
-        var clusterNodes2 = Set.of(
-                new ClusterNode("1", "name1", null),
-                new ClusterNode("2", "name2", null)
-        );
-
-        when(logicalTopologySnapshot.nodes()).thenReturn(clusterNodes2);
 
         distributionZoneManager.alterZone(
                 ZONE_NAME,
@@ -225,30 +221,22 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
 
         assertZonesChangeTriggerKey(2);
 
-        assertDataNodesForZone(1, clusterNodes);
+        assertDataNodesForZone(1, nodes);
     }
 
     @Test
     void testZoneDeleteRemovesMetaStorageKey() throws Exception {
-        Set<ClusterNode> clusterNodes = Set.of(new ClusterNode("1", "name1", null));
+        distributionZoneManager.createZone(new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).build()).get();
 
-        mockCmgLocalNodes(clusterNodes);
+        assertDataNodesForZone(1, nodes);
 
-        distributionZoneManager.createZone(new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).build());
-
-        assertDataNodesForZone(1, clusterNodes);
-
-        distributionZoneManager.dropZone(ZONE_NAME);
+        distributionZoneManager.dropZone(ZONE_NAME).get();
 
         assertTrue(waitForCondition(() -> keyValueStorage.get(zoneDataNodesKey(1).bytes()).value() == null, 5000));
     }
 
     @Test
     void testSeveralZoneCreationsUpdatesTriggerKey() throws Exception {
-        Set<ClusterNode> clusterNodes = Set.of(new ClusterNode("1", "name1", null));
-
-        mockCmgLocalNodes(clusterNodes);
-
         distributionZoneManager.createZone(new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).build()).get();
 
         distributionZoneManager.createZone(new DistributionZoneConfigurationParameters.Builder(NEW_ZONE_NAME).build()).get();
@@ -258,10 +246,6 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
 
     @Test
     void testSeveralZoneUpdatesUpdatesTriggerKey() throws Exception {
-        Set<ClusterNode> clusterNodes = Set.of(new ClusterNode("1", "name1", null));
-
-        mockCmgLocalNodes(clusterNodes);
-
         distributionZoneManager.createZone(new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).build()).get();
 
         distributionZoneManager.alterZone(
@@ -279,11 +263,7 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
 
     @Test
     void testDataNodesNotPropagatedAfterZoneCreation() throws Exception {
-        Set<ClusterNode> clusterNodes = Set.of(new ClusterNode("1", "name1", null));
-
-        mockCmgLocalNodes(clusterNodes);
-
-        keyValueStorage.put(zonesChangeTriggerKey().bytes(), ByteUtils.longToBytes(100));
+        keyValueStorage.put(zonesChangeTriggerKey().bytes(), longToBytes(100));
 
         distributionZoneManager.createZone(new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).build()).get();
 
@@ -296,22 +276,11 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
 
     @Test
     void testTriggerKeyNotPropagatedAfterZoneUpdate() throws Exception {
-        Set<ClusterNode> clusterNodes = Set.of(new ClusterNode("1", "name1", null));
-
-        LogicalTopologySnapshot logicalTopologySnapshot = mockCmgLocalNodes(clusterNodes);
-
         distributionZoneManager.createZone(new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).build()).get();
 
-        assertDataNodesForZone(1, clusterNodes);
+        assertDataNodesForZone(1, nodes);
 
-        var clusterNodes2 = Set.of(
-                new ClusterNode("1", "name1", null),
-                new ClusterNode("2", "name2", null)
-        );
-
-        when(logicalTopologySnapshot.nodes()).thenReturn(clusterNodes2);
-
-        keyValueStorage.put(zonesChangeTriggerKey().bytes(), ByteUtils.longToBytes(100));
+        keyValueStorage.put(zonesChangeTriggerKey().bytes(), longToBytes(100));
 
         distributionZoneManager.alterZone(
                 ZONE_NAME,
@@ -322,44 +291,40 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
 
         assertZonesChangeTriggerKey(100);
 
-        assertDataNodesForZone(1, clusterNodes);
+        assertDataNodesForZone(1, nodes);
     }
 
     @Test
     void testZoneDeleteDoNotRemoveMetaStorageKey() throws Exception {
-        Set<ClusterNode> clusterNodes = Set.of(new ClusterNode("1", "name1", null));
+        distributionZoneManager.createZone(new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).build()).get();
 
-        mockCmgLocalNodes(clusterNodes);
+        assertDataNodesForZone(1, nodes);
 
-        distributionZoneManager.createZone(new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).build());
+        keyValueStorage.put(zonesChangeTriggerKey().bytes(), longToBytes(100));
 
-        assertDataNodesForZone(1, clusterNodes);
-
-        keyValueStorage.put(zonesChangeTriggerKey().bytes(), ByteUtils.longToBytes(100));
-
-        distributionZoneManager.dropZone(ZONE_NAME);
+        distributionZoneManager.dropZone(ZONE_NAME).get();
 
         verify(keyValueStorage, timeout(1000).times(2)).invoke(any());
 
-        assertDataNodesForZone(1, clusterNodes);
+        assertDataNodesForZone(1, nodes);
     }
 
-    private LogicalTopologySnapshot mockCmgLocalNodes(Set<ClusterNode> clusterNodes) {
-        LogicalTopologySnapshot logicalTopologySnapshot = mock(LogicalTopologySnapshot.class);
+    private void mockVaultZonesLogicalTopologyKey(Set<String> nodes) {
+        byte[] newLogicalTopology = toBytes(nodes);
 
-        when(cmgManager.logicalTopology()).thenReturn(completedFuture(logicalTopologySnapshot));
-
-        when(logicalTopologySnapshot.nodes()).thenReturn(clusterNodes);
-
-        return logicalTopologySnapshot;
+        when(vaultMgr.get(zonesLogicalTopologyKey()))
+                .thenReturn(completedFuture(new VaultEntry(zonesLogicalTopologyKey(), newLogicalTopology)));
     }
 
-    private void assertDataNodesForZone(int zoneId, @Nullable Set<ClusterNode> clusterNodes) throws InterruptedException {
-        byte[] nodes = clusterNodes == null
-                ? null
-                : ByteUtils.toBytes(clusterNodes.stream().map(ClusterNode::name).collect(Collectors.toSet()));
+    private void assertDataNodesForZone(int zoneId, @Nullable Set<String> expectedNodes) throws InterruptedException {
+        if (expectedNodes == null) {
+            assertNull(keyValueStorage.get(zoneDataNodesKey(zoneId).bytes()).value());
+        } else {
+            Set<String> actual = fromBytes(keyValueStorage.get(zoneDataNodesKey(zoneId).bytes()).value());
 
-        assertTrue(waitForCondition(() -> Arrays.equals(keyValueStorage.get(zoneDataNodesKey(zoneId).bytes()).value(), nodes), 1000));
+            assertTrue(expectedNodes.containsAll(actual));
+            assertTrue(expectedNodes.size() == actual.size());
+        }
     }
 
     private void assertZonesChangeTriggerKey(int revision) throws InterruptedException {
