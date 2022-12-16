@@ -737,6 +737,16 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
             Assert.IsNull(reader.GetStringNullable(13));
             Assert.AreEqual(bytes, reader.GetBytesNullable(14));
             Assert.IsNull(reader.GetBytesNullable(15));
+            Assert.AreEqual(guid, reader.GetGuidNullable(16));
+            Assert.IsNull(reader.GetGuidNullable(17));
+            Assert.AreEqual(bitArray, reader.GetBitmaskNullable(18));
+            Assert.IsNull(reader.GetBitmaskNullable(19));
+            Assert.AreEqual(1, reader.GetDecimalNullable(20, 3));
+            Assert.IsNull(reader.GetDecimalNullable(21, 3));
+            Assert.AreEqual((BigInteger)1, reader.GetNumberNullable(22));
+            Assert.IsNull(reader.GetNumberNullable(23));
+            Assert.AreEqual(date, reader.GetDateNullable(24));
+            Assert.IsNull(reader.GetDateNullable(25));
         }
 
         [Test]
