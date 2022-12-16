@@ -117,6 +117,13 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         public bool GetByteAsBool(int index) => GetByte(index) != 0;
 
         /// <summary>
+        /// Gets a byte value as bool.
+        /// </summary>
+        /// <param name="index">Index.</param>
+        /// <returns>Value.</returns>
+        public bool? GetByteAsBoolNullable(int index) => IsNull(index) ? null : GetByte(index) != 0;
+
+        /// <summary>
         /// Gets a short value.
         /// </summary>
         /// <param name="index">Index.</param>
@@ -127,6 +134,13 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             { Length: 1 } s => unchecked((sbyte)s[0]),
             var s => BinaryPrimitives.ReadInt16LittleEndian(s)
         };
+
+        /// <summary>
+        /// Gets a short value.
+        /// </summary>
+        /// <param name="index">Index.</param>
+        /// <returns>Value.</returns>
+        public short? GetShortNullable(int index) => IsNull(index) ? null : GetShort(index);
 
         /// <summary>
         /// Gets an int value.
@@ -163,6 +177,13 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         };
 
         /// <summary>
+        /// Gets a long value.
+        /// </summary>
+        /// <param name="index">Index.</param>
+        /// <returns>Value.</returns>
+        public long? GetLongNullable(int index) => IsNull(index) ? null : GetLong(index);
+
+        /// <summary>
         /// Gets a Guid value.
         /// </summary>
         /// <param name="index">Index.</param>
@@ -172,6 +193,13 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             { IsEmpty: true } => default,
             var s => UuidSerializer.Read(s)
         };
+
+        /// <summary>
+        /// Gets a Guid value.
+        /// </summary>
+        /// <param name="index">Index.</param>
+        /// <returns>Value.</returns>
+        public Guid? GetGuidNullable(int index) => IsNull(index) ? null : GetGuid(index);
 
         /// <summary>
         /// Gets a string value.
