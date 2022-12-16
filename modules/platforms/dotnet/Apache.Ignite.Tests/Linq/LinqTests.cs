@@ -501,6 +501,18 @@ public partial class LinqTests : IgniteTestsBase
         Assert.AreEqual(9.0m, res[0].Val);
     }
 
+    [Test]
+    public void TestSelectAllColumnTypes()
+    {
+        Assert.Fail("TODO");
+    }
+
+    [Test]
+    public void TestSelectAllColumnTypesNullable()
+    {
+        Assert.Fail("TODO");
+    }
+
     private record PocoByte(sbyte Key, sbyte Val);
 
     private record PocoShort(short Key, short Val);
