@@ -646,6 +646,30 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
         }
 
         [Test]
+        public void TestNull()
+        {
+            var reader = BuildAndRead((ref BinaryTupleBuilder b) => b.AppendNull());
+
+            Assert.IsNull(reader.GetIntNullable(0));
+            Assert.IsNull(reader.GetByteNullable(0));
+            Assert.IsNull(reader.GetShortNullable(0));
+            Assert.IsNull(reader.GetLongNullable(0));
+            Assert.IsNull(reader.GetDoubleNullable(0));
+            Assert.IsNull(reader.GetFloatNullable(0));
+            Assert.IsNull(reader.GetDecimalNullable(0, 123));
+            Assert.IsNull(reader.GetNumberNullable(0));
+            Assert.IsNull(reader.GetStringNullable(0));
+            Assert.IsNull(reader.GetBitmaskNullable(0));
+            Assert.IsNull(reader.GetGuidNullable(0));
+            Assert.IsNull(reader.GetBytesNullable(0));
+            Assert.IsNull(reader.GetDurationNullable(0));
+            Assert.IsNull(reader.GetPeriodNullable(0));
+            Assert.IsNull(reader.GetTimeNullable(0));
+            Assert.IsNull(reader.GetDateNullable(0));
+            Assert.IsNull(reader.GetDateTimeNullable(0));
+        }
+
+        [Test]
         public void TestObject()
         {
             var guid = Guid.NewGuid();
