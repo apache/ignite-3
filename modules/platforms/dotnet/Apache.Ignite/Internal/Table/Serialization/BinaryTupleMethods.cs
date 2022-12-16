@@ -41,24 +41,37 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// </summary>
         public static readonly MethodInfo IsNull = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.IsNull))!;
 
+        // Use only nullable variants for reference types (string, bitmask). Use separate methods for value types.
         private static readonly MethodInfo AppendByte = typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendByte))!;
         private static readonly MethodInfo AppendByteNullable = typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendByteNullable))!;
         private static readonly MethodInfo AppendShort = typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendShort))!;
+        private static readonly MethodInfo AppendShortNullable = typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendShortNullable))!;
         private static readonly MethodInfo AppendInt = typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendInt))!;
+        private static readonly MethodInfo AppendIntNullable = typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendIntNullable))!;
         private static readonly MethodInfo AppendLong = typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendLong))!;
+        private static readonly MethodInfo AppendLongNullable = typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendLongNullable))!;
         private static readonly MethodInfo AppendFloat = typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendFloat))!;
+        private static readonly MethodInfo AppendFloatNullable = typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendFloatNullable))!;
         private static readonly MethodInfo AppendDouble = typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendDouble))!;
+        private static readonly MethodInfo AppendDoubleNullable = typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendDoubleNullable))!;
         private static readonly MethodInfo AppendGuid = typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendGuid))!;
+        private static readonly MethodInfo AppendGuidNullable = typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendGuidNullable))!;
         private static readonly MethodInfo AppendString = typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendStringNullable))!;
         private static readonly MethodInfo AppendDate = typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendDate))!;
-        private static readonly MethodInfo AppendBitmask = typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendBitmask))!;
+        private static readonly MethodInfo AppendDateNullable = typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendDateNullable))!;
+        private static readonly MethodInfo AppendBitmask = typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendBitmaskNullable))!;
         private static readonly MethodInfo AppendTime = typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendTime))!;
+        private static readonly MethodInfo AppendTimeNullable = typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendTimeNullable))!;
         private static readonly MethodInfo AppendDateTime = typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendDateTime))!;
+        private static readonly MethodInfo AppendDateTimeNullable = typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendDateTimeNullable))!;
         private static readonly MethodInfo AppendTimestamp = typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendTimestamp))!;
+        private static readonly MethodInfo AppendTimestampNullable = typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendTimestampNullable))!;
         private static readonly MethodInfo AppendDecimal = typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendDecimal))!;
+        private static readonly MethodInfo AppendDecimalNullable = typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendDecimalNullable))!;
         private static readonly MethodInfo AppendNumber = typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendNumber))!;
+        private static readonly MethodInfo AppendNumberNullable = typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendNumberNullable))!;
         private static readonly MethodInfo AppendBytes =
-            typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendBytes), new[] { typeof(byte[]) })!;
+            typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendBytesNullable), new[] { typeof(byte[]) })!;
 
         private static readonly MethodInfo GetByte = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetByte))!;
         private static readonly MethodInfo GetByteAsBool = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetByteAsBool))!;
@@ -76,7 +89,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
         private static readonly MethodInfo GetTimestamp = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetTimestamp))!;
         private static readonly MethodInfo GetDecimal = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetDecimal))!;
         private static readonly MethodInfo GetNumber = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetNumber))!;
-        private static readonly MethodInfo GetBytes = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetBytes))!;
+        private static readonly MethodInfo GetBytes = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetBytesNullable))!;
 
         private static readonly IReadOnlyDictionary<Type, MethodInfo> WriteMethods = new Dictionary<Type, MethodInfo>
         {
@@ -84,19 +97,31 @@ namespace Apache.Ignite.Internal.Table.Serialization
             { typeof(sbyte), AppendByte },
             { typeof(sbyte?), AppendByteNullable },
             { typeof(short), AppendShort },
+            { typeof(short?), AppendShortNullable },
             { typeof(int), AppendInt },
+            { typeof(int?), AppendIntNullable },
             { typeof(long), AppendLong },
+            { typeof(long?), AppendLongNullable },
             { typeof(float), AppendFloat },
+            { typeof(float?), AppendFloatNullable },
             { typeof(double), AppendDouble },
+            { typeof(double?), AppendDoubleNullable },
             { typeof(Guid), AppendGuid },
+            { typeof(Guid?), AppendGuidNullable },
             { typeof(LocalDate), AppendDate },
+            { typeof(LocalDate?), AppendDateNullable },
             { typeof(BitArray), AppendBitmask },
             { typeof(LocalTime), AppendTime },
+            { typeof(LocalTime?), AppendTimeNullable },
             { typeof(LocalDateTime), AppendDateTime },
+            { typeof(LocalDateTime?), AppendDateTimeNullable },
             { typeof(Instant), AppendTimestamp },
+            { typeof(Instant?), AppendTimestampNullable },
             { typeof(byte[]), AppendBytes },
             { typeof(decimal), AppendDecimal },
-            { typeof(BigInteger), AppendNumber }
+            { typeof(decimal?), AppendDecimalNullable },
+            { typeof(BigInteger), AppendNumber },
+            { typeof(BigInteger?), AppendNumberNullable }
         };
 
         private static readonly IReadOnlyDictionary<Type, MethodInfo> ReadMethods = new Dictionary<Type, MethodInfo>
