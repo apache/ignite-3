@@ -49,6 +49,7 @@ import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.StaticNodeFinder;
 import org.apache.ignite.utils.ClusterServiceTestUtils;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -159,6 +160,7 @@ public class ItDistributedConfigurationStorageTest {
      * @see <a href="https://issues.apache.org/jira/browse/IGNITE-15213">IGNITE-15213</a>
      */
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18410")
     void testRestartWithPds(@WorkDirectory Path workDir, TestInfo testInfo) throws Exception {
         var node = new Node(testInfo, workDir);
 
