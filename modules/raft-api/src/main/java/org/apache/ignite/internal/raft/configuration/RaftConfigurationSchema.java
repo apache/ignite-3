@@ -20,6 +20,7 @@ package org.apache.ignite.internal.raft.configuration;
 import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.apache.ignite.configuration.annotation.Value;
 
 /**
  * Raft configuration schema.
@@ -27,6 +28,10 @@ import org.apache.ignite.configuration.annotation.ConfigurationType;
 @SuppressWarnings("PMD.UnusedPrivateField")
 @ConfigurationRoot(rootName = "raft", type = ConfigurationType.LOCAL)
 public class RaftConfigurationSchema {
+    /** RPC Timeout for InstallSnapshot request. */
+    @Value(hasDefault = true)
+    public int rpcInstallSnapshotTimeout = 5 * 60 * 1000;
+
     /** Configuration for Raft groups corresponding to table partitions. */
     // TODO: IGNITE-16647 - Volatile RAFT configuration should be moved elsewhere
     @ConfigValue

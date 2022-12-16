@@ -18,6 +18,9 @@
 package org.apache.ignite.internal.cluster.management;
 
 
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -25,12 +28,14 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.util.ReverseIterator;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
@@ -77,7 +82,13 @@ public class MockNode {
 
         this.clusterService = ClusterServiceTestUtils.clusterService(testInfo, port, nodeFinder);
 
-        Loza raftManager = new Loza(clusterService, null, workDir, new HybridClockImpl());
+        RaftConfiguration raftConfiguration = mock(RaftConfiguration.class);
+        ConfigurationValue<Integer> rpcInstallSnapshotTimeutValue = mock(ConfigurationValue.class);
+
+        when(raftConfiguration.rpcInstallSnapshotTimeout()).thenReturn(rpcInstallSnapshotTimeutValue);
+        when(rpcInstallSnapshotTimeutValue.value()).thenReturn(10);
+
+        Loza raftManager = new Loza(clusterService, raftConfiguration, workDir, new HybridClockImpl());
 
         var clusterStateStorage = new RocksDbClusterStateStorage(workDir.resolve("cmg"));
 

@@ -201,6 +201,11 @@ public class DefaultMessagingService extends AbstractMessagingService {
             return failedFuture(new NodeStoppingException());
         }
 
+        BiPredicate<String, NetworkMessage> dropMessage = dropMessagePredicate;
+        if (dropMessage != null && dropMessage.test(recipient.name(), msg)) {
+            return new CompletableFuture<NetworkMessage>().orTimeout(10, TimeUnit.MILLISECONDS);
+        }
+
         long correlationId = createCorrelationId();
 
         CompletableFuture<NetworkMessage> responseFuture = new CompletableFuture<NetworkMessage>()
@@ -275,7 +280,13 @@ public class DefaultMessagingService extends AbstractMessagingService {
      */
     private void onMessage(InNetworkObject obj) {
         if (isInNetworkThread()) {
-            inboundExecutor.execute(() -> onMessage(obj));
+            inboundExecutor.execute(() -> {
+                try {
+                    onMessage(obj);
+                } catch (RuntimeException e) {
+                    LOG.warn("onMessage() failed while processing " + obj.message() + " from " + obj.consistentId(), e);
+                }
+            });
 
             return;
         }

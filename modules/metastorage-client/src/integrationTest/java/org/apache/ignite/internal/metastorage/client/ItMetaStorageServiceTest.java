@@ -65,6 +65,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -1074,9 +1075,16 @@ public class ItMetaStorageServiceTest {
     private CompletableFuture<RaftGroupService> startRaftService(
             ClusterService node, PeersAndLearners configuration
     ) throws NodeStoppingException {
+        RaftConfiguration raftConfiguration = mock(RaftConfiguration.class);
+
+        ConfigurationValue<Integer> rpcInstallSnapshotTimeutValue = mock(ConfigurationValue.class);
+
+        when(raftConfiguration.rpcInstallSnapshotTimeout()).thenReturn(rpcInstallSnapshotTimeutValue);
+        when(rpcInstallSnapshotTimeutValue.value()).thenReturn(10);
+
         var raftManager = new Loza(
                 node,
-                mock(RaftConfiguration.class),
+                raftConfiguration,
                 dataPath.resolve("raftManager" + raftManagers.size()),
                 new HybridClockImpl());
 
