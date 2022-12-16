@@ -287,6 +287,14 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         };
 
         /// <summary>
+        /// Gets a decimal value.
+        /// </summary>
+        /// <param name="index">Index.</param>
+        /// <param name="scale">Decimal scale.</param>
+        /// <returns>Value.</returns>
+        public decimal? GetDecimalNullable(int index, int scale) => IsNull(index) ? null : GetDecimal(index, scale);
+
+        /// <summary>
         /// Gets a number (big integer) value.
         /// </summary>
         /// <param name="index">Index.</param>
@@ -296,6 +304,13 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             { IsEmpty: true } => default,
             var s => new BigInteger(s, isBigEndian: true)
         };
+
+        /// <summary>
+        /// Gets a number (big integer) value.
+        /// </summary>
+        /// <param name="index">Index.</param>
+        /// <returns>Value.</returns>
+        public BigInteger? GetNumberNullable(int index) => IsNull(index) ? null : GetNumber(index);
 
         /// <summary>
         /// Gets a local date value.
@@ -309,6 +324,13 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         };
 
         /// <summary>
+        /// Gets a local date value.
+        /// </summary>
+        /// <param name="index">Index.</param>
+        /// <returns>Value.</returns>
+        public LocalDate? GetDateNullable(int index) => IsNull(index) ? null : GetDate(index);
+
+        /// <summary>
         /// Gets a local time value.
         /// </summary>
         /// <param name="index">Index.</param>
@@ -318,6 +340,13 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             { IsEmpty: true } => default,
             var s => ReadTime(s)
         };
+
+        /// <summary>
+        /// Gets a local time value.
+        /// </summary>
+        /// <param name="index">Index.</param>
+        /// <returns>Value.</returns>
+        public LocalTime? GetTimeNullable(int index) => IsNull(index) ? null : GetTime(index);
 
         /// <summary>
         /// Gets a local date and time value.
