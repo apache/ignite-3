@@ -58,6 +58,7 @@
         <module>modules/file-io</module>
         <module>modules/index</module>
         <module>modules/jacoco-report</module>
+        <module>modules/jdbc</module>
         <module>modules/marshaller-common</module>
         <module>modules/metastorage</module>
         <module>modules/metastorage-client</module>
