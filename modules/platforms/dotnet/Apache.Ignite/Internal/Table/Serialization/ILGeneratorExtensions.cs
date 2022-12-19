@@ -81,25 +81,26 @@ internal static class ILGeneratorExtensions
             var emitNull = il.DefineLabel();
             var end = il.DefineLabel();
 
-            var loc = il.DeclareAndInitLocal(from);
-            il.Emit(OpCodes.Stloc, loc);
-            il.Emit(OpCodes.Ldloca, loc);
+            var fromLoc = il.DeclareAndInitLocal(from); // TODO: Declare only?
+            var toLoc = il.DeclareLocal(to);
+            il.Emit(OpCodes.Stloc, fromLoc);
+            il.Emit(OpCodes.Ldloca, fromLoc);
             il.Emit(OpCodes.Call, from.GetMethod("get_HasValue")!);
             il.Emit(OpCodes.Brfalse, emitNull);
 
             // Unwrap, convert, wrap.
-            il.Emit(OpCodes.Ldloca, loc);
+            il.Emit(OpCodes.Ldloca, fromLoc);
             il.Emit(OpCodes.Call, from.GetMethod("get_Value")!);
             EmitConvertTo(il, fromUnderlying, toUnderlying, columnName);
-            il.Emit(OpCodes.Call, to.GetConstructor(new[] { toUnderlying })!);
+
+            il.Emit(OpCodes.Newobj, to.GetConstructor(new[] { toUnderlying })!);
             il.Emit(OpCodes.Br, end);
 
             // Null.
             il.MarkLabel(emitNull);
-            var resLoc = il.DeclareAndInitLocal(to);
-            il.Emit(OpCodes.Ldloca, resLoc);
+            il.Emit(OpCodes.Ldloca, toLoc);
             il.Emit(OpCodes.Initobj, to);
-            il.Emit(OpCodes.Ldloca, resLoc);
+            il.Emit(OpCodes.Ldloc, toLoc);
 
             // End.
             il.MarkLabel(end);
@@ -108,7 +109,7 @@ internal static class ILGeneratorExtensions
 
         if (fromUnderlying != null && toUnderlying == null)
         {
-            var loc = il.DeclareAndInitLocal(from);
+            var loc = il.DeclareAndInitLocal(from); // TODO: Declare only?
             il.Emit(OpCodes.Stloc, loc);
             il.Emit(OpCodes.Ldloca, loc);
             il.Emit(OpCodes.Call, from.GetMethod("get_Value")!);
