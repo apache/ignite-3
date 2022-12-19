@@ -18,12 +18,14 @@
 namespace Apache.Ignite.Tests.Linq;
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Threading.Tasks;
 using Ignite.Sql;
 using Ignite.Table;
+using NodaTime;
 using NUnit.Framework;
 using Table;
 
@@ -78,6 +80,24 @@ public partial class LinqTests : IgniteTestsBase
             await PocoDecimalView.UpsertAsync(null, new(i, i));
 
             await PocoStringView.UpsertAsync(null, new("k-" + i, "v-" + i * 2));
+
+            var pocoAllColumns = new PocoAllColumnsSql(
+                i,
+                "v -" + i,
+                (sbyte)(i + 1),
+                (short)(i + 2),
+                i + 3,
+                i + 4,
+                i + 5.5f,
+                i + 6.5,
+                new LocalDate(2022, 12, i + 1),
+                new LocalTime(11, 38, i + 1),
+                new LocalDateTime(2022, 12, 19, 11, i + 1),
+                Instant.FromUnixTimeSeconds(i + 1),
+                new byte[] { 1, 2 },
+                i + 7.7m);
+
+            await PocoAllColumnsSqlView.UpsertAsync(null, pocoAllColumns);
         }
     }
 
@@ -504,8 +524,23 @@ public partial class LinqTests : IgniteTestsBase
     [Test]
     public void TestSelectAllColumnTypes()
     {
-        var res = PocoAllColumnsSqlView.AsQueryable().Select(x => x.Int8).ToList();
-        Assert.Fail("TODO");
+        var res = PocoAllColumnsSqlView.AsQueryable()
+            .OrderBy(x => x.Key)
+            .ToList();
+
+        Assert.AreEqual(0, res[0].Key);
+        Assert.AreEqual(1, res[0].Int8);
+        Assert.AreEqual(2, res[0].Int16);
+        Assert.AreEqual(3, res[0].Int32);
+        Assert.AreEqual(4, res[0].Int64);
+        Assert.AreEqual(5.5f, res[0].Float);
+        Assert.AreEqual(6.5, res[0].Double);
+        Assert.AreEqual(7.7, res[0].Decimal);
+        Assert.AreEqual(new LocalDate(2022, 12, 1), res[0].Date);
+        Assert.AreEqual(new LocalTime(11, 38, 1), res[0].Time);
+        Assert.AreEqual(new LocalDateTime(2022, 12, 19, 11, 1), res[0].DateTime);
+        Assert.AreEqual(Instant.FromUnixTimeSeconds(1), res[0].Timestamp);
+        Assert.AreEqual(new byte[] { 1, 2 }, res[0].Blob);
     }
 
     [Test]

@@ -17,7 +17,6 @@
 
 namespace Apache.Ignite.Tests.Table;
 
-using System.ComponentModel.DataAnnotations.Schema;
 using System.Diagnostics.CodeAnalysis;
 using NodaTime;
 
@@ -27,18 +26,18 @@ using NodaTime;
 [SuppressMessage("Microsoft.Naming", "CA1720:AvoidTypeNamesInParameters", Justification = "POCO mapping.")]
 [SuppressMessage("Microsoft.Usage", "CA2227:CollectionPropertiesShouldBeReadOnly", Justification = "POCO mapping.")]
 [SuppressMessage("Microsoft.Performance", "CA1819:PropertiesShouldNotReturnArrays", Justification = "POCO mapping.")]
-public record PocoAllColumnsSql(
+public record PocoAllColumnsSqlNullable(
     long Key,
-    string? Str,
-    sbyte Int8,
-    short Int16,
-    int Int32,
-    long Int64,
-    float Float,
-    double Double,
-    [property:Column("DATE")] LocalDate Date,
-    [property:Column("TIME")] LocalTime Time,
-    [property:Column("DATETIME")] LocalDateTime DateTime,
-    [property:Column("TIMESTAMP")] Instant Timestamp,
-    byte[] Blob,
-    decimal Decimal);
+    string? Str = null,
+    sbyte? Int8 = null,
+    short? Int16 = null,
+    int? Int32 = null,
+    long? Int64 = null,
+    float? Float = null,
+    double? Double = null,
+    LocalDate? Date = null,
+    LocalTime? Time = null,
+    LocalDateTime? DateTime = null,
+    Instant? Timestamp = null,
+    byte[]? Blob = null,
+    decimal? Decimal = null);

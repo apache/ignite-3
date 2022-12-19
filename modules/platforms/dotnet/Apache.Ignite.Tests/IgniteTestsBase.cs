@@ -82,7 +82,7 @@ namespace Apache.Ignite.Tests
 
         protected IRecordView<PocoAllColumnsSql> PocoAllColumnsSqlView { get; private set; } = null!;
 
-        protected IRecordView<PocoAllColumnsNullable> PocoAllColumnsSqlNullableView { get; private set; } = null!; // TODO Dedicated poco
+        protected IRecordView<PocoAllColumnsSqlNullable> PocoAllColumnsSqlNullableView { get; private set; } = null!; // TODO Dedicated poco
 
         [OneTimeSetUp]
         public async Task OneTimeSetUp()
@@ -101,7 +101,7 @@ namespace Apache.Ignite.Tests
 
             var tableAllColumnsSql = await Client.Tables.GetTableAsync(TableAllColumnsSqlName);
             PocoAllColumnsSqlView = tableAllColumnsSql!.GetRecordView<PocoAllColumnsSql>();
-            PocoAllColumnsSqlNullableView = tableAllColumnsSql.GetRecordView<PocoAllColumnsNullable>();
+            PocoAllColumnsSqlNullableView = tableAllColumnsSql.GetRecordView<PocoAllColumnsSqlNullable>();
         }
 
         [OneTimeTearDown]
