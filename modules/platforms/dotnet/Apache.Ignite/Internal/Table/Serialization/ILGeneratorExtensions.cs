@@ -65,6 +65,16 @@ internal static class ILGeneratorExtensions
             return;
         }
 
+        if (from.IsGenericType && from.GetGenericTypeDefinition() == typeof(Nullable<>) && from.GetGenericArguments()[0] == to)
+        {
+            return;
+        }
+
+        if (to.IsGenericType && to.GetGenericTypeDefinition() == typeof(Nullable<>) && to.GetGenericArguments()[0] == from)
+        {
+            return;
+        }
+
         var methodName = "To" + to.Name;
         var method = typeof(Convert).GetMethod(methodName, BindingFlags.Static | BindingFlags.Public, new[] { from });
 
