@@ -593,9 +593,12 @@ public partial class LinqTests : IgniteTestsBase
     [Test]
     public void TestWhereNull()
     {
-        var res = PocoAllColumnsSqlNullableView.AsQueryable()
-            .Where(x => x.Int8 == null)
-            .ToList();
+        var query = PocoAllColumnsSqlNullableView.AsQueryable()
+            .Where(x => x.Int8 == null);
+
+        StringAssert.Contains("where (_T0.INT8 IS NOT DISTINCT FROM ?)", query.ToString());
+
+        var res = query.ToList();
 
         Assert.AreEqual(100, res[0].Key);
         Assert.AreEqual(1, res.Count);
@@ -604,10 +607,13 @@ public partial class LinqTests : IgniteTestsBase
     [Test]
     public void TestWhereNotNull()
     {
-        var res = PocoAllColumnsSqlNullableView.AsQueryable()
+        var query = PocoAllColumnsSqlNullableView.AsQueryable()
             .Where(x => x.Int8 != null)
-            .OrderBy(x => x.Key)
-            .ToList();
+            .OrderBy(x => x.Key);
+
+        StringAssert.Contains("where (_T0.INT8 IS DISTINCT FROM ?)", query.ToString());
+
+        var res = query.ToList();
 
         Assert.AreEqual(0, res[0].Key);
     }
