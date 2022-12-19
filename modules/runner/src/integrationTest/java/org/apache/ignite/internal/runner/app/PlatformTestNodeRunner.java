@@ -70,6 +70,8 @@ public class PlatformTestNodeRunner {
 
     private static final String TABLE_NAME_ALL_COLUMNS = "tbl_all_columns";
 
+    private static final String TABLE_NAME_ALL_COLUMNS_SQL = "tbl_all_columns_sql"; // All column types supported by SQL.
+
     /** Time to keep the node alive. */
     private static final int RUN_TIME_MINUTES = 30;
 
@@ -171,7 +173,7 @@ public class PlatformTestNodeRunner {
                         .changePartitions(10)
         ));
 
-        TableDefinition schTbl2 = SchemaBuilders.tableBuilder(SCHEMA_NAME, TABLE_NAME_ALL_COLUMNS).columns(
+        TableDefinition schTblAll = SchemaBuilders.tableBuilder(SCHEMA_NAME, TABLE_NAME_ALL_COLUMNS).columns(
                 SchemaBuilders.column(keyCol, ColumnType.INT64).build(),
                 SchemaBuilders.column("str", ColumnType.string()).asNullable(true).build(),
                 SchemaBuilders.column("int8", ColumnType.INT8).asNullable(true).build(),
@@ -193,8 +195,34 @@ public class PlatformTestNodeRunner {
                 SchemaBuilders.column("decimal", ColumnType.decimal()).asNullable(true).build()
         ).withPrimaryKey(keyCol).build();
 
-        await(((TableManager) node.tables()).createTableAsync(schTbl2.name(), tblCh ->
-                SchemaConfigurationConverter.convert(schTbl2, tblCh)
+        await(((TableManager) node.tables()).createTableAsync(schTblAll.name(), tblCh ->
+                SchemaConfigurationConverter.convert(schTblAll, tblCh)
+                        .changeReplicas(1)
+                        .changePartitions(10)
+        ));
+
+        TableDefinition schTblAllSql = SchemaBuilders.tableBuilder(SCHEMA_NAME, TABLE_NAME_ALL_COLUMNS_SQL).columns(
+                SchemaBuilders.column(keyCol, ColumnType.INT64).build(),
+                SchemaBuilders.column("str", ColumnType.string()).asNullable(true).build(),
+                SchemaBuilders.column("int8", ColumnType.INT8).asNullable(true).build(),
+                SchemaBuilders.column("int16", ColumnType.INT16).asNullable(true).build(),
+                SchemaBuilders.column("int32", ColumnType.INT32).asNullable(true).build(),
+                SchemaBuilders.column("int64", ColumnType.INT64).asNullable(true).build(),
+                SchemaBuilders.column("float", ColumnType.FLOAT).asNullable(true).build(),
+                SchemaBuilders.column("double", ColumnType.DOUBLE).asNullable(true).build(),
+                SchemaBuilders.column("date", ColumnType.DATE).asNullable(true).build(),
+                SchemaBuilders.column("time", ColumnType.time(ColumnType.TemporalColumnType.MAX_TIME_PRECISION))
+                        .asNullable(true).build(),
+                SchemaBuilders.column("datetime", ColumnType.datetime(ColumnType.TemporalColumnType.MAX_TIME_PRECISION))
+                        .asNullable(true).build(),
+                SchemaBuilders.column("timestamp", ColumnType.timestamp(ColumnType.TemporalColumnType.MAX_TIME_PRECISION))
+                        .asNullable(true).build(),
+                SchemaBuilders.column("blob", ColumnType.blob()).asNullable(true).build(),
+                SchemaBuilders.column("decimal", ColumnType.decimal()).asNullable(true).build()
+        ).withPrimaryKey(keyCol).build();
+
+        await(((TableManager) node.tables()).createTableAsync(schTblAllSql.name(), tblCh ->
+                SchemaConfigurationConverter.convert(schTblAllSql, tblCh)
                         .changeReplicas(1)
                         .changePartitions(10)
         ));
