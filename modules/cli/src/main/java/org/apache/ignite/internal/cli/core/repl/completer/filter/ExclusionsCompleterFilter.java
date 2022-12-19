@@ -15,21 +15,25 @@
  * limitations under the License.
  */
 
-apply from: "$rootDir/buildscripts/java-core.gradle"
-apply from: "$rootDir/buildscripts/publishing.gradle"
-apply from: "$rootDir/buildscripts/java-junit5.gradle"
+package org.apache.ignite.internal.cli.core.repl.completer.filter;
 
-description = 'ignite-marshaller-common'
+import java.util.Arrays;
+import java.util.Set;
 
-dependencies {
-    implementation project(':ignite-core')
-    implementation project(':ignite-api')
-    implementation libs.jetbrains.annotations
+/** Filters out exclusions from candidates. */
+public class ExclusionsCompleterFilter implements CompleterFilter {
 
-    testAnnotationProcessor libs.jmh.annotation.processor
-    testImplementation project(':ignite-core')
-    testImplementation(testFixtures(project(':ignite-core')))
-    testImplementation libs.junit5.params
-    testImplementation libs.mockito.junit
-    testImplementation libs.jmh.core
+    private final Set<String> exclusions;
+
+    public ExclusionsCompleterFilter(String... exclusions) {
+        this.exclusions = Set.of(exclusions);
+    }
+
+    /** Filters candidates. */
+    @Override
+    public String[] filter(String[] ignored, String[] candidates) {
+        return Arrays.stream(candidates)
+                .filter(it -> !exclusions.contains(it))
+                .toArray(String[]::new);
+    }
 }

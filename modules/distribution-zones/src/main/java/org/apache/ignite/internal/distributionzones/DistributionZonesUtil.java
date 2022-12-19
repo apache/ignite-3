@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.metastorage.client.Operations.ops;
 import static org.apache.ignite.internal.metastorage.client.Operations.put;
 import static org.apache.ignite.internal.metastorage.client.Operations.remove;
 
+import java.util.Set;
 import org.apache.ignite.internal.metastorage.client.CompoundCondition;
 import org.apache.ignite.internal.metastorage.client.Update;
 import org.apache.ignite.internal.util.ByteUtils;
@@ -36,8 +37,21 @@ class DistributionZonesUtil {
     /** Key prefix for zone's data nodes. */
     private static final String DISTRIBUTION_ZONE_DATA_NODES_PREFIX = "distributionZone.dataNodes.";
 
+    /** Key prefix for zones' logical topology nodes. */
+    private static final String DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY = "distributionZones.logicalTopology";
+
+    /** Key prefix for zones' logical topology version. */
+    private static final String DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_VERSION = "distributionZones.logicalTopologyVersion";
+
     /** The key, needed for processing the event about zones' update was triggered only once. */
-    private static final ByteArray ZONES_CHANGE_TRIGGER_KEY = new ByteArray("distributionZones.change.trigger");
+    private static final ByteArray DISTRIBUTION_ZONES_CHANGE_TRIGGER_KEY = new ByteArray("distributionZones.change.trigger");
+
+    /** ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY}. */
+    private static final ByteArray DISTRIBUTION_ZONE_LOGICAL_TOPOLOGY_KEY = new ByteArray(DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY);
+
+    /** ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_VERSION}. */
+    private static final ByteArray DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_VERSION_KEY =
+            new ByteArray(DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_VERSION);
 
     /** ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONE_DATA_NODES_PREFIX}. */
     static ByteArray zoneDataNodesKey(int zoneId) {
@@ -48,7 +62,23 @@ class DistributionZonesUtil {
      * The key, needed for processing the event about zones' update was triggered only once.
      */
     static ByteArray zonesChangeTriggerKey() {
-        return ZONES_CHANGE_TRIGGER_KEY;
+        return DISTRIBUTION_ZONES_CHANGE_TRIGGER_KEY;
+    }
+
+    /**
+     * The key that represents logical topology nodes, needed for distribution zones. It is needed to store them in the metastore
+     * to serialize data nodes changes triggered by topology changes and changes of distribution zones configurations.
+     */
+    static ByteArray zonesLogicalTopologyKey() {
+        return DISTRIBUTION_ZONE_LOGICAL_TOPOLOGY_KEY;
+    }
+
+    /**
+     * The key needed for processing the events about logical topology changes.
+     * Needed for the defencing against stale updates of logical topology nodes.
+     */
+    static ByteArray zonesLogicalTopologyVersionKey() {
+        return DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_VERSION_KEY;
     }
 
     /**
@@ -70,13 +100,27 @@ class DistributionZonesUtil {
      *
      * @param zoneId Distribution zone id
      * @param revision Revision of the event.
-     * @param logicalTopologyBytes Logical topology.
+     * @param logicalTopology Logical topology.
      * @return Update command for the meta storage.
      */
-    static Update updateDataNodesAndTriggerKey(int zoneId, long revision, byte[] logicalTopologyBytes) {
+    static Update updateDataNodesAndTriggerKey(int zoneId, long revision, Set<String> logicalTopology) {
         return ops(
-                put(zoneDataNodesKey(zoneId), logicalTopologyBytes),
+                put(zoneDataNodesKey(zoneId), ByteUtils.toBytes(logicalTopology)),
                 put(zonesChangeTriggerKey(), ByteUtils.longToBytes(revision))
+        ).yield(true);
+    }
+
+    /**
+     * Updates logical topology and logical topology version values for zones.
+     *
+     * @param logicalTopology Logical topology.
+     * @param topologyVersion Logical topology version.
+     * @return Update command for the meta storage.
+     */
+    static Update updateLogicalTopologyAndVersion(Set<String> logicalTopology, long topologyVersion) {
+        return ops(
+                put(zonesLogicalTopologyVersionKey(), ByteUtils.longToBytes(topologyVersion)),
+                put(zonesLogicalTopologyKey(), ByteUtils.toBytes(logicalTopology))
         ).yield(true);
     }
 

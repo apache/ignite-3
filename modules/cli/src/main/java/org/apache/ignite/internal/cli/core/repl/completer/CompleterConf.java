@@ -24,6 +24,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.cli.commands.Options;
+import org.apache.ignite.internal.cli.core.repl.completer.filter.CompleterFilter;
 
 /**
  * Configuration for dynamic completer. It declares for what command and option the completer could be applied.

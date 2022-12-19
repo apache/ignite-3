@@ -20,7 +20,7 @@ package org.apache.ignite.internal.sql.api;
 import java.util.List;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.sql.ColumnMetadata;
-import org.apache.ignite.sql.SqlColumnType;
+import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -49,7 +49,7 @@ public class ColumnMetadataImpl implements ColumnMetadata {
     private final String name;
 
     /** Type of the result's column. */
-    private final SqlColumnType type;
+    private final ColumnType type;
 
     /** Column precision. */
     private final int precision;
@@ -68,7 +68,7 @@ public class ColumnMetadataImpl implements ColumnMetadata {
      */
     public ColumnMetadataImpl(
             String name,
-            SqlColumnType type,
+            ColumnType type,
             int precision,
             int scale,
             boolean nullable,
@@ -90,7 +90,7 @@ public class ColumnMetadataImpl implements ColumnMetadata {
 
     /** {@inheritDoc} */
     @Override
-    public SqlColumnType type() {
+    public ColumnType type() {
         return type;
     }
 
@@ -109,7 +109,7 @@ public class ColumnMetadataImpl implements ColumnMetadata {
     /** {@inheritDoc} */
     @Override
     public Class<?> valueClass() {
-        return SqlColumnType.columnTypeToClass(type);
+        return ColumnType.columnTypeToClass(type);
     }
 
     /** {@inheritDoc} */

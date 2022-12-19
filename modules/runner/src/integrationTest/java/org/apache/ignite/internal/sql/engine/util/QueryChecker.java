@@ -39,7 +39,7 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.sql.ColumnMetadata;
-import org.apache.ignite.sql.SqlColumnType;
+import org.apache.ignite.sql.ColumnType;
 import org.hamcrest.CoreMatchers;
 import org.hamcrest.Matcher;
 import org.hamcrest.core.SubstringMatcher;
@@ -50,6 +50,8 @@ import org.hamcrest.core.SubstringMatcher;
 public abstract class QueryChecker {
     /** Partition release timeout. */
     private static final long PART_RELEASE_TIMEOUT = 5_000L;
+
+    private static final Object[] NULL_AS_VARARG = {null};
 
     /**
      * Ignite table scan matcher.
@@ -276,19 +278,31 @@ public abstract class QueryChecker {
      * @return This.
      */
     public QueryChecker withParams(Object... params) {
+        // let's interpret null array as simple single null.
+        if (params == null) {
+            params = NULL_AS_VARARG;
+        }
+
         this.params = params;
 
         return this;
     }
 
     /**
-     * Sets returns.
+     * This method add the given row to the list of expected, the order of enumeration does not matter unless {@link #ordered()} is set.
+     *
+     * @param res Array with values one returning tuple. {@code null} array will be interpreted as single-column-null row.
      *
      * @return This.
      */
     public QueryChecker returns(Object... res) {
         if (expectedResult == null) {
             expectedResult = new ArrayList<>();
+        }
+
+        // let's interpret null array as simple single null.
+        if (res == null) {
+            res = NULL_AS_VARARG;
         }
 
         expectedResult.add(Arrays.asList(res));
@@ -357,7 +371,7 @@ public abstract class QueryChecker {
         // Check plan.
         QueryProcessor qryProc = getEngine();
 
-        var explainCursors = qryProc.queryAsync("PUBLIC", "EXPLAIN PLAN FOR " + qry);
+        var explainCursors = qryProc.queryAsync("PUBLIC", "EXPLAIN PLAN FOR " + qry, params);
 
         var explainCursor = explainCursors.get(0).join();
         var explainRes = getAllFromCursor(explainCursor);
@@ -389,7 +403,7 @@ public abstract class QueryChecker {
         if (expectedColumnTypes != null) {
             List<Type> colTypes = cur.metadata().columns().stream()
                     .map(ColumnMetadata::type)
-                    .map(SqlColumnType::columnTypeToClass)
+                    .map(ColumnType::columnTypeToClass)
                     .collect(Collectors.toList());
 
             assertThat("Column types don't match", colTypes, equalTo(expectedColumnTypes));

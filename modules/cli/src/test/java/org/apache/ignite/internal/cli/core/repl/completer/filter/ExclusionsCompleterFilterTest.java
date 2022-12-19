@@ -15,24 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.client.proto;
+package org.apache.ignite.internal.cli.core.repl.completer.filter;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.hasSize;
 
-import org.apache.ignite.sql.SqlColumnType;
+import java.util.List;
+import org.apache.ignite.internal.cli.core.repl.completer.filter.ExclusionsCompleterFilter;
 import org.junit.jupiter.api.Test;
 
-/**
- * Tests column type converter.
- */
-public class ClientSqlColumnTypeConverterTest {
-    @Test
-    public void testConvertAllTypes() {
-        for (SqlColumnType columnType : SqlColumnType.values()) {
-            int ordinal = ClientSqlColumnTypeConverter.columnTypeToOrdinal(columnType);
-            SqlColumnType resColumnType = ClientSqlColumnTypeConverter.ordinalToColumnType(ordinal);
+class ExclusionsCompleterFilterTest {
 
-            assertEquals(columnType, resColumnType);
-        }
+    @Test
+    void returnsCandidatesWithoutExclusions() {
+        ExclusionsCompleterFilter filter = new ExclusionsCompleterFilter("exclusion1", "exclusion2");
+        String[] candidates = filter.filter(new String[0], new String[]{"exclusion1", "exclusion2", "candidate"});
+        List<String> candidatesList = List.of(candidates);
+        assertThat(candidatesList, hasSize(1));
+        assertThat(candidatesList, contains("candidate"));
     }
 }
