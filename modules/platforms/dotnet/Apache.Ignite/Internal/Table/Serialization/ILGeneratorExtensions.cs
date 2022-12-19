@@ -67,6 +67,7 @@ internal static class ILGeneratorExtensions
         }
 
         // TODO: Conversion might include both nullable unwrap and type change.
+        // TODO: 4 distinct cases: nullable to nullable, nullable to non-nullable, non-nullable to nullable, non-nullable to non-nullable.
         if (from.IsGenericType && from.GetGenericTypeDefinition() == typeof(Nullable<>) && from.GetGenericArguments()[0] == to)
         {
             il.Emit(OpCodes.Call, from.GetMethod("get_Value")!);
@@ -78,14 +79,19 @@ internal static class ILGeneratorExtensions
             throw new NotSupportedException("TODO");
         }
 
-        var methodName = "To" + to.Name;
-        var method = typeof(Convert).GetMethod(methodName, BindingFlags.Static | BindingFlags.Public, new[] { from });
+        EmitConvertTo(il, from, to, columnName);
 
-        if (method == null)
+        static void EmitConvertTo(ILGenerator il, Type from, Type to, string columnName)
         {
-            throw new NotSupportedException($"Conversion from {from} to {to} is not supported (column '{columnName}').");
-        }
+            var methodName = "To" + to.Name;
+            var method = typeof(Convert).GetMethod(methodName, BindingFlags.Static | BindingFlags.Public, new[] { from });
 
-        il.Emit(OpCodes.Call, method);
+            if (method == null)
+            {
+                throw new NotSupportedException($"Conversion from {from} to {to} is not supported (column '{columnName}').");
+            }
+
+            il.Emit(OpCodes.Call, method);
+        }
     }
 }
