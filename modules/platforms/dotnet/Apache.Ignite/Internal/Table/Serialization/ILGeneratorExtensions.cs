@@ -119,7 +119,7 @@ internal static class ILGeneratorExtensions
         if (fromUnderlying == null && toUnderlying != null)
         {
             EmitConvertTo(il, from, to, columnName);
-            il.Emit(OpCodes.Call, to.GetConstructor(new[] { toUnderlying })!);
+            il.Emit(OpCodes.Newobj, to.GetConstructor(new[] { toUnderlying })!);
 
             return;
         }
