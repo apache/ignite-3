@@ -20,7 +20,6 @@ namespace Apache.Ignite.Internal.Table.Serialization;
 using System;
 using System.Reflection;
 using System.Reflection.Emit;
-using Proto.BinaryTuple;
 
 /// <summary>
 /// Extensions for <see cref="ILGenerator"/>.
