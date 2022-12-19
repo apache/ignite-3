@@ -78,8 +78,29 @@ internal static class ILGeneratorExtensions
 
         if (fromUnderlying != null && toUnderlying != null)
         {
-            // TODO: Should we support this? When is this the case?
-            throw NotSupportedConversion(from, to, columnName);
+            var emitNull = il.DefineLabel();
+            var end = il.DefineLabel();
+
+            var loc = il.DeclareAndInitLocal(from);
+            il.Emit(OpCodes.Stloc, loc);
+            il.Emit(OpCodes.Ldloca, loc);
+            il.Emit(OpCodes.Call, from.GetMethod("get_HasValue")!);
+            il.Emit(OpCodes.Brfalse, emitNull);
+
+            // Unwrap, convert, wrap.
+            il.Emit(OpCodes.Ldloca, loc);
+            il.Emit(OpCodes.Call, from.GetMethod("get_Value")!);
+            EmitConvertTo(il, fromUnderlying, toUnderlying, columnName);
+            il.Emit(OpCodes.Call, to.GetConstructor(new[] { toUnderlying })!);
+            il.Emit(OpCodes.Br, end);
+
+            // Null.
+            il.MarkLabel(emitNull);
+            il.Emit(OpCodes.Initobj, to);
+
+            // End.
+            il.MarkLabel(end);
+            return;
         }
 
         if (fromUnderlying != null && toUnderlying == null)
@@ -87,8 +108,7 @@ internal static class ILGeneratorExtensions
             var loc = il.DeclareAndInitLocal(from);
             il.Emit(OpCodes.Stloc, loc);
             il.Emit(OpCodes.Ldloca, loc);
-            var unwrapMethod = from.GetMethod("get_Value")!;
-            il.Emit(OpCodes.Call, unwrapMethod);
+            il.Emit(OpCodes.Call, from.GetMethod("get_Value")!);
             EmitConvertTo(il, fromUnderlying, to, columnName);
             return;
         }

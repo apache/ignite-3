@@ -113,7 +113,7 @@ internal static class SqlColumnTypeExtensions
     /// <param name="type">CLR type.</param>
     /// <returns>SQL type name.</returns>
     public static string ToSqlTypeName(this Type type) =>
-        ClrToSqlName.TryGetValue(type, out var sqlTypeName)
+        ClrToSqlName.TryGetValue(Nullable.GetUnderlyingType(type) ?? type, out var sqlTypeName)
             ? sqlTypeName
             : throw new InvalidOperationException($"Type is not supported in SQL: {type}");
 
