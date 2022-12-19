@@ -17,14 +17,17 @@
 
 package org.apache.ignite.internal.sql.engine.rule;
 
+import java.util.List;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptPlanner;
 import org.apache.calcite.plan.RelOptRule;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.PhysicalNode;
 import org.apache.calcite.rel.RelNode;
+import org.apache.calcite.rel.core.AggregateCall;
 import org.apache.calcite.rel.logical.LogicalAggregate;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
+import org.apache.calcite.sql.fun.SqlCountAggFunction;
 import org.apache.ignite.internal.sql.engine.rel.IgniteConvention;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteColocatedHashAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteMapHashAggregate;
@@ -33,8 +36,8 @@ import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.util.HintUtils;
 
 /**
- * HashAggregateConverterRule.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * Planner rule that recognizes a {@link org.apache.calcite.rel.core.Aggregate}
+ * and in relation to distribution and additional conditions produce appropriate node.
  */
 public class HashAggregateConverterRule {
     public static final RelOptRule COLOCATED = new ColocatedHashAggregateConverterRule();
@@ -74,6 +77,21 @@ public class HashAggregateConverterRule {
         }
     }
 
+    /**
+     * Return {@code true} if observes COUNT and DISTINCT simultaneously in aggregate.
+     *
+     * @param aggCalls Aggregates.
+     * @return {@code true} If found, {@code false} otherwise.
+     */
+    private static boolean countWithDistinctAgg(List<AggregateCall> aggCalls) {
+        for (AggregateCall call : aggCalls) {
+            if (call.isDistinct() && call.getAggregation() instanceof SqlCountAggFunction) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private static class MapReduceHashAggregateConverterRule extends AbstractIgniteConverterRule<LogicalAggregate> {
         MapReduceHashAggregateConverterRule() {
             super(LogicalAggregate.class, "MapReduceHashAggregateConverterRule");
@@ -83,7 +101,7 @@ public class HashAggregateConverterRule {
         @Override
         protected PhysicalNode convert(RelOptPlanner planner, RelMetadataQuery mq,
                 LogicalAggregate agg) {
-            if (HintUtils.isExpandDistinctAggregate(agg)) {
+            if (countWithDistinctAgg(agg.getAggCallList()) || HintUtils.isExpandDistinctAggregate(agg)) {
                 return null;
             }
 

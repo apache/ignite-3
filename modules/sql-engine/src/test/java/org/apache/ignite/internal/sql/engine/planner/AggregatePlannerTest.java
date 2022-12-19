@@ -55,6 +55,7 @@ import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.hamcrest.core.IsInstanceOf;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -223,6 +224,54 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
     }
 
     /**
+     * Check that map aggregate does not contain distinct accumulator.
+     *
+     * @throws Exception If failed.
+     */
+    @Test
+    public void mapAggregateWithoutDistinctAcc() throws Exception {
+        TestTable tbl = createAffinityTable("TEST");
+
+        IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
+
+        publicSchema.addTable(tbl);
+
+        String sql = "SELECT COUNT(DISTINCT val0) FROM test";
+
+        checkDistinctInMapAggNode(sql, publicSchema);
+
+        checkDistinctInMapAggNode(sql, publicSchema, "ColocatedHashAggregateConverterRule");
+
+        checkDistinctInMapAggNode(sql, publicSchema, "MapReduceHashAggregateConverterRule");
+
+        sql = "SELECT val1, COUNT(DISTINCT val0) as v1 FROM test GROUP BY val1";
+
+        checkDistinctInMapAggNode(sql, publicSchema);
+
+        checkDistinctInMapAggNode(sql, publicSchema, "ColocatedHashAggregateConverterRule");
+
+        checkDistinctInMapAggNode(sql, publicSchema, "MapReduceHashAggregateConverterRule");
+    }
+
+    /**
+     * Check that plan does not contain distinct accumulators on map nodes.
+     *
+     * @param sql Request string.
+     * @param publicSchema Schema.
+     * @param disabledRules Disabled rules.
+     * @throws Exception If failed.
+     */
+    private void checkDistinctInMapAggNode(String sql, IgniteSchema publicSchema, String... disabledRules) throws Exception {
+        IgniteRel phys = physicalPlan(sql, publicSchema, disabledRules);
+
+        assertFalse(findNodes(phys, byClass(IgniteMapAggregateBase.class)).stream()
+                .anyMatch(n -> ((Aggregate) n).getAggCallList().stream()
+                        .anyMatch(AggregateCall::isDistinct)
+                ),
+                "Invalid plan\n" + RelOptUtil.toString(phys, SqlExplainLevel.ALL_ATTRIBUTES));
+    }
+
+    /**
      * ExpandDistinctAggregates.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      *
@@ -262,7 +311,7 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
                 "Invalid plan\n" + RelOptUtil.toString(phys, SqlExplainLevel.ALL_ATTRIBUTES)
         );
 
-        // Check the first aggrgation step is SELECT DISTINCT (doesn't contains any accumulators)
+        // Check the first aggregation step is SELECT DISTINCT (doesn't contain any accumulators)
         assertTrue(
                 findNodes(phys, byClass(algo.reduce)).stream()
                         .allMatch(n -> ((IgniteReduceAggregateBase) n).getAggregateCalls().isEmpty()),
