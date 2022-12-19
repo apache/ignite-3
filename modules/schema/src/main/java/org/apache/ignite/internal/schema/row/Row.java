@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.schema.row;
 
-import java.io.IOException;
-import java.io.OutputStream;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
@@ -768,17 +766,6 @@ public class Row implements BinaryRowEx, SchemaAware, InternalTuple {
     @Override
     public ByteBuffer valueSlice() {
         return row.valueSlice();
-    }
-
-    /**
-     * Writes binary row to given stream.
-     *
-     * @param stream Stream to write to.
-     * @throws IOException If write operation fails.
-     */
-    @Override
-    public void writeTo(OutputStream stream) throws IOException {
-        row.writeTo(stream);
     }
 
     /**
