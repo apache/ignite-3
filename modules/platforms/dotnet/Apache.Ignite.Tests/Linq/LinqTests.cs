@@ -504,6 +504,7 @@ public partial class LinqTests : IgniteTestsBase
     [Test]
     public void TestSelectAllColumnTypes()
     {
+        var res = PocoAllColumnsSqlView.AsQueryable().Select(x => x.Int8).ToList();
         Assert.Fail("TODO");
     }
 
