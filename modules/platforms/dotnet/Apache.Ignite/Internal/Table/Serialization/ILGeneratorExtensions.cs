@@ -20,6 +20,7 @@ namespace Apache.Ignite.Internal.Table.Serialization;
 using System;
 using System.Reflection;
 using System.Reflection.Emit;
+using Proto.BinaryTuple;
 
 /// <summary>
 /// Extensions for <see cref="ILGenerator"/>.
@@ -66,19 +67,41 @@ internal static class ILGeneratorExtensions
             return;
         }
 
-        // TODO: Conversion might include both nullable unwrap and type change.
-        // TODO: 4 distinct cases: nullable to nullable, nullable to non-nullable, non-nullable to nullable, non-nullable to non-nullable.
-        if (from.IsGenericType && from.GetGenericTypeDefinition() == typeof(Nullable<>) && from.GetGenericArguments()[0] == to)
+        if (!from.IsValueType || !to.IsValueType)
         {
-            il.Emit(OpCodes.Call, from.GetMethod("get_Value")!);
+            EmitConvertTo(il, from, to, columnName);
             return;
         }
 
-        if (to.IsGenericType && to.GetGenericTypeDefinition() == typeof(Nullable<>) && to.GetGenericArguments()[0] == from)
+        var fromUnderlying = Nullable.GetUnderlyingType(from);
+        var toUnderlying = Nullable.GetUnderlyingType(to);
+
+        if (fromUnderlying != null && toUnderlying != null)
         {
+            // TODO: Emit "if src == null return null".
             throw new NotSupportedException("TODO");
         }
 
+        if (fromUnderlying != null && toUnderlying == null)
+        {
+            var loc = il.DeclareAndInitLocal(from);
+            il.Emit(OpCodes.Stloc, loc);
+            il.Emit(OpCodes.Ldloca, loc);
+            var unwrapMethod = from.GetMethod("get_Value")!;
+            il.Emit(OpCodes.Call, unwrapMethod);
+            EmitConvertTo(il, fromUnderlying, to, columnName);
+            return;
+        }
+
+        if (fromUnderlying == null && toUnderlying != null)
+        {
+            EmitConvertTo(il, from, to, columnName);
+            il.Emit(OpCodes.Call, to.GetConstructor(new[] { toUnderlying })!);
+
+            return;
+        }
+
+        // Normal case without nullables.
         EmitConvertTo(il, from, to, columnName);
 
         static void EmitConvertTo(ILGenerator il, Type from, Type to, string columnName)
@@ -93,5 +116,10 @@ internal static class ILGeneratorExtensions
 
             il.Emit(OpCodes.Call, method);
         }
+    }
+
+    private static double FromNullableIntToDouble(ref BinaryTupleReader reader)
+    {
+        return Convert.ToDouble(reader.GetIntNullable(0)!.Value);
     }
 }
