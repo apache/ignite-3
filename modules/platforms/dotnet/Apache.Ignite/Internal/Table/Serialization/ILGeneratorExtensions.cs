@@ -106,6 +106,11 @@ internal static class ILGeneratorExtensions
 
         static void EmitConvertTo(ILGenerator il, Type from, Type to, string columnName)
         {
+            if (from == to)
+            {
+                return;
+            }
+
             var methodName = "To" + to.Name;
             var method = typeof(Convert).GetMethod(methodName, BindingFlags.Static | BindingFlags.Public, new[] { from });
 
