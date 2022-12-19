@@ -193,7 +193,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         kvView.put(tx2, -100, "1");
 
         var ex = assertThrows(IgniteException.class, () -> kvView.get(tx1, -100));
-        assertThat(ex.getMessage(), containsString("TimeoutException"));
+        assertThat(ex.getMessage(), containsString("Replication is timed out"));
 
         tx2.rollback();
     }

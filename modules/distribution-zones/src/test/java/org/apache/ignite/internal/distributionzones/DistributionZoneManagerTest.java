@@ -29,6 +29,7 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.configuration.ConfigurationChangeException;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
+import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
@@ -72,6 +73,7 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
                 zonesConfiguration,
                 mock(MetaStorageManager.class),
                 mock(ClusterManagementGroupManager.class),
+                mock(LogicalTopologyServiceImpl.class),
                 mock(VaultManager.class)
         );
     }

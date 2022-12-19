@@ -22,7 +22,6 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toSet;
 import static java.util.stream.Collectors.toUnmodifiableSet;
 import static org.apache.ignite.internal.cluster.management.ClusterTag.clusterTag;
-import static org.apache.ignite.internal.cluster.management.CmgGroupId.INSTANCE;
 
 import java.util.Collection;
 import java.util.List;
@@ -55,9 +54,11 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
+import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.RaftManager;
+import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.Status;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -404,7 +405,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                     raftService = null;
                 }
 
-                raftManager.stopRaftNodes(INSTANCE);
+                raftManager.stopRaftNodes(CmgGroupId.INSTANCE);
 
                 localStateStorage.clear().get();
             } catch (Exception e) {
@@ -506,14 +507,17 @@ public class ClusterManagementGroupManager implements IgniteComponent {
 
         PeersAndLearners configuration = PeersAndLearners.fromConsistentIds(nodeNames, learnerNames);
 
+        Peer serverPeer = isLearner ? configuration.learner(thisNodeConsistentId) : configuration.peer(thisNodeConsistentId);
+
+        assert serverPeer != null;
+
         try {
             return raftManager
-                    .prepareRaftGroup(
-                            INSTANCE,
-                            isLearner ? configuration.learner(thisNodeConsistentId) : configuration.peer(thisNodeConsistentId),
+                    .startRaftGroupNode(
+                            new RaftNodeId(CmgGroupId.INSTANCE, serverPeer),
                             configuration,
-                            () -> new CmgRaftGroupListener(clusterStateStorage, logicalTopology, this::onLogicalTopologyChanged),
-                            this::createCmgRaftGroupEventsListener
+                            new CmgRaftGroupListener(clusterStateStorage, logicalTopology, this::onLogicalTopologyChanged),
+                            createCmgRaftGroupEventsListener()
                     )
                     .thenApply(service -> new CmgRaftService(service, clusterService, logicalTopology));
         } catch (Exception e) {
@@ -667,7 +671,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
 
         IgniteUtils.shutdownAndAwaitTermination(scheduledExecutor, 10, TimeUnit.SECONDS);
 
-        raftManager.stopRaftNodes(INSTANCE);
+        raftManager.stopRaftNodes(CmgGroupId.INSTANCE);
 
         // Fail the future to unblock dependent operations
         joinFuture.completeExceptionally(new NodeStoppingException());

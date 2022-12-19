@@ -38,6 +38,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
@@ -53,6 +54,7 @@ import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
 import org.apache.ignite.internal.client.proto.ResponseFlags;
 import org.apache.ignite.internal.client.proto.ServerMessageType;
+import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
@@ -97,8 +99,14 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     /** Connect timeout in milliseconds. */
     private final long connectTimeout;
 
+    /** Heartbeat timeout in milliseconds. */
+    private final long heartbeatTimeout;
+
     /** Heartbeat timer. */
     private final Timer heartbeatTimer;
+
+    /** Logger. */
+    private final IgniteLogger log;
 
     /** Last send operation timestamp. */
     private volatile long lastSendMillis;
@@ -112,11 +120,14 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     TcpClientChannel(ClientChannelConfiguration cfg, ClientConnectionMultiplexer connMgr) {
         validateConfiguration(cfg);
 
+        log = ClientUtils.logger(cfg.clientConfiguration(), TcpClientChannel.class);
+
         asyncContinuationExecutor = cfg.clientConfiguration().asyncContinuationExecutor() == null
                 ? ForkJoinPool.commonPool()
                 : cfg.clientConfiguration().asyncContinuationExecutor();
 
         connectTimeout = cfg.clientConfiguration().connectTimeout();
+        heartbeatTimeout = cfg.clientConfiguration().heartbeatTimeout();
 
         sock = connMgr.open(cfg.getAddress(), this, this);
 
@@ -136,7 +147,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     /**
      * Close the channel with cause.
      */
-    private void close(Exception cause) {
+    private void close(@Nullable Exception cause) {
         if (closed.compareAndSet(false, true)) {
             // Disconnect can happen before we initialize the timer.
             var timer = heartbeatTimer;
@@ -312,7 +323,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
      * @param unpacker Unpacker.
      * @return Exception.
      */
-    private IgniteException readError(ClientMessageUnpacker unpacker) {
+    private static IgniteException readError(ClientMessageUnpacker unpacker) {
         var traceId = unpacker.unpackUuid();
         var code = unpacker.unpackInt();
         var errClassName = unpacker.unpackString();
@@ -379,8 +390,14 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         try {
             handshakeReq(ver);
 
-            var res = connectTimeout > 0 ? fut.get(connectTimeout, TimeUnit.MILLISECONDS) : fut.get();
-            handshakeRes(res, ver);
+            // handshakeRes must be called even in case of timeout to release the buffer.
+            var resFut = fut.thenAccept(res -> handshakeRes(res, ver));
+
+            if (connectTimeout > 0) {
+                resFut.get(connectTimeout, TimeUnit.MILLISECONDS);
+            } else {
+                resFut.get();
+            }
         } catch (Throwable e) {
             throw IgniteException.wrap(e);
         }
@@ -498,7 +515,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         private final long interval;
 
         /** Constructor. */
-        public HeartbeatTask(long interval) {
+        HeartbeatTask(long interval) {
             this.interval = interval;
         }
 
@@ -506,7 +523,21 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         @Override public void run() {
             try {
                 if (System.currentTimeMillis() - lastSendMillis > interval) {
-                    serviceAsync(ClientOp.HEARTBEAT, null, null);
+                    var fut = serviceAsync(ClientOp.HEARTBEAT, null, null);
+
+                    if (connectTimeout > 0) {
+                        fut
+                                .orTimeout(heartbeatTimeout, TimeUnit.MILLISECONDS)
+                                .exceptionally(e -> {
+                                    if (e instanceof TimeoutException) {
+                                        log.warn("Heartbeat timeout, closing the channel");
+
+                                        close((TimeoutException) e);
+                                    }
+
+                                    return null;
+                                });
+                    }
                 }
             } catch (Throwable ignored) {
                 // Ignore failed heartbeats.

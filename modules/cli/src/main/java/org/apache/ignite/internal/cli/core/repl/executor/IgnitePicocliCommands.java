@@ -23,9 +23,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import org.apache.ignite.internal.cli.core.repl.completer.CompleterFilter;
 import org.apache.ignite.internal.cli.core.repl.completer.DynamicCompleter;
 import org.apache.ignite.internal.cli.core.repl.completer.DynamicCompleterRegistry;
+import org.apache.ignite.internal.cli.core.repl.completer.filter.CompleterFilter;
 import org.jline.builtins.Options.HelpException;
 import org.jline.console.ArgDesc;
 import org.jline.console.CmdDesc;
@@ -191,7 +191,7 @@ public class IgnitePicocliCommands implements CommandRegistry {
             assert candidates != null;
 
             // let picocli generate completion candidates for the token where the cursor is at
-            final String[] words = commandLine.words().toArray(new String[0]);
+            String[] words = commandLine.words().toArray(new String[0]);
             List<CharSequence> cs = new ArrayList<CharSequence>();
             AutoComplete.complete(cmd.getCommandSpec(),
                     words,
@@ -199,11 +199,9 @@ public class IgnitePicocliCommands implements CommandRegistry {
                     0,
                     commandLine.cursor(),
                     cs);
-
-            List<String> staticCandidates = new ArrayList<>();
-            for (CharSequence c : cs) {
-                staticCandidates.add(c.toString());
-            }
+            String[] staticCandidates = cs.stream()
+                    .map(CharSequence::toString)
+                    .toArray(String[]::new);
 
             List<DynamicCompleter> completers = completerRegistry.findCompleters(words);
             if (!completers.isEmpty()) {
@@ -222,9 +220,9 @@ public class IgnitePicocliCommands implements CommandRegistry {
                 return;
             }
 
-            String[] filteredCandidates = completerFilters.get(0).filter(words, staticCandidates.toArray(String[]::new));
-            for (int i = 1; i < completerFilters.size(); i++) {
-                filteredCandidates = completerFilters.get(i).filter(words, filteredCandidates);
+            String[] filteredCandidates = staticCandidates;
+            for (CompleterFilter filter : completerFilters) {
+                filteredCandidates = filter.filter(words, filteredCandidates);
             }
 
             for (String c : filteredCandidates) {

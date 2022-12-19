@@ -47,6 +47,7 @@ dependencies {
     testImplementation libs.hamcrest.core
     testImplementation libs.junit5.params
     testImplementation libs.mockito.core
+    testImplementation libs.mockito.junit
 }
 
 description = 'ignite-storage-page-memory'

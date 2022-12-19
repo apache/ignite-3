@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.core.repl.completer;
+package org.apache.ignite.internal.cli.core.repl.completer.filter;
 
 /**
  * Filters the result of completer.

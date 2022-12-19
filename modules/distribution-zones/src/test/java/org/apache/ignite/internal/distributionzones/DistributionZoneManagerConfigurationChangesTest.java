@@ -30,6 +30,7 @@ import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
@@ -44,6 +45,8 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
+import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
@@ -90,6 +93,9 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
 
     private ConfigurationManager clusterCfgMgr;
 
+    @Mock
+    private LogicalTopologyServiceImpl logicalTopologyService;
+
     private VaultManager vaultMgr;
 
     @BeforeEach
@@ -111,6 +117,8 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
 
         cmgManager = mock(ClusterManagementGroupManager.class);
 
+        logicalTopologyService = mock(LogicalTopologyServiceImpl.class);
+
         vaultMgr = mock(VaultManager.class);
 
         when(vaultMgr.get(any())).thenReturn(completedFuture(null));
@@ -119,10 +127,15 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
                 zonesConfiguration,
                 metaStorageManager,
                 cmgManager,
+                logicalTopologyService,
                 vaultMgr
         );
 
         clusterCfgMgr.start();
+
+        doNothing().when(logicalTopologyService).addEventListener(any());
+
+        when(logicalTopologyService.logicalTopologyOnLeader()).thenReturn(completedFuture(new LogicalTopologySnapshot(1, Set.of())));
 
         mockVaultZonesLogicalTopologyKey(nodes);
 

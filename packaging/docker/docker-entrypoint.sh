@@ -17,6 +17,11 @@
 # limitations under the License.
 #
 
+if [ "$1" = 'cli' ]; then
+  shift
+  exec sh "$IGNITE_CLI_HOME"/bin/ignite3 "$@"
+fi
+
 . @LIB_DIR@/@BOOTSTRAP_FILE_NAME@
 
 LOGGING_JAVA_OPTS="-Djava.util.logging.config.file=@CONF_DIR@/ignite.java.util.logging.properties"

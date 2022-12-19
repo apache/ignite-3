@@ -60,8 +60,8 @@ import org.apache.ignite.internal.sql.engine.prepare.QueryPlan.Type;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.ResultSetMetadata;
-import org.apache.ignite.sql.SqlColumnType;
 
 /**
  * Jdbc query event handler implementation.
@@ -338,6 +338,6 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
             return false;
         }
 
-        return meta.columns().get(0).type() == SqlColumnType.INT64;
+        return meta.columns().get(0).type() == ColumnType.INT64;
     }
 }

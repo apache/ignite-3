@@ -15,23 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.core.repl.completer;
+package org.apache.ignite.internal.client.proto;
 
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.contains;
-import static org.hamcrest.Matchers.hasSize;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import java.util.List;
+import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.Test;
 
-class ExclusionsCompleterFilterTest {
-
+/**
+ * Tests column type converter.
+ */
+public class ClientColumnTypeConverterTest {
     @Test
-    void returnsCandidatesWithoutExclusions() {
-        ExclusionsCompleterFilter filter = new ExclusionsCompleterFilter("exclusion1", "exclusion2");
-        String[] candidates = filter.filter(new String[0], new String[]{"exclusion1", "exclusion2", "candidate"});
-        List<String> candidatesList = List.of(candidates);
-        assertThat(candidatesList, hasSize(1));
-        assertThat(candidatesList, contains("candidate"));
+    public void testConvertAllTypes() {
+        for (ColumnType columnType : ColumnType.values()) {
+            int ordinal = ClientColumnTypeConverter.columnTypeToOrdinal(columnType);
+            ColumnType resColumnType = ClientColumnTypeConverter.ordinalToColumnType(ordinal);
+
+            assertEquals(columnType, resColumnType);
+        }
     }
 }

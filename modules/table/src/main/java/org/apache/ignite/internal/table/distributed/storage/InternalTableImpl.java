@@ -22,9 +22,11 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_UNAVAILABLE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_INSUFFICIENT_READ_WRITE_OPERATION_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_REPLICA_UNAVAILABLE_ERR;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
+import java.net.ConnectException;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Collection;
@@ -34,9 +36,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiFunction;
@@ -49,6 +53,7 @@ import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
+import org.apache.ignite.internal.replicator.exception.ReplicationException;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
@@ -456,17 +461,27 @@ public class InternalTableImpl implements InternalTable {
             @Override
             public CompletableFuture<T> apply(T r, Throwable e) {
                 if (e != null) {
-                    return tx0.rollbackAsync().handle((ignored, err) -> {
-                        if (err != null) {
-                            e.addSuppressed(err);
-                        }
+                    Throwable e0 = wrapReplicationException((RuntimeException) e);
 
-                        throw (RuntimeException) e;
+                    return tx0.rollbackAsync().handle((ignored, err) -> {
+
+                        if (err != null) {
+                            e0.addSuppressed(err);
+                        }
+                        throw (RuntimeException) e0;
                     }); // Preserve failed state.
                 } else {
                     tx0.enlistResultFuture(fut);
 
-                    return implicit ? tx0.commitAsync().thenApply(ignored -> r) : completedFuture(r);
+                    if (implicit) {
+                        return tx0.commitAsync()
+                                .exceptionally(ex -> {
+                                    throw wrapReplicationException((RuntimeException) ex);
+                                })
+                                .thenApply(ignored -> r);
+                    } else {
+                        return completedFuture(r);
+                    }
                 }
             }
         }).thenCompose(x -> x);
@@ -1323,5 +1338,24 @@ public class InternalTableImpl implements InternalTable {
                 }
             }
         });
+    }
+
+    /**
+     * Wraps {@link ReplicationException} or {@link ConnectException} with {@link TransactionException}.
+     *
+     * @param e {@link ReplicationException} or {@link CompletionException} with cause {@link ConnectException} or {@link TimeoutException}
+     * @return {@link TransactionException}
+     */
+    private RuntimeException wrapReplicationException(RuntimeException e) {
+        RuntimeException e0;
+
+        if (e instanceof ReplicationException || e.getCause() instanceof ReplicationException || e.getCause() instanceof ConnectException
+                || e.getCause() instanceof TimeoutException) {
+            e0 = withCause(TransactionException::new, TX_REPLICA_UNAVAILABLE_ERR, e);
+        } else {
+            e0 = e;
+        }
+
+        return e0;
     }
 }

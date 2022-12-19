@@ -31,12 +31,12 @@ namespace Apache.Ignite.Benchmarks.Sql
     /// Measures SQL result set enumeration with two pages of data (two network requests per enumeration).
     /// <para />
     /// Results on Intel Core i7-7700HQ, .NET 6, GC = Concurrent Server, Ubuntu 20.04:
-    /// |                         Method |     Mean |     Error |    StdDev | Ratio | RatioSD |   Gen 0 | Allocated |
-    /// |------------------------------- |---------:|----------:|----------:|------:|--------:|--------:|----------:|
-    /// |                    ToListAsync | 2.325 ms | 0.0207 ms | 0.0183 ms |  1.00 |    0.00 | 15.6250 |    392 KB |
-    /// |                AsyncEnumerable | 2.487 ms | 0.0202 ms | 0.0189 ms |  1.07 |    0.01 | 15.6250 |    393 KB |
-    /// |                LinqToListAsync | 2.206 ms | 0.0121 ms | 0.0113 ms |  0.95 |    0.01 |       - |     80 KB |
-    /// | LinqSelectOneColumnToListAsync | 2.171 ms | 0.0278 ms | 0.0246 ms |  0.93 |    0.02 |       - |     57 KB |.
+    /// |                         Method |       Mean |    Error |   StdDev | Ratio | RatioSD |   Gen 0 |  Gen 1 | Allocated |
+    /// |------------------------------- |-----------:|---------:|---------:|------:|--------:|--------:|-------:|----------:|
+    /// |                    ToListAsync |   967.2 us | 18.17 us | 17.00 us |  1.00 |    0.00 | 15.6250 |      - |    392 KB |
+    /// |                AsyncEnumerable | 1,172.7 us | 23.41 us | 27.87 us |  1.21 |    0.03 | 15.6250 | 1.9531 |    393 KB |
+    /// |                LinqToListAsync |   786.1 us | 14.94 us | 15.34 us |  0.81 |    0.02 |  2.9297 |      - |     80 KB |
+    /// | LinqSelectOneColumnToListAsync |   677.0 us | 13.42 us | 11.21 us |  0.70 |    0.02 |  1.9531 |      - |     57 KB |.
     /// </summary>
     [MemoryDiagnoser]
     [SimpleJob(RuntimeMoniker.Net60)]

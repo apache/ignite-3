@@ -224,7 +224,7 @@ public class ItLearnersTest extends IgniteAbstractTest {
         RaftNode learner1 = nodes.get(1);
 
         CompletableFuture<RaftGroupService> service2 =
-                startRaftGroup(learner1, configuration.learner(learner1.consistentId()), newConfiguration, new TestRaftGroupListener());
+                startRaftGroup(learner1, newConfiguration.learner(learner1.consistentId()), newConfiguration, new TestRaftGroupListener());
 
         // Check that learners and peers have been set correctly.
         Stream.of(service1, service2).forEach(service -> {
@@ -401,11 +401,11 @@ public class ItLearnersTest extends IgniteAbstractTest {
             RaftGroupListener listener
     ) {
         try {
-            CompletableFuture<RaftGroupService> future = node.loza.prepareRaftGroup(
-                    RAFT_GROUP_ID,
-                    serverPeer,
+            CompletableFuture<RaftGroupService> future = node.loza.startRaftGroupNode(
+                    new RaftNodeId(RAFT_GROUP_ID, serverPeer),
                     configuration,
-                    () -> listener
+                    listener,
+                    RaftGroupEventsListener.noopLsnr
             );
 
             return future.thenApply(s -> {
