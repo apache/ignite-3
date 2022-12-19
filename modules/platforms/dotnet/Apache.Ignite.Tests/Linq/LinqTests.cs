@@ -590,6 +590,28 @@ public partial class LinqTests : IgniteTestsBase
         Assert.IsNull(res[0].Blob);
     }
 
+    [Test]
+    public void TestWhereNull()
+    {
+        var res = PocoAllColumnsSqlNullableView.AsQueryable()
+            .Where(x => x.Int8 == null)
+            .ToList();
+
+        Assert.AreEqual(100, res[0].Key);
+        Assert.AreEqual(1, res.Count);
+    }
+
+    [Test]
+    public void TestWhereNotNull()
+    {
+        var res = PocoAllColumnsSqlNullableView.AsQueryable()
+            .Where(x => x.Int8 != null)
+            .OrderBy(x => x.Key)
+            .ToList();
+
+        Assert.AreEqual(0, res[0].Key);
+    }
+
     private record PocoByte(sbyte Key, sbyte Val);
 
     private record PocoShort(short Key, short Val);
