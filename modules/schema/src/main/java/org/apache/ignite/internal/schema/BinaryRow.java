@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.schema;
 
-import java.io.IOException;
-import java.io.OutputStream;
 import java.nio.ByteBuffer;
 
 /**
@@ -81,14 +79,6 @@ public interface BinaryRow {
      * Get ByteBuffer slice representing the value chunk.
      */
     ByteBuffer valueSlice();
-
-    /**
-     * Writes binary row to given stream.
-     *
-     * @param stream Stream to write to.
-     * @throws IOException If write operation fails.
-     */
-    void writeTo(OutputStream stream) throws IOException;
 
     /**
      * Get byte array of the row.
