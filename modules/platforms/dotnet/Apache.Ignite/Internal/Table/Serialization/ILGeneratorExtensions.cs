@@ -96,7 +96,10 @@ internal static class ILGeneratorExtensions
 
             // Null.
             il.MarkLabel(emitNull);
+            var resLoc = il.DeclareAndInitLocal(to);
+            il.Emit(OpCodes.Ldloca, resLoc);
             il.Emit(OpCodes.Initobj, to);
+            il.Emit(OpCodes.Ldloca, resLoc);
 
             // End.
             il.MarkLabel(end);
