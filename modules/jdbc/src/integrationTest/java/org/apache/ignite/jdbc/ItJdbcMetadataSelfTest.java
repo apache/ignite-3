@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.runner.app.jdbc;
+package org.apache.ignite.jdbc;
 
 import static java.sql.Types.DATE;
 import static java.sql.Types.DECIMAL;
