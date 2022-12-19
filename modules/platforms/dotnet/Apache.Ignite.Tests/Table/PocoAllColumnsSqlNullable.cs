@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Tests.Table;
 
+using System.ComponentModel.DataAnnotations.Schema;
 using System.Diagnostics.CodeAnalysis;
 using NodaTime;
 
@@ -35,9 +36,9 @@ public record PocoAllColumnsSqlNullable(
     long? Int64 = null,
     float? Float = null,
     double? Double = null,
-    LocalDate? Date = null,
-    LocalTime? Time = null,
-    LocalDateTime? DateTime = null,
-    Instant? Timestamp = null,
+    [property:Column("DATE")] LocalDate? Date = null,
+    [property:Column("TIME")] LocalTime? Time = null,
+    [property:Column("DATETIME")] LocalDateTime? DateTime = null,
+    [property:Column("TIMESTAMP")] Instant? Timestamp = null,
     byte[]? Blob = null,
     decimal? Decimal = null);

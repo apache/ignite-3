@@ -81,7 +81,7 @@ public partial class LinqTests : IgniteTestsBase
 
             await PocoStringView.UpsertAsync(null, new("k-" + i, "v-" + i * 2));
 
-            var pocoAllColumns = new PocoAllColumnsSql(
+            var pocoAllColumns = new PocoAllColumnsSqlNullable(
                 i,
                 "v -" + i,
                 (sbyte)(i + 1),
@@ -97,8 +97,10 @@ public partial class LinqTests : IgniteTestsBase
                 new byte[] { 1, 2 },
                 i + 7.7m);
 
-            await PocoAllColumnsSqlView.UpsertAsync(null, pocoAllColumns);
+            await PocoAllColumnsSqlNullableView.UpsertAsync(null, pocoAllColumns);
         }
+
+        await PocoAllColumnsSqlNullableView.UpsertAsync(null, new PocoAllColumnsSqlNullable(100));
     }
 
     [OneTimeTearDown]
@@ -526,6 +528,7 @@ public partial class LinqTests : IgniteTestsBase
     {
         var res = PocoAllColumnsSqlView.AsQueryable()
             .OrderBy(x => x.Key)
+            .Take(3)
             .ToList();
 
         Assert.AreEqual(0, res[0].Key);
@@ -546,7 +549,46 @@ public partial class LinqTests : IgniteTestsBase
     [Test]
     public void TestSelectAllColumnTypesNullable()
     {
-        Assert.Fail("TODO");
+        var res = PocoAllColumnsSqlNullableView.AsQueryable()
+            .OrderBy(x => x.Key)
+            .ToList();
+
+        Assert.AreEqual(0, res[0].Key);
+        Assert.AreEqual(1, res[0].Int8);
+        Assert.AreEqual(2, res[0].Int16);
+        Assert.AreEqual(3, res[0].Int32);
+        Assert.AreEqual(4, res[0].Int64);
+        Assert.AreEqual(5.5f, res[0].Float);
+        Assert.AreEqual(6.5, res[0].Double);
+        Assert.AreEqual(7.7, res[0].Decimal);
+        Assert.AreEqual(new LocalDate(2022, 12, 1), res[0].Date);
+        Assert.AreEqual(new LocalTime(11, 38, 1), res[0].Time);
+        Assert.AreEqual(new LocalDateTime(2022, 12, 19, 11, 1), res[0].DateTime);
+        Assert.AreEqual(Instant.FromUnixTimeSeconds(1), res[0].Timestamp);
+        Assert.AreEqual(new byte[] { 1, 2 }, res[0].Blob);
+    }
+
+    [Test]
+    public void TestSelectAllColumnTypesNullableNull()
+    {
+        var res = PocoAllColumnsSqlNullableView.AsQueryable()
+            .OrderByDescending(x => x.Key)
+            .ToList();
+
+        Assert.AreEqual(100, res[0].Key);
+        Assert.IsNull(res[0].Str);
+        Assert.IsNull(res[0].Int8);
+        Assert.IsNull(res[0].Int16);
+        Assert.IsNull(res[0].Int32);
+        Assert.IsNull(res[0].Int64);
+        Assert.IsNull(res[0].Float);
+        Assert.IsNull(res[0].Double);
+        Assert.IsNull(res[0].Decimal);
+        Assert.IsNull(res[0].Date);
+        Assert.IsNull(res[0].Time);
+        Assert.IsNull(res[0].DateTime);
+        Assert.IsNull(res[0].Timestamp);
+        Assert.IsNull(res[0].Blob);
     }
 
     private record PocoByte(sbyte Key, sbyte Val);
