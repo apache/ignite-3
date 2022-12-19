@@ -58,21 +58,24 @@ internal static class ILGeneratorExtensions
     /// <param name="il">IL generator.</param>
     /// <param name="from">Source type.</param>
     /// <param name="to">Target type.</param>
-    public static void EmitConv(this ILGenerator il, Type from, Type to)
+    /// <param name="columnName">Column name.</param>
+    public static void EmitConv(this ILGenerator il, Type from, Type to, string columnName)
     {
         if (from == to)
         {
             return;
         }
 
+        // TODO: Conversion might include both nullable unwrap and type change.
         if (from.IsGenericType && from.GetGenericTypeDefinition() == typeof(Nullable<>) && from.GetGenericArguments()[0] == to)
         {
+            il.Emit(OpCodes.Call, from.GetMethod("get_Value")!);
             return;
         }
 
         if (to.IsGenericType && to.GetGenericTypeDefinition() == typeof(Nullable<>) && to.GetGenericArguments()[0] == from)
         {
-            return;
+            throw new NotSupportedException("TODO");
         }
 
         var methodName = "To" + to.Name;
@@ -80,7 +83,7 @@ internal static class ILGeneratorExtensions
 
         if (method == null)
         {
-            throw new NotSupportedException($"Conversion from {from} to {to} is not supported.");
+            throw new NotSupportedException($"Conversion from {from} to {to} is not supported (column '{columnName}').");
         }
 
         il.Emit(OpCodes.Call, method);
