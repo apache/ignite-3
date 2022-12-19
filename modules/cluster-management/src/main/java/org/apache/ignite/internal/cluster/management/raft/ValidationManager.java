@@ -181,9 +181,6 @@ class ValidationManager implements ManuallyCloseable {
 
     @Override
     public void close() {
-        // Cancelling these futures allows executor to shut itself down. Otherwise the queue is always populated and we wait for nothing.
-        // cleanupFutures.values().forEach(future -> future.cancel(false));
-
         IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
 
         cleanupFutures.clear();
