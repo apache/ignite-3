@@ -72,7 +72,6 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
         distributionZoneManager = new DistributionZoneManager(
                 zonesConfiguration,
                 mock(MetaStorageManager.class),
-                mock(ClusterManagementGroupManager.class),
                 mock(LogicalTopologyServiceImpl.class),
                 mock(VaultManager.class)
         );

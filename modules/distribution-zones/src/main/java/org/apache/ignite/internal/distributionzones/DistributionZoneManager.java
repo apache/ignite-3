@@ -24,8 +24,8 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.updateDataNodesAndTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.updateLogicalTopologyAndVersion;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.updateTriggerKey;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyVersionKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyVersionKey;
 import static org.apache.ignite.internal.metastorage.MetaStorageManager.APPLIED_REV;
 import static org.apache.ignite.internal.metastorage.client.Conditions.value;
 import static org.apache.ignite.internal.metastorage.client.Operations.ops;
@@ -47,7 +47,6 @@ import java.util.stream.Collectors;
 import org.apache.ignite.configuration.NamedListChange;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
-import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
@@ -63,8 +62,8 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.client.CompoundCondition;
-import org.apache.ignite.internal.metastorage.client.Entry;
 import org.apache.ignite.internal.metastorage.client.Condition;
+import org.apache.ignite.internal.metastorage.client.Entry;
 import org.apache.ignite.internal.metastorage.client.If;
 import org.apache.ignite.internal.metastorage.client.Update;
 import org.apache.ignite.internal.metastorage.client.WatchEvent;
@@ -76,6 +75,7 @@ import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.NodeStoppingException;
+import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -90,9 +90,6 @@ public class DistributionZoneManager implements IgniteComponent {
 
     /** Meta Storage manager. */
     private final MetaStorageManager metaStorageManager;
-
-    /** Cluster Management manager. */
-    private final ClusterManagementGroupManager cmgManager;
 
     /** Vault manager. */
     private final VaultManager vaultMgr;
@@ -135,20 +132,17 @@ public class DistributionZoneManager implements IgniteComponent {
      *
      * @param zonesConfiguration Distribution zones configuration.
      * @param metaStorageManager Meta Storage manager.
-     * @param cmgManager Cluster management group manager.
      * @param logicalTopologyService Logical topology service.
      * @param vaultMgr Vault manager.
      */
     public DistributionZoneManager(
             DistributionZonesConfiguration zonesConfiguration,
             MetaStorageManager metaStorageManager,
-            ClusterManagementGroupManager cmgManager,
             LogicalTopologyService logicalTopologyService,
             VaultManager vaultMgr
     ) {
         this.zonesConfiguration = zonesConfiguration;
         this.metaStorageManager = metaStorageManager;
-        this.cmgManager = cmgManager;
         this.logicalTopologyService = logicalTopologyService;
         this.vaultMgr = vaultMgr;
     }

@@ -54,7 +54,7 @@ import java.util.stream.Collectors;
 import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.configuration.NamedConfigurationTree;
 import org.apache.ignite.configuration.NamedListView;
-import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
+import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
@@ -89,7 +89,6 @@ import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mock;
 
 /**
  * Tests distribution zones logical topology changes and reaction to that changes.
@@ -97,9 +96,6 @@ import org.mockito.Mock;
 public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest {
     private static final String ZONE_NAME_1 = "zone1";
     private static final String ZONE_NAME_2 = "zone2";
-
-    @Mock
-    private ClusterManagementGroupManager cmgManager;
 
     private VaultManager vaultMgr;
 
@@ -129,14 +125,21 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
 
         metaStorageManager = mock(MetaStorageManager.class);
 
-        cmgManager = mock(ClusterManagementGroupManager.class);
+        LogicalTopologyServiceImpl logicalTopologyService = mock(LogicalTopologyServiceImpl.class);
+
+        LogicalTopologySnapshot topologySnapshot = mock(LogicalTopologySnapshot.class);
+
+        when(topologySnapshot.version()).thenReturn(1L);
+        when(topologySnapshot.nodes()).thenReturn(Collections.emptySet());
+
+        when(logicalTopologyService.logicalTopologyOnLeader()).thenReturn(completedFuture(topologySnapshot));
 
         vaultMgr = mock(VaultManager.class);
 
         distributionZoneManager = new DistributionZoneManager(
                 zonesConfiguration,
                 metaStorageManager,
-                cmgManager,
+                logicalTopologyService,
                 vaultMgr
         );
 
@@ -451,16 +454,6 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
 
     private void mockVaultAppliedRevision(long revision) {
         when(vaultMgr.get(APPLIED_REV)).thenReturn(completedFuture(new VaultEntry(APPLIED_REV, longToBytes(revision))));
-    }
-
-    private LogicalTopologySnapshot mockCmgLocalNodes(Set<ClusterNode> clusterNodes) {
-        LogicalTopologySnapshot logicalTopologySnapshot = mock(LogicalTopologySnapshot.class);
-
-        when(cmgManager.logicalTopology()).thenReturn(completedFuture(logicalTopologySnapshot));
-
-        when(logicalTopologySnapshot.nodes()).thenReturn(clusterNodes);
-
-        return logicalTopologySnapshot;
     }
 
     private void assertDataNodesForZone(int zoneId, @Nullable Set<ClusterNode> clusterNodes) throws InterruptedException {

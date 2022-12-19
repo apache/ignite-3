@@ -44,7 +44,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
-import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
@@ -84,9 +83,6 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
 
     private static final Set<String> nodes = Set.of("name1");
 
-    @Mock
-    private ClusterManagementGroupManager cmgManager;
-
     private DistributionZoneManager distributionZoneManager;
 
     private SimpleInMemoryKeyValueStorage keyValueStorage;
@@ -115,8 +111,6 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
 
         when(metaStorageManager.registerWatch(any(ByteArray.class), any())).thenReturn(completedFuture(null));
 
-        cmgManager = mock(ClusterManagementGroupManager.class);
-
         logicalTopologyService = mock(LogicalTopologyServiceImpl.class);
 
         vaultMgr = mock(VaultManager.class);
@@ -126,7 +120,6 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
         distributionZoneManager = new DistributionZoneManager(
                 zonesConfiguration,
                 metaStorageManager,
-                cmgManager,
                 logicalTopologyService,
                 vaultMgr
         );

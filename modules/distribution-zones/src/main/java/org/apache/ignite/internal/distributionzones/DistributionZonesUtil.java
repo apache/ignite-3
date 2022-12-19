@@ -85,13 +85,6 @@ class DistributionZonesUtil {
     }
 
     /**
-     * The key for distribution zone logical topology.
-     */
-    static ByteArray zonesLogicalTopologyKey() {
-        return new ByteArray(DISTRIBUTION_ZONE_LOGICAL_TOPOLOGY);
-    }
-
-    /**
      * Condition for updating {@link DistributionZonesUtil#zonesChangeTriggerKey()} key.
      * Update only if the revision of the event is newer than value in that trigger key.
      *
@@ -113,9 +106,9 @@ class DistributionZonesUtil {
      * @param logicalTopology Logical topology.
      * @return Update command for the meta storage.
      */
-    static Update updateDataNodesAndTriggerKey(int zoneId, long revision, Set<String> logicalTopology) {
+    static Update updateDataNodesAndTriggerKey(int zoneId, long revision, byte[] logicalTopology) {
         return ops(
-                put(zoneDataNodesKey(zoneId), ByteUtils.toBytes(logicalTopology)),
+                put(zoneDataNodesKey(zoneId), logicalTopology),
                 put(zonesChangeTriggerKey(), ByteUtils.longToBytes(revision))
         ).yield(true);
     }
