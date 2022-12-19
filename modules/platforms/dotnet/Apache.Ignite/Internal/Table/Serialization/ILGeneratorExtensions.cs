@@ -81,7 +81,7 @@ internal static class ILGeneratorExtensions
             var emitNull = il.DefineLabel();
             var end = il.DefineLabel();
 
-            var fromLoc = il.DeclareAndInitLocal(from); // TODO: Declare only?
+            var fromLoc = il.DeclareLocal(from);
             var toLoc = il.DeclareLocal(to);
             il.Emit(OpCodes.Stloc, fromLoc);
             il.Emit(OpCodes.Ldloca, fromLoc);
@@ -109,7 +109,7 @@ internal static class ILGeneratorExtensions
 
         if (fromUnderlying != null && toUnderlying == null)
         {
-            var loc = il.DeclareAndInitLocal(from); // TODO: Declare only?
+            var loc = il.DeclareLocal(from);
             il.Emit(OpCodes.Stloc, loc);
             il.Emit(OpCodes.Ldloca, loc);
             il.Emit(OpCodes.Call, from.GetMethod("get_Value")!);
