@@ -21,7 +21,6 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import java.io.ByteArrayOutputStream;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
@@ -268,23 +267,14 @@ public class NumericTypesSerializerTest {
 
         long randomKey = rnd.nextLong();
 
-        final Tuple firstTup = createTuple().set("key", randomKey).set("decimalCol", pair.getFirst());
-        final Tuple secondTup = createTuple().set("key", randomKey).set("decimalCol", pair.getSecond());
+        Tuple firstTup = createTuple().set("key", randomKey).set("decimalCol", pair.getFirst());
+        Tuple secondTup = createTuple().set("key", randomKey).set("decimalCol", pair.getSecond());
 
-        final Row firstRow = marshaller.marshal(firstTup);
-        final Row secondRow = marshaller.marshal(secondTup);
+        Row firstRow = marshaller.marshal(firstTup);
+        Row secondRow = marshaller.marshal(secondTup);
 
-        ByteArrayOutputStream stream = new ByteArrayOutputStream();
-
-        firstRow.writeTo(stream);
-
-        byte[] firstRowInBytes = stream.toByteArray();
-
-        stream.reset();
-
-        secondRow.writeTo(stream);
-
-        byte[] secondRowInBytes = stream.toByteArray();
+        byte[] firstRowInBytes = firstRow.bytes();
+        byte[] secondRowInBytes = secondRow.bytes();
 
         assertArrayEquals(firstRowInBytes, secondRowInBytes);
     }

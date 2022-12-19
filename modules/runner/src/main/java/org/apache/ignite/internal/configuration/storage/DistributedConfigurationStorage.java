@@ -210,8 +210,6 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
     private long resolveRevision(@Nullable VaultEntry appliedRevEntry, @Nullable VaultEntry revisionsEntry) {
         long appliedRevision = appliedRevEntry == null ? 0L : ByteUtils.bytesToLong(appliedRevEntry.value());
 
-        long cfgRevision = appliedRevision;
-
         if (revisionsEntry != null) {
             byte[] value = revisionsEntry.value();
             long prevMasterKeyRevision = ByteUtils.bytesToLong(value, 0);
@@ -219,10 +217,11 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
 
             // If current master key revision is higher than applied revision, then node failed
             // before applied revision changed, so we have to use previous master key revision
-            cfgRevision = curMasterKeyRevision <= appliedRevision ? curMasterKeyRevision : prevMasterKeyRevision;
+            return curMasterKeyRevision <= appliedRevision ? curMasterKeyRevision : prevMasterKeyRevision;
+        } else {
+            // Configuration has not been updated yet, so it is safe to return 0 as the revision for the master key.
+            return 0L;
         }
-
-        return cfgRevision;
     }
 
     private Data readDataOnRecovery0(long cfgRevision) {

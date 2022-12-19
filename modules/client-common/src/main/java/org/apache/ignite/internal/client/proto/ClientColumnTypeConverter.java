@@ -17,19 +17,19 @@
 
 package org.apache.ignite.internal.client.proto;
 
-import org.apache.ignite.sql.SqlColumnType;
+import org.apache.ignite.sql.ColumnType;
 
 /**
  * SQL column type utils.
  */
-public class ClientSqlColumnTypeConverter {
+public class ClientColumnTypeConverter {
     /**
      * Converts column type to wire code.
      *
      * @param columnType Column type.
      * @return Wire code.
      */
-    public static int columnTypeToOrdinal(SqlColumnType columnType) {
+    public static int columnTypeToOrdinal(ColumnType columnType) {
         switch (columnType) {
             case BOOLEAN:
                 return 0;
@@ -88,6 +88,9 @@ public class ClientSqlColumnTypeConverter {
             case NUMBER:
                 return 18;
 
+            case NULL:
+                return 19;
+
             default:
                 throw new IllegalArgumentException("Invalid column type: " + columnType);
         }
@@ -99,64 +102,67 @@ public class ClientSqlColumnTypeConverter {
      * @param ordinal Type code.
      * @return Column type.
      */
-    public static SqlColumnType ordinalToColumnType(int ordinal) {
+    public static ColumnType ordinalToColumnType(int ordinal) {
         switch (ordinal) {
             case 0:
-                return SqlColumnType.BOOLEAN;
+                return ColumnType.BOOLEAN;
 
             case 1:
-                return SqlColumnType.INT8;
+                return ColumnType.INT8;
 
             case 2:
-                return SqlColumnType.INT16;
+                return ColumnType.INT16;
 
             case 3:
-                return SqlColumnType.INT32;
+                return ColumnType.INT32;
 
             case 4:
-                return SqlColumnType.INT64;
+                return ColumnType.INT64;
 
             case 5:
-                return SqlColumnType.FLOAT;
+                return ColumnType.FLOAT;
 
             case 6:
-                return SqlColumnType.DOUBLE;
+                return ColumnType.DOUBLE;
 
             case 7:
-                return SqlColumnType.DECIMAL;
+                return ColumnType.DECIMAL;
 
             case 8:
-                return SqlColumnType.DATE;
+                return ColumnType.DATE;
 
             case 9:
-                return SqlColumnType.TIME;
+                return ColumnType.TIME;
 
             case 10:
-                return SqlColumnType.DATETIME;
+                return ColumnType.DATETIME;
 
             case 11:
-                return SqlColumnType.TIMESTAMP;
+                return ColumnType.TIMESTAMP;
 
             case 12:
-                return SqlColumnType.UUID;
+                return ColumnType.UUID;
 
             case 13:
-                return SqlColumnType.BITMASK;
+                return ColumnType.BITMASK;
 
             case 14:
-                return SqlColumnType.STRING;
+                return ColumnType.STRING;
 
             case 15:
-                return SqlColumnType.BYTE_ARRAY;
+                return ColumnType.BYTE_ARRAY;
 
             case 16:
-                return SqlColumnType.PERIOD;
+                return ColumnType.PERIOD;
 
             case 17:
-                return SqlColumnType.DURATION;
+                return ColumnType.DURATION;
 
             case 18:
-                return SqlColumnType.NUMBER;
+                return ColumnType.NUMBER;
+
+            case 19:
+                return ColumnType.NULL;
 
             default:
                 throw new IllegalArgumentException("Invalid column type code: " + ordinal);

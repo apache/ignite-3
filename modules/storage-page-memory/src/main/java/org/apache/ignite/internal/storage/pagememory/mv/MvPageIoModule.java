@@ -22,6 +22,7 @@ import java.util.Collection;
 import java.util.List;
 import org.apache.ignite.internal.pagememory.io.IoVersions;
 import org.apache.ignite.internal.pagememory.io.PageIoModule;
+import org.apache.ignite.internal.storage.pagememory.mv.io.BlobFragmentIo;
 import org.apache.ignite.internal.storage.pagememory.mv.io.RowVersionDataIo;
 import org.apache.ignite.internal.storage.pagememory.mv.io.VersionChainInnerIo;
 import org.apache.ignite.internal.storage.pagememory.mv.io.VersionChainLeafIo;
@@ -40,7 +41,8 @@ public class MvPageIoModule implements PageIoModule {
                 VersionChainMetaIo.VERSIONS,
                 VersionChainInnerIo.VERSIONS,
                 VersionChainLeafIo.VERSIONS,
-                RowVersionDataIo.VERSIONS
+                RowVersionDataIo.VERSIONS,
+                BlobFragmentIo.VERSIONS
         );
     }
 }
