@@ -123,5 +123,5 @@ internal static class SqlColumnTypeExtensions
     /// <param name="type">Type.</param>
     /// <returns>SQL column type, or null.</returns>
     public static SqlColumnType? ToSqlColumnType(this Type type) =>
-        ClrToSql.TryGetValue(type, out var sqlType) ? sqlType : null;
+        ClrToSql.TryGetValue(Nullable.GetUnderlyingType(type) ?? type, out var sqlType) ? sqlType : null;
 }
