@@ -155,12 +155,13 @@ public partial class LinqTests
     public void TestAggregateNullable()
     {
         double? sumNotNull = PocoAllColumnsSqlNullableView.AsQueryable()
-            .Where(x => x.Double < 3)
             .Sum(x => x.Double);
 
-        Assert.AreEqual(45, sumNotNull);
+        Assert.AreEqual(110d, sumNotNull);
 
-        double? sumNull = PocoAllColumnsSqlNullableView.AsQueryable().Sum(x => x.Double);
+        double? sumNull = PocoAllColumnsSqlNullableView.AsQueryable()
+            .Where(x => x.Double == null)
+            .Sum(x => x.Double);
 
         Assert.IsNull(sumNull);
     }
