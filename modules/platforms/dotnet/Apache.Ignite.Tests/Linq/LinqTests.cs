@@ -590,13 +590,6 @@ public partial class LinqTests : IgniteTestsBase
         Assert.IsNull(res[0].Blob);
     }
 
-    [Test]
-    public void TestAggregateNullable()
-    {
-        // TODO: Move this test to Aggregate file? Or separate file for nullables?
-        Assert.Fail("TODO");
-    }
-
     private record PocoByte(sbyte Key, sbyte Val);
 
     private record PocoShort(short Key, short Val);

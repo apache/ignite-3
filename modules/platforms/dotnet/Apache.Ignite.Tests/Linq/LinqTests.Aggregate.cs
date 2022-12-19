@@ -150,4 +150,18 @@ public partial class LinqTests
         // Additional Where.
         Assert.IsFalse(PocoView.AsQueryable().Where(x => x.Key > 7).Any(x => x.Key < 5));
     }
+
+    [Test]
+    public void TestAggregateNullable()
+    {
+        double? sumNotNull = PocoAllColumnsSqlNullableView.AsQueryable()
+            .Where(x => x.Double != null)
+            .Sum(x => x.Double);
+
+        Assert.AreEqual(45, sumNotNull);
+
+        double? sumNull = PocoAllColumnsSqlNullableView.AsQueryable().Sum(x => x.Double);
+
+        Assert.IsNull(sumNull);
+    }
 }
