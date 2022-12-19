@@ -53,9 +53,6 @@ class DistributionZonesUtil {
     private static final ByteArray DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_VERSION_KEY =
             new ByteArray(DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_VERSION);
 
-    /** The key for distribution zone logical topology. */
-    private static final String DISTRIBUTION_ZONE_LOGICAL_TOPOLOGY = "distributionZone.logicalTopology";
-
     /** ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONE_DATA_NODES_PREFIX}. */
     static ByteArray zoneDataNodesKey(int zoneId) {
         return new ByteArray(DISTRIBUTION_ZONE_DATA_NODES_PREFIX + zoneId);

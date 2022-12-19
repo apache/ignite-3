@@ -124,7 +124,7 @@ public class DistributionZoneManager implements IgniteComponent {
     /** The logical topology on the last watch event. */
     private Set<String> logicalTopology = Collections.emptySet();
 
-    /** Watch listener id to unregister the watch listener on {@link DistributionZoneManager#stop()} */
+    /** Watch listener id to unregister the watch listener on {@link DistributionZoneManager#stop()}. */
     private Long watchListenerId;
 
     /**
@@ -565,6 +565,9 @@ public class DistributionZoneManager implements IgniteComponent {
         }
     }
 
+    /**
+     * Registers {@link WatchListener} which updates data nodes of distribution zones on logical topology changing event.
+     */
     private void registerMetaStorageWatchListener() {
         metaStorageManager.registerWatch(zonesLogicalTopologyKey(), new WatchListener() {
                     @Override
@@ -636,6 +639,8 @@ public class DistributionZoneManager implements IgniteComponent {
 
     /**
      * Returns applied vault revision.
+     *
+     * @return Applied vault revision.
      */
     private long vaultAppliedRevision() {
         try {
