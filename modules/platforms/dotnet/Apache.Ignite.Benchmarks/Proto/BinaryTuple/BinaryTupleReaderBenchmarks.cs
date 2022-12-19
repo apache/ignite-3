@@ -20,6 +20,9 @@ namespace Apache.Ignite.Benchmarks.Proto.BinaryTuple;
 using BenchmarkDotNet.Attributes;
 using Internal.Proto.BinaryTuple;
 
+/// <summary>
+/// Binary tuple reader benchmarks. Compares nullable and non-nullable reads.
+/// </summary>
 public class BinaryTupleReaderBenchmarks
 {
     private const int NumElements = 4;
