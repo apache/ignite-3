@@ -33,7 +33,6 @@ import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Common.UNEXPECTED_ERR;
-import static org.apache.ignite.lang.ErrorGroups.DistributionZones.ZONE_UPDATE_ERR;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -542,6 +541,10 @@ public class DistributionZoneManager implements IgniteComponent {
         });
     }
 
+    /**
+     * Initialises data nodes of distribution zones in meta storage
+     * from {@link DistributionZonesUtil#zonesLogicalTopologyKey()} in vault.
+     */
     private void initDataNodesFromVaultManager() {
         long vaultAppliedRevision = vaultAppliedRevision();
 
@@ -550,7 +553,7 @@ public class DistributionZoneManager implements IgniteComponent {
         try {
             vaultEntry = vaultMgr.get(zonesLogicalTopologyKey()).get();
         } catch (InterruptedException | ExecutionException e) {
-            throw new IgniteInternalException(ZONE_UPDATE_ERR, e);
+            throw new IgniteInternalException(UNEXPECTED_ERR, e);
         }
 
         if (vaultEntry != null && vaultEntry.value() != null) {
@@ -648,7 +651,7 @@ public class DistributionZoneManager implements IgniteComponent {
                     .thenApply(appliedRevision -> appliedRevision == null ? 0L : bytesToLong(appliedRevision.value()))
                     .get();
         } catch (InterruptedException | ExecutionException e) {
-            throw new IgniteInternalException(ZONE_UPDATE_ERR, e);
+            throw new IgniteInternalException(UNEXPECTED_ERR, e);
         }
     }
 

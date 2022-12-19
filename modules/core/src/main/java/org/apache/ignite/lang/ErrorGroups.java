@@ -334,9 +334,6 @@ public class ErrorGroups {
 
         /** Distribution zone rename error. */
         public static final int ZONE_RENAME_ERR = DISTRIBUTION_ZONES_ERR_GROUP.registerErrorCode(3);
-
-        /** Distribution zone update error. */
-        public static final int ZONE_UPDATE_ERR = DISTRIBUTION_ZONES_ERR_GROUP.registerErrorCode(4);
     }
 
     /** Network error group. */

@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCo
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -207,6 +208,8 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
 
     @Test
     void testDataNodesPropagationAfterZoneCreation() throws Exception {
+        assertDataNodesForZone(1, null);
+
         distributionZoneManager.createZone(new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).build()).get();
 
         assertDataNodesForZone(1, nodes);
@@ -216,6 +219,8 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
 
     @Test
     void testTriggerKeyPropagationAfterZoneUpdate() throws Exception {
+        assertNull(keyValueStorage.get(zonesChangeTriggerKey().bytes()).value());
+
         distributionZoneManager.createZone(new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).build()).get();
 
         assertZonesChangeTriggerKey(1);
@@ -243,6 +248,8 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
 
     @Test
     void testSeveralZoneCreationsUpdatesTriggerKey() throws Exception {
+        assertNull(keyValueStorage.get(zonesChangeTriggerKey().bytes()).value());
+
         distributionZoneManager.createZone(new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).build()).get();
 
         distributionZoneManager.createZone(new DistributionZoneConfigurationParameters.Builder(NEW_ZONE_NAME).build()).get();
@@ -252,6 +259,8 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
 
     @Test
     void testSeveralZoneUpdatesUpdatesTriggerKey() throws Exception {
+        assertNull(keyValueStorage.get(zonesChangeTriggerKey().bytes()).value());
+
         distributionZoneManager.createZone(new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).build()).get();
 
         distributionZoneManager.alterZone(
@@ -329,7 +338,7 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
             Set<String> actual = fromBytes(keyValueStorage.get(zoneDataNodesKey(zoneId).bytes()).value());
 
             assertTrue(expectedNodes.containsAll(actual));
-            assertTrue(expectedNodes.size() == actual.size());
+            assertEquals(expectedNodes.size(), actual.size());
         }
     }
 
