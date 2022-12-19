@@ -25,6 +25,7 @@ description = 'ignite-examples'
 dependencies {
     implementation project(':ignite-runner')
     implementation project(':ignite-client')
+    implementation project(':ignite-jdbc')
     implementation project(':ignite-api')
 
     testImplementation project(':ignite-core')

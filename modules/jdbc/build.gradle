@@ -15,24 +15,54 @@
  * limitations under the License.
  */
 
+plugins {
+    alias(libs.plugins.shadow)
+}
+
 apply from: "$rootDir/buildscripts/java-core.gradle"
 apply from: "$rootDir/buildscripts/publishing.gradle"
 apply from: "$rootDir/buildscripts/java-junit5.gradle"
+apply from: "$rootDir/buildscripts/java-integration-test.gradle"
+
+configurations {
+    shaded
+    compileOnly {
+        extendsFrom(shaded)
+    }
+    // Add shaded dependencies to test as well
+    // This enables to execute unit tests with original (non-shaded dependencies)
+    testImplementation {
+        extendsFrom(shaded)
+    }
+    integrationTestImplementation {
+        extendsFrom(shaded)
+    }
+}
 
 dependencies {
-    implementation project(':ignite-api')
-    implementation project(':ignite-core')
-    implementation project(':ignite-client')
-    implementation project(':ignite-client-common')
+    shaded project(':ignite-client')
+    shaded project(':ignite-client-common')
+    shaded project(':ignite-api')
+    shaded project(':ignite-core')
 
     implementation libs.jetbrains.annotations
+
+    integrationTestImplementation(testFixtures(project(":ignite-core")))
 }
 
 description = 'ignite-jdbc'
 
-jar {
-    from {
-        configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+shadowJar {
+    configurations = [project.configurations.shaded]
+
+    minimize()
+
+    [
+            'io.netty',
+            'it.unimi',
+            'org.jetbrains',
+            'org.msgpack'
+    ].forEach {
+        relocate(it, "${project.group}.shaded.$it")
     }
-    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 }
