@@ -154,6 +154,7 @@ public partial class LinqTests
     [Test]
     public void TestAggregateNullable()
     {
+        // TODO: Try all types, because it requires different conversions.
         double? sumNotNull = PocoAllColumnsSqlNullableView.AsQueryable()
             .Sum(x => x.Double);
 
