@@ -292,8 +292,6 @@ internal static class ResultSelector
             il.Emit(OpCodes.Ldc_I4, col.Scale);
         }
 
-        // TODO: Use nullability of the target field instead to simplify type conversion?
-        // But this won't help when both source and target are nullable: we'll need unwrap+convert+wrap anyway.
         var colType = col.Type.ToClrType(col.Nullable);
         il.Emit(OpCodes.Call, BinaryTupleMethods.GetReadMethod(colType));
 

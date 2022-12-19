@@ -82,7 +82,7 @@ namespace Apache.Ignite.Tests
 
         protected IRecordView<PocoAllColumnsSql> PocoAllColumnsSqlView { get; private set; } = null!;
 
-        protected IRecordView<PocoAllColumnsSqlNullable> PocoAllColumnsSqlNullableView { get; private set; } = null!; // TODO Dedicated poco
+        protected IRecordView<PocoAllColumnsSqlNullable> PocoAllColumnsSqlNullableView { get; private set; } = null!;
 
         [OneTimeSetUp]
         public async Task OneTimeSetUp()

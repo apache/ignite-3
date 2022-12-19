@@ -78,8 +78,8 @@ internal static class ILGeneratorExtensions
 
         if (fromUnderlying != null && toUnderlying != null)
         {
-            // TODO: Emit "if src == null return null".
-            throw new NotSupportedException("TODO");
+            // TODO: Should we support this? When is this the case?
+            throw NotSupportedConversion(from, to, columnName);
         }
 
         if (fromUnderlying != null && toUnderlying == null)
@@ -116,15 +116,13 @@ internal static class ILGeneratorExtensions
 
             if (method == null)
             {
-                throw new NotSupportedException($"Conversion from {from} to {to} is not supported (column '{columnName}').");
+                throw NotSupportedConversion(from, to, columnName);
             }
 
             il.Emit(OpCodes.Call, method);
         }
-    }
 
-    private static double FromNullableIntToDouble(ref BinaryTupleReader reader)
-    {
-        return Convert.ToDouble(reader.GetIntNullable(0)!.Value);
+        static NotSupportedException NotSupportedConversion(Type from, Type to, string columnName) =>
+            new($"Conversion from {from} to {to} is not supported (column '{columnName}').");
     }
 }
