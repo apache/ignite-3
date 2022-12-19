@@ -258,7 +258,7 @@ internal static class ResultSelector
             il.Emit(OpCodes.Ldc_I4, col.Scale);
         }
 
-        var colType = col.Type.ToClrType();
+        var colType = col.Type.ToClrType(col.Nullable);
         il.Emit(OpCodes.Call, BinaryTupleMethods.GetReadMethod(colType));
 
         il.EmitConv(colType, targetType);
@@ -292,7 +292,7 @@ internal static class ResultSelector
             il.Emit(OpCodes.Ldc_I4, col.Scale);
         }
 
-        var colType = col.Type.ToClrType();
+        var colType = col.Type.ToClrType(col.Nullable);
         il.Emit(OpCodes.Call, BinaryTupleMethods.GetReadMethod(colType));
 
         il.EmitConv(colType, field.FieldType);

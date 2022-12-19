@@ -68,6 +68,19 @@ internal static class SqlColumnTypeExtensions
     };
 
     /// <summary>
+    /// Gets corresponding .NET type.
+    /// </summary>
+    /// <param name="sqlColumnType">SQL column type.</param>
+    /// <param name="nullable">Whether the SQL column is nullable.</param>
+    /// <returns>CLR type.</returns>
+    public static Type ToClrType(this SqlColumnType sqlColumnType, bool nullable)
+    {
+        var clrType = sqlColumnType.ToClrType();
+
+        return nullable && clrType.IsValueType ? typeof(Nullable<>).MakeGenericType(clrType) : clrType;
+    }
+
+    /// <summary>
     /// Gets corresponding SQL type name.
     /// </summary>
     /// <param name="sqlColumnType">SQL column type.</param>
