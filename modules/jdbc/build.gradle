@@ -46,6 +46,7 @@ dependencies {
     shaded project(':ignite-core')
 
     implementation libs.jetbrains.annotations
+    implementation libs.auto.service.annotations
 
     integrationTestImplementation(testFixtures(project(":ignite-core")))
 }
