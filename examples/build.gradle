@@ -32,6 +32,7 @@ dependencies {
     testImplementation libs.hamcrest.core
 
     integrationTestImplementation project(':ignite-core')
+    integrationTestImplementation project(':ignite-jdbc')
     integrationTestImplementation project(':ignite-storage-page-memory')
     integrationTestImplementation project(':ignite-page-memory')
     integrationTestImplementation project(':ignite-storage-rocksdb')
