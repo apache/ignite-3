@@ -23,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.ByteBuffer;
@@ -49,6 +50,7 @@ import org.apache.ignite.internal.sql.engine.AbstractBasicIntegrationTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.IgniteStringFormatter;
+import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.junit.jupiter.api.AfterEach;
@@ -163,8 +165,7 @@ public class ItTableScanTest extends AbstractBasicIntegrationTest {
 
         IgniteTestUtils.await(scanned);
 
-        //TODO: IGNITE-18243 Uncomment this change when the scan on a sorted index will be redesigned.
-        //assertEquals(ROW_IDS.size() + 1, scannedRows.size());
+        assertEquals(ROW_IDS.size() + 1, scannedRows.size());
     }
 
     @Test
@@ -425,6 +426,55 @@ public class ItTableScanTest extends AbstractBasicIntegrationTest {
         var pub = internalTable.scan(0, null, null, null, null, 0, null);
 
         assertEquals(ROW_IDS.size() + txOpFut.get(), scanAllRows(pub).size());
+    }
+
+    @Test
+    public void testTwiceScanInTransaction() throws Exception {
+        TableImpl table = getOrCreateTable();
+
+        InternalTable internalTable = table.internalTable();
+
+        KeyValueView kvView = table.keyValueView();
+
+        UUID soredIndexId = getSortedIndexId();
+
+        ArrayList<ByteBuffer> scannedRows = new ArrayList<>();
+
+        InternalTransaction tx = (InternalTransaction) CLUSTER_NODES.get(0).transactions().begin();
+
+        Publisher<BinaryRow> publisher = internalTable.scan(0, tx, soredIndexId, null, null, 0, null);
+
+        CompletableFuture<Void> scanned = new CompletableFuture<>();
+
+        Subscription subscription = subscribeToPublisher(scannedRows, publisher, scanned);
+
+        subscription.request(2);
+
+        IgniteTestUtils.waitForCondition(() -> scannedRows.size() == 2, 10_000);
+
+        assertEquals(2, scannedRows.size());
+        assertFalse(scanned.isDone());
+
+        assertThrows(Exception.class,
+                () -> kvView.put(null, Tuple.create().set("key", 3), Tuple.create().set("valInt", 3).set("valStr", "New_3")));
+
+        kvView.put(null, Tuple.create().set("key", 8), Tuple.create().set("valInt", 8).set("valStr", "New_8"));
+
+        subscription.request(1_000); // Request so much entries here to close the publisher.
+
+        IgniteTestUtils.waitForCondition(() -> scanned.isDone(), 10_000);
+
+        assertEquals(ROW_IDS.size() + 1, scannedRows.size());
+
+        var pub = internalTable.scan(0, tx, soredIndexId, null, null, 0, null);
+
+        assertEquals(scanAllRows(pub).size(), scannedRows.size());
+
+        assertTrue(scanned.isDone());
+
+        tx.commit();
+
+        kvView.put(null, Tuple.create().set("key", 3), Tuple.create().set("valInt", 3).set("valStr", "New_3"));
     }
 
     /**

@@ -28,6 +28,7 @@ import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.index.IndexRow;
+import org.apache.ignite.internal.storage.index.PeekCursor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.tx.Lock;
 import org.apache.ignite.internal.tx.LockKey;
@@ -95,39 +96,54 @@ public class SortedIndexLocker implements IndexLocker {
      * @return A future representing a result.
      */
     public CompletableFuture<IndexRow> locksForScan(UUID txId, Cursor<IndexRow> cursor) {
-        // TODO https://issues.apache.org/jira/browse/IGNITE-18057
-        // 1. Do index.peekNext() item and lock it. (Lock INF+ if not found)
-        // 2. Do index.peekNext() again and ensure it wasn't changed.
-        // 3. If matches then return lock, otherwise release lock on peeked one and repeat from step 1.
+        assert cursor instanceof PeekCursor : "Cursor has incorrect type [type=" + cursor.getClass().getSimpleName() + ']';
 
-        // BinaryRow nextRow;
-        // BinaryTuple nextKey;
-        //
-        // if (cursor.hasNext()) {
-        //     nextKey = cursor.peekNext().indexColumns();
-        // } else { // otherwise INF
-        //     nextKey = POSITIVE_INF;
-        //
-        //
-        // return lockManager.acquire(txId, new LockKey(indexId, nextKey.byteBuffer()), LockMode.S)
-        //      .thenCompose(lock -> {
-        //          if (!Objects.equals(nexrRow, indexCursor.peekNext())) {  // Concurrent insert into locked range detected. Retry.
-        //              lockManager.release(lock);
-        //              return locksForScan(txId, cursor);
-        //          }
-        //
-        //          return CompletableFuture.completedFuture(lock);
-        //      });
-        //
+        PeekCursor<IndexRow> peekCursor = (PeekCursor<IndexRow>) cursor;
 
         if (!cursor.hasNext()) { // No upper bound or not found. Lock INF+ and exit loop.
             return lockManager.acquire(txId, new LockKey(indexId, POSITIVE_INF.byteBuffer()), LockMode.S)
-                    .thenCompose(ignore -> CompletableFuture.completedFuture(null));
+                    .thenApply(ignore -> null);
         } else {
             IndexRow nextRow = cursor.next();
 
             return lockManager.acquire(txId, new LockKey(indexId, nextRow.indexColumns().byteBuffer()), LockMode.S)
-                    .thenCompose(ignore -> CompletableFuture.completedFuture(nextRow));
+                    .thenCompose(ignore -> acquireLockNextKey(txId, peekCursor))
+                    .thenApply(ignore -> nextRow);
+        }
+    }
+
+    /**
+     * Acquires a lock on the next key without moving a cursor pointer ahead.
+     *
+     * @param txId An identifier of the transaction in which the row is read.
+     * @param peekCursor Cursor, which next key is to be locked.
+     * @return A future representing a result.
+     */
+    private CompletableFuture<IndexRow> acquireLockNextKey(UUID txId, PeekCursor<IndexRow> peekCursor) {
+        if (!peekCursor.hasNext()) { // No upper bound or not found. Lock INF+ and exit loop.
+            return lockManager.acquire(txId, new LockKey(indexId, POSITIVE_INF.byteBuffer()), LockMode.S)
+                    .thenCompose(ignore -> {
+                        if (peekCursor.hasNext()) {
+                            lockManager.release(txId, new LockKey(indexId, POSITIVE_INF.byteBuffer()), LockMode.S);
+
+                            return acquireLockNextKey(txId, peekCursor);
+                        }
+
+                        return CompletableFuture.completedFuture(null);
+                    });
+        } else {
+            IndexRow nextRow = peekCursor.peek();
+
+            return lockManager.acquire(txId, new LockKey(indexId, nextRow.indexColumns().byteBuffer()), LockMode.S)
+                    .thenCompose(ignore -> {
+                        if (!peekCursor.hasNext() || !nextRow.rowId().equals(peekCursor.peek().rowId())) {
+                            lockManager.release(txId, new LockKey(indexId, nextRow.indexColumns().byteBuffer()), LockMode.S);
+
+                            return acquireLockNextKey(txId, peekCursor);
+                        }
+
+                        return CompletableFuture.completedFuture(nextRow);
+                    });
         }
     }
 
