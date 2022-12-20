@@ -201,6 +201,7 @@ public class PlatformTestNodeRunner {
                         .changePartitions(10)
         ));
 
+        // TODO IGNITE-18431 remove extra table, use TABLE_NAME_ALL_COLUMNS for SQL tests.
         TableDefinition schTblAllSql = SchemaBuilders.tableBuilder(SCHEMA_NAME, TABLE_NAME_ALL_COLUMNS_SQL).columns(
                 SchemaBuilders.column(keyCol, ColumnType.INT64).build(),
                 SchemaBuilders.column("str", ColumnType.string()).asNullable(true).build(),
