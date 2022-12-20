@@ -130,6 +130,7 @@ public partial class LinqTests
 
         // TODO: year, month, day_of_month, day_of_week, day_of_year, hour, minute, second
         // TODO: LocalTime, LocalDateTime
+        // TODO: Test projecting all parts into anonymous type.
         TestOp(view, x => x.Key.Day, 20, "select dayofmonth(_T0.KEY) from");
         TestOp(view, x => x.Key.DayOfYear, 354, "select dayofyear(_T0.KEY) from");
         TestOp(view, x => x.Key.DayOfWeek, IsoDayOfWeek.Tuesday, "select -1 + dayofweek(_T0.KEY) from");
