@@ -75,6 +75,7 @@ internal static class ResultSelector
                 static k => EmitConstructorReader<T>(k.Target, k.Columns, k.DefaultIfNull));
         }
 
+        // TODO IGNITE-18435 Full enum support.
         if (columns.Count == 1 && (typeof(T).ToSqlColumnType() is not null || typeof(T).IsEnum))
         {
             var singleColumnCacheKey = new ResultSelectorCacheKey<Type>(typeof(T), columns, defaultIfNull);
