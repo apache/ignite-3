@@ -100,16 +100,13 @@ public class SortedIndexLocker implements IndexLocker {
 
         PeekCursor<IndexRow> peekCursor = (PeekCursor<IndexRow>) cursor;
 
-        if (!cursor.hasNext()) { // No upper bound or not found. Lock INF+ and exit loop.
-            return lockManager.acquire(txId, new LockKey(indexId, POSITIVE_INF.byteBuffer()), LockMode.S)
-                    .thenApply(ignore -> null);
-        } else {
-            IndexRow nextRow = cursor.next();
+        return acquireLockNextKey(txId, peekCursor).thenApply(indexRow -> {
+            if (indexRow == null) {
+                return null;
+            }
 
-            return lockManager.acquire(txId, new LockKey(indexId, nextRow.indexColumns().byteBuffer()), LockMode.S)
-                    .thenCompose(ignore -> acquireLockNextKey(txId, peekCursor))
-                    .thenApply(ignore -> nextRow);
-        }
+            return peekCursor.next();
+        });
     }
 
     /**

@@ -448,11 +448,11 @@ public class ItTableScanTest extends AbstractBasicIntegrationTest {
 
         Subscription subscription = subscribeToPublisher(scannedRows, publisher, scanned);
 
-        subscription.request(2);
+        subscription.request(3);
 
-        IgniteTestUtils.waitForCondition(() -> scannedRows.size() == 2, 10_000);
+        IgniteTestUtils.waitForCondition(() -> scannedRows.size() == 3, 10_000);
 
-        assertEquals(2, scannedRows.size());
+        assertEquals(3, scannedRows.size());
         assertFalse(scanned.isDone());
 
         assertThrows(Exception.class,
