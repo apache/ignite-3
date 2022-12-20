@@ -272,7 +272,7 @@ internal static class MethodVisitor
                 constExpr.Type.IsPrimitive &&
                 constExpr.Type != typeof(char))
             {
-                // TODO IGNITE-18282 Remove this logic, we should be able to pass args as SQL params for all functions.
+                // TODO Remove this logic, we should be able to pass args as SQL params for all functions.
                 // We only allow inline for numeric types. Other types can lead to SQL injections.
                 visitor.ResultBuilder.Append(constExpr.Value);
             }
