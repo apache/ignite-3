@@ -133,6 +133,7 @@ public partial class LinqTests
         TestOp(view, x => x.Key.Day, 20, "select dayofmonth(_T0.KEY) from");
         TestOp(view, x => x.Key.DayOfYear, 354, "select dayofyear(_T0.KEY) from");
         TestOp(view, x => x.Key.DayOfWeek, IsoDayOfWeek.Tuesday, "select -1 + dayofweek(_T0.KEY) from");
+        TestOp(view, x => (int)x.Key.DayOfWeek, (int)IsoDayOfWeek.Tuesday, "select cast(-1 + dayofweek(_T0.KEY) as int) from");
     }
 
     [Test]
