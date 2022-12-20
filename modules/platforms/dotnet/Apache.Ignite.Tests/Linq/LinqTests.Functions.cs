@@ -83,6 +83,10 @@ public partial class LinqTests
     [Test]
     public void TestStringFunctions()
     {
+        TestOpString(x => x.Val + "_", "v-9_", "select concat(_T0.VAL, ?) from");
+        TestOpString(x => "_" + x.Val, "_v-9", "select concat(?, _T0.VAL) from");
+        TestOpString(x => "[" + x.Val + "]", "[v-9]", "select concat(concat(?, _T0.VAL), ?) from");
+
         TestOpString(x => x.Val!.ToUpper(), "V-9", "select upper(_T0.VAL) from");
         TestOpString(x => x.Val!.ToLower(), "v-9", "select lower(_T0.VAL) from");
 
@@ -93,17 +97,16 @@ public partial class LinqTests
         TestOpString(x => x.Val!.TrimStart(), "v-9", "select ltrim(_T0.VAL) from");
         TestOpString(x => x.Val!.TrimEnd(), "v-9", "select rtrim(_T0.VAL) from");
 
+        TestOpString(x => x.Val!.Trim('v'), "-9", "select trim(both ? from _T0.VAL) from");
+        TestOpString(x => x.Val!.TrimStart('v'), "-9", "select trim(leading ? from _T0.VAL) from");
+        TestOpString(x => x.Val!.TrimEnd('9'), "v-", "select trim(trailing ? from _T0.VAL) from");
+
         TestOpString(x => x.Val!.Contains("v-"), true, "select (_T0.VAL like '%' || ? || '%') from");
         TestOpString(x => x.Val!.StartsWith("v-"), true, "select (_T0.VAL like ? || '%') from");
         TestOpString(x => x.Val!.EndsWith("-9"), true, "select (_T0.VAL like '%' || ?) from");
 
-        TestOpString(x => x.Val + "_", "v-9_", "select concat(_T0.VAL, ?) from");
         TestOpString(x => x.Val!.IndexOf("-9"), 1, "select instr(_T0.VAL, ?) -1 from");
         TestOpString(x => x.Val!.IndexOf("-9", 1), -1, "select instr(_T0.VAL, ?, ?) -1 from");
-
-        TestOpString(x => x.Val!.Trim('v'), "-9", "select trim(both ? from _T0.VAL) from");
-        TestOpString(x => x.Val!.TrimStart('v'), "-9", "select trim(leading ? from _T0.VAL) from");
-        TestOpString(x => x.Val!.TrimEnd('9'), "v-", "select trim(trailing ? from _T0.VAL) from");
     }
 
     [Test]
