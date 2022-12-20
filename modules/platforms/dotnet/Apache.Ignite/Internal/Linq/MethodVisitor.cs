@@ -19,6 +19,7 @@ namespace Apache.Ignite.Internal.Linq;
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Linq;
@@ -65,8 +66,8 @@ internal static class MethodVisitor
                 GetStringMethod(nameof(string.Contains), new[] {typeof(string)}, (e, v) => VisitSqlLike(e, v, "'%' || ? || '%'")),
                 GetStringMethod(nameof(string.StartsWith), new[] {typeof(string)}, (e, v) => VisitSqlLike(e, v, "? || '%'")),
                 GetStringMethod(nameof(string.EndsWith), new[] {typeof(string)}, (e, v) => VisitSqlLike(e, v, "'%' || ?")),
-                GetStringMethod(nameof(string.IndexOf), new[] {typeof(string)}, GetFunc("instr", -1)),
-                GetStringMethod(nameof(string.IndexOf), new[] {typeof(string), typeof(int)}, GetFunc("instr", -1)),
+                GetStringMethod(nameof(string.IndexOf), new[] {typeof(string)}, VisitPositionFunc),
+                GetStringMethod(nameof(string.IndexOf), new[] {typeof(string), typeof(int)}, VisitPositionFunc),
                 GetStringMethod(nameof(string.Substring), new[] {typeof(int)}, GetFunc("substring", 0, 1)),
                 GetStringMethod(nameof(string.Substring), new[] {typeof(int), typeof(int)}, GetFunc("substring", inlineConstArgs: true, 0, 1)),
                 GetStringMethod(nameof(string.Trim), "trim"),
@@ -338,6 +339,32 @@ internal static class MethodVisitor
         visitor.ResultBuilder.TrimEnd().Append(" from ");
         visitor.Visit(expression.Object!);
         visitor.ResultBuilder.Append(')');
+    }
+
+    /// <summary>
+    /// Visits the function for IndexOf -> POSITION mapping.
+    /// </summary>
+    private static void VisitPositionFunc(
+        MethodCallExpression expression,
+        IgniteQueryExpressionVisitor visitor)
+    {
+        // POSITION(string1 IN string2)
+        visitor.ResultBuilder.Append("position(");
+
+        Debug.Assert(expression.Arguments.Count >= 2, "expression.Arguments.Count >= 2");
+
+        visitor.Visit(expression.Arguments[0]);
+        visitor.ResultBuilder.TrimEnd().Append(" in ");
+        visitor.Visit(expression.Arguments[1]);
+
+        if (expression.Arguments.Count > 2)
+        {
+            // POSITION(string1 IN string2 FROM integer)
+            visitor.ResultBuilder.TrimEnd().Append(" from ");
+            visitor.Visit(expression.Arguments[2]);
+        }
+
+        visitor.ResultBuilder.TrimEnd().Append(')');
     }
 
     /// <summary>
