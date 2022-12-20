@@ -147,6 +147,7 @@ public interface TxStateStorage extends ManuallyCloseable {
      * cleared before it can be used.
      *
      * @return Future of the start a full rebalance for transaction state storage.
+     * @throws IgniteInternalException with {@link Transactions#TX_STATE_STORAGE_ERR} error code in case when the operation has failed.
      */
     CompletableFuture<Void> startFullRebalance();
 
