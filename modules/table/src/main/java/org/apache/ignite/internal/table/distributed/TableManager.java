@@ -629,17 +629,31 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             return failedFuture(new NodeStoppingException());
         }
 
+        CompletableFuture<?> fut;
+
         try {
-            updateAssignmentInternal(assignmentsCtx);
+            //TODO: Fix synchronous Future.get under busy lock.
+            fut = updateAssignmentInternal(assignmentsCtx);
         } finally {
             busyLock.leaveBusy();
         }
 
-        for (var listener : assignmentsChangeListeners) {
-            listener.accept(this);
+        // TODO: Fix sync wait in FJP.
+        fut.join();
+
+        if (!busyLock.enterBusy()) {
+            return failedFuture(new NodeStoppingException());
         }
 
-        return completedFuture(null);
+        try {
+            for (var listener : assignmentsChangeListeners) {
+                listener.accept(this);
+            }
+        } finally {
+            busyLock.leaveBusy();
+        }
+
+        return fut;
     }
 
     /**
@@ -647,7 +661,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      *
      * @param assignmentsCtx Change assignment event.
      */
-    private void updateAssignmentInternal(ConfigurationNotificationEvent<byte[]> assignmentsCtx) {
+    private CompletableFuture<?> updateAssignmentInternal(ConfigurationNotificationEvent<byte[]> assignmentsCtx) {
         ExtendedTableConfiguration tblCfg = assignmentsCtx.config(ExtendedTableConfiguration.class);
 
         UUID tblId = tblCfg.id().value();
@@ -672,7 +686,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         String localMemberName = clusterService.topologyService().localMember().name();
 
         // Create new raft nodes according to new assignments.
-        tablesByIdVv.update(causalityToken, (tablesById, e) -> {
+        return tablesByIdVv.update(causalityToken, (tablesById, e) -> {
             if (e != null) {
                 return failedFuture(e);
             }
@@ -864,7 +878,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             }
 
             return allOf(futures).thenApply(unused -> tablesById);
-        }).join();
+        });
     }
 
     private boolean isLocalPeer(Peer peer) {
@@ -1658,7 +1672,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
         try {
             // TODO: IGNITE-16288 directTableId should use async configuration API
-            return CompletableFuture.supplyAsync(() -> inBusyLock(busyLock, () -> directTableId(name)))
+            return CompletableFuture.supplyAsync(() -> inBusyLock(busyLock, () -> directTableId(name)), ioExecutor)
                     .thenCompose(tableId -> inBusyLock(busyLock, () -> {
                         if (tableId == null) {
                             return completedFuture(null);
@@ -1681,7 +1695,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     public CompletableFuture<TableImpl> tableAsyncInternal(UUID id, boolean checkConfiguration) {
         CompletableFuture<Boolean> tblCfgFut = checkConfiguration
                 // TODO: IGNITE-16288 isTableConfigured should use async configuration API
-                ? CompletableFuture.supplyAsync(() -> inBusyLock(busyLock, () -> isTableConfigured(id)))
+                ? CompletableFuture.supplyAsync(() -> inBusyLock(busyLock, () -> isTableConfigured(id)), ioExecutor)
                 : completedFuture(true);
 
         return tblCfgFut.thenCompose(isCfg -> inBusyLock(busyLock, () -> {
