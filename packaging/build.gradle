@@ -138,7 +138,7 @@ task allSrcZip(type: Exec) {
 
     def outFile = "$buildDir/distributions/apache-ignite-${project.version}-src.zip"
     commandLine "git", "archive",
-            "--prefix=apache-ignite-${project.version}-src",
+            "--prefix=apache-ignite-${project.version}-src/",
             "-o", outFile,
             "HEAD"
     outputs.file outFile
