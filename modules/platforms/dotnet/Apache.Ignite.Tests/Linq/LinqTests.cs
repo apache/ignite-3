@@ -24,6 +24,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Ignite.Sql;
 using Ignite.Table;
+using NodaTime;
 using NUnit.Framework;
 using Table;
 
@@ -516,4 +517,6 @@ public partial class LinqTests : IgniteTestsBase
     private record PocoDecimal(decimal Key, decimal Val);
 
     private record PocoString(string Key, string Val);
+
+    private record PocoDate(LocalDate Key, LocalDate Val);
 }

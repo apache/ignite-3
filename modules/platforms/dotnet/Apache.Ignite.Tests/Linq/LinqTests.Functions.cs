@@ -21,7 +21,9 @@ using System;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Linq.Expressions;
+using System.Threading.Tasks;
 using Ignite.Table;
+using NodaTime;
 using NUnit.Framework;
 using Table;
 
@@ -118,9 +120,15 @@ public partial class LinqTests
     }
 
     [Test]
-    public void TestDateFunctions()
+    public async Task TestDateFunctions()
     {
-        Assert.Fail("TODO");
+        var table = await Client.Tables.GetTableAsync(TableDateName);
+        var view = table!.GetRecordView<PocoDate>();
+
+        var localDate = new LocalDate(2022, 12, 20);
+        await view.UpsertAsync(null, new PocoDate(localDate, localDate));
+
+        TestOp(view, x => x.Key.Day, 20, "select day(_T0.KEY) from");
     }
 
     [Test]
