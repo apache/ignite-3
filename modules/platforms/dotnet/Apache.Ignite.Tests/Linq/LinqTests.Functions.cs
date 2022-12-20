@@ -128,7 +128,11 @@ public partial class LinqTests
         var localDate = new LocalDate(2022, 12, 20);
         await view.UpsertAsync(null, new PocoDate(localDate, localDate));
 
-        TestOp(view, x => x.Key.Day, 20, "select day(_T0.KEY) from");
+        // TODO: year, month, day_of_month, day_of_week, day_of_year, hour, minute, second
+        // TODO: LocalTime, LocalDateTime
+        TestOp(view, x => x.Key.Day, 20, "select dayofmonth(_T0.KEY) from");
+        TestOp(view, x => x.Key.DayOfYear, 354, "select dayofyear(_T0.KEY) from");
+        TestOp(view, x => x.Key.DayOfWeek, IsoDayOfWeek.Tuesday, "select -1 + dayofweek(_T0.KEY) from");
     }
 
     [Test]

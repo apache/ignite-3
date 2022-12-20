@@ -27,6 +27,7 @@ using System.Linq.Expressions;
 using System.Reflection;
 using System.Text.RegularExpressions;
 using Common;
+using NodaTime;
 
 /// <summary>
 /// MethodCall expression visitor. Maps CLR methods to SQL functions.
@@ -45,14 +46,22 @@ internal static class MethodVisitor
     private static readonly Dictionary<MemberInfo, string> Properties = new()
     {
         {typeof(string).GetProperty(nameof(string.Length))!, "length"},
-        {typeof(DateTime).GetProperty(nameof(DateTime.Year))!, "year"},
-        {typeof(DateTime).GetProperty(nameof(DateTime.Month))!, "month"},
-        {typeof(DateTime).GetProperty(nameof(DateTime.Day))!, "day_of_month"},
-        {typeof(DateTime).GetProperty(nameof(DateTime.DayOfYear))!, "day_of_year"},
-        {typeof(DateTime).GetProperty(nameof(DateTime.DayOfWeek))!, "-1 + day_of_week"},
-        {typeof(DateTime).GetProperty(nameof(DateTime.Hour))!, "hour"},
-        {typeof(DateTime).GetProperty(nameof(DateTime.Minute))!, "minute"},
-        {typeof(DateTime).GetProperty(nameof(DateTime.Second))!, "second"}
+        {typeof(LocalDate).GetProperty(nameof(LocalDate.Year))!, "year"},
+        {typeof(LocalDate).GetProperty(nameof(LocalDate.Month))!, "month"},
+        {typeof(LocalDate).GetProperty(nameof(LocalDate.Day))!, "dayofmonth"},
+        {typeof(LocalDate).GetProperty(nameof(LocalDate.DayOfYear))!, "dayofyear"},
+        {typeof(LocalDate).GetProperty(nameof(LocalDate.DayOfWeek))!, "-1 + dayofweek"},
+        {typeof(LocalTime).GetProperty(nameof(LocalTime.Hour))!, "hour"},
+        {typeof(LocalTime).GetProperty(nameof(LocalTime.Minute))!, "minute"},
+        {typeof(LocalTime).GetProperty(nameof(LocalTime.Second))!, "second"},
+        {typeof(LocalDateTime).GetProperty(nameof(LocalDateTime.Year))!, "year"},
+        {typeof(LocalDateTime).GetProperty(nameof(LocalDateTime.Month))!, "month"},
+        {typeof(LocalDateTime).GetProperty(nameof(LocalDateTime.Day))!, "dayofmonth"},
+        {typeof(LocalDateTime).GetProperty(nameof(LocalDateTime.DayOfYear))!, "dayofyear"},
+        {typeof(LocalDateTime).GetProperty(nameof(LocalDateTime.DayOfWeek))!, "-1 + dayofweek"},
+        {typeof(LocalDateTime).GetProperty(nameof(LocalDateTime.Hour))!, "hour"},
+        {typeof(LocalDateTime).GetProperty(nameof(LocalDateTime.Minute))!, "minute"},
+        {typeof(LocalDateTime).GetProperty(nameof(LocalDateTime.Second))!, "second"}
     };
 
     /// <summary>
