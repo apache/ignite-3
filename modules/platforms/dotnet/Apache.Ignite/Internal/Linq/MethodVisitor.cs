@@ -349,7 +349,8 @@ internal static class MethodVisitor
         IgniteQueryExpressionVisitor visitor)
     {
         // POSITION(string1 IN string2)
-        visitor.ResultBuilder.Append("position(");
+        // Returns 1-based index when substring is found, 0 when not found.
+        visitor.ResultBuilder.Append("-1 + position(");
 
         Debug.Assert(expression.Arguments.Count >= 1, "expression.Arguments.Count >= 1");
 
@@ -360,8 +361,9 @@ internal static class MethodVisitor
         if (expression.Arguments.Count > 1)
         {
             // POSITION(string1 IN string2 FROM integer)
-            visitor.ResultBuilder.TrimEnd().Append(" from ");
-            visitor.Visit(expression.Arguments[2]);
+            visitor.ResultBuilder.TrimEnd().Append(" from (");
+            visitor.Visit(expression.Arguments[1]);
+            visitor.ResultBuilder.Append(" + 1)");
         }
 
         visitor.ResultBuilder.TrimEnd().Append(')');
