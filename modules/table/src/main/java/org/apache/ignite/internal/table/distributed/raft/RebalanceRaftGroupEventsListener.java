@@ -37,6 +37,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -169,46 +170,51 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
         }
 
         try {
-            rebalanceScheduler.schedule(() -> {
-                if (!busyLock.enterBusy()) {
-                    return;
-                }
+            CompletableFuture<Entry> metastoreEntyFuture = metaStorageMgr.get(pendingPartAssignmentsKey(partId));
 
-                try {
-                    rebalanceAttempts.set(0);
-
-                    byte[] pendingAssignmentsBytes = metaStorageMgr.get(pendingPartAssignmentsKey(partId)).get().value();
-
-                    if (pendingAssignmentsBytes != null) {
-                        Set<Assignment> pendingAssignments = ByteUtils.fromBytes(pendingAssignmentsBytes);
-
-                        var peers = new HashSet<String>();
-                        var learners = new HashSet<String>();
-
-                        for (Assignment assignment : pendingAssignments) {
-                            if (assignment.isPeer()) {
-                                peers.add(assignment.consistentId());
-                            } else {
-                                learners.add(assignment.consistentId());
-                            }
-                        }
-
-                        LOG.info("New leader elected. Going to apply new configuration "
-                                        + "[group={}, partition={}, table={}, peers={}, learners={}]",
-                                partId, partNum, tblConfiguration.name().value(), peers, learners);
-
-                        PeersAndLearners peersAndLearners = PeersAndLearners.fromConsistentIds(peers, learners);
-
-                        partitionMover.movePartition(peersAndLearners, term).get();
+            metastoreEntyFuture.thenAccept(entry -> {
+                rebalanceScheduler.schedule(() -> {
+                    if (!busyLock.enterBusy()) {
+                        return;
                     }
-                } catch (Exception e) {
-                    // TODO: IGNITE-14693
-                    LOG.warn("Unable to start rebalance [partition={}, table={}, term={}]",
-                            e, partNum, tblConfiguration.name().value(), term);
-                } finally {
-                    busyLock.leaveBusy();
-                }
-            }, 0, TimeUnit.MILLISECONDS);
+
+                    try {
+                        rebalanceAttempts.set(0);
+
+                        //TODO: Fix synchronous Future.get under lock.
+                        byte[] pendingAssignmentsBytes = entry.value();
+
+                        if (pendingAssignmentsBytes != null) {
+                            Set<Assignment> pendingAssignments = ByteUtils.fromBytes(pendingAssignmentsBytes);
+
+                            var peers = new HashSet<String>();
+                            var learners = new HashSet<String>();
+
+                            for (Assignment assignment : pendingAssignments) {
+                                if (assignment.isPeer()) {
+                                    peers.add(assignment.consistentId());
+                                } else {
+                                    learners.add(assignment.consistentId());
+                                }
+                            }
+
+                            LOG.info("New leader elected. Going to apply new configuration "
+                                            + "[group={}, partition={}, table={}, peers={}, learners={}]",
+                                    partId, partNum, tblConfiguration.name().value(), peers, learners);
+
+                            PeersAndLearners peersAndLearners = PeersAndLearners.fromConsistentIds(peers, learners);
+
+                            partitionMover.movePartition(peersAndLearners, term).get();
+                        }
+                    } catch (Exception e) {
+                        // TODO: IGNITE-14693
+                        LOG.warn("Unable to start rebalance [partition={}, table={}, term={}]",
+                                e, partNum, tblConfiguration.name().value(), term);
+                    } finally {
+                        busyLock.leaveBusy();
+                    }
+                }, 0, TimeUnit.MILLISECONDS);
+            });
         } finally {
             busyLock.leaveBusy();
         }
