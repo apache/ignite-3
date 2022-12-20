@@ -108,6 +108,8 @@ public partial class LinqTests
         TestOpString(x => x.Val!.IndexOf("-9"), 1, "select -1 + position(? in _T0.VAL) from");
         TestOpString(x => x.Val!.IndexOf("-9", 2), -1, "select -1 + position(? in _T0.VAL from (? + 1)) from");
 
+        TestOpString(x => x.Val!.Length, 3, "select length(_T0.VAL) from");
+
         // TODO:
         // Compare, Replace, Length
     }
