@@ -191,21 +191,14 @@ public class RaftGroupServiceImpl implements RaftGroupService {
             return CompletableFuture.completedFuture(service);
         }
 
-        return service.refreshLeader().handle((unused, throwable) -> {
-            if (throwable != null) {
-                if (throwable.getCause() instanceof TimeoutException) {
-                    if (LOG.isDebugEnabled()) {
-                        LOG.debug("Failed to refresh a leader [groupId={}]", groupId);
-                    }
-                } else {
-                    if (LOG.isWarnEnabled()) {
-                        LOG.warn("Failed to refresh a leader [groupId={}]", throwable, groupId);
-                    }
-                }
+        service.refreshLeader().exceptionally((throwable) -> {
+            if (throwable != null && LOG.isWarnEnabled()) {
+                LOG.warn("Failed to refresh a leader [groupId={}]", throwable, groupId);
             }
-
-            return service;
+            return null;
         });
+
+        return CompletableFuture.completedFuture(service);
     }
 
     @Override
@@ -715,10 +708,9 @@ public class RaftGroupServiceImpl implements RaftGroupService {
             refreshLeader0().whenCompleteAsync((peer0, th) -> {
                 if (th != null) {
                     fut.completeExceptionally(th);
-                }
-                else {
+                } else {
                     sendWithRetry(peer0, requestFactory, stopTime, fut);
-                };
+                }
             }, executor);
         }
     }
