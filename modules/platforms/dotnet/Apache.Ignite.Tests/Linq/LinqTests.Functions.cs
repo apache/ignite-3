@@ -108,11 +108,8 @@ public partial class LinqTests
         TestOpString(x => x.Val!.IndexOf("-9"), 1, "select -1 + position(? in _T0.VAL) from");
         TestOpString(x => x.Val!.IndexOf("-9", 2), -1, "select -1 + position(? in _T0.VAL from (? + 1)) from");
 
-        TestOpString(x => x.Val!.PadLeft(4), " v-9", "select upper(_T0.VAL) from");
-        TestOpString(x => x.Val!.PadLeft(5, '.'), "..v-9", "select upper(_T0.VAL) from");
-
         // TODO:
-        // PadLeft, PadRight, Compare, Replace
+        // Compare, Replace, Length
     }
 
     [Test]

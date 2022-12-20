@@ -80,10 +80,6 @@ internal static class MethodVisitor
                 GetCharTrimMethod(nameof(string.TrimStart), TrimLeading),
                 GetCharTrimMethod(nameof(string.TrimEnd), TrimTrailing),
                 GetStringMethod(nameof(string.Replace), "replace", typeof(string), typeof(string)),
-                GetStringMethod(nameof(string.PadLeft), "lpad", typeof(int)),
-                GetStringMethod(nameof(string.PadLeft), "lpad", typeof(int), typeof(char)),
-                GetStringMethod(nameof(string.PadRight), "rpad", typeof(int)),
-                GetStringMethod(nameof(string.PadRight), "rpad", typeof(int), typeof(char)),
                 GetStringMethod(nameof(string.Compare), new[] { typeof(string), typeof(string) }, (e, v) => VisitStringCompare(e, v, false)),
                 GetStringMethod(nameof(string.Compare), new[] { typeof(string), typeof(string), typeof(bool) }, (e, v) => VisitStringCompare(e, v, GetStringCompareIgnoreCaseParameter(e.Arguments[2]))),
 
