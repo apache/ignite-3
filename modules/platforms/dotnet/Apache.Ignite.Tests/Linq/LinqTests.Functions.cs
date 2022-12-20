@@ -99,7 +99,7 @@ public partial class LinqTests
 
         TestOpString(x => x.Val!.Trim('v'), "-9", "select trim(both ? from _T0.VAL) from");
         TestOpString(x => x.Val!.TrimStart('v'), "-9", "select trim(leading ? from _T0.VAL) from");
-        TestOpString(x => x.Val!.TrimEnd('9'), "v-", "select trim(trailing ? from _T0.VAL) from");
+        TestOpString(x => x.Val!.TrimEnd('9'), "v-8", "select trim(trailing ? from _T0.VAL) from");
 
         TestOpString(x => x.Val!.Contains("v-"), true, "select (_T0.VAL like '%' || ? || '%') from");
         TestOpString(x => x.Val!.StartsWith("v-"), true, "select (_T0.VAL like ? || '%') from");
