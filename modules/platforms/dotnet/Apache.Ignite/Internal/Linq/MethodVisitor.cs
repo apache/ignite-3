@@ -28,7 +28,9 @@ using System.Text.RegularExpressions;
 using Common;
 
 /// <summary>
-/// MethodCall expression visitor.
+/// MethodCall expression visitor. Maps CLR methods to SQL functions.
+/// <para />
+/// Refer to https://calcite.apache.org/docs/reference.html for supported SQL functions.
 /// </summary>
 internal static class MethodVisitor
 {

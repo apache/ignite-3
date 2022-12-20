@@ -26,7 +26,7 @@ using NUnit.Framework;
 using Table;
 
 /// <summary>
-/// Linq type cast tests.
+/// Linq functions tests.
 /// </summary>
 [SuppressMessage("Globalization", "CA1304:Specify CultureInfo", Justification = "SQL")]
 [SuppressMessage("ReSharper", "StringIndexOfIsCultureSpecific.1", Justification = "SQL")]
