@@ -351,13 +351,13 @@ internal static class MethodVisitor
         // POSITION(string1 IN string2)
         visitor.ResultBuilder.Append("position(");
 
-        Debug.Assert(expression.Arguments.Count >= 2, "expression.Arguments.Count >= 2");
+        Debug.Assert(expression.Arguments.Count >= 1, "expression.Arguments.Count >= 1");
 
         visitor.Visit(expression.Arguments[0]);
         visitor.ResultBuilder.TrimEnd().Append(" in ");
-        visitor.Visit(expression.Arguments[1]);
+        visitor.Visit(expression.Object!);
 
-        if (expression.Arguments.Count > 2)
+        if (expression.Arguments.Count > 1)
         {
             // POSITION(string1 IN string2 FROM integer)
             visitor.ResultBuilder.TrimEnd().Append(" from ");
