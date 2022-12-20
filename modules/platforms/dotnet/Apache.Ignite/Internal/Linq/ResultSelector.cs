@@ -26,6 +26,7 @@ using System.Reflection;
 using System.Reflection.Emit;
 using System.Threading;
 using Ignite.Sql;
+using NodaTime;
 using Proto.BinaryTuple;
 using Remotion.Linq.Clauses;
 using Remotion.Linq.Clauses.Expressions;
@@ -74,7 +75,8 @@ internal static class ResultSelector
                 static k => EmitConstructorReader<T>(k.Target, k.Columns, k.DefaultIfNull));
         }
 
-        if (columns.Count == 1 && typeof(T).ToSqlColumnType() is not null)
+        // TODO: Handle IsoDayOfWeek special case in a better way? Or handle all enums in the same way, converting to int?
+        if (columns.Count == 1 && (typeof(T).ToSqlColumnType() is not null || typeof(T).IsEnum))
         {
             var singleColumnCacheKey = new ResultSelectorCacheKey<Type>(typeof(T), columns, defaultIfNull);
 
