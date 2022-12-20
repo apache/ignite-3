@@ -65,7 +65,6 @@ import picocli.CommandLine;
 /**
  * Test node start/stop in different scenarios and validate grid services behavior depending on availability/absence of quorums.
  */
-//@Disabled("https://issues.apache.org/jira/browse/IGNITE-18441")
 @SuppressWarnings("ThrowableNotThrown")
 public class ItNodeRestartTest extends AbstractClusterStartStopTest {
     /** Initialize grid. */
@@ -299,7 +298,7 @@ public class ItNodeRestartTest extends AbstractClusterStartStopTest {
             return;
             // TODO: Bound table distribution zone to data nodes and uncomment.
             // else if (!clusterNodes.containsKey(DATA_NODE_2)) {
-        } else if (isNodeStarted(DATA_NODE_2) && clusterNodes.size() <= 2 /* no quorum */) {
+        } else if (isNodeStarted(DATA_NODE_2) || clusterNodes.size() <= 2 /* no quorum */) {
             // Fake transaction with a timestamp from the past.
             Transaction tx0 = Mockito.spy(node.transactions().readOnly().begin());
             Mockito.when(tx0.readTimestamp()).thenReturn(new HybridTimestamp(1L, 0));
