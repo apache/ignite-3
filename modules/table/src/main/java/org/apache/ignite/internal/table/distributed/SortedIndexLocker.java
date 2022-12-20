@@ -93,7 +93,7 @@ public class SortedIndexLocker implements IndexLocker {
      *
      * @param txId An identifier of the transaction in which the row is read.
      * @param cursor Cursor, which next key is to be locked.
-     * @return A future representing a result.
+     * @return A future representing a next index row or {@code null} if the cursor has no rows more.
      */
     public CompletableFuture<IndexRow> locksForScan(UUID txId, Cursor<IndexRow> cursor) {
         assert cursor instanceof PeekCursor : "Cursor has incorrect type [type=" + cursor.getClass().getSimpleName() + ']';
@@ -114,7 +114,7 @@ public class SortedIndexLocker implements IndexLocker {
      *
      * @param txId An identifier of the transaction in which the row is read.
      * @param peekCursor Cursor, which next key is to be locked.
-     * @return A future representing a result.
+     * @return A future representing a locked index row or {@code null} if the cursor has no rows more.
      */
     private CompletableFuture<IndexRow> acquireLockNextKey(UUID txId, PeekCursor<IndexRow> peekCursor) {
         if (!peekCursor.hasNext()) { // No upper bound or not found. Lock INF+ and exit loop.

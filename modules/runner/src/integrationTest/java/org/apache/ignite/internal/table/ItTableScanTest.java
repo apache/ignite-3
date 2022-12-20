@@ -102,11 +102,11 @@ public class ItTableScanTest extends AbstractBasicIntegrationTest {
 
         InternalTable internalTable = table.internalTable();
 
-        UUID soredIndexId = getSortedIndexId();
+        UUID sortedIndexId = getSortedIndexId();
 
         ArrayList<ByteBuffer> scannedRows = new ArrayList<>();
 
-        Publisher<BinaryRow> publisher = internalTable.scan(0, tx1, soredIndexId, null, null, 0, null);
+        Publisher<BinaryRow> publisher = internalTable.scan(0, tx1, sortedIndexId, null, null, 0, null);
 
         CompletableFuture<Void> scanned = new CompletableFuture<>();
 
@@ -142,11 +142,11 @@ public class ItTableScanTest extends AbstractBasicIntegrationTest {
 
         InternalTable internalTable = table.internalTable();
 
-        UUID soredIndexId = getSortedIndexId();
+        UUID sortedIndexId = getSortedIndexId();
 
         ArrayList<ByteBuffer> scannedRows = new ArrayList<>();
 
-        Publisher<BinaryRow> publisher = internalTable.scan(0, null, soredIndexId, null, null, 0, null);
+        Publisher<BinaryRow> publisher = internalTable.scan(0, null, sortedIndexId, null, null, 0, null);
 
         CompletableFuture<Void> scanned = new CompletableFuture<>();
 
@@ -436,13 +436,13 @@ public class ItTableScanTest extends AbstractBasicIntegrationTest {
 
         KeyValueView kvView = table.keyValueView();
 
-        UUID soredIndexId = getSortedIndexId();
+        UUID sortedIndexId = getSortedIndexId();
 
         ArrayList<ByteBuffer> scannedRows = new ArrayList<>();
 
         InternalTransaction tx = (InternalTransaction) CLUSTER_NODES.get(0).transactions().begin();
 
-        Publisher<BinaryRow> publisher = internalTable.scan(0, tx, soredIndexId, null, null, 0, null);
+        Publisher<BinaryRow> publisher = internalTable.scan(0, tx, sortedIndexId, null, null, 0, null);
 
         CompletableFuture<Void> scanned = new CompletableFuture<>();
 
@@ -466,7 +466,7 @@ public class ItTableScanTest extends AbstractBasicIntegrationTest {
 
         assertEquals(ROW_IDS.size() + 1, scannedRows.size());
 
-        var pub = internalTable.scan(0, tx, soredIndexId, null, null, 0, null);
+        var pub = internalTable.scan(0, tx, sortedIndexId, null, null, 0, null);
 
         assertEquals(scanAllRows(pub).size(), scannedRows.size());
 
