@@ -19,10 +19,10 @@ SELECT i FROM integers WHERE i >= ALL(SELECT i FROM integers)
 query IT
 SELECT i, i >= ALL(SELECT i FROM integers) FROM integers ORDER BY i
 ----
-NULL	NULL
 1	false
 2	false
 3	NULL
+NULL	NULL
 
 query I
 SELECT i FROM integers WHERE i >= ALL(SELECT i FROM integers WHERE i IS NOT NULL)
@@ -32,10 +32,10 @@ SELECT i FROM integers WHERE i >= ALL(SELECT i FROM integers WHERE i IS NOT NULL
 query IT
 SELECT i, i >= ALL(SELECT i FROM integers WHERE i IS NOT NULL) FROM integers ORDER BY i
 ----
-NULL	NULL
 1	false
 2	false
 3	true
+NULL	NULL
 
 query I
 SELECT i FROM integers WHERE i >= ALL(SELECT i FROM integers WHERE i IS NOT NULL)
