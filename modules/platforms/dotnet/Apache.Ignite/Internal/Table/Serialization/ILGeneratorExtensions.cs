@@ -20,6 +20,7 @@ namespace Apache.Ignite.Internal.Table.Serialization;
 using System;
 using System.Reflection;
 using System.Reflection.Emit;
+using NodaTime;
 
 /// <summary>
 /// Extensions for <see cref="ILGenerator"/>.
@@ -63,6 +64,11 @@ internal static class ILGeneratorExtensions
         if (from == to)
         {
             return;
+        }
+
+        if (to.IsEnum)
+        {
+            to = to.GetEnumUnderlyingType();
         }
 
         var methodName = "To" + to.Name;

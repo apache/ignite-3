@@ -75,7 +75,6 @@ internal static class ResultSelector
                 static k => EmitConstructorReader<T>(k.Target, k.Columns, k.DefaultIfNull));
         }
 
-        // TODO: Handle IsoDayOfWeek special case in a better way? Or handle all enums in the same way, converting to int?
         if (columns.Count == 1 && (typeof(T).ToSqlColumnType() is not null || typeof(T).IsEnum))
         {
             var singleColumnCacheKey = new ResultSelectorCacheKey<Type>(typeof(T), columns, defaultIfNull);
