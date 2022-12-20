@@ -122,19 +122,35 @@ public partial class LinqTests
     [Test]
     public async Task TestDateFunctions()
     {
-        var table = await Client.Tables.GetTableAsync(TableDateName);
-        var view = table!.GetRecordView<PocoDate>();
-
+        var dates = (await Client.Tables.GetTableAsync(TableDateName))!.GetRecordView<PocoDate>();
         var localDate = new LocalDate(2022, 12, 20);
-        await view.UpsertAsync(null, new PocoDate(localDate, localDate));
+        await dates.UpsertAsync(null, new PocoDate(localDate, localDate));
 
         // TODO: year, month, day_of_month, day_of_week, day_of_year, hour, minute, second
         // TODO: LocalTime, LocalDateTime
         // TODO: Test projecting all parts into anonymous type.
-        TestOp(view, x => x.Key.Day, 20, "select dayofmonth(_T0.KEY) from");
-        TestOp(view, x => x.Key.DayOfYear, 354, "select dayofyear(_T0.KEY) from");
-        TestOp(view, x => x.Key.DayOfWeek, IsoDayOfWeek.Tuesday, "select -1 + dayofweek(_T0.KEY) from");
-        TestOp(view, x => (int)x.Key.DayOfWeek, (int)IsoDayOfWeek.Tuesday, "select cast(-1 + dayofweek(_T0.KEY) as int) from");
+        TestOp(dates, x => x.Key.Day, 20, "select dayofmonth(_T0.KEY) from");
+        TestOp(dates, x => x.Key.DayOfYear, 354, "select dayofyear(_T0.KEY) from");
+        TestOp(dates, x => x.Key.Day, 20, "select dayofmonth(_T0.KEY) from");
+        TestOp(dates, x => x.Key.DayOfWeek, IsoDayOfWeek.Tuesday, "select -1 + dayofweek(_T0.KEY) from");
+        TestOp(dates, x => (int)x.Key.DayOfWeek, (int)IsoDayOfWeek.Tuesday, "select cast(-1 + dayofweek(_T0.KEY) as int) from");
+    }
+
+    [Test]
+    public async Task TestDateTimeFunctions()
+    {
+        var dateTimes = (await Client.Tables.GetTableAsync(TableDateTimeName))!.GetRecordView<PocoDateTime>();
+        var localDateTime = new LocalDateTime(2022, 12, 20, 20, 07, 36, 123);
+        await dateTimes.UpsertAsync(null, new PocoDateTime(localDateTime, localDateTime));
+
+        TestOp(dateTimes, x => x.Key.Day, 20, "select dayofmonth(_T0.KEY) from");
+        TestOp(dateTimes, x => x.Key.DayOfYear, 354, "select dayofyear(_T0.KEY) from");
+        TestOp(dateTimes, x => x.Key.Day, 20, "select dayofmonth(_T0.KEY) from");
+        TestOp(dateTimes, x => x.Key.DayOfWeek, IsoDayOfWeek.Tuesday, "select -1 + dayofweek(_T0.KEY) from");
+        TestOp(dateTimes, x => (int)x.Key.DayOfWeek, (int)IsoDayOfWeek.Tuesday, "select cast(-1 + dayofweek(_T0.KEY) as int) from");
+        TestOp(dateTimes, x => x.Key.Hour, 20, "select hour(_T0.KEY) from");
+        TestOp(dateTimes, x => x.Key.Minute, 7, "select minute(_T0.KEY) from");
+        TestOp(dateTimes, x => x.Key.Second, 36, "select second(_T0.KEY) from");
     }
 
     [Test]
