@@ -19,29 +19,31 @@ package org.apache.ignite.raft.server;
 
 import static org.apache.ignite.internal.raft.server.RaftGroupOptions.defaults;
 import static org.apache.ignite.raft.jraft.test.TestUtils.waitForTopology;
+import static org.apache.ignite.raft.server.counter.GetValueCommand.getValueCommand;
+import static org.apache.ignite.raft.server.counter.IncrementAndGetCommand.incrementAndGetCommand;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.raft.Peer;
+import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupServiceImpl;
+import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
+import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
-import org.apache.ignite.raft.client.Peer;
-import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.raft.server.counter.CounterListener;
-import org.apache.ignite.raft.server.counter.GetValueCommand;
-import org.apache.ignite.raft.server.counter.IncrementAndGetCommand;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -98,26 +100,32 @@ class ItSimpleCounterServerTest extends RaftServerAbstractTest {
 
         server.start();
 
-        ClusterNode serverNode = server.clusterService().topologyService().localMember();
+        String serverNodeName = server.clusterService().topologyService().localMember().name();
+
+        PeersAndLearners configuration = PeersAndLearners.fromConsistentIds(Set.of(serverNodeName));
+
+        Peer serverPeer = configuration.peer(serverNodeName);
 
         assertTrue(
-                server.startRaftGroup(COUNTER_GROUP_ID_0, new CounterListener(), List.of(new Peer(serverNode.name())), defaults())
+                server.startRaftNode(new RaftNodeId(COUNTER_GROUP_ID_0, serverPeer), configuration, new CounterListener(), defaults())
         );
         assertTrue(
-                server.startRaftGroup(COUNTER_GROUP_ID_1, new CounterListener(), List.of(new Peer(serverNode.name())), defaults())
+                server.startRaftNode(new RaftNodeId(COUNTER_GROUP_ID_1, serverPeer), configuration, new CounterListener(), defaults())
         );
 
         ClusterService clientNode1 = clusterService(PORT + 1, List.of(addr), true);
 
         executor = new ScheduledThreadPoolExecutor(20, new NamedThreadFactory(Loza.CLIENT_POOL_NAME, logger()));
 
-        client1 = RaftGroupServiceImpl.start(COUNTER_GROUP_ID_0, clientNode1, FACTORY, 1000,
-                List.of(new Peer(serverNode.name())), false, 200, executor).get(3, TimeUnit.SECONDS);
+        client1 = RaftGroupServiceImpl
+                .start(COUNTER_GROUP_ID_0, clientNode1, FACTORY, 1000, 1000, configuration, false, 200, executor)
+                .get(3, TimeUnit.SECONDS);
 
         ClusterService clientNode2 = clusterService(PORT + 2, List.of(addr), true);
 
-        client2 = RaftGroupServiceImpl.start(COUNTER_GROUP_ID_1, clientNode2, FACTORY, 1000,
-                List.of(new Peer(serverNode.name())), false, 200, executor).get(3, TimeUnit.SECONDS);
+        client2 = RaftGroupServiceImpl
+                .start(COUNTER_GROUP_ID_1, clientNode2, FACTORY, 1000, 1000, configuration, false, 200, executor)
+                .get(3, TimeUnit.SECONDS);
 
         assertTrue(waitForTopology(service, 3, 1000));
         assertTrue(waitForTopology(clientNode1, 3, 1000));
@@ -130,15 +138,14 @@ class ItSimpleCounterServerTest extends RaftServerAbstractTest {
     @AfterEach
     @Override
     public void after() throws Exception {
-        server.stopRaftGroup(COUNTER_GROUP_ID_0);
-        server.stopRaftGroup(COUNTER_GROUP_ID_1);
-
-        server.stop();
-
-        client1.shutdown();
-        client2.shutdown();
-
-        IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
+        IgniteUtils.closeAll(
+                () -> server.stopRaftNodes(COUNTER_GROUP_ID_0),
+                () -> server.stopRaftNodes(COUNTER_GROUP_ID_1),
+                server::stop,
+                client1::shutdown,
+                client2::shutdown,
+                () -> IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS)
+        );
 
         super.after();
     }
@@ -162,14 +169,14 @@ class ItSimpleCounterServerTest extends RaftServerAbstractTest {
         assertNotNull(client1.leader());
         assertNotNull(client2.leader());
 
-        assertEquals(2, client1.<Long>run(new IncrementAndGetCommand(2)).get());
-        assertEquals(2, client1.<Long>run(new GetValueCommand()).get());
-        assertEquals(3, client1.<Long>run(new IncrementAndGetCommand(1)).get());
-        assertEquals(3, client1.<Long>run(new GetValueCommand()).get());
+        assertEquals(2, client1.<Long>run(incrementAndGetCommand(2)).get());
+        assertEquals(2, client1.<Long>run(getValueCommand()).get());
+        assertEquals(3, client1.<Long>run(incrementAndGetCommand(1)).get());
+        assertEquals(3, client1.<Long>run(getValueCommand()).get());
 
-        assertEquals(4, client2.<Long>run(new IncrementAndGetCommand(4)).get());
-        assertEquals(4, client2.<Long>run(new GetValueCommand()).get());
-        assertEquals(7, client2.<Long>run(new IncrementAndGetCommand(3)).get());
-        assertEquals(7, client2.<Long>run(new GetValueCommand()).get());
+        assertEquals(4, client2.<Long>run(incrementAndGetCommand(4)).get());
+        assertEquals(4, client2.<Long>run(getValueCommand()).get());
+        assertEquals(7, client2.<Long>run(incrementAndGetCommand(3)).get());
+        assertEquals(7, client2.<Long>run(getValueCommand()).get());
     }
 }

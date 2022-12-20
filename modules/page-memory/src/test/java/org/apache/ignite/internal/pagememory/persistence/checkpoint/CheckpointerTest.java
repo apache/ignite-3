@@ -348,7 +348,7 @@ public class CheckpointerTest {
 
         partitionMetaManager.addMeta(
                 new GroupPartitionId(0, 0),
-                new PartitionMeta(null, 0, 0, null, 0, 0, 0, 0, 3)
+                new PartitionMeta(null, 0, 0, 0, 0, 0, 0, 0, 3)
         );
 
         FilePageStore filePageStore = mock(FilePageStore.class);

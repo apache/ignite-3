@@ -17,8 +17,9 @@
 
 package org.apache.ignite.internal.cluster.management.topology;
 
-import java.util.Collection;
 import java.util.Set;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.network.ClusterNode;
 
 /**
@@ -27,26 +28,46 @@ import org.apache.ignite.network.ClusterNode;
  */
 public interface LogicalTopology {
     /**
-     * Retrieves the current logical topology.
+     * Retrieves the current logical topology snapshot stored in the local storage.
      */
-    Collection<ClusterNode> getLogicalTopology();
+    LogicalTopologySnapshot getLogicalTopology();
 
     /**
      * Puts a given node as a part of the logical topology.
      *
      * @param node Node to put.
      */
-    void putLogicalTopologyNode(ClusterNode node);
+    void putNode(ClusterNode node);
 
     /**
      * Removes given nodes from the logical topology.
      *
      * @param nodes Nodes to remove.
      */
-    void removeLogicalTopologyNodes(Set<ClusterNode> nodes);
+    void removeNodes(Set<ClusterNode> nodes);
 
     /**
      * Returns {@code true} if a given node is present in the logical topology or {@code false} otherwise.
      */
     boolean isNodeInLogicalTopology(ClusterNode node);
+
+    /**
+     * Adds a listener for logical topology events.
+     *
+     * @param listener Listener to add.
+     */
+    void addEventListener(LogicalTopologyEventListener listener);
+
+    /**
+     * Removes a listener for logical topology events.
+     *
+     * @param listener Listener to remove.
+     */
+    void removeEventListener(LogicalTopologyEventListener listener);
+
+    /**
+     * Causes {@link LogicalTopologyEventListener#onTopologyLeap(LogicalTopologySnapshot)} to be fired with the topology snapshot
+     * currently stored in an underlying storage. Invoked after the storage has been restored from a snapshot.
+     */
+    void fireTopologyLeap();
 }

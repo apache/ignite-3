@@ -17,11 +17,10 @@
 
 package org.apache.ignite.internal.table.distributed.command;
 
+import java.nio.ByteBuffer;
 import java.util.UUID;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
-import org.apache.ignite.network.annotations.Marshallable;
 import org.apache.ignite.network.annotations.Transferable;
-import org.apache.ignite.raft.jraft.util.ByteString;
 
 /**
  * State machine command to update a row specified by a row id.
@@ -32,6 +31,5 @@ public interface UpdateCommand extends PartitionCommand {
 
     UUID rowUuid();
 
-    @Marshallable
-    ByteString rowBuffer();
+    ByteBuffer rowBuffer();
 }

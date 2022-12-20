@@ -19,14 +19,18 @@ package org.apache.ignite.internal.raft;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static java.util.stream.Collectors.toUnmodifiableList;
+import static java.util.stream.Collectors.collectingAndThen;
+import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.raft.jraft.test.TestUtils.peersToIds;
+import static org.apache.ignite.raft.TestWriteCommand.testWriteCommand;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.instanceOf;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -34,19 +38,20 @@ import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.argThat;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
 import java.net.ConnectException;
-import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -57,17 +62,23 @@ import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.TopologyService;
-import org.apache.ignite.raft.client.Peer;
-import org.apache.ignite.raft.client.WriteCommand;
-import org.apache.ignite.raft.client.service.RaftGroupService;
+import org.apache.ignite.raft.TestWriteCommand;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.rpc.ActionRequest;
 import org.apache.ignite.raft.jraft.rpc.CliRequests;
+import org.apache.ignite.raft.jraft.rpc.CliRequests.AddLearnersRequest;
+import org.apache.ignite.raft.jraft.rpc.CliRequests.AddPeerRequest;
+import org.apache.ignite.raft.jraft.rpc.CliRequests.ChangePeersRequest;
 import org.apache.ignite.raft.jraft.rpc.CliRequests.GetLeaderRequest;
 import org.apache.ignite.raft.jraft.rpc.CliRequests.GetLeaderResponse;
+import org.apache.ignite.raft.jraft.rpc.CliRequests.GetPeersRequest;
+import org.apache.ignite.raft.jraft.rpc.CliRequests.RemoveLearnersRequest;
+import org.apache.ignite.raft.jraft.rpc.CliRequests.RemovePeerRequest;
+import org.apache.ignite.raft.jraft.rpc.CliRequests.ResetLearnersRequest;
+import org.apache.ignite.raft.jraft.rpc.CliRequests.TransferLeaderRequest;
 import org.apache.ignite.raft.jraft.rpc.RaftRpcFactory;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.ErrorResponse;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftException;
@@ -85,9 +96,11 @@ import org.mockito.junit.jupiter.MockitoExtension;
  */
 @ExtendWith(MockitoExtension.class)
 public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
-    private static final List<Peer> NODES = Stream.of(20000, 20001, 20002)
-            .map(port -> new Peer("localhost-" + port))
-            .collect(toUnmodifiableList());
+    private static final PeersAndLearners CONFIGURATION = Stream.of(20000, 20001, 20002)
+            .map(port -> "localhost-" + port)
+            .collect(collectingAndThen(toSet(), PeersAndLearners::fromConsistentIds));
+
+    private static final List<Peer> NODES = List.copyOf(CONFIGURATION.peers());
 
     private static final RaftMessagesFactory FACTORY = new RaftMessagesFactory();
 
@@ -206,7 +219,7 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
 
         assertThat(service.refreshLeader(), willCompleteSuccessfully());
 
-        assertThat(service.run(new TestCommand()), willBe(instanceOf(TestResponse.class)));
+        assertThat(service.run(testWriteCommand()), willBe(instanceOf(TestResponse.class)));
     }
 
     @Test
@@ -218,7 +231,7 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
 
         assertNull(service.leader());
 
-        assertThat(service.run(new TestCommand()), willBe(instanceOf(TestResponse.class)));
+        assertThat(service.run(testWriteCommand()), willBe(instanceOf(TestResponse.class)));
 
         assertEquals(leader, service.leader());
     }
@@ -230,7 +243,7 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
 
         RaftGroupService service = startRaftGroupService(NODES, false);
 
-        assertThat(service.run(new TestCommand()), willThrow(TimeoutException.class, 500, TimeUnit.MILLISECONDS));
+        assertThat(service.run(testWriteCommand()), willThrow(TimeoutException.class, 500, TimeUnit.MILLISECONDS));
     }
 
     @Test
@@ -248,7 +261,7 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
 
         assertEquals(leader, service.leader());
 
-        assertThat(service.run(new TestCommand()), willThrow(TimeoutException.class));
+        assertThat(service.run(testWriteCommand()), willThrow(TimeoutException.class));
     }
 
     @Test
@@ -268,7 +281,7 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
 
         executor.schedule((Runnable) () -> this.leader = NODES.get(0), 500, TimeUnit.MILLISECONDS);
 
-        assertThat(service.run(new TestCommand()), willBe(instanceOf(TestResponse.class)));
+        assertThat(service.run(testWriteCommand()), willBe(instanceOf(TestResponse.class)));
 
         assertEquals(NODES.get(0), service.leader());
     }
@@ -297,7 +310,7 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
                 500, TimeUnit.MILLISECONDS
         );
 
-        assertThat(service.run(new TestCommand()), willBe(instanceOf(TestResponse.class)));
+        assertThat(service.run(testWriteCommand()), willBe(instanceOf(TestResponse.class)));
 
         assertEquals(NODES.get(1), service.leader());
     }
@@ -321,7 +334,7 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
         assertNotEquals(leader, newLeader);
 
         // Runs the command on an old leader. It should respond with leader changed error, when transparently retry.
-        assertThat(service.run(new TestCommand()), willBe(instanceOf(TestResponse.class)));
+        assertThat(service.run(testWriteCommand()), willBe(instanceOf(TestResponse.class)));
 
         assertEquals(newLeader, service.leader());
     }
@@ -349,70 +362,60 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
         List<String> respPeers = peersToIds(NODES.subList(0, 2));
         List<String> respLearners = peersToIds(NODES.subList(2, 2));
 
-        when(messagingService.invoke(any(),
-                eq(FACTORY.getPeersRequest().onlyAlive(false).groupId(TEST_GRP.toString()).build()), anyLong()))
-                .then(invocation ->
-                        completedFuture(FACTORY.getPeersResponse().peersList(respPeers).learnersList(respLearners).build()));
+        when(messagingService.invoke(any(), any(GetPeersRequest.class), anyLong()))
+                .then(invocation -> completedFuture(FACTORY.getPeersResponse().peersList(respPeers).learnersList(respLearners).build()));
 
         mockLeaderRequest(false);
 
         RaftGroupService service = startRaftGroupService(NODES, true);
 
-        assertEquals(NODES, service.peers());
-        assertEquals(Collections.emptyList(), service.learners());
+        assertThat(service.peers(), containsInAnyOrder(NODES.toArray()));
+        assertThat(service.learners(), is(empty()));
 
         assertThat(service.refreshMembers(false), willCompleteSuccessfully());
 
-        assertEquals(NODES.subList(0, 2), service.peers());
-        assertEquals(NODES.subList(2, 2), service.learners());
+        assertThat(service.peers(), containsInAnyOrder(NODES.subList(0, 2).toArray()));
+        assertThat(service.learners(), containsInAnyOrder(NODES.subList(2, 2).toArray()));
     }
 
     @Test
     public void testAddPeer() {
         List<String> respPeers = peersToIds(NODES);
 
-        when(messagingService.invoke(any(),
-                eq(FACTORY.addPeerRequest()
-                        .peerId(PeerId.fromPeer(NODES.get(2)).toString())
-                        .groupId(TEST_GRP.toString()).build()), anyLong()))
-                .then(invocation ->
-                        completedFuture(FACTORY.addPeerResponse().newPeersList(respPeers).build()));
+        when(messagingService.invoke(any(), any(AddPeerRequest.class), anyLong()))
+                .then(invocation -> completedFuture(FACTORY.addPeerResponse().newPeersList(respPeers).build()));
 
         mockLeaderRequest(false);
 
         RaftGroupService service = startRaftGroupService(NODES.subList(0, 2), true);
 
-        assertEquals(NODES.subList(0, 2), service.peers());
-        assertEquals(Collections.emptyList(), service.learners());
+        assertThat(service.peers(), containsInAnyOrder(NODES.subList(0, 2).toArray()));
+        assertThat(service.learners(), is(empty()));
 
         assertThat(service.addPeer(NODES.get(2)), willCompleteSuccessfully());
 
-        assertEquals(NODES, service.peers());
-        assertEquals(Collections.emptyList(), service.learners());
+        assertThat(service.peers(), containsInAnyOrder(NODES.toArray()));
+        assertThat(service.learners(), is(empty()));
     }
 
     @Test
     public void testRemovePeer() {
         List<String> respPeers = peersToIds(NODES.subList(0, 2));
 
-        when(messagingService.invoke(any(),
-                eq(FACTORY.removePeerRequest()
-                        .peerId(PeerId.fromPeer(NODES.get(2)).toString())
-                        .groupId(TEST_GRP.toString()).build()), anyLong()))
-                .then(invocation ->
-                        completedFuture(FACTORY.removePeerResponse().newPeersList(respPeers).build()));
+        when(messagingService.invoke(any(), any(RemovePeerRequest.class), anyLong()))
+                .then(invocation -> completedFuture(FACTORY.removePeerResponse().newPeersList(respPeers).build()));
 
         mockLeaderRequest(false);
 
         RaftGroupService service = startRaftGroupService(NODES, true);
 
-        assertEquals(NODES, service.peers());
-        assertEquals(Collections.emptyList(), service.learners());
+        assertThat(service.peers(), containsInAnyOrder(NODES.toArray()));
+        assertThat(service.learners(), is(empty()));
 
         assertThat(service.removePeer(NODES.get(2)), willCompleteSuccessfully());
 
-        assertEquals(NODES.subList(0, 2), service.peers());
-        assertEquals(Collections.emptyList(), service.learners());
+        assertThat(service.peers(), containsInAnyOrder(NODES.subList(0, 2).toArray()));
+        assertThat(service.learners(), is(empty()));
     }
 
     @Test
@@ -421,47 +424,32 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
 
         List<String> extendedPeers = peersToIds(NODES);
 
-        when(messagingService.invoke(any(),
-                eq(FACTORY.changePeersRequest()
-                        .newPeersList(shrunkPeers)
-                        .groupId(TEST_GRP.toString()).build()), anyLong()))
-                .then(invocation ->
-                        completedFuture(FACTORY.changePeersResponse().newPeersList(shrunkPeers).build()));
-
-        when(messagingService.invoke(any(),
-                eq(FACTORY.changePeersRequest()
-                        .newPeersList(extendedPeers)
-                        .groupId(TEST_GRP.toString()).build()), anyLong()))
-                .then(invocation ->
-                        completedFuture(FACTORY.changePeersResponse().newPeersList(extendedPeers).build()));
+        when(messagingService.invoke(any(), any(ChangePeersRequest.class), anyLong()))
+                .then(invocation -> completedFuture(FACTORY.changePeersResponse().newPeersList(shrunkPeers).build()))
+                .then(invocation -> completedFuture(FACTORY.changePeersResponse().newPeersList(extendedPeers).build()));
 
         mockLeaderRequest(false);
 
         RaftGroupService service = startRaftGroupService(NODES.subList(0, 2), true);
 
-        assertEquals(NODES.subList(0, 2), service.peers());
-        assertEquals(Collections.emptyList(), service.learners());
+        assertThat(service.peers(), containsInAnyOrder(NODES.subList(0, 2).toArray()));
+        assertThat(service.learners(), is(empty()));
 
         assertThat(service.changePeers(NODES.subList(0, 1)), willCompleteSuccessfully());
 
-        assertEquals(NODES.subList(0, 1), service.peers());
-        assertEquals(Collections.emptyList(), service.learners());
+        assertThat(service.peers(), containsInAnyOrder(NODES.subList(0, 1).toArray()));
+        assertThat(service.learners(), is(empty()));
 
         assertThat(service.changePeers(NODES), willCompleteSuccessfully());
 
-        assertEquals(NODES, service.peers());
-        assertEquals(Collections.emptyList(), service.learners());
+        assertThat(service.peers(), containsInAnyOrder(NODES.toArray()));
+        assertThat(service.learners(), is(empty()));
     }
 
     @Test
     public void testTransferLeadership() {
-        when(messagingService.invoke(any(),
-                eq(FACTORY.transferLeaderRequest()
-                        .peerId(PeerId.fromPeer(NODES.get(1)).toString())
-                        .leaderId(PeerId.fromPeer(NODES.get(0)).toString())
-                        .groupId(TEST_GRP.toString()).build()), anyLong()))
-                .then(invocation ->
-                        completedFuture(RaftRpcFactory.DEFAULT.newResponse(FACTORY, Status.OK())));
+        when(messagingService.invoke(any(), any(TransferLeaderRequest.class), anyLong()))
+                .then(invocation -> completedFuture(RaftRpcFactory.DEFAULT.newResponse(FACTORY, Status.OK())));
 
         mockLeaderRequest(false);
 
@@ -478,24 +466,20 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
     public void testAddLearners() {
         List<String> addLearners = peersToIds(NODES.subList(1, 3));
 
-        when(messagingService.invoke(any(),
-                eq(FACTORY.addLearnersRequest()
-                        .learnersList(addLearners)
-                        .groupId(TEST_GRP.toString()).build()), anyLong()))
-                .then(invocation ->
-                        completedFuture(FACTORY.learnersOpResponse().newLearnersList(addLearners).build()));
+        when(messagingService.invoke(any(), any(AddLearnersRequest.class), anyLong()))
+                .then(invocation -> completedFuture(FACTORY.learnersOpResponse().newLearnersList(addLearners).build()));
 
         mockLeaderRequest(false);
 
         RaftGroupService service = startRaftGroupService(NODES.subList(0, 1), true);
 
-        assertEquals(NODES.subList(0, 1), service.peers());
-        assertEquals(Collections.emptyList(), service.learners());
+        assertThat(service.peers(), containsInAnyOrder(NODES.subList(0, 1).toArray()));
+        assertThat(service.learners(), is(empty()));
 
         assertThat(service.addLearners(NODES.subList(1, 3)), willCompleteSuccessfully());
 
-        assertEquals(NODES.subList(0, 1), service.peers());
-        assertEquals(NODES.subList(1, 3), service.learners());
+        assertThat(service.peers(), containsInAnyOrder(NODES.subList(0, 1).toArray()));
+        assertThat(service.learners(), containsInAnyOrder(NODES.subList(1, 3).toArray()));
     }
 
     @Test
@@ -504,14 +488,10 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
 
         List<String> resetLearners = peersToIds(NODES.subList(2, 3));
 
-        when(messagingService.invoke(any(),
-                eq(FACTORY.resetLearnersRequest()
-                        .learnersList(resetLearners)
-                        .groupId(TEST_GRP.toString()).build()), anyLong()))
-                .then(invocation ->
-                        completedFuture(FACTORY.learnersOpResponse().newLearnersList(resetLearners).build()));
+        when(messagingService.invoke(any(), any(ResetLearnersRequest.class), anyLong()))
+                .then(invocation -> completedFuture(FACTORY.learnersOpResponse().newLearnersList(resetLearners).build()));
 
-        mockAddLearners(TEST_GRP.toString(), addLearners, addLearners);
+        mockAddLearners(addLearners);
 
         mockLeaderRequest(false);
 
@@ -519,13 +499,13 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
 
         assertThat(service.addLearners(NODES.subList(1, 3)), willCompleteSuccessfully());
 
-        assertEquals(NODES.subList(0, 1), service.peers());
-        assertEquals(NODES.subList(1, 3), service.learners());
+        assertThat(service.peers(), containsInAnyOrder(NODES.subList(0, 1).toArray()));
+        assertThat(service.learners(), containsInAnyOrder(NODES.subList(1, 3).toArray()));
 
         assertThat(service.resetLearners(NODES.subList(2, 3)), willCompleteSuccessfully());
 
-        assertEquals(NODES.subList(0, 1), service.peers());
-        assertEquals(NODES.subList(2, 3), service.learners());
+        assertThat(service.peers(), containsInAnyOrder(NODES.subList(0, 1).toArray()));
+        assertThat(service.learners(), containsInAnyOrder(NODES.subList(2, 3).toArray()));
     }
 
     @Test
@@ -536,14 +516,10 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
 
         List<String> resultLearners = peersToIds(NODES.subList(1, 2));
 
-        when(messagingService.invoke(any(),
-                eq(FACTORY.removeLearnersRequest()
-                        .learnersList(removeLearners)
-                        .groupId(TEST_GRP.toString()).build()), anyLong()))
-                .then(invocation ->
-                        completedFuture(FACTORY.learnersOpResponse().newLearnersList(resultLearners).build()));
+        when(messagingService.invoke(any(), any(RemoveLearnersRequest.class), anyLong()))
+                .then(invocation -> completedFuture(FACTORY.learnersOpResponse().newLearnersList(resultLearners).build()));
 
-        mockAddLearners(TEST_GRP.toString(), addLearners, addLearners);
+        mockAddLearners(addLearners);
 
         mockLeaderRequest(false);
 
@@ -551,13 +527,13 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
 
         assertThat(service.addLearners(NODES.subList(1, 3)), willCompleteSuccessfully());
 
-        assertEquals(NODES.subList(0, 1), service.peers());
-        assertEquals(NODES.subList(1, 3), service.learners());
+        assertThat(service.peers(), containsInAnyOrder(NODES.subList(0, 1).toArray()));
+        assertThat(service.learners(), containsInAnyOrder(NODES.subList(1, 3).toArray()));
 
         assertThat(service.removeLearners(NODES.subList(2, 3)), willCompleteSuccessfully());
 
-        assertEquals(NODES.subList(0, 1), service.peers());
-        assertEquals(NODES.subList(1, 2), service.learners());
+        assertThat(service.peers(), containsInAnyOrder(NODES.subList(0, 1).toArray()));
+        assertThat(service.learners(), containsInAnyOrder(NODES.subList(1, 2).toArray()));
     }
 
     @Test
@@ -580,17 +556,14 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
     }
 
     private RaftGroupService startRaftGroupService(List<Peer> peers, boolean getLeader) {
-        CompletableFuture<RaftGroupService> service =
-                RaftGroupServiceImpl.start(TEST_GRP, cluster, FACTORY, TIMEOUT, peers, getLeader, DELAY, executor);
-
-        assertThat(service, willCompleteSuccessfully());
-
-        return service.join();
+        return startRaftGroupService(peers, getLeader, TIMEOUT);
     }
 
     private RaftGroupService startRaftGroupService(List<Peer> peers, boolean getLeader, int timeout) {
+        PeersAndLearners configuration = PeersAndLearners.fromPeers(peers, Set.of());
+
         CompletableFuture<RaftGroupService> service =
-                RaftGroupServiceImpl.start(TEST_GRP, cluster, FACTORY, timeout, peers, getLeader, DELAY, executor);
+                RaftGroupServiceImpl.start(TEST_GRP, cluster, FACTORY, timeout, timeout, configuration, getLeader, DELAY, executor);
 
         assertThat(service, willCompleteSuccessfully());
 
@@ -609,7 +582,7 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
                 argThat(new ArgumentMatcher<ActionRequest>() {
                     @Override
                     public boolean matches(ActionRequest arg) {
-                        return arg.command() instanceof TestCommand;
+                        return arg.command() instanceof TestWriteCommand;
                     }
                 }),
                 anyLong()
@@ -693,17 +666,19 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
                 });
     }
 
-    private void mockAddLearners(String groupId, List<String> addLearners, List<String> resultLearners) {
-        when(messagingService.invoke(any(),
-                eq(FACTORY.addLearnersRequest()
-                        .learnersList(addLearners)
-                        .groupId(groupId).build()), anyLong()))
-                .then(invocation ->
-                        completedFuture(FACTORY.learnersOpResponse().newLearnersList(resultLearners).build()));
-
+    private void mockAddLearners(List<String> resultLearners) {
+        when(messagingService.invoke(any(), any(AddLearnersRequest.class), anyLong()))
+                .then(invocation -> completedFuture(FACTORY.learnersOpResponse().newLearnersList(resultLearners).build()));
     }
 
-    private static class TestCommand implements WriteCommand {
+    /**
+     * Convert list of {@link Peer} to list of string representations.
+     *
+     * @param peers List of {@link Peer}
+     * @return List of string representations.
+     */
+    private static List<String> peersToIds(List<Peer> peers) {
+        return peers.stream().map(p -> PeerId.fromPeer(p).toString()).collect(Collectors.toList());
     }
 
     private static class TestResponse {

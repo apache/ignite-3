@@ -17,13 +17,15 @@
 
 package org.apache.ignite.internal.raft;
 
-import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.raft.server.RaftGroupOptions.defaults;
+import static java.util.stream.Collectors.collectingAndThen;
+import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.will;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.raft.jraft.test.TestUtils.waitForCondition;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.findLocalAddresses;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
@@ -32,13 +34,16 @@ import static org.mockito.Mockito.mock;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
-import org.apache.ignite.internal.raft.server.RaftGroupEventsListener;
+import org.apache.ignite.internal.raft.service.RaftGroupListener;
+import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -46,9 +51,6 @@ import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NodeFinder;
 import org.apache.ignite.network.StaticNodeFinder;
-import org.apache.ignite.raft.client.Peer;
-import org.apache.ignite.raft.client.service.RaftGroupListener;
-import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -81,15 +83,17 @@ public class ItRaftGroupServiceTest extends IgniteAbstractTest {
     private RaftConfiguration raftConfiguration;
 
     @BeforeEach
-    public void setUp(TestInfo testInfo) throws Exception {
+    public void setUp(TestInfo testInfo) {
         for (int i = 0; i < NODES_CNT; i++) {
             startNode(testInfo);
         }
 
-        List<String> nodeNames = nodes.stream().map(TestNode::name).collect(toList());
+        PeersAndLearners configuration = nodes.stream()
+                .map(TestNode::name)
+                .collect(collectingAndThen(toSet(), PeersAndLearners::fromConsistentIds));
 
         CompletableFuture<?>[] svcFutures = nodes.stream()
-                .map(node -> node.startRaftGroup(nodeNames, List.of()))
+                .map(node -> node.startRaftGroup(configuration))
                 .toArray(CompletableFuture[]::new);
 
         assertThat(CompletableFuture.allOf(svcFutures), willCompleteSuccessfully());
@@ -149,20 +153,18 @@ public class ItRaftGroupServiceTest extends IgniteAbstractTest {
         // Start some new followers.
         List<TestNode> newFollowers = List.of(startNode(testInfo), startNode(testInfo));
 
-        List<String> newFollowersConfig = nodes.stream().map(TestNode::name).collect(toList());
-
-        List<Peer> newFollowersPeers = newFollowersConfig.stream().map(Peer::new).collect(toList());
+        Set<String> newFollowersConfig = nodes.stream().map(TestNode::name).collect(toSet());
 
         // Start some new learners.
         List<TestNode> newLearners = List.of(startNode(testInfo), startNode(testInfo));
 
-        List<String> newLearnersConfig = newLearners.stream().map(TestNode::name).collect(toList());
+        Set<String> newLearnersConfig = newLearners.stream().map(TestNode::name).collect(toSet());
 
-        List<Peer> newLearnersPeers = newLearnersConfig.stream().map(Peer::new).collect(toList());
+        PeersAndLearners configuration = PeersAndLearners.fromConsistentIds(newFollowersConfig, newLearnersConfig);
 
         // Start Raft groups on the new nodes with the new configuration.
         CompletableFuture<?>[] startedServices = Stream.concat(newFollowers.stream(), newLearners.stream())
-                .map(node -> node.startRaftGroup(newFollowersConfig, newLearnersConfig))
+                .map(node -> node.startRaftGroup(configuration))
                 .toArray(CompletableFuture[]::new);
 
         assertThat(CompletableFuture.allOf(startedServices), willCompleteSuccessfully());
@@ -174,11 +176,11 @@ public class ItRaftGroupServiceTest extends IgniteAbstractTest {
             configurationComplete.countDown();
 
             return null;
-        }).when(eventsListener).onNewPeersConfigurationApplied(any(), any());
+        }).when(eventsListener).onNewPeersConfigurationApplied(any());
 
         CompletableFuture<Void> changePeersFuture = nodes.get(0).raftGroupService
                 .thenCompose(service -> service.refreshAndGetLeaderWithTerm()
-                        .thenCompose(l -> service.changePeersAsync(newFollowersPeers, newLearnersPeers, l.term()))
+                        .thenCompose(l -> service.changePeersAsync(configuration, l.term()))
                 );
 
         assertThat(changePeersFuture, willCompleteSuccessfully());
@@ -187,9 +189,18 @@ public class ItRaftGroupServiceTest extends IgniteAbstractTest {
 
         // Check that configuration is the same on all nodes.
         for (TestNode node : nodes) {
-            assertThat(node.raftGroupService.thenCompose(service -> service.refreshMembers(true)), willCompleteSuccessfully());
-            assertThat(node.raftGroupService.thenApply(RaftGroupService::peers), willBe(newFollowersPeers));
-            assertThat(node.raftGroupService.thenApply(RaftGroupService::learners), willBe(newLearnersPeers));
+            assertThat(
+                    node.raftGroupService.thenCompose(service -> service.refreshMembers(true)),
+                    willCompleteSuccessfully()
+            );
+            assertThat(
+                    node.raftGroupService.thenApply(RaftGroupService::peers),
+                    will(containsInAnyOrder(configuration.peers().toArray()))
+            );
+            assertThat(
+                    node.raftGroupService.thenApply(RaftGroupService::learners),
+                    will(containsInAnyOrder(configuration.learners().toArray()))
+            );
         }
     }
 
@@ -212,16 +223,15 @@ public class ItRaftGroupServiceTest extends IgniteAbstractTest {
             loza.start();
         }
 
-        CompletableFuture<RaftGroupService> startRaftGroup(List<String> peers, List<String> learners) {
+        CompletableFuture<RaftGroupService> startRaftGroup(PeersAndLearners configuration) {
+            String nodeName = clusterService.topologyService().localMember().name();
+
+            Peer serverPeer = configuration.peer(nodeName);
+
+            var nodeId = new RaftNodeId(RAFT_GROUP_NAME, serverPeer == null ? configuration.learner(nodeName) : serverPeer);
+
             try {
-                raftGroupService = loza.prepareRaftGroup(
-                        RAFT_GROUP_NAME,
-                        peers,
-                        learners,
-                        () -> mock(RaftGroupListener.class),
-                        () -> eventsListener,
-                        defaults()
-                );
+                raftGroupService = loza.startRaftGroupNode(nodeId, configuration, mock(RaftGroupListener.class), eventsListener);
             } catch (NodeStoppingException e) {
                 return CompletableFuture.failedFuture(e);
             }
@@ -230,11 +240,17 @@ public class ItRaftGroupServiceTest extends IgniteAbstractTest {
         }
 
         void beforeNodeStop() throws Exception {
-            IgniteUtils.closeAll(
-                    raftGroupService == null ? null : () -> loza.stopRaftGroup(RAFT_GROUP_NAME),
-                    loza::beforeNodeStop,
-                    clusterService::beforeNodeStop
+            Stream<AutoCloseable> shutdownService = Stream.of(
+                    raftGroupService == null
+                            ? null
+                            : (AutoCloseable) () -> raftGroupService.get(1, TimeUnit.SECONDS).shutdown()
             );
+
+            Stream<AutoCloseable> stopRaftGroups = loza.localNodes().stream().map(id -> () -> loza.stopRaftNode(id));
+
+            Stream<AutoCloseable> beforeNodeStop = Stream.of(loza::beforeNodeStop, clusterService::beforeNodeStop);
+
+            IgniteUtils.closeAll(Stream.of(shutdownService, stopRaftGroups, beforeNodeStop).flatMap(Function.identity()));
         }
 
         void stop() throws Exception {

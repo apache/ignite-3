@@ -28,8 +28,6 @@ import static com.facebook.presto.bytecode.expression.BytecodeExpressions.invoke
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.newInstance;
 import static java.lang.invoke.MethodType.methodType;
 import static java.util.Arrays.asList;
-import static java.util.EnumSet.of;
-import static org.apache.ignite.internal.configuration.asm.ConfigurationAsmGenerator.LAMBDA_METAFACTORY;
 import static org.apache.ignite.internal.configuration.asm.ConfigurationAsmGenerator.internalName;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.isConfigValue;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.isInjectedName;
@@ -53,12 +51,12 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.Collection;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
 import java.util.function.BiFunction;
 import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.configuration.NamedConfigurationTree;
-import org.apache.ignite.configuration.annotation.InternalId;
 import org.apache.ignite.internal.configuration.DynamicConfigurationChanger;
 import org.apache.ignite.internal.configuration.direct.DirectConfigurationProxy;
 import org.apache.ignite.internal.configuration.direct.DirectNamedListProxy;
@@ -74,44 +72,25 @@ import org.objectweb.asm.Handle;
  * Helper class to generate classes that extend {@link DirectConfigurationProxy}.
  * All that's required here is to generate constructor and a bunch of getter methods.
  */
-class DirectProxyAsmGenerator {
+class DirectProxyAsmGenerator extends AbstractAsmGenerator {
     /** {@link DirectConfigurationProxy#DirectConfigurationProxy(List, DynamicConfigurationChanger)}. */
     private static final Constructor<?> DIRECT_CFG_CTOR;
 
     /** {@link ConfigurationUtil#appendKey(List, Object)}. */
     private static final Method APPEND_KEY;
 
-    /** This generator instance is only used for {@link ConfigurationAsmGenerator#schemaInfo(java.lang.Class)}. */
-    private final ConfigurationAsmGenerator cgen;
-
-    /** Schema class. */
-    private final Class<?> schemaClass;
-
-    /** Set of internal extensions. */
-    private final Set<Class<?>> internalExtensions;
-
-    /** Fields from the schema class. */
-    private final List<Field> schemaFields;
-
-    /** Fields from all internal extensions. */
-    private final Collection<Field> internalExtensionsFields;
-
-    /** {@link InternalId} field. */
-    @Nullable
-    private final Field internalIdField;
-
-    /** Class definition that extends the {@link DirectConfigurationProxy}. */
-    private ClassDefinition classDef;
-
     static {
         try {
             DIRECT_CFG_CTOR = DirectConfigurationProxy.class.getDeclaredConstructor(List.class, DynamicConfigurationChanger.class);
 
             APPEND_KEY = ConfigurationUtil.class.getDeclaredMethod("appendKey", List.class, Object.class);
-        } catch (NoSuchMethodException e) {
-            throw new ExceptionInInitializerError(e);
+        } catch (NoSuchMethodException nsme) {
+            throw new ExceptionInInitializerError(nsme);
         }
     }
+
+    /** Class definition that extends the {@link DirectConfigurationProxy}. */
+    private ClassDefinition classDef;
 
     /**
      * Constructor.
@@ -123,27 +102,29 @@ class DirectProxyAsmGenerator {
             Set<Class<?>> internalExtensions,
             List<Field> schemaFields,
             Collection<Field> internalExtensionsFields,
-            Field internalIdField
+            @Nullable Field internalIdField
     ) {
-        this.cgen = cgen;
-        this.schemaClass = schemaClass;
-        this.internalExtensions = internalExtensions;
-        this.schemaFields = schemaFields;
-        this.internalExtensionsFields = internalExtensionsFields;
-        this.internalIdField = internalIdField;
+        super(
+                cgen,
+                schemaClass,
+                internalExtensions,
+                null,
+                schemaFields,
+                internalExtensionsFields,
+                null,
+                internalIdField
+        );
     }
 
-    /**
-     * Generates class definition. Expected to be called once at most.
-     */
-    public ClassDefinition generate() {
+    @Override
+    public List<ClassDefinition> generate() {
         assert classDef == null;
 
         SchemaClassesInfo schemaClassInfo = cgen.schemaInfo(schemaClass);
 
         // public final class FooDirectProxy extends DirectConfigurationProxy<Object, Object> implements FooConfiguration, ...
         classDef = new ClassDefinition(
-                of(PUBLIC, FINAL),
+                EnumSet.of(PUBLIC, FINAL),
                 internalName(schemaClassInfo.directProxyClassName),
                 type(DirectConfigurationProxy.class),
                 cgen.configClassInterfaces(schemaClass, internalExtensions)
@@ -155,11 +136,11 @@ class DirectProxyAsmGenerator {
             addGetMethod(internalIdField);
         }
 
-        for (Field schemaField : concat(schemaFields, internalExtensionsFields)) {
+        for (Field schemaField : concat(schemaFields, internalFields)) {
             addGetMethod(schemaField);
         }
 
-        return classDef;
+        return List.of(classDef);
     }
 
     /**
@@ -168,7 +149,7 @@ class DirectProxyAsmGenerator {
     private void addConstructor() {
         // public FooDirectProxy(List<KeyPathNode> keys, DynamicConfigurationChanger changer) {
         MethodDefinition ctor = classDef.declareConstructor(
-                of(PUBLIC),
+                EnumSet.of(PUBLIC),
                 arg("keys", List.class),
                 arg("changer", DynamicConfigurationChanger.class)
         );
@@ -208,7 +189,7 @@ class DirectProxyAsmGenerator {
         }
 
         MethodDefinition methodDef = classDef.declareMethod(
-                of(PUBLIC),
+                EnumSet.of(PUBLIC),
                 fieldName,
                 returnType
         );

@@ -19,7 +19,7 @@ package org.apache.ignite.raft.jraft.entity;
 import java.io.Serializable;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.raft.client.Peer;
+import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.raft.jraft.core.ElectionPriority;
 import org.apache.ignite.raft.jraft.util.AsciiStringUtil;
 import org.apache.ignite.raft.jraft.util.Copiable;
@@ -43,7 +43,7 @@ public class PeerId implements Copiable<PeerId>, Serializable, Checksum {
     /**
      * Index in same addr, default is 0.
      */
-    private int idx; // TODO IGNITE-14832 asch drop support for peer index
+    private int idx;
 
     /**
      * Cached toString result.
@@ -269,6 +269,6 @@ public class PeerId implements Copiable<PeerId>, Serializable, Checksum {
         if (p == null)
             return null;
         else
-            return new PeerId(p.consistentId(), 0, p.getPriority());
+            return new PeerId(p.consistentId(), p.idx());
     }
 }

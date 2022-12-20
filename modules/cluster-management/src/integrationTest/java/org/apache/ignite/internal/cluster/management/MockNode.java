@@ -22,10 +22,12 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.raft.Loza;
@@ -170,5 +172,9 @@ public class MockNode {
 
     public ClusterService clusterService() {
         return clusterService;
+    }
+
+    CompletableFuture<Collection<ClusterNode>> logicalTopologyNodes() {
+        return clusterManager().logicalTopology().thenApply(LogicalTopologySnapshot::nodes);
     }
 }

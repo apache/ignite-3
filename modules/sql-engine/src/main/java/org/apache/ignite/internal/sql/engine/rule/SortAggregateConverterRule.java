@@ -29,9 +29,9 @@ import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.logical.LogicalAggregate;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.ignite.internal.sql.engine.rel.IgniteConvention;
+import org.apache.ignite.internal.sql.engine.rel.agg.IgniteColocatedSortAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteMapSortAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteReduceSortAggregate;
-import org.apache.ignite.internal.sql.engine.rel.agg.IgniteSingleSortAggregate;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.util.HintUtils;
@@ -41,17 +41,17 @@ import org.apache.ignite.internal.sql.engine.util.HintUtils;
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class SortAggregateConverterRule {
-    public static final RelOptRule SINGLE = new SortSingleAggregateConverterRule();
+    public static final RelOptRule COLOCATED = new ColocatedSortAggregateConverterRule();
 
-    public static final RelOptRule MAP_REDUCE = new SortMapReduceAggregateConverterRule();
+    public static final RelOptRule MAP_REDUCE = new MapReduceSortAggregateConverterRule();
 
     private SortAggregateConverterRule() {
         // No-op.
     }
 
-    private static class SortSingleAggregateConverterRule extends AbstractIgniteConverterRule<LogicalAggregate> {
-        SortSingleAggregateConverterRule() {
-            super(LogicalAggregate.class, "SortSingleAggregateConverterRule");
+    private static class ColocatedSortAggregateConverterRule extends AbstractIgniteConverterRule<LogicalAggregate> {
+        ColocatedSortAggregateConverterRule() {
+            super(LogicalAggregate.class, "ColocatedSortAggregateConverterRule");
         }
 
         /** {@inheritDoc} */
@@ -80,7 +80,7 @@ public class SortAggregateConverterRule {
                     .replace(collation)
                     .replace(IgniteDistributions.single());
 
-            return new IgniteSingleSortAggregate(
+            return new IgniteColocatedSortAggregate(
                     cluster,
                     outTrait,
                     convert(input, inTrait),
@@ -91,9 +91,9 @@ public class SortAggregateConverterRule {
         }
     }
 
-    private static class SortMapReduceAggregateConverterRule extends AbstractIgniteConverterRule<LogicalAggregate> {
-        SortMapReduceAggregateConverterRule() {
-            super(LogicalAggregate.class, "SortMapReduceAggregateConverterRule");
+    private static class MapReduceSortAggregateConverterRule extends AbstractIgniteConverterRule<LogicalAggregate> {
+        MapReduceSortAggregateConverterRule() {
+            super(LogicalAggregate.class, "MapReduceSortAggregateConverterRule");
         }
 
         /** {@inheritDoc} */

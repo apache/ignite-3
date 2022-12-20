@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_UNEXPECTED_STATE_ERR;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
+import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.util.Collections;
 import java.util.HashMap;
@@ -37,6 +38,12 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.raft.Command;
+import org.apache.ignite.internal.raft.ReadCommand;
+import org.apache.ignite.internal.raft.WriteCommand;
+import org.apache.ignite.internal.raft.service.CommandClosure;
+import org.apache.ignite.internal.raft.service.CommittedConfiguration;
+import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommand;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
@@ -54,13 +61,6 @@ import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.raft.client.Command;
-import org.apache.ignite.raft.client.ReadCommand;
-import org.apache.ignite.raft.client.WriteCommand;
-import org.apache.ignite.raft.client.service.CommandClosure;
-import org.apache.ignite.raft.client.service.CommittedConfiguration;
-import org.apache.ignite.raft.client.service.RaftGroupListener;
-import org.apache.ignite.raft.jraft.util.ByteString;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -184,7 +184,7 @@ public class PartitionListener implements RaftGroupListener {
         }
 
         storage.runConsistently(() -> {
-            BinaryRow row = cmd.rowBuffer() != null ? new ByteBufferRow(cmd.rowBuffer().toByteArray()) : null;
+            BinaryRow row = cmd.rowBuffer() != null ? new ByteBufferRow(cmd.rowBuffer()) : null;
             UUID rowUuid = cmd.rowUuid();
             RowId rowId = new RowId(partitionId, rowUuid);
             UUID txId = cmd.txId();
@@ -218,14 +218,14 @@ public class PartitionListener implements RaftGroupListener {
 
         storage.runConsistently(() -> {
             UUID txId = cmd.txId();
-            Map<UUID, ByteString> rowsToUpdate = cmd.rowsToUpdate();
+            Map<UUID, ByteBuffer> rowsToUpdate = cmd.rowsToUpdate();
             UUID commitTblId = cmd.tablePartitionId().tableId();
             int commitPartId = cmd.tablePartitionId().partitionId();
 
             if (!nullOrEmpty(rowsToUpdate)) {
-                for (Map.Entry<UUID, ByteString> entry : rowsToUpdate.entrySet()) {
+                for (Map.Entry<UUID, ByteBuffer> entry : rowsToUpdate.entrySet()) {
                     RowId rowId = new RowId(partitionId, entry.getKey());
-                    BinaryRow row = entry.getValue() != null ? new ByteBufferRow(entry.getValue().toByteArray()) : null;
+                    BinaryRow row = entry.getValue() != null ? new ByteBufferRow(entry.getValue()) : null;
 
                     storage.addWrite(rowId, row, txId, commitTblId, commitPartId);
 

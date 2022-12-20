@@ -38,6 +38,7 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -113,6 +114,7 @@ public class JoinColocationPlannerTest extends AbstractPlannerTest {
      * Re-hashing based on simple affinity is possible, so bigger table with complex affinity should be sended to the smaller one.
      */
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18211")
     public void joinComplexToSimpleAff() throws Exception {
         TestTable complexTbl = createTable(
                 "COMPLEX_TBL",

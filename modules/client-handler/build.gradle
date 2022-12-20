@@ -38,6 +38,8 @@ dependencies {
     implementation libs.netty.handler
     implementation libs.msgpack.core
     implementation libs.msgpack.jackson
+    implementation libs.auto.service.annotations
+
     testImplementation project(':ignite-configuration')
     testImplementation libs.mockito.junit
     testImplementation libs.hamcrest.core
@@ -45,6 +47,7 @@ dependencies {
     integrationTestImplementation(testFixtures(project(':ignite-configuration')))
 
     annotationProcessor project(':ignite-configuration-annotation-processor')
+    annotationProcessor libs.auto.service
 }
 
 description = 'ignite-client-handler'

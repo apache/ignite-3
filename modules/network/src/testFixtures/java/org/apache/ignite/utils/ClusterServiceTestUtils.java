@@ -19,12 +19,8 @@ package org.apache.ignite.utils;
 
 import static java.util.stream.Collectors.toUnmodifiableList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 
-import io.github.classgraph.ClassGraph;
-import io.github.classgraph.ClassInfo;
-import io.github.classgraph.ScanResult;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -32,7 +28,6 @@ import java.util.stream.IntStream;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
-import org.apache.ignite.internal.network.NetworkMessagesSerializationRegistryInitializer;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.configuration.NodeFinderType;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -49,6 +44,7 @@ import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.network.serialization.MessageSerializationRegistryInitializer;
+import org.apache.ignite.network.serialization.SerializationRegistryServiceLoader;
 import org.junit.jupiter.api.TestInfo;
 
 /**
@@ -57,48 +53,18 @@ import org.junit.jupiter.api.TestInfo;
 public class ClusterServiceTestUtils {
     private static final TestScaleCubeClusterServiceFactory SERVICE_FACTORY = new TestScaleCubeClusterServiceFactory();
 
-    /** Registry initializers collected via reflection. */
-    private static final List<Method> REGISTRY_INITIALIZERS = collectRegistryInitializers();
-
-    private static List<Method> collectRegistryInitializers() {
-        // Automatically find all registry initializers to avoid configuring serialization registry manually in every test.
-        String className = MessageSerializationRegistryInitializer.class.getName();
-
-        ClassGraph classGraph = new ClassGraph().acceptPackages("org.apache.ignite").enableClassInfo();
-
-        // ClassGraph library should be in classpath along with ignite-network test-jar
-        try (ScanResult scanResult = classGraph.scan()) {
-            return scanResult.getClassesImplementing(className).stream()
-                    .map(ClassInfo::loadClass)
-                    // This class is registered automatically in the MessageSerializationRegistryImpl
-                    .filter(clazz -> clazz != NetworkMessagesSerializationRegistryInitializer.class)
-                    .map(clazz -> {
-                        try {
-                            return clazz.getMethod("registerFactories", MessageSerializationRegistry.class);
-                        } catch (NoSuchMethodException e) {
-                            throw new RuntimeException("Failed to collect MessageSerializationRegistryInitializers", e);
-                        }
-                    })
-                    .collect(toUnmodifiableList());
-        }
-    }
-
     /**
      * Creates a {@link MessageSerializationRegistry} that is pre-populated with all {@link MessageSerializationRegistryInitializer}s,
      * accessible through the classpath.
      */
     public static MessageSerializationRegistry defaultSerializationRegistry() {
-        var registry = new MessageSerializationRegistryImpl();
+        var serviceLoader = new SerializationRegistryServiceLoader(null);
 
-        REGISTRY_INITIALIZERS.forEach(method -> {
-            try {
-                method.invoke(method.getDeclaringClass(), registry);
-            } catch (InvocationTargetException | IllegalAccessException e) {
-                throw new RuntimeException("Failed to invoke registry initializer", e);
-            }
-        });
+        var serializationRegistry = new MessageSerializationRegistryImpl();
 
-        return registry;
+        serviceLoader.registerSerializationFactories(serializationRegistry);
+
+        return serializationRegistry;
     }
 
     /**
@@ -204,5 +170,17 @@ public class ClusterServiceTestUtils {
         return IntStream.range(startPort, endPort)
                 .mapToObj(port -> new NetworkAddress("localhost", port))
                 .collect(toUnmodifiableList());
+    }
+
+    /**
+     * Waits for the {@code expected} amount of nodes to appear in a topology.
+     *
+     * @param cluster The cluster.
+     * @param expected Expected count.
+     * @param timeout The timeout in millis.
+     * @return {@code True} if topology size is equal to expected.
+     */
+    public static boolean waitForTopology(ClusterService cluster, int expected, int timeout) throws InterruptedException {
+        return waitForCondition(() -> cluster.topologyService().allMembers().size() >= expected, timeout);
     }
 }

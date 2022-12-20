@@ -28,11 +28,11 @@ import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
+import org.apache.ignite.internal.raft.service.ItAbstractListenerSnapshotTest;
+import org.apache.ignite.internal.raft.service.RaftGroupListener;
+import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.raft.client.service.ItAbstractListenerSnapshotTest;
-import org.apache.ignite.raft.client.service.RaftGroupListener;
-import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.junit.jupiter.api.AfterEach;
 
 /**

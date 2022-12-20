@@ -32,6 +32,7 @@ dependencies {
     implementation project(':ignite-schema')
     implementation project(':ignite-transactions')
     implementation project(':ignite-replicator')
+    implementation project(':ignite-distribution-zones')
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
     implementation libs.caffeine
@@ -57,8 +58,8 @@ dependencies {
     testImplementation project(':ignite-core')
     testImplementation project(':ignite-baseline')
     testImplementation project(':ignite-metastorage')
+    testImplementation project(':ignite-raft-api')
     testImplementation project(':ignite-raft')
-    testImplementation project(':ignite-raft-client')
     testImplementation project(':ignite-configuration')
     testImplementation project(':ignite-storage-api')
     testImplementation project(':ignite-storage-rocksdb')

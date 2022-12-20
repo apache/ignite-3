@@ -17,14 +17,18 @@
 
 package org.apache.ignite.raft;
 
-import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.network.annotations.Transferable;
-import org.apache.ignite.raft.client.WriteCommand;
+import org.apache.ignite.raft.messages.TestRaftMessagesFactory;
 
 /**
  * Test WriteCommand.
 */
 @Transferable(10)
-public interface TestWriteCommand extends NetworkMessage, WriteCommand {
+public interface TestWriteCommand extends WriteCommand {
     String value();
+
+    static TestWriteCommand testWriteCommand() {
+        return new TestRaftMessagesFactory().testWriteCommand().build();
+    }
 }

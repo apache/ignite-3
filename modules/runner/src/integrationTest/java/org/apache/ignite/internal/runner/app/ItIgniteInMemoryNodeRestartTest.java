@@ -20,6 +20,7 @@ package org.apache.ignite.internal.runner.app;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -36,14 +37,14 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.raft.service.LeaderWithTerm;
+import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteStringFormatter;
-import org.apache.ignite.raft.client.service.LeaderWithTerm;
-import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
@@ -175,7 +176,6 @@ public class ItIgniteInMemoryNodeRestartTest extends IgniteAbstractTest {
     /**
      * Restarts an in-memory node that is not a leader of the table's partition.
      */
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17959")
     @Test
     public void inMemoryNodeRestartNotLeader(TestInfo testInfo) throws Exception {
         // Start three nodes, the first one is going to be CMG and MetaStorage leader.
@@ -208,9 +208,9 @@ public class ItIgniteInMemoryNodeRestartTest extends IgniteAbstractTest {
 
         // Check that it restarts.
         assertTrue(IgniteTestUtils.waitForCondition(
-                () -> loza.startedGroups().stream().anyMatch(grpName -> {
-                    if (grpName instanceof TablePartitionId) {
-                        return ((TablePartitionId) grpName).getTableId().equals(tableId);
+                () -> loza.localNodes().stream().anyMatch(nodeId -> {
+                    if (nodeId.groupId() instanceof TablePartitionId) {
+                        return ((TablePartitionId) nodeId.groupId()).getTableId().equals(tableId);
                     }
 
                     return true;
@@ -249,9 +249,9 @@ public class ItIgniteInMemoryNodeRestartTest extends IgniteAbstractTest {
 
         // Check that it restarts.
         assertTrue(IgniteTestUtils.waitForCondition(
-                () -> loza.startedGroups().stream().anyMatch(grpName -> {
-                    if (grpName instanceof TablePartitionId) {
-                        return ((TablePartitionId) grpName).getTableId().equals(tableId);
+                () -> loza.localNodes().stream().anyMatch(nodeId -> {
+                    if (nodeId.groupId() instanceof TablePartitionId) {
+                        return ((TablePartitionId) nodeId.groupId()).getTableId().equals(tableId);
                     }
 
                     return true;
@@ -292,9 +292,9 @@ public class ItIgniteInMemoryNodeRestartTest extends IgniteAbstractTest {
             Loza loza = ignite(i).raftManager();
 
             assertTrue(IgniteTestUtils.waitForCondition(
-                    () -> loza.startedGroups().stream().anyMatch(grpName -> {
-                        if (grpName instanceof TablePartitionId) {
-                            return ((TablePartitionId) grpName).getTableId().equals(tableId);
+                    () -> loza.localNodes().stream().anyMatch(nodeId -> {
+                        if (nodeId.groupId() instanceof TablePartitionId) {
+                            return ((TablePartitionId) nodeId.groupId()).getTableId().equals(tableId);
                         }
 
                         return true;
@@ -333,13 +333,19 @@ public class ItIgniteInMemoryNodeRestartTest extends IgniteAbstractTest {
     private static void createTableWithData(Ignite ignite, String name, int replicas, int partitions) {
         try (Session session = ignite.sql().createSession()) {
             session.execute(null, "CREATE TABLE " + name
-                    + "(id INT PRIMARY KEY, name VARCHAR) WITH replicas=" + replicas + ", partitions=" + partitions);
+                    + " (id INT PRIMARY KEY, name VARCHAR)"
+                    + " ENGINE aimem"
+                    + " WITH replicas=" + replicas + ", partitions=" + partitions);
 
             for (int i = 0; i < 100; i++) {
                 session.execute(null, "INSERT INTO " + name + "(id, name) VALUES (?, ?)",
                         i, VALUE_PRODUCER.apply(i));
             }
         }
+
+        var table = (TableImpl) ignite.tables().table(name);
+
+        assertThat(table.internalTable().storage().isVolatile(), is(true));
     }
 
     private static IgniteImpl ignite(int idx) {

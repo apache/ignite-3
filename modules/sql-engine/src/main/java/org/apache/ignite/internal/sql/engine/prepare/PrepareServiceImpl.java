@@ -17,13 +17,15 @@
 
 package org.apache.ignite.internal.sql.engine.prepare;
 
+import static org.apache.ignite.internal.sql.engine.prepare.CacheKey.EMPTY_CLASS_ARRAY;
 import static org.apache.ignite.internal.sql.engine.prepare.PlannerHelper.optimize;
 import static org.apache.ignite.internal.sql.engine.trait.TraitUtils.distributionPresent;
 import static org.apache.ignite.lang.ErrorGroups.Sql.QUERY_VALIDATION_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Sql.USUPPORTED_SQL_OPERATION_KIND_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.UNSUPPORTED_SQL_OPERATION_KIND_ERR;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -172,7 +174,7 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
                     return prepareExplain(sqlNode, planningContext);
 
                 default:
-                    throw new IgniteInternalException(USUPPORTED_SQL_OPERATION_KIND_ERR, "Unsupported operation ["
+                    throw new IgniteInternalException(UNSUPPORTED_SQL_OPERATION_KIND_ERR, "Unsupported operation ["
                             + "sqlNodeKind=" + sqlNode.getKind() + "; "
                             + "querySql=\"" + planningContext.query() + "\"]");
             }
@@ -218,7 +220,11 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
     private CompletableFuture<QueryPlan> prepareQuery(SqlNode sqlNode, PlanningContext ctx) {
         boolean distributed = distributionPresent(ctx.config().getTraitDefs());
 
-        var key = new CacheKey(ctx.schemaName(), sqlNode.toString(), distributed);
+        Class[] paramTypes = ctx.parameters().length == 0
+                ? EMPTY_CLASS_ARRAY :
+                Arrays.stream(ctx.parameters()).map(p -> (p != null) ? p.getClass() : Void.class).toArray(Class[]::new);
+
+        var key = new CacheKey(ctx.schemaName(), sqlNode.toString(), distributed, paramTypes);
 
         var planFut = cache.computeIfAbsent(key, k -> CompletableFuture.supplyAsync(() -> {
             IgnitePlanner planner = ctx.planner();

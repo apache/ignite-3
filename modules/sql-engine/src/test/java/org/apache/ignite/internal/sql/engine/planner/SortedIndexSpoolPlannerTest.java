@@ -58,13 +58,12 @@ public class SortedIndexSpoolPlannerTest extends AbstractPlannerTest {
         IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
 
         publicSchema.addTable(
-                "T0",
                 new TestTable(
                         new RelDataTypeFactory.Builder(f)
                                 .add("ID", f.createJavaType(Integer.class))
                                 .add("JID", f.createJavaType(Integer.class))
                                 .add("VAL", f.createJavaType(String.class))
-                                .build()) {
+                                .build(), "T0") {
 
                     @Override
                     public IgniteDistribution distribution() {
@@ -75,13 +74,12 @@ public class SortedIndexSpoolPlannerTest extends AbstractPlannerTest {
         );
 
         publicSchema.addTable(
-                "T1",
                 new TestTable(
                         new RelDataTypeFactory.Builder(f)
                                 .add("ID", f.createJavaType(Integer.class))
                                 .add("JID", f.createJavaType(Integer.class))
                                 .add("VAL", f.createJavaType(String.class))
-                                .build()) {
+                                .build(), "T1") {
 
                     @Override
                     public IgniteDistribution distribution() {
@@ -122,14 +120,13 @@ public class SortedIndexSpoolPlannerTest extends AbstractPlannerTest {
         IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
 
         publicSchema.addTable(
-                "T0",
                 new TestTable(
                         new RelDataTypeFactory.Builder(f)
                                 .add("ID", f.createJavaType(Integer.class))
                                 .add("JID0", f.createJavaType(Integer.class))
                                 .add("JID1", f.createJavaType(Integer.class))
                                 .add("VAL", f.createJavaType(String.class))
-                                .build()) {
+                                .build(), "T0") {
 
                     @Override
                     public IgniteDistribution distribution() {
@@ -139,14 +136,13 @@ public class SortedIndexSpoolPlannerTest extends AbstractPlannerTest {
         );
 
         publicSchema.addTable(
-                "T1",
                 new TestTable(
                         new RelDataTypeFactory.Builder(f)
                                 .add("ID", f.createJavaType(Integer.class))
                                 .add("JID0", f.createJavaType(Integer.class))
                                 .add("JID1", f.createJavaType(Integer.class))
                                 .add("VAL", f.createJavaType(String.class))
-                                .build()) {
+                                .build(), "T1") {
 
                     @Override
                     public IgniteDistribution distribution() {

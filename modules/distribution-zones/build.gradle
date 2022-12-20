@@ -24,19 +24,29 @@ apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
 
 dependencies {
     annotationProcessor project(":ignite-configuration-annotation-processor")
+    annotationProcessor libs.auto.service
+
     api project(':ignite-configuration-api')
     implementation project(':ignite-core')
     implementation project(':ignite-configuration')
     implementation project(':ignite-api')
+    implementation project(':ignite-metastorage-client')
+    implementation project(':ignite-cluster-management')
+    implementation project(':ignite-metastorage')
+    implementation project(':ignite-configuration')
 
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
+    implementation libs.auto.service.annotations
 
     testImplementation libs.mockito.core
     testImplementation libs.mockito.junit
-
+    testImplementation(project(':ignite-raft-api'))
+    testImplementation(project(':ignite-network-api'))
     testImplementation(testFixtures(project(':ignite-core')))
     testImplementation(testFixtures(project(':ignite-configuration')))
+    testImplementation(testFixtures(project(':ignite-metastorage-server')))
+    testImplementation(testFixtures(project(':ignite-cluster-management')))
 }
 
 description = 'ignite-distribution-zones'

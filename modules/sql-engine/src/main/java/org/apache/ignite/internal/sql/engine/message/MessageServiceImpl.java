@@ -136,7 +136,7 @@ public class MessageServiceImpl implements MessageService {
         }
     }
 
-    private void onMessage(NetworkMessage msg, ClusterNode sender, @Nullable Long correlationId) {
+    private void onMessage(NetworkMessage msg, String senderConsistentId, @Nullable Long correlationId) {
         if (!busyLock.enterBusy()) {
             return;
         }
@@ -144,7 +144,7 @@ public class MessageServiceImpl implements MessageService {
         try {
             assert msg.groupType() == GROUP_TYPE : "unexpected message group grpType=" + msg.groupType();
 
-            onMessage(sender.name(), msg);
+            onMessage(senderConsistentId, msg);
         } finally {
             busyLock.leaveBusy();
         }

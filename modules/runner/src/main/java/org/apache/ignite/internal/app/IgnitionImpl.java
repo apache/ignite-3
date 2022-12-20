@@ -19,6 +19,7 @@ package org.apache.ignite.internal.app;
 
 import static java.lang.System.lineSeparator;
 
+import com.google.auto.service.AutoService;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
@@ -43,6 +44,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Implementation of an entry point for handling grid lifecycle.
  */
+@AutoService(Ignition.class)
 public class IgnitionImpl implements Ignition {
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(IgnitionImpl.class);

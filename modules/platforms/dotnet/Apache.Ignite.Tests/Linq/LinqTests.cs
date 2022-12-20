@@ -50,6 +50,8 @@ public partial class LinqTests : IgniteTestsBase
 
     private IRecordView<PocoDecimal> PocoDecimalView { get; set; } = null!;
 
+    private IRecordView<PocoString> PocoStringView { get; set; } = null!;
+
     [OneTimeSetUp]
     public async Task InsertData()
     {
@@ -60,6 +62,7 @@ public partial class LinqTests : IgniteTestsBase
         PocoFloatView = (await Client.Tables.GetTableAsync(TableFloatName))!.GetRecordView<PocoFloat>();
         PocoDoubleView = (await Client.Tables.GetTableAsync(TableDoubleName))!.GetRecordView<PocoDouble>();
         PocoDecimalView = (await Client.Tables.GetTableAsync(TableDecimalName))!.GetRecordView<PocoDecimal>();
+        PocoStringView = (await Client.Tables.GetTableAsync(TableStringName))!.GetRecordView<PocoString>();
 
         for (int i = 0; i < Count; i++)
         {
@@ -73,6 +76,8 @@ public partial class LinqTests : IgniteTestsBase
             await PocoFloatView.UpsertAsync(null, new(i, i));
             await PocoDoubleView.UpsertAsync(null, new(i, i));
             await PocoDecimalView.UpsertAsync(null, new(i, i));
+
+            await PocoStringView.UpsertAsync(null, new("k-" + i, "v-" + i * 2));
         }
     }
 
@@ -211,30 +216,103 @@ public partial class LinqTests : IgniteTestsBase
     }
 
     [Test]
-    public void TestOrderBySkipTake()
+    public void TestSkip()
     {
-        List<long> res = PocoView.AsQueryable()
-            .OrderByDescending(x => x.Key)
+        var query = PocoView.AsQueryable()
+            .OrderBy(x => x.Key)
             .Select(x => x.Key)
-            .Skip(1)
-            .Take(2)
-            .ToList();
+            .Skip(7);
 
-        Assert.AreEqual(new long[] { 8, 7 }, res);
+        List<long> res = query.ToList();
+
+        Assert.AreEqual(new long[] { 7, 8, 9 }, res);
+
+        StringAssert.Contains(
+            "select _T0.KEY from PUBLIC.TBL1 as _T0 " +
+            "order by (_T0.KEY) asc " +
+            "offset ?",
+            query.ToString());
     }
 
     [Test]
-    [Ignore("IGNITE-18123 LINQ: Skip and Take (offset / limit) support")]
+    public void TestTake()
+    {
+        var query = PocoView.AsQueryable()
+            .OrderBy(x => x.Key)
+            .Take(2);
+
+        List<Poco> res = query.ToList();
+
+        Assert.AreEqual(new long[] { 0, 1 }, res.Select(x => x.Key));
+
+        StringAssert.Contains(
+            "select _T0.KEY, _T0.VAL from PUBLIC.TBL1 as _T0 " +
+            "order by (_T0.KEY) asc " +
+            "limit ?",
+            query.ToString());
+    }
+
+    [Test]
+    public void TestOrderBySkipTake()
+    {
+        var query = PocoView.AsQueryable()
+            .OrderByDescending(x => x.Key)
+            .Select(x => x.Key)
+            .Skip(1)
+            .Take(2);
+
+        List<long> res = query.ToList();
+
+        Assert.AreEqual(new long[] { 8, 7 }, res);
+
+        StringAssert.Contains(
+            "select _T0.KEY from PUBLIC.TBL1 as _T0 " +
+            "order by (_T0.KEY) desc " +
+            "limit ? offset ?",
+            query.ToString());
+    }
+
+    [Test]
+    public void TestSkipTakeFirst()
+    {
+        var query = PocoView.AsQueryable()
+            .OrderByDescending(x => x.Key)
+            .Select(x => x.Key)
+            .Skip(1)
+            .Take(2);
+
+        long res = query.First();
+
+        Assert.AreEqual(8, res);
+
+        StringAssert.Contains(
+            "select _T0.KEY from PUBLIC.TBL1 as _T0 " +
+            "order by (_T0.KEY) desc " +
+            "limit ? offset ?",
+            query.ToString());
+    }
+
+    [Test]
+    [Ignore("IGNITE-18311")]
     public void TestOrderBySkipTakeBeforeSelect()
     {
-        List<long> res = PocoView.AsQueryable()
+        var query = PocoView.AsQueryable()
             .OrderByDescending(x => x.Key)
             .Skip(1)
             .Take(2)
-            .Select(x => x.Key)
-            .ToList();
+            .Select(x => x.Key);
+
+        List<long> res = query.ToList();
 
         Assert.AreEqual(new long[] { 8, 7 }, res);
+
+        StringAssert.Contains(
+            "select _T0.KEY from (" +
+            "select _T1.KEY, _T1.VAL " +
+            "from PUBLIC.TBL1 as _T1 " +
+            "order by (_T1.KEY) desc " +
+            "limit ? offset ?) as _T0",
+            query.ToString());
     }
 
     [Test]
@@ -252,6 +330,90 @@ public partial class LinqTests : IgniteTestsBase
 
         StringAssert.Contains(
             "select _T0.VAL from PUBLIC.TBL1 as _T0 where (_T0.KEY IN (?, ?)), Parameters=4, 2",
+            query.ToString());
+    }
+
+    [Test]
+    public void TestDistinctOneField()
+    {
+        var query = PocoByteView.AsQueryable()
+            .Select(x => x.Val)
+            .Distinct();
+
+        List<sbyte> res = query.ToList();
+
+        CollectionAssert.AreEquivalent(new[] { 0, 1, 2, 3 }, res);
+
+        StringAssert.Contains("select distinct _T0.VAL from PUBLIC.TBL_INT8 as _T0", query.ToString());
+    }
+
+    [Test]
+    public void TestDistinctEntireObject()
+    {
+        var query = PocoByteView.AsQueryable()
+            .Distinct();
+
+        List<PocoByte> res = query.ToList();
+
+        Assert.AreEqual(10, res.Count);
+
+        StringAssert.Contains("select distinct _T0.KEY, _T0.VAL from PUBLIC.TBL_INT8 as _T0", query.ToString());
+    }
+
+    [Test]
+    public void TestDistinctProjection()
+    {
+        var query = PocoByteView.AsQueryable()
+            .Select(x => new { Id = x.Val + 10, V = x.Val })
+            .Distinct();
+
+        var res = query.ToList();
+
+        Assert.AreEqual(4, res.Count);
+
+        StringAssert.Contains(
+            "select distinct (cast(_T0.VAL as int) + ?) as ID, _T0.VAL " +
+            "from PUBLIC.TBL_INT8 as _T0",
+            query.ToString());
+    }
+
+    [Test]
+    public void TestDistinctAfterOrderBy()
+    {
+        var query = PocoByteView.AsQueryable()
+            .Select(x => new { Id = x.Val + 10, V = x.Val })
+            .OrderByDescending(x => x.V)
+            .Distinct();
+
+        var res = query.ToList();
+
+        Assert.AreEqual(4, res.Count);
+        Assert.AreEqual(13, res[0].Id);
+
+        StringAssert.Contains(
+            "select distinct (cast(_T0.VAL as int) + ?) as ID, _T0.VAL " +
+            "from PUBLIC.TBL_INT8 as _T0 " +
+            "order by (_T0.VAL) desc",
+            query.ToString());
+    }
+
+    [Test]
+    public void TestDistinctBeforeOrderBy()
+    {
+        var query = PocoByteView.AsQueryable()
+            .Select(x => new { Id = x.Val + 10, V = x.Val })
+            .Distinct()
+            .OrderByDescending(x => x.Id);
+
+        var res = query.ToList();
+
+        Assert.AreEqual(4, res.Count);
+        Assert.AreEqual(13, res[0].Id);
+
+        StringAssert.Contains(
+            "select * from " +
+            "(select distinct (cast(_T0.VAL as int) + ?) as ID, _T0.VAL from PUBLIC.TBL_INT8 as _T0) as _T1 " +
+            "order by (_T1.ID) desc",
             query.ToString());
     }
 
@@ -314,6 +476,31 @@ public partial class LinqTests : IgniteTestsBase
         Assert.AreEqual(expected, query.ToString());
     }
 
+    [Test]
+    public void TestSelectDecimalIntoAnonymousTypeUsesCorrectScale()
+    {
+        var query = PocoDecimalView.AsQueryable()
+            .OrderByDescending(x => x.Val)
+            .Select(x => new
+            {
+                Id = x.Key
+            });
+
+        var res = query.ToList();
+        Assert.AreEqual(9.0m, res[0].Id);
+    }
+
+    [Test]
+    public void TestSelectDecimalIntoUserDefinedTypeUsesCorrectScale()
+    {
+        var query = PocoDecimalView.AsQueryable()
+            .OrderByDescending(x => x.Val)
+            .Select(x => new PocoDecimal(x.Val, x.Key));
+
+        var res = query.ToList();
+        Assert.AreEqual(9.0m, res[0].Val);
+    }
+
     private record PocoByte(sbyte Key, sbyte Val);
 
     private record PocoShort(short Key, short Val);
@@ -327,4 +514,6 @@ public partial class LinqTests : IgniteTestsBase
     private record PocoDouble(double Key, double Val);
 
     private record PocoDecimal(decimal Key, decimal Val);
+
+    private record PocoString(string Key, string Val);
 }

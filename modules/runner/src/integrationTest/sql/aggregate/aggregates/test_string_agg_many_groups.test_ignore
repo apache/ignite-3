@@ -1,7 +1,7 @@
 # name: test/sql/aggregate/aggregates/test_string_agg_many_groups.test
 # description: Test STRING_AGG operator with many groups
 # group: [aggregates]
-# Ignored: https://issues.apache.org/jira/browse/IGNITE-17268
+# Ignored: https://issues.apache.org/jira/browse/IGNITE-14636
 
 # generate a table
 

@@ -19,15 +19,14 @@ package org.apache.ignite.internal.metastorage.common.command;
 
 import java.util.List;
 import org.apache.ignite.internal.metastorage.common.OperationInfo;
-import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.network.annotations.Transferable;
-import org.apache.ignite.raft.client.WriteCommand;
 
 /**
  * Represents invoke command for meta storage.
  */
 @Transferable(MetastorageCommandsMessageGroup.INVOKE)
-public interface InvokeCommand extends NetworkMessage, WriteCommand {
+public interface InvokeCommand extends WriteCommand {
     /**
      * Returns condition.
      *

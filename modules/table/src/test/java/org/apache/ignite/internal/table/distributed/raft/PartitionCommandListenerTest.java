@@ -37,6 +37,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.io.Serializable;
+import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -52,8 +53,14 @@ import org.apache.ignite.distributed.TestPartitionDataStorage;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.raft.Command;
+import org.apache.ignite.internal.raft.WriteCommand;
+import org.apache.ignite.internal.raft.service.CommandClosure;
+import org.apache.ignite.internal.raft.service.CommittedConfiguration;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommand;
+import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommandBuilder;
+import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
@@ -88,11 +95,6 @@ import org.apache.ignite.internal.tx.storage.state.test.TestTxStateStorage;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
-import org.apache.ignite.raft.client.Command;
-import org.apache.ignite.raft.client.WriteCommand;
-import org.apache.ignite.raft.client.service.CommandClosure;
-import org.apache.ignite.raft.client.service.CommittedConfiguration;
-import org.apache.ignite.raft.jraft.util.ByteString;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -336,8 +338,10 @@ public class PartitionCommandListenerTest {
 
     @Test
     void updatesLastAppliedForSafeTimeSyncCommands() {
+        SafeTimeSyncCommand safeTimeSyncCommand = new ReplicaMessagesFactory().safeTimeSyncCommand().build();
+
         commandListener.onWrite(List.of(
-                writeCommandCommandClosure(3, 2, new SafeTimeSyncCommand(), commandClosureResultCaptor)
+                writeCommandCommandClosure(3, 2, safeTimeSyncCommand, commandClosureResultCaptor)
         ).iterator());
 
         verify(mvPartitionStorage).lastApplied(3, 2);
@@ -345,8 +349,10 @@ public class PartitionCommandListenerTest {
 
     @Test
     void locksOnCommandApplication() {
+        SafeTimeSyncCommandBuilder safeTimeSyncCommand = new ReplicaMessagesFactory().safeTimeSyncCommand();
+
         commandListener.onWrite(List.of(
-                writeCommandCommandClosure(3, 2, new SafeTimeSyncCommand(), commandClosureResultCaptor)
+                writeCommandCommandClosure(3, 2, safeTimeSyncCommand.build(), commandClosureResultCaptor)
         ).iterator());
 
         InOrder inOrder = inOrder(partitionDataStorage);
@@ -490,14 +496,14 @@ public class PartitionCommandListenerTest {
      * Inserts all rows.
      */
     private void insertAll() {
-        HashMap<UUID, ByteString> rows = new HashMap<>(KEY_COUNT);
+        Map<UUID, ByteBuffer> rows = new HashMap<>(KEY_COUNT);
         UUID txId = Timestamp.nextVersion().toUuid();
         var commitPartId = new TablePartitionId(txId, PARTITION_ID);
 
         for (int i = 0; i < KEY_COUNT; i++) {
             Row row = getTestRow(i, i);
 
-            rows.put(Timestamp.nextVersion().toUuid(), new ByteString(row.byteBuffer()));
+            rows.put(Timestamp.nextVersion().toUuid(), row.byteBuffer());
         }
 
         HybridTimestamp commitTimestamp = CLOCK.now();
@@ -529,12 +535,12 @@ public class PartitionCommandListenerTest {
     private void updateAll(Function<Integer, Integer> keyValueMapper) {
         UUID txId = Timestamp.nextVersion().toUuid();
         var commitPartId = new TablePartitionId(txId, PARTITION_ID);
-        HashMap<UUID, ByteString> rows = new HashMap<>(KEY_COUNT);
+        Map<UUID, ByteBuffer> rows = new HashMap<>(KEY_COUNT);
 
         for (int i = 0; i < KEY_COUNT; i++) {
             Row row = getTestRow(i, keyValueMapper.apply(i));
 
-            rows.put(readRow(row).uuid(), new ByteString(row.byteBuffer()));
+            rows.put(readRow(row).uuid(), row.byteBuffer());
         }
 
         HybridTimestamp commitTimestamp = CLOCK.now();
@@ -564,7 +570,7 @@ public class PartitionCommandListenerTest {
     private void deleteAll() {
         UUID txId = Timestamp.nextVersion().toUuid();
         var commitPartId = new TablePartitionId(txId, PARTITION_ID);
-        Map<UUID, ByteString> keyRows = new HashMap<>(KEY_COUNT);
+        Map<UUID, ByteBuffer> keyRows = new HashMap<>(KEY_COUNT);
 
         for (int i = 0; i < KEY_COUNT; i++) {
             Row row = getTestRow(i, i);
@@ -617,8 +623,8 @@ public class PartitionCommandListenerTest {
                             .tablePartitionId(msgFactory.tablePartitionIdMessage()
                                     .tableId(txId)
                                     .partitionId(PARTITION_ID).build())
-                            .rowUuid(new UUID(rowId.mostSignificantBits(), rowId.leastSignificantBits()))
-                            .rowBuffer(new ByteString(row.byteBuffer()))
+                            .rowUuid(rowId.uuid())
+                            .rowBuffer(row.byteBuffer())
                             .txId(txId)
                             .build());
 
@@ -663,7 +669,7 @@ public class PartitionCommandListenerTest {
                             .tablePartitionId(msgFactory.tablePartitionIdMessage()
                                     .tableId(txId)
                                     .partitionId(PARTITION_ID).build())
-                            .rowUuid(new UUID(rowId.mostSignificantBits(), rowId.leastSignificantBits()))
+                            .rowUuid(rowId.uuid())
                             .txId(txId)
                             .build());
 
@@ -729,7 +735,6 @@ public class PartitionCommandListenerTest {
         commandListener.onWrite(iterator((i, clo) -> {
             UUID txId = Timestamp.nextVersion().toUuid();
             Row row = getTestRow(i, i);
-            var commitPartId = new TablePartitionId(txId, PARTITION_ID);
             txIds.add(txId);
 
             when(clo.index()).thenReturn(raftIndex.incrementAndGet());
@@ -740,7 +745,7 @@ public class PartitionCommandListenerTest {
                                     .tableId(txId)
                                     .partitionId(PARTITION_ID).build())
                             .rowUuid(Timestamp.nextVersion().toUuid())
-                            .rowBuffer(new ByteString(row.byteBuffer()))
+                            .rowBuffer(row.byteBuffer())
                             .txId(txId)
                             .build());
 

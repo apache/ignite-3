@@ -19,8 +19,8 @@ package org.apache.ignite.distributed;
 
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
-import static org.apache.ignite.raft.jraft.test.TestUtils.waitForTopology;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.findLocalAddresses;
+import static org.apache.ignite.utils.ClusterServiceTestUtils.waitForTopology;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -51,10 +51,14 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.raft.Peer;
+import org.apache.ignite.internal.raft.PeersAndLearners;
+import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.RaftGroupServiceImpl;
+import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
-import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
+import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
@@ -96,8 +100,6 @@ import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NodeFinder;
 import org.apache.ignite.network.StaticNodeFinder;
-import org.apache.ignite.raft.client.Peer;
-import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.tx.Transaction;
@@ -143,7 +145,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
     protected Int2ObjectOpenHashMap<RaftGroupService> custRaftClients;
 
-    protected List<ClusterService> cluster = new CopyOnWriteArrayList<>();
+    protected final List<ClusterService> cluster = new CopyOnWriteArrayList<>();
 
     private ScheduledThreadPoolExecutor executor;
 
@@ -413,17 +415,19 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
                 IndexLocker pkLocker = new HashIndexLocker(indexId, true, txManagers.get(assignment).lockManager(), row2tuple);
 
-                CompletableFuture<Void> partitionReadyFuture = raftServers.get(assignment).prepareRaftGroup(
-                        grpId,
-                        partAssignments,
-                        () -> new PartitionListener(
+                PeersAndLearners configuration = PeersAndLearners.fromConsistentIds(partAssignments);
+
+                CompletableFuture<Void> partitionReadyFuture = raftServers.get(assignment).startRaftGroupNode(
+                        new RaftNodeId(grpId, configuration.peer(assignment)),
+                        configuration,
+                        new PartitionListener(
                                 new TestPartitionDataStorage(testMpPartStorage),
                                 new TestTxStateStorage(),
                                 txManagers.get(assignment),
                                 () -> Map.of(pkStorage.get().id(), pkStorage.get()),
                                 partId
                         ),
-                        RaftGroupOptions.defaults()
+                        RaftGroupEventsListener.noopLsnr
                 ).thenAccept(
                         raftSvc -> {
                             try {
@@ -459,31 +463,34 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 partitionReadyFutures.add(partitionReadyFuture);
             }
 
-            List<Peer> conf = partAssignments.stream().map(Peer::new).collect(toList());
+            PeersAndLearners conf = PeersAndLearners.fromConsistentIds(partAssignments);
 
             if (startClient()) {
                 RaftGroupService service = RaftGroupServiceImpl
-                        .start(grpId, client, FACTORY, 10_000, conf, true, 200, executor)
+                        .start(grpId, client, FACTORY, 10_000, 10_000, conf, true, 200, executor)
                         .get(5, TimeUnit.SECONDS);
 
                 clients.put(p, service);
             } else {
                 // Create temporary client to find a leader address.
-                ClusterService tmpSvc = raftServers.values().stream().findFirst().get().service();
+                ClusterService tmpSvc = cluster.get(0);
 
                 RaftGroupService service = RaftGroupServiceImpl
-                        .start(grpId, tmpSvc, FACTORY, 10_000, conf, true, 200, executor)
+                        .start(grpId, tmpSvc, FACTORY, 10_000, 10_000, conf, true, 200, executor)
                         .get(5, TimeUnit.SECONDS);
 
                 Peer leader = service.leader();
 
                 service.shutdown();
 
-                Loza leaderSrv = raftServers.get(leader.consistentId());
+                ClusterService leaderSrv = cluster.stream()
+                        .filter(cluster -> cluster.topologyService().localMember().name().equals(leader.consistentId()))
+                        .findAny()
+                        .orElseThrow();
 
                 RaftGroupService leaderClusterSvc = RaftGroupServiceImpl
-                        .start(grpId, leaderSrv.service(), FACTORY,
-                                10_000, conf, true, 200, executor).get(5, TimeUnit.SECONDS);
+                        .start(grpId, leaderSrv, FACTORY, 10_000, 10_000, conf, true, 200, executor)
+                        .get(5, TimeUnit.SECONDS);
 
                 clients.put(p, leaderClusterSvc);
             }
@@ -532,16 +539,12 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
             ReplicaManager replicaMgr = replicaManagers.get(entry.getKey());
 
-            Set<ReplicationGroupId> replicaGrps = replicaMgr.startedGroups();
-
-            for (ReplicationGroupId grp : replicaGrps) {
+            for (ReplicationGroupId grp : replicaMgr.startedGroups()) {
                 replicaMgr.stopReplica(grp);
             }
 
-            Set<ReplicationGroupId> grps = rs.startedGroups();
-
-            for (ReplicationGroupId grp : grps) {
-                rs.stopRaftGroup(grp);
+            for (RaftNodeId nodeId : rs.localNodes()) {
+                rs.stopRaftNode(nodeId);
             }
 
             replicaMgr.stop();
@@ -605,11 +608,19 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
         for (Map.Entry<String, Loza> entry : raftServers.entrySet()) {
             Loza svc = entry.getValue();
-            JraftServerImpl server = (JraftServerImpl) svc.server();
-            org.apache.ignite.raft.jraft.RaftGroupService grp = server.raftGroupService(new TablePartitionId(table.tableId(), partId));
-            JraftServerImpl.DelegatingStateMachine fsm = (JraftServerImpl.DelegatingStateMachine) grp
-                    .getRaftNode().getOptions().getFsm();
+
+            var server = (JraftServerImpl) svc.server();
+
+            var groupId = new TablePartitionId(table.tableId(), partId);
+
+            Peer serverPeer = server.localPeers(groupId).get(0);
+
+            org.apache.ignite.raft.jraft.RaftGroupService grp = server.raftGroupService(new RaftNodeId(groupId, serverPeer));
+
+            var fsm = (JraftServerImpl.DelegatingStateMachine) grp.getRaftNode().getOptions().getFsm();
+
             PartitionListener listener = (PartitionListener) fsm.getListener();
+
             MvPartitionStorage storage = listener.getMvStorage();
 
             if (hash == 0) {

@@ -40,15 +40,15 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteAggregate;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSort;
+import org.apache.ignite.internal.sql.engine.rel.agg.IgniteColocatedAggregateBase;
+import org.apache.ignite.internal.sql.engine.rel.agg.IgniteColocatedHashAggregate;
+import org.apache.ignite.internal.sql.engine.rel.agg.IgniteColocatedSortAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteMapAggregateBase;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteMapHashAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteMapSortAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteReduceAggregateBase;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteReduceHashAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteReduceSortAggregate;
-import org.apache.ignite.internal.sql.engine.rel.agg.IgniteSingleAggregateBase;
-import org.apache.ignite.internal.sql.engine.rel.agg.IgniteSingleHashAggregate;
-import org.apache.ignite.internal.sql.engine.rel.agg.IgniteSingleSortAggregate;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
@@ -73,11 +73,11 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
     @ParameterizedTest
     @EnumSource
     public void singleWithoutIndex(AggregateAlgorithm algo) throws Exception {
-        TestTable tbl = createBroadcastTable().addIndex("val0_val1", 1, 2);
+        TestTable tbl = createBroadcastTable("TEST").addIndex("val0_val1", 1, 2);
 
         IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
 
-        publicSchema.addTable("TEST", tbl);
+        publicSchema.addTable(tbl);
 
         String sql = "SELECT AVG(val0) FROM test GROUP BY grp0";
 
@@ -87,7 +87,7 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
                 algo.rulesToDisable
         );
 
-        IgniteSingleAggregateBase agg = findFirstNode(phys, byClass(algo.single));
+        IgniteColocatedAggregateBase agg = findFirstNode(phys, byClass(algo.colocated));
 
         assertNotNull(agg, "Invalid plan\n" + RelOptUtil.toString(phys));
 
@@ -110,11 +110,11 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
     @ParameterizedTest
     @EnumSource
     public void singleWithIndex(AggregateAlgorithm algo) throws Exception {
-        TestTable tbl = createBroadcastTable().addIndex("grp0_grp1", 3, 4);
+        TestTable tbl = createBroadcastTable("TEST").addIndex("grp0_grp1", 3, 4);
 
         IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
 
-        publicSchema.addTable("TEST", tbl);
+        publicSchema.addTable(tbl);
 
         String sql = "SELECT AVG(val0) FILTER(WHERE val1 > 10) FROM test GROUP BY grp0";
 
@@ -124,7 +124,7 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
                 algo.rulesToDisable
         );
 
-        IgniteSingleAggregateBase agg = findFirstNode(phys, byClass(algo.single));
+        IgniteColocatedAggregateBase agg = findFirstNode(phys, byClass(algo.colocated));
 
         assertNotNull(agg, "Invalid plan\n" + RelOptUtil.toString(phys));
 
@@ -147,11 +147,11 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
     @ParameterizedTest
     @EnumSource
     public void mapReduceGroupBy(AggregateAlgorithm algo) throws Exception {
-        TestTable tbl = createAffinityTable();
+        TestTable tbl = createAffinityTable("TEST");
 
         IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
 
-        publicSchema.addTable("TEST", tbl);
+        publicSchema.addTable(tbl);
 
         String sql = "SELECT AVG(val0) FILTER (WHERE val1 > 10) FROM test GROUP BY grp1, grp0";
 
@@ -190,22 +190,22 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
     @ParameterizedTest
     @EnumSource
     public void distribution(AggregateAlgorithm algo) throws Exception {
-        TestTable tbl = createAffinityTable().addIndex("grp0", 3);
+        TestTable tbl = createAffinityTable("TEST").addIndex("grp0", 3);
 
         IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
 
-        publicSchema.addTable("TEST", tbl);
+        publicSchema.addTable(tbl);
 
         String sql = "SELECT AVG(val0), grp0 FROM TEST GROUP BY grp0 UNION ALL SELECT val0, grp0 FROM test";
 
         IgniteRel phys = physicalPlan(
                 sql,
                 publicSchema,
-                concat(algo.rulesToDisable, "SortMapReduceAggregateConverterRule",
-                        "HashMapReduceAggregateConverterRule")
+                concat(algo.rulesToDisable, "MapReduceSortAggregateConverterRule",
+                        "MapReduceHashAggregateConverterRule")
         );
 
-        IgniteSingleAggregateBase singleAgg = findFirstNode(phys, byClass(algo.single));
+        IgniteColocatedAggregateBase singleAgg = findFirstNode(phys, byClass(algo.colocated));
 
         assertEquals(IgniteDistributions.single(), TraitUtils.distribution(singleAgg));
 
@@ -230,13 +230,13 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
     @ParameterizedTest
     @EnumSource
     public void expandDistinctAggregates(AggregateAlgorithm algo) throws Exception {
-        TestTable tbl = createAffinityTable()
+        TestTable tbl = createAffinityTable("TEST")
                 .addIndex("idx_val0", 3, 1, 0)
                 .addIndex("idx_val1", 3, 2, 0);
 
         IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
 
-        publicSchema.addTable("TEST", tbl);
+        publicSchema.addTable(tbl);
 
         String sql = "SELECT "
                 + "/*+ EXPAND_DISTINCT_AGG */ "
@@ -276,7 +276,7 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
 
         // Check the second aggregation step contains accumulators.
         assertTrue(
-                findNodes(phys, byClass(algo.single)).stream()
+                findNodes(phys, byClass(algo.colocated)).stream()
                         .noneMatch(n -> ((Aggregate) n).getAggCallList().isEmpty()),
                 "Invalid plan\n" + RelOptUtil.toString(phys, SqlExplainLevel.ALL_ATTRIBUTES)
         );
@@ -318,7 +318,7 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
 
         checkSplitAndSerialization(phys, schema);
 
-        Class<? extends SingleRel> cls = distr == IgniteDistributions.broadcast() ? algo.single : algo.reduce;
+        Class<? extends SingleRel> cls = distr == IgniteDistributions.broadcast() ? algo.colocated : algo.reduce;
 
         SingleRel agg = findFirstNode(phys, byClass(cls));
 
@@ -337,6 +337,40 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
         assertEquals(tf.createJavaType(Double.class), rowTypes.getFieldList().get(7).getType());
     }
 
+    @ParameterizedTest
+    @EnumSource(AggregateAlgorithm.class)
+    public void colocated(AggregateAlgorithm algo) throws Exception {
+        IgniteSchema schema = createSchema(
+                createTable(
+                        "EMP", IgniteDistributions.affinity(1, "emp", "hash"),
+                        "EMPID", Integer.class,
+                        "DEPTID", Integer.class,
+                        "NAME", String.class,
+                        "SALARY", Integer.class
+                ).addIndex("DEPTID", 1),
+                createTable(
+                        "DEPT", IgniteDistributions.affinity(0, "dept", "hash"),
+                        "DEPTID", Integer.class,
+                        "NAME", String.class
+                ).addIndex("DEPTID", 0)
+        );
+
+        String sql = "SELECT SUM(SALARY) FROM emp GROUP BY deptid";
+
+        assertPlan(sql, schema, hasChildThat(isInstanceOf(algo.colocated)
+                        .and(hasDistribution(IgniteDistributions.affinity(0, null, "hash")))),
+                algo.rulesToDisable);
+
+        sql = "SELECT dept.deptid, agg.cnt "
+                + "FROM dept "
+                + "JOIN (SELECT deptid, COUNT(*) AS cnt FROM emp GROUP BY deptid) AS agg ON dept.deptid = agg.deptid";
+
+        assertPlan(sql, schema, hasChildThat(isInstanceOf(Join.class)
+                        .and(input(0, hasDistribution(IgniteDistributions.affinity(0, null, "hash"))))
+                        .and(input(1, hasDistribution(IgniteDistributions.affinity(0, null, "hash"))))),
+                algo.rulesToDisable);
+    }
+
     private static Stream<Arguments> provideAlgoAndDistribution() {
         return Stream.of(
                 Arguments.of(AggregateAlgorithm.SORT, IgniteDistributions.broadcast()),
@@ -348,20 +382,20 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
 
     enum AggregateAlgorithm {
         SORT(
-                IgniteSingleSortAggregate.class,
+                IgniteColocatedSortAggregate.class,
                 IgniteMapSortAggregate.class,
                 IgniteReduceSortAggregate.class,
-                "HashSingleAggregateConverterRule", "HashMapReduceAggregateConverterRule"
+                "ColocatedHashAggregateConverterRule", "MapReduceHashAggregateConverterRule"
         ),
 
         HASH(
-                IgniteSingleHashAggregate.class,
+                IgniteColocatedHashAggregate.class,
                 IgniteMapHashAggregate.class,
                 IgniteReduceHashAggregate.class,
-                "SortSingleAggregateConverterRule", "SortMapReduceAggregateConverterRule"
+                "ColocatedSortAggregateConverterRule", "MapReduceSortAggregateConverterRule"
         );
 
-        public final Class<? extends IgniteSingleAggregateBase> single;
+        public final Class<? extends IgniteColocatedAggregateBase> colocated;
 
         public final Class<? extends IgniteMapAggregateBase> map;
 
@@ -370,11 +404,11 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
         public final String[] rulesToDisable;
 
         AggregateAlgorithm(
-                Class<? extends IgniteSingleAggregateBase> single,
+                Class<? extends IgniteColocatedAggregateBase> colocated,
                 Class<? extends IgniteMapAggregateBase> map,
                 Class<? extends IgniteReduceAggregateBase> reduce,
                 String... rulesToDisable) {
-            this.single = single;
+            this.colocated = colocated;
             this.map = map;
             this.reduce = reduce;
             this.rulesToDisable = rulesToDisable;

@@ -19,21 +19,22 @@ package org.apache.ignite.raft.server;
 
 import static org.apache.ignite.internal.raft.server.RaftGroupOptions.defaults;
 import static org.apache.ignite.raft.jraft.test.TestUtils.waitForCondition;
+import static org.apache.ignite.raft.server.counter.IncrementAndGetCommand.incrementAndGetCommand;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
 import org.apache.ignite.internal.TestHybridClock;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.raft.Peer;
+import org.apache.ignite.internal.raft.RaftNodeId;
+import org.apache.ignite.internal.raft.ReplicationGroupOptions;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
-import org.apache.ignite.internal.raft.server.ReplicationGroupOptions;
+import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
-import org.apache.ignite.raft.client.Peer;
-import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.raft.server.counter.CounterListener;
-import org.apache.ignite.raft.server.counter.IncrementAndGetCommand;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -43,14 +44,11 @@ public class ItSafeTimeTest extends JraftAbstractTest {
     /** Raft group id. */
     private static final ReplicationGroupId RAFT_GROUP_ID = new TestReplicationGroupId("testGroup");
 
-    /** Nodes count. */
-    private static final int NODES = 3;
-
     /** Hybrid clocks. */
-    private List<HybridClock> clocks = new ArrayList<>();
+    private final Map<String, HybridClock> clocks = new HashMap<>();
 
-    /** Safe tims clocks. */
-    private List<PendingComparableValuesTracker<HybridTimestamp>> safeTimeContainers = new ArrayList<>();
+    /** Safe times clocks. */
+    private final Map<String, PendingComparableValuesTracker<HybridTimestamp>> safeTimeContainers = new HashMap<>();
 
     /**
      * Starts a cluster for the test.
@@ -62,15 +60,19 @@ public class ItSafeTimeTest extends JraftAbstractTest {
             HybridClock clock = new TestHybridClock(() -> 1L);
             PendingComparableValuesTracker<HybridTimestamp> safeTime = new PendingComparableValuesTracker<>(clock.now());
 
-            clocks.add(clock);
-            safeTimeContainers.add(safeTime);
-
             startServer(i,
                     raftServer -> {
+                        String localMemberName = raftServer.clusterService().topologyService().localMember().name();
+
+                        clocks.put(localMemberName, clock);
+                        safeTimeContainers.put(localMemberName, safeTime);
+
                         RaftGroupOptions groupOptions = defaults()
                                 .replicationGroupOptions(new ReplicationGroupOptions().safeTime(safeTime));
 
-                        raftServer.startRaftGroup(RAFT_GROUP_ID, new CounterListener(), initialConf, groupOptions);
+                        var nodeId = new RaftNodeId(RAFT_GROUP_ID, initialConf.peer(localMemberName));
+
+                        raftServer.startRaftNode(nodeId, initialConf, new CounterListener(), groupOptions);
                     },
                     opts -> {
                         opts.setClock(clock);
@@ -92,28 +94,29 @@ public class ItSafeTimeTest extends JraftAbstractTest {
         RaftGroupService client1 = clients.get(0);
 
         client1.refreshLeader().get();
-        Peer leader = client1.leader();
 
-        final int leaderIndex = initialConf.indexOf(leader);
-
-        assertTrue(leaderIndex >= 0);
+        String leaderName = client1.leader().consistentId();
 
         final long leaderPhysicalTime = 100;
 
-        clocks.get(leaderIndex).update(new HybridTimestamp(leaderPhysicalTime, 0));
+        clocks.get(leaderName).update(new HybridTimestamp(leaderPhysicalTime, 0));
 
-        client1.run(new IncrementAndGetCommand(1)).get();
+        client1.run(incrementAndGetCommand(1)).get();
 
-        waitForCondition(() -> {
-            for (int i = 0; i < NODES; i++) {
+        assertTrue(waitForCondition(() -> {
+            for (Peer peer : initialConf.peers()) {
+                String consistentId = peer.consistentId();
+
+                PendingComparableValuesTracker<HybridTimestamp> safeTimeContainer = safeTimeContainers.get(consistentId);
+
                 // As current time provider for safe time clocks always returns 1,
                 // the only way for physical component to reach leaderPhysicalTime is safe time propagation mechanism.
-                if (i != leaderIndex && safeTimeContainers.get(i).current().getPhysical() != leaderPhysicalTime) {
+                if (!consistentId.equals(leaderName) && safeTimeContainer.current().getPhysical() != leaderPhysicalTime) {
                     return false;
                 }
             }
 
             return true;
-        }, 2000);
+        }, 2000));
     }
 }

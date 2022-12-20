@@ -21,6 +21,7 @@ import static org.apache.calcite.util.Static.RESOURCE;
 import static org.apache.ignite.internal.util.ArrayUtils.nullOrEmpty;
 
 import java.math.BigDecimal;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
@@ -34,6 +35,7 @@ import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.sql.JoinConditionType;
 import org.apache.calcite.sql.SqlAggFunction;
 import org.apache.calcite.sql.SqlCall;
+import org.apache.calcite.sql.SqlCallBinding;
 import org.apache.calcite.sql.SqlDelete;
 import org.apache.calcite.sql.SqlDynamicParam;
 import org.apache.calcite.sql.SqlIdentifier;
@@ -49,6 +51,10 @@ import org.apache.calcite.sql.SqlUpdate;
 import org.apache.calcite.sql.SqlUtil;
 import org.apache.calcite.sql.dialect.CalciteSqlDialect;
 import org.apache.calcite.sql.parser.SqlParserPos;
+import org.apache.calcite.sql.type.FamilyOperandTypeChecker;
+import org.apache.calcite.sql.type.SqlOperandTypeChecker;
+import org.apache.calcite.sql.type.SqlOperandTypeInference;
+import org.apache.calcite.sql.type.SqlTypeFamily;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.validate.SelectScope;
 import org.apache.calcite.sql.validate.SqlValidator;
@@ -83,6 +89,8 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         kinds.add(SqlKind.CEIL);
         kinds.add(SqlKind.FLOOR);
         kinds.add(SqlKind.LITERAL);
+
+        kinds.add(SqlKind.PROCEDURE_CALL);
 
         HUMAN_READABLE_ALIASES_FOR = Collections.unmodifiableSet(kinds);
     }
@@ -446,5 +454,65 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
 
     private boolean isSystemFieldName(String alias) {
         return Commons.implicitPkEnabled() && Commons.IMPLICIT_PK_COL_NAME.equals(alias);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    protected void inferUnknownTypes(RelDataType inferredType, SqlValidatorScope scope, SqlNode node) {
+        if (node instanceof SqlDynamicParam && inferredType.equals(unknownType)) {
+            Object param = parameters[((SqlDynamicParam) node).getIndex()];
+            RelDataType type;
+            if (param == null) {
+                type = typeFactory().createSqlType(SqlTypeName.NULL);
+            } else {
+                type = typeFactory().toSql(typeFactory().createType(param.getClass()));
+            }
+            setValidatedNodeType(node, type);
+        } else if (node instanceof SqlCall) {
+            SqlValidatorScope newScope = scopes.get(node);
+
+            if (newScope != null) {
+                scope = newScope;
+            }
+
+            SqlCall call = (SqlCall) node;
+            SqlOperandTypeInference operandTypeInference = call.getOperator().getOperandTypeInference();
+            SqlOperandTypeChecker operandTypeChecker = call.getOperator().getOperandTypeChecker();
+            SqlCallBinding callBinding = new SqlCallBinding(this, scope, call);
+            List<SqlNode> operands = callBinding.operands();
+            RelDataType[] operandTypes = new RelDataType[operands.size()];
+
+            Arrays.fill(operandTypes, unknownType);
+
+            if (operandTypeInference != null) {
+                operandTypeInference.inferOperandTypes(callBinding, inferredType, operandTypes);
+            } else if (operandTypeChecker instanceof FamilyOperandTypeChecker) {
+                // Infer operand types from checker for dynamic parameters if it's possible.
+                FamilyOperandTypeChecker checker = (FamilyOperandTypeChecker) operandTypeChecker;
+
+                for (int i = 0; i < checker.getOperandCountRange().getMax(); i++) {
+                    if (i >= operandTypes.length) {
+                        break;
+                    }
+
+                    SqlTypeFamily family = checker.getOperandSqlTypeFamily(i);
+                    RelDataType type = family.getDefaultConcreteType(typeFactory());
+
+                    if (type != null && operands.get(i) instanceof SqlDynamicParam) {
+                        operandTypes[i] = type;
+                    }
+                }
+            }
+
+            for (int i = 0; i < operands.size(); ++i) {
+                SqlNode operand = operands.get(i);
+
+                if (operand != null) {
+                    inferUnknownTypes(operandTypes[i], scope, operand);
+                }
+            }
+        } else {
+            super.inferUnknownTypes(inferredType, scope, node);
+        }
     }
 }

@@ -20,16 +20,15 @@ package org.apache.ignite.internal.metastorage.common.command;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.lang.ByteArray;
-import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
-import org.apache.ignite.raft.client.WriteCommand;
 
 /**
  * Put all command for MetaStorageCommandListener that inserts or updates entries with given keys and given values.
  */
 @Transferable(MetastorageCommandsMessageGroup.PUT_ALL)
-public interface PutAllCommand extends WriteCommand, NetworkMessage {
+public interface PutAllCommand extends WriteCommand {
     /**
      * Returns entries keys.
      */

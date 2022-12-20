@@ -405,7 +405,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
             }
         };
 
-        schema.addTable(name, table);
+        schema.addTable(table);
     }
 
     /**
@@ -422,7 +422,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
     protected static TestTable createTable(IgniteSchema schema, String name, IgniteDistribution distr, Object... fields) {
         TestTable tbl = createTable(name, DEFAULT_TBL_SIZE, distr, fields);
 
-        schema.addTable(name, tbl);
+        schema.addTable(tbl);
 
         return tbl;
     }
@@ -542,6 +542,21 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
     }
 
     /**
+     * Predicate builder for "Operator has distribution" condition.
+     */
+    protected <T extends IgniteRel> Predicate<IgniteRel> hasDistribution(IgniteDistribution distribution) {
+        return node -> {
+            if (distribution.getType() == RelDistribution.Type.HASH_DISTRIBUTED
+                    && node.distribution().getType() == RelDistribution.Type.HASH_DISTRIBUTED
+            ) {
+                return distribution.satisfies(node.distribution());
+            }
+
+            return distribution.equals(node.distribution());
+        };
+    }
+
+    /**
      * Predicate builder for "Any child satisfy predicate" condition.
      */
     protected <T extends RelNode> Predicate<RelNode> hasChildThat(Predicate<T> predicate) {
@@ -615,7 +630,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         IgniteSchema schema = new IgniteSchema("PUBLIC");
 
         for (TestTable tbl : tbls) {
-            schema.addTable(tbl.name(), tbl);
+            schema.addTable(tbl);
         }
 
         return schema;
@@ -945,9 +960,8 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
             throw new AssertionError();
         }
 
-        /**
-         * Get name.
-         */
+        /** {@inheritDoc} */
+        @Override
         public String name() {
             return name;
         }

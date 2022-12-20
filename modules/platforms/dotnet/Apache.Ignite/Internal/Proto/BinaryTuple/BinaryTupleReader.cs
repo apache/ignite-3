@@ -103,6 +103,13 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         };
 
         /// <summary>
+        /// Gets a byte value as bool.
+        /// </summary>
+        /// <param name="index">Index.</param>
+        /// <returns>Value.</returns>
+        public bool GetByteAsBool(int index) => GetByte(index) != 0;
+
+        /// <summary>
         /// Gets a short value.
         /// </summary>
         /// <param name="index">Index.</param>

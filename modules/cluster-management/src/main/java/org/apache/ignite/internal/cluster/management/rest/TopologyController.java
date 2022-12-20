@@ -24,6 +24,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.rest.api.cluster.ClusterNodeDto;
 import org.apache.ignite.internal.rest.api.cluster.NetworkAddressDto;
 import org.apache.ignite.internal.rest.api.cluster.NodeMetadataDto;
@@ -57,6 +58,8 @@ public class TopologyController implements TopologyApi {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Collection<ClusterNodeDto>> logicalTopology() {
+        // TODO: IGNITE-18277 - return an object containing both nodes and topology version.
+
         return cmgManager.clusterState()
                 .thenCompose(state -> {
                     if (state == null) {
@@ -65,6 +68,7 @@ public class TopologyController implements TopologyApi {
 
                     return cmgManager.logicalTopology();
                 })
+                .thenApply(LogicalTopologySnapshot::nodes)
                 .thenApply(TopologyController::toClusterNodeDtos);
     }
 

@@ -38,8 +38,8 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.raft.JraftGroupEventsListener;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
-import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.FSMCaller;
 import org.apache.ignite.raft.jraft.FSMCaller.LastAppliedLogIndexListener;
@@ -57,7 +57,7 @@ import org.apache.ignite.raft.jraft.closure.SynchronizedClosure;
 import org.apache.ignite.raft.jraft.conf.Configuration;
 import org.apache.ignite.raft.jraft.conf.ConfigurationEntry;
 import org.apache.ignite.raft.jraft.conf.ConfigurationManager;
-import org.apache.ignite.raft.jraft.disruptor.GroupAware;
+import org.apache.ignite.raft.jraft.disruptor.NodeIdAware;
 import org.apache.ignite.raft.jraft.disruptor.StripedDisruptor;
 import org.apache.ignite.raft.jraft.entity.Ballot;
 import org.apache.ignite.raft.jraft.entity.EnumOutter;
@@ -171,8 +171,6 @@ public class NodeImpl implements Node, RaftServerService {
     private RaftOptions raftOptions;
     private final PeerId serverId;
 
-    private Peer peer;
-
     /**
      * Other services
      */
@@ -256,22 +254,22 @@ public class NodeImpl implements Node, RaftServerService {
     /**
      * Node service event.
      */
-    public static class LogEntryAndClosure implements GroupAware {
-        /** Raft group id. */
-        String groupId;
+    public static class LogEntryAndClosure implements NodeIdAware {
+        /** Raft node id. */
+        NodeId nodeId;
 
         LogEntry entry;
         Closure done;
         long expectedTerm;
         CountDownLatch shutdownLatch;
 
-        /** {@inheritDoc} */
-        @Override public String groupId() {
-            return groupId;
+        @Override
+        public NodeId nodeId() {
+            return nodeId;
         }
 
         public void reset() {
-            this.groupId = null;
+            this.nodeId = null;
             this.entry = null;
             this.done = null;
             this.expectedTerm = 0;
@@ -458,11 +456,16 @@ public class NodeImpl implements Node, RaftServerService {
 
             if (this.done != null) {
                 Closure newDone = (Status status) -> {
-                    if (status.isOk()) {
-                        node.getOptions().getRaftGrpEvtsLsnr().onNewPeersConfigurationApplied(resultPeerIds, resultLearnerIds);
-                    } else {
-                        node.getOptions().getRaftGrpEvtsLsnr().onReconfigurationError(status, resultPeerIds, resultLearnerIds, node.getCurrentTerm());
+                    JraftGroupEventsListener listener = node.getOptions().getRaftGrpEvtsLsnr();
+
+                    if (listener != null) {
+                        if (status.isOk()) {
+                            listener.onNewPeersConfigurationApplied(resultPeerIds, resultLearnerIds);
+                        } else {
+                            listener.onReconfigurationError(status, resultPeerIds, resultLearnerIds, node.getCurrentTerm());
+                        }
                     }
+
                     oldDoneClosure.run(status);
                 };
 
@@ -589,7 +592,6 @@ public class NodeImpl implements Node, RaftServerService {
         this.logStorage = this.serviceFactory.createLogStorage(this.options.getLogUri(), this.raftOptions);
         this.logManager = new LogManagerImpl();
         final LogManagerOptions opts = new LogManagerOptions();
-        opts.setGroupId(groupId);
         opts.setLogEntryCodecFactory(this.serviceFactory.createLogEntryCodecFactory());
         opts.setLogStorage(this.logStorage);
         opts.setConfigurationManager(this.configManager);
@@ -825,7 +827,6 @@ public class NodeImpl implements Node, RaftServerService {
         opts.setBootstrapId(bootstrapId);
         opts.setRaftMessagesFactory(raftOptions.getRaftMessagesFactory());
         opts.setfSMCallerExecutorDisruptor(options.getfSMCallerExecutorDisruptor());
-        opts.setGroupId(groupId);
         opts.setSafeTimeCandidateManager(safeTimeCandidateManager);
 
         return this.fsmCaller.init(opts);
@@ -989,7 +990,7 @@ public class NodeImpl implements Node, RaftServerService {
 
         applyDisruptor = opts.getNodeApplyDisruptor();
 
-        applyQueue = applyDisruptor.subscribe(groupId, new LogEntryAndClosureHandler());
+        applyQueue = applyDisruptor.subscribe(getNodeId(), new LogEntryAndClosureHandler());
 
         if (this.metrics.getMetricRegistry() != null) {
             this.metrics.getMetricRegistry().register("jraft-node-impl-disruptor",
@@ -1098,7 +1099,6 @@ public class NodeImpl implements Node, RaftServerService {
 
         this.readOnlyService = new ReadOnlyServiceImpl();
         final ReadOnlyServiceOptions rosOpts = new ReadOnlyServiceOptions();
-        rosOpts.setGroupId(groupId);
         rosOpts.setFsmCaller(this.fsmCaller);
         rosOpts.setNode(this);
         rosOpts.setRaftOptions(this.raftOptions);
@@ -1805,7 +1805,7 @@ public class NodeImpl implements Node, RaftServerService {
         try {
             final EventTranslator<LogEntryAndClosure> translator = (event, sequence) -> {
                 event.reset();
-                event.groupId = groupId;
+                event.nodeId = getNodeId();
                 event.done = task.getDone();
                 event.entry = entry;
                 event.expectedTerm = task.getExpectedTerm();
@@ -2624,7 +2624,12 @@ public class NodeImpl implements Node, RaftServerService {
             Closure newDone = (Status status) -> {
                 // doOnNewPeersConfigurationApplied should be called, otherwise we could lose the callback invocation.
                 // For example, old leader failed just before an invocation of doOnNewPeersConfigurationApplied
-                this.getOptions().getRaftGrpEvtsLsnr().onNewPeersConfigurationApplied(newConf.getPeers(), newConf.getLearners());
+                JraftGroupEventsListener listener = this.getOptions().getRaftGrpEvtsLsnr();
+
+                if (listener != null) {
+                    listener.onNewPeersConfigurationApplied(newConf.getPeers(), newConf.getLearners());
+                }
+
                 done.run(status);
             };
             Utils.runClosureInThread(this.getOptions().getCommonExecutor(), newDone);
@@ -3051,7 +3056,7 @@ public class NodeImpl implements Node, RaftServerService {
 
                     Utils.runInThread(this.getOptions().getCommonExecutor(),
                         () -> this.applyQueue.publishEvent((event, sequence) -> {
-                            event.groupId = groupId;
+                            event.nodeId = getNodeId();
                             event.shutdownLatch = latch;
                         }));
                 }
@@ -3120,7 +3125,7 @@ public class NodeImpl implements Node, RaftServerService {
                 Replicator.join(this.wakingCandidate);
             }
             this.shutdownLatch.await();
-            this.applyDisruptor.unsubscribe(groupId);
+            this.applyDisruptor.unsubscribe(getNodeId());
             this.shutdownLatch = null;
         }
         if (this.fsmCaller != null) {

@@ -35,24 +35,25 @@ dependencies {
     implementation libs.netty.transport
     implementation libs.jackson.core
     implementation libs.jackson.databind
+    implementation libs.auto.service.annotations
+
     annotationProcessor project(":ignite-configuration-annotation-processor")
     annotationProcessor project(":ignite-network-annotation-processor")
-    annotationProcessor libs.jmh.annotation.processor
+    annotationProcessor libs.auto.service
 
     testAnnotationProcessor project(":ignite-network-annotation-processor")
+    testAnnotationProcessor libs.jmh.annotation.processor
     testImplementation project(':ignite-configuration')
     testImplementation(testFixtures(project(':ignite-configuration')))
     testImplementation(testFixtures(project(':ignite-core')))
     testImplementation project(':ignite-core')
     testImplementation project(':ignite-network-annotation-processor')
     testImplementation libs.jmh.core
-    testImplementation libs.jmh.annotation.processor
     testImplementation libs.kryo
     testImplementation libs.hamcrest.core
     testImplementation libs.mockito.core
     testImplementation libs.mockito.junit
     testImplementation libs.javapoet
-    testImplementation libs.classgraph
     testImplementation libs.slf4j.jdk14
     testImplementation libs.bytebuddy
     testImplementation libs.compileTesting
@@ -60,7 +61,6 @@ dependencies {
     testFixturesImplementation project(':ignite-configuration')
     testFixturesImplementation(testFixtures(project(':ignite-core')))
     testFixturesImplementation(testFixtures(project(':ignite-configuration')))
-    testFixturesImplementation libs.classgraph
     testFixturesImplementation libs.scalecube.cluster
     testFixturesImplementation libs.junit5.api
 
@@ -71,5 +71,4 @@ dependencies {
     integrationTestImplementation(testFixtures(project(':ignite-configuration')))
     integrationTestImplementation libs.compileTesting
     integrationTestImplementation libs.javapoet
-    integrationTestImplementation libs.classgraph
 }

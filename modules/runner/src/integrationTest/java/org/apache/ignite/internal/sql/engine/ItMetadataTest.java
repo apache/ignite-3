@@ -24,7 +24,7 @@ import static org.apache.ignite.sql.ColumnMetadata.UNDEFINED_SCALE;
 import java.time.Duration;
 import java.time.Period;
 import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
-import org.apache.ignite.sql.SqlColumnType;
+import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -75,6 +75,9 @@ public class ItMetadataTest extends AbstractBasicIntegrationTest {
         assertQuery("select min(salary) from person").columnNames("MIN(SALARY)").check();
         assertQuery("select aVg(salary) from person").columnNames("AVG(SALARY)").check();
         assertQuery("select sum(salary) from person").columnNames("SUM(SALARY)").check();
+
+        assertQuery("select typeOf(salary) from person").columnNames("TYPEOF(SALARY)").check();
+        assertQuery("select typeOf(null) from person").columnNames("TYPEOF(NULL)").check();
 
         assertQuery("select salary, count(name) from person group by salary").columnNames("SALARY", "COUNT(NAME)").check();
 
@@ -150,45 +153,45 @@ public class ItMetadataTest extends AbstractBasicIntegrationTest {
                         // new MetadataMatcher().name("BOOLEAN_C"), //TODO: IGNITE-17298 Boolean type is not supported by Ignite.
 
                         // Exact numeric types
-                        new MetadataMatcher().name("TINY_C").type(SqlColumnType.INT8).precision(3).scale(0),
-                        new MetadataMatcher().name("SMALL_C").type(SqlColumnType.INT16).precision(5).scale(0),
-                        new MetadataMatcher().name("INT_C").type(SqlColumnType.INT32).precision(10).scale(0),
-                        new MetadataMatcher().name("LONG_C").type(SqlColumnType.INT64).precision(19).scale(0),
+                        new MetadataMatcher().name("TINY_C").type(ColumnType.INT8).precision(3).scale(0),
+                        new MetadataMatcher().name("SMALL_C").type(ColumnType.INT16).precision(5).scale(0),
+                        new MetadataMatcher().name("INT_C").type(ColumnType.INT32).precision(10).scale(0),
+                        new MetadataMatcher().name("LONG_C").type(ColumnType.INT64).precision(19).scale(0),
 
-                        new MetadataMatcher().name("NUMBER_C").type(SqlColumnType.DECIMAL).precision(0x7FFF).scale(0),
-                        new MetadataMatcher().name("NUMBER_C2").type(SqlColumnType.DECIMAL).precision(38).scale(0),
-                        new MetadataMatcher().name("NUMBER_C3").type(SqlColumnType.DECIMAL).precision(38).scale(37),
-                        new MetadataMatcher().name("DECIMAL_C").type(SqlColumnType.DECIMAL).precision(0x7FFF).scale(0),
-                        new MetadataMatcher().name("DECIMAL_C2").type(SqlColumnType.DECIMAL).precision(38).scale(0),
-                        new MetadataMatcher().name("DECIMAL_C3").type(SqlColumnType.DECIMAL).precision(38).scale(37),
+                        new MetadataMatcher().name("NUMBER_C").type(ColumnType.DECIMAL).precision(0x7FFF).scale(0),
+                        new MetadataMatcher().name("NUMBER_C2").type(ColumnType.DECIMAL).precision(38).scale(0),
+                        new MetadataMatcher().name("NUMBER_C3").type(ColumnType.DECIMAL).precision(38).scale(37),
+                        new MetadataMatcher().name("DECIMAL_C").type(ColumnType.DECIMAL).precision(0x7FFF).scale(0),
+                        new MetadataMatcher().name("DECIMAL_C2").type(ColumnType.DECIMAL).precision(38).scale(0),
+                        new MetadataMatcher().name("DECIMAL_C3").type(ColumnType.DECIMAL).precision(38).scale(37),
 
                         // Approximate numeric types
-                        new MetadataMatcher().name("FLOAT_C").type(SqlColumnType.FLOAT).precision(7).scale(UNDEFINED_SCALE),
-                        new MetadataMatcher().name("REAL_C").type(SqlColumnType.FLOAT).precision(7).scale(UNDEFINED_SCALE),
-                        new MetadataMatcher().name("DOUBLE_C").type(SqlColumnType.DOUBLE).precision(15).scale(UNDEFINED_SCALE),
+                        new MetadataMatcher().name("FLOAT_C").type(ColumnType.FLOAT).precision(7).scale(UNDEFINED_SCALE),
+                        new MetadataMatcher().name("REAL_C").type(ColumnType.FLOAT).precision(7).scale(UNDEFINED_SCALE),
+                        new MetadataMatcher().name("DOUBLE_C").type(ColumnType.DOUBLE).precision(15).scale(UNDEFINED_SCALE),
 
                         // Character string types
-                        new MetadataMatcher().name("CHAR_C").type(SqlColumnType.STRING).precision(1).scale(UNDEFINED_SCALE),
-                        new MetadataMatcher().name("CHAR_C2").type(SqlColumnType.STRING).precision(65536).scale(UNDEFINED_SCALE),
-                        new MetadataMatcher().name("VARCHAR_C").type(SqlColumnType.STRING).precision(65536).scale(UNDEFINED_SCALE),
-                        new MetadataMatcher().name("VARCHAR_C2").type(SqlColumnType.STRING).precision(125).scale(UNDEFINED_SCALE),
+                        new MetadataMatcher().name("CHAR_C").type(ColumnType.STRING).precision(1).scale(UNDEFINED_SCALE),
+                        new MetadataMatcher().name("CHAR_C2").type(ColumnType.STRING).precision(65536).scale(UNDEFINED_SCALE),
+                        new MetadataMatcher().name("VARCHAR_C").type(ColumnType.STRING).precision(65536).scale(UNDEFINED_SCALE),
+                        new MetadataMatcher().name("VARCHAR_C2").type(ColumnType.STRING).precision(125).scale(UNDEFINED_SCALE),
 
                         // Binary string types
-                        new MetadataMatcher().name("BINARY_C").type(SqlColumnType.BYTE_ARRAY).precision(1).scale(UNDEFINED_SCALE),
-                        new MetadataMatcher().name("BINARY_C2").type(SqlColumnType.BYTE_ARRAY).precision(65536).scale(UNDEFINED_SCALE),
-                        new MetadataMatcher().name("VARBINARY_C").type(SqlColumnType.BYTE_ARRAY).precision(65536).scale(UNDEFINED_SCALE),
-                        new MetadataMatcher().name("VARBINARY_C2").type(SqlColumnType.BYTE_ARRAY).precision(125).scale(UNDEFINED_SCALE),
+                        new MetadataMatcher().name("BINARY_C").type(ColumnType.BYTE_ARRAY).precision(1).scale(UNDEFINED_SCALE),
+                        new MetadataMatcher().name("BINARY_C2").type(ColumnType.BYTE_ARRAY).precision(65536).scale(UNDEFINED_SCALE),
+                        new MetadataMatcher().name("VARBINARY_C").type(ColumnType.BYTE_ARRAY).precision(65536).scale(UNDEFINED_SCALE),
+                        new MetadataMatcher().name("VARBINARY_C2").type(ColumnType.BYTE_ARRAY).precision(125).scale(UNDEFINED_SCALE),
 
                         // Datetime types
-                        new MetadataMatcher().name("DATE_C").type(SqlColumnType.DATE).precision(0).scale(UNDEFINED_SCALE),
-                        new MetadataMatcher().name("TIME_C").type(SqlColumnType.TIME).precision(0).scale(UNDEFINED_SCALE),
-                        new MetadataMatcher().name("TIME_C2").type(SqlColumnType.TIME).precision(9).scale(UNDEFINED_SCALE),
-                        new MetadataMatcher().name("TIME_LTZ_C").type(SqlColumnType.TIME).precision(0).scale(UNDEFINED_SCALE),
-                        new MetadataMatcher().name("TIME_LTZ_C2").type(SqlColumnType.TIME).precision(9).scale(UNDEFINED_SCALE),
-                        new MetadataMatcher().name("DATETIME_C").type(SqlColumnType.DATETIME).precision(6).scale(UNDEFINED_SCALE),
-                        new MetadataMatcher().name("DATETIME_C2").type(SqlColumnType.DATETIME).precision(9).scale(UNDEFINED_SCALE),
-                        new MetadataMatcher().name("TIMESTAMP_C").type(SqlColumnType.TIMESTAMP).precision(6).scale(UNDEFINED_SCALE),
-                        new MetadataMatcher().name("TIMESTAMP_C2").type(SqlColumnType.TIMESTAMP).precision(9).scale(UNDEFINED_SCALE),
+                        new MetadataMatcher().name("DATE_C").type(ColumnType.DATE).precision(0).scale(UNDEFINED_SCALE),
+                        new MetadataMatcher().name("TIME_C").type(ColumnType.TIME).precision(0).scale(UNDEFINED_SCALE),
+                        new MetadataMatcher().name("TIME_C2").type(ColumnType.TIME).precision(9).scale(UNDEFINED_SCALE),
+                        new MetadataMatcher().name("TIME_LTZ_C").type(ColumnType.TIME).precision(0).scale(UNDEFINED_SCALE),
+                        new MetadataMatcher().name("TIME_LTZ_C2").type(ColumnType.TIME).precision(9).scale(UNDEFINED_SCALE),
+                        new MetadataMatcher().name("DATETIME_C").type(ColumnType.DATETIME).precision(6).scale(UNDEFINED_SCALE),
+                        new MetadataMatcher().name("DATETIME_C2").type(ColumnType.DATETIME).precision(9).scale(UNDEFINED_SCALE),
+                        new MetadataMatcher().name("TIMESTAMP_C").type(ColumnType.TIMESTAMP).precision(6).scale(UNDEFINED_SCALE),
+                        new MetadataMatcher().name("TIMESTAMP_C2").type(ColumnType.TIMESTAMP).precision(9).scale(UNDEFINED_SCALE),
 
                         // Interval types
                         // TODO: Ignite doesn't support interval types.

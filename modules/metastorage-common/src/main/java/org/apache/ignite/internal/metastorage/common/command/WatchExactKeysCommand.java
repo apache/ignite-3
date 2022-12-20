@@ -20,17 +20,16 @@ package org.apache.ignite.internal.metastorage.common.command;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteUuid;
-import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
-import org.apache.ignite.raft.client.WriteCommand;
 
 /**
  * Watch command for MetaStorageCommandListener that subscribes on meta storage updates matching the parameters.
  */
 @Transferable(MetastorageCommandsMessageGroup.WATCH_EXACT_KEYS)
-public interface WatchExactKeysCommand extends NetworkMessage, WriteCommand {
+public interface WatchExactKeysCommand extends WriteCommand {
     /**
      * Returns the keys list. Couldn't be {@code null}.
      */

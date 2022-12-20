@@ -19,36 +19,41 @@ namespace Apache.Ignite.Benchmarks.Sql
 {
     using System;
     using System.Collections.Generic;
+    using System.Linq;
     using System.Threading.Tasks;
     using BenchmarkDotNet.Attributes;
     using BenchmarkDotNet.Jobs;
+    using Ignite.Sql;
     using Ignite.Table;
     using Tests;
 
     /// <summary>
     /// Measures SQL result set enumeration with two pages of data (two network requests per enumeration).
     /// <para />
-    /// Results on Intel Core i7-9700K, GC = Concurrent Server, Ubuntu 20.04:
-    /// |          Method |       Runtime |     Mean |   Error |   StdDev | Ratio |  Gen 0 |  Gen 1 | Allocated |
-    /// |---------------- |-------------- |---------:|--------:|---------:|------:|-------:|-------:|----------:|
-    /// |     ToListAsync |      .NET 6.0 | 218.4 us | 2.14 us |  2.01 us |  0.59 | 8.3008 | 1.7090 |    391 KB |
-    /// | AsyncEnumerable |      .NET 6.0 | 325.8 us | 6.14 us |  6.03 us |  0.88 | 8.7891 | 0.4883 |    392 KB |
-    /// |     ToListAsync | .NET Core 3.1 | 368.6 us | 7.14 us |  7.01 us |  1.00 | 7.3242 | 1.4648 |    383 KB |
-    /// | AsyncEnumerable | .NET Core 3.1 | 497.9 us | 9.59 us | 12.12 us |  1.35 | 7.8125 | 2.9297 |    384 KB |.
+    /// Results on Intel Core i7-7700HQ, .NET 6, GC = Concurrent Server, Ubuntu 20.04:
+    /// |                         Method |       Mean |    Error |   StdDev | Ratio | RatioSD |   Gen 0 |  Gen 1 | Allocated |
+    /// |------------------------------- |-----------:|---------:|---------:|------:|--------:|--------:|-------:|----------:|
+    /// |                    ToListAsync |   967.2 us | 18.17 us | 17.00 us |  1.00 |    0.00 | 15.6250 |      - |    392 KB |
+    /// |                AsyncEnumerable | 1,172.7 us | 23.41 us | 27.87 us |  1.21 |    0.03 | 15.6250 | 1.9531 |    393 KB |
+    /// |                LinqToListAsync |   786.1 us | 14.94 us | 15.34 us |  0.81 |    0.02 |  2.9297 |      - |     80 KB |
+    /// | LinqSelectOneColumnToListAsync |   677.0 us | 13.42 us | 11.21 us |  0.70 |    0.02 |  1.9531 |      - |     57 KB |.
     /// </summary>
     [MemoryDiagnoser]
-    [SimpleJob(RuntimeMoniker.NetCoreApp31, baseline: true)]
-    /* [SimpleJob(RuntimeMoniker.Net60)] */
+    [SimpleJob(RuntimeMoniker.Net60)]
     public class ResultSetBenchmarks
     {
         private FakeServer? _server;
         private IIgniteClient? _client;
+        private IRecordView<Rec>? _recordView;
 
         [GlobalSetup]
         public async Task GlobalSetup()
         {
             _server = new FakeServer(disableOpsTracking: true);
             _client = await _server.ConnectClientAsync();
+
+            var table = await _client.Tables.GetTableAsync(FakeServer.ExistingTableName);
+            _recordView = table!.GetRecordView<Rec>();
         }
 
         [GlobalCleanup]
@@ -86,5 +91,33 @@ namespace Apache.Ignite.Benchmarks.Sql
                 throw new Exception("Wrong count");
             }
         }
+
+        [Benchmark]
+        public async Task LinqToListAsync()
+        {
+            await using var resultSet = await _recordView!.AsQueryable().ToResultSetAsync();
+
+            var rows = await resultSet.ToListAsync();
+
+            if (rows.Count != 1012)
+            {
+                throw new Exception("Wrong count");
+            }
+        }
+
+        [Benchmark]
+        public async Task LinqSelectOneColumnToListAsync()
+        {
+            await using var resultSet = await _recordView!.AsQueryable().Select(x => x.Id).ToResultSetAsync();
+
+            var rows = await resultSet.ToListAsync();
+
+            if (rows.Count != 1012)
+            {
+                throw new Exception("Wrong count");
+            }
+        }
+
+        private record Rec(int Id);
     }
 }

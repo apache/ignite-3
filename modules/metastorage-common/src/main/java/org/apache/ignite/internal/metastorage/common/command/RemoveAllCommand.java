@@ -20,16 +20,15 @@ package org.apache.ignite.internal.metastorage.common.command;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.lang.ByteArray;
-import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
-import org.apache.ignite.raft.client.WriteCommand;
 
 /**
  * Remove all command for MetaStorageCommandListener that removes entries for given keys.
  */
 @Transferable(MetastorageCommandsMessageGroup.REMOVE_ALL)
-public interface RemoveAllCommand extends WriteCommand, NetworkMessage {
+public interface RemoveAllCommand extends WriteCommand {
     /**
      * Returns the keys list. Couldn't be {@code null}.
      */

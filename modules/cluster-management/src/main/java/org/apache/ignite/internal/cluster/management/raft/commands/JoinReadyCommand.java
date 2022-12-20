@@ -18,15 +18,14 @@
 package org.apache.ignite.internal.cluster.management.raft.commands;
 
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessageGroup;
-import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.network.annotations.Transferable;
-import org.apache.ignite.raft.client.WriteCommand;
 
 /**
  * Command sent by a node when it's ready to join the cluster and enter the logical topology.
  */
 @Transferable(CmgMessageGroup.Commands.JOIN_READY)
-public interface JoinReadyCommand extends WriteCommand, NetworkMessage {
+public interface JoinReadyCommand extends WriteCommand {
     /**
      * Returns the node that wants to enter the logical topology.
      */

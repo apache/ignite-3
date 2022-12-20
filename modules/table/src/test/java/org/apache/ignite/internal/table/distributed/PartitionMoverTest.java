@@ -32,19 +32,26 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.io.IOException;
-import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupServiceImpl;
+import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.NodeStoppingException;
-import org.apache.ignite.raft.client.Peer;
-import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.junit.jupiter.api.Test;
 
 /**
  * Tests for the {@link PartitionMover} class.
  */
 class PartitionMoverTest {
+    private static final long TERM = 123;
+
+    private static final PeersAndLearners PEERS_AND_LEARNERS = PeersAndLearners.fromConsistentIds(
+            Set.of("peer1", "peer2"),
+            Set.of("learner1", "learner2", "learner3")
+    );
+
     /**
      * Tests that {@link RaftGroupServiceImpl#changePeersAsync} was retried after some exceptions.
      */
@@ -52,20 +59,16 @@ class PartitionMoverTest {
     public void testChangePeersAsyncRetryLogic() {
         RaftGroupService raftService = mock(RaftGroupService.class);
 
-        when(raftService.changePeersAsync(any(), any(), anyLong()))
+        when(raftService.changePeersAsync(any(), anyLong()))
                 .thenReturn(failedFuture(new RuntimeException()))
                 .thenReturn(failedFuture(new IOException()))
                 .thenReturn(completedFuture(null));
 
         var partitionMover = new PartitionMover(new IgniteSpinBusyLock(), () -> raftService);
 
-        List<Peer> peers = List.of(new Peer("peer1"), new Peer("peer2"));
-        List<Peer> learners = List.of(new Peer("learner1"), new Peer("learner2"), new Peer("learner3"));
-        long term = 123;
+        assertThat(partitionMover.movePartition(PEERS_AND_LEARNERS, TERM), willCompleteSuccessfully());
 
-        assertThat(partitionMover.movePartition(peers, learners, term), willCompleteSuccessfully());
-
-        verify(raftService, times(3)).changePeersAsync(eq(peers), eq(learners), eq(term));
+        verify(raftService, times(3)).changePeersAsync(eq(PEERS_AND_LEARNERS), eq(TERM));
     }
 
     @Test
@@ -76,7 +79,7 @@ class PartitionMoverTest {
 
         lock.block();
 
-        assertThrowsWithCause(() -> partitionMover.movePartition(List.of(), List.of(), 1), NodeStoppingException.class);
+        assertThrowsWithCause(() -> partitionMover.movePartition(PEERS_AND_LEARNERS, TERM), NodeStoppingException.class);
     }
 
     @Test
@@ -85,11 +88,11 @@ class PartitionMoverTest {
 
         RaftGroupService raftService = mock(RaftGroupService.class);
 
-        when(raftService.changePeersAsync(any(), any(), anyLong()))
+        when(raftService.changePeersAsync(any(), anyLong()))
                 .then(invocation -> CompletableFuture.runAsync(lock::block));
 
         var partitionMover = new PartitionMover(lock, () -> raftService);
 
-        assertThat(partitionMover.movePartition(List.of(), List.of(), 1), willThrowWithCauseOrSuppressed(NodeStoppingException.class));
+        assertThat(partitionMover.movePartition(PEERS_AND_LEARNERS, TERM), willThrowWithCauseOrSuppressed(NodeStoppingException.class));
     }
 }

@@ -21,8 +21,8 @@ import java.util.List;
 import org.apache.ignite.internal.sql.api.ColumnMetadataImpl;
 import org.apache.ignite.internal.sql.api.ResultSetMetadataImpl;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlCommand;
+import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.ResultSetMetadata;
-import org.apache.ignite.sql.SqlColumnType;
 
 /**
  * DdlPlan.
@@ -31,7 +31,7 @@ import org.apache.ignite.sql.SqlColumnType;
 public class DdlPlan implements QueryPlan {
     /** DDL metadata holder. */
     private static final ResultSetMetadata DDL_METADATA = new ResultSetMetadataImpl(List.of(
-            new ColumnMetadataImpl("APPLIED", SqlColumnType.BOOLEAN, 1, Integer.MIN_VALUE, false, null)));
+            new ColumnMetadataImpl("APPLIED", ColumnType.BOOLEAN, 1, Integer.MIN_VALUE, false, null)));
 
     private final DdlCommand cmd;
 

@@ -35,6 +35,7 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.nio.ByteBuffer;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -53,9 +54,14 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.raft.Command;
+import org.apache.ignite.internal.raft.Peer;
+import org.apache.ignite.internal.raft.service.LeaderWithTerm;
+import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
+import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.schema.Column;
@@ -71,7 +77,6 @@ import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.command.UpdateAllCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
-import org.apache.ignite.internal.table.distributed.command.response.MultiRowsResponse;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteMultiRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSingleRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
@@ -88,11 +93,6 @@ import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
-import org.apache.ignite.raft.client.Command;
-import org.apache.ignite.raft.client.Peer;
-import org.apache.ignite.raft.client.service.LeaderWithTerm;
-import org.apache.ignite.raft.client.service.RaftGroupService;
-import org.apache.ignite.raft.jraft.util.ByteString;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -173,7 +173,7 @@ public class ItColocationTest {
                 });
 
                 if (cmd instanceof UpdateAllCommand) {
-                    return completedFuture(new MultiRowsResponse(List.of()).getValues());
+                    return completedFuture(List.of());
                 } else {
                     return completedFuture(true);
                 }
@@ -190,10 +190,9 @@ public class ItColocationTest {
             RaftGroupService r = groupRafts.get(request.groupId());
 
             if (request instanceof ReadWriteMultiRowReplicaRequest) {
-                Map<UUID, ByteString> rows = ((ReadWriteMultiRowReplicaRequest) request).binaryRows()
+                Map<UUID, ByteBuffer> rows = ((ReadWriteMultiRowReplicaRequest) request).binaryRows()
                         .stream()
-                        .collect(toMap(
-                                row -> Timestamp.nextVersion().toUuid(), row -> new ByteString(row.byteBuffer())));
+                        .collect(toMap(row -> Timestamp.nextVersion().toUuid(), BinaryRow::byteBuffer));
 
                 return r.run(MSG_FACTORY.updateAllCommand()
                                 .tablePartitionId(MSG_FACTORY.tablePartitionIdMessage()
@@ -215,7 +214,7 @@ public class ItColocationTest {
                                         .build()
                         )
                         .rowUuid(Timestamp.nextVersion().toUuid())
-                        .rowBuffer(new ByteString(((ReadWriteSingleRowReplicaRequest) request).binaryRow().byteBuffer()))
+                        .rowBuffer(((ReadWriteSingleRowReplicaRequest) request).binaryRow().byteBuffer())
                         .txId(UUID.randomUUID())
                         .build());
             }
@@ -388,8 +387,8 @@ public class ItColocationTest {
             UpdateAllCommand cmd = (UpdateAllCommand) CollectionUtils.first(set);
             assertEquals(partsMap.get(p), cmd.rowsToUpdate().size(), () -> "part=" + p + ", set=" + set);
 
-            cmd.rowsToUpdate().values().forEach(byteStr -> {
-                Row r = new Row(schema, new ByteBufferRow(byteStr.toByteArray()));
+            cmd.rowsToUpdate().values().forEach(byteBuffer -> {
+                Row r = new Row(schema, new ByteBufferRow(byteBuffer));
 
                 assertEquals(INT_TABLE.partition(r), p);
             });

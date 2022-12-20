@@ -20,6 +20,7 @@ package org.apache.ignite.internal.table.distributed.raft.snapshot.incoming;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITED;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
@@ -41,6 +42,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -118,6 +121,10 @@ public class IncomingSnapshotCopierTest {
     @InjectConfiguration(value = "mock.tables.foo {}")
     private TablesConfiguration tablesConfig;
 
+    private final ClusterNode clusterNode = mock(ClusterNode.class);
+
+    private final UUID snapshotId = UUID.randomUUID();
+
     @AfterEach
     void tearDown() {
         shutdownAndAwaitTermination(executorService, 1, TimeUnit.SECONDS);
@@ -144,25 +151,20 @@ public class IncomingSnapshotCopierTest {
         outgoingMvPartitionStorage.committedGroupConfiguration(expLastGroupConfig);
         outgoingTxStatePartitionStorage.lastApplied(expLastAppliedIndex, expLastAppliedTerm);
 
-        UUID snapshotId = UUID.randomUUID();
-
         MvTableStorage incomingMvTableStorage = spy(new TestMvTableStorage(tablesConfig.tables().get("foo"), tablesConfig));
         TxStateTableStorage incomingTxStateTableStorage = spy(new TestTxStateTableStorage());
 
         incomingMvTableStorage.getOrCreateMvPartition(TEST_PARTITION);
         incomingTxStateTableStorage.getOrCreateTxStateStorage(TEST_PARTITION);
 
+        MessagingService messagingService = messagingServiceForSuccessScenario(outgoingMvPartitionStorage,
+                outgoingTxStatePartitionStorage, expLastAppliedIndex, expLastAppliedTerm, expLastGroupConfig, rowIds, txIds, snapshotId);
+
         PartitionSnapshotStorage partitionSnapshotStorage = createPartitionSnapshotStorage(
                 snapshotId,
-                expLastAppliedIndex,
-                expLastAppliedTerm,
-                expLastGroupConfig,
                 incomingMvTableStorage,
                 incomingTxStateTableStorage,
-                outgoingMvPartitionStorage,
-                outgoingTxStatePartitionStorage,
-                rowIds,
-                txIds
+                messagingService
         );
 
         SnapshotCopier snapshotCopier = partitionSnapshotStorage.startToCopyFrom(
@@ -170,7 +172,7 @@ public class IncomingSnapshotCopierTest {
                 mock(SnapshotCopierOptions.class)
         );
 
-        runAsync(snapshotCopier::join).get(1, TimeUnit.SECONDS);
+        assertThat(runAsync(snapshotCopier::join), willSucceedIn(1, TimeUnit.SECONDS));
 
         assertEquals(Status.OK().getCode(), snapshotCopier.getCode());
 
@@ -193,26 +195,9 @@ public class IncomingSnapshotCopierTest {
         verify(incomingTxStateTableStorage, times(2)).getOrCreateTxStateStorage(eq(TEST_PARTITION));
     }
 
-    private PartitionSnapshotStorage createPartitionSnapshotStorage(
-            UUID snapshotId,
-            long lastAppliedIndexForSnapshotMeta,
-            long lastAppliedTermForSnapshotMeta,
-            RaftGroupConfiguration expCommittedGroupConfig,
-            MvTableStorage incomingTableStorage,
-            TxStateTableStorage incomingTxStateTableStorage,
-            MvPartitionStorage outgoingMvPartitionStorage,
-            TxStateStorage outgoingTxStatePartitionStorage,
-            List<RowId> rowIds,
-            List<UUID> txIds
-    ) {
-        TopologyService topologyService = mock(TopologyService.class);
-
-        ClusterNode clusterNode = mock(ClusterNode.class);
-
-        when(topologyService.getByConsistentId(NODE_NAME)).thenReturn(clusterNode);
-
-        OutgoingSnapshotsManager outgoingSnapshotsManager = mock(OutgoingSnapshotsManager.class);
-
+    private MessagingService messagingServiceForSuccessScenario(MvPartitionStorage outgoingMvPartitionStorage,
+            TxStateStorage outgoingTxStatePartitionStorage, long expLastAppliedIndex, long expLastAppliedTerm,
+            RaftGroupConfiguration expLastGroupConfig, List<RowId> rowIds, List<UUID> txIds, UUID snapshotId) {
         MessagingService messagingService = mock(MessagingService.class);
 
         when(messagingService.invoke(eq(clusterNode), any(SnapshotMetaRequest.class), anyLong())).then(answer -> {
@@ -224,12 +209,12 @@ public class IncomingSnapshotCopierTest {
                     TABLE_MSG_FACTORY.snapshotMetaResponse()
                             .meta(
                                     RAFT_MSG_FACTORY.snapshotMeta()
-                                            .lastIncludedIndex(lastAppliedIndexForSnapshotMeta)
-                                            .lastIncludedTerm(lastAppliedTermForSnapshotMeta)
-                                            .peersList(expCommittedGroupConfig.peers())
-                                            .learnersList(expCommittedGroupConfig.learners())
-                                            .oldPeersList(expCommittedGroupConfig.oldPeers())
-                                            .oldLearnersList(expCommittedGroupConfig.oldLearners())
+                                            .lastIncludedIndex(expLastAppliedIndex)
+                                            .lastIncludedTerm(expLastAppliedTerm)
+                                            .peersList(expLastGroupConfig.peers())
+                                            .learnersList(expLastGroupConfig.learners())
+                                            .oldPeersList(expLastGroupConfig.oldPeers())
+                                            .oldLearnersList(expLastGroupConfig.oldLearners())
                                             .build()
                             )
                             .build()
@@ -257,6 +242,21 @@ public class IncomingSnapshotCopierTest {
 
             return completedFuture(TABLE_MSG_FACTORY.snapshotTxDataResponse().txIds(txIds).txMeta(txMetas).finish(true).build());
         });
+
+        return messagingService;
+    }
+
+    private PartitionSnapshotStorage createPartitionSnapshotStorage(
+            UUID snapshotId,
+            MvTableStorage incomingTableStorage,
+            TxStateTableStorage incomingTxStateTableStorage,
+            MessagingService messagingService
+    ) {
+        TopologyService topologyService = mock(TopologyService.class);
+
+        when(topologyService.getByConsistentId(NODE_NAME)).thenReturn(clusterNode);
+
+        OutgoingSnapshotsManager outgoingSnapshotsManager = mock(OutgoingSnapshotsManager.class);
 
         when(outgoingSnapshotsManager.messagingService()).thenReturn(messagingService);
 
@@ -355,7 +355,7 @@ public class IncomingSnapshotCopierTest {
 
             responseEntries.add(
                     TABLE_MSG_FACTORY.responseEntry()
-                            .rowId(new UUID(rowId.mostSignificantBits(), rowId.leastSignificantBits()))
+                            .rowId(rowId.uuid())
                             .rowVersions(rowVersions)
                             .timestamps(timestamps)
                             .txId(txId)
@@ -404,5 +404,46 @@ public class IncomingSnapshotCopierTest {
         for (UUID txId : txIds) {
             assertEquals(expected.get(txId), actual.get(txId));
         }
+    }
+
+    @Test
+    void cancellationMakesJoinFinishIfHangingOnNetworkCall() throws Exception {
+        MvTableStorage incomingMvTableStorage = spy(new TestMvTableStorage(tablesConfig.tables().get("foo"), tablesConfig));
+        TxStateTableStorage incomingTxStateTableStorage = spy(new TestTxStateTableStorage());
+
+        incomingMvTableStorage.getOrCreateMvPartition(TEST_PARTITION);
+        incomingTxStateTableStorage.getOrCreateTxStateStorage(TEST_PARTITION);
+
+        CountDownLatch networkInvokeLatch = new CountDownLatch(1);
+
+        MessagingService messagingService = mock(MessagingService.class);
+
+        when(messagingService.invoke(any(), any(), anyLong())).then(invocation -> {
+            networkInvokeLatch.countDown();
+
+            return new CompletableFuture<>();
+        });
+
+        PartitionSnapshotStorage partitionSnapshotStorage = createPartitionSnapshotStorage(
+                snapshotId,
+                incomingMvTableStorage,
+                incomingTxStateTableStorage,
+                messagingService
+        );
+
+        SnapshotCopier snapshotCopier = partitionSnapshotStorage.startToCopyFrom(
+                SnapshotUri.toStringUri(snapshotId, NODE_NAME),
+                mock(SnapshotCopierOptions.class)
+        );
+
+        networkInvokeLatch.await(1, TimeUnit.SECONDS);
+
+        CompletableFuture<?> cancelAndJoinFuture = runAsync(() -> {
+            snapshotCopier.cancel();
+
+            snapshotCopier.join();
+        });
+
+        assertThat(cancelAndJoinFuture, willSucceedIn(1, TimeUnit.SECONDS));
     }
 }

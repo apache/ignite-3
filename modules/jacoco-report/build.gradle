@@ -37,7 +37,7 @@ dependencies {
     implementation project(':ignite-network')
     implementation project(':ignite-network-api')
     implementation project(':ignite-raft')
-    implementation project(':ignite-raft-client')
+    implementation project(':ignite-raft-api')
     implementation project(':ignite-rest')
     implementation project(':ignite-rocksdb-common')
     implementation project(':ignite-schema')

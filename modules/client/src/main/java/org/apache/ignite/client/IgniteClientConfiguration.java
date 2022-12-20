@@ -36,11 +36,11 @@ public interface IgniteClientConfiguration {
     /** Default socket connect timeout, in milliseconds. */
     int DFLT_CONNECT_TIMEOUT = 5000;
 
+    /** Default heartbeat timeout, in milliseconds. */
+    int DFLT_HEARTBEAT_TIMEOUT = 5000;
+
     /** Default heartbeat interval, in milliseconds. */
     int DFLT_HEARTBEAT_INTERVAL = 30_000;
-
-    /** Default operation retry limit. */
-    int DFLT_RETRY_LIMIT = 5;
 
     /** Default reconnect throttling period. */
     long DFLT_RECONNECT_THROTTLING_PERIOD = 30_000L;
@@ -120,6 +120,18 @@ public interface IgniteClientConfiguration {
      * @return Heartbeat interval.
      */
     public long heartbeatInterval();
+
+    /**
+     * Gets the heartbeat message timeout, in milliseconds. Default is <code>5000</code>.
+     *
+     * <p>When a server does not respond to a heartbeat within the specified timeout, client will close the connection.
+     *
+     * <p>When thin client connection is idle (no operations are performed), heartbeat messages are sent periodically
+     * to keep the connection alive and detect potential half-open state.
+     *
+     * @return Heartbeat interval.
+     */
+    public long heartbeatTimeout();
 
     /**
      * Returns the logger factory. This factory will be used to create a logger instance when needed.

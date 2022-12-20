@@ -20,7 +20,12 @@ package org.apache.ignite.internal.storage.pagememory.mv;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
+import org.apache.ignite.internal.pagememory.DataRegion;
+import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMeta;
+import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointListener;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointManager;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointProgress;
@@ -62,6 +67,11 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     /** Checkpoint listener. */
     private final CheckpointListener checkpointListener;
 
+    private final BlobStorage blobStorage;
+
+    /** Lock that protects group config read/write. */
+    private final ReadWriteLock replicationProtocolGroupConfigReadWriteLock = new ReentrantReadWriteLock();
+
     /**
      * Constructor.
      *
@@ -88,6 +98,8 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         checkpointManager = tableStorage.engine().checkpointManager();
         checkpointTimeoutLock = checkpointManager.checkpointTimeoutLock();
 
+        DataRegion<PersistentPageMemory> dataRegion = tableStorage.dataRegion();
+
         checkpointManager.addCheckpointListener(checkpointListener = new CheckpointListener() {
             @Override
             public void beforeCheckpointBegin(CheckpointProgress progress, @Nullable Executor exec) throws IgniteInternalCheckedException {
@@ -105,9 +117,17 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
             public void afterCheckpointEnd(CheckpointProgress progress) {
                 persistedIndex = meta.metaSnapshot(progress.id()).lastAppliedIndex();
             }
-        }, tableStorage.dataRegion());
+        }, dataRegion);
 
         this.meta = meta;
+
+        blobStorage = new BlobStorage(
+                rowVersionFreeList,
+                dataRegion.pageMemory(),
+                tableStorage.configuration().value().tableId(),
+                partitionId,
+                IoStatisticsHolderNoOp.INSTANCE
+        );
     }
 
     @Override
@@ -215,7 +235,23 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         }
 
         try {
-            return groupConfigFromBytes(meta.lastGroupConfig());
+            replicationProtocolGroupConfigReadWriteLock.readLock().lock();
+
+            try {
+                long configFirstPageId = meta.lastReplicationProtocolGroupConfigFirstPageId();
+
+                if (configFirstPageId == BlobStorage.NO_PAGE_ID) {
+                    return null;
+                }
+
+                byte[] bytes = blobStorage.readBlob(meta.lastReplicationProtocolGroupConfigFirstPageId());
+
+                return replicationProtocolGroupConfigFromBytes(bytes);
+            } finally {
+                replicationProtocolGroupConfigReadWriteLock.readLock().unlock();
+            }
+        } catch (IgniteInternalCheckedException e) {
+            throw new IgniteInternalException("Failed to read group config, groupId=" + groupId + ", partitionId=" + partitionId, e);
         } finally {
             closeBusyLock.leaveBusy();
         }
@@ -226,14 +262,29 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         assert checkpointTimeoutLock.checkpointLockIsHeldByThread();
 
         CheckpointProgress lastCheckpoint = checkpointManager.lastCheckpointProgress();
-
         UUID lastCheckpointId = lastCheckpoint == null ? null : lastCheckpoint.id();
 
-        meta.lastGroupConfig(lastCheckpointId, groupConfigToBytes(config));
+        byte[] groupConfigBytes = replicationProtocolGroupConfigToBytes(config);
+
+        replicationProtocolGroupConfigReadWriteLock.writeLock().lock();
+
+        try {
+            if (meta.lastReplicationProtocolGroupConfigFirstPageId() == BlobStorage.NO_PAGE_ID) {
+                long configPageId = blobStorage.addBlob(groupConfigBytes);
+
+                meta.lastReplicationProtocolGroupConfigFirstPageId(lastCheckpointId, configPageId);
+            } else {
+                blobStorage.updateBlob(meta.lastReplicationProtocolGroupConfigFirstPageId(), groupConfigBytes);
+            }
+        } catch (IgniteInternalCheckedException e) {
+            throw new StorageException("Cannot save committed group configuration, groupId=" + groupId + ", partitionId=" + groupId, e);
+        } finally {
+            replicationProtocolGroupConfigReadWriteLock.writeLock().unlock();
+        }
     }
 
     @Nullable
-    private static RaftGroupConfiguration groupConfigFromBytes(byte @Nullable [] bytes) {
+    private static RaftGroupConfiguration replicationProtocolGroupConfigFromBytes(byte @Nullable [] bytes) {
         if (bytes == null) {
             return null;
         }
@@ -241,7 +292,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         return ByteUtils.fromBytes(bytes);
     }
 
-    private static byte[] groupConfigToBytes(RaftGroupConfiguration config) {
+    private static byte[] replicationProtocolGroupConfigToBytes(RaftGroupConfiguration config) {
         return ByteUtils.toBytes(config);
     }
 

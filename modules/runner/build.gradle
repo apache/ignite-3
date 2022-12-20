@@ -26,12 +26,14 @@ dependencies {
     annotationProcessor project(':ignite-configuration-annotation-processor')
     annotationProcessor libs.picocli.annotation.processor
     annotationProcessor libs.micronaut.inject.annotation.processor
+    annotationProcessor libs.auto.service
 
     implementation project(':ignite-configuration')
     implementation project(':ignite-rest')
     implementation project(':ignite-api')
     implementation project(':ignite-vault')
     implementation project(':ignite-network')
+    implementation project(':ignite-raft-api')
     implementation project(':ignite-raft')
     implementation project(':ignite-metastorage')
     implementation project(':ignite-baseline')
@@ -60,8 +62,11 @@ dependencies {
     implementation libs.picocli.core
     implementation libs.slf4j.jdk14
     implementation libs.typesafe.config
+    implementation libs.auto.service.annotations
 
     testAnnotationProcessor project(':ignite-configuration-annotation-processor')
+    testAnnotationProcessor libs.auto.service
+
     testImplementation project(':ignite-cluster-management')
     testImplementation project(':ignite-configuration')
     testImplementation project(':ignite-core')
@@ -77,13 +82,13 @@ dependencies {
     testImplementation libs.hamcrest.optional
     testImplementation libs.hamcrest.path
     testImplementation libs.mockito.core
-    testImplementation libs.classgraph
     testImplementation libs.mockito.junit
     testImplementation libs.jsonpath.assert
+    testImplementation libs.auto.service.annotations
 
     integrationTestAnnotationProcessor project(':ignite-configuration-annotation-processor')
     integrationTestImplementation project(':ignite-page-memory')
-    integrationTestImplementation project(':ignite-raft-client')
+    integrationTestImplementation project(':ignite-raft-api')
     integrationTestImplementation project(':ignite-client')
     integrationTestImplementation(testFixtures(project(':ignite-core')))
     integrationTestImplementation(testFixtures(project(':ignite-configuration')))
@@ -114,6 +119,8 @@ def runnerPlatformTest = tasks.register("runnerPlatformTest", JavaExec) {
     mainClass = "org.apache.ignite.internal.runner.app.PlatformTestNodeRunner"
 
     classpath = sourceSets.integrationTest.runtimeClasspath
+
+    enableAssertions = true
 }
 
 integrationTest {

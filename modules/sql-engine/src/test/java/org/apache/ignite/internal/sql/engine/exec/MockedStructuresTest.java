@@ -48,11 +48,13 @@ import org.apache.ignite.internal.configuration.notifications.ConfigurationStora
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.configuration.testframework.InjectRevisionListenerHolder;
+import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.raft.Loza;
-import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
+import org.apache.ignite.internal.raft.Peer;
+import org.apache.ignite.internal.raft.RaftManager;
+import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaUtils;
@@ -85,8 +87,6 @@ import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.TopologyService;
-import org.apache.ignite.raft.client.Peer;
-import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -120,7 +120,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
     /** Raft manager. */
     @Mock
-    private Loza rm;
+    private RaftManager rm;
 
     /** TX manager. */
     @Mock(lenient = true)
@@ -168,6 +168,9 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     @Mock
     private ConfigurationRegistry configRegistry;
 
+    @Mock
+    private DistributionZoneManager distributionZoneManager;
+
     DataStorageManager dataStorageManager;
 
     SchemaManager schemaManager;
@@ -201,9 +204,6 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     /** Inner initialisation. */
     @BeforeEach
     void before() throws Exception {
-        when(rm.messagingService()).thenReturn(mock(MessagingService.class));
-        when(rm.topologyService()).thenReturn(mock(TopologyService.class));
-
         mockMetastore();
 
         revisionUpdater = (Function<Long, CompletableFuture<?>> function) -> {
@@ -248,6 +248,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 schemaManager,
                 dataStorageManager,
                 tm,
+                distributionZoneManager,
                 () -> dataStorageModules.collectSchemasFields(
                         List.of(
                                 RocksDbDataStorageConfigurationSchema.class,
@@ -441,7 +442,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
      * @return Table manager.
      */
     private TableManager mockManagers() throws NodeStoppingException {
-        when(rm.prepareRaftGroup(any(), any(), any(), any())).thenAnswer(mock -> {
+        when(rm.startRaftGroupNode(any(), any(), any(), any())).thenAnswer(mock -> {
             RaftGroupService raftGrpSrvcMock = mock(RaftGroupService.class);
 
             when(raftGrpSrvcMock.leader()).thenReturn(new Peer("test"));
@@ -449,7 +450,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
             return completedFuture(raftGrpSrvcMock);
         });
 
-        when(rm.startRaftGroupService(any(), any(), any())).thenAnswer(mock -> {
+        when(rm.startRaftGroupService(any(), any())).thenAnswer(mock -> {
             RaftGroupService raftGrpSrvcMock = mock(RaftGroupService.class);
 
             when(raftGrpSrvcMock.leader()).thenReturn(new Peer("test"));
@@ -500,6 +501,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 "",
                 revisionUpdater,
                 tblsCfg,
+                cs,
                 rm,
                 null,
                 null,
@@ -511,7 +513,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 workDir,
                 msm,
                 schemaManager,
-                view -> new LocalLogStorageFactory(),
+                null,
                 clock,
                 mock(OutgoingSnapshotsManager.class)
         );

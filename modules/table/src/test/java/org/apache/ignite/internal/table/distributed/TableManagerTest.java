@@ -66,7 +66,9 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.raft.Peer;
+import org.apache.ignite.internal.raft.RaftManager;
+import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -101,11 +103,10 @@ import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.TopologyService;
-import org.apache.ignite.raft.client.Peer;
-import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.table.Table;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -155,7 +156,7 @@ public class TableManagerTest extends IgniteAbstractTest {
 
     /** Raft manager. */
     @Mock
-    private Loza rm;
+    private RaftManager rm;
 
     /** Replica manager. */
     @Mock
@@ -169,9 +170,9 @@ public class TableManagerTest extends IgniteAbstractTest {
     @Mock
     MetaStorageManager msm;
 
-    /** Mock messaging service. */
+    /** Mock cluster service. */
     @Mock
-    private MessagingService messagingService;
+    private ClusterService clusterService;
 
     /**
      * Revision listener holder. It uses for the test configurations:
@@ -213,11 +214,11 @@ public class TableManagerTest extends IgniteAbstractTest {
     /** Before all test scenarios. */
     @BeforeEach
     void before() {
-        when(rm.messagingService()).thenReturn(messagingService);
+        when(clusterService.messagingService()).thenReturn(mock(MessagingService.class));
 
         TopologyService topologyService = mock(TopologyService.class);
 
-        when(rm.topologyService()).thenReturn(topologyService);
+        when(clusterService.topologyService()).thenReturn(topologyService);
         when(topologyService.localMember()).thenReturn(node);
 
         revisionUpdater = (Function<Long, CompletableFuture<?>> function) -> {
@@ -255,7 +256,7 @@ public class TableManagerTest extends IgniteAbstractTest {
      */
     @Test
     public void testPreconfiguredTable() throws Exception {
-        when(rm.startRaftGroupService(any(), any(), any())).thenAnswer(mock -> completedFuture(mock(RaftGroupService.class)));
+        when(rm.startRaftGroupService(any(), any())).thenAnswer(mock -> completedFuture(mock(RaftGroupService.class)));
 
         TableManager tableManager = createTableManager(tblManagerFut, false);
 
@@ -422,7 +423,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         endTableManagerStopTest(tblAndMnr.get1(), tblAndMnr.get2(),
                 () -> {
                     try {
-                        doThrow(new NodeStoppingException()).when(rm).stopRaftGroup(any());
+                        doThrow(new NodeStoppingException()).when(rm).stopRaftNodes(any());
                     } catch (Exception e) {
                         throw new RuntimeException(e);
                     }
@@ -491,7 +492,7 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         TableImpl table = mockManagersAndCreateTable(scmTbl, tblManagerFut);
 
-        verify(rm, times(PARTITIONS)).startRaftGroupService(any(), any(), any());
+        verify(rm, times(PARTITIONS)).startRaftGroupService(any(), any());
 
         TableManager tableManager = tblManagerFut.join();
 
@@ -503,7 +504,7 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         tableManager.stop();
 
-        verify(rm, times(PARTITIONS)).stopRaftGroup(any());
+        verify(rm, times(PARTITIONS)).stopRaftNodes(any());
         verify(replicaMgr, times(PARTITIONS)).stopReplica(any());
 
         verify(table.internalTable().storage()).close();
@@ -624,7 +625,7 @@ public class TableManagerTest extends IgniteAbstractTest {
     ) throws Exception {
         String consistentId = "node0";
 
-        when(rm.startRaftGroupService(any(), any(), any())).thenAnswer(mock -> {
+        when(rm.startRaftGroupService(any(), any())).thenAnswer(mock -> {
             RaftGroupService raftGrpSrvcMock = mock(RaftGroupService.class);
 
             when(raftGrpSrvcMock.leader()).thenReturn(new Peer(consistentId));
@@ -717,6 +718,7 @@ public class TableManagerTest extends IgniteAbstractTest {
                 "test",
                 revisionUpdater,
                 tblsCfg,
+                clusterService,
                 rm,
                 replicaMgr,
                 null,
@@ -730,7 +732,7 @@ public class TableManagerTest extends IgniteAbstractTest {
                 sm = new SchemaManager(revisionUpdater, tblsCfg, msm),
                 budgetView -> new LocalLogStorageFactory(),
                 new HybridClockImpl(),
-                new OutgoingSnapshotsManager(messagingService)
+                new OutgoingSnapshotsManager(clusterService.messagingService())
         ) {
             @Override
             protected MvTableStorage createTableStorage(TableConfiguration tableCfg, TablesConfiguration tablesCfg) {

@@ -48,13 +48,16 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.raft.Command;
+import org.apache.ignite.internal.raft.Peer;
+import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommand;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
 import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
 import org.apache.ignite.internal.replicator.exception.UnsupportedReplicaRequestException;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
+import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaSafeTimeSyncRequest;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -108,10 +111,6 @@ import org.apache.ignite.lang.ErrorGroups.Replicator;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteUuid;
-import org.apache.ignite.raft.client.Command;
-import org.apache.ignite.raft.client.Peer;
-import org.apache.ignite.raft.client.service.RaftGroupService;
-import org.apache.ignite.raft.jraft.util.ByteString;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -119,6 +118,9 @@ import org.jetbrains.annotations.Nullable;
 public class PartitionReplicaListener implements ReplicaListener {
     /** Factory to create RAFT command messages. */
     private final TableMessagesFactory msgFactory = new TableMessagesFactory();
+
+    /** Factory for creating replica command messages. */
+    private final ReplicaMessagesFactory replicaMessagesFactory = new ReplicaMessagesFactory();
 
     /** Tx messages factory. */
     private static final TxMessagesFactory FACTORY = new TxMessagesFactory();
@@ -505,7 +507,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return Future.
      */
     private CompletionStage<Void> processReplicaSafeTimeSyncRequest(ReplicaSafeTimeSyncRequest request) {
-        return raftClient.run(new SafeTimeSyncCommand());
+        return raftClient.run(replicaMessagesFactory.safeTimeSyncCommand().build());
     }
 
     /**
@@ -1159,7 +1161,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 }
 
                 return allOf(rowIdLockFuts).thenCompose(ignore -> {
-                    Map<UUID, ByteString> rowIdsToDelete = new HashMap<>();
+                    Map<UUID, ByteBuffer> rowIdsToDelete = new HashMap<>();
                     Collection<BinaryRow> result = new ArrayList<>();
 
                     int futNum = 0;
@@ -1198,7 +1200,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 }
 
                 return allOf(deleteExactLockFuts).thenCompose(ignore -> {
-                    Map<UUID, ByteString> rowIdsToDelete = new HashMap<>();
+                    Map<UUID, ByteBuffer> rowIdsToDelete = new HashMap<>();
                     Collection<BinaryRow> result = new ArrayList<>();
 
                     int futNum = 0;
@@ -1263,10 +1265,10 @@ public class PartitionReplicaListener implements ReplicaListener {
                         insertLockFuts[idx++] = takeLocksForInsert(entry.getValue(), entry.getKey(), txId);
                     }
 
-                    Map<UUID, ByteString> convertedMap = rowsToInsert.entrySet().stream().collect(
+                    Map<UUID, ByteBuffer> convertedMap = rowsToInsert.entrySet().stream().collect(
                             Collectors.toMap(
                                     e -> e.getKey().uuid(),
-                                    e -> new ByteString(e.getValue().byteBuffer())));
+                                    e -> e.getValue().byteBuffer()));
 
                     return allOf(insertLockFuts)
                             .thenCompose(ignored -> applyCmdWithExceptionHandling(
@@ -1300,14 +1302,14 @@ public class PartitionReplicaListener implements ReplicaListener {
                 }
 
                 return allOf(rowIdFuts).thenCompose(ignore -> {
-                    Map<UUID, ByteString> rowsToUpdate = new HashMap<>();
+                    Map<UUID, ByteBuffer> rowsToUpdate = new HashMap<>();
 
                     int futNum = 0;
 
                     for (BinaryRow row : request.binaryRows()) {
                         RowId lockedRow = rowIdFuts[futNum++].join().get1();
 
-                        rowsToUpdate.put(lockedRow.uuid(), new ByteString(row.byteBuffer()));
+                        rowsToUpdate.put(lockedRow.uuid(), row.byteBuffer());
                     }
 
                     if (rowsToUpdate.isEmpty()) {
@@ -1388,7 +1390,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                         return completedFuture(false);
                     }
 
-                    return takeLocksForDelete(searchRow, rowId, txId)
+                    return takeLocksForDelete(row, rowId, txId)
                             .thenCompose(ignored -> applyCmdWithExceptionHandling(
                                     updateCommand(commitPartitionId, rowId.uuid(), null, txId)))
                             .thenApply(ignored -> true);
@@ -1400,7 +1402,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                         return completedFuture(null);
                     }
 
-                    return takeLocksForDelete(searchRow, rowId, txId)
+                    return takeLocksForDelete(row, rowId, txId)
                             .thenCompose(ignored -> applyCmdWithExceptionHandling(
                                     updateCommand(commitPartitionId, rowId.uuid(), null, txId)))
                             .thenApply(ignored -> row);
@@ -1911,7 +1913,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 .txId(txId);
 
         if (rowBuf != null) {
-            bldr.rowBuffer(new ByteString(rowBuf));
+            bldr.rowBuffer(rowBuf);
         }
 
         return bldr.build();
@@ -1921,11 +1923,11 @@ public class PartitionReplicaListener implements ReplicaListener {
      * Method to construct {@link UpdateAllCommand} object.
      *
      * @param tablePartId {@link TablePartitionId} object to construct {@link UpdateCommand} object with.
-     * @param rowsToUpdate All {@link BinaryRow}s represented as {@link ByteString}s to be updated.
+     * @param rowsToUpdate All {@link BinaryRow}s represented as {@link ByteBuffer}s to be updated.
      * @param txId Transaction ID.
      * @return Constructed {@link UpdateAllCommand} object.
      */
-    private UpdateAllCommand updateAllCommand(TablePartitionId tablePartId, Map<UUID, ByteString> rowsToUpdate, UUID txId) {
+    private UpdateAllCommand updateAllCommand(TablePartitionId tablePartId, Map<UUID, ByteBuffer> rowsToUpdate, UUID txId) {
         return msgFactory.updateAllCommand()
                 .tablePartitionId(tablePartitionId(tablePartId))
                 .rowsToUpdate(rowsToUpdate)
