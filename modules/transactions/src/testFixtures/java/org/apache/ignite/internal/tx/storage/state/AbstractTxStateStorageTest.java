@@ -27,7 +27,6 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -37,8 +36,6 @@ import java.util.UUID;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.testframework.WorkDirectory;
-import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.util.Cursor;
@@ -46,21 +43,23 @@ import org.apache.ignite.lang.IgniteBiTuple;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
- * Tx storage test.
+ * Abstract tx storage test.
  */
-@ExtendWith(WorkDirectoryExtension.class)
-public abstract class TxStateStorageAbstractTest {
-    @WorkDirectory
-    protected Path workDir;
-
+public abstract class AbstractTxStateStorageTest {
     private TxStateTableStorage tableStorage;
+
+    /**
+     * Creates {@link TxStateStorage} to test.
+     */
+    protected abstract TxStateTableStorage createStorage();
 
     @BeforeEach
     void initStorage() {
         tableStorage = createStorage();
+
+        tableStorage.start();
     }
 
     @AfterEach
@@ -165,7 +164,7 @@ public abstract class TxStateStorageAbstractTest {
     }
 
     @Test
-    public void testScan() throws Exception {
+    public void testScan() {
         TxStateStorage storage0 = tableStorage.getOrCreateTxStateStorage(0);
         TxStateStorage storage1 = tableStorage.getOrCreateTxStateStorage(1);
         TxStateStorage storage2 = tableStorage.getOrCreateTxStateStorage(2);
@@ -219,7 +218,7 @@ public abstract class TxStateStorageAbstractTest {
     }
 
     @Test
-    public void scansInOrderDefinedByTxIds() throws Exception {
+    public void scansInOrderDefinedByTxIds() {
         TxStateStorage partitionStorage = tableStorage.getOrCreateTxStateStorage(0);
 
         for (int i = 0; i < 100; i++) {
@@ -242,7 +241,7 @@ public abstract class TxStateStorageAbstractTest {
     }
 
     @Test
-    public void scanOnlySeesDataExistingAtTheMomentOfCreation() throws Exception {
+    public void scanOnlySeesDataExistingAtTheMomentOfCreation() {
         TxStateStorage partitionStorage = tableStorage.getOrCreateTxStateStorage(0);
 
         UUID existingBeforeScan = new UUID(2, 0);
@@ -323,13 +322,6 @@ public abstract class TxStateStorageAbstractTest {
     }
 
     /**
-     * Creates {@link TxStateStorage} to test.
-     *
-     * @return Tx state storage.
-     */
-    protected abstract TxStateTableStorage createStorage();
-
-    /**
      * Test implementation of replication group id.
      */
     private static class TestReplicationGroupId implements ReplicationGroupId {
@@ -341,7 +333,7 @@ public abstract class TxStateStorageAbstractTest {
          *
          * @param prtId Partition id.
          */
-        public TestReplicationGroupId(int prtId) {
+        private TestReplicationGroupId(int prtId) {
             this.prtId = prtId;
         }
 

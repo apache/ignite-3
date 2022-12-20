@@ -17,51 +17,36 @@
 
 package org.apache.ignite.internal.tx.storage.state.rocksdb;
 
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
-
+import java.nio.file.Path;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
-import org.apache.ignite.internal.schema.configuration.TableView;
-import org.apache.ignite.internal.tx.storage.state.TxStateStorageAbstractTest;
-import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
-import org.junit.jupiter.api.AfterEach;
+import org.apache.ignite.internal.testframework.WorkDirectory;
+import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.tx.storage.state.AbstractTxStateStorageTest;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Tx storage test for RocksDB implementation.
  */
-public class TxStateRocksDbStorageTest extends TxStateStorageAbstractTest {
-    private TxStateTableStorage txStateTableStorage = null;
+@ExtendWith({WorkDirectoryExtension.class, ConfigurationExtension.class})
+public class RocksDbTxStateStorageTest extends AbstractTxStateStorageTest {
+    @WorkDirectory
+    protected Path workDir;
 
-    /** {@inheritDoc} */
-    @Override protected TxStateTableStorage createStorage() {
-        if (txStateTableStorage != null) {
-            return txStateTableStorage;
-        }
+    @InjectConfiguration("mock {partitions=3}")
+    private TableConfiguration tableConfig;
 
-        TableView tableView = mock(TableView.class);
-        when(tableView.name()).thenReturn("testTable");
-        when(tableView.partitions()).thenReturn(3);
-
-        TableConfiguration tableCfg = mock(TableConfiguration.class);
-        when(tableCfg.value()).thenReturn(tableView);
-
-        txStateTableStorage = new TxStateRocksDbTableStorage(
-                tableCfg,
+    @Override
+    protected TxStateRocksDbTableStorage createStorage() {
+        return new TxStateRocksDbTableStorage(
+                tableConfig,
                 workDir,
                 new ScheduledThreadPoolExecutor(1),
                 Executors.newFixedThreadPool(1),
-                () -> 1000
+                () -> 1_000
         );
-
-        txStateTableStorage.start();
-
-        return txStateTableStorage;
-    }
-
-    @AfterEach
-    public void afterTest() {
-        txStateTableStorage.destroy();
     }
 }

@@ -24,7 +24,6 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListMap;
-import org.apache.ignite.internal.configuration.storage.StorageException;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
@@ -45,6 +44,7 @@ public class TestTxStateStorage implements TxStateStorage {
     private volatile long lastAppliedTerm;
 
     @Override
+    @Nullable
     public TxMeta get(UUID txId) {
         return storage.get(txId);
     }
@@ -100,13 +100,9 @@ public class TestTxStateStorage implements TxStateStorage {
 
     @Override
     public void destroy() {
-        try {
-            close();
+        close();
 
-            storage.clear();
-        } catch (RuntimeException e) {
-            throw new StorageException("Failed to destroy the transaction state storage", e);
-        }
+        storage.clear();
     }
 
     @Override
@@ -138,5 +134,23 @@ public class TestTxStateStorage implements TxStateStorage {
     @Override
     public void close() {
         // No-op.
+    }
+
+    @Override
+    public CompletableFuture<Void> startFullRebalance() {
+        // TODO: IGNITE-18022 Implement
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public CompletableFuture<Void> abortFullRebalance() {
+        // TODO: IGNITE-18022 Implement
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public CompletableFuture<Void> finishFullRebalance(long lastAppliedIndex, long lastAppliedTerm) {
+        // TODO: IGNITE-18022 Implement
+        throw new UnsupportedOperationException();
     }
 }
