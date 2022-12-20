@@ -80,8 +80,6 @@ internal static class MethodVisitor
                 GetCharTrimMethod(nameof(string.TrimStart), TrimLeading),
                 GetCharTrimMethod(nameof(string.TrimEnd), TrimTrailing),
                 GetStringMethod(nameof(string.Replace), "replace", typeof(string), typeof(string)),
-                GetStringMethod(nameof(string.Compare), new[] { typeof(string), typeof(string) }, (e, v) => VisitStringCompare(e, v, false)),
-                GetStringMethod(nameof(string.Compare), new[] { typeof(string), typeof(string), typeof(bool) }, (e, v) => VisitStringCompare(e, v, GetStringCompareIgnoreCaseParameter(e.Arguments[2]))),
 
                 GetRegexMethod(nameof(Regex.Replace), "regexp_replace", typeof(string), typeof(string), typeof(string)),
                 GetRegexMethod(nameof(Regex.Replace), "regexp_replace", typeof(string), typeof(string), typeof(string), typeof(RegexOptions)),
@@ -404,61 +402,6 @@ internal static class MethodVisitor
             : ExpressionWalker.EvaluateExpression<object>(expression.Arguments[0]);
 
         visitor.Parameters.Add(paramValue);
-    }
-
-    /// <summary>
-    /// Get IgnoreCase parameter for string.Compare method.
-    /// </summary>
-    private static bool GetStringCompareIgnoreCaseParameter(Expression expression)
-    {
-        if (expression is ConstantExpression { Value: bool } constant)
-        {
-            return (bool)constant.Value;
-        }
-
-        throw new NotSupportedException(
-            "Parameter 'ignoreCase' from 'string.Compare method should be specified as a constant expression");
-    }
-
-    /// <summary>
-    /// Visits string.Compare method.
-    /// </summary>
-    private static void VisitStringCompare(MethodCallExpression expression, IgniteQueryExpressionVisitor visitor, bool ignoreCase)
-    {
-        // Ex: nvl2(?, casewhen(_T0.NAME = ?, 0, casewhen(_T0.NAME >= ?, 1, -1)), 1)
-        visitor.ResultBuilder.Append("nvl2(");
-        visitor.Visit(expression.Arguments[1]);
-        visitor.ResultBuilder.Append(", casewhen(");
-        VisitArg(visitor, expression, 0, ignoreCase);
-        visitor.ResultBuilder.Append(" = ");
-        VisitArg(visitor, expression, 1, ignoreCase);
-        visitor.ResultBuilder.Append(", 0, casewhen(");
-        VisitArg(visitor, expression, 0, ignoreCase);
-        visitor.ResultBuilder.Append(" >= ");
-        VisitArg(visitor, expression, 1, ignoreCase);
-        visitor.ResultBuilder.Append(", 1, -1)), 1)");
-    }
-
-    /// <summary>
-    /// Visits member expression argument.
-    /// </summary>
-    private static void VisitArg(
-        IgniteQueryExpressionVisitor visitor,
-        MethodCallExpression expression,
-        int idx,
-        bool lower)
-    {
-        if (lower)
-        {
-            visitor.ResultBuilder.Append("lower(");
-        }
-
-        visitor.Visit(expression.Arguments[idx]);
-
-        if (lower)
-        {
-            visitor.ResultBuilder.Append(')');
-        }
     }
 
     /// <summary>

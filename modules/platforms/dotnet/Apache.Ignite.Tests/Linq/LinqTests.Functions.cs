@@ -29,8 +29,12 @@ using Table;
 /// Linq functions tests.
 /// </summary>
 [SuppressMessage("Globalization", "CA1304:Specify CultureInfo", Justification = "SQL")]
+[SuppressMessage("Globalization", "CA1309:Use ordinal string comparison", Justification = "SQL")]
 [SuppressMessage("ReSharper", "StringIndexOfIsCultureSpecific.1", Justification = "SQL")]
 [SuppressMessage("ReSharper", "StringIndexOfIsCultureSpecific.2", Justification = "SQL")]
+[SuppressMessage("ReSharper", "StringCompareToIsCultureSpecific", Justification = "SQL")]
+[SuppressMessage("ReSharper", "StringCompareIsCultureSpecific.1", Justification = "SQL")]
+[SuppressMessage("ReSharper", "StringCompareIsCultureSpecific.2", Justification = "SQL")]
 public partial class LinqTests
 {
     [Test]
@@ -110,8 +114,7 @@ public partial class LinqTests
 
         TestOpString(x => x.Val!.Length, 3, "select length(_T0.VAL) from");
 
-        // TODO:
-        // Compare, Replace, Length
+        TestOpString(x => x.Val!.Replace("v-", "x + "), "x + 9", "select replace(_T0.VAL, ?, ?) from");
     }
 
     [Test]
