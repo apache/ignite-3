@@ -529,9 +529,9 @@ public class DistributionZoneManager implements IgniteComponent {
                         if (topVerFromMetaStorage == null || bytesToLong(topVerFromMetaStorage) < topologyVersionFromCmg) {
                             Set<String> topologyFromCmg = snapshot.nodes().stream().map(ClusterNode::name).collect(Collectors.toSet());
 
-                            Condition topologyVersionCondition = value(zonesLogicalTopologyVersionKey()).eq(topVerFromMetaStorage);
-                    Condition topologyVersionCondition = topVerFromMetastorage == null ? notExists(zonesLogicalTopologyVersionKey()) :
-                            value(zonesLogicalTopologyVersionKey()).eq(topVerFromMetastorage);
+                            Condition topologyVersionCondition = topVerFromMetaStorage == null
+                                    ? notExists(zonesLogicalTopologyVersionKey()) :
+                                    value(zonesLogicalTopologyVersionKey()).eq(topVerFromMetaStorage);
 
                             If iff = If.iif(topologyVersionCondition,
                                     updateLogicalTopologyAndVersion(topologyFromCmg, topologyVersionFromCmg),
