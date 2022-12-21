@@ -20,6 +20,7 @@ package org.apache.ignite.internal.tx;
 import java.util.Comparator;
 import java.util.UUID;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 
 /**
@@ -42,6 +43,16 @@ public class ReversedDeadlockPreventionTest extends DeadlockPreventionTest {
 
     @Override
     protected LockManager createLockManager() {
-        return new HeapLockManager(Comparator::reverseOrder);
+        return new HeapLockManager(new DeadlockPreventionPolicy() {
+            @Override
+            public @Nullable Comparator<UUID> txComparator() {
+                return Comparator.reverseOrder();
+            }
+
+            @Override
+            public long waitTimeout() {
+                return 0;
+            }
+        });
     }
 }

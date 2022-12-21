@@ -23,7 +23,6 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.util.Comparator;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
@@ -32,12 +31,7 @@ import org.junit.jupiter.api.Test;
 public class TimeoutDeadlockPreventionTest {
     private final LockManager lockManager = new HeapLockManager(new DeadlockPreventionPolicy() {
         @Override
-        public Comparator<UUID> txIdComparator() {
-            return UUID::compareTo;
-        }
-
-        @Override
-        public long timeout() {
+        public long waitTimeout() {
             return 200;
         }
     });
@@ -60,6 +54,23 @@ public class TimeoutDeadlockPreventionTest {
     }
 
     @Test
+    public void timeoutTestReverseOrder() {
+        UUID tx1 = Timestamp.nextVersion().toUuid();
+        UUID tx2 = Timestamp.nextVersion().toUuid();
+
+        LockKey key = new LockKey("test");
+
+        Lock tx2lock = lockManager.acquire(tx2, key, X).join();
+        CompletableFuture<?> tx1Fut = lockManager.acquire(tx1, key, X);
+
+        assertFalse(tx1Fut.isDone());
+
+        lockManager.release(tx2lock);
+
+        assertThat(tx1Fut, willSucceedFast());
+    }
+
+    @Test
     public void timeoutFail() throws InterruptedException {
         UUID tx1 = Timestamp.nextVersion().toUuid();
         UUID tx2 = Timestamp.nextVersion().toUuid();
@@ -76,5 +87,24 @@ public class TimeoutDeadlockPreventionTest {
         lockManager.release(tx1lock);
 
         assertTrue(tx2Fut.isCompletedExceptionally());
+    }
+
+    @Test
+    public void timeoutFailReverseOrder() throws InterruptedException {
+        UUID tx1 = Timestamp.nextVersion().toUuid();
+        UUID tx2 = Timestamp.nextVersion().toUuid();
+
+        LockKey key = new LockKey("test");
+
+        Lock tx2lock = lockManager.acquire(tx2, key, X).join();
+        CompletableFuture<?> tx1Fut = lockManager.acquire(tx1, key, X);
+
+        assertFalse(tx1Fut.isDone());
+
+        Thread.sleep(350);
+
+        lockManager.release(tx2lock);
+
+        assertTrue(tx1Fut.isCompletedExceptionally());
     }
 }

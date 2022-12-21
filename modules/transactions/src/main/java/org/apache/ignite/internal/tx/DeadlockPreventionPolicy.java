@@ -19,6 +19,7 @@ package org.apache.ignite.internal.tx;
 
 import java.util.Comparator;
 import java.util.UUID;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Deadlock prevention policy. Provides comparator for transaction ids, that allows to compare transactions in order to define
@@ -26,13 +27,17 @@ import java.util.UUID;
  * See also {@link org.apache.ignite.internal.tx.impl.HeapLockManager}.
  */
 public interface DeadlockPreventionPolicy {
-    Comparator<UUID> txIdComparator();
-
-    default boolean allowWaitOnConflict() {
-        return true;
+    @Nullable default Comparator<UUID> txComparator() {
+        return null;
     }
 
-    default long timeout() {
-        return 0;
+    /**
+     * Timeout to wait before aborting a lock attempt in case of conflict. {@code 0} means that the lock attempt is aborted instantly.
+     * If lesser that {@code 0}, it means that wait time is infinite.
+     *
+     * @return Timeout.
+     */
+    default long waitTimeout() {
+        return -1;
     }
 }

@@ -23,6 +23,7 @@ import static org.apache.ignite.lang.ErrorGroups.Transactions.ACQUIRE_LOCK_ERR;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -161,7 +162,9 @@ public class HeapLockManager implements LockManager {
         private boolean markedForRemove = false;
 
         public LockState(DeadlockPreventionPolicy deadlockPreventionPolicy) {
-            this.waiters = new TreeMap<>(deadlockPreventionPolicy.txIdComparator());
+            Comparator<UUID> txComparator =
+                    deadlockPreventionPolicy.txComparator() != null ? deadlockPreventionPolicy.txComparator() : UUID::compareTo;
+            this.waiters = new TreeMap<>(txComparator);
             this.deadlockPreventionPolicy = deadlockPreventionPolicy;
         }
 
@@ -201,7 +204,7 @@ public class HeapLockManager implements LockManager {
                 }
 
                 if (!isWaiterReadyToNotify(waiter, false)) {
-                    if (!deadlockPreventionPolicy.allowWaitOnConflict()) {
+                    if (!usePriority() && deadlockPreventionPolicy.waitTimeout() == 0) {
                         return new IgniteBiTuple<>(CompletableFuture.failedFuture(new LockException(ACQUIRE_LOCK_ERR, "")), waiter.lockMode);
                     }
 
@@ -248,14 +251,16 @@ public class HeapLockManager implements LockManager {
                         LockException e = new LockException(ACQUIRE_LOCK_ERR, "Failed to acquire a lock due to a conflict [txId=" + waiter.txId()
                                 + ", waiter=" + tmp + ']');
 
-                        if (deadlockPreventionPolicy.timeout() > 0) {
-                            waiter.failAfterTimeout(waiters, e, deadlockPreventionPolicy.timeout());
-
-                            return false;
-                        } else {
+                        if (deadlockPreventionPolicy.waitTimeout() == 0) {
                             waiter.fail(e);
 
                             return true;
+                        } else if ((deadlockPreventionPolicy.waitTimeout() > 0)) {
+                            waiter.failAfterTimeout(waiters, e, deadlockPreventionPolicy.waitTimeout());
+
+                            return false;
+                        } else {
+                            return false;
                         }
                     }
                 }
@@ -384,6 +389,10 @@ public class HeapLockManager implements LockManager {
             }
 
             return toNotify;
+        }
+
+        private boolean usePriority() {
+            return deadlockPreventionPolicy.txComparator() != null;
         }
 
         /**

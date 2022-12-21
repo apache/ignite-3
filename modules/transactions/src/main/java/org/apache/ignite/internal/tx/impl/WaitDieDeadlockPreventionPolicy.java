@@ -28,7 +28,12 @@ import org.apache.ignite.internal.tx.DeadlockPreventionPolicy;
  */
 public class WaitDieDeadlockPreventionPolicy implements DeadlockPreventionPolicy {
     @Override
-    public Comparator<UUID> txIdComparator() {
+    public Comparator<UUID> txComparator() {
         return UUID::compareTo;
+    }
+
+    @Override
+    public long waitTimeout() {
+        return 0;
     }
 }
