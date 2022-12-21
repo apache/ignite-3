@@ -218,6 +218,11 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
             VersionChain committedVersionChain = VersionChain.forCommitted(timestamp, versionChain);
 
             if (committedVersionChain.next != null) {
+                // Avoid creating tombstones for tombstones.
+                if (committedVersionChain.row == null && committedVersionChain.next.row == null) {
+                    return committedVersionChain.next;
+                }
+
                 gcQueue.add(new IgniteBiTuple<>(committedVersionChain, rowId));
             }
 

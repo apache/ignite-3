@@ -88,6 +88,23 @@ public abstract class AbstractMvPartitionStorageGcTest extends BaseMvPartitionSt
     }
 
     @Test
+    void testDoubleTombstone() {
+        addAndCommit(BINARY_ROW);
+        addAndCommit(null);
+        HybridTimestamp lastCommitTs = addAndCommit(null);
+
+        BinaryRowWithRowId row = storage.pollForVacuum(lastCommitTs);
+
+        assertNotNull(row);
+        assertRowMatches(row.binaryRow(), BINARY_ROW);
+
+        assertNull(read(ROW_ID, lastCommitTs));
+
+        // Check that all tombstones are deleted from the partition. It must be empty at this point.
+        assertNull(storage.closestRowId(ROW_ID));
+    }
+
+    @Test
     void testManyOldVersions() {
         addAndCommit(BINARY_ROW);
 
