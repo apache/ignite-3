@@ -25,7 +25,7 @@ import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
  * Tx storage test for test implementation based on {@link ConcurrentHashMap}.
  */
 public class TestTxStateStorageTest extends AbstractTxStateStorageTest {
-    @Override protected TxStateTableStorage createStorage() {
+    @Override protected TxStateTableStorage createTableStorage() {
         return new TestTxStateTableStorage();
     }
 }

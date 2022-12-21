@@ -22,6 +22,7 @@ import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_ERR;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListMap;
@@ -75,17 +76,17 @@ public class TestTxStateStorage implements TxStateStorage {
                 if (old.txState() == txStateExpected) {
                     result = storage.replace(txId, old, txMeta);
                 } else {
-                    return old.txState() == txMeta.txState() && (
-                            (old.commitTimestamp() == null && txMeta.commitTimestamp() == null)
-                                    || old.commitTimestamp().equals(txMeta.commitTimestamp()));
+                    return old.txState() == txMeta.txState() && Objects.equals(old.commitTimestamp(), txMeta.commitTimestamp());
                 }
             } else {
                 result = false;
             }
         }
 
-        lastAppliedIndex = commandIndex;
-        lastAppliedTerm = commandTerm;
+        if (fullRebalanceFutureReference.get() == null) {
+            lastAppliedIndex = commandIndex;
+            lastAppliedTerm = commandTerm;
+        }
 
         return result;
     }
@@ -120,28 +121,24 @@ public class TestTxStateStorage implements TxStateStorage {
 
     @Override
     public long lastAppliedIndex() {
-        checkFullRebalanceInProgress();
-
         return lastAppliedIndex;
     }
 
     @Override
     public long lastAppliedTerm() {
-        checkFullRebalanceInProgress();
-
         return lastAppliedTerm;
     }
 
     @Override
     public void lastApplied(long lastAppliedIndex, long lastAppliedTerm) {
+        checkFullRebalanceInProgress();
+
         this.lastAppliedIndex = lastAppliedIndex;
         this.lastAppliedTerm = lastAppliedTerm;
     }
 
     @Override
     public long persistedIndex() {
-        checkFullRebalanceInProgress();
-
         return lastAppliedIndex;
     }
 
@@ -152,7 +149,7 @@ public class TestTxStateStorage implements TxStateStorage {
 
     @Override
     public CompletableFuture<Void> startFullRebalance() {
-        CompletableFuture<Void> fullRebalanceFuture = completedFuture(null);
+        CompletableFuture<Void> fullRebalanceFuture = new CompletableFuture<>();
 
         if (!fullRebalanceFutureReference.compareAndSet(null, fullRebalanceFuture)) {
             throwFullRebalanceInProgressException();
@@ -161,9 +158,9 @@ public class TestTxStateStorage implements TxStateStorage {
         storage.clear();
 
         lastAppliedIndex = FULL_REBALANCE_IN_PROGRESS;
+        lastAppliedTerm = FULL_REBALANCE_IN_PROGRESS;
 
-        // TODO: IGNITE-18022 что нужно будет сделать:
-        // TODO: IGNITE-18022 остановить все курсоры - что с этим делать и как тестировать?
+        fullRebalanceFuture.complete(null);
 
         return fullRebalanceFuture;
     }
@@ -176,11 +173,13 @@ public class TestTxStateStorage implements TxStateStorage {
             return completedFuture(null);
         }
 
-        storage.clear();
+        return fullRebalanceFuture
+                .whenComplete((unused, throwable) -> {
+                    storage.clear();
 
-        lastAppliedIndex = 0;
-
-        return completedFuture(null);
+                    lastAppliedIndex = 0;
+                    lastAppliedTerm = 0;
+                });
     }
 
     @Override
@@ -191,9 +190,8 @@ public class TestTxStateStorage implements TxStateStorage {
             return completedFuture(null);
         }
 
-        lastApplied(lastAppliedIndex, lastAppliedTerm);
-
-        return completedFuture(null);
+        return fullRebalanceFuture
+                .whenComplete((unused, throwable) -> lastApplied(lastAppliedIndex, lastAppliedTerm));
     }
 
     private void checkFullRebalanceInProgress() {
@@ -202,7 +200,7 @@ public class TestTxStateStorage implements TxStateStorage {
         }
     }
 
-    private void throwFullRebalanceInProgressException() {
+    private static void throwFullRebalanceInProgressException() {
         throw new IgniteInternalException(TX_STATE_STORAGE_ERR, "Full rebalance is already in progress");
     }
 }

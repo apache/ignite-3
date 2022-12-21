@@ -132,10 +132,11 @@ public interface TxStateStorage extends ManuallyCloseable {
     void destroy();
 
     /**
-     * Prepares the transaction state storage for a full rebalance: clears the storage, sets the {@link #lastAppliedIndex()} to
-     * {@link #FULL_REBALANCE_IN_PROGRESS}, and closes all cursors.
+     * Prepares the transaction state storage for a full rebalance: clears the storage, sets the {@link #lastAppliedIndex()} and
+     * {@link #lastAppliedTerm()} to {@link #FULL_REBALANCE_IN_PROGRESS}, and closes all cursors.
      *
-     * <p>After calling this method, only write methods will be available, and read methods will throw {@link IgniteInternalException}.
+     * <p>After calling this method, only write methods will be available, and read methods with {@link #lastApplied(long, long)} will
+     * throw {@link IgniteInternalException}.
      *
      * <p>This method must be called before every full rebalance of transaction state storage and ends with a call to one of the methods:
      * <ul>
@@ -152,7 +153,8 @@ public interface TxStateStorage extends ManuallyCloseable {
     CompletableFuture<Void> startFullRebalance();
 
     /**
-     * Aborts a full rebalance for transaction state storage: clears the storage, sets the {@link #lastAppliedIndex()} to {@code 0}.
+     * Aborts a full rebalance for transaction state storage: clears the storage, sets the {@link #lastAppliedIndex()} and
+     * {@link #lastAppliedTerm()} to {@code 0}.
      *
      * <p>After calling this method, methods for writing and reading will be available.
      *

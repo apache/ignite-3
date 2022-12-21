@@ -26,6 +26,7 @@ import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.tx.storage.state.AbstractTxStateStorageTest;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
@@ -40,7 +41,7 @@ public class RocksDbTxStateStorageTest extends AbstractTxStateStorageTest {
     private TableConfiguration tableConfig;
 
     @Override
-    protected TxStateRocksDbTableStorage createStorage() {
+    protected TxStateRocksDbTableStorage createTableStorage() {
         return new TxStateRocksDbTableStorage(
                 tableConfig,
                 workDir,
@@ -48,5 +49,17 @@ public class RocksDbTxStateStorageTest extends AbstractTxStateStorageTest {
                 Executors.newFixedThreadPool(1),
                 () -> 1_000
         );
+    }
+
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18024")
+    @Override
+    public void testSuccessFullRebalance() throws Exception {
+        super.testSuccessFullRebalance();
+    }
+
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18024")
+    @Override
+    public void testFailFullRebalance() throws Exception {
+        super.testFailFullRebalance();
     }
 }
