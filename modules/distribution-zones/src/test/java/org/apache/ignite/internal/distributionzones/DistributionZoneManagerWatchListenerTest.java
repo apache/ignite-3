@@ -24,8 +24,6 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
 import static org.apache.ignite.internal.metastorage.MetaStorageManager.APPLIED_REV;
 import static org.apache.ignite.internal.metastorage.client.MetaStorageServiceImpl.toIfInfo;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
-import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
@@ -43,14 +41,12 @@ import static org.mockito.Mockito.when;
 
 import java.io.Serializable;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.stream.Collectors;
 import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.configuration.NamedConfigurationTree;
 import org.apache.ignite.configuration.NamedListView;
@@ -84,7 +80,6 @@ import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -95,7 +90,6 @@ import org.junit.jupiter.api.Test;
  */
 public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest {
     private static final String ZONE_NAME_1 = "zone1";
-    private static final String ZONE_NAME_2 = "zone2";
 
     private VaultManager vaultMgr;
 
@@ -428,10 +422,6 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
         return mockZone(1, ZONE_NAME_1, 100, Integer.MAX_VALUE, Integer.MAX_VALUE);
     }
 
-    private DistributionZoneConfiguration mockZoneWithAutoAdjustScaleUpScaleDown() {
-        return mockZone(2, ZONE_NAME_2, Integer.MAX_VALUE, 200, 300);
-    }
-
     private void mockVaultZonesLogicalTopologyKey(Set<String> nodes) {
         byte[] newLogicalTopology = toBytes(nodes);
 
@@ -454,21 +444,5 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
 
     private void mockVaultAppliedRevision(long revision) {
         when(vaultMgr.get(APPLIED_REV)).thenReturn(completedFuture(new VaultEntry(APPLIED_REV, longToBytes(revision))));
-    }
-
-    private void assertDataNodesForZone(int zoneId, @Nullable Set<ClusterNode> clusterNodes) throws InterruptedException {
-        byte[] nodes = clusterNodes == null
-                ? null
-                : toBytes(clusterNodes.stream().map(ClusterNode::name).collect(Collectors.toSet()));
-
-        assertTrue(waitForCondition(() -> Arrays.equals(keyValueStorage.get(zoneDataNodesKey(zoneId).bytes()).value(), nodes), 1000));
-    }
-
-    private void assertZonesChangeTriggerKey(int revision) throws InterruptedException {
-        assertTrue(
-                waitForCondition(
-                        () -> bytesToLong(keyValueStorage.get(zonesChangeTriggerKey().bytes()).value()) == revision, 1000
-                )
-        );
     }
 }
