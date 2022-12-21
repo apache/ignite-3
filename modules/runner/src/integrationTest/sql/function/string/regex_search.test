@@ -84,18 +84,18 @@ INSERT INTO regex VALUES ('asdf', 'sd'), ('asdf', '^sd'), (NULL, '^sd'), ('asdf'
 query T
 SELECT s ~ '.*' FROM regex ORDER BY s
 ----
+true
+true
+true
 NULL
-true
-true
-true
 
 query T
 SELECT s ~ p FROM regex order by s, p
 ----
-NULL
-NULL
 false
 true
+NULL
+NULL
 
 # test regex with case sensitivity
 query T

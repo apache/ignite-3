@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyVersionKey;
 import static org.apache.ignite.internal.metastorage.MetaStorageManager.APPLIED_REV;
+import static org.apache.ignite.internal.metastorage.client.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.client.Conditions.value;
 import static org.apache.ignite.internal.metastorage.client.Operations.ops;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
@@ -529,6 +530,8 @@ public class DistributionZoneManager implements IgniteComponent {
                             Set<String> topologyFromCmg = snapshot.nodes().stream().map(ClusterNode::name).collect(Collectors.toSet());
 
                             Condition topologyVersionCondition = value(zonesLogicalTopologyVersionKey()).eq(topVerFromMetaStorage);
+                    Condition topologyVersionCondition = topVerFromMetastorage == null ? notExists(zonesLogicalTopologyVersionKey()) :
+                            value(zonesLogicalTopologyVersionKey()).eq(topVerFromMetastorage);
 
                             If iff = If.iif(topologyVersionCondition,
                                     updateLogicalTopologyAndVersion(topologyFromCmg, topologyVersionFromCmg),

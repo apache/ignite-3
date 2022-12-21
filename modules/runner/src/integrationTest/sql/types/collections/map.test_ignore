@@ -1,7 +1,7 @@
 # name: test/sql/types/collections/map.test
 # description: Test MAP query
 # group: [collect]
-# Ignored: https://issues.apache.org/jira/browse/IGNITE-17271
+# Ignored: https://issues.apache.org/jira/browse/IGNITE-14636
 
 query T
 SELECT MAP(SELECT * FROM (SELECT 1, 'test1' UNION SELECT 2, 'test2' UNION SELECT 3, 'test3'))

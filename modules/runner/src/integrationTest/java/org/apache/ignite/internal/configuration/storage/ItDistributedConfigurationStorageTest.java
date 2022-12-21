@@ -20,6 +20,7 @@ package org.apache.ignite.internal.configuration.storage;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 
@@ -49,7 +50,6 @@ import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.StaticNodeFinder;
 import org.apache.ignite.utils.ClusterServiceTestUtils;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -160,7 +160,6 @@ public class ItDistributedConfigurationStorageTest {
      * @see <a href="https://issues.apache.org/jira/browse/IGNITE-15213">IGNITE-15213</a>
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18410")
     void testRestartWithPds(@WorkDirectory Path workDir, TestInfo testInfo) throws Exception {
         var node = new Node(testInfo, workDir);
 
@@ -172,6 +171,7 @@ public class ItDistributedConfigurationStorageTest {
             node.cmgManager.initCluster(List.of(node.name()), List.of(), "cluster");
 
             assertThat(node.cfgStorage.write(data, 0), willBe(equalTo(true)));
+            assertThat(node.cfgStorage.writeConfigurationRevision(0, 1), willCompleteSuccessfully());
 
             waitForCondition(() -> Objects.nonNull(node.vaultManager.get(MetaStorageManager.APPLIED_REV).join()), 3000);
         } finally {

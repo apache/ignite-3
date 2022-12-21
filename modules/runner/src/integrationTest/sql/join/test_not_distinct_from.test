@@ -29,12 +29,12 @@ NULL
 query II
 select a,tbl_2.b from tbl_1 inner join tbl_2 on (a IS DISTINCT FROM tbl_2.b) order by a,tbl_2.b
 ----
+1	2
+1	NULL
+2	1
+2	NULL
 NULL	1
 NULL	2
-1	NULL
-1	2
-2	NULL
-2	1
 
 #Vector with vector
 query III

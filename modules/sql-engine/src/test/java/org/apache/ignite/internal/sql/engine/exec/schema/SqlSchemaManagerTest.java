@@ -187,7 +187,7 @@ public class SqlSchemaManagerTest {
     public void testTableEventIsProcessedRequiredVersionIsLess() {
         InternalTable mock = mock(InternalTable.class);
         when(mock.tableId()).thenReturn(tableId);
-        when(mock.name()).thenReturn("PUBLIC.T\"");
+        when(mock.name()).thenReturn("PUBLIC.T");
 
         when(table.internalTable()).thenReturn(mock);
         when(schemaRegistry.schema()).thenReturn(schemaDescriptor);

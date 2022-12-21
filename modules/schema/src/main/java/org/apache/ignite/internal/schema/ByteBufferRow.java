@@ -17,12 +17,8 @@
 
 package org.apache.ignite.internal.schema;
 
-import java.io.IOException;
-import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.nio.channels.Channels;
-import java.nio.channels.WritableByteChannel;
 
 /**
  * Heap byte buffer-based row.
@@ -72,16 +68,6 @@ public class ByteBufferRow implements BinaryRow {
     @Override
     public int hash() {
         return buf.getInt(KEY_HASH_FIELD_OFFSET);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void writeTo(OutputStream stream) throws IOException {
-        WritableByteChannel channel = Channels.newChannel(stream);
-
-        channel.write(buf);
-
-        buf.rewind();
     }
 
     /** {@inheritDoc} */
