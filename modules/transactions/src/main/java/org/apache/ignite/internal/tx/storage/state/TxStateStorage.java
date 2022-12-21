@@ -33,7 +33,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public interface TxStateStorage extends ManuallyCloseable {
     /**
-     * Value of the {@link #lastAppliedIndex()} during a full rebalance of transaction state storage.
+     * Value of the {@link #lastAppliedIndex()} and {@link #lastAppliedTerm()} during a full rebalance of transaction state storage.
      *
      * <p>Allows to determine on a node restart that a full rebalance has not been completed and storage should be cleared before using it.
      */
