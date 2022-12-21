@@ -31,12 +31,17 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Random;
+import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -765,5 +770,44 @@ public final class IgniteTestUtils {
     @SuppressWarnings("UnusedReturnValue")
     public static <T> T await(CompletionStage<T> stage) {
         return await(stage, TIMEOUT_SEC, TimeUnit.SECONDS);
+    }
+
+    /**
+     * Runs all actions, each in a separate thread, having a {@link CyclicBarrier} before calling {@link RunnableX#run()}.
+     *
+     * @throws InterruptedException If failed to {@link Thread#join()} a thread.
+     */
+    public static void startRace(RunnableX... actions) throws InterruptedException {
+        int length = actions.length;
+
+        CyclicBarrier barrier = new CyclicBarrier(length);
+
+        Set<Throwable> throwables = ConcurrentHashMap.newKeySet();
+
+        Thread[] threads = IntStream.range(0, length).mapToObj(i -> new Thread(() -> {
+            try {
+                barrier.await();
+
+                actions[i].run();
+            } catch (Throwable e) {
+                throwables.add(e);
+            }
+        })).toArray(Thread[]::new);
+
+        Stream.of(threads).forEach(Thread::start);
+
+        for (Thread thread : threads) {
+            thread.join();
+        }
+
+        if (!throwables.isEmpty()) {
+            AssertionError assertionError = new AssertionError("One or several threads have failed.");
+
+            for (Throwable throwable : throwables) {
+                assertionError.addSuppressed(throwable);
+            }
+
+            throw assertionError;
+        }
     }
 }

@@ -18,13 +18,9 @@
 package org.apache.ignite.internal.storage;
 
 import org.apache.ignite.internal.storage.engine.StorageEngine;
-import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.storage.impl.TestStorageEngine;
 
-/**
- * MV partition storage test implementation for {@link TestMvPartitionStorage} class.
- */
-public class TestMvPartitionStorageTest extends AbstractMvPartitionStorageTest {
+public class TestMvPartitionStorageGcTest extends AbstractMvPartitionStorageGcTest {
     @Override
     protected StorageEngine createEngine() {
         return new TestStorageEngine();

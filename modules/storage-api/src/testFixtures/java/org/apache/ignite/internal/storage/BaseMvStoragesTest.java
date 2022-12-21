@@ -17,10 +17,17 @@
 
 package org.apache.ignite.internal.storage;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.notNullValue;
+
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.schema.BinaryConverter;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
@@ -61,6 +68,9 @@ public abstract class BaseMvStoragesTest {
 
     /** Key {@link BinaryTuple} converter for tests. */
     protected static BinaryConverter kBinaryConverter;
+
+    /** Hybrid clock to generate timestamps. */
+    protected final HybridClock clock = new HybridClockImpl();
 
     @BeforeAll
     static void beforeAll() {
@@ -156,6 +166,11 @@ public abstract class BaseMvStoragesTest {
         try (cursor) {
             return cursor.stream().map(BaseMvStoragesTest::unwrap).collect(Collectors.toList());
         }
+    }
+
+    protected final void assertRowMatches(BinaryRow rowUnderQuestion, BinaryRow expectedRow) {
+        assertThat(rowUnderQuestion, is(notNullValue()));
+        assertThat(rowUnderQuestion.bytes(), is(equalTo(expectedRow.bytes())));
     }
 
     /**

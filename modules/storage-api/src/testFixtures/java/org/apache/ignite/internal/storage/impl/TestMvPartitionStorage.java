@@ -17,9 +17,13 @@
 
 package org.apache.ignite.internal.storage.impl;
 
+import static java.util.Comparator.comparing;
+
 import java.util.Iterator;
+import java.util.NavigableSet;
 import java.util.NoSuchElementException;
 import java.util.Objects;
+import java.util.TreeSet;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentNavigableMap;
@@ -27,6 +31,7 @@ import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.storage.BinaryRowWithRowId;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.RaftGroupConfiguration;
@@ -36,6 +41,7 @@ import org.apache.ignite.internal.storage.StorageClosedException;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.TxIdMismatchException;
 import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.lang.IgniteBiTuple;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -43,6 +49,11 @@ import org.jetbrains.annotations.Nullable;
  */
 public class TestMvPartitionStorage implements MvPartitionStorage {
     private final ConcurrentNavigableMap<RowId, VersionChain> map = new ConcurrentSkipListMap<>();
+
+    private final NavigableSet<IgniteBiTuple<VersionChain, RowId>> gcQueue = new TreeSet<>(
+            comparing((IgniteBiTuple<VersionChain, RowId> p) -> p.get1().ts)
+                    .thenComparing(IgniteBiTuple::get2)
+    );
 
     private volatile long lastAppliedIndex;
 
@@ -65,7 +76,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         final @Nullable UUID txId;
         final @Nullable UUID commitTableId;
         final int commitPartitionId;
-        final @Nullable VersionChain next;
+        volatile @Nullable VersionChain next;
 
         VersionChain(@Nullable BinaryRow row, @Nullable HybridTimestamp ts, @Nullable UUID txId, @Nullable UUID commitTableId,
                 int commitPartitionId, @Nullable VersionChain next) {
@@ -204,7 +215,13 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
                 return versionChain;
             }
 
-            return VersionChain.forCommitted(timestamp, versionChain);
+            VersionChain committedVersionChain = VersionChain.forCommitted(timestamp, versionChain);
+
+            if (committedVersionChain.next != null) {
+                gcQueue.add(new IgniteBiTuple<>(committedVersionChain, rowId));
+            }
+
+            return committedVersionChain;
         });
     }
 
@@ -424,6 +441,51 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         checkClosed();
 
         return map.ceilingKey(lowerBound);
+    }
+
+    @Override
+    public @Nullable BinaryRowWithRowId pollForVacuum(HybridTimestamp lowWatermark) {
+        Iterator<IgniteBiTuple<VersionChain, RowId>> it = gcQueue.iterator();
+
+        if (!it.hasNext()) {
+            return null;
+        }
+
+        IgniteBiTuple<VersionChain, RowId> next = it.next();
+        VersionChain dequeuedVersionChain = next.get1();
+
+        if (dequeuedVersionChain.ts.compareTo(lowWatermark) > 0) {
+            return null;
+        }
+
+        RowId rowId = next.get2();
+
+        VersionChain versionChainToRemove = dequeuedVersionChain.next;
+        assert versionChainToRemove.next == null;
+
+        dequeuedVersionChain.next = null;
+        it.remove();
+
+        // Tombstones must be deleted.
+        if (dequeuedVersionChain.row == null) {
+            map.compute(rowId, (ignored, head) -> {
+                if (head == dequeuedVersionChain) {
+                    return null;
+                }
+
+                for (VersionChain cur = head; cur != null; cur = cur.next) {
+                    if (cur.next == dequeuedVersionChain) {
+                        cur.next = null;
+
+                        gcQueue.remove(new IgniteBiTuple<>(cur, rowId));
+                    }
+                }
+
+                return head;
+            });
+        }
+
+        return new BinaryRowWithRowId(versionChainToRemove.row, rowId);
     }
 
     @Override
