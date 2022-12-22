@@ -21,9 +21,11 @@ import static java.util.Collections.unmodifiableList;
 
 import java.io.Serializable;
 import java.util.List;
+import java.util.Objects;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.tostring.S;
+import org.jetbrains.annotations.Nullable;
 
 /** Transaction meta. */
 public class TxMeta implements Serializable {
@@ -37,6 +39,7 @@ public class TxMeta implements Serializable {
     private final List<ReplicationGroupId> enlistedPartitions;
 
     /** Commit timestamp. */
+    @Nullable
     private final HybridTimestamp commitTimestamp;
 
     /**
@@ -46,7 +49,7 @@ public class TxMeta implements Serializable {
      * @param enlistedPartitions The list of enlisted partitions.
      * @param commitTimestamp Commit timestamp.
      */
-    public TxMeta(TxState txState, List<ReplicationGroupId> enlistedPartitions, HybridTimestamp commitTimestamp) {
+    public TxMeta(TxState txState, List<ReplicationGroupId> enlistedPartitions, @Nullable HybridTimestamp commitTimestamp) {
         this.txState = txState;
         this.enlistedPartitions = enlistedPartitions;
         this.commitTimestamp = commitTimestamp;
@@ -60,7 +63,7 @@ public class TxMeta implements Serializable {
         return unmodifiableList(enlistedPartitions);
     }
 
-    public HybridTimestamp commitTimestamp() {
+    public @Nullable HybridTimestamp commitTimestamp() {
         return commitTimestamp;
     }
 
@@ -74,25 +77,22 @@ public class TxMeta implements Serializable {
         if (this == o) {
             return true;
         }
+
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
 
-        TxMeta txMeta = (TxMeta) o;
+        TxMeta other = (TxMeta) o;
 
-        if (txState != txMeta.txState) {
-            return false;
-        }
-        if (enlistedPartitions != null ? !enlistedPartitions.equals(txMeta.enlistedPartitions) : txMeta.enlistedPartitions != null) {
-            return false;
-        }
-        return commitTimestamp != null ? commitTimestamp.equals(txMeta.commitTimestamp) : txMeta.commitTimestamp == null;
+        return txState == other.txState
+                && enlistedPartitions.equals(other.enlistedPartitions)
+                && Objects.equals(commitTimestamp, other.commitTimestamp);
     }
 
     @Override
     public int hashCode() {
-        int result = txState != null ? txState.hashCode() : 0;
-        result = 31 * result + (enlistedPartitions != null ? enlistedPartitions.hashCode() : 0);
+        int result = txState.hashCode();
+        result = 31 * result + enlistedPartitions.hashCode();
         result = 31 * result + (commitTimestamp != null ? commitTimestamp.hashCode() : 0);
         return result;
     }

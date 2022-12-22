@@ -34,7 +34,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
-import org.apache.ignite.internal.configuration.storage.StorageException;
 import org.apache.ignite.internal.rocksdb.BusyRocksIteratorAdapter;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.tx.TxMeta;
@@ -130,6 +129,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
     }
 
     @Override
+    @Nullable
     public TxMeta get(UUID txId) {
         if (!busyLock.enterBusy()) {
             throwStorageStoppedException();
@@ -404,8 +404,11 @@ public class TxStateRocksDbStorage implements TxStateStorage {
 
             db.write(writeOptions, writeBatch);
         } catch (Exception e) {
-            throw new StorageException("Failed to destroy partition " + partitionId + " of table " + tableStorage.configuration().name(),
-                    e);
+            throw new IgniteInternalException(
+                    TX_STATE_STORAGE_ERR,
+                    "Failed to destroy partition " + partitionId + " of table " + tableStorage.configuration().name(),
+                    e
+            );
         }
     }
 
@@ -451,5 +454,23 @@ public class TxStateRocksDbStorage implements TxStateStorage {
         List<AbstractNativeReference> resources = new ArrayList<>(iterators);
 
         RocksUtils.closeAll(resources);
+    }
+
+    @Override
+    public CompletableFuture<Void> startFullRebalance() {
+        // TODO: IGNITE-18024 Implement
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public CompletableFuture<Void> abortFullRebalance() {
+        // TODO: IGNITE-18024 Implement
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public CompletableFuture<Void> finishFullRebalance(long lastAppliedIndex, long lastAppliedTerm) {
+        // TODO: IGNITE-18024 Implement
+        throw new UnsupportedOperationException();
     }
 }

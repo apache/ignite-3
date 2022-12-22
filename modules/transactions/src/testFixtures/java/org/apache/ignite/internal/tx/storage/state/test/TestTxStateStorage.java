@@ -19,33 +19,40 @@ package org.apache.ignite.internal.tx.storage.state.test;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_FULL_REBALANCE_ERR;
 
-import java.util.List;
+import java.util.Iterator;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListMap;
-import org.apache.ignite.internal.configuration.storage.StorageException;
+import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.UnsignedUuidComparator;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.IgniteBiTuple;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Test implementation of {@link TxStateStorage} based on {@link ConcurrentSkipListMap}.
  */
 public class TestTxStateStorage implements TxStateStorage {
-    /** Storage. */
     private final ConcurrentSkipListMap<UUID, TxMeta> storage = new ConcurrentSkipListMap<>(new UnsignedUuidComparator());
 
     private volatile long lastAppliedIndex;
 
     private volatile long lastAppliedTerm;
 
+    private final AtomicReference<CompletableFuture<Void>> fullRebalanceFutureReference = new AtomicReference<>();
+
     @Override
+    @Nullable
     public TxMeta get(UUID txId) {
+        checkFullRebalanceInProgress();
+
         return storage.get(txId);
     }
 
@@ -69,17 +76,17 @@ public class TestTxStateStorage implements TxStateStorage {
                 if (old.txState() == txStateExpected) {
                     result = storage.replace(txId, old, txMeta);
                 } else {
-                    return old.txState() == txMeta.txState() && (
-                            (old.commitTimestamp() == null && txMeta.commitTimestamp() == null)
-                                    || old.commitTimestamp().equals(txMeta.commitTimestamp()));
+                    return old.txState() == txMeta.txState() && Objects.equals(old.commitTimestamp(), txMeta.commitTimestamp());
                 }
             } else {
                 result = false;
             }
         }
 
-        lastAppliedIndex = commandIndex;
-        lastAppliedTerm = commandTerm;
+        if (fullRebalanceFutureReference.get() == null) {
+            lastAppliedIndex = commandIndex;
+            lastAppliedTerm = commandTerm;
+        }
 
         return result;
     }
@@ -91,22 +98,40 @@ public class TestTxStateStorage implements TxStateStorage {
 
     @Override
     public Cursor<IgniteBiTuple<UUID, TxMeta>> scan() {
-        List<IgniteBiTuple<UUID, TxMeta>> copy = storage.entrySet().stream()
-                .map(e -> new IgniteBiTuple<>(e.getKey(), e.getValue()))
-                .collect(toList());
+        checkFullRebalanceInProgress();
 
-        return Cursor.fromIterable(copy);
+        Iterator<IgniteBiTuple<UUID, TxMeta>> iterator = storage.entrySet().stream()
+                .map(e -> new IgniteBiTuple<>(e.getKey(), e.getValue()))
+                .collect(toList())
+                .iterator();
+
+        return new Cursor<>() {
+            @Override
+            public void close() {
+                // No-op.
+            }
+
+            @Override
+            public boolean hasNext() {
+                assert fullRebalanceFutureReference.get() == null;
+
+                return iterator.hasNext();
+            }
+
+            @Override
+            public IgniteBiTuple<UUID, TxMeta> next() {
+                assert fullRebalanceFutureReference.get() == null;
+
+                return iterator.next();
+            }
+        };
     }
 
     @Override
     public void destroy() {
-        try {
-            close();
+        close();
 
-            storage.clear();
-        } catch (RuntimeException e) {
-            throw new StorageException("Failed to destroy the transaction state storage", e);
-        }
+        storage.clear();
     }
 
     @Override
@@ -126,6 +151,8 @@ public class TestTxStateStorage implements TxStateStorage {
 
     @Override
     public void lastApplied(long lastAppliedIndex, long lastAppliedTerm) {
+        checkFullRebalanceInProgress();
+
         this.lastAppliedIndex = lastAppliedIndex;
         this.lastAppliedTerm = lastAppliedTerm;
     }
@@ -138,5 +165,62 @@ public class TestTxStateStorage implements TxStateStorage {
     @Override
     public void close() {
         // No-op.
+    }
+
+    @Override
+    public CompletableFuture<Void> startFullRebalance() {
+        CompletableFuture<Void> fullRebalanceFuture = new CompletableFuture<>();
+
+        if (!fullRebalanceFutureReference.compareAndSet(null, fullRebalanceFuture)) {
+            throwFullRebalanceInProgressException();
+        }
+
+        storage.clear();
+
+        lastAppliedIndex = FULL_REBALANCE_IN_PROGRESS;
+        lastAppliedTerm = FULL_REBALANCE_IN_PROGRESS;
+
+        fullRebalanceFuture.complete(null);
+
+        return fullRebalanceFuture;
+    }
+
+    @Override
+    public CompletableFuture<Void> abortFullRebalance() {
+        CompletableFuture<Void> fullRebalanceFuture = fullRebalanceFutureReference.getAndSet(null);
+
+        if (fullRebalanceFuture == null) {
+            return completedFuture(null);
+        }
+
+        return fullRebalanceFuture
+                .whenComplete((unused, throwable) -> {
+                    storage.clear();
+
+                    lastAppliedIndex = 0;
+                    lastAppliedTerm = 0;
+                });
+    }
+
+    @Override
+    public CompletableFuture<Void> finishFullRebalance(long lastAppliedIndex, long lastAppliedTerm) {
+        CompletableFuture<Void> fullRebalanceFuture = fullRebalanceFutureReference.getAndSet(null);
+
+        if (fullRebalanceFuture == null) {
+            throw new IgniteInternalException(TX_STATE_STORAGE_FULL_REBALANCE_ERR, "Full rebalancing has not started");
+        }
+
+        return fullRebalanceFuture
+                .whenComplete((unused, throwable) -> lastApplied(lastAppliedIndex, lastAppliedTerm));
+    }
+
+    private void checkFullRebalanceInProgress() {
+        if (fullRebalanceFutureReference.get() != null) {
+            throwFullRebalanceInProgressException();
+        }
+    }
+
+    private static void throwFullRebalanceInProgressException() {
+        throw new IgniteInternalException(TX_STATE_STORAGE_FULL_REBALANCE_ERR, "Full rebalance is already in progress");
     }
 }
