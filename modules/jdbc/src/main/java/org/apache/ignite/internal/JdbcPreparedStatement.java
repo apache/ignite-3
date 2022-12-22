@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.jdbc;
+package org.apache.ignite.internal;
 
 import static org.apache.ignite.internal.util.ArrayUtils.INT_EMPTY_ARRAY;
 
@@ -50,6 +50,7 @@ import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcBatchExecuteResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcBatchPreparedStmntRequest;
 import org.apache.ignite.internal.util.CollectionUtils;
+import org.apache.ignite.internal.util.StringUtils;
 
 /**
  * Jdbc prepared statement implementation.
@@ -106,7 +107,7 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
 
         closeResults();
 
-        if (CollectionUtils.nullOrEmpty(batchedArgs) || (sql == null || sql.isBlank())) {
+        if (CollectionUtils.nullOrEmpty(batchedArgs) || StringUtils.nullOrBlank(sql)) {
             return INT_EMPTY_ARRAY;
         }
 

@@ -21,6 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.sql.DriverPropertyInfo;
+import org.apache.ignite.internal.ConnectionPropertiesImpl;
 import org.junit.jupiter.api.Test;
 
 /**

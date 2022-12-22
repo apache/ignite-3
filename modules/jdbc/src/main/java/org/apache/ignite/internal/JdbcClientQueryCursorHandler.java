@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.jdbc;
+package org.apache.ignite.internal;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.client.ClientChannel;

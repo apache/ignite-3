@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.jdbc;
+package org.apache.ignite.internal;
 
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
