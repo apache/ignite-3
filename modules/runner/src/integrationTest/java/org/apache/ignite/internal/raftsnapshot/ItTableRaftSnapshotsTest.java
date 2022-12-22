@@ -117,23 +117,6 @@ class ItTableRaftSnapshotsTest {
         cluster.shutdown();
     }
 
-    @Test
-    void snapshotReadOnRestartWorksCorrectly() {
-        cluster.startAndInit(1);
-
-        doInSession(session -> {
-            executeUpdate("create table test (key int primary key, value varchar(20)) with partitions=1, replicas=1", session);
-
-            executeUpdate("insert into test(key, value) values (1, 'one')", session);
-        });
-
-        cluster.restartNode(0);
-
-        List<IgniteBiTuple<Integer, String>> rows = queryWithRetry("select * from test", ItTableRaftSnapshotsTest::readRows);
-
-        assertThat(rows, is(List.of(new IgniteBiTuple<>(1, "one"))));
-    }
-
     private void doInSession(Consumer<Session> action) {
         try (Session session = cluster.openSession()) {
             action.accept(session);
