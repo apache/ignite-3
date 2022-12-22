@@ -339,11 +339,11 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
     }
 
     /** <inheritdoc /> */
-    protected override Expression VisitInvocation(InvocationExpression expression)
-    {
-        throw new NotSupportedException("The LINQ expression '" + expression +
-                                        "' could not be translated. Either rewrite the query in a form that can be translated, or switch to client evaluation explicitly by inserting a call to either AsEnumerable() or ToList().");
-    }
+    protected override Expression VisitInvocation(InvocationExpression expression) =>
+        throw new NotSupportedException(
+            "The LINQ expression '" + expression +
+            "' could not be translated. Either rewrite the query in a form that can be translated, " +
+            "or switch to client evaluation explicitly by inserting a call to either AsEnumerable() or ToList().");
 
     /** <inheritdoc /> */
     protected override Expression VisitConditional(ConditionalExpression expression)
