@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.jdbc.internal;
+package org.apache.ignite.jdbc;
 
 import static java.sql.Connection.TRANSACTION_NONE;
 import static java.sql.ResultSet.CONCUR_READ_ONLY;

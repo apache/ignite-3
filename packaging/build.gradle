@@ -41,6 +41,7 @@ dependencies {
     dbZip project(path: ':packaging-db', configuration: 'dbZip')
     release project(path: ':packaging-cli', configuration: 'cliRelease')
     release project(path: ':packaging-db', configuration: 'dbRelease')
+    release project(path: ':ignite-jdbc', configuration: 'jdbcRelease')
     release project(path: ':platforms', configuration: 'platformsRelease')
 }
 
@@ -170,5 +171,6 @@ tasks.register('prepareRelease', Copy) {
     from file("$buildDir/checksums")
     include '*.zip', '*.asc', '*.sha512'
     include '*.rpm', '*.deb', '*.changes'
+    include '*.jar'
     into file("$buildDir/release")
 }

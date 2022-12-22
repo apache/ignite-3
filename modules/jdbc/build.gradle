@@ -25,8 +25,8 @@ apply from: "$rootDir/buildscripts/java-junit5.gradle"
 apply from: "$rootDir/buildscripts/java-integration-test.gradle"
 
 dependencies {
-    api project(':ignite-client')
     api project(':ignite-client-common')
+    implementation project(':ignite-client')
     implementation project(':ignite-api')
     implementation project(':ignite-core')
 
@@ -53,4 +53,15 @@ shadowJar {
     ].forEach {
         relocate(it, "${project.group}.shaded.$it")
     }
+}
+
+configurations {
+    jdbcRelease {
+        canBeConsumed = true
+        canBeResolved = false
+    }
+}
+
+artifacts {
+    jdbcRelease shadowJar
 }

@@ -17,7 +17,7 @@
 
 package org.apache.ignite.jdbc;
 
-import static org.apache.ignite.jdbc.internal.ConnectionPropertiesImpl.URL_PREFIX;
+import static org.apache.ignite.jdbc.ConnectionPropertiesImpl.URL_PREFIX;
 
 import com.google.auto.service.AutoService;
 import java.sql.Connection;
@@ -29,8 +29,6 @@ import java.sql.SQLFeatureNotSupportedException;
 import java.util.Properties;
 import java.util.logging.Logger;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
-import org.apache.ignite.jdbc.internal.ConnectionPropertiesImpl;
-import org.apache.ignite.jdbc.internal.JdbcConnection;
 
 /**
  * JDBC driver thin implementation for Apache Ignite 3.x.
