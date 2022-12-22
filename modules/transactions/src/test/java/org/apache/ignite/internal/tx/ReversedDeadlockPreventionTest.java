@@ -19,7 +19,6 @@ package org.apache.ignite.internal.tx;
 
 import java.util.Comparator;
 import java.util.UUID;
-import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 

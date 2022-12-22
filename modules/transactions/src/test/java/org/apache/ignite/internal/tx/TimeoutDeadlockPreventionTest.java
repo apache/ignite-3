@@ -17,11 +17,11 @@
 
 package org.apache.ignite.internal.tx;
 
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willFailFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.internal.tx.LockMode.X;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -88,7 +88,7 @@ public class TimeoutDeadlockPreventionTest extends AbstractDeadlockPreventionTes
 
         lockManager.release(tx1lock);
 
-        assertTrue(tx2Fut.isCompletedExceptionally());
+        assertThat(tx2Fut, willFailFast(LockException.class));
     }
 
     @Test
@@ -107,6 +107,6 @@ public class TimeoutDeadlockPreventionTest extends AbstractDeadlockPreventionTes
 
         lockManager.release(tx2lock);
 
-        assertTrue(tx1Fut.isCompletedExceptionally());
+        assertThat(tx1Fut, willFailFast(LockException.class));
     }
 }
