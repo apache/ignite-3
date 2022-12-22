@@ -284,7 +284,9 @@ public class DefaultMessagingService extends AbstractMessagingService {
                 try {
                     onMessage(obj);
                 } catch (Throwable e) {
-                    LOG.warn("onMessage() failed while processing " + obj.message() + " from " + obj.consistentId(), e);
+                    if (LOG.isWarnEnabled()) {
+                        LOG.warn("onMessage() failed while processing {} from {}", e, obj.message(), obj.consistentId());
+                    }
 
                     if (e instanceof Error) {
                         throw e;
