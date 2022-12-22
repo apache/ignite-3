@@ -348,21 +348,17 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
     /** <inheritdoc /> */
     protected override Expression VisitConditional(ConditionalExpression expression)
     {
-        // TODO: refactor to proper case ... when, add test.
-        ResultBuilder.Append("casewhen(");
+        ResultBuilder.Append("case when(");
 
         Visit(expression.Test);
 
-        // Explicit type specification is required when all arguments of CASEWHEN are parameters
-        ResultBuilder.Append(", cast(");
+        ResultBuilder.Append(") then ");
         Visit(expression.IfTrue);
 
-        ResultBuilder.Append(" as ");
-        ResultBuilder.Append(expression.Type.ToSqlTypeName());
-        ResultBuilder.Append(')');
-
+        ResultBuilder.Append(" else ");
         Visit(expression.IfFalse);
-        ResultBuilder.Append(')');
+
+        ResultBuilder.Append(" end");
 
         return expression;
     }

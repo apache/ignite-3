@@ -182,8 +182,15 @@ public partial class LinqTests
     [Test]
     public void TestTernary()
     {
-        TestOpInt(x => x.Key > 1000 ? 2 : 3, 3, "select case when (_T0.KEY > ?) then ? else ? end from");
-        TestOpInt(x => x.Key > 1000 ? x.Val + 2 : x.Val + 3, 3, "select case when (_T0.KEY > ?) then ? else ? end from");
+        TestOpInt(
+            x => x.Key > 1000 ? 2 : 3,
+            3,
+            "select case when((_T0.KEY > ?)) then ? else ? end from");
+
+        TestOpInt(
+            x => x.Key > 1000 ? x.Val + 2 : x.Val + 3,
+            903,
+            "select case when((_T0.KEY > ?)) then (_T0.VAL + ?) else (_T0.VAL + ?) end from");
     }
 
     [Test]
