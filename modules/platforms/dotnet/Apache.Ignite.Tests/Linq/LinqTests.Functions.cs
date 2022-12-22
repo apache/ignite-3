@@ -145,10 +145,10 @@ public partial class LinqTests
         Assert.AreEqual(-1, Test("x-5"));
 
         Assert.AreEqual(0, TestIgnoreCase("V-5", true));
-        /*
-        Assert.AreEqual(-1, Test("V-9"));
-        Assert.AreEqual(1, TestIgnoreCase("V-9", false));
-        */
+        Assert.AreEqual(1, TestIgnoreCase("V-4", true));
+        Assert.AreEqual(-1, TestIgnoreCase("V-6", true));
+        Assert.AreEqual(1, TestIgnoreCase("A-5", true));
+        Assert.AreEqual(-1, TestIgnoreCase("X-5", true));
 
         int Test(string val)
         {
@@ -158,6 +158,7 @@ public partial class LinqTests
                 .Single();
 
             Assert.AreEqual(string.Compare("v-5", val), res);
+            TestIgnoreCase(val, false);
 
             return res;
         }
