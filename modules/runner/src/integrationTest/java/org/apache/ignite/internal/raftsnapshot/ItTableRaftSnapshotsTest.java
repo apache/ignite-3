@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.raftsnapshot;
 
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.hasCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -52,6 +53,7 @@ import java.util.logging.LogRecord;
 import java.util.logging.Logger;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import org.apache.calcite.sql.validate.SqlValidatorException;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -68,6 +70,7 @@ import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.testframework.jul.NoOpHandler;
 import org.apache.ignite.lang.IgniteBiTuple;
+import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.raft.jraft.RaftGroupService;
@@ -120,14 +123,14 @@ class ItTableRaftSnapshotsTest {
         cluster.shutdown();
     }
 
-    private void doInSession(Consumer<Session> action) {
-        try (Session session = cluster.openSession()) {
+    private void doInSession(int nodeIndex, Consumer<Session> action) {
+        try (Session session = cluster.openSession(nodeIndex)) {
             action.accept(session);
         }
     }
 
-    private <T> T doInSession(Function<Session, T> action) {
-        try (Session session = cluster.openSession()) {
+    private <T> T doInSession(int nodeIndex, Function<Session, T> action) {
+        try (Session session = cluster.openSession(nodeIndex)) {
             return action.apply(session);
         }
     }
@@ -148,7 +151,8 @@ class ItTableRaftSnapshotsTest {
     private static <T> T withRetry(Supplier<T> action) {
         // TODO: IGNITE-18423 remove this retry machinery when the networking bug is fixed as replication timeout seems to be caused by it.
 
-        int maxAttempts = 3;
+        int maxAttempts = 4;
+        int sleepMillis = 500;
 
         for (int attempt = 1; attempt <= maxAttempts; attempt++) {
             try {
@@ -162,32 +166,37 @@ class ItTableRaftSnapshotsTest {
             }
 
             try {
-                Thread.sleep(500);
+                Thread.sleep(sleepMillis);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
 
                 fail("Interrupted while waiting for next attempt");
             }
+
+            sleepMillis = sleepMillis * 2;
         }
 
         throw new AssertionError("Should not reach here");
     }
 
     private static boolean isTransientFailure(RuntimeException e) {
-        return IgniteTestUtils.hasCause(e, ReplicationTimeoutException.class, null)
-                || IgniteTestUtils.hasCause(e, IgniteInternalException.class, "Failed to send message to node");
+        return hasCause(e, ReplicationTimeoutException.class, null)
+                || hasCause(e, IgniteInternalException.class, "Failed to send message to node")
+                || hasCause(e, IgniteInternalCheckedException.class, "Failed to execute query, node left")
+                // TODO: IGNITE-18449 - remove the following line when table visibility problem is fixed.
+                || hasCause(e, SqlValidatorException.class, "Object 'TEST' not found");
     }
 
-    private <T> T query(String sql, Function<ResultSet, T> extractor) {
-        return doInSession(session -> {
+    private <T> T query(int nodeIndex, String sql, Function<ResultSet, T> extractor) {
+        return doInSession(nodeIndex, session -> {
             try (ResultSet resultSet = session.execute(null, sql)) {
                 return extractor.apply(resultSet);
             }
         });
     }
 
-    private <T> T queryWithRetry(String sql, Function<ResultSet, T> extractor) {
-        return withRetry(() -> query(sql, extractor));
+    private <T> T queryWithRetry(int nodeIndex, String sql, Function<ResultSet, T> extractor) {
+        return withRetry(() -> query(nodeIndex, sql, extractor));
     }
 
     /**
@@ -233,7 +242,7 @@ class ItTableRaftSnapshotsTest {
 
         transferLeadershipOnSolePartitionTo(2);
 
-        List<IgniteBiTuple<Integer, String>> rows = queryWithRetry("select * from test", ItTableRaftSnapshotsTest::readRows);
+        List<IgniteBiTuple<Integer, String>> rows = queryWithRetry(2, "select * from test", ItTableRaftSnapshotsTest::readRows);
 
         assertThat(rows, is(List.of(new IgniteBiTuple<>(1, "one"))));
     }
@@ -276,7 +285,7 @@ class ItTableRaftSnapshotsTest {
 
         cluster.knockOutNode(2, knockout);
 
-        doInSession(session -> {
+        doInSession(0, session -> {
             executeUpdate("insert into test(key, value) values (1, 'one')", session);
         });
 
@@ -287,7 +296,7 @@ class ItTableRaftSnapshotsTest {
         String sql = "create table test (key int primary key, value varchar(20)) engine " + storageEngine
                 + " with partitions=1, replicas=3";
 
-        doInSession(session -> {
+        doInSession(0, session -> {
             executeUpdate(sql, session);
         });
 
@@ -489,9 +498,9 @@ class ItTableRaftSnapshotsTest {
 
         transferLeadershipOnSolePartitionTo(0);
 
-        Transaction tx = cluster.entryNode().transactions().begin();
+        Transaction tx = cluster.node(0).transactions().begin();
 
-        doInSession(session -> {
+        doInSession(0, session -> {
             executeUpdate("insert into test(key, value) values (1, 'one')", session, tx);
 
             cluster.knockOutNode(2, knockout);
@@ -505,7 +514,7 @@ class ItTableRaftSnapshotsTest {
 
         transferLeadershipOnSolePartitionTo(2);
 
-        List<IgniteBiTuple<Integer, String>> rows = queryWithRetry("select * from test", ItTableRaftSnapshotsTest::readRows);
+        List<IgniteBiTuple<Integer, String>> rows = queryWithRetry(2, "select * from test", ItTableRaftSnapshotsTest::readRows);
 
         assertThat(rows, is(List.of(new IgniteBiTuple<>(1, "one"))));
     }
@@ -531,13 +540,14 @@ class ItTableRaftSnapshotsTest {
     void entriesKeepAddendedAfterSnapshotInstallation() throws Exception {
         feedNode2WithSnapshotOfOneRow(NodeKnockout.DEFAULT);
 
-        doInSession(session -> {
+        doInSession(0, session -> {
             executeUpdate("insert into test(key, value) values (2, 'two')", session);
         });
 
         transferLeadershipOnSolePartitionTo(2);
 
-        List<IgniteBiTuple<Integer, String>> rows = queryWithRetry("select * from test order by key", ItTableRaftSnapshotsTest::readRows);
+        List<IgniteBiTuple<Integer, String>> rows = queryWithRetry(2, "select * from test order by key",
+                ItTableRaftSnapshotsTest::readRows);
 
         assertThat(rows, is(List.of(new IgniteBiTuple<>(1, "one"), new IgniteBiTuple<>(2, "two"))));
     }
@@ -560,7 +570,7 @@ class ItTableRaftSnapshotsTest {
         CompletableFuture<?> loadingFuture = IgniteTestUtils.runAsync(() -> {
             for (int i = 2; !installedSnapshot.get(); i++) {
                 int key = i;
-                doInSession(session -> {
+                doInSession(0, session -> {
                     executeUpdate("insert into test(key, value) values (" + key + ", 'extra')", session);
                     lastLoadedKey.set(key);
                 });
@@ -575,7 +585,7 @@ class ItTableRaftSnapshotsTest {
 
         transferLeadershipOnSolePartitionTo(2);
 
-        List<Integer> keys = queryWithRetry("select * from test order by key", ItTableRaftSnapshotsTest::readRows)
+        List<Integer> keys = queryWithRetry(2, "select * from test order by key", ItTableRaftSnapshotsTest::readRows)
                 .stream().map(IgniteBiTuple::get1).collect(toList());
 
         assertThat(keys, equalTo(IntStream.rangeClosed(1, lastLoadedKey.get()).boxed().collect(toList())));
@@ -595,7 +605,7 @@ class ItTableRaftSnapshotsTest {
 
         cluster.knockOutNode(0, NodeKnockout.DEFAULT);
 
-        doInSession(session -> {
+        doInSession(2, session -> {
             executeUpdate("insert into test(key, value) values (2, 'two')", session);
         });
 
@@ -605,7 +615,8 @@ class ItTableRaftSnapshotsTest {
 
         transferLeadershipOnSolePartitionTo(0);
 
-        List<IgniteBiTuple<Integer, String>> rows = queryWithRetry("select * from test order by key", ItTableRaftSnapshotsTest::readRows);
+        List<IgniteBiTuple<Integer, String>> rows = queryWithRetry(0, "select * from test order by key",
+                ItTableRaftSnapshotsTest::readRows);
 
         assertThat(rows, is(List.of(new IgniteBiTuple<>(1, "one"), new IgniteBiTuple<>(2, "two"))));
     }
@@ -778,8 +789,8 @@ class ItTableRaftSnapshotsTest {
             return nodes.stream().filter(Objects::nonNull);
         }
 
-        private Session openSession() {
-            return entryNode().sql()
+        private Session openSession(int nodeIndex) {
+            return node(nodeIndex).sql()
                     .sessionBuilder()
                     .defaultSchema("PUBLIC")
                     .defaultQueryTimeout(QUERY_TIMEOUT_MS, TimeUnit.MILLISECONDS)
