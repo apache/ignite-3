@@ -78,7 +78,7 @@ public class PartitionAccessImpl implements PartitionAccess {
     public CompletableFuture<MvPartitionStorage> reCreateMvPartitionStorage() throws StorageException {
         assert mvTableStorage.getMvPartition(partId()) != null : "table=" + tableName() + ", part=" + partId();
 
-        // TODO: IGNITE-18022 - actually recreate or do in a different way
+        // TODO: IGNITE-18030 - actually recreate or do in a different way
         //return mvTableStorage.destroyPartition(partId())
         return CompletableFuture.completedFuture(null)
                 .thenApply(unused -> mvTableStorage.getOrCreateMvPartition(partId()));
@@ -88,7 +88,7 @@ public class PartitionAccessImpl implements PartitionAccess {
     public TxStateStorage reCreateTxStatePartitionStorage() throws StorageException {
         assert txStateTableStorage.getTxStateStorage(partId()) != null : "table=" + tableName() + ", part=" + partId();
 
-        // TODO: IGNITE-18022 - actually recreate or do in a different way
+        // TODO: IGNITE-18030 - actually recreate or do in a different way
         //txStateTableStorage.destroyTxStateStorage(partId());
 
         return txStateTableStorage.getOrCreateTxStateStorage(partId());
