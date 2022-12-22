@@ -100,6 +100,9 @@ class ItTableRaftSnapshotsTest {
 
     private static final int QUERY_TIMEOUT_MS = 10_000;
 
+    /**
+     * Storage engine that is used in tests that are indifferent to a storage engine used.
+     */
     private static final String DEFAULT_STORAGE_ENGINE = RocksDbStorageEngine.ENGINE_NAME;
 
     @WorkDirectory
@@ -139,6 +142,9 @@ class ItTableRaftSnapshotsTest {
         }
     }
 
+    /***
+     * Executes the given action, retrying it up to a few times if a transient failure occurs (like node inavailability).
+     */
     private static <T> T withRetry(Supplier<T> action) {
         // TODO: IGNITE-18423 remove this retry machinery when the networking bug is fixed as replication timeout seems to be caused by it.
 
@@ -184,6 +190,9 @@ class ItTableRaftSnapshotsTest {
         return withRetry(() -> query(sql, extractor));
     }
 
+    /**
+     * Reads all rows from TEST table.
+     */
     private static List<IgniteBiTuple<Integer, String>> readRows(ResultSet rs) {
         List<IgniteBiTuple<Integer, String>> rows = new ArrayList<>();
 
@@ -196,17 +205,29 @@ class ItTableRaftSnapshotsTest {
         return rows;
     }
 
+    /**
+     * Tests that a leader successfully feeds a follower with a RAFT snapshot (using {@link NodeKnockout#STOP} strategy
+     * to knock-out the follower to make it require a snapshot installation).
+     */
     @Test
     @Disabled("Enable when the IGNITE-18170 deadlock is fixed")
     void leaderFeedsFollowerWithSnapshotWithKnockoutStop() throws Exception {
         testLeaderFeedsFollowerWithSnapshot(NodeKnockout.STOP, DEFAULT_STORAGE_ENGINE);
     }
 
+    /**
+     * Tests that a leader successfully feeds a follower with a RAFT snapshot (using {@link NodeKnockout#PARTITION_NETWORK} strategy
+     * to knock-out the follower to make it require a snapshot installation).
+     */
     @Test
     void leaderFeedsFollowerWithSnapshotWithKnockoutPartitionNetwork() throws Exception {
         testLeaderFeedsFollowerWithSnapshot(NodeKnockout.PARTITION_NETWORK, DEFAULT_STORAGE_ENGINE);
     }
 
+    /**
+     * Tests that a leader successfully feeds a follower with a RAFT snapshot (using the given {@link NodeKnockout} strategy
+     * to knock-out the follower to make it require a snapshot installation and the given storage engine).
+     */
     private void testLeaderFeedsFollowerWithSnapshot(NodeKnockout knockout, String storageEngine) throws Exception {
         feedNode2WithSnapshotOfOneRow(knockout, storageEngine);
 
@@ -227,10 +248,25 @@ class ItTableRaftSnapshotsTest {
         reanimateNode2AndWaitForSnapshotInstalled(knockout);
     }
 
+    /**
+     * Transfer the cluster to a state in which, when node 2 is reanimated from being knocked-out, the only partition
+     * of the only table (called TEST) is transferred to it using RAFT snapshot installation mechanism.
+     *
+     * @param knockout The knock-out strategy that was used to knock-out node 2 and that will be used to reanimate it.
+     * @see NodeKnockout
+     */
     private void prepareClusterForInstallingSnapshotToNode2(NodeKnockout knockout) throws InterruptedException {
         prepareClusterForInstallingSnapshotToNode2(knockout, DEFAULT_STORAGE_ENGINE);
     }
 
+    /**
+     * Transfer the cluster to a state in which, when node 2 is reanimated from being knocked-out, the only partition
+     * of the only table (called TEST) is transferred to it using RAFT snapshot installation mechanism.
+     *
+     * @param knockout The knock-out strategy that should be used to knock-out node 2.
+     * @param storageEngine Storage engine for the TEST table.
+     * @see NodeKnockout
+     */
     private void prepareClusterForInstallingSnapshotToNode2(NodeKnockout knockout, String storageEngine) throws InterruptedException {
         cluster.startAndInit(3);
 
@@ -272,18 +308,27 @@ class ItTableRaftSnapshotsTest {
         assertTrue(waitForCondition(tableStarted, 10_000), "Did not see all table RAFT nodes started");
     }
 
+    /**
+     * Causes log truncation on the RAFT leader of the sole table partition that exists in the cluster.
+     */
     private void causeLogTruncationOnSolePartitionLeader() throws InterruptedException {
         // Doing this twice because first snapshot creation does not trigger log truncation.
         doSnapshotOnSolePartitionLeader();
         doSnapshotOnSolePartitionLeader();
     }
 
+    /**
+     * Causes a RAFT snapshot to be taken on the RAFT leader of the sole table partition that exists in the cluster.
+     */
     private void doSnapshotOnSolePartitionLeader() throws InterruptedException {
         TablePartitionId tablePartitionId = solePartitionId();
 
         doSnapshotOn(tablePartitionId);
     }
 
+    /**
+     * Returns the ID of the sole table partition that exists in the cluster.
+     */
     private TablePartitionId solePartitionId() {
         List<TablePartitionId> tablePartitionIds = tablePartitionIds(cluster.entryNode());
 
@@ -292,6 +337,9 @@ class ItTableRaftSnapshotsTest {
         return tablePartitionIds.get(0);
     }
 
+    /**
+     * Returns the IDs of all table partitions that exist on the given node.
+     */
     private static List<TablePartitionId> tablePartitionIds(IgniteImpl node) {
         return node.raftManager().localNodes().stream()
                 .map(RaftNodeId::groupId)
@@ -300,6 +348,9 @@ class ItTableRaftSnapshotsTest {
                 .collect(toList());
     }
 
+    /**
+     * Takes a RAFT snapshot on the leader of the RAFT group corresponding to the given table partition.
+     */
     private void doSnapshotOn(TablePartitionId tablePartitionId) throws InterruptedException {
         RaftGroupService raftGroupService = cluster.leaderServiceFor(tablePartitionId);
 
@@ -316,10 +367,18 @@ class ItTableRaftSnapshotsTest {
         assertTrue(snapshotStatus.get().isOk(), "Snapshot failed: " + snapshotStatus.get());
     }
 
+    /**
+     * Reanimates (that is, reverts the effects of a knock out) node 2 and waits until a RAFT snapshot is installed
+     * on it for the sole table partition in the cluster.
+     */
     private void reanimateNode2AndWaitForSnapshotInstalled(NodeKnockout knockout) throws InterruptedException {
         reanimateNodeAndWaitForSnapshotInstalled(2, knockout);
     }
 
+    /**
+     * Reanimates (that is, reverts the effects of a knock out) a node with the given index and waits until a RAFT snapshot is installed
+     * on it for the sole table partition in the cluster.
+     */
     private void reanimateNodeAndWaitForSnapshotInstalled(int nodeIndex, NodeKnockout knockout) throws InterruptedException {
         CountDownLatch snapshotInstalledLatch = new CountDownLatch(1);
 
@@ -394,17 +453,35 @@ class ItTableRaftSnapshotsTest {
         }
     }
 
+    /**
+     * Tests that, if first part of a transaction (everything before COMMIT) arrives using AppendEntries, and later the whole
+     * partition state arrives in a RAFT snapshot, then the transaction is seen as committed (i.e. its effects are seen).
+     *
+     * <p>{@link NodeKnockout#STOP} is used to knock out the follower which will accept the snapshot.
+     */
     @Test
     @Disabled("Enable when the IGNITE-18170 deadlock is resolved")
     void txSemanticsIsMaintainedWithKnockoutStop() throws Exception {
         txSemanticsIsMaintainedAfterInstallingSnapshot(NodeKnockout.STOP);
     }
 
+    /**
+     * Tests that, if first part of a transaction (everything before COMMIT) arrives using AppendEntries, and later the whole
+     * partition state arrives in a RAFT snapshot, then the transaction is seen as committed (i.e. its effects are seen).
+     *
+     * <p>{@link NodeKnockout#PARTITION_NETWORK} is used to knock out the follower which will accept the snapshot.
+     */
     @Test
     void txSemanticsIsMaintainedWithKnockoutPartitionNetwork() throws Exception {
         txSemanticsIsMaintainedAfterInstallingSnapshot(NodeKnockout.PARTITION_NETWORK);
     }
 
+    /**
+     * Tests that, if first part of a transaction (everything before COMMIT) arrives using AppendEntries, and later the whole
+     * partition state arrives in a RAFT snapshot, then the transaction is seen as committed (i.e. its effects are seen).
+     *
+     * <p>The given {@link NodeKnockout} is used to knock out the follower which will accept the snapshot.
+     */
     private void txSemanticsIsMaintainedAfterInstallingSnapshot(NodeKnockout knockout) throws Exception {
         cluster.startAndInit(3);
 
@@ -433,6 +510,9 @@ class ItTableRaftSnapshotsTest {
         assertThat(rows, is(List.of(new IgniteBiTuple<>(1, "one"))));
     }
 
+    /**
+     * Tests that a leader successfully feeds a follower with a RAFT snapshot on any of the supported storage engines.
+     */
     @ParameterizedTest
     @ValueSource(strings = {
             RocksDbStorageEngine.ENGINE_NAME,
@@ -443,6 +523,9 @@ class ItTableRaftSnapshotsTest {
         testLeaderFeedsFollowerWithSnapshot(NodeKnockout.DEFAULT, storageEngine);
     }
 
+    /**
+     * Tests that entries can still be added to a follower using AppendEntries after it gets fed with a RAFT snapshot.
+     */
     @Test
     @Disabled("Enable when IGNITE-18432 is fixed")
     void entriesKeepAddendedAfterSnapshotInstallation() throws Exception {
@@ -459,6 +542,10 @@ class ItTableRaftSnapshotsTest {
         assertThat(rows, is(List.of(new IgniteBiTuple<>(1, "one"), new IgniteBiTuple<>(2, "two"))));
     }
 
+    /**
+     * Tests that, if commands are added to a leader while it installs a RAFT snapshot on a follower, these commands
+     * reach the follower and get applied after the snapshot is installed.
+     */
     @Test
     // TODO: IGNITE-18423 - enable when ReplicationTimeoutException is fixed
     @Disabled("IGNITE-18423")
@@ -494,6 +581,10 @@ class ItTableRaftSnapshotsTest {
         assertThat(keys, equalTo(IntStream.rangeClosed(1, lastLoadedKey.get()).boxed().collect(toList())));
     }
 
+    /**
+     * Tests that, after a node gets a RAFT snapshot installed to it, and it switches to a leader, it can act as a leader
+     * (and can install a RAFT snapshot on the ex-leader).
+     */
     @Test
     // TODO: IGNITE-18423 - enable when ReplicationTimeoutException is fixed
     @Disabled("IGNITE-18423")
@@ -550,12 +641,18 @@ class ItTableRaftSnapshotsTest {
 
         private volatile boolean started = false;
 
+        /** Indices of nodes that have been knocked out. */
         private final Set<Integer> knockedOutIndices = new ConcurrentHashSet<>();
 
         private Cluster(TestInfo testInfo) {
             this.testInfo = testInfo;
         }
 
+        /**
+         * Starts the cluster with the given number of nodes and initializes it.
+         *
+         * @param nodeCount Number of nodes in the cluster.
+         */
         void startAndInit(int nodeCount) {
             if (started) {
                 throw new IllegalStateException("The cluster is already started");
@@ -587,6 +684,9 @@ class ItTableRaftSnapshotsTest {
                     .thenApply(IgniteImpl.class::cast);
         }
 
+        /**
+         * Returns an Ignite node (a member of the cluster) by its index.
+         */
         IgniteImpl node(int index) {
             return nodes.get(index);
         }
@@ -671,6 +771,9 @@ class ItTableRaftSnapshotsTest {
                     .orElse(null);
         }
 
+        /**
+         * Returns nodes that are not stopped. This can include knocked out nodes.
+         */
         private Stream<IgniteImpl> aliveNodes() {
             return nodes.stream().filter(Objects::nonNull);
         }
@@ -683,6 +786,9 @@ class ItTableRaftSnapshotsTest {
                     .build();
         }
 
+        /**
+         * Shuts down the  cluster by stopping all its nodes.
+         */
         void shutdown() {
             aliveNodes().forEach(node -> IgnitionManager.stop(node.name()));
         }
@@ -743,6 +849,9 @@ class ItTableRaftSnapshotsTest {
             }
         };
 
+        /**
+         * {@link NodeKnockout} that is used by tests that are indifferent for the knockout strategy being used.
+         */
         static final NodeKnockout DEFAULT = PARTITION_NETWORK;
 
         /**
