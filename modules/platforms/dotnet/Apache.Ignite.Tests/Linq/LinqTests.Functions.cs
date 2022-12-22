@@ -139,6 +139,8 @@ public partial class LinqTests
     public void TestStringCompareValues()
     {
         Assert.AreEqual(0, Test("v-5"));
+        Assert.AreEqual(1, Test("v-4"));
+        Assert.AreEqual(-1, Test("v-6"));
         Assert.AreEqual(1, Test("a-5"));
         Assert.AreEqual(-1, Test("x-5"));
 
