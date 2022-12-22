@@ -40,6 +40,7 @@ public class Session {
         this.listeners = listeners;
     }
 
+    /** Creates session details with provided nodeUrl, nodeName, jdbcUrl. */
     public synchronized void connect(String nodeUrl, String nodeName, String jdbcUrl) {
         this.sessionDetails = new SessionDetails(nodeUrl, nodeName, jdbcUrl);
         this.connectedToNode = true;
@@ -52,6 +53,7 @@ public class Session {
         });
     }
 
+    /** Clears session details and sets false to connectedToNode. */
     public synchronized void disconnect() {
         this.sessionDetails = new SessionDetails();
         this.connectedToNode = false;
@@ -68,7 +70,8 @@ public class Session {
         return connectedToNode;
     }
 
+    /** Returns {@link SessionDetails}. */
     public SessionDetails sessionDetails() {
         return this.sessionDetails;
-    };
+    }
 }

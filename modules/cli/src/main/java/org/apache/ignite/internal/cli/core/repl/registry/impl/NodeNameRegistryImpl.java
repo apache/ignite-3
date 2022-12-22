@@ -41,9 +41,7 @@ import org.apache.ignite.rest.client.model.ClusterNode;
 import org.apache.ignite.rest.client.model.NodeMetadata;
 import org.jetbrains.annotations.Nullable;
 
-/**
- * Registry to get a node URL by a node name.
- */
+/** Implementation of {@link NodeNameRegistry}. */
 @Singleton
 public class NodeNameRegistryImpl implements NodeNameRegistry, SessionEventListener {
 

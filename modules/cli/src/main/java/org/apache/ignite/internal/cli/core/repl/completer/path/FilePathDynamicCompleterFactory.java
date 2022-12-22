@@ -21,7 +21,7 @@ import jakarta.inject.Singleton;
 import org.apache.ignite.internal.cli.core.repl.completer.DynamicCompleter;
 import org.apache.ignite.internal.cli.core.repl.completer.DynamicCompleterFactory;
 
-/** Asdasd. */
+/** Factory for file path option completer. */
 @Singleton
 public class FilePathDynamicCompleterFactory implements DynamicCompleterFactory {
     @Override

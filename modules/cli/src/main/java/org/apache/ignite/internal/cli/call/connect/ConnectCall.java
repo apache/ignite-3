@@ -24,6 +24,7 @@ import java.util.Objects;
 import org.apache.ignite.internal.cli.core.JdbcUrl;
 import org.apache.ignite.internal.cli.config.ConfigConstants;
 import org.apache.ignite.internal.cli.config.StateConfigProvider;
+import org.apache.ignite.internal.cli.core.JdbcUrl;
 import org.apache.ignite.internal.cli.core.call.Call;
 import org.apache.ignite.internal.cli.core.call.CallOutput;
 import org.apache.ignite.internal.cli.core.call.DefaultCallOutput;

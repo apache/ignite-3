@@ -25,9 +25,9 @@ import static org.apache.ignite.internal.cli.commands.Options.Constants.URL_OPTI
 
 import jakarta.inject.Inject;
 import java.net.URL;
-import org.apache.ignite.internal.cli.core.repl.registry.impl.NodeNameRegistryImpl;
 import org.apache.ignite.internal.cli.core.converters.UrlConverter;
 import org.apache.ignite.internal.cli.core.exception.IgniteCliException;
+import org.apache.ignite.internal.cli.core.repl.registry.impl.NodeNameRegistryImpl;
 import org.jetbrains.annotations.Nullable;
 import picocli.CommandLine.ArgGroup;
 import picocli.CommandLine.Option;

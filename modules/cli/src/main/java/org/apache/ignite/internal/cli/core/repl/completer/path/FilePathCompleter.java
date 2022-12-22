@@ -30,7 +30,9 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.cli.core.repl.completer.DynamicCompleter;
 
-/** Asasdas. */
+/**
+ * Scans file system and completes typed words.
+ */
 public class FilePathCompleter implements DynamicCompleter {
 
     @Override
@@ -53,9 +55,13 @@ public class FilePathCompleter implements DynamicCompleter {
             }
         } else {
             int lastIndexOfPathSeparator = path.lastIndexOf(File.separator);
-            String dir = path.substring(0, lastIndexOfPathSeparator + 1);
-            String filePrefix = path.substring(lastIndexOfPathSeparator + 1);
-            return listFiles(Paths.get(dir), filePrefix);
+            if (lastIndexOfPathSeparator > -1) {
+                String dir = path.substring(0, lastIndexOfPathSeparator + 1);
+                String filePrefix = path.substring(lastIndexOfPathSeparator + 1);
+                return listFiles(Paths.get(dir), filePrefix);
+            } else {
+                return Collections.emptyList();
+            }
         }
     }
 
