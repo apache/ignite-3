@@ -434,18 +434,18 @@ internal static class MethodVisitor
     /// </summary>
     private static void VisitStringCompare(MethodCallExpression expression, IgniteQueryExpressionVisitor visitor, bool ignoreCase)
     {
-        // Ex: nvl2(?, casewhen(_T0.NAME = ?, 0, casewhen(_T0.NAME >= ?, 1, -1)), 1)
-        visitor.ResultBuilder.Append("nvl2(");
-        visitor.Visit(expression.Arguments[1]);
-        visitor.ResultBuilder.Append(", casewhen(");
+        // case (A is not distinct from B) when true then 0 else case (A > B) when true then 1 else -1 end end
+        var builder = visitor.ResultBuilder;
+
+        builder.Append("case (");
         VisitArg(visitor, expression, 0, ignoreCase);
-        visitor.ResultBuilder.Append(" = ");
+        builder.Append(" is not distinct from ");
         VisitArg(visitor, expression, 1, ignoreCase);
-        visitor.ResultBuilder.Append(", 0, casewhen(");
+        builder.Append(") when true then 0 else case (");
         VisitArg(visitor, expression, 0, ignoreCase);
-        visitor.ResultBuilder.Append(" >= ");
+        builder.Append(" > ");
         VisitArg(visitor, expression, 1, ignoreCase);
-        visitor.ResultBuilder.Append(", 1, -1)), 1)");
+        builder.Append(") when true then 1 else -1 end end");
     }
 
     /// <summary>
