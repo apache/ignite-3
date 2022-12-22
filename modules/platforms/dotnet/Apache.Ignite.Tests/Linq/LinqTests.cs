@@ -616,6 +616,7 @@ public partial class LinqTests : IgniteTestsBase
         var res = query.ToList();
 
         Assert.AreEqual(0, res[0].Key);
+        Assert.AreEqual(10, res.Count);
     }
 
     private record PocoByte(sbyte Key, sbyte Val);
