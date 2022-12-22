@@ -37,7 +37,8 @@ using Table;
 [SuppressMessage("ReSharper", "StringCompareToIsCultureSpecific", Justification = "SQL")]
 [SuppressMessage("ReSharper", "StringCompareIsCultureSpecific.1", Justification = "SQL")]
 [SuppressMessage("ReSharper", "StringCompareIsCultureSpecific.2", Justification = "SQL")]
-[SuppressMessage("Globalization", "CA1310:Specify StringComparison for correctness", Justification = "Tests")]
+[SuppressMessage("ReSharper", "StringCompareIsCultureSpecific.3", Justification = "SQL")]
+[SuppressMessage("Globalization", "CA1310:Specify StringComparison for correctness", Justification = "SQL")]
 public partial class LinqTests
 {
     [Test]
@@ -137,19 +138,24 @@ public partial class LinqTests
     [Test]
     public void TestStringCompareValues()
     {
-        Assert.AreEqual(0, Test("v-9"));
+        Assert.AreEqual(0, Test("v-5"));
+        Assert.AreEqual(1, Test("a-5"));
+        Assert.AreEqual(-1, Test("x-5"));
+
+        Assert.AreEqual(0, TestIgnoreCase("V-5", true));
+        /*
         Assert.AreEqual(-1, Test("V-9"));
-        Assert.AreEqual(-1, TestIgnoreCase("V-9", false));
-        Assert.AreEqual(0, TestIgnoreCase("V-9", true));
+        Assert.AreEqual(1, TestIgnoreCase("V-9", false));
+        */
 
         int Test(string val)
         {
             var res = PocoView.AsQueryable()
-                .Where(x => x.Val == "v-9")
+                .Where(x => x.Val == "v-5")
                 .Select(x => string.Compare(x.Val, val))
                 .Single();
 
-            Assert.AreEqual(string.Compare("v-9", val), res);
+            Assert.AreEqual(string.Compare("v-5", val), res);
 
             return res;
         }
@@ -157,11 +163,11 @@ public partial class LinqTests
         int TestIgnoreCase(string val, bool ignoreCase)
         {
             var res = PocoView.AsQueryable()
-                .Where(x => x.Val == "v-9")
+                .Where(x => x.Val == "v-5")
                 .Select(x => string.Compare(x.Val, val, ignoreCase))
                 .Single();
 
-            Assert.AreEqual(string.Compare("v-9", val, ignoreCase), res);
+            Assert.AreEqual(string.Compare("v-5", val, ignoreCase), res);
 
             return res;
         }

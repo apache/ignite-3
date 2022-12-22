@@ -445,7 +445,7 @@ internal static class MethodVisitor
         VisitArg(visitor, expression, 0, ignoreCase);
         builder.Append(" > ");
         VisitArg(visitor, expression, 1, ignoreCase);
-        builder.Append(") then -1 else 1 end) end");
+        builder.Append(") then 1 else -1 end) end");
     }
 
     /// <summary>
