@@ -145,7 +145,7 @@ class ItTableRaftSnapshotsTest {
         }
     }
 
-    /***
+    /**
      * Executes the given action, retrying it up to a few times if a transient failure occurs (like node inavailability).
      */
     private static <T> T withRetry(Supplier<T> action) {
