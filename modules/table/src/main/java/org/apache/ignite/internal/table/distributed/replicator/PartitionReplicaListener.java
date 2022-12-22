@@ -726,14 +726,13 @@ public class PartitionReplicaListener implements ReplicaListener {
                 };
 
                 Cursor<IndexRow> cursor = (Cursor<IndexRow>) cursors.computeIfAbsent(cursorId,
-                        id -> {
-                            return indexStorage.scan(
-                                    lowerBound,
-                                    // We have to handle upperBound on a level of replication listener, to correct to take a range lock.
-                                    null,
-                                    flags
-                            );
-                        });
+                        id -> indexStorage.scan(
+                                lowerBound,
+                                // We have to handle upperBound on a level of replication listener,
+                                // for correctness of taking of a range lock.
+                                null,
+                                flags
+                        ));
 
                 SortedIndexLocker indexLocker = (SortedIndexLocker) indexesLockers.get().get(indexId);
 
