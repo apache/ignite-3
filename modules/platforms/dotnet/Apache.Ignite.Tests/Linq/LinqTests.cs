@@ -520,5 +520,7 @@ public partial class LinqTests : IgniteTestsBase
 
     private record PocoDate(LocalDate Key, LocalDate Val);
 
+    private record PocoTime(LocalTime Key, LocalTime Val);
+
     private record PocoDateTime(LocalDateTime Key, LocalDateTime Val);
 }

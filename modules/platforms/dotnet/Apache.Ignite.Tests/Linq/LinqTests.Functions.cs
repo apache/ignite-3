@@ -200,10 +200,11 @@ public partial class LinqTests
         var localDate = new LocalDate(2022, 12, 20);
         await dates.UpsertAsync(null, new PocoDate(localDate, localDate));
 
-        // TODO: year, month, day_of_month, day_of_week, day_of_year, hour, minute, second
-        // TODO: LocalTime, LocalDateTime
         // TODO: Test projecting all parts into anonymous type.
+        TestOp(dates, x => x.Key.Year, 2022, "select dayofmonth(_T0.KEY) from");
+        TestOp(dates, x => x.Key.Month, 12, "select dayofmonth(_T0.KEY) from");
         TestOp(dates, x => x.Key.Day, 20, "select dayofmonth(_T0.KEY) from");
+
         TestOp(dates, x => x.Key.DayOfYear, 354, "select dayofyear(_T0.KEY) from");
         TestOp(dates, x => x.Key.Day, 20, "select dayofmonth(_T0.KEY) from");
         TestOp(dates, x => x.Key.DayOfWeek, IsoDayOfWeek.Tuesday, "select -1 + dayofweek(_T0.KEY) from");
@@ -225,6 +226,18 @@ public partial class LinqTests
         TestOp(dateTimes, x => x.Key.Hour, 20, "select hour(_T0.KEY) from");
         TestOp(dateTimes, x => x.Key.Minute, 7, "select minute(_T0.KEY) from");
         TestOp(dateTimes, x => x.Key.Second, 36, "select second(_T0.KEY) from");
+    }
+
+    [Test]
+    public async Task TestTimeFunctions()
+    {
+        var times = (await Client.Tables.GetTableAsync(TableTimeName))!.GetRecordView<PocoTime>();
+        var localTime = new LocalTime(20, 07, 36, 123);
+        await times.UpsertAsync(null, new PocoTime(localTime, localTime));
+
+        TestOp(times, x => x.Key.Hour, 20, "select hour(_T0.KEY) from");
+        TestOp(times, x => x.Key.Minute, 7, "select minute(_T0.KEY) from");
+        TestOp(times, x => x.Key.Second, 36, "select second(_T0.KEY) from");
     }
 
     [Test]
