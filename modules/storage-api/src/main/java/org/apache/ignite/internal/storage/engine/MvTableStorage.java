@@ -191,6 +191,7 @@ public interface MvTableStorage extends ManuallyCloseable {
      *
      * @param partitionId Partition ID.
      * @return Future of the start a full rebalance for a multi-version partition storage and its indexes.
+     * @throws IllegalArgumentException If Partition ID is out of bounds.
      * @throws StorageFullRebalanceException If there is an error when starting a full rebalance.
      */
     CompletableFuture<Void> startFullRebalancePartition(int partitionId);
@@ -207,6 +208,7 @@ public interface MvTableStorage extends ManuallyCloseable {
      * <p>If a full rebalance has not started, then nothing will happen.
      *
      * @return Future of the abort a full rebalance for a multi-version partition storage and its indexes.
+     * @throws IllegalArgumentException If Partition ID is out of bounds.
      */
     CompletableFuture<Void> abortFullRebalancePartition(int partitionId);
 
@@ -222,6 +224,7 @@ public interface MvTableStorage extends ManuallyCloseable {
      * @param lastAppliedIndex Last applied index.
      * @param lastAppliedTerm Last applied term.
      * @return Future of the finish a full rebalance for a multi-version partition storage and its indexes.
+     * @throws IllegalArgumentException If Partition ID is out of bounds.
      * @throws StorageFullRebalanceException If there is an error when completing a full rebalance.
      */
     CompletableFuture<Void> finishFullRebalancePartition(int partitionId, long lastAppliedIndex, long lastAppliedTerm);

@@ -70,34 +70,4 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
                 engine == null ? null : engine::stop
         );
     }
-
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18028")
-    @Override
-    public void testStartRebalanceMvPartition() throws Exception {
-        super.testStartRebalanceMvPartition();
-    }
-
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18028")
-    @Override
-    public void testAbortRebalanceMvPartition() throws Exception {
-        super.testAbortRebalanceMvPartition();
-    }
-
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18028")
-    @Override
-    public void testFinishRebalanceMvPartition() throws Exception {
-        super.testFinishRebalanceMvPartition();
-    }
-
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17833")
-    @Override
-    public void testDestroyPartition() throws Exception {
-        super.testDestroyPartition();
-    }
-
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17833")
-    @Override
-    public void testReCreatePartition() throws Exception {
-        super.testReCreatePartition();
-    }
 }

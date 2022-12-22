@@ -27,6 +27,7 @@ import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.StorageFullRebalanceException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.index.HashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
@@ -41,15 +42,15 @@ import org.jetbrains.annotations.Nullable;
  * Test table storage implementation.
  */
 public class TestMvTableStorage implements MvTableStorage {
-    private final Map<Integer, MvPartitionStorage> partitions = new ConcurrentHashMap<>();
-
-    private final Map<Integer, MvPartitionStorage> backupPartitions = new ConcurrentHashMap<>();
+    private final Map<Integer, TestMvPartitionStorage> partitions = new ConcurrentHashMap<>();
 
     private final Map<UUID, SortedIndices> sortedIndicesById = new ConcurrentHashMap<>();
 
     private final Map<UUID, HashIndices> hashIndicesById = new ConcurrentHashMap<>();
 
     private final Map<Integer, CompletableFuture<Void>> destroyFutureByPartitionId = new ConcurrentHashMap<>();
+
+    private final Map<Integer, CompletableFuture<Void>> fullRebalanceFutureByPartitionId = new ConcurrentHashMap<>();
 
     private final TableConfiguration tableCfg;
 
@@ -157,7 +158,7 @@ public class TestMvTableStorage implements MvTableStorage {
     @Override
     public SortedIndexStorage getOrCreateSortedIndex(int partitionId, UUID indexId) {
         if (!partitions.containsKey(partitionId)) {
-            throw new StorageException("Partition ID " + partitionId + " does not exist");
+            throw new StorageException(createPartitionDoesNotExistsErrorMessage(partitionId));
         }
 
         SortedIndices sortedIndices = sortedIndicesById.computeIfAbsent(
@@ -171,7 +172,7 @@ public class TestMvTableStorage implements MvTableStorage {
     @Override
     public HashIndexStorage getOrCreateHashIndex(int partitionId, UUID indexId) {
         if (!partitions.containsKey(partitionId)) {
-            throw new StorageException("Partition ID " + partitionId + " does not exist");
+            throw new StorageException(createPartitionDoesNotExistsErrorMessage(partitionId));
         }
 
         HashIndices sortedIndices = hashIndicesById.computeIfAbsent(
@@ -230,33 +231,69 @@ public class TestMvTableStorage implements MvTableStorage {
 
     @Override
     public CompletableFuture<Void> startFullRebalancePartition(int partitionId) {
-        MvPartitionStorage oldPartitionStorage = partitions.get(partitionId);
+        checkPartitionId(partitionId);
 
-        assert oldPartitionStorage != null : "Partition does not exist: " + partitionId;
+        TestMvPartitionStorage partitionStorage = partitions.get(partitionId);
 
-        if (backupPartitions.putIfAbsent(partitionId, oldPartitionStorage) == null) {
-            partitions.put(partitionId, new TestMvPartitionStorage(partitionId));
+        if (partitionStorage == null) {
+            throw new StorageFullRebalanceException(createPartitionDoesNotExistsErrorMessage(partitionId));
         }
 
-        return completedFuture(null);
+        CompletableFuture<Void> fullRebalanceFuture = new CompletableFuture<>();
+
+        if (fullRebalanceFutureByPartitionId.putIfAbsent(partitionId, fullRebalanceFuture) != null) {
+            throw new StorageFullRebalanceException("Full rebalance for the partition is already in progress: " + partitionId);
+        }
+
+        // TODO: IGNITE-18073 реализовать для индексов и самого хранилища партиции.
+
+        fullRebalanceFuture.complete(null);
+
+        return fullRebalanceFuture;
     }
 
     @Override
     public CompletableFuture<Void> abortFullRebalancePartition(int partitionId) {
-        MvPartitionStorage oldPartitionStorage = backupPartitions.remove(partitionId);
+        checkPartitionId(partitionId);
 
-        if (oldPartitionStorage != null) {
-            partitions.put(partitionId, oldPartitionStorage);
+        CompletableFuture<Void> fullRebalanceFuture = fullRebalanceFutureByPartitionId.remove(partitionId);
+
+        if (fullRebalanceFuture == null) {
+            return completedFuture(null);
         }
 
-        return completedFuture(null);
+        TestMvPartitionStorage partitionStorage = partitions.get(partitionId);
+
+        if (partitionStorage == null) {
+            throw new StorageFullRebalanceException(createPartitionDoesNotExistsErrorMessage(partitionId));
+        }
+
+        return fullRebalanceFuture
+                .thenAccept(unused -> {
+                    // TODO: IGNITE-18073 реализовать для индексов и самого хранилища партиции.
+                });
     }
 
     @Override
-    public CompletableFuture<Void> finishFullRebalancePartition(int partitionId) {
-        backupPartitions.remove(partitionId);
+    public CompletableFuture<Void> finishFullRebalancePartition(int partitionId, long lastAppliedIndex, long lastAppliedTerm) {
+        checkPartitionId(partitionId);
 
-        return completedFuture(null);
+        CompletableFuture<Void> fullRebalanceFuture = fullRebalanceFutureByPartitionId.remove(partitionId);
+
+        if (fullRebalanceFuture == null) {
+            throw new StorageFullRebalanceException("Full rebalance for the partition did not start: " + partitionId);
+        }
+
+        TestMvPartitionStorage partitionStorage = partitions.get(partitionId);
+
+        if (partitionStorage == null) {
+            throw new StorageFullRebalanceException(createPartitionDoesNotExistsErrorMessage(partitionId));
+        }
+
+        return fullRebalanceFuture
+                .thenAccept(unused -> {
+                    // TODO: IGNITE-18073 реализовать для индексов и самого хранилища партиции.
+                });
     }
 
     private void checkPartitionId(int partitionId) {
@@ -270,5 +307,9 @@ public class TestMvTableStorage implements MvTableStorage {
                     "partitions", partitions, false
             ));
         }
+    }
+
+    private static String createPartitionDoesNotExistsErrorMessage(int partitionId) {
+        return "Partition ID " + partitionId + " does not exist";
     }
 }

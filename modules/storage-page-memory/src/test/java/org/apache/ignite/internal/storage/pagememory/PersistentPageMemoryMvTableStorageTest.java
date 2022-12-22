@@ -79,24 +79,6 @@ public class PersistentPageMemoryMvTableStorageTest extends AbstractMvTableStora
         );
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18029")
-    @Override
-    public void testStartRebalanceMvPartition() throws Exception {
-        super.testStartRebalanceMvPartition();
-    }
-
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18029")
-    @Override
-    public void testAbortRebalanceMvPartition() throws Exception {
-        super.testAbortRebalanceMvPartition();
-    }
-
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18029")
-    @Override
-    public void testFinishRebalanceMvPartition() throws Exception {
-        super.testFinishRebalanceMvPartition();
-    }
-
     @Test
     @Override
     public void testDestroyPartition() throws Exception {

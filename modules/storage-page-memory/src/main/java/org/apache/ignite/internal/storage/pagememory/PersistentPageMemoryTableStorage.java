@@ -451,7 +451,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
     }
 
     @Override
-    public CompletableFuture<Void> finishFullRebalancePartition(int partitionId) {
+    public CompletableFuture<Void> finishFullRebalancePartition(int partitionId, long lastAppliedIndex, long lastAppliedTerm) {
         // TODO: IGNITE-18029 Implement
         throw new UnsupportedOperationException();
     }
