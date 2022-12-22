@@ -117,16 +117,24 @@ public partial class LinqTests
         TestOpString(x => x.Val!.Length, 3, "select length(_T0.VAL) from");
 
         TestOpString(x => x.Val!.Replace("v-", "x + "), "x + 9", "select replace(_T0.VAL, ?, ?) from");
+    }
 
-        TestOpString(
-            x => string.Compare(x.Val, "abc"),
-            1,
-            "select case when (_T0.VAL is not distinct from ?) then 0 else (case when (_T0.VAL > ?) then 1 else -1 end) end from");
+    [Test]
+    public void TestStringCompare()
+    {
+        var expectedQuery = "select case when (_T0.VAL is not distinct from ?) then 0 " +
+                            "else (case when (_T0.VAL > ?) then 1 else -1 end) end from";
 
-        TestOpString(
-            x => string.Compare(x.Val, "abc", true),
-            1,
-            "select case when (_T0.VAL is not distinct from ?) then 0 else (case when (_T0.VAL > ?) then 1 else -1 end) end from");
+        TestOpString(x => string.Compare(x.Val, "abc"), 1, expectedQuery);
+    }
+
+    [Test]
+    public void TestStringCompareIgnoreCase()
+    {
+        var expectedQuery = "select case when (lower(_T0.VAL) is not distinct from lower(?)) then 0 " +
+                            "else (case when (lower(_T0.VAL) > lower(?)) then 1 else -1 end) end from";
+
+        TestOpString(x => string.Compare(x.Val, "abc", true), 1, expectedQuery);
     }
 
     [Test]
