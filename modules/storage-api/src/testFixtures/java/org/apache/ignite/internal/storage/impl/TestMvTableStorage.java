@@ -20,9 +20,11 @@ package org.apache.ignite.internal.storage.impl;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
@@ -62,13 +64,13 @@ public class TestMvTableStorage implements MvTableStorage {
     private static class SortedIndices {
         private final SortedIndexDescriptor descriptor;
 
-        final Map<Integer, SortedIndexStorage> storageByPartitionId = new ConcurrentHashMap<>();
+        final Map<Integer, TestSortedIndexStorage> storageByPartitionId = new ConcurrentHashMap<>();
 
         SortedIndices(SortedIndexDescriptor descriptor) {
             this.descriptor = descriptor;
         }
 
-        SortedIndexStorage getOrCreateStorage(Integer partitionId) {
+        TestSortedIndexStorage getOrCreateStorage(Integer partitionId) {
             return storageByPartitionId.computeIfAbsent(partitionId, id -> new TestSortedIndexStorage(descriptor));
         }
     }
@@ -79,13 +81,13 @@ public class TestMvTableStorage implements MvTableStorage {
     private static class HashIndices {
         private final HashIndexDescriptor descriptor;
 
-        final Map<Integer, HashIndexStorage> storageByPartitionId = new ConcurrentHashMap<>();
+        final Map<Integer, TestHashIndexStorage> storageByPartitionId = new ConcurrentHashMap<>();
 
         HashIndices(HashIndexDescriptor descriptor) {
             this.descriptor = descriptor;
         }
 
-        HashIndexStorage getOrCreateStorage(Integer partitionId) {
+        TestHashIndexStorage getOrCreateStorage(Integer partitionId) {
             return storageByPartitionId.computeIfAbsent(partitionId, id -> new TestHashIndexStorage(descriptor));
         }
     }
@@ -110,6 +112,10 @@ public class TestMvTableStorage implements MvTableStorage {
     @Override
     public CompletableFuture<Void> destroyPartition(int partitionId) {
         checkPartitionId(partitionId);
+
+        if (fullRebalanceFutureByPartitionId.containsKey(partitionId)) {
+            throw new StorageException("Partition in the process of full rebalancing: " + partitionId);
+        }
 
         CompletableFuture<Void> destroyPartitionFuture = new CompletableFuture<>();
 
@@ -239,15 +245,27 @@ public class TestMvTableStorage implements MvTableStorage {
             throw new StorageFullRebalanceException(createPartitionDoesNotExistsErrorMessage(partitionId));
         }
 
+        if (destroyFutureByPartitionId.containsKey(partitionId)) {
+            throw new StorageFullRebalanceException("Partition in the process of destruction: " + partitionId);
+        }
+
         CompletableFuture<Void> fullRebalanceFuture = new CompletableFuture<>();
 
         if (fullRebalanceFutureByPartitionId.putIfAbsent(partitionId, fullRebalanceFuture) != null) {
             throw new StorageFullRebalanceException("Full rebalance for the partition is already in progress: " + partitionId);
         }
 
-        // TODO: IGNITE-18073 реализовать для индексов и самого хранилища партиции.
+        try {
+            partitionStorage.startFullRebalance();
 
-        fullRebalanceFuture.complete(null);
+            testHashIndexStorageStream(partitionId).forEach(TestHashIndexStorage::startFullRebalance);
+
+            testSortedIndexStorageStream(partitionId).forEach(TestSortedIndexStorage::startFullRebalance);
+
+            fullRebalanceFuture.complete(null);
+        } catch (Throwable t) {
+            fullRebalanceFuture.completeExceptionally(t);
+        }
 
         return fullRebalanceFuture;
     }
@@ -270,7 +288,11 @@ public class TestMvTableStorage implements MvTableStorage {
 
         return fullRebalanceFuture
                 .thenAccept(unused -> {
-                    // TODO: IGNITE-18073 реализовать для индексов и самого хранилища партиции.
+                    partitionStorage.abortFullRebalance();
+
+                    testHashIndexStorageStream(partitionId).forEach(TestHashIndexStorage::abortFullRebalance);
+
+                    testSortedIndexStorageStream(partitionId).forEach(TestSortedIndexStorage::abortFullRebalance);
                 });
     }
 
@@ -292,7 +314,11 @@ public class TestMvTableStorage implements MvTableStorage {
 
         return fullRebalanceFuture
                 .thenAccept(unused -> {
-                    // TODO: IGNITE-18073 реализовать для индексов и самого хранилища партиции.
+                    partitionStorage.finishFullRebalance(lastAppliedIndex, lastAppliedTerm);
+
+                    testHashIndexStorageStream(partitionId).forEach(TestHashIndexStorage::finishFullRebalance);
+
+                    testSortedIndexStorageStream(partitionId).forEach(TestSortedIndexStorage::finishFullRebalance);
                 });
     }
 
@@ -311,5 +337,17 @@ public class TestMvTableStorage implements MvTableStorage {
 
     private static String createPartitionDoesNotExistsErrorMessage(int partitionId) {
         return "Partition ID " + partitionId + " does not exist";
+    }
+
+    private Stream<TestHashIndexStorage> testHashIndexStorageStream(Integer partitionId) {
+        return hashIndicesById.values().stream()
+                .map(hashIndices -> hashIndices.storageByPartitionId.get(partitionId))
+                .filter(Objects::nonNull);
+    }
+
+    private Stream<TestSortedIndexStorage> testSortedIndexStorageStream(Integer partitionId) {
+        return sortedIndicesById.values().stream()
+                .map(hashIndices -> hashIndices.storageByPartitionId.get(partitionId))
+                .filter(Objects::nonNull);
     }
 }

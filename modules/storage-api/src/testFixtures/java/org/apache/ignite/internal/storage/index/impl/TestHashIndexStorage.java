@@ -28,6 +28,7 @@ import java.util.concurrent.ConcurrentMap;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageClosedException;
+import org.apache.ignite.internal.storage.StorageFullRebalanceException;
 import org.apache.ignite.internal.storage.index.HashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.IndexRow;
@@ -43,6 +44,8 @@ public class TestHashIndexStorage implements HashIndexStorage {
 
     private volatile boolean closed;
 
+    private volatile boolean fullRebalance;
+
     /**
      * Constructor.
      */
@@ -57,10 +60,10 @@ public class TestHashIndexStorage implements HashIndexStorage {
 
     @Override
     public Cursor<RowId> get(BinaryTuple key) {
-        checkClosed();
+        checkStorageClosedOrInProcessOfRebalance();
 
         Iterator<RowId> iterator = index.getOrDefault(key.byteBuffer(), Set.of()).stream()
-                .peek(rowId -> checkClosed())
+                .peek(rowId -> checkStorageClosedOrInProcessOfRebalance())
                 .iterator();
 
         return Cursor.fromBareIterator(iterator);
@@ -68,7 +71,7 @@ public class TestHashIndexStorage implements HashIndexStorage {
 
     @Override
     public void put(IndexRow row) {
-        checkClosed();
+        checkStorageClosed();
 
         index.compute(row.indexColumns().byteBuffer(), (k, v) -> {
             if (v == null) {
@@ -88,7 +91,7 @@ public class TestHashIndexStorage implements HashIndexStorage {
 
     @Override
     public void remove(IndexRow row) {
-        checkClosed();
+        checkStorageClosed();
 
         index.computeIfPresent(row.indexColumns().byteBuffer(), (k, v) -> {
             if (v.contains(row.rowId())) {
@@ -111,7 +114,7 @@ public class TestHashIndexStorage implements HashIndexStorage {
     public void destroy() {
         closed = true;
 
-        index.clear();
+        clear();
     }
 
     /**
@@ -121,9 +124,50 @@ public class TestHashIndexStorage implements HashIndexStorage {
         index.clear();
     }
 
-    private void checkClosed() {
+    private void checkStorageClosed() {
         if (closed) {
             throw new StorageClosedException("Storage is already closed");
         }
+    }
+
+    private void checkStorageClosedOrInProcessOfRebalance() {
+        checkStorageClosed();
+
+        if (fullRebalance) {
+            throw new StorageFullRebalanceException("Storage in the process of a full rebalancing");
+        }
+    }
+
+    /**
+     * Starts a full rebalancing of the storage.
+     */
+    public void startFullRebalance() {
+        checkStorageClosed();
+
+        fullRebalance = true;
+
+        clear();
+    }
+
+    /**
+     * Aborts a full rebalance of the storage.
+     */
+    public void abortFullRebalance() {
+        checkStorageClosed();
+
+        fullRebalance = false;
+
+        clear();
+    }
+
+    /**
+     * Completes a full rebalance of the storage.
+     */
+    public void finishFullRebalance() {
+        checkStorageClosed();
+
+        assert fullRebalance;
+
+        fullRebalance = false;
     }
 }
