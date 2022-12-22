@@ -229,7 +229,7 @@ public class TestMvTableStorage implements MvTableStorage {
     }
 
     @Override
-    public CompletableFuture<Void> startRebalanceMvPartition(int partitionId) {
+    public CompletableFuture<Void> startFullRebalancePartition(int partitionId) {
         MvPartitionStorage oldPartitionStorage = partitions.get(partitionId);
 
         assert oldPartitionStorage != null : "Partition does not exist: " + partitionId;
@@ -242,7 +242,7 @@ public class TestMvTableStorage implements MvTableStorage {
     }
 
     @Override
-    public CompletableFuture<Void> abortRebalanceMvPartition(int partitionId) {
+    public CompletableFuture<Void> abortFullRebalancePartition(int partitionId) {
         MvPartitionStorage oldPartitionStorage = backupPartitions.remove(partitionId);
 
         if (oldPartitionStorage != null) {
@@ -253,7 +253,7 @@ public class TestMvTableStorage implements MvTableStorage {
     }
 
     @Override
-    public CompletableFuture<Void> finishRebalanceMvPartition(int partitionId) {
+    public CompletableFuture<Void> finishFullRebalancePartition(int partitionId) {
         backupPartitions.remove(partitionId);
 
         return completedFuture(null);

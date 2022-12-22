@@ -40,6 +40,13 @@ import org.jetbrains.annotations.Nullable;
  */
 public interface MvPartitionStorage extends ManuallyCloseable {
     /**
+     * Value of the {@link #lastAppliedIndex()} and {@link #lastAppliedTerm()} during a full rebalance of transaction state storage.
+     *
+     * <p>Allows to determine on a node restart that a full rebalance has not been completed and storage should be cleared before using it.
+     */
+    long FULL_REBALANCE_IN_PROGRESS = -1;
+
+    /**
      * Closure for executing write operations on the storage.
      *
      * @param <V> Type of the result returned from the closure.

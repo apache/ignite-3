@@ -337,7 +337,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
         partitionStorage.flush().get(1, TimeUnit.SECONDS);
 
-        tableStorage.startRebalanceMvPartition(PARTITION_ID).get(1, TimeUnit.SECONDS);
+        tableStorage.startFullRebalancePartition(PARTITION_ID).get(1, TimeUnit.SECONDS);
 
         MvPartitionStorage newPartitionStorage0 = tableStorage.getMvPartition(PARTITION_ID);
 
@@ -350,7 +350,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         assertEquals(0L, newPartitionStorage0.persistedIndex());
         assertEquals(0, newPartitionStorage0.rowsCount());
 
-        tableStorage.startRebalanceMvPartition(PARTITION_ID).get(1, TimeUnit.SECONDS);
+        tableStorage.startFullRebalancePartition(PARTITION_ID).get(1, TimeUnit.SECONDS);
 
         MvPartitionStorage newPartitionStorage1 = tableStorage.getMvPartition(PARTITION_ID);
 
@@ -359,34 +359,34 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
     @Test
     public void testAbortRebalanceMvPartition() throws Exception {
-        assertDoesNotThrow(() -> tableStorage.abortRebalanceMvPartition(PARTITION_ID).get(1, TimeUnit.SECONDS));
+        assertDoesNotThrow(() -> tableStorage.abortFullRebalancePartition(PARTITION_ID).get(1, TimeUnit.SECONDS));
 
         MvPartitionStorage partitionStorage = tableStorage.getOrCreateMvPartition(PARTITION_ID);
 
-        tableStorage.startRebalanceMvPartition(PARTITION_ID).get(1, TimeUnit.SECONDS);
+        tableStorage.startFullRebalancePartition(PARTITION_ID).get(1, TimeUnit.SECONDS);
 
-        tableStorage.abortRebalanceMvPartition(PARTITION_ID).get(1, TimeUnit.SECONDS);
+        tableStorage.abortFullRebalancePartition(PARTITION_ID).get(1, TimeUnit.SECONDS);
 
         assertSame(partitionStorage, tableStorage.getMvPartition(PARTITION_ID));
 
-        assertDoesNotThrow(() -> tableStorage.abortRebalanceMvPartition(PARTITION_ID).get(1, TimeUnit.SECONDS));
+        assertDoesNotThrow(() -> tableStorage.abortFullRebalancePartition(PARTITION_ID).get(1, TimeUnit.SECONDS));
     }
 
     @Test
     public void testFinishRebalanceMvPartition() throws Exception {
-        assertDoesNotThrow(() -> tableStorage.finishRebalanceMvPartition(PARTITION_ID).get(1, TimeUnit.SECONDS));
+        assertDoesNotThrow(() -> tableStorage.finishFullRebalancePartition(PARTITION_ID).get(1, TimeUnit.SECONDS));
 
         tableStorage.getOrCreateMvPartition(PARTITION_ID);
 
-        tableStorage.startRebalanceMvPartition(PARTITION_ID).get(1, TimeUnit.SECONDS);
+        tableStorage.startFullRebalancePartition(PARTITION_ID).get(1, TimeUnit.SECONDS);
 
         MvPartitionStorage newPartitionStorage = tableStorage.getMvPartition(PARTITION_ID);
 
-        tableStorage.finishRebalanceMvPartition(PARTITION_ID).get(1, TimeUnit.SECONDS);
+        tableStorage.finishFullRebalancePartition(PARTITION_ID).get(1, TimeUnit.SECONDS);
 
         assertSame(newPartitionStorage, tableStorage.getMvPartition(PARTITION_ID));
 
-        assertDoesNotThrow(() -> tableStorage.finishRebalanceMvPartition(PARTITION_ID).get(1, TimeUnit.SECONDS));
+        assertDoesNotThrow(() -> tableStorage.finishFullRebalancePartition(PARTITION_ID).get(1, TimeUnit.SECONDS));
     }
 
     @Test

@@ -18,15 +18,15 @@
 package org.apache.ignite.internal.storage;
 
 /**
- * Exception that will be thrown when the storage is closed.
+ * Exception that will be thrown when the storage is in the process of a full rebalance.
  */
-public class StorageClosedException extends StorageException {
+public class StorageFullRebalanceException extends StorageException {
     /**
      * Constructor.
      *
      * @param message Error message.
      */
-    public StorageClosedException(String message) {
+    public StorageFullRebalanceException(String message) {
         super(message);
     }
 
@@ -36,7 +36,7 @@ public class StorageClosedException extends StorageException {
      * @param message Error message.
      * @param cause The cause.
      */
-    public StorageClosedException(String message, Throwable cause) {
+    public StorageFullRebalanceException(String message, Throwable cause) {
         super(message, cause);
     }
 
@@ -45,7 +45,7 @@ public class StorageClosedException extends StorageException {
      *
      * @param cause The cause.
      */
-    public StorageClosedException(Throwable cause) {
+    public StorageFullRebalanceException(Throwable cause) {
         super(cause);
     }
 }
