@@ -20,6 +20,7 @@ package org.apache.ignite.internal.tx.storage.state;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.tx.storage.state.TxStateStorage.FULL_REBALANCE_IN_PROGRESS;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_FULL_REBALANCE_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.empty;
@@ -49,6 +50,7 @@ import org.apache.ignite.lang.IgniteInternalException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.function.Executable;
 
 /**
  * Abstract tx storage test.
@@ -285,8 +287,8 @@ public abstract class AbstractTxStateStorageTest {
     public void testSuccessFullRebalance() throws Exception {
         TxStateStorage storage = tableStorage.getOrCreateTxStateStorage(0);
 
-        // Nothing will happen because the full rebalance has not started.
-        storage.finishFullRebalance(100, 500).get(1, SECONDS);
+        // We can't finish a full rebalance that we haven't started.
+        assertThrowsIgniteInternalException(TX_STATE_STORAGE_FULL_REBALANCE_ERR, () -> storage.finishFullRebalance(100, 500));
 
         assertEquals(0, storage.lastAppliedIndex());
         assertEquals(0, storage.persistedIndex());
@@ -304,13 +306,12 @@ public abstract class AbstractTxStateStorageTest {
         storage.put(txIdBeforeFullRebalance1, txMetaBeforeRebalance1);
 
         // Let's start a full rebalance.
-
         storage.startFullRebalance().get(1, SECONDS);
 
         checkTxStateStorageReadMethodsWhenFullRebalanceInProgress(storage);
 
         // We cannot start a new rebalance until the current one has ended.
-        assertThrows(IgniteInternalException.class, storage::startFullRebalance);
+        assertThrowsIgniteInternalException(TX_STATE_STORAGE_FULL_REBALANCE_ERR, storage::startFullRebalance);
 
         // Let's fill it with new data.
 
@@ -414,9 +415,9 @@ public abstract class AbstractTxStateStorageTest {
         assertEquals(FULL_REBALANCE_IN_PROGRESS, storage.persistedIndex());
         assertEquals(FULL_REBALANCE_IN_PROGRESS, storage.lastAppliedTerm());
 
-        assertThrows(IgniteInternalException.class, () -> storage.lastApplied(100, 500));
-        assertThrows(IgniteInternalException.class, () -> storage.get(UUID.randomUUID()));
-        assertThrows(IgniteInternalException.class, storage::scan);
+        assertThrowsIgniteInternalException(TX_STATE_STORAGE_FULL_REBALANCE_ERR, () -> storage.lastApplied(100, 500));
+        assertThrowsIgniteInternalException(TX_STATE_STORAGE_FULL_REBALANCE_ERR, () -> storage.get(UUID.randomUUID()));
+        assertThrowsIgniteInternalException(TX_STATE_STORAGE_FULL_REBALANCE_ERR, storage::scan);
     }
 
     private IgniteBiTuple<UUID, TxMeta> putRandomTxMetaWithCommandIndex(TxStateStorage storage, int enlistedPartsCount, long commandIndex) {
@@ -435,6 +436,12 @@ public abstract class AbstractTxStateStorageTest {
         assertEquals(txMeta0.txState(), txMeta1.txState());
         assertEquals(txMeta0.commitTimestamp(), txMeta1.commitTimestamp());
         assertEquals(txMeta0.enlistedPartitions(), txMeta1.enlistedPartitions());
+    }
+
+    private static void assertThrowsIgniteInternalException(int expFullErrorCode, Executable executable) {
+        IgniteInternalException exception = assertThrows(IgniteInternalException.class, executable);
+
+        assertEquals(expFullErrorCode, exception.code());
     }
 
     /**

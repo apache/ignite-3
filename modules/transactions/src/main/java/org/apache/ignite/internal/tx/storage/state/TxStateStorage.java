@@ -136,7 +136,7 @@ public interface TxStateStorage extends ManuallyCloseable {
      * {@link #lastAppliedTerm()} to {@link #FULL_REBALANCE_IN_PROGRESS}, and closes all cursors.
      *
      * <p>After calling this method, only write methods will be available, and read methods with {@link #lastApplied(long, long)} will
-     * throw {@link IgniteInternalException}.
+     * throw {@link IgniteInternalException} with {@link Transactions#TX_STATE_STORAGE_FULL_REBALANCE_ERR}.
      *
      * <p>This method must be called before every full rebalance of transaction state storage and ends with a call to one of the methods:
      * <ul>
@@ -145,10 +145,11 @@ public interface TxStateStorage extends ManuallyCloseable {
      * </ul>
      *
      * <p>If the {@link #lastAppliedIndex()} is {@link #FULL_REBALANCE_IN_PROGRESS} after a node restart, then the storage needs to be
-     * cleared before it can be used.
+     * cleared before it start.
      *
      * @return Future of the start a full rebalance for transaction state storage.
-     * @throws IgniteInternalException with {@link Transactions#TX_STATE_STORAGE_ERR} error code in case when the operation has failed.
+     * @throws IgniteInternalException with {@link Transactions#TX_STATE_STORAGE_FULL_REBALANCE_ERR} error code in case when the operation
+     *      has failed.
      */
     CompletableFuture<Void> startFullRebalance();
 
@@ -169,11 +170,14 @@ public interface TxStateStorage extends ManuallyCloseable {
      *
      * <p>After calling this method, methods for writing and reading will be available.
      *
-     * <p>If a full rebalance has not started, then nothing will happen.
+     * <p>If a full rebalance has not started, then an IgniteInternalException with {@link Transactions#TX_STATE_STORAGE_FULL_REBALANCE_ERR}
+     * will be thrown
      *
      * @param lastAppliedIndex Last applied index.
      * @param lastAppliedTerm Last applied term.
      * @return Future of the finish a full rebalance for transaction state storage.
+     * @throws IgniteInternalException with {@link Transactions#TX_STATE_STORAGE_FULL_REBALANCE_ERR} error code in case when the operation
+     *      has failed.
      */
     CompletableFuture<Void> finishFullRebalance(long lastAppliedIndex, long lastAppliedTerm);
 }

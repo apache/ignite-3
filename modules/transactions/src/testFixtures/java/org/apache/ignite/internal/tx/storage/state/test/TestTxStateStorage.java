@@ -19,9 +19,9 @@ package org.apache.ignite.internal.tx.storage.state.test;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_FULL_REBALANCE_ERR;
 
-import java.util.List;
+import java.util.Iterator;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -100,11 +100,31 @@ public class TestTxStateStorage implements TxStateStorage {
     public Cursor<IgniteBiTuple<UUID, TxMeta>> scan() {
         checkFullRebalanceInProgress();
 
-        List<IgniteBiTuple<UUID, TxMeta>> copy = storage.entrySet().stream()
+        Iterator<IgniteBiTuple<UUID, TxMeta>> iterator = storage.entrySet().stream()
                 .map(e -> new IgniteBiTuple<>(e.getKey(), e.getValue()))
-                .collect(toList());
+                .collect(toList())
+                .iterator();
 
-        return Cursor.fromIterable(copy);
+        return new Cursor<>() {
+            @Override
+            public void close() {
+                // No-op.
+            }
+
+            @Override
+            public boolean hasNext() {
+                assert fullRebalanceFutureReference.get() == null;
+
+                return iterator.hasNext();
+            }
+
+            @Override
+            public IgniteBiTuple<UUID, TxMeta> next() {
+                assert fullRebalanceFutureReference.get() == null;
+
+                return iterator.next();
+            }
+        };
     }
 
     @Override
@@ -187,7 +207,7 @@ public class TestTxStateStorage implements TxStateStorage {
         CompletableFuture<Void> fullRebalanceFuture = fullRebalanceFutureReference.getAndSet(null);
 
         if (fullRebalanceFuture == null) {
-            return completedFuture(null);
+            throw new IgniteInternalException(TX_STATE_STORAGE_FULL_REBALANCE_ERR, "Full rebalancing has not started");
         }
 
         return fullRebalanceFuture
@@ -201,6 +221,6 @@ public class TestTxStateStorage implements TxStateStorage {
     }
 
     private static void throwFullRebalanceInProgressException() {
-        throw new IgniteInternalException(TX_STATE_STORAGE_ERR, "Full rebalance is already in progress");
+        throw new IgniteInternalException(TX_STATE_STORAGE_FULL_REBALANCE_ERR, "Full rebalance is already in progress");
     }
 }
