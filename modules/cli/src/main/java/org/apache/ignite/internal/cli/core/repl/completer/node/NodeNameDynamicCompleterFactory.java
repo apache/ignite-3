@@ -18,10 +18,10 @@
 package org.apache.ignite.internal.cli.core.repl.completer.node;
 
 import jakarta.inject.Singleton;
-import org.apache.ignite.internal.cli.core.repl.registry.NodeNameRegistry;
 import org.apache.ignite.internal.cli.core.repl.completer.DynamicCompleter;
 import org.apache.ignite.internal.cli.core.repl.completer.DynamicCompleterFactory;
 import org.apache.ignite.internal.cli.core.repl.completer.StringDynamicCompleter;
+import org.apache.ignite.internal.cli.core.repl.registry.NodeNameRegistry;
 
 /** Factory for --node-name option completer. */
 @Singleton
@@ -35,6 +35,6 @@ public class NodeNameDynamicCompleterFactory implements DynamicCompleterFactory 
 
     @Override
     public DynamicCompleter getDynamicCompleter(String[] words) {
-        return new StringDynamicCompleter(nodeNameRegistry.getAllNames());
+        return new StringDynamicCompleter(nodeNameRegistry.names());
     }
 }

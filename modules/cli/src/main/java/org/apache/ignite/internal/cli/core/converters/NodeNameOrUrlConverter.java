@@ -20,7 +20,7 @@ package org.apache.ignite.internal.cli.core.converters;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.regex.Pattern;
-import org.apache.ignite.internal.cli.core.repl.registry.NodeNameRegistry;
+import org.apache.ignite.internal.cli.core.repl.registry.impl.NodeNameRegistryImpl;
 import org.apache.ignite.internal.cli.commands.node.NodeNameOrUrl;
 import picocli.CommandLine;
 import picocli.CommandLine.TypeConversionException;
@@ -30,9 +30,9 @@ public class NodeNameOrUrlConverter implements CommandLine.ITypeConverter<NodeNa
 
     private static final Pattern URL_PATTERN = Pattern.compile("^.*[/:].*");
 
-    private final NodeNameRegistry nodeNameRegistry;
+    private final NodeNameRegistryImpl nodeNameRegistry;
 
-    public NodeNameOrUrlConverter(NodeNameRegistry nodeNameRegistry) {
+    public NodeNameOrUrlConverter(NodeNameRegistryImpl nodeNameRegistry) {
         this.nodeNameRegistry = nodeNameRegistry;
     }
 
@@ -55,7 +55,7 @@ public class NodeNameOrUrlConverter implements CommandLine.ITypeConverter<NodeNa
     }
 
     private URL findNodeUrlByNodeName(String name) {
-        return nodeNameRegistry.getNodeUrl(name)
+        return nodeNameRegistry.nodeUrlByName(name)
                 .orElseThrow(() -> new TypeConversionException("Node " + name + " not found. Provide valid name or use URL"));
     }
 }

@@ -20,9 +20,8 @@ package org.apache.ignite.internal.cli.call.connect;
 import com.google.gson.Gson;
 import jakarta.inject.Singleton;
 import java.net.MalformedURLException;
-import java.net.URL;
 import java.util.Objects;
-import org.apache.ignite.internal.cli.core.repl.registry.NodeNameRegistry;
+import org.apache.ignite.internal.cli.core.JdbcUrl;
 import org.apache.ignite.internal.cli.config.ConfigConstants;
 import org.apache.ignite.internal.cli.config.StateConfigProvider;
 import org.apache.ignite.internal.cli.core.call.Call;
@@ -48,15 +47,12 @@ public class ConnectCall implements Call<ConnectCallInput, String> {
 
     private final StateConfigProvider stateConfigProvider;
 
-    private final NodeNameRegistry nodeNameRegistry;
-
     /**
      * Constructor.
      */
-    public ConnectCall(Session session, StateConfigProvider stateConfigProvider, NodeNameRegistry nodeNameRegistry) {
+    public ConnectCall(Session session, StateConfigProvider stateConfigProvider) {
         this.session = session;
         this.stateConfigProvider = stateConfigProvider;
-        this.nodeNameRegistry = nodeNameRegistry;
     }
 
     @Override
@@ -71,7 +67,6 @@ public class ConnectCall implements Call<ConnectCallInput, String> {
             stateConfigProvider.get().setProperty(ConfigConstants.LAST_CONNECTED_URL, nodeUrl);
             session.connect(nodeUrl, fetchNodeName(nodeUrl), constructJdbcUrl(configuration, nodeUrl));
             return DefaultCallOutput.success(MessageUiComponent.fromMessage("Connected to %s", UiElements.url(nodeUrl)).render());
-
         } catch (ApiException | IllegalArgumentException e) {
             session.disconnect();
             return DefaultCallOutput.failure(new IgniteCliApiException(e, nodeUrl));
@@ -88,9 +83,8 @@ public class ConnectCall implements Call<ConnectCallInput, String> {
 
     private String constructJdbcUrl(String configuration, String nodeUrl) {
         try {
-            String host = new URL(nodeUrl).getHost();
-            RootConfig config = new Gson().fromJson(configuration, RootConfig.class);
-            return "jdbc:ignite:thin://" + host + ":" + config.clientConnector.port;
+            int port = new Gson().fromJson(configuration, RootConfig.class).clientConnector.port;
+            return JdbcUrl.of(nodeUrl, port).toString();
         } catch (MalformedURLException ignored) {
             // Shouldn't happen ever since we are now connected to this URL
             return null;

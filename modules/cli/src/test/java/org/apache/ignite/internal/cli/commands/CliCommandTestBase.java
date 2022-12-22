@@ -27,7 +27,7 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.HashMap;
 import java.util.Map;
-import org.apache.ignite.internal.cli.core.repl.registry.NodeNameRegistry;
+import org.apache.ignite.internal.cli.core.repl.registry.impl.NodeNameRegistryImpl;
 import org.apache.ignite.internal.cli.commands.node.NodeNameOrUrl;
 import org.apache.ignite.internal.cli.core.converters.NodeNameOrUrlConverter;
 import org.junit.jupiter.api.BeforeEach;
@@ -44,7 +44,7 @@ public abstract class CliCommandTestBase {
     private ApplicationContext context;
 
     @Inject
-    private NodeNameRegistry nodeNameRegistry;
+    private NodeNameRegistryImpl nodeNameRegistry;
 
     private CommandLine cmd;
 

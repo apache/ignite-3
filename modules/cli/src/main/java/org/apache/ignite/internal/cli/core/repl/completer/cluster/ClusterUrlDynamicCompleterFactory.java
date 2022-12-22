@@ -21,12 +21,12 @@ import jakarta.inject.Singleton;
 import java.net.URL;
 import java.util.Set;
 import java.util.stream.Collectors;
-import org.apache.ignite.internal.cli.core.repl.registry.NodeNameRegistry;
 import org.apache.ignite.internal.cli.core.repl.completer.DynamicCompleter;
 import org.apache.ignite.internal.cli.core.repl.completer.DynamicCompleterFactory;
 import org.apache.ignite.internal.cli.core.repl.completer.StringDynamicCompleter;
+import org.apache.ignite.internal.cli.core.repl.registry.NodeNameRegistry;
 
-/** Factory for --node-name option completer. */
+/** Factory for --cluster-endpoint-url option completer. */
 @Singleton
 public class ClusterUrlDynamicCompleterFactory implements DynamicCompleterFactory {
 
@@ -38,7 +38,7 @@ public class ClusterUrlDynamicCompleterFactory implements DynamicCompleterFactor
 
     @Override
     public DynamicCompleter getDynamicCompleter(String[] words) {
-        Set<String> urls = nodeNameRegistry.getAllUrls()
+        Set<String> urls = nodeNameRegistry.urls()
                 .stream()
                 .map(URL::toString)
                 .collect(Collectors.toSet());

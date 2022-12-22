@@ -25,7 +25,7 @@ import jakarta.inject.Inject;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import org.apache.ignite.internal.cli.IntegrationTestBase;
-import org.apache.ignite.internal.cli.core.repl.registry.NodeNameRegistry;
+import org.apache.ignite.internal.cli.core.repl.registry.impl.NodeNameRegistryImpl;
 import org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerHelper;
 import org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerProvider;
 import org.apache.ignite.internal.cli.commands.node.NodeNameOrUrl;
@@ -57,7 +57,7 @@ public class CliCommandTestNotInitializedIntegrationBase extends IntegrationTest
     private ApplicationContext context;
 
     @Inject
-    protected NodeNameRegistry nodeNameRegistry;
+    protected NodeNameRegistryImpl nodeNameRegistry;
 
     private CommandLine cmd;
 
