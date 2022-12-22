@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.storage;
 
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.startRace;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
@@ -30,7 +30,7 @@ import org.junit.jupiter.api.Test;
  * Test to check for race conditions in MV partition storage.
  */
 public abstract class AbstractMvPartitionStorageConcurrencyTest extends BaseMvPartitionStorageTest {
-    /** To be used in a loop. {@link RepeatedTest} has a smaller failure rate for some reasons. */
+    /** To be used in a loop. {@link RepeatedTest} has a smaller failure rate due to recreating the storage every time. */
     private static final int REPEATS = 100;
 
     @Test
@@ -38,7 +38,7 @@ public abstract class AbstractMvPartitionStorageConcurrencyTest extends BaseMvPa
         for (int i = 0; i < REPEATS; i++) {
             addWrite(ROW_ID, BINARY_ROW, TX_ID);
 
-            startRace(
+            runRace(
                     () -> abortWrite(ROW_ID),
                     () -> read(ROW_ID, clock.now()),
                     () -> scanFirstEntry(clock.now())
@@ -53,7 +53,7 @@ public abstract class AbstractMvPartitionStorageConcurrencyTest extends BaseMvPa
         for (int i = 0; i < REPEATS; i++) {
             addWrite(ROW_ID, BINARY_ROW, TX_ID);
 
-            startRace(
+            runRace(
                     () -> commitWrite(ROW_ID, clock.now()),
                     () -> read(ROW_ID, clock.now()),
                     () -> scanFirstEntry(clock.now())
@@ -68,7 +68,7 @@ public abstract class AbstractMvPartitionStorageConcurrencyTest extends BaseMvPa
         for (int i = 0; i < REPEATS; i++) {
             addWrite(ROW_ID, BINARY_ROW, TX_ID);
 
-            startRace(
+            runRace(
                     () -> addWrite(ROW_ID, BINARY_ROW, TX_ID),
                     () -> read(ROW_ID, clock.now()),
                     () -> scanFirstEntry(clock.now())
@@ -88,7 +88,7 @@ public abstract class AbstractMvPartitionStorageConcurrencyTest extends BaseMvPa
 
             addAndCommit(BINARY_ROW);
 
-            startRace(
+            runRace(
                     () -> pollForVacuum(HybridTimestamp.MAX_VALUE),
                     () -> read(ROW_ID, firstCommitTs),
                     () -> scanFirstEntry(firstCommitTs)
@@ -110,7 +110,7 @@ public abstract class AbstractMvPartitionStorageConcurrencyTest extends BaseMvPa
 
             addAndCommit(null);
 
-            startRace(
+            runRace(
                     () -> pollForVacuum(HybridTimestamp.MAX_VALUE),
                     () -> read(ROW_ID, firstCommitTs),
                     () -> scanFirstEntry(firstCommitTs)
@@ -130,7 +130,7 @@ public abstract class AbstractMvPartitionStorageConcurrencyTest extends BaseMvPa
 
             addAndCommit(null);
 
-            startRace(
+            runRace(
                     () -> pollForVacuum(HybridTimestamp.MAX_VALUE),
                     () -> addWrite(ROW_ID, BINARY_ROW, TX_ID)
             );
@@ -156,7 +156,7 @@ public abstract class AbstractMvPartitionStorageConcurrencyTest extends BaseMvPa
     private void cleanup() {
         addAndCommit(null);
 
-        BinaryRowWithRowId row;
+        BinaryRowAndRowId row;
 
         do {
             row = pollForVacuum(HybridTimestamp.MAX_VALUE);

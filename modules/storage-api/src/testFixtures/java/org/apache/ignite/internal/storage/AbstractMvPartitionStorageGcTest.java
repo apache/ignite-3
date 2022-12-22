@@ -20,16 +20,12 @@ package org.apache.ignite.internal.storage;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
-import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.schema.BinaryRow;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Abstract test for MV partition storage GC.
  */
-@ExtendWith(ConfigurationExtension.class)
 public abstract class AbstractMvPartitionStorageGcTest extends BaseMvPartitionStorageTest {
     @Test
     void testEmptyStorage() {
@@ -49,7 +45,7 @@ public abstract class AbstractMvPartitionStorageGcTest extends BaseMvPartitionSt
 
         HybridTimestamp tsBetweenCommits = clock.now();
 
-        HybridTimestamp secondCommitTs = addAndCommit(BINARY_ROW);
+        HybridTimestamp secondCommitTs = addAndCommit(BINARY_ROW2);
 
         // Data is still visible for older timestamps.
         assertNull(storage.pollForVacuum(firstCommitTs));
@@ -58,17 +54,17 @@ public abstract class AbstractMvPartitionStorageGcTest extends BaseMvPartitionSt
 
         // Once a low watermark value becomes equal to second commit timestamp, previous value
         // becomes completely inaccessible and should be purged.
-        BinaryRowWithRowId row = storage.pollForVacuum(secondCommitTs);
+        BinaryRowAndRowId gcedRow = storage.pollForVacuum(secondCommitTs);
 
-        assertNotNull(row);
+        assertNotNull(gcedRow);
 
-        assertRowMatches(row.binaryRow(), BINARY_ROW);
+        assertRowMatches(gcedRow.binaryRow(), BINARY_ROW);
 
         // Read from the old timestamp should return null.
         assertNull(read(ROW_ID, firstCommitTs));
 
         // Read from the newer timestamp should return last value.
-        assertRowMatches(read(ROW_ID, secondCommitTs), BINARY_ROW);
+        assertRowMatches(read(ROW_ID, secondCommitTs), BINARY_ROW2);
     }
 
     @Test
@@ -76,7 +72,7 @@ public abstract class AbstractMvPartitionStorageGcTest extends BaseMvPartitionSt
         addAndCommit(BINARY_ROW);
         HybridTimestamp secondCommitTs = addAndCommit(null);
 
-        BinaryRowWithRowId row = storage.pollForVacuum(secondCommitTs);
+        BinaryRowAndRowId row = storage.pollForVacuum(secondCommitTs);
 
         assertNotNull(row);
         assertRowMatches(row.binaryRow(), BINARY_ROW);
@@ -93,7 +89,7 @@ public abstract class AbstractMvPartitionStorageGcTest extends BaseMvPartitionSt
         addAndCommit(null);
         HybridTimestamp lastCommitTs = addAndCommit(null);
 
-        BinaryRowWithRowId row = storage.pollForVacuum(lastCommitTs);
+        BinaryRowAndRowId row = storage.pollForVacuum(lastCommitTs);
 
         assertNotNull(row);
         assertRowMatches(row.binaryRow(), BINARY_ROW);
@@ -108,14 +104,12 @@ public abstract class AbstractMvPartitionStorageGcTest extends BaseMvPartitionSt
     void testManyOldVersions() {
         addAndCommit(BINARY_ROW);
 
-        BinaryRow binaryRow2 = binaryRow(KEY, new TestValue(50, "50"));
-
-        addAndCommit(binaryRow2);
+        addAndCommit(BINARY_ROW2);
 
         HybridTimestamp lowWatermark = addAndCommit(null);
 
         // Poll the oldest row.
-        BinaryRowWithRowId row = pollForVacuum(lowWatermark);
+        BinaryRowAndRowId row = pollForVacuum(lowWatermark);
 
         assertNotNull(row);
         assertRowMatches(row.binaryRow(), BINARY_ROW);
@@ -124,7 +118,7 @@ public abstract class AbstractMvPartitionStorageGcTest extends BaseMvPartitionSt
         row = pollForVacuum(lowWatermark);
 
         assertNotNull(row);
-        assertRowMatches(row.binaryRow(), binaryRow2);
+        assertRowMatches(row.binaryRow(), BINARY_ROW2);
 
         // Nothing else to poll.
         assertNull(pollForVacuum(lowWatermark));

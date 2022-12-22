@@ -210,13 +210,13 @@ public interface MvPartitionStorage extends ManuallyCloseable {
     @Nullable RowId closestRowId(RowId lowerBound) throws StorageException;
 
     /**
-     * Polls an oldest row in the partition, removing it at the same time.
+     * Polls the oldest row in the partition, removing it at the same time.
      *
      * @param lowWatermark A time threshold for the row. Rows younger then the watermark value will not be removed.
      * @return A pair of binary row and row id, where a timestamp of the row is less than or equal to {@code lowWatermark}.
      *      {@code null} if there's no such value.
      */
-    default @Nullable BinaryRowWithRowId pollForVacuum(HybridTimestamp lowWatermark) {
+    default @Nullable BinaryRowAndRowId pollForVacuum(HybridTimestamp lowWatermark) {
         throw new UnsupportedOperationException("pollForVacuum");
     }
 

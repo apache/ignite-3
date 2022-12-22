@@ -775,9 +775,9 @@ public final class IgniteTestUtils {
     /**
      * Runs all actions, each in a separate thread, having a {@link CyclicBarrier} before calling {@link RunnableX#run()}.
      *
-     * @throws InterruptedException If failed to {@link Thread#join()} a thread.
+     * @throws InterruptedException If interrupted when trying to {@link Thread#join()} a thread.
      */
-    public static void startRace(RunnableX... actions) throws InterruptedException {
+    public static void runRace(RunnableX... actions) throws InterruptedException {
         int length = actions.length;
 
         CyclicBarrier barrier = new CyclicBarrier(length);

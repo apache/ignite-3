@@ -47,9 +47,9 @@ public abstract class BaseMvPartitionStorageTest extends BaseMvStoragesTest {
 
     protected static final TestKey KEY = new TestKey(10, "foo");
 
-    protected static final TestValue VALUE = new TestValue(20, "bar");
+    protected static final BinaryRow BINARY_ROW = binaryRow(KEY, new TestValue(20, "bar"));
 
-    protected static final BinaryRow BINARY_ROW = binaryRow(KEY, VALUE);
+    protected static final BinaryRow BINARY_ROW2 = binaryRow(KEY, new TestValue(20, "bar"));
 
     protected @InjectConfiguration("mock.tables.foo = {}") TablesConfiguration tablesCfg;
 
@@ -174,7 +174,7 @@ public abstract class BaseMvPartitionStorageTest extends BaseMvStoragesTest {
         return storage.runConsistently(() -> storage.abortWrite(rowId));
     }
 
-    protected BinaryRowWithRowId pollForVacuum(HybridTimestamp lowWatermark) {
+    protected BinaryRowAndRowId pollForVacuum(HybridTimestamp lowWatermark) {
         return storage.runConsistently(() -> storage.pollForVacuum(lowWatermark));
     }
 }
