@@ -117,10 +117,6 @@ class ItTableRaftSnapshotsTest {
         cluster.shutdown();
     }
 
-    private Path nodeWorkDir(String nodeName) {
-        return workDir.resolve(nodeName);
-    }
-
     @Test
     void snapshotReadOnRestartWorksCorrectly() {
         cluster.startAndInit(1);
@@ -604,7 +600,7 @@ class ItTableRaftSnapshotsTest {
 
             String config = IgniteStringFormatter.format(NODE_BOOTSTRAP_CFG, BASE_PORT + nodeIndex, CONNECT_NODE_ADDR);
 
-            return IgnitionManager.start(nodeName, config, nodeWorkDir(nodeName))
+            return IgnitionManager.start(nodeName, config, workDir.resolve(nodeName))
                     .thenApply(IgniteImpl.class::cast);
         }
 
