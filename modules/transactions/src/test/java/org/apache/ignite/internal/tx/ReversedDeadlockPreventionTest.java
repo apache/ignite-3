@@ -27,7 +27,7 @@ import org.junit.jupiter.api.BeforeEach;
  * Deadlock prevention test with modified prevention policy and transaction id generation algorithm, it is intended to test alternative
  * deadlock prevention policy.
  */
-public class ReversedDeadlockPreventionTest extends DeadlockPreventionTest {
+public class ReversedDeadlockPreventionTest extends AbstractDeadlockPreventionTest {
     private long counter;
 
     @BeforeEach
@@ -42,8 +42,8 @@ public class ReversedDeadlockPreventionTest extends DeadlockPreventionTest {
     }
 
     @Override
-    protected LockManager createLockManager() {
-        return new HeapLockManager(new DeadlockPreventionPolicy() {
+    protected DeadlockPreventionPolicy deadlockPreventionPolicy() {
+        return new DeadlockPreventionPolicy() {
             @Override
             public @Nullable Comparator<UUID> txComparator() {
                 return Comparator.reverseOrder();
@@ -53,6 +53,6 @@ public class ReversedDeadlockPreventionTest extends DeadlockPreventionTest {
             public long waitTimeout() {
                 return 0;
             }
-        });
+        };
     }
 }

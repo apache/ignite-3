@@ -22,16 +22,18 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.junit.jupiter.api.Test;
 
-public class NoWaitDeadlockPreventionTest {
-    private final LockManager lockManager = new HeapLockManager(new DeadlockPreventionPolicy() {
-        @Override
-        public long waitTimeout() {
-            return 0;
-        }
-    });
+public class NoWaitDeadlockPreventionTest extends AbstractDeadlockPreventionTest {
+    @Override
+    protected DeadlockPreventionPolicy deadlockPreventionPolicy() {
+        return new DeadlockPreventionPolicy() {
+            @Override
+            public long waitTimeout() {
+                return 0;
+            }
+        };
+    }
 
     @Test
     public void testNoWait() {
