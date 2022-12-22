@@ -536,7 +536,7 @@ class ItTableRaftSnapshotsTest {
      * Tests that entries can still be added to a follower using AppendEntries after it gets fed with a RAFT snapshot.
      */
     @Test
-    @Disabled("Enable when IGNITE-18432 is fixed")
+    @Disabled("Enable when IGNITE-18451 is fixed")
     void entriesKeepAddendedAfterSnapshotInstallation() throws Exception {
         feedNode2WithSnapshotOfOneRow(NodeKnockout.DEFAULT);
 
