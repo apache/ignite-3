@@ -65,7 +65,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import org.apache.ignite.configuration.ConfigurationValue;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -119,6 +120,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
  * Meta storage client tests.
  */
 @ExtendWith(WorkDirectoryExtension.class)
+@ExtendWith(ConfigurationExtension.class)
 @ExtendWith(MockitoExtension.class)
 public class ItMetaStorageServiceTest {
     /** The logger. */
@@ -182,6 +184,9 @@ public class ItMetaStorageServiceTest {
 
     @WorkDirectory
     private Path dataPath;
+
+    @InjectConfiguration
+    private RaftConfiguration raftConfiguration;
 
     static {
         EXPECTED_RESULT_MAP = new TreeMap<>();
@@ -1075,13 +1080,6 @@ public class ItMetaStorageServiceTest {
     private CompletableFuture<RaftGroupService> startRaftService(
             ClusterService node, PeersAndLearners configuration
     ) throws NodeStoppingException {
-        RaftConfiguration raftConfiguration = mock(RaftConfiguration.class);
-
-        ConfigurationValue<Integer> rpcInstallSnapshotTimeutValue = mock(ConfigurationValue.class);
-
-        when(raftConfiguration.rpcInstallSnapshotTimeout()).thenReturn(rpcInstallSnapshotTimeutValue);
-        when(rpcInstallSnapshotTimeutValue.value()).thenReturn(10);
-
         var raftManager = new Loza(
                 node,
                 raftConfiguration,
