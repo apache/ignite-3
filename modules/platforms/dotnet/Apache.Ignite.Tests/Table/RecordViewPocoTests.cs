@@ -650,7 +650,51 @@ namespace Apache.Ignite.Tests.Table
         }
 
         [Test]
-        [Ignore("IGNITE-18329 Add support for nullable value type mapping")]
+        public async Task TestAllColumnsPocoNullableNotNull()
+        {
+            var pocoView = PocoAllColumnsNullableView;
+
+            var dt = LocalDateTime.FromDateTime(DateTime.UtcNow);
+            var poco = new PocoAllColumnsNullable(
+                Key: 123,
+                Str: "str",
+                Int8: 8,
+                Int16: 16,
+                Int32: 32,
+                Int64: 64,
+                Float: 32.32f,
+                Double: 64.64,
+                Uuid: Guid.NewGuid(),
+                Date: dt.Date,
+                BitMask: new BitArray(new byte[] { 1 }),
+                Time: dt.TimeOfDay,
+                DateTime: dt,
+                Timestamp: Instant.FromDateTimeUtc(DateTime.UtcNow),
+                Blob: new byte[] { 1, 2, 3 },
+                Decimal: 123.456m);
+
+            await pocoView.UpsertAsync(null, poco);
+
+            var res = (await pocoView.GetAsync(null, poco)).Value;
+
+            Assert.AreEqual(poco.Blob, res.Blob);
+            Assert.AreEqual(poco.Date, res.Date);
+            Assert.AreEqual(poco.Decimal, res.Decimal);
+            Assert.AreEqual(poco.Double, res.Double);
+            Assert.AreEqual(poco.Float, res.Float);
+            Assert.AreEqual(poco.Int8, res.Int8);
+            Assert.AreEqual(poco.Int16, res.Int16);
+            Assert.AreEqual(poco.Int32, res.Int32);
+            Assert.AreEqual(poco.Int64, res.Int64);
+            Assert.AreEqual(poco.Str, res.Str);
+            Assert.AreEqual(poco.Uuid, res.Uuid);
+            Assert.AreEqual(poco.BitMask, res.BitMask);
+            Assert.AreEqual(poco.Timestamp, res.Timestamp);
+            Assert.AreEqual(poco.Time, res.Time);
+            Assert.AreEqual(poco.DateTime, res.DateTime);
+        }
+
+        [Test]
         public async Task TestAllColumnsPocoNullable()
         {
             var pocoView = PocoAllColumnsNullableView;

@@ -58,7 +58,8 @@ internal static class ILGeneratorExtensions
     /// <param name="il">IL generator.</param>
     /// <param name="from">Source type.</param>
     /// <param name="to">Target type.</param>
-    public static void EmitConv(this ILGenerator il, Type from, Type to)
+    /// <param name="columnName">Column name.</param>
+    public static void EmitConv(this ILGenerator il, Type from, Type to, string columnName)
     {
         if (from == to)
         {
@@ -70,14 +71,86 @@ internal static class ILGeneratorExtensions
             to = to.GetEnumUnderlyingType();
         }
 
-        var methodName = "To" + to.Name;
-        var method = typeof(Convert).GetMethod(methodName, BindingFlags.Static | BindingFlags.Public, new[] { from });
-
-        if (method == null)
+        if (!from.IsValueType || !to.IsValueType)
         {
-            throw new NotSupportedException($"Conversion from {from} to {to} is not supported.");
+            EmitConvertTo(il, from, to, columnName);
+            return;
         }
 
-        il.Emit(OpCodes.Call, method);
+        var fromUnderlying = Nullable.GetUnderlyingType(from);
+        var toUnderlying = Nullable.GetUnderlyingType(to);
+
+        if (fromUnderlying != null && toUnderlying != null)
+        {
+            var emitNull = il.DefineLabel();
+            var end = il.DefineLabel();
+
+            var fromLoc = il.DeclareLocal(from);
+            var toLoc = il.DeclareLocal(to);
+            il.Emit(OpCodes.Stloc, fromLoc);
+            il.Emit(OpCodes.Ldloca, fromLoc);
+            il.Emit(OpCodes.Call, from.GetMethod("get_HasValue")!);
+            il.Emit(OpCodes.Brfalse, emitNull);
+
+            // Unwrap, convert, wrap.
+            il.Emit(OpCodes.Ldloca, fromLoc);
+            il.Emit(OpCodes.Call, from.GetMethod("get_Value")!);
+            EmitConvertTo(il, fromUnderlying, toUnderlying, columnName);
+
+            il.Emit(OpCodes.Newobj, to.GetConstructor(new[] { toUnderlying })!);
+            il.Emit(OpCodes.Br, end);
+
+            // Null.
+            il.MarkLabel(emitNull);
+            il.Emit(OpCodes.Ldloca, toLoc);
+            il.Emit(OpCodes.Initobj, to);
+            il.Emit(OpCodes.Ldloc, toLoc);
+
+            // End.
+            il.MarkLabel(end);
+            return;
+        }
+
+        if (fromUnderlying != null && toUnderlying == null)
+        {
+            var loc = il.DeclareLocal(from);
+            il.Emit(OpCodes.Stloc, loc);
+            il.Emit(OpCodes.Ldloca, loc);
+            il.Emit(OpCodes.Call, from.GetMethod("get_Value")!);
+            EmitConvertTo(il, fromUnderlying, to, columnName);
+            return;
+        }
+
+        if (fromUnderlying == null && toUnderlying != null)
+        {
+            EmitConvertTo(il, from, to, columnName);
+            il.Emit(OpCodes.Newobj, to.GetConstructor(new[] { toUnderlying })!);
+
+            return;
+        }
+
+        // Normal case without nullables.
+        EmitConvertTo(il, from, to, columnName);
+
+        static void EmitConvertTo(ILGenerator il, Type from, Type to, string columnName)
+        {
+            if (from == to)
+            {
+                return;
+            }
+
+            var methodName = "To" + to.Name;
+            var method = typeof(Convert).GetMethod(methodName, BindingFlags.Static | BindingFlags.Public, new[] { from });
+
+            if (method == null)
+            {
+                throw NotSupportedConversion(from, to, columnName);
+            }
+
+            il.Emit(OpCodes.Call, method);
+        }
+
+        static NotSupportedException NotSupportedConversion(Type from, Type to, string columnName) =>
+            new($"Conversion from {from} to {to} is not supported (column '{columnName}').");
     }
 }
