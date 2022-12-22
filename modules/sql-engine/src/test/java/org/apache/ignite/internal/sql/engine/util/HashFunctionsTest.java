@@ -20,7 +20,6 @@ package org.apache.ignite.internal.sql.engine.util;
 import java.util.Arrays;
 import java.util.function.BiFunction;
 import java.util.function.ToIntFunction;
-import org.apache.commons.lang.NotImplementedException;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.sql.engine.util.HashFunctionFactoryImpl.SimpleHashFunction;
@@ -102,7 +101,7 @@ class HashFunctionsTest {
                     break;
 
                 default:
-                    throw new NotImplementedException();
+                    throw new UnsupportedOperationException();
             }
 
             return func.applyAsInt(row);
