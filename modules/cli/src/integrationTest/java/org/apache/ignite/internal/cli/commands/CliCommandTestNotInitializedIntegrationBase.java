@@ -77,6 +77,7 @@ public class CliCommandTestNotInitializedIntegrationBase extends IntegrationTest
     @BeforeEach
     public void setUp(TestInfo testInfo) throws Exception {
         super.setUp(testInfo);
+
         configManagerProvider.configManager = new IniConfigManager(TestConfigManagerHelper.createIntegrationTests());
         cmd = new CommandLine(getCommandClass(), new MicronautFactory(context))
                 .registerConverter(NodeNameOrUrl.class, new NodeNameOrUrlConverter(nodeNameRegistry));
@@ -108,6 +109,10 @@ public class CliCommandTestNotInitializedIntegrationBase extends IntegrationTest
 
     protected void execute(String... args) {
         exitCode = cmd.execute(args);
+    }
+
+    protected CommandLine getCmd() {
+        return cmd;
     }
 
     protected void assertExitCodeIs(int expectedExitCode) {

@@ -76,6 +76,9 @@ public class IntegrationTestBase extends BaseIgniteAbstractTest {
     /** Cluster nodes. */
     protected static final List<Ignite> CLUSTER_NODES = new ArrayList<>();
 
+    /** Cluster nodes. */
+    protected static final List<String> CLUSTER_NODE_NAMES = new ArrayList<>();
+
     /** Futures that are going to be completed when all nodes are started and the cluster is initialized. */
     private static List<CompletableFuture<Ignite>> futures = new ArrayList<>();
 
@@ -169,6 +172,7 @@ public class IntegrationTestBase extends BaseIgniteAbstractTest {
         futures = IntStream.range(0, nodes())
                 .mapToObj(i -> {
                     String nodeName = testNodeName(testInfo, i);
+                    CLUSTER_NODE_NAMES.add(nodeName);
 
                     String config = IgniteStringFormatter.format(NODE_BOOTSTRAP_CFG, BASE_PORT + i, connectNodeAddr);
 
@@ -203,6 +207,7 @@ public class IntegrationTestBase extends BaseIgniteAbstractTest {
         LOG.info("Start tearDown()");
 
         CLUSTER_NODES.clear();
+        CLUSTER_NODE_NAMES.clear();
 
         List<AutoCloseable> closeables = IntStream.range(0, nodes())
                 .mapToObj(i -> testNodeName(testInfo, i))

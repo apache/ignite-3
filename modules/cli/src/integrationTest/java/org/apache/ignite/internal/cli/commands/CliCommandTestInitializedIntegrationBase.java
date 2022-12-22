@@ -19,6 +19,7 @@ package org.apache.ignite.internal.cli.commands;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 
+import java.util.List;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestInfo;
 
@@ -31,10 +32,14 @@ public class CliCommandTestInitializedIntegrationBase extends CliCommandTestNotI
     @Override
     void beforeAll(TestInfo testInfo) {
         startNodes(testInfo);
-        super.initializeCluster(metaStorageNodeName(testInfo));
+        initializeCluster(metaStorageNodeName(testInfo));
     }
 
     protected String metaStorageNodeName(TestInfo testInfo) {
         return testNodeName(testInfo, 0);
+    }
+
+    protected List<String> allNodeNames() {
+        return CLUSTER_NODE_NAMES;
     }
 }
