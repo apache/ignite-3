@@ -24,12 +24,8 @@ import java.util.BitSet;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Queue;
 import java.util.concurrent.Flow;
 import java.util.concurrent.Flow.Publisher;
-import java.util.concurrent.Flow.Subscriber;
-import java.util.concurrent.Flow.Subscription;
-import java.util.concurrent.LinkedBlockingQueue;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.index.SortedIndex;
@@ -55,10 +51,7 @@ import org.jetbrains.annotations.Nullable;
  * Scan node.
  * TODO: merge with {@link TableScanNode}
  */
-public class IndexScanNode<RowT> extends AbstractNode<RowT> {
-    /** Special value to highlights that all row were received and we are not waiting any more. */
-    private static final int NOT_WAITING = -1;
-
+public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
     /** Schema index. */
     private final IgniteIndex schemaIndex;
 
@@ -69,14 +62,6 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
 
     private final int[] parts;
 
-    private final Queue<RowT> inBuff = new LinkedBlockingQueue<>(inBufSize);
-
-    private final @Nullable Predicate<RowT> filters;
-
-    private final @Nullable Function<RowT, RowT> rowTransformer;
-
-    private final Function<BinaryRow, RowT> tableRowConverter;
-
     /** Participating columns. */
     private final @Nullable BitSet requiredColumns;
 
@@ -85,14 +70,6 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
     private final @Nullable Comparator<RowT> comp;
 
     private @Nullable Iterator<RangeCondition<RowT>> rangeConditionIterator;
-
-    private int requested;
-
-    private int waiting;
-
-    private boolean inLoop;
-
-    private @Nullable Subscription activeSubscription;
 
     private boolean rangeConditionsProcessed;
 
@@ -121,16 +98,12 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
             @Nullable Function<RowT, RowT> rowTransformer,
             @Nullable BitSet requiredColumns
     ) {
-        super(ctx);
+        super(ctx, rowFactory, schemaTable, filters, rowTransformer, requiredColumns);
 
         assert !nullOrEmpty(parts);
 
-        assert ctx.transaction() != null || ctx.transactionTime() != null : "Transaction not initialized.";
-
         this.schemaIndex = schemaIndex;
         this.parts = parts;
-        this.filters = filters;
-        this.rowTransformer = rowTransformer;
         this.requiredColumns = requiredColumns;
         this.rangeConditions = rangeConditions;
         this.comp = comp;
@@ -138,128 +111,24 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
 
         rangeConditionIterator = rangeConditions == null ? null : rangeConditions.iterator();
 
-        tableRowConverter = row -> schemaTable.toRow(context(), row, factory, requiredColumns);
-
         indexRowSchema = RowConverter.createIndexRowSchema(schemaIndex.columns(), schemaTable.descriptor());
     }
 
     /** {@inheritDoc} */
     @Override
-    public void request(int rowsCnt) throws Exception {
-        assert rowsCnt > 0 && requested == 0 : "rowsCnt=" + rowsCnt + ", requested=" + requested;
-
-        checkState();
-
-        requested = rowsCnt;
-
-        if (!inLoop) {
-            context().execute(this::push, this::onError);
-        }
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void closeInternal() {
-        super.closeInternal();
-
-        if (activeSubscription != null) {
-            activeSubscription.cancel();
-
-            activeSubscription = null;
-        }
-    }
-
-    /** {@inheritDoc} */
-    @Override
     protected void rewindInternal() {
-        requested = 0;
-        waiting = 0;
+        super.rewindInternal();
+
         rangeConditionsProcessed = false;
 
         if (rangeConditions != null) {
             rangeConditionIterator = rangeConditions.iterator();
         }
-
-        if (activeSubscription != null) {
-            activeSubscription.cancel();
-
-            activeSubscription = null;
-        }
     }
 
-    /** {@inheritDoc} */
     @Override
-    public void register(List<Node<RowT>> sources) {
-        throw new UnsupportedOperationException();
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    protected Downstream<RowT> requestDownstream(int idx) {
-        throw new UnsupportedOperationException();
-    }
-
-    private void push() throws Exception {
-        if (isClosed()) {
-            return;
-        }
-
-        checkState();
-
-        if (requested > 0 && !inBuff.isEmpty()) {
-            inLoop = true;
-            try {
-                while (requested > 0 && !inBuff.isEmpty()) {
-                    checkState();
-
-                    RowT row = inBuff.poll();
-
-                    if (filters != null && !filters.test(row)) {
-                        continue;
-                    }
-
-                    if (rowTransformer != null) {
-                        row = rowTransformer.apply(row);
-                    }
-
-                    requested--;
-                    downstream().push(row);
-                }
-            } finally {
-                inLoop = false;
-            }
-        }
-
-        if (requested > 0) {
-            if (waiting == 0 || activeSubscription == null) {
-                requestNextBatch();
-            }
-        }
-
-        if (requested > 0 && waiting == NOT_WAITING) {
-            if (inBuff.isEmpty()) {
-                requested = 0;
-                downstream().end();
-            } else {
-                context().execute(this::push, this::onError);
-            }
-        }
-    }
-
-    private void requestNextBatch() {
-        if (waiting == NOT_WAITING) {
-            return;
-        }
-
-        if (waiting == 0) {
-            // we must not request rows more than inBufSize
-            waiting = inBufSize - inBuff.size();
-        }
-
-        Subscription subscription = this.activeSubscription;
-        if (subscription != null) {
-            subscription.request(waiting);
-        } else if (!rangeConditionsProcessed) {
+    protected Publisher<RowT> scan() {
+        if (!rangeConditionsProcessed) {
             RangeCondition<RowT> cond = null;
 
             if (rangeConditionIterator == null || !rangeConditionIterator.hasNext()) {
@@ -270,10 +139,10 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
                 rangeConditionsProcessed = !rangeConditionIterator.hasNext();
             }
 
-            indexPublisher(parts, cond).subscribe(new SubscriberImpl());
-        } else {
-            waiting = NOT_WAITING;
+            return indexPublisher(parts, cond);
         }
+
+        return null;
     }
 
     private Publisher<RowT> indexPublisher(int[] parts, @Nullable RangeCondition<RowT> cond) {
@@ -291,6 +160,8 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
     private Flow.Publisher<RowT> partitionPublisher(int part, @Nullable RangeCondition<RowT> cond) {
         Publisher<BinaryRow> pub;
 
+        boolean roTx = context().transactionTime() != null;
+
         if (schemaIndex.type() == Type.SORTED) {
             int flags = 0;
             BinaryTuplePrefix lower = null;
@@ -306,97 +177,51 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
                 flags |= (cond.upperInclude()) ? SortedIndex.INCLUDE_RIGHT : 0;
             }
 
-            pub = ((SortedIndex) schemaIndex.index()).scan(
-                    part,
-                    context().transaction(),
-                    lower,
-                    upper,
-                    flags,
-                    requiredColumns
-            );
+            if (roTx) {
+                pub = ((SortedIndex) schemaIndex.index()).scan(
+                        part,
+                        context().transactionTime(),
+                        context().localNode(),
+                        lower,
+                        upper,
+                        flags,
+                        requiredColumns
+                );
+            } else {
+                pub = ((SortedIndex) schemaIndex.index()).scan(
+                        part,
+                        context().transaction(),
+                        lower,
+                        upper,
+                        flags,
+                        requiredColumns
+                );
+            }
         } else {
             assert schemaIndex.type() == Type.HASH;
             assert cond != null && cond.lower() != null : "Invalid hash index condition.";
 
             BinaryTuple key = toBinaryTuple(cond.lower());
 
-            pub = schemaIndex.index().lookup(
-                    part,
-                    context().transaction(),
-                    key,
-                    requiredColumns
-            );
-        }
-
-        return downstream -> {
-            // BinaryRow -> RowT converter.
-            Subscriber<BinaryRow> subs = new Subscriber<>() {
-                @Override
-                public void onSubscribe(Subscription subscription) {
-                    downstream.onSubscribe(subscription);
-                }
-
-                @Override
-                public void onNext(BinaryRow item) {
-                    downstream.onNext(convert(item));
-                }
-
-                @Override
-                public void onError(Throwable throwable) {
-                    downstream.onError(throwable);
-                }
-
-                @Override
-                public void onComplete() {
-                    downstream.onComplete();
-                }
-            };
-
-            pub.subscribe(subs);
-        };
-    }
-
-    private class SubscriberImpl implements Flow.Subscriber<RowT> {
-        /** {@inheritDoc} */
-        @Override
-        public void onSubscribe(Subscription subscription) {
-            assert IndexScanNode.this.activeSubscription == null;
-
-            IndexScanNode.this.activeSubscription = subscription;
-            subscription.request(waiting);
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public void onNext(RowT row) {
-            inBuff.add(row);
-
-            if (inBuff.size() == inBufSize) {
-                context().execute(() -> {
-                    waiting = 0;
-                    push();
-                }, IndexScanNode.this::onError);
+            if (roTx) {
+                pub = schemaIndex.index().lookup(
+                        part,
+                        context().transactionTime(),
+                        context().localNode(),
+                        key,
+                        requiredColumns
+                );
+            } else {
+                pub = schemaIndex.index().lookup(
+                        part,
+                        context().transaction(),
+                        key,
+                        requiredColumns
+                );
             }
         }
 
-        /** {@inheritDoc} */
-        @Override
-        public void onError(Throwable throwable) {
-            context().execute(() -> {
-                throw throwable;
-            }, IndexScanNode.this::onError);
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public void onComplete() {
-            context().execute(() -> {
-                activeSubscription = null;
-                waiting = 0;
-
-                push();
-            }, IndexScanNode.this::onError);
-        }
+        return convertPublisher(pub);
     }
 
     @Contract("null -> null")
@@ -415,9 +240,5 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
         }
 
         return RowConverter.toBinaryTuple(context(), indexRowSchema, factory, condition);
-    }
-
-    private RowT convert(BinaryRow binaryRow) {
-        return tableRowConverter.apply(binaryRow);
     }
 }
