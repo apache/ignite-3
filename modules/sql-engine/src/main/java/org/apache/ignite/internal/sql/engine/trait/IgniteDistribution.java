@@ -21,7 +21,7 @@ import org.apache.calcite.rel.RelDistribution;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.calcite.util.mapping.Mappings;
 import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
-import org.apache.ignite.internal.sql.engine.metadata.HashFunctionFactory;
+import org.apache.ignite.internal.sql.engine.util.HashFunctionFactory;
 
 /**
  * Ignite distribution trait.

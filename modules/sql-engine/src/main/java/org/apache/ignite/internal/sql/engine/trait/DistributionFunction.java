@@ -28,7 +28,7 @@ import org.apache.calcite.rel.RelDistribution;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
-import org.apache.ignite.internal.sql.engine.metadata.HashFunctionFactory;
+import org.apache.ignite.internal.sql.engine.util.HashFunctionFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
 
 /**
@@ -235,7 +235,7 @@ public abstract class DistributionFunction {
         }
 
         protected <RowT> Destination<RowT> destination(List<List<String>> assignments, HashFunctionFactory<RowT> funcFactory, int[] keys) {
-            return new Partitioned<>(assignments, funcFactory.create(affinity(), keys, null));
+            return new Partitioned<>(assignments, funcFactory.create(keys));
         }
     }
 
@@ -274,7 +274,7 @@ public abstract class DistributionFunction {
 
         @Override
         protected <RowT> Destination<RowT> destination(List<List<String>> assignments, HashFunctionFactory<RowT> funcFactory, int[] keys) {
-            return new Partitioned<>(assignments, funcFactory.create(affinity(), keys, tableId));
+            return new Partitioned<>(assignments, funcFactory.create(keys, tableId));
         }
 
         /** {@inheritDoc} */

@@ -34,7 +34,7 @@ import org.apache.calcite.util.ImmutableIntList;
 import org.apache.calcite.util.mapping.Mapping;
 import org.apache.calcite.util.mapping.Mappings;
 import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
-import org.apache.ignite.internal.sql.engine.metadata.HashFunctionFactory;
+import org.apache.ignite.internal.sql.engine.util.HashFunctionFactory;
 
 /**
  * Description of the physical distribution of a relational expression.

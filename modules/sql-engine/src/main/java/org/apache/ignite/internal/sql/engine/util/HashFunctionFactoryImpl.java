@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.metadata;
+package org.apache.ignite.internal.sql.engine.util;
 
 import java.util.List;
 import java.util.Objects;
@@ -41,13 +41,16 @@ public class HashFunctionFactoryImpl<T> implements HashFunctionFactory<T> {
         this.rowHandler = rowHandler;
     }
 
+    /** {@inheritDoc} */
     @Override
-    public ToIntFunction<T> create(boolean typesAware, int[] fields, UUID tableId) {
-        assert !typesAware || tableId != null;
+    public ToIntFunction<T> create(int[] fields, UUID tableId) {
+        return new TypesAwareHashFunction(tableId, fields);
+    }
 
-        return typesAware
-                ? new TypesAwareHashFunction(tableId, fields)
-                : new SimpleHashFunction(fields);
+    /** {@inheritDoc} */
+    @Override
+    public ToIntFunction<T> create(int[] fields) {
+        return new SimpleHashFunction(fields);
     }
 
     /**
