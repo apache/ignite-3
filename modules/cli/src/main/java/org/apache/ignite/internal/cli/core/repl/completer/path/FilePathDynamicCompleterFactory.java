@@ -15,26 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.core.repl.completer.node;
+package org.apache.ignite.internal.cli.core.repl.completer.path;
 
 import jakarta.inject.Singleton;
-import org.apache.ignite.internal.cli.NodeNameRegistry;
 import org.apache.ignite.internal.cli.core.repl.completer.DynamicCompleter;
 import org.apache.ignite.internal.cli.core.repl.completer.DynamicCompleterFactory;
-import org.apache.ignite.internal.cli.core.repl.completer.StringDynamicCompleter;
 
-/** Factory for --node-name option completer. */
+/** Asdasd. */
 @Singleton
-public class NodeNameDynamicCompleterFactory implements DynamicCompleterFactory {
-
-    private final NodeNameRegistry nodeNameRegistry;
-
-    public NodeNameDynamicCompleterFactory(NodeNameRegistry nodeNameRegistry) {
-        this.nodeNameRegistry = nodeNameRegistry;
-    }
-
+public class FilePathDynamicCompleterFactory implements DynamicCompleterFactory {
     @Override
     public DynamicCompleter getDynamicCompleter(String[] words) {
-        return new StringDynamicCompleter(nodeNameRegistry.getAllNames());
+        return new FilePathCompleter();
     }
 }

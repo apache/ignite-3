@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermin
 
 import jakarta.inject.Singleton;
 import java.net.URL;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -72,6 +73,10 @@ public class NodeNameRegistry {
      */
     public Set<String> getAllNames() {
         return nodeNameToNodeUrl.keySet();
+    }
+
+    public Set<URL> getAllUrls() {
+        return new HashSet<>(nodeNameToNodeUrl.values());
     }
 
     /**

@@ -19,10 +19,12 @@ package org.apache.ignite.internal.cli.core.repl.completer;
 
 import jakarta.inject.Singleton;
 import org.apache.ignite.internal.cli.commands.Options;
+import org.apache.ignite.internal.cli.core.repl.completer.cluster.ClusterUrlDynamicCompleterFactory;
 import org.apache.ignite.internal.cli.core.repl.completer.filter.ExclusionsCompleterFilter;
 import org.apache.ignite.internal.cli.core.repl.completer.hocon.ClusterConfigDynamicCompleterFactory;
 import org.apache.ignite.internal.cli.core.repl.completer.hocon.NodeConfigDynamicCompleterFactory;
 import org.apache.ignite.internal.cli.core.repl.completer.node.NodeNameDynamicCompleterFactory;
+import org.apache.ignite.internal.cli.core.repl.completer.path.FilePathDynamicCompleterFactory;
 
 /** Activation point that links commands with dynamic completers. */
 @Singleton
@@ -31,16 +33,21 @@ public class DynamicCompleterActivationPoint {
     private final NodeNameDynamicCompleterFactory nodeNameDynamicCompleterFactory;
     private final ClusterConfigDynamicCompleterFactory clusterConfigDynamicCompleterFactory;
     private final NodeConfigDynamicCompleterFactory nodeConfigDynamicCompleterFactory;
+    private final FilePathDynamicCompleterFactory filePathDynamicCompleterFactory;
+    private final ClusterUrlDynamicCompleterFactory clusterUrlDynamicCompleterFactory;
 
     /** Main constructor. */
     public DynamicCompleterActivationPoint(
             NodeNameDynamicCompleterFactory nodeNameDynamicCompleterFactory,
             ClusterConfigDynamicCompleterFactory clusterConfigDynamicCompleterFactory,
-            NodeConfigDynamicCompleterFactory nodeConfigDynamicCompleterFactory
-    ) {
+            NodeConfigDynamicCompleterFactory nodeConfigDynamicCompleterFactory,
+            FilePathDynamicCompleterFactory filePathDynamicCompleterFactory,
+            ClusterUrlDynamicCompleterFactory clusterUrlDynamicCompleterFactory) {
         this.nodeNameDynamicCompleterFactory = nodeNameDynamicCompleterFactory;
         this.clusterConfigDynamicCompleterFactory = clusterConfigDynamicCompleterFactory;
         this.nodeConfigDynamicCompleterFactory = nodeConfigDynamicCompleterFactory;
+        this.filePathDynamicCompleterFactory = filePathDynamicCompleterFactory;
+        this.clusterUrlDynamicCompleterFactory = clusterUrlDynamicCompleterFactory;
     }
 
 
@@ -85,6 +92,21 @@ public class DynamicCompleterActivationPoint {
                         .enableOptions(Options.META_STORAGE_NODE_NAME, Options.CMG_NODE_NAME)
                         .build(),
                 nodeNameDynamicCompleterFactory
+        );
+
+        registry.register(
+                CompleterConf.builder()
+                        .command("sql")
+                        .enableOptions(Options.SCRIPT_FILE)
+                        .exclusiveEnableOptions().build(),
+                filePathDynamicCompleterFactory
+        );
+
+        registry.register(
+                CompleterConf.builder()
+                        .enableOptions(Options.CLUSTER_URL)
+                        .exclusiveEnableOptions().build(),
+                clusterUrlDynamicCompleterFactory
         );
     }
 }

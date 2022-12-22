@@ -15,38 +15,33 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.core.repl.completer.node;
+package org.apache.ignite.internal.cli.core.repl.completer.cluster;
 
-import static org.apache.ignite.internal.cli.util.ArrayUtils.findLastNotEmptyWord;
-
-import java.util.ArrayList;
-import java.util.List;
+import jakarta.inject.Singleton;
+import java.net.URL;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.cli.NodeNameRegistry;
 import org.apache.ignite.internal.cli.core.repl.completer.DynamicCompleter;
+import org.apache.ignite.internal.cli.core.repl.completer.DynamicCompleterFactory;
+import org.apache.ignite.internal.cli.core.repl.completer.StringDynamicCompleter;
 
-/**
- * Completes typed words with provided list of strings.
- */
-public class StringDynamicCompleter implements DynamicCompleter {
+/** Factory for --node-name option completer. */
+@Singleton
+public class ClusterUrlDynamicCompleterFactory implements DynamicCompleterFactory {
 
-    /** Values that will ve suggested. */
-    private final Set<String> values;
+    private final NodeNameRegistry nodeNameRegistry;
 
-    /** Default constructor. */
-    public StringDynamicCompleter(Set<String> values) {
-        this.values = values;
+    public ClusterUrlDynamicCompleterFactory(NodeNameRegistry nodeNameRegistry) {
+        this.nodeNameRegistry = nodeNameRegistry;
     }
 
     @Override
-    public List<String> complete(String[] words) {
-        if (words[words.length - 1].isBlank()) {
-            return new ArrayList<>(values);
-        }
-
-        String lastWord = findLastNotEmptyWord(words);
-        return values.stream()
-                .filter(it -> it.startsWith(lastWord))
-                .collect(Collectors.toList());
+    public DynamicCompleter getDynamicCompleter(String[] words) {
+        Set<String> urls = nodeNameRegistry.getAllUrls()
+                .stream()
+                .map(URL::toString)
+                .collect(Collectors.toSet());
+        return new StringDynamicCompleter(urls);
     }
 }
