@@ -27,7 +27,7 @@ public class NodeConfigRegistry implements SessionEventListener {
                 config.set(ConfigFactory.parseString(
                         nodeConfigShowCall.execute(
                                 // todo https://issues.apache.org/jira/browse/IGNITE-17416
-                                NodeConfigShowCallInput.builder().nodeUrl(session.nodeUrl()).build()
+                                NodeConfigShowCallInput.builder().nodeUrl(session.sessionDetails().nodeUrl()).build()
                         ).body().getValue())
                 );
             } catch (Exception ignored) {

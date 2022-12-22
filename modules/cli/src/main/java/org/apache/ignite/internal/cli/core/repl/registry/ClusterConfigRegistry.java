@@ -28,7 +28,7 @@ public class ClusterConfigRegistry implements SessionEventListener {
                 config.set(ConfigFactory.parseString(
                         clusterConfigShowCall.execute(
                                 // todo https://issues.apache.org/jira/browse/IGNITE-17416
-                                ClusterConfigShowCallInput.builder().clusterUrl(session.nodeUrl()).build()
+                                ClusterConfigShowCallInput.builder().clusterUrl(session.sessionDetails().nodeUrl()).build()
                         ).body().getValue()
                 ));
                 ;

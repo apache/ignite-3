@@ -112,7 +112,8 @@ public class NodeNameRegistry implements SessionEventListener {
         onDisconnect();
         if (executor == null) {
             executor = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("NodeNameRegistry", log));
-            executor.scheduleWithFixedDelay(() -> updateNodeNames(session.nodeUrl()), 0, 5, TimeUnit.SECONDS);
+            executor.scheduleWithFixedDelay(() ->
+                    updateNodeNames(session.sessionDetails().nodeUrl()), 0, 5, TimeUnit.SECONDS);
         }
     }
 

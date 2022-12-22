@@ -76,7 +76,7 @@ public class ConnectToClusterQuestion {
     }
 
     private String clusterUrlOrSessionNode(String clusterUrl) {
-        return clusterUrl != null ? clusterUrl : session.nodeUrl();
+        return clusterUrl != null ? clusterUrl : session.sessionDetails().nodeUrl();
     }
 
     /**

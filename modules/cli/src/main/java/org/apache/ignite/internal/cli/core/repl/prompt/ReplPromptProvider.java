@@ -42,7 +42,7 @@ public class ReplPromptProvider implements PromptProvider {
     public String getPrompt() {
         String postfix = "> ";
         return session.isConnectedToNode()
-                ? ansi(fg(Color.GREEN).mark("[" + session.nodeName() + "]")) + postfix
+                ? ansi(fg(Color.GREEN).mark("[" + session.sessionDetails().nodeName() + "]")) + postfix
                 : ansi(fg(Color.RED).mark("[disconnected]")) + postfix;
     }
 }

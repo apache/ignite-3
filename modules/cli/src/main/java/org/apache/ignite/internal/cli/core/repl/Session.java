@@ -30,13 +30,9 @@ public class Session {
 
     private final IgniteLogger log = Loggers.forClass(getClass());
 
+    private SessionDetails sessionDetails;
+
     private boolean connectedToNode;
-
-    private String nodeUrl;
-
-    private String nodeName;
-
-    private String jdbcUrl;
 
     private final List<SessionEventListener> listeners;
 
@@ -45,9 +41,7 @@ public class Session {
     }
 
     public synchronized void connect(String nodeUrl, String nodeName, String jdbcUrl) {
-        this.nodeUrl = nodeUrl;
-        this.nodeName = nodeName;
-        this.jdbcUrl = jdbcUrl;
+        this.sessionDetails = new SessionDetails(nodeUrl, nodeName, jdbcUrl);
         this.connectedToNode = true;
         listeners.forEach(it -> {
             try {
@@ -59,9 +53,7 @@ public class Session {
     }
 
     public synchronized void disconnect() {
-        this.nodeUrl = null;
-        this.nodeName = null;
-        this.jdbcUrl = null;
+        this.sessionDetails = new SessionDetails();
         this.connectedToNode = false;
         listeners.forEach(it -> {
             try {
@@ -76,16 +68,7 @@ public class Session {
         return connectedToNode;
     }
 
-    public String nodeUrl() {
-        return nodeUrl;
-    }
-
-    public String nodeName() {
-        return nodeName;
-    }
-
-
-    public String jdbcUrl() {
-        return jdbcUrl;
-    }
+    public SessionDetails sessionDetails() {
+        return this.sessionDetails;
+    };
 }

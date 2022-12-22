@@ -19,7 +19,6 @@ package org.apache.ignite.internal.cli.call.connect;
 
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
-import org.apache.ignite.internal.cli.core.repl.registry.NodeNameRegistry;
 import org.apache.ignite.internal.cli.core.call.Call;
 import org.apache.ignite.internal.cli.core.call.CallOutput;
 import org.apache.ignite.internal.cli.core.call.DefaultCallOutput;
@@ -43,7 +42,7 @@ public class DisconnectCall implements Call<EmptyCallInput, String> {
     @Override
     public CallOutput<String> execute(EmptyCallInput input) {
         if (session.isConnectedToNode()) {
-            String nodeUrl = session.nodeUrl();
+            String nodeUrl = session.sessionDetails().nodeUrl();
             session.disconnect();
             return DefaultCallOutput.success(
                     MessageUiComponent.fromMessage("Disconnected from %s", UiElements.url(nodeUrl)).render()
