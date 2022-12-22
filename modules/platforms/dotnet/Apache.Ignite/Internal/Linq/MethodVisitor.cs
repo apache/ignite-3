@@ -229,6 +229,9 @@ internal static class MethodVisitor
             throw new NotSupportedException($"RegexOptions.{regexOptions} is not supported");
         }
 
+        // "pos" and "occurence" are required before "matchType".
+        visitor.ResultBuilder.Append("1, 1, ");
+
         visitor.AppendParameter(result);
 
         return true;

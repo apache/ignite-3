@@ -22,6 +22,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Linq;
 using System.Linq.Expressions;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Ignite.Table;
 using NodaTime;
@@ -261,9 +262,17 @@ public partial class LinqTests
     }
 
     [Test]
-    public void TestRegex()
+    public void TestRegexReplace()
     {
-        Assert.Fail("TODO");
+        TestOpString(
+            x => Regex.Replace(x.Val!, @"([a-z])-(\d+)", "0_$2_$1"),
+            "0_9_v",
+            "select regexp_replace(_T0.VAL, ?, ?) from");
+
+        TestOpString(
+            x => Regex.Replace(x.Val!, @"V-(\d+)", "V$1", RegexOptions.IgnoreCase | RegexOptions.Multiline),
+            "V9",
+            @"select regexp_replace(_T0.VAL, ?, ?, 1, 1, ?) from PUBLIC.TBL1 as _T0, Parameters=V-(\d+), V$1, im");
     }
 
     private static void TestOp<T, TRes>(IRecordView<T> view, Expression<Func<T, TRes>> expr, TRes expectedRes, string expectedQuery)
