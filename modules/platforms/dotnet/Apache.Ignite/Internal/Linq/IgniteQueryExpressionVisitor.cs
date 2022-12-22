@@ -348,6 +348,7 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
     /** <inheritdoc /> */
     protected override Expression VisitConditional(ConditionalExpression expression)
     {
+        // TODO: refactor to proper case ... when, add test.
         ResultBuilder.Append("casewhen(");
 
         Visit(expression.Test);
