@@ -1,7 +1,7 @@
 # name: test/sql/types/collections/array_agg.test
 # description: Test ARRAY_AGG and ARRAY_CONCAT_AGG function
 # group: [collections]
-# Ignored: https://issues.apache.org/jira/browse/IGNITE-17271
+# Ignored: https://issues.apache.org/jira/browse/IGNITE-14636
 
 # scalar ARRAY_AGG
 query II
