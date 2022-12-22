@@ -19,6 +19,7 @@ namespace Apache.Ignite.Tests.Linq;
 
 using System;
 using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Threading.Tasks;
@@ -125,14 +126,14 @@ public partial class LinqTests
     public void TestStringCompare()
     {
         var expectedQuery = "select case when (_T0.VAL is not distinct from ?) then 0 " +
-                            "else (case when (_T0.VAL > ?) then -1 else 1 end) end from";
+                            "else (case when (_T0.VAL > ?) then 1 else -1 end) end from";
 
-        TestOpString(x => string.Compare(x.Val, "abc"), -1, expectedQuery);
+        TestOpString(x => string.Compare(x.Val, "abc"), 1, expectedQuery);
 
         var expectedQueryIgnoreCase = "select case when (lower(_T0.VAL) is not distinct from lower(?)) then 0 " +
-                                      "else (case when (lower(_T0.VAL) > lower(?)) then -1 else 1 end) end from";
+                                      "else (case when (lower(_T0.VAL) > lower(?)) then 1 else -1 end) end from";
 
-        TestOpString(x => string.Compare(x.Val, "abc", true), -1, expectedQueryIgnoreCase);
+        TestOpString(x => string.Compare(x.Val, "abc", true), 1, expectedQueryIgnoreCase);
     }
 
     [Test]
@@ -157,7 +158,8 @@ public partial class LinqTests
                 .Select(x => string.Compare(x.Val, val))
                 .Single();
 
-            Assert.AreEqual(string.Compare("v-5", val), res);
+            var clrRes = string.Compare("v-5", val, CultureInfo.InvariantCulture, CompareOptions.None);
+            Assert.AreEqual(clrRes, res, "CLR result is different");
             TestIgnoreCase(val, false);
 
             return res;
@@ -170,7 +172,8 @@ public partial class LinqTests
                 .Select(x => string.Compare(x.Val, val, ignoreCase))
                 .Single();
 
-            Assert.AreEqual(string.Compare("v-5", val, ignoreCase), res);
+            var clrRes = string.Compare("v-5", val, ignoreCase, CultureInfo.InvariantCulture);
+            Assert.AreEqual(clrRes, res, "CLR result is different");
 
             return res;
         }
