@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.util;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.function.BiFunction;
 import java.util.function.ToIntFunction;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
@@ -34,33 +35,48 @@ import org.apache.ignite.internal.util.HashCalculator;
  */
 public class HashFunctionFactoryImpl<T> implements HashFunctionFactory<T> {
     private final SqlSchemaManager sqlSchemaManager;
-    private final RowHandler<T> rowHandler;
+    private final BiFunction<Integer, T, Object> rowReader;
 
     public HashFunctionFactoryImpl(SqlSchemaManager sqlSchemaManager, RowHandler<T> rowHandler) {
         this.sqlSchemaManager = sqlSchemaManager;
-        this.rowHandler = rowHandler;
+        this.rowReader = rowHandler::get;
     }
 
     /** {@inheritDoc} */
     @Override
     public ToIntFunction<T> create(int[] fields, UUID tableId) {
-        return new TypesAwareHashFunction(tableId, fields);
+        int fieldCnt = fields.length;
+        NativeType[] fieldTypes = new NativeType[fieldCnt];
+        TableDescriptor tblDesc = sqlSchemaManager.tableById(tableId, -1).descriptor();
+        List<Integer> colocationColumns = tblDesc.distribution().getKeys();
+
+        assert colocationColumns.size() == fieldCnt : "fieldsCount=" + fieldCnt + ", colocationColumns=" + colocationColumns;
+
+        for (int i = 0; i < fieldCnt; i++) {
+            ColumnDescriptor colDesc = tblDesc.columnDescriptor(colocationColumns.get(i));
+
+            fieldTypes[i] = colDesc.physicalType();
+        }
+
+        return new TypesAwareHashFunction<>(fields, fieldTypes, rowReader);
     }
 
     /** {@inheritDoc} */
     @Override
     public ToIntFunction<T> create(int[] fields) {
-        return new SimpleHashFunction(fields);
+        return new SimpleHashFunction<>(fields, rowReader);
     }
 
     /**
      * Computes a composite hash of a row, given the values of the fields.
      */
-    private class SimpleHashFunction implements ToIntFunction<T> {
+    static class SimpleHashFunction<T> implements ToIntFunction<T> {
         private final int[] fields;
+        private final BiFunction<Integer, T, Object> rowReader;
 
-        private SimpleHashFunction(int[] fields) {
+        SimpleHashFunction(int[] fields, BiFunction<Integer, T, Object> rowReader) {
             this.fields = fields;
+            this.rowReader = rowReader;
         }
 
         @Override
@@ -68,7 +84,7 @@ public class HashFunctionFactoryImpl<T> implements HashFunctionFactory<T> {
             int hash = 0;
 
             for (int idx : fields) {
-                hash = 31 * hash + Objects.hashCode(rowHandler.get(idx, row));
+                hash = 31 * hash + Objects.hashCode(rowReader.apply(idx, row));
             }
 
             return hash;
@@ -78,29 +94,15 @@ public class HashFunctionFactoryImpl<T> implements HashFunctionFactory<T> {
     /**
      * Computes a composite hash of a row, given the types and values of the fields.
      */
-    private class TypesAwareHashFunction implements ToIntFunction<T> {
+    static class TypesAwareHashFunction<T> implements ToIntFunction<T> {
         private final int[] fields;
         private final NativeType[] fieldTypes;
+        private final BiFunction<Integer, T, Object> rowReader;
 
-        private TypesAwareHashFunction(UUID tableId, int[] fields) {
-            this.fieldTypes = fieldTypes(tableId, fields.length);
+        TypesAwareHashFunction(int[] fields, NativeType[] fieldTypes, BiFunction<Integer, T, Object> rowReader) {
             this.fields = fields;
-        }
-
-        private NativeType[] fieldTypes(UUID tableId, int fieldCnt) {
-            NativeType[] colTypes = new NativeType[fieldCnt];
-            TableDescriptor tblDesc = sqlSchemaManager.tableById(tableId, -1).descriptor();
-            List<Integer> colocationColumns = tblDesc.distribution().getKeys();
-
-            assert colocationColumns.size() == fieldCnt : "fieldsCount=" + fieldCnt + ", colocationColumns=" + colocationColumns;
-
-            for (int i = 0; i < fieldCnt; i++) {
-                ColumnDescriptor colDesc = tblDesc.columnDescriptor(colocationColumns.get(i));
-
-                colTypes[i] = colDesc.physicalType();
-            }
-
-            return colTypes;
+            this.fieldTypes = fieldTypes;
+            this.rowReader = rowReader;
         }
 
         @Override
@@ -108,7 +110,7 @@ public class HashFunctionFactoryImpl<T> implements HashFunctionFactory<T> {
             HashCalculator hashCalc = new HashCalculator();
 
             for (int i = 0; i < fields.length; i++) {
-                Object obj = rowHandler.get(fields[i], row);
+                Object obj = rowReader.apply(fields[i], row);
 
                 ColocationUtils.append(hashCalc, obj, fieldTypes[i]);
             }
