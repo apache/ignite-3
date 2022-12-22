@@ -37,6 +37,7 @@ using Table;
 [SuppressMessage("ReSharper", "StringCompareToIsCultureSpecific", Justification = "SQL")]
 [SuppressMessage("ReSharper", "StringCompareIsCultureSpecific.1", Justification = "SQL")]
 [SuppressMessage("ReSharper", "StringCompareIsCultureSpecific.2", Justification = "SQL")]
+[SuppressMessage("Globalization", "CA1310:Specify StringComparison for correctness", Justification = "Tests")]
 public partial class LinqTests
 {
     [Test]
@@ -123,26 +124,47 @@ public partial class LinqTests
     public void TestStringCompare()
     {
         var expectedQuery = "select case when (_T0.VAL is not distinct from ?) then 0 " +
-                            "else (case when (_T0.VAL > ?) then 1 else -1 end) end from";
+                            "else (case when (_T0.VAL > ?) then -1 else 1 end) end from";
 
-        TestOpString(x => string.Compare(x.Val, "abc"), 1, expectedQuery);
+        TestOpString(x => string.Compare(x.Val, "abc"), -1, expectedQuery);
 
         var expectedQueryIgnoreCase = "select case when (lower(_T0.VAL) is not distinct from lower(?)) then 0 " +
-                                      "else (case when (lower(_T0.VAL) > lower(?)) then 1 else -1 end) end from";
+                                      "else (case when (lower(_T0.VAL) > lower(?)) then -1 else 1 end) end from";
 
-        TestOpString(x => string.Compare(x.Val, "abc", true), 1, expectedQueryIgnoreCase);
+        TestOpString(x => string.Compare(x.Val, "abc", true), -1, expectedQueryIgnoreCase);
     }
 
     [Test]
     public void TestStringCompareValues()
     {
         Assert.AreEqual(0, Test("v-9"));
+        Assert.AreEqual(-1, Test("V-9"));
+        Assert.AreEqual(-1, TestIgnoreCase("V-9", false));
+        Assert.AreEqual(0, TestIgnoreCase("V-9", true));
 
-        int Test(string val) =>
-            PocoView.AsQueryable()
+        int Test(string val)
+        {
+            var res = PocoView.AsQueryable()
                 .Where(x => x.Val == "v-9")
                 .Select(x => string.Compare(x.Val, val))
                 .Single();
+
+            Assert.AreEqual(string.Compare("v-9", val), res);
+
+            return res;
+        }
+
+        int TestIgnoreCase(string val, bool ignoreCase)
+        {
+            var res = PocoView.AsQueryable()
+                .Where(x => x.Val == "v-9")
+                .Select(x => string.Compare(x.Val, val, ignoreCase))
+                .Single();
+
+            Assert.AreEqual(string.Compare("v-9", val, ignoreCase), res);
+
+            return res;
+        }
     }
 
     [Test]
