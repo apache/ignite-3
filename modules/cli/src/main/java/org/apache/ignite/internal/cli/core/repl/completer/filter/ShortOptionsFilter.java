@@ -15,25 +15,30 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.core.repl.completer;
+package org.apache.ignite.internal.cli.core.repl.completer.filter;
 
 import java.util.Arrays;
 import java.util.Set;
+import java.util.stream.Collectors;
+import org.apache.ignite.internal.cli.commands.Options;
 
-/** Filters out exclusions from candidates. */
-public class ExclusionsCompleterFilter implements CompleterFilter {
+/** Filters out short option names from candidates. */
+public class ShortOptionsFilter implements CompleterFilter {
 
-    private final Set<String> exclusions;
+    private final Set<String> shortOptionNames = shortOptionNames();
 
-    public ExclusionsCompleterFilter(String... exclusions) {
-        this.exclusions = Set.of(exclusions);
+    private static Set<String> shortOptionNames() {
+        return Arrays.stream(Options.values())
+                .filter(it -> !it.fullName().equals(it.shortName()))
+                .map(Options::shortName)
+                .collect(Collectors.toSet());
     }
 
     /** Filters candidates. */
     @Override
     public String[] filter(String[] ignored, String[] candidates) {
         return Arrays.stream(candidates)
-                .filter(it -> !exclusions.contains(it))
+                .filter(it -> !shortOptionNames.contains(it))
                 .toArray(String[]::new);
     }
 }

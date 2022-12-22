@@ -53,6 +53,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
+import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.RaftGroupServiceImpl;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
@@ -416,17 +417,17 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
                 PeersAndLearners configuration = PeersAndLearners.fromConsistentIds(partAssignments);
 
-                CompletableFuture<Void> partitionReadyFuture = raftServers.get(assignment).prepareRaftGroup(
-                        grpId,
-                        configuration.peer(assignment),
+                CompletableFuture<Void> partitionReadyFuture = raftServers.get(assignment).startRaftGroupNode(
+                        new RaftNodeId(grpId, configuration.peer(assignment)),
                         configuration,
-                        () -> new PartitionListener(
+                        new PartitionListener(
                                 new TestPartitionDataStorage(testMpPartStorage),
                                 new TestTxStateStorage(),
                                 txManagers.get(assignment),
                                 () -> Map.of(pkStorage.get().id(), pkStorage.get()),
                                 partId
-                        )
+                        ),
+                        RaftGroupEventsListener.noopLsnr
                 ).thenAccept(
                         raftSvc -> {
                             try {

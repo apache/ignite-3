@@ -44,7 +44,7 @@ public class LogicalTopologyImpl implements LogicalTopology {
     private static final IgniteLogger LOG = Loggers.forClass(LogicalTopologyImpl.class);
 
     /** Storage key for the logical topology. */
-    private static final byte[] LOGICAL_TOPOLOGY_KEY = "logical".getBytes(UTF_8);
+    public static final byte[] LOGICAL_TOPOLOGY_KEY = "logical".getBytes(UTF_8);
 
     private final ClusterStateStorage storage;
 

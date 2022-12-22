@@ -37,10 +37,10 @@ dependencies {
     implementation libs.auto.service.annotations
 
     annotationProcessor project(":ignite-network-annotation-processor")
-    annotationProcessor libs.jmh.annotation.processor
     annotationProcessor libs.auto.service
 
     testAnnotationProcessor project(":ignite-network-annotation-processor")
+    testAnnotationProcessor libs.jmh.annotation.processor
     testImplementation(testFixtures(project(':ignite-core')))
     testImplementation(testFixtures(project(':ignite-network')))
     testImplementation project(':ignite-configuration')

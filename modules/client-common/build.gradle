@@ -29,12 +29,12 @@ dependencies {
     implementation libs.netty.buffer
     implementation libs.netty.codec
 
+    testAnnotationProcessor libs.jmh.annotation.processor
     testImplementation project(':ignite-core')
     testImplementation(testFixtures(project(':ignite-core')))
     testImplementation libs.mockito.junit
     testImplementation libs.hamcrest.core
     testImplementation libs.jmh.core
-    testImplementation libs.jmh.annotation.processor
 }
 
 description = 'ignite-client-common'

@@ -77,7 +77,6 @@ import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.command.UpdateAllCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
-import org.apache.ignite.internal.table.distributed.command.response.MultiRowsResponse;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteMultiRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSingleRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
@@ -174,7 +173,7 @@ public class ItColocationTest {
                 });
 
                 if (cmd instanceof UpdateAllCommand) {
-                    return completedFuture(new MultiRowsResponse(List.of()).getValues());
+                    return completedFuture(List.of());
                 } else {
                     return completedFuture(true);
                 }

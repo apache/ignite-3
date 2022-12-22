@@ -258,10 +258,10 @@ internal static class ResultSelector
             il.Emit(OpCodes.Ldc_I4, col.Scale);
         }
 
-        var colType = col.Type.ToClrType();
+        var colType = col.Type.ToClrType(col.Nullable);
         il.Emit(OpCodes.Call, BinaryTupleMethods.GetReadMethod(colType));
 
-        il.EmitConv(colType, targetType);
+        il.EmitConv(colType, targetType, col.Name);
         il.MarkLabel(endParamLabel);
     }
 
@@ -292,10 +292,10 @@ internal static class ResultSelector
             il.Emit(OpCodes.Ldc_I4, col.Scale);
         }
 
-        var colType = col.Type.ToClrType();
+        var colType = col.Type.ToClrType(col.Nullable);
         il.Emit(OpCodes.Call, BinaryTupleMethods.GetReadMethod(colType));
 
-        il.EmitConv(colType, field.FieldType);
+        il.EmitConv(colType, field.FieldType, col.Name);
         il.Emit(OpCodes.Stfld, field); // res.field = value
 
         il.MarkLabel(endFieldLabel);

@@ -1,7 +1,7 @@
 # name: test/sql/types/interval/interval_constants.test
 # description: Test constant intervals
 # group: [interval]
-# Ignored: https://issues.apache.org/jira/browse/IGNITE-17271
+# Ignored: https://issues.apache.org/jira/browse/IGNITE-18362
 
 statement ok
 PRAGMA enable_verification

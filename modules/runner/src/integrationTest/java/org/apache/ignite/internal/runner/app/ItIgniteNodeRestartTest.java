@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.runner.app;
 
 import static org.apache.ignite.internal.recovery.ConfigurationCatchUpListener.CONFIGURATION_CATCH_UP_DIFFERENCE_PROPERTY;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
@@ -27,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 
@@ -42,7 +42,6 @@ import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -108,6 +107,7 @@ import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
+import org.apache.ignite.tx.TransactionException;
 import org.intellij.lang.annotations.Language;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -799,7 +799,6 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * checks that the table created before node stop, is not available when majority if lost.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17976")
     public void testOneNodeRestartWithGap() {
         Ignite ignite = startNode(0);
 
@@ -813,9 +812,9 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         assertNotNull(table);
 
-        assertThrowsWithCause(() -> table.keyValueView().get(null, Tuple.create().set("id", 0)), TimeoutException.class);
+        assertThrows(TransactionException.class, () -> table.keyValueView().get(null, Tuple.create().set("id", 0)));
 
-        createTableWithData(ignite, TABLE_NAME_2, 1, 1);
+        createTableWithoutData(ignite, TABLE_NAME_2, 1, 1);
 
         components = startPartialNode(1, null);
 
@@ -1029,6 +1028,21 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 session.execute(null, "INSERT INTO " + name + "(id, name) VALUES (?, ?)",
                         i, VALUE_PRODUCER.apply(i));
             }
+        }
+    }
+
+    /**
+     * Creates a table.
+     *
+     * @param ignite Ignite.
+     * @param name Table name.
+     * @param replicas Replica factor.
+     * @param partitions Partitions count.
+     */
+    private static void createTableWithoutData(Ignite ignite, String name, int replicas, int partitions) {
+        try (Session session = ignite.sql().createSession()) {
+            session.execute(null, "CREATE TABLE " + name
+                    + "(id INT PRIMARY KEY, name VARCHAR) WITH replicas=" + replicas + ", partitions=" + partitions);
         }
     }
 

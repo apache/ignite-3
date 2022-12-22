@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.metastorage;
 
-import static org.apache.ignite.internal.metastorage.common.MetastorageGroupId.INSTANCE;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
 import static org.apache.ignite.lang.ErrorGroups.MetaStorage.CURSOR_CLOSING_ERR;
@@ -45,6 +44,7 @@ import org.apache.ignite.internal.metastorage.client.OperationTimeoutException;
 import org.apache.ignite.internal.metastorage.client.StatementResult;
 import org.apache.ignite.internal.metastorage.client.WatchListener;
 import org.apache.ignite.internal.metastorage.common.MetaStorageException;
+import org.apache.ignite.internal.metastorage.common.MetastorageGroupId;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
 import org.apache.ignite.internal.metastorage.watch.AggregatedWatch;
@@ -52,7 +52,9 @@ import org.apache.ignite.internal.metastorage.watch.KeyCriterion;
 import org.apache.ignite.internal.metastorage.watch.WatchAggregator;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
+import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.RaftManager;
+import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -166,29 +168,33 @@ public class MetaStorageManager implements IgniteComponent {
 
         Peer localPeer = configuration.peer(thisNode.name());
 
-        if (localPeer != null) {
-            clusterService.topologyService().addEventHandler(new TopologyEventHandler() {
-                @Override
-                public void onDisappeared(ClusterNode member) {
-                    metaStorageSvcFut.thenAccept(svc -> svc.closeCursors(member.id()));
-                }
-            });
-
-            storage.start();
-        }
+        CompletableFuture<RaftGroupService> raftServiceFuture;
 
         try {
-            CompletableFuture<RaftGroupService> raftServiceFuture = raftMgr.prepareRaftGroup(
-                    INSTANCE,
-                    localPeer,
-                    configuration,
-                    () -> new MetaStorageListener(storage)
-            );
+            if (localPeer == null) {
+                raftServiceFuture = raftMgr.startRaftGroupService(MetastorageGroupId.INSTANCE, configuration);
+            } else {
+                clusterService.topologyService().addEventHandler(new TopologyEventHandler() {
+                    @Override
+                    public void onDisappeared(ClusterNode member) {
+                        metaStorageSvcFut.thenAccept(svc -> svc.closeCursors(member.id()));
+                    }
+                });
 
-            return raftServiceFuture.thenApply(service -> new MetaStorageServiceImpl(service, thisNode.id(), thisNode.name()));
+                storage.start();
+
+                raftServiceFuture = raftMgr.startRaftGroupNode(
+                        new RaftNodeId(MetastorageGroupId.INSTANCE, localPeer),
+                        configuration,
+                        new MetaStorageListener(storage),
+                        RaftGroupEventsListener.noopLsnr
+                );
+            }
         } catch (NodeStoppingException e) {
             return CompletableFuture.failedFuture(e);
         }
+
+        return raftServiceFuture.thenApply(service -> new MetaStorageServiceImpl(service, thisNode.id(), thisNode.name()));
     }
 
     /** {@inheritDoc} */
@@ -229,7 +235,7 @@ public class MetaStorageManager implements IgniteComponent {
             IgniteUtils.closeAll(
                     this::stopDeployedWatches,
                     () -> {
-                        if (raftMgr.stopRaftNodes(INSTANCE)) {
+                        if (raftMgr.stopRaftNodes(MetastorageGroupId.INSTANCE)) {
                             storage.close();
                         }
                     }

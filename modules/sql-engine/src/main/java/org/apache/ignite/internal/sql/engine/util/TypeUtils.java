@@ -51,7 +51,7 @@ import org.apache.ignite.internal.schema.VarlenNativeType;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.apache.ignite.sql.SqlColumnType;
+import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -294,46 +294,46 @@ public class TypeUtils {
     /**
      * Convert calcite date type to Ignite native type.
      */
-    public static SqlColumnType columnType(RelDataType type) {
+    public static ColumnType columnType(RelDataType type) {
         switch (type.getSqlTypeName()) {
             case VARCHAR:
             case CHAR:
-                return SqlColumnType.STRING;
+                return ColumnType.STRING;
             case DATE:
-                return SqlColumnType.DATE;
+                return ColumnType.DATE;
             case TIME:
             case TIME_WITH_LOCAL_TIME_ZONE:
-                return SqlColumnType.TIME;
+                return ColumnType.TIME;
             case INTEGER:
-                return SqlColumnType.INT32;
+                return ColumnType.INT32;
             case TIMESTAMP:
-                return SqlColumnType.DATETIME;
+                return ColumnType.DATETIME;
             case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
-                return SqlColumnType.TIMESTAMP;
+                return ColumnType.TIMESTAMP;
             case BIGINT:
-                return SqlColumnType.INT64;
+                return ColumnType.INT64;
             case SMALLINT:
-                return SqlColumnType.INT16;
+                return ColumnType.INT16;
             case TINYINT:
-                return SqlColumnType.INT8;
+                return ColumnType.INT8;
             case BOOLEAN:
-                return SqlColumnType.BOOLEAN;
+                return ColumnType.BOOLEAN;
             case DECIMAL:
-                return SqlColumnType.DECIMAL;
+                return ColumnType.DECIMAL;
             case DOUBLE:
-                return SqlColumnType.DOUBLE;
+                return ColumnType.DOUBLE;
             case REAL:
             case FLOAT:
-                return SqlColumnType.FLOAT;
+                return ColumnType.FLOAT;
             case BINARY:
             case VARBINARY:
             case ANY:
             case OTHER:
-                return SqlColumnType.BYTE_ARRAY;
+                return ColumnType.BYTE_ARRAY;
             case INTERVAL_YEAR:
             case INTERVAL_YEAR_MONTH:
             case INTERVAL_MONTH:
-                return SqlColumnType.PERIOD;
+                return ColumnType.PERIOD;
             case INTERVAL_DAY_HOUR:
             case INTERVAL_DAY_MINUTE:
             case INTERVAL_DAY_SECOND:
@@ -344,7 +344,9 @@ public class TypeUtils {
             case INTERVAL_MINUTE_SECOND:
             case INTERVAL_SECOND:
             case INTERVAL_DAY:
-                return SqlColumnType.DURATION;
+                return ColumnType.DURATION;
+            case NULL:
+                return ColumnType.NULL;
             default:
                 assert false : "Unexpected type of result: " + type.getSqlTypeName();
                 return null;
@@ -391,6 +393,7 @@ public class TypeUtils {
 
                 return factory.createSqlType(SqlTypeName.DECIMAL, decimal.precision(), decimal.scale());
             case UUID:
+                // TODO IGNITE-18431.
                 throw new AssertionError("UUID is not supported yet");
             case STRING: {
                 assert nativeType instanceof VarlenNativeType;
@@ -407,6 +410,7 @@ public class TypeUtils {
                 return factory.createSqlType(SqlTypeName.BINARY, varlen.length());
             }
             case BITMASK:
+                // TODO IGNITE-18431.
                 throw new AssertionError("BITMASK is not supported yet");
             case NUMBER:
                 assert nativeType instanceof NumberNativeType;

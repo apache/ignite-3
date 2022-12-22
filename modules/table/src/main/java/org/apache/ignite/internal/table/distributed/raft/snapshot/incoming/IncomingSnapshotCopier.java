@@ -163,6 +163,8 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
         CompletableFuture<?> fut = future;
 
         if (fut != null) {
+            fut.cancel(false);
+
             try {
                 // Because after the cancellation, no one waits for #join.
                 join();

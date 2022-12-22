@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.core.repl.completer;
+package org.apache.ignite.internal.cli.core.repl.completer.filter;
 
 import static java.util.Arrays.asList;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -23,6 +23,7 @@ import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.emptyArray;
 
 import org.apache.ignite.internal.cli.core.repl.Session;
+import org.apache.ignite.internal.cli.core.repl.completer.filter.DynamicCompleterFilter;
 import org.junit.jupiter.api.Test;
 
 class DynamicCompleterFilterTest {

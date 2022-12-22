@@ -352,7 +352,7 @@ public class IgniteImpl implements Ignite {
         DistributionZonesConfiguration zonesConfiguration = clusterCfgMgr.configurationRegistry()
                 .getConfiguration(DistributionZonesConfiguration.KEY);
 
-        distributionZoneManager = new DistributionZoneManager(zonesConfiguration, metaStorageMgr, cmgMgr);
+        distributionZoneManager = new DistributionZoneManager(zonesConfiguration, metaStorageMgr, cmgMgr, logicalTopologyService);
 
         restComponent = createRestComponent(name);
 

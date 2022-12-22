@@ -49,6 +49,9 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
     /** Heartbeat interval. */
     private final long heartbeatInterval;
 
+    /** Heartbeat timout. */
+    private final long heartbeatTimeout;
+
     /** Retry policy. */
     private final RetryPolicy retryPolicy;
 
@@ -64,6 +67,7 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
      * @param reconnectThrottlingRetries Reconnect throttling retries.
      * @param asyncContinuationExecutor Async continuation executor.
      * @param heartbeatInterval Heartbeat message interval.
+     * @param heartbeatTimeout Heartbeat message timeout.
      * @param retryPolicy Retry policy.
      * @param loggerFactory Logger factory which will be used to create a logger instance for this this particular client when needed.
      */
@@ -75,8 +79,9 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
             int reconnectThrottlingRetries,
             Executor asyncContinuationExecutor,
             long heartbeatInterval,
-            RetryPolicy retryPolicy,
-            LoggerFactory loggerFactory
+            long heartbeatTimeout,
+            @Nullable RetryPolicy retryPolicy,
+            @Nullable LoggerFactory loggerFactory
     ) {
         this.addressFinder = addressFinder;
 
@@ -88,6 +93,7 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
         this.reconnectThrottlingRetries = reconnectThrottlingRetries;
         this.asyncContinuationExecutor = asyncContinuationExecutor;
         this.heartbeatInterval = heartbeatInterval;
+        this.heartbeatTimeout = heartbeatTimeout;
         this.retryPolicy = retryPolicy;
         this.loggerFactory = loggerFactory;
     }
@@ -132,6 +138,12 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
     @Override
     public long heartbeatInterval() {
         return heartbeatInterval;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public long heartbeatTimeout() {
+        return heartbeatTimeout;
     }
 
     /** {@inheritDoc} */
