@@ -131,7 +131,7 @@ public class IgniteLogicalIndexScan extends AbstractIndexScan {
             return null;
         }
 
-        return RexUtils.buildSortedIndexConditions(
+        return RexUtils.buildSortedSearchBounds(
                 cluster,
                 collation,
                 cond,
@@ -147,7 +147,7 @@ public class IgniteLogicalIndexScan extends AbstractIndexScan {
             RexNode cond,
             @Nullable ImmutableBitSet requiredColumns
     ) {
-        return RexUtils.buildHashIndexConditions(
+        return RexUtils.buildHashSearchBounds(
                 cluster,
                 collation,
                 cond,

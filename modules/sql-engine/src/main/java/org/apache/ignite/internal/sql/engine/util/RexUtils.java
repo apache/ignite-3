@@ -22,6 +22,7 @@ import static org.apache.calcite.rex.RexUtil.sargRef;
 import static org.apache.calcite.sql.SqlKind.EQUALS;
 import static org.apache.calcite.sql.SqlKind.GREATER_THAN;
 import static org.apache.calcite.sql.SqlKind.GREATER_THAN_OR_EQUAL;
+import static org.apache.calcite.sql.SqlKind.IS_NOT_DISTINCT_FROM;
 import static org.apache.calcite.sql.SqlKind.IS_NOT_NULL;
 import static org.apache.calcite.sql.SqlKind.IS_NULL;
 import static org.apache.calcite.sql.SqlKind.LESS_THAN;
@@ -42,6 +43,7 @@ import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import org.apache.calcite.linq4j.Ord;
 import org.apache.calcite.plan.RelOptCluster;
@@ -197,7 +199,7 @@ public class RexUtils {
 
     /** Binary comparison operations. */
     private static final Set<SqlKind> BINARY_COMPARISON =
-            EnumSet.of(EQUALS, LESS_THAN, GREATER_THAN, GREATER_THAN_OR_EQUAL, LESS_THAN_OR_EQUAL);
+            EnumSet.of(EQUALS, IS_NOT_DISTINCT_FROM, LESS_THAN, GREATER_THAN, GREATER_THAN_OR_EQUAL, LESS_THAN_OR_EQUAL);
 
     /** Supported index operations. */
     private static final Set<SqlKind> TREE_INDEX_COMPARISON =
@@ -206,13 +208,14 @@ public class RexUtils {
                     IS_NULL,
                     IS_NOT_NULL,
                     EQUALS,
+                    IS_NOT_DISTINCT_FROM,
                     LESS_THAN, GREATER_THAN,
                     GREATER_THAN_OR_EQUAL, LESS_THAN_OR_EQUAL);
 
     /**
      * Builds sorted index search bounds.
      */
-    public static @Nullable List<SearchBounds> buildSortedIndexConditions(
+    public static @Nullable List<SearchBounds> buildSortedSearchBounds(
             RelOptCluster cluster,
             RelCollation collation,
             @Nullable RexNode condition,
@@ -304,7 +307,7 @@ public class RexUtils {
     /**
      * Builds hash index search bounds.
      */
-    public static List<SearchBounds> buildHashIndexConditions(
+    public static List<SearchBounds> buildHashSearchBounds(
             RelOptCluster cluster,
             RelCollation collation,
             RexNode condition,
@@ -361,46 +364,58 @@ public class RexUtils {
     }
 
     /**
-     * Builds index conditions.
+     * Builds hash index search bounds.
      */
-    public static List<RexNode> buildHashSearchRow(
+    public static List<SearchBounds> buildHashSearchBounds(
             RelOptCluster cluster,
             RexNode condition,
-            RelDataType rowType
+            RelDataType rowType,
+            @Nullable ImmutableBitSet requiredColumns
     ) {
         condition = RexUtil.toCnf(builder(cluster), condition);
 
-        Int2ObjectMap<List<RexCall>> fieldsToPredicates = mapPredicatesToFields(condition, cluster);
+        Map<Integer, List<RexCall>> fieldsToPredicates = mapPredicatesToFields(condition, cluster);
 
         if (nullOrEmpty(fieldsToPredicates)) {
             return null;
         }
 
-        List<RexNode> searchPreds = null;
+        List<SearchBounds> bounds = null;
 
-        for (List<RexCall> collFldPreds : fieldsToPredicates.values()) {
+        List<RelDataType> types = RelOptUtil.getFieldTypeList(rowType);
+
+        Mappings.TargetMapping mapping = null;
+
+        if (requiredColumns != null) {
+            mapping = Commons.inverseTrimmingMapping(types.size(), requiredColumns);
+        }
+
+        for (int fldIdx : fieldsToPredicates.keySet()) {
+            List<RexCall> collFldPreds = fieldsToPredicates.get(fldIdx);
+
             if (nullOrEmpty(collFldPreds)) {
                 break;
             }
 
             for (RexCall pred : collFldPreds) {
-                if (pred.getOperator().kind != SqlKind.EQUALS) {
+                if (pred.getOperator().kind != SqlKind.EQUALS && pred.getOperator().kind != IS_NOT_DISTINCT_FROM) {
                     return null;
                 }
 
-                if (searchPreds == null) {
-                    searchPreds = new ArrayList<>();
+                if (bounds == null) {
+                    bounds = Arrays.asList(new SearchBounds[types.size()]);
                 }
 
-                searchPreds.add(pred);
+                if (mapping != null) {
+                    fldIdx = mapping.getSourceOpt(fldIdx);
+                }
+
+                bounds.set(fldIdx, new ExactBounds(pred,
+                        makeCast(builder(cluster), removeCast(pred.operands.get(1)), types.get(fldIdx))));
             }
         }
 
-        if (searchPreds == null) {
-            return null;
-        }
-
-        return asBound(cluster, searchPreds, rowType, null);
+        return bounds;
     }
 
     /** Create index search bound by conditions of the field. */
@@ -437,6 +452,8 @@ public class RexUtils {
 
             if (op.kind == EQUALS) {
                 return new ExactBounds(pred, val);
+            } else if (op.kind == IS_NOT_DISTINCT_FROM) {
+                return new ExactBounds(pred, builder.makeCall(SqlStdOperatorTable.COALESCE, val, nullVal));
             } else if (op.kind == IS_NULL) {
                 return new ExactBounds(pred, nullVal);
             } else if (op.kind == SEARCH) {
@@ -557,7 +574,7 @@ public class RexUtils {
 
                 // Let RexLocalRef be on the left side.
                 if (refOnTheRight(predCall)) {
-                    predCall = (RexCall) RexUtil.invert(builder(cluster), predCall);
+                    predCall = (RexCall) invert(builder(cluster), predCall);
                 }
             } else {
                 ref = (RexSlot) extractRefFromOperand(predCall, cluster, 0);
@@ -573,6 +590,15 @@ public class RexUtils {
         }
 
         return res;
+    }
+
+    /** Extended version of {@link RexUtil#invert(RexBuilder, RexCall)} with additional operators support. */
+    private static RexNode invert(RexBuilder rexBuilder, RexCall call) {
+        if (call.getOperator() == SqlStdOperatorTable.IS_NOT_DISTINCT_FROM) {
+            return rexBuilder.makeCall(call.getOperator(), call.getOperands().get(1), call.getOperands().get(0));
+        } else {
+            return RexUtil.invert(rexBuilder, call);
+        }
     }
 
     private static RexNode extractRefFromBinary(RexCall call, RelOptCluster cluster) {
