@@ -22,6 +22,9 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.Duration;
+import java.util.Collections;
+import org.apache.ignite.internal.cli.core.repl.Session;
+import org.apache.ignite.internal.tostring.S;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -34,7 +37,8 @@ public class NodeNameTest extends CliCommandTestNotInitializedIntegrationBase {
 
     @BeforeEach
     void setUp() throws InterruptedException {
-        nodeNameRegistry.startPullingUpdates("http://localhost:10301");
+        Session session = new Session(Collections.singletonList(nodeNameRegistry));
+        session.connect("http://localhost:10301", "node1", "");
         // wait to pulling node names
         assertTrue(waitForCondition(() -> !nodeNameRegistry.getAllNames().isEmpty(), Duration.ofSeconds(5).toMillis()));
         this.nodeName = nodeNameRegistry.getAllNames().stream()
@@ -86,6 +90,6 @@ public class NodeNameTest extends CliCommandTestNotInitializedIntegrationBase {
 
     @AfterEach
     void tearDown() {
-        nodeNameRegistry.stopPullingUpdates();
+        execute("disconnect");
     }
 }

@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.cli.core.repl.completer.node;
 
 import jakarta.inject.Singleton;
-import org.apache.ignite.internal.cli.NodeNameRegistry;
+import org.apache.ignite.internal.cli.core.repl.registry.NodeNameRegistry;
 import org.apache.ignite.internal.cli.core.repl.completer.DynamicCompleter;
 import org.apache.ignite.internal.cli.core.repl.completer.DynamicCompleterFactory;
 import org.apache.ignite.internal.cli.core.repl.completer.StringDynamicCompleter;

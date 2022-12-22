@@ -18,13 +18,17 @@
 package org.apache.ignite.internal.cli.core.repl;
 
 import jakarta.inject.Singleton;
+import java.util.List;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 
 /**
- * Connection session that in fact is holder for state: connected or disconnected.
- * Also has a nodeUrl if the state is connected.
+ * Connection session that in fact is holder for state: connected or disconnected. Also has a nodeUrl if the state is connected.
  */
 @Singleton
 public class Session {
+
+    private final IgniteLogger log = Loggers.forClass(getClass());
 
     private boolean connectedToNode;
 
@@ -34,12 +38,42 @@ public class Session {
 
     private String jdbcUrl;
 
-    public boolean isConnectedToNode() {
-        return connectedToNode;
+    private final List<SessionEventListener> listeners;
+
+    public Session(List<SessionEventListener> listeners) {
+        this.listeners = listeners;
     }
 
-    public void setConnectedToNode(boolean connectedToNode) {
-        this.connectedToNode = connectedToNode;
+    public synchronized void connect(String nodeUrl, String nodeName, String jdbcUrl) {
+        this.nodeUrl = nodeUrl;
+        this.nodeName = nodeName;
+        this.jdbcUrl = jdbcUrl;
+        this.connectedToNode = true;
+        listeners.forEach(it -> {
+            try {
+                it.onConnect(this);
+            } catch (Exception e) {
+                log.warn("Got an exception: ", e);
+            }
+        });
+    }
+
+    public synchronized void disconnect() {
+        this.nodeUrl = null;
+        this.nodeName = null;
+        this.jdbcUrl = null;
+        this.connectedToNode = false;
+        listeners.forEach(it -> {
+            try {
+                it.onConnect(this);
+            } catch (Exception e) {
+                log.warn("Got an exception: ", e);
+            }
+        });
+    }
+
+    public boolean isConnectedToNode() {
+        return connectedToNode;
     }
 
     public String nodeUrl() {
@@ -50,19 +84,8 @@ public class Session {
         return nodeName;
     }
 
-    public void setNodeName(String nodeName) {
-        this.nodeName = nodeName;
-    }
-
-    public void setNodeUrl(String nodeUrl) {
-        this.nodeUrl = nodeUrl;
-    }
 
     public String jdbcUrl() {
         return jdbcUrl;
-    }
-
-    public void setJdbcUrl(String jdbcUrl) {
-        this.jdbcUrl = jdbcUrl;
     }
 }

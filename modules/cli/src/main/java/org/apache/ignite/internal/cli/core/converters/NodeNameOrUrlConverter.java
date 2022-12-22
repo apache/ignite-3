@@ -20,7 +20,7 @@ package org.apache.ignite.internal.cli.core.converters;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.regex.Pattern;
-import org.apache.ignite.internal.cli.NodeNameRegistry;
+import org.apache.ignite.internal.cli.core.repl.registry.NodeNameRegistry;
 import org.apache.ignite.internal.cli.commands.node.NodeNameOrUrl;
 import picocli.CommandLine;
 import picocli.CommandLine.TypeConversionException;

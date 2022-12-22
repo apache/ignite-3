@@ -21,7 +21,7 @@ import jakarta.inject.Singleton;
 import java.net.URL;
 import java.util.Set;
 import java.util.stream.Collectors;
-import org.apache.ignite.internal.cli.NodeNameRegistry;
+import org.apache.ignite.internal.cli.core.repl.registry.NodeNameRegistry;
 import org.apache.ignite.internal.cli.core.repl.completer.DynamicCompleter;
 import org.apache.ignite.internal.cli.core.repl.completer.DynamicCompleterFactory;
 import org.apache.ignite.internal.cli.core.repl.completer.StringDynamicCompleter;

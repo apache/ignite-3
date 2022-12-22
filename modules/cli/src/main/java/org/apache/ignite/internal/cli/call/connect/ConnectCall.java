@@ -22,7 +22,7 @@ import jakarta.inject.Singleton;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.Objects;
-import org.apache.ignite.internal.cli.NodeNameRegistry;
+import org.apache.ignite.internal.cli.core.repl.registry.NodeNameRegistry;
 import org.apache.ignite.internal.cli.config.ConfigConstants;
 import org.apache.ignite.internal.cli.config.StateConfigProvider;
 import org.apache.ignite.internal.cli.core.call.Call;
@@ -68,16 +68,12 @@ public class ConnectCall implements Call<ConnectCallInput, String> {
         }
         try {
             String configuration = fetchNodeConfiguration(nodeUrl);
-            session.setNodeName(fetchNodeName(nodeUrl));
-            session.setNodeUrl(nodeUrl);
             stateConfigProvider.get().setProperty(ConfigConstants.LAST_CONNECTED_URL, nodeUrl);
-            session.setJdbcUrl(constructJdbcUrl(configuration, nodeUrl));
-            session.setConnectedToNode(true);
-            nodeNameRegistry.startPullingUpdates(nodeUrl);
+            session.connect(nodeUrl, fetchNodeName(nodeUrl), constructJdbcUrl(configuration, nodeUrl));
             return DefaultCallOutput.success(MessageUiComponent.fromMessage("Connected to %s", UiElements.url(nodeUrl)).render());
 
         } catch (ApiException | IllegalArgumentException e) {
-            session.setConnectedToNode(false);
+            session.disconnect();
             return DefaultCallOutput.failure(new IgniteCliApiException(e, nodeUrl));
         }
     }
