@@ -34,6 +34,8 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteExchange;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteMergeJoin;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
+import org.apache.ignite.internal.sql.engine.rel.IgniteSort;
+import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
@@ -117,7 +119,7 @@ public class JoinColocationPlannerTest extends AbstractPlannerTest {
     public void joinComplexToSimpleAff() throws Exception {
         TestTable complexTbl = createTable(
                 "COMPLEX_TBL",
-                DEFAULT_TBL_SIZE,
+                2 * DEFAULT_TBL_SIZE,
                 IgniteDistributions.affinity(ImmutableIntList.of(0, 1), UUID.randomUUID(), DEFAULT_ZONE_ID),
                 "ID1", Integer.class,
                 "ID2", Integer.class,
@@ -128,7 +130,7 @@ public class JoinColocationPlannerTest extends AbstractPlannerTest {
 
         TestTable simpleTbl = createTable(
                 "SIMPLE_TBL",
-                2 * DEFAULT_TBL_SIZE,
+                DEFAULT_TBL_SIZE,
                 IgniteDistributions.affinity(0, UUID.randomUUID(), DEFAULT_ZONE_ID),
                 "ID", Integer.class,
                 "ID2", Integer.class,
@@ -156,9 +158,10 @@ public class JoinColocationPlannerTest extends AbstractPlannerTest {
                 && ((IgniteRel) node).distribution().function().affinity());
 
         assertThat(invalidPlanMsg, exchanges, hasSize(1));
-        assertThat(invalidPlanMsg, exchanges.get(0).getInput(0), instanceOf(IgniteIndexScan.class));
-        assertThat(invalidPlanMsg, exchanges.get(0).getInput(0)
-                .getTable().unwrap(TestTable.class), equalTo(complexTbl));
+        assertThat(invalidPlanMsg, exchanges.get(0).getInput(0), instanceOf(IgniteSort.class));
+        assertThat(invalidPlanMsg, exchanges.get(0).getInput(0).getInput(0), instanceOf(IgniteTableScan.class));
+        assertThat(invalidPlanMsg, exchanges.get(0).getInput(0).getInput(0)
+                .getTable().unwrap(TestTable.class), equalTo(simpleTbl));
     }
 
     /**
