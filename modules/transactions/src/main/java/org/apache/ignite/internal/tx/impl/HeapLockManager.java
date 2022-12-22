@@ -171,14 +171,19 @@ public class HeapLockManager implements LockManager {
                     return new IgniteBiTuple(null, lockMode);
                 }
 
-                WaiterImpl prev = waiters.putIfAbsent(txId, waiter);
+                // We always replace the previous waiter with the new one. If the previous waiter has lock intention then incomplete
+                // lock future is copied to the new waiter. This guarantees that, if the previous waiter was locked concurrently, then
+                // it doesn't have any lock intentions, and the future is not copied to the new waiter. Otherwise, if there is lock
+                // intention, this means that the lock future contained in previous waiter, is not going to be completed and can be
+                // copied safely.
+                WaiterImpl prev = waiters.put(txId, waiter);
 
                 // Reenter
                 if (prev != null) {
                     if (prev.locked() && prev.lockMode().allowReenter(lockMode)) {
                         waiter.lock();
 
-                        prev.upgrade(waiter);
+                        waiter.upgrade(prev);
 
                         return new IgniteBiTuple(CompletableFuture.completedFuture(null), prev.lockMode());
                     } else {
@@ -186,8 +191,6 @@ public class HeapLockManager implements LockManager {
 
                         assert prev.lockMode() == waiter.lockMode() :
                                 "Lock modes are incorrect [prev=" + prev.lockMode() + ", new=" + waiter.lockMode() + ']';
-
-                        waiters.put(txId, waiter); // Upgrade.
                     }
                 }
 
@@ -417,7 +420,7 @@ public class HeapLockManager implements LockManager {
         private final Map<LockMode, Integer> locks = new HashMap<>();
 
         /**
-         * Lock modes are marked as intended, but have not taken yet.
+         * Lock modes are marked as intended, but have not taken yet. This is NOT specific to intention lock modes, such as IS and IX.
          * TODO: IGNITE-18350 Abandon the collection in favor of BitSet.
          */
         private final Set<LockMode> intendedLocks = new HashSet<>();
@@ -429,7 +432,7 @@ public class HeapLockManager implements LockManager {
         /** Waiter transaction id. */
         private final UUID txId;
 
-        /** The lock mode to intend to hold. */
+        /** The lock mode to intend to hold. This is NOT specific to intention lock modes, such as IS and IX. */
         private LockMode intendedLockMode;
 
         /** The lock mode. */

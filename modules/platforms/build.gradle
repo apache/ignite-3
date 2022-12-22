@@ -73,11 +73,11 @@ task createChecksums(type: Checksum) {
     dependsOn zipCppClient, zipNuGet
 
     inputFiles.from zipCppClient.outputs.files, zipNuGet.outputs.files
-    outputDirectory = file("$buildDir/distributions")
     checksumAlgorithm = Checksum.Algorithm.SHA512
 }
 
-signing {
+// Explicitly create task so that the resulting artifact is not added to the configuration
+tasks.register('signArtifacts', Sign) {
     sign zipNuGet
     sign zipCppClient
 }
@@ -89,8 +89,13 @@ configurations {
     }
 }
 
-artifacts {
-    platformsRelease(file("$buildDir/distributions")) {
-        builtBy createChecksums, signZipNuGet, signZipCppClient
+if (project.hasProperty('prepareRelease')) {
+    artifacts {
+        platformsRelease(file("$buildDir/distributions")) {
+            builtBy signArtifacts
+        }
+        platformsRelease(file("$buildDir/checksums")) {
+            builtBy createChecksums
+        }
     }
 }
