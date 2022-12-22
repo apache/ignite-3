@@ -19,6 +19,9 @@ package org.apache.ignite.internal.tx;
 
 import org.apache.ignite.internal.tx.impl.WaitDieDeadlockPreventionPolicy;
 
+/**
+ * Test for {@link WaitDieDeadlockPreventionPolicy}.
+ */
 public class WaitDieDeadlockPreventionTest extends AbstractDeadlockPreventionTest {
     @Override
     protected DeadlockPreventionPolicy deadlockPreventionPolicy() {

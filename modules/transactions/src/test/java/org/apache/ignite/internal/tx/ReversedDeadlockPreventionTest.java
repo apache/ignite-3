@@ -23,8 +23,7 @@ import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 
 /**
- * Deadlock prevention test with modified prevention policy and transaction id generation algorithm, it is intended to test alternative
- * deadlock prevention policy.
+ * Test for WOUND-WAIT deadlock prevention policy.
  */
 public class ReversedDeadlockPreventionTest extends AbstractDeadlockPreventionTest {
     private long counter;

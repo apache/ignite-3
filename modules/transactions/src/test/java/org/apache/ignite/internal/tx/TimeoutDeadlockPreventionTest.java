@@ -19,14 +19,15 @@ package org.apache.ignite.internal.tx;
 
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willFailFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
-import static org.apache.ignite.internal.tx.LockMode.X;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.junit.jupiter.api.Test;
 
+/**
+ * Test for NO-WAIT deadlock prevention policy, i.e. policy working in the same way as NO-WAIT but with timeout.
+ */
 public class TimeoutDeadlockPreventionTest extends AbstractDeadlockPreventionTest {
     @Override
     protected DeadlockPreventionPolicy deadlockPreventionPolicy() {
@@ -40,73 +41,102 @@ public class TimeoutDeadlockPreventionTest extends AbstractDeadlockPreventionTes
 
     @Test
     public void timeoutTest() {
-        UUID tx1 = Timestamp.nextVersion().toUuid();
-        UUID tx2 = Timestamp.nextVersion().toUuid();
+        var tx1 = beginTx();
+        var tx2 = beginTx();
 
-        LockKey key = new LockKey("test");
+        var key = key("test");
 
-        Lock tx1lock = lockManager.acquire(tx1, key, X).join();
-        CompletableFuture<?> tx2Fut = lockManager.acquire(tx2, key, X);
+        assertThat(xlock(tx1, key), willSucceedFast());
+        CompletableFuture<?> tx2Fut = xlock(tx2, key);
 
         assertFalse(tx2Fut.isDone());
 
-        lockManager.release(tx1lock);
+        commitTx(tx1);
 
         assertThat(tx2Fut, willSucceedFast());
     }
 
     @Test
     public void timeoutTestReverseOrder() {
-        UUID tx1 = Timestamp.nextVersion().toUuid();
-        UUID tx2 = Timestamp.nextVersion().toUuid();
+        var tx1 = beginTx();
+        var tx2 = beginTx();
 
-        LockKey key = new LockKey("test");
+        var key = key("test");
 
-        Lock tx2lock = lockManager.acquire(tx2, key, X).join();
-        CompletableFuture<?> tx1Fut = lockManager.acquire(tx1, key, X);
+        assertThat(xlock(tx2, key), willSucceedFast());
+        CompletableFuture<?> tx2Fut = xlock(tx1, key);
 
-        assertFalse(tx1Fut.isDone());
+        assertFalse(tx2Fut.isDone());
 
-        lockManager.release(tx2lock);
+        commitTx(tx2);
 
-        assertThat(tx1Fut, willSucceedFast());
+        assertThat(tx2Fut, willSucceedFast());
     }
 
     @Test
     public void timeoutFail() throws InterruptedException {
-        UUID tx1 = Timestamp.nextVersion().toUuid();
-        UUID tx2 = Timestamp.nextVersion().toUuid();
+        var tx1 = beginTx();
+        var tx2 = beginTx();
 
-        LockKey key = new LockKey("test");
+        var key = key("test");
 
-        Lock tx1lock = lockManager.acquire(tx1, key, X).join();
-        CompletableFuture<?> tx2Fut = lockManager.acquire(tx2, key, X);
+        assertThat(xlock(tx1, key), willSucceedFast());
+        CompletableFuture<?> tx2Fut = xlock(tx2, key);
 
         assertFalse(tx2Fut.isDone());
 
         Thread.sleep(350);
 
-        lockManager.release(tx1lock);
+        commitTx(tx1);
 
         assertThat(tx2Fut, willFailFast(LockException.class));
     }
 
     @Test
     public void timeoutFailReverseOrder() throws InterruptedException {
-        UUID tx1 = Timestamp.nextVersion().toUuid();
-        UUID tx2 = Timestamp.nextVersion().toUuid();
+        var tx1 = beginTx();
+        var tx2 = beginTx();
 
-        LockKey key = new LockKey("test");
+        var key = key("test");
 
-        Lock tx2lock = lockManager.acquire(tx2, key, X).join();
-        CompletableFuture<?> tx1Fut = lockManager.acquire(tx1, key, X);
+        assertThat(xlock(tx2, key), willSucceedFast());
+        CompletableFuture<?> tx2Fut = xlock(tx1, key);
 
-        assertFalse(tx1Fut.isDone());
+        assertFalse(tx2Fut.isDone());
 
         Thread.sleep(350);
 
-        lockManager.release(tx2lock);
+        commitTx(tx2);
 
-        assertThat(tx1Fut, willFailFast(LockException.class));
+        assertThat(tx2Fut, willFailFast(LockException.class));
+    }
+
+    @Test
+    public void allowDeadlockOnOneKeyWithTimeout() {
+        var tx0 = beginTx();
+        var tx1 = beginTx();
+
+        var key = key("test0");
+
+        assertThat(slock(tx0, key), willSucceedFast());
+        assertThat(slock(tx1, key), willSucceedFast());
+
+        assertThat(xlock(tx0, key), willFailFast(LockException.class));
+        assertThat(xlock(tx1, key), willFailFast(LockException.class));
+    }
+
+    @Test
+    public void allowDeadlockOnTwoKeysWithTimeout() {
+        var tx0 = beginTx();
+        var tx1 = beginTx();
+
+        var key0 = key("test0");
+        var key1 = key("test1");
+
+        assertThat(xlock(tx0, key0), willSucceedFast());
+        assertThat(xlock(tx1, key1), willSucceedFast());
+
+        assertThat(xlock(tx0, key1), willFailFast(LockException.class));
+        assertThat(xlock(tx1, key0), willFailFast(LockException.class));
     }
 }
