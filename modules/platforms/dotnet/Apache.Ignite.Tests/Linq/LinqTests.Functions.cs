@@ -126,15 +126,28 @@ public partial class LinqTests
                             "else (case when (_T0.VAL > ?) then 1 else -1 end) end from";
 
         TestOpString(x => string.Compare(x.Val, "abc"), 1, expectedQuery);
+
+        var expectedQueryIgnoreCase = "select case when (lower(_T0.VAL) is not distinct from lower(?)) then 0 " +
+                                      "else (case when (lower(_T0.VAL) > lower(?)) then 1 else -1 end) end from";
+
+        TestOpString(x => string.Compare(x.Val, "abc", true), 1, expectedQueryIgnoreCase);
+    }
+
+    [Test]
+    public void TestStringCompareValues()
+    {
+        Assert.AreEqual(0, Test("v-9"));
+
+        int Test(string val) =>
+            PocoView.AsQueryable()
+                .Where(x => x.Val == "v-9")
+                .Select(x => string.Compare(x.Val, val))
+                .Single();
     }
 
     [Test]
     public void TestStringCompareIgnoreCase()
     {
-        var expectedQuery = "select case when (lower(_T0.VAL) is not distinct from lower(?)) then 0 " +
-                            "else (case when (lower(_T0.VAL) > lower(?)) then 1 else -1 end) end from";
-
-        TestOpString(x => string.Compare(x.Val, "abc", true), 1, expectedQuery);
     }
 
     [Test]
