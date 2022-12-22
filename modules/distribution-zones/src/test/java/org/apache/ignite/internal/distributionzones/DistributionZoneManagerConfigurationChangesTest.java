@@ -24,10 +24,8 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
 import static org.apache.ignite.internal.metastorage.client.MetaStorageServiceImpl.toIfInfo;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
-import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -40,6 +38,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.io.Serializable;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -331,15 +330,11 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
                 .thenReturn(completedFuture(new VaultEntry(zonesLogicalTopologyKey(), newLogicalTopology)));
     }
 
-    private void assertDataNodesForZone(int zoneId, @Nullable Set<String> expectedNodes) throws InterruptedException {
-        if (expectedNodes == null) {
-            assertNull(keyValueStorage.get(zoneDataNodesKey(zoneId).bytes()).value());
-        } else {
-            Set<String> actual = fromBytes(keyValueStorage.get(zoneDataNodesKey(zoneId).bytes()).value());
+    private void assertDataNodesForZone(int zoneId, @Nullable Set<String> clusterNodes) throws InterruptedException {
+        byte[] nodes = clusterNodes == null ? null : toBytes(clusterNodes);
 
-            assertTrue(expectedNodes.containsAll(actual));
-            assertEquals(expectedNodes.size(), actual.size());
-        }
+        assertTrue(waitForCondition(() -> Arrays.equals(keyValueStorage.get(zoneDataNodesKey(zoneId).bytes()).value(), nodes),
+                1000));
     }
 
     private void assertZonesChangeTriggerKey(int revision) throws InterruptedException {
