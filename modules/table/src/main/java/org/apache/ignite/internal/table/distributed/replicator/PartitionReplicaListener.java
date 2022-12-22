@@ -46,6 +46,7 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.raft.Command;
@@ -67,6 +68,7 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.index.BinaryTupleComparator;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
@@ -697,15 +699,38 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         return lockManager.acquire(txId, new LockKey(indexId), LockMode.IS).thenCompose(idxLock -> { // Index IS lock
             return lockManager.acquire(txId, new LockKey(tableId), LockMode.IS).thenCompose(tblLock -> { // Table IS lock
+                var comparator = new BinaryTupleComparator(indexStorage.indexDescriptor());
+
+                Function<IndexRow, Boolean> isUpperBoundAchieved = indexRow -> {
+                    if (indexRow == null) {
+                        return true;
+                    }
+
+                    if (upperBound == null) {
+                        return false;
+                    }
+
+                    ByteBuffer buffer = upperBound.byteBuffer();
+
+                    if ((flags & SortedIndexStorage.LESS_OR_EQUAL) != 0) {
+                        byte boundFlags = buffer.get(0);
+
+                        buffer.put(0, (byte) (boundFlags | BinaryTupleCommon.EQUALITY_FLAG));
+                    }
+
+                    if (comparator.compare(indexRow.indexColumns().byteBuffer(), buffer) < 0) {
+                        return false;
+                    }
+
+                    return true;
+                };
+
                 Cursor<IndexRow> cursor = (Cursor<IndexRow>) cursors.computeIfAbsent(cursorId,
                         id -> {
-                            // TODO https://issues.apache.org/jira/browse/IGNITE-18057
-                            // Fix scan cursor return item closet to lowerbound and <= lowerbound
-                            // to correctly lock range between lowerbound value and the item next to lowerbound.
                             return indexStorage.scan(
                                     lowerBound,
-                                    // We need upperBound next value for correct range lock.
-                                    upperBound,
+                                    // We have to handle upperBound on a level of replication listener, to correct to take a range lock.
+                                    null,
                                     flags
                             );
                         });
@@ -714,7 +739,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                 final ArrayList<BinaryRow> result = new ArrayList<>(batchCount);
 
-                return continueIndexScan(txId, indexLocker, cursor, batchCount, result)
+                return continueIndexScan(txId, indexLocker, cursor, batchCount, result, isUpperBoundAchieved)
                         .thenApply(ignore -> result);
             });
         });
@@ -801,6 +826,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param indexCursor Index cursor.
      * @param batchSize Batch size.
      * @param result Result collection.
+     * @param isUpperBoundAchieved Function to stop on upper bound.
      * @return Future.
      */
     private CompletableFuture<Void> continueIndexScan(
@@ -808,7 +834,8 @@ public class PartitionReplicaListener implements ReplicaListener {
             SortedIndexLocker indexLocker,
             Cursor<IndexRow> indexCursor,
             int batchSize,
-            List<BinaryRow> result
+            List<BinaryRow> result,
+            Function<IndexRow, Boolean> isUpperBoundAchieved
     ) {
         if (result.size() == batchSize) { // Batch is full, exit loop.
             return completedFuture(null);
@@ -816,7 +843,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         return indexLocker.locksForScan(txId, indexCursor)
                 .thenCompose(currentRow -> { // Index row S lock
-                    if (currentRow == null) {
+                    if (isUpperBoundAchieved.apply(currentRow)) {
                         return completedFuture(null); // End of range reached. Exit loop.
                     }
 
@@ -831,7 +858,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                                 // Proceed scan.
                                 return CompletableFuture.supplyAsync(
-                                        () -> continueIndexScan(txId, indexLocker, indexCursor, batchSize, result),
+                                        () -> continueIndexScan(txId, indexLocker, indexCursor, batchSize, result, isUpperBoundAchieved),
                                         scanRequestExecutor
                                 ).thenCompose(Function.identity());
                             });
