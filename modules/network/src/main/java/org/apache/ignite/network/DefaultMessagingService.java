@@ -283,8 +283,12 @@ public class DefaultMessagingService extends AbstractMessagingService {
             inboundExecutor.execute(() -> {
                 try {
                     onMessage(obj);
-                } catch (RuntimeException e) {
+                } catch (Throwable e) {
                     LOG.warn("onMessage() failed while processing " + obj.message() + " from " + obj.consistentId(), e);
+
+                    if (e instanceof Error) {
+                        throw e;
+                    }
                 }
             });
 
