@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal;
+package org.apache.ignite.internal.jdbc;
 
 import static org.apache.ignite.internal.util.ArrayUtils.INT_EMPTY_ARRAY;
 

@@ -19,4 +19,4 @@
  * Ignite jdbc client.
  */
 
-package org.apache.ignite.internal;
+package org.apache.ignite.internal.jdbc;
