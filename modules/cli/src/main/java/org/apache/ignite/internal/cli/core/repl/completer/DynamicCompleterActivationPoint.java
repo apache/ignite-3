@@ -23,6 +23,7 @@ import org.apache.ignite.internal.cli.core.repl.completer.cluster.ClusterUrlDyna
 import org.apache.ignite.internal.cli.core.repl.completer.filter.ExclusionsCompleterFilter;
 import org.apache.ignite.internal.cli.core.repl.completer.hocon.ClusterConfigDynamicCompleterFactory;
 import org.apache.ignite.internal.cli.core.repl.completer.hocon.NodeConfigDynamicCompleterFactory;
+import org.apache.ignite.internal.cli.core.repl.completer.jdbc.JdbcUrlDynamicCompleterFactory;
 import org.apache.ignite.internal.cli.core.repl.completer.node.NodeNameDynamicCompleterFactory;
 import org.apache.ignite.internal.cli.core.repl.completer.path.FilePathDynamicCompleterFactory;
 
@@ -35,6 +36,7 @@ public class DynamicCompleterActivationPoint {
     private final NodeConfigDynamicCompleterFactory nodeConfigDynamicCompleterFactory;
     private final FilePathDynamicCompleterFactory filePathDynamicCompleterFactory;
     private final ClusterUrlDynamicCompleterFactory clusterUrlDynamicCompleterFactory;
+    private final JdbcUrlDynamicCompleterFactory jdbcUrlDynamicCompleterFactory;
 
     /** Main constructor. */
     public DynamicCompleterActivationPoint(
@@ -42,12 +44,14 @@ public class DynamicCompleterActivationPoint {
             ClusterConfigDynamicCompleterFactory clusterConfigDynamicCompleterFactory,
             NodeConfigDynamicCompleterFactory nodeConfigDynamicCompleterFactory,
             FilePathDynamicCompleterFactory filePathDynamicCompleterFactory,
-            ClusterUrlDynamicCompleterFactory clusterUrlDynamicCompleterFactory) {
+            ClusterUrlDynamicCompleterFactory clusterUrlDynamicCompleterFactory,
+            JdbcUrlDynamicCompleterFactory jdbcUrlDynamicCompleterFactory) {
         this.nodeNameDynamicCompleterFactory = nodeNameDynamicCompleterFactory;
         this.clusterConfigDynamicCompleterFactory = clusterConfigDynamicCompleterFactory;
         this.nodeConfigDynamicCompleterFactory = nodeConfigDynamicCompleterFactory;
         this.filePathDynamicCompleterFactory = filePathDynamicCompleterFactory;
         this.clusterUrlDynamicCompleterFactory = clusterUrlDynamicCompleterFactory;
+        this.jdbcUrlDynamicCompleterFactory = jdbcUrlDynamicCompleterFactory;
     }
 
 
@@ -100,6 +104,14 @@ public class DynamicCompleterActivationPoint {
                         .enableOptions(Options.SCRIPT_FILE)
                         .exclusiveEnableOptions().build(),
                 filePathDynamicCompleterFactory
+        );
+
+        registry.register(
+                CompleterConf.builder()
+                        .command("sql")
+                        .enableOptions(Options.JDBC_URL)
+                        .exclusiveEnableOptions().build(),
+                jdbcUrlDynamicCompleterFactory
         );
 
         registry.register(

@@ -32,7 +32,6 @@ public class ClusterConfigRegistryImpl implements ClusterConfigRegistry, Session
                                 ClusterConfigShowCallInput.builder().clusterUrl(session.sessionDetails().nodeUrl()).build()
                         ).body().getValue()
                 ));
-                ;
             } catch (Exception ignored) {
                 // no-op
             }
