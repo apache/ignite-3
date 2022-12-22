@@ -216,11 +216,10 @@ public partial class LinqTests
         var localDateTime = new LocalDateTime(2022, 12, 20, 20, 07, 36, 123);
         await dateTimes.UpsertAsync(null, new PocoDateTime(localDateTime, localDateTime));
 
-        TestOp(dateTimes, x => x.Key.Year, 2022, "select dayofmonth(_T0.KEY) from");
-        TestOp(dateTimes, x => x.Key.Month, 12, "select dayofmonth(_T0.KEY) from");
+        TestOp(dateTimes, x => x.Key.Year, 2022, "select year(_T0.KEY) from");
+        TestOp(dateTimes, x => x.Key.Month, 12, "select month(_T0.KEY) from");
         TestOp(dateTimes, x => x.Key.Day, 20, "select dayofmonth(_T0.KEY) from");
         TestOp(dateTimes, x => x.Key.DayOfYear, 354, "select dayofyear(_T0.KEY) from");
-        TestOp(dateTimes, x => x.Key.Day, 20, "select dayofmonth(_T0.KEY) from");
         TestOp(dateTimes, x => x.Key.DayOfWeek, IsoDayOfWeek.Tuesday, "select -1 + dayofweek(_T0.KEY) from");
         TestOp(dateTimes, x => (int)x.Key.DayOfWeek, (int)IsoDayOfWeek.Tuesday, "select cast(-1 + dayofweek(_T0.KEY) as int) from");
         TestOp(dateTimes, x => x.Key.Hour, 20, "select hour(_T0.KEY) from");
@@ -233,7 +232,20 @@ public partial class LinqTests
             x.Key.Month,
             x.Key.Day,
             x.Key.DayOfYear,
-        });
+            x.Key.DayOfWeek,
+            x.Key.Hour,
+            x.Key.Minute,
+            x.Key.Second
+        }).First();
+
+        Assert.AreEqual(2022, projection.Year);
+        Assert.AreEqual(12, projection.Month);
+        Assert.AreEqual(20, projection.Day);
+        Assert.AreEqual(354, projection.DayOfYear);
+        Assert.AreEqual(IsoDayOfWeek.Tuesday, projection.DayOfWeek);
+        Assert.AreEqual(20, projection.Hour);
+        Assert.AreEqual(7, projection.Minute);
+        Assert.AreEqual(36, projection.Second);
     }
 
     [Test]
