@@ -200,13 +200,11 @@ public partial class LinqTests
         var localDate = new LocalDate(2022, 12, 20);
         await dates.UpsertAsync(null, new PocoDate(localDate, localDate));
 
-        // TODO: Test projecting all parts into anonymous type.
-        TestOp(dates, x => x.Key.Year, 2022, "select dayofmonth(_T0.KEY) from");
-        TestOp(dates, x => x.Key.Month, 12, "select dayofmonth(_T0.KEY) from");
+        TestOp(dates, x => x.Key.Year, 2022, "select year(_T0.KEY) from");
+        TestOp(dates, x => x.Key.Month, 12, "select month(_T0.KEY) from");
         TestOp(dates, x => x.Key.Day, 20, "select dayofmonth(_T0.KEY) from");
 
         TestOp(dates, x => x.Key.DayOfYear, 354, "select dayofyear(_T0.KEY) from");
-        TestOp(dates, x => x.Key.Day, 20, "select dayofmonth(_T0.KEY) from");
         TestOp(dates, x => x.Key.DayOfWeek, IsoDayOfWeek.Tuesday, "select -1 + dayofweek(_T0.KEY) from");
         TestOp(dates, x => (int)x.Key.DayOfWeek, (int)IsoDayOfWeek.Tuesday, "select cast(-1 + dayofweek(_T0.KEY) as int) from");
     }
@@ -218,6 +216,8 @@ public partial class LinqTests
         var localDateTime = new LocalDateTime(2022, 12, 20, 20, 07, 36, 123);
         await dateTimes.UpsertAsync(null, new PocoDateTime(localDateTime, localDateTime));
 
+        TestOp(dateTimes, x => x.Key.Year, 2022, "select dayofmonth(_T0.KEY) from");
+        TestOp(dateTimes, x => x.Key.Month, 12, "select dayofmonth(_T0.KEY) from");
         TestOp(dateTimes, x => x.Key.Day, 20, "select dayofmonth(_T0.KEY) from");
         TestOp(dateTimes, x => x.Key.DayOfYear, 354, "select dayofyear(_T0.KEY) from");
         TestOp(dateTimes, x => x.Key.Day, 20, "select dayofmonth(_T0.KEY) from");
@@ -226,6 +226,14 @@ public partial class LinqTests
         TestOp(dateTimes, x => x.Key.Hour, 20, "select hour(_T0.KEY) from");
         TestOp(dateTimes, x => x.Key.Minute, 7, "select minute(_T0.KEY) from");
         TestOp(dateTimes, x => x.Key.Second, 36, "select second(_T0.KEY) from");
+
+        var projection = dateTimes.AsQueryable().Select(x => new
+        {
+            x.Key.Year,
+            x.Key.Month,
+            x.Key.Day,
+            x.Key.DayOfYear,
+        });
     }
 
     [Test]
