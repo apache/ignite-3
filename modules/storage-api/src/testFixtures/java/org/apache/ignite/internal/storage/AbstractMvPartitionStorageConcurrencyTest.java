@@ -235,6 +235,7 @@ public abstract class AbstractMvPartitionStorageConcurrencyTest extends BaseMvPa
                 return test.addAndCommit(binaryRow);
             }
         };
+
         abstract HybridTimestamp perform(AbstractMvPartitionStorageConcurrencyTest test, @Nullable BinaryRow binaryRow);
     }
 }
