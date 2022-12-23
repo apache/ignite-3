@@ -183,7 +183,6 @@ class ItTableRaftSnapshotsTest {
         return hasCause(e, ReplicationTimeoutException.class, null)
                 || hasCause(e, IgniteInternalException.class, "Failed to send message to node")
                 || hasCause(e, IgniteInternalCheckedException.class, "Failed to execute query, node left")
-                // TODO: IGNITE-18449 - remove the following line when table visibility problem is fixed.
                 || hasCause(e, SqlValidatorException.class, "Object 'TEST' not found");
     }
 
