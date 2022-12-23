@@ -43,7 +43,7 @@ public class ReversedDeadlockPreventionTest extends AbstractDeadlockPreventionTe
     protected DeadlockPreventionPolicy deadlockPreventionPolicy() {
         return new DeadlockPreventionPolicy() {
             @Override
-            public @Nullable Comparator<UUID> txComparator() {
+            public @Nullable Comparator<UUID> txIdComparator() {
                 return Comparator.reverseOrder();
             }
 

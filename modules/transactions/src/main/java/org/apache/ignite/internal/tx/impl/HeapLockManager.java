@@ -164,7 +164,7 @@ public class HeapLockManager implements LockManager {
 
         public LockState(DeadlockPreventionPolicy deadlockPreventionPolicy) {
             Comparator<UUID> txComparator =
-                    deadlockPreventionPolicy.txComparator() != null ? deadlockPreventionPolicy.txComparator() : UUID::compareTo;
+                    deadlockPreventionPolicy.txIdComparator() != null ? deadlockPreventionPolicy.txIdComparator() : UUID::compareTo;
             this.waiters = new TreeMap<>(txComparator);
             this.deadlockPreventionPolicy = deadlockPreventionPolicy;
         }
@@ -208,16 +208,7 @@ public class HeapLockManager implements LockManager {
                 }
 
                 if (!isWaiterReadyToNotify(waiter, false)) {
-                    if (!usePriority() && deadlockPreventionPolicy.waitTimeout() == 0) {
-                        waiter.fail(new LockException(ACQUIRE_LOCK_ERR, "Failed to acquire a lock [txId=" + waiter.txId + ", waiter="
-                                + waiter + ']'));
-                    } else if (deadlockPreventionPolicy.waitTimeout() > 0) {
-                        waiter.failAfterTimeout(waiters, deadlockPreventionPolicy.waitTimeout());
-
-                        return new IgniteBiTuple<>(waiter.fut, waiter.lockMode());
-                    } else {
-                        return new IgniteBiTuple<>(waiter.fut, waiter.lockMode());
-                    }
+                    return new IgniteBiTuple<>(waiter.fut, waiter.lockMode());
                 }
 
                 if (!waiter.locked()) {
@@ -234,7 +225,7 @@ public class HeapLockManager implements LockManager {
         }
 
         /**
-         * Checks current waiter.
+         * Checks current waiter. It can change the internal state of the waiter.
          *
          * @param waiter Checked waiter.
          * @return True if current waiter ready to notify, false otherwise.
@@ -245,6 +236,10 @@ public class HeapLockManager implements LockManager {
                 LockMode mode = lockedMode(tmp);
 
                 if (mode != null && !mode.isCompatible(waiter.intendedLockMode())) {
+                    if (!usePriority()) {
+                        return failWaiterIfTimeoutIsPresent(waiter, tmp);
+                    }
+
                     return false;
                 }
             }
@@ -257,20 +252,7 @@ public class HeapLockManager implements LockManager {
                     if (skipFail) {
                         return false;
                     } else {
-                        LockException e = new LockException(ACQUIRE_LOCK_ERR, "Failed to acquire a lock due to a conflict [txId=" + waiter.txId()
-                                + ", waiter=" + tmp + ']');
-
-                        if (deadlockPreventionPolicy.waitTimeout() == 0) {
-                            waiter.fail(e);
-
-                            return true;
-                        } else if ((deadlockPreventionPolicy.waitTimeout() > 0)) {
-                            waiter.failAfterTimeout(waiters, deadlockPreventionPolicy.waitTimeout());
-
-                            return false;
-                        } else {
-                            return false;
-                        }
+                        return failWaiterIfTimeoutIsPresent(waiter, tmp);
                     }
                 }
             }
@@ -278,6 +260,28 @@ public class HeapLockManager implements LockManager {
             waiter.lock();
 
             return true;
+        }
+
+        /**
+         * Fails the waiter if there is wait timeout in deadlock prevention policy. If timeout is {@code 0}, waiter is failed
+         * instantly. If timeout is greater than {@code 0}, waiter should be failed after timeout, if it can't acquire lock within
+         * this timeout. If timeout is lesser than {@code 0}, waiter is not failed at all.
+         *
+         * @param waiter Current waiter.
+         * @param conflictingWaiter Conflicting waiter.
+         * @return True if current waiter ready to notify, false otherwise.
+         */
+        private boolean failWaiterIfTimeoutIsPresent(WaiterImpl waiter, WaiterImpl conflictingWaiter) {
+            if (deadlockPreventionPolicy.waitTimeout() > 0) {
+                waiter.failAfterTimeout(waiters, deadlockPreventionPolicy.waitTimeout());
+            } else if ((deadlockPreventionPolicy.waitTimeout() == 0)) {
+                waiter.fail(new LockException(ACQUIRE_LOCK_ERR, "Failed to acquire a lock due to a conflict [txId="
+                        + waiter.txId() + ", conflictingWaiter=" + conflictingWaiter + ']'));
+
+                return true;
+            }
+
+            return false;
         }
 
         /**
@@ -406,7 +410,7 @@ public class HeapLockManager implements LockManager {
          * @return Whether priority is used.
          */
         private boolean usePriority() {
-            return deadlockPreventionPolicy.txComparator() != null;
+            return deadlockPreventionPolicy.txIdComparator() != null;
         }
 
         /**

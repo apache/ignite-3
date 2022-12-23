@@ -27,11 +27,13 @@ import org.apache.ignite.internal.tx.DeadlockPreventionPolicy;
  * allows tx2 to wait for the lock if tx2 is older than tx1, and aborts tx2 is tx2 is younger than tx1.
  */
 public class WaitDieDeadlockPreventionPolicy implements DeadlockPreventionPolicy {
+    /** {@inheritDoc} */
     @Override
-    public Comparator<UUID> txComparator() {
+    public Comparator<UUID> txIdComparator() {
         return UUID::compareTo;
     }
 
+    /** {@inheritDoc} */
     @Override
     public long waitTimeout() {
         return 0;

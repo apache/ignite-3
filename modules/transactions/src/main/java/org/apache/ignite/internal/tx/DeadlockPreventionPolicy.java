@@ -27,13 +27,22 @@ import org.jetbrains.annotations.Nullable;
  * See also {@link org.apache.ignite.internal.tx.impl.HeapLockManager}.
  */
 public interface DeadlockPreventionPolicy {
-    @Nullable default Comparator<UUID> txComparator() {
+    /**
+     * Comparator for transaction ids that allows to set transaction priority, if deadlock prevention policy requires this priority.
+     * The transaction with higher id has lower priority. If this comparator is {@code null} then behavior of any transaction
+     * in case of conflict depends only on whether this transaction holds a lock or makes a request for lock acquisition.
+     *
+     * @return Transaction id comparator.
+     */
+    @Nullable default Comparator<UUID> txIdComparator() {
         return null;
     }
 
     /**
-     * Timeout (in milliseconds) to wait before aborting a lock attempt in case of conflict. {@code 0} means that the lock attempt is
-     * aborted instantly. If lesser that {@code 0}, it means that wait time is infinite.
+     * Timeout (in milliseconds) to wait before aborting a lock attempt that is made by a transaction in case of a conflict
+     * of this transaction with another one on certain key. If transaction priority is applicable (see {@link #txIdComparator()})
+     * then this timeout is applied only for transaction with lower priority. If this method returns {@code 0} this means that
+     * the lock attempt is aborted instantly (timeout is zero). If lesser that {@code 0}, it means that the wait time is infinite.
      *
      * @return Timeout, in milliseconds.
      */
