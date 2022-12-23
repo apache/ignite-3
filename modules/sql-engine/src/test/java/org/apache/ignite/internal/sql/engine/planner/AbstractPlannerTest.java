@@ -141,6 +141,8 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
     protected static final String DEFAULT_SCHEMA = "PUBLIC";
 
+    protected static final int DEFAULT_ZONE_ID = 0;
+
     /** Last error message. */
     private String lastErrorMsg;
 
@@ -397,15 +399,12 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         };
     }
 
-    protected static void createTable(IgniteSchema schema, String name, RelDataType type, IgniteDistribution distr) {
-        TestTable table = new TestTable(type, name) {
-            @Override
-            public IgniteDistribution distribution() {
-                return distr;
-            }
-        };
+    protected static TestTable createTable(IgniteSchema schema, String name, RelDataType type, IgniteDistribution distr) {
+        TestTable table = createTable(name, type, DEFAULT_TBL_SIZE, distr);
 
         schema.addTable(table);
+
+        return table;
     }
 
     /**
@@ -463,7 +462,11 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
             b.add((String) fields[i], TYPE_FACTORY.createJavaType((Class<?>) fields[i + 1]));
         }
 
-        return new TestTable(name, b.build(), size) {
+        return createTable(name, b.build(), size, distr);
+    }
+
+    protected static TestTable createTable(String name, RelDataType type, int size, IgniteDistribution distr) {
+        return new TestTable(name, type, size) {
             @Override
             public IgniteDistribution distribution() {
                 return distr;
