@@ -95,6 +95,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
+/**
+ * Tests how RAFT snapshots installation works for table partitions.
+ */
 @SuppressWarnings("resource")
 @ExtendWith(WorkDirectoryExtension.class)
 @Timeout(60)
