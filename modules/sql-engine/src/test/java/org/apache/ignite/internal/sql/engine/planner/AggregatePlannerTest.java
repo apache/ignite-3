@@ -163,24 +163,33 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
                 algo.rulesToDisable
         );
 
-        IgniteMapAggregateBase mapAgg = findFirstNode(phys, byClass(algo.map));
-        IgniteReduceAggregateBase rdcAgg = findFirstNode(phys, byClass(algo.reduce));
-
-        assertNotNull(rdcAgg, "Invalid plan\n" + RelOptUtil.toString(phys, SqlExplainLevel.ALL_ATTRIBUTES));
-        assertNotNull(mapAgg, "Invalid plan\n" + RelOptUtil.toString(phys));
-
-        assertThat(
-                "Invalid plan\n" + RelOptUtil.toString(phys),
-                first(rdcAgg.getAggregateCalls()).getAggregation(),
-                IsInstanceOf.instanceOf(SqlAvgAggFunction.class));
-
-        assertThat(
-                "Invalid plan\n" + RelOptUtil.toString(phys),
-                first(mapAgg.getAggCallList()).getAggregation(),
-                IsInstanceOf.instanceOf(SqlAvgAggFunction.class));
-
         if (algo == AggregateAlgorithm.SORT) {
+            IgniteMapAggregateBase mapAgg = findFirstNode(phys, byClass(algo.map));
+            IgniteReduceAggregateBase rdcAgg = findFirstNode(phys, byClass(algo.reduce));
+
+            assertNotNull(rdcAgg, "Invalid plan\n" + RelOptUtil.toString(phys, SqlExplainLevel.ALL_ATTRIBUTES));
+            assertNotNull(mapAgg, "Invalid plan\n" + RelOptUtil.toString(phys));
+
+            assertThat(
+                    "Invalid plan\n" + RelOptUtil.toString(phys),
+                    first(rdcAgg.getAggregateCalls()).getAggregation(),
+                    IsInstanceOf.instanceOf(SqlAvgAggFunction.class));
+
+            assertThat(
+                    "Invalid plan\n" + RelOptUtil.toString(phys),
+                    first(mapAgg.getAggCallList()).getAggregation(),
+                    IsInstanceOf.instanceOf(SqlAvgAggFunction.class));
+
             assertNotNull(findFirstNode(phys, byClass(IgniteSort.class)));
+        } else {
+            Aggregate agg = findFirstNode(phys, byClass(algo.colocated));
+
+            assertNotNull(agg, "Invalid plan\n" + RelOptUtil.toString(phys));
+
+            assertThat(
+                    "Invalid plan\n" + RelOptUtil.toString(phys),
+                    first(agg.getAggCallList()).getAggregation(),
+                    IsInstanceOf.instanceOf(SqlAvgAggFunction.class));
         }
     }
 
@@ -218,9 +227,15 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
                         "HashSingleAggregateConverterRule")
         );
 
-        IgniteReduceAggregateBase rdcAgg = findFirstNode(phys, byClass(algo.reduce));
+        if (algo == AggregateAlgorithm.SORT) {
+            IgniteReduceAggregateBase rdcAgg = findFirstNode(phys, byClass(algo.reduce));
 
-        assertEquals(IgniteDistributions.single(), TraitUtils.distribution(rdcAgg));
+            assertEquals(IgniteDistributions.single(), TraitUtils.distribution(rdcAgg));
+        } else {
+            Aggregate agg = findFirstNode(phys, byClass(algo.colocated));
+
+            assertNotNull(agg, "Invalid plan\n" + RelOptUtil.toString(phys));
+        }
     }
 
     /**
@@ -236,21 +251,26 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
 
         publicSchema.addTable(tbl);
 
-        String sql = "SELECT COUNT(DISTINCT val0) FROM test";
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-18464 Colocated sort aggregates need to compose a plans with additional sort
+        //checkDistinctInMapAggNode("SELECT COUNT(DISTINCT val0) FROM test", publicSchema);
+        //checkDistinctInMapAggNode("SELECT AVG(DISTINCT val0) FROM test", publicSchema);
+        //checkDistinctInMapAggNode("SELECT SUM(DISTINCT val0) FROM test", publicSchema);
+        //checkDistinctInMapAggNode("SELECT MIN(DISTINCT val0) FROM test", publicSchema);
+        //checkDistinctInMapAggNode("SELECT MAX(DISTINCT val0) FROM test", publicSchema);
 
-        checkDistinctInMapAggNode(sql, publicSchema);
+        checkDistinctInMapAggNode("SELECT COUNT(DISTINCT val0) FROM test GROUP BY val1", publicSchema);
 
-        checkDistinctInMapAggNode(sql, publicSchema, "ColocatedHashAggregateConverterRule");
+        checkDistinctInMapAggNode("SELECT val1, COUNT(DISTINCT val0) as v1 FROM test GROUP BY val1", publicSchema);
 
-        checkDistinctInMapAggNode(sql, publicSchema, "MapReduceHashAggregateConverterRule");
+        checkDistinctInMapAggNode("SELECT AVG(DISTINCT val0) FROM test GROUP BY val1", publicSchema);
 
-        sql = "SELECT val1, COUNT(DISTINCT val0) as v1 FROM test GROUP BY val1";
+        checkDistinctInMapAggNode("SELECT SUM(DISTINCT val0) FROM test GROUP BY val1", publicSchema);
 
-        checkDistinctInMapAggNode(sql, publicSchema);
+        checkDistinctInMapAggNode("SELECT MIN(DISTINCT val0) FROM test GROUP BY val1", publicSchema);
 
-        checkDistinctInMapAggNode(sql, publicSchema, "ColocatedHashAggregateConverterRule");
+        checkDistinctInMapAggNode("SELECT MAX(DISTINCT val0) FROM test GROUP BY val1", publicSchema);
 
-        checkDistinctInMapAggNode(sql, publicSchema, "MapReduceHashAggregateConverterRule");
+        checkDistinctInMapAggNode("SELECT val0 FROM test WHERE VAL1 = ANY(SELECT DISTINCT val1 FROM test)", publicSchema);
     }
 
     /**
@@ -258,17 +278,21 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
      *
      * @param sql Request string.
      * @param publicSchema Schema.
-     * @param disabledRules Disabled rules.
      * @throws Exception If failed.
      */
-    private void checkDistinctInMapAggNode(String sql, IgniteSchema publicSchema, String... disabledRules) throws Exception {
-        IgniteRel phys = physicalPlan(sql, publicSchema, disabledRules);
+    private void checkDistinctInMapAggNode(String sql, IgniteSchema publicSchema) throws Exception {
+        String[][] disabledRules = new String[][] {{""}, {"MapReduceHashAggregateConverterRule"},
+                {"ColocatedHashAggregateConverterRule", "MapReduceHashAggregateConverterRule"}};
 
-        assertFalse(findNodes(phys, byClass(IgniteMapAggregateBase.class)).stream()
-                .anyMatch(n -> ((Aggregate) n).getAggCallList().stream()
-                        .anyMatch(AggregateCall::isDistinct)
-                ),
-                "Invalid plan\n" + RelOptUtil.toString(phys, SqlExplainLevel.ALL_ATTRIBUTES));
+        for (String[] rules : disabledRules) {
+            IgniteRel phys = physicalPlan(sql, publicSchema, rules);
+
+            assertFalse(findNodes(phys, byClass(IgniteMapAggregateBase.class)).stream()
+                            .anyMatch(n -> ((Aggregate) n).getAggCallList().stream()
+                                    .anyMatch(AggregateCall::isDistinct)
+                            ),
+                    "Invalid plan\n" + RelOptUtil.toString(phys, SqlExplainLevel.ALL_ATTRIBUTES));
+        }
     }
 
     /**
@@ -368,7 +392,8 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
 
         checkSplitAndSerialization(phys, schema);
 
-        Class<? extends SingleRel> cls = distr == IgniteDistributions.broadcast() ? algo.colocated : algo.reduce;
+        Class<? extends SingleRel> cls = distr == IgniteDistributions.broadcast() ? algo.colocated
+                : algo == AggregateAlgorithm.SORT ? algo.reduce : algo.colocated;
 
         SingleRel agg = findFirstNode(phys, byClass(cls));
 
