@@ -19,6 +19,7 @@ package org.apache.ignite.internal.cli.core.repl.executor;
 
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.hasItems;
@@ -49,6 +50,7 @@ import org.jline.reader.impl.completer.SystemCompleter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Named;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -217,7 +219,7 @@ public class ItIgnitePicocliCommandsTest extends CliCommandTestInitializedIntegr
         // wait for lazy init of cluster config completer
         await("For given parsed words: " + givenParsedLine.words()).until(
                 () -> complete(givenParsedLine),
-                containsInAnyOrder("aimem", "aipersist", "metrics", "rocksDb", "table")
+                containsInAnyOrder("aimem", "aipersist", "metrics", "rocksDb", "table", "zone")
         );
     }
 
@@ -237,7 +239,7 @@ public class ItIgnitePicocliCommandsTest extends CliCommandTestInitializedIntegr
         // wait for lazy init of cluster config completer
         await("For given parsed words: " + givenParsedLine.words()).until(
                 () -> complete(givenParsedLine),
-                containsInAnyOrder("aimem", "aipersist", "metrics", "rocksDb", "table")
+                containsInAnyOrder("aimem", "aipersist", "metrics", "rocksDb", "table", "zone")
         );
     }
 
@@ -261,12 +263,12 @@ public class ItIgnitePicocliCommandsTest extends CliCommandTestInitializedIntegr
 
     @ParameterizedTest
     @MethodSource("nodeNamesSource")
-    @DisplayName("node names suggested")
+    @DisplayName("node names suggested after --node-name option")
     void nodeNameSuggested(ParsedLine givenParsedLine) {
         // Given node names registry pulling updates
         nodeNameRegistry.startPullingUpdates(urlProvider.resolveUrl(givenParsedLine.words().toArray(new String[]{})));
         // And the first update is fetched
-        await("").until(() -> nodeNameRegistry.getAllNames(), not(empty()));
+        await().until(() -> nodeNameRegistry.getAllNames(), not(empty()));
 
         // Then
         assertThat(
@@ -274,6 +276,42 @@ public class ItIgnitePicocliCommandsTest extends CliCommandTestInitializedIntegr
                 complete(givenParsedLine),
                 containsInAnyOrder(allNodeNames().toArray())
         );
+    }
+
+    @Test
+    @DisplayName("start/stop node affects --node-name suggestions")
+    void startStopNodeWhenCompleteNodeName() {
+        // Given
+        var igniteNodeName = allNodeNames().get(1);
+        // And
+        var givenParsedLine = words("node", "status", "--node-name", "");
+        // And
+        assertThat(nodeNameRegistry.getAllNames(), empty());
+
+        // Then
+        assertThat(complete(givenParsedLine), not(contains(igniteNodeName)));
+
+        // When node names registry start pulling updates
+        nodeNameRegistry.startPullingUpdates(urlProvider.resolveUrl(givenParsedLine.words().toArray(new String[]{})));
+        // And the first update is fetched
+        await().until(() -> nodeNameRegistry.getAllNames(), not(empty()));
+
+        // Then
+        assertThat(complete(givenParsedLine), containsInAnyOrder(allNodeNames().toArray()));
+
+        // When stop one node
+        stopNode(igniteNodeName);
+        var actualNodeNames = allNodeNames();
+        actualNodeNames.remove(igniteNodeName);
+
+        // Then node name suggestions does not contain the stopped node
+        await().until(() -> complete(givenParsedLine), containsInAnyOrder(actualNodeNames.toArray()));
+
+        // When start the node again
+        startNode(igniteNodeName);
+
+        // Then node name comes back to suggestions
+        await().until(() -> complete(givenParsedLine), containsInAnyOrder(allNodeNames().toArray()));
     }
 
     List<String> complete(ParsedLine typedWords) {
