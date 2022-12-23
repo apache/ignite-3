@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.cli.config;
 
 import org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerHelper;
+import org.apache.ignite.internal.cli.config.Config;
+import org.apache.ignite.internal.cli.config.StateConfig;
 
 /**
  * Test factory for application state config.

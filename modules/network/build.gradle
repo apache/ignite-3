@@ -58,17 +58,24 @@ dependencies {
     testImplementation libs.bytebuddy
     testImplementation libs.compileTesting
 
+    testFixturesAnnotationProcessor project(":ignite-network-annotation-processor")
     testFixturesImplementation project(':ignite-configuration')
     testFixturesImplementation(testFixtures(project(':ignite-core')))
     testFixturesImplementation(testFixtures(project(':ignite-configuration')))
+    testFixturesImplementation libs.classgraph
+    testFixturesImplementation libs.fastutil.core
     testFixturesImplementation libs.scalecube.cluster
-    testFixturesImplementation libs.junit5.api
 
     integrationTestAnnotationProcessor project(":ignite-network-annotation-processor")
 
+    integrationTestAnnotationProcessor project(":ignite-network-annotation-processor")
     integrationTestImplementation project(':ignite-network-annotation-processor')
+    integrationTestImplementation(testFixtures(project))
     integrationTestImplementation(testFixtures(project(':ignite-core')))
     integrationTestImplementation(testFixtures(project(':ignite-configuration')))
     integrationTestImplementation libs.compileTesting
+    integrationTestImplementation libs.netty.handler
+    integrationTestImplementation libs.scalecube.cluster
     integrationTestImplementation libs.javapoet
+    integrationTestImplementation libs.classgraph
 }

@@ -15,60 +15,98 @@
  * limitations under the License.
  */
 
-apply plugin: 'idea'
+apply plugin: 'jvm-test-suite'
 
-sourceSets {
-    integrationTest {
-        compileClasspath += sourceSets.main.output
-        compileClasspath += sourceSets.test.output
-        runtimeClasspath += sourceSets.main.output
-        runtimeClasspath += sourceSets.test.output
-        if (sourceSets.hasProperty("testFixtures")) {
-            compileClasspath += sourceSets.testFixtures.output
-            runtimeClasspath += sourceSets.testFixtures.output
+testing {
+    suites {
+        test {
+            useJUnitJupiter()
+        }
+
+        integrationTest(JvmTestSuite) {
+            testType = TestSuiteType.INTEGRATION_TEST
+
+            dependencies {
+                implementation project
+                implementation libs.junit5.api
+                implementation libs.junit5.impl
+                implementation libs.junit5.params
+                implementation libs.mockito.core
+                implementation libs.mockito.junit
+                implementation libs.mockito.inline
+                implementation libs.hamcrest.core
+                implementation libs.hamcrest.optional
+                implementation libs.hamcrest.path
+            }
+
+            sources {
+                java {
+                    srcDirs = ['src/integrationTest/java']
+                }
+            }
+
+            targets {
+                all {
+                    testTask.configure {
+                        shouldRunAfter(test)
+                        maxHeapSize = '16g'
+                    }
+                }
+            }
         }
     }
 }
 
-idea {
-    module {
-        sourceDirs -= file('src/integrationTest/java')
-        testSourceDirs += file('src/integrationTest/java')
-    }
+tasks.named('check') {
+    dependsOn(testing.suites.integrationTest)
 }
 
+
+//sourceSets {
+//    integrationTest {
+//        compileClasspath += sourceSets.main.output
+//        compileClasspath += sourceSets.test.output
+//        runtimeClasspath += sourceSets.main.output
+//        runtimeClasspath += sourceSets.test.output
+//        if (sourceSets.hasProperty("testFixtures")) {
+//            compileClasspath += sourceSets.testFixtures.output
+//            runtimeClasspath += sourceSets.testFixtures.output
+//        }
+//    }
+//}
+//
 pmdIntegrationTest {
     enabled = false
 }
-
-
-configurations {
-    integrationTestImplementation.extendsFrom implementation
-    integrationTestRuntimeOnly.extendsFrom runtimeOnly
-    integrationTestApi.extendsFrom api
-}
-
-tasks.register('integrationTest', Test) {
-    description = 'Runs integration tests.'
-    group = 'verification'
-
-    testClassesDirs = sourceSets.integrationTest.output.classesDirs
-    classpath = sourceSets.integrationTest.runtimeClasspath
-}
-
-integrationTest {
-    useJUnitPlatform()
-    maxHeapSize = "16g"
-}
-
-dependencies {
-    integrationTestImplementation libs.junit5.api
-    integrationTestImplementation libs.junit5.impl
-    integrationTestImplementation libs.junit5.params
-    integrationTestImplementation libs.mockito.core
-    integrationTestImplementation libs.mockito.junit
-    integrationTestImplementation libs.mockito.inline
-    integrationTestImplementation libs.hamcrest.core
-    integrationTestImplementation libs.hamcrest.optional
-    integrationTestImplementation libs.hamcrest.path
-}
+//
+//
+//configurations {
+//    integrationTestImplementation.extendsFrom implementation
+//    integrationTestRuntimeOnly.extendsFrom runtimeOnly
+//    integrationTestApi.extendsFrom api
+//}
+//
+//tasks.register('integrationTest', Test) {
+//    description = 'Runs integration tests.'
+//    group = 'verification'
+//
+//    testClassesDirs = sourceSets.integrationTest.output.classesDirs
+//    classpath = sourceSets.integrationTest.runtimeClasspath
+//}
+//
+//integrationTest {
+//    useJUnitPlatform()
+//    maxHeapSize = "16g"
+//}
+//
+//dependencies {
+//    integrationTestImplementation libs.junit5.api
+//    integrationTestImplementation libs.junit5.impl
+//    integrationTestImplementation libs.junit5.params
+//    integrationTestImplementation libs.mockito.core
+//    integrationTestImplementation libs.mockito.junit
+//    integrationTestImplementation libs.mockito.inline
+//    integrationTestImplementation libs.hamcrest.core
+//    integrationTestImplementation libs.hamcrest.optional
+//    integrationTestImplementation libs.hamcrest.path
+//}

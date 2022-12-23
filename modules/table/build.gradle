@@ -67,18 +67,35 @@ dependencies {
     testImplementation libs.jmh.core
     testImplementation libs.javax.annotations
 
+    testFixturesImplementation project(':ignite-storage-api')
+    testFixturesImplementation project(':ignite-network-api')
+    testFixturesImplementation project(':ignite-core')
+    testFixturesImplementation project(':ignite-schema')
+    testFixturesImplementation project(':ignite-transactions')
+    testFixturesImplementation project(':ignite-api')
+    testFixturesImplementation project(':ignite-raft-api')
+    testFixturesImplementation project(':ignite-replicator')
+    testFixturesImplementation project(':ignite-configuration')
+    testFixturesImplementation(testFixtures(project(':ignite-core')))
+    testFixturesImplementation(testFixtures(project(':ignite-storage-api')))
+    testFixturesImplementation(testFixtures(project(':ignite-transactions')))
+    testFixturesImplementation libs.jetbrains.annotations
+    testFixturesImplementation libs.fastutil.core
+    testFixturesImplementation libs.mockito.core
+    testFixturesImplementation libs.mockito.junit
+
+    integrationTestImplementation project(':ignite-replicator')
+    integrationTestImplementation project(':ignite-raft-api')
+    integrationTestImplementation project(':ignite-affinity')
+    integrationTestImplementation(testFixtures(project))
     integrationTestImplementation(testFixtures(project(':ignite-core')))
+    integrationTestImplementation(testFixtures(project(':ignite-schema')))
     integrationTestImplementation(testFixtures(project(':ignite-configuration')))
     integrationTestImplementation(testFixtures(project(':ignite-network')))
     integrationTestImplementation(testFixtures(project(':ignite-raft')))
     integrationTestImplementation(testFixtures(project(':ignite-storage-api')))
     integrationTestImplementation(testFixtures(project(':ignite-transactions')))
-
-    testFixturesImplementation libs.jetbrains.annotations
-    testFixturesImplementation project(':ignite-storage-api')
-    testFixturesImplementation project(':ignite-core')
-    testFixturesImplementation project(':ignite-schema')
-    testFixturesImplementation project(':ignite-api')
+    integrationTestImplementation libs.fastutil.core
 }
 
 description = 'ignite-table'
