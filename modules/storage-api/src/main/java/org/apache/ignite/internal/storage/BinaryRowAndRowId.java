@@ -17,16 +17,35 @@
 
 package org.apache.ignite.internal.storage;
 
-import org.apache.ignite.internal.storage.engine.StorageEngine;
-import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
-import org.apache.ignite.internal.storage.impl.TestStorageEngine;
+import org.apache.ignite.internal.schema.BinaryRow;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * MV partition storage test implementation for {@link TestMvPartitionStorage} class.
+ * Wrapper that holds both {@link BinaryRow} and {@link RowId}. {@link BinaryRow} is null for tombstones.
  */
-public class TestMvPartitionStorageTest extends AbstractMvPartitionStorageTest {
-    @Override
-    protected StorageEngine createEngine() {
-        return new TestStorageEngine();
+public class BinaryRowAndRowId {
+    /** Binary row. */
+    private final @Nullable BinaryRow binaryRow;
+
+    /** Row id. */
+    private final RowId rowId;
+
+    /**
+     * Constructor.
+     *
+     * @param binaryRow Binary row.
+     * @param rowId Row id.
+     */
+    public BinaryRowAndRowId(@Nullable BinaryRow binaryRow, RowId rowId) {
+        this.binaryRow = binaryRow;
+        this.rowId = rowId;
+    }
+
+    public @Nullable BinaryRow binaryRow() {
+        return binaryRow;
+    }
+
+    public RowId rowId() {
+        return rowId;
     }
 }

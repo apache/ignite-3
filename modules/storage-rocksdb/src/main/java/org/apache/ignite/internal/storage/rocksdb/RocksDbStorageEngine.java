@@ -106,6 +106,11 @@ public class RocksDbStorageEngine implements StorageEngine {
         return scheduledPool;
     }
 
+    @Override
+    public String name() {
+        return ENGINE_NAME;
+    }
+
     /** {@inheritDoc} */
     @Override
     public void start() throws StorageException {

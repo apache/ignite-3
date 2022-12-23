@@ -31,6 +31,11 @@ public class TestStorageEngine implements StorageEngine {
     /** Engine name. */
     public static final String ENGINE_NAME = "test";
 
+    @Override
+    public String name() {
+        return ENGINE_NAME;
+    }
+
     /** {@inheritDoc} */
     @Override
     public void start() throws StorageException {

@@ -46,11 +46,12 @@ dependencies {
     testFixturesAnnotationProcessor libs.auto.service
 
     testFixturesImplementation project(':ignite-core')
-    testFixturesImplementation(testFixtures(project(':ignite-core')))
     testFixturesImplementation project(':ignite-configuration')
     testFixturesImplementation project(':ignite-schema')
-    testFixturesImplementation(testFixtures(project(':ignite-schema')))
     testFixturesImplementation project(':ignite-api')
+    testFixturesImplementation(testFixtures(project(':ignite-core')))
+    testFixturesImplementation(testFixtures(project(':ignite-configuration')))
+    testFixturesImplementation(testFixtures(project(':ignite-schema')))
     testFixturesImplementation libs.jetbrains.annotations
     testFixturesImplementation libs.hamcrest.core
     testFixturesImplementation libs.junit5.api

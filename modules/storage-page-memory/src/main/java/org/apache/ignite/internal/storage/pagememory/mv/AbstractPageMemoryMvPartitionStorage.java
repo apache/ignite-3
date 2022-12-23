@@ -674,7 +674,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     }
 
     @Override
-    public void addWriteCommitted(RowId rowId, BinaryRow row, HybridTimestamp commitTimestamp) throws StorageException {
+    public void addWriteCommitted(RowId rowId, @Nullable BinaryRow row, HybridTimestamp commitTimestamp) throws StorageException {
         assert rowId.partitionId() == partitionId : rowId;
 
         if (!closeBusyLock.enterBusy()) {
