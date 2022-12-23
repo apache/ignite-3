@@ -18,10 +18,11 @@
 package org.apache.ignite.internal.sql.engine.util;
 
 import java.util.Arrays;
-import java.util.function.BiFunction;
 import java.util.function.ToIntFunction;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NativeTypes;
+import org.apache.ignite.internal.sql.engine.exec.ArrayRowHandler;
+import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.util.HashFunctionFactoryImpl.SimpleHashFunction;
 import org.apache.ignite.internal.sql.engine.util.HashFunctionFactoryImpl.TypesAwareHashFunction;
 import org.junit.jupiter.api.Assertions;
@@ -82,12 +83,12 @@ class HashFunctionsTest {
          * @return Composite hash for the specified fields.
          */
         int hash(Object[] row, int... keys) {
-            BiFunction<Integer, Object[], Object> rowReader = (idx, r) -> r[idx];
+            RowHandler<Object[]> rowHandler = ArrayRowHandler.INSTANCE;
             ToIntFunction<Object[]> func;
 
             switch (this) {
                 case SIMPLE:
-                    func = new SimpleHashFunction<>(keys, rowReader);
+                    func = new SimpleHashFunction<>(keys, rowHandler);
 
                     break;
 
@@ -96,7 +97,7 @@ class HashFunctionsTest {
 
                     Arrays.fill(fieldTypes, NativeTypes.INT32);
 
-                    func = new TypesAwareHashFunction<>(keys, fieldTypes, rowReader);
+                    func = new TypesAwareHashFunction<>(keys, fieldTypes, rowHandler);
 
                     break;
 

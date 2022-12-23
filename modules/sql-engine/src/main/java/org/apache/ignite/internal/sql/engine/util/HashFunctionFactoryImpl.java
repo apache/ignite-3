@@ -20,7 +20,6 @@ package org.apache.ignite.internal.sql.engine.util;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
-import java.util.function.BiFunction;
 import java.util.function.ToIntFunction;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
@@ -35,11 +34,11 @@ import org.apache.ignite.internal.util.HashCalculator;
  */
 public class HashFunctionFactoryImpl<T> implements HashFunctionFactory<T> {
     private final SqlSchemaManager sqlSchemaManager;
-    private final BiFunction<Integer, T, Object> rowReader;
+    private final RowHandler<T> rowHandler;
 
     public HashFunctionFactoryImpl(SqlSchemaManager sqlSchemaManager, RowHandler<T> rowHandler) {
         this.sqlSchemaManager = sqlSchemaManager;
-        this.rowReader = rowHandler::get;
+        this.rowHandler = rowHandler;
     }
 
     /** {@inheritDoc} */
@@ -58,13 +57,13 @@ public class HashFunctionFactoryImpl<T> implements HashFunctionFactory<T> {
             fieldTypes[i] = colDesc.physicalType();
         }
 
-        return new TypesAwareHashFunction<>(fields, fieldTypes, rowReader);
+        return new TypesAwareHashFunction<>(fields, fieldTypes, rowHandler);
     }
 
     /** {@inheritDoc} */
     @Override
     public ToIntFunction<T> create(int[] fields) {
-        return new SimpleHashFunction<>(fields, rowReader);
+        return new SimpleHashFunction<>(fields, rowHandler);
     }
 
     /**
@@ -72,11 +71,11 @@ public class HashFunctionFactoryImpl<T> implements HashFunctionFactory<T> {
      */
     static class SimpleHashFunction<T> implements ToIntFunction<T> {
         private final int[] fields;
-        private final BiFunction<Integer, T, Object> rowReader;
+        private final RowHandler<T> rowHandler;
 
-        SimpleHashFunction(int[] fields, BiFunction<Integer, T, Object> rowReader) {
+        SimpleHashFunction(int[] fields, RowHandler<T> rowHandler) {
             this.fields = fields;
-            this.rowReader = rowReader;
+            this.rowHandler = rowHandler;
         }
 
         @Override
@@ -84,7 +83,7 @@ public class HashFunctionFactoryImpl<T> implements HashFunctionFactory<T> {
             int hash = 0;
 
             for (int idx : fields) {
-                hash = 31 * hash + Objects.hashCode(rowReader.apply(idx, row));
+                hash = 31 * hash + Objects.hashCode(rowHandler.get(idx, row));
             }
 
             return hash;
@@ -97,12 +96,12 @@ public class HashFunctionFactoryImpl<T> implements HashFunctionFactory<T> {
     static class TypesAwareHashFunction<T> implements ToIntFunction<T> {
         private final int[] fields;
         private final NativeType[] fieldTypes;
-        private final BiFunction<Integer, T, Object> rowReader;
+        private final RowHandler<T> rowHandler;
 
-        TypesAwareHashFunction(int[] fields, NativeType[] fieldTypes, BiFunction<Integer, T, Object> rowReader) {
+        TypesAwareHashFunction(int[] fields, NativeType[] fieldTypes, RowHandler<T> rowHandler) {
             this.fields = fields;
             this.fieldTypes = fieldTypes;
-            this.rowReader = rowReader;
+            this.rowHandler = rowHandler;
         }
 
         @Override
@@ -110,7 +109,7 @@ public class HashFunctionFactoryImpl<T> implements HashFunctionFactory<T> {
             HashCalculator hashCalc = new HashCalculator();
 
             for (int i = 0; i < fields.length; i++) {
-                Object obj = rowReader.apply(fields[i], row);
+                Object obj = rowHandler.get(fields[i], row);
 
                 ColocationUtils.append(hashCalc, obj, fieldTypes[i]);
             }
