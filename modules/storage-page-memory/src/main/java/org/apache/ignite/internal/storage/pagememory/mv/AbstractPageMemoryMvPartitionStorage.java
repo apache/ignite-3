@@ -322,7 +322,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
             VersionChain versionChain = findVersionChain(rowId);
 
             if (versionChain == null) {
-                return ReadResult.EMPTY;
+                return ReadResult.empty(rowId);
             }
 
             if (lookingForLatestVersion(timestamp)) {
@@ -364,7 +364,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         } else {
             ByteBufferRow row = rowVersionToBinaryRow(rowVersion);
 
-            return ReadResult.createFromCommitted(row, rowVersion.timestamp());
+            return ReadResult.createFromCommitted(versionChain.rowId(), row, rowVersion.timestamp());
         }
     }
 
@@ -424,22 +424,22 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     /**
      * Walks version chain to find a row by timestamp. See {@link MvPartitionStorage#read(RowId, HybridTimestamp)} for details.
      *
-     * @param chainHead Version chain head.
+     * @param chain Version chain head.
      * @param timestamp Timestamp.
      * @return Read result.
      */
-    private ReadResult walkVersionChain(VersionChain chainHead, HybridTimestamp timestamp) {
-        assert chainHead.hasCommittedVersions();
+    private ReadResult walkVersionChain(VersionChain chain, HybridTimestamp timestamp) {
+        assert chain.hasCommittedVersions();
 
-        boolean hasWriteIntent = chainHead.isUncommitted();
+        boolean hasWriteIntent = chain.isUncommitted();
 
         RowVersion firstCommit;
 
         if (hasWriteIntent) {
             // First commit can only match if its timestamp matches query timestamp.
-            firstCommit = readRowVersion(chainHead.nextLink(), rowTimestamp -> timestamp.compareTo(rowTimestamp) == 0);
+            firstCommit = readRowVersion(chain.nextLink(), rowTimestamp -> timestamp.compareTo(rowTimestamp) == 0);
         } else {
-            firstCommit = readRowVersion(chainHead.headLink(), rowTimestamp -> timestamp.compareTo(rowTimestamp) >= 0);
+            firstCommit = readRowVersion(chain.headLink(), rowTimestamp -> timestamp.compareTo(rowTimestamp) >= 0);
         }
 
         assert firstCommit.isCommitted();
@@ -448,9 +448,9 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         if (hasWriteIntent && timestamp.compareTo(firstCommit.timestamp()) > 0) {
             // It's the latest commit in chain, query ts is greater than commit ts and there is a write-intent.
             // So we just return write-intent.
-            RowVersion rowVersion = readRowVersion(chainHead.headLink(), ALWAYS_LOAD_VALUE);
+            RowVersion rowVersion = readRowVersion(chain.headLink(), ALWAYS_LOAD_VALUE);
 
-            return writeIntentToResult(chainHead, rowVersion, firstCommit.timestamp());
+            return writeIntentToResult(chain, rowVersion, firstCommit.timestamp());
         }
 
         RowVersion curCommit = firstCommit;
@@ -470,7 +470,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
                     row = new ByteBufferRow(curCommit.value());
                 }
 
-                return ReadResult.createFromCommitted(row, curCommit.timestamp());
+                return ReadResult.createFromCommitted(chain.rowId(), row, curCommit.timestamp());
             }
 
             if (!curCommit.hasNextLink()) {
@@ -480,7 +480,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
             }
         } while (curCommit != null);
 
-        return ReadResult.EMPTY;
+        return ReadResult.empty(chain.rowId());
     }
 
     private ReadResult writeIntentToResult(VersionChain chain, RowVersion rowVersion, @Nullable HybridTimestamp lastCommittedTimestamp) {
@@ -492,7 +492,14 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
         BinaryRow row = rowVersionToBinaryRow(rowVersion);
 
-        return ReadResult.createFromWriteIntent(row, transactionId, commitTableId, commitPartitionId, lastCommittedTimestamp);
+        return ReadResult.createFromWriteIntent(
+                chain.rowId(),
+                row,
+                transactionId,
+                commitTableId,
+                commitPartitionId,
+                lastCommittedTimestamp
+        );
     }
 
     private RowVersion insertRowVersion(@Nullable BinaryRow row, long nextPartitionlessLink) {
@@ -760,9 +767,10 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         ByteBufferRow row = new ByteBufferRow(rowVersion.value());
 
         if (rowVersion.isCommitted()) {
-            return ReadResult.createFromCommitted(row, rowVersion.timestamp());
+            return ReadResult.createFromCommitted(versionChain.rowId(), row, rowVersion.timestamp());
         } else {
             return ReadResult.createFromWriteIntent(
+                    versionChain.rowId(),
                     row,
                     versionChain.transactionId(),
                     versionChain.commitTableId(),
