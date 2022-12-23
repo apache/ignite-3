@@ -30,6 +30,9 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.lang.IgniteBiTuple;
 
+/**
+ * Abstract class making lock manager tests more simple.
+ */
 public abstract class AbstractLockingTest {
     protected final LockManager lockManager = lockManager();
     private Map<UUID, Map<IgniteBiTuple<LockKey, LockMode>, CompletableFuture<Lock>>> locks = new HashMap<>();

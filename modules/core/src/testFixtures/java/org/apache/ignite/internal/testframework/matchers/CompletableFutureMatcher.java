@@ -48,6 +48,10 @@ public class CompletableFutureMatcher<T> extends TypeSafeMatcher<CompletableFutu
     /** Time unit for timeout. */
     private final TimeUnit timeoutTimeUnit;
 
+    /**
+     * Class of throwable that should be the cause of fail if the future should fail. If {@code null}, the future should be completed
+     * successfully.
+     */
     private final Class<? extends Throwable> causeOfFail;
 
     /**

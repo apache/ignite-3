@@ -20,7 +20,6 @@ package org.apache.ignite.internal.tx;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.internal.tx.LockMode.IS;
 import static org.apache.ignite.internal.tx.LockMode.IX;
-import static org.apache.ignite.internal.tx.LockMode.NL;
 import static org.apache.ignite.internal.tx.LockMode.S;
 import static org.apache.ignite.internal.tx.LockMode.SIX;
 import static org.apache.ignite.internal.tx.LockMode.X;
@@ -64,7 +63,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
     protected abstract LockManager newInstance();
 
     @Test
-    public void testSingleKeyWrite() throws LockException {
+    public void testSingleKeyWrite() {
         UUID txId1 = Timestamp.nextVersion().toUuid();
 
         LockKey key = new LockKey("test");
@@ -706,12 +705,10 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
         LockKey key = new LockKey("test");
 
         for (LockMode lockMode : LockMode.values()) {
-            if (lockMode != NL) {
-                lockManager.acquire(txId, key, lockMode);
-                lockManager.release(txId, key, lockMode);
+            lockManager.acquire(txId, key, lockMode);
+            lockManager.release(txId, key, lockMode);
 
-                assertFalse(lockManager.locks(txId).hasNext());
-            }
+            assertFalse(lockManager.locks(txId).hasNext());
         }
 
         assertTrue(lockManager.isEmpty());
@@ -723,26 +720,22 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
         LockKey key = new LockKey("test");
 
         for (LockMode holdLockMode : LockMode.values()) {
-            if (holdLockMode != NL) {
-                lockManager.acquire(txId, key, holdLockMode);
+            lockManager.acquire(txId, key, holdLockMode);
 
-                assertTrue(lockManager.locks(txId).hasNext());
-                assertSame(holdLockMode, lockManager.locks(txId).next().lockMode());
+            assertTrue(lockManager.locks(txId).hasNext());
+            assertSame(holdLockMode, lockManager.locks(txId).next().lockMode());
 
-                for (LockMode lockMode : LockMode.values()) {
-                    if (lockMode != NL) {
-                        lockManager.acquire(txId, key, lockMode);
-                        lockManager.release(txId, key, lockMode);
-                    }
-                }
-
-                assertTrue(lockManager.locks(txId).hasNext());
-                assertSame(holdLockMode, lockManager.locks(txId).next().lockMode());
-
-                lockManager.release(txId, key, holdLockMode);
-
-                assertFalse(lockManager.locks(txId).hasNext());
+            for (LockMode lockMode : LockMode.values()) {
+                lockManager.acquire(txId, key, lockMode);
+                lockManager.release(txId, key, lockMode);
             }
+
+            assertTrue(lockManager.locks(txId).hasNext());
+            assertSame(holdLockMode, lockManager.locks(txId).next().lockMode());
+
+            lockManager.release(txId, key, holdLockMode);
+
+            assertFalse(lockManager.locks(txId).hasNext());
         }
 
         assertTrue(lockManager.isEmpty());

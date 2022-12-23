@@ -19,6 +19,7 @@ package org.apache.ignite.internal.tx.impl;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.ACQUIRE_LOCK_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.ACQUIRE_LOCK_TIMEOUT_ERR;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -208,13 +209,14 @@ public class HeapLockManager implements LockManager {
 
                 if (!isWaiterReadyToNotify(waiter, false)) {
                     if (!usePriority() && deadlockPreventionPolicy.waitTimeout() == 0) {
-                        waiter.fail(new LockException(ACQUIRE_LOCK_ERR, ""));
+                        waiter.fail(new LockException(ACQUIRE_LOCK_ERR, "Failed to acquire a lock [txId=" + waiter.txId + ", waiter="
+                                + waiter + ']'));
                     } else if (deadlockPreventionPolicy.waitTimeout() > 0) {
-                        waiter.failAfterTimeout(waiters, new LockException(ACQUIRE_LOCK_ERR, ""), deadlockPreventionPolicy.waitTimeout());
+                        waiter.failAfterTimeout(waiters, deadlockPreventionPolicy.waitTimeout());
 
-                        return new IgniteBiTuple(waiter.fut, waiter.lockMode());
+                        return new IgniteBiTuple<>(waiter.fut, waiter.lockMode());
                     } else {
-                        return new IgniteBiTuple(waiter.fut, waiter.lockMode());
+                        return new IgniteBiTuple<>(waiter.fut, waiter.lockMode());
                     }
                 }
 
@@ -263,7 +265,7 @@ public class HeapLockManager implements LockManager {
 
                             return true;
                         } else if ((deadlockPreventionPolicy.waitTimeout() > 0)) {
-                            waiter.failAfterTimeout(waiters, e, deadlockPreventionPolicy.waitTimeout());
+                            waiter.failAfterTimeout(waiters, deadlockPreventionPolicy.waitTimeout());
 
                             return false;
                         } else {
@@ -398,6 +400,11 @@ public class HeapLockManager implements LockManager {
             return toNotify;
         }
 
+        /**
+         * Whether transaction priority if used for conflict resolution.
+         *
+         * @return Whether priority is used.
+         */
         private boolean usePriority() {
             return deadlockPreventionPolicy.txComparator() != null;
         }
@@ -654,11 +661,18 @@ public class HeapLockManager implements LockManager {
             ex = e;
         }
 
-        public void failAfterTimeout(Object mutex, LockException e, long timeout) {
+        /**
+         * Makes the waiter fail after specified timeout (in milliseconds), if intended lock was not acquired within this timeout.
+         *
+         * @param mutex Mutex which should be used for modification of internal state of this waiter.
+         * @param timeout Timeout, in milliseconds.
+         */
+        public void failAfterTimeout(Object mutex, long timeout) {
             CompletableFuture.delayedExecutor(timeout, TimeUnit.MILLISECONDS).execute(() -> {
                 synchronized (mutex) {
                     if (!fut.isDone()) {
-                        ex = e;
+                        ex = new LockException(ACQUIRE_LOCK_TIMEOUT_ERR, "Failed to acquire a lock within a "
+                                + "timeout [txId=" + txId() + ", waiter=" + this + ']');
                     }
                 }
 

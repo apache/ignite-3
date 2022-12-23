@@ -32,10 +32,10 @@ public interface DeadlockPreventionPolicy {
     }
 
     /**
-     * Timeout to wait before aborting a lock attempt in case of conflict. {@code 0} means that the lock attempt is aborted instantly.
-     * If lesser that {@code 0}, it means that wait time is infinite.
+     * Timeout (in milliseconds) to wait before aborting a lock attempt in case of conflict. {@code 0} means that the lock attempt is
+     * aborted instantly. If lesser that {@code 0}, it means that wait time is infinite.
      *
-     * @return Timeout.
+     * @return Timeout, in milliseconds.
      */
     default long waitTimeout() {
         return -1;

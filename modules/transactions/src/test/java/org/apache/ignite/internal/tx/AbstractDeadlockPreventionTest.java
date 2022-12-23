@@ -30,6 +30,9 @@ import java.util.function.Supplier;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.junit.jupiter.api.Test;
 
+/**
+ * Abstract class containing some tests for deadlock prevention that check common scenarios for different policies.
+ */
 public abstract class AbstractDeadlockPreventionTest extends AbstractLockingTest {
     protected abstract DeadlockPreventionPolicy deadlockPreventionPolicy();
 
