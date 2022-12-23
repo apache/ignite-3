@@ -42,7 +42,6 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.BiFunction;
-import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -95,6 +94,7 @@ import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.externalize.RelJsonReader;
+import org.apache.ignite.internal.sql.engine.framework.PredefinedSchemaManager;
 import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.prepare.Cloner;
 import org.apache.ignite.internal.sql.engine.prepare.Fragment;
@@ -112,10 +112,8 @@ import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.DefaultValueStrategy;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
-import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.InternalIgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.ModifyRow;
-import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
@@ -666,17 +664,8 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
         List<RelNode> deserializedNodes = new ArrayList<>();
 
-        Map<UUID, IgniteTable> tableMap = new HashMap<>();
-
-        for (IgniteSchema schema : schemas) {
-            tableMap.putAll(schema.getTableNames().stream()
-                    .map(schema::getTable)
-                    .map(IgniteTable.class::cast)
-                    .collect(Collectors.toMap(IgniteTable::id, Function.identity())));
-        }
-
         for (String s : serialized) {
-            RelJsonReader reader = new RelJsonReader(new SqlSchemaManagerImpl(tableMap));
+            RelJsonReader reader = new RelJsonReader(new PredefinedSchemaManager(schemas));
             deserializedNodes.add(reader.read(s));
         }
 
@@ -1146,24 +1135,6 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         @Override
         public Object defaultValue() {
             throw new AssertionError();
-        }
-    }
-
-    static class SqlSchemaManagerImpl implements SqlSchemaManager {
-        private final Map<UUID, IgniteTable> tablesById;
-
-        public SqlSchemaManagerImpl(Map<UUID, IgniteTable> tablesById) {
-            this.tablesById = tablesById;
-        }
-
-        @Override
-        public SchemaPlus schema(@Nullable String schema) {
-            throw new AssertionError();
-        }
-
-        @Override
-        public IgniteTable tableById(UUID id, int ver) {
-            return tablesById.get(id);
         }
     }
 

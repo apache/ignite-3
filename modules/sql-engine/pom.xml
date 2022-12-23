@@ -208,6 +208,19 @@
             <artifactId>slf4j-jdk14</artifactId>
             <scope>test</scope>
         </dependency>
+
+        <!-- Benchmark dependencies -->
+        <dependency>
+            <groupId>org.openjdk.jmh</groupId>
+            <artifactId>jmh-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.openjdk.jmh</groupId>
+            <artifactId>jmh-generator-annprocess</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
@@ -313,6 +326,12 @@
                         <artifactId>value</artifactId>
                         <version>${immutables.version}</version>
                     </dependency>
+
+                    <dependency>
+                        <groupId>org.openjdk.jmh</groupId>
+                        <artifactId>jmh-generator-annprocess</artifactId>
+                        <version>${jmh.framework.version}</version>
+                    </dependency>
                 </dependencies>
                 <configuration>
 <!--                    <compilerArgs>
@@ -329,6 +348,12 @@
                             <groupId>org.immutables</groupId>
                             <artifactId>value</artifactId>
                             <version>${immutables.version}</version>
+                        </path>
+
+                        <path>
+                            <groupId>org.openjdk.jmh</groupId>
+                            <artifactId>jmh-generator-annprocess</artifactId>
+                            <version>${jmh.framework.version}</version>
                         </path>
                     </annotationProcessorPaths>
                 </configuration>

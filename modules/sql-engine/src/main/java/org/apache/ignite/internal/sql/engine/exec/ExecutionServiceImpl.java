@@ -39,9 +39,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.ignite.configuration.ConfigurationChangeException;
-import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.AsyncCursor;
@@ -72,8 +70,6 @@ import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.HashFunctionFactoryImpl;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
-import org.apache.ignite.internal.storage.DataStorageManager;
-import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -117,13 +113,11 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
      * @param topSrvc Topology service.
      * @param msgSrvc Message service.
      * @param sqlSchemaManager Schema manager.
-     * @param indexManager Index manager.
-     * @param tblManager Table manager.
+     * @param ddlCommandHandler Handler of the DDL commands.
      * @param taskExecutor Task executor.
      * @param handler Row handler.
      * @param mailboxRegistry Mailbox registry.
      * @param exchangeSrvc Exchange service.
-     * @param dataStorageManager Storage manager.
      * @param <RowT> Type of the sql row.
      * @return An execution service.
      */
@@ -131,21 +125,18 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             TopologyService topSrvc,
             MessageService msgSrvc,
             SqlSchemaManager sqlSchemaManager,
-            DistributionZoneManager distributionZoneManager,
-            TableManager tblManager,
-            IndexManager indexManager,
+            DdlCommandHandler ddlCommandHandler,
             QueryTaskExecutor taskExecutor,
             RowHandler<RowT> handler,
             MailboxRegistry mailboxRegistry,
-            ExchangeService exchangeSrvc,
-            DataStorageManager dataStorageManager
+            ExchangeService exchangeSrvc
     ) {
         return new ExecutionServiceImpl<>(
                 topSrvc.localMember(),
                 msgSrvc,
                 new MappingServiceImpl(topSrvc),
                 sqlSchemaManager,
-                new DdlCommandHandler(distributionZoneManager, tblManager, indexManager, dataStorageManager),
+                ddlCommandHandler,
                 taskExecutor,
                 handler,
                 exchangeSrvc,
@@ -161,7 +152,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     /**
      * Constructor. TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    ExecutionServiceImpl(
+    public ExecutionServiceImpl(
             ClusterNode localNode,
             MessageService msgSrvc,
             MappingService mappingSrvc,
@@ -718,8 +709,15 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         }
     }
 
+    /**
+     * A factory of the relational node implementors.
+     *
+     * @param <RowT> A type of the row the execution tree will be working with.
+     * @see LogicalRelImplementor
+     */
     @FunctionalInterface
-    interface ImplementorFactory<RowT> {
+    public interface ImplementorFactory<RowT> {
+        /** Creates the relational node implementor with the given context. */
         LogicalRelImplementor<RowT> create(ExecutionContext<RowT> ctx);
     }
 }

@@ -23,6 +23,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.calcite.schema.Table;
 import org.apache.calcite.schema.impl.AbstractSchema;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Ignite schema.
@@ -38,11 +39,17 @@ public class IgniteSchema extends AbstractSchema {
      * Creates a Schema.
      *
      * @param schemaName Schema name.
+     * @param tableMap Schema name.
+     * @param indexMap Schema name.
      */
-    public IgniteSchema(String schemaName, Map<String, Table> tblMap, Map<UUID, IgniteIndex> idxMap) {
+    public IgniteSchema(
+            String schemaName,
+            @Nullable Map<String, Table> tableMap,
+            @Nullable Map<UUID, IgniteIndex> indexMap
+    ) {
         this.schemaName = schemaName;
-        this.tblMap = tblMap == null ? new ConcurrentHashMap<>() : new ConcurrentHashMap<>(tblMap);
-        this.idxMap = idxMap == null ? new ConcurrentHashMap<>() : new ConcurrentHashMap<>(idxMap);
+        this.tblMap = tableMap == null ? new ConcurrentHashMap<>() : new ConcurrentHashMap<>(tableMap);
+        this.idxMap = indexMap == null ? new ConcurrentHashMap<>() : new ConcurrentHashMap<>(indexMap);
     }
 
     /**
