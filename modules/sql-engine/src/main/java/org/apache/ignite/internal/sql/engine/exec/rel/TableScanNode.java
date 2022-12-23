@@ -35,7 +35,7 @@ import org.apache.ignite.internal.table.InternalTable;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Scan node.
+ * Table scan node.
  */
 public class TableScanNode<RowT> extends StorageScanNode<RowT> {
 
@@ -45,6 +45,8 @@ public class TableScanNode<RowT> extends StorageScanNode<RowT> {
     private final int[] parts;
 
     boolean dataRequested;
+
+    int curPartIdx = 0;
 
     /**
      * Constructor.
@@ -80,21 +82,35 @@ public class TableScanNode<RowT> extends StorageScanNode<RowT> {
         super.rewindInternal();
 
         dataRequested = false;
+        curPartIdx = 0;
     }
 
+    /** {@inheritDoc} */
     @Override
     protected Publisher<RowT> scan() {
-        if (!dataRequested) {
-            dataRequested = true;
+        Publisher<BinaryRow> scan = null;
+        if (curPartIdx < parts.length) {
 
-            return scanPublisher(parts);
+            if (context().transactionTime() != null) {
+                scan = physTable.scan(parts[curPartIdx++], context().transactionTime(), context().localNode());
+            } else {
+                scan = physTable.scan(parts[curPartIdx++], context().transaction());
+            }
+
+            return convertPublisher(scan);
         }
-
+        // after fix we can remove code above and uncomment this part.
+        // IGNITE-
+        //        if (!dataRequested) {
+        //            dataRequested = true;
+        //
+        //            return scanPublisher(parts);
+        //        }
         return null;
     }
 
     private Publisher<RowT> scanPublisher(int[] parts) {
-        List<Flow.Publisher<RowT>> partPublishers = new ArrayList<>(parts.length);
+        List<Flow.Publisher<BinaryRow>> partPublishers = new ArrayList<>(parts.length);
 
         for (int p : parts) {
             Publisher<BinaryRow> pub;
@@ -104,11 +120,9 @@ public class TableScanNode<RowT> extends StorageScanNode<RowT> {
                 pub = physTable.scan(p, context().transaction());
             }
 
-            Publisher<RowT> convPub = convertPublisher(pub);
-
-            partPublishers.add(convPub);
+            partPublishers.add(pub);
         }
 
-        return new CompositePublisher<>(partPublishers);
+        return convertPublisher(new CompositePublisher<>(partPublishers));
     }
 }

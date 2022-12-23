@@ -48,8 +48,7 @@ import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Scan node.
- * TODO: merge with {@link TableScanNode}
+ * Index scan node.
  */
 public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
     /** Schema index. */
@@ -126,6 +125,7 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
         }
     }
 
+    /** {@inheritDoc} */
     @Override
     protected Publisher<RowT> scan() {
         if (!rangeConditionsProcessed) {

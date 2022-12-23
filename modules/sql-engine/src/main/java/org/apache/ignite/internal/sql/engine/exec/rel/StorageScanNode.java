@@ -65,8 +65,6 @@ public abstract class StorageScanNode<RowT> extends AbstractNode<RowT> {
 
     private Subscription activeSubscription;
 
-    boolean dataRequested;
-
     /**
      * Constructor.
      *
@@ -128,7 +126,6 @@ public abstract class StorageScanNode<RowT> extends AbstractNode<RowT> {
     protected void rewindInternal() {
         requested = 0;
         waiting = 0;
-        dataRequested = false;
 
         if (activeSubscription != null) {
             activeSubscription.cancel();
@@ -138,11 +135,18 @@ public abstract class StorageScanNode<RowT> extends AbstractNode<RowT> {
     }
 
     /**
-     * TTT.
+     *  Publisher of scan node.
      *
-     * @param pub Dfd.
+     *  @return Publisher of scan node or {@code null} in case nothing to scan.
+     */
+    protected abstract Publisher<RowT> scan();
+
+    /**
+     * Proxy publisher with singe goal convert rows from {@code BinaryRow} to {@code RowT}.
      *
-     * @return dfdfd.
+     * @param pub {@code BinaryRow} Publisher.
+     *
+     * @return Proxy publisher with conversion from {@code BinaryRow} to {@code RowT}.
      */
     @NotNull
     public Publisher<RowT> convertPublisher(Publisher<BinaryRow> pub) {
@@ -175,10 +179,7 @@ public abstract class StorageScanNode<RowT> extends AbstractNode<RowT> {
         return convPub;
     }
 
-
-    protected abstract Publisher<RowT> scan();
-
-    protected void push() throws Exception {
+    private void push() throws Exception {
         if (isClosed()) {
             return;
         }
@@ -249,8 +250,8 @@ public abstract class StorageScanNode<RowT> extends AbstractNode<RowT> {
         }
     }
 
-    /** Dfdfijfdf. */
-    protected class SubscriberImpl implements Flow.Subscriber<RowT> {
+    /** Subscriber which handle scan's rows. */
+    private class SubscriberImpl implements Flow.Subscriber<RowT> {
 
         /** {@inheritDoc} */
         @Override
@@ -294,6 +295,7 @@ public abstract class StorageScanNode<RowT> extends AbstractNode<RowT> {
         }
     }
 
+    /** Convert row from {@code BinaryRow} to internal SQL row format {@code RowT}. */
     protected RowT convert(BinaryRow binaryRow) {
         return tableRowConverter.apply(binaryRow);
     }
