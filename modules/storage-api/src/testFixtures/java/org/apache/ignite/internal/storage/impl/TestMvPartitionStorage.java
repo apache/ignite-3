@@ -160,8 +160,13 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     }
 
     @Override
-    public @Nullable BinaryRow addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, UUID commitTableId, int commitPartitionId)
-            throws TxIdMismatchException {
+    public synchronized @Nullable BinaryRow addWrite(
+            RowId rowId,
+            @Nullable BinaryRow row,
+            UUID txId,
+            UUID commitTableId,
+            int commitPartitionId
+    ) throws TxIdMismatchException {
         checkClosed();
 
         BinaryRow[] res = {null};
@@ -184,7 +189,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     }
 
     @Override
-    public @Nullable BinaryRow abortWrite(RowId rowId) {
+    public synchronized @Nullable BinaryRow abortWrite(RowId rowId) {
         checkClosed();
 
         BinaryRow[] res = {null};
@@ -205,7 +210,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     }
 
     @Override
-    public void commitWrite(RowId rowId, HybridTimestamp timestamp) {
+    public synchronized void commitWrite(RowId rowId, HybridTimestamp timestamp) {
         checkClosed();
 
         map.compute(rowId, (ignored, versionChain) -> {
@@ -220,7 +225,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     }
 
     @Override
-    public void addWriteCommitted(RowId rowId, BinaryRow row, HybridTimestamp commitTimestamp) throws StorageException {
+    public synchronized void addWriteCommitted(RowId rowId, @Nullable BinaryRow row, HybridTimestamp commitTimestamp) throws StorageException {
         checkClosed();
 
         map.compute(rowId, (ignored, versionChain) -> {
@@ -461,7 +466,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     }
 
     @Override
-    public @Nullable BinaryRowAndRowId pollForVacuum(HybridTimestamp lowWatermark) {
+    public synchronized @Nullable BinaryRowAndRowId pollForVacuum(HybridTimestamp lowWatermark) {
         Iterator<IgniteBiTuple<VersionChain, RowId>> it = gcQueue.iterator();
 
         if (!it.hasNext()) {

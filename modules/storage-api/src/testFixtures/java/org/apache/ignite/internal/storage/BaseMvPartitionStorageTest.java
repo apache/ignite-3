@@ -49,7 +49,7 @@ public abstract class BaseMvPartitionStorageTest extends BaseMvStoragesTest {
 
     protected static final BinaryRow BINARY_ROW = binaryRow(KEY, new TestValue(20, "bar"));
 
-    protected static final BinaryRow BINARY_ROW2 = binaryRow(KEY, new TestValue(20, "bar"));
+    protected static final BinaryRow BINARY_ROW2 = binaryRow(KEY, new TestValue(30, "bar"));
 
     protected @InjectConfiguration("mock.tables.foo = {}") TablesConfiguration tablesCfg;
 
@@ -150,7 +150,7 @@ public abstract class BaseMvPartitionStorageTest extends BaseMvStoragesTest {
      * Writes a row to storage like if it was first added using {@link MvPartitionStorage#addWrite(RowId, BinaryRow, UUID, UUID, int)}
      * and immediately committed with {@link MvPartitionStorage#commitWrite(RowId, HybridTimestamp)}.
      */
-    protected void addWriteCommitted(RowId rowId, BinaryRow row, HybridTimestamp commitTimestamp) {
+    protected void addWriteCommitted(RowId rowId, @Nullable BinaryRow row, HybridTimestamp commitTimestamp) {
         storage.runConsistently(() -> {
             storage.addWriteCommitted(rowId, row, commitTimestamp);
 

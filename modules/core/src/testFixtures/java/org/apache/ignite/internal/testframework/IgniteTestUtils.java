@@ -773,11 +773,17 @@ public final class IgniteTestUtils {
     }
 
     /**
-     * Runs all actions, each in a separate thread, having a {@link CyclicBarrier} before calling {@link RunnableX#run()}.
-     *
-     * @throws InterruptedException If interrupted when trying to {@link Thread#join()} a thread.
+     * {@link #runRace(long, RunnableX...)} with default timeout of 10 seconds.
      */
-    public static void runRace(RunnableX... actions) throws InterruptedException {
+    public static void runRace(RunnableX... actions) {
+        runRace(TimeUnit.SECONDS.toMillis(10), actions);
+    }
+
+    /**
+     * Runs all actions, each in a separate thread, having a {@link CyclicBarrier} before calling {@link RunnableX#run()}.
+     * Waits for threads completion or fails with the assertion if timeout exceeded.
+     */
+    public static void runRace(long timeoutMillis, RunnableX... actions) {
         int length = actions.length;
 
         CyclicBarrier barrier = new CyclicBarrier(length);
@@ -796,8 +802,16 @@ public final class IgniteTestUtils {
 
         Stream.of(threads).forEach(Thread::start);
 
-        for (Thread thread : threads) {
-            thread.join();
+        try {
+            for (Thread thread : threads) {
+                thread.join(timeoutMillis);
+            }
+        } catch (InterruptedException e) {
+            for (Thread thread : threads) {
+                thread.interrupt();
+            }
+
+            fail("Race operations took too long.");
         }
 
         if (!throwables.isEmpty()) {

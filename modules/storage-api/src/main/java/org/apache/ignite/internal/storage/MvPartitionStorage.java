@@ -177,7 +177,7 @@ public interface MvPartitionStorage extends ManuallyCloseable {
      * @param commitTimestamp Timestamp to associate with committed value.
      * @throws StorageException If failed to write data to the storage.
      */
-    void addWriteCommitted(RowId rowId, BinaryRow row, HybridTimestamp commitTimestamp) throws StorageException;
+    void addWriteCommitted(RowId rowId, @Nullable BinaryRow row, HybridTimestamp commitTimestamp) throws StorageException;
 
     /**
      * Scans all versions of a single row.
