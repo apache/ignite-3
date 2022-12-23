@@ -15,28 +15,53 @@
  * limitations under the License.
  */
 
+plugins {
+    alias(libs.plugins.shadow)
+}
+
 apply from: "$rootDir/buildscripts/java-core.gradle"
 apply from: "$rootDir/buildscripts/publishing.gradle"
 apply from: "$rootDir/buildscripts/java-junit5.gradle"
 apply from: "$rootDir/buildscripts/java-integration-test.gradle"
 
-description = 'ignite-examples'
-
 dependencies {
-    implementation project(':ignite-runner')
+    api project(':ignite-client-common')
     implementation project(':ignite-client')
-    implementation project(':ignite-jdbc')
     implementation project(':ignite-api')
+    implementation project(':ignite-core')
 
-    testImplementation project(':ignite-core')
-    testImplementation libs.hamcrest.core
+    implementation libs.jetbrains.annotations
+    implementation libs.auto.service.annotations
 
-    integrationTestImplementation project(':ignite-core')
-    integrationTestImplementation project(':ignite-storage-page-memory')
-    integrationTestImplementation project(':ignite-page-memory')
-    integrationTestImplementation project(':ignite-storage-rocksdb')
-    integrationTestImplementation project(':ignite-configuration')
-    integrationTestImplementation(testFixtures(project(':ignite-core')))
-    integrationTestImplementation libs.hamcrest.core
+    annotationProcessor libs.auto.service
+
+    integrationTestImplementation(testFixtures(project(":ignite-core")))
+    integrationTestImplementation(project(":ignite-runner"))
 }
 
+description = 'ignite-jdbc'
+
+shadowJar {
+    minimize()
+
+    [
+            'com.google',
+            'io.netty',
+            'it.unimi',
+            'org.jetbrains',
+            'org.msgpack'
+    ].forEach {
+        relocate(it, "${project.group}.shaded.$it")
+    }
+}
+
+configurations {
+    jdbcRelease {
+        canBeConsumed = true
+        canBeResolved = false
+    }
+}
+
+artifacts {
+    jdbcRelease shadowJar
+}
