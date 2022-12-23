@@ -41,7 +41,7 @@ public class BinaryRowAndRowId {
         this.rowId = rowId;
     }
 
-    public BinaryRow binaryRow() {
+    public @Nullable BinaryRow binaryRow() {
         return binaryRow;
     }
 

@@ -782,6 +782,8 @@ public final class IgniteTestUtils {
     /**
      * Runs all actions, each in a separate thread, having a {@link CyclicBarrier} before calling {@link RunnableX#run()}.
      * Waits for threads completion or fails with the assertion if timeout exceeded.
+     *
+     * @throws AssertionError In case of timeout or if any of the runnables thrown an exception.
      */
     public static void runRace(long timeoutMillis, RunnableX... actions) {
         int length = actions.length;
