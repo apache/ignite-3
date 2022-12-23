@@ -208,12 +208,14 @@ public class HeapLockManager implements LockManager {
 
                 if (!isWaiterReadyToNotify(waiter, false)) {
                     if (!usePriority() && deadlockPreventionPolicy.waitTimeout() == 0) {
-                        return new IgniteBiTuple<>(CompletableFuture.failedFuture(new LockException(ACQUIRE_LOCK_ERR, "")), waiter.lockMode);
+                        waiter.fail(new LockException(ACQUIRE_LOCK_ERR, ""));
                     } else if (deadlockPreventionPolicy.waitTimeout() > 0) {
                         waiter.failAfterTimeout(waiters, new LockException(ACQUIRE_LOCK_ERR, ""), deadlockPreventionPolicy.waitTimeout());
-                    }
 
-                    return new IgniteBiTuple(waiter.fut, waiter.lockMode());
+                        return new IgniteBiTuple(waiter.fut, waiter.lockMode());
+                    } else {
+                        return new IgniteBiTuple(waiter.fut, waiter.lockMode());
+                    }
                 }
 
                 if (!waiter.locked()) {

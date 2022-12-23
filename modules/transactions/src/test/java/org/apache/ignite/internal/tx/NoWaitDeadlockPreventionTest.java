@@ -46,50 +46,51 @@ public class NoWaitDeadlockPreventionTest extends AbstractLockingTest {
     }
 
     @Test
-    public void testNoWait() {
+    public void noWaitFail() {
         var tx1 = beginTx();
         var tx2 = beginTx();
 
         var key = key("test");
 
-        CompletableFuture<Lock> tx1lock = (CompletableFuture<Lock>) xlock(tx1, key);
-        assertThat(xlock(tx1, key), willSucceedFast());
-        CompletableFuture<?> tx2Fut = xlock(tx2, key);
-        assertTrue(tx2Fut.isCompletedExceptionally());
+        for (LockMode m1 : LockMode.values()) {
+            for (LockMode m2 : LockMode.values()) {
+                assertThat(acquire(tx1, key, m1), willSucceedFast());
+                CompletableFuture<?> tx2Fut = acquire(tx2, key, m2);
 
-        lockManager.release(tx1lock.join());
+                if (m1.isCompatible(m2)) {
+                    assertThat(tx2Fut, willSucceedFast());
+                } else {
+                    assertTrue(tx2Fut.isCompletedExceptionally());
+                }
 
-        CompletableFuture<Lock> tx2lock = (CompletableFuture<Lock>) xlock(tx2, key);
-        CompletableFuture<?> tx1Fut = xlock(tx1, key);
-        assertTrue(tx1Fut.isCompletedExceptionally());
-
-        lockManager.release(tx2lock.join());
+                release(tx1, key, m1);
+                release(tx2, key, m2);
+            }
+        }
     }
 
     @Test
-    public void noWaitFail() throws InterruptedException {
+    public void noWaitFailReverseOrder() {
         var tx1 = beginTx();
         var tx2 = beginTx();
 
         var key = key("test");
 
-        assertThat(xlock(tx1, key), willSucceedFast());
-        CompletableFuture<?> tx2Fut = xlock(tx2, key);
+        for (LockMode m2 : LockMode.values()) {
+            for (LockMode m1 : LockMode.values()) {
+                assertThat(acquire(tx2, key, m2), willSucceedFast());
+                CompletableFuture<?> tx1Fut = acquire(tx1, key, m1);
 
-        assertTrue(tx2Fut.isDone());
-    }
+                if (m2.isCompatible(m1)) {
+                    assertThat(tx1Fut, willSucceedFast());
+                } else {
+                    assertTrue(tx1Fut.isCompletedExceptionally());
+                }
 
-    @Test
-    public void noWaitFailReverseOrder() throws InterruptedException {
-        var tx1 = beginTx();
-        var tx2 = beginTx();
-
-        var key = key("test");
-
-        assertThat(xlock(tx2, key), willSucceedFast());
-        CompletableFuture<?> tx2Fut = xlock(tx1, key);
-
-        assertTrue(tx2Fut.isDone());
+                release(tx2, key, m2);
+                release(tx1, key, m1);
+            }
+        }
     }
 
     @Test

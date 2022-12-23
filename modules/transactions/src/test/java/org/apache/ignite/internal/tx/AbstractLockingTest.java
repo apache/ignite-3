@@ -19,20 +19,20 @@ package org.apache.ignite.internal.tx;
 
 import static org.apache.ignite.internal.tx.LockMode.S;
 import static org.apache.ignite.internal.tx.LockMode.X;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.lang.IgniteBiTuple;
 
 public abstract class AbstractLockingTest {
     protected final LockManager lockManager = lockManager();
-    private Map<UUID, List<CompletableFuture<Lock>>> locks = new HashMap<>();
+    private Map<UUID, Map<IgniteBiTuple<LockKey, LockMode>, CompletableFuture<Lock>>> locks = new HashMap<>();
 
     protected abstract LockManager lockManager();
 
@@ -61,10 +61,12 @@ public abstract class AbstractLockingTest {
 
         locks.compute(tx, (k, v) -> {
             if (v == null) {
-                v = new ArrayList<>();
+                v = new HashMap<>();
             }
 
-            v.add(fut);
+            assertFalse(v.containsKey(mode));
+
+            v.put(new IgniteBiTuple<>(key, mode), fut);
 
             return v;
         });
@@ -81,10 +83,12 @@ public abstract class AbstractLockingTest {
     }
 
     protected void finishTx(UUID tx) {
-        List<CompletableFuture<Lock>> txLocks = locks.remove(tx);
+        Map<IgniteBiTuple<LockKey, LockMode>, CompletableFuture<Lock>> txLocks = locks.remove(tx);
         assertNotNull(txLocks);
 
-        for (CompletableFuture<Lock> fut : txLocks) {
+        for (Map.Entry<IgniteBiTuple<LockKey, LockMode>, CompletableFuture<Lock>> e : txLocks.entrySet()) {
+            CompletableFuture<Lock> fut = e.getValue();
+
             assertTrue(fut.isDone());
 
             if (!fut.isCompletedExceptionally()) {
@@ -92,6 +96,24 @@ public abstract class AbstractLockingTest {
 
                 lockManager.release(lock);
             }
+        }
+    }
+
+    protected void release(UUID tx, LockKey key, LockMode lockMode) {
+        Map<IgniteBiTuple<LockKey, LockMode>, CompletableFuture<Lock>> txLocks = locks.get(tx);
+        assertNotNull(txLocks);
+
+        CompletableFuture<Lock> lockFut = txLocks.remove(new IgniteBiTuple<>(key, lockMode));
+        assertNotNull(lockFut);
+        assertTrue(lockFut.isDone());
+
+        if (!lockFut.isCompletedExceptionally()) {
+            Lock lock = lockFut.join();
+            lockManager.release(lock);
+        }
+
+        if (txLocks.isEmpty()) {
+            locks.remove(tx);
         }
     }
 }
