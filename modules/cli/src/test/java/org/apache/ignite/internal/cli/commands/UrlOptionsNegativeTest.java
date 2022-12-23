@@ -29,7 +29,6 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.List;
-import org.apache.ignite.internal.cli.core.repl.registry.impl.NodeNameRegistryImpl;
 import org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerHelper;
 import org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerProvider;
 import org.apache.ignite.internal.cli.commands.cluster.config.ClusterConfigShowCommand;
@@ -61,6 +60,7 @@ import org.apache.ignite.internal.cli.commands.node.status.NodeStatusReplCommand
 import org.apache.ignite.internal.cli.config.ini.IniConfigManager;
 import org.apache.ignite.internal.cli.core.converters.NodeNameOrUrlConverter;
 import org.apache.ignite.internal.cli.core.repl.context.CommandLineContextProvider;
+import org.apache.ignite.internal.cli.core.repl.registry.impl.NodeNameRegistryImpl;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
