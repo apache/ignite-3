@@ -59,6 +59,7 @@ import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
 import org.apache.ignite.internal.schema.testutils.definition.TableDefinition;
 import org.apache.ignite.internal.schema.testutils.definition.index.IndexDefinition;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
+import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexRowImpl;
@@ -826,6 +827,12 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
             assertThrows(StorageFullRebalanceException.class, () -> storage.scan(clock.now()));
             assertThrows(StorageFullRebalanceException.class, () -> storage.closestRowId(rowId));
             assertThrows(StorageFullRebalanceException.class, storage::rowsCount);
+
+            // TODO: IGNITE-18020 Add check
+            // TODO: IGNITE-18023 Add check
+            if (storage instanceof TestMvPartitionStorage) {
+                assertThrows(StorageFullRebalanceException.class, () -> storage.pollForVacuum(clock.now()));
+            }
 
             return null;
         });

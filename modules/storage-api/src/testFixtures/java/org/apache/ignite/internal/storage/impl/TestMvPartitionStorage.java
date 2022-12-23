@@ -27,7 +27,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ConcurrentSkipListSet;
-import java.util.stream.Stream;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.BinaryRowAndRowId;
@@ -515,6 +514,8 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
     @Override
     public synchronized @Nullable BinaryRowAndRowId pollForVacuum(HybridTimestamp lowWatermark) {
+        checkStorageClosedOrInProcessFullRebalance();
+
         Iterator<IgniteBiTuple<VersionChain, RowId>> it = gcQueue.iterator();
 
         if (!it.hasNext()) {
