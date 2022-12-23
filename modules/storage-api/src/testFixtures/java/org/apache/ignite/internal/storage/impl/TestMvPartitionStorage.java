@@ -531,8 +531,10 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     }
 
     /** Removes all entries from this storage. */
-    public void clear() {
+    public synchronized void clear() {
         map.clear();
+
+        gcQueue.clear();
     }
 
     private void checkClosed() {
