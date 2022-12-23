@@ -77,7 +77,7 @@ class BinaryConverterTest {
 
     @Test
     public void testNulls() throws MarshallerException {
-        Value row = new Value(1, false);
+        Value row = new Value(1, true);
         Value converted = convertToTupleAndBack(row);
         assertEquals(row, converted);
     }
