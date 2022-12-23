@@ -62,11 +62,28 @@ public class TestHashIndexStorage implements HashIndexStorage {
     public Cursor<RowId> get(BinaryTuple key) {
         checkStorageClosedOrInProcessOfRebalance();
 
-        Iterator<RowId> iterator = index.getOrDefault(key.byteBuffer(), Set.of()).stream()
-                .peek(rowId -> checkStorageClosedOrInProcessOfRebalance())
-                .iterator();
+        Iterator<RowId> iterator = index.getOrDefault(key.byteBuffer(), Set.of()).iterator();
 
-        return Cursor.fromBareIterator(iterator);
+        return new Cursor<>() {
+            @Override
+            public void close() {
+                // No-op.
+            }
+
+            @Override
+            public boolean hasNext() {
+                checkStorageClosedOrInProcessOfRebalance();
+
+                return iterator.hasNext();
+            }
+
+            @Override
+            public RowId next() {
+                checkStorageClosedOrInProcessOfRebalance();
+
+                return iterator.next();
+            }
+        };
     }
 
     @Override

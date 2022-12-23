@@ -17,9 +17,13 @@
 
 package org.apache.ignite.internal.storage;
 
+import static java.util.concurrent.TimeUnit.SECONDS;
+import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.storage.MvPartitionStorage.FULL_REBALANCE_IN_PROGRESS;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.instanceOf;
@@ -28,15 +32,15 @@ import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.hamcrest.Matchers.sameInstance;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.mock;
 
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -217,7 +221,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
     }
 
     @Test
-    public void testHashIndexIndependence() throws Exception {
+    public void testHashIndexIndependence() {
         MvPartitionStorage partitionStorage1 = tableStorage.getOrCreateMvPartition(PARTITION_ID);
 
         assertThat(tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx.id()), is(notNullValue()));
@@ -315,10 +319,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
     @Test
     public void testDestroyPartition() throws Exception {
-        assertThrows(
-                IllegalArgumentException.class,
-                () -> tableStorage.destroyPartition(tableStorage.configuration().partitions().value())
-        );
+        assertThrows(IllegalArgumentException.class, () -> tableStorage.destroyPartition(getOutConfigRangePartitionId()));
 
         MvPartitionStorage mvPartitionStorage = tableStorage.getOrCreateMvPartition(PARTITION_ID);
         HashIndexStorage hashIndexStorage = tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx.id());
@@ -348,7 +349,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         Cursor<RowId> getFromSortedIndexCursor = sortedIndexStorage.get(indexRow.indexColumns());
         Cursor<IndexRow> scanFromSortedIndexCursor = sortedIndexStorage.scan(null, null, 0);
 
-        tableStorage.destroyPartition(PARTITION_ID).get(1, TimeUnit.SECONDS);
+        tableStorage.destroyPartition(PARTITION_ID).get(1, SECONDS);
 
         // Let's check that we won't get destroyed storages.
         assertNull(tableStorage.getMvPartition(PARTITION_ID));
@@ -368,7 +369,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         assertThrows(StorageClosedException.class, () -> getAll(scanFromSortedIndexCursor));
 
         // Let's check that nothing will happen if we try to destroy a non-existing partition.
-        assertDoesNotThrow(() -> tableStorage.destroyPartition(PARTITION_ID).get(1, TimeUnit.SECONDS));
+        assertDoesNotThrow(() -> tableStorage.destroyPartition(PARTITION_ID).get(1, SECONDS));
     }
 
     @Test
@@ -385,11 +386,324 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
             return null;
         });
 
-        tableStorage.destroyPartition(PARTITION_ID).get(1, TimeUnit.SECONDS);
+        tableStorage.destroyPartition(PARTITION_ID).get(1, SECONDS);
 
         MvPartitionStorage newMvPartitionStorage = tableStorage.getOrCreateMvPartition(PARTITION_ID);
 
         assertThat(getAll(newMvPartitionStorage.scanVersions(rowId)), empty());
+    }
+
+    @Test
+    public void testSuccessFullRebalance() throws Exception {
+        MvPartitionStorage mvPartitionStorage = tableStorage.getOrCreateMvPartition(PARTITION_ID);
+        HashIndexStorage hashIndexStorage = tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx.id());
+        SortedIndexStorage sortedIndexStorage = tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIdx.id());
+
+        // Error because the full reblance has not yet started for the partition.
+        assertThrows(StorageFullRebalanceException.class, () -> tableStorage.finishFullRebalancePartition(PARTITION_ID, 100, 500));
+
+        // Let's fill the storages before a full rebalance start.
+
+        RowId rowIdBeforeFullRebalanceStart0 = new RowId(PARTITION_ID);
+        RowId rowIdBeforeFullRebalanceStart1 = new RowId(PARTITION_ID);
+
+        BinaryRow binaryRowBeforeFullRebalanceStart0 = binaryRow(new TestKey(0, "0"), new TestValue(0, "0"));
+        BinaryRow binaryRowBeforeFullRebalanceStart1 = binaryRow(new TestKey(1, "1"), new TestValue(1, "1"));
+
+        HybridTimestamp timestampBeforeFullRebalanceStart0 = clock.now();
+        HybridTimestamp timestampBeforeFullRebalanceStart1 = clock.now();
+
+        IndexRow indexRowBeforeFullRebalanceStart0 = indexRow(binaryRowBeforeFullRebalanceStart0, rowIdBeforeFullRebalanceStart0);
+        IndexRow indexRowBeforeFullRebalanceStart1 = indexRow(binaryRowBeforeFullRebalanceStart1, rowIdBeforeFullRebalanceStart1);
+
+        mvPartitionStorage.runConsistently(() -> {
+            mvPartitionStorage.addWriteCommitted(
+                    rowIdBeforeFullRebalanceStart0,
+                    binaryRowBeforeFullRebalanceStart0,
+                    timestampBeforeFullRebalanceStart0
+            );
+
+            mvPartitionStorage.addWriteCommitted(
+                    rowIdBeforeFullRebalanceStart1,
+                    binaryRowBeforeFullRebalanceStart1,
+                    timestampBeforeFullRebalanceStart1
+            );
+
+            hashIndexStorage.put(indexRowBeforeFullRebalanceStart0);
+            hashIndexStorage.put(indexRowBeforeFullRebalanceStart1);
+
+            sortedIndexStorage.put(indexRowBeforeFullRebalanceStart0);
+            sortedIndexStorage.put(indexRowBeforeFullRebalanceStart1);
+
+            return null;
+        });
+
+        // Let's open the cursors.
+
+        Cursor<ReadResult> mvPartitionCursorBeforeFullRebalanceStart0 = mvPartitionStorage.scanVersions(rowIdBeforeFullRebalanceStart0);
+        Cursor<ReadResult> mvPartitionCursorBeforeFullRebalanceStart1 = mvPartitionStorage.scan(timestampBeforeFullRebalanceStart0);
+
+        Cursor<RowId> hashIndexCursorBeforeFullRebalanceStart = hashIndexStorage.get(indexRowBeforeFullRebalanceStart0.indexColumns());
+
+        Cursor<RowId> sortedIndexCursorBeforeFullRebalanceStart0 = sortedIndexStorage.get(indexRowBeforeFullRebalanceStart0.indexColumns());
+        Cursor<IndexRow> sortedIndexCursorBeforeFullRebalanceStart1 = sortedIndexStorage.scan(null, null, 0);
+
+        // Partition is out of configuration range.
+        assertThrows(IllegalArgumentException.class, () -> tableStorage.startFullRebalancePartition(getOutConfigRangePartitionId()));
+
+        // Partition does not exist.
+        assertThrows(StorageFullRebalanceException.class, () -> tableStorage.startFullRebalancePartition(1));
+
+        // Let's start a full rebalancing of the partition.
+        tableStorage.startFullRebalancePartition(PARTITION_ID).get(1, SECONDS);
+
+        // Once again, a full rebalancing of the partition cannot be started.
+        assertThrows(StorageFullRebalanceException.class, () -> tableStorage.startFullRebalancePartition(PARTITION_ID));
+
+        checkMvPartitionStorageMethodsAfterStartFullRebalance(mvPartitionStorage);
+        checkHashIndexStorageMethodsAfterStartFullRebalance(hashIndexStorage);
+        checkSortedIndexStorageMethodsAfterStartFullRebalance(sortedIndexStorage);
+
+        checkCursorAfterStartFullRebalance(mvPartitionCursorBeforeFullRebalanceStart0);
+        checkCursorAfterStartFullRebalance(mvPartitionCursorBeforeFullRebalanceStart1);
+        checkCursorAfterStartFullRebalance(hashIndexCursorBeforeFullRebalanceStart);
+        checkCursorAfterStartFullRebalance(sortedIndexCursorBeforeFullRebalanceStart0);
+        checkCursorAfterStartFullRebalance(sortedIndexCursorBeforeFullRebalanceStart1);
+
+        // Let's fill the storages with fresh data on rebalance.
+
+        RowId rowIdOnFullRebalance0 = new RowId(PARTITION_ID);
+        RowId rowIdOnFullRebalance1 = new RowId(PARTITION_ID);
+
+        BinaryRow binaryRowOnFullRebalance0 = binaryRow(new TestKey(2, "2"), new TestValue(2, "2"));
+        BinaryRow binaryRowOnFullRebalance1 = binaryRow(new TestKey(3, "3"), new TestValue(3, "3"));
+
+        HybridTimestamp timestampOnFullRebalance0 = clock.now();
+        HybridTimestamp timestampOnFullRebalance1 = clock.now();
+
+        IndexRow indexRowOnFullRebalance0 = indexRow(binaryRowOnFullRebalance0, rowIdOnFullRebalance0);
+        IndexRow indexRowOnFullRebalance1 = indexRow(binaryRowOnFullRebalance1, rowIdOnFullRebalance1);
+
+        mvPartitionStorage.runConsistently(() -> {
+            mvPartitionStorage.addWriteCommitted(
+                    rowIdOnFullRebalance0,
+                    binaryRowOnFullRebalance0,
+                    timestampOnFullRebalance0
+            );
+
+            mvPartitionStorage.addWrite(
+                    rowIdOnFullRebalance1,
+                    binaryRowOnFullRebalance1,
+                    UUID.randomUUID(),
+                    UUID.randomUUID(),
+                    PARTITION_ID
+            );
+
+            mvPartitionStorage.commitWrite(
+                    rowIdOnFullRebalance1,
+                    timestampOnFullRebalance1
+            );
+
+            hashIndexStorage.put(indexRowOnFullRebalance0);
+            hashIndexStorage.put(indexRowOnFullRebalance1);
+
+            sortedIndexStorage.put(indexRowOnFullRebalance0);
+            sortedIndexStorage.put(indexRowOnFullRebalance1);
+
+            return null;
+        });
+
+        // Let's finish a full rebalancing.
+
+        // Partition is out of configuration range.
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> tableStorage.finishFullRebalancePartition(getOutConfigRangePartitionId(), 100, 500)
+        );
+
+        // Partition does not exist.
+        assertThrows(
+                StorageFullRebalanceException.class,
+                () -> tableStorage.finishFullRebalancePartition(1, 100, 500)
+        );
+
+        tableStorage.finishFullRebalancePartition(PARTITION_ID, 10, 20).get(1, SECONDS);
+
+        // Let's check the storages after success finish a full rebalance.
+
+        assertThat(getAll(mvPartitionStorage.scanVersions(rowIdBeforeFullRebalanceStart0)), is(empty()));
+        assertThat(getAll(mvPartitionStorage.scanVersions(rowIdBeforeFullRebalanceStart1)), is(empty()));
+
+        assertThat(
+                getAll(mvPartitionStorage.scanVersions(rowIdOnFullRebalance0)).stream().map(ReadResult::binaryRow).collect(toList()),
+                containsInAnyOrder(binaryRowOnFullRebalance0)
+        );
+
+        assertThat(
+                getAll(mvPartitionStorage.scanVersions(rowIdOnFullRebalance1)).stream().map(ReadResult::binaryRow).collect(toList()),
+                containsInAnyOrder(binaryRowOnFullRebalance1)
+        );
+
+        assertThat(getAll(hashIndexStorage.get(indexRowBeforeFullRebalanceStart0.indexColumns())), is(empty()));
+        assertThat(getAll(hashIndexStorage.get(indexRowBeforeFullRebalanceStart1.indexColumns())), is(empty()));
+
+        assertThat(getAll(hashIndexStorage.get(indexRowOnFullRebalance0.indexColumns())), contains(rowIdOnFullRebalance0));
+        assertThat(getAll(hashIndexStorage.get(indexRowOnFullRebalance1.indexColumns())), contains(rowIdOnFullRebalance1));
+
+        assertThat(
+                getAll(sortedIndexStorage.scan(null, null, 0)).stream().map(IndexRow::rowId).collect(toList()),
+                containsInAnyOrder(rowIdOnFullRebalance0, rowIdOnFullRebalance1)
+        );
+
+        assertEquals(10, mvPartitionStorage.lastAppliedIndex());
+        assertEquals(10, mvPartitionStorage.persistedIndex());
+        assertEquals(20, mvPartitionStorage.lastAppliedTerm());
+    }
+
+    @Test
+    public void testFailFullRebalance() throws Exception {
+        MvPartitionStorage mvPartitionStorage = tableStorage.getOrCreateMvPartition(PARTITION_ID);
+        HashIndexStorage hashIndexStorage = tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx.id());
+        SortedIndexStorage sortedIndexStorage = tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIdx.id());
+
+        // Nothing will happen because the full rebalancing has not started.
+        tableStorage.abortFullRebalancePartition(PARTITION_ID).get(1, SECONDS);
+
+        // Let's fill the storages before a full rebalance start.
+
+        RowId rowIdBeforeFullRebalanceStart0 = new RowId(PARTITION_ID);
+        RowId rowIdBeforeFullRebalanceStart1 = new RowId(PARTITION_ID);
+
+        BinaryRow binaryRowBeforeFullRebalanceStart0 = binaryRow(new TestKey(0, "0"), new TestValue(0, "0"));
+        BinaryRow binaryRowBeforeFullRebalanceStart1 = binaryRow(new TestKey(1, "1"), new TestValue(1, "1"));
+
+        HybridTimestamp timestampBeforeFullRebalanceStart0 = clock.now();
+        HybridTimestamp timestampBeforeFullRebalanceStart1 = clock.now();
+
+        IndexRow indexRowBeforeFullRebalanceStart0 = indexRow(binaryRowBeforeFullRebalanceStart0, rowIdBeforeFullRebalanceStart0);
+        IndexRow indexRowBeforeFullRebalanceStart1 = indexRow(binaryRowBeforeFullRebalanceStart1, rowIdBeforeFullRebalanceStart1);
+
+        mvPartitionStorage.runConsistently(() -> {
+            mvPartitionStorage.addWriteCommitted(
+                    rowIdBeforeFullRebalanceStart0,
+                    binaryRowBeforeFullRebalanceStart0,
+                    timestampBeforeFullRebalanceStart0
+            );
+
+            mvPartitionStorage.addWriteCommitted(
+                    rowIdBeforeFullRebalanceStart1,
+                    binaryRowBeforeFullRebalanceStart1,
+                    timestampBeforeFullRebalanceStart1
+            );
+
+            hashIndexStorage.put(indexRowBeforeFullRebalanceStart0);
+            hashIndexStorage.put(indexRowBeforeFullRebalanceStart1);
+
+            sortedIndexStorage.put(indexRowBeforeFullRebalanceStart0);
+            sortedIndexStorage.put(indexRowBeforeFullRebalanceStart1);
+
+            return null;
+        });
+
+        // Let's open the cursors.
+
+        Cursor<ReadResult> mvPartitionCursorBeforeFullRebalanceStart0 = mvPartitionStorage.scanVersions(rowIdBeforeFullRebalanceStart0);
+        Cursor<ReadResult> mvPartitionCursorBeforeFullRebalanceStart1 = mvPartitionStorage.scan(timestampBeforeFullRebalanceStart0);
+
+        Cursor<RowId> hashIndexCursorBeforeFullRebalanceStart = hashIndexStorage.get(indexRowBeforeFullRebalanceStart0.indexColumns());
+
+        Cursor<RowId> sortedIndexCursorBeforeFullRebalanceStart0 = sortedIndexStorage.get(indexRowBeforeFullRebalanceStart0.indexColumns());
+        Cursor<IndexRow> sortedIndexCursorBeforeFullRebalanceStart1 = sortedIndexStorage.scan(null, null, 0);
+
+        // Partition is out of configuration range.
+        assertThrows(IllegalArgumentException.class, () -> tableStorage.startFullRebalancePartition(getOutConfigRangePartitionId()));
+
+        // Partition does not exist.
+        assertThrows(StorageFullRebalanceException.class, () -> tableStorage.startFullRebalancePartition(1));
+
+        // Let's start a full rebalancing of the partition.
+        tableStorage.startFullRebalancePartition(PARTITION_ID).get(1, SECONDS);
+
+        // Once again, a full rebalancing of the partition cannot be started.
+        assertThrows(StorageFullRebalanceException.class, () -> tableStorage.startFullRebalancePartition(PARTITION_ID));
+
+        checkMvPartitionStorageMethodsAfterStartFullRebalance(mvPartitionStorage);
+        checkHashIndexStorageMethodsAfterStartFullRebalance(hashIndexStorage);
+        checkSortedIndexStorageMethodsAfterStartFullRebalance(sortedIndexStorage);
+
+        checkCursorAfterStartFullRebalance(mvPartitionCursorBeforeFullRebalanceStart0);
+        checkCursorAfterStartFullRebalance(mvPartitionCursorBeforeFullRebalanceStart1);
+        checkCursorAfterStartFullRebalance(hashIndexCursorBeforeFullRebalanceStart);
+        checkCursorAfterStartFullRebalance(sortedIndexCursorBeforeFullRebalanceStart0);
+        checkCursorAfterStartFullRebalance(sortedIndexCursorBeforeFullRebalanceStart1);
+
+        // Let's fill the storages with fresh data on rebalance.
+
+        RowId rowIdOnFullRebalance0 = new RowId(PARTITION_ID);
+        RowId rowIdOnFullRebalance1 = new RowId(PARTITION_ID);
+
+        BinaryRow binaryRowOnFullRebalance0 = binaryRow(new TestKey(2, "2"), new TestValue(2, "2"));
+        BinaryRow binaryRowOnFullRebalance1 = binaryRow(new TestKey(3, "3"), new TestValue(3, "3"));
+
+        HybridTimestamp timestampOnFullRebalance0 = clock.now();
+        HybridTimestamp timestampOnFullRebalance1 = clock.now();
+
+        IndexRow indexRowOnFullRebalance0 = indexRow(binaryRowOnFullRebalance0, rowIdOnFullRebalance0);
+        IndexRow indexRowOnFullRebalance1 = indexRow(binaryRowOnFullRebalance1, rowIdOnFullRebalance1);
+
+        mvPartitionStorage.runConsistently(() -> {
+            mvPartitionStorage.addWriteCommitted(
+                    rowIdOnFullRebalance0,
+                    binaryRowOnFullRebalance0,
+                    timestampOnFullRebalance0
+            );
+
+            mvPartitionStorage.addWrite(
+                    rowIdOnFullRebalance1,
+                    binaryRowOnFullRebalance1,
+                    UUID.randomUUID(),
+                    UUID.randomUUID(),
+                    PARTITION_ID
+            );
+
+            mvPartitionStorage.commitWrite(
+                    rowIdOnFullRebalance1,
+                    timestampOnFullRebalance1
+            );
+
+            hashIndexStorage.put(indexRowOnFullRebalance0);
+            hashIndexStorage.put(indexRowOnFullRebalance1);
+
+            sortedIndexStorage.put(indexRowOnFullRebalance0);
+            sortedIndexStorage.put(indexRowOnFullRebalance1);
+
+            return null;
+        });
+
+        // Let's abort a full rebalancing.
+
+        // Partition is out of configuration range.
+        assertThrows(IllegalArgumentException.class, () -> tableStorage.abortFullRebalancePartition(getOutConfigRangePartitionId()));
+
+        tableStorage.abortFullRebalancePartition(PARTITION_ID).get(1, SECONDS);
+
+        // Let's check the storages after abort a full rebalance.
+
+        assertThat(getAll(mvPartitionStorage.scanVersions(rowIdBeforeFullRebalanceStart0)), is(empty()));
+        assertThat(getAll(mvPartitionStorage.scanVersions(rowIdBeforeFullRebalanceStart1)), is(empty()));
+        assertThat(getAll(mvPartitionStorage.scanVersions(rowIdOnFullRebalance0)), is(empty()));
+        assertThat(getAll(mvPartitionStorage.scanVersions(rowIdOnFullRebalance1)), is(empty()));
+
+        assertThat(getAll(hashIndexStorage.get(indexRowBeforeFullRebalanceStart0.indexColumns())), is(empty()));
+        assertThat(getAll(hashIndexStorage.get(indexRowBeforeFullRebalanceStart1.indexColumns())), is(empty()));
+        assertThat(getAll(hashIndexStorage.get(indexRowOnFullRebalance0.indexColumns())), is(empty()));
+        assertThat(getAll(hashIndexStorage.get(indexRowOnFullRebalance1.indexColumns())), is(empty()));
+
+        assertThat(getAll(sortedIndexStorage.scan(null, null, 0)), is(empty()));
+
+        assertEquals(0, mvPartitionStorage.lastAppliedIndex());
+        assertEquals(0, mvPartitionStorage.persistedIndex());
+        assertEquals(0, mvPartitionStorage.lastAppliedTerm());
     }
 
     private static void createTestIndexes(TablesConfiguration tablesConfig) {
@@ -431,7 +745,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
     private static <T> List<T> getAll(Cursor<T> cursor) {
         try (cursor) {
-            return cursor.stream().collect(Collectors.toList());
+            return cursor.stream().collect(toList());
         }
     }
 
@@ -488,5 +802,56 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         assertThrows(StorageClosedException.class, () -> storage.put(indexRow));
 
         assertThrows(StorageClosedException.class, () -> storage.remove(indexRow));
+    }
+
+    private int getOutConfigRangePartitionId() {
+        return tableStorage.configuration().partitions().value();
+    }
+
+    private void checkMvPartitionStorageMethodsAfterStartFullRebalance(MvPartitionStorage storage) {
+        assertEquals(FULL_REBALANCE_IN_PROGRESS, storage.lastAppliedIndex());
+        assertEquals(FULL_REBALANCE_IN_PROGRESS, storage.persistedIndex());
+        assertEquals(FULL_REBALANCE_IN_PROGRESS, storage.lastAppliedTerm());
+
+        assertDoesNotThrow(() -> storage.committedGroupConfiguration());
+
+        storage.runConsistently(() -> {
+            assertThrows(StorageFullRebalanceException.class, () -> storage.lastApplied(100, 500));
+
+            assertThrows(
+                    StorageFullRebalanceException.class,
+                    () -> storage.committedGroupConfiguration(mock(RaftGroupConfiguration.class))
+            );
+
+            RowId rowId = new RowId(PARTITION_ID);
+
+            assertThrows(StorageFullRebalanceException.class, () -> storage.read(rowId, clock.now()));
+            assertThrows(StorageFullRebalanceException.class, () -> storage.scanVersions(rowId));
+            assertThrows(StorageFullRebalanceException.class, () -> storage.scan(clock.now()));
+            assertThrows(StorageFullRebalanceException.class, () -> storage.closestRowId(rowId));
+            assertThrows(StorageFullRebalanceException.class, storage::rowsCount);
+
+            return null;
+        });
+    }
+
+    private static void checkHashIndexStorageMethodsAfterStartFullRebalance(HashIndexStorage storage) {
+        assertDoesNotThrow(storage::indexDescriptor);
+
+        assertThrows(StorageFullRebalanceException.class, () -> storage.get(mock(BinaryTuple.class)));
+    }
+
+    private static void checkSortedIndexStorageMethodsAfterStartFullRebalance(SortedIndexStorage storage) {
+        assertDoesNotThrow(storage::indexDescriptor);
+
+        assertThrows(StorageFullRebalanceException.class, () -> storage.get(mock(BinaryTuple.class)));
+        assertThrows(StorageFullRebalanceException.class, () -> storage.scan(null, null, 0));
+    }
+
+    private static void checkCursorAfterStartFullRebalance(Cursor<?> cursor) {
+        assertDoesNotThrow(cursor::close);
+
+        assertThrows(StorageFullRebalanceException.class, cursor::hasNext);
+        assertThrows(StorageFullRebalanceException.class, cursor::next);
     }
 }

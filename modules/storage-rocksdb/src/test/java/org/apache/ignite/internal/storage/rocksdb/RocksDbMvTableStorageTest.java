@@ -41,6 +41,7 @@ import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -150,5 +151,29 @@ public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
     @Test
     void storageAdvertisesItIsPersistent() {
         assertThat(tableStorage.isVolatile(), is(false));
+    }
+
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18180")
+    @Override
+    public void testDestroyPartition() throws Exception {
+        super.testDestroyPartition();
+    }
+
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18180")
+    @Override
+    public void testReCreatePartition() throws Exception {
+        super.testReCreatePartition();
+    }
+
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18027")
+    @Override
+    public void testSuccessFullRebalance() throws Exception {
+        super.testSuccessFullRebalance();
+    }
+
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18027")
+    @Override
+    public void testFailFullRebalance() throws Exception {
+        super.testFailFullRebalance();
     }
 }

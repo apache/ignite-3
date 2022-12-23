@@ -19,12 +19,10 @@ package org.apache.ignite.internal.storage.impl;
 
 import java.util.Iterator;
 import java.util.NoSuchElementException;
-import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
-import java.util.stream.Stream;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
@@ -342,12 +340,52 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     public Cursor<ReadResult> scanVersions(RowId rowId) throws StorageException {
         checkStorageClosedOrInProcessFullRebalance();
 
-        return Cursor.fromBareIterator(
-                Stream.iterate(map.get(rowId), Objects::nonNull, vc -> vc.next)
-                        .peek(versionChain -> checkStorageClosedOrInProcessFullRebalance())
-                        .map((VersionChain versionChain) -> versionChainToReadResult(versionChain, false))
-                        .iterator()
-        );
+        return new Cursor<>() {
+            @Nullable
+            private Boolean hasNext;
+
+            @Nullable
+            private VersionChain versionChain;
+
+            @Override
+            public void close() {
+                // No-op.
+            }
+
+            @Override
+            public boolean hasNext() {
+                checkStorageClosedOrInProcessFullRebalance();
+
+                advanceIfNeeded();
+
+                return hasNext;
+            }
+
+            @Override
+            public ReadResult next() {
+                checkStorageClosedOrInProcessFullRebalance();
+
+                advanceIfNeeded();
+
+                if (!hasNext) {
+                    throw new NoSuchElementException();
+                }
+
+                hasNext = null;
+
+                return versionChainToReadResult(versionChain, false);
+            }
+
+            private void advanceIfNeeded() {
+                if (hasNext != null) {
+                    return;
+                }
+
+                versionChain = versionChain == null ? map.get(rowId) : versionChain.next;
+
+                hasNext = versionChain != null;
+            }
+        };
     }
 
     @Override

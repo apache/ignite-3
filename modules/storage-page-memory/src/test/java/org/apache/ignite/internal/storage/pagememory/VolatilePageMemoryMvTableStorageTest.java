@@ -27,6 +27,7 @@ import org.apache.ignite.internal.storage.pagememory.configuration.schema.Volati
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
@@ -68,5 +69,29 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
                 tableStorage == null ? null : tableStorage::stop,
                 engine == null ? null : engine::stop
         );
+    }
+
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17833")
+    @Override
+    public void testDestroyPartition() throws Exception {
+        super.testDestroyPartition();
+    }
+
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17833")
+    @Override
+    public void testReCreatePartition() throws Exception {
+        super.testReCreatePartition();
+    }
+
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18028")
+    @Override
+    public void testSuccessFullRebalance() throws Exception {
+        super.testSuccessFullRebalance();
+    }
+
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18028")
+    @Override
+    public void testFailFullRebalance() throws Exception {
+        super.testFailFullRebalance();
     }
 }
