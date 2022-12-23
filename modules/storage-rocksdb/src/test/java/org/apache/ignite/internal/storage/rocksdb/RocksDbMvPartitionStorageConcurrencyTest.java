@@ -15,24 +15,30 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.pagememory.mv;
+package org.apache.ignite.internal.storage.rocksdb;
 
+import java.nio.file.Path;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.storage.AbstractMvPartitionStorageConcurrencyTest;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
-import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryStorageEngine;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineConfiguration;
+import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
+import org.apache.ignite.internal.testframework.WorkDirectory;
+import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.junit.jupiter.api.extension.ExtendWith;
 
-class VolatilePageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPartitionStorageTest {
-    @InjectConfiguration
-    private VolatilePageMemoryStorageEngineConfiguration engineConfig;
+/**
+ * Storage test implementation for {@link RocksDbMvPartitionStorage}.
+ */
+@ExtendWith(WorkDirectoryExtension.class)
+public class RocksDbMvPartitionStorageConcurrencyTest extends AbstractMvPartitionStorageConcurrencyTest {
+    @InjectConfiguration("mock {flushDelayMillis = 0, defaultRegion {size = 16777216, writeBufferSize = 16777216}}")
+    private RocksDbStorageEngineConfiguration engineConfig;
+
+    @WorkDirectory
+    private Path workDir;
 
     @Override
     protected StorageEngine createEngine() {
-        return new VolatilePageMemoryStorageEngine(engineConfig, ioRegistry);
-    }
-
-    @Override
-    int pageSize() {
-        return engineConfig.pageSize().value();
+        return new RocksDbStorageEngine(engineConfig, workDir);
     }
 }

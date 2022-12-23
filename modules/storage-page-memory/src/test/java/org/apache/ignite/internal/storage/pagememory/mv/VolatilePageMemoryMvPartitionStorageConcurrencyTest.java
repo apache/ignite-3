@@ -18,21 +18,27 @@
 package org.apache.ignite.internal.storage.pagememory.mv;
 
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
+import org.apache.ignite.internal.storage.AbstractMvPartitionStorageConcurrencyTest;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryStorageEngine;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineConfiguration;
+import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.extension.ExtendWith;
 
-class VolatilePageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPartitionStorageTest {
+@Disabled("https://issues.apache.org/jira/browse/IGNITE-18023")
+@ExtendWith(WorkDirectoryExtension.class)
+class VolatilePageMemoryMvPartitionStorageConcurrencyTest extends AbstractMvPartitionStorageConcurrencyTest {
     @InjectConfiguration
     private VolatilePageMemoryStorageEngineConfiguration engineConfig;
 
     @Override
     protected StorageEngine createEngine() {
-        return new VolatilePageMemoryStorageEngine(engineConfig, ioRegistry);
-    }
+        var ioRegistry = new PageIoRegistry();
 
-    @Override
-    int pageSize() {
-        return engineConfig.pageSize().value();
+        ioRegistry.loadFromServiceLoader();
+
+        return new VolatilePageMemoryStorageEngine(engineConfig, ioRegistry);
     }
 }

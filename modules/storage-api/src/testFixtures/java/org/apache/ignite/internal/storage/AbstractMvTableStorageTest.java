@@ -43,8 +43,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
-import org.apache.ignite.internal.hlc.HybridClock;
-import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
@@ -91,8 +89,6 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
     private TableIndexView sortedIdx;
 
     private TableIndexView hashIdx;
-
-    private final HybridClock clock = new HybridClockImpl();
 
     /**
      * Initializes the internal structures needed for tests.

@@ -17,14 +17,20 @@
 
 package org.apache.ignite.internal.storage.impl;
 
+import static java.util.Comparator.comparing;
+
 import java.util.Iterator;
+import java.util.NavigableSet;
 import java.util.NoSuchElementException;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.ConcurrentSkipListSet;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.storage.BinaryRowAndRowId;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.RaftGroupConfiguration;
@@ -35,6 +41,7 @@ import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.StorageFullRebalanceException;
 import org.apache.ignite.internal.storage.TxIdMismatchException;
 import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.lang.IgniteBiTuple;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -42,6 +49,11 @@ import org.jetbrains.annotations.Nullable;
  */
 public class TestMvPartitionStorage implements MvPartitionStorage {
     private final ConcurrentNavigableMap<RowId, VersionChain> map = new ConcurrentSkipListMap<>();
+
+    private final NavigableSet<IgniteBiTuple<VersionChain, RowId>> gcQueue = new ConcurrentSkipListSet<>(
+            comparing((IgniteBiTuple<VersionChain, RowId> p) -> p.get1().ts)
+                    .thenComparing(IgniteBiTuple::get2)
+    );
 
     private volatile long lastAppliedIndex;
 
@@ -66,7 +78,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         final @Nullable UUID txId;
         final @Nullable UUID commitTableId;
         final int commitPartitionId;
-        final @Nullable VersionChain next;
+        volatile @Nullable VersionChain next;
 
         VersionChain(@Nullable BinaryRow row, @Nullable HybridTimestamp ts, @Nullable UUID txId, @Nullable UUID commitTableId,
                 int commitPartitionId, @Nullable VersionChain next) {
@@ -152,8 +164,13 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     }
 
     @Override
-    public @Nullable BinaryRow addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, UUID commitTableId, int commitPartitionId)
-            throws TxIdMismatchException {
+    public synchronized @Nullable BinaryRow addWrite(
+            RowId rowId,
+            @Nullable BinaryRow row,
+            UUID txId,
+            UUID commitTableId,
+            int commitPartitionId
+    ) throws TxIdMismatchException {
         checkStorageClosed();
 
         BinaryRow[] res = {null};
@@ -176,7 +193,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     }
 
     @Override
-    public @Nullable BinaryRow abortWrite(RowId rowId) {
+    public synchronized @Nullable BinaryRow abortWrite(RowId rowId) {
         checkStorageClosed();
 
         BinaryRow[] res = {null};
@@ -197,7 +214,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     }
 
     @Override
-    public void commitWrite(RowId rowId, HybridTimestamp timestamp) {
+    public synchronized void commitWrite(RowId rowId, HybridTimestamp timestamp) {
         checkStorageClosed();
 
         map.compute(rowId, (ignored, versionChain) -> {
@@ -207,12 +224,16 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
                 return versionChain;
             }
 
-            return VersionChain.forCommitted(timestamp, versionChain);
+            return resolveCommittedVersionChain(rowId, VersionChain.forCommitted(timestamp, versionChain));
         });
     }
 
     @Override
-    public void addWriteCommitted(RowId rowId, BinaryRow row, HybridTimestamp commitTimestamp) throws StorageException {
+    public synchronized void addWriteCommitted(
+            RowId rowId,
+            @Nullable BinaryRow row,
+            HybridTimestamp commitTimestamp
+    ) throws StorageException {
         checkStorageClosed();
 
         map.compute(rowId, (ignored, versionChain) -> {
@@ -220,8 +241,31 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
                 throw new StorageException("Write intent exists for " + rowId);
             }
 
-            return new VersionChain(row, commitTimestamp, null, null, ReadResult.UNDEFINED_COMMIT_PARTITION_ID, versionChain);
+            return resolveCommittedVersionChain(rowId, new VersionChain(
+                    row,
+                    commitTimestamp,
+                    null,
+                    null,
+                    ReadResult.UNDEFINED_COMMIT_PARTITION_ID,
+                    versionChain
+            ));
         });
+    }
+
+    @Nullable
+    private VersionChain resolveCommittedVersionChain(RowId rowId, VersionChain committedVersionChain) {
+        if (committedVersionChain.next != null) {
+            // Avoid creating tombstones for tombstones.
+            if (committedVersionChain.row == null && committedVersionChain.next.row == null) {
+                return committedVersionChain.next;
+            }
+
+            // Calling it from the compute is fine. Concurrent writes of the same row are impossible, and if we call the compute closure
+            // several times, the same tuple will be inserted into the GC queue (timestamp and rowId don't change in this case).
+            gcQueue.add(new IgniteBiTuple<>(committedVersionChain, rowId));
+        }
+
+        return committedVersionChain;
     }
 
     @Override
@@ -470,6 +514,51 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     }
 
     @Override
+    public synchronized @Nullable BinaryRowAndRowId pollForVacuum(HybridTimestamp lowWatermark) {
+        Iterator<IgniteBiTuple<VersionChain, RowId>> it = gcQueue.iterator();
+
+        if (!it.hasNext()) {
+            return null;
+        }
+
+        IgniteBiTuple<VersionChain, RowId> next = it.next();
+        VersionChain dequeuedVersionChain = next.get1();
+
+        if (dequeuedVersionChain.ts.compareTo(lowWatermark) > 0) {
+            return null;
+        }
+
+        RowId rowId = next.get2();
+
+        VersionChain versionChainToRemove = dequeuedVersionChain.next;
+        assert versionChainToRemove.next == null;
+
+        dequeuedVersionChain.next = null;
+        it.remove();
+
+        // Tombstones must be deleted.
+        if (dequeuedVersionChain.row == null) {
+            map.compute(rowId, (ignored, head) -> {
+                if (head == dequeuedVersionChain) {
+                    return null;
+                }
+
+                for (VersionChain cur = head; cur != null; cur = cur.next) {
+                    if (cur.next == dequeuedVersionChain) {
+                        cur.next = null;
+
+                        gcQueue.remove(new IgniteBiTuple<>(cur, rowId));
+                    }
+                }
+
+                return head;
+            });
+        }
+
+        return new BinaryRowAndRowId(versionChainToRemove.row, rowId);
+    }
+
+    @Override
     public long rowsCount() {
         checkStorageClosedOrInProcessFullRebalance();
 
@@ -488,8 +577,10 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     }
 
     /** Removes all entries from this storage. */
-    public void clear() {
+    public synchronized void clear() {
         map.clear();
+
+        gcQueue.clear();
     }
 
     private void checkStorageClosed() {

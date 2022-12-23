@@ -42,12 +42,10 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.hlc.HybridClock;
-import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.IgniteBiTuple;
-import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -55,18 +53,8 @@ import org.junit.jupiter.params.provider.EnumSource;
 /**
  * Base test for MV partition storages.
  */
-public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest {
-    private static final UUID COMMIT_TABLE_ID = UUID.randomUUID();
-
-    /** A partition id that should be used to create a partition instance. */
-    protected static final int PARTITION_ID = 1;
-
-    protected MvPartitionStorage storage;
-
+public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStorageTest {
     protected final UUID txId = newTransactionId();
-
-    /** Hybrid clock to generate timestamps. */
-    protected final HybridClock clock = new HybridClockImpl();
 
     protected final TestKey key = new TestKey(10, "foo");
     private final TestValue value = new TestValue(20, "bar");
@@ -74,84 +62,6 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
     private final TestValue value2 = new TestValue(21, "bar2");
     private final BinaryRow binaryRow2 = binaryRow(key, value2);
     private final BinaryRow binaryRow3 = binaryRow(key, new TestValue(22, "bar3"));
-
-    /**
-     * Reads a row.
-     */
-    protected BinaryRow read(RowId rowId, HybridTimestamp timestamp) {
-        ReadResult readResult = storage.read(rowId, timestamp);
-
-        return readResult.binaryRow();
-    }
-
-    /**
-     * Scans partition.
-     */
-    protected PartitionTimestampCursor scan(HybridTimestamp timestamp) {
-        return storage.scan(timestamp);
-    }
-
-    /**
-     * Inserts a row inside of consistency closure.
-     */
-    protected RowId insert(BinaryRow binaryRow, UUID txId) {
-        return insert(binaryRow, txId, null);
-    }
-
-    /**
-     * Inserts a row inside of consistency closure.
-     */
-    protected RowId insert(BinaryRow binaryRow, UUID txId, @Nullable UUID explicitRowId) {
-        RowId rowId = explicitRowId == null ? new RowId(PARTITION_ID) : new RowId(PARTITION_ID, explicitRowId);
-
-        storage.runConsistently(() -> storage.addWrite(rowId, binaryRow, txId, UUID.randomUUID(), 0));
-
-        return rowId;
-    }
-
-    /**
-     * Adds/updates a write-intent inside of consistency closure.
-     */
-    protected BinaryRow addWrite(RowId rowId, BinaryRow binaryRow, UUID txId) {
-        return storage.runConsistently(() -> storage.addWrite(rowId, binaryRow, txId, COMMIT_TABLE_ID, PARTITION_ID));
-    }
-
-    /**
-     * Commits write-intent inside of consistency closure.
-     */
-    protected void commitWrite(RowId rowId, HybridTimestamp tsExact) {
-        storage.runConsistently(() -> {
-            storage.commitWrite(rowId, tsExact);
-
-            return null;
-        });
-    }
-
-    /**
-     * Writes a row to storage like if it was first added using {@link MvPartitionStorage#addWrite(RowId, BinaryRow, UUID, UUID, int)}
-     * and immediately committed with {@link MvPartitionStorage#commitWrite(RowId, HybridTimestamp)}.
-     */
-    protected void addWriteCommitted(RowId rowId, BinaryRow row, HybridTimestamp commitTimestamp) {
-        storage.runConsistently(() -> {
-            storage.addWriteCommitted(rowId, row, commitTimestamp);
-
-            return null;
-        });
-    }
-
-    /**
-     * Aborts write-intent inside of consistency closure.
-     */
-    protected BinaryRow abortWrite(RowId rowId) {
-        return storage.runConsistently(() -> storage.abortWrite(rowId));
-    }
-
-    /**
-     * Creates a new transaction id.
-     */
-    private static UUID newTransactionId() {
-        return UUID.randomUUID();
-    }
 
     /**
      * Tests that reads from empty storage return empty results.
@@ -446,11 +356,6 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
         BinaryRow foundRow = read(rowId, HybridTimestamp.MAX_VALUE);
 
         assertRowMatches(foundRow, binaryRow);
-    }
-
-    protected final void assertRowMatches(BinaryRow rowUnderQuestion, BinaryRow expectedRow) {
-        assertThat(rowUnderQuestion, is(notNullValue()));
-        assertThat(rowUnderQuestion.bytes(), is(equalTo(expectedRow.bytes())));
     }
 
     @Test

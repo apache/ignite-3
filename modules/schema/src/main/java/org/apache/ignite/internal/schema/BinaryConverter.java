@@ -63,7 +63,7 @@ public class BinaryConverter {
 
             long offLen = findColumn(columnIndex, spec, isKeyCol);
             int offset = (int) offLen;
-            int length = (int) (offLen >>> 32);
+            int length = spec.fixedLength() ? descriptor.column(columnIndex).type().sizeInBytes() : (int) (offLen >>> 32);
 
             builder.appendElementBytes(slice, offset, length);
         }

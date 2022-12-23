@@ -28,74 +28,29 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
-import org.apache.ignite.internal.components.LongJvmPauseDetector;
-import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
-import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryTableStorage;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
-import org.apache.ignite.internal.util.IgniteUtils;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
-@ExtendWith({ConfigurationExtension.class, WorkDirectoryExtension.class})
+@ExtendWith(WorkDirectoryExtension.class)
 class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPartitionStorageTest {
+    @InjectConfiguration("mock.checkpoint.checkpointDelayMillis = 0")
+    private PersistentPageMemoryStorageEngineConfiguration engineConfig;
+
     @WorkDirectory
     private Path workDir;
 
-    @InjectConfiguration(value = "mock.checkpoint.checkpointDelayMillis = 0")
-    private PersistentPageMemoryStorageEngineConfiguration engineConfig;
-
-    @InjectConfiguration(
-            value = "mock.tables.foo.dataStorage.name = " + PersistentPageMemoryStorageEngine.ENGINE_NAME
-    )
-    private TablesConfiguration tablesConfig;
-
-    private LongJvmPauseDetector longJvmPauseDetector;
-
-    private PersistentPageMemoryStorageEngine engine;
-
-    private PersistentPageMemoryTableStorage table;
-
-    private PersistentPageMemoryMvPartitionStorage pageMemStorage;
-
-    @BeforeEach
-    void setUp() {
-        longJvmPauseDetector = new LongJvmPauseDetector("test", Loggers.forClass(LongJvmPauseDetector.class));
-
-        longJvmPauseDetector.start();
-
-        engine = new PersistentPageMemoryStorageEngine("test", engineConfig, ioRegistry, workDir, longJvmPauseDetector);
-
-        engine.start();
-
-        table = engine.createMvTable(tablesConfig.tables().get("foo"), tablesConfig);
-
-        table.start();
-
-        pageMemStorage = table.createMvPartitionStorage(PARTITION_ID);
-        storage = pageMemStorage;
-
-        ((PersistentPageMemoryMvPartitionStorage) storage).start();
-    }
-
-    @AfterEach
-    void tearDown() throws Exception {
-        IgniteUtils.closeAll(
-                storage::close,
-                table == null ? null : table::stop,
-                engine == null ? null : engine::stop,
-                longJvmPauseDetector == null ? null : longJvmPauseDetector::stop
-        );
+    @Override
+    protected StorageEngine createEngine() {
+        return new PersistentPageMemoryStorageEngine("test", engineConfig, ioRegistry, workDir, null);
     }
 
     @Override
@@ -113,7 +68,7 @@ class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPar
     }
 
     private void restartStorage() throws Exception {
-        engine
+        ((PersistentPageMemoryStorageEngine) engine)
                 .checkpointManager()
                 .forceCheckpoint("before_stop_engine")
                 .futureFor(FINISHED)

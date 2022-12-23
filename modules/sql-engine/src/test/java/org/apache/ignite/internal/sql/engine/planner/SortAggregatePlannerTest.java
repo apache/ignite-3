@@ -25,6 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
+import java.util.UUID;
 import org.apache.calcite.plan.RelOptPlanner;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelCollations;
@@ -169,27 +170,20 @@ public class SortAggregatePlannerTest extends AbstractAggregatePlannerTest {
      */
     @Test
     public void collationPermuteMapReduce() throws Exception {
+        IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
         IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
 
-        TestTable tbl = new TestTable(
+        createTable(publicSchema,
+                "TEST",
                 new RelDataTypeFactory.Builder(f)
                         .add("ID", f.createJavaType(Integer.class))
                         .add("VAL0", f.createJavaType(Integer.class))
                         .add("VAL1", f.createJavaType(Integer.class))
                         .add("GRP0", f.createJavaType(Integer.class))
                         .add("GRP1", f.createJavaType(Integer.class))
-                        .build(), "TEST") {
-
-            @Override
-            public IgniteDistribution distribution() {
-                return IgniteDistributions.affinity(0, "test", "hash");
-            }
-        }
-                .addIndex("grp0_1", 3, 4);
-
-        IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
-
-        publicSchema.addTable(tbl);
+                        .build(),
+                IgniteDistributions.affinity(0, UUID.randomUUID(), DEFAULT_ZONE_ID)
+        ).addIndex("grp0_1", 3, 4);
 
         String sql = "SELECT MIN(val0) FROM test GROUP BY grp1, grp0";
 

@@ -536,7 +536,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     }
 
     @Override
-    public void addWriteCommitted(RowId rowId, BinaryRow row, HybridTimestamp commitTimestamp) throws StorageException {
+    public void addWriteCommitted(RowId rowId, @Nullable BinaryRow row, HybridTimestamp commitTimestamp) throws StorageException {
         @SuppressWarnings("resource") WriteBatchWithIndex writeBatch = requireWriteBatch();
 
         ByteBuffer keyBuf = prepareHeapKeyBuf(rowId);

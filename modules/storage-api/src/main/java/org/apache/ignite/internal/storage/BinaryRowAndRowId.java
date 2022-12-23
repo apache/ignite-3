@@ -15,20 +15,37 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.metadata;
+package org.apache.ignite.internal.storage;
 
-import java.util.function.ToIntFunction;
+import org.apache.ignite.internal.schema.BinaryRow;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * AffinityService interface.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * Wrapper that holds both {@link BinaryRow} and {@link RowId}. {@link BinaryRow} is null for tombstones.
  */
-public interface AffinityService {
+public class BinaryRowAndRowId {
+    /** Binary row. */
+    private final @Nullable BinaryRow binaryRow;
+
+    /** Row id. */
+    private final RowId rowId;
+
     /**
-     * Creates a partition mapping function on the basis of affinity function of cache with given ID.
+     * Constructor.
      *
-     * @param cacheId Cache ID.
-     * @return Affinity function.
+     * @param binaryRow Binary row.
+     * @param rowId Row id.
      */
-    ToIntFunction<Object> affinity(int cacheId);
+    public BinaryRowAndRowId(@Nullable BinaryRow binaryRow, RowId rowId) {
+        this.binaryRow = binaryRow;
+        this.rowId = rowId;
+    }
+
+    public @Nullable BinaryRow binaryRow() {
+        return binaryRow;
+    }
+
+    public RowId rowId() {
+        return rowId;
+    }
 }
