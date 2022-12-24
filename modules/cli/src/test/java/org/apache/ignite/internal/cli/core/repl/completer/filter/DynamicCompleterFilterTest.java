@@ -105,4 +105,20 @@ class DynamicCompleterFilterTest {
         // Then help is NOT filtered out
         assertThat(asList(filtered), containsInAnyOrder("--cluster-endpoint-url", "--help", "-h"));
     }
+
+    @Test
+    void doesNotFilterHelpForPartialCommands() {
+        // Given
+        String[] words = {"cluster", "-"};
+        // And completion candidates that contains not only option candidates but subcommands too
+        String[] candidates = {"--help", "-h", "--verbose", "-v", "config", "init"};
+        // And
+        Session session = connected();
+
+        // When
+        String[] filtered = new DynamicCompleterFilter(session).filter(words, candidates);
+
+        // Then help is NOT filtered out
+        assertThat(asList(filtered), containsInAnyOrder("--help", "-h", "--verbose", "-v",  "config", "init"));
+    }
 }

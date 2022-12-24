@@ -22,6 +22,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.empty;
+import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasItems;
 import static org.hamcrest.Matchers.not;
 import static org.mockito.Mockito.when;
@@ -32,7 +33,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import org.apache.ignite.internal.cli.NodeNameRegistry;
 import org.apache.ignite.internal.cli.commands.CliCommandTestInitializedIntegrationBase;
 import org.apache.ignite.internal.cli.commands.TopLevelCliReplCommand;
 import org.apache.ignite.internal.cli.core.repl.completer.DynamicCompleterActivationPoint;
@@ -57,6 +57,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mockito;
 
+/** Integration test for all completions in interactive mode. */
 public class ItIgnitePicocliCommandsTest extends CliCommandTestInitializedIntegrationBase {
 
     @Inject
@@ -68,9 +69,6 @@ public class ItIgnitePicocliCommandsTest extends CliCommandTestInitializedIntegr
 
     @Inject
     NodeUrlProvider urlProvider;
-
-    @Inject
-    NodeNameRegistry nodeNameRegistry;
 
     SystemCompleter completer;
 
@@ -91,7 +89,8 @@ public class ItIgnitePicocliCommandsTest extends CliCommandTestInitializedIntegr
     private void setupSystemCompleter() {
         dynamicCompleterActivationPoint.activateDynamicCompleter(dynamicCompleterRegistry);
 
-        List<CompleterFilter> filters = List.of(dynamicCompleterFilter,
+        List<CompleterFilter> filters = List.of(
+                dynamicCompleterFilter,
                 new ShortOptionsFilter(),
                 new NonRepeatableOptionsFilter(getCmd().getCommandSpec())
         );
@@ -117,7 +116,7 @@ public class ItIgnitePicocliCommandsTest extends CliCommandTestInitializedIntegr
                 words("node", "config", "show", ""),
                 words("node", "config", "show", "--node-name", "name"),
                 words("node", "config", "show", "--node-name", "name", "")
-        ).map(it -> Named.of("cmd: " + String.join(" ", it.words()), it)).map(Arguments::of);
+        ).map(this::named).map(Arguments::of);
     }
 
     @ParameterizedTest
@@ -137,15 +136,12 @@ public class ItIgnitePicocliCommandsTest extends CliCommandTestInitializedIntegr
 
     private Stream<Arguments> helpAndVerboseCompletedSource() {
         return Stream.of(
-//                words("node", "-"), // todo
-//                words("node", "", "-"), // todo
-//                words("node", "config", "-"), // todo
-//                words("node", "config", "--"), // todo
-//                words("node", "config", " ", "-"), // todo
                 words("node", "config", "show", "-"),
                 words("node", "config", "show", "--"),
+                words("node", "status", "-"),
+                words("node", "status", "--"),
                 words("node", "config", "show", "--node-name", "name", "-")
-        ).map(it -> Named.of("cmd: " + String.join(" ", it.words()), it)).map(Arguments::of);
+        ).map(this::named).map(Arguments::of);
     }
 
     @ParameterizedTest
@@ -163,13 +159,38 @@ public class ItIgnitePicocliCommandsTest extends CliCommandTestInitializedIntegr
         );
     }
 
+    private Stream<Arguments> helpCompletedSource() {
+        return Stream.of(
+                words("node", "-"),
+                words("node", "", "-"),
+                words("node", "config", "-"),
+                words("node", "config", "--"),
+                words("node", "config", " ", "-")
+        ).map(this::named).map(Arguments::of);
+    }
+
+    @ParameterizedTest
+    @MethodSource("helpCompletedSource")
+    @DisplayName("--help suggested if '-' or '--' typed for keywords that is not complete commands")
+    void helpSuggested(ParsedLine givenParsedLine) {
+        // When
+        List<String> suggestions = complete(givenParsedLine);
+
+        // Then
+        assertThat(
+                "For given parsed words: " + givenParsedLine.words(),
+                suggestions,
+                hasItem("--help")
+        );
+    }
+
     private Stream<Arguments> nodeConfigShowSuggestedSource() {
         return Stream.of(
                 words("node", "config", "show", ""),
                 words("node", "config", "show", " --node-name", "nodeName", ""),
                 words("node", "config", "show", " --verbose", ""),
                 words("node", "config", "show", " -v", "")
-        ).map(it -> Named.of("cmd: " + String.join(" ", it.words()), it)).map(Arguments::of);
+        ).map(this::named).map(Arguments::of);
     }
 
     @ParameterizedTest
@@ -189,7 +210,7 @@ public class ItIgnitePicocliCommandsTest extends CliCommandTestInitializedIntegr
                 words("node", "config", "update", " --node-name", "nodeName", ""),
                 words("node", "config", "update", " --verbose", ""),
                 words("node", "config", "update", " -v", "")
-        ).map(it -> Named.of("cmd: " + String.join(" ", it.words()), it)).map(Arguments::of);
+        ).map(this::named).map(Arguments::of);
     }
 
     @ParameterizedTest
@@ -209,7 +230,7 @@ public class ItIgnitePicocliCommandsTest extends CliCommandTestInitializedIntegr
                 words("cluster", "config", "show", " --node-name", "nodeName", ""),
                 words("cluster", "config", "show", " --verbose", ""),
                 words("cluster", "config", "show", " -v", "")
-        ).map(it -> Named.of("cmd: " + String.join(" ", it.words()), it)).map(Arguments::of);
+        ).map(this::named).map(Arguments::of);
     }
 
     @ParameterizedTest
@@ -229,7 +250,7 @@ public class ItIgnitePicocliCommandsTest extends CliCommandTestInitializedIntegr
                 words("cluster", "config", "update", " --node-name", "nodeName", ""),
                 words("cluster", "config", "update", " --verbose", ""),
                 words("cluster", "config", "update", " -v", "")
-        ).map(it -> Named.of("cmd: " + String.join(" ", it.words()), it)).map(Arguments::of);
+        ).map(this::named).map(Arguments::of);
     }
 
     @ParameterizedTest
@@ -258,7 +279,7 @@ public class ItIgnitePicocliCommandsTest extends CliCommandTestInitializedIntegr
                 words("node", "status", "--node-name", ""),
                 words("node", "version", "--node-name", ""),
                 words("node", "metric", "list", "--node-name", "")
-        ).map(it -> Named.of("cmd: " + String.join(" ", it.words()), it)).map(Arguments::of);
+        ).map(this::named).map(Arguments::of);
     }
 
     @ParameterizedTest
@@ -319,6 +340,10 @@ public class ItIgnitePicocliCommandsTest extends CliCommandTestInitializedIntegr
         completer.complete(lineReader, typedWords, candidates);
 
         return candidates.stream().map(Candidate::displ).collect(Collectors.toList());
+    }
+
+    Named<ParsedLine> named(ParsedLine parsedLine) {
+        return Named.of("cmd: " + String.join(" ", parsedLine.words()), parsedLine);
     }
 
     ParsedLine words(String... words) {
