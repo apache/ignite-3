@@ -32,8 +32,9 @@ import org.apache.ignite.internal.cli.core.repl.Session;
 import org.apache.ignite.internal.cli.core.repl.SessionEventListener;
 import org.apache.ignite.internal.cli.core.repl.config.RootConfig;
 import org.apache.ignite.internal.cli.core.repl.registry.JdbcUrlRegistry;
+import org.apache.ignite.internal.cli.core.repl.registry.NodeNameRegistry;
+import org.apache.ignite.internal.cli.logger.CliLoggers;
 import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.rest.client.api.NodeConfigurationApi;
 import org.apache.ignite.rest.client.invoker.ApiException;
@@ -43,12 +44,12 @@ import org.apache.ignite.rest.client.invoker.Configuration;
 @Singleton
 public class JdbcUrlRegistryImpl implements JdbcUrlRegistry, SessionEventListener {
 
-    private final IgniteLogger log = Loggers.forClass(getClass());
-    private final NodeNameRegistryImpl nodeNameRegistry;
+    private final IgniteLogger log = CliLoggers.forClass(JdbcUrlRegistryImpl.class);;
+    private final NodeNameRegistry nodeNameRegistry;
     private volatile Set<JdbcUrl> jdbcUrls = Set.of();
     private ScheduledExecutorService executor;
 
-    public JdbcUrlRegistryImpl(NodeNameRegistryImpl nodeNameRegistry) {
+    public JdbcUrlRegistryImpl(NodeNameRegistry nodeNameRegistry) {
         this.nodeNameRegistry = nodeNameRegistry;
     }
 

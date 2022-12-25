@@ -20,7 +20,7 @@ package org.apache.ignite.internal.cli.core.repl.executor;
 import io.micronaut.configuration.picocli.MicronautFactory;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
-import org.apache.ignite.internal.cli.core.repl.registry.impl.NodeNameRegistryImpl;
+import org.apache.ignite.internal.cli.core.repl.registry.NodeNameRegistry;
 import org.jline.terminal.Terminal;
 import picocli.shell.jline3.PicocliCommands.PicocliCommandsFactory;
 
@@ -35,7 +35,7 @@ public class ReplExecutorProvider {
     private Terminal terminal;
 
     @Inject
-    private NodeNameRegistryImpl nodeNameRegistry;
+    private NodeNameRegistry nodeNameRegistry;
 
     public ReplExecutor get() {
         return new ReplExecutor(factory, terminal, nodeNameRegistry);

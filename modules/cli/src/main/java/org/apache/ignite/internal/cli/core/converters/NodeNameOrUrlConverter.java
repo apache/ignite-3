@@ -21,7 +21,7 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.regex.Pattern;
 import org.apache.ignite.internal.cli.commands.node.NodeNameOrUrl;
-import org.apache.ignite.internal.cli.core.repl.registry.impl.NodeNameRegistryImpl;
+import org.apache.ignite.internal.cli.core.repl.registry.NodeNameRegistry;
 import picocli.CommandLine;
 import picocli.CommandLine.TypeConversionException;
 
@@ -30,9 +30,9 @@ public class NodeNameOrUrlConverter implements CommandLine.ITypeConverter<NodeNa
 
     private static final Pattern URL_PATTERN = Pattern.compile("^.*[/:].*");
 
-    private final NodeNameRegistryImpl nodeNameRegistry;
+    private final NodeNameRegistry nodeNameRegistry;
 
-    public NodeNameOrUrlConverter(NodeNameRegistryImpl nodeNameRegistry) {
+    public NodeNameOrUrlConverter(NodeNameRegistry nodeNameRegistry) {
         this.nodeNameRegistry = nodeNameRegistry;
     }
 

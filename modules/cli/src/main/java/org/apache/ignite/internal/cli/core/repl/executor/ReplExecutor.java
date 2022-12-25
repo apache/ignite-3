@@ -39,7 +39,7 @@ import org.apache.ignite.internal.cli.core.repl.completer.filter.NonRepeatableOp
 import org.apache.ignite.internal.cli.core.repl.completer.filter.ShortOptionsFilter;
 import org.apache.ignite.internal.cli.core.repl.context.CommandLineContextProvider;
 import org.apache.ignite.internal.cli.core.repl.expander.NoopExpander;
-import org.apache.ignite.internal.cli.core.repl.registry.impl.NodeNameRegistryImpl;
+import org.apache.ignite.internal.cli.core.repl.registry.NodeNameRegistry;
 import org.jline.console.impl.SystemRegistryImpl;
 import org.jline.reader.Completer;
 import org.jline.reader.LineReader;
@@ -71,7 +71,7 @@ public class ReplExecutor {
 
     private final Terminal terminal;
 
-    private final NodeNameRegistryImpl nodeNameRegistry;
+    private final NodeNameRegistry nodeNameRegistry;
 
     /**
      * Constructor.
@@ -80,7 +80,7 @@ public class ReplExecutor {
      * @param terminal terminal instance.
      * @param nodeNameRegistry node name registry.
      */
-    public ReplExecutor(PicocliCommandsFactory commandsFactory, Terminal terminal, NodeNameRegistryImpl nodeNameRegistry) {
+    public ReplExecutor(PicocliCommandsFactory commandsFactory, Terminal terminal, NodeNameRegistry nodeNameRegistry) {
         this.factory = commandsFactory;
         this.terminal = terminal;
         this.nodeNameRegistry = nodeNameRegistry;

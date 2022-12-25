@@ -60,7 +60,7 @@ import org.apache.ignite.internal.cli.commands.node.status.NodeStatusReplCommand
 import org.apache.ignite.internal.cli.config.ini.IniConfigManager;
 import org.apache.ignite.internal.cli.core.converters.NodeNameOrUrlConverter;
 import org.apache.ignite.internal.cli.core.repl.context.CommandLineContextProvider;
-import org.apache.ignite.internal.cli.core.repl.registry.impl.NodeNameRegistryImpl;
+import org.apache.ignite.internal.cli.core.repl.registry.NodeNameRegistry;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -93,7 +93,7 @@ public class UrlOptionsNegativeTest {
     TestConfigManagerProvider configManagerProvider;
 
     @Inject
-    NodeNameRegistryImpl nodeNameRegistry;
+    NodeNameRegistry nodeNameRegistry;
 
     private void setUp(Class<?> cmdClass) {
         configManagerProvider.configManager = new IniConfigManager(TestConfigManagerHelper.createSectionWithDefaultProfile());

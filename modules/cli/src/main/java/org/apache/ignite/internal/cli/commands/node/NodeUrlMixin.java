@@ -27,7 +27,7 @@ import jakarta.inject.Inject;
 import java.net.URL;
 import org.apache.ignite.internal.cli.core.converters.UrlConverter;
 import org.apache.ignite.internal.cli.core.exception.IgniteCliException;
-import org.apache.ignite.internal.cli.core.repl.registry.impl.NodeNameRegistryImpl;
+import org.apache.ignite.internal.cli.core.repl.registry.NodeNameRegistry;
 import org.jetbrains.annotations.Nullable;
 import picocli.CommandLine.ArgGroup;
 import picocli.CommandLine.Option;
@@ -41,7 +41,7 @@ public class NodeUrlMixin {
     private Options options;
 
     @Inject
-    private NodeNameRegistryImpl nodeNameRegistry;
+    private NodeNameRegistry nodeNameRegistry;
 
     private static class Options {
 

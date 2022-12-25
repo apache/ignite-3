@@ -29,7 +29,7 @@ import java.util.HashMap;
 import java.util.Map;
 import org.apache.ignite.internal.cli.commands.node.NodeNameOrUrl;
 import org.apache.ignite.internal.cli.core.converters.NodeNameOrUrlConverter;
-import org.apache.ignite.internal.cli.core.repl.registry.impl.NodeNameRegistryImpl;
+import org.apache.ignite.internal.cli.core.repl.registry.NodeNameRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import picocli.CommandLine;
 
@@ -44,7 +44,7 @@ public abstract class CliCommandTestBase {
     private ApplicationContext context;
 
     @Inject
-    private NodeNameRegistryImpl nodeNameRegistry;
+    private NodeNameRegistry nodeNameRegistry;
 
     private CommandLine cmd;
 

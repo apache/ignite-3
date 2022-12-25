@@ -19,6 +19,7 @@ package org.apache.ignite.internal.cli.core;
 
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.Objects;
 
 /** Representation of Ignite JDBC url. */
 public class JdbcUrl {
@@ -36,7 +37,25 @@ public class JdbcUrl {
         return new JdbcUrl(new URL(url).getHost(), port);
     }
 
+    @Override
     public String toString() {
         return "jdbc:ignite:thin://" + host + ":" + port;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (!(o instanceof JdbcUrl)) {
+            return false;
+        }
+        JdbcUrl jdbcUrl = (JdbcUrl) o;
+        return port == jdbcUrl.port && Objects.equals(host, jdbcUrl.host);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(host, port);
     }
 }

@@ -31,6 +31,7 @@ import org.apache.ignite.internal.cli.call.configuration.NodeConfigShowCall;
 import org.apache.ignite.internal.cli.call.configuration.NodeConfigShowCallInput;
 import org.apache.ignite.internal.cli.core.call.DefaultCallOutput;
 import org.apache.ignite.internal.cli.core.repl.Session;
+import org.apache.ignite.internal.cli.core.repl.SessionContext;
 import org.junit.jupiter.api.Test;
 
 class NodeConfigRegistryImplTest {
@@ -47,7 +48,8 @@ class NodeConfigRegistryImplTest {
         when(call.execute(eq(callInput))).thenReturn(DefaultCallOutput.success(JsonString.fromString(config)));
 
         // Then
-        session.connect("nodeUrl", "nodeName", "jdbc");
+        SessionContext context = new SessionContext("nodeUrl", "nodeName", "jdbc");
+        session.connect(context);
         verify(call, times(1)).execute(callInput);
         assertEquals(ConfigFactory.parseString(config), nodeConfigRegistry.config());
     }

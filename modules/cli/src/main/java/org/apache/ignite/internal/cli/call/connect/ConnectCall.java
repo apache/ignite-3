@@ -30,6 +30,7 @@ import org.apache.ignite.internal.cli.core.call.CallOutput;
 import org.apache.ignite.internal.cli.core.call.DefaultCallOutput;
 import org.apache.ignite.internal.cli.core.exception.IgniteCliApiException;
 import org.apache.ignite.internal.cli.core.repl.Session;
+import org.apache.ignite.internal.cli.core.repl.SessionContext;
 import org.apache.ignite.internal.cli.core.repl.config.RootConfig;
 import org.apache.ignite.internal.cli.core.style.component.MessageUiComponent;
 import org.apache.ignite.internal.cli.core.style.element.UiElements;
@@ -66,7 +67,8 @@ public class ConnectCall implements Call<ConnectCallInput, String> {
         try {
             String configuration = fetchNodeConfiguration(nodeUrl);
             stateConfigProvider.get().setProperty(ConfigConstants.LAST_CONNECTED_URL, nodeUrl);
-            session.connect(nodeUrl, fetchNodeName(nodeUrl), constructJdbcUrl(configuration, nodeUrl));
+            SessionContext context = new SessionContext(nodeUrl, fetchNodeName(nodeUrl), constructJdbcUrl(configuration, nodeUrl));
+            session.connect(context);
             return DefaultCallOutput.success(MessageUiComponent.fromMessage("Connected to %s", UiElements.url(nodeUrl)).render());
         } catch (ApiException | IllegalArgumentException e) {
             session.disconnect();

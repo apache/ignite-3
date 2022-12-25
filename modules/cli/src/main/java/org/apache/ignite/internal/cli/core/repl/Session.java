@@ -19,8 +19,8 @@ package org.apache.ignite.internal.cli.core.repl;
 
 import jakarta.inject.Singleton;
 import java.util.List;
+import org.apache.ignite.internal.cli.logger.CliLoggers;
 import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 
 /**
  * Connection session that in fact is holder for state: connected or disconnected. Also has a nodeUrl if the state is connected.
@@ -28,9 +28,9 @@ import org.apache.ignite.internal.logger.Loggers;
 @Singleton
 public class Session {
 
-    private final IgniteLogger log = Loggers.forClass(getClass());
+    private final IgniteLogger log = CliLoggers.forClass(Session.class);;
 
-    private SessionDetails sessionDetails;
+    private SessionContext sessionContext;
 
     private boolean connectedToNode;
 
@@ -41,8 +41,8 @@ public class Session {
     }
 
     /** Creates session details with provided nodeUrl, nodeName, jdbcUrl. */
-    public synchronized void connect(String nodeUrl, String nodeName, String jdbcUrl) {
-        this.sessionDetails = new SessionDetails(nodeUrl, nodeName, jdbcUrl);
+    public synchronized void connect(SessionContext context) {
+        this.sessionContext = context;
         this.connectedToNode = true;
         listeners.forEach(it -> {
             try {
@@ -55,11 +55,11 @@ public class Session {
 
     /** Clears session details and sets false to connectedToNode. */
     public synchronized void disconnect() {
-        this.sessionDetails = new SessionDetails();
+        this.sessionContext = new SessionContext();
         this.connectedToNode = false;
         listeners.forEach(it -> {
             try {
-                it.onConnect(this);
+                it.onDisconnect();
             } catch (Exception e) {
                 log.warn("Got an exception: ", e);
             }
@@ -70,8 +70,8 @@ public class Session {
         return connectedToNode;
     }
 
-    /** Returns {@link SessionDetails}. */
-    public SessionDetails sessionDetails() {
-        return this.sessionDetails;
+    /** Returns {@link SessionContext}. */
+    public SessionContext sessionDetails() {
+        return this.sessionContext;
     }
 }

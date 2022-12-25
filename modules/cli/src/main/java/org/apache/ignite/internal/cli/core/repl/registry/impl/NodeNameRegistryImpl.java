@@ -34,8 +34,8 @@ import org.apache.ignite.internal.cli.core.call.UrlCallInput;
 import org.apache.ignite.internal.cli.core.repl.Session;
 import org.apache.ignite.internal.cli.core.repl.SessionEventListener;
 import org.apache.ignite.internal.cli.core.repl.registry.NodeNameRegistry;
+import org.apache.ignite.internal.cli.logger.CliLoggers;
 import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.rest.client.model.ClusterNode;
 import org.apache.ignite.rest.client.model.NodeMetadata;
@@ -45,7 +45,7 @@ import org.jetbrains.annotations.Nullable;
 @Singleton
 public class NodeNameRegistryImpl implements NodeNameRegistry, SessionEventListener {
 
-    private final IgniteLogger log = Loggers.forClass(getClass());
+    private final IgniteLogger log = CliLoggers.forClass(NodeNameRegistryImpl.class);;
 
     private final PhysicalTopologyCall physicalTopologyCall;
 
