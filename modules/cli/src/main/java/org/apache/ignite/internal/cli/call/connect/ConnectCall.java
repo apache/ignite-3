@@ -24,7 +24,6 @@ import java.util.Objects;
 import org.apache.ignite.internal.cli.core.JdbcUrl;
 import org.apache.ignite.internal.cli.config.ConfigConstants;
 import org.apache.ignite.internal.cli.config.StateConfigProvider;
-import org.apache.ignite.internal.cli.core.JdbcUrl;
 import org.apache.ignite.internal.cli.core.call.Call;
 import org.apache.ignite.internal.cli.core.call.CallOutput;
 import org.apache.ignite.internal.cli.core.call.DefaultCallOutput;
@@ -60,7 +59,7 @@ public class ConnectCall implements Call<ConnectCallInput, String> {
     @Override
     public CallOutput<String> execute(ConnectCallInput input) {
         String nodeUrl = input.getNodeUrl();
-        if (session.isConnectedToNode() && Objects.equals(session.nodeUrl(), nodeUrl)) {
+        if (session.isConnectedToNode() && Objects.equals(session.sessionDetails().nodeUrl(), nodeUrl)) {
             MessageUiComponent message = MessageUiComponent.fromMessage("You are already connected to %s", UiElements.url(nodeUrl));
             return DefaultCallOutput.success(message.render());
         }
