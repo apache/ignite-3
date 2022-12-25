@@ -46,7 +46,6 @@ public class ClusterConfigRegistryImpl implements ClusterConfigRegistry, Session
             try {
                 config.set(ConfigFactory.parseString(
                         clusterConfigShowCall.execute(
-                                // todo https://issues.apache.org/jira/browse/IGNITE-17416
                                 ClusterConfigShowCallInput.builder().clusterUrl(session.sessionDetails().nodeUrl()).build()
                         ).body().getValue()
                 ));

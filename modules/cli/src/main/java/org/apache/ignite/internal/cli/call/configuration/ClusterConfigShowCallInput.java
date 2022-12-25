@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.cli.call.configuration;
 
+import java.util.Objects;
 import org.apache.ignite.internal.cli.core.call.CallInput;
 
 /**
@@ -84,5 +85,22 @@ public class ClusterConfigShowCallInput implements CallInput {
         public ClusterConfigShowCallInput build() {
             return new ClusterConfigShowCallInput(selector, clusterUrl);
         }
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (!(o instanceof ClusterConfigShowCallInput)) {
+            return false;
+        }
+        ClusterConfigShowCallInput that = (ClusterConfigShowCallInput) o;
+        return Objects.equals(selector, that.selector) && Objects.equals(clusterUrl, that.clusterUrl);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(selector, clusterUrl);
     }
 }

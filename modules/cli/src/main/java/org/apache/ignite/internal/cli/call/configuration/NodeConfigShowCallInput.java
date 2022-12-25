@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.cli.call.configuration;
 
+import java.util.Objects;
 import org.apache.ignite.internal.cli.core.call.CallInput;
 
 /**
@@ -85,5 +86,22 @@ public class NodeConfigShowCallInput implements CallInput {
         public NodeConfigShowCallInput build() {
             return new NodeConfigShowCallInput(selector, nodeUrl);
         }
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (!(o instanceof NodeConfigShowCallInput)) {
+            return false;
+        }
+        NodeConfigShowCallInput that = (NodeConfigShowCallInput) o;
+        return Objects.equals(selector, that.selector) && Objects.equals(nodeUrl, that.nodeUrl);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(selector, nodeUrl);
     }
 }
