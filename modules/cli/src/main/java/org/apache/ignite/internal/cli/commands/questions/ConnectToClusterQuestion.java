@@ -72,7 +72,7 @@ public class ConnectToClusterQuestion {
         return Flows.<Void, ConnectCallInput>acceptQuestion(questionUiComponent, () -> new ConnectCallInput(defaultUrl))
                 .then(Flows.fromCall(connectCall))
                 .print()
-                .map(ignored -> session.nodeUrl());
+                .map(ignored -> session.sessionDetails().nodeUrl());
     }
 
     private String clusterUrlOrSessionNode(String clusterUrl) {
@@ -86,10 +86,10 @@ public class ConnectToClusterQuestion {
      * @return {@link FlowBuilder} instance with question in case when cluster url.
      */
     public FlowBuilder<Void, String> askQuestionIfConnected(String clusterUrl) {
-        if (session.isConnectedToNode() && !Objects.equals(session.nodeUrl(), clusterUrl)) {
+        if (session.isConnectedToNode() && !Objects.equals(session.sessionDetails().nodeUrl(), clusterUrl)) {
             QuestionUiComponent question = QuestionUiComponent.fromQuestion(
                     "You are already connected to the %s, do you want to connect to the %s? %s ",
-                    UiElements.url(session.nodeUrl()), UiElements.url(clusterUrl), UiElements.yesNo()
+                    UiElements.url(session.sessionDetails().nodeUrl()), UiElements.url(clusterUrl), UiElements.yesNo()
             );
             return Flows.acceptQuestion(question, () -> clusterUrl);
         }
