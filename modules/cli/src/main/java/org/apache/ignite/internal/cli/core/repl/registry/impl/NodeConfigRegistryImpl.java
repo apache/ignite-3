@@ -31,6 +31,7 @@ import org.apache.ignite.internal.cli.core.repl.registry.NodeConfigRegistry;
 /** Implementation of {@link NodeConfigRegistry}. */
 @Singleton
 public class NodeConfigRegistryImpl implements NodeConfigRegistry, SessionEventListener {
+
     private final NodeConfigShowCall nodeConfigShowCall;
 
     private final AtomicReference<Config> config = new AtomicReference<>(null);

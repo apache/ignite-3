@@ -44,9 +44,12 @@ import org.apache.ignite.rest.client.invoker.Configuration;
 @Singleton
 public class JdbcUrlRegistryImpl implements JdbcUrlRegistry, SessionEventListener {
 
-    private final IgniteLogger log = CliLoggers.forClass(JdbcUrlRegistryImpl.class);;
+    private static final IgniteLogger log = CliLoggers.forClass(JdbcUrlRegistryImpl.class);
+
     private final NodeNameRegistry nodeNameRegistry;
+
     private volatile Set<JdbcUrl> jdbcUrls = Set.of();
+
     private ScheduledExecutorService executor;
 
     public JdbcUrlRegistryImpl(NodeNameRegistry nodeNameRegistry) {

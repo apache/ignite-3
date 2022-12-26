@@ -28,7 +28,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 @Singleton
 public class Session {
 
-    private final IgniteLogger log = CliLoggers.forClass(Session.class);;
+    private static final IgniteLogger log = CliLoggers.forClass(Session.class);
 
     private SessionContext sessionContext;
 

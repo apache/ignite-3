@@ -45,11 +45,12 @@ import org.jetbrains.annotations.Nullable;
 @Singleton
 public class NodeNameRegistryImpl implements NodeNameRegistry, SessionEventListener {
 
-    private final IgniteLogger log = CliLoggers.forClass(NodeNameRegistryImpl.class);;
+    private static final IgniteLogger log = CliLoggers.forClass(NodeNameRegistryImpl.class);
 
     private final PhysicalTopologyCall physicalTopologyCall;
 
     private volatile Map<String, URL> nodeNameToNodeUrl = Map.of();
+
     private ScheduledExecutorService executor;
 
     public NodeNameRegistryImpl(PhysicalTopologyCall physicalTopologyCall) {
