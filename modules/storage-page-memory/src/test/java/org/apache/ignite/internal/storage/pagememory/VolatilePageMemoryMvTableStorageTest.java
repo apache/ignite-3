@@ -85,13 +85,13 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
 
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-18028")
     @Override
-    public void testSuccessFullRebalance() throws Exception {
-        super.testSuccessFullRebalance();
+    public void testSuccessRebalance() throws Exception {
+        super.testSuccessRebalance();
     }
 
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-18028")
     @Override
-    public void testFailFullRebalance() throws Exception {
-        super.testFailFullRebalance();
+    public void testFailRebalance() throws Exception {
+        super.testFailRebalance();
     }
 }

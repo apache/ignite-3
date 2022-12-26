@@ -33,7 +33,7 @@ import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageClosedException;
 import org.apache.ignite.internal.storage.StorageException;
-import org.apache.ignite.internal.storage.StorageFullRebalanceException;
+import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.index.BinaryTupleComparator;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexRowImpl;
@@ -59,7 +59,7 @@ public class TestSortedIndexStorage implements SortedIndexStorage {
 
     private volatile boolean closed;
 
-    private volatile boolean fullRebalance;
+    private volatile boolean rebalanced;
 
     /**
      * Constructor.
@@ -324,41 +324,41 @@ public class TestSortedIndexStorage implements SortedIndexStorage {
     private void checkStorageClosedOrInProcessOfRebalance() {
         checkStorageClosed();
 
-        if (fullRebalance) {
-            throw new StorageFullRebalanceException("Storage in the process of a full rebalancing");
+        if (rebalanced) {
+            throw new StorageRebalanceException("Storage in the process of rebalancing");
         }
     }
 
     /**
-     * Starts a full rebalancing for the storage.
+     * Starts rebalancing for the storage.
      */
-    public void startFullRebalance() {
+    public void startRebalance() {
         checkStorageClosed();
 
-        fullRebalance = true;
+        rebalanced = true;
 
         clear();
     }
 
     /**
-     * Aborts a full rebalance of the storage.
+     * Aborts rebalance of the storage.
      */
-    public void abortFullRebalance() {
+    public void abortRebalance() {
         checkStorageClosed();
 
-        fullRebalance = false;
+        rebalanced = false;
 
         clear();
     }
 
     /**
-     * Completes a full rebalance of the storage.
+     * Completes rebalance of the storage.
      */
-    public void finishFullRebalance() {
+    public void finishRebalance() {
         checkStorageClosed();
 
-        assert fullRebalance;
+        assert rebalanced;
 
-        fullRebalance = false;
+        rebalanced = false;
     }
 }

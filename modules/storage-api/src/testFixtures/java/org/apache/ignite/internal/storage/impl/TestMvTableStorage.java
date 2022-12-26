@@ -29,7 +29,7 @@ import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
-import org.apache.ignite.internal.storage.StorageFullRebalanceException;
+import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.index.HashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
@@ -52,7 +52,7 @@ public class TestMvTableStorage implements MvTableStorage {
 
     private final Map<Integer, CompletableFuture<Void>> destroyFutureByPartitionId = new ConcurrentHashMap<>();
 
-    private final Map<Integer, CompletableFuture<Void>> fullRebalanceFutureByPartitionId = new ConcurrentHashMap<>();
+    private final Map<Integer, CompletableFuture<Void>> rebalanceFutureByPartitionId = new ConcurrentHashMap<>();
 
     private final TableConfiguration tableCfg;
 
@@ -113,8 +113,8 @@ public class TestMvTableStorage implements MvTableStorage {
     public CompletableFuture<Void> destroyPartition(int partitionId) {
         checkPartitionId(partitionId);
 
-        if (fullRebalanceFutureByPartitionId.containsKey(partitionId)) {
-            throw new StorageException("Partition in the process of full rebalancing: " + partitionId);
+        if (rebalanceFutureByPartitionId.containsKey(partitionId)) {
+            throw new StorageException("Partition in the process of rebalancing: " + partitionId);
         }
 
         CompletableFuture<Void> destroyPartitionFuture = new CompletableFuture<>();
@@ -236,89 +236,89 @@ public class TestMvTableStorage implements MvTableStorage {
     }
 
     @Override
-    public CompletableFuture<Void> startFullRebalancePartition(int partitionId) {
+    public CompletableFuture<Void> startRebalancePartition(int partitionId) {
         checkPartitionId(partitionId);
 
         TestMvPartitionStorage partitionStorage = partitions.get(partitionId);
 
         if (partitionStorage == null) {
-            throw new StorageFullRebalanceException(createPartitionDoesNotExistsErrorMessage(partitionId));
+            throw new StorageRebalanceException(createPartitionDoesNotExistsErrorMessage(partitionId));
         }
 
         if (destroyFutureByPartitionId.containsKey(partitionId)) {
-            throw new StorageFullRebalanceException("Partition in the process of destruction: " + partitionId);
+            throw new StorageRebalanceException("Partition in the process of destruction: " + partitionId);
         }
 
-        CompletableFuture<Void> fullRebalanceFuture = new CompletableFuture<>();
+        CompletableFuture<Void> rebalanceFuture = new CompletableFuture<>();
 
-        if (fullRebalanceFutureByPartitionId.putIfAbsent(partitionId, fullRebalanceFuture) != null) {
-            throw new StorageFullRebalanceException("Full rebalance for the partition is already in progress: " + partitionId);
+        if (rebalanceFutureByPartitionId.putIfAbsent(partitionId, rebalanceFuture) != null) {
+            throw new StorageRebalanceException("Rebalance for the partition is already in progress: " + partitionId);
         }
 
         try {
-            partitionStorage.startFullRebalance();
+            partitionStorage.startRebalance();
 
-            testHashIndexStorageStream(partitionId).forEach(TestHashIndexStorage::startFullRebalance);
+            testHashIndexStorageStream(partitionId).forEach(TestHashIndexStorage::startRebalance);
 
-            testSortedIndexStorageStream(partitionId).forEach(TestSortedIndexStorage::startFullRebalance);
+            testSortedIndexStorageStream(partitionId).forEach(TestSortedIndexStorage::startRebalance);
 
-            fullRebalanceFuture.complete(null);
+            rebalanceFuture.complete(null);
         } catch (Throwable t) {
-            fullRebalanceFuture.completeExceptionally(t);
+            rebalanceFuture.completeExceptionally(t);
         }
 
-        return fullRebalanceFuture;
+        return rebalanceFuture;
     }
 
     @Override
-    public CompletableFuture<Void> abortFullRebalancePartition(int partitionId) {
+    public CompletableFuture<Void> abortRebalancePartition(int partitionId) {
         checkPartitionId(partitionId);
 
-        CompletableFuture<Void> fullRebalanceFuture = fullRebalanceFutureByPartitionId.remove(partitionId);
+        CompletableFuture<Void> rebalanceFuture = rebalanceFutureByPartitionId.remove(partitionId);
 
-        if (fullRebalanceFuture == null) {
+        if (rebalanceFuture == null) {
             return completedFuture(null);
         }
 
         TestMvPartitionStorage partitionStorage = partitions.get(partitionId);
 
         if (partitionStorage == null) {
-            throw new StorageFullRebalanceException(createPartitionDoesNotExistsErrorMessage(partitionId));
+            throw new StorageRebalanceException(createPartitionDoesNotExistsErrorMessage(partitionId));
         }
 
-        return fullRebalanceFuture
+        return rebalanceFuture
                 .thenAccept(unused -> {
-                    partitionStorage.abortFullRebalance();
+                    partitionStorage.abortRebalance();
 
-                    testHashIndexStorageStream(partitionId).forEach(TestHashIndexStorage::abortFullRebalance);
+                    testHashIndexStorageStream(partitionId).forEach(TestHashIndexStorage::abortRebalance);
 
-                    testSortedIndexStorageStream(partitionId).forEach(TestSortedIndexStorage::abortFullRebalance);
+                    testSortedIndexStorageStream(partitionId).forEach(TestSortedIndexStorage::abortRebalance);
                 });
     }
 
     @Override
-    public CompletableFuture<Void> finishFullRebalancePartition(int partitionId, long lastAppliedIndex, long lastAppliedTerm) {
+    public CompletableFuture<Void> finishRebalancePartition(int partitionId, long lastAppliedIndex, long lastAppliedTerm) {
         checkPartitionId(partitionId);
 
-        CompletableFuture<Void> fullRebalanceFuture = fullRebalanceFutureByPartitionId.remove(partitionId);
+        CompletableFuture<Void> rebalanceFuture = rebalanceFutureByPartitionId.remove(partitionId);
 
-        if (fullRebalanceFuture == null) {
-            throw new StorageFullRebalanceException("Full rebalance for the partition did not start: " + partitionId);
+        if (rebalanceFuture == null) {
+            throw new StorageRebalanceException("Rebalance for the partition did not start: " + partitionId);
         }
 
         TestMvPartitionStorage partitionStorage = partitions.get(partitionId);
 
         if (partitionStorage == null) {
-            throw new StorageFullRebalanceException(createPartitionDoesNotExistsErrorMessage(partitionId));
+            throw new StorageRebalanceException(createPartitionDoesNotExistsErrorMessage(partitionId));
         }
 
-        return fullRebalanceFuture
+        return rebalanceFuture
                 .thenAccept(unused -> {
-                    partitionStorage.finishFullRebalance(lastAppliedIndex, lastAppliedTerm);
+                    partitionStorage.finishRebalance(lastAppliedIndex, lastAppliedTerm);
 
-                    testHashIndexStorageStream(partitionId).forEach(TestHashIndexStorage::finishFullRebalance);
+                    testHashIndexStorageStream(partitionId).forEach(TestHashIndexStorage::finishRebalance);
 
-                    testSortedIndexStorageStream(partitionId).forEach(TestSortedIndexStorage::finishFullRebalance);
+                    testSortedIndexStorageStream(partitionId).forEach(TestSortedIndexStorage::finishRebalance);
                 });
     }
 

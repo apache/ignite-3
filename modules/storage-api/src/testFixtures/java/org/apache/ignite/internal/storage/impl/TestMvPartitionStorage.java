@@ -37,7 +37,7 @@ import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageClosedException;
 import org.apache.ignite.internal.storage.StorageException;
-import org.apache.ignite.internal.storage.StorageFullRebalanceException;
+import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.TxIdMismatchException;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
@@ -64,7 +64,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
     private volatile boolean closed;
 
-    private volatile boolean fullRebalance;
+    private volatile boolean rebalanced;
 
     public TestMvPartitionStorage(int partitionId) {
         this.partitionId = partitionId;
@@ -135,7 +135,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
     @Override
     public void lastApplied(long lastAppliedIndex, long lastAppliedTerm) throws StorageException {
-        checkStorageClosedOrInProcessFullRebalance();
+        checkStorageClosedOrInProcessOfRebalance();
 
         this.lastAppliedIndex = lastAppliedIndex;
         this.lastAppliedTerm = lastAppliedTerm;
@@ -158,7 +158,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
     @Override
     public void committedGroupConfiguration(RaftGroupConfiguration config) {
-        checkStorageClosedOrInProcessFullRebalance();
+        checkStorageClosedOrInProcessOfRebalance();
 
         this.groupConfig = config;
     }
@@ -272,7 +272,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
     @Override
     public ReadResult read(RowId rowId, @Nullable HybridTimestamp timestamp) {
-        checkStorageClosedOrInProcessFullRebalance();
+        checkStorageClosedOrInProcessOfRebalance();
 
         if (rowId.partitionId() != partitionId) {
             throw new IllegalArgumentException(
@@ -393,7 +393,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
     @Override
     public Cursor<ReadResult> scanVersions(RowId rowId) throws StorageException {
-        checkStorageClosedOrInProcessFullRebalance();
+        checkStorageClosedOrInProcessOfRebalance();
 
         return new Cursor<>() {
             @Nullable
@@ -409,8 +409,6 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
             @Override
             public boolean hasNext() {
-                checkStorageClosedOrInProcessFullRebalance();
-
                 advanceIfNeeded();
 
                 return hasNext;
@@ -418,8 +416,6 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
             @Override
             public ReadResult next() {
-                checkStorageClosedOrInProcessFullRebalance();
-
                 advanceIfNeeded();
 
                 if (!hasNext) {
@@ -432,6 +428,8 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
             }
 
             private void advanceIfNeeded() {
+                checkStorageClosedOrInProcessOfRebalance();
+
                 if (hasNext != null) {
                     return;
                 }
@@ -445,7 +443,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
     @Override
     public PartitionTimestampCursor scan(HybridTimestamp timestamp) {
-        checkStorageClosedOrInProcessFullRebalance();
+        checkStorageClosedOrInProcessOfRebalance();
 
         Iterator<VersionChain> iterator = map.values().iterator();
 
@@ -479,7 +477,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
             @Override
             public boolean hasNext() {
-                checkStorageClosedOrInProcessFullRebalance();
+                checkStorageClosedOrInProcessOfRebalance();
 
                 if (currentReadResult != null) {
                     return true;
@@ -521,14 +519,14 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
     @Override
     public @Nullable RowId closestRowId(RowId lowerBound) throws StorageException {
-        checkStorageClosedOrInProcessFullRebalance();
+        checkStorageClosedOrInProcessOfRebalance();
 
         return map.ceilingKey(lowerBound);
     }
 
     @Override
     public synchronized @Nullable BinaryRowAndRowId pollForVacuum(HybridTimestamp lowWatermark) {
-        checkStorageClosedOrInProcessFullRebalance();
+        checkStorageClosedOrInProcessOfRebalance();
 
         Iterator<VersionChain> it = gcQueue.iterator();
 
@@ -575,7 +573,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
     @Override
     public long rowsCount() {
-        checkStorageClosedOrInProcessFullRebalance();
+        checkStorageClosedOrInProcessOfRebalance();
 
         return map.size();
     }
@@ -604,29 +602,29 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         }
     }
 
-    private void checkStorageClosedOrInProcessFullRebalance() {
+    private void checkStorageClosedOrInProcessOfRebalance() {
         checkStorageClosed();
 
-        if (fullRebalance) {
-            throw new StorageFullRebalanceException("Storage in the process of a full rebalancing");
+        if (rebalanced) {
+            throw new StorageRebalanceException("Storage in the process of rebalancing");
         }
     }
 
-    void startFullRebalance() {
+    void startRebalance() {
         checkStorageClosed();
 
-        fullRebalance = true;
+        rebalanced = true;
 
         clear();
 
-        lastAppliedIndex = FULL_REBALANCE_IN_PROGRESS;
-        lastAppliedTerm = FULL_REBALANCE_IN_PROGRESS;
+        lastAppliedIndex = REBALANCE_IN_PROGRESS;
+        lastAppliedTerm = REBALANCE_IN_PROGRESS;
     }
 
-    void abortFullRebalance() {
+    void abortRebalance() {
         checkStorageClosed();
 
-        fullRebalance = false;
+        rebalanced = false;
 
         clear();
 
@@ -634,12 +632,12 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         lastAppliedTerm = 0;
     }
 
-    void finishFullRebalance(long lastAppliedIndex, long lastAppliedTerm) {
+    void finishRebalance(long lastAppliedIndex, long lastAppliedTerm) {
         checkStorageClosed();
 
-        assert fullRebalance;
+        assert rebalanced;
 
-        fullRebalance = false;
+        rebalanced = false;
 
         this.lastAppliedIndex = lastAppliedIndex;
         this.lastAppliedTerm = lastAppliedTerm;

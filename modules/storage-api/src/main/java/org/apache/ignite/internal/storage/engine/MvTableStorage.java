@@ -29,7 +29,7 @@ import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
-import org.apache.ignite.internal.storage.StorageFullRebalanceException;
+import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
@@ -167,37 +167,37 @@ public interface MvTableStorage extends ManuallyCloseable {
     CompletableFuture<Void> destroy();
 
     /**
-     * Prepares a partition for a full rebalance.
+     * Prepares a partition for rebalance.
      * <ul>
      *     <li>Cleans up the {@link MvPartitionStorage multi-version partition storage} and its associated indexes ({@link HashIndexStorage}
      *     and {@link SortedIndexStorage});</li>
      *     <li>Sets {@link MvPartitionStorage#lastAppliedIndex()} and {@link MvPartitionStorage#lastAppliedTerm()} to
-     *     {@link MvPartitionStorage#FULL_REBALANCE_IN_PROGRESS};</li>
+     *     {@link MvPartitionStorage#REBALANCE_IN_PROGRESS};</li>
      *     <li>Stops the cursors of a multi-version partition storage and its indexes, subsequent calls to {@link Cursor#hasNext()} and
-     *     {@link Cursor#next()} will throw {@link StorageFullRebalanceException};</li>
+     *     {@link Cursor#next()} will throw {@link StorageRebalanceException};</li>
      *     <li>For a multi-version partition storage and its indexes, only write methods will be available, while read and
-     *     {@link MvPartitionStorage#lastApplied(long, long)} methods will throw {@link StorageFullRebalanceException}.</li>
+     *     {@link MvPartitionStorage#lastApplied(long, long)} methods will throw {@link StorageRebalanceException}.</li>
      * </ul>
      *
-     * <p>This method must be called before every full rebalance of a multi-version partition storage and its indexes and ends with a call
+     * <p>This method must be called before every rebalance of a multi-version partition storage and its indexes and ends with a call
      * to one of the methods:
      * <ul>
-     *     <li>{@link #abortFullRebalancePartition(int)} ()} - in case of errors or cancellation of a full rebalance;</li>
-     *     <li>{@link #finishFullRebalancePartition(int, long, long)} - in case of successful completion of a full rebalance.</li>
+     *     <li>{@link #abortRebalancePartition(int)} ()} - in case of errors or cancellation of rebalance;</li>
+     *     <li>{@link #finishRebalancePartition(int, long, long)} - in case of successful completion of rebalance.</li>
      * </ul>
      *
-     * <p>If the {@link MvPartitionStorage#lastAppliedIndex()} is {@link MvPartitionStorage#FULL_REBALANCE_IN_PROGRESS} after a node restart
+     * <p>If the {@link MvPartitionStorage#lastAppliedIndex()} is {@link MvPartitionStorage#REBALANCE_IN_PROGRESS} after a node restart
      * , then a multi-version partition storage and its indexes needs to be cleared before they start.
      *
      * @param partitionId Partition ID.
-     * @return Future of the start a full rebalance for a multi-version partition storage and its indexes.
+     * @return Future of the start rebalance for a multi-version partition storage and its indexes.
      * @throws IllegalArgumentException If Partition ID is out of bounds.
-     * @throws StorageFullRebalanceException If there is an error when starting a full rebalance.
+     * @throws StorageRebalanceException If there is an error when starting rebalance.
      */
-    CompletableFuture<Void> startFullRebalancePartition(int partitionId);
+    CompletableFuture<Void> startRebalancePartition(int partitionId);
 
     /**
-     * Aborts full rebalance for a partition.
+     * Aborts rebalance for a partition.
      * <ul>
      *     <li>Cleans up the {@link MvPartitionStorage multi-version partition storage} and its associated indexes ({@link HashIndexStorage}
      *     and {@link SortedIndexStorage});</li>
@@ -205,27 +205,27 @@ public interface MvTableStorage extends ManuallyCloseable {
      *     <li>For a multi-version partition storage and its indexes, methods for writing and reading will be available.</li>
      * </ul>
      *
-     * <p>If a full rebalance has not started, then nothing will happen.
+     * <p>If rebalance has not started, then nothing will happen.
      *
-     * @return Future of the abort a full rebalance for a multi-version partition storage and its indexes.
+     * @return Future of the abort rebalance for a multi-version partition storage and its indexes.
      * @throws IllegalArgumentException If Partition ID is out of bounds.
      */
-    CompletableFuture<Void> abortFullRebalancePartition(int partitionId);
+    CompletableFuture<Void> abortRebalancePartition(int partitionId);
 
     /**
-     * Completes a full rebalance for a partition.
+     * Completes rebalance for a partition.
      * <ul>
      *     <li>Updates {@link MvPartitionStorage#lastAppliedIndex()} and {@link MvPartitionStorage#lastAppliedTerm()};</li>
      *     <li>For a multi-version partition storage and its indexes, methods for writing and reading will be available.</li>
      * </ul>
      *
-     * <p>If a full rebalance has not started, then {@link StorageFullRebalanceException} will be thrown.
+     * <p>If rebalance has not started, then {@link StorageRebalanceException} will be thrown.
      *
      * @param lastAppliedIndex Last applied index.
      * @param lastAppliedTerm Last applied term.
-     * @return Future of the finish a full rebalance for a multi-version partition storage and its indexes.
+     * @return Future of the finish rebalance for a multi-version partition storage and its indexes.
      * @throws IllegalArgumentException If Partition ID is out of bounds.
-     * @throws StorageFullRebalanceException If there is an error when completing a full rebalance.
+     * @throws StorageRebalanceException If there is an error when completing rebalance.
      */
-    CompletableFuture<Void> finishFullRebalancePartition(int partitionId, long lastAppliedIndex, long lastAppliedTerm);
+    CompletableFuture<Void> finishRebalancePartition(int partitionId, long lastAppliedIndex, long lastAppliedTerm);
 }
