@@ -114,7 +114,7 @@ public class TestMvTableStorage implements MvTableStorage {
         checkPartitionId(partitionId);
 
         if (rebalanceFutureByPartitionId.containsKey(partitionId)) {
-            throw new StorageException("Partition in the process of rebalancing: " + partitionId);
+            throw new StorageRebalanceException("Partition in the process of rebalancing: " + partitionId);
         }
 
         CompletableFuture<Void> destroyPartitionFuture = new CompletableFuture<>();
@@ -247,6 +247,10 @@ public class TestMvTableStorage implements MvTableStorage {
 
         if (destroyFutureByPartitionId.containsKey(partitionId)) {
             throw new StorageRebalanceException("Partition in the process of destruction: " + partitionId);
+        }
+
+        if (partitionStorage.closed()) {
+            throw new StorageRebalanceException("Partition closed: " + partitionId);
         }
 
         CompletableFuture<Void> rebalanceFuture = new CompletableFuture<>();

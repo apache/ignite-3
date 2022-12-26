@@ -518,6 +518,26 @@ public abstract class AbstractMvTableStorageTest {
         assertEquals(0, mvPartitionStorage.lastAppliedTerm());
     }
 
+    @Test
+    public void testDestroyOrClosePartitionInProgressOfRebalance() throws Exception {
+        MvPartitionStorage mvPartitionStorage = tableStorage.getOrCreateMvPartition(PARTITION_ID);
+
+        tableStorage.startRebalancePartition(PARTITION_ID).get(1, SECONDS);
+
+        assertThrows(StorageRebalanceException.class, () -> tableStorage.destroyPartition(PARTITION_ID));
+
+        assertThrows(StorageRebalanceException.class, mvPartitionStorage::close);
+    }
+
+    @Test
+    public void testStartRebalanceForClosedPartition() {
+        MvPartitionStorage mvPartitionStorage = tableStorage.getOrCreateMvPartition(PARTITION_ID);
+
+        mvPartitionStorage.close();
+
+        assertThrows(StorageRebalanceException.class, () -> tableStorage.startRebalancePartition(PARTITION_ID));
+    }
+
     private static void createTestIndexes(TablesConfiguration tablesConfig) {
         List<IndexDefinition> indexDefinitions = List.of(
                 SchemaBuilders.sortedIndex(SORTED_INDEX_NAME)

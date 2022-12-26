@@ -69,6 +69,7 @@ public interface MvTableStorage extends ManuallyCloseable {
      * @param partitionId Partition ID.
      * @return Future that will complete when the destroy of the partition is completed.
      * @throws IllegalArgumentException If Partition ID is out of bounds.
+     * @throws StorageRebalanceException If rebalancing is not completed.
      */
     CompletableFuture<Void> destroyPartition(int partitionId) throws StorageException;
 
@@ -201,6 +202,8 @@ public interface MvTableStorage extends ManuallyCloseable {
      *
      * <p>If the {@link MvPartitionStorage#lastAppliedIndex()} is {@link MvPartitionStorage#REBALANCE_IN_PROGRESS} after a node restart
      * , then a multi-version partition storage and its indexes needs to be cleared before they start.
+     *
+     * <p>If the partition started to be destroyed or closed, then there will be an error when trying to start rebalancing.
      *
      * @param partitionId Partition ID.
      * @return Future of the start rebalance for a multi-version partition storage and its indexes.

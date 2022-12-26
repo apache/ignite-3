@@ -240,6 +240,8 @@ public interface MvPartitionStorage extends ManuallyCloseable {
 
     /**
      * Closes the storage.
+     *
+     * @throws StorageRebalanceException If a partition is in the process of rebalancing.
      */
     @Override
     void close();

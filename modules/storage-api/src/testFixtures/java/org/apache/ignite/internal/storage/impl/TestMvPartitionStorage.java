@@ -537,6 +537,8 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
     @Override
     public void close() {
+        checkStorageInProcessOfRebalance();
+
         closed = true;
 
         clear();
@@ -559,12 +561,15 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         }
     }
 
-    private void checkStorageClosedOrInProcessOfRebalance() {
-        checkStorageClosed();
-
+    private void checkStorageInProcessOfRebalance() {
         if (rebalanced) {
             throw new StorageRebalanceException("Storage in the process of rebalancing");
         }
+    }
+
+    private void checkStorageClosedOrInProcessOfRebalance() {
+        checkStorageClosed();
+        checkStorageInProcessOfRebalance();
     }
 
     void startRebalance() {
@@ -598,6 +603,10 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
         this.lastAppliedIndex = lastAppliedIndex;
         this.lastAppliedTerm = lastAppliedTerm;
+    }
+
+    boolean closed() {
+        return closed;
     }
 
     private class ScanVersionsCursor implements Cursor<ReadResult> {
