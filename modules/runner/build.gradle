@@ -101,7 +101,11 @@ dependencies {
     integrationTestImplementation project(':ignite-raft')
     integrationTestImplementation project(':ignite-rest')
     integrationTestImplementation project(':ignite-rest-api')
-    integrationTestImplementation project(':ignite-sql-engine')
+    integrationTestImplementation(project(':ignite-sql-engine')) {
+        //IDEA test runner don't apply Gradle dependency resolve strategy, this is just not implemented
+        //So, exclude asm-core transitive dependency to protect of jar-hell.
+        exclude group: 'com.fasterxml.jackson.core', module: 'jackson-databind'
+    }
     integrationTestImplementation project(':ignite-metastorage')
     integrationTestImplementation project(':ignite-table')
     integrationTestImplementation project(':ignite-transactions')
@@ -114,6 +118,7 @@ dependencies {
     integrationTestImplementation(testFixtures(project(':ignite-vault')))
     integrationTestImplementation libs.jetbrains.annotations
     integrationTestImplementation libs.rocksdb.jni
+    integrationTestImplementation libs.jackson.databind
     integrationTestImplementation(libs.jsonpath.assert) {
         //IDEA test runner don't apply Gradle dependency resolve strategy, this is just not implemented
         //So, exclude asm-core transitive dependency to protect of jar-hell.
@@ -160,7 +165,7 @@ dependencies {
 //    }
 //}
 
-def runnerPlatformTest = tasks.register("runnerPlatformTest", JavaExec) {
+tasks.register("runnerPlatformTest", JavaExec) {
     mainClass = "org.apache.ignite.internal.runner.app.PlatformTestNodeRunner"
 
     classpath = sourceSets.integrationTest.runtimeClasspath
