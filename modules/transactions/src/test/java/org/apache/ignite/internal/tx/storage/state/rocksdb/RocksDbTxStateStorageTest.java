@@ -26,7 +26,6 @@ import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.tx.storage.state.AbstractTxStateStorageTest;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
@@ -51,15 +50,5 @@ public class RocksDbTxStateStorageTest extends AbstractTxStateStorageTest {
         );
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18024")
-    @Override
-    public void testSuccessFullRebalance() throws Exception {
-        super.testSuccessFullRebalance();
-    }
-
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18024")
-    @Override
-    public void testFailFullRebalance() throws Exception {
-        super.testFailFullRebalance();
-    }
+    // TODO: IGNITE-18027 не забудь написать тест что после рестарта с -1 у нас будет чистое хранилище
 }
