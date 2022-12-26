@@ -46,6 +46,17 @@ public class IgniteSpinBusyLock {
     }
 
     /**
+     * Forcefully enters the "busy" state.
+     *
+     * <p>It is expected that the current thread has not {@link #block() blocked} the lock.
+     */
+    public void forceEnterBusy() {
+        assert !lock.writeLockedByCurrentThread();
+
+        lock.readLock();
+    }
+
+    /**
      * Checks if busy lock was blocked by current thread.
      *
      * @return {@code True} if busy lock was blocked by current thread.

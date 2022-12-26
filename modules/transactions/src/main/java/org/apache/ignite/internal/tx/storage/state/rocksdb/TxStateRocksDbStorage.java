@@ -17,18 +17,21 @@
 
 package org.apache.ignite.internal.tx.storage.state.rocksdb;
 
-import static java.util.Objects.requireNonNull;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.ByteUtils.putLongToBytes;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_FULL_REBALANCE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_STOPPED_ERR;
 
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.VarHandle;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -57,6 +60,16 @@ import org.rocksdb.WriteOptions;
  * Tx state storage implementation based on RocksDB.
  */
 public class TxStateRocksDbStorage implements TxStateStorage {
+    private static final VarHandle STATE;
+
+    static {
+        try {
+            STATE = MethodHandles.lookup().findVarHandle(TxStateRocksDbStorage.class, "state", StorageState.class);
+        } catch (ReflectiveOperationException e) {
+            throw new ExceptionInInitializerError(e);
+        }
+    }
+
     /** RocksDB database. */
     private final RocksDB db;
 
@@ -84,6 +97,9 @@ public class TxStateRocksDbStorage implements TxStateStorage {
     /** Prevents double closing the component. */
     private final AtomicBoolean closeGuard = new AtomicBoolean();
 
+    /** Database key for the last applied index+term. */
+    private final byte[] lastAppliedIndexAndTermKey;
+
     /** On-heap-cached last applied index value. */
     private volatile long lastAppliedIndex;
 
@@ -93,8 +109,8 @@ public class TxStateRocksDbStorage implements TxStateStorage {
     /** The value of {@link #lastAppliedIndex} persisted to the device at this moment. */
     private volatile long persistedIndex;
 
-    /** Database key for the last applied index+term. */
-    private final byte[] lastAppliedIndexAndTermKey;
+    /** Current state of the storage. */
+    private volatile StorageState state = StorageState.RUNNABLE;
 
     /**
      * The constructor.
@@ -103,7 +119,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
      * @param partitionId Partition id.
      * @param tableStorage Table storage.
      */
-    public TxStateRocksDbStorage(
+    TxStateRocksDbStorage(
             RocksDB db,
             WriteOptions writeOptions,
             ReadOptions readOptions,
@@ -122,29 +138,32 @@ public class TxStateRocksDbStorage implements TxStateStorage {
                 .array();
 
         byte[] indexAndTermBytes = readLastAppliedIndexAndTerm(readOptions);
+
         lastAppliedIndex = indexAndTermBytes == null ? 0 : bytesToLong(indexAndTermBytes);
         lastAppliedTerm = indexAndTermBytes == null ? 0 : bytesToLong(indexAndTermBytes, Long.BYTES);
 
         persistedIndex = lastAppliedIndex;
+
+        // TODO: IGNITE-18027 вот тут надо смотреть что хранилище было в состоянии полной перебалансировки и очишать данные
     }
 
     @Override
     @Nullable
     public TxMeta get(UUID txId) {
         if (!busyLock.enterBusy()) {
-            throwStorageStoppedException();
+            throwExceptionIfStorageStateClosedOrFullRebalance();
         }
 
         try {
             byte[] txMetaBytes = db.get(txIdToKey(txId));
 
-            return txMetaBytes == null ? null : (TxMeta) fromBytes(txMetaBytes);
+            return txMetaBytes == null ? null : fromBytes(txMetaBytes);
         } catch (RocksDBException e) {
             throw new IgniteInternalException(
-                TX_STATE_STORAGE_ERR,
-                "Failed to get a value from the transaction state storage, partition " + partitionId
-                    + " of table " + tableStorage.configuration().value().name(),
-                e
+                    TX_STATE_STORAGE_ERR,
+                    "Failed to get a value from the transaction state storage, partition " + partitionId
+                            + " of table " + tableStorage.configuration().value().name(),
+                    e
             );
         } finally {
             busyLock.leaveBusy();
@@ -154,7 +173,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
     @Override
     public void put(UUID txId, TxMeta txMeta) {
         if (!busyLock.enterBusy()) {
-            throwStorageStoppedException();
+            throwStorageCloseExceptionOrWaitFinishStartFullRebalance();
         }
 
         try {
@@ -173,10 +192,8 @@ public class TxStateRocksDbStorage implements TxStateStorage {
 
     @Override
     public boolean compareAndSet(UUID txId, @Nullable TxState txStateExpected, TxMeta txMeta, long commandIndex, long commandTerm) {
-        requireNonNull(txMeta);
-
         if (!busyLock.enterBusy()) {
-            throwStorageStoppedException();
+            throwStorageCloseExceptionOrWaitFinishStartFullRebalance();
         }
 
         try (WriteBatch writeBatch = new WriteBatch()) {
@@ -199,21 +216,22 @@ public class TxStateRocksDbStorage implements TxStateStorage {
 
                         result = true;
                     } else {
-                        result = txMetaExisting.txState() == txMeta.txState() && (
-                                (txMetaExisting.commitTimestamp() == null && txMeta.commitTimestamp() == null)
-                                        || txMetaExisting.commitTimestamp().equals(txMeta.commitTimestamp()));
+                        result = txMetaExisting.txState() == txMeta.txState()
+                                && Objects.equals(txMetaExisting.commitTimestamp(), txMeta.commitTimestamp());
                     }
                 } else {
                     result = false;
                 }
             }
 
-            writeBatch.put(lastAppliedIndexAndTermKey, indexAndTermToBytes(commandIndex, commandTerm));
+            if (state != StorageState.FULL_REBALANCE) {
+                writeBatch.put(lastAppliedIndexAndTermKey, indexAndTermToBytes(commandIndex, commandTerm));
+
+                lastAppliedIndex = commandIndex;
+                lastAppliedTerm = commandTerm;
+            }
 
             db.write(writeOptions, writeBatch);
-
-            lastAppliedIndex = commandIndex;
-            lastAppliedTerm = commandTerm;
 
             return result;
         } catch (RocksDBException e) {
@@ -231,7 +249,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
     @Override
     public void remove(UUID txId) {
         if (!busyLock.enterBusy()) {
-            throwStorageStoppedException();
+            throwStorageCloseExceptionOrWaitFinishStartFullRebalance();
         }
 
         try {
@@ -251,17 +269,14 @@ public class TxStateRocksDbStorage implements TxStateStorage {
     @Override
     public Cursor<IgniteBiTuple<UUID, TxMeta>> scan() {
         if (!busyLock.enterBusy()) {
-            throwStorageStoppedException();
+            throwExceptionIfStorageStateClosedOrFullRebalance();
         }
 
         try {
             byte[] lowerBound = ByteBuffer.allocate(Short.BYTES + 1).putShort((short) partitionId).put((byte) 0).array();
             byte[] upperBound = partitionEndPrefix();
 
-            RocksIterator rocksIterator = db.newIterator(
-                    new ReadOptions()
-                            .setIterateUpperBound(new Slice(upperBound))
-            );
+            RocksIterator rocksIterator = db.newIterator(new ReadOptions().setIterateUpperBound(new Slice(upperBound)));
 
             iterators.add(rocksIterator);
 
@@ -278,7 +293,8 @@ public class TxStateRocksDbStorage implements TxStateStorage {
             }
 
             return new BusyRocksIteratorAdapter<>(busyLock, rocksIterator) {
-                @Override protected IgniteBiTuple<UUID, TxMeta> decodeEntry(byte[] keyBytes, byte[] valueBytes) {
+                @Override
+                protected IgniteBiTuple<UUID, TxMeta> decodeEntry(byte[] keyBytes, byte[] valueBytes) {
                     UUID key = keyToTxId(keyBytes);
                     TxMeta txMeta = fromBytes(valueBytes);
 
@@ -287,7 +303,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
 
                 @Override
                 protected void handleBusy() {
-                    throwStorageStoppedException();
+                    throwExceptionIfStorageStateClosedOrFullRebalance();
                 }
 
                 @Override
@@ -445,6 +461,8 @@ public class TxStateRocksDbStorage implements TxStateStorage {
 
     @Override
     public void close() {
+        // TODO: IGNITE-18027 вот тут надо немного переделать
+
         if (!closeGuard.compareAndSet(false, true)) {
             return;
         }
@@ -472,5 +490,58 @@ public class TxStateRocksDbStorage implements TxStateStorage {
     public CompletableFuture<Void> finishFullRebalance(long lastAppliedIndex, long lastAppliedTerm) {
         // TODO: IGNITE-18024 Implement
         throw new UnsupportedOperationException();
+    }
+
+    private void throwExceptionIfStorageStateClosedOrFullRebalance() {
+        StorageState state = this.state;
+
+        switch (state) {
+            case CLOSED:
+                throw createStorageClosedException();
+            case FULL_REBALANCE:
+                throw new IgniteInternalException(
+                        TX_STATE_STORAGE_FULL_REBALANCE_ERR,
+                        "Storage is in the process of being full rebalanced"
+                );
+            default:
+                throw createUnexpectedStorageStateException(state);
+        }
+    }
+
+    private void throwStorageCloseExceptionOrWaitFinishStartFullRebalance() {
+        StorageState state = this.state;
+
+        switch (state) {
+            case CLOSED:
+                throw createStorageClosedException();
+            case FULL_REBALANCE:
+                busyLock.forceEnterBusy();
+
+                break;
+            default:
+                throw createUnexpectedStorageStateException(state);
+        }
+    }
+
+    private IgniteInternalException createStorageClosedException() {
+        throw new IgniteInternalException(TX_STATE_STORAGE_STOPPED_ERR, "Transaction state storage is stopped");
+    }
+
+    private IgniteInternalException createUnexpectedStorageStateException(StorageState state) {
+        return new IgniteInternalException(TX_STATE_STORAGE_ERR, "Unexpected state: " + state);
+    }
+
+    /**
+     * Storage states.
+     */
+    private enum StorageState {
+        /** Storage is running. */
+        RUNNABLE,
+
+        /** Storage is in the process of being closed or has already closed. */
+        CLOSED,
+
+        /** Storage is in the process of being full rebalanced. */
+        FULL_REBALANCE
     }
 }
