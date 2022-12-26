@@ -81,11 +81,15 @@ public class CliCommandTestNotInitializedIntegrationBase extends IntegrationTest
         cmd = new CommandLine(getCommandClass(), new MicronautFactory(context))
                 .registerConverter(NodeNameOrUrl.class, new NodeNameOrUrlConverter(nodeNameRegistry));
         cmd.setDefaultValueProvider(configDefaultValueProvider);
+        resetOutput();
+        CommandLineContextProvider.setCmd(cmd);
+    }
+
+    protected void resetOutput() {
         sout = new StringWriter();
         serr = new StringWriter();
         cmd.setOut(new PrintWriter(sout));
         cmd.setErr(new PrintWriter(serr));
-        CommandLineContextProvider.setCmd(cmd);
     }
 
     @BeforeAll

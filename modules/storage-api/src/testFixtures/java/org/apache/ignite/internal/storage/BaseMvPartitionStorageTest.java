@@ -97,6 +97,7 @@ public abstract class BaseMvPartitionStorageTest extends BaseMvStoragesTest {
     /**
      * Reads a row.
      */
+    @Nullable
     protected BinaryRow read(RowId rowId, HybridTimestamp timestamp) {
         ReadResult readResult = storage.read(rowId, timestamp);
 

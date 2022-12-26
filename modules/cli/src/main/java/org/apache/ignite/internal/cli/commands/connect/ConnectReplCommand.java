@@ -25,7 +25,8 @@ import org.apache.ignite.internal.cli.call.connect.ConnectCall;
 import org.apache.ignite.internal.cli.call.connect.ConnectCallInput;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.commands.node.NodeNameOrUrl;
-import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
+import org.apache.ignite.internal.cli.commands.questions.ConnectToClusterQuestion;
+import org.apache.ignite.internal.cli.core.flow.builder.Flows;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Parameters;
 
@@ -42,15 +43,17 @@ public class ConnectReplCommand extends BaseCommand implements Runnable {
     @Inject
     private ConnectCall connectCall;
 
+    @Inject
+    private ConnectToClusterQuestion question;
+
     /** {@inheritDoc} */
     @Override
     public void run() {
-        CallExecutionPipeline.builder(connectCall)
-                .inputProvider(() -> new ConnectCallInput(nodeNameOrUrl.stringUrl()))
-                .output(spec.commandLine().getOut())
-                .errOutput(spec.commandLine().getErr())
+        question.askQuestionIfConnected(nodeNameOrUrl.stringUrl())
+                .map(ConnectCallInput::new)
+                .then(Flows.fromCall(connectCall))
                 .verbose(verbose)
-                .build()
-                .runPipeline();
+                .print()
+                .start();
     }
 }

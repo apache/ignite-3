@@ -168,7 +168,7 @@ public abstract class BaseMvStoragesTest {
         }
     }
 
-    protected final void assertRowMatches(BinaryRow rowUnderQuestion, BinaryRow expectedRow) {
+    protected final void assertRowMatches(@Nullable BinaryRow rowUnderQuestion, BinaryRow expectedRow) {
         assertThat(rowUnderQuestion, is(notNullValue()));
         assertThat(rowUnderQuestion.bytes(), is(equalTo(expectedRow.bytes())));
     }
