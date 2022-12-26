@@ -35,11 +35,11 @@ public class CliCommandTestInitializedIntegrationBase extends CliCommandTestNotI
         initializeCluster(metaStorageNodeName(testInfo));
     }
 
-    protected String metaStorageNodeName(TestInfo testInfo) {
+    protected static String metaStorageNodeName(TestInfo testInfo) {
         return testNodeName(testInfo, 0);
     }
 
-    protected List<String> allNodeNames() {
+    protected static List<String> allNodeNames() {
         return CLUSTER_NODE_NAMES;
     }
 }
