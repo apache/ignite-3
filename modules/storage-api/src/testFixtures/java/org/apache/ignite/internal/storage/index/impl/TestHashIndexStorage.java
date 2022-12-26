@@ -108,7 +108,7 @@ public class TestHashIndexStorage implements HashIndexStorage {
 
     @Override
     public void remove(IndexRow row) {
-        checkStorageClosed();
+        checkStorageClosedOrInProcessOfRebalance();
 
         index.computeIfPresent(row.indexColumns().byteBuffer(), (k, v) -> {
             if (v.contains(row.rowId())) {

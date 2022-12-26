@@ -194,7 +194,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
     @Override
     public synchronized @Nullable BinaryRow abortWrite(RowId rowId) {
-        checkStorageClosed();
+        checkStorageClosedOrInProcessOfRebalance();
 
         BinaryRow[] res = {null};
 
@@ -395,50 +395,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     public Cursor<ReadResult> scanVersions(RowId rowId) throws StorageException {
         checkStorageClosedOrInProcessOfRebalance();
 
-        return new Cursor<>() {
-            @Nullable
-            private Boolean hasNext;
-
-            @Nullable
-            private VersionChain versionChain;
-
-            @Override
-            public void close() {
-                // No-op.
-            }
-
-            @Override
-            public boolean hasNext() {
-                advanceIfNeeded();
-
-                return hasNext;
-            }
-
-            @Override
-            public ReadResult next() {
-                advanceIfNeeded();
-
-                if (!hasNext) {
-                    throw new NoSuchElementException();
-                }
-
-                hasNext = null;
-
-                return versionChainToReadResult(versionChain, false);
-            }
-
-            private void advanceIfNeeded() {
-                checkStorageClosedOrInProcessOfRebalance();
-
-                if (hasNext != null) {
-                    return;
-                }
-
-                versionChain = versionChain == null ? map.get(rowId) : versionChain.next;
-
-                hasNext = versionChain != null;
-            }
-        };
+        return new ScanVersionsCursor(rowId);
     }
 
     @Override
@@ -641,5 +598,56 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
         this.lastAppliedIndex = lastAppliedIndex;
         this.lastAppliedTerm = lastAppliedTerm;
+    }
+
+    private class ScanVersionsCursor implements Cursor<ReadResult> {
+        private final RowId rowId;
+
+        @Nullable
+        private Boolean hasNext;
+
+        @Nullable
+        private VersionChain versionChain;
+
+        private ScanVersionsCursor(RowId rowId) {
+            this.rowId = rowId;
+        }
+
+        @Override
+        public void close() {
+            // No-op.
+        }
+
+        @Override
+        public boolean hasNext() {
+            advanceIfNeeded();
+
+            return hasNext;
+        }
+
+        @Override
+        public ReadResult next() {
+            advanceIfNeeded();
+
+            if (!hasNext) {
+                throw new NoSuchElementException();
+            }
+
+            hasNext = null;
+
+            return versionChainToReadResult(versionChain, false);
+        }
+
+        private void advanceIfNeeded() {
+            checkStorageClosedOrInProcessOfRebalance();
+
+            if (hasNext != null) {
+                return;
+            }
+
+            versionChain = versionChain == null ? map.get(rowId) : versionChain.next;
+
+            hasNext = versionChain != null;
+        }
     }
 }

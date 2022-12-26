@@ -24,13 +24,17 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
+import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.util.Cursor;
@@ -175,8 +179,17 @@ public interface MvTableStorage extends ManuallyCloseable {
      *     {@link MvPartitionStorage#REBALANCE_IN_PROGRESS};</li>
      *     <li>Stops the cursors of a multi-version partition storage and its indexes, subsequent calls to {@link Cursor#hasNext()} and
      *     {@link Cursor#next()} will throw {@link StorageRebalanceException};</li>
-     *     <li>For a multi-version partition storage and its indexes, only write methods will be available, while read and
-     *     {@link MvPartitionStorage#lastApplied(long, long)} methods will throw {@link StorageRebalanceException}.</li>
+     *     <li>For a multi-version partition storage and its indexes, methods for reading and writing data will throw
+     *     {@link StorageRebalanceException} except:<ul>
+     *         <li>{@link MvPartitionStorage#addWrite(RowId, BinaryRow, UUID, UUID, int)};</li>
+     *         <li>{@link MvPartitionStorage#commitWrite(RowId, HybridTimestamp)};</li>
+     *         <li>{@link MvPartitionStorage#addWriteCommitted(RowId, BinaryRow, HybridTimestamp)};</li>
+     *         <li>{@link MvPartitionStorage#lastAppliedIndex()};</li>
+     *         <li>{@link MvPartitionStorage#lastAppliedTerm()};</li>
+     *         <li>{@link MvPartitionStorage#persistedIndex()};</li>
+     *         <li>{@link HashIndexStorage#put(IndexRow)};</li>
+     *         <li>{@link SortedIndexStorage#put(IndexRow)};</li>
+     *     </ul></li>
      * </ul>
      *
      * <p>This method must be called before every rebalance of a multi-version partition storage and its indexes and ends with a call

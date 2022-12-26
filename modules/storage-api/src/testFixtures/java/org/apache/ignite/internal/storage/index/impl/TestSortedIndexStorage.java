@@ -117,7 +117,7 @@ public class TestSortedIndexStorage implements SortedIndexStorage {
 
     @Override
     public void remove(IndexRow row) {
-        checkStorageClosed();
+        checkStorageClosedOrInProcessOfRebalance();
 
         index.computeIfPresent(row.indexColumns().byteBuffer(), (k, v) -> {
             v.remove(row.rowId());

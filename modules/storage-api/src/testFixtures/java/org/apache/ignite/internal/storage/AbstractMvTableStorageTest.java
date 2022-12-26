@@ -681,6 +681,7 @@ public abstract class AbstractMvTableStorageTest {
             RowId rowId = new RowId(PARTITION_ID);
 
             assertThrows(StorageRebalanceException.class, () -> storage.read(rowId, clock.now()));
+            assertThrows(StorageRebalanceException.class, () -> storage.abortWrite(rowId));
             assertThrows(StorageRebalanceException.class, () -> storage.scanVersions(rowId));
             assertThrows(StorageRebalanceException.class, () -> storage.scan(clock.now()));
             assertThrows(StorageRebalanceException.class, () -> storage.closestRowId(rowId));
@@ -700,12 +701,14 @@ public abstract class AbstractMvTableStorageTest {
         assertDoesNotThrow(storage::indexDescriptor);
 
         assertThrows(StorageRebalanceException.class, () -> storage.get(mock(BinaryTuple.class)));
+        assertThrows(StorageRebalanceException.class, () -> storage.remove(mock(IndexRow.class)));
     }
 
     private static void checkSortedIndexStorageMethodsAfterStartRebalance(SortedIndexStorage storage) {
         assertDoesNotThrow(storage::indexDescriptor);
 
         assertThrows(StorageRebalanceException.class, () -> storage.get(mock(BinaryTuple.class)));
+        assertThrows(StorageRebalanceException.class, () -> storage.remove(mock(IndexRow.class)));
         assertThrows(StorageRebalanceException.class, () -> storage.scan(null, null, 0));
     }
 
