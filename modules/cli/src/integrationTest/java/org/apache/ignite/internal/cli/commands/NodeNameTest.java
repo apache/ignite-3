@@ -25,7 +25,7 @@ import java.time.Duration;
 import java.util.Collections;
 import org.apache.ignite.internal.cli.core.repl.Session;
 import org.apache.ignite.internal.cli.core.repl.SessionContext;
-import org.apache.ignite.internal.cli.core.repl.SessionEventListener;
+import org.apache.ignite.internal.cli.core.repl.AsyncSessionEventListener;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -38,7 +38,7 @@ public class NodeNameTest extends CliCommandTestNotInitializedIntegrationBase {
 
     @BeforeEach
     void setUp() throws InterruptedException {
-        Session session = new Session(Collections.singletonList((SessionEventListener) nodeNameRegistry));
+        Session session = new Session(Collections.singletonList((AsyncSessionEventListener) nodeNameRegistry));
         SessionContext context = new SessionContext("http://localhost:10301", "node1", "");
         session.connect(context);
         // wait to pulling node names

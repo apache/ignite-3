@@ -29,7 +29,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.cli.core.JdbcUrl;
 import org.apache.ignite.internal.cli.core.repl.Session;
-import org.apache.ignite.internal.cli.core.repl.SessionEventListener;
+import org.apache.ignite.internal.cli.core.repl.AsyncSessionEventListener;
 import org.apache.ignite.internal.cli.core.repl.config.RootConfig;
 import org.apache.ignite.internal.cli.core.repl.registry.JdbcUrlRegistry;
 import org.apache.ignite.internal.cli.core.repl.registry.NodeNameRegistry;
@@ -42,7 +42,7 @@ import org.apache.ignite.rest.client.invoker.Configuration;
 
 /** Implementation of {@link JdbcUrlRegistry}. */
 @Singleton
-public class JdbcUrlRegistryImpl implements JdbcUrlRegistry, SessionEventListener {
+public class JdbcUrlRegistryImpl implements JdbcUrlRegistry, AsyncSessionEventListener {
 
     private static final IgniteLogger log = CliLoggers.forClass(JdbcUrlRegistryImpl.class);
 

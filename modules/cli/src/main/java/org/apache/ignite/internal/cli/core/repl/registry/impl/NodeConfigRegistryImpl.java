@@ -25,12 +25,12 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.cli.call.configuration.NodeConfigShowCall;
 import org.apache.ignite.internal.cli.call.configuration.NodeConfigShowCallInput;
 import org.apache.ignite.internal.cli.core.repl.Session;
-import org.apache.ignite.internal.cli.core.repl.SessionEventListener;
+import org.apache.ignite.internal.cli.core.repl.AsyncSessionEventListener;
 import org.apache.ignite.internal.cli.core.repl.registry.NodeConfigRegistry;
 
 /** Implementation of {@link NodeConfigRegistry}. */
 @Singleton
-public class NodeConfigRegistryImpl implements NodeConfigRegistry, SessionEventListener {
+public class NodeConfigRegistryImpl implements NodeConfigRegistry, AsyncSessionEventListener {
 
     private final NodeConfigShowCall nodeConfigShowCall;
 

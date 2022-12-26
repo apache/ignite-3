@@ -34,9 +34,9 @@ public class Session {
 
     private boolean connectedToNode;
 
-    private final List<SessionEventListener> listeners;
+    private final List<AsyncSessionEventListener> listeners;
 
-    public Session(List<SessionEventListener> listeners) {
+    public Session(List<AsyncSessionEventListener> listeners) {
         this.listeners = listeners;
     }
 

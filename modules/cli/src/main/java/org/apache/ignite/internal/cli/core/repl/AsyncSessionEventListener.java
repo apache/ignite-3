@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.cli.core.repl;
 
 /** Session event listener. */
-public interface SessionEventListener {
+public interface AsyncSessionEventListener {
 
     /** Implementation must be async. */
     void onConnect(Session session);

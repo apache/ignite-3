@@ -25,12 +25,12 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.cli.call.configuration.ClusterConfigShowCall;
 import org.apache.ignite.internal.cli.call.configuration.ClusterConfigShowCallInput;
 import org.apache.ignite.internal.cli.core.repl.Session;
-import org.apache.ignite.internal.cli.core.repl.SessionEventListener;
+import org.apache.ignite.internal.cli.core.repl.AsyncSessionEventListener;
 import org.apache.ignite.internal.cli.core.repl.registry.ClusterConfigRegistry;
 
 /** Implementation of {@link ClusterConfigRegistry}. */
 @Singleton
-public class ClusterConfigRegistryImpl implements ClusterConfigRegistry, SessionEventListener {
+public class ClusterConfigRegistryImpl implements ClusterConfigRegistry, AsyncSessionEventListener {
 
     private final ClusterConfigShowCall clusterConfigShowCall;
 

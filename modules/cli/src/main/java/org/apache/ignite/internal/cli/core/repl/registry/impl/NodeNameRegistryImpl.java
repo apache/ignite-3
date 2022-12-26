@@ -32,7 +32,7 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.cli.call.cluster.topology.PhysicalTopologyCall;
 import org.apache.ignite.internal.cli.core.call.UrlCallInput;
 import org.apache.ignite.internal.cli.core.repl.Session;
-import org.apache.ignite.internal.cli.core.repl.SessionEventListener;
+import org.apache.ignite.internal.cli.core.repl.AsyncSessionEventListener;
 import org.apache.ignite.internal.cli.core.repl.registry.NodeNameRegistry;
 import org.apache.ignite.internal.cli.logger.CliLoggers;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -43,7 +43,7 @@ import org.jetbrains.annotations.Nullable;
 
 /** Implementation of {@link NodeNameRegistry}. */
 @Singleton
-public class NodeNameRegistryImpl implements NodeNameRegistry, SessionEventListener {
+public class NodeNameRegistryImpl implements NodeNameRegistry, AsyncSessionEventListener {
 
     private static final IgniteLogger log = CliLoggers.forClass(NodeNameRegistryImpl.class);
 
