@@ -39,8 +39,12 @@ public class LimitExecutionTest extends AbstractExecutionTest {
         checkLimit(1, 0);
         checkLimit(1, 1);
         checkLimit(0, bufSize);
+        checkLimit(0, bufSize - 1);
+        checkLimit(0, bufSize + 1);
         checkLimit(bufSize, 0);
         checkLimit(bufSize, bufSize);
+        checkLimit(bufSize, bufSize - 1);
+        checkLimit(bufSize, bufSize + 1);
         checkLimit(bufSize - 1, 1);
         checkLimit(2000, 0);
         checkLimit(0, 3000);
@@ -79,7 +83,6 @@ public class LimitExecutionTest extends AbstractExecutionTest {
     }
 
     private static class SourceNode extends AbstractNode<Object[]> {
-
         AtomicInteger requested = new AtomicInteger();
 
         public SourceNode(ExecutionContext<Object[]> ctx) {
