@@ -92,10 +92,10 @@ public class ItIgnitePicocliCommandsTest extends CliCommandTestInitializedIntegr
         List<CompleterFilter> filters = List.of(
                 dynamicCompleterFilter,
                 new ShortOptionsFilter(),
-                new NonRepeatableOptionsFilter(getCmd().getCommandSpec())
+                new NonRepeatableOptionsFilter(сmd().getCommandSpec())
         );
 
-        IgnitePicocliCommands commandRegistry = new IgnitePicocliCommands(getCmd(), dynamicCompleterRegistry, filters);
+        IgnitePicocliCommands commandRegistry = new IgnitePicocliCommands(сmd(), dynamicCompleterRegistry, filters);
 
         // This completer is used by jline to suggest all completions
         completer = commandRegistry.compileCompleters();

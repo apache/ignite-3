@@ -111,7 +111,7 @@ public class CliCommandTestNotInitializedIntegrationBase extends IntegrationTest
         exitCode = cmd.execute(args);
     }
 
-    protected CommandLine getCmd() {
+    protected CommandLine сmd() {
         return cmd;
     }
 
