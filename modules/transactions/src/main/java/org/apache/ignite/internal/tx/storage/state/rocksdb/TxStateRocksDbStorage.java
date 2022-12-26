@@ -22,7 +22,7 @@ import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.ByteUtils.putLongToBytes;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_FULL_REBALANCE_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_REBALANCE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_STOPPED_ERR;
 
 import java.lang.invoke.MethodHandles;
@@ -151,7 +151,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
     @Nullable
     public TxMeta get(UUID txId) {
         if (!busyLock.enterBusy()) {
-            throwExceptionIfStorageStateClosedOrFullRebalance();
+            throwExceptionIfStorageStateClosedOrRebalance();
         }
 
         try {
@@ -173,7 +173,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
     @Override
     public void put(UUID txId, TxMeta txMeta) {
         if (!busyLock.enterBusy()) {
-            throwStorageCloseExceptionOrWaitFinishStartFullRebalance();
+            throwStorageCloseExceptionOrWaitFinishStartRebalance();
         }
 
         try {
@@ -193,7 +193,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
     @Override
     public boolean compareAndSet(UUID txId, @Nullable TxState txStateExpected, TxMeta txMeta, long commandIndex, long commandTerm) {
         if (!busyLock.enterBusy()) {
-            throwStorageCloseExceptionOrWaitFinishStartFullRebalance();
+            throwStorageCloseExceptionOrWaitFinishStartRebalance();
         }
 
         try (WriteBatch writeBatch = new WriteBatch()) {
@@ -224,7 +224,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
                 }
             }
 
-            if (state != StorageState.FULL_REBALANCE) {
+            if (state != StorageState.REBALANCE) {
                 writeBatch.put(lastAppliedIndexAndTermKey, indexAndTermToBytes(commandIndex, commandTerm));
 
                 lastAppliedIndex = commandIndex;
@@ -249,7 +249,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
     @Override
     public void remove(UUID txId) {
         if (!busyLock.enterBusy()) {
-            throwStorageCloseExceptionOrWaitFinishStartFullRebalance();
+            throwStorageCloseExceptionOrWaitFinishStartRebalance();
         }
 
         try {
@@ -269,7 +269,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
     @Override
     public Cursor<IgniteBiTuple<UUID, TxMeta>> scan() {
         if (!busyLock.enterBusy()) {
-            throwExceptionIfStorageStateClosedOrFullRebalance();
+            throwExceptionIfStorageStateClosedOrRebalance();
         }
 
         try {
@@ -303,7 +303,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
 
                 @Override
                 protected void handleBusy() {
-                    throwExceptionIfStorageStateClosedOrFullRebalance();
+                    throwExceptionIfStorageStateClosedOrRebalance();
                 }
 
                 @Override
@@ -475,46 +475,46 @@ public class TxStateRocksDbStorage implements TxStateStorage {
     }
 
     @Override
-    public CompletableFuture<Void> startFullRebalance() {
+    public CompletableFuture<Void> startRebalance() {
         // TODO: IGNITE-18024 Implement
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public CompletableFuture<Void> abortFullRebalance() {
+    public CompletableFuture<Void> abortRebalance() {
         // TODO: IGNITE-18024 Implement
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public CompletableFuture<Void> finishFullRebalance(long lastAppliedIndex, long lastAppliedTerm) {
+    public CompletableFuture<Void> finishRebalance(long lastAppliedIndex, long lastAppliedTerm) {
         // TODO: IGNITE-18024 Implement
         throw new UnsupportedOperationException();
     }
 
-    private void throwExceptionIfStorageStateClosedOrFullRebalance() {
+    private void throwExceptionIfStorageStateClosedOrRebalance() {
         StorageState state = this.state;
 
         switch (state) {
             case CLOSED:
                 throw createStorageClosedException();
-            case FULL_REBALANCE:
+            case REBALANCE:
                 throw new IgniteInternalException(
-                        TX_STATE_STORAGE_FULL_REBALANCE_ERR,
-                        "Storage is in the process of being full rebalanced"
+                        TX_STATE_STORAGE_REBALANCE_ERR,
+                        "Storage is in the process of being rebalanced"
                 );
             default:
                 throw createUnexpectedStorageStateException(state);
         }
     }
 
-    private void throwStorageCloseExceptionOrWaitFinishStartFullRebalance() {
+    private void throwStorageCloseExceptionOrWaitFinishStartRebalance() {
         StorageState state = this.state;
 
         switch (state) {
             case CLOSED:
                 throw createStorageClosedException();
-            case FULL_REBALANCE:
+            case REBALANCE:
                 busyLock.forceEnterBusy();
 
                 break;
@@ -541,7 +541,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
         /** Storage is in the process of being closed or has already closed. */
         CLOSED,
 
-        /** Storage is in the process of being full rebalanced. */
-        FULL_REBALANCE
+        /** Storage is in the process of being rebalanced. */
+        REBALANCE
     }
 }

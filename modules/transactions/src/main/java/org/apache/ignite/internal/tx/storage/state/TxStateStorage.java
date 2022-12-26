@@ -33,11 +33,11 @@ import org.jetbrains.annotations.Nullable;
  */
 public interface TxStateStorage extends ManuallyCloseable {
     /**
-     * Value of the {@link #lastAppliedIndex()} and {@link #lastAppliedTerm()} during a full rebalance of transaction state storage.
+     * Value of the {@link #lastAppliedIndex()} and {@link #lastAppliedTerm()} during rebalance of transaction state storage.
      *
-     * <p>Allows to determine on a node restart that a full rebalance has not been completed and storage should be cleared before using it.
+     * <p>Allows to determine on a node restart that rebalance has not been completed and storage should be cleared before using it.
      */
-    long FULL_REBALANCE_IN_PROGRESS = -1;
+    long REBALANCE_IN_PROGRESS = -1;
 
     /**
      * Returns tx meta by tx id.
@@ -132,52 +132,52 @@ public interface TxStateStorage extends ManuallyCloseable {
     void destroy();
 
     /**
-     * Prepares the transaction state storage for a full rebalance: clears the storage, sets the {@link #lastAppliedIndex()} and
-     * {@link #lastAppliedTerm()} to {@link #FULL_REBALANCE_IN_PROGRESS}, and closes all cursors.
+     * Prepares the transaction state storage for rebalance: clears the storage, sets the {@link #lastAppliedIndex()} and
+     * {@link #lastAppliedTerm()} to {@link #REBALANCE_IN_PROGRESS}, and closes all cursors.
      *
      * <p>After calling this method, only write methods will be available, and read methods with {@link #lastApplied(long, long)} will
-     * throw {@link IgniteInternalException} with {@link Transactions#TX_STATE_STORAGE_FULL_REBALANCE_ERR}.
+     * throw {@link IgniteInternalException} with {@link Transactions#TX_STATE_STORAGE_REBALANCE_ERR}.
      *
-     * <p>This method must be called before every full rebalance of transaction state storage and ends with a call to one of the methods:
+     * <p>This method must be called before every rebalance of transaction state storage and ends with a call to one of the methods:
      * <ul>
-     *     <li>{@link #abortFullRebalance()} - in case of errors or cancellation of a full rebalance;</li>
-     *     <li>{@link #finishFullRebalance(long, long)} - in case of successful completion of a full rebalance.</li>
+     *     <li>{@link #abortRebalance()} - in case of errors or cancellation of rebalance;</li>
+     *     <li>{@link #finishRebalance(long, long)} - in case of successful completion of rebalance.</li>
      * </ul>
      *
-     * <p>If the {@link #lastAppliedIndex()} is {@link #FULL_REBALANCE_IN_PROGRESS} after a node restart, then the storage needs to be
+     * <p>If the {@link #lastAppliedIndex()} is {@link #REBALANCE_IN_PROGRESS} after a node restart, then the storage needs to be
      * cleared before it start.
      *
-     * @return Future of the start a full rebalance for transaction state storage.
-     * @throws IgniteInternalException with {@link Transactions#TX_STATE_STORAGE_FULL_REBALANCE_ERR} error code in case when the operation
+     * @return Future of the start rebalance for transaction state storage.
+     * @throws IgniteInternalException with {@link Transactions#TX_STATE_STORAGE_REBALANCE_ERR} error code in case when the operation
      *      has failed.
      */
-    CompletableFuture<Void> startFullRebalance();
+    CompletableFuture<Void> startRebalance();
 
     /**
-     * Aborts a full rebalance for transaction state storage: clears the storage, sets the {@link #lastAppliedIndex()} and
+     * Aborts rebalance for transaction state storage: clears the storage, sets the {@link #lastAppliedIndex()} and
      * {@link #lastAppliedTerm()} to {@code 0}.
      *
      * <p>After calling this method, methods for writing and reading will be available.
      *
-     * <p>If a full rebalance has not started, then nothing will happen.
+     * <p>If rebalance has not started, then nothing will happen.
      *
-     * @return Future of the abort a full rebalance for transaction state storage.
+     * @return Future of the abort rebalance for transaction state storage.
      */
-    CompletableFuture<Void> abortFullRebalance();
+    CompletableFuture<Void> abortRebalance();
 
     /**
-     * Completes a full rebalance for transaction state storage: updates {@link #lastAppliedIndex()} and {@link #lastAppliedTerm()}.
+     * Completes rebalance for transaction state storage: updates {@link #lastAppliedIndex()} and {@link #lastAppliedTerm()}.
      *
      * <p>After calling this method, methods for writing and reading will be available.
      *
-     * <p>If a full rebalance has not started, then an IgniteInternalException with {@link Transactions#TX_STATE_STORAGE_FULL_REBALANCE_ERR}
+     * <p>If rebalance has not started, then an IgniteInternalException with {@link Transactions#TX_STATE_STORAGE_REBALANCE_ERR}
      * will be thrown
      *
      * @param lastAppliedIndex Last applied index.
      * @param lastAppliedTerm Last applied term.
-     * @return Future of the finish a full rebalance for transaction state storage.
-     * @throws IgniteInternalException with {@link Transactions#TX_STATE_STORAGE_FULL_REBALANCE_ERR} error code in case when the operation
+     * @return Future of the finish rebalance for transaction state storage.
+     * @throws IgniteInternalException with {@link Transactions#TX_STATE_STORAGE_REBALANCE_ERR} error code in case when the operation
      *      has failed.
      */
-    CompletableFuture<Void> finishFullRebalance(long lastAppliedIndex, long lastAppliedTerm);
+    CompletableFuture<Void> finishRebalance(long lastAppliedIndex, long lastAppliedTerm);
 }
