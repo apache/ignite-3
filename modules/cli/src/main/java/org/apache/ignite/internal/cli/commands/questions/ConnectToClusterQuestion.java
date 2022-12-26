@@ -86,7 +86,7 @@ public class ConnectToClusterQuestion {
      * @return {@link FlowBuilder} instance with question in case when cluster url.
      */
     public FlowBuilder<Void, String> askQuestionIfConnected(String clusterUrl) {
-        if (session.isConnectedToNode() && !Objects.equals(session.context().nodeUrl(), clusterUrl)) {
+        if (session.connected() && !Objects.equals(session.context().nodeUrl(), clusterUrl)) {
             QuestionUiComponent question = QuestionUiComponent.fromQuestion(
                     "You are already connected to the %s, do you want to connect to the %s? %s ",
                     UiElements.url(session.context().nodeUrl()), UiElements.url(clusterUrl), UiElements.yesNo()
@@ -100,7 +100,7 @@ public class ConnectToClusterQuestion {
      * Ask for connect to the cluster and suggest to save the last connected URL as default.
      */
     public void askQuestionOnReplStart() {
-        if (session.isConnectedToNode()) {
+        if (session.connected()) {
             return;
         }
         String defaultUrl = configManagerProvider.get().getCurrentProperty(ConfigConstants.CLUSTER_URL);
@@ -126,7 +126,7 @@ public class ConnectToClusterQuestion {
         Flows.acceptQuestion(question, () -> new ConnectCallInput(clusterUrl))
                 .then(Flows.fromCall(connectCall))
                 .print()
-                .ifThen(s -> !Objects.equals(clusterUrl, defaultUrl) && session.isConnectedToNode(),
+                .ifThen(s -> !Objects.equals(clusterUrl, defaultUrl) && session.connected(),
                         defaultUrlQuestion(clusterUrl).print().build())
                 .start();
     }

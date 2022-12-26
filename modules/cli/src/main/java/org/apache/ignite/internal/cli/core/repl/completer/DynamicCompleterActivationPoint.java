@@ -113,7 +113,7 @@ public class DynamicCompleterActivationPoint {
 
         registry.register(
                 CompleterConf.builder()
-                        .enableOptions(Options.CLUSTER_URL)
+                        .enableOptions(Options.CLUSTER_URL, Options.NODE_URL)
                         .exclusiveEnableOptions().build(),
                 clusterUrlDynamicCompleterFactory
         );

@@ -73,7 +73,7 @@ public class DynamicCompleterFilter implements CompleterFilter {
 
     private boolean filterClusterUrl(String[] words, String candidate) {
         return optionTyped(words)
-                || !session.isConnectedToNode()
+                || !session.connected()
                 || (!candidate.equals(CLUSTER_URL_OPTION) && !candidate.equals(NODE_URL_OPTION));
     }
 }

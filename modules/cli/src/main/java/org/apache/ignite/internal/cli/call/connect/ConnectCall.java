@@ -59,7 +59,7 @@ public class ConnectCall implements Call<ConnectCallInput, String> {
     @Override
     public CallOutput<String> execute(ConnectCallInput input) {
         String nodeUrl = input.getNodeUrl();
-        if (session.isConnectedToNode() && Objects.equals(session.context().nodeUrl(), nodeUrl)) {
+        if (session.connected() && Objects.equals(session.context().nodeUrl(), nodeUrl)) {
             MessageUiComponent message = MessageUiComponent.fromMessage("You are already connected to %s", UiElements.url(nodeUrl));
             return DefaultCallOutput.success(message.render());
         }

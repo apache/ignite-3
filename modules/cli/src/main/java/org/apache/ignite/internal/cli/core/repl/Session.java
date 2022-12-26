@@ -66,7 +66,7 @@ public class Session {
         });
     }
 
-    public boolean isConnectedToNode() {
+    public boolean connected() {
         return connectedToNode;
     }
 
