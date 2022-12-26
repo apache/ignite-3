@@ -140,12 +140,11 @@ public class IgnitionImpl implements Ignition {
     @Override
     public void stop(String nodeName) {
         readyForInitNodes.remove(nodeName);
+        IgniteImpl node = nodes.remove(nodeName);
 
-        nodes.computeIfPresent(nodeName, (name, node) -> {
+        if (node != null) {
             node.stop();
-
-            return null;
-        });
+        }
     }
 
     @Override
@@ -184,7 +183,7 @@ public class IgnitionImpl implements Ignition {
      * @param cfgContent Node configuration in the HOCON format. Can be {@code null}.
      * @param workDir Work directory for the started node. Must not be {@code null}.
      * @return Completable future that resolves into an Ignite node after all components are started and the cluster initialization is
-     *         complete.
+     * complete.
      */
     private static CompletableFuture<Ignite> doStart(
             String nodeName,
@@ -232,7 +231,15 @@ public class IgnitionImpl implements Ignition {
 
     private static IgniteException handleStartException(String nodeName, Throwable e) {
         readyForInitNodes.remove(nodeName);
-        nodes.remove(nodeName);
+        IgniteImpl node = nodes.remove(nodeName);
+
+        if (node != null) {
+            try {
+                node.stop();
+            } catch (Throwable ex) {
+                e.addSuppressed(ex);
+            }
+        }
 
         if (e instanceof IgniteException) {
             return (IgniteException) e;
