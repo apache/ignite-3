@@ -46,7 +46,7 @@ public class ClusterConfigRegistryImpl implements ClusterConfigRegistry, Session
             try {
                 config.set(ConfigFactory.parseString(
                         clusterConfigShowCall.execute(
-                                ClusterConfigShowCallInput.builder().clusterUrl(session.sessionDetails().nodeUrl()).build()
+                                ClusterConfigShowCallInput.builder().clusterUrl(session.context().nodeUrl()).build()
                         ).body().getValue()
                 ));
             } catch (Exception ignored) {

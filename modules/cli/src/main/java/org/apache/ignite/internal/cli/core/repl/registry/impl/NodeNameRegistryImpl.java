@@ -113,7 +113,7 @@ public class NodeNameRegistryImpl implements NodeNameRegistry, SessionEventListe
         if (executor == null) {
             executor = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("NodeNameRegistry", log));
             executor.scheduleWithFixedDelay(() ->
-                    updateNodeNames(session.sessionDetails().nodeUrl()), 0, 5, TimeUnit.SECONDS);
+                    updateNodeNames(session.context().nodeUrl()), 0, 5, TimeUnit.SECONDS);
         }
     }
 

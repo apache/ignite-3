@@ -71,7 +71,7 @@ public class Session {
     }
 
     /** Returns {@link SessionContext}. */
-    public SessionContext sessionDetails() {
+    public SessionContext context() {
         return this.sessionContext;
     }
 }

@@ -42,7 +42,7 @@ public class DisconnectCall implements Call<EmptyCallInput, String> {
     @Override
     public CallOutput<String> execute(EmptyCallInput input) {
         if (session.isConnectedToNode()) {
-            String nodeUrl = session.sessionDetails().nodeUrl();
+            String nodeUrl = session.context().nodeUrl();
             session.disconnect();
             return DefaultCallOutput.success(
                     MessageUiComponent.fromMessage("Disconnected from %s", UiElements.url(nodeUrl)).render()
