@@ -46,6 +46,9 @@ public class CreateTableCommand extends AbstractTableDdlCommand {
     @Nullable
     private Map<String, Object> dataStorageOptions;
 
+    @Nullable
+    private String zone;
+
     /**
      * Get primary key columns.
      */
@@ -163,5 +166,21 @@ public class CreateTableCommand extends AbstractTableDdlCommand {
         }
 
         dataStorageOptions.put(name, value);
+    }
+
+    /**
+     * Get zone name.
+     */
+    @Nullable
+    public String zone() {
+        return zone;
+    }
+
+    /**
+     * Set zone name.
+     */
+    @Nullable
+    public void zone(String zoneName) {
+        this.zone = zoneName;
     }
 }

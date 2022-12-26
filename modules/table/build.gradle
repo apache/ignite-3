@@ -40,6 +40,7 @@ dependencies {
     implementation project(':ignite-storage-api')
     implementation project(':ignite-transactions')
     implementation project(':ignite-configuration')
+    implementation project(':ignite-distribution-zones')
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
     implementation libs.auto.service.annotations

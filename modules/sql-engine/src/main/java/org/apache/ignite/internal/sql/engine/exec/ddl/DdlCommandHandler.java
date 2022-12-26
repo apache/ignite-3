@@ -207,6 +207,10 @@ public class DdlCommandHandler {
             if (cmd.replicas() != null) {
                 tableChange.changeReplicas(cmd.replicas());
             }
+
+            if (cmd.zone() != null) {
+                tableChange.changeZoneId(distributionZoneManager.getZoneId(cmd.zone()));
+            }
         };
 
         return tableManager.createTableAsync(cmd.tableName(), tblChanger)

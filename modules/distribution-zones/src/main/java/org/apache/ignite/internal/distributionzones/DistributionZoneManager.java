@@ -303,6 +303,22 @@ public class DistributionZoneManager implements IgniteComponent {
         }
     }
 
+    /**
+     * Gets zone id by zone name.
+     *
+     * @param name Distribution zone name.
+     * @return The zone id.
+     */
+    public int getZoneId(String name) {
+        DistributionZoneConfiguration zoneCfg = zonesConfiguration.distributionZones().get(name);
+
+        if (zoneCfg != null) {
+            return zoneCfg.zoneId().value();
+        } else {
+            throw new DistributionZoneNotFoundException(name);
+        }
+    }
+
     /** {@inheritDoc} */
     @Override
     public void start() {

@@ -21,6 +21,7 @@ import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTR
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 
@@ -447,5 +448,27 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
         assertTrue(e != null);
         assertTrue(e instanceof NullPointerException, e.toString());
         assertEquals("Distribution zone name is null.", e.getMessage(), e.toString());
+    }
+
+    @Test
+    public void testGetExistingZoneIdByName() throws Exception {
+        distributionZoneManager.createZone(
+                        new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).dataNodesAutoAdjust(100).build()
+                )
+                .get(5, TimeUnit.SECONDS);
+
+        int zoneId = distributionZoneManager.getZoneId(ZONE_NAME);
+
+        assertTrue(zoneId > 0);
+    }
+
+    @Test
+    public void testGetNotExistingZoneIdByName() throws Exception {
+        distributionZoneManager.createZone(
+                        new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).dataNodesAutoAdjust(100).build()
+                )
+                .get(5, TimeUnit.SECONDS);
+
+        assertThrows(DistributionZoneNotFoundException.class, () -> distributionZoneManager.getZoneId(NEW_ZONE_NAME));
     }
 }
