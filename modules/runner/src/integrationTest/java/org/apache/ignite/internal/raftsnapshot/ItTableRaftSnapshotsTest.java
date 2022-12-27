@@ -89,6 +89,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 @SuppressWarnings("resource")
 @ExtendWith(WorkDirectoryExtension.class)
 @Timeout(60)
+// TODO: IGNITE-18465- extend AbstractClusterIntegrationTest
 class ItTableRaftSnapshotsTest {
     private static final IgniteLogger LOG = Loggers.forClass(ItTableRaftSnapshotsTest.class);
 
