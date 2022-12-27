@@ -361,16 +361,6 @@ public abstract class AbstractTxStateStorageTest {
     }
 
     @Test
-    public void testDestroyOrClosePartitionInProgressOfRebalance() throws Exception {
-        TxStateStorage storage = tableStorage.getOrCreateTxStateStorage(0);
-
-        storage.startRebalance().get(1, SECONDS);
-
-        assertThrowsIgniteInternalException(TX_STATE_STORAGE_REBALANCE_ERR, storage::destroy);
-        assertThrowsIgniteInternalException(TX_STATE_STORAGE_REBALANCE_ERR, storage::close);
-    }
-
-    @Test
     public void testStartRebalanceForClosedPartition() {
         TxStateStorage storage = tableStorage.getOrCreateTxStateStorage(0);
 

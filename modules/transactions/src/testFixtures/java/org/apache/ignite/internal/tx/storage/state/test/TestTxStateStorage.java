@@ -171,7 +171,7 @@ public class TestTxStateStorage implements TxStateStorage {
 
     @Override
     public void close() {
-        checkStorageInProgreesOfRebalance();
+        assert rebalanceFutureReference.get() == null;
 
         closed = true;
 

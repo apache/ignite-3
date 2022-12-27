@@ -121,7 +121,7 @@ public interface TxStateStorage extends ManuallyCloseable {
     /**
      * Closes the storage.
      *
-     * @throws IgniteInternalException with {@link Transactions#TX_STATE_STORAGE_REBALANCE_ERR} error code if rebalancing is in progress.
+     * <p>REQUIRED: For background tasks for storage, such as rebalancing, to be completed by the time the method is called.
      */
     @Override
     void close();
@@ -129,8 +129,7 @@ public interface TxStateStorage extends ManuallyCloseable {
     /**
      * Closes and removes all data from the storage.
      *
-     * @throws IgniteInternalException with {@link Transactions#TX_STATE_STORAGE_ERR} error code in case when the operation has failed.
-     * @throws IgniteInternalException with {@link Transactions#TX_STATE_STORAGE_REBALANCE_ERR} error code if rebalancing is in progress.
+     * <p>REQUIRED: For background tasks for storage, such as rebalancing, to be completed by the time the method is called.
      */
     void destroy();
 
