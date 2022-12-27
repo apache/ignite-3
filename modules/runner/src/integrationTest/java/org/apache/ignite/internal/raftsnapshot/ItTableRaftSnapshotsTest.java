@@ -107,9 +107,10 @@ class ItTableRaftSnapshotsTest {
     private static final int QUERY_TIMEOUT_MS = 10_000;
 
     /**
-     * Storage engine that is used in tests that are indifferent to a storage engine used.
+     * Marker that instructs to create a table with the default storage engine. Used in tests that are indifferent
+     * to a storage engine used.
      */
-    private static final String DEFAULT_STORAGE_ENGINE = RocksDbStorageEngine.ENGINE_NAME;
+    private static final String DEFAULT_STORAGE_ENGINE = "<default>";
 
     @WorkDirectory
     private Path workDir;
@@ -295,7 +296,8 @@ class ItTableRaftSnapshotsTest {
     }
 
     private void createTestTableWith3Replicas(String storageEngine) throws InterruptedException {
-        String sql = "create table test (key int primary key, value varchar(20)) engine " + storageEngine
+        String sql = "create table test (key int primary key, value varchar(20))"
+                + (DEFAULT_STORAGE_ENGINE.equals(storageEngine) ? "" : " engine " + storageEngine)
                 + " with partitions=1, replicas=3";
 
         doInSession(0, session -> {
@@ -306,7 +308,7 @@ class ItTableRaftSnapshotsTest {
     }
 
     private void waitForTableToStart() throws InterruptedException {
-        // TODO: IGNITE-18203 - remove this waiting because when a table creation query is executed, the table must be fully ready.
+        // TODO: IGNITE-18203 - remove this wait because when a table creation query is executed, the table must be fully ready.
 
         BooleanSupplier tableStarted = () -> {
             int numberOfStartedRaftNodes = cluster.aliveNodes()
