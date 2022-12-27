@@ -20,6 +20,7 @@ package org.apache.ignite.internal.configuration.storage;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 
@@ -171,6 +172,7 @@ public class ItDistributedConfigurationStorageTest {
             node.cmgManager.initCluster(List.of(node.name()), List.of(), "cluster");
 
             assertThat(node.cfgStorage.write(data, 0), willBe(equalTo(true)));
+            assertThat(node.cfgStorage.writeConfigurationRevision(0, 1), willCompleteSuccessfully());
 
             waitForCondition(() -> Objects.nonNull(node.vaultManager.get(MetaStorageManagerImpl.APPLIED_REV).join()), 3000);
         } finally {

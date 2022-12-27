@@ -43,6 +43,7 @@ dependencies {
     implementation libs.fastutil.core
     implementation libs.auto.service.annotations
 
+    testAnnotationProcessor libs.jmh.annotation.processor
     testImplementation project(':ignite-configuration')
     testImplementation project(':ignite-storage-api')
     testImplementation project(':ignite-storage-page-memory')

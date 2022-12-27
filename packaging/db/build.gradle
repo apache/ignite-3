@@ -56,13 +56,13 @@ def zipStartScriptTokens = tokens + [
 ]
 
 task replaceZipScriptVars(type: Copy) {
-    from("$rootDir/packaging/common")
-    from("$rootDir/packaging/zip")
-    from("$rootDir/packaging/db/ignite.java.util.logging.properties")
+    from "$rootDir/packaging/common"
+    from "$rootDir/packaging/zip"
+    from "$rootDir/packaging/db/ignite.java.util.logging.properties"
 
     filter(ReplaceTokens, tokens: zipStartScriptTokens)
 
-    into("$buildDir/zip/")
+    into "$buildDir/zip/"
 }
 
 distributions {
@@ -79,35 +79,35 @@ distributions {
                 }
             }
             into('') {
-                from("$rootDir/LICENSE")
-                from("$rootDir/NOTICE")
-                from("$rootDir/assembly/README.md")
+                from "$rootDir/LICENSE"
+                from "$rootDir/NOTICE"
+                from "$rootDir/assembly/README.md"
             }
             into('etc') {
-                from("$buildDir/zip/${zipStartScriptTokens.VARS_FILE_NAME}")
-                from("$rootDir/packaging/config/ignite-config.conf")
-                from("$buildDir/zip/ignite.java.util.logging.properties")
+                from "$buildDir/zip/${zipStartScriptTokens.VARS_FILE_NAME}"
+                from "$rootDir/packaging/config/ignite-config.conf"
+                from "$buildDir/zip/ignite.java.util.logging.properties"
             }
             into('bin') {
                 fileMode 0755
-                from("$buildDir/zip/ignite3db")
+                from "$buildDir/zip/ignite3db"
             }
             into('lib') {
                 from configurations.dbArtifacts
-                from("$buildDir/zip/${zipStartScriptTokens.BOOTSTRAP_FILE_NAME}")
-                from("$buildDir/zip/${zipStartScriptTokens.SETUP_JAVA_FILE_NAME}")
+                from "$buildDir/zip/${zipStartScriptTokens.BOOTSTRAP_FILE_NAME}"
+                from "$buildDir/zip/${zipStartScriptTokens.SETUP_JAVA_FILE_NAME}"
             }
         }
     }
 }
 
 distZip.dependsOn replaceZipScriptVars
+distTar.dependsOn replaceZipScriptVars
 
 task createChecksums(type: Checksum) {
     dependsOn distZip
 
     inputFiles.from distZip.outputs.files
-    outputDirectory = file("$buildDir/distributions")
     checksumAlgorithm = Checksum.Algorithm.SHA512
 }
 
@@ -123,7 +123,8 @@ artifacts {
     dbZip(distZip)
 }
 
-signing {
+// Explicitly create task so that the resulting artifact is not added to the configuration
+tasks.register('signDbZip', Sign) {
     sign configurations.dbZip
 }
 
@@ -144,23 +145,23 @@ def packageTokens = tokens + [
 
 
 task replacePackageScriptVars(type: Copy) {
-    from("${rootDir}/packaging/linux")
-    from("${rootDir}/packaging/db/ignite.java.util.logging.properties")
-    from("$rootDir/packaging/common")
+    from "$rootDir/packaging/linux"
+    from "$rootDir/packaging/db/ignite.java.util.logging.properties"
+    from "$rootDir/packaging/common"
     filter(ReplaceTokens, tokens: packageTokens)
-    into("${buildDir}/linux")
+    into "$buildDir/linux"
 }
 
 buildRpm {
     dependsOn replacePackageScriptVars
     configurationFile = "/etc/ignite3/vars.env"
 
-    installUtils file("${buildDir}/linux/service/vars.env")
-    installUtils file("${buildDir}/linux/common.sh")
-    preInstall file("${buildDir}/linux/preInstall.sh")
-    postInstall file("${buildDir}/linux/postInstall.sh")
-    preUninstall file("${buildDir}/linux/rpm/preUninstall.sh")
-    postUninstall file("${buildDir}/linux/rpm/postUninstall.sh")
+    installUtils file("$buildDir/linux/service/vars.env")
+    installUtils file("$buildDir/linux/common.sh")
+    preInstall file("$buildDir/linux/preInstall.sh")
+    postInstall file("$buildDir/linux/postInstall.sh")
+    preUninstall file("$buildDir/linux/rpm/preUninstall.sh")
+    postUninstall file("$buildDir/linux/rpm/postUninstall.sh")
 }
 
 buildDeb {
@@ -170,12 +171,12 @@ buildDeb {
     dependsOn replacePackageScriptVars
     configurationFile = "/etc/ignite3/vars.env"
 
-    installUtils file("${buildDir}/linux/service/vars.env")
-    installUtils file("${buildDir}/linux/common.sh")
-    preInstall file("${buildDir}/linux/preInstall.sh")
-    postInstall file("${buildDir}/linux/postInstall.sh")
-    preUninstall file("${buildDir}/linux/deb/preUninstall.sh")
-    postUninstall file("${buildDir}/linux/deb/postUninstall.sh")
+    installUtils file("$buildDir/linux/service/vars.env")
+    installUtils file("$buildDir/linux/common.sh")
+    preInstall file("$buildDir/linux/preInstall.sh")
+    postInstall file("$buildDir/linux/postInstall.sh")
+    preUninstall file("$buildDir/linux/deb/preUninstall.sh")
+    postUninstall file("$buildDir/linux/deb/postUninstall.sh")
 }
 
 ospackage {
@@ -188,28 +189,28 @@ ospackage {
     os LINUX
 
     into(packageTokens.INSTALL_DIR) {
-        into("") {
-            from "${buildDir}/linux/service/ignite3db.service"
-            from "${buildDir}/linux/service/ignite3db.conf"
-            from("${buildDir}/linux/start.sh") {
+        into('') {
+            from "$buildDir/linux/service/ignite3db.service"
+            from "$buildDir/linux/service/ignite3db.conf"
+            from("$buildDir/linux/start.sh") {
                 fileMode 0755
             }
         }
 
-        into("lib") {
+        into('lib') {
             from configurations.dbArtifacts
-            from("$buildDir/linux/${zipStartScriptTokens.BOOTSTRAP_FILE_NAME}")
-            from("$buildDir/linux/${zipStartScriptTokens.SETUP_JAVA_FILE_NAME}")
+            from "$buildDir/linux/${zipStartScriptTokens.BOOTSTRAP_FILE_NAME}"
+            from "$buildDir/linux/${zipStartScriptTokens.SETUP_JAVA_FILE_NAME}"
         }
 
-        into("etc") {
+        into('etc') {
             fileType CONFIG
-            from "${buildDir}/linux/service/vars.env"
-            from "${buildDir}/linux/ignite.java.util.logging.properties"
-            from "${rootDir}/packaging/config/ignite-config.conf"
+            from "$buildDir/linux/service/vars.env"
+            from "$buildDir/linux/ignite.java.util.logging.properties"
+            from "$rootDir/packaging/config/ignite-config.conf"
         }
 
-        into("etc") {
+        into('etc') {
             from sourceSets.main.resources
         }
     }
@@ -224,8 +225,13 @@ configurations {
     }
 }
 
-artifacts {
-    dbRelease(file("$buildDir/distributions")) {
-        builtBy createChecksums, signDbZip, buildDeb, buildRpm
+if (project.hasProperty('prepareRelease')) {
+    artifacts {
+        dbRelease(file("$buildDir/distributions")) {
+            builtBy signDbZip, buildDeb, buildRpm
+        }
+        dbRelease(file("$buildDir/checksums")) {
+            builtBy createChecksums
+        }
     }
 }

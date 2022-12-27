@@ -103,11 +103,25 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         };
 
         /// <summary>
+        /// Gets a byte value.
+        /// </summary>
+        /// <param name="index">Index.</param>
+        /// <returns>Value.</returns>
+        public sbyte? GetByteNullable(int index) => IsNull(index) ? null : GetByte(index);
+
+        /// <summary>
         /// Gets a byte value as bool.
         /// </summary>
         /// <param name="index">Index.</param>
         /// <returns>Value.</returns>
         public bool GetByteAsBool(int index) => GetByte(index) != 0;
+
+        /// <summary>
+        /// Gets a byte value as bool.
+        /// </summary>
+        /// <param name="index">Index.</param>
+        /// <returns>Value.</returns>
+        public bool? GetByteAsBoolNullable(int index) => IsNull(index) ? null : GetByte(index) != 0;
 
         /// <summary>
         /// Gets a short value.
@@ -122,6 +136,13 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         };
 
         /// <summary>
+        /// Gets a short value.
+        /// </summary>
+        /// <param name="index">Index.</param>
+        /// <returns>Value.</returns>
+        public short? GetShortNullable(int index) => IsNull(index) ? null : GetShort(index);
+
+        /// <summary>
         /// Gets an int value.
         /// </summary>
         /// <param name="index">Index.</param>
@@ -133,6 +154,13 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             { Length: 2 } s => BinaryPrimitives.ReadInt16LittleEndian(s),
             var s => BinaryPrimitives.ReadInt32LittleEndian(s)
         };
+
+        /// <summary>
+        /// Gets an int value.
+        /// </summary>
+        /// <param name="index">Index.</param>
+        /// <returns>Value.</returns>
+        public int? GetIntNullable(int index) => IsNull(index) ? null : GetInt(index);
 
         /// <summary>
         /// Gets a long value.
@@ -149,6 +177,13 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         };
 
         /// <summary>
+        /// Gets a long value.
+        /// </summary>
+        /// <param name="index">Index.</param>
+        /// <returns>Value.</returns>
+        public long? GetLongNullable(int index) => IsNull(index) ? null : GetLong(index);
+
+        /// <summary>
         /// Gets a Guid value.
         /// </summary>
         /// <param name="index">Index.</param>
@@ -158,6 +193,13 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             { IsEmpty: true } => default,
             var s => UuidSerializer.Read(s)
         };
+
+        /// <summary>
+        /// Gets a Guid value.
+        /// </summary>
+        /// <param name="index">Index.</param>
+        /// <returns>Value.</returns>
+        public Guid? GetGuidNullable(int index) => IsNull(index) ? null : GetGuid(index);
 
         /// <summary>
         /// Gets a string value.
@@ -189,6 +231,13 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         };
 
         /// <summary>
+        /// Gets a float value.
+        /// </summary>
+        /// <param name="index">Index.</param>
+        /// <returns>Value.</returns>
+        public float? GetFloatNullable(int index) => IsNull(index) ? null : GetFloat(index);
+
+        /// <summary>
         /// Gets a double value.
         /// </summary>
         /// <param name="index">Index.</param>
@@ -201,6 +250,13 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         };
 
         /// <summary>
+        /// Gets a double value.
+        /// </summary>
+        /// <param name="index">Index.</param>
+        /// <returns>Value.</returns>
+        public double? GetDoubleNullable(int index) => IsNull(index) ? null : GetDouble(index);
+
+        /// <summary>
         /// Gets a bit mask value.
         /// </summary>
         /// <param name="index">Index.</param>
@@ -210,6 +266,13 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             { IsEmpty: true } => new BitArray(0),
             var s => new BitArray(s.ToArray())
         };
+
+        /// <summary>
+        /// Gets a bit mask value.
+        /// </summary>
+        /// <param name="index">Index.</param>
+        /// <returns>Value.</returns>
+        public BitArray? GetBitmaskNullable(int index) => IsNull(index) ? null : GetBitmask(index);
 
         /// <summary>
         /// Gets a decimal value.
@@ -224,6 +287,14 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         };
 
         /// <summary>
+        /// Gets a decimal value.
+        /// </summary>
+        /// <param name="index">Index.</param>
+        /// <param name="scale">Decimal scale.</param>
+        /// <returns>Value.</returns>
+        public decimal? GetDecimalNullable(int index, int scale) => IsNull(index) ? null : GetDecimal(index, scale);
+
+        /// <summary>
         /// Gets a number (big integer) value.
         /// </summary>
         /// <param name="index">Index.</param>
@@ -233,6 +304,13 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             { IsEmpty: true } => default,
             var s => new BigInteger(s, isBigEndian: true)
         };
+
+        /// <summary>
+        /// Gets a number (big integer) value.
+        /// </summary>
+        /// <param name="index">Index.</param>
+        /// <returns>Value.</returns>
+        public BigInteger? GetNumberNullable(int index) => IsNull(index) ? null : GetNumber(index);
 
         /// <summary>
         /// Gets a local date value.
@@ -246,6 +324,13 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         };
 
         /// <summary>
+        /// Gets a local date value.
+        /// </summary>
+        /// <param name="index">Index.</param>
+        /// <returns>Value.</returns>
+        public LocalDate? GetDateNullable(int index) => IsNull(index) ? null : GetDate(index);
+
+        /// <summary>
         /// Gets a local time value.
         /// </summary>
         /// <param name="index">Index.</param>
@@ -257,6 +342,13 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         };
 
         /// <summary>
+        /// Gets a local time value.
+        /// </summary>
+        /// <param name="index">Index.</param>
+        /// <returns>Value.</returns>
+        public LocalTime? GetTimeNullable(int index) => IsNull(index) ? null : GetTime(index);
+
+        /// <summary>
         /// Gets a local date and time value.
         /// </summary>
         /// <param name="index">Index.</param>
@@ -266,6 +358,13 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             { IsEmpty: true } => default,
             var s => ReadDate(s) + ReadTime(s[3..])
         };
+
+        /// <summary>
+        /// Gets a local date and time value.
+        /// </summary>
+        /// <param name="index">Index.</param>
+        /// <returns>Value.</returns>
+        public LocalDateTime? GetDateTimeNullable(int index) => IsNull(index) ? null : GetDateTime(index);
 
         /// <summary>
         /// Gets a timestamp (instant) value.
@@ -281,6 +380,13 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         };
 
         /// <summary>
+        /// Gets a timestamp (instant) value.
+        /// </summary>
+        /// <param name="index">Index.</param>
+        /// <returns>Value.</returns>
+        public Instant? GetTimestampNullable(int index) => IsNull(index) ? null : GetTimestamp(index);
+
+        /// <summary>
         /// Gets a duration value.
         /// </summary>
         /// <param name="index">Index.</param>
@@ -292,6 +398,13 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                 .FromSeconds(BinaryPrimitives.ReadInt64LittleEndian(s))
                 .Plus(Duration.FromNanoseconds(s.Length == 8 ? 0 : BinaryPrimitives.ReadInt32LittleEndian(s[8..])))
         };
+
+        /// <summary>
+        /// Gets a duration value.
+        /// </summary>
+        /// <param name="index">Index.</param>
+        /// <returns>Value.</returns>
+        public Duration? GetDurationNullable(int index) => IsNull(index) ? null : GetDuration(index);
 
         /// <summary>
         /// Gets a period value.
@@ -313,6 +426,13 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         };
 
         /// <summary>
+        /// Gets a period value.
+        /// </summary>
+        /// <param name="index">Index.</param>
+        /// <returns>Value.</returns>
+        public Period? GetPeriodNullable(int index) => IsNull(index) ? null : GetPeriod(index);
+
+        /// <summary>
         /// Gets bytes.
         /// </summary>
         /// <param name="index">Index.</param>
@@ -322,6 +442,13 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             { IsEmpty: true } => Array.Empty<byte>(),
             var s => s.ToArray()
         };
+
+        /// <summary>
+        /// Gets bytes.
+        /// </summary>
+        /// <param name="index">Index.</param>
+        /// <returns>Value.</returns>
+        public byte[]? GetBytesNullable(int index) => IsNull(index) ? null : GetBytes(index);
 
         /// <summary>
         /// Gets an object value according to the specified type.
@@ -436,6 +563,9 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             return res;
         }
 
+        private static InvalidOperationException GetNullElementException(int index) =>
+            new($"Binary tuple element with index {index} is null.");
+
         private int GetOffset(int position)
         {
             var span = _buffer.Span[position..];
@@ -487,7 +617,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
 
             if (offset == nextOffset && IsNull(index))
             {
-                throw new InvalidOperationException($"Binary tuple element with index {index} is null.");
+                throw GetNullElementException(index);
             }
 
             return _buffer.Span.Slice(offset, nextOffset - offset);

@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.metastorage.impl.MetaStorageServiceImpl
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
@@ -41,6 +42,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
+import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
@@ -84,6 +86,9 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
 
     private ConfigurationManager clusterCfgMgr;
 
+    @Mock
+    private LogicalTopologyServiceImpl logicalTopologyService;
+
     @BeforeEach
     public void setUp() {
         clusterCfgMgr = new ConfigurationManager(
@@ -101,13 +106,20 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
 
         cmgManager = mock(ClusterManagementGroupManager.class);
 
+        logicalTopologyService = mock(LogicalTopologyServiceImpl.class);
+
         distributionZoneManager = new DistributionZoneManager(
                 zonesConfiguration,
                 metaStorageManager,
-                cmgManager
+                cmgManager,
+                logicalTopologyService
         );
 
         clusterCfgMgr.start();
+
+        doNothing().when(logicalTopologyService).addEventListener(any());
+
+        when(logicalTopologyService.logicalTopologyOnLeader()).thenReturn(completedFuture(new LogicalTopologySnapshot(1, Set.of())));
 
         distributionZoneManager.start();
 

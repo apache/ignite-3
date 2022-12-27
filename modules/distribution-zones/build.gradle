@@ -42,10 +42,12 @@ dependencies {
     testImplementation libs.mockito.junit
     testImplementation project(':ignite-raft-api')
     testImplementation project(':ignite-network-api')
+    testImplementation project(':ignite-metastorage-api')
     testImplementation project(':ignite-metastorage')
     testImplementation(testFixtures(project(':ignite-core')))
     testImplementation(testFixtures(project(':ignite-configuration')))
     testImplementation(testFixtures(project(':ignite-metastorage')))
+    testImplementation(testFixtures(project(':ignite-cluster-management')))
 }
 
 description = 'ignite-distribution-zones'

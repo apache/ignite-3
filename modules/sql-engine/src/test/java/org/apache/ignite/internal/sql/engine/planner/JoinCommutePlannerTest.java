@@ -23,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
+import java.util.UUID;
 import org.apache.calcite.plan.RelOptCost;
 import org.apache.calcite.plan.RelOptPlanner;
 import org.apache.calcite.plan.RelOptUtil;
@@ -58,7 +59,7 @@ public class JoinCommutePlannerTest extends AbstractPlannerTest {
                                 .build(), 1_000) {
 
                     @Override public IgniteDistribution distribution() {
-                        return IgniteDistributions.affinity(0, "HUGE", "hash");
+                        return IgniteDistributions.affinity(0, UUID.randomUUID(), DEFAULT_ZONE_ID);
                     }
                 },
                 new TestTable(
@@ -68,7 +69,7 @@ public class JoinCommutePlannerTest extends AbstractPlannerTest {
                                 .build(), 10) {
 
                     @Override public IgniteDistribution distribution() {
-                        return IgniteDistributions.affinity(0, "SMALL", "hash");
+                        return IgniteDistributions.affinity(0, UUID.randomUUID(), DEFAULT_ZONE_ID);
                     }
                 }
         );

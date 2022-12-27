@@ -62,7 +62,7 @@ For all the commands going forward:
    ```
 7. Create ZIP, DEB, RPM packages, .NET and C++ client, sign them and create checksums:
    ```
-   ./gradlew prepareRelease
+   ./gradlew -PprepareRelease prepareRelease
    ```
 8. Copy all packages along with checksums and signatures to the development distribution directory:
    ```

@@ -21,6 +21,7 @@ import com.google.gson.Gson;
 import jakarta.inject.Singleton;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.Objects;
 import org.apache.ignite.internal.cli.NodeNameRegistry;
 import org.apache.ignite.internal.cli.config.ConfigConstants;
 import org.apache.ignite.internal.cli.config.StateConfigProvider;
@@ -60,8 +61,12 @@ public class ConnectCall implements Call<ConnectCallInput, String> {
 
     @Override
     public CallOutput<String> execute(ConnectCallInput input) {
+        String nodeUrl = input.getNodeUrl();
+        if (session.isConnectedToNode() && Objects.equals(session.nodeUrl(), nodeUrl)) {
+            MessageUiComponent message = MessageUiComponent.fromMessage("You are already connected to %s", UiElements.url(nodeUrl));
+            return DefaultCallOutput.success(message.render());
+        }
         try {
-            String nodeUrl = input.getNodeUrl();
             String configuration = fetchNodeConfiguration(nodeUrl);
             session.setNodeName(fetchNodeName(nodeUrl));
             session.setNodeUrl(nodeUrl);
@@ -73,7 +78,7 @@ public class ConnectCall implements Call<ConnectCallInput, String> {
 
         } catch (ApiException | IllegalArgumentException e) {
             session.setConnectedToNode(false);
-            return DefaultCallOutput.failure(new IgniteCliApiException(e, input.getNodeUrl()));
+            return DefaultCallOutput.failure(new IgniteCliApiException(e, nodeUrl));
         }
     }
 

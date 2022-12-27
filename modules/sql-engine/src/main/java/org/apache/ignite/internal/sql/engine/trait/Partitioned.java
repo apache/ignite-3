@@ -21,6 +21,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.function.ToIntFunction;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.util.IgniteUtils;
 
 /**
  * Partitioned.
@@ -43,7 +44,7 @@ public final class Partitioned<RowT> implements Destination<RowT> {
     /** {@inheritDoc} */
     @Override
     public List<String> targets(RowT row) {
-        return assignments.get(partFun.applyAsInt(row) % assignments.size());
+        return assignments.get(IgniteUtils.safeAbs(partFun.applyAsInt(row) % assignments.size()));
     }
 
     /** {@inheritDoc} */

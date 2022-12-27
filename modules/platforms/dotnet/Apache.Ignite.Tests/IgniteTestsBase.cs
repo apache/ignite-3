@@ -32,6 +32,7 @@ namespace Apache.Ignite.Tests
         protected const string TableName = "TBL1";
 
         protected const string TableAllColumnsName = "TBL_ALL_COLUMNS";
+        protected const string TableAllColumnsSqlName = "TBL_ALL_COLUMNS_SQL";
 
         protected const string TableInt8Name = "TBL_INT8";
         protected const string TableInt16Name = "TBL_INT16";
@@ -79,6 +80,10 @@ namespace Apache.Ignite.Tests
 
         protected IRecordView<PocoAllColumnsNullable> PocoAllColumnsNullableView { get; private set; } = null!;
 
+        protected IRecordView<PocoAllColumnsSql> PocoAllColumnsSqlView { get; private set; } = null!;
+
+        protected IRecordView<PocoAllColumnsSqlNullable> PocoAllColumnsSqlNullableView { get; private set; } = null!;
+
         [OneTimeSetUp]
         public async Task OneTimeSetUp()
         {
@@ -93,6 +98,10 @@ namespace Apache.Ignite.Tests
             var tableAllColumns = await Client.Tables.GetTableAsync(TableAllColumnsName);
             PocoAllColumnsView = tableAllColumns!.GetRecordView<PocoAllColumns>();
             PocoAllColumnsNullableView = tableAllColumns.GetRecordView<PocoAllColumnsNullable>();
+
+            var tableAllColumnsSql = await Client.Tables.GetTableAsync(TableAllColumnsSqlName);
+            PocoAllColumnsSqlView = tableAllColumnsSql!.GetRecordView<PocoAllColumnsSql>();
+            PocoAllColumnsSqlNullableView = tableAllColumnsSql.GetRecordView<PocoAllColumnsSqlNullable>();
         }
 
         [OneTimeTearDown]
