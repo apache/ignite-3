@@ -112,11 +112,13 @@ public class PartitionListener implements RaftGroupListener {
         this.partitionId = partitionId;
 
         try (PartitionTimestampCursor cursor = partitionDataStorage.getStorage().scan(HybridTimestamp.MAX_VALUE)) {
-            while (cursor.hasNext()) {
-                ReadResult readResult = cursor.next();
+            if (cursor != null) {
+                while (cursor.hasNext()) {
+                    ReadResult readResult = cursor.next();
 
-                if (readResult.isWriteIntent()) {
-                    txsPendingRowIds.computeIfAbsent(readResult.transactionId(), key -> new HashSet()).add(readResult.rowId());
+                    if (readResult.isWriteIntent()) {
+                        txsPendingRowIds.computeIfAbsent(readResult.transactionId(), key -> new HashSet()).add(readResult.rowId());
+                    }
                 }
             }
         }
