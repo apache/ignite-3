@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.tx.storage.state.rocksdb;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.ByteUtils.putLongToBytes;
@@ -36,7 +37,6 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.rocksdb.BusyRocksIteratorAdapter;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.tx.TxMeta;
@@ -46,6 +46,7 @@ import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.lang.IgniteStringFormatter;
 import org.jetbrains.annotations.Nullable;
 import org.rocksdb.AbstractNativeReference;
 import org.rocksdb.ReadOptions;
@@ -62,9 +63,17 @@ import org.rocksdb.WriteOptions;
 public class TxStateRocksDbStorage implements TxStateStorage {
     private static final VarHandle STATE;
 
+    private static final VarHandle REBALANCE_FUTURE;
+
     static {
         try {
             STATE = MethodHandles.lookup().findVarHandle(TxStateRocksDbStorage.class, "state", StorageState.class);
+
+            REBALANCE_FUTURE = MethodHandles.lookup().findVarHandle(
+                    TxStateRocksDbStorage.class,
+                    "rebalanceFuture",
+                    CompletableFuture.class
+            );
         } catch (ReflectiveOperationException e) {
             throw new ExceptionInInitializerError(e);
         }
@@ -91,11 +100,8 @@ public class TxStateRocksDbStorage implements TxStateStorage {
     /** Collection of opened RocksDB iterators. */
     private final Set<RocksIterator> iterators = ConcurrentHashMap.newKeySet();
 
-    /** Busy lock to stop synchronously. */
+    /** Busy lock. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
-
-    /** Prevents double closing the component. */
-    private final AtomicBoolean closeGuard = new AtomicBoolean();
 
     /** Database key for the last applied index+term. */
     private final byte[] lastAppliedIndexAndTermKey;
@@ -111,6 +117,10 @@ public class TxStateRocksDbStorage implements TxStateStorage {
 
     /** Current state of the storage. */
     private volatile StorageState state = StorageState.RUNNABLE;
+
+    @Nullable
+    @SuppressWarnings("unused")
+    private volatile CompletableFuture<Void> rebalanceFuture;
 
     /**
      * The constructor.
@@ -151,10 +161,12 @@ public class TxStateRocksDbStorage implements TxStateStorage {
     @Nullable
     public TxMeta get(UUID txId) {
         if (!busyLock.enterBusy()) {
-            throwExceptionIfStorageClosedOrRebalanced();
+            throwExceptionIfStorageClosedOrRebalance();
         }
 
         try {
+            throwExceptionIfStorageInProgressOfRebalance();
+
             byte[] txMetaBytes = db.get(txIdToKey(txId));
 
             return txMetaBytes == null ? null : fromBytes(txMetaBytes);
@@ -173,7 +185,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
     @Override
     public void put(UUID txId, TxMeta txMeta) {
         if (!busyLock.enterBusy()) {
-            throwExceptionIfStorageClosedOrWaitFinishStartRebalance();
+            throwExceptionIfStorageClosedOrRebalance();
         }
 
         try {
@@ -193,7 +205,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
     @Override
     public boolean compareAndSet(UUID txId, @Nullable TxState txStateExpected, TxMeta txMeta, long commandIndex, long commandTerm) {
         if (!busyLock.enterBusy()) {
-            throwExceptionIfStorageClosedOrWaitFinishStartRebalance();
+            throwExceptionIfStorageClosedOrRebalance();
         }
 
         try (WriteBatch writeBatch = new WriteBatch()) {
@@ -224,7 +236,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
                 }
             }
 
-            if (state != StorageState.REBALANCED) {
+            if (state != StorageState.REBALANCE) {
                 writeBatch.put(lastAppliedIndexAndTermKey, indexAndTermToBytes(commandIndex, commandTerm));
 
                 lastAppliedIndex = commandIndex;
@@ -249,10 +261,12 @@ public class TxStateRocksDbStorage implements TxStateStorage {
     @Override
     public void remove(UUID txId) {
         if (!busyLock.enterBusy()) {
-            throwExceptionIfStorageClosedOrRebalanced();
+            throwExceptionIfStorageClosedOrRebalance();
         }
 
         try {
+            throwExceptionIfStorageInProgressOfRebalance();
+
             db.delete(txIdToKey(txId));
         } catch (RocksDBException e) {
             throw new IgniteInternalException(
@@ -269,10 +283,12 @@ public class TxStateRocksDbStorage implements TxStateStorage {
     @Override
     public Cursor<IgniteBiTuple<UUID, TxMeta>> scan() {
         if (!busyLock.enterBusy()) {
-            throwExceptionIfStorageClosedOrRebalanced();
+            throwExceptionIfStorageClosedOrRebalance();
         }
 
         try {
+            throwExceptionIfStorageInProgressOfRebalance();
+
             byte[] lowerBound = ByteBuffer.allocate(Short.BYTES + 1).putShort((short) partitionId).put((byte) 0).array();
             byte[] upperBound = partitionEndPrefix();
 
@@ -302,8 +318,13 @@ public class TxStateRocksDbStorage implements TxStateStorage {
                 }
 
                 @Override
-                protected void handleBusy() {
-                    throwExceptionIfStorageClosedOrRebalanced();
+                protected void handleBusyFail() {
+                    throwExceptionIfStorageClosedOrRebalance();
+                }
+
+                @Override
+                protected void handeBusySuccess() {
+                    throwExceptionIfStorageInProgressOfRebalance();
                 }
 
                 @Override
@@ -336,10 +357,12 @@ public class TxStateRocksDbStorage implements TxStateStorage {
     @Override
     public void lastApplied(long lastAppliedIndex, long lastAppliedTerm) {
         if (!busyLock.enterBusy()) {
-            throwExceptionIfStorageClosedOrRebalanced();
+            throwExceptionIfStorageClosedOrRebalance();
         }
 
         try {
+            throwExceptionIfStorageInProgressOfRebalance();
+
             db.put(lastAppliedIndexAndTermKey, indexAndTermToBytes(lastAppliedIndex, lastAppliedTerm));
 
             this.lastAppliedIndex = lastAppliedIndex;
@@ -413,14 +436,18 @@ public class TxStateRocksDbStorage implements TxStateStorage {
 
     @Override
     public void destroy() {
-        // TODO: IGNITE-18024 вот тут надо запретить уничтожать если мы в процессе ребаланса
+        if (!close0()) {
+            return;
+        }
 
-        try (WriteBatch writeBatch = new WriteBatch()) {
-            close();
+        try {
+            try (WriteBatch writeBatch = new WriteBatch()) {
+                writeBatch.deleteRange(partitionStartPrefix(), partitionEndPrefix());
 
-            writeBatch.deleteRange(partitionStartPrefix(), partitionEndPrefix());
+                writeBatch.delete(lastAppliedIndexAndTermKey);
 
-            db.write(writeOptions, writeBatch);
+                db.write(writeOptions, writeBatch);
+            }
         } catch (Exception e) {
             throw new IgniteInternalException(
                     TX_STATE_STORAGE_ERR,
@@ -459,10 +486,119 @@ public class TxStateRocksDbStorage implements TxStateStorage {
 
     @Override
     public void close() {
-        // TODO: IGNITE-18027 вот тут надо запретить закрывтьася если мы в процессе ребаланса
+        close0();
+    }
 
-        if (!closeGuard.compareAndSet(false, true)) {
-            return;
+    @Override
+    public CompletableFuture<Void> startRebalance() {
+        if (!STATE.compareAndSet(this, StorageState.RUNNABLE, StorageState.REBALANCE)) {
+            throwExceptionIfStorageClosedOrRebalance();
+        }
+
+        busyLock.block();
+
+        try (WriteBatch writeBatch = new WriteBatch()) {
+            writeBatch.deleteRange(partitionStartPrefix(), partitionEndPrefix());
+            writeBatch.put(lastAppliedIndexAndTermKey, indexAndTermToBytes(REBALANCE_IN_PROGRESS, REBALANCE_IN_PROGRESS));
+
+            db.write(writeOptions, writeBatch);
+
+            lastAppliedIndex = REBALANCE_IN_PROGRESS;
+            lastAppliedTerm = REBALANCE_IN_PROGRESS;
+            persistedIndex = REBALANCE_IN_PROGRESS;
+
+            CompletableFuture<Void> rebalanceFuture = completedFuture(null);
+
+            this.rebalanceFuture = rebalanceFuture;
+
+            return rebalanceFuture;
+        } catch (Exception e) {
+            throw new IgniteInternalException(
+                    TX_STATE_STORAGE_REBALANCE_ERR,
+                    IgniteStringFormatter.format("Failed to clear storage for partition {} of table {}", partitionId, getTableName()),
+                    e
+            );
+        } finally {
+            busyLock.unblock();
+        }
+    }
+
+    @Override
+    public CompletableFuture<Void> abortRebalance() {
+        CompletableFuture<Void> rebalanceFuture = (CompletableFuture<Void>) REBALANCE_FUTURE.getAndSet(this, null);
+
+        if (rebalanceFuture == null) {
+            return completedFuture(null);
+        }
+
+        return rebalanceFuture
+                .thenAccept(unused -> {
+                    try (WriteBatch writeBatch = new WriteBatch()) {
+                        writeBatch.deleteRange(partitionStartPrefix(), partitionEndPrefix());
+                        writeBatch.delete(lastAppliedIndexAndTermKey);
+
+                        db.write(writeOptions, writeBatch);
+
+                        lastAppliedIndex = 0;
+                        lastAppliedTerm = 0;
+                        persistedIndex = 0;
+
+                        state = StorageState.RUNNABLE;
+                    } catch (Exception e) {
+                        throw new IgniteInternalException(
+                                TX_STATE_STORAGE_REBALANCE_ERR,
+                                IgniteStringFormatter.format(
+                                        "Failed to clear storage for partition {} of table {}",
+                                        partitionId,
+                                        getTableName()
+                                ),
+                                e
+                        );
+                    }
+                });
+    }
+
+    @Override
+    public CompletableFuture<Void> finishRebalance(long lastAppliedIndex, long lastAppliedTerm) {
+        CompletableFuture<Void> rebalanceFuture = (CompletableFuture<Void>) REBALANCE_FUTURE.getAndSet(this, null);
+
+        if (rebalanceFuture == null) {
+            throw new IgniteInternalException(TX_STATE_STORAGE_REBALANCE_ERR, "Rebalancing has not started");
+        }
+
+        return rebalanceFuture
+                .thenAccept(unused -> {
+                    try (WriteBatch writeBatch = new WriteBatch()) {
+                        writeBatch.put(lastAppliedIndexAndTermKey, indexAndTermToBytes(REBALANCE_IN_PROGRESS, REBALANCE_IN_PROGRESS));
+
+                        db.write(writeOptions, writeBatch);
+
+                        this.lastAppliedIndex = lastAppliedIndex;
+                        this.lastAppliedTerm = lastAppliedTerm;
+                        this.persistedIndex = lastAppliedIndex;
+
+                        state = StorageState.RUNNABLE;
+                    } catch (Exception e) {
+                        throw new IgniteInternalException(
+                                TX_STATE_STORAGE_REBALANCE_ERR,
+                                IgniteStringFormatter.format(
+                                        "Failed to finish rebalance for partition {} of table {}",
+                                        partitionId,
+                                        getTableName()
+                                ),
+                                e
+                        );
+                    }
+                });
+    }
+
+    private boolean close0() {
+        if (!STATE.compareAndSet(this, StorageState.RUNNABLE, StorageState.CLOSED)) {
+            StorageState state = this.state;
+
+            assert state == StorageState.CLOSED : state;
+
+            return false;
         }
 
         busyLock.block();
@@ -470,54 +606,28 @@ public class TxStateRocksDbStorage implements TxStateStorage {
         List<AbstractNativeReference> resources = new ArrayList<>(iterators);
 
         RocksUtils.closeAll(resources);
+
+        iterators.clear();
+
+        return true;
     }
 
-    @Override
-    public CompletableFuture<Void> startRebalance() {
-        // TODO: IGNITE-18024 Implement
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public CompletableFuture<Void> abortRebalance() {
-        // TODO: IGNITE-18024 Implement
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public CompletableFuture<Void> finishRebalance(long lastAppliedIndex, long lastAppliedTerm) {
-        // TODO: IGNITE-18024 Implement
-        throw new UnsupportedOperationException();
-    }
-
-    private void throwExceptionIfStorageClosedOrRebalanced() {
+    private void throwExceptionIfStorageClosedOrRebalance() {
         StorageState state = this.state;
 
         switch (state) {
             case CLOSED:
                 throw createStorageClosedException();
-            case REBALANCED:
-                throw new IgniteInternalException(
-                        TX_STATE_STORAGE_REBALANCE_ERR,
-                        "Storage is in the process of being rebalanced"
-                );
+            case REBALANCE:
+                throw createStorageInProgressOfRebalanceException();
             default:
                 throw createUnexpectedStorageStateException(state);
         }
     }
 
-    private void throwExceptionIfStorageClosedOrWaitFinishStartRebalance() {
-        StorageState state = this.state;
-
-        switch (state) {
-            case CLOSED:
-                throw createStorageClosedException();
-            case REBALANCED:
-                busyLock.forceEnterBusy();
-
-                break;
-            default:
-                throw createUnexpectedStorageStateException(state);
+    private void throwExceptionIfStorageInProgressOfRebalance() {
+        if (state == StorageState.REBALANCE) {
+            throw createStorageInProgressOfRebalanceException();
         }
     }
 
@@ -525,8 +635,16 @@ public class TxStateRocksDbStorage implements TxStateStorage {
         return new IgniteInternalException(TX_STATE_STORAGE_STOPPED_ERR, "Transaction state storage is stopped");
     }
 
+    private IgniteInternalException createStorageInProgressOfRebalanceException() {
+        return new IgniteInternalException(TX_STATE_STORAGE_REBALANCE_ERR, "Storage is in the process of being rebalanced");
+    }
+
     private IgniteInternalException createUnexpectedStorageStateException(StorageState state) {
         return new IgniteInternalException(TX_STATE_STORAGE_ERR, "Unexpected state: " + state);
+    }
+
+    private String getTableName() {
+        return tableStorage.configuration().name().value();
     }
 
     /**
@@ -540,6 +658,6 @@ public class TxStateRocksDbStorage implements TxStateStorage {
         CLOSED,
 
         /** Storage is in the process of being rebalanced. */
-        REBALANCED
+        REBALANCE
     }
 }
