@@ -34,6 +34,8 @@ public static class PocoEnums
 
     public record PocoByteEnum(long Key, ByteEnum Int8);
 
+    public record PocoUnsignedByteEnum(long Key, UnsignedByteEnum Int8);
+
     public enum IntEnum : int
     {
         Foo = 1,
@@ -53,6 +55,12 @@ public static class PocoEnums
     }
 
     public enum ByteEnum : sbyte
+    {
+        Foo = 1,
+        Bar = 3
+    }
+
+    public enum UnsignedByteEnum : byte
     {
         Foo = 1,
         Bar = 3

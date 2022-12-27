@@ -723,6 +723,34 @@ namespace Apache.Ignite.Tests.Table
         }
 
         [Test]
+        public async Task TestEnumColumns()
+        {
+            // Normal values.
+            await Test(new PocoEnums.PocoIntEnum(1, PocoEnums.IntEnum.Foo));
+            await Test(new PocoEnums.PocoByteEnum(1, PocoEnums.ByteEnum.Foo));
+            await Test(new PocoEnums.PocoShortEnum(1, PocoEnums.ShortEnum.Foo));
+            await Test(new PocoEnums.PocoLongEnum(1, PocoEnums.LongEnum.Foo));
+
+            // Values that are not represented in the enum (it is just a number underneath).
+            await Test(new PocoEnums.PocoIntEnum(1, (PocoEnums.IntEnum)100));
+            await Test(new PocoEnums.PocoByteEnum(1, (PocoEnums.ByteEnum)101));
+            await Test(new PocoEnums.PocoShortEnum(1, (PocoEnums.ShortEnum)102));
+            await Test(new PocoEnums.PocoLongEnum(1, (PocoEnums.LongEnum)103));
+
+            async Task Test<T>(T val)
+                where T : notnull
+            {
+                var table = await Client.Tables.GetTableAsync(TableAllColumnsName);
+                var view = table!.GetRecordView<T>();
+
+                await view.UpsertAsync(null, val);
+
+                var res = await view.GetAsync(null, val);
+                Assert.AreEqual(val, res.Value);
+            }
+        }
+
+        [Test]
         public async Task TestUnsupportedColumnTypeThrowsException()
         {
             var table = await Client.Tables.GetTableAsync(TableAllColumnsName);
@@ -736,26 +764,17 @@ namespace Apache.Ignite.Tests.Table
         }
 
         [Test]
-        public async Task TestNumericEnumMapping()
+        public async Task TestUnsupportedEnumColumnTypeThrowsException()
         {
-            // TODO: Test incompatible underlying types.
-            // TODO: Test integer values that are not in enum.
-            await Test(new PocoEnums.PocoIntEnum(1, PocoEnums.IntEnum.Foo));
-            await Test(new PocoEnums.PocoByteEnum(1, PocoEnums.ByteEnum.Foo));
-            await Test(new PocoEnums.PocoShortEnum(1, PocoEnums.ShortEnum.Foo));
-            await Test(new PocoEnums.PocoLongEnum(1, PocoEnums.LongEnum.Foo));
+            var table = await Client.Tables.GetTableAsync(TableAllColumnsName);
+            var pocoView = table!.GetRecordView<PocoEnums.PocoUnsignedByteEnum>();
+            var poco = new PocoEnums.PocoUnsignedByteEnum(1, default);
 
-            async Task Test<T>(T val)
-                where T : notnull
-            {
-                var table = await Client.Tables.GetTableAsync(TableAllColumnsName);
-                var view = table!.GetRecordView<T>();
-
-                await view.UpsertAsync(null, val);
-
-                var res = await view.GetAsync(null, val);
-                Assert.AreEqual(val, res.Value);
-            }
+            var ex = Assert.ThrowsAsync<IgniteClientException>(async () => await pocoView.UpsertAsync(null, poco));
+            Assert.AreEqual(
+                "Can't map field 'PocoUnsignedByteEnum.<Int8>k__BackingField' of type " +
+                "'Apache.Ignite.Tests.Table.PocoEnums+UnsignedByteEnum' to column 'INT8' of type 'System.SByte' - types do not match.",
+                ex!.Message);
         }
 
         // ReSharper disable once NotAccessedPositionalProperty.Local
