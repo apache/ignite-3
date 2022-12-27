@@ -26,11 +26,13 @@ import static org.mockito.Mockito.mock;
 
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.configuration.ConfigurationChangeException;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
+import org.apache.ignite.internal.distributionzones.DistributionZoneConfigurationParameters.Builder;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneAlreadyExistsException;
@@ -156,10 +158,14 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
                 new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).dataNodesAutoAdjust(100).build()
         ).get(5, TimeUnit.SECONDS);
 
+        CompletableFuture<Void> fut;
+
+        fut = distributionZoneManager.createZone(
+                new Builder(ZONE_NAME).dataNodesAutoAdjust(100).build()
+        );
+
         try {
-            distributionZoneManager.createZone(
-                    new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).dataNodesAutoAdjust(100).build()
-            ).get(5, TimeUnit.SECONDS);
+            fut.get(5, TimeUnit.SECONDS);
         } catch (Exception e0) {
             e = e0;
         }
@@ -172,8 +178,10 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
     public void testDropZoneIfNotExists() {
         Exception e = null;
 
+        CompletableFuture<Void> fut = distributionZoneManager.dropZone(ZONE_NAME);
+
         try {
-            distributionZoneManager.dropZone(ZONE_NAME).get(5, TimeUnit.SECONDS);
+            fut.get(5, TimeUnit.SECONDS);
         } catch (Exception e0) {
             e = e0;
         }
@@ -294,9 +302,12 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
     public void testAlterZoneRename1() {
         Exception e = null;
 
+        CompletableFuture<Void> fut = distributionZoneManager
+                .alterZone(ZONE_NAME, new DistributionZoneConfigurationParameters.Builder(NEW_ZONE_NAME)
+                .dataNodesAutoAdjust(100).build());
+
         try {
-            distributionZoneManager.alterZone(ZONE_NAME, new DistributionZoneConfigurationParameters.Builder(NEW_ZONE_NAME)
-                    .dataNodesAutoAdjust(100).build()).get(5, TimeUnit.SECONDS);
+            fut.get(5, TimeUnit.SECONDS);
         } catch (Exception e0) {
             e = e0;
         }
@@ -315,9 +326,11 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
         distributionZoneManager.createZone(new DistributionZoneConfigurationParameters.Builder(NEW_ZONE_NAME)
                 .dataNodesAutoAdjust(100).build()).get(5, TimeUnit.SECONDS);
 
+        CompletableFuture<Void> fut = distributionZoneManager.alterZone(ZONE_NAME, new Builder(NEW_ZONE_NAME)
+                .dataNodesAutoAdjust(100).build());
+
         try {
-            distributionZoneManager.alterZone(ZONE_NAME, new DistributionZoneConfigurationParameters.Builder(NEW_ZONE_NAME)
-                    .dataNodesAutoAdjust(100).build()).get(5, TimeUnit.SECONDS);
+            fut.get(5, TimeUnit.SECONDS);
         } catch (Exception e0) {
             e = e0;
         }
@@ -330,9 +343,11 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
     public void testAlterZoneIfExists() {
         Exception e = null;
 
+        CompletableFuture<Void> fut = distributionZoneManager.alterZone(ZONE_NAME, new Builder(ZONE_NAME)
+                .dataNodesAutoAdjust(100).build());
+
         try {
-            distributionZoneManager.alterZone(ZONE_NAME, new DistributionZoneConfigurationParameters.Builder(ZONE_NAME)
-                    .dataNodesAutoAdjust(100).build()).get(5, TimeUnit.SECONDS);
+            fut.get(5, TimeUnit.SECONDS);
         } catch (Exception e0) {
             e = e0;
         }
@@ -345,9 +360,11 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
     public void testCreateZoneWithWrongAutoAdjust() {
         Exception e = null;
 
+        CompletableFuture<Void> fut = distributionZoneManager.createZone(new Builder(ZONE_NAME)
+                .dataNodesAutoAdjust(-10).build());
+
         try {
-            distributionZoneManager.createZone(new DistributionZoneConfigurationParameters.Builder(ZONE_NAME)
-                    .dataNodesAutoAdjust(-10).build()).get(5, TimeUnit.SECONDS);
+            fut.get(5, TimeUnit.SECONDS);
         } catch (Exception e0) {
             e = e0;
         }
@@ -360,9 +377,11 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
     public void testCreateZoneWithWrongSeparatedAutoAdjust1() {
         Exception e = null;
 
+        CompletableFuture<Void> fut = distributionZoneManager.createZone(new Builder(ZONE_NAME)
+                .dataNodesAutoAdjustScaleUp(-100).dataNodesAutoAdjustScaleDown(1).build());
+
         try {
-            distributionZoneManager.createZone(new DistributionZoneConfigurationParameters.Builder(ZONE_NAME)
-                    .dataNodesAutoAdjustScaleUp(-100).dataNodesAutoAdjustScaleDown(1).build()).get(5, TimeUnit.SECONDS);
+            fut.get(5, TimeUnit.SECONDS);
         } catch (Exception e0) {
             e = e0;
         }
@@ -375,9 +394,11 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
     public void testCreateZoneWithWrongSeparatedAutoAdjust2() {
         Exception e = null;
 
+        CompletableFuture<Void> fut = distributionZoneManager.createZone(new Builder(ZONE_NAME)
+                .dataNodesAutoAdjustScaleUp(1).dataNodesAutoAdjustScaleDown(-100).build());
+
         try {
-            distributionZoneManager.createZone(new DistributionZoneConfigurationParameters.Builder(ZONE_NAME)
-                    .dataNodesAutoAdjustScaleUp(1).dataNodesAutoAdjustScaleDown(-100).build()).get(5, TimeUnit.SECONDS);
+            fut.get(5, TimeUnit.SECONDS);
         } catch (Exception e0) {
             e = e0;
         }
@@ -391,7 +412,7 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
         Exception e = null;
 
         try {
-            distributionZoneManager.createZone(null).get(5, TimeUnit.SECONDS);
+            distributionZoneManager.createZone(null);
         } catch (Exception e0) {
             e = e0;
         }
@@ -406,8 +427,7 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
         Exception e = null;
 
         try {
-            distributionZoneManager.alterZone(null, new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).build())
-                    .get(5, TimeUnit.SECONDS);
+            distributionZoneManager.alterZone(null, new Builder(ZONE_NAME).build());
         } catch (Exception e0) {
             e = e0;
         }
@@ -422,13 +442,11 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
         Exception e = null;
 
         try {
-            distributionZoneManager.alterZone(ZONE_NAME, null)
-                    .get(5, TimeUnit.SECONDS);
+            distributionZoneManager.alterZone(ZONE_NAME, null);
         } catch (Exception e0) {
             e = e0;
         }
 
-        assertTrue(e != null);
         assertTrue(e instanceof NullPointerException, e.toString());
         assertEquals("Distribution zone configuration is null.", e.getMessage(), e.toString());
     }
@@ -438,8 +456,7 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
         Exception e = null;
 
         try {
-            distributionZoneManager.dropZone(null)
-                    .get(5, TimeUnit.SECONDS);
+            distributionZoneManager.dropZone(null);
         } catch (Exception e0) {
             e = e0;
         }
