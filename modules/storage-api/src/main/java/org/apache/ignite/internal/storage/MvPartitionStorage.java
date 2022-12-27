@@ -241,7 +241,7 @@ public interface MvPartitionStorage extends ManuallyCloseable {
     /**
      * Closes the storage.
      *
-     * @throws StorageRebalanceException If a partition is in the process of rebalancing.
+     * <p>REQUIRED: For background tasks for partition, such as rebalancing, to be completed by the time the method is called.
      */
     @Override
     void close();

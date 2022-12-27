@@ -97,12 +97,6 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
 
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-18028")
     @Override
-    public void testDestroyOrClosePartitionInProgressOfRebalance() throws Exception {
-        super.testDestroyOrClosePartitionInProgressOfRebalance();
-    }
-
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18028")
-    @Override
     public void testStartRebalanceForClosedPartition() {
         super.testStartRebalanceForClosedPartition();
     }

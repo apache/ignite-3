@@ -44,7 +44,7 @@ public class TestHashIndexStorage implements HashIndexStorage {
 
     private volatile boolean closed;
 
-    private volatile boolean rebalance;
+    private volatile boolean rebalanced;
 
     /**
      * Constructor.
@@ -150,7 +150,7 @@ public class TestHashIndexStorage implements HashIndexStorage {
     private void checkStorageClosedOrInProcessOfRebalance() {
         checkStorageClosed();
 
-        if (rebalance) {
+        if (rebalanced) {
             throw new StorageRebalanceException("Storage in the process of rebalancing");
         }
     }
@@ -161,7 +161,7 @@ public class TestHashIndexStorage implements HashIndexStorage {
     public void startRebalance() {
         checkStorageClosed();
 
-        rebalance = true;
+        rebalanced = true;
 
         clear();
     }
@@ -172,7 +172,11 @@ public class TestHashIndexStorage implements HashIndexStorage {
     public void abortRebalance() {
         checkStorageClosed();
 
-        rebalance = false;
+        if (!rebalanced) {
+            return;
+        }
+
+        rebalanced = false;
 
         clear();
     }
@@ -183,8 +187,8 @@ public class TestHashIndexStorage implements HashIndexStorage {
     public void finishRebalance() {
         checkStorageClosed();
 
-        assert rebalance;
+        assert rebalanced;
 
-        rebalance = false;
+        rebalanced = false;
     }
 }

@@ -113,9 +113,7 @@ public class TestMvTableStorage implements MvTableStorage {
     public CompletableFuture<Void> destroyPartition(int partitionId) {
         checkPartitionId(partitionId);
 
-        if (rebalanceFutureByPartitionId.containsKey(partitionId)) {
-            throw new StorageRebalanceException("Partition in the process of rebalancing: " + partitionId);
-        }
+        assert !rebalanceFutureByPartitionId.containsKey(partitionId);
 
         CompletableFuture<Void> destroyPartitionFuture = new CompletableFuture<>();
 

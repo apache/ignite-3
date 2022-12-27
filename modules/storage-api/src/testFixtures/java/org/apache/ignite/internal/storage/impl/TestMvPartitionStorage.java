@@ -537,7 +537,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
     @Override
     public void close() {
-        checkStorageInProcessOfRebalance();
+        assert !rebalanced;
 
         closed = true;
 
@@ -585,6 +585,10 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
     void abortRebalance() {
         checkStorageClosed();
+
+        if (!rebalanced) {
+            return;
+        }
 
         rebalanced = false;
 

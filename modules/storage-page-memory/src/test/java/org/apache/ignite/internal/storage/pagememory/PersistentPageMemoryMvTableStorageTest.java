@@ -105,12 +105,6 @@ public class PersistentPageMemoryMvTableStorageTest extends AbstractMvTableStora
 
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-18029")
     @Override
-    public void testDestroyOrClosePartitionInProgressOfRebalance() throws Exception {
-        super.testDestroyOrClosePartitionInProgressOfRebalance();
-    }
-
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18029")
-    @Override
     public void testStartRebalanceForClosedPartition() {
         super.testStartRebalanceForClosedPartition();
     }

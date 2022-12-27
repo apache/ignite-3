@@ -346,6 +346,10 @@ public class TestSortedIndexStorage implements SortedIndexStorage {
     public void abortRebalance() {
         checkStorageClosed();
 
+        if (!rebalanced) {
+            return;
+        }
+
         rebalanced = false;
 
         clear();
