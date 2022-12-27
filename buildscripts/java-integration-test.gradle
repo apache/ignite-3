@@ -19,12 +19,9 @@ apply plugin: 'jvm-test-suite'
 
 testing {
     suites {
-        test {
-            useJUnitJupiter()
-        }
-
         integrationTest(JvmTestSuite) {
             testType = TestSuiteType.INTEGRATION_TEST
+            useJUnitJupiter()
 
             dependencies {
                 implementation project
@@ -61,52 +58,6 @@ tasks.named('check') {
     dependsOn(testing.suites.integrationTest)
 }
 
-
-//sourceSets {
-//    integrationTest {
-//        compileClasspath += sourceSets.main.output
-//        compileClasspath += sourceSets.test.output
-//        runtimeClasspath += sourceSets.main.output
-//        runtimeClasspath += sourceSets.test.output
-//        if (sourceSets.hasProperty("testFixtures")) {
-//            compileClasspath += sourceSets.testFixtures.output
-//            runtimeClasspath += sourceSets.testFixtures.output
-//        }
-//    }
-//}
-//
 pmdIntegrationTest {
     enabled = false
 }
-//
-//
-//configurations {
-//    integrationTestImplementation.extendsFrom implementation
-//    integrationTestRuntimeOnly.extendsFrom runtimeOnly
-//    integrationTestApi.extendsFrom api
-//}
-//
-//tasks.register('integrationTest', Test) {
-//    description = 'Runs integration tests.'
-//    group = 'verification'
-//
-//    testClassesDirs = sourceSets.integrationTest.output.classesDirs
-//    classpath = sourceSets.integrationTest.runtimeClasspath
-//}
-//
-//integrationTest {
-//    useJUnitPlatform()
-//    maxHeapSize = "16g"
-//}
-//
-//dependencies {
-//    integrationTestImplementation libs.junit5.api
-//    integrationTestImplementation libs.junit5.impl
-//    integrationTestImplementation libs.junit5.params
-//    integrationTestImplementation libs.mockito.core
-//    integrationTestImplementation libs.mockito.junit
-//    integrationTestImplementation libs.mockito.inline
-//    integrationTestImplementation libs.hamcrest.core
-//    integrationTestImplementation libs.hamcrest.optional
-//    integrationTestImplementation libs.hamcrest.path
-//}
