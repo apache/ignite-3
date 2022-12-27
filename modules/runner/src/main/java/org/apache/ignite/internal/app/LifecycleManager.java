@@ -63,16 +63,14 @@ class LifecycleManager implements StateProvider {
      * @param component Ignite component to start.
      * @throws NodeStoppingException If node stopping intention was detected.
      */
-    void startComponent(IgniteComponent component) throws NodeStoppingException {
+    synchronized void startComponent(IgniteComponent component) throws NodeStoppingException {
         if (status.get() == State.STOPPING) {
             throw new NodeStoppingException("Node=[" + nodeName + "] was stopped");
         }
 
-        synchronized (this) {
-            startedComponents.add(component);
+        startedComponents.add(component);
 
-            component.start();
-        }
+        component.start();
     }
 
     /**
