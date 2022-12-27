@@ -20,7 +20,6 @@ package org.apache.ignite.internal.sql.engine.planner;
 import static org.apache.ignite.internal.util.CollectionUtils.first;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
 
 import java.util.UUID;
 import org.apache.calcite.plan.RelOptUtil;
@@ -28,8 +27,6 @@ import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.sql.fun.SqlAvgAggFunction;
 import org.apache.calcite.sql.fun.SqlCountAggFunction;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
-import org.apache.ignite.internal.sql.engine.rel.agg.IgniteColocatedAggregateBase;
-import org.apache.ignite.internal.sql.engine.rel.agg.IgniteColocatedHashAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteMapHashAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteReduceHashAggregate;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
@@ -77,15 +74,18 @@ public class HashAggregatePlannerTest extends AbstractAggregatePlannerTest {
 
         IgniteReduceHashAggregate rdcAgg = findFirstNode(phys, byClass(IgniteReduceHashAggregate.class));
         IgniteMapHashAggregate mapAgg = findFirstNode(phys, byClass(IgniteMapHashAggregate.class));
-        IgniteColocatedAggregateBase collAgg = findFirstNode(phys, byClass(IgniteColocatedHashAggregate.class));
 
-        assertNull(rdcAgg, "Invalid plan\n" + RelOptUtil.toString(phys));
-        assertNull(mapAgg, "Invalid plan\n" + RelOptUtil.toString(phys));
-        assertNotNull(collAgg, "Invalid plan\n" + RelOptUtil.toString(phys));
+        assertNotNull(rdcAgg, "Invalid plan\n" + RelOptUtil.toString(phys));
+        assertNotNull(mapAgg, "Invalid plan\n" + RelOptUtil.toString(phys));
 
         assertThat(
                 "Invalid plan\n" + RelOptUtil.toString(phys),
-                first(collAgg.getAggCallList()).getAggregation(),
+                first(rdcAgg.getAggregateCalls()).getAggregation(),
+                IsInstanceOf.instanceOf(SqlAvgAggFunction.class));
+
+        assertThat(
+                "Invalid plan\n" + RelOptUtil.toString(phys),
+                first(mapAgg.getAggCallList()).getAggregation(),
                 IsInstanceOf.instanceOf(SqlAvgAggFunction.class));
     }
 

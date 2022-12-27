@@ -36,9 +36,9 @@ public class PlanUtils {
     public static boolean complexDistinctAgg(List<AggregateCall> aggCalls) {
         for (AggregateCall call : aggCalls) {
             if (call.isDistinct()
-                    && call.getAggregation() instanceof SqlCountAggFunction
+                    && (call.getAggregation() instanceof SqlCountAggFunction
                     || call.getAggregation() instanceof SqlAvgAggFunction
-                    || call.getAggregation() instanceof SqlSumAggFunction) {
+                    || call.getAggregation() instanceof SqlSumAggFunction)) {
                 return true;
             }
         }
