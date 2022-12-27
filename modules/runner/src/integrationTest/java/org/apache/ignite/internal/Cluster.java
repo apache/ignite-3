@@ -150,7 +150,7 @@ public class Cluster {
      *
      * @param index Node index.
      * @return Started node (if the cluster is already initialized, the node is returned when it joins the cluster; if it
-     * is not initialized, the node is returned in a state in which it is ready to join the cluster).
+     *     is not initialized, the node is returned in a state in which it is ready to join the cluster).
      */
     public IgniteImpl startNode(int index) {
         IgniteImpl newIgniteNode;
