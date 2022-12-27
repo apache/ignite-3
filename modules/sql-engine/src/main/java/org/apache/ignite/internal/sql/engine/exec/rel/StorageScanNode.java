@@ -41,14 +41,6 @@ public abstract class StorageScanNode<RowT> extends AbstractNode<RowT> {
     /** Special value to highlights that all row were received and we are not waiting any more. */
     private static final int NOT_WAITING = -1;
 
-    /** Table that is an object in SQL schema. */
-    private final InternalIgniteTable schemaTable;
-
-    private final RowHandler.RowFactory<RowT> factory;
-
-    /** Participating columns. */
-    private final @Nullable BitSet requiredColumns;
-
     private final Queue<RowT> inBuff = new LinkedBlockingQueue<>(inBufSize);
 
     private final @Nullable Predicate<RowT> filters;
@@ -88,11 +80,8 @@ public abstract class StorageScanNode<RowT> extends AbstractNode<RowT> {
 
         tableRowConverter = row -> schemaTable.toRow(context(), row, rowFactory, requiredColumns);
 
-        this.schemaTable = schemaTable;
         this.filters = filters;
         this.rowTransformer = rowTransformer;
-        this.factory = rowFactory;
-        this.requiredColumns = requiredColumns;
     }
 
     /** {@inheritDoc} */
