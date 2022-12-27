@@ -176,34 +176,36 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// <summary>
         /// Gets the write method.
         /// </summary>
-        /// <param name="valueType">Type of the value to write.</param>
+        /// <param name="type">Type of the value to write.</param>
         /// <returns>Write method for the specified value type.</returns>
-        public static MethodInfo GetWriteMethod(Type valueType) =>
-            WriteMethods.TryGetValue(valueType, out var method) ? method : throw GetUnsupportedTypeException(valueType);
+        public static MethodInfo GetWriteMethod(Type type) =>
+            WriteMethods.TryGetValue(Unwrap(type), out var method) ? method : throw GetUnsupportedTypeException(type);
 
         /// <summary>
         /// Gets the write method.
         /// </summary>
-        /// <param name="valueType">Type of the value to write.</param>
+        /// <param name="type">Type of the value to write.</param>
         /// <returns>Write method for the specified value type.</returns>
-        public static MethodInfo? GetWriteMethodOrNull(Type valueType) => WriteMethods.GetValueOrDefault(valueType);
+        public static MethodInfo? GetWriteMethodOrNull(Type type) => WriteMethods.GetValueOrDefault(Unwrap(type));
 
         /// <summary>
         /// Gets the read method.
         /// </summary>
-        /// <param name="valueType">Type of the value to read.</param>
+        /// <param name="type">Type of the value to read.</param>
         /// <returns>Read method for the specified value type.</returns>
-        public static MethodInfo GetReadMethod(Type valueType) =>
-            ReadMethods.TryGetValue(valueType, out var method) ? method : throw GetUnsupportedTypeException(valueType);
+        public static MethodInfo GetReadMethod(Type type) =>
+            ReadMethods.TryGetValue(Unwrap(type), out var method) ? method : throw GetUnsupportedTypeException(type);
 
         /// <summary>
         /// Gets the read method.
         /// </summary>
-        /// <param name="valueType">Type of the value to read.</param>
+        /// <param name="type">Type of the value to read.</param>
         /// <returns>Read method for the specified value type.</returns>
-        public static MethodInfo? GetReadMethodOrNull(Type valueType) => ReadMethods.GetValueOrDefault(valueType);
+        public static MethodInfo? GetReadMethodOrNull(Type type) => ReadMethods.GetValueOrDefault(Unwrap(type));
 
         private static IgniteClientException GetUnsupportedTypeException(Type valueType) =>
             new(ErrorGroups.Client.Configuration, "Unsupported type: " + valueType);
+
+        private static Type Unwrap(Type type) => type.IsEnum ? Enum.GetUnderlyingType(type) : type;
     }
 }
