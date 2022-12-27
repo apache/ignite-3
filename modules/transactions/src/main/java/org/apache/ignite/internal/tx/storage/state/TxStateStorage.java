@@ -120,6 +120,8 @@ public interface TxStateStorage extends ManuallyCloseable {
 
     /**
      * Closes the storage.
+     *
+     * @throws IgniteInternalException with {@link Transactions#TX_STATE_STORAGE_REBALANCE_ERR} error code if rebalancing is in progress.
      */
     @Override
     void close();
@@ -128,15 +130,25 @@ public interface TxStateStorage extends ManuallyCloseable {
      * Closes and removes all data from the storage.
      *
      * @throws IgniteInternalException with {@link Transactions#TX_STATE_STORAGE_ERR} error code in case when the operation has failed.
+     * @throws IgniteInternalException with {@link Transactions#TX_STATE_STORAGE_REBALANCE_ERR} error code if rebalancing is in progress.
      */
     void destroy();
 
     /**
-     * Prepares the transaction state storage for rebalance: clears the storage, sets the {@link #lastAppliedIndex()} and
-     * {@link #lastAppliedTerm()} to {@link #REBALANCE_IN_PROGRESS}, and closes all cursors.
-     *
-     * <p>After calling this method, only write methods will be available, and read methods with {@link #lastApplied(long, long)} will
-     * throw {@link IgniteInternalException} with {@link Transactions#TX_STATE_STORAGE_REBALANCE_ERR}.
+     * Prepares the transaction state storage for rebalance.
+     * <ul>
+     *     <li>Clears the storage;</li>
+     *     <li>Sets the {@link #lastAppliedIndex()} and {@link #lastAppliedTerm()} to {@link #REBALANCE_IN_PROGRESS};</li>
+     *     <li>Stops the cursors of a transaction state storage, subsequent calls to {@link Cursor#hasNext()} and
+     *     {@link Cursor#next()} will throw {@link IgniteInternalException} with {@link Transactions#TX_STATE_STORAGE_REBALANCE_ERR};</li>
+     *     <li>For a transaction state storage, methods for reading and writing data will throw {@link IgniteInternalException} with
+     *     {@link Transactions#TX_STATE_STORAGE_REBALANCE_ERR} except:<ul>
+     *         <li>{@link TxStateStorage#put(UUID, TxMeta)};</li>
+     *         <li>{@link TxStateStorage#lastAppliedIndex()};</li>
+     *         <li>{@link TxStateStorage#lastAppliedTerm()}} ()};</li>
+     *         <li>{@link TxStateStorage#persistedIndex()}};</li>
+     *     </ul></li>
+     * </ul>
      *
      * <p>This method must be called before every rebalance of transaction state storage and ends with a call to one of the methods:
      * <ul>
@@ -147,9 +159,12 @@ public interface TxStateStorage extends ManuallyCloseable {
      * <p>If the {@link #lastAppliedIndex()} is {@link #REBALANCE_IN_PROGRESS} after a node restart, then the storage needs to be
      * cleared before it start.
      *
+     * <p>If the partition started to be destroyed or closed, then there will be an error when trying to start rebalancing.
+     *
      * @return Future of the start rebalance for transaction state storage.
      * @throws IgniteInternalException with {@link Transactions#TX_STATE_STORAGE_REBALANCE_ERR} error code in case when the operation
      *      has failed.
+     * @throws IgniteInternalException with {@link Transactions#TX_STATE_STORAGE_STOPPED_ERR} if the storage is closed or destroyed.
      */
     CompletableFuture<Void> startRebalance();
 

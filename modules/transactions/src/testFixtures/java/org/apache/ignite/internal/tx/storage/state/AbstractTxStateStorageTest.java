@@ -19,12 +19,16 @@ package org.apache.ignite.internal.tx.storage.state;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.tx.storage.state.TxStateStorage.REBALANCE_IN_PROGRESS;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_REBALANCE_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_STOPPED_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.greaterThanOrEqualTo;
+import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -290,61 +294,33 @@ public abstract class AbstractTxStateStorageTest {
         // We can't finish rebalance that we haven't started.
         assertThrowsIgniteInternalException(TX_STATE_STORAGE_REBALANCE_ERR, () -> storage.finishRebalance(100, 500));
 
-        assertEquals(0, storage.lastAppliedIndex());
-        assertEquals(0, storage.persistedIndex());
-        assertEquals(0, storage.lastAppliedTerm());
+        List<IgniteBiTuple<UUID, TxMeta>> rowsBeforeStartRebalance = List.of(
+                randomTxMetaTuple(1, UUID.randomUUID()),
+                randomTxMetaTuple(1, UUID.randomUUID())
+        );
 
-        // Let's fill the storage with data before the start of rebalance.
+        startRebalanceWithChecks(storage, rowsBeforeStartRebalance);
 
-        UUID txIdBeforeRebalance0 = UUID.randomUUID();
-        UUID txIdBeforeRebalance1 = UUID.randomUUID();
-
-        TxMeta txMetaBeforeRebalance0 = randomTxMeta(1, txIdBeforeRebalance0);
-        TxMeta txMetaBeforeRebalance1 = randomTxMeta(1, txIdBeforeRebalance1);
-
-        storage.put(txIdBeforeRebalance0, txMetaBeforeRebalance0);
-        storage.put(txIdBeforeRebalance1, txMetaBeforeRebalance1);
-
-        // Let's start rebalance.
-        storage.startRebalance().get(1, SECONDS);
-
-        checkTxStateStorageReadMethodsWhenRebalanceInProgress(storage);
-
-        // We cannot start a new rebalance until the current one has ended.
-        assertThrowsIgniteInternalException(TX_STATE_STORAGE_REBALANCE_ERR, storage::startRebalance);
+        List<IgniteBiTuple<UUID, TxMeta>> rowsOnRebalance = List.of(
+                randomTxMetaTuple(1, UUID.randomUUID()),
+                randomTxMetaTuple(1, UUID.randomUUID())
+        );
 
         // Let's fill it with new data.
+        fillStorage(storage, rowsOnRebalance);
 
-        UUID txIdOnRebalance0 = new UUID(0, 0);
-        UUID txIdOnRebalance1 = new UUID(1, 1);
-
-        TxMeta txMetaOnRebalance0 = randomTxMeta(1, txIdOnRebalance0);
-        TxMeta txMetaOnRebalance1 = randomTxMeta(1, txIdOnRebalance1);
-
-        storage.put(txIdOnRebalance0, txMetaOnRebalance0);
-        assertTrue(storage.compareAndSet(txIdOnRebalance1, null, txMetaOnRebalance1, 10, 20));
-
-        assertEquals(REBALANCE_IN_PROGRESS, storage.lastAppliedIndex());
-        assertEquals(REBALANCE_IN_PROGRESS, storage.persistedIndex());
-        assertEquals(REBALANCE_IN_PROGRESS, storage.lastAppliedTerm());
+        checkLastApplied(storage, REBALANCE_IN_PROGRESS, REBALANCE_IN_PROGRESS, REBALANCE_IN_PROGRESS);
 
         // Let's complete rebalancing.
-
-        storage.finishRebalance(30, 50).get(1, SECONDS);
+        assertThat(storage.finishRebalance(30, 50), willCompleteSuccessfully());
 
         // Let's check the storage.
-
-        assertEquals(30, storage.lastAppliedIndex());
-        assertEquals(30, storage.persistedIndex());
-        assertEquals(50, storage.lastAppliedTerm());
+        checkLastApplied(storage, 30, 30, 50);
 
         try (Cursor<IgniteBiTuple<UUID, TxMeta>> scan = storage.scan()) {
             assertThat(
                     scan.stream().collect(toList()),
-                    contains(
-                            new IgniteBiTuple<>(txIdOnRebalance0, txMetaOnRebalance0),
-                            new IgniteBiTuple<>(txIdOnRebalance1, txMetaOnRebalance1)
-                    )
+                    containsInAnyOrder(rowsOnRebalance.toArray(new IgniteBiTuple[0]))
             );
         }
     }
@@ -356,67 +332,75 @@ public abstract class AbstractTxStateStorageTest {
         // Nothing will happen because rebalance has not started.
         storage.abortRebalance().get(1, SECONDS);
 
-        assertEquals(0, storage.lastAppliedIndex());
-        assertEquals(0, storage.persistedIndex());
-        assertEquals(0, storage.lastAppliedTerm());
+        List<IgniteBiTuple<UUID, TxMeta>> rowsBeforeStartRebalance = List.of(
+                randomTxMetaTuple(1, UUID.randomUUID()),
+                randomTxMetaTuple(1, UUID.randomUUID())
+        );
 
-        // Let's fill the storage with data before the start of rebalance.
+        startRebalanceWithChecks(storage, rowsBeforeStartRebalance);
 
-        UUID txIdBeforeRebalance0 = UUID.randomUUID();
-        UUID txIdBeforeRebalance1 = UUID.randomUUID();
-
-        TxMeta txMetaBeforeRebalance0 = randomTxMeta(1, txIdBeforeRebalance0);
-        TxMeta txMetaBeforeRebalance1 = randomTxMeta(1, txIdBeforeRebalance1);
-
-        storage.put(txIdBeforeRebalance0, txMetaBeforeRebalance0);
-        storage.put(txIdBeforeRebalance1, txMetaBeforeRebalance1);
-
-        // Let's start rebalance.
-
-        storage.startRebalance().get(1, SECONDS);
-
-        checkTxStateStorageReadMethodsWhenRebalanceInProgress(storage);
-
-        // We cannot start a new rebalance until the current one has ended.
-        assertThrows(IgniteInternalException.class, storage::startRebalance);
+        List<IgniteBiTuple<UUID, TxMeta>> rowsOnRebalance = List.of(
+                randomTxMetaTuple(1, UUID.randomUUID()),
+                randomTxMetaTuple(1, UUID.randomUUID())
+        );
 
         // Let's fill it with new data.
+        fillStorage(storage, rowsOnRebalance);
 
-        UUID txIdOnRebalance0 = new UUID(0, 0);
-        UUID txIdOnRebalance1 = new UUID(1, 1);
-
-        TxMeta txMetaOnRebalance0 = randomTxMeta(1, txIdOnRebalance0);
-        TxMeta txMetaOnRebalance1 = randomTxMeta(1, txIdOnRebalance1);
-
-        storage.put(txIdOnRebalance0, txMetaOnRebalance0);
-        assertTrue(storage.compareAndSet(txIdOnRebalance1, null, txMetaOnRebalance1, 10, 20));
-
-        assertEquals(REBALANCE_IN_PROGRESS, storage.lastAppliedIndex());
-        assertEquals(REBALANCE_IN_PROGRESS, storage.persistedIndex());
-        assertEquals(REBALANCE_IN_PROGRESS, storage.lastAppliedTerm());
+        checkLastApplied(storage, REBALANCE_IN_PROGRESS, REBALANCE_IN_PROGRESS, REBALANCE_IN_PROGRESS);
 
         // Let's abort rebalancing.
-
-        storage.abortRebalance().get(1, SECONDS);
+        assertThat(storage.abortRebalance(), willCompleteSuccessfully());
 
         // Let's check the storage.
-
-        assertEquals(0, storage.lastAppliedIndex());
-        assertEquals(0, storage.persistedIndex());
-        assertEquals(0, storage.lastAppliedTerm());
+        checkLastApplied(storage, 0, 0, 0);
 
         try (Cursor<IgniteBiTuple<UUID, TxMeta>> scan = storage.scan()) {
             assertThat(scan.stream().collect(toList()), is(empty()));
         }
     }
 
-    private static void checkTxStateStorageReadMethodsWhenRebalanceInProgress(TxStateStorage storage) {
-        assertEquals(REBALANCE_IN_PROGRESS, storage.lastAppliedIndex());
-        assertEquals(REBALANCE_IN_PROGRESS, storage.persistedIndex());
-        assertEquals(REBALANCE_IN_PROGRESS, storage.lastAppliedTerm());
+    @Test
+    public void testDestroyOrClosePartitionInProgressOfRebalance() throws Exception {
+        TxStateStorage storage = tableStorage.getOrCreateTxStateStorage(0);
+
+        storage.startRebalance().get(1, SECONDS);
+
+        assertThrowsIgniteInternalException(TX_STATE_STORAGE_REBALANCE_ERR, storage::destroy);
+        assertThrowsIgniteInternalException(TX_STATE_STORAGE_REBALANCE_ERR, storage::close);
+    }
+
+    @Test
+    public void testStartRebalanceForClosedPartition() {
+        TxStateStorage storage = tableStorage.getOrCreateTxStateStorage(0);
+
+        storage.close();
+
+        assertThrowsIgniteInternalException(TX_STATE_STORAGE_STOPPED_ERR, storage::startRebalance);
+    }
+
+    private void startRebalanceWithChecks(TxStateStorage storage, List<IgniteBiTuple<UUID, TxMeta>> rows) {
+        fillStorage(storage, rows);
+
+        Cursor<IgniteBiTuple<UUID, TxMeta>> scanCursorBeforeStartRebalance = storage.scan();
+
+        assertThat(storage.startRebalance(), willCompleteSuccessfully());
+
+        checkTxStateStorageMethodsWhenRebalanceInProgress(storage);
+
+        assertThrowsIgniteInternalException(TX_STATE_STORAGE_REBALANCE_ERR, scanCursorBeforeStartRebalance::hasNext);
+        assertThrowsIgniteInternalException(TX_STATE_STORAGE_REBALANCE_ERR, scanCursorBeforeStartRebalance::next);
+
+        // We cannot start a new rebalance until the current one has ended.
+        assertThrows(IgniteInternalException.class, storage::startRebalance);
+    }
+
+    private static void checkTxStateStorageMethodsWhenRebalanceInProgress(TxStateStorage storage) {
+        checkLastApplied(storage, REBALANCE_IN_PROGRESS, REBALANCE_IN_PROGRESS, REBALANCE_IN_PROGRESS);
 
         assertThrowsIgniteInternalException(TX_STATE_STORAGE_REBALANCE_ERR, () -> storage.lastApplied(100, 500));
         assertThrowsIgniteInternalException(TX_STATE_STORAGE_REBALANCE_ERR, () -> storage.get(UUID.randomUUID()));
+        assertThrowsIgniteInternalException(TX_STATE_STORAGE_REBALANCE_ERR, () -> storage.remove(UUID.randomUUID()));
         assertThrowsIgniteInternalException(TX_STATE_STORAGE_REBALANCE_ERR, storage::scan);
     }
 
@@ -432,6 +416,13 @@ public abstract class AbstractTxStateStorageTest {
         return new TxMeta(TxState.COMMITED, generateEnlistedPartitions(enlistedPartsCount), generateTimestamp(txId));
     }
 
+    private IgniteBiTuple<UUID, TxMeta> randomTxMetaTuple(int enlistedPartsCount, UUID txId) {
+        return new IgniteBiTuple<>(
+                txId,
+                new TxMeta(TxState.COMMITED, generateEnlistedPartitions(enlistedPartsCount), generateTimestamp(txId))
+        );
+    }
+
     private static void assertTxMetaEquals(TxMeta txMeta0, TxMeta txMeta1) {
         assertEquals(txMeta0.txState(), txMeta1.txState());
         assertEquals(txMeta0.commitTimestamp(), txMeta1.commitTimestamp());
@@ -442,6 +433,32 @@ public abstract class AbstractTxStateStorageTest {
         IgniteInternalException exception = assertThrows(IgniteInternalException.class, executable);
 
         assertEquals(expFullErrorCode, exception.code());
+    }
+
+    private static void fillStorage(TxStateStorage storage, List<IgniteBiTuple<UUID, TxMeta>> rows) {
+        assertThat(rows, hasSize(greaterThanOrEqualTo(2)));
+
+        for (int i = 0; i < rows.size(); i++) {
+            IgniteBiTuple<UUID, TxMeta> row = rows.get(i);
+
+            // If even.
+            if ((i & 1) == 0) {
+                assertTrue(storage.compareAndSet(row.get1(), null, row.get2(), i * 10L, i * 10L));
+            } else {
+                storage.put(row.get1(), row.get2());
+            }
+        }
+    }
+
+    private static void checkLastApplied(
+            TxStateStorage storage,
+            long expLastAppliedIndex,
+            long expPersistentIndex,
+            long expLastAppliedTerm
+    ) {
+        assertEquals(expLastAppliedIndex, storage.lastAppliedIndex());
+        assertEquals(expPersistentIndex, storage.persistedIndex());
+        assertEquals(expLastAppliedTerm, storage.lastAppliedTerm());
     }
 
     /**
