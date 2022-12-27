@@ -68,10 +68,18 @@ public class HeapLockManager implements LockManager {
     /** Executor that is used to fail waiters after timeout. */
     private final Executor delayedExecutor;
 
+    /**
+     * Constructor.
+     */
     public HeapLockManager() {
         this(new WaitDieDeadlockPreventionPolicy());
     }
 
+    /**
+     * Constructor.
+     *
+     * @param deadlockPreventionPolicy Deadlock prevention policy.
+     */
     public HeapLockManager(DeadlockPreventionPolicy deadlockPreventionPolicy) {
         this.deadlockPreventionPolicy = deadlockPreventionPolicy;
         this.delayedExecutor = deadlockPreventionPolicy.waitTimeout() > 0
