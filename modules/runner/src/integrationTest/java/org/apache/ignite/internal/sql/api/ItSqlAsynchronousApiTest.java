@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.api;
 
+import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScan;
+import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsTableScan;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -76,6 +78,7 @@ import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.Transaction;
+import org.hamcrest.Matcher;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
@@ -343,16 +346,34 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         assertEquals(txManagerInternal.finished(), states.size());
     }
 
-    /** Check correctness of rw and ro transactions. */
+    /** Check correctness of rw and ro transactions for index scan. */
     @Test
-    public void checkMixedTransactions() throws Exception {
+    public void checkMixedTransactionsForIndex() throws Exception {
+        sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
+
+        Matcher<String> planMatcher = containsTableScan("PUBLIC", "TEST");
+
+        checkMixedTransactions(planMatcher);
+    }
+
+
+    /** Check correctness of rw and ro transactions for table scan. */
+    @Test
+    public void checkMixedTransactionsForTable() throws Exception {
+        sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
+        sql("CREATE INDEX TEST_IDX ON TEST(VAL0)");
+
+        Matcher<String> planMatcher = containsIndexScan("PUBLIC", "TEST", "TEST_IDX");
+
+        checkMixedTransactions(planMatcher);
+    }
+
+    public void checkMixedTransactions(Matcher<String> planMatcher) throws Exception {
         IgniteSql sql = igniteSql();
 
         if (sql instanceof ClientSql) {
             return;
         }
-
-        sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
 
         Session ses = sql.createSession();
 
@@ -360,20 +381,24 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
             sql("INSERT INTO TEST VALUES (?, ?)", i, i);
         }
 
-        checkTx(ses, true, false, true);
-        checkTx(ses, true, false, false);
-        checkTx(ses, true, true, true);
-        checkTx(ses, true, true, false);
-        checkTx(ses, false, true, true);
-        checkTx(ses, false, true, false);
-        checkTx(ses, false, false, true);
-        checkTx(ses, false, false, false);
+        checkTx(ses, true, false, true, planMatcher);
+        checkTx(ses, true, false, false, planMatcher);
+        checkTx(ses, true, true, true, planMatcher);
+        checkTx(ses, true, true, false, planMatcher);
+        checkTx(ses, false, true, true, planMatcher);
+        checkTx(ses, false, true, false, planMatcher);
+        checkTx(ses, false, false, true, planMatcher);
+        checkTx(ses, false, false, false, planMatcher);
     }
 
-    private void checkTx(Session ses, boolean readOnly, boolean commit, boolean explicit) throws Exception {
+    private void checkTx(Session ses, boolean readOnly, boolean commit, boolean explicit, Matcher<String> planMatcher) throws Exception {
         Transaction outerTx = explicit ? (readOnly ? igniteTx().readOnly().begin() : igniteTx().begin()) : null;
 
-        AsyncResultSet rs = ses.executeAsync(outerTx, "SELECT VAL0 FROM TEST ORDER BY VAL0").get();
+        String query = "SELECT VAL0 FROM TEST ORDER BY VAL0";
+
+        assertQuery(query).matches(planMatcher).check();
+
+        AsyncResultSet rs = ses.executeAsync(outerTx, query).get();
 
         assertEquals(ROW_COUNT, StreamSupport.stream(rs.currentPage().spliterator(), false).count());
 
