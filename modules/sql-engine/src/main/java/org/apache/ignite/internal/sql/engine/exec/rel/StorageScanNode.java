@@ -285,7 +285,7 @@ public abstract class StorageScanNode<RowT> extends AbstractNode<RowT> {
     }
 
     /** Convert row from {@code BinaryRow} to internal SQL row format {@code RowT}. */
-    protected RowT convert(BinaryRow binaryRow) {
+    private RowT convert(BinaryRow binaryRow) {
         return tableRowConverter.apply(binaryRow);
     }
 
