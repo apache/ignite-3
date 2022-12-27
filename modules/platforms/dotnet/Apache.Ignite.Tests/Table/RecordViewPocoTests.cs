@@ -734,6 +734,28 @@ namespace Apache.Ignite.Tests.Table
                 ex!.Message);
         }
 
+        [Test]
+        public async Task TestNumericEnumMapping()
+        {
+            var table = await Client.Tables.GetTableAsync(TableAllColumnsName);
+            var view = table!.GetRecordView<PocoEnums>();
+
+            var poco = new PocoEnums(1, TestEnum.None, TestEnum.Foo, TestEnum.BarBaz, TestEnum.Foo, TestEnum.BarBaz);
+            await view.UpsertAsync(null, poco);
+
+            var res = await view.GetAsync(null, poco);
+            Assert.AreEqual(poco, res.Value);
+        }
+
+        [Test]
+        public async Task TestStringEnumMapping()
+        {
+            var table = await Client.Tables.GetTableAsync(TableAllColumnsName);
+            var pocoView = table!.GetRecordView<PocoEnums>();
+
+            Assert.Fail("TODO");
+        }
+
         // ReSharper disable once NotAccessedPositionalProperty.Local
         private record UnsupportedByteType(byte Int8);
     }
