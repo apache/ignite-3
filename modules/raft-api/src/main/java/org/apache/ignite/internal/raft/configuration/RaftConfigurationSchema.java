@@ -28,7 +28,11 @@ import org.apache.ignite.configuration.annotation.Value;
 @SuppressWarnings("PMD.UnusedPrivateField")
 @ConfigurationRoot(rootName = "raft", type = ConfigurationType.LOCAL)
 public class RaftConfigurationSchema {
-    /** RPC Timeout for InstallSnapshot request (in milliseconds). */
+    /**
+     * RPC Timeout for InstallSnapshot request (in milliseconds). This is the maximum allowed duration from sending
+     * InstallSnapshot request and getting a response to it; during it, the snapshot must be fully transferred to
+     * a recipient and installed.
+     */
     @Value(hasDefault = true)
     public int rpcInstallSnapshotTimeout = 5 * 60 * 1000;
 
