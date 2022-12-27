@@ -58,6 +58,7 @@ dependencies {
     testFixturesImplementation libs.junit5.impl
     testFixturesImplementation libs.junit5.params
     testFixturesImplementation libs.auto.service.annotations
+    testFixturesImplementation libs.mockito.core
 }
 
 description = 'ignite-storage-api'

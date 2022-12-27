@@ -28,6 +28,7 @@ import java.util.concurrent.ConcurrentMap;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageClosedException;
+import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.index.HashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.IndexRow;
@@ -43,6 +44,8 @@ public class TestHashIndexStorage implements HashIndexStorage {
 
     private volatile boolean closed;
 
+    private volatile boolean rebalance;
+
     /**
      * Constructor.
      */
@@ -57,18 +60,35 @@ public class TestHashIndexStorage implements HashIndexStorage {
 
     @Override
     public Cursor<RowId> get(BinaryTuple key) {
-        checkClosed();
+        checkStorageClosedOrInProcessOfRebalance();
 
-        Iterator<RowId> iterator = index.getOrDefault(key.byteBuffer(), Set.of()).stream()
-                .peek(rowId -> checkClosed())
-                .iterator();
+        Iterator<RowId> iterator = index.getOrDefault(key.byteBuffer(), Set.of()).iterator();
 
-        return Cursor.fromBareIterator(iterator);
+        return new Cursor<>() {
+            @Override
+            public void close() {
+                // No-op.
+            }
+
+            @Override
+            public boolean hasNext() {
+                checkStorageClosedOrInProcessOfRebalance();
+
+                return iterator.hasNext();
+            }
+
+            @Override
+            public RowId next() {
+                checkStorageClosedOrInProcessOfRebalance();
+
+                return iterator.next();
+            }
+        };
     }
 
     @Override
     public void put(IndexRow row) {
-        checkClosed();
+        checkStorageClosed();
 
         index.compute(row.indexColumns().byteBuffer(), (k, v) -> {
             if (v == null) {
@@ -88,7 +108,7 @@ public class TestHashIndexStorage implements HashIndexStorage {
 
     @Override
     public void remove(IndexRow row) {
-        checkClosed();
+        checkStorageClosedOrInProcessOfRebalance();
 
         index.computeIfPresent(row.indexColumns().byteBuffer(), (k, v) -> {
             if (v.contains(row.rowId())) {
@@ -111,7 +131,7 @@ public class TestHashIndexStorage implements HashIndexStorage {
     public void destroy() {
         closed = true;
 
-        index.clear();
+        clear();
     }
 
     /**
@@ -121,9 +141,54 @@ public class TestHashIndexStorage implements HashIndexStorage {
         index.clear();
     }
 
-    private void checkClosed() {
+    private void checkStorageClosed() {
         if (closed) {
             throw new StorageClosedException("Storage is already closed");
         }
+    }
+
+    private void checkStorageClosedOrInProcessOfRebalance() {
+        checkStorageClosed();
+
+        if (rebalance) {
+            throw new StorageRebalanceException("Storage in the process of rebalancing");
+        }
+    }
+
+    /**
+     * Starts rebalancing of the storage.
+     */
+    public void startRebalance() {
+        checkStorageClosed();
+
+        rebalance = true;
+
+        clear();
+    }
+
+    /**
+     * Aborts rebalance of the storage.
+     */
+    public void abortRebalance() {
+        checkStorageClosed();
+
+        if (!rebalance) {
+            return;
+        }
+
+        rebalance = false;
+
+        clear();
+    }
+
+    /**
+     * Completes rebalance of the storage.
+     */
+    public void finishRebalance() {
+        checkStorageClosed();
+
+        assert rebalance;
+
+        rebalance = false;
     }
 }
