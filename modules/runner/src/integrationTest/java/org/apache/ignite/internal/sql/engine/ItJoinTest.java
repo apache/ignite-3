@@ -795,6 +795,11 @@ public class ItJoinTest extends AbstractBasicIntegrationTest {
     @MethodSource("joinTypes")
     @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
     public void testIsNotDistinctFrom(JoinType joinType, boolean indexScan) {
+        if (indexScan) {
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-18468 Index scan eventually return partial data.
+            return;
+        }
+
         try {
             sql("CREATE TABLE t11(i1 INTEGER, i2 INTEGER)");
 
