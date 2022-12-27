@@ -58,13 +58,4 @@ public interface DeadlockPreventionPolicy {
     default boolean usePriority() {
         return txIdComparator() != null;
     }
-
-    /**
-     * Whether deadlock prevention policy doesn't allow to wait for any transaction.
-     *
-     * @return Whether deadlock prevention policy doesn't allow to wait for any transaction.
-     */
-    default boolean noWait() {
-        return !usePriority() && waitTimeout() == 0;
-    }
 }

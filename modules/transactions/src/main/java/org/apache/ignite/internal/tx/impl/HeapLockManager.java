@@ -260,7 +260,7 @@ public class HeapLockManager implements LockManager {
                 LockMode mode = lockedMode(tmp);
 
                 if (mode != null && !mode.isCompatible(waiter.intendedLockMode())) {
-                    if (deadlockPreventionPolicy.noWait()) {
+                    if (!deadlockPreventionPolicy.usePriority() && deadlockPreventionPolicy.waitTimeout() == 0) {
                         waiter.fail(lockException(waiter.txId(), tmp));
 
                         return true;
@@ -386,7 +386,7 @@ public class HeapLockManager implements LockManager {
          * @return List of waiters to notify.
          */
         private List<WaiterImpl> unlockCompatibleWaiters() {
-            if (deadlockPreventionPolicy.noWait()) {
+            if (!deadlockPreventionPolicy.usePriority() && deadlockPreventionPolicy.waitTimeout() == 0) {
                 return Collections.emptyList();
             }
 
