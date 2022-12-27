@@ -368,7 +368,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         checkMixedTransactions(planMatcher);
     }
 
-    public void checkMixedTransactions(Matcher<String> planMatcher) throws Exception {
+    private void checkMixedTransactions(Matcher<String> planMatcher) throws Exception {
         IgniteSql sql = igniteSql();
 
         if (sql instanceof ClientSql) {
