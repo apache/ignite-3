@@ -740,7 +740,7 @@ namespace Apache.Ignite.Tests.Table
             var table = await Client.Tables.GetTableAsync(TableAllColumnsName);
             var view = table!.GetRecordView<PocoEnums>();
 
-            var poco = new PocoEnums(1, TestEnum.None, TestEnum.Foo, TestEnum.BarBaz, TestEnum.Foo, TestEnum.BarBaz);
+            var poco = new PocoEnums(1, TestEnum.Foo);
             await view.UpsertAsync(null, poco);
 
             var res = await view.GetAsync(null, poco);

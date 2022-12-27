@@ -25,13 +25,7 @@ using System.Diagnostics.CodeAnalysis;
 [SuppressMessage("Microsoft.Naming", "CA1720:AvoidTypeNamesInParameters", Justification = "POCO mapping.")]
 [SuppressMessage("Microsoft.Usage", "CA2227:CollectionPropertiesShouldBeReadOnly", Justification = "POCO mapping.")]
 [SuppressMessage("Microsoft.Performance", "CA1819:PropertiesShouldNotReturnArrays", Justification = "POCO mapping.")]
-public record PocoEnums(
-    long Key,
-    TestEnum? Str,
-    TestEnum Int8,
-    TestEnum Int16,
-    TestEnum Int32,
-    TestEnum Int64);
+public record PocoEnums(long Key, TestEnum Int32);
 
 [SuppressMessage("StyleCop.CSharp.OrderingRules", "SA1201:Elements should appear in the correct order", Justification = "Tests.")]
 [SuppressMessage("Naming", "CA1711:Identifiers should not have incorrect suffix", Justification = "Tests.")]
