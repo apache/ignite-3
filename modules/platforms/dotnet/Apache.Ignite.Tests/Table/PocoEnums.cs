@@ -19,19 +19,42 @@ namespace Apache.Ignite.Tests.Table;
 
 using System.Diagnostics.CodeAnalysis;
 
-/// <summary>
-/// Test user object.
-/// </summary>
-[SuppressMessage("Microsoft.Naming", "CA1720:AvoidTypeNamesInParameters", Justification = "POCO mapping.")]
-[SuppressMessage("Microsoft.Usage", "CA2227:CollectionPropertiesShouldBeReadOnly", Justification = "POCO mapping.")]
-[SuppressMessage("Microsoft.Performance", "CA1819:PropertiesShouldNotReturnArrays", Justification = "POCO mapping.")]
-public record PocoEnums(long Key, TestEnum Int32);
-
 [SuppressMessage("StyleCop.CSharp.OrderingRules", "SA1201:Elements should appear in the correct order", Justification = "Tests.")]
 [SuppressMessage("Naming", "CA1711:Identifiers should not have incorrect suffix", Justification = "Tests.")]
-public enum TestEnum
+[SuppressMessage("Design", "CA1034:Nested types should not be visible", Justification = "Tests.")]
+[SuppressMessage("Design", "CA1008:Enums should have zero value", Justification = "Tests.")]
+[SuppressMessage("Design", "CA1028:Enum Storage should be Int32", Justification = "Tests.")]
+public static class PocoEnums
 {
-    None = 0,
-    Foo = 1,
-    BarBaz = 3
+    public record PocoIntEnum(long Key, IntEnum Int32);
+
+    public record PocoShortEnum(long Key, ShortEnum Int16);
+
+    public record PocoLongEnum(long Key, LongEnum Int64);
+
+    public record PocoByteEnum(long Key, ByteEnum Int8);
+
+    public enum IntEnum : int
+    {
+        Foo = 1,
+        Bar = 3
+    }
+
+    public enum ShortEnum : short
+    {
+        Foo = 1,
+        Bar = 3
+    }
+
+    public enum LongEnum : long
+    {
+        Foo = 1,
+        Bar = 3
+    }
+
+    public enum ByteEnum : sbyte
+    {
+        Foo = 1,
+        Bar = 3
+    }
 }

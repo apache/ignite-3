@@ -25,6 +25,7 @@ namespace Apache.Ignite.Tests.Table
     using System.Threading.Tasks;
     using NodaTime;
     using NUnit.Framework;
+    using NUnit.Framework.Internal;
 
     /// <summary>
     /// Tests for POCO view.
@@ -737,23 +738,24 @@ namespace Apache.Ignite.Tests.Table
         [Test]
         public async Task TestNumericEnumMapping()
         {
-            var table = await Client.Tables.GetTableAsync(TableAllColumnsName);
-            var view = table!.GetRecordView<PocoEnums>();
+            // TODO: Test incompatible underlying types.
+            // TODO: Test integer values that are not in enum.
+            await Test(new PocoEnums.PocoIntEnum(1, PocoEnums.IntEnum.Foo));
+            await Test(new PocoEnums.PocoByteEnum(1, PocoEnums.ByteEnum.Foo));
+            await Test(new PocoEnums.PocoShortEnum(1, PocoEnums.ShortEnum.Foo));
+            await Test(new PocoEnums.PocoLongEnum(1, PocoEnums.LongEnum.Foo));
 
-            var poco = new PocoEnums(1, TestEnum.Foo);
-            await view.UpsertAsync(null, poco);
+            async Task Test<T>(T val)
+                where T : notnull
+            {
+                var table = await Client.Tables.GetTableAsync(TableAllColumnsName);
+                var view = table!.GetRecordView<T>();
 
-            var res = await view.GetAsync(null, poco);
-            Assert.AreEqual(poco, res.Value);
-        }
+                await view.UpsertAsync(null, val);
 
-        [Test]
-        public async Task TestStringEnumMapping()
-        {
-            var table = await Client.Tables.GetTableAsync(TableAllColumnsName);
-            var pocoView = table!.GetRecordView<PocoEnums>();
-
-            Assert.Fail("TODO");
+                var res = await view.GetAsync(null, val);
+                Assert.AreEqual(val, res.Value);
+            }
         }
 
         // ReSharper disable once NotAccessedPositionalProperty.Local
