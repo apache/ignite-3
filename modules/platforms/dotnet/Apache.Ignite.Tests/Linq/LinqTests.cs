@@ -631,21 +631,23 @@ public partial class LinqTests : IgniteTestsBase
             .Where(x => x.Val == TestEnum.B)
             .Select(x => new { x.Key, Res = x.Val });
 
-        StringAssert.Contains("where (_T0.INT8 IS DISTINCT FROM ?)", query.ToString());
+        StringAssert.Contains(
+            "select _T0.KEY, _T0.VAL from PUBLIC.TBL_INT32 as _T0 where (cast(_T0.VAL as int) IS NOT DISTINCT FROM ?), Parameters=3",
+            query.ToString());
 
         var res = query.ToList();
+        var resEnum = res[0].Res;
 
         Assert.AreEqual(3, res[0].Key);
-        Assert.AreEqual(TestEnum.B, res[0].Res);
+        Assert.AreEqual(TestEnum.B, resEnum);
         Assert.AreEqual(1, res.Count);
     }
 
     private enum TestEnum
     {
         None = 0,
-        A = 1,
-        B = 3,
-        C = 5
+        A = 100,
+        B = 300
     }
 
     private record PocoByte(sbyte Key, sbyte Val);
