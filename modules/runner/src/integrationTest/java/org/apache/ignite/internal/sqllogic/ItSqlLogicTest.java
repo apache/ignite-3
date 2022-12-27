@@ -41,9 +41,7 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sqllogic.SqlLogicTestEnvironment.RestartMode;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.SystemPropertiesExtension;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -161,16 +159,12 @@ public class ItSqlLogicTest {
     static void init() {
         config();
 
-        IgniteTestUtils.setFieldValue(Commons.class, "implicitPkEnabled", null);
-
         startNodes();
     }
 
     @AfterAll
     static void shutdown() throws Exception {
         stopNodes();
-
-        IgniteTestUtils.setFieldValue(Commons.class, "implicitPkEnabled", null);
     }
 
     @TestFactory
