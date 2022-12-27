@@ -562,12 +562,12 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
 
                     return super.visitFieldAccess(fieldAccess);
                 }
-//
-//                @Override public RexNode visitDynamicParam(RexDynamicParam dynamicParam) {
-//                    b.append(", paramType=").append(dynamicParam.getType().getFullTypeString());
-//
-//                    return super.visitDynamicParam(dynamicParam);
-//                }
+
+                @Override public RexNode visitDynamicParam(RexDynamicParam dynamicParam) {
+                    b.append(", paramType=").append(dynamicParam.getType().getFullTypeString());
+
+                    return super.visitDynamicParam(dynamicParam);
+                }
             }.apply(node);
         }
 
