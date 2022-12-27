@@ -19,29 +19,20 @@ package org.apache.ignite.internal.raftsnapshot;
 
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.hasCause;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -52,14 +43,13 @@ import java.util.function.Supplier;
 import java.util.logging.LogRecord;
 import java.util.logging.Logger;
 import java.util.stream.IntStream;
-import java.util.stream.Stream;
 import org.apache.calcite.sql.validate.SqlValidatorException;
-import org.apache.ignite.IgnitionManager;
+import org.apache.ignite.internal.Cluster;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.RaftNodeId;
-import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
+import org.apache.ignite.internal.Cluster.NodeKnockout;
 import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryStorageEngine;
@@ -72,14 +62,12 @@ import org.apache.ignite.internal.testframework.jul.NoOpHandler;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.raft.jraft.RaftGroupService;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.core.NodeImpl;
 import org.apache.ignite.raft.jraft.core.Replicator;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.error.RaftError;
-import org.apache.ignite.raft.jraft.util.concurrent.ConcurrentHashSet;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlRow;
@@ -104,13 +92,34 @@ import org.junit.jupiter.params.provider.ValueSource;
 class ItTableRaftSnapshotsTest {
     private static final IgniteLogger LOG = Loggers.forClass(ItTableRaftSnapshotsTest.class);
 
-    private static final int QUERY_TIMEOUT_MS = 10_000;
+    /**
+     * Nodes bootstrap configuration pattern.
+     *
+     * <p>rpcInstallSnapshotTimeout is changed to 10 seconds so that sporadic snapshot installation failures still
+     * allow tests pass thanks to retries.
+     */
+    private static final String NODE_BOOTSTRAP_CFG = "{\n"
+            + "  \"network\": {\n"
+            + "    \"port\":{},\n"
+            + "    \"nodeFinder\":{\n"
+            + "      \"netClusterNodes\": [ {} ]\n"
+            + "    }\n"
+            + "  },\n"
+            + "  \"raft\": {"
+            + "    \"rpcInstallSnapshotTimeout\": 10000"
+            + "  }"
+            + "}";
 
     /**
      * Marker that instructs to create a table with the default storage engine. Used in tests that are indifferent
      * to a storage engine used.
      */
     private static final String DEFAULT_STORAGE_ENGINE = "<default>";
+
+    /**
+     * {@link NodeKnockout} that is used by tests that are indifferent for the knockout strategy being used.
+     */
+    private static final NodeKnockout DEFAULT_KNOCKOUT = NodeKnockout.PARTITION_NETWORK;
 
     @WorkDirectory
     private Path workDir;
@@ -119,7 +128,7 @@ class ItTableRaftSnapshotsTest {
 
     @BeforeEach
     void createCluster(TestInfo testInfo) {
-        cluster = new Cluster(testInfo);
+        cluster = new Cluster(testInfo, workDir, NODE_BOOTSTRAP_CFG);
     }
 
     @AfterEach
@@ -150,7 +159,7 @@ class ItTableRaftSnapshotsTest {
     }
 
     /**
-     * Executes the given action, retrying it up to a few times if a transient failure occurs (like node inavailability).
+     * Executes the given action, retrying it up to a few times if a transient failure occurs (like node unavailability).
      */
     private static <T> T withRetry(Supplier<T> action) {
         // TODO: IGNITE-18423 remove this retry machinery when the networking bug is fixed as replication timeout seems to be caused by it.
@@ -224,7 +233,7 @@ class ItTableRaftSnapshotsTest {
     @Test
     @Disabled("Enable when the IGNITE-18170 deadlock is fixed")
     void leaderFeedsFollowerWithSnapshotWithKnockoutStop() throws Exception {
-        testLeaderFeedsFollowerWithSnapshot(NodeKnockout.STOP, DEFAULT_STORAGE_ENGINE);
+        testLeaderFeedsFollowerWithSnapshot(Cluster.NodeKnockout.STOP, DEFAULT_STORAGE_ENGINE);
     }
 
     /**
@@ -233,7 +242,7 @@ class ItTableRaftSnapshotsTest {
      */
     @Test
     void leaderFeedsFollowerWithSnapshotWithKnockoutPartitionNetwork() throws Exception {
-        testLeaderFeedsFollowerWithSnapshot(NodeKnockout.PARTITION_NETWORK, DEFAULT_STORAGE_ENGINE);
+        testLeaderFeedsFollowerWithSnapshot(Cluster.NodeKnockout.PARTITION_NETWORK, DEFAULT_STORAGE_ENGINE);
     }
 
     /**
@@ -475,7 +484,7 @@ class ItTableRaftSnapshotsTest {
     @Test
     @Disabled("Enable when the IGNITE-18170 deadlock is resolved")
     void txSemanticsIsMaintainedWithKnockoutStop() throws Exception {
-        txSemanticsIsMaintainedAfterInstallingSnapshot(NodeKnockout.STOP);
+        txSemanticsIsMaintainedAfterInstallingSnapshot(Cluster.NodeKnockout.STOP);
     }
 
     /**
@@ -486,7 +495,7 @@ class ItTableRaftSnapshotsTest {
      */
     @Test
     void txSemanticsIsMaintainedWithKnockoutPartitionNetwork() throws Exception {
-        txSemanticsIsMaintainedAfterInstallingSnapshot(NodeKnockout.PARTITION_NETWORK);
+        txSemanticsIsMaintainedAfterInstallingSnapshot(Cluster.NodeKnockout.PARTITION_NETWORK);
     }
 
     /**
@@ -533,7 +542,7 @@ class ItTableRaftSnapshotsTest {
             VolatilePageMemoryStorageEngine.ENGINE_NAME
     })
     void leaderFeedsFollowerWithSnapshot(String storageEngine) throws Exception {
-        testLeaderFeedsFollowerWithSnapshot(NodeKnockout.DEFAULT, storageEngine);
+        testLeaderFeedsFollowerWithSnapshot(DEFAULT_KNOCKOUT, storageEngine);
     }
 
     /**
@@ -541,8 +550,8 @@ class ItTableRaftSnapshotsTest {
      */
     @Test
     @Disabled("Enable when IGNITE-18451 is fixed")
-    void entriesKeepAddendedAfterSnapshotInstallation() throws Exception {
-        feedNode2WithSnapshotOfOneRow(NodeKnockout.DEFAULT);
+    void entriesKeepAppendedAfterSnapshotInstallation() throws Exception {
+        feedNode2WithSnapshotOfOneRow(DEFAULT_KNOCKOUT);
 
         doInSession(0, session -> {
             executeUpdate("insert into test(key, value) values (2, 'two')", session);
@@ -563,8 +572,8 @@ class ItTableRaftSnapshotsTest {
     @Test
     // TODO: IGNITE-18423 - enable when ReplicationTimeoutException is fixed
     @Disabled("IGNITE-18423")
-    void entriesKeepAddendedDuringSnapshotInstallation() throws Exception {
-        NodeKnockout knockout = NodeKnockout.DEFAULT;
+    void entriesKeepAppendedDuringSnapshotInstallation() throws Exception {
+        NodeKnockout knockout = DEFAULT_KNOCKOUT;
 
         prepareClusterForInstallingSnapshotToNode2(knockout);
 
@@ -603,11 +612,11 @@ class ItTableRaftSnapshotsTest {
     // TODO: IGNITE-18423 - enable when ReplicationTimeoutException is fixed
     @Disabled("IGNITE-18423")
     void nodeCanInstallSnapshotsAfterSnapshotInstalledToIt() throws Exception {
-        feedNode2WithSnapshotOfOneRow(NodeKnockout.DEFAULT);
+        feedNode2WithSnapshotOfOneRow(DEFAULT_KNOCKOUT);
 
         transferLeadershipOnSolePartitionTo(2);
 
-        cluster.knockOutNode(0, NodeKnockout.DEFAULT);
+        cluster.knockOutNode(0, DEFAULT_KNOCKOUT);
 
         doInSession(2, session -> {
             executeUpdate("insert into test(key, value) values (2, 'two')", session);
@@ -615,7 +624,7 @@ class ItTableRaftSnapshotsTest {
 
         causeLogTruncationOnSolePartitionLeader();
 
-        reanimateNodeAndWaitForSnapshotInstalled(0, NodeKnockout.DEFAULT);
+        reanimateNodeAndWaitForSnapshotInstalled(0, DEFAULT_KNOCKOUT);
 
         transferLeadershipOnSolePartitionTo(0);
 
@@ -623,262 +632,5 @@ class ItTableRaftSnapshotsTest {
                 ItTableRaftSnapshotsTest::readRows);
 
         assertThat(rows, is(List.of(new IgniteBiTuple<>(1, "one"), new IgniteBiTuple<>(2, "two"))));
-    }
-
-    private class Cluster {
-        /** Base port number. */
-        private static final int BASE_PORT = 3344;
-
-        /**
-         * Nodes bootstrap configuration pattern.
-         *
-         * <p>rpcIntallSnapshotTimeout is changed to 10 seconds so that sporadic snapshot installation failures still
-         * allow tests pass thanks to retries.
-         */
-        private static final String NODE_BOOTSTRAP_CFG = "{\n"
-                + "  \"network\": {\n"
-                + "    \"port\":{},\n"
-                + "    \"nodeFinder\":{\n"
-                + "      \"netClusterNodes\": [ {} ]\n"
-                + "    }\n"
-                + "  },\n"
-                + "  \"raft\": {"
-                + "    \"rpcInstallSnapshotTimeout\": 10000"
-                + "  }"
-                + "}";
-
-        private static final String CONNECT_NODE_ADDR = "\"localhost:" + BASE_PORT + '\"';
-
-        private final TestInfo testInfo;
-
-        /** Cluster nodes. */
-        private final List<IgniteImpl> nodes = new CopyOnWriteArrayList<>();
-
-        private volatile boolean started = false;
-
-        /** Indices of nodes that have been knocked out. */
-        private final Set<Integer> knockedOutIndices = new ConcurrentHashSet<>();
-
-        private Cluster(TestInfo testInfo) {
-            this.testInfo = testInfo;
-        }
-
-        /**
-         * Starts the cluster with the given number of nodes and initializes it.
-         *
-         * @param nodeCount Number of nodes in the cluster.
-         */
-        void startAndInit(int nodeCount) {
-            if (started) {
-                throw new IllegalStateException("The cluster is already started");
-            }
-
-            List<CompletableFuture<IgniteImpl>> futures = IntStream.range(0, nodeCount)
-                    .mapToObj(this::startClusterNode)
-                    .collect(toList());
-
-            String metaStorageAndCmgNodeName = testNodeName(testInfo, 0);
-
-            IgnitionManager.init(metaStorageAndCmgNodeName, List.of(metaStorageAndCmgNodeName), "cluster");
-
-            for (CompletableFuture<IgniteImpl> future : futures) {
-                assertThat(future, willCompleteSuccessfully());
-
-                nodes.add(future.join());
-            }
-
-            started = true;
-        }
-
-        private CompletableFuture<IgniteImpl> startClusterNode(int nodeIndex) {
-            String nodeName = testNodeName(testInfo, nodeIndex);
-
-            String config = IgniteStringFormatter.format(NODE_BOOTSTRAP_CFG, BASE_PORT + nodeIndex, CONNECT_NODE_ADDR);
-
-            return IgnitionManager.start(nodeName, config, workDir.resolve(nodeName))
-                    .thenApply(IgniteImpl.class::cast);
-        }
-
-        /**
-         * Returns an Ignite node (a member of the cluster) by its index.
-         */
-        IgniteImpl node(int index) {
-            return nodes.get(index);
-        }
-
-        /**
-         * Returns a node that is not stopped and not knocked out (so it can be used to interact with the cluster).
-         */
-        IgniteImpl entryNode() {
-            return IntStream.range(0, nodes.size())
-                    .filter(index -> nodes.get(index) != null)
-                    .filter(index -> !knockedOutIndices.contains(index))
-                    .mapToObj(nodes::get)
-                    .findAny()
-                    .orElseThrow(() -> new IllegalStateException("There is no single alive node that would not be knocked out"));
-        }
-
-        void stopNode(int index) {
-            IgnitionManager.stop(nodes.get(index).name());
-
-            nodes.set(index, null);
-        }
-
-        void restartNode(int index) {
-            stopNode(index);
-
-            startNode(index);
-        }
-
-        void startNode(int index) {
-            IgniteImpl newIgniteNode;
-
-            try {
-                newIgniteNode = startClusterNode(index).get(10, TimeUnit.SECONDS);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-
-                throw new RuntimeException(e);
-            } catch (ExecutionException | TimeoutException e) {
-                throw new RuntimeException(e);
-            }
-
-            nodes.set(index, newIgniteNode);
-        }
-
-        RaftGroupService leaderServiceFor(TablePartitionId tablePartitionId) throws InterruptedException {
-            AtomicReference<RaftGroupService> serviceRef = new AtomicReference<>();
-
-            assertTrue(
-                    waitForCondition(() -> {
-                        RaftGroupService service = currentLeaderServiceFor(tablePartitionId);
-
-                        serviceRef.set(service);
-
-                        return service != null;
-                    }, 10_000),
-                    "Did not find a leader for " + tablePartitionId + " in time"
-            );
-
-            RaftGroupService result = serviceRef.get();
-
-            assertNotNull(result);
-
-            return result;
-        }
-
-        @Nullable
-        private RaftGroupService currentLeaderServiceFor(TablePartitionId tablePartitionId) {
-            return aliveNodes()
-                    .map(IgniteImpl.class::cast)
-                    .map(ignite -> {
-                        JraftServerImpl server = (JraftServerImpl) ignite.raftManager().server();
-
-                        Optional<RaftNodeId> maybeRaftNodeId = server.localNodes().stream()
-                                .filter(nodeId -> nodeId.groupId().equals(tablePartitionId))
-                                .findAny();
-
-                        return maybeRaftNodeId.map(server::raftGroupService).orElse(null);
-                    })
-                    .filter(Objects::nonNull)
-                    .filter(service -> service.getRaftNode().isLeader())
-                    .findAny()
-                    .orElse(null);
-        }
-
-        /**
-         * Returns nodes that are not stopped. This can include knocked out nodes.
-         */
-        private Stream<IgniteImpl> aliveNodes() {
-            return nodes.stream().filter(Objects::nonNull);
-        }
-
-        private Session openSession(int nodeIndex) {
-            return node(nodeIndex).sql()
-                    .sessionBuilder()
-                    .defaultSchema("PUBLIC")
-                    .defaultQueryTimeout(QUERY_TIMEOUT_MS, TimeUnit.MILLISECONDS)
-                    .build();
-        }
-
-        /**
-         * Shuts down the  cluster by stopping all its nodes.
-         */
-        void shutdown() {
-            aliveNodes().forEach(node -> IgnitionManager.stop(node.name()));
-        }
-
-        private void knockOutNode(int nodeIndex, NodeKnockout knockout) {
-            knockout.knockOutNode(nodeIndex, this);
-
-            knockedOutIndices.add(nodeIndex);
-        }
-
-        private void reanimateNode(int nodeIndex, NodeKnockout knockout) {
-            knockout.reanimateNode(nodeIndex, this);
-
-            knockedOutIndices.remove(nodeIndex);
-        }
-    }
-
-    /**
-     * A way to make a node be separated from a cluster and stop receiving updates.
-     */
-    private enum NodeKnockout {
-        /** Stop a node to knock it out. */
-        STOP {
-            @Override
-            void knockOutNode(int nodeIndex, Cluster cluster) {
-                cluster.stopNode(nodeIndex);
-            }
-
-            @Override
-            void reanimateNode(int nodeIndex, Cluster cluster) {
-                cluster.startNode(nodeIndex);
-            }
-        },
-        /** Emulate a network partition so that messages to the knocked-out node are dropped. */
-        PARTITION_NETWORK {
-            @Override
-            void knockOutNode(int nodeIndex, Cluster cluster) {
-                IgniteImpl receiver = cluster.node(nodeIndex);
-
-                cluster.aliveNodes()
-                        .filter(node -> node != receiver)
-                        .forEach(sourceNode -> {
-                            sourceNode.dropMessages((receiverName, message) -> Objects.equals(receiverName, receiver.name()));
-                        });
-
-                LOG.info("Knocked out node " + nodeIndex + " with an artificial network partition");
-            }
-
-            @Override
-            void reanimateNode(int nodeIndex, Cluster cluster) {
-                IgniteImpl receiver = cluster.node(nodeIndex);
-
-                cluster.aliveNodes()
-                        .filter(node -> node != receiver)
-                        .forEach(IgniteImpl::stopDroppingMessages);
-
-                LOG.info("Reanimated node " + nodeIndex + " by removing an artificial network partition");
-            }
-        };
-
-        /**
-         * {@link NodeKnockout} that is used by tests that are indifferent for the knockout strategy being used.
-         */
-        static final NodeKnockout DEFAULT = PARTITION_NETWORK;
-
-        /**
-         * Knocks out a node so that it stops receiving messages from other nodes of the cluster.
-         * To bring a node back, {@link #reanimateNode(int, Cluster)} should be used.
-         */
-        abstract void knockOutNode(int nodeIndex, Cluster cluster);
-
-        /**
-         * Reanimates a knocked-out node so that it starts receiving messages from other nodes of the cluster again.
-         * This nullifies the effect of {@link #knockOutNode(int, Cluster)}.
-         */
-        abstract void reanimateNode(int nodeIndex, Cluster cluster);
     }
 }
