@@ -64,7 +64,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
     private volatile boolean closed;
 
-    private volatile boolean rebalanced;
+    private volatile boolean rebalance;
 
     public TestMvPartitionStorage(int partitionId) {
         this.partitionId = partitionId;
@@ -537,7 +537,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
     @Override
     public void close() {
-        assert !rebalanced;
+        assert !rebalance;
 
         closed = true;
 
@@ -562,7 +562,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     }
 
     private void checkStorageInProcessOfRebalance() {
-        if (rebalanced) {
+        if (rebalance) {
             throw new StorageRebalanceException("Storage in the process of rebalancing");
         }
     }
@@ -575,7 +575,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     void startRebalance() {
         checkStorageClosed();
 
-        rebalanced = true;
+        rebalance = true;
 
         clear();
 
@@ -586,11 +586,11 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     void abortRebalance() {
         checkStorageClosed();
 
-        if (!rebalanced) {
+        if (!rebalance) {
             return;
         }
 
-        rebalanced = false;
+        rebalance = false;
 
         clear();
 
@@ -601,9 +601,9 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     void finishRebalance(long lastAppliedIndex, long lastAppliedTerm) {
         checkStorageClosed();
 
-        assert rebalanced;
+        assert rebalance;
 
-        rebalanced = false;
+        rebalance = false;
 
         this.lastAppliedIndex = lastAppliedIndex;
         this.lastAppliedTerm = lastAppliedTerm;
