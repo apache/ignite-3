@@ -704,7 +704,6 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * Starts two nodes and checks that the data are storing through restarts. Nodes restart in the same order when they started at first.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18044")
     public void testTwoNodesRestartDirect() {
         twoNodesRestart(true);
     }
@@ -713,7 +712,6 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * Starts two nodes and checks that the data are storing through restarts. Nodes restart in reverse order when they started at first.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18044")
     public void testTwoNodesRestartReverse() {
         twoNodesRestart(false);
     }
