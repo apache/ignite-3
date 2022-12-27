@@ -35,6 +35,7 @@ import java.util.TreeMap;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
@@ -64,12 +65,18 @@ public class HeapLockManager implements LockManager {
 
     private final DeadlockPreventionPolicy deadlockPreventionPolicy;
 
+    /** Executor that is used to fail waiters after timeout. */
+    private final Executor delayedExecutor;
+
     public HeapLockManager() {
         this(new WaitDieDeadlockPreventionPolicy());
     }
 
     public HeapLockManager(DeadlockPreventionPolicy deadlockPreventionPolicy) {
         this.deadlockPreventionPolicy = deadlockPreventionPolicy;
+        this.delayedExecutor = deadlockPreventionPolicy.waitTimeout() > 0
+                ? CompletableFuture.delayedExecutor(deadlockPreventionPolicy.waitTimeout(), TimeUnit.MILLISECONDS)
+                : null;
     }
 
     @Override
@@ -135,7 +142,7 @@ public class HeapLockManager implements LockManager {
      * @param key The key.
      */
     private @NotNull LockState lockState(LockKey key) {
-        return locks.computeIfAbsent(key, k -> new LockState(deadlockPreventionPolicy));
+        return locks.computeIfAbsent(key, k -> new LockState(deadlockPreventionPolicy, delayedExecutor));
     }
 
     /** {@inheritDoc} */
@@ -159,14 +166,19 @@ public class HeapLockManager implements LockManager {
 
         private final DeadlockPreventionPolicy deadlockPreventionPolicy;
 
+        /** Delayed executor for waiters timeout callback. */
+        private final Executor delayedExecutor;
+
         /** Marked for removal flag. */
         private boolean markedForRemove = false;
 
-        public LockState(DeadlockPreventionPolicy deadlockPreventionPolicy) {
+        public LockState(DeadlockPreventionPolicy deadlockPreventionPolicy, Executor delayedExecutor) {
             Comparator<UUID> txComparator =
                     deadlockPreventionPolicy.txIdComparator() != null ? deadlockPreventionPolicy.txIdComparator() : UUID::compareTo;
+
             this.waiters = new TreeMap<>(txComparator);
             this.deadlockPreventionPolicy = deadlockPreventionPolicy;
+            this.delayedExecutor = delayedExecutor;
         }
 
         /**
@@ -208,6 +220,10 @@ public class HeapLockManager implements LockManager {
                 }
 
                 if (!isWaiterReadyToNotify(waiter, false)) {
+                    if (deadlockPreventionPolicy.waitTimeout() > 0) {
+                        setWaiterTimeout(waiter);
+                    }
+
                     return new IgniteBiTuple<>(waiter.fut, waiter.lockMode());
                 }
 
@@ -236,8 +252,10 @@ public class HeapLockManager implements LockManager {
                 LockMode mode = lockedMode(tmp);
 
                 if (mode != null && !mode.isCompatible(waiter.intendedLockMode())) {
-                    if (!usePriority()) {
-                        return failWaiterIfTimeoutIsPresent(waiter, tmp);
+                    if (!usePriority() && deadlockPreventionPolicy.waitTimeout() == 0) {
+                        waiter.fail(lockException(waiter.txId(), tmp));
+
+                        return true;
                     }
 
                     return false;
@@ -251,8 +269,12 @@ public class HeapLockManager implements LockManager {
                 if (mode != null && !mode.isCompatible(waiter.intendedLockMode())) {
                     if (skipFail) {
                         return false;
+                    } else if (deadlockPreventionPolicy.waitTimeout() == 0) {
+                        waiter.fail(lockException(waiter.txId(), tmp));
+
+                        return true;
                     } else {
-                        return failWaiterIfTimeoutIsPresent(waiter, tmp);
+                        return false;
                     }
                 }
             }
@@ -263,25 +285,15 @@ public class HeapLockManager implements LockManager {
         }
 
         /**
-         * Fails the waiter if there is wait timeout in deadlock prevention policy. If timeout is {@code 0}, waiter is failed
-         * instantly. If timeout is greater than {@code 0}, waiter should be failed after timeout, if it can't acquire lock within
-         * this timeout. If timeout is lesser than {@code 0}, waiter is not failed at all.
+         * Create lock exception with given parameters.
          *
-         * @param waiter Current waiter.
+         * @param txId Transaction id.
          * @param conflictingWaiter Conflicting waiter.
-         * @return True if current waiter ready to notify, false otherwise.
+         * @return Lock exception.
          */
-        private boolean failWaiterIfTimeoutIsPresent(WaiterImpl waiter, WaiterImpl conflictingWaiter) {
-            if (deadlockPreventionPolicy.waitTimeout() > 0) {
-                waiter.failAfterTimeout(waiters, deadlockPreventionPolicy.waitTimeout());
-            } else if ((deadlockPreventionPolicy.waitTimeout() == 0)) {
-                waiter.fail(new LockException(ACQUIRE_LOCK_ERR, "Failed to acquire a lock due to a conflict [txId="
-                        + waiter.txId() + ", conflictingWaiter=" + conflictingWaiter + ']'));
-
-                return true;
-            }
-
-            return false;
+        private LockException lockException(UUID txId, WaiterImpl conflictingWaiter) {
+            return new LockException(ACQUIRE_LOCK_ERR, "Failed to acquire a lock due to a conflict [txId="
+                    + txId + ", conflictingWaiter=" + conflictingWaiter + ']');
         }
 
         /**
@@ -365,7 +377,11 @@ public class HeapLockManager implements LockManager {
          *
          * @return List of waiters to notify.
          */
-        private ArrayList<WaiterImpl> unlockCompatibleWaiters() {
+        private List<WaiterImpl> unlockCompatibleWaiters() {
+            if (!usePriority() && deadlockPreventionPolicy.waitTimeout() == 0) {
+                return Collections.emptyList();
+            }
+
             ArrayList<WaiterImpl> toNotify = new ArrayList<>();
             Set<UUID> toFail = new HashSet<>();
 
@@ -379,26 +395,27 @@ public class HeapLockManager implements LockManager {
                 }
             }
 
-            for (Map.Entry<UUID, WaiterImpl> entry : waiters.entrySet()) {
-                WaiterImpl tmp = entry.getValue();
+            if (usePriority() && deadlockPreventionPolicy.waitTimeout() >= 0) {
+                for (Map.Entry<UUID, WaiterImpl> entry : waiters.entrySet()) {
+                    WaiterImpl tmp = entry.getValue();
 
-                if (tmp.hasLockIntent() && isWaiterReadyToNotify(tmp, false)) {
-                    assert tmp.hasLockIntent() : "Only failed waiter can be notified here [waiter=" + tmp + ']';
+                    if (tmp.hasLockIntent() && isWaiterReadyToNotify(tmp, false)) {
+                        assert tmp.hasLockIntent() : "Only failed waiter can be notified here [waiter=" + tmp + ']';
 
-                    toNotify.add(tmp);
-                    toFail.add(tmp.txId());
-                }
-            }
-
-            for (UUID failTx : toFail) {
-                var w = waiters.get(failTx);
-
-                if (w.locked()) {
-                    w.refuseIntent();
-                } else {
-                    waiters.remove(failTx);
+                        toNotify.add(tmp);
+                        toFail.add(tmp.txId());
+                    }
                 }
 
+                for (UUID failTx : toFail) {
+                    var w = waiters.get(failTx);
+
+                    if (w.locked()) {
+                        w.refuseIntent();
+                    } else {
+                        waiters.remove(failTx);
+                    }
+                }
             }
 
             return toNotify;
@@ -411,6 +428,26 @@ public class HeapLockManager implements LockManager {
          */
         private boolean usePriority() {
             return deadlockPreventionPolicy.txIdComparator() != null;
+        }
+
+        /**
+         * Makes the waiter fail after specified timeout (in milliseconds), if intended lock was not acquired within this timeout.
+         *
+         * @param waiter Waiter.
+         */
+        private void setWaiterTimeout(WaiterImpl waiter) {
+            delayedExecutor.execute(() -> {
+                synchronized (waiters) {
+                    if (!waiter.fut.isDone()) {
+                        waiter.ex = new LockException(ACQUIRE_LOCK_TIMEOUT_ERR, "Failed to acquire a lock within a "
+                                + "timeout [txId=" + waiter.txId() + ", waiter=" + waiter + ']');
+                    }
+                }
+
+                if (!waiter.fut.isDone()) {
+                    waiter.fut.completeExceptionally(waiter.ex);
+                }
+            });
         }
 
         /**
@@ -663,27 +700,6 @@ public class HeapLockManager implements LockManager {
          */
         private void fail(LockException e) {
             ex = e;
-        }
-
-        /**
-         * Makes the waiter fail after specified timeout (in milliseconds), if intended lock was not acquired within this timeout.
-         *
-         * @param mutex Mutex which should be used for modification of internal state of this waiter.
-         * @param timeout Timeout, in milliseconds.
-         */
-        public void failAfterTimeout(Object mutex, long timeout) {
-            CompletableFuture.delayedExecutor(timeout, TimeUnit.MILLISECONDS).execute(() -> {
-                synchronized (mutex) {
-                    if (!fut.isDone()) {
-                        ex = new LockException(ACQUIRE_LOCK_TIMEOUT_ERR, "Failed to acquire a lock within a "
-                                + "timeout [txId=" + txId() + ", waiter=" + this + ']');
-                    }
-                }
-
-                if (!fut.isDone()) {
-                    fut.completeExceptionally(ex);
-                }
-            });
         }
 
         /** {@inheritDoc} */
