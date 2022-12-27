@@ -100,7 +100,7 @@ public class TableScanNode<RowT> extends StorageScanNode<RowT> {
             return convertPublisher(scan);
         }
         // after fix we can remove code above and uncomment this part.
-        // IGNITE-
+        // IGNITE-18466
         //        if (!dataRequested) {
         //            dataRequested = true;
         //
