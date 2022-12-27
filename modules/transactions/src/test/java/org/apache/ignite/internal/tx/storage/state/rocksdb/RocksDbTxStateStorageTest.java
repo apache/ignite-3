@@ -17,15 +17,27 @@
 
 package org.apache.ignite.internal.tx.storage.state.rocksdb;
 
+import static java.util.stream.Collectors.toList;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.empty;
+
 import java.nio.file.Path;
+import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.storage.state.AbstractTxStateStorageTest;
+import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
+import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.lang.IgniteBiTuple;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
@@ -50,5 +62,33 @@ public class RocksDbTxStateStorageTest extends AbstractTxStateStorageTest {
         );
     }
 
-    // TODO: IGNITE-18027 не забудь написать тест что после рестарта с -1 у нас будет чистое хранилище
+    @Test
+    void testRestartStorageInProgressOfRebalance() throws Exception {
+        TxStateStorage storage = tableStorage.getOrCreateTxStateStorage(0);
+
+        storage.startRebalance().get(1, TimeUnit.SECONDS);
+
+        fillStorage(
+                storage,
+                List.of(randomTxMetaTuple(1, UUID.randomUUID()), randomTxMetaTuple(1, UUID.randomUUID()))
+        );
+
+        storage.flush().get(10, TimeUnit.SECONDS);
+
+        storage.finishRebalance(10, 15).get(1, TimeUnit.SECONDS);
+
+        tableStorage.stop();
+
+        tableStorage = createTableStorage();
+
+        tableStorage.start();
+
+        storage = tableStorage.getOrCreateTxStateStorage(0);
+
+        checkLastApplied(storage, 0, 0, 0);
+
+        try (Cursor<IgniteBiTuple<UUID, TxMeta>> scan = storage.scan()) {
+            assertThat(scan.stream().collect(toList()), empty());
+        }
+    }
 }

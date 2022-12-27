@@ -60,7 +60,7 @@ import org.junit.jupiter.api.function.Executable;
  * Abstract tx storage test.
  */
 public abstract class AbstractTxStateStorageTest {
-    private TxStateTableStorage tableStorage;
+    protected TxStateTableStorage tableStorage;
 
     /**
      * Creates {@link TxStateStorage} to test.
@@ -361,12 +361,15 @@ public abstract class AbstractTxStateStorageTest {
     }
 
     @Test
-    public void testStartRebalanceForClosedPartition() {
-        TxStateStorage storage = tableStorage.getOrCreateTxStateStorage(0);
+    public void testStartRebalanceForClosedOrDestroedPartition() {
+        TxStateStorage storage0 = tableStorage.getOrCreateTxStateStorage(0);
+        TxStateStorage storage1 = tableStorage.getOrCreateTxStateStorage(0);
 
-        storage.close();
+        storage0.close();
+        storage1.destroy();
 
-        assertThrowsIgniteInternalException(TX_STATE_STORAGE_STOPPED_ERR, storage::startRebalance);
+        assertThrowsIgniteInternalException(TX_STATE_STORAGE_STOPPED_ERR, storage0::startRebalance);
+        assertThrowsIgniteInternalException(TX_STATE_STORAGE_STOPPED_ERR, storage1::startRebalance);
     }
 
     private void startRebalanceWithChecks(TxStateStorage storage, List<IgniteBiTuple<UUID, TxMeta>> rows) {
@@ -406,7 +409,13 @@ public abstract class AbstractTxStateStorageTest {
         return new TxMeta(TxState.COMMITED, generateEnlistedPartitions(enlistedPartsCount), generateTimestamp(txId));
     }
 
-    private IgniteBiTuple<UUID, TxMeta> randomTxMetaTuple(int enlistedPartsCount, UUID txId) {
+    /**
+     * Creates random tx meta.
+     *
+     * @param enlistedPartsCount Count of enlisted partitions.
+     * @param txId Tx ID.
+     */
+    protected IgniteBiTuple<UUID, TxMeta> randomTxMetaTuple(int enlistedPartsCount, UUID txId) {
         return new IgniteBiTuple<>(
                 txId,
                 new TxMeta(TxState.COMMITED, generateEnlistedPartitions(enlistedPartsCount), generateTimestamp(txId))
@@ -425,7 +434,13 @@ public abstract class AbstractTxStateStorageTest {
         assertEquals(expFullErrorCode, exception.code());
     }
 
-    private static void fillStorage(TxStateStorage storage, List<IgniteBiTuple<UUID, TxMeta>> rows) {
+    /**
+     * Fills storage.
+     *
+     * @param storage Storage.
+     * @param rows Rows.
+     */
+    protected static void fillStorage(TxStateStorage storage, List<IgniteBiTuple<UUID, TxMeta>> rows) {
         assertThat(rows, hasSize(greaterThanOrEqualTo(2)));
 
         for (int i = 0; i < rows.size(); i++) {
@@ -440,7 +455,15 @@ public abstract class AbstractTxStateStorageTest {
         }
     }
 
-    private static void checkLastApplied(
+    /**
+     * Checks last applied index and term.
+     *
+     * @param storage Storage.
+     * @param expLastAppliedIndex Expected last applied index.
+     * @param expLastAppliedTerm Expected last applied term.
+     * @param expPersistentIndex Expected persistent last applied index.
+     */
+    protected static void checkLastApplied(
             TxStateStorage storage,
             long expLastAppliedIndex,
             long expPersistentIndex,

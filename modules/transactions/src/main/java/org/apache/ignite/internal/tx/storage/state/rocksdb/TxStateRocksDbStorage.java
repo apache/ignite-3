@@ -147,14 +147,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
                 .putShort((short) partitionId)
                 .array();
 
-        byte[] indexAndTermBytes = readLastAppliedIndexAndTerm(readOptions);
-
-        lastAppliedIndex = indexAndTermBytes == null ? 0 : bytesToLong(indexAndTermBytes);
-        lastAppliedTerm = indexAndTermBytes == null ? 0 : bytesToLong(indexAndTermBytes, Long.BYTES);
-
-        persistedIndex = lastAppliedIndex;
-
-        // TODO: IGNITE-18027 вот тут надо смотреть что хранилище было в состоянии полной перебалансировки и очишать данные
+        initLastApplied();
     }
 
     @Override
@@ -590,6 +583,38 @@ public class TxStateRocksDbStorage implements TxStateStorage {
                         );
                     }
                 });
+    }
+
+    private void initLastApplied() {
+        byte[] indexAndTermBytes = readLastAppliedIndexAndTerm(readOptions);
+
+        if (indexAndTermBytes != null) {
+            long lastAppliedIndex = bytesToLong(indexAndTermBytes);
+
+            if (lastAppliedIndex == REBALANCE_IN_PROGRESS) {
+                try (WriteBatch writeBatch = new WriteBatch()) {
+                    writeBatch.deleteRange(partitionStartPrefix(), partitionEndPrefix());
+                    writeBatch.delete(lastAppliedIndexAndTermKey);
+
+                    db.write(writeOptions, writeBatch);
+                } catch (Exception e) {
+                    throw new IgniteInternalException(
+                            TX_STATE_STORAGE_REBALANCE_ERR,
+                            IgniteStringFormatter.format(
+                                    "Failed to clear storage for partition {} of table {}",
+                                    partitionId,
+                                    getTableName()
+                            ),
+                            e
+                    );
+                }
+            } else {
+                this.lastAppliedIndex = lastAppliedIndex;
+                persistedIndex = lastAppliedIndex;
+
+                lastAppliedTerm = bytesToLong(indexAndTermBytes, Long.BYTES);
+            }
+        }
     }
 
     private boolean close0() {
