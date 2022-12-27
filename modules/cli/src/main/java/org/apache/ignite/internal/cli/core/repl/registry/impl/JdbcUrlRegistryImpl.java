@@ -29,7 +29,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.cli.core.JdbcUrl;
 import org.apache.ignite.internal.cli.core.repl.AsyncSessionEventListener;
-import org.apache.ignite.internal.cli.core.repl.Session;
+import org.apache.ignite.internal.cli.core.repl.SessionInfo;
 import org.apache.ignite.internal.cli.core.repl.config.RootConfig;
 import org.apache.ignite.internal.cli.core.repl.registry.JdbcUrlRegistry;
 import org.apache.ignite.internal.cli.core.repl.registry.NodeNameRegistry;
@@ -97,7 +97,7 @@ public class JdbcUrlRegistryImpl implements JdbcUrlRegistry, AsyncSessionEventLi
     }
 
     @Override
-    public void onConnect(Session session) {
+    public void onConnect(SessionInfo sessionInfo) {
         if (executor == null) {
             executor = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("JdbcUrlRegistry", log));
             executor.scheduleWithFixedDelay(() -> fetchJdbcUrls(), 0, 5, TimeUnit.SECONDS);

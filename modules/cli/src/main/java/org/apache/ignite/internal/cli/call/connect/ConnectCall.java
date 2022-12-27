@@ -29,7 +29,7 @@ import org.apache.ignite.internal.cli.core.call.CallOutput;
 import org.apache.ignite.internal.cli.core.call.DefaultCallOutput;
 import org.apache.ignite.internal.cli.core.exception.IgniteCliApiException;
 import org.apache.ignite.internal.cli.core.repl.Session;
-import org.apache.ignite.internal.cli.core.repl.SessionContext;
+import org.apache.ignite.internal.cli.core.repl.SessionInfo;
 import org.apache.ignite.internal.cli.core.repl.config.RootConfig;
 import org.apache.ignite.internal.cli.core.style.component.MessageUiComponent;
 import org.apache.ignite.internal.cli.core.style.element.UiElements;
@@ -59,15 +59,15 @@ public class ConnectCall implements Call<ConnectCallInput, String> {
     @Override
     public CallOutput<String> execute(ConnectCallInput input) {
         String nodeUrl = input.getNodeUrl();
-        if (session.connected() && Objects.equals(session.context().nodeUrl(), nodeUrl)) {
+        SessionInfo sessionInfo = session.info();
+        if (sessionInfo != null && Objects.equals(sessionInfo.nodeUrl(), nodeUrl)) {
             MessageUiComponent message = MessageUiComponent.fromMessage("You are already connected to %s", UiElements.url(nodeUrl));
             return DefaultCallOutput.success(message.render());
         }
         try {
             String configuration = fetchNodeConfiguration(nodeUrl);
             stateConfigProvider.get().setProperty(ConfigConstants.LAST_CONNECTED_URL, nodeUrl);
-            SessionContext context = new SessionContext(nodeUrl, fetchNodeName(nodeUrl), constructJdbcUrl(configuration, nodeUrl));
-            session.connect(context);
+            session.connect(new SessionInfo(nodeUrl, fetchNodeName(nodeUrl), constructJdbcUrl(configuration, nodeUrl)));
             return DefaultCallOutput.success(MessageUiComponent.fromMessage("Connected to %s", UiElements.url(nodeUrl)).render());
         } catch (ApiException | IllegalArgumentException e) {
             session.disconnect();

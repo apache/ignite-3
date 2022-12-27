@@ -25,7 +25,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.cli.call.configuration.ClusterConfigShowCall;
 import org.apache.ignite.internal.cli.call.configuration.ClusterConfigShowCallInput;
 import org.apache.ignite.internal.cli.core.repl.AsyncSessionEventListener;
-import org.apache.ignite.internal.cli.core.repl.Session;
+import org.apache.ignite.internal.cli.core.repl.SessionInfo;
 import org.apache.ignite.internal.cli.core.repl.registry.ClusterConfigRegistry;
 
 /** Implementation of {@link ClusterConfigRegistry}. */
@@ -41,12 +41,12 @@ public class ClusterConfigRegistryImpl implements ClusterConfigRegistry, AsyncSe
     }
 
     @Override
-    public void onConnect(Session session) {
+    public void onConnect(SessionInfo sessionInfo) {
         CompletableFuture.runAsync(() -> {
             try {
                 config.set(ConfigFactory.parseString(
                         clusterConfigShowCall.execute(
-                                ClusterConfigShowCallInput.builder().clusterUrl(session.context().nodeUrl()).build()
+                                ClusterConfigShowCallInput.builder().clusterUrl(sessionInfo.nodeUrl()).build()
                         ).body().getValue()
                 ));
             } catch (Exception ignored) {

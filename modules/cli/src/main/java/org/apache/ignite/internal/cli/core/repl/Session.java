@@ -19,20 +19,19 @@ package org.apache.ignite.internal.cli.core.repl;
 
 import jakarta.inject.Singleton;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.cli.logger.CliLoggers;
 import org.apache.ignite.internal.logger.IgniteLogger;
 
 /**
- * Connection session that in fact is holder for state: connected or disconnected. Also has a nodeUrl if the state is connected.
+ * Connection session that in fact is holder for state: connected or disconnected. Also has session info if the state is connected.
  */
 @Singleton
 public class Session {
 
     private static final IgniteLogger log = CliLoggers.forClass(Session.class);
 
-    private SessionContext sessionContext;
-
-    private boolean connectedToNode;
+    private final AtomicReference<SessionInfo> info = new AtomicReference<>();
 
     private final List<AsyncSessionEventListener> listeners;
 
@@ -40,38 +39,37 @@ public class Session {
         this.listeners = listeners;
     }
 
-    /** Creates session details with provided nodeUrl, nodeName, jdbcUrl. */
-    public synchronized void connect(SessionContext context) {
-        this.sessionContext = context;
-        this.connectedToNode = true;
-        listeners.forEach(it -> {
-            try {
-                it.onConnect(this);
-            } catch (Exception e) {
-                log.warn("Got an exception: ", e);
-            }
-        });
+    /** Creates session info with provided nodeUrl, nodeName, jdbcUrl. */
+    public void connect(SessionInfo newInfo) {
+        if (info.compareAndSet(null, newInfo)) {
+            listeners.forEach(it -> {
+                try {
+                    it.onConnect(newInfo);
+                } catch (Exception e) {
+                    log.warn("Got an exception: ", e);
+                }
+            });
+        } else {
+            throw new IllegalStateException();
+        }
     }
 
-    /** Clears session details and sets false to connectedToNode. */
-    public synchronized void disconnect() {
-        this.sessionContext = new SessionContext();
-        this.connectedToNode = false;
-        listeners.forEach(it -> {
-            try {
-                it.onDisconnect();
-            } catch (Exception e) {
-                log.warn("Got an exception: ", e);
-            }
-        });
+    /** Clears session info and sets false to connectedToNode. */
+    public void disconnect() {
+        SessionInfo wasConnected = info.getAndSet(null);
+        if (wasConnected != null) {
+            listeners.forEach(it -> {
+                try {
+                    it.onDisconnect();
+                } catch (Exception e) {
+                    log.warn("Got an exception: ", e);
+                }
+            });
+        }
     }
 
-    public boolean connected() {
-        return connectedToNode;
-    }
-
-    /** Returns {@link SessionContext}. */
-    public SessionContext context() {
-        return this.sessionContext;
+    /** Returns {@link SessionInfo}. */
+    public SessionInfo info() {
+        return info.get();
     }
 }

@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.cli.core.repl;
 
 /** Representation of session details. */
-public class SessionContext {
+public class SessionInfo {
     private final String nodeUrl;
 
     private final String nodeName;
@@ -26,14 +26,14 @@ public class SessionContext {
     private final String jdbcUrl;
 
     /** Default constructor. */
-    public SessionContext() {
+    public SessionInfo() {
         this.nodeUrl = null;
         this.nodeName = null;
         this.jdbcUrl = null;
     }
 
     /** Constructor. */
-    public SessionContext(String nodeUrl, String nodeName, String jdbcUrl) {
+    public SessionInfo(String nodeUrl, String nodeName, String jdbcUrl) {
         this.nodeUrl = nodeUrl;
         this.nodeName = nodeName;
         this.jdbcUrl = jdbcUrl;

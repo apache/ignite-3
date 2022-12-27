@@ -23,9 +23,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.Duration;
 import java.util.Collections;
-import org.apache.ignite.internal.cli.core.repl.Session;
-import org.apache.ignite.internal.cli.core.repl.SessionContext;
 import org.apache.ignite.internal.cli.core.repl.AsyncSessionEventListener;
+import org.apache.ignite.internal.cli.core.repl.Session;
+import org.apache.ignite.internal.cli.core.repl.SessionInfo;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -39,8 +39,7 @@ public class NodeNameTest extends CliCommandTestNotInitializedIntegrationBase {
     @BeforeEach
     void setUp() throws InterruptedException {
         Session session = new Session(Collections.singletonList((AsyncSessionEventListener) nodeNameRegistry));
-        SessionContext context = new SessionContext("http://localhost:10301", "node1", "");
-        session.connect(context);
+        session.connect(new SessionInfo("http://localhost:10301", "node1", ""));
         // wait to pulling node names
         assertTrue(waitForCondition(() -> !nodeNameRegistry.names().isEmpty(), Duration.ofSeconds(5).toMillis()));
         this.nodeName = nodeNameRegistry.names().stream()

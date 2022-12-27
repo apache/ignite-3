@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.cli.core.style.AnsiStringSupport.fg;
 
 import jakarta.inject.Singleton;
 import org.apache.ignite.internal.cli.core.repl.Session;
+import org.apache.ignite.internal.cli.core.repl.SessionInfo;
 import org.apache.ignite.internal.cli.core.style.AnsiStringSupport.Color;
 
 /**
@@ -41,8 +42,9 @@ public class ReplPromptProvider implements PromptProvider {
     @Override
     public String getPrompt() {
         String postfix = "> ";
-        return session.connected()
-                ? ansi(fg(Color.GREEN).mark("[" + session.context().nodeName() + "]")) + postfix
+        SessionInfo sessionInfo = session.info();
+        return sessionInfo != null
+                ? ansi(fg(Color.GREEN).mark("[" + sessionInfo.nodeName() + "]")) + postfix
                 : ansi(fg(Color.RED).mark("[disconnected]")) + postfix;
     }
 }

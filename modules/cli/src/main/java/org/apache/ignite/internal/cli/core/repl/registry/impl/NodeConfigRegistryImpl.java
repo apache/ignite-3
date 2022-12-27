@@ -25,7 +25,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.cli.call.configuration.NodeConfigShowCall;
 import org.apache.ignite.internal.cli.call.configuration.NodeConfigShowCallInput;
 import org.apache.ignite.internal.cli.core.repl.AsyncSessionEventListener;
-import org.apache.ignite.internal.cli.core.repl.Session;
+import org.apache.ignite.internal.cli.core.repl.SessionInfo;
 import org.apache.ignite.internal.cli.core.repl.registry.NodeConfigRegistry;
 
 /** Implementation of {@link NodeConfigRegistry}. */
@@ -41,13 +41,13 @@ public class NodeConfigRegistryImpl implements NodeConfigRegistry, AsyncSessionE
     }
 
     @Override
-    public void onConnect(Session session) {
+    public void onConnect(SessionInfo sessionInfo) {
         CompletableFuture.runAsync(() -> {
             try {
                 config.set(ConfigFactory.parseString(
                         nodeConfigShowCall.execute(
                                 // todo https://issues.apache.org/jira/browse/IGNITE-17416
-                                NodeConfigShowCallInput.builder().nodeUrl(session.context().nodeUrl()).build()
+                                NodeConfigShowCallInput.builder().nodeUrl(sessionInfo.nodeUrl()).build()
                         ).body().getValue())
                 );
             } catch (Exception ignored) {

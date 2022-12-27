@@ -47,9 +47,10 @@ public class SessionDefaultValueProvider implements IDefaultValueProvider {
 
     @Override
     public String defaultValue(ArgSpec argSpec) throws Exception {
-        if (session.connected()) {
+        SessionInfo sessionInfo = session.info();
+        if (sessionInfo != null) {
             if (Objects.equals(argSpec.descriptionKey(), ConfigConstants.JDBC_URL)) {
-                return session.context().jdbcUrl();
+                return sessionInfo.jdbcUrl();
             }
         }
         return defaultValueProvider.defaultValue(argSpec);

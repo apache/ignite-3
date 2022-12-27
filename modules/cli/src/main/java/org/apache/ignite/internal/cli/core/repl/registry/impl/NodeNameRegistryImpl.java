@@ -32,7 +32,7 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.cli.call.cluster.topology.PhysicalTopologyCall;
 import org.apache.ignite.internal.cli.core.call.UrlCallInput;
 import org.apache.ignite.internal.cli.core.repl.AsyncSessionEventListener;
-import org.apache.ignite.internal.cli.core.repl.Session;
+import org.apache.ignite.internal.cli.core.repl.SessionInfo;
 import org.apache.ignite.internal.cli.core.repl.registry.NodeNameRegistry;
 import org.apache.ignite.internal.cli.logger.CliLoggers;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -104,16 +104,15 @@ public class NodeNameRegistryImpl implements NodeNameRegistry, AsyncSessionEvent
     /**
      * Start pulling updates from a node.
      *
-     * @param session Session.
+     * @param sessionInfo sessionInfo.
      */
 
     @Override
-    public synchronized void onConnect(Session session) {
-        onDisconnect();
+    public void onConnect(SessionInfo sessionInfo) {
         if (executor == null) {
             executor = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("NodeNameRegistry", log));
             executor.scheduleWithFixedDelay(() ->
-                    updateNodeNames(session.context().nodeUrl()), 0, 5, TimeUnit.SECONDS);
+                    updateNodeNames(sessionInfo.nodeUrl()), 0, 5, TimeUnit.SECONDS);
         }
     }
 
@@ -121,7 +120,7 @@ public class NodeNameRegistryImpl implements NodeNameRegistry, AsyncSessionEvent
      * Stops pulling updates.
      */
     @Override
-    public synchronized void onDisconnect() {
+    public void onDisconnect() {
         if (executor != null) {
             shutdownAndAwaitTermination(executor, 3, TimeUnit.SECONDS);
             executor = null;
