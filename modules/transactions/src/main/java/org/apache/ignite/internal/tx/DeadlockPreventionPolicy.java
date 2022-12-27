@@ -49,4 +49,22 @@ public interface DeadlockPreventionPolicy {
     default long waitTimeout() {
         return -1;
     }
+
+    /**
+     * Whether transaction priority if used for conflict resolution.
+     *
+     * @return Whether priority is used.
+     */
+    default boolean usePriority() {
+        return txIdComparator() != null;
+    }
+
+    /**
+     * Whether deadlock prevention policy doesn't allow to wait for any transaction.
+     *
+     * @return Whether deadlock prevention policy doesn't allow to wait for any transaction.
+     */
+    default boolean noWait() {
+        return !usePriority() && waitTimeout() == 0;
+    }
 }

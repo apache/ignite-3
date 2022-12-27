@@ -260,7 +260,7 @@ public class HeapLockManager implements LockManager {
                 LockMode mode = lockedMode(tmp);
 
                 if (mode != null && !mode.isCompatible(waiter.intendedLockMode())) {
-                    if (!usePriority() && deadlockPreventionPolicy.waitTimeout() == 0) {
+                    if (deadlockPreventionPolicy.noWait()) {
                         waiter.fail(lockException(waiter.txId(), tmp));
 
                         return true;
@@ -386,7 +386,7 @@ public class HeapLockManager implements LockManager {
          * @return List of waiters to notify.
          */
         private List<WaiterImpl> unlockCompatibleWaiters() {
-            if (!usePriority() && deadlockPreventionPolicy.waitTimeout() == 0) {
+            if (deadlockPreventionPolicy.noWait()) {
                 return Collections.emptyList();
             }
 
@@ -403,7 +403,7 @@ public class HeapLockManager implements LockManager {
                 }
             }
 
-            if (usePriority() && deadlockPreventionPolicy.waitTimeout() >= 0) {
+            if (deadlockPreventionPolicy.usePriority() && deadlockPreventionPolicy.waitTimeout() >= 0) {
                 for (Map.Entry<UUID, WaiterImpl> entry : waiters.entrySet()) {
                     WaiterImpl tmp = entry.getValue();
 
@@ -430,30 +430,16 @@ public class HeapLockManager implements LockManager {
         }
 
         /**
-         * Whether transaction priority if used for conflict resolution.
-         *
-         * @return Whether priority is used.
-         */
-        private boolean usePriority() {
-            return deadlockPreventionPolicy.txIdComparator() != null;
-        }
-
-        /**
          * Makes the waiter fail after specified timeout (in milliseconds), if intended lock was not acquired within this timeout.
          *
          * @param waiter Waiter.
          */
         private void setWaiterTimeout(WaiterImpl waiter) {
             delayedExecutor.execute(() -> {
-                synchronized (waiters) {
-                    if (!waiter.fut.isDone()) {
-                        waiter.ex = new LockException(ACQUIRE_LOCK_TIMEOUT_ERR, "Failed to acquire a lock within a "
-                                + "timeout [txId=" + waiter.txId() + ", waiter=" + waiter + ']');
-                    }
-                }
-
                 if (!waiter.fut.isDone()) {
-                    waiter.fut.completeExceptionally(waiter.ex);
+                    waiter.fut.completeExceptionally(new LockException(ACQUIRE_LOCK_TIMEOUT_ERR, "Failed to acquire a lock due to "
+                            + "timeout [txId=" + waiter.txId() + ", waiter=" + waiter
+                            + ", timeout=" + deadlockPreventionPolicy.waitTimeout() + ']'));
                 }
             });
         }
