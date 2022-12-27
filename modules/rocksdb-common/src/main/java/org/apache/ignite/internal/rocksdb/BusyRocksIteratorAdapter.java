@@ -75,7 +75,7 @@ public abstract class BusyRocksIteratorAdapter<T> extends RocksIteratorAdapter<T
     @Override
     public T next() {
         if (!busyLock.enterBusy()) {
-            handleBusyFail();
+            handleBusyFail0();
         }
 
         try {
@@ -90,7 +90,7 @@ public abstract class BusyRocksIteratorAdapter<T> extends RocksIteratorAdapter<T
     @Override
     public void close() {
         if (!busyLock.enterBusy()) {
-            handleBusyFail();
+            handleBusyFail0();
         }
 
         try {
