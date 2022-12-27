@@ -22,13 +22,11 @@ import static java.util.Comparator.comparing;
 import java.util.Iterator;
 import java.util.NavigableSet;
 import java.util.NoSuchElementException;
-import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ConcurrentSkipListSet;
-import java.util.stream.Stream;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.BinaryRowAndRowId;
@@ -39,6 +37,7 @@ import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageClosedException;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.TxIdMismatchException;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
@@ -64,6 +63,8 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     private final int partitionId;
 
     private volatile boolean closed;
+
+    private volatile boolean rebalance;
 
     public TestMvPartitionStorage(int partitionId) {
         this.partitionId = partitionId;
@@ -106,35 +107,35 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
     @Override
     public <V> V runConsistently(WriteClosure<V> closure) throws StorageException {
-        checkClosed();
+        checkStorageClosed();
 
         return closure.execute();
     }
 
     @Override
     public CompletableFuture<Void> flush() {
-        checkClosed();
+        checkStorageClosed();
 
         return CompletableFuture.completedFuture(null);
     }
 
     @Override
     public long lastAppliedIndex() {
-        checkClosed();
+        checkStorageClosed();
 
         return lastAppliedIndex;
     }
 
     @Override
     public long lastAppliedTerm() {
-        checkClosed();
+        checkStorageClosed();
 
         return lastAppliedTerm;
     }
 
     @Override
     public void lastApplied(long lastAppliedIndex, long lastAppliedTerm) throws StorageException {
-        checkClosed();
+        checkStorageClosedOrInProcessOfRebalance();
 
         this.lastAppliedIndex = lastAppliedIndex;
         this.lastAppliedTerm = lastAppliedTerm;
@@ -142,7 +143,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
     @Override
     public long persistedIndex() {
-        checkClosed();
+        checkStorageClosed();
 
         return lastAppliedIndex;
     }
@@ -150,13 +151,15 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     @Override
     @Nullable
     public RaftGroupConfiguration committedGroupConfiguration() {
-        checkClosed();
+        checkStorageClosed();
 
         return groupConfig;
     }
 
     @Override
     public void committedGroupConfiguration(RaftGroupConfiguration config) {
+        checkStorageClosedOrInProcessOfRebalance();
+
         this.groupConfig = config;
     }
 
@@ -168,7 +171,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
             UUID commitTableId,
             int commitPartitionId
     ) throws TxIdMismatchException {
-        checkClosed();
+        checkStorageClosed();
 
         BinaryRow[] res = {null};
 
@@ -191,7 +194,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
     @Override
     public synchronized @Nullable BinaryRow abortWrite(RowId rowId) {
-        checkClosed();
+        checkStorageClosedOrInProcessOfRebalance();
 
         BinaryRow[] res = {null};
 
@@ -212,7 +215,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
     @Override
     public synchronized void commitWrite(RowId rowId, HybridTimestamp timestamp) {
-        checkClosed();
+        checkStorageClosed();
 
         map.compute(rowId, (ignored, versionChain) -> {
             assert versionChain != null;
@@ -231,7 +234,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
             @Nullable BinaryRow row,
             HybridTimestamp commitTimestamp
     ) throws StorageException {
-        checkClosed();
+        checkStorageClosed();
 
         map.compute(rowId, (ignored, versionChain) -> {
             if (versionChain != null && versionChain.isWriteIntent()) {
@@ -269,7 +272,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
     @Override
     public ReadResult read(RowId rowId, @Nullable HybridTimestamp timestamp) {
-        checkClosed();
+        checkStorageClosedOrInProcessOfRebalance();
 
         if (rowId.partitionId() != partitionId) {
             throw new IllegalArgumentException(
@@ -390,19 +393,14 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
     @Override
     public Cursor<ReadResult> scanVersions(RowId rowId) throws StorageException {
-        checkClosed();
+        checkStorageClosedOrInProcessOfRebalance();
 
-        return Cursor.fromBareIterator(
-                Stream.iterate(map.get(rowId), Objects::nonNull, vc -> vc.next)
-                        .peek(versionChain -> checkClosed())
-                        .map((VersionChain versionChain) -> versionChainToReadResult(versionChain, false))
-                        .iterator()
-        );
+        return new ScanVersionsCursor(rowId);
     }
 
     @Override
     public PartitionTimestampCursor scan(HybridTimestamp timestamp) {
-        checkClosed();
+        checkStorageClosedOrInProcessOfRebalance();
 
         Iterator<VersionChain> iterator = map.values().iterator();
 
@@ -436,7 +434,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
             @Override
             public boolean hasNext() {
-                checkClosed();
+                checkStorageClosedOrInProcessOfRebalance();
 
                 if (currentReadResult != null) {
                     return true;
@@ -478,13 +476,15 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
     @Override
     public @Nullable RowId closestRowId(RowId lowerBound) throws StorageException {
-        checkClosed();
+        checkStorageClosedOrInProcessOfRebalance();
 
         return map.ceilingKey(lowerBound);
     }
 
     @Override
     public synchronized @Nullable BinaryRowAndRowId pollForVacuum(HybridTimestamp lowWatermark) {
+        checkStorageClosedOrInProcessOfRebalance();
+
         Iterator<VersionChain> it = gcQueue.iterator();
 
         if (!it.hasNext()) {
@@ -530,14 +530,18 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
     @Override
     public long rowsCount() {
-        checkClosed();
+        checkStorageClosedOrInProcessOfRebalance();
 
         return map.size();
     }
 
     @Override
     public void close() {
+        assert !rebalance;
+
         closed = true;
+
+        clear();
     }
 
     public void destroy() {
@@ -551,9 +555,112 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         gcQueue.clear();
     }
 
-    private void checkClosed() {
+    private void checkStorageClosed() {
         if (closed) {
             throw new StorageClosedException("Storage is already closed");
+        }
+    }
+
+    private void checkStorageInProcessOfRebalance() {
+        if (rebalance) {
+            throw new StorageRebalanceException("Storage in the process of rebalancing");
+        }
+    }
+
+    private void checkStorageClosedOrInProcessOfRebalance() {
+        checkStorageClosed();
+        checkStorageInProcessOfRebalance();
+    }
+
+    void startRebalance() {
+        checkStorageClosed();
+
+        rebalance = true;
+
+        clear();
+
+        lastAppliedIndex = REBALANCE_IN_PROGRESS;
+        lastAppliedTerm = REBALANCE_IN_PROGRESS;
+    }
+
+    void abortRebalance() {
+        checkStorageClosed();
+
+        if (!rebalance) {
+            return;
+        }
+
+        rebalance = false;
+
+        clear();
+
+        lastAppliedIndex = 0;
+        lastAppliedTerm = 0;
+    }
+
+    void finishRebalance(long lastAppliedIndex, long lastAppliedTerm) {
+        checkStorageClosed();
+
+        assert rebalance;
+
+        rebalance = false;
+
+        this.lastAppliedIndex = lastAppliedIndex;
+        this.lastAppliedTerm = lastAppliedTerm;
+    }
+
+    boolean closed() {
+        return closed;
+    }
+
+    private class ScanVersionsCursor implements Cursor<ReadResult> {
+        private final RowId rowId;
+
+        @Nullable
+        private Boolean hasNext;
+
+        @Nullable
+        private VersionChain versionChain;
+
+        private ScanVersionsCursor(RowId rowId) {
+            this.rowId = rowId;
+        }
+
+        @Override
+        public void close() {
+            // No-op.
+        }
+
+        @Override
+        public boolean hasNext() {
+            advanceIfNeeded();
+
+            return hasNext;
+        }
+
+        @Override
+        public ReadResult next() {
+            advanceIfNeeded();
+
+            if (!hasNext) {
+                throw new NoSuchElementException();
+            }
+
+            hasNext = null;
+
+            return versionChainToReadResult(versionChain, false);
+        }
+
+        private void advanceIfNeeded() {
+            checkStorageClosedOrInProcessOfRebalance();
+
+            if (hasNext != null) {
+                return;
+            }
+
+            versionChain = versionChain == null ? map.get(rowId) : versionChain.next;
+
+            hasNext = versionChain != null;
         }
     }
 }
