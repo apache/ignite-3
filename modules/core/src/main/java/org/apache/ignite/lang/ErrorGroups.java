@@ -268,8 +268,8 @@ public class ErrorGroups {
         /** Failed to acquire a lock on a key due to a conflict. */
         public static final int ACQUIRE_LOCK_ERR = TX_ERR_GROUP.registerErrorCode(5);
 
-        /** Failed to downgrade a lock on a key due to a conflict. */
-        public static final int DOWNGRADE_LOCK_ERR = TX_ERR_GROUP.registerErrorCode(6);
+        /** Failed to acquire a lock on a key within a timeout. */
+        public static final int ACQUIRE_LOCK_TIMEOUT_ERR = TX_ERR_GROUP.registerErrorCode(6);
 
         /** Failed to commit a transaction. */
         public static final int TX_COMMIT_ERR = TX_ERR_GROUP.registerErrorCode(7);
