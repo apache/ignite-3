@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.distributionzones;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.deleteDataNodesKeyAndUpdateTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.triggerKeyCondition;
@@ -37,15 +38,16 @@ import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.ConfigurationChangeException;
 import org.apache.ignite.configuration.NamedListChange;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
+import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
@@ -153,21 +155,25 @@ public class DistributionZoneManager implements IgniteComponent {
      * Creates a new distribution zone with the given {@code name} asynchronously.
      *
      * @param distributionZoneCfg Distribution zone configuration.
-     * @return Future representing pending completion of the operation.
-     *      Future can be completed with {@link ConfigurationChangeException} if a zone with the given name already exists
-     *      or {@code distributionZoneCfg} is broken.
-     * @throws NullPointerException if {@code distributionZoneCfg} is {@code null}.
-     * @throws NodeStoppingException If the node is stopping.
+     * @return Future representing pending completion of the operation. Future can be completed with:
+     *      {@link DistributionZoneAlreadyExistsException} if a zone with the given name already exists,
+     *      {@link ConfigurationValidationException} if {@code distributionZoneCfg} is broken,
+     *      {@link IllegalArgumentException} if distribution zone configuration is null,
+     *      {@link NodeStoppingException} if the node is stopping.
      */
     public CompletableFuture<Void> createZone(DistributionZoneConfigurationParameters distributionZoneCfg) {
-        Objects.requireNonNull(distributionZoneCfg, "Distribution zone configuration is null.");
+        if (distributionZoneCfg == null) {
+            return failedFuture(new IllegalArgumentException("Distribution zone configuration is null"));
+        }
 
         if (!busyLock.enterBusy()) {
-            throw new IgniteException(NODE_STOPPING_ERR, new NodeStoppingException());
+            return failedFuture(new NodeStoppingException());
         }
 
         try {
-            return zonesConfiguration.change(zonesChange -> zonesChange.changeDistributionZones(zonesListChange -> {
+            CompletableFuture<Void> fut = new CompletableFuture<>();
+
+            zonesConfiguration.change(zonesChange -> zonesChange.changeDistributionZones(zonesListChange -> {
                 try {
                     zonesListChange.create(distributionZoneCfg.name(), zoneChange -> {
                         if (distributionZoneCfg.dataNodesAutoAdjust() == null) {
@@ -197,7 +203,15 @@ public class DistributionZoneManager implements IgniteComponent {
                 } catch (IllegalArgumentException e) {
                     throw new DistributionZoneAlreadyExistsException(distributionZoneCfg.name(), e);
                 }
-            }));
+            })).whenComplete((res, e) -> {
+                if (e != null) {
+                    fut.completeExceptionally(unwrapDistributionZoneException(e));
+                } else {
+                    fut.complete(null);
+                }
+            });
+
+            return fut;
         } finally {
             busyLock.leaveBusy();
         }
@@ -208,22 +222,31 @@ public class DistributionZoneManager implements IgniteComponent {
      *
      * @param name Distribution zone name.
      * @param distributionZoneCfg Distribution zone configuration.
-     * @return Future representing pending completion of the operation.
-     *      Future can be completed with {@link ConfigurationChangeException} if a zone with the given name already exists or
-     *      zone with name for renaming already exists or {@code distributionZoneCfg} is broken.
-     * @throws NullPointerException if {@code name} or {@code distributionZoneCfg} is {@code null}.
-     * @throws NodeStoppingException If the node is stopping.
+     * @return Future representing pending completion of the operation. Future can be completed with:
+     *      {@link DistributionZoneRenameException} if a zone with the given name already exists
+     *      or zone with name for renaming already exists,
+     *      {@link DistributionZoneNotFoundException} if a zone with the given name doesn't exist,
+     *      {@link ConfigurationValidationException} if {@code distributionZoneCfg} is broken,
+     *      {@link IllegalArgumentException} if {@code name} or {@code distributionZoneCfg} is {@code null},
+     *      {@link NodeStoppingException} if the node is stopping.
      */
     public CompletableFuture<Void> alterZone(String name, DistributionZoneConfigurationParameters distributionZoneCfg) {
-        Objects.requireNonNull(name, "Distribution zone name is null.");
-        Objects.requireNonNull(distributionZoneCfg, "Distribution zone configuration is null.");
+        if (name == null || name.isEmpty()) {
+            return failedFuture(new IllegalArgumentException("Distribution zone name is null or empty [name=" + name + ']'));
+        }
+
+        if (distributionZoneCfg == null) {
+            return failedFuture(new IllegalArgumentException("Distribution zone configuration is null"));
+        }
 
         if (!busyLock.enterBusy()) {
-            throw new IgniteException(NODE_STOPPING_ERR, new NodeStoppingException());
+            return failedFuture(new NodeStoppingException());
         }
 
         try {
-            return zonesConfiguration.change(zonesChange -> zonesChange.changeDistributionZones(zonesListChange -> {
+            CompletableFuture<Void> fut = new CompletableFuture<>();
+
+            zonesConfiguration.change(zonesChange -> zonesChange.changeDistributionZones(zonesListChange -> {
                 NamedListChange<DistributionZoneView, DistributionZoneChange> renameChange;
 
                 try {
@@ -257,7 +280,16 @@ public class DistributionZoneManager implements IgniteComponent {
                 } catch (IllegalArgumentException e) {
                     throw new DistributionZoneNotFoundException(distributionZoneCfg.name(), e);
                 }
-            }));
+            }))
+                    .whenComplete((res, e) -> {
+                        if (e != null) {
+                            fut.completeExceptionally(unwrapDistributionZoneException(e));
+                        } else {
+                            fut.complete(null);
+                        }
+                    });
+
+            return fut;
         } finally {
             busyLock.leaveBusy();
         }
@@ -267,20 +299,24 @@ public class DistributionZoneManager implements IgniteComponent {
      * Drops a distribution zone with the name specified.
      *
      * @param name Distribution zone name.
-     * @return Future representing pending completion of the operation.
-     *      Future can be completed with {@link ConfigurationChangeException} if a zone with the given name doesn't exist.
-     * @throws NullPointerException if {@code name}  is {@code null}.
-     * @throws NodeStoppingException If the node is stopping.
+     * @return Future representing pending completion of the operation. Future can be completed with:
+     *      {@link DistributionZoneNotFoundException} if a zone with the given name doesn't exist,
+     *      {@link IllegalArgumentException} if {@code name} is {@code null},
+     *      {@link NodeStoppingException} if the node is stopping.
      */
     public CompletableFuture<Void> dropZone(String name) {
-        Objects.requireNonNull(name, "Distribution zone name is null.");
+        if (name == null || name.isEmpty()) {
+            return failedFuture(new IllegalArgumentException("Distribution zone name is null or empty [name=" + name + ']'));
+        }
 
         if (!busyLock.enterBusy()) {
-            throw new IgniteException(NODE_STOPPING_ERR, new NodeStoppingException());
+            return failedFuture(new NodeStoppingException());
         }
 
         try {
-            return zonesConfiguration.change(zonesChange -> zonesChange.changeDistributionZones(zonesListChange -> {
+            CompletableFuture<Void> fut = new CompletableFuture<>();
+
+            zonesConfiguration.change(zonesChange -> zonesChange.changeDistributionZones(zonesListChange -> {
                 DistributionZoneView view = zonesListChange.get(name);
 
                 if (view == null) {
@@ -288,7 +324,16 @@ public class DistributionZoneManager implements IgniteComponent {
                 }
 
                 zonesListChange.delete(name);
-            }));
+            }))
+                    .whenComplete((res, e) -> {
+                        if (e != null) {
+                            fut.completeExceptionally(unwrapDistributionZoneException(e));
+                        } else {
+                            fut.complete(null);
+                        }
+                    });
+
+            return fut;
         } finally {
             busyLock.leaveBusy();
         }
@@ -700,5 +745,21 @@ public class DistributionZoneManager implements IgniteComponent {
                 LOG.debug("Failed to delete zones' dataNodes key [zoneId = {}]", zoneId);
             }
         });
+    }
+
+    /**
+     * Unwraps distribution zone exceptions from {@link ConfigurationChangeException} if it is possible.
+     */
+    private static Throwable unwrapDistributionZoneException(Throwable e) {
+        if (e instanceof CompletionException && e.getCause() != null
+                && e.getCause() instanceof ConfigurationChangeException && e.getCause().getCause() != null
+                && (e.getCause().getCause() instanceof DistributionZoneAlreadyExistsException
+                    || e.getCause().getCause() instanceof DistributionZoneRenameException
+                    || e.getCause().getCause() instanceof DistributionZoneNotFoundException
+                    || e.getCause().getCause() instanceof ConfigurationValidationException)) {
+            return e.getCause().getCause();
+        } else {
+            return e;
+        }
     }
 }

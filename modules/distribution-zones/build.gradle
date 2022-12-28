@@ -42,6 +42,7 @@ dependencies {
 
     testImplementation libs.mockito.core
     testImplementation libs.mockito.junit
+    testImplementation libs.hamcrest.core
     testImplementation(project(':ignite-raft-api'))
     testImplementation(project(':ignite-network-api'))
     testImplementation(testFixtures(project(':ignite-core')))
