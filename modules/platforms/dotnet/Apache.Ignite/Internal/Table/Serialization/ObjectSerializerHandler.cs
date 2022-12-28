@@ -502,7 +502,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
             var columnType = column.Type.ToType();
 
             var fieldType = Nullable.GetUnderlyingType(fieldInfo.FieldType) ?? fieldInfo.FieldType;
-            fieldType = fieldType.IsEnum ? Enum.GetUnderlyingType(fieldType) : fieldType;
+            fieldType = fieldType.UnwrapEnum();
 
             if (fieldType != columnType)
             {

@@ -206,6 +206,6 @@ namespace Apache.Ignite.Internal.Table.Serialization
         private static IgniteClientException GetUnsupportedTypeException(Type valueType) =>
             new(ErrorGroups.Client.Configuration, "Unsupported type: " + valueType);
 
-        private static Type Unwrap(Type type) => type.IsEnum ? Enum.GetUnderlyingType(type) : type;
+        private static Type Unwrap(Type type) => type.UnwrapEnum();
     }
 }
