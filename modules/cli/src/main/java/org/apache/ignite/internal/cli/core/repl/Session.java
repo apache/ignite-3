@@ -20,6 +20,7 @@ package org.apache.ignite.internal.cli.core.repl;
 import jakarta.inject.Singleton;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
+import org.apache.ignite.internal.cli.core.exception.ConnectionException;
 import org.apache.ignite.internal.cli.logger.CliLoggers;
 import org.apache.ignite.internal.logger.IgniteLogger;
 
@@ -50,7 +51,7 @@ public class Session {
                 }
             });
         } else {
-            throw new IllegalStateException();
+            throw new ConnectionException("Already connected to " + info.get().nodeUrl());
         }
     }
 
