@@ -236,6 +236,7 @@ public class PlatformTestNodeRunner {
         createTwoColumnTable(node, ColumnType.DOUBLE);
         createTwoColumnTable(node, ColumnType.decimal());
         createTwoColumnTable(node, ColumnType.string());
+        createTwoColumnTable(node, ColumnType.DATE);
         createTwoColumnTable(node, ColumnType.datetime());
         createTwoColumnTable(node, ColumnType.time());
         createTwoColumnTable(node, ColumnType.timestamp());

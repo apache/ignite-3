@@ -66,6 +66,11 @@ internal static class ILGeneratorExtensions
             return;
         }
 
+        if (to.IsEnum)
+        {
+            to = to.GetEnumUnderlyingType();
+        }
+
         if (!from.IsValueType || !to.IsValueType)
         {
             EmitConvertTo(il, from, to, columnName);
