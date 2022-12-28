@@ -153,13 +153,7 @@ public class Cluster {
      *     is not initialized, the node is returned in a state in which it is ready to join the cluster).
      */
     public IgniteImpl startNode(int index) {
-        if (index < 0) {
-            throw new IllegalArgumentException("Index cannot be negative");
-        }
-        if (index >= nodes.size()) {
-            throw new IllegalArgumentException("Cluster only contains " + nodes.size() + " nodes, but node with index "
-                    + index + " was tried to be accessed");
-        }
+        checkNodeIndex(index);
 
         IgniteImpl newIgniteNode;
 
@@ -178,12 +172,24 @@ public class Cluster {
         return newIgniteNode;
     }
 
+    private void checkNodeIndex(int index) {
+        if (index < 0) {
+            throw new IllegalArgumentException("Index cannot be negative");
+        }
+        if (index >= nodes.size()) {
+            throw new IllegalArgumentException("Cluster only contains " + nodes.size() + " nodes, but node with index "
+                    + index + " was tried to be accessed");
+        }
+    }
+
     /**
      * Stops a node by index.
      *
      * @param index Node index in the cluster.
      */
     public void stopNode(int index) {
+        checkNodeIndex(index);
+
         IgnitionManager.stop(nodes.get(index).name());
 
         nodes.set(index, null);
