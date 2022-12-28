@@ -18,18 +18,17 @@
 package org.apache.ignite.internal.distributionzones;
 
 import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.mock;
 
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
-import org.apache.ignite.configuration.ConfigurationChangeException;
-import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
+import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.distributionzones.DistributionZoneConfigurationParameters.Builder;
@@ -38,9 +37,9 @@ import org.apache.ignite.internal.distributionzones.configuration.DistributionZo
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneAlreadyExistsException;
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNotFoundException;
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneRenameException;
-import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
-import org.apache.ignite.internal.vault.VaultManager;
+import org.apache.ignite.lang.NodeStoppingException;
+import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -72,9 +71,9 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
         DistributionZonesConfiguration zonesConfiguration = registry.getConfiguration(DistributionZonesConfiguration.KEY);
         distributionZoneManager = new DistributionZoneManager(
                 zonesConfiguration,
-                mock(MetaStorageManager.class),
-                mock(LogicalTopologyServiceImpl.class),
-                mock(VaultManager.class)
+                null,
+                null,
+                null
         );
     }
 
@@ -171,11 +170,11 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
         }
 
         assertTrue(e != null);
-        assertTrue(e.getCause().getCause() instanceof DistributionZoneAlreadyExistsException, e.toString());
+        assertTrue(e.getCause() instanceof DistributionZoneAlreadyExistsException, e.toString());
     }
 
     @Test
-    public void testDropZoneIfNotExists() {
+    public void testDropZoneIfNotExists() throws NodeStoppingException {
         Exception e = null;
 
         CompletableFuture<Void> fut = distributionZoneManager.dropZone(ZONE_NAME);
@@ -187,7 +186,7 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
         }
 
         assertTrue(e != null);
-        assertTrue(e.getCause().getCause() instanceof DistributionZoneNotFoundException, e.toString());
+        assertTrue(e.getCause() instanceof DistributionZoneNotFoundException, e.toString());
     }
 
     @Test
@@ -299,7 +298,7 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
     }
 
     @Test
-    public void testAlterZoneRename1() {
+    public void testAlterZoneRename1() throws NodeStoppingException {
         Exception e = null;
 
         CompletableFuture<Void> fut = distributionZoneManager
@@ -313,7 +312,7 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
         }
 
         assertTrue(e != null);
-        assertTrue(e.getCause().getCause() instanceof DistributionZoneRenameException, e.toString());
+        assertTrue(e.getCause() instanceof DistributionZoneRenameException, e.toString());
     }
 
     @Test
@@ -336,11 +335,11 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
         }
 
         assertTrue(e != null);
-        assertTrue(e.getCause().getCause() instanceof DistributionZoneRenameException, e.toString());
+        assertTrue(e.getCause() instanceof DistributionZoneRenameException, e.toString());
     }
 
     @Test
-    public void testAlterZoneIfExists() {
+    public void testAlterZoneIfExists() throws NodeStoppingException {
         Exception e = null;
 
         CompletableFuture<Void> fut = distributionZoneManager.alterZone(ZONE_NAME, new Builder(ZONE_NAME)
@@ -353,11 +352,11 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
         }
 
         assertTrue(e != null);
-        assertTrue(e.getCause().getCause() instanceof DistributionZoneNotFoundException, e.toString());
+        assertTrue(e.getCause() instanceof DistributionZoneNotFoundException, e.toString());
     }
 
     @Test
-    public void testCreateZoneWithWrongAutoAdjust() {
+    public void testCreateZoneWithWrongAutoAdjust() throws NodeStoppingException {
         Exception e = null;
 
         CompletableFuture<Void> fut = distributionZoneManager.createZone(new Builder(ZONE_NAME)
@@ -370,11 +369,11 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
         }
 
         assertTrue(e != null);
-        assertTrue(e.getCause() instanceof ConfigurationChangeException, e.toString());
+        assertTrue(e.getCause() instanceof ConfigurationValidationException, e.toString());
     }
 
     @Test
-    public void testCreateZoneWithWrongSeparatedAutoAdjust1() {
+    public void testCreateZoneWithWrongSeparatedAutoAdjust1() throws NodeStoppingException {
         Exception e = null;
 
         CompletableFuture<Void> fut = distributionZoneManager.createZone(new Builder(ZONE_NAME)
@@ -387,11 +386,11 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
         }
 
         assertTrue(e != null);
-        assertTrue(e.getCause() instanceof ConfigurationChangeException, e.toString());
+        assertTrue(e.getCause() instanceof ConfigurationValidationException, e.toString());
     }
 
     @Test
-    public void testCreateZoneWithWrongSeparatedAutoAdjust2() {
+    public void testCreateZoneWithWrongSeparatedAutoAdjust2() throws NodeStoppingException {
         Exception e = null;
 
         CompletableFuture<Void> fut = distributionZoneManager.createZone(new Builder(ZONE_NAME)
@@ -404,65 +403,73 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
         }
 
         assertTrue(e != null);
-        assertTrue(e.getCause() instanceof ConfigurationChangeException, e.toString());
+        assertTrue(e.getCause() instanceof ConfigurationValidationException, e.toString());
     }
 
     @Test
     public void testCreateZoneWithNullConfiguration() {
         Exception e = null;
 
+        CompletableFuture<Void> fut = distributionZoneManager.createZone(null);
+
         try {
-            distributionZoneManager.createZone(null);
+            fut.get(5, TimeUnit.SECONDS);
         } catch (Exception e0) {
             e = e0;
         }
 
         assertTrue(e != null);
-        assertTrue(e instanceof NullPointerException, e.toString());
-        assertEquals("Distribution zone configuration is null.", e.getMessage(), e.toString());
+        assertTrue(e.getCause() instanceof IllegalArgumentException, e.toString());
+        assertEquals("Distribution zone configuration is null", e.getCause().getMessage(), e.toString());
     }
 
     @Test
     public void testAlterZoneWithNullName() {
         Exception e = null;
 
+        CompletableFuture<Void> fut = distributionZoneManager.alterZone(null, new Builder(ZONE_NAME).build());
+
         try {
-            distributionZoneManager.alterZone(null, new Builder(ZONE_NAME).build());
+            fut.get(5, TimeUnit.SECONDS);
         } catch (Exception e0) {
             e = e0;
         }
 
         assertTrue(e != null);
-        assertTrue(e instanceof NullPointerException, e.toString());
-        assertEquals("Distribution zone name is null.", e.getMessage(), e.toString());
+        assertTrue(e.getCause() instanceof IllegalArgumentException, e.toString());
+        assertThat(e.getCause().getMessage(), Matchers.containsString("Distribution zone name is null"));
     }
 
     @Test
     public void testAlterZoneWithNullConfiguration() {
         Exception e = null;
 
+        CompletableFuture<Void> fut = distributionZoneManager.alterZone(ZONE_NAME, null);
+
         try {
-            distributionZoneManager.alterZone(ZONE_NAME, null);
+            fut.get(5, TimeUnit.SECONDS);
         } catch (Exception e0) {
             e = e0;
         }
 
-        assertTrue(e instanceof NullPointerException, e.toString());
-        assertEquals("Distribution zone configuration is null.", e.getMessage(), e.toString());
+        assertTrue(e.getCause() instanceof IllegalArgumentException, e.toString());
+        assertEquals("Distribution zone configuration is null", e.getCause().getMessage(), e.toString());
     }
 
     @Test
     public void testDropZoneWithNullName() {
         Exception e = null;
 
+        CompletableFuture<Void> fut = distributionZoneManager.dropZone(null);
+
         try {
-            distributionZoneManager.dropZone(null);
+            fut.get(5, TimeUnit.SECONDS);
         } catch (Exception e0) {
             e = e0;
         }
 
         assertTrue(e != null);
-        assertTrue(e instanceof NullPointerException, e.toString());
-        assertEquals("Distribution zone name is null.", e.getMessage(), e.toString());
+        assertTrue(e.getCause() instanceof IllegalArgumentException, e.toString());
+        assertThat(e.getCause().getMessage(), Matchers.containsString("Distribution zone name is null"));
     }
 }
