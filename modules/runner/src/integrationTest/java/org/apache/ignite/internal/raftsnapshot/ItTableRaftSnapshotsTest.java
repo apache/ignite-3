@@ -504,6 +504,7 @@ class ItTableRaftSnapshotsTest {
     /**
      * Tests that a leader successfully feeds a follower with a RAFT snapshot on any of the supported storage engines.
      */
+    // TODO: IGNITE-18481 - make sure we don't forget to add new storage engines here
     @ParameterizedTest
     @ValueSource(strings = {
             RocksDbStorageEngine.ENGINE_NAME,
