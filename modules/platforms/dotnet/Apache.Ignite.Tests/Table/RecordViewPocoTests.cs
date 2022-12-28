@@ -736,6 +736,12 @@ namespace Apache.Ignite.Tests.Table
             await Test(new PocoEnums.PocoShortEnum(1, (PocoEnums.ShortEnum)102));
             await Test(new PocoEnums.PocoLongEnum(1, (PocoEnums.LongEnum)103));
 
+            // Default values.
+            await Test(new PocoEnums.PocoIntEnum(1, default));
+            await Test(new PocoEnums.PocoByteEnum(1, default));
+            await Test(new PocoEnums.PocoShortEnum(1, default));
+            await Test(new PocoEnums.PocoLongEnum(1, default));
+
             async Task Test<T>(T val)
                 where T : notnull
             {
