@@ -36,10 +36,7 @@ import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCost;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 
-/**
- * IgniteLimit.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
- */
+/** Relational expression that applies a limit and/or offset to its input. */
 public class IgniteLimit extends SingleRel implements InternalIgniteRel {
     /** In case the fetch value is a DYNAMIC_PARAM. */
     private static final double FETCH_IS_PARAM_FACTOR = 0.01;
@@ -75,8 +72,9 @@ public class IgniteLimit extends SingleRel implements InternalIgniteRel {
     }
 
     /**
-     * Constructor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Constructor, used for deserialization purpose.
+     *
+     * @param input Input relational expression.
      */
     public IgniteLimit(RelInput input) {
         super(
@@ -156,12 +154,7 @@ public class IgniteLimit extends SingleRel implements InternalIgniteRel {
     /** {@inheritDoc} */
     @Override
     public RelOptCost computeSelfCost(RelOptPlanner planner, RelMetadataQuery mq) {
-        double inputRowCount = mq.getRowCount(getInput());
-
-        double lim = fetch != null ? doubleFromRex(fetch, inputRowCount * FETCH_IS_PARAM_FACTOR) : inputRowCount;
-        double off = offset != null ? doubleFromRex(offset, inputRowCount * OFFSET_IS_PARAM_FACTOR) : 0;
-
-        double rows = Math.min(lim + off, inputRowCount);
+        double rows = estimateRowCount(mq);
 
         return planner.getCostFactory().makeCost(rows, rows * IgniteCost.ROW_PASS_THROUGH_COST, 0);
     }
@@ -174,7 +167,7 @@ public class IgniteLimit extends SingleRel implements InternalIgniteRel {
         double lim = fetch != null ? doubleFromRex(fetch, inputRowCount * FETCH_IS_PARAM_FACTOR) : inputRowCount;
         double off = offset != null ? doubleFromRex(offset, inputRowCount * OFFSET_IS_PARAM_FACTOR) : 0;
 
-        return Math.min(lim, inputRowCount - off);
+        return Math.max(0, Math.min(lim, inputRowCount - off));
     }
 
     /**

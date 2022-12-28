@@ -19,30 +19,49 @@ namespace Apache.Ignite.Internal.Linq;
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Text.RegularExpressions;
+using Common;
+using NodaTime;
 
 /// <summary>
-/// MethodCall expression visitor.
+/// MethodCall expression visitor. Maps CLR methods to SQL functions.
+/// <para />
+/// Refer to https://calcite.apache.org/docs/reference.html for supported SQL functions.
 /// </summary>
 internal static class MethodVisitor
 {
+    private const string TrimBoth = "both";
+
+    private const string TrimLeading = "leading";
+
+    private const string TrimTrailing = "trailing";
+
     /// <summary> Property visitors. </summary>
     private static readonly Dictionary<MemberInfo, string> Properties = new()
     {
-        {typeof(string).GetProperty("Length")!, "length"},
-        {typeof(DateTime).GetProperty("Year")!, "year"},
-        {typeof(DateTime).GetProperty("Month")!, "month"},
-        {typeof(DateTime).GetProperty("Day")!, "day_of_month"},
-        {typeof(DateTime).GetProperty("DayOfYear")!, "day_of_year"},
-        {typeof(DateTime).GetProperty("DayOfWeek")!, "-1 + day_of_week"},
-        {typeof(DateTime).GetProperty("Hour")!, "hour"},
-        {typeof(DateTime).GetProperty("Minute")!, "minute"},
-        {typeof(DateTime).GetProperty("Second")!, "second"}
+        {typeof(string).GetProperty(nameof(string.Length))!, "length"},
+        {typeof(LocalDate).GetProperty(nameof(LocalDate.Year))!, "year"},
+        {typeof(LocalDate).GetProperty(nameof(LocalDate.Month))!, "month"},
+        {typeof(LocalDate).GetProperty(nameof(LocalDate.Day))!, "dayofmonth"},
+        {typeof(LocalDate).GetProperty(nameof(LocalDate.DayOfYear))!, "dayofyear"},
+        {typeof(LocalDate).GetProperty(nameof(LocalDate.DayOfWeek))!, "-1 + dayofweek"},
+        {typeof(LocalTime).GetProperty(nameof(LocalTime.Hour))!, "hour"},
+        {typeof(LocalTime).GetProperty(nameof(LocalTime.Minute))!, "minute"},
+        {typeof(LocalTime).GetProperty(nameof(LocalTime.Second))!, "second"},
+        {typeof(LocalDateTime).GetProperty(nameof(LocalDateTime.Year))!, "year"},
+        {typeof(LocalDateTime).GetProperty(nameof(LocalDateTime.Month))!, "month"},
+        {typeof(LocalDateTime).GetProperty(nameof(LocalDateTime.Day))!, "dayofmonth"},
+        {typeof(LocalDateTime).GetProperty(nameof(LocalDateTime.DayOfYear))!, "dayofyear"},
+        {typeof(LocalDateTime).GetProperty(nameof(LocalDateTime.DayOfWeek))!, "-1 + dayofweek"},
+        {typeof(LocalDateTime).GetProperty(nameof(LocalDateTime.Hour))!, "hour"},
+        {typeof(LocalDateTime).GetProperty(nameof(LocalDateTime.Minute))!, "minute"},
+        {typeof(LocalDateTime).GetProperty(nameof(LocalDateTime.Second))!, "second"}
     };
 
     /// <summary>
@@ -51,75 +70,78 @@ internal static class MethodVisitor
     private static readonly Dictionary<MethodInfo, VisitMethodDelegate> Delegates = new List
             <KeyValuePair<MethodInfo?, VisitMethodDelegate>>
             {
-                GetStringMethod("ToLower", Type.EmptyTypes, GetFunc("lower")),
-                GetStringMethod("ToUpper", Type.EmptyTypes, GetFunc("upper")),
-                GetStringMethod("Contains", new[] {typeof(string)}, (e, v) => VisitSqlLike(e, v, "'%' || ? || '%'")),
-                GetStringMethod("StartsWith", new[] {typeof(string)}, (e, v) => VisitSqlLike(e, v, "? || '%'")),
-                GetStringMethod("EndsWith", new[] {typeof(string)}, (e, v) => VisitSqlLike(e, v, "'%' || ?")),
-                GetStringMethod("IndexOf", new[] {typeof(string)}, GetFunc("instr", -1)),
-                GetStringMethod("IndexOf", new[] {typeof(string), typeof(int)}, GetFunc("instr", -1)),
-                GetStringMethod("Substring", new[] {typeof(int)}, GetFunc("substring", 0, 1)),
-                GetStringMethod("Substring", new[] {typeof(int), typeof(int)}, GetFunc("substring", 0, 1)),
-                GetStringMethod("Trim", "trim"),
-                GetParameterizedTrimMethod("Trim", "trim"),
-                GetParameterizedTrimMethod("TrimStart", "ltrim"),
-                GetParameterizedTrimMethod("TrimEnd", "rtrim"),
-                GetCharTrimMethod("Trim", "trim"),
-                GetCharTrimMethod("TrimStart", "ltrim"),
-                GetCharTrimMethod("TrimEnd", "rtrim"),
-                GetStringMethod("Replace", "replace", typeof(string), typeof(string)),
-                GetStringMethod("PadLeft", "lpad", typeof(int)),
-                GetStringMethod("PadLeft", "lpad", typeof(int), typeof(char)),
-                GetStringMethod("PadRight", "rpad", typeof(int)),
-                GetStringMethod("PadRight", "rpad", typeof(int), typeof(char)),
-                GetStringMethod("Compare", new[] { typeof(string), typeof(string) }, (e, v) => VisitStringCompare(e, v, false)),
-                GetStringMethod("Compare", new[] { typeof(string), typeof(string), typeof(bool) }, (e, v) => VisitStringCompare(e, v, GetStringCompareIgnoreCaseParameter(e.Arguments[2]))),
+                GetStringMethod(nameof(string.ToLower), Type.EmptyTypes, GetFunc("lower")),
+                GetStringMethod(nameof(string.ToUpper), Type.EmptyTypes, GetFunc("upper")),
+                GetStringMethod(nameof(string.Contains), new[] {typeof(string)}, (e, v) => VisitSqlLike(e, v, "'%' || ? || '%'")),
+                GetStringMethod(nameof(string.StartsWith), new[] {typeof(string)}, (e, v) => VisitSqlLike(e, v, "? || '%'")),
+                GetStringMethod(nameof(string.EndsWith), new[] {typeof(string)}, (e, v) => VisitSqlLike(e, v, "'%' || ?")),
+                GetStringMethod(nameof(string.IndexOf), new[] {typeof(string)}, VisitPositionFunc),
+                GetStringMethod(nameof(string.IndexOf), new[] {typeof(string), typeof(int)}, VisitPositionFunc),
+                GetStringMethod(nameof(string.Substring), new[] {typeof(int)}, GetFunc("substring", 0, 1)),
+                GetStringMethod(nameof(string.Substring), new[] {typeof(int), typeof(int)}, GetFunc("substring", inlineConstArgs: true, 0, 1)),
+                GetStringMethod(nameof(string.Trim), "trim"),
+                GetStringMethod(nameof(string.TrimStart), "ltrim"),
+                GetStringMethod(nameof(string.TrimEnd), "rtrim"),
+                GetParameterizedTrimMethod(nameof(string.Trim), TrimBoth),
+                GetParameterizedTrimMethod(nameof(string.TrimStart), TrimLeading),
+                GetParameterizedTrimMethod(nameof(string.TrimEnd), TrimTrailing),
+                GetCharTrimMethod(nameof(string.Trim), TrimBoth),
+                GetCharTrimMethod(nameof(string.TrimStart), TrimLeading),
+                GetCharTrimMethod(nameof(string.TrimEnd), TrimTrailing),
+                GetStringMethod(nameof(string.Replace), "replace", typeof(string), typeof(string)),
+                GetStringMethod(nameof(string.Compare), new[] { typeof(string), typeof(string) }, (e, v) => VisitStringCompare(e, v, false)),
+                GetStringMethod(nameof(string.Compare), new[] { typeof(string), typeof(string), typeof(bool) }, (e, v) => VisitStringCompare(e, v, GetStringCompareIgnoreCaseParameter(e.Arguments[2]))),
 
-                GetRegexMethod("Replace", "regexp_replace", typeof(string), typeof(string), typeof(string)),
-                GetRegexMethod("Replace", "regexp_replace", typeof(string), typeof(string), typeof(string), typeof(RegexOptions)),
-                GetRegexMethod("IsMatch", "regexp_like", typeof(string), typeof(string)), GetRegexMethod("IsMatch", "regexp_like", typeof(string), typeof(string), typeof(RegexOptions)),
+                GetRegexMethod(nameof(Regex.Replace), "regexp_replace", typeof(string), typeof(string), typeof(string)),
+                GetRegexMethod(nameof(Regex.Replace), "regexp_replace", typeof(string), typeof(string), typeof(string), typeof(RegexOptions)),
+                GetRegexMethod(nameof(Regex.IsMatch), "regexp_like", typeof(string), typeof(string)),
+                GetRegexMethod(nameof(Regex.IsMatch), "regexp_like", typeof(string), typeof(string), typeof(RegexOptions)),
 
-                GetMethod(typeof(DateTime), "ToString", new[] {typeof(string)}, (e, v) => VisitFunc(e, v, "formatdatetime", ", 'en', 'UTC'")),
+                GetMethod(typeof(DateTime), "ToString", new[] {typeof(string)}, (e, v) => VisitFunc(e, v, "formatdatetime", ", 'en', 'UTC'", false)),
 
-                GetMathMethod("Abs", typeof(int)),
-                GetMathMethod("Abs", typeof(long)),
-                GetMathMethod("Abs", typeof(float)),
-                GetMathMethod("Abs", typeof(double)),
-                GetMathMethod("Abs", typeof(decimal)),
-                GetMathMethod("Abs", typeof(sbyte)),
-                GetMathMethod("Abs", typeof(short)),
-                GetMathMethod("Acos", typeof(double)),
-                GetMathMethod("Asin", typeof(double)),
-                GetMathMethod("Atan", typeof(double)),
-                GetMathMethod("Atan2", typeof(double), typeof(double)),
-                GetMathMethod("Ceiling", typeof(double)),
-                GetMathMethod("Ceiling", typeof(decimal)),
-                GetMathMethod("Cos", typeof(double)),
-                GetMathMethod("Cosh", typeof(double)),
-                GetMathMethod("Exp", typeof(double)),
-                GetMathMethod("Floor", typeof(double)),
-                GetMathMethod("Floor", typeof(decimal)),
-                GetMathMethod("Log", typeof(double)),
-                GetMathMethod("Log10", typeof(double)),
-                GetMathMethod("Pow", "Power", typeof(double), typeof(double)),
-                GetMathMethod("Round", typeof(double)),
-                GetMathMethod("Round", typeof(double), typeof(int)),
-                GetMathMethod("Round", typeof(decimal)),
-                GetMathMethod("Round", typeof(decimal), typeof(int)),
-                GetMathMethod("Sign", typeof(double)),
-                GetMathMethod("Sign", typeof(decimal)),
-                GetMathMethod("Sign", typeof(float)),
-                GetMathMethod("Sign", typeof(int)),
-                GetMathMethod("Sign", typeof(long)),
-                GetMathMethod("Sign", typeof(short)),
-                GetMathMethod("Sign", typeof(sbyte)),
-                GetMathMethod("Sin", typeof(double)),
-                GetMathMethod("Sinh", typeof(double)),
-                GetMathMethod("Sqrt", typeof(double)),
-                GetMathMethod("Tan", typeof(double)),
-                GetMathMethod("Tanh", typeof(double)),
-                GetMathMethod("Truncate", typeof(double)),
-                GetMathMethod("Truncate", typeof(decimal)),
+                GetMathMethod(nameof(Math.Abs), typeof(int)),
+                GetMathMethod(nameof(Math.Abs), typeof(long)),
+                GetMathMethod(nameof(Math.Abs), typeof(float)),
+                GetMathMethod(nameof(Math.Abs), typeof(double)),
+                GetMathMethod(nameof(Math.Abs), typeof(decimal)),
+                GetMathMethod(nameof(Math.Abs), typeof(sbyte)),
+                GetMathMethod(nameof(Math.Abs), typeof(short)),
+                GetMathMethod(nameof(Math.Acos), typeof(double)),
+                GetMathMethod(nameof(Math.Acosh), typeof(double)),
+                GetMathMethod(nameof(Math.Asin), typeof(double)),
+                GetMathMethod(nameof(Math.Asinh), typeof(double)),
+                GetMathMethod(nameof(Math.Atan), typeof(double)),
+                GetMathMethod(nameof(Math.Atanh), typeof(double)),
+                GetMathMethod(nameof(Math.Atan2), typeof(double), typeof(double)),
+                GetMathMethod(nameof(Math.Ceiling), typeof(double)),
+                GetMathMethod(nameof(Math.Ceiling), typeof(decimal)),
+                GetMathMethod(nameof(Math.Cos), typeof(double)),
+                GetMathMethod(nameof(Math.Cosh), typeof(double)),
+                GetMathMethod(nameof(Math.Exp), typeof(double)),
+                GetMathMethod(nameof(Math.Floor), typeof(double)),
+                GetMathMethod(nameof(Math.Floor), typeof(decimal)),
+                GetMathMethod(nameof(Math.Log), "Ln", inlineCostArgs: false, typeof(double)),
+                GetMathMethod(nameof(Math.Log10), typeof(double)),
+                GetMathMethod(nameof(Math.Log2), typeof(double)),
+                GetMathMethod(nameof(Math.Pow), "Power", inlineCostArgs: true, typeof(double), typeof(double)),
+                GetMathMethod(nameof(Math.Round), typeof(double)),
+                GetMathMethod(nameof(Math.Round), typeof(double), typeof(int)),
+                GetMathMethod(nameof(Math.Round), typeof(decimal)),
+                GetMathMethod(nameof(Math.Round), typeof(decimal), typeof(int)),
+                GetMathMethod(nameof(Math.Sign), typeof(double)),
+                GetMathMethod(nameof(Math.Sign), typeof(decimal)),
+                GetMathMethod(nameof(Math.Sign), typeof(float)),
+                GetMathMethod(nameof(Math.Sign), typeof(int)),
+                GetMathMethod(nameof(Math.Sign), typeof(long)),
+                GetMathMethod(nameof(Math.Sign), typeof(short)),
+                GetMathMethod(nameof(Math.Sign), typeof(sbyte)),
+                GetMathMethod(nameof(Math.Sin), typeof(double)),
+                GetMathMethod(nameof(Math.Sinh), typeof(double)),
+                GetMathMethod(nameof(Math.Sqrt), typeof(double)),
+                GetMathMethod(nameof(Math.Tan), typeof(double)),
+                GetMathMethod(nameof(Math.Tanh), typeof(double)),
+                GetMathMethod(nameof(Math.Truncate), typeof(double)),
+                GetMathMethod(nameof(Math.Truncate), typeof(decimal)),
             }
         .Where(x => x.Key != null)
         .ToDictionary(x => x.Key!, x => x.Value);
@@ -207,6 +229,9 @@ internal static class MethodVisitor
             throw new NotSupportedException($"RegexOptions.{regexOptions} is not supported");
         }
 
+        // "pos" and "occurence" are required before "matchType".
+        visitor.ResultBuilder.Append("1, 1, ");
+
         visitor.AppendParameter(result);
 
         return true;
@@ -215,10 +240,14 @@ internal static class MethodVisitor
     /// <summary>
     /// Gets the function.
     /// </summary>
-    private static VisitMethodDelegate GetFunc(string func, params int[] adjust)
-    {
-        return (e, v) => VisitFunc(e, v, func, null, adjust);
-    }
+    private static VisitMethodDelegate GetFunc(string func, params int[] adjust) =>
+        (e, v) => VisitFunc(e, v, func, null, false, adjust);
+
+    /// <summary>
+    /// Gets the function.
+    /// </summary>
+    private static VisitMethodDelegate GetFunc(string func, bool inlineConstArgs, params int[] adjust) =>
+        (e, v) => VisitFunc(e, v, func, null, inlineConstArgs, adjust);
 
     /// <summary>
     /// Visits the instance function.
@@ -228,6 +257,7 @@ internal static class MethodVisitor
         IgniteQueryExpressionVisitor visitor,
         string func,
         string? suffix,
+        bool inlineConstArgs,
         params int[] adjust)
     {
         visitor.ResultBuilder.Append(func).Append('(');
@@ -239,7 +269,7 @@ internal static class MethodVisitor
             visitor.Visit(expression.Object!);
         }
 
-        for (int i= 0; i < expression.Arguments.Count; i++)
+        for (int i = 0; i < expression.Arguments.Count; i++)
         {
             var arg = expression.Arguments[i];
 
@@ -248,7 +278,19 @@ internal static class MethodVisitor
                 visitor.ResultBuilder.Append(", ");
             }
 
-            visitor.Visit(arg);
+            if (inlineConstArgs &&
+                arg is ConstantExpression constExpr &&
+                constExpr.Type.IsPrimitive &&
+                constExpr.Type != typeof(char))
+            {
+                // TODO IGNITE-18258 Remove this logic, we should be able to pass args as SQL params for all functions.
+                // We only allow inline for numeric types. Other types can lead to SQL injections.
+                visitor.ResultBuilder.Append(constExpr.Value);
+            }
+            else
+            {
+                visitor.Visit(arg);
+            }
 
             AppendAdjustment(visitor, adjust, i + 1);
         }
@@ -264,25 +306,18 @@ internal static class MethodVisitor
     private static void VisitParameterizedTrimFunc(
         MethodCallExpression expression,
         IgniteQueryExpressionVisitor visitor,
-        string func)
+        string mode)
     {
-        visitor.ResultBuilder.Append(func).Append('(');
+        // trim(leading|trailing|both chars from string)
+        visitor.ResultBuilder.Append("trim(").Append(mode).Append(' ');
 
-        visitor.Visit(expression.Object!);
-
-        var arg = expression.Arguments[0];
-
-        if (arg != null!)
+        if (expression.Arguments.Count > 0 && expression.Arguments[0] is { } arg)
         {
-            visitor.ResultBuilder.Append(", ");
-
-            if (arg.NodeType == ExpressionType.Constant)
+            if (arg is ConstantExpression constant)
             {
-                var constant = (ConstantExpression) arg;
-
-                if (constant.Value is char)
+                if (constant.Value is char ch)
                 {
-                    visitor.AppendParameter((char) constant.Value);
+                    visitor.AppendParameter(ch);
                 }
                 else
                 {
@@ -297,8 +332,7 @@ internal static class MethodVisitor
 
                     if (enumeratedArgs.Length != 1)
                     {
-                        throw new NotSupportedException("String.Trim function only supports a single argument: " +
-                                                        expression);
+                        throw new NotSupportedException("String.Trim function only supports a single argument: " + expression);
                     }
 
                     visitor.AppendParameter(enumeratedArgs[0]);
@@ -310,7 +344,37 @@ internal static class MethodVisitor
             }
         }
 
+        visitor.ResultBuilder.TrimEnd().Append(" from ");
+        visitor.Visit(expression.Object!);
         visitor.ResultBuilder.Append(')');
+    }
+
+    /// <summary>
+    /// Visits the function for IndexOf -> POSITION mapping.
+    /// </summary>
+    private static void VisitPositionFunc(
+        MethodCallExpression expression,
+        IgniteQueryExpressionVisitor visitor)
+    {
+        // POSITION(string1 IN string2)
+        // Returns 1-based index when substring is found, 0 when not found.
+        visitor.ResultBuilder.Append("-1 + position(");
+
+        Debug.Assert(expression.Arguments.Count >= 1, "expression.Arguments.Count >= 1");
+
+        visitor.Visit(expression.Arguments[0]);
+        visitor.ResultBuilder.TrimEnd().Append(" in ");
+        visitor.Visit(expression.Object!);
+
+        if (expression.Arguments.Count > 1)
+        {
+            // POSITION(string1 IN string2 FROM integer)
+            visitor.ResultBuilder.TrimEnd().Append(" from (");
+            visitor.Visit(expression.Arguments[1]);
+            visitor.ResultBuilder.Append(" + 1)");
+        }
+
+        visitor.ResultBuilder.TrimEnd().Append(')');
     }
 
     /// <summary>
@@ -373,18 +437,18 @@ internal static class MethodVisitor
     /// </summary>
     private static void VisitStringCompare(MethodCallExpression expression, IgniteQueryExpressionVisitor visitor, bool ignoreCase)
     {
-        // Ex: nvl2(?, casewhen(_T0.NAME = ?, 0, casewhen(_T0.NAME >= ?, 1, -1)), 1)
-        visitor.ResultBuilder.Append("nvl2(");
-        visitor.Visit(expression.Arguments[1]);
-        visitor.ResultBuilder.Append(", casewhen(");
+        // case when (A is not distinct from B) then 0 else (case (A > B) when true then 1 else -1 end) end
+        var builder = visitor.ResultBuilder;
+
+        builder.Append("case when (");
         VisitArg(visitor, expression, 0, ignoreCase);
-        visitor.ResultBuilder.Append(" = ");
+        builder.Append(" is not distinct from ");
         VisitArg(visitor, expression, 1, ignoreCase);
-        visitor.ResultBuilder.Append(", 0, casewhen(");
+        builder.Append(") then 0 else (case when (");
         VisitArg(visitor, expression, 0, ignoreCase);
-        visitor.ResultBuilder.Append(" >= ");
+        builder.Append(" > ");
         VisitArg(visitor, expression, 1, ignoreCase);
-        visitor.ResultBuilder.Append(", 1, -1)), 1)");
+        builder.Append(") then 1 else -1 end) end");
     }
 
     /// <summary>
@@ -416,11 +480,12 @@ internal static class MethodVisitor
         Type type,
         string name,
         Type[]? argTypes = null,
-        VisitMethodDelegate? del = null)
+        VisitMethodDelegate? del = null,
+        bool inlineConstArgs = false)
     {
         var method = argTypes == null ? type.GetMethod(name) : type.GetMethod(name, argTypes);
 
-        return new KeyValuePair<MethodInfo?, VisitMethodDelegate>(method!, del ?? GetFunc(name));
+        return new KeyValuePair<MethodInfo?, VisitMethodDelegate>(method!, del ?? GetFunc(name, inlineConstArgs));
     }
 
     /// <summary>
@@ -459,30 +524,22 @@ internal static class MethodVisitor
     /// <summary>
     /// Gets string parameterized Trim(TrimStart, TrimEnd) method.
     /// </summary>
-    private static KeyValuePair<MethodInfo?, VisitMethodDelegate> GetParameterizedTrimMethod(
-        string name,
-        string sqlName)
-    {
-        return GetMethod(
+    private static KeyValuePair<MethodInfo?, VisitMethodDelegate> GetParameterizedTrimMethod(string name, string mode) =>
+        GetMethod(
             typeof(string),
             name,
             new[] {typeof(char[])},
-            (e, v) => VisitParameterizedTrimFunc(e, v, sqlName));
-    }
+            (e, v) => VisitParameterizedTrimFunc(e, v, mode));
 
     /// <summary>
     /// Gets string parameterized Trim(TrimStart, TrimEnd) method that takes a single char.
     /// </summary>
-    private static KeyValuePair<MethodInfo?, VisitMethodDelegate> GetCharTrimMethod(
-        string name,
-        string sqlName)
-    {
-        return GetMethod(
+    private static KeyValuePair<MethodInfo?, VisitMethodDelegate> GetCharTrimMethod(string name, string mode) =>
+        GetMethod(
             typeof(string),
             name,
             new[] {typeof(char)},
-            (e, v) => VisitParameterizedTrimFunc(e, v, sqlName));
-    }
+            (e, v) => VisitParameterizedTrimFunc(e, v, mode));
 
     /// <summary>
     /// Gets the math method.
@@ -490,16 +547,13 @@ internal static class MethodVisitor
     private static KeyValuePair<MethodInfo?, VisitMethodDelegate> GetMathMethod(
         string name,
         string sqlName,
-        params Type[] argTypes)
-    {
-        return GetMethod(typeof(Math), name, argTypes, GetFunc(sqlName));
-    }
+        bool inlineCostArgs,
+        params Type[] argTypes) =>
+        GetMethod(typeof(Math), name, argTypes, GetFunc(sqlName, inlineCostArgs), inlineCostArgs);
 
     /// <summary>
     /// Gets the math method.
     /// </summary>
-    private static KeyValuePair<MethodInfo?, VisitMethodDelegate> GetMathMethod(string name, params Type[] argTypes)
-    {
-        return GetMathMethod(name, name, argTypes);
-    }
+    private static KeyValuePair<MethodInfo?, VisitMethodDelegate> GetMathMethod(string name, params Type[] argTypes) =>
+        GetMathMethod(name, name, false, argTypes);
 }

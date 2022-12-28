@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.table;
 
+import static org.apache.ignite.internal.index.SortedIndex.INCLUDE_LEFT;
+import static org.apache.ignite.internal.index.SortedIndex.INCLUDE_RIGHT;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -26,7 +28,6 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -36,9 +37,14 @@ import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.schema.BinaryTuplePrefix;
+import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
@@ -76,7 +82,7 @@ public class ItTableScanTest extends AbstractBasicIntegrationTest {
             new Column[]{new Column("key", NativeTypes.INT32, false)},
             new Column[]{
                     new Column("valInt", NativeTypes.INT32, false),
-                    new Column("valInt", NativeTypes.STRING, false)
+                    new Column("valStr", NativeTypes.STRING, false)
             }
     );
 
@@ -104,7 +110,7 @@ public class ItTableScanTest extends AbstractBasicIntegrationTest {
 
         UUID sortedIndexId = getSortedIndexId();
 
-        ArrayList<ByteBuffer> scannedRows = new ArrayList<>();
+        ArrayList<BinaryRow> scannedRows = new ArrayList<>();
 
         Publisher<BinaryRow> publisher = internalTable.scan(0, tx1, sortedIndexId, null, null, 0, null);
 
@@ -128,6 +134,8 @@ public class ItTableScanTest extends AbstractBasicIntegrationTest {
 
         IgniteTestUtils.await(scanned);
 
+        log.info("Result: " + scannedRows.stream().map(binaryRow -> rowToString(binaryRow)).collect(Collectors.joining(", ")));
+
         assertEquals(ROW_IDS.size(), scannedRows.size());
 
         tx1.commit();
@@ -144,7 +152,7 @@ public class ItTableScanTest extends AbstractBasicIntegrationTest {
 
         UUID sortedIndexId = getSortedIndexId();
 
-        ArrayList<ByteBuffer> scannedRows = new ArrayList<>();
+        ArrayList<BinaryRow> scannedRows = new ArrayList<>();
 
         Publisher<BinaryRow> publisher = internalTable.scan(0, null, sortedIndexId, null, null, 0, null);
 
@@ -164,6 +172,8 @@ public class ItTableScanTest extends AbstractBasicIntegrationTest {
         subscription.request(1_000); // Request so much entries here to close the publisher.
 
         IgniteTestUtils.await(scanned);
+
+        log.info("Result: " + scannedRows.stream().map(binaryRow -> rowToString(binaryRow)).collect(Collectors.joining(", ")));
 
         assertEquals(ROW_IDS.size() + 1, scannedRows.size());
     }
@@ -384,9 +394,9 @@ public class ItTableScanTest extends AbstractBasicIntegrationTest {
 
         InternalTransaction tx = (InternalTransaction) CLUSTER_NODES.get(0).transactions().begin();
 
-        log.info("Old transaction [id=" + tx.id());
+        log.info("Old transaction [id={}]", tx.id());
 
-        ArrayList<ByteBuffer> scannedRows = new ArrayList<>();
+        ArrayList<BinaryRow> scannedRows = new ArrayList<>();
 
         Publisher<BinaryRow> publisher = internalTable.scan(0, null, null, null, null, 0, null);
 
@@ -417,6 +427,8 @@ public class ItTableScanTest extends AbstractBasicIntegrationTest {
 
         IgniteTestUtils.await(scanned);
 
+        log.info("Result: " + scannedRows.stream().map(binaryRow -> rowToString(binaryRow)).collect(Collectors.joining(", ")));
+
         assertThat(txOpFut, willCompleteSuccessfully());
 
         tx.commit();
@@ -438,7 +450,7 @@ public class ItTableScanTest extends AbstractBasicIntegrationTest {
 
         UUID sortedIndexId = getSortedIndexId();
 
-        ArrayList<ByteBuffer> scannedRows = new ArrayList<>();
+        ArrayList<BinaryRow> scannedRows = new ArrayList<>();
 
         InternalTransaction tx = (InternalTransaction) CLUSTER_NODES.get(0).transactions().begin();
 
@@ -462,19 +474,112 @@ public class ItTableScanTest extends AbstractBasicIntegrationTest {
 
         subscription.request(1_000); // Request so much entries here to close the publisher.
 
-        IgniteTestUtils.waitForCondition(() -> scanned.isDone(), 10_000);
+        IgniteTestUtils.await(scanned);
+
+        log.info("Result: " + scannedRows.stream().map(binaryRow -> rowToString(binaryRow)).collect(Collectors.joining(", ")));
 
         assertEquals(ROW_IDS.size() + 1, scannedRows.size());
 
-        var pub = internalTable.scan(0, tx, sortedIndexId, null, null, 0, null);
+        var publisher1 = internalTable.scan(0, tx, sortedIndexId, null, null, 0, null);
 
-        assertEquals(scanAllRows(pub).size(), scannedRows.size());
+        assertEquals(scanAllRows(publisher1).size(), scannedRows.size());
 
         assertTrue(scanned.isDone());
 
         tx.commit();
 
         kvView.put(null, Tuple.create().set("key", 3), Tuple.create().set("valInt", 3).set("valStr", "New_3"));
+    }
+
+    @Test
+    public void testScanWithUpperBound() throws Exception {
+        TableImpl table = getOrCreateTable();
+
+        InternalTable internalTable = table.internalTable();
+
+        KeyValueView kvView = table.keyValueView();
+
+        var sortedIndexBinarySchema = BinaryTupleSchema.createSchema(SCHEMA, new int[]{1 /* intVal column */});
+
+        BinaryTuplePrefix lowBound = BinaryTuplePrefix.fromBinaryTuple(new BinaryTuple(sortedIndexBinarySchema,
+                new BinaryTupleBuilder(1, false).appendInt(5).build()));
+        BinaryTuplePrefix upperBound = BinaryTuplePrefix.fromBinaryTuple(new BinaryTuple(sortedIndexBinarySchema,
+                new BinaryTupleBuilder(1, false).appendInt(9).build()));
+
+        UUID soredIndexId = getSortedIndexId();
+
+        InternalTransaction tx = (InternalTransaction) CLUSTER_NODES.get(0).transactions().begin();
+
+        Publisher<BinaryRow> publisher = internalTable.scan(
+                0,
+                tx,
+                soredIndexId,
+                lowBound,
+                upperBound,
+                INCLUDE_LEFT | INCLUDE_RIGHT,
+                null
+        );
+
+        ArrayList<BinaryRow> scannedRows = scanAllRows(publisher);
+
+        log.info("Result of scanning in old transaction: " + scannedRows.stream().map(binaryRow -> rowToString(binaryRow))
+                .collect(Collectors.joining(", ")));
+
+        assertEquals(3, scannedRows.size());
+
+        assertThrows(Exception.class, () ->
+                kvView.put(null, Tuple.create().set("key", 8), Tuple.create().set("valInt", 8).set("valStr", "New_8")));
+        assertThrows(Exception.class, () ->
+                kvView.put(null, Tuple.create().set("key", 9), Tuple.create().set("valInt", 9).set("valStr", "New_9")));
+
+        Publisher<BinaryRow> publisher1 = internalTable.scan(
+                0,
+                tx,
+                soredIndexId,
+                lowBound,
+                upperBound,
+                INCLUDE_LEFT | INCLUDE_RIGHT,
+                null
+        );
+
+        ArrayList<BinaryRow> scannedRows1 = scanAllRows(publisher1);
+
+        tx.commit();
+
+        assertEquals(scannedRows.size(), scannedRows1.size());
+
+        kvView.put(null, Tuple.create().set("key", 8), Tuple.create().set("valInt", 8).set("valStr", "New_8"));
+
+        kvView.put(null, Tuple.create().set("key", 9), Tuple.create().set("valInt", 9).set("valStr", "New_9"));
+
+        Publisher<BinaryRow> publisher2 = internalTable.scan(
+                0,
+                null,
+                soredIndexId,
+                lowBound,
+                upperBound,
+                INCLUDE_LEFT | INCLUDE_RIGHT,
+                null
+        );
+
+        ArrayList<BinaryRow> scannedRows2 = scanAllRows(publisher2);
+
+        assertEquals(5, scannedRows2.size());
+
+        log.info("Result of scanning after insert rows: " + scannedRows2.stream().map(binaryRow -> rowToString(binaryRow))
+                .collect(Collectors.joining(", ")));
+    }
+
+    /**
+     * Represents a binary row as a string.
+     *
+     * @param binaryRow Binary row.
+     * @return String representation.
+     */
+    private static String rowToString(BinaryRow binaryRow) {
+        var row = new Row(SCHEMA, binaryRow);
+
+        return IgniteStringFormatter.format("[{}, {}, {}]", row.intValue(0), row.intValue(1), row.stringValue(2));
     }
 
     /**
@@ -484,8 +589,8 @@ public class ItTableScanTest extends AbstractBasicIntegrationTest {
      * @return List of scanned rows.
      * @throws Exception If failed.
      */
-    private ArrayList<ByteBuffer> scanAllRows(Publisher<BinaryRow> publisher) throws Exception {
-        ArrayList<ByteBuffer> scannedRows = new ArrayList<>();
+    private ArrayList<BinaryRow> scanAllRows(Publisher<BinaryRow> publisher) throws Exception {
+        ArrayList<BinaryRow> scannedRows = new ArrayList<>();
         CompletableFuture<Void> scanned = new CompletableFuture<>();
 
         Subscription subscription = subscribeToPublisher(scannedRows, publisher, scanned);
@@ -546,7 +651,7 @@ public class ItTableScanTest extends AbstractBasicIntegrationTest {
      * @return Subscription, that can request rows from cluster.
      */
     private static Subscription subscribeToPublisher(
-            List<ByteBuffer> scannedRows,
+            List<BinaryRow> scannedRows,
             Publisher<BinaryRow> publisher,
             CompletableFuture<Void> scanned
     ) {
@@ -560,7 +665,7 @@ public class ItTableScanTest extends AbstractBasicIntegrationTest {
 
             @Override
             public void onNext(BinaryRow item) {
-                scannedRows.add(item.valueSlice());
+                scannedRows.add(item);
             }
 
             @Override
@@ -583,7 +688,7 @@ public class ItTableScanTest extends AbstractBasicIntegrationTest {
      */
     private static TableImpl getOrCreateTable() {
         sql("CREATE TABLE IF NOT EXISTS " + TABLE_NAME
-                + " (key INTEGER PRIMARY KEY, valInt INTEGER, valStr VARCHAR) WITH REPLICAS=1, PARTITIONS=1;");
+                + " (key INTEGER PRIMARY KEY, valInt INTEGER NOT NULL, valStr VARCHAR NOT NULL) WITH REPLICAS=1, PARTITIONS=1;");
 
         sql("CREATE INDEX IF NOT EXISTS " + SORTED_IDX + " ON " + TABLE_NAME + " USING TREE (valInt)");
 

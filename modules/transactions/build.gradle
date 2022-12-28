@@ -36,6 +36,7 @@ dependencies {
 
     testImplementation project(':ignite-core')
     testImplementation(testFixtures(project(':ignite-core')))
+    testImplementation(testFixtures(project(':ignite-configuration')))
     testImplementation libs.mockito.junit
     testImplementation libs.mockito.core
     testImplementation libs.hamcrest.core
@@ -45,6 +46,12 @@ dependencies {
     testFixturesImplementation project(':ignite-api')
     testFixturesImplementation project(':ignite-schema')
     testFixturesImplementation libs.jetbrains.annotations
+    testFixturesImplementation libs.mockito.junit
+    testFixturesImplementation libs.mockito.core
+    testFixturesImplementation libs.hamcrest.core
+    testFixturesImplementation libs.junit5.impl
+    testFixturesImplementation libs.junit5.api
+    testFixturesImplementation libs.junit5.params
 }
 
 description = 'ignite-transactions'

@@ -33,9 +33,8 @@ import org.apache.calcite.plan.RelTrait;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.calcite.util.mapping.Mapping;
 import org.apache.calcite.util.mapping.Mappings;
-import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
-import org.apache.ignite.internal.sql.engine.metadata.AffinityService;
 import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
+import org.apache.ignite.internal.sql.engine.util.HashFunctionFactory;
 
 /**
  * Description of the physical distribution of a relational expression.
@@ -106,8 +105,8 @@ public final class DistributionTrait implements IgniteDistribution {
 
     /** {@inheritDoc} */
     @Override
-    public <RowT> Destination<RowT> destination(ExecutionContext<RowT> ectx, AffinityService affSrvc, ColocationGroup target) {
-        return function.destination(ectx, affSrvc, target, keys);
+    public <RowT> Destination<RowT> destination(HashFunctionFactory<RowT> hashFuncFactory, ColocationGroup target) {
+        return function.destination(hashFuncFactory, target, keys);
     }
 
     /** {@inheritDoc} */

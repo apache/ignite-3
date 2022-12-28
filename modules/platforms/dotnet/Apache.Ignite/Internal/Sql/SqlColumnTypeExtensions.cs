@@ -68,6 +68,19 @@ internal static class SqlColumnTypeExtensions
     };
 
     /// <summary>
+    /// Gets corresponding .NET type.
+    /// </summary>
+    /// <param name="sqlColumnType">SQL column type.</param>
+    /// <param name="nullable">Whether the SQL column is nullable.</param>
+    /// <returns>CLR type.</returns>
+    public static Type ToClrType(this SqlColumnType sqlColumnType, bool nullable)
+    {
+        var clrType = sqlColumnType.ToClrType();
+
+        return nullable && clrType.IsValueType ? typeof(Nullable<>).MakeGenericType(clrType) : clrType;
+    }
+
+    /// <summary>
     /// Gets corresponding SQL type name.
     /// </summary>
     /// <param name="sqlColumnType">SQL column type.</param>
@@ -100,7 +113,7 @@ internal static class SqlColumnTypeExtensions
     /// <param name="type">CLR type.</param>
     /// <returns>SQL type name.</returns>
     public static string ToSqlTypeName(this Type type) =>
-        ClrToSqlName.TryGetValue(type, out var sqlTypeName)
+        ClrToSqlName.TryGetValue(Nullable.GetUnderlyingType(type) ?? type, out var sqlTypeName)
             ? sqlTypeName
             : throw new InvalidOperationException($"Type is not supported in SQL: {type}");
 
@@ -110,5 +123,5 @@ internal static class SqlColumnTypeExtensions
     /// <param name="type">Type.</param>
     /// <returns>SQL column type, or null.</returns>
     public static SqlColumnType? ToSqlColumnType(this Type type) =>
-        ClrToSql.TryGetValue(type, out var sqlType) ? sqlType : null;
+        ClrToSql.TryGetValue(Nullable.GetUnderlyingType(type) ?? type, out var sqlType) ? sqlType : null;
 }

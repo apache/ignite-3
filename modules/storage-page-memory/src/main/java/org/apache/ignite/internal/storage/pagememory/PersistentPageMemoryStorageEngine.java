@@ -107,6 +107,11 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
     }
 
     @Override
+    public String name() {
+        return ENGINE_NAME;
+    }
+
+    @Override
     public void start() throws StorageException {
         int pageSize = engineConfig.pageSize().value();
 

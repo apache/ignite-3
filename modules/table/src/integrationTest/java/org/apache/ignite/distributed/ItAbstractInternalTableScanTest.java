@@ -53,6 +53,7 @@ import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.ReadResult;
+import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
@@ -385,7 +386,7 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
             when(cursor.hasNext()).thenAnswer(hnInvocation -> cursorTouchCnt.get() < submittedItems.size());
 
             lenient().when(cursor.next()).thenAnswer(ninvocation ->
-                    ReadResult.createFromCommitted(submittedItems.get(cursorTouchCnt.getAndIncrement()), clock.now()));
+                    ReadResult.createFromCommitted(new RowId(0), submittedItems.get(cursorTouchCnt.getAndIncrement()), clock.now()));
 
             return cursor;
         });

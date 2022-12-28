@@ -17,8 +17,10 @@
 
 namespace Apache.Ignite.Tests.Linq;
 
+using System;
 using System.Linq;
 using NUnit.Framework;
+using Table;
 
 /// <summary>
 /// Linq aggregate tests.
@@ -155,5 +157,40 @@ public partial class LinqTests
 
         // Additional Where.
         Assert.IsFalse(PocoView.AsQueryable().Where(x => x.Key > 7).Any(x => x.Key < 5));
+    }
+
+    [Test]
+    public void TestAggregateNullableDouble()
+    {
+        var query = PocoAllColumnsSqlNullableView.AsQueryable();
+
+        double? sumNotNull = query.Sum(x => x.Double);
+        double? sumNull = query.Where(x => x.Double == null).Sum(x => x.Double);
+
+        Assert.AreEqual(110d, sumNotNull);
+        Assert.IsNull(sumNull);
+    }
+
+    [Test]
+    public void TestAggregateNullableAllTypes()
+    {
+        Test(q => q.Sum(x => x.Int8));
+        Test(q => q.Sum(x => x.Int16));
+        Test(q => q.Sum(x => x.Int32));
+        Test(q => q.Sum(x => x.Int64));
+        Test(q => q.Sum(x => x.Float));
+        Test(q => q.Sum(x => x.Double));
+        Test(q => q.Sum(x => x.Decimal));
+
+        void Test<T>(Func<IQueryable<PocoAllColumnsSqlNullable>, T> sumFunc)
+        {
+            var query = PocoAllColumnsSqlNullableView.AsQueryable();
+
+            var sumNotNull = sumFunc(query);
+            var sumNull = sumFunc(query.Where(x => x.Double == null));
+
+            Assert.IsNotNull(sumNotNull);
+            Assert.IsNull(sumNull);
+        }
     }
 }

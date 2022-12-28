@@ -24,14 +24,20 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
+import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
+import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -59,6 +65,8 @@ public interface MvTableStorage extends ManuallyCloseable {
 
     /**
      * Destroys a partition and all associated indices.
+     *
+     * <p>REQUIRED: For background tasks for partition, such as rebalancing, to be completed by the time the method is called.
      *
      * @param partitionId Partition ID.
      * @return Future that will complete when the destroy of the partition is completed.
@@ -165,43 +173,76 @@ public interface MvTableStorage extends ManuallyCloseable {
     CompletableFuture<Void> destroy();
 
     /**
-     * Prepares the partition storage for rebalancing: makes a backup of the current partition storage and creates a new storage.
+     * Prepares a partition for rebalance.
+     * <ul>
+     *     <li>Cleans up the {@link MvPartitionStorage multi-version partition storage} and its associated indexes ({@link HashIndexStorage}
+     *     and {@link SortedIndexStorage});</li>
+     *     <li>Sets {@link MvPartitionStorage#lastAppliedIndex()} and {@link MvPartitionStorage#lastAppliedTerm()} to
+     *     {@link MvPartitionStorage#REBALANCE_IN_PROGRESS};</li>
+     *     <li>Stops the cursors of a multi-version partition storage and its indexes, subsequent calls to {@link Cursor#hasNext()} and
+     *     {@link Cursor#next()} will throw {@link StorageRebalanceException};</li>
+     *     <li>For a multi-version partition storage and its indexes, methods for reading and writing data will throw
+     *     {@link StorageRebalanceException} except:<ul>
+     *         <li>{@link MvPartitionStorage#addWrite(RowId, BinaryRow, UUID, UUID, int)};</li>
+     *         <li>{@link MvPartitionStorage#commitWrite(RowId, HybridTimestamp)};</li>
+     *         <li>{@link MvPartitionStorage#addWriteCommitted(RowId, BinaryRow, HybridTimestamp)};</li>
+     *         <li>{@link MvPartitionStorage#lastAppliedIndex()};</li>
+     *         <li>{@link MvPartitionStorage#lastAppliedTerm()};</li>
+     *         <li>{@link MvPartitionStorage#persistedIndex()};</li>
+     *         <li>{@link HashIndexStorage#put(IndexRow)};</li>
+     *         <li>{@link SortedIndexStorage#put(IndexRow)};</li>
+     *     </ul></li>
+     * </ul>
      *
-     * <p>This method must be called before every full rebalance of the partition storage, so that in case of errors or cancellation of the
-     * full rebalance, we can restore the partition storage from the backup.
+     * <p>This method must be called before every rebalance of a multi-version partition storage and its indexes and ends with a call
+     * to one of the methods:
+     * <ul>
+     *     <li>{@link #abortRebalancePartition(int)} ()} - in case of errors or cancellation of rebalance;</li>
+     *     <li>{@link #finishRebalancePartition(int, long, long)} - in case of successful completion of rebalance.</li>
+     * </ul>
      *
-     * <p>Full rebalance will be completed when one of the methods is called:
-     * <ol>
-     *     <li>{@link #abortRebalanceMvPartition(int)} - in case of a full rebalance cancellation or failure, so that we can
-     *     restore the partition storage from a backup;</li>
-     *     <li>{@link #finishRebalanceMvPartition(int)} - in case of a successful full rebalance, to remove the backup of the
-     *     partition storage.</li>
-     * </ol>
+     * <p>If the {@link MvPartitionStorage#lastAppliedIndex()} is {@link MvPartitionStorage#REBALANCE_IN_PROGRESS} after a node restart
+     * , then a multi-version partition storage and its indexes needs to be cleared before they start.
+     *
+     * <p>If the partition started to be destroyed or closed, then there will be an error when trying to start rebalancing.
      *
      * @param partitionId Partition ID.
-     * @return Future, if completed without errors, then {@link #getMvPartition} will return a new (empty) partition storage.
+     * @return Future of the start rebalance for a multi-version partition storage and its indexes.
+     * @throws IllegalArgumentException If Partition ID is out of bounds.
+     * @throws StorageRebalanceException If there is an error when starting rebalance.
      */
-    CompletableFuture<Void> startRebalanceMvPartition(int partitionId);
+    CompletableFuture<Void> startRebalancePartition(int partitionId);
 
     /**
-     * Aborts rebalancing of the partition storage if it was started: restores the partition storage from a backup and deletes the new
-     * storage.
+     * Aborts rebalance for a partition.
+     * <ul>
+     *     <li>Cleans up the {@link MvPartitionStorage multi-version partition storage} and its associated indexes ({@link HashIndexStorage}
+     *     and {@link SortedIndexStorage});</li>
+     *     <li>Sets {@link MvPartitionStorage#lastAppliedIndex()} and {@link MvPartitionStorage#lastAppliedTerm()} to {@code 0};</li>
+     *     <li>For a multi-version partition storage and its indexes, methods for writing and reading will be available.</li>
+     * </ul>
      *
-     * <p>If a full rebalance has not been {@link #startRebalanceMvPartition(int) started}, then nothing will happen.
+     * <p>If rebalance has not started, then nothing will happen.
      *
-     * @param partitionId Partition ID.
-     * @return Future, upon completion of which {@link #getMvPartition} will return the partition storage restored from the backup.
+     * @return Future of the abort rebalance for a multi-version partition storage and its indexes.
+     * @throws IllegalArgumentException If Partition ID is out of bounds.
      */
-    CompletableFuture<Void> abortRebalanceMvPartition(int partitionId);
+    CompletableFuture<Void> abortRebalancePartition(int partitionId);
 
     /**
-     * Finishes a successful partition storage rebalance if it has been started: deletes the backup of the partition storage and saves a new
-     * storage.
+     * Completes rebalance for a partition.
+     * <ul>
+     *     <li>Updates {@link MvPartitionStorage#lastAppliedIndex()} and {@link MvPartitionStorage#lastAppliedTerm()};</li>
+     *     <li>For a multi-version partition storage and its indexes, methods for writing and reading will be available.</li>
+     * </ul>
      *
-     * <p>If a full rebalance has not been {@link #startRebalanceMvPartition(int) started}, then nothing will happen.
+     * <p>If rebalance has not started, then {@link StorageRebalanceException} will be thrown.
      *
-     * @param partitionId Partition ID.
-     * @return Future, if it fails, will abort the partition storage rebalance.
+     * @param lastAppliedIndex Last applied index.
+     * @param lastAppliedTerm Last applied term.
+     * @return Future of the finish rebalance for a multi-version partition storage and its indexes.
+     * @throws IllegalArgumentException If Partition ID is out of bounds.
+     * @throws StorageRebalanceException If there is an error when completing rebalance.
      */
-    CompletableFuture<Void> finishRebalanceMvPartition(int partitionId);
+    CompletableFuture<Void> finishRebalancePartition(int partitionId, long lastAppliedIndex, long lastAppliedTerm);
 }

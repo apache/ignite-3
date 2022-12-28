@@ -393,6 +393,7 @@ public class TypeUtils {
 
                 return factory.createSqlType(SqlTypeName.DECIMAL, decimal.precision(), decimal.scale());
             case UUID:
+                // TODO IGNITE-18431.
                 throw new AssertionError("UUID is not supported yet");
             case STRING: {
                 assert nativeType instanceof VarlenNativeType;
@@ -409,6 +410,7 @@ public class TypeUtils {
                 return factory.createSqlType(SqlTypeName.BINARY, varlen.length());
             }
             case BITMASK:
+                // TODO IGNITE-18431.
                 throw new AssertionError("BITMASK is not supported yet");
             case NUMBER:
                 assert nativeType instanceof NumberNativeType;

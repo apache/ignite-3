@@ -37,6 +37,7 @@ dependencies {
     implementation project(':ignite-core')
     implementation project(':ignite-api')
     implementation project(':ignite-client')
+    implementation project(':ignite-jdbc')
 
     implementation libs.fliptables
     implementation libs.jline.core

@@ -646,6 +646,120 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
         }
 
         [Test]
+        public void TestGetNullable()
+        {
+            var reader = BuildAndRead((ref BinaryTupleBuilder b) => b.AppendNull());
+
+            Assert.IsNull(reader.GetIntNullable(0));
+            Assert.IsNull(reader.GetByteNullable(0));
+            Assert.IsNull(reader.GetShortNullable(0));
+            Assert.IsNull(reader.GetLongNullable(0));
+            Assert.IsNull(reader.GetDoubleNullable(0));
+            Assert.IsNull(reader.GetFloatNullable(0));
+            Assert.IsNull(reader.GetDecimalNullable(0, 123));
+            Assert.IsNull(reader.GetNumberNullable(0));
+            Assert.IsNull(reader.GetStringNullable(0));
+            Assert.IsNull(reader.GetBitmaskNullable(0));
+            Assert.IsNull(reader.GetGuidNullable(0));
+            Assert.IsNull(reader.GetBytesNullable(0));
+            Assert.IsNull(reader.GetDurationNullable(0));
+            Assert.IsNull(reader.GetPeriodNullable(0));
+            Assert.IsNull(reader.GetTimeNullable(0));
+            Assert.IsNull(reader.GetDateNullable(0));
+            Assert.IsNull(reader.GetDateTimeNullable(0));
+        }
+
+        [Test]
+        public void TestAppendNullable()
+        {
+            var guid = Guid.NewGuid();
+            var utcNow = DateTime.UtcNow;
+            var date = LocalDate.FromDateTime(utcNow);
+            var dateTime = LocalDateTime.FromDateTime(utcNow);
+            var bitArray = new BitArray(new[] { byte.MaxValue });
+            var bytes = new byte[] { 1, 2 };
+
+            var reader = BuildAndRead(
+                (ref BinaryTupleBuilder b) =>
+                {
+                    b.AppendByteNullable(1);
+                    b.AppendByteNullable(null);
+                    b.AppendShortNullable(1);
+                    b.AppendShortNullable(null);
+                    b.AppendIntNullable(1);
+                    b.AppendIntNullable(null);
+                    b.AppendLongNullable(1);
+                    b.AppendLongNullable(null);
+                    b.AppendFloatNullable(1);
+                    b.AppendFloatNullable(null);
+                    b.AppendDoubleNullable(1);
+                    b.AppendDoubleNullable(null);
+                    b.AppendStringNullable("s");
+                    b.AppendStringNullable(null);
+                    b.AppendBytesNullable(bytes);
+                    b.AppendBytesNullable(null);
+                    b.AppendGuidNullable(guid);
+                    b.AppendGuidNullable(null);
+                    b.AppendBitmaskNullable(bitArray);
+                    b.AppendBitmaskNullable(null);
+                    b.AppendDecimalNullable(1, 3);
+                    b.AppendDecimalNullable(null, 3);
+                    b.AppendNumberNullable(1);
+                    b.AppendNumberNullable(null);
+                    b.AppendDateNullable(date);
+                    b.AppendDateNullable(null);
+                    b.AppendTimeNullable(dateTime.TimeOfDay);
+                    b.AppendTimeNullable(null);
+                    b.AppendDateTimeNullable(dateTime);
+                    b.AppendDateTimeNullable(null);
+                    b.AppendTimestampNullable(Instant.FromDateTimeUtc(utcNow));
+                    b.AppendTimestampNullable(null);
+                    b.AppendDurationNullable(Duration.FromMinutes(1));
+                    b.AppendDurationNullable(null);
+                    b.AppendPeriodNullable(Period.FromDays(1));
+                    b.AppendPeriodNullable(null);
+                },
+                100);
+
+            Assert.AreEqual(1, reader.GetByteNullable(0));
+            Assert.IsNull(reader.GetByteNullable(1));
+            Assert.AreEqual(1, reader.GetShortNullable(2));
+            Assert.IsNull(reader.GetShortNullable(3));
+            Assert.AreEqual(1, reader.GetIntNullable(4));
+            Assert.IsNull(reader.GetIntNullable(5));
+            Assert.AreEqual(1, reader.GetLongNullable(6));
+            Assert.IsNull(reader.GetLongNullable(7));
+            Assert.AreEqual(1, reader.GetFloatNullable(8));
+            Assert.IsNull(reader.GetFloatNullable(9));
+            Assert.AreEqual(1, reader.GetDoubleNullable(10));
+            Assert.IsNull(reader.GetDoubleNullable(11));
+            Assert.AreEqual("s", reader.GetStringNullable(12));
+            Assert.IsNull(reader.GetStringNullable(13));
+            Assert.AreEqual(bytes, reader.GetBytesNullable(14));
+            Assert.IsNull(reader.GetBytesNullable(15));
+            Assert.AreEqual(guid, reader.GetGuidNullable(16));
+            Assert.IsNull(reader.GetGuidNullable(17));
+            Assert.AreEqual(bitArray, reader.GetBitmaskNullable(18));
+            Assert.IsNull(reader.GetBitmaskNullable(19));
+            Assert.AreEqual(1, reader.GetDecimalNullable(20, 3));
+            Assert.IsNull(reader.GetDecimalNullable(21, 3));
+            Assert.AreEqual((BigInteger)1, reader.GetNumberNullable(22));
+            Assert.IsNull(reader.GetNumberNullable(23));
+            Assert.AreEqual(date, reader.GetDateNullable(24));
+            Assert.IsNull(reader.GetDateNullable(25));
+            Assert.AreEqual(dateTime.TimeOfDay, reader.GetTimeNullable(26));
+            Assert.IsNull(reader.GetTimeNullable(27));
+            Assert.AreEqual(dateTime, reader.GetDateTimeNullable(28));
+            Assert.IsNull(reader.GetDateTimeNullable(29));
+            Assert.AreEqual(Instant.FromDateTimeUtc(utcNow), reader.GetTimestampNullable(30));
+            Assert.IsNull(reader.GetTimestampNullable(31));
+            Assert.AreEqual(Duration.FromMinutes(1), reader.GetDurationNullable(32));
+            Assert.IsNull(reader.GetDurationNullable(33));
+            Assert.AreEqual(Period.FromDays(1), reader.GetPeriodNullable(34));
+            Assert.IsNull(reader.GetPeriodNullable(35));
+        }
+
+        [Test]
         public void TestObject()
         {
             var guid = Guid.NewGuid();

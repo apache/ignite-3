@@ -49,6 +49,8 @@ import org.apache.ignite.internal.schema.DefaultValueProvider.Type;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaRegistry;
+import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
+import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -364,8 +366,11 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
             colocationColumns.add(column.columnOrder());
         }
 
+        // TODO Use the actual zone ID after implementing https://issues.apache.org/jira/browse/IGNITE-18426.
+        IgniteDistribution distribution = IgniteDistributions.affinity(colocationColumns, table.tableId(), table.tableId());
+
         return new IgniteTableImpl(
-                new TableDescriptorImpl(colDescriptors, colocationColumns),
+                new TableDescriptorImpl(colDescriptors, distribution),
                 table.internalTable(),
                 schemaRegistry
         );
