@@ -26,9 +26,11 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.UUID;
 import java.util.stream.Stream;
 import org.apache.calcite.plan.RelOptUtil;
+import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.SingleRel;
 import org.apache.calcite.rel.core.Aggregate;
 import org.apache.calcite.rel.core.AggregateCall;
@@ -54,6 +56,7 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
+import org.apache.ignite.internal.util.Pair;
 import org.hamcrest.core.IsInstanceOf;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -416,11 +419,22 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
      * @throws Exception If failed.
      */
     private void checkDistinctInMapAggNode(String sql, IgniteSchema publicSchema) throws Exception {
-        String[][] disabledRules = new String[][] {{""}, {"MapReduceHashAggregateConverterRule"},
-                {"ColocatedHashAggregateConverterRule", "MapReduceHashAggregateConverterRule"}};
+        List<Pair<String[], Boolean>> disabledRules = List.of(new Pair<>(new String[]{""}, false),
+                new Pair<>(new String[]{"ColocatedHashAggregateConverterRule", "ColocatedSortAggregateConverterRule"}, true),
+                new Pair<>(new String[]{"ColocatedHashAggregateConverterRule", "ColocatedSortAggregateConverterRule",
+                        "MapReduceSortAggregateConverterRule"}, true),
+                new Pair<>(new String[]{"ColocatedHashAggregateConverterRule", "ColocatedSortAggregateConverterRule",
+                        "MapReduceHashAggregateConverterRule"}, true)
+        );
 
-        for (String[] rules : disabledRules) {
-            IgniteRel phys = physicalPlan(sql, publicSchema, rules);
+        for (Pair<String[], Boolean> rules : disabledRules) {
+            IgniteRel phys = physicalPlan(sql, publicSchema, rules.getFirst());
+
+            List<RelNode> nodes = findNodes(phys, byClass(IgniteMapAggregateBase.class));
+
+            if (rules.getSecond()) {
+                assertThat("No mapper found", !nodes.isEmpty());
+            }
 
             assertFalse(findNodes(phys, byClass(IgniteMapAggregateBase.class)).stream()
                             .anyMatch(n -> ((Aggregate) n).getAggCallList().stream()
