@@ -36,6 +36,8 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.IgnitionManager;
@@ -48,6 +50,7 @@ import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.raft.jraft.RaftGroupService;
 import org.apache.ignite.raft.jraft.util.concurrent.ConcurrentHashSet;
+import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.Session;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.TestInfo;
@@ -300,6 +303,47 @@ public class Cluster {
         knockout.reanimateNode(nodeIndex, this);
 
         knockedOutNodeIndices.remove(nodeIndex);
+    }
+
+    /**
+     * Executes an action with a {@link Session} opened via a node with the given index.
+     *
+     * @param nodeIndex Index of node on which to execute the action.
+     * @param action Action to execute.
+     */
+    public void doInSession(int nodeIndex, Consumer<Session> action) {
+        try (Session session = openSession(nodeIndex)) {
+            action.accept(session);
+        }
+    }
+
+    /**
+     * Returns result of executing an action with a {@link Session} opened via a node with the given index.
+     *
+     * @param nodeIndex Index of node on which to execute the action.
+     * @param action Action to execute.
+     * @return Action result.
+     */
+    public <T> T doInSession(int nodeIndex, Function<Session, T> action) {
+        try (Session session = openSession(nodeIndex)) {
+            return action.apply(session);
+        }
+    }
+
+    /**
+     * Executes a SQL query on a node with the given index.
+     *
+     * @param nodeIndex Index of node on which to execute the query.
+     * @param sql SQL query to execute.
+     * @param extractor Used to extract the result from a {@link ResultSet}.
+     * @return Query result.
+     */
+    public <T> T query(int nodeIndex, String sql, Function<ResultSet, T> extractor) {
+        return doInSession(nodeIndex, session -> {
+            try (ResultSet resultSet = session.execute(null, sql)) {
+                return extractor.apply(resultSet);
+            }
+        });
     }
 
     /**

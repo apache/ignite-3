@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.raftsnapshot;
 
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.SessionUtils.executeUpdate;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.hasCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
@@ -37,7 +38,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BooleanSupplier;
-import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.logging.LogRecord;
@@ -69,10 +69,8 @@ import org.apache.ignite.raft.jraft.core.Replicator;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.sql.ResultSet;
-import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.tx.Transaction;
-import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
@@ -137,28 +135,6 @@ class ItTableRaftSnapshotsTest {
         cluster.shutdown();
     }
 
-    private void doInSession(int nodeIndex, Consumer<Session> action) {
-        try (Session session = cluster.openSession(nodeIndex)) {
-            action.accept(session);
-        }
-    }
-
-    private <T> T doInSession(int nodeIndex, Function<Session, T> action) {
-        try (Session session = cluster.openSession(nodeIndex)) {
-            return action.apply(session);
-        }
-    }
-
-    private static void executeUpdate(String sql, Session session) {
-        executeUpdate(sql, session, null);
-    }
-
-    private static void executeUpdate(String sql, Session session, @Nullable Transaction transaction) {
-        try (ResultSet ignored = session.execute(transaction, sql)) {
-            // Do nothing, just adhere to the syntactic ceremony...
-        }
-    }
-
     /**
      * Executes the given action, retrying it up to a few times if a transient failure occurs (like node unavailability).
      */
@@ -200,16 +176,8 @@ class ItTableRaftSnapshotsTest {
                 || hasCause(e, SqlValidatorException.class, "Object 'TEST' not found");
     }
 
-    private <T> T query(int nodeIndex, String sql, Function<ResultSet, T> extractor) {
-        return doInSession(nodeIndex, session -> {
-            try (ResultSet resultSet = session.execute(null, sql)) {
-                return extractor.apply(resultSet);
-            }
-        });
-    }
-
     private <T> T queryWithRetry(int nodeIndex, String sql, Function<ResultSet, T> extractor) {
-        return withRetry(() -> query(nodeIndex, sql, extractor));
+        return withRetry(() -> cluster.query(nodeIndex, sql, extractor));
     }
 
     /**
@@ -298,7 +266,7 @@ class ItTableRaftSnapshotsTest {
 
         cluster.knockOutNode(2, knockout);
 
-        doInSession(0, session -> {
+        cluster.doInSession(0, session -> {
             executeUpdate("insert into test(key, value) values (1, 'one')", session);
         });
 
@@ -310,7 +278,7 @@ class ItTableRaftSnapshotsTest {
                 + (DEFAULT_STORAGE_ENGINE.equals(storageEngine) ? "" : " engine " + storageEngine)
                 + " with partitions=1, replicas=3";
 
-        doInSession(0, session -> {
+        cluster.doInSession(0, session -> {
             executeUpdate(sql, session);
         });
 
@@ -514,7 +482,7 @@ class ItTableRaftSnapshotsTest {
 
         Transaction tx = cluster.node(0).transactions().begin();
 
-        doInSession(0, session -> {
+        cluster.doInSession(0, session -> {
             executeUpdate("insert into test(key, value) values (1, 'one')", session, tx);
 
             cluster.knockOutNode(2, knockout);
@@ -554,7 +522,7 @@ class ItTableRaftSnapshotsTest {
     void entriesKeepAppendedAfterSnapshotInstallation() throws Exception {
         feedNode2WithSnapshotOfOneRow(DEFAULT_KNOCKOUT);
 
-        doInSession(0, session -> {
+        cluster.doInSession(0, session -> {
             executeUpdate("insert into test(key, value) values (2, 'two')", session);
         });
 
@@ -584,7 +552,7 @@ class ItTableRaftSnapshotsTest {
         CompletableFuture<?> loadingFuture = IgniteTestUtils.runAsync(() -> {
             for (int i = 2; !installedSnapshot.get(); i++) {
                 int key = i;
-                doInSession(0, session -> {
+                cluster.doInSession(0, session -> {
                     executeUpdate("insert into test(key, value) values (" + key + ", 'extra')", session);
                     lastLoadedKey.set(key);
                 });
@@ -619,7 +587,7 @@ class ItTableRaftSnapshotsTest {
 
         cluster.knockOutNode(0, DEFAULT_KNOCKOUT);
 
-        doInSession(2, session -> {
+        cluster.doInSession(2, session -> {
             executeUpdate("insert into test(key, value) values (2, 'two')", session);
         });
 
