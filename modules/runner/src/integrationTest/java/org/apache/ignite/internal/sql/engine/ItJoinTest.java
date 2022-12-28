@@ -21,7 +21,6 @@ import static org.apache.ignite.internal.sql.engine.AbstractBasicIntegrationTest
 
 import java.util.Arrays;
 import java.util.List;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
@@ -847,9 +846,9 @@ public class ItJoinTest extends AbstractBasicIntegrationTest {
     }
 
     private static Stream<Arguments> joinTypes() {
-        List<Arguments> types = Arrays.stream(JoinType.values())
-                        .flatMap(v -> Stream.of(Arguments.of(v, false), Arguments.of(v, true))).collect(Collectors.toList());
+        Stream<Arguments> types = Arrays.stream(JoinType.values())
+                .flatMap(v -> Stream.of(Arguments.of(v, false), Arguments.of(v, true)));
 
-        return types.stream();
+        return types;
     }
 }
