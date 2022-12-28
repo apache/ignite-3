@@ -146,8 +146,43 @@ public class TxStateRocksDbStorage implements TxStateStorage {
         this.lastAppliedIndexAndTermKey = ByteBuffer.allocate(Short.BYTES).order(ByteOrder.BIG_ENDIAN)
                 .putShort((short) partitionId)
                 .array();
+    }
 
-        initLastApplied();
+    /**
+     * Starts the storage.
+     *
+     * @throws IgniteInternalException In case when the operation has failed.
+     */
+    public void start() {
+        byte[] indexAndTermBytes = readLastAppliedIndexAndTerm(readOptions);
+
+        if (indexAndTermBytes != null) {
+            long lastAppliedIndex = bytesToLong(indexAndTermBytes);
+
+            if (lastAppliedIndex == REBALANCE_IN_PROGRESS) {
+                try (WriteBatch writeBatch = new WriteBatch()) {
+                    writeBatch.deleteRange(partitionStartPrefix(), partitionEndPrefix());
+                    writeBatch.delete(lastAppliedIndexAndTermKey);
+
+                    db.write(writeOptions, writeBatch);
+                } catch (Exception e) {
+                    throw new IgniteInternalException(
+                            TX_STATE_STORAGE_REBALANCE_ERR,
+                            IgniteStringFormatter.format(
+                                    "Failed to clear storage for partition {} of table {}",
+                                    partitionId,
+                                    getTableName()
+                            ),
+                            e
+                    );
+                }
+            } else {
+                this.lastAppliedIndex = lastAppliedIndex;
+                persistedIndex = lastAppliedIndex;
+
+                lastAppliedTerm = bytesToLong(indexAndTermBytes, Long.BYTES);
+            }
+        }
     }
 
     @Override
@@ -229,6 +264,9 @@ public class TxStateRocksDbStorage implements TxStateStorage {
                 }
             }
 
+            // If the store is in the process of rebalancing, then there is no need to update index lastAppliedIndex and lastAppliedTerm.
+            // This is necessary to prevent a situation where, in the middle of the rebalance, the node will be restarted and we will have
+            // non-consistent storage. They will be updated to either #abortRebalance() or #finishRebalance(long, long).
             if (state != StorageState.REBALANCE) {
                 writeBatch.put(lastAppliedIndexAndTermKey, indexAndTermToBytes(commandIndex, commandTerm));
 
@@ -429,18 +467,16 @@ public class TxStateRocksDbStorage implements TxStateStorage {
 
     @Override
     public void destroy() {
-        if (!close0()) {
+        if (!tryToCloseStorageAndResources()) {
             return;
         }
 
-        try {
-            try (WriteBatch writeBatch = new WriteBatch()) {
-                writeBatch.deleteRange(partitionStartPrefix(), partitionEndPrefix());
+        try (WriteBatch writeBatch = new WriteBatch()) {
+            writeBatch.deleteRange(partitionStartPrefix(), partitionEndPrefix());
 
-                writeBatch.delete(lastAppliedIndexAndTermKey);
+            writeBatch.delete(lastAppliedIndexAndTermKey);
 
-                db.write(writeOptions, writeBatch);
-            }
+            db.write(writeOptions, writeBatch);
         } catch (Exception e) {
             throw new IgniteInternalException(
                     TX_STATE_STORAGE_ERR,
@@ -479,40 +515,52 @@ public class TxStateRocksDbStorage implements TxStateStorage {
 
     @Override
     public void close() {
-        close0();
+        tryToCloseStorageAndResources();
     }
 
     @Override
     public CompletableFuture<Void> startRebalance() {
-        if (!STATE.compareAndSet(this, StorageState.RUNNABLE, StorageState.REBALANCE)) {
-            throwExceptionIfStorageClosedOrRebalance();
+        CompletableFuture<Void> rebalanceFuture = new CompletableFuture<>();
+
+        if (!REBALANCE_FUTURE.compareAndSet(this, null, rebalanceFuture)) {
+            throw createStorageInProgressOfRebalanceException();
         }
 
-        busyLock.block();
+        try {
+            if (!STATE.compareAndSet(this, StorageState.RUNNABLE, StorageState.REBALANCE)) {
+                throwExceptionIfStorageClosedOrRebalance();
+            }
 
-        try (WriteBatch writeBatch = new WriteBatch()) {
-            writeBatch.deleteRange(partitionStartPrefix(), partitionEndPrefix());
-            writeBatch.put(lastAppliedIndexAndTermKey, indexAndTermToBytes(REBALANCE_IN_PROGRESS, REBALANCE_IN_PROGRESS));
+            busyLock.block();
 
-            db.write(writeOptions, writeBatch);
+            try (WriteBatch writeBatch = new WriteBatch()) {
+                writeBatch.deleteRange(partitionStartPrefix(), partitionEndPrefix());
+                writeBatch.put(lastAppliedIndexAndTermKey, indexAndTermToBytes(REBALANCE_IN_PROGRESS, REBALANCE_IN_PROGRESS));
 
-            lastAppliedIndex = REBALANCE_IN_PROGRESS;
-            lastAppliedTerm = REBALANCE_IN_PROGRESS;
-            persistedIndex = REBALANCE_IN_PROGRESS;
+                db.write(writeOptions, writeBatch);
 
-            CompletableFuture<Void> rebalanceFuture = completedFuture(null);
+                lastAppliedIndex = REBALANCE_IN_PROGRESS;
+                lastAppliedTerm = REBALANCE_IN_PROGRESS;
+                persistedIndex = REBALANCE_IN_PROGRESS;
 
-            this.rebalanceFuture = rebalanceFuture;
+                rebalanceFuture.complete(null);
 
-            return rebalanceFuture;
-        } catch (Exception e) {
-            throw new IgniteInternalException(
-                    TX_STATE_STORAGE_REBALANCE_ERR,
-                    IgniteStringFormatter.format("Failed to clear storage for partition {} of table {}", partitionId, getTableName()),
-                    e
-            );
-        } finally {
-            busyLock.unblock();
+                return rebalanceFuture;
+            } catch (Exception e) {
+                throw new IgniteInternalException(
+                        TX_STATE_STORAGE_REBALANCE_ERR,
+                        IgniteStringFormatter.format("Failed to clear storage for partition {} of table {}", partitionId, getTableName()),
+                        e
+                );
+            } finally {
+                busyLock.unblock();
+            }
+        } catch (IgniteInternalException e) {
+            rebalanceFuture.completeExceptionally(e);
+
+            this.rebalanceFuture = null;
+
+            throw e;
         }
     }
 
@@ -585,39 +633,12 @@ public class TxStateRocksDbStorage implements TxStateStorage {
                 });
     }
 
-    private void initLastApplied() {
-        byte[] indexAndTermBytes = readLastAppliedIndexAndTerm(readOptions);
-
-        if (indexAndTermBytes != null) {
-            long lastAppliedIndex = bytesToLong(indexAndTermBytes);
-
-            if (lastAppliedIndex == REBALANCE_IN_PROGRESS) {
-                try (WriteBatch writeBatch = new WriteBatch()) {
-                    writeBatch.deleteRange(partitionStartPrefix(), partitionEndPrefix());
-                    writeBatch.delete(lastAppliedIndexAndTermKey);
-
-                    db.write(writeOptions, writeBatch);
-                } catch (Exception e) {
-                    throw new IgniteInternalException(
-                            TX_STATE_STORAGE_REBALANCE_ERR,
-                            IgniteStringFormatter.format(
-                                    "Failed to clear storage for partition {} of table {}",
-                                    partitionId,
-                                    getTableName()
-                            ),
-                            e
-                    );
-                }
-            } else {
-                this.lastAppliedIndex = lastAppliedIndex;
-                persistedIndex = lastAppliedIndex;
-
-                lastAppliedTerm = bytesToLong(indexAndTermBytes, Long.BYTES);
-            }
-        }
-    }
-
-    private boolean close0() {
+    /**
+     * Tries to close the repository with resources if it hasn't already been closed.
+     *
+     * @return {@code True} if the storage was successfully closed, otherwise the storage has already been closed.
+     */
+    private boolean tryToCloseStorageAndResources() {
         if (!STATE.compareAndSet(this, StorageState.RUNNABLE, StorageState.CLOSED)) {
             StorageState state = this.state;
 

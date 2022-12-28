@@ -153,6 +153,8 @@ public class TxStateRocksDbTableStorage implements TxStateTableStorage {
                 partitionId,
                 this
             );
+
+            storage.start();
         }
 
         storages.set(partitionId, storage);
