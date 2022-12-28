@@ -35,6 +35,7 @@ using Table;
 [SuppressMessage("ReSharper", "NotAccessedPositionalProperty.Local", Justification = "Tests")]
 [SuppressMessage("Naming", "CA1711:Identifiers should not have incorrect suffix", Justification = "Tests")]
 [SuppressMessage("StyleCop.CSharp.OrderingRules", "SA1201:Elements should appear in the correct order", Justification = "Tests")]
+[SuppressMessage("ReSharper", "UnusedMember.Local", Justification = "Tests")]
 public partial class LinqTests : IgniteTestsBase
 {
     private const int Count = 10;

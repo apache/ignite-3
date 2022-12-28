@@ -25,7 +25,6 @@ namespace Apache.Ignite.Tests.Table
     using System.Threading.Tasks;
     using NodaTime;
     using NUnit.Framework;
-    using NUnit.Framework.Internal;
 
     /// <summary>
     /// Tests for POCO view.
