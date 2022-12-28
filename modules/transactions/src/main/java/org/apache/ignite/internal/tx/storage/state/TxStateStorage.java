@@ -170,8 +170,8 @@ public interface TxStateStorage extends ManuallyCloseable {
      *
      * <p>After calling this method, methods for writing and reading will be available.
      *
-     * <p>If a full rebalance has not started, then an IgniteInternalException with {@link Transactions#TX_STATE_STORAGE_FULL_REBALANCE_ERR}
-     * will be thrown
+     * <p>If a full rebalance has not started, then an {@link IgniteInternalException} with
+     * {@link Transactions#TX_STATE_STORAGE_FULL_REBALANCE_ERR} will be thrown.
      *
      * @param lastAppliedIndex Last applied index.
      * @param lastAppliedTerm Last applied term.

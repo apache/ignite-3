@@ -15,37 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage;
+
+package org.apache.ignite.internal.tx.impl;
+
+import java.util.Comparator;
+import java.util.UUID;
+import org.apache.ignite.internal.tx.DeadlockPreventionPolicy;
 
 /**
- * Exception that will be thrown when the storage is closed.
+ * Deadlock prevention policy that, in case of conflict of transactions tx1 and tx2 on the same key, assuming tx1 is holding the lock,
+ * allows tx2 to wait for the lock if tx2 is older than tx1, and aborts tx2 is tx2 is younger than tx1.
  */
-public class StorageClosedException extends StorageException {
-    /**
-     * Constructor.
-     *
-     * @param message Error message.
-     */
-    public StorageClosedException(String message) {
-        super(message);
+public class WaitDieDeadlockPreventionPolicy implements DeadlockPreventionPolicy {
+    /** {@inheritDoc} */
+    @Override
+    public Comparator<UUID> txIdComparator() {
+        return UUID::compareTo;
     }
 
-    /**
-     * Constructor.
-     *
-     * @param message Error message.
-     * @param cause The cause.
-     */
-    public StorageClosedException(String message, Throwable cause) {
-        super(message, cause);
-    }
-
-    /**
-     * Constructor.
-     *
-     * @param cause The cause.
-     */
-    public StorageClosedException(Throwable cause) {
-        super(cause);
+    /** {@inheritDoc} */
+    @Override
+    public long waitTimeout() {
+        return 0;
     }
 }

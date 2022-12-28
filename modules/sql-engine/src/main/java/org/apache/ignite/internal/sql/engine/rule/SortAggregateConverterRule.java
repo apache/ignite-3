@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.rule;
 
+import static org.apache.ignite.internal.sql.engine.util.PlanUtils.complexDistinctAgg;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import org.apache.calcite.plan.RelOptCluster;
@@ -37,8 +38,8 @@ import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.util.HintUtils;
 
 /**
- * SortAggregateConverterRule.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * Planner rule that recognizes a {@link org.apache.calcite.rel.core.Aggregate}
+ * and in relation to distribution and additional conditions produce appropriate node, require sorted input.
  */
 public class SortAggregateConverterRule {
     public static final RelOptRule COLOCATED = new ColocatedSortAggregateConverterRule();
@@ -105,7 +106,7 @@ public class SortAggregateConverterRule {
                 return null;
             }
 
-            if (HintUtils.isExpandDistinctAggregate(agg)) {
+            if (complexDistinctAgg(agg.getAggCallList()) || HintUtils.isExpandDistinctAggregate(agg)) {
                 return null;
             }
 

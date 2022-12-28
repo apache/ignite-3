@@ -15,37 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage;
+package org.apache.ignite.internal.tx;
+
+import org.apache.ignite.internal.tx.impl.WaitDieDeadlockPreventionPolicy;
 
 /**
- * Exception that will be thrown when the storage is closed.
+ * Test for {@link WaitDieDeadlockPreventionPolicy}.
  */
-public class StorageClosedException extends StorageException {
-    /**
-     * Constructor.
-     *
-     * @param message Error message.
-     */
-    public StorageClosedException(String message) {
-        super(message);
-    }
-
-    /**
-     * Constructor.
-     *
-     * @param message Error message.
-     * @param cause The cause.
-     */
-    public StorageClosedException(String message, Throwable cause) {
-        super(message, cause);
-    }
-
-    /**
-     * Constructor.
-     *
-     * @param cause The cause.
-     */
-    public StorageClosedException(Throwable cause) {
-        super(cause);
+public class WaitDieDeadlockPreventionTest extends AbstractDeadlockPreventionTest {
+    @Override
+    protected DeadlockPreventionPolicy deadlockPreventionPolicy() {
+        return new WaitDieDeadlockPreventionPolicy();
     }
 }
