@@ -262,6 +262,8 @@ class ItTableRaftSnapshotsTest {
 
         createTestTableWith3Replicas(storageEngine);
 
+        // Prepare the scene: force node 0 to be a leader, and node 2 to be a follower.
+
         transferLeadershipOnSolePartitionTo(0);
 
         cluster.knockOutNode(2, knockout);
@@ -270,6 +272,7 @@ class ItTableRaftSnapshotsTest {
             executeUpdate("insert into test(key, value) values (1, 'one')", session);
         });
 
+        // Make sure AppendEntries from leader to follower is impossible, making the leader to use InstallSnapshot.
         causeLogTruncationOnSolePartitionLeader();
     }
 
@@ -301,6 +304,9 @@ class ItTableRaftSnapshotsTest {
 
     /**
      * Causes log truncation on the RAFT leader of the sole table partition that exists in the cluster.
+     * After such truncation, when a knocked-out follower gets reanimated, the leader will not be able to feed it
+     * with AppendEntries (because the leader does not already have the index that is required to send AppendEntries
+     * to the lagging follower), so the leader will have to send InstallSnapshot instead.
      */
     private void causeLogTruncationOnSolePartitionLeader() throws InterruptedException {
         // Doing this twice because first snapshot creation does not trigger log truncation.
@@ -478,6 +484,7 @@ class ItTableRaftSnapshotsTest {
 
         createTestTableWith3Replicas(DEFAULT_STORAGE_ENGINE);
 
+        // Prepare the scene: force node 0 to be a leader, and node 2 to be a follower.
         transferLeadershipOnSolePartitionTo(0);
 
         Transaction tx = cluster.node(0).transactions().begin();
@@ -490,6 +497,7 @@ class ItTableRaftSnapshotsTest {
             tx.commit();
         });
 
+        // Make sure AppendEntries from leader to follower is impossible, making the leader to use InstallSnapshot.
         causeLogTruncationOnSolePartitionLeader();
 
         reanimateNode2AndWaitForSnapshotInstalled(knockout);
@@ -584,6 +592,8 @@ class ItTableRaftSnapshotsTest {
     void nodeCanInstallSnapshotsAfterSnapshotInstalledToIt() throws Exception {
         feedNode2WithSnapshotOfOneRow(DEFAULT_KNOCKOUT);
 
+        // The leader (0) has fed the follower (2). Now, change roles: the new leader will be node 2, it will feed node 0.
+
         transferLeadershipOnSolePartitionTo(2);
 
         cluster.knockOutNode(0, DEFAULT_KNOCKOUT);
@@ -592,6 +602,7 @@ class ItTableRaftSnapshotsTest {
             executeUpdate("insert into test(key, value) values (2, 'two')", session);
         });
 
+        // Make sure AppendEntries from leader to follower is impossible, making the leader to use InstallSnapshot.
         causeLogTruncationOnSolePartitionLeader();
 
         reanimateNodeAndWaitForSnapshotInstalled(0, DEFAULT_KNOCKOUT);
