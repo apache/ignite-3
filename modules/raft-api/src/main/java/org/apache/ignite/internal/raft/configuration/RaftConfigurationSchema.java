@@ -34,6 +34,7 @@ public class RaftConfigurationSchema {
      * a recipient and installed.
      */
     @Value(hasDefault = true)
+    // TODO: IGNITE-18480 - is 5 minutes a good default?
     public int rpcInstallSnapshotTimeout = 5 * 60 * 1000;
 
     /** Configuration for Raft groups corresponding to table partitions. */
