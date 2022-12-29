@@ -21,6 +21,7 @@ using System;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Threading.Tasks;
+using Internal.Common;
 using Internal.Linq;
 using Table;
 
@@ -101,6 +102,58 @@ public static class IgniteQueryableExtensions
     }
 
     /// <summary>
+    /// Returns the first element of a sequence.
+    /// </summary>
+    /// <param name="queryable">Query.</param>
+    /// <typeparam name="TSource">Element type.</typeparam>
+    /// <returns>A <see cref="Task"/> representing the asynchronous operation.
+    /// The task result contains the first element in the input sequence.</returns>
+    public static Task<TSource> FirstAsync<TSource>(this IQueryable<TSource> queryable)
+    {
+        throw new NotImplementedException();
+    }
+
+    /// <summary>
+    /// Returns the first element of a sequence, or a default value if the sequence contains no elements.
+    /// </summary>
+    /// <param name="queryable">Query.</param>
+    /// <typeparam name="TSource">Element type.</typeparam>
+    /// <returns>A <see cref="Task"/> representing the asynchronous operation.
+    /// The task result contains <see langword="default" /> ( <typeparamref name="TSource" /> ) if
+    /// <paramref name="queryable" /> is empty; otherwise, the first element in <paramref name="queryable" />.
+    /// </returns>
+    public static Task<TSource?> FirstOrDefaultAsync<TSource>(this IQueryable<TSource> queryable)
+    {
+        throw new NotImplementedException();
+    }
+
+    /// <summary>
+    /// Returns the last element of a sequence.
+    /// </summary>
+    /// <param name="queryable">Query.</param>
+    /// <typeparam name="TSource">Element type.</typeparam>
+    /// <returns>A <see cref="Task"/> representing the asynchronous operation.
+    /// The task result contains the last element in the input sequence.</returns>
+    public static Task<TSource> LastAsync<TSource>(this IQueryable<TSource> queryable)
+    {
+        throw new NotImplementedException();
+    }
+
+    /// <summary>
+    /// Returns the last element of a sequence, or a default value if the sequence contains no elements.
+    /// </summary>
+    /// <param name="queryable">Query.</param>
+    /// <typeparam name="TSource">Element type.</typeparam>
+    /// <returns>A <see cref="Task"/> representing the asynchronous operation.
+    /// The task result contains <see langword="default" /> ( <typeparamref name="TSource" /> ) if
+    /// <paramref name="queryable" /> is empty; otherwise, the last element in <paramref name="queryable" />.
+    /// </returns>
+    public static Task<TSource?> LastOrDefaultAsync<TSource>(this IQueryable<TSource> queryable)
+    {
+        throw new NotImplementedException();
+    }
+
+    /// <summary>
     /// Generates SQL representation of the specified query.
     /// </summary>
     /// <param name="queryable">Query.</param>
@@ -108,7 +161,7 @@ public static class IgniteQueryableExtensions
     public static string ToQueryString(this IQueryable queryable) => queryable.ToQueryableInternal().GetQueryData().QueryText;
 
     private static IIgniteQueryableInternal ToQueryableInternal(this IQueryable queryable) =>
-        queryable as IIgniteQueryableInternal
+        IgniteArgumentCheck.NotNull(queryable, nameof(queryable)) as IIgniteQueryableInternal
         ?? throw new InvalidOperationException(
             $"Provided query does not originate from Ignite table: '{queryable}'. " +
             "Use 'IRecordView<T>.AsQueryable()' and 'IKeyValueView<TK, TV>.AsQueryable()' to run LINQ queries in Ignite.");
