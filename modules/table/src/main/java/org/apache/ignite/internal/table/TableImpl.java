@@ -378,7 +378,7 @@ public class TableImpl implements Table {
     public void beforeClose() {
         pkId.completeExceptionally(new IgniteInternalException(
                 ErrorGroups.Table.TABLE_STOPPING_ERR,
-                "Table " + tableId() + " is being stopped"
+                "Table is being stopped: tableId=" + tableId()
         ));
     }
 
