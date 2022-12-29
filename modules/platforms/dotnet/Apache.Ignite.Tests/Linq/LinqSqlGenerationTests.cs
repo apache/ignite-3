@@ -268,6 +268,27 @@ public partial class LinqSqlGenerationTests
                 .Except(q.Select(x => x.Key + 5))
                 .ToList());
 
+    [Test]
+    public void TestQueryToString()
+    {
+        var query = _table.GetRecordView<Poco>().AsQueryable()
+            .Where(x => x.Key == 3 && x.Val != "v-2")
+            .Select(x => new { x.Val, x.Key });
+
+        const string expectedQueryText =
+            "select _T0.VAL, _T0.KEY " +
+            "from PUBLIC.tbl1 as _T0 " +
+            "where ((_T0.KEY IS NOT DISTINCT FROM ?) and (_T0.VAL IS DISTINCT FROM ?))";
+
+        const string expectedToString =
+            "IgniteQueryable`1 [Query=" +
+            expectedQueryText +
+            ", Parameters=3, v-2]";
+
+        Assert.AreEqual(expectedQueryText, query.ToQueryString());
+        Assert.AreEqual(expectedToString, query.ToString());
+    }
+
     [OneTimeSetUp]
     public async Task OneTimeSetUp()
     {
