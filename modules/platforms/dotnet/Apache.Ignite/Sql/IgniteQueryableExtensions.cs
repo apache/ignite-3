@@ -151,6 +151,7 @@ public static class IgniteQueryableExtensions
     /// The task result contains the number of elements in the input sequence.</returns>
     public static Task<int> CountAsync<TSource>(this IQueryable<TSource> queryable)
     {
+        // TODO: CountAsync with predicate.
         IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
 
         throw new NotImplementedException();
@@ -165,6 +166,7 @@ public static class IgniteQueryableExtensions
     /// The task result contains the number of elements in the input sequence.</returns>
     public static Task<long> LongCountAsync<TSource>(this IQueryable<TSource> queryable)
     {
+        // TODO: LongCountAsync with predicate.
         IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
 
         throw new NotImplementedException();
@@ -179,6 +181,7 @@ public static class IgniteQueryableExtensions
     /// The task result contains the first element in the input sequence.</returns>
     public static Task<TSource> FirstAsync<TSource>(this IQueryable<TSource> queryable)
     {
+        // TODO: FirstAsync with predicate.
         IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
 
         throw new NotImplementedException();
@@ -195,6 +198,7 @@ public static class IgniteQueryableExtensions
     /// </returns>
     public static Task<TSource?> FirstOrDefaultAsync<TSource>(this IQueryable<TSource> queryable)
     {
+        // TODO: FirstOrDefaultAsync with predicate.
         IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
 
         throw new NotImplementedException();
@@ -209,6 +213,7 @@ public static class IgniteQueryableExtensions
     /// The task result contains the last element in the input sequence.</returns>
     public static Task<TSource> LastAsync<TSource>(this IQueryable<TSource> queryable)
     {
+        // TODO: LastAsync with predicate.
         IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
 
         throw new NotImplementedException();
@@ -225,6 +230,7 @@ public static class IgniteQueryableExtensions
     /// </returns>
     public static Task<TSource?> LastOrDefaultAsync<TSource>(this IQueryable<TSource> queryable)
     {
+        // TODO: LastOrDefaultAsync with predicate.
         IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
 
         throw new NotImplementedException();
