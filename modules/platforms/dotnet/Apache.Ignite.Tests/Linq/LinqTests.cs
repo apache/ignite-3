@@ -181,6 +181,24 @@ public partial class LinqTests : IgniteTestsBase
     }
 
     [Test]
+    public async Task TestSelectOneColumnAsAsyncEnumerable()
+    {
+        var query = PocoView.AsQueryable()
+            .Where(x => x.Key == 3)
+            .Select(x => x.Val);
+
+        var count = 0;
+
+        await foreach (var row in query.AsAsyncEnumerable())
+        {
+            Assert.AreEqual("v-3", row);
+            count++;
+        }
+
+        Assert.AreEqual(1, count);
+    }
+
+    [Test]
     public void TestSelectEntireObject()
     {
         Poco[] res = PocoView.AsQueryable()

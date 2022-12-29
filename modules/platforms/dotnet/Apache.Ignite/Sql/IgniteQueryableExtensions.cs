@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Sql;
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Threading.Tasks;
@@ -47,6 +48,16 @@ public static class IgniteQueryableExtensions
 
         return await queryableInternal.Provider.Executor.ExecuteResultSetInternalAsync<T>(model).ConfigureAwait(false);
     }
+
+    /// <summary>
+    /// Executes the Ignite query represented by the provided <paramref name="queryable"/> and returns the resulting
+    /// <see cref="IResultSet{T}"/> as <see cref="IAsyncEnumerable{T}"/>.
+    /// </summary>
+    /// <param name="queryable">Queryable.</param>
+    /// <typeparam name="T">Result type.</typeparam>
+    /// <returns>Result set.</returns>
+    public static async IAsyncEnumerable<T> AsAsyncEnumerable<T>(this IQueryable<T> queryable) =>
+        await queryable.ToResultSetAsync().ConfigureAwait(false);
 
     /// <summary>
     /// Determines whether a sequence contains any elements.
@@ -152,6 +163,8 @@ public static class IgniteQueryableExtensions
     {
         throw new NotImplementedException();
     }
+
+    /* TODO: Single/SingleOrDefault, Min, Max, Sum, Average, Contains?, ToList, ToArray, ToDictionary, AsAsyncEnumerable */
 
     /// <summary>
     /// Generates SQL representation of the specified query.
