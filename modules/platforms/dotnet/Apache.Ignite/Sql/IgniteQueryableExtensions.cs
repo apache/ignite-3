@@ -22,6 +22,7 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Linq.Expressions;
+using System.Reflection;
 using System.Threading.Tasks;
 using Internal.Common;
 using Internal.Linq;
@@ -77,9 +78,26 @@ public static class IgniteQueryableExtensions
     /// A <see cref="Task"/> representing the asynchronous operation.
     /// The task result contains <see langword="true" /> if the source sequence contains any elements; otherwise, <see langword="false" />.
     /// </returns>
-    public static Task<bool> AnyAsync<TSource>(this IQueryable<TSource> queryable)
+    public static async Task<bool> AnyAsync<TSource>(this IQueryable<TSource> queryable)
     {
-        throw new NotImplementedException();
+        await Task.Delay(1).ConfigureAwait(false);
+
+        // return queryable.Provider.Execute<bool>(
+        //     Expression.Call(
+        //         null,
+        //         CachedReflectionInfo.Any_TSource_2(typeof(TSource)),
+        //         source.Expression, Expression.Quote(predicate)
+        //     ));
+
+        // TODO: Better way to do this? Cache like in CachedReflectionInfo?
+        var method = new Func<IQueryable<object>, bool>(Queryable.Any)
+            .GetMethodInfo()
+            .GetGenericMethodDefinition()
+            .MakeGenericMethod(typeof(TSource));
+
+        return IgniteArgumentCheck.NotNull(queryable, nameof(queryable))
+            .Provider
+            .Execute<bool>(Expression.Call(null, method, queryable.Expression));
     }
 
     /// <summary>
