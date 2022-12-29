@@ -54,9 +54,8 @@ public static class IgniteQueryableExtensions
     public static string ToQueryString(this IQueryable queryable) => queryable.ToQueryableInternal().GetQueryData().QueryText;
 
     private static IIgniteQueryableInternal ToQueryableInternal(this IQueryable queryable) =>
-        queryable is IIgniteQueryableInternal queryableInternal
-            ? queryableInternal
-            : throw new InvalidOperationException(
-                $"Provided query does not originate from Ignite table: '{queryable}'. " +
-                "Use 'IRecordView<T>.AsQueryable()' and 'IKeyValueView<TK, TV>.AsQueryable()' to run LINQ queries in Ignite.");
+        queryable as IIgniteQueryableInternal
+        ?? throw new InvalidOperationException(
+            $"Provided query does not originate from Ignite table: '{queryable}'. " +
+            "Use 'IRecordView<T>.AsQueryable()' and 'IKeyValueView<TK, TV>.AsQueryable()' to run LINQ queries in Ignite.");
 }
