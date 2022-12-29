@@ -23,6 +23,7 @@ import static java.util.Collections.singleton;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.function.Predicate.not;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
 import static org.apache.ignite.internal.pagememory.datastructure.DataStructure.rnd;
 import static org.apache.ignite.internal.pagememory.io.PageIo.getPageId;
@@ -169,23 +170,15 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
         rnd = null;
 
         try {
-            CompletableFuture<?> asyncRunFut = asyncRunFutures.isEmpty() ? null : allOf(asyncRunFutures.toArray(CompletableFuture[]::new));
-
-            if (asyncRunFut != null && !asyncRunFut.isDone()) {
+            if (asyncRunFutures.stream().anyMatch(not(CompletableFuture::isDone))) {
                 stop.set(true);
 
-                try {
-                    asyncRunFut.cancel(true);
-                    asyncRunFut.get(1, MINUTES);
-                } catch (Throwable ignored) {
-                    // Ignore.
-                }
-
-                // We should try to wait for all the futures to complete, since GridCompoundFuture#get(long) fails if
-                // one of the futures fails so that we don't want crash jvm due to PageMemory deallocation.
+                // It is important for us to wait for all the futures to complete so that the PageMemory does not free the offheap memory
+                // before the threads continue to work with the PageMemory, which can lead to jvm crash.
                 for (CompletableFuture<?> future : asyncRunFutures) {
                     if (!future.isDone()) {
                         try {
+                            future.cancel(true);
                             future.get(1, MINUTES);
                         } catch (Throwable ignored) {
                             // Ignore.
