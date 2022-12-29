@@ -526,41 +526,47 @@ public class TxStateRocksDbStorage implements TxStateStorage {
             throw createStorageInProgressOfRebalanceException();
         }
 
-        try {
-            if (!STATE.compareAndSet(this, StorageState.RUNNABLE, StorageState.REBALANCE)) {
-                throwExceptionIfStorageClosedOrRebalance();
-            }
-
-            busyLock.block();
-
-            try (WriteBatch writeBatch = new WriteBatch()) {
-                writeBatch.deleteRange(partitionStartPrefix(), partitionEndPrefix());
-                writeBatch.put(lastAppliedIndexAndTermKey, indexAndTermToBytes(REBALANCE_IN_PROGRESS, REBALANCE_IN_PROGRESS));
-
-                db.write(writeOptions, writeBatch);
-
-                lastAppliedIndex = REBALANCE_IN_PROGRESS;
-                lastAppliedTerm = REBALANCE_IN_PROGRESS;
-                persistedIndex = REBALANCE_IN_PROGRESS;
-
-                rebalanceFuture.complete(null);
-
-                return rebalanceFuture;
-            } catch (Exception e) {
-                throw new IgniteInternalException(
-                        TX_STATE_STORAGE_REBALANCE_ERR,
-                        IgniteStringFormatter.format("Failed to clear storage for partition {} of table {}", partitionId, getTableName()),
-                        e
-                );
-            } finally {
-                busyLock.unblock();
-            }
-        } catch (IgniteInternalException e) {
-            rebalanceFuture.completeExceptionally(e);
+        if (!STATE.compareAndSet(this, StorageState.RUNNABLE, StorageState.REBALANCE)) {
+            IgniteInternalException exception = createExceptionIfStorageClosedOrRebalance();
 
             this.rebalanceFuture = null;
 
-            throw e;
+            rebalanceFuture.completeExceptionally(exception);
+
+            throw exception;
+        }
+
+        busyLock.block();
+
+        try (WriteBatch writeBatch = new WriteBatch()) {
+            writeBatch.deleteRange(partitionStartPrefix(), partitionEndPrefix());
+            writeBatch.put(lastAppliedIndexAndTermKey, indexAndTermToBytes(REBALANCE_IN_PROGRESS, REBALANCE_IN_PROGRESS));
+
+            db.write(writeOptions, writeBatch);
+
+            lastAppliedIndex = REBALANCE_IN_PROGRESS;
+            lastAppliedTerm = REBALANCE_IN_PROGRESS;
+            persistedIndex = REBALANCE_IN_PROGRESS;
+
+            rebalanceFuture.complete(null);
+
+            return rebalanceFuture;
+        } catch (Exception e) {
+            IgniteInternalException exception = new IgniteInternalException(
+                    TX_STATE_STORAGE_REBALANCE_ERR,
+                    IgniteStringFormatter.format("Failed to clear storage for partition {} of table {}", partitionId, getTableName()),
+                    e
+            );
+
+            this.rebalanceFuture = null;
+
+            state = StorageState.RUNNABLE;
+
+            rebalanceFuture.completeExceptionally(exception);
+
+            throw exception;
+        } finally {
+            busyLock.unblock();
         }
     }
 
@@ -659,16 +665,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
     }
 
     private void throwExceptionIfStorageClosedOrRebalance() {
-        StorageState state = this.state;
-
-        switch (state) {
-            case CLOSED:
-                throw createStorageClosedException();
-            case REBALANCE:
-                throw createStorageInProgressOfRebalanceException();
-            default:
-                throw createUnexpectedStorageStateException(state);
-        }
+        throw createExceptionIfStorageClosedOrRebalance();
     }
 
     private void throwExceptionIfStorageInProgressOfRebalance() {
@@ -687,6 +684,19 @@ public class TxStateRocksDbStorage implements TxStateStorage {
 
     private IgniteInternalException createUnexpectedStorageStateException(StorageState state) {
         return new IgniteInternalException(TX_STATE_STORAGE_ERR, "Unexpected state: " + state);
+    }
+
+    private IgniteInternalException createExceptionIfStorageClosedOrRebalance() {
+        StorageState state = this.state;
+
+        switch (state) {
+            case CLOSED:
+                return createStorageClosedException();
+            case REBALANCE:
+                return createStorageInProgressOfRebalanceException();
+            default:
+                return createUnexpectedStorageStateException(state);
+        }
     }
 
     private String getTableName() {
