@@ -371,6 +371,14 @@ public class TableImpl implements Table {
         allOf(toWait.toArray(CompletableFuture[]::new)).join();
     }
 
+    /**
+     * Prepares this table for being closed. Currently, this means cancellation of PK future so that RAFT state machine
+     * does not need to wait for PK to be initialized, which allows to avoid a deadlock on stop.
+     */
+    public void prepareToClose() {
+        pkId.cancel(false);
+    }
+
     @FunctionalInterface
     private interface IndexLockerFactory {
         /** Creates the index decorator for given partition. */
