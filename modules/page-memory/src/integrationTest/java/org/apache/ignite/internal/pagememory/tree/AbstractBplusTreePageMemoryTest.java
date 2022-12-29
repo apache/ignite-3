@@ -20,7 +20,9 @@ package org.apache.ignite.internal.pagememory.tree;
 import static java.util.Collections.emptyIterator;
 import static java.util.Collections.shuffle;
 import static java.util.Collections.singleton;
+import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
 import static org.apache.ignite.internal.pagememory.datastructure.DataStructure.rnd;
 import static org.apache.ignite.internal.pagememory.io.PageIo.getPageId;
@@ -97,7 +99,6 @@ import org.apache.ignite.lang.IgniteStringBuilder;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 
@@ -141,8 +142,8 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
     /** Stop. */
     private final AtomicBoolean stop = new AtomicBoolean();
 
-    /** Future. */
-    private volatile CompletableFuture<?> asyncRunFut;
+    /** Futures. */
+    private final Set<CompletableFuture<?>> asyncRunFutures = ConcurrentHashMap.newKeySet();
 
     @BeforeEach
     protected void beforeEach(TestInfo testInfo) throws Exception {
@@ -168,14 +169,28 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
         rnd = null;
 
         try {
+            CompletableFuture<?> asyncRunFut = asyncRunFutures.isEmpty() ? null : allOf(asyncRunFutures.toArray(CompletableFuture[]::new));
+
             if (asyncRunFut != null && !asyncRunFut.isDone()) {
                 stop.set(true);
 
                 try {
                     asyncRunFut.cancel(true);
-                    asyncRunFut.get(60_000, MILLISECONDS);
-                } catch (Throwable ex) {
-                    //Ignore
+                    asyncRunFut.get(1, MINUTES);
+                } catch (Throwable ignored) {
+                    // Ignore.
+                }
+
+                // We should try to wait for all the futures to complete, since GridCompoundFuture#get(long) fails if
+                // one of the futures fails so that we don't want crash jvm due to PageMemory deallocation.
+                for (CompletableFuture<?> future : asyncRunFutures) {
+                    if (!future.isDone()) {
+                        try {
+                            future.get(1, MINUTES);
+                        } catch (Throwable ignored) {
+                            // Ignore.
+                        }
+                    }
                 }
             }
 
@@ -1332,7 +1347,9 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
             return null;
         }, 1, "printLocks");
 
-        asyncRunFut = CompletableFuture.allOf(putRmvFut, lockPrintingFut);
+        asyncRunFutures.addAll(Set.of(putRmvFut, lockPrintingFut));
+
+        CompletableFuture<?> asyncRunFut = allOf(putRmvFut, lockPrintingFut);
 
         try {
             putRmvFut.get(getTestTimeout(), MILLISECONDS);
@@ -1492,7 +1509,9 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
             return null;
         }, 1, "printLocks");
 
-        asyncRunFut = CompletableFuture.allOf(putRmvFut, sizeFut, lockPrintingFut);
+        asyncRunFutures.addAll(Set.of(putRmvFut, sizeFut, lockPrintingFut));
+
+        CompletableFuture<?> asyncRunFut = allOf(putRmvFut, sizeFut, lockPrintingFut);
 
         try {
             putRmvFut.get(getTestTimeout(), MILLISECONDS);
@@ -1519,17 +1538,15 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
      * concurrently added to the tree until the new pages are not added anymore. Test verifies that despite livelock condition a size from a
      * valid range is returned.
      *
-     * <p>NB: This test has to be changed with the integration of IGNITE-3478.
-     *
      * @throws Exception if test failed
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17235")
     public void testPutSizeLivelock() throws Exception {
         MAX_PER_PAGE = 5;
         CNT = 800;
 
-        final int slidingWindowSize = 16;
+        // Sliding window size should be greater than the amount of CPU cores to avoid races between puts and removes in the tree.
+        int slidingWindowSize = CPUS * 2;
         final boolean debugPrint = false;
 
         final TestTree tree = createTestTree(false);
@@ -1630,7 +1647,9 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
             return null;
         }, sizeThreadCnt, "size");
 
-        asyncRunFut = CompletableFuture.allOf(putRmvFut, sizeFut);
+        asyncRunFutures.addAll(Set.of(putRmvFut, sizeFut));
+
+        CompletableFuture<?> asyncRunFut = allOf(putRmvFut, sizeFut);
 
         try {
             putRmvFut.get(getTestTimeout(), MILLISECONDS);
@@ -1739,7 +1758,9 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
             return null;
         }, 1, "printTree");
 
-        asyncRunFut = CompletableFuture.allOf(sizeFut, rmvFut, putFut, treePrintFut);
+        asyncRunFutures.addAll(Set.of(sizeFut, rmvFut, putFut, treePrintFut));
+
+        CompletableFuture<?> asyncRunFut = allOf(sizeFut, rmvFut, putFut, treePrintFut);
 
         try {
             putFut.get(getTestTimeout(), MILLISECONDS);
@@ -1872,7 +1893,9 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
             return null;
         }, 1, "printLocks");
 
-        asyncRunFut = CompletableFuture.allOf(sizeFut, rmvFut, findFut, putFut, lockPrintingFut);
+        asyncRunFutures.addAll(Set.of(sizeFut, rmvFut, findFut, putFut, lockPrintingFut));
+
+        CompletableFuture<?> asyncRunFut = allOf(sizeFut, rmvFut, findFut, putFut, lockPrintingFut);
 
         try {
             putFut.get(getTestTimeout(), MILLISECONDS);
@@ -2122,7 +2145,9 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
                 return null;
             }, 5, "find");
 
-            asyncRunFut = getFut;
+            asyncRunFutures.add(getFut);
+
+            CompletableFuture<?> asyncRunFut = getFut;
 
             try {
                 Thread.sleep(50);
@@ -2506,7 +2531,9 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
             return null;
         }, 4, "find");
 
-        asyncRunFut = CompletableFuture.allOf(fut, fut2, fut3);
+        asyncRunFutures.addAll(Set.of(fut, fut2, fut3));
+
+        CompletableFuture<?> asyncRunFut = allOf(fut, fut2, fut3);
 
         try {
             fut.get(getTestTimeout(), MILLISECONDS);
