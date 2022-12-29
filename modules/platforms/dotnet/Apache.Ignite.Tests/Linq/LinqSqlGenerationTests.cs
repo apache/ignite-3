@@ -99,6 +99,10 @@ public partial class LinqSqlGenerationTests
         AssertSql("select exists (select 1 from PUBLIC.tbl1 as _T0 where (_T0.KEY > ?))", q => q.Any(x => x.Key > 10));
 
     [Test]
+    public void TestAnyAsync() =>
+        AssertSql("select exists (select 1 from PUBLIC.tbl1 as _T0 where (_T0.KEY > ?))", q => q.AnyAsync(x => x.Key > 10).GetAwaiter().GetResult());
+
+    [Test]
     public void TestSelectOrderByOffsetLimit() =>
         AssertSql(
             "select _T0.KEY, _T0.VAL, (_T0.KEY + ?) as KEY2 " +
