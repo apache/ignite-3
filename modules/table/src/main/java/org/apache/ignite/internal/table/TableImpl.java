@@ -375,7 +375,7 @@ public class TableImpl implements Table {
      * Prepares this table for being closed. Currently, this means cancellation of PK future so that RAFT state machine
      * does not need to wait for PK to be initialized, which allows to avoid a deadlock on stop.
      */
-    public void prepareToClose() {
+    public void beforeClose() {
         pkId.cancel(false);
     }
 
