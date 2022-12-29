@@ -40,13 +40,23 @@ public static class IgniteQueryableExtensions
     /// <returns>Result set.</returns>
     public static async Task<IResultSet<T>> ToResultSetAsync<T>(this IQueryable<T> queryable)
     {
-        if (queryable is not IIgniteQueryableInternal queryableInternal)
-        {
-            throw new InvalidOperationException("Provided query does not originate from Ignite table: " + queryable);
-        }
-
+        var queryableInternal = queryable.ToQueryableInternal();
         var model = queryableInternal.GetQueryModel();
 
         return await queryableInternal.Provider.Executor.ExecuteResultSetInternalAsync<T>(model).ConfigureAwait(false);
     }
+
+    /// <summary>
+    /// Generates SQL representation of the specified query.
+    /// </summary>
+    /// <param name="queryable">Query.</param>
+    /// <returns>SQL string.</returns>
+    public static string ToQueryString(this IQueryable queryable) => queryable.ToQueryableInternal().GetQueryData().QueryText;
+
+    private static IIgniteQueryableInternal ToQueryableInternal(this IQueryable queryable) =>
+        queryable is IIgniteQueryableInternal queryableInternal
+            ? queryableInternal
+            : throw new InvalidOperationException(
+                $"Provided query does not originate from Ignite table: '{queryable}'. " +
+                "Use 'IRecordView<T>.AsQueryable()' and 'IKeyValueView<TK, TV>.AsQueryable()' to run LINQ queries in Ignite.");
 }
