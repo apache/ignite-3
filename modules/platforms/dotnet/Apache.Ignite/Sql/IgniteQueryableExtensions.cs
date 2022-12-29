@@ -19,6 +19,7 @@ namespace Apache.Ignite.Sql;
 
 using System;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Threading.Tasks;
 using Internal.Linq;
 using Table;
@@ -47,7 +48,36 @@ public static class IgniteQueryableExtensions
     }
 
     /// <summary>
-    /// Asynchronously returns the number of elements in a sequence.
+    /// Determines whether a sequence contains any elements.
+    /// </summary>
+    /// <param name="queryable">Query.</param>
+    /// <typeparam name="TSource">Element type.</typeparam>
+    /// <returns>
+    /// A <see cref="Task"/> representing the asynchronous operation.
+    /// The task result contains <see langword="true" /> if the source sequence contains any elements; otherwise, <see langword="false" />.
+    /// </returns>
+    public static Task<bool> AnyAsync<TSource>(this IQueryable<TSource> queryable)
+    {
+        throw new NotImplementedException();
+    }
+
+    /// <summary>
+    /// Determines whether all elements of a sequence satisfy a condition.
+    /// </summary>
+    /// <param name="queryable">Query.</param>
+    /// <param name="predicate">Predicate.</param>
+    /// <typeparam name="TSource">Element type.</typeparam>
+    /// <returns>
+    /// A <see cref="Task"/> representing the asynchronous operation.
+    /// The task result contains <see langword="true" /> if the source sequence contains any elements; otherwise, <see langword="false" />.
+    /// </returns>
+    public static Task<bool> AllAsync<TSource>(this IQueryable<TSource> queryable, Expression<Func<TSource, bool>> predicate)
+    {
+        throw new NotImplementedException();
+    }
+
+    /// <summary>
+    /// Returns the number of elements in a sequence.
     /// </summary>
     /// <param name="queryable">Query.</param>
     /// <typeparam name="TSource">Element type.</typeparam>
@@ -59,7 +89,7 @@ public static class IgniteQueryableExtensions
     }
 
     /// <summary>
-    /// Asynchronously returns a <see cref="long" /> that represents the total number of elements in a sequence.
+    /// Returns a <see cref="long" /> that represents the total number of elements in a sequence.
     /// </summary>
     /// <param name="queryable">Query.</param>
     /// <typeparam name="TSource">Element type.</typeparam>
