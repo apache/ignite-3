@@ -45,6 +45,8 @@ public static class IgniteQueryableExtensions
     /// <returns>Result set.</returns>
     public static async Task<IResultSet<T>> ToResultSetAsync<T>(this IQueryable<T> queryable)
     {
+        IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
+
         var queryableInternal = queryable.ToQueryableInternal();
         var model = queryableInternal.GetQueryModel();
 
@@ -61,6 +63,8 @@ public static class IgniteQueryableExtensions
     [SuppressMessage("Reliability", "CA2007:Consider calling ConfigureAwait on the awaited task", Justification = "False positive.")]
     public static async IAsyncEnumerable<T> AsAsyncEnumerable<T>(this IQueryable<T> queryable)
     {
+        IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
+
         await using var resultSet = await queryable.ToResultSetAsync().ConfigureAwait(false);
 
         await foreach (var row in resultSet)
@@ -80,14 +84,7 @@ public static class IgniteQueryableExtensions
     /// </returns>
     public static async Task<bool> AnyAsync<TSource>(this IQueryable<TSource> queryable)
     {
-        await Task.Delay(1).ConfigureAwait(false);
-
-        // return queryable.Provider.Execute<bool>(
-        //     Expression.Call(
-        //         null,
-        //         CachedReflectionInfo.Any_TSource_2(typeof(TSource)),
-        //         source.Expression, Expression.Quote(predicate)
-        //     ));
+        IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
 
         // TODO: Better way to do this? Cache like in CachedReflectionInfo?
         var method = new Func<IQueryable<object>, bool>(Queryable.Any)
@@ -95,9 +92,9 @@ public static class IgniteQueryableExtensions
             .GetGenericMethodDefinition()
             .MakeGenericMethod(typeof(TSource));
 
-        return IgniteArgumentCheck.NotNull(queryable, nameof(queryable))
-            .Provider
-            .Execute<bool>(Expression.Call(null, method, queryable.Expression));
+        var provider = queryable.ToQueryableInternal().Provider;
+
+        return await provider.ExecuteAsync<bool>(Expression.Call(null, method, queryable.Expression)).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -112,6 +109,8 @@ public static class IgniteQueryableExtensions
     /// </returns>
     public static Task<bool> AllAsync<TSource>(this IQueryable<TSource> queryable, Expression<Func<TSource, bool>> predicate)
     {
+        IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
+
         throw new NotImplementedException();
     }
 
@@ -124,6 +123,8 @@ public static class IgniteQueryableExtensions
     /// The task result contains the number of elements in the input sequence.</returns>
     public static Task<int> CountAsync<TSource>(this IQueryable<TSource> queryable)
     {
+        IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
+
         throw new NotImplementedException();
     }
 
@@ -136,6 +137,8 @@ public static class IgniteQueryableExtensions
     /// The task result contains the number of elements in the input sequence.</returns>
     public static Task<long> LongCountAsync<TSource>(this IQueryable<TSource> queryable)
     {
+        IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
+
         throw new NotImplementedException();
     }
 
@@ -148,6 +151,8 @@ public static class IgniteQueryableExtensions
     /// The task result contains the first element in the input sequence.</returns>
     public static Task<TSource> FirstAsync<TSource>(this IQueryable<TSource> queryable)
     {
+        IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
+
         throw new NotImplementedException();
     }
 
@@ -162,6 +167,8 @@ public static class IgniteQueryableExtensions
     /// </returns>
     public static Task<TSource?> FirstOrDefaultAsync<TSource>(this IQueryable<TSource> queryable)
     {
+        IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
+
         throw new NotImplementedException();
     }
 
@@ -174,6 +181,8 @@ public static class IgniteQueryableExtensions
     /// The task result contains the last element in the input sequence.</returns>
     public static Task<TSource> LastAsync<TSource>(this IQueryable<TSource> queryable)
     {
+        IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
+
         throw new NotImplementedException();
     }
 
@@ -188,6 +197,8 @@ public static class IgniteQueryableExtensions
     /// </returns>
     public static Task<TSource?> LastOrDefaultAsync<TSource>(this IQueryable<TSource> queryable)
     {
+        IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
+
         throw new NotImplementedException();
     }
 
@@ -201,8 +212,9 @@ public static class IgniteQueryableExtensions
     public static string ToQueryString(this IQueryable queryable) => queryable.ToQueryableInternal().GetQueryData().QueryText;
 
     private static IIgniteQueryableInternal ToQueryableInternal(this IQueryable queryable) =>
-        IgniteArgumentCheck.NotNull(queryable, nameof(queryable)) as IIgniteQueryableInternal
-        ?? throw new InvalidOperationException(
-            $"Provided query does not originate from Ignite table: '{queryable}'. " +
+        queryable as IIgniteQueryableInternal ?? throw GetInvalidQueryableException(queryable);
+
+    private static InvalidOperationException GetInvalidQueryableException(IQueryable queryable) =>
+        new($"Provided query does not originate from Ignite table: '{queryable}'. " +
             "Use 'IRecordView<T>.AsQueryable()' and 'IKeyValueView<TK, TV>.AsQueryable()' to run LINQ queries in Ignite.");
 }

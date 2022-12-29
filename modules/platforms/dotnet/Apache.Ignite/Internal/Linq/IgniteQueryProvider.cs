@@ -21,6 +21,7 @@ using System;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
+using System.Threading.Tasks;
 using Remotion.Linq;
 using Remotion.Linq.Clauses.StreamedData;
 using Remotion.Linq.Parsing.Structure;
@@ -88,6 +89,22 @@ internal sealed class IgniteQueryProvider : IQueryProvider
 
     /** <inheritdoc /> */
     public TResult Execute<TResult>(Expression expression) => (TResult) Execute(expression).Value;
+
+    /// <summary>
+    /// Asynchronously executes the strongly-typed query represented by a specified expression tree.
+    /// </summary>
+    /// <param name="expression">An expression tree that represents a LINQ query.</param>
+    /// <typeparam name="TResult">The type of the value that results from executing the query.</typeparam>
+    /// <returns>
+    /// A <see cref="Task"/> representing the asynchronous operation.
+    /// The task result contains the value that results from executing the specified query.
+    /// </returns>
+    public async Task<TResult> ExecuteAsync<TResult>(Expression expression)
+    {
+        await Task.Delay(1).ConfigureAwait(false);
+
+        return Execute<TResult>(expression);
+    }
 
     /// <summary>
     /// Gets the item type of closed generic i enumerable.
