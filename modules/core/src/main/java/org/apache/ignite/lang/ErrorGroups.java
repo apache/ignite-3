@@ -60,6 +60,9 @@ public class ErrorGroups {
 
         /** Column not found. */
         public static final int COLUMN_NOT_FOUND_ERR = TABLE_ERR_GROUP.registerErrorCode(4);
+
+        /** Table is stopping. */
+        public static final int TABLE_STOPPING_ERR = TABLE_ERR_GROUP.registerErrorCode(5);
     }
 
     /** Client error group. */

@@ -43,6 +43,7 @@ import org.apache.ignite.internal.table.distributed.IndexLocker;
 import org.apache.ignite.internal.table.distributed.SortedIndexLocker;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
 import org.apache.ignite.internal.tx.LockManager;
+import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.KeyValueView;
@@ -375,7 +376,10 @@ public class TableImpl implements Table {
      * Prepares this table for being closed.
      */
     public void beforeClose() {
-        pkId.cancel(false);
+        pkId.completeExceptionally(new IgniteInternalException(
+                ErrorGroups.Table.TABLE_STOPPING_ERR,
+                "Table " + tableId() + " is being stopped"
+        ));
     }
 
     @FunctionalInterface
