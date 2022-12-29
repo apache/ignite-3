@@ -93,10 +93,36 @@ public static class IgniteQueryableExtensions
             .MakeGenericMethod(typeof(TSource));
 
         var provider = queryable.ToQueryableInternal().Provider;
+        var expression = Expression.Call(null, method, queryable.Expression);
 
-        return await provider
-            .ExecuteSingleAsync<bool>(Expression.Call(null, method, queryable.Expression), returnDefaultWhenEmpty: false)
-            .ConfigureAwait(false);
+        return await provider.ExecuteSingleAsync<bool>(expression, returnDefaultWhenEmpty: false).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Determines whether any element of a sequence satisfies a condition.
+    /// </summary>
+    /// <param name="queryable">Query.</param>
+    /// <param name="predicate">Predicate.</param>
+    /// <typeparam name="TSource">Element type.</typeparam>
+    /// <returns>
+    /// A <see cref="Task"/> representing the asynchronous operation.
+    /// The task result contains <see langword="true" /> if the source sequence contains any elements matching the specified predicate;
+    /// otherwise, <see langword="false" />.
+    /// </returns>
+    public static async Task<bool> AnyAsync<TSource>(this IQueryable<TSource> queryable, Expression<Func<TSource, bool>> predicate)
+    {
+        IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
+
+        // TODO: Better way to do this? Cache like in CachedReflectionInfo?
+        var method = new Func<IQueryable<object>, Expression<Func<object, bool>>, bool>(Queryable.Any)
+            .GetMethodInfo()
+            .GetGenericMethodDefinition()
+            .MakeGenericMethod(typeof(TSource));
+
+        var provider = queryable.ToQueryableInternal().Provider;
+        var expression = Expression.Call(null, method, queryable.Expression, Expression.Quote(predicate));
+
+        return await provider.ExecuteSingleAsync<bool>(expression, returnDefaultWhenEmpty: false).ConfigureAwait(false);
     }
 
     /// <summary>
