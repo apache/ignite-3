@@ -31,11 +31,11 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.schema.InternalIgniteTable;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Based abstract scan node.
+ * Base abstract scan node required to encapsulate logic of buffered read of a datasource and push read data to downstream node. In most
+ * cases to realize concrete implementation require to implement {@code scan()} method and override {@code rewindInternal()} one.
  */
 public abstract class StorageScanNode<RowT> extends AbstractNode<RowT> {
     /** Special value to highlights that all row were received and we are not waiting any more. */
@@ -55,7 +55,10 @@ public abstract class StorageScanNode<RowT> extends AbstractNode<RowT> {
 
     private boolean inLoop;
 
-    private Subscription activeSubscription;
+    private @Nullable Subscription activeSubscription;
+
+    /** Flag that indicate scan method was called already. */
+    private boolean dataRequested;
 
     /**
      * Constructor.
@@ -65,6 +68,7 @@ public abstract class StorageScanNode<RowT> extends AbstractNode<RowT> {
      * @param schemaTable The table this node should scan.
      * @param filters Optional filter to filter out rows.
      * @param rowTransformer Optional projection function.
+     * @param requiredColumns Optional set of column of interest.
      */
     public StorageScanNode(
             ExecutionContext<RowT> ctx,
@@ -115,6 +119,7 @@ public abstract class StorageScanNode<RowT> extends AbstractNode<RowT> {
     protected void rewindInternal() {
         requested = 0;
         waiting = 0;
+        dataRequested = false;
 
         if (activeSubscription != null) {
             activeSubscription.cancel();
@@ -124,11 +129,13 @@ public abstract class StorageScanNode<RowT> extends AbstractNode<RowT> {
     }
 
     /**
-     *  Publisher of scan node.
+     *  Scan publisher of datasource.
+     *  The method will be invoked just once and should return publisher provide data from a storage. However the method will be invoked
+     *  again in case called {@code rewindInternal}.
      *
-     *  @return Publisher of scan node or {@code null} in case nothing to scan.
+     *  @return Publisher of datasource.
      */
-    protected abstract Publisher<RowT> scan();
+    protected abstract @Nullable Publisher<RowT> scan();
 
     /**
      * Proxy publisher with singe goal convert rows from {@code BinaryRow} to {@code RowT}.
@@ -137,8 +144,7 @@ public abstract class StorageScanNode<RowT> extends AbstractNode<RowT> {
      *
      * @return Proxy publisher with conversion from {@code BinaryRow} to {@code RowT}.
      */
-    @NotNull
-    public Publisher<RowT> convertPublisher(Publisher<BinaryRow> pub) {
+    protected Publisher<RowT> convertPublisher(Publisher<BinaryRow> pub) {
         Publisher<RowT> convPub = downstream -> {
             // BinaryRow -> RowT converter.
             Subscriber<BinaryRow> subs = new Subscriber<>() {
@@ -228,14 +234,12 @@ public abstract class StorageScanNode<RowT> extends AbstractNode<RowT> {
         Subscription subscription = this.activeSubscription;
         if (subscription != null) {
             subscription.request(waiting);
-        } else {
-            Publisher<RowT> scan = scan();
+        } else if (!dataRequested) {
+            scan().subscribe(new SubscriberImpl());
 
-            if (scan != null) {
-                scan.subscribe(new SubscriberImpl());
-            } else {
-                waiting = NOT_WAITING;
-            }
+            dataRequested = true;
+        } else {
+            waiting = NOT_WAITING;
         }
     }
 

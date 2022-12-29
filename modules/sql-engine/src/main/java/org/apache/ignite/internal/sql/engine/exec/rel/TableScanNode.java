@@ -35,7 +35,7 @@ import org.apache.ignite.internal.table.InternalTable;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Table scan node.
+ * Execution node for table scan. Provide result of table scan by given table and partitions.
  */
 public class TableScanNode<RowT> extends StorageScanNode<RowT> {
 
@@ -43,10 +43,6 @@ public class TableScanNode<RowT> extends StorageScanNode<RowT> {
     private final InternalTable physTable;
 
     private final int[] parts;
-
-    boolean dataRequested;
-
-    int curPartIdx = 0;
 
     /**
      * Constructor.
@@ -78,43 +74,14 @@ public class TableScanNode<RowT> extends StorageScanNode<RowT> {
 
     /** {@inheritDoc} */
     @Override
-    protected void rewindInternal() {
-        super.rewindInternal();
-
-        dataRequested = false;
-        curPartIdx = 0;
-    }
-
-    /** {@inheritDoc} */
-    @Override
     protected Publisher<RowT> scan() {
-        Publisher<BinaryRow> scan = null;
-        if (curPartIdx < parts.length) {
-
-            if (context().transactionTime() != null) {
-                scan = physTable.scan(parts[curPartIdx++], context().transactionTime(), context().localNode());
-            } else {
-                scan = physTable.scan(parts[curPartIdx++], context().transaction());
-            }
-
-            return convertPublisher(scan);
-        }
-        // after fix we can remove code above and uncomment this part.
-        // IGNITE-18466
-        //        if (!dataRequested) {
-        //            dataRequested = true;
-        //
-        //            return scanPublisher(parts);
-        //        }
-        return null;
-    }
-
-    private Publisher<RowT> scanPublisher(int[] parts) {
         List<Flow.Publisher<BinaryRow>> partPublishers = new ArrayList<>(parts.length);
+
+        boolean roTx = context().transactionTime() != null;
 
         for (int p : parts) {
             Publisher<BinaryRow> pub;
-            if (context().transactionTime() != null) {
+            if (roTx) {
                 pub = physTable.scan(p, context().transactionTime(), context().localNode());
             } else {
                 pub = physTable.scan(p, context().transaction());
@@ -125,4 +92,5 @@ public class TableScanNode<RowT> extends StorageScanNode<RowT> {
 
         return convertPublisher(new CompositePublisher<>(partPublishers));
     }
+
 }

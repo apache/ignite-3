@@ -22,7 +22,6 @@ import static org.apache.ignite.internal.util.ArrayUtils.nullOrEmpty;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Comparator;
-import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.Flow;
 import java.util.concurrent.Flow.Publisher;
@@ -48,7 +47,7 @@ import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Index scan node.
+ * Execution node for index scan. Provide result of index scan by given index, partitions and range conditions.
  */
 public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
     /** Schema index. */
@@ -67,10 +66,6 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
     private final @Nullable RangeIterable<RowT> rangeConditions;
 
     private final @Nullable Comparator<RowT> comp;
-
-    private @Nullable Iterator<RangeCondition<RowT>> rangeConditionIterator;
-
-    private boolean rangeConditionsProcessed;
 
     /**
      * Constructor.
@@ -100,6 +95,7 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
         super(ctx, rowFactory, schemaTable, filters, rowTransformer, requiredColumns);
 
         assert !nullOrEmpty(parts);
+        assert rangeConditions == null || rangeConditions.size() > 0;
 
         this.schemaIndex = schemaIndex;
         this.parts = parts;
@@ -108,44 +104,24 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
         this.comp = comp;
         this.factory = rowFactory;
 
-        rangeConditionIterator = rangeConditions == null ? null : rangeConditions.iterator();
-
         indexRowSchema = RowConverter.createIndexRowSchema(schemaIndex.columns(), schemaTable.descriptor());
     }
 
     /** {@inheritDoc} */
     @Override
-    protected void rewindInternal() {
-        super.rewindInternal();
-
-        rangeConditionsProcessed = false;
-
-        if (rangeConditions != null) {
-            rangeConditionIterator = rangeConditions.iterator();
-        }
-    }
-
-    /** {@inheritDoc} */
-    @Override
     protected Publisher<RowT> scan() {
-        if (!rangeConditionsProcessed) {
-            RangeCondition<RowT> cond = null;
+        if (rangeConditions != null) {
+            List<CompositePublisher<RowT>> conditionPublishers = new ArrayList<>(rangeConditions.size());
 
-            if (rangeConditionIterator == null || !rangeConditionIterator.hasNext()) {
-                rangeConditionsProcessed = true;
-            } else {
-                cond = rangeConditionIterator.next();
+            rangeConditions.iterator().forEachRemaining(cond -> conditionPublishers.add(indexPublisher(parts, cond)));
 
-                rangeConditionsProcessed = !rangeConditionIterator.hasNext();
-            }
-
-            return indexPublisher(parts, cond);
+            return new CompositePublisher<>(conditionPublishers);
+        } else {
+            return indexPublisher(parts, null);
         }
-
-        return null;
     }
 
-    private Publisher<RowT> indexPublisher(int[] parts, @Nullable RangeCondition<RowT> cond) {
+    private CompositePublisher<RowT> indexPublisher(int[] parts, @Nullable RangeCondition<RowT> cond) {
         List<Flow.Publisher<RowT>> partPublishers = new ArrayList<>(parts.length);
 
         for (int p : parts) {

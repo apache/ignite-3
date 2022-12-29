@@ -346,9 +346,9 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         assertEquals(txManagerInternal.finished(), states.size());
     }
 
-    /** Check correctness of rw and ro transactions for index scan. */
+    /** Check correctness of rw and ro transactions for table scan. */
     @Test
-    public void checkMixedTransactionsForIndex() throws Exception {
+    public void checkMixedTransactionsForTable() throws Exception {
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
 
         Matcher<String> planMatcher = containsTableScan("PUBLIC", "TEST");
@@ -357,9 +357,9 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
     }
 
 
-    /** Check correctness of rw and ro transactions for table scan. */
+    /** Check correctness of rw and ro transactions for index scan. */
     @Test
-    public void checkMixedTransactionsForTable() throws Exception {
+    public void checkMixedTransactionsForIndex() throws Exception {
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
         sql("CREATE INDEX TEST_IDX ON TEST(VAL0)");
 
@@ -396,7 +396,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
 
         String query = "SELECT VAL0 FROM TEST ORDER BY VAL0";
 
-        assertQuery(query).matches(planMatcher).check();
+        assertQuery(query).tx(outerTx).matches(planMatcher).check();
 
         AsyncResultSet rs = ses.executeAsync(outerTx, query).get();
 
