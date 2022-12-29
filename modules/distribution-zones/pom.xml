@@ -107,6 +107,10 @@
             <type>test-jar</type>
             <scope>test</scope>
         </dependency>
+      <dependency>
+        <groupId>org.apache.ignite</groupId>
+        <artifactId>ignite-schema</artifactId>
+      </dependency>
     </dependencies>
 
     <build>

@@ -44,6 +44,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
+import org.apache.ignite.configuration.NamedConfigurationTree;
 import org.apache.ignite.configuration.NamedListChange;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
@@ -55,6 +56,7 @@ import org.apache.ignite.internal.distributionzones.configuration.DistributionZo
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneView;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneAlreadyExistsException;
+import org.apache.ignite.internal.distributionzones.exception.DistributionZoneBindTableException;
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNotFoundException;
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneRenameException;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -68,6 +70,10 @@ import org.apache.ignite.internal.metastorage.client.If;
 import org.apache.ignite.internal.metastorage.client.Update;
 import org.apache.ignite.internal.metastorage.client.WatchEvent;
 import org.apache.ignite.internal.metastorage.client.WatchListener;
+import org.apache.ignite.internal.schema.configuration.TableChange;
+import org.apache.ignite.internal.schema.configuration.TableConfiguration;
+import org.apache.ignite.internal.schema.configuration.TableView;
+import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.vault.VaultManager;
@@ -86,6 +92,9 @@ public class DistributionZoneManager implements IgniteComponent {
 
     /** Distribution zone configuration. */
     private final DistributionZonesConfiguration zonesConfiguration;
+
+    /** Tables configuration. */
+    private final TablesConfiguration tablesConfiguration;
 
     /** Meta Storage manager. */
     private final MetaStorageManager metaStorageManager;
@@ -130,17 +139,20 @@ public class DistributionZoneManager implements IgniteComponent {
      * Creates a new distribution zone manager.
      *
      * @param zonesConfiguration Distribution zones configuration.
+     * @param tablesConfiguration Tables configuration.
      * @param metaStorageManager Meta Storage manager.
      * @param logicalTopologyService Logical topology service.
      * @param vaultMgr Vault manager.
      */
     public DistributionZoneManager(
             DistributionZonesConfiguration zonesConfiguration,
+            TablesConfiguration tablesConfiguration,
             MetaStorageManager metaStorageManager,
             LogicalTopologyService logicalTopologyService,
             VaultManager vaultMgr
     ) {
         this.zonesConfiguration = zonesConfiguration;
+        this.tablesConfiguration = tablesConfiguration;
         this.metaStorageManager = metaStorageManager;
         this.logicalTopologyService = logicalTopologyService;
         this.vaultMgr = vaultMgr;
@@ -290,9 +302,22 @@ public class DistributionZoneManager implements IgniteComponent {
 
         try {
             return zonesConfiguration.change(zonesChange -> zonesChange.changeDistributionZones(zonesListChange -> {
-                DistributionZoneView view = zonesListChange.get(name);
+                DistributionZoneView zoneView = zonesListChange.get(name);
 
-                if (view == null) {
+                NamedConfigurationTree<TableConfiguration, TableView, TableChange> tables = tablesConfiguration.tables();
+
+                boolean bindTable = tables.value().namedListKeys().stream()
+                        .anyMatch(tableName -> {
+                            Integer tableZoneId = tables.get(tableName).zoneId().value();
+
+                            return tableZoneId != null && tableZoneId.equals(zoneView.zoneId());
+                        });
+
+                if (bindTable) {
+                    throw new DistributionZoneBindTableException(name);
+                }
+
+                if (zoneView == null) {
                     throw new DistributionZoneNotFoundException(name);
                 }
 

@@ -75,6 +75,10 @@ import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.schema.configuration.TableChange;
+import org.apache.ignite.internal.schema.configuration.TableConfiguration;
+import org.apache.ignite.internal.schema.configuration.TableView;
+import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultManager;
@@ -130,8 +134,21 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
 
         vaultMgr = mock(VaultManager.class);
 
+        TablesConfiguration tablesConfiguration = mock(TablesConfiguration.class);
+
+        NamedConfigurationTree<TableConfiguration, TableView, TableChange> tables = mock(NamedConfigurationTree.class);
+
+        when(tablesConfiguration.tables()).thenReturn(tables);
+
+        NamedListView<TableView> value = mock(NamedListView.class);
+
+        when(tables.value()).thenReturn(value);
+
+        when(value.namedListKeys()).thenReturn(new ArrayList<>());
+
         distributionZoneManager = new DistributionZoneManager(
                 zonesConfiguration,
+                tablesConfiguration,
                 metaStorageManager,
                 logicalTopologyService,
                 vaultMgr

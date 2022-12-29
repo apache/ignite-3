@@ -24,20 +24,30 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.configuration.ConfigurationChangeException;
+import org.apache.ignite.configuration.ConfigurationValue;
+import org.apache.ignite.configuration.NamedConfigurationTree;
+import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneAlreadyExistsException;
+import org.apache.ignite.internal.distributionzones.exception.DistributionZoneBindTableException;
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNotFoundException;
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneRenameException;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.schema.configuration.TableChange;
+import org.apache.ignite.internal.schema.configuration.TableConfiguration;
+import org.apache.ignite.internal.schema.configuration.TableView;
+import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.junit.jupiter.api.AfterEach;
@@ -62,15 +72,31 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
 
     private DistributionZoneManager distributionZoneManager;
 
+    private TablesConfiguration tablesConfiguration;
+
     @BeforeEach
     public void setUp() {
         registry.start();
 
         registry.initializeDefaults();
 
+        tablesConfiguration = mock(TablesConfiguration.class);
+
+        NamedConfigurationTree<TableConfiguration, TableView, TableChange> tables = mock(NamedConfigurationTree.class);
+
+        when(tablesConfiguration.tables()).thenReturn(tables);
+
+        NamedListView<TableView> value = mock(NamedListView.class);
+
+        when(tables.value()).thenReturn(value);
+
+        when(value.namedListKeys()).thenReturn(new ArrayList<>());
+
         DistributionZonesConfiguration zonesConfiguration = registry.getConfiguration(DistributionZonesConfiguration.KEY);
+
         distributionZoneManager = new DistributionZoneManager(
                 zonesConfiguration,
+                tablesConfiguration,
                 mock(MetaStorageManager.class),
                 mock(LogicalTopologyServiceImpl.class),
                 mock(VaultManager.class)
@@ -470,5 +496,51 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
                 .get(5, TimeUnit.SECONDS);
 
         assertThrows(DistributionZoneNotFoundException.class, () -> distributionZoneManager.getZoneId(NEW_ZONE_NAME));
+    }
+
+    @Test
+    public void testTryDropZoneBoundedToTable() throws Exception {
+        distributionZoneManager.createZone(
+                        new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).dataNodesAutoAdjust(100).build()
+                )
+                .get(5, TimeUnit.SECONDS);
+
+        bindZoneToTable(ZONE_NAME);
+
+        Exception e = null;
+
+        try {
+            distributionZoneManager.dropZone(ZONE_NAME)
+                    .get(5, TimeUnit.SECONDS);
+        } catch (Exception e0) {
+            e = e0;
+        }
+
+        assertTrue(e != null);
+        assertTrue(e.getCause().getCause() instanceof DistributionZoneBindTableException, e.toString());
+    }
+
+    private void bindZoneToTable(String zoneName) {
+        int zoneId = distributionZoneManager.getZoneId(zoneName);
+
+        NamedConfigurationTree<TableConfiguration, TableView, TableChange> tables = mock(NamedConfigurationTree.class);
+
+        when(tablesConfiguration.tables()).thenReturn(tables);
+
+        NamedListView<TableView> value = mock(NamedListView.class);
+
+        when(tables.value()).thenReturn(value);
+
+        when(value.namedListKeys()).thenReturn(List.of("table1"));
+
+        TableConfiguration table1 = mock(TableConfiguration.class);
+
+        when(tables.get("table1")).thenReturn(table1);
+
+        ConfigurationValue<Integer> tableZoneId1 = mock(ConfigurationValue.class);
+
+        when(table1.zoneId()).thenReturn(tableZoneId1);
+
+        when(tableZoneId1.value()).thenReturn(zoneId);
     }
 }

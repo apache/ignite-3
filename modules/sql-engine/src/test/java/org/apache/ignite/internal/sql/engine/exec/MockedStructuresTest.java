@@ -328,37 +328,39 @@ public class MockedStructuresTest extends IgniteAbstractTest {
      */
     @Test
     public void testCreateTableWithDistributionZone() {
-        String curMethodName = getCurrentMethodName();
+        String tableName = getCurrentMethodName().toUpperCase();
+
+        String zoneName = "zone123";
 
         String newTblSql = String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) "
-                + "with partitions=1,replicas=1", curMethodName);
+                + "with partitions=1,replicas=1", tableName);
 
         readFirst(queryProc.queryAsync("PUBLIC", newTblSql));
 
-        assertEquals(1, tblsCfg.tables().get(curMethodName.toUpperCase()).zoneId().value());
+        assertEquals(1, tblsCfg.tables().get(tableName).zoneId().value());
 
-        readFirst(queryProc.queryAsync("PUBLIC", "DROP TABLE " + curMethodName));
+        readFirst(queryProc.queryAsync("PUBLIC", "DROP TABLE " + tableName));
 
 
-        when(distributionZoneManager.getZoneId("zone123")).thenReturn(5);
+        when(distributionZoneManager.getZoneId(zoneName)).thenReturn(5);
 
         newTblSql = String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) "
-                + "with partitions=1,replicas=1,zone='zone123'", curMethodName);
+                + "with partitions=1,replicas=1,zone='%s'", tableName, zoneName);
 
         readFirst(queryProc.queryAsync("PUBLIC", newTblSql));
 
-        assertEquals(5, tblsCfg.tables().get(curMethodName.toUpperCase()).zoneId().value());
+        assertEquals(5, tblsCfg.tables().get(tableName).zoneId().value());
 
-        readFirst(queryProc.queryAsync("PUBLIC", "DROP TABLE " + curMethodName));
+        readFirst(queryProc.queryAsync("PUBLIC", "DROP TABLE " + tableName));
 
 
-        when(distributionZoneManager.getZoneId("zone123")).thenThrow(DistributionZoneNotFoundException.class);
+        when(distributionZoneManager.getZoneId(zoneName)).thenThrow(DistributionZoneNotFoundException.class);
 
         Exception exception = assertThrows(
                 IgniteException.class,
                 () -> readFirst(queryProc.queryAsync("PUBLIC",
                         String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) "
-                                + "with partitions=1,replicas=1,zone='zone123'", curMethodName)))
+                                + "with partitions=1,replicas=1,zone='%s'", tableName, zoneName)))
         );
 
         assertInstanceOf(DistributionZoneNotFoundException.class, exception.getCause().getCause());
