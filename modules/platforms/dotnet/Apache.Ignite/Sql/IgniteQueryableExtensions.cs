@@ -47,6 +47,30 @@ public static class IgniteQueryableExtensions
     }
 
     /// <summary>
+    /// Asynchronously returns the number of elements in a sequence.
+    /// </summary>
+    /// <param name="queryable">Query.</param>
+    /// <typeparam name="TSource">Element type.</typeparam>
+    /// <returns>A <see cref="Task"/> representing the asynchronous operation.
+    /// The task result contains the number of elements in the input sequence.</returns>
+    public static Task<int> CountAsync<TSource>(this IQueryable<TSource> queryable)
+    {
+        throw new NotImplementedException();
+    }
+
+    /// <summary>
+    /// Asynchronously returns a <see cref="long" /> that represents the total number of elements in a sequence.
+    /// </summary>
+    /// <param name="queryable">Query.</param>
+    /// <typeparam name="TSource">Element type.</typeparam>
+    /// <returns>A <see cref="Task"/> representing the asynchronous operation.
+    /// The task result contains the number of elements in the input sequence.</returns>
+    public static Task<long> LongCountAsync<TSource>(this IQueryable<TSource> queryable)
+    {
+        throw new NotImplementedException();
+    }
+
+    /// <summary>
     /// Generates SQL representation of the specified query.
     /// </summary>
     /// <param name="queryable">Query.</param>
