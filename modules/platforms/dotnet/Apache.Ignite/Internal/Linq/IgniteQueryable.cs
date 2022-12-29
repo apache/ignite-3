@@ -86,7 +86,7 @@ internal sealed class IgniteQueryable<T>
         var queryData = GetQueryData();
         var sb = new StringBuilder();
 
-        sb.Append(GetType().Name);
+        sb.Append(GetType());
         sb.Append(" [Query=").Append(queryData.QueryText);
 
         sb.Append(", Parameters=");

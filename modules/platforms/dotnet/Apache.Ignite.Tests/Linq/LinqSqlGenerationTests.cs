@@ -281,7 +281,7 @@ public partial class LinqSqlGenerationTests
             "where ((_T0.KEY IS NOT DISTINCT FROM ?) and (_T0.VAL IS DISTINCT FROM ?))";
 
         const string expectedToString =
-            "IgniteQueryable`1 [Query=" +
+            "Apache.Ignite.Internal.Linq.IgniteQueryable`1[<>f__AnonymousType4`2[System.String,System.Int64]] [Query=" +
             expectedQueryText +
             ", Parameters=3, v-2]";
 
