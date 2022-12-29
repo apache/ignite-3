@@ -283,8 +283,8 @@ public class ErrorGroups {
         /** The error happens when the replica is not ready to handle a request. */
         public static final int TX_REPLICA_UNAVAILABLE_ERR = TX_ERR_GROUP.registerErrorCode(10);
 
-        /** Tx state storage full rebalancing error. */
-        public static final int TX_STATE_STORAGE_FULL_REBALANCE_ERR = TX_ERR_GROUP.registerErrorCode(11);
+        /** Tx state storage rebalancing error. */
+        public static final int TX_STATE_STORAGE_REBALANCE_ERR = TX_ERR_GROUP.registerErrorCode(11);
     }
 
     /** Replicator error group. */
