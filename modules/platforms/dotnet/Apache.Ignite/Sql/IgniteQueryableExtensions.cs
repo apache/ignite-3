@@ -19,6 +19,7 @@ namespace Apache.Ignite.Sql;
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Threading.Tasks;
@@ -56,8 +57,16 @@ public static class IgniteQueryableExtensions
     /// <param name="queryable">Queryable.</param>
     /// <typeparam name="T">Result type.</typeparam>
     /// <returns>Result set.</returns>
-    public static async IAsyncEnumerable<T> AsAsyncEnumerable<T>(this IQueryable<T> queryable) =>
-        await queryable.ToResultSetAsync().ConfigureAwait(false);
+    [SuppressMessage("Reliability", "CA2007:Consider calling ConfigureAwait on the awaited task", Justification = "False positive.")]
+    public static async IAsyncEnumerable<T> AsAsyncEnumerable<T>(this IQueryable<T> queryable)
+    {
+        await using var resultSet = await queryable.ToResultSetAsync().ConfigureAwait(false);
+
+        await foreach (var row in resultSet)
+        {
+            yield return row;
+        }
+    }
 
     /// <summary>
     /// Determines whether a sequence contains any elements.
