@@ -94,7 +94,9 @@ public static class IgniteQueryableExtensions
 
         var provider = queryable.ToQueryableInternal().Provider;
 
-        return await provider.ExecuteAsync<bool>(Expression.Call(null, method, queryable.Expression)).ConfigureAwait(false);
+        return await provider
+            .ExecuteSingleAsync<bool>(Expression.Call(null, method, queryable.Expression), returnDefaultWhenEmpty: false)
+            .ConfigureAwait(false);
     }
 
     /// <summary>

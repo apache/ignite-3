@@ -121,8 +121,15 @@ internal sealed class IgniteQueryExecutor : IQueryExecutor
         return resultSet;
     }
 
+    /// <summary>
+    /// Executes query and returns single result.
+    /// </summary>
+    /// <param name="queryModel">Query model.</param>
+    /// <param name="returnDefaultWhenEmpty">Whether to return <c>default(T)</c> when result set is empty or throw an exception.</param>
+    /// <typeparam name="T">Result type.</typeparam>
+    /// <returns>Single result from result set.</returns>
     [SuppressMessage("Reliability", "CA2007:Consider calling ConfigureAwait on the awaited task", Justification = "False positive.")]
-    private async Task<T?> ExecuteSingleInternalAsync<T>(QueryModel queryModel, bool returnDefaultWhenEmpty)
+    internal async Task<T?> ExecuteSingleInternalAsync<T>(QueryModel queryModel, bool returnDefaultWhenEmpty)
     {
         await using IResultSet<T> resultSet = await ExecuteResultSetInternalAsync<T>(queryModel).ConfigureAwait(false);
 

@@ -30,11 +30,7 @@ public partial class LinqTests
     [Test]
     public async Task TestAnyAsync()
     {
-        // Assert.IsFalse(PocoView.AsQueryable().Any(x => x.Key > 500));
-        // Assert.IsTrue(PocoView.AsQueryable().Any(x => x.Key < 5));
-        //
-        // // Additional Where.
-        // Assert.IsFalse(PocoView.AsQueryable().Where(x => x.Key > 7).Any(x => x.Key < 5));
+        // TODO: AnyAsync with predicate
         Assert.IsTrue(await PocoView.AsQueryable().AnyAsync());
         Assert.IsFalse(await PocoView.AsQueryable().Where(x => x.Key > 1000).AnyAsync());
     }
