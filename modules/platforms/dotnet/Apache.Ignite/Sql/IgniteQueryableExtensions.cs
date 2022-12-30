@@ -374,7 +374,26 @@ public static class IgniteQueryableExtensions
         throw new NotImplementedException();
     }
 
-    /* TODO: ToList, ToArray, ToDictionary */
+    /// <summary>
+    /// Creates a <see cref="List{T}" /> from an <see cref="IQueryable{T}" /> by enumerating it asynchronously.
+    /// </summary>
+    /// <typeparam name="TSource">Element type.</typeparam>
+    /// <param name="queryable">Query.</param>
+    /// <returns>A <see cref="Task"/> representing the asynchronous operation.
+    /// The task result contains a <see cref="List{T}" /> that contains elements from the input sequence.
+    /// </returns>
+    [SuppressMessage("Reliability", "CA2007:Consider calling ConfigureAwait on the awaited task", Justification = "False positive.")]
+    public static async Task<List<TSource>> ToListAsync<TSource>(this IQueryable<TSource> queryable)
+    {
+        // NOTE: ToArrayAsync counterpart is not implemented here, because it is just ToList().ToArray(), which is less efficient.
+        IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
+
+        await using var resultSet = await queryable.ToResultSetAsync().ConfigureAwait(false);
+
+        return await resultSet.ToListAsync().ConfigureAwait(false);
+    }
+
+    /* TODO: ToDictionary */
 
     /// <summary>
     /// Generates SQL representation of the specified query.
