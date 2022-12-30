@@ -15,34 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.core.repl.executor;
+package org.apache.ignite.internal.cli.core.repl.completer.jdbc;
 
-import io.micronaut.configuration.picocli.MicronautFactory;
-import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
-import org.apache.ignite.internal.cli.core.repl.registry.NodeNameRegistry;
-import org.jline.terminal.Terminal;
-import picocli.shell.jline3.PicocliCommands.PicocliCommandsFactory;
+import org.apache.ignite.internal.cli.core.repl.completer.DynamicCompleter;
+import org.apache.ignite.internal.cli.core.repl.completer.DynamicCompleterFactory;
+import org.apache.ignite.internal.cli.core.repl.completer.StringDynamicCompleter;
+import org.apache.ignite.internal.cli.core.repl.registry.JdbcUrlRegistry;
 
-/**
- * Provider of {@link ReplExecutor}.
- */
+/** Factory for --jdbc-url option completer. */
 @Singleton
-public class ReplExecutorProvider {
-    private PicocliCommandsFactory factory;
+public class JdbcUrlDynamicCompleterFactory implements DynamicCompleterFactory {
 
-    @Inject
-    private Terminal terminal;
+    private final JdbcUrlRegistry jdbcUrlRegistry;
 
-    @Inject
-    private NodeNameRegistry nodeNameRegistry;
-
-    public ReplExecutor get() {
-        return new ReplExecutor(factory, terminal, nodeNameRegistry);
+    public JdbcUrlDynamicCompleterFactory(JdbcUrlRegistry jdbcUrlRegistry) {
+        this.jdbcUrlRegistry = jdbcUrlRegistry;
     }
 
-    public void injectFactory(MicronautFactory micronautFactory) {
-        factory = new PicocliCommandsFactory(micronautFactory);
-        factory.setTerminal(terminal);
+    @Override
+    public DynamicCompleter getDynamicCompleter(String[] words) {
+        return new StringDynamicCompleter(jdbcUrlRegistry.jdbcUrls());
     }
 }

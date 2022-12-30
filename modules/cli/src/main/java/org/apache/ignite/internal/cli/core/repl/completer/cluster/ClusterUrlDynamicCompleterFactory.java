@@ -15,32 +15,33 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.core.repl.completer.hocon;
+package org.apache.ignite.internal.cli.core.repl.completer.cluster;
 
-import com.typesafe.config.Config;
 import jakarta.inject.Singleton;
-import org.apache.ignite.internal.cli.core.repl.completer.DummyCompleter;
+import java.net.URL;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.cli.core.repl.completer.DynamicCompleter;
 import org.apache.ignite.internal.cli.core.repl.completer.DynamicCompleterFactory;
-import org.apache.ignite.internal.cli.core.repl.registry.ClusterConfigRegistry;
+import org.apache.ignite.internal.cli.core.repl.completer.StringDynamicCompleter;
+import org.apache.ignite.internal.cli.core.repl.registry.NodeNameRegistry;
 
-/** Factory for cluster config show/update command. */
+/** Factory for --cluster-endpoint-url option completer. */
 @Singleton
-public class ClusterConfigDynamicCompleterFactory implements DynamicCompleterFactory {
+public class ClusterUrlDynamicCompleterFactory implements DynamicCompleterFactory {
 
-    private final ClusterConfigRegistry clusterConfigRegistry;
+    private final NodeNameRegistry nodeNameRegistry;
 
-    public ClusterConfigDynamicCompleterFactory(ClusterConfigRegistry clusterConfigRegistry) {
-        this.clusterConfigRegistry = clusterConfigRegistry;
+    public ClusterUrlDynamicCompleterFactory(NodeNameRegistry nodeNameRegistry) {
+        this.nodeNameRegistry = nodeNameRegistry;
     }
 
     @Override
     public DynamicCompleter getDynamicCompleter(String[] words) {
-        Config config = clusterConfigRegistry.config();
-        if (config != null) {
-            return new HoconDynamicCompleter(config);
-        } else {
-            return new DummyCompleter();
-        }
+        Set<String> urls = nodeNameRegistry.urls()
+                .stream()
+                .map(URL::toString)
+                .collect(Collectors.toSet());
+        return new StringDynamicCompleter(urls);
     }
 }
