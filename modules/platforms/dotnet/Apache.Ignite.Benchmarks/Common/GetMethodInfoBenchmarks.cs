@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -15,15 +15,24 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Benchmarks;
+namespace Apache.Ignite.Benchmarks.Common;
 
-using BenchmarkDotNet.Running;
-using Common;
+using System;
+using System.Linq;
+using System.Linq.Expressions;
+using System.Reflection;
+using BenchmarkDotNet.Attributes;
 
-internal static class Program
+/// <summary>
+/// Compares performance of different ways of getting a <see cref="MethodInfo"/>.
+/// </summary>
+public class GetMethodInfoBenchmarks
 {
-    private static void Main()
-    {
-        BenchmarkRunner.Run<GetMethodInfoBenchmarks>();
-    }
+    [Benchmark]
+    public MethodInfo ByName() =>
+        (MethodInfo)typeof(Queryable).GetMember(nameof(Queryable.Any)).Single(x => ((MethodInfo)x).GetParameters().Length == 2);
+
+    [Benchmark]
+    public MethodInfo ByExpression() =>
+        new Func<IQueryable<object>, Expression<Func<object, bool>>, bool>(Queryable.Any).GetMethodInfo().GetGenericMethodDefinition();
 }
