@@ -284,6 +284,7 @@ public static class IgniteQueryableExtensions
     /// </returns>
     public static Task<TSource> SingleAsync<TSource>(this IQueryable<TSource> queryable)
     {
+        // TODO: With predicate
         IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
 
         throw new NotImplementedException();
@@ -301,12 +302,45 @@ public static class IgniteQueryableExtensions
     /// </returns>
     public static Task<TSource?> SingleOrDefaultAsync<TSource>(this IQueryable<TSource> queryable)
     {
+        // TODO: With predicate
         IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
 
         throw new NotImplementedException();
     }
 
-    /* TODO: Min, Max, Sum, Average, Contains?, ToList, ToArray, ToDictionary, AsAsyncEnumerable */
+    /// <summary>
+    /// Returns the minimum value of a sequence.
+    /// </summary>
+    /// <typeparam name="TSource">Element type.</typeparam>
+    /// <param name="queryable">Query.</param>
+    /// <returns>A <see cref="Task"/> representing the asynchronous operation.
+    /// The task result contains the minimum value in the sequence.
+    /// </returns>
+    public static Task<TSource> MinAsync<TSource>(this IQueryable<TSource> queryable)
+    {
+        // TODO: With selector
+        IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
+
+        throw new NotImplementedException();
+    }
+
+    /// <summary>
+    /// Returns the maximum value of a sequence.
+    /// </summary>
+    /// <typeparam name="TSource">Element type.</typeparam>
+    /// <param name="queryable">Query.</param>
+    /// <returns>A <see cref="Task"/> representing the asynchronous operation.
+    /// The task result contains the maximum value in the sequence.
+    /// </returns>
+    public static Task<TSource> MaxAsync<TSource>(this IQueryable<TSource> queryable)
+    {
+        // TODO: With selector
+        IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
+
+        throw new NotImplementedException();
+    }
+
+    /* TODO: Sum, Average, Contains?, ToList, ToArray, ToDictionary */
 
     /// <summary>
     /// Generates SQL representation of the specified query.
