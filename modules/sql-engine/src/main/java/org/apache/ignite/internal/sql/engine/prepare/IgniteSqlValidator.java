@@ -31,6 +31,8 @@ import org.apache.calcite.prepare.CalciteCatalogReader;
 import org.apache.calcite.prepare.Prepare;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeField;
+import org.apache.calcite.runtime.CalciteContextException;
+import org.apache.calcite.runtime.Resources;
 import org.apache.calcite.sql.JoinConditionType;
 import org.apache.calcite.sql.SqlAggFunction;
 import org.apache.calcite.sql.SqlCall;
@@ -52,6 +54,7 @@ import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.validate.SelectScope;
 import org.apache.calcite.sql.validate.SqlValidator;
+import org.apache.calcite.sql.validate.SqlValidatorException;
 import org.apache.calcite.sql.validate.SqlValidatorImpl;
 import org.apache.calcite.sql.validate.SqlValidatorNamespace;
 import org.apache.calcite.sql.validate.SqlValidatorScope;
@@ -130,6 +133,21 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         if (literal.getTypeName() != SqlTypeName.DECIMAL) {
             super.validateLiteral(literal);
         }
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public CalciteContextException newValidationError(SqlNode node,
+                                                      Resources.ExInst<SqlValidatorException> e) {
+        var ex = super.newValidationError(node, e);
+        var message = IgniteSqlValidatorErrorMessages.resolveErrorMessage(ex);
+        var newEx = new IgniteContextException(message, ex.getCause());
+
+        newEx.setPosition(ex.getPosLine(), ex.getPosColumn(), ex.getEndPosLine(), ex.getEndPosColumn());
+        newEx.setOriginalStatement(ex.getOriginalStatement());
+        return newEx;
     }
 
     /** {@inheritDoc} */

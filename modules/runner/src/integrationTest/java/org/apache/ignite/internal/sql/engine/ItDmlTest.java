@@ -412,6 +412,17 @@ public class ItDmlTest extends AbstractBasicIntegrationTest {
         }
     }
 
+    @Test
+    public void testCheckNullValueErrorMessageForColumnWithDefaultValue() {
+        sql("CREATE TABLE tbl(key int DEFAULT 9 primary key, val varchar)");
+
+        var e = assertThrows(CalciteContextException.class,
+                () -> sql("INSERT INTO tbl (key, val) VALUES (NULL,'AA')"));
+
+        var expectedMessage = "From line 1, column 28 to line 1, column 45: Column 'KEY' does not allow NULLs";
+        assertEquals(expectedMessage, e.getMessage(), "error message");
+    }
+
     private void checkQueryResult(String sql, List<Object> expectedVals) {
         assertQuery(sql).returns(expectedVals.toArray()).check();
     }
