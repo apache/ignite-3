@@ -82,7 +82,7 @@ public class Cluster {
     private volatile boolean started = false;
 
     /** Indices of nodes that have been knocked out. */
-    private final Set<Integer> knockedOutNodeIndices = new ConcurrentHashSet<>();
+    private final Set<Integer> knockedOutNodesIndices = new ConcurrentHashSet<>();
 
     /**
      * Creates a new instance.
@@ -142,7 +142,7 @@ public class Cluster {
     public IgniteImpl aliveNode() {
         return IntStream.range(0, nodes.size())
                 .filter(index -> nodes.get(index) != null)
-                .filter(index -> !knockedOutNodeIndices.contains(index))
+                .filter(index -> !knockedOutNodesIndices.contains(index))
                 .mapToObj(nodes::get)
                 .findAny()
                 .orElseThrow(() -> new IllegalStateException("There is no single alive node that would not be knocked out"));
@@ -292,7 +292,7 @@ public class Cluster {
     public void knockOutNode(int nodeIndex, NodeKnockout knockout) {
         knockout.knockOutNode(nodeIndex, this);
 
-        knockedOutNodeIndices.add(nodeIndex);
+        knockedOutNodesIndices.add(nodeIndex);
     }
 
     /**
@@ -302,7 +302,7 @@ public class Cluster {
     public void reanimateNode(int nodeIndex, NodeKnockout knockout) {
         knockout.reanimateNode(nodeIndex, this);
 
-        knockedOutNodeIndices.remove(nodeIndex);
+        knockedOutNodesIndices.remove(nodeIndex);
     }
 
     /**
