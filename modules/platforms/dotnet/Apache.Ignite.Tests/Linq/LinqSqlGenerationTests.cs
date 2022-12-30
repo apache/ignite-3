@@ -96,11 +96,19 @@ public partial class LinqSqlGenerationTests
 
     [Test]
     public void TestAny() =>
-        AssertSql("select exists (select 1 from PUBLIC.tbl1 as _T0 where (_T0.KEY > ?))", q => q.Any(x => x.Key > 10));
+        AssertSql("select exists (select 1 from PUBLIC.tbl1 as _T0)", q => q.Any());
 
     [Test]
     public void TestAnyAsync() =>
-        AssertSql("select exists (select 1 from PUBLIC.tbl1 as _T0 where (_T0.KEY > ?))", q => q.AnyAsync(x => x.Key > 10).GetAwaiter().GetResult());
+        AssertSql("select exists (select 1 from PUBLIC.tbl1 as _T0)", q => q.AnyAsync().Result);
+
+    [Test]
+    public void TestAnyWithPredicate() =>
+        AssertSql("select exists (select 1 from PUBLIC.tbl1 as _T0 where (_T0.KEY > ?))", q => q.Any(x => x.Key > 10));
+
+    [Test]
+    public void TestAnyAsyncWithPredicate() =>
+        AssertSql("select exists (select 1 from PUBLIC.tbl1 as _T0 where (_T0.KEY > ?))", q => q.AnyAsync(x => x.Key > 10).Result);
 
     [Test]
     public void TestSelectOrderByOffsetLimit() =>
