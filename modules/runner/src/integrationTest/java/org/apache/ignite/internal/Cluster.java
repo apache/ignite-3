@@ -242,16 +242,15 @@ public class Cluster {
     private RaftGroupService currentLeaderServiceFor(TablePartitionId tablePartitionId) {
         return runningNodes()
                 .map(IgniteImpl.class::cast)
-                .map(ignite -> {
+                .flatMap(ignite -> {
                     JraftServerImpl server = (JraftServerImpl) ignite.raftManager().server();
 
                     Optional<RaftNodeId> maybeRaftNodeId = server.localNodes().stream()
                             .filter(nodeId -> nodeId.groupId().equals(tablePartitionId))
                             .findAny();
 
-                    return maybeRaftNodeId.map(server::raftGroupService).orElse(null);
+                    return maybeRaftNodeId.map(server::raftGroupService).stream();
                 })
-                .filter(Objects::nonNull)
                 .filter(service -> service.getRaftNode().isLeader())
                 .findAny()
                 .orElse(null);
