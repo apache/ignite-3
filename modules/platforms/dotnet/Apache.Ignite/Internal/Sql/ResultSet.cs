@@ -155,6 +155,7 @@ namespace Apache.Ignite.Internal.Sql
         public async ValueTask<Dictionary<TK, TV>> ToDictionaryAsync<TK, TV>(Func<T, TK> keySelector, Func<T, TV> valSelector)
             where TK : notnull
         {
+            // TODO: Accept comparer.
             IgniteArgumentCheck.NotNull(keySelector, nameof(keySelector));
             IgniteArgumentCheck.NotNull(valSelector, nameof(valSelector));
 
