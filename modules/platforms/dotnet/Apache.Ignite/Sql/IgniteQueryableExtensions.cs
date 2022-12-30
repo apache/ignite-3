@@ -86,15 +86,10 @@ public static class IgniteQueryableExtensions
     {
         IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
 
-        // TODO: Better way to do this? Cache like in CachedReflectionInfo?
-        var method = new Func<IQueryable<object>, bool>(Queryable.Any)
-            .GetMethodInfo()
-            .GetGenericMethodDefinition()
-            .MakeGenericMethod(typeof(TSource));
-
-        var provider = queryable.ToQueryableInternal().Provider;
+        var method = new Func<IQueryable<TSource>, bool>(Queryable.Any).GetMethodInfo();
         var expression = Expression.Call(null, method, queryable.Expression);
 
+        var provider = queryable.ToQueryableInternal().Provider;
         return await provider.ExecuteSingleAsync<bool>(expression, returnDefaultWhenEmpty: false).ConfigureAwait(false);
     }
 
@@ -113,15 +108,10 @@ public static class IgniteQueryableExtensions
     {
         IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
 
-        // TODO: Better way to do this? Cache like in CachedReflectionInfo?
-        var method = new Func<IQueryable<object>, Expression<Func<object, bool>>, bool>(Queryable.Any)
-            .GetMethodInfo()
-            .GetGenericMethodDefinition()
-            .MakeGenericMethod(typeof(TSource));
-
-        var provider = queryable.ToQueryableInternal().Provider;
+        var method = new Func<IQueryable<TSource>, Expression<Func<TSource, bool>>, bool>(Queryable.Any).GetMethodInfo();
         var expression = Expression.Call(null, method, queryable.Expression, Expression.Quote(predicate));
 
+        var provider = queryable.ToQueryableInternal().Provider;
         return await provider.ExecuteSingleAsync<bool>(expression, returnDefaultWhenEmpty: false).ConfigureAwait(false);
     }
 
