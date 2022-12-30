@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.util;
 
 import static org.apache.calcite.rex.RexUtil.removeCast;
 import static org.apache.calcite.rex.RexUtil.sargRef;
+import static org.apache.calcite.sql.SqlKind.BINARY_COMPARISON;
 import static org.apache.calcite.sql.SqlKind.EQUALS;
 import static org.apache.calcite.sql.SqlKind.GREATER_THAN;
 import static org.apache.calcite.sql.SqlKind.GREATER_THAN_OR_EQUAL;
@@ -31,6 +32,7 @@ import static org.apache.calcite.sql.SqlKind.SEARCH;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap.Entry;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
@@ -195,10 +197,6 @@ public class RexUtils {
 
         return true;
     }
-
-    /** Binary comparison operations. */
-    private static final Set<SqlKind> BINARY_COMPARISON =
-            EnumSet.of(EQUALS, IS_NOT_DISTINCT_FROM, LESS_THAN, GREATER_THAN, GREATER_THAN_OR_EQUAL, LESS_THAN_OR_EQUAL);
 
     /** Supported index operations. */
     private static final Set<SqlKind> TREE_INDEX_COMPARISON =
@@ -389,15 +387,15 @@ public class RexUtils {
             mapping = Commons.inverseTrimmingMapping(types.size(), requiredColumns);
         }
 
-        for (int fldIdx : fieldsToPredicates.keySet()) {
-            List<RexCall> collFldPreds = fieldsToPredicates.get(fldIdx);
+        for (Entry<List<RexCall>> fld : fieldsToPredicates.int2ObjectEntrySet()) {
+            List<RexCall> collFldPreds = fld.getValue();
 
             if (nullOrEmpty(collFldPreds)) {
                 break;
             }
 
             for (RexCall pred : collFldPreds) {
-                if (pred.getOperator().kind != SqlKind.EQUALS && pred.getOperator().kind != IS_NOT_DISTINCT_FROM) {
+                if (!pred.isA(List.of(EQUALS, IS_NOT_DISTINCT_FROM))) {
                     return null;
                 }
 
@@ -405,8 +403,12 @@ public class RexUtils {
                     bounds = Arrays.asList(new SearchBounds[types.size()]);
                 }
 
+                int fldIdx;
+
                 if (mapping != null) {
-                    fldIdx = mapping.getSourceOpt(fldIdx);
+                    fldIdx = mapping.getSourceOpt(fld.getIntKey());
+                } else {
+                    fldIdx = fld.getIntKey();
                 }
 
                 bounds.set(fldIdx, new ExactBounds(pred,
