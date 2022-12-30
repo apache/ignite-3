@@ -83,10 +83,10 @@ public class MockNode {
         this.clusterService = ClusterServiceTestUtils.clusterService(testInfo, port, nodeFinder);
 
         RaftConfiguration raftConfiguration = mock(RaftConfiguration.class);
-        ConfigurationValue<Integer> rpcInstallSnapshotTimeutValue = mock(ConfigurationValue.class);
+        ConfigurationValue<Integer> rpcInstallSnapshotTimeoutValue = mock(ConfigurationValue.class);
 
-        when(raftConfiguration.rpcInstallSnapshotTimeout()).thenReturn(rpcInstallSnapshotTimeutValue);
-        when(rpcInstallSnapshotTimeutValue.value()).thenReturn(10);
+        when(raftConfiguration.rpcInstallSnapshotTimeout()).thenReturn(rpcInstallSnapshotTimeoutValue);
+        when(rpcInstallSnapshotTimeoutValue.value()).thenReturn(10);
 
         Loza raftManager = new Loza(clusterService, raftConfiguration, workDir, new HybridClockImpl());
 

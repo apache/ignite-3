@@ -62,10 +62,10 @@ public class LozaTest extends IgniteAbstractTest {
         Mockito.doReturn(mock(TopologyService.class)).when(clusterNetSvc).topologyService();
 
         RaftConfiguration raftConfiguration = mock(RaftConfiguration.class);
-        ConfigurationValue<Integer> rpcInstallSnapshotTimeutValue = mock(ConfigurationValue.class);
+        ConfigurationValue<Integer> rpcInstallSnapshotTimeoutValue = mock(ConfigurationValue.class);
 
-        when(raftConfiguration.rpcInstallSnapshotTimeout()).thenReturn(rpcInstallSnapshotTimeutValue);
-        when(rpcInstallSnapshotTimeutValue.value()).thenReturn(10);
+        when(raftConfiguration.rpcInstallSnapshotTimeout()).thenReturn(rpcInstallSnapshotTimeoutValue);
+        when(rpcInstallSnapshotTimeoutValue.value()).thenReturn(10);
 
         Loza loza = new Loza(clusterNetSvc, raftConfiguration, workDir, new HybridClockImpl());
 
