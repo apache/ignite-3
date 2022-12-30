@@ -24,6 +24,7 @@ namespace Apache.Ignite.Internal.Sql
     using System.Threading;
     using System.Threading.Tasks;
     using Buffers;
+    using Common;
     using Ignite.Sql;
     using MessagePack;
     using Proto;
@@ -136,11 +137,57 @@ namespace Apache.Ignite.Internal.Sql
             {
                 var reader = buf.GetReader(offset);
                 var pageSize = reader.ReadArrayHeader();
-                res ??= new List<T>(hasMore ? pageSize * 2 : pageSize);
+                res ??= new List<T>(capacity: hasMore ? pageSize * 2 : pageSize);
 
                 for (var rowIdx = 0; rowIdx < pageSize; rowIdx++)
                 {
                     res.Add(ReadRow(cols, ref reader));
+                }
+
+                if (!reader.End)
+                {
+                    hasMore = reader.ReadBoolean();
+                }
+            }
+        }
+
+        /// <inheritdoc/>
+        public async ValueTask<Dictionary<TK, TV>> ToDictionaryAsync<TK, TV>(Func<T, TK> keySelector, Func<T, TV> valSelector)
+            where TK : notnull
+        {
+            IgniteArgumentCheck.NotNull(keySelector, nameof(keySelector));
+            IgniteArgumentCheck.NotNull(valSelector, nameof(valSelector));
+
+            ValidateAndSetIteratorState();
+
+            // First page is included in the initial response.
+            var cols = Metadata!.Columns;
+            var hasMore = _hasMorePages;
+            Dictionary<TK, TV>? res = null;
+
+            ReadPage(_buffer!.Value, _bufferOffset);
+            ReleaseBuffer();
+
+            while (hasMore)
+            {
+                using var pageBuf = await FetchNextPage().ConfigureAwait(false);
+                ReadPage(pageBuf, 0);
+            }
+
+            _resourceClosed = true;
+
+            return res!;
+
+            void ReadPage(PooledBuffer buf, int offset)
+            {
+                var reader = buf.GetReader(offset);
+                var pageSize = reader.ReadArrayHeader();
+                res ??= new Dictionary<TK, TV>(capacity: hasMore ? pageSize * 2 : pageSize);
+
+                for (var rowIdx = 0; rowIdx < pageSize; rowIdx++)
+                {
+                    var row = ReadRow(cols, ref reader);
+                    res.Add(keySelector(row), valSelector(row));
                 }
 
                 if (!reader.End)

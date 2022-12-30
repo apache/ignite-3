@@ -65,5 +65,19 @@ namespace Apache.Ignite.Sql
         /// </summary>
         /// <returns>All result set rows as list.</returns>
         ValueTask<List<T>> ToListAsync();
+
+        /// <summary>
+        /// Gets all result set rows as list.
+        /// <para />
+        /// Can not be called multiple times - the underlying server-side result set is closed as soon
+        /// as the last page of data is retrieved, and client-side buffer is also released to reduce memory usage.
+        /// </summary>
+        /// <param name="keySelector">Key selector.</param>
+        /// <param name="valSelector">Value selector.</param>
+        /// <typeparam name="TK">Dictionary key type.</typeparam>
+        /// <typeparam name="TV">Dictionary value type.</typeparam>
+        /// <returns>All result set rows as list.</returns>
+        ValueTask<Dictionary<TK, TV>> ToDictionaryAsync<TK, TV>(Func<T, TK> keySelector, Func<T, TV> valSelector)
+            where TK : notnull;
     }
 }
