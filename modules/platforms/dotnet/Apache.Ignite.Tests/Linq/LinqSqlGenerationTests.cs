@@ -79,6 +79,18 @@ public partial class LinqSqlGenerationTests
         AssertSql("select count(*) from PUBLIC.tbl1 as _T0", q => q.Count());
 
     [Test]
+    public void TestLongCount() =>
+        AssertSql("select count(*) from PUBLIC.tbl1 as _T0", q => q.LongCount());
+
+    [Test]
+    public void TestCountAsync() =>
+        AssertSql("select count(*) from PUBLIC.tbl1 as _T0", q => q.CountAsync().Result);
+
+    [Test]
+    public void TestLongCountAsync() =>
+        AssertSql("select count(*) from PUBLIC.tbl1 as _T0", q => q.LongCountAsync().Result);
+
+    [Test]
     public void TestDistinct() =>
         AssertSql("select distinct _T0.VAL from PUBLIC.tbl1 as _T0", q => q.Select(x => x.Val).Distinct().ToArray());
 
@@ -87,6 +99,12 @@ public partial class LinqSqlGenerationTests
         AssertSql(
             "select not exists (select 1 from PUBLIC.tbl1 as _T0 where not (_T0.KEY > ?))",
             q => q.All(x => x.Key > 10));
+
+    [Test]
+    public void TestAllAsync() =>
+        AssertSql(
+            "select not exists (select 1 from PUBLIC.tbl1 as _T0 where not (_T0.KEY > ?))",
+            q => q.AllAsync(x => x.Key > 10).Result);
 
     [Test]
     public void TestAllWithWhere() =>
