@@ -139,7 +139,7 @@ public class Cluster {
     /**
      * Returns a node that is not stopped and not knocked out (so it can be used to interact with the cluster).
      */
-    public IgniteImpl entryNode() {
+    public IgniteImpl aliveNode() {
         return IntStream.range(0, nodes.size())
                 .filter(index -> nodes.get(index) != null)
                 .filter(index -> !knockedOutNodeIndices.contains(index))
@@ -240,7 +240,7 @@ public class Cluster {
 
     @Nullable
     private RaftGroupService currentLeaderServiceFor(TablePartitionId tablePartitionId) {
-        return aliveNodes()
+        return runningNodes()
                 .map(IgniteImpl.class::cast)
                 .map(ignite -> {
                     JraftServerImpl server = (JraftServerImpl) ignite.raftManager().server();
@@ -258,9 +258,9 @@ public class Cluster {
     }
 
     /**
-     * Returns nodes that are not stopped. This can include knocked out nodes.
+     * Returns nodes that are started and not stopped. This can include knocked out nodes.
      */
-    public Stream<IgniteImpl> aliveNodes() {
+    public Stream<IgniteImpl> runningNodes() {
         return nodes.stream().filter(Objects::nonNull);
     }
 
@@ -282,7 +282,7 @@ public class Cluster {
      * Shuts down the  cluster by stopping all its nodes.
      */
     public void shutdown() {
-        aliveNodes().forEach(node -> IgnitionManager.stop(node.name()));
+        runningNodes().forEach(node -> IgnitionManager.stop(node.name()));
     }
 
     /**
@@ -368,7 +368,7 @@ public class Cluster {
             void knockOutNode(int nodeIndex, Cluster cluster) {
                 IgniteImpl receiver = cluster.node(nodeIndex);
 
-                cluster.aliveNodes()
+                cluster.runningNodes()
                         .filter(node -> node != receiver)
                         .forEach(sourceNode -> {
                             sourceNode.dropMessages((receiverName, message) -> Objects.equals(receiverName, receiver.name()));
@@ -381,7 +381,7 @@ public class Cluster {
             void reanimateNode(int nodeIndex, Cluster cluster) {
                 IgniteImpl receiver = cluster.node(nodeIndex);
 
-                cluster.aliveNodes()
+                cluster.runningNodes()
                         .filter(node -> node != receiver)
                         .forEach(IgniteImpl::stopDroppingMessages);
 

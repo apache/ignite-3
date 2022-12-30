@@ -292,7 +292,7 @@ class ItTableRaftSnapshotsTest {
         // TODO: IGNITE-18203 - remove this wait because when a table creation query is executed, the table must be fully ready.
 
         BooleanSupplier tableStarted = () -> {
-            int numberOfStartedRaftNodes = cluster.aliveNodes()
+            int numberOfStartedRaftNodes = cluster.runningNodes()
                     .map(ItTableRaftSnapshotsTest::tablePartitionIds)
                     .mapToInt(List::size)
                     .sum();
@@ -327,7 +327,7 @@ class ItTableRaftSnapshotsTest {
      * Returns the ID of the sole table partition that exists in the cluster.
      */
     private TablePartitionId solePartitionId() {
-        List<TablePartitionId> tablePartitionIds = tablePartitionIds(cluster.entryNode());
+        List<TablePartitionId> tablePartitionIds = tablePartitionIds(cluster.aliveNode());
 
         assertThat(tablePartitionIds.size(), is(1));
 
