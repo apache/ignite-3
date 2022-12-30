@@ -274,7 +274,39 @@ public static class IgniteQueryableExtensions
         throw new NotImplementedException();
     }
 
-    /* TODO: Single/SingleOrDefault, Min, Max, Sum, Average, Contains?, ToList, ToArray, ToDictionary, AsAsyncEnumerable */
+    /// <summary>
+    /// Returns the only element of a sequence, and throws an exception if there is not exactly one element in the sequence.
+    /// </summary>
+    /// <param name="queryable">Query.</param>
+    /// <typeparam name="TSource">Element type.</typeparam>
+    /// <returns>A <see cref="Task"/> representing the asynchronous operation.
+    /// The task result contains the single element of the input sequence.
+    /// </returns>
+    public static Task<TSource> SingleAsync<TSource>(this IQueryable<TSource> queryable)
+    {
+        IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
+
+        throw new NotImplementedException();
+    }
+
+    /// <summary>
+    /// Returns the only element of a sequence, or a default value if the sequence is empty;
+    /// throws an exception if there is more than one element in the sequence.
+    /// </summary>
+    /// <param name="queryable">Query.</param>
+    /// <typeparam name="TSource">Element type.</typeparam>
+    /// <returns>A <see cref="Task"/> representing the asynchronous operation.
+    /// The task result contains the single element of the input sequence, or <see langword="default" /> (<typeparamref name="TSource" />)
+    /// if the sequence contains no elements.
+    /// </returns>
+    public static Task<TSource?> SingleOrDefaultAsync<TSource>(this IQueryable<TSource> queryable)
+    {
+        IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
+
+        throw new NotImplementedException();
+    }
+
+    /* TODO: Min, Max, Sum, Average, Contains?, ToList, ToArray, ToDictionary, AsAsyncEnumerable */
 
     /// <summary>
     /// Generates SQL representation of the specified query.
