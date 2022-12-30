@@ -34,9 +34,9 @@ public class Session {
 
     private final AtomicReference<SessionInfo> info = new AtomicReference<>();
 
-    private final List<AsyncSessionEventListener> listeners;
+    private final List<? extends AsyncSessionEventListener> listeners;
 
-    public Session(List<AsyncSessionEventListener> listeners) {
+    public Session(List<? extends AsyncSessionEventListener> listeners) {
         this.listeners = listeners;
     }
 
