@@ -822,11 +822,13 @@ public class IgniteImpl implements Ignite {
         return logicalTopologyService;
     }
 
+    // TODO: IGNITE-18493 - remove/move this
     @TestOnly
     public void dropMessages(BiPredicate<String, NetworkMessage> predicate) {
         ((DefaultMessagingService) clusterSvc.messagingService()).dropMessages(predicate);
     }
 
+    // TODO: IGNITE-18493 - remove/move this
     @TestOnly
     public void stopDroppingMessages() {
         ((DefaultMessagingService) clusterSvc.messagingService()).stopDroppingMessages();

@@ -91,6 +91,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
             new NamedThreadFactory("MessagingService-inbound-", LOG)
     );
 
+    // TODO: IGNITE-18493 - remove/move this
     @Nullable
     private volatile BiPredicate<String, NetworkMessage> dropMessagePredicate;
 
@@ -166,6 +167,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
             return failedFuture(new NodeStoppingException());
         }
 
+        // TODO: IGNITE-18493 - remove/move this
         BiPredicate<String, NetworkMessage> dropMessage = dropMessagePredicate;
         if (dropMessage != null && dropMessage.test(recipient.name(), msg)) {
             return new CompletableFuture<>();
@@ -201,6 +203,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
             return failedFuture(new NodeStoppingException());
         }
 
+        // TODO: IGNITE-18493 - remove/move this
         BiPredicate<String, NetworkMessage> dropMessage = dropMessagePredicate;
         if (dropMessage != null && dropMessage.test(recipient.name(), msg)) {
             return new CompletableFuture<NetworkMessage>().orTimeout(10, TimeUnit.MILLISECONDS);
@@ -415,6 +418,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
         IgniteUtils.shutdownAndAwaitTermination(outboundExecutor, 10, TimeUnit.SECONDS);
     }
 
+    // TODO: IGNITE-18493 - remove/move this
     /**
      * Installs a predicate, it will be consulted with for each message being sent; when it returns {@code true}, the
      * message will be dropped (it will not be sent; the corresponding future will time out soon for {@code invoke()} methods
@@ -428,6 +432,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
         dropMessagePredicate = predicate;
     }
 
+    // TODO: IGNITE-18493 - remove/move this
     /**
      * Stops dropping messages.
      *
