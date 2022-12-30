@@ -19,17 +19,24 @@ package org.apache.ignite.internal.storage;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.junit.jupiter.api.Test;
 
 class ReadResultTest {
     @Test
-    void resultInEmptyConstantIsEmpty() {
-        assertTrue(ReadResult.EMPTY.isEmpty());
+    void resultProducecByEmptyMethodIsEmpty() {
+        ReadResult emptyResult = ReadResult.empty(anyRowId());
+
+        assertTrue(emptyResult.isEmpty());
+    }
+
+    private static RowId anyRowId() {
+        return new RowId(0);
     }
 
     @Test
     void resultWithNullRowIsEmpty() {
-        ReadResult result = ReadResult.createFromCommitted(null, null);
+        ReadResult result = ReadResult.createFromCommitted(anyRowId(), null, HybridTimestamp.MAX_VALUE);
 
         assertTrue(result.isEmpty());
     }

@@ -37,6 +37,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.calcite.avatica.AvaticaUtils;
@@ -110,6 +111,7 @@ import org.apache.ignite.internal.sql.engine.prepare.bounds.RangeBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
 import org.apache.ignite.internal.sql.engine.rel.InternalIgniteRel;
 import org.apache.ignite.internal.sql.engine.trait.DistributionFunction;
+import org.apache.ignite.internal.sql.engine.trait.DistributionFunction.AffinityDistribution;
 import org.apache.ignite.internal.sql.engine.trait.DistributionTrait;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
@@ -527,6 +529,13 @@ class RelJson {
 
                 map.put("keys", keys);
 
+                DistributionFunction function = distribution.function();
+
+                if (function.affinity()) {
+                    map.put("zoneId", ((AffinityDistribution) function).zoneId());
+                    map.put("tableId", ((AffinityDistribution) function).tableId().toString());
+                }
+
                 return map;
             default:
                 throw new AssertionError("Unexpected distribution type.");
@@ -657,10 +666,13 @@ class RelJson {
         }
 
         Map<String, Object> map = (Map<String, Object>) distribution;
-        Number cacheId = (Number) map.get("cacheId");
-        if (cacheId != null) {
-            return IgniteDistributions.hash(ImmutableIntList.copyOf((List<Integer>) map.get("keys")),
-                    DistributionFunction.affinity(cacheId.intValue(), cacheId));
+        String tableIdStr = (String) map.get("tableId");
+
+        if (tableIdStr != null) {
+            UUID tableId = UUID.fromString(tableIdStr);
+            Object zoneId = map.get("zoneId");
+
+            return IgniteDistributions.affinity((List<Integer>) map.get("keys"), tableId, zoneId);
         }
 
         return IgniteDistributions.hash(ImmutableIntList.copyOf((List<Integer>) map.get("keys")), DistributionFunction.hash());

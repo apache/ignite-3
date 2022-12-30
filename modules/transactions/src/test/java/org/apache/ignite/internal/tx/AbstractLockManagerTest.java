@@ -63,7 +63,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
     protected abstract LockManager newInstance();
 
     @Test
-    public void testSingleKeyWrite() throws LockException {
+    public void testSingleKeyWrite() {
         UUID txId1 = Timestamp.nextVersion().toUuid();
 
         LockKey key = new LockKey("test");
@@ -727,7 +727,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
 
             for (LockMode lockMode : LockMode.values()) {
                 lockManager.acquire(txId, key, lockMode);
-                lockManager. release(txId, key, lockMode);
+                lockManager.release(txId, key, lockMode);
             }
 
             assertTrue(lockManager.locks(txId).hasNext());

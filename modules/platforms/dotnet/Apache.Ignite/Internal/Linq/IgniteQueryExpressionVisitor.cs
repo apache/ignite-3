@@ -116,6 +116,12 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
     {
         ResultBuilder.Append('?');
 
+        if (value is char)
+        {
+            // Pass char params as string - protocol does not support char.
+            value = value.ToString();
+        }
+
         _modelVisitor.Parameters.Add(value);
     }
 
@@ -333,29 +339,26 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
     }
 
     /** <inheritdoc /> */
-    protected override Expression VisitInvocation(InvocationExpression expression)
-    {
-        throw new NotSupportedException("The LINQ expression '" + expression +
-                                        "' could not be translated. Either rewrite the query in a form that can be translated, or switch to client evaluation explicitly by inserting a call to either AsEnumerable() or ToList().");
-    }
+    protected override Expression VisitInvocation(InvocationExpression expression) =>
+        throw new NotSupportedException(
+            "The LINQ expression '" + expression +
+            "' could not be translated. Either rewrite the query in a form that can be translated, " +
+            "or switch to client evaluation explicitly by inserting a call to either AsEnumerable() or ToList().");
 
     /** <inheritdoc /> */
     protected override Expression VisitConditional(ConditionalExpression expression)
     {
-        ResultBuilder.Append("casewhen(");
+        ResultBuilder.Append("case when(");
 
         Visit(expression.Test);
 
-        // Explicit type specification is required when all arguments of CASEWHEN are parameters
-        ResultBuilder.Append(", cast(");
+        ResultBuilder.Append(") then ");
         Visit(expression.IfTrue);
 
-        ResultBuilder.Append(" as ");
-        ResultBuilder.Append(expression.Type.ToSqlTypeName());
-        ResultBuilder.Append(')');
-
+        ResultBuilder.Append(" else ");
         Visit(expression.IfFalse);
-        ResultBuilder.Append(')');
+
+        ResultBuilder.Append(" end");
 
         return expression;
     }

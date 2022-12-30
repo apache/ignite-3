@@ -20,7 +20,6 @@ package org.apache.ignite.internal.tx.storage.state;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.close.ManuallyCloseable;
-import org.apache.ignite.internal.configuration.storage.StorageException;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.util.Cursor;
@@ -34,27 +33,31 @@ import org.jetbrains.annotations.Nullable;
  */
 public interface TxStateStorage extends ManuallyCloseable {
     /**
-     * Get tx meta by tx id.
+     * Value of the {@link #lastAppliedIndex()} and {@link #lastAppliedTerm()} during rebalance of transaction state storage.
      *
-     * @param txId Tx id.
-     * @return Tx meta.
-     * @throws IgniteInternalException with {@link Transactions#TX_STATE_STORAGE_ERR} error code in case when
-     *                                 the operation has failed.
+     * <p>Allows to determine on a node restart that rebalance has not been completed and storage should be cleared before using it.
      */
-    TxMeta get(UUID txId);
+    long REBALANCE_IN_PROGRESS = -1;
 
     /**
-     * Put the tx meta into the storage.
+     * Returns tx meta by tx id.
+     *
+     * @param txId Tx id.
+     * @throws IgniteInternalException with {@link Transactions#TX_STATE_STORAGE_ERR} error code in case when the operation has failed.
+     */
+    @Nullable TxMeta get(UUID txId);
+
+    /**
+     * Puts the tx meta into the storage.
      *
      * @param txId Tx id.
      * @param txMeta Tx meta.
-     * @throws IgniteInternalException with {@link Transactions#TX_STATE_STORAGE_ERR} error code in case when
-     *                                 the operation has failed.
+     * @throws IgniteInternalException with {@link Transactions#TX_STATE_STORAGE_ERR} error code in case when the operation has failed.
      */
     void put(UUID txId, TxMeta txMeta);
 
     /**
-     * Atomically change the tx meta in the storage. If transaction meta that is already in the storage, is equal to {@code txMeta}, the
+     * Atomically changes the tx meta in the storage. If transaction meta that is already in the storage, is equal to {@code txMeta}, the
      * operation also succeeds.
      *
      * @param txId Tx id.
@@ -68,22 +71,19 @@ public interface TxStateStorage extends ManuallyCloseable {
     boolean compareAndSet(UUID txId, @Nullable TxState txStateExpected, TxMeta txMeta, long commandIndex, long commandTerm);
 
     /**
-     * Remove the tx meta from the storage.
+     * Removes the tx meta from the storage.
      *
      * @param txId Tx id.
-     * @throws IgniteInternalException with {@link Transactions#TX_STATE_STORAGE_ERR} error code in case when
-     *                                 the operation has failed.
+     * @throws IgniteInternalException with {@link Transactions#TX_STATE_STORAGE_ERR} error code in case when the operation has failed.
      */
     void remove(UUID txId);
 
     /**
-     * Create a cursor to scan all data in the storage.
+     * Creates a cursor to scan all data in the storage.
      *
      * <p>The cursor yields exactly the data that was existing in the storage at the moment when the method was called.
      *
      * <p>The cursor yields data ordered by transaction ID interpreted as an unsigned 128 bit integer.
-     *
-     * @return Cursor.
      */
     Cursor<IgniteBiTuple<UUID, TxMeta>> scan();
 
@@ -96,35 +96,102 @@ public interface TxStateStorage extends ManuallyCloseable {
     CompletableFuture<Void> flush();
 
     /**
-     * Index of the highest write command applied to the storage. {@code 0} if index is unknown.
+     * Returns index of the highest write command applied to the storage. {@code 0} if index is unknown.
      */
     long lastAppliedIndex();
 
     /**
-     * Term of the highest write command applied to the storage. {@code 0} if term is unknown.
+     * Returns term of the highest write command applied to the storage. {@code 0} if term is unknown.
      */
     long lastAppliedTerm();
 
     /**
      * Sets the last applied index and term.
+     *
+     * @param lastAppliedIndex Last applied index.
+     * @param lastAppliedTerm Last applied term.
      */
     void lastApplied(long lastAppliedIndex, long lastAppliedTerm);
 
     /**
-     * {@link #lastAppliedIndex()} value consistent with the data, already persisted on the storage.
+     * Returns {@link #lastAppliedIndex()} value consistent with the data, already persisted on the storage.
      */
     long persistedIndex();
 
     /**
      * Closes the storage.
+     *
+     * <p>REQUIRED: For background tasks for storage, such as rebalancing, to be completed by the time the method is called.
      */
     @Override
     void close();
 
     /**
-     * Removes all data from the storage.
+     * Closes and removes all data from the storage.
      *
-     * @throws StorageException In case when the operation has failed.
+     * <p>REQUIRED: For background tasks for storage, such as rebalancing, to be completed by the time the method is called.
      */
     void destroy();
+
+    /**
+     * Prepares the transaction state storage for rebalance.
+     * <ul>
+     *     <li>Clears the storage;</li>
+     *     <li>Sets the {@link #lastAppliedIndex()} and {@link #lastAppliedTerm()} to {@link #REBALANCE_IN_PROGRESS};</li>
+     *     <li>Stops the cursors of a transaction state storage, subsequent calls to {@link Cursor#hasNext()} and
+     *     {@link Cursor#next()} will throw {@link IgniteInternalException} with {@link Transactions#TX_STATE_STORAGE_REBALANCE_ERR};</li>
+     *     <li>For a transaction state storage, methods for reading and writing data will throw {@link IgniteInternalException} with
+     *     {@link Transactions#TX_STATE_STORAGE_REBALANCE_ERR} except:<ul>
+     *         <li>{@link TxStateStorage#put(UUID, TxMeta)};</li>
+     *         <li>{@link TxStateStorage#lastAppliedIndex()};</li>
+     *         <li>{@link TxStateStorage#lastAppliedTerm()}} ()};</li>
+     *         <li>{@link TxStateStorage#persistedIndex()}};</li>
+     *     </ul></li>
+     * </ul>
+     *
+     * <p>This method must be called before every rebalance of transaction state storage and ends with a call to one of the methods:
+     * <ul>
+     *     <li>{@link #abortRebalance()} - in case of errors or cancellation of rebalance;</li>
+     *     <li>{@link #finishRebalance(long, long)} - in case of successful completion of rebalance.</li>
+     * </ul>
+     *
+     * <p>If the {@link #lastAppliedIndex()} is {@link #REBALANCE_IN_PROGRESS} after a node restart, then the storage needs to be
+     * cleared before it start.
+     *
+     * <p>If the partition started to be destroyed or closed, then there will be an error when trying to start rebalancing.
+     *
+     * @return Future of the start rebalance for transaction state storage.
+     * @throws IgniteInternalException with {@link Transactions#TX_STATE_STORAGE_REBALANCE_ERR} error code in case when the operation
+     *      has failed.
+     * @throws IgniteInternalException with {@link Transactions#TX_STATE_STORAGE_STOPPED_ERR} if the storage is closed or destroyed.
+     */
+    CompletableFuture<Void> startRebalance();
+
+    /**
+     * Aborts rebalance for transaction state storage: clears the storage, sets the {@link #lastAppliedIndex()} and
+     * {@link #lastAppliedTerm()} to {@code 0}.
+     *
+     * <p>After calling this method, methods for writing and reading will be available.
+     *
+     * <p>If rebalance has not started, then nothing will happen.
+     *
+     * @return Future of the abort rebalance for transaction state storage.
+     */
+    CompletableFuture<Void> abortRebalance();
+
+    /**
+     * Completes rebalance for transaction state storage: updates {@link #lastAppliedIndex()} and {@link #lastAppliedTerm()}.
+     *
+     * <p>After calling this method, methods for writing and reading will be available.
+     *
+     * <p>If rebalance has not started, then an IgniteInternalException with {@link Transactions#TX_STATE_STORAGE_REBALANCE_ERR}
+     * will be thrown
+     *
+     * @param lastAppliedIndex Last applied index.
+     * @param lastAppliedTerm Last applied term.
+     * @return Future of the finish rebalance for transaction state storage.
+     * @throws IgniteInternalException with {@link Transactions#TX_STATE_STORAGE_REBALANCE_ERR} error code in case when the operation
+     *      has failed.
+     */
+    CompletableFuture<Void> finishRebalance(long lastAppliedIndex, long lastAppliedTerm);
 }

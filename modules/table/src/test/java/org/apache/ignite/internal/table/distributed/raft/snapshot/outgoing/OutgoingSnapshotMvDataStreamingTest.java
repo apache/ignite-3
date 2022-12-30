@@ -102,8 +102,9 @@ class OutgoingSnapshotMvDataStreamingTest {
 
     @Test
     void sendsCommittedAndUncommittedVersionsFromStorage() {
-        ReadResult version1 = ReadResult.createFromCommitted(new ByteBufferRow(new byte[]{1}), clock.now());
+        ReadResult version1 = ReadResult.createFromCommitted(rowId1, new ByteBufferRow(new byte[]{1}), clock.now());
         ReadResult version2 = ReadResult.createFromWriteIntent(
+                rowId1,
                 new ByteBufferRow(new byte[]{2}),
                 transactionId,
                 commitTableId,
@@ -155,8 +156,8 @@ class OutgoingSnapshotMvDataStreamingTest {
 
     @Test
     void reversesOrderOfVersionsObtainedFromPartition() {
-        ReadResult version1 = ReadResult.createFromCommitted(new ByteBufferRow(new byte[]{1}), clock.now());
-        ReadResult version2 = ReadResult.createFromCommitted(new ByteBufferRow(new byte[]{2}), clock.now());
+        ReadResult version1 = ReadResult.createFromCommitted(rowId1, new ByteBufferRow(new byte[]{1}), clock.now());
+        ReadResult version2 = ReadResult.createFromCommitted(rowId1, new ByteBufferRow(new byte[]{2}), clock.now());
 
         configureStorageToHaveExactlyOneRowWith(List.of(version1, version2));
 
@@ -174,8 +175,8 @@ class OutgoingSnapshotMvDataStreamingTest {
 
     @Test
     void iteratesRowsInPartition() {
-        ReadResult version1 = ReadResult.createFromCommitted(new ByteBufferRow(new byte[]{1}), clock.now());
-        ReadResult version2 = ReadResult.createFromCommitted(new ByteBufferRow(new byte[]{2}), clock.now());
+        ReadResult version1 = ReadResult.createFromCommitted(rowId1, new ByteBufferRow(new byte[]{1}), clock.now());
+        ReadResult version2 = ReadResult.createFromCommitted(rowId2, new ByteBufferRow(new byte[]{2}), clock.now());
 
         when(mvPartitionStorage.closestRowId(lowestRowId)).thenReturn(rowId1);
         when(mvPartitionStorage.scanVersions(rowId1)).thenReturn(Cursor.fromIterable(List.of(version1)));
@@ -213,8 +214,9 @@ class OutgoingSnapshotMvDataStreamingTest {
 
     @Test
     void sendsCommittedAndUncommittedVersionsFromQueue() {
-        ReadResult version1 = ReadResult.createFromCommitted(new ByteBufferRow(new byte[]{1}), clock.now());
+        ReadResult version1 = ReadResult.createFromCommitted(rowIdOutOfOrder, new ByteBufferRow(new byte[]{1}), clock.now());
         ReadResult version2 = ReadResult.createFromWriteIntent(
+                rowIdOutOfOrder,
                 new ByteBufferRow(new byte[]{2}),
                 transactionId,
                 commitTableId,
@@ -257,8 +259,8 @@ class OutgoingSnapshotMvDataStreamingTest {
 
     @Test
     void sendsOutOfOrderRowsWithHighestPriority() {
-        ReadResult version1 = ReadResult.createFromCommitted(new ByteBufferRow(new byte[]{1}), clock.now());
-        ReadResult version2 = ReadResult.createFromCommitted(new ByteBufferRow(new byte[]{2}), clock.now());
+        ReadResult version1 = ReadResult.createFromCommitted(rowIdOutOfOrder, new ByteBufferRow(new byte[]{1}), clock.now());
+        ReadResult version2 = ReadResult.createFromCommitted(rowId1, new ByteBufferRow(new byte[]{2}), clock.now());
 
         when(mvPartitionStorage.scanVersions(rowIdOutOfOrder)).thenReturn(Cursor.fromIterable(List.of(version1)));
 
@@ -298,7 +300,7 @@ class OutgoingSnapshotMvDataStreamingTest {
     }
 
     @Test
-    void closesVersionsCursor() throws Exception {
+    void closesVersionsCursor() {
         @SuppressWarnings("unchecked")
         Cursor<ReadResult> cursor = mock(Cursor.class);
 
@@ -319,7 +321,7 @@ class OutgoingSnapshotMvDataStreamingTest {
 
     @Test
     void sendsTombstonesWithNullBuffers() {
-        ReadResult version = ReadResult.createFromCommitted(null, clock.now());
+        ReadResult version = ReadResult.createFromCommitted(rowId1, null, clock.now());
 
         configureStorageToHaveExactlyOneRowWith(List.of(version));
 
@@ -331,6 +333,7 @@ class OutgoingSnapshotMvDataStreamingTest {
     @Test
     void doesNotSendWriteIntentTimestamp() {
         ReadResult version = ReadResult.createFromWriteIntent(
+                rowId1,
                 new ByteBufferRow(new byte[]{1}),
                 transactionId,
                 commitTableId,
@@ -356,8 +359,8 @@ class OutgoingSnapshotMvDataStreamingTest {
 
     @Test
     void mvDataHandlingRespectsBatchSizeHintForMessagesFromPartition() {
-        ReadResult version1 = ReadResult.createFromCommitted(new ByteBufferRow(new byte[]{1}), clock.now());
-        ReadResult version2 = ReadResult.createFromCommitted(new ByteBufferRow(new byte[]{2}), clock.now());
+        ReadResult version1 = ReadResult.createFromCommitted(rowId1, new ByteBufferRow(new byte[]{1}), clock.now());
+        ReadResult version2 = ReadResult.createFromCommitted(rowId2, new ByteBufferRow(new byte[]{2}), clock.now());
 
         when(mvPartitionStorage.closestRowId(lowestRowId)).thenReturn(rowId1);
         when(mvPartitionStorage.scanVersions(rowId1)).thenReturn(Cursor.fromIterable(List.of(version1)));
@@ -371,8 +374,8 @@ class OutgoingSnapshotMvDataStreamingTest {
 
     @Test
     void mvDataHandlingRespectsBatchSizeHintForOutOfOrderMessages() {
-        ReadResult version1 = ReadResult.createFromCommitted(new ByteBufferRow(new byte[]{1}), clock.now());
-        ReadResult version2 = ReadResult.createFromCommitted(new ByteBufferRow(new byte[]{2}), clock.now());
+        ReadResult version1 = ReadResult.createFromCommitted(rowIdOutOfOrder, new ByteBufferRow(new byte[]{1}), clock.now());
+        ReadResult version2 = ReadResult.createFromCommitted(rowId1, new ByteBufferRow(new byte[]{2}), clock.now());
 
         when(mvPartitionStorage.scanVersions(rowIdOutOfOrder)).thenReturn(Cursor.fromIterable(List.of(version1)));
 
@@ -395,8 +398,8 @@ class OutgoingSnapshotMvDataStreamingTest {
 
     @Test
     void mvDataResponseThatIsNotLastHasFinishFalse() {
-        ReadResult version1 = ReadResult.createFromCommitted(new ByteBufferRow(new byte[]{1}), clock.now());
-        ReadResult version2 = ReadResult.createFromCommitted(new ByteBufferRow(new byte[]{2}), clock.now());
+        ReadResult version1 = ReadResult.createFromCommitted(rowId1, new ByteBufferRow(new byte[]{1}), clock.now());
+        ReadResult version2 = ReadResult.createFromCommitted(rowId1, new ByteBufferRow(new byte[]{2}), clock.now());
 
         when(mvPartitionStorage.closestRowId(lowestRowId)).thenReturn(rowId1);
         when(mvPartitionStorage.scanVersions(rowId1)).thenReturn(Cursor.fromIterable(List.of(version1, version2)));
@@ -409,7 +412,7 @@ class OutgoingSnapshotMvDataStreamingTest {
 
     @Test
     void sendsRowsFromPartitionBiggerThanHint() {
-        ReadResult version = ReadResult.createFromCommitted(new ByteBufferRow(new byte[1000]), clock.now());
+        ReadResult version = ReadResult.createFromCommitted(rowId1, new ByteBufferRow(new byte[1000]), clock.now());
 
         configureStorageToHaveExactlyOneRowWith(List.of(version));
 
@@ -422,7 +425,7 @@ class OutgoingSnapshotMvDataStreamingTest {
 
     @Test
     void sendsRowsFromOutOfOrderQueueBiggerThanHint() {
-        ReadResult version = ReadResult.createFromCommitted(new ByteBufferRow(new byte[1000]), clock.now());
+        ReadResult version = ReadResult.createFromCommitted(rowIdOutOfOrder, new ByteBufferRow(new byte[1000]), clock.now());
 
         when(mvPartitionStorage.scanVersions(rowIdOutOfOrder)).thenReturn(Cursor.fromIterable(List.of(version)));
 
@@ -456,8 +459,8 @@ class OutgoingSnapshotMvDataStreamingTest {
 
     @Test
     void lastSentRowIdIsPassed() {
-        ReadResult version1 = ReadResult.createFromCommitted(new ByteBufferRow(new byte[]{1}), clock.now());
-        ReadResult version2 = ReadResult.createFromCommitted(new ByteBufferRow(new byte[]{2}), clock.now());
+        ReadResult version1 = ReadResult.createFromCommitted(rowId1, new ByteBufferRow(new byte[]{1}), clock.now());
+        ReadResult version2 = ReadResult.createFromCommitted(rowId1, new ByteBufferRow(new byte[]{2}), clock.now());
 
         when(mvPartitionStorage.closestRowId(lowestRowId)).thenReturn(rowId1);
         when(mvPartitionStorage.scanVersions(rowId1)).thenReturn(Cursor.fromIterable(List.of(version1, version2)));
@@ -476,8 +479,8 @@ class OutgoingSnapshotMvDataStreamingTest {
 
     @Test
     void notYetSentRowIdIsNotPassed() {
-        ReadResult version1 = ReadResult.createFromCommitted(new ByteBufferRow(new byte[]{1}), clock.now());
-        ReadResult version2 = ReadResult.createFromCommitted(new ByteBufferRow(new byte[]{2}), clock.now());
+        ReadResult version1 = ReadResult.createFromCommitted(rowId1, new ByteBufferRow(new byte[]{1}), clock.now());
+        ReadResult version2 = ReadResult.createFromCommitted(rowId1, new ByteBufferRow(new byte[]{2}), clock.now());
 
         when(mvPartitionStorage.closestRowId(lowestRowId)).thenReturn(rowId1);
         when(mvPartitionStorage.scanVersions(rowId1)).thenReturn(Cursor.fromIterable(List.of(version1, version2)));
@@ -496,7 +499,7 @@ class OutgoingSnapshotMvDataStreamingTest {
 
     @Test
     void anyRowIdIsPassedForFinishedSnapshot() {
-        ReadResult version = ReadResult.createFromCommitted(new ByteBufferRow(new byte[]{1}), clock.now());
+        ReadResult version = ReadResult.createFromCommitted(rowId1, new ByteBufferRow(new byte[]{1}), clock.now());
 
         configureStorageToHaveExactlyOneRowWith(List.of(version));
 

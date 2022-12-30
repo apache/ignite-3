@@ -184,13 +184,6 @@ public class TraitUtils {
             return rel;
         }
 
-        // TODO: remove in IGNITE-18211
-        // currently affinity function is not implemented properly,
-        // thus rehashing by affinity should by disabled for a while
-        if (toTrait.function().affinity()) {
-            return null;
-        }
-
         RelTraitSet traits = rel.getTraitSet().replace(toTrait);
         if (fromTrait.getType() == BROADCAST_DISTRIBUTED && toTrait.getType() == HASH_DISTRIBUTED) {
             return new IgniteTrimExchange(rel.getCluster(), traits, rel, toTrait);

@@ -81,7 +81,7 @@ abstract class AbstractPageMemoryMvPartitionStorageTest extends AbstractMvPartit
     }
 
     @Test
-    void uncommittedMultiPageValuesWorkWithScans() throws Exception {
+    void uncommittedMultiPageValuesWorkWithScans() {
         BinaryRow longRow = rowStoredInFragments();
 
         insert(longRow, txId);
@@ -94,7 +94,7 @@ abstract class AbstractPageMemoryMvPartitionStorageTest extends AbstractMvPartit
     }
 
     @Test
-    void committedMultiPageValuesWorkWithScans() throws Exception {
+    void committedMultiPageValuesWorkWithScans() {
         BinaryRow longRow = rowStoredInFragments();
 
         RowId rowId = insert(longRow, txId);

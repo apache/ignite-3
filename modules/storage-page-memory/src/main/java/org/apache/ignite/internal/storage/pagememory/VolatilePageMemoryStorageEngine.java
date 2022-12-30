@@ -63,6 +63,11 @@ public class VolatilePageMemoryStorageEngine implements StorageEngine {
         this.ioRegistry = ioRegistry;
     }
 
+    @Override
+    public String name() {
+        return ENGINE_NAME;
+    }
+
     /** {@inheritDoc} */
     @Override
     public void start() throws StorageException {

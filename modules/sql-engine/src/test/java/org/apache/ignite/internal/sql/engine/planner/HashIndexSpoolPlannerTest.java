@@ -23,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
+import java.util.UUID;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rex.RexFieldAccess;
@@ -50,37 +51,19 @@ public class HashIndexSpoolPlannerTest extends AbstractPlannerTest {
         IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
         IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
 
-        publicSchema.addTable(
-                new TestTable(
-                        new RelDataTypeFactory.Builder(f)
-                                .add("ID", f.createJavaType(Integer.class))
-                                .add("JID", f.createJavaType(Integer.class))
-                                .add("VAL", f.createJavaType(String.class))
-                                .build(), "T0") {
+        createTable(publicSchema, "T0", new RelDataTypeFactory.Builder(f)
+                .add("ID", f.createJavaType(Integer.class))
+                .add("JID", f.createJavaType(Integer.class))
+                .add("VAL", f.createJavaType(String.class))
+                .build(), IgniteDistributions.affinity(0, UUID.randomUUID(), DEFAULT_ZONE_ID));
 
-                    @Override
-                    public IgniteDistribution distribution() {
-                        return IgniteDistributions.affinity(0, "T0", "hash");
-                    }
-                }
-                        .addIndex("t0_jid_idx", 1, 0)
-        );
-
-        publicSchema.addTable(
-                new TestTable(
-                        new RelDataTypeFactory.Builder(f)
-                                .add("ID", f.createJavaType(Integer.class))
-                                .add("JID", f.createJavaType(Integer.class))
-                                .add("VAL", f.createJavaType(String.class))
-                                .build(), "T1") {
-
-                    @Override
-                    public IgniteDistribution distribution() {
-                        return IgniteDistributions.affinity(0, "T1", "hash");
-                    }
-                }
-                        .addIndex("t1_jid_idx", 1, 0)
-        );
+        createTable(publicSchema, "T1",
+                new RelDataTypeFactory.Builder(f)
+                        .add("ID", f.createJavaType(Integer.class))
+                        .add("JID", f.createJavaType(Integer.class))
+                        .add("VAL", f.createJavaType(String.class))
+                        .build(), IgniteDistributions.affinity(0, UUID.randomUUID(), DEFAULT_ZONE_ID))
+                .addIndex("t1_jid_idx", 1, 0);
 
         String sql = "select * "
                 + "from t0 "
@@ -122,7 +105,7 @@ public class HashIndexSpoolPlannerTest extends AbstractPlannerTest {
 
                     @Override
                     public IgniteDistribution distribution() {
-                        return IgniteDistributions.affinity(0, "T0", "hash");
+                        return IgniteDistributions.affinity(0, UUID.randomUUID(), DEFAULT_ZONE_ID);
                     }
                 }
         );
@@ -138,7 +121,7 @@ public class HashIndexSpoolPlannerTest extends AbstractPlannerTest {
 
                     @Override
                     public IgniteDistribution distribution() {
-                        return IgniteDistributions.affinity(0, "T1", "hash");
+                        return IgniteDistributions.affinity(0, UUID.randomUUID(), DEFAULT_ZONE_ID);
                     }
                 }
                         .addIndex("t1_jid0_idx", 1, 0)
@@ -185,7 +168,7 @@ public class HashIndexSpoolPlannerTest extends AbstractPlannerTest {
 
                     @Override
                     public IgniteDistribution distribution() {
-                        return IgniteDistributions.affinity(0, "T0", "hash");
+                        return IgniteDistributions.affinity(0, UUID.randomUUID(), DEFAULT_ZONE_ID);
                     }
                 }
         );
@@ -200,7 +183,7 @@ public class HashIndexSpoolPlannerTest extends AbstractPlannerTest {
 
                     @Override
                     public IgniteDistribution distribution() {
-                        return IgniteDistributions.affinity(0, "T1", "hash");
+                        return IgniteDistributions.affinity(0, UUID.randomUUID(), DEFAULT_ZONE_ID);
                     }
                 }
         );

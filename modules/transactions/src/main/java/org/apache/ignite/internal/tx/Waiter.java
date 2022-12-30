@@ -45,7 +45,8 @@ public interface Waiter {
     LockMode lockMode();
 
     /**
-     * Gets an intended Lock mode.
+     * Returns lock mode that is intended to be taken, but has not been taken yet. This is NOT specific to intention lock modes,
+     * such as IS and IX.
      *
      * @return Lock mode.
      */

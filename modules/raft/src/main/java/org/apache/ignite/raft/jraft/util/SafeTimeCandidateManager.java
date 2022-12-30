@@ -79,9 +79,9 @@ public class SafeTimeCandidateManager {
                     }
                 }
 
-                assert safeTime != null;
-
-                safeTimeTracker.update(safeTime);
+                if (safeTime != null) {
+                    safeTimeTracker.update(safeTime);
+                }
             }
 
             currentIndex++;

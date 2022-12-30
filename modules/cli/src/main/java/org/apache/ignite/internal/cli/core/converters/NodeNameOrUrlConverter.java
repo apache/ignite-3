@@ -20,8 +20,8 @@ package org.apache.ignite.internal.cli.core.converters;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.regex.Pattern;
-import org.apache.ignite.internal.cli.NodeNameRegistry;
 import org.apache.ignite.internal.cli.commands.node.NodeNameOrUrl;
+import org.apache.ignite.internal.cli.core.repl.registry.NodeNameRegistry;
 import picocli.CommandLine;
 import picocli.CommandLine.TypeConversionException;
 
@@ -55,7 +55,7 @@ public class NodeNameOrUrlConverter implements CommandLine.ITypeConverter<NodeNa
     }
 
     private URL findNodeUrlByNodeName(String name) {
-        return nodeNameRegistry.getNodeUrl(name)
+        return nodeNameRegistry.nodeUrlByName(name)
                 .orElseThrow(() -> new TypeConversionException("Node " + name + " not found. Provide valid name or use URL"));
     }
 }

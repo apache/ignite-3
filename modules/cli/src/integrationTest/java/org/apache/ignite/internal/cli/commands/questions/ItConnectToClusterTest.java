@@ -27,6 +27,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import org.apache.ignite.internal.cli.commands.CliCommandTestInitializedIntegrationBase;
+import org.apache.ignite.internal.cli.commands.TopLevelCliReplCommand;
 import org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerHelper;
 import org.apache.ignite.internal.cli.config.ConfigConstants;
 import org.apache.ignite.internal.cli.config.TestStateConfigHelper;
@@ -57,6 +58,11 @@ class ItConnectToClusterTest extends CliCommandTestInitializedIntegrationBase {
 
     private Terminal terminal;
     private Path input;
+
+    @Override
+    protected Class<?> getCommandClass() {
+        return TopLevelCliReplCommand.class;
+    }
 
     @Override
     @BeforeEach
@@ -130,6 +136,43 @@ class ItConnectToClusterTest extends CliCommandTestInitializedIntegrationBase {
         assertThat(promptAfter).isEqualTo("[" + nodeName() + "]> ");
         assertThat(configManagerProvider.get().getCurrentProperty(ConfigConstants.CLUSTER_URL))
                 .isEqualTo("http://localhost:10300");
+    }
+
+    @Test
+    @DisplayName("Should ask to connect to different URL")
+    void connectToAnotherUrl() throws IOException {
+        // Given prompt before connect
+        String promptBefore = Ansi.OFF.string(promptProvider.getPrompt());
+        assertThat(promptBefore).isEqualTo("[disconnected]> ");
+
+        // And connected
+        execute("connect");
+
+        // And output is
+        assertAll(
+                this::assertErrOutputIsEmpty,
+                () -> assertOutputIs("Connected to http://localhost:10300" + System.lineSeparator())
+        );
+
+        // And answer is "y"
+        bindAnswers("y");
+
+        // And disconnect
+        resetOutput();
+        execute("disconnect");
+
+        // When connect to different URL
+        resetOutput();
+        execute("connect", "http://localhost:10301");
+
+        // Then
+        assertAll(
+                this::assertErrOutputIsEmpty,
+                () -> assertOutputIs("Connected to http://localhost:10301" + System.lineSeparator())
+        );
+        // And prompt is changed to another node
+        String promptAfter = Ansi.OFF.string(promptProvider.getPrompt());
+        assertThat(promptAfter).isEqualTo("[" + CLUSTER_NODES.get(1).name() + "]> ");
     }
 
     private String nodeName() {

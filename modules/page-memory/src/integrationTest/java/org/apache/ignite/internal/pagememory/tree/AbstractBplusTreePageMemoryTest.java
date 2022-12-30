@@ -97,7 +97,6 @@ import org.apache.ignite.lang.IgniteStringBuilder;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 
@@ -1519,17 +1518,15 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
      * concurrently added to the tree until the new pages are not added anymore. Test verifies that despite livelock condition a size from a
      * valid range is returned.
      *
-     * <p>NB: This test has to be changed with the integration of IGNITE-3478.
-     *
      * @throws Exception if test failed
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17235")
     public void testPutSizeLivelock() throws Exception {
         MAX_PER_PAGE = 5;
         CNT = 800;
 
-        final int slidingWindowSize = 16;
+        // Sliding window size should be greater than the amount of CPU cores to avoid races between puts and removes in the tree.
+        int slidingWindowSize = CPUS * 2;
         final boolean debugPrint = false;
 
         final TestTree tree = createTestTree(false);

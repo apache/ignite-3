@@ -17,13 +17,22 @@
 
 package org.apache.ignite.internal.storage;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.notNullValue;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.schema.BinaryConverter;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -32,6 +41,7 @@ import org.apache.ignite.internal.schema.marshaller.MarshallerException;
 import org.apache.ignite.internal.schema.marshaller.MarshallerFactory;
 import org.apache.ignite.internal.schema.marshaller.reflection.ReflectionMarshallerFactory;
 import org.apache.ignite.internal.schema.row.Row;
+import org.apache.ignite.internal.storage.index.IndexDescriptor;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexRowImpl;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
@@ -61,6 +71,9 @@ public abstract class BaseMvStoragesTest {
 
     /** Key {@link BinaryTuple} converter for tests. */
     protected static BinaryConverter kBinaryConverter;
+
+    /** Hybrid clock to generate timestamps. */
+    protected final HybridClock clock = new HybridClockImpl();
 
     @BeforeAll
     static void beforeAll() {
@@ -105,12 +118,22 @@ public abstract class BaseMvStoragesTest {
         }
     }
 
-    protected static IndexRow indexRow(BinaryRow binaryRow, RowId rowId) {
-        return new IndexRowImpl(kvBinaryConverter.toTuple(binaryRow), rowId);
-    }
+    protected static IndexRow indexRow(IndexDescriptor indexDescriptor, BinaryRow binaryRow, RowId rowId) {
+        int[] columnIndexes = indexDescriptor.columns().stream()
+                .mapToInt(indexColumnDescriptor -> {
+                    Column column = schemaDescriptor.column(indexColumnDescriptor.name());
 
-    protected static BinaryTuple indexKey(BinaryRow binaryKey) {
-        return kBinaryConverter.toTuple(binaryKey);
+                    assertNotNull(column, column.name());
+
+                    return column.schemaIndex();
+                })
+                .toArray();
+
+        BinaryTupleSchema binaryTupleSchema = BinaryTupleSchema.createSchema(schemaDescriptor, columnIndexes);
+
+        BinaryConverter binaryTupleConverter = new BinaryConverter(schemaDescriptor, binaryTupleSchema, false);
+
+        return new IndexRowImpl(binaryTupleConverter.toTuple(binaryRow), rowId);
     }
 
     protected static TestKey key(BinaryRow binaryRow) {
@@ -156,6 +179,11 @@ public abstract class BaseMvStoragesTest {
         try (cursor) {
             return cursor.stream().map(BaseMvStoragesTest::unwrap).collect(Collectors.toList());
         }
+    }
+
+    protected final void assertRowMatches(@Nullable BinaryRow rowUnderQuestion, BinaryRow expectedRow) {
+        assertThat(rowUnderQuestion, is(notNullValue()));
+        assertThat(rowUnderQuestion.bytes(), is(equalTo(expectedRow.bytes())));
     }
 
     /**

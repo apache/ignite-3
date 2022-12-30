@@ -33,6 +33,7 @@ import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageClosedException;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.index.BinaryTupleComparator;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexRowImpl;
@@ -58,6 +59,8 @@ public class TestSortedIndexStorage implements SortedIndexStorage {
 
     private volatile boolean closed;
 
+    private volatile boolean rebalance;
+
     /**
      * Constructor.
      */
@@ -73,7 +76,7 @@ public class TestSortedIndexStorage implements SortedIndexStorage {
 
     @Override
     public Cursor<RowId> get(BinaryTuple key) throws StorageException {
-        checkClosed();
+        checkStorageClosedOrInProcessOfRebalance();
 
         Iterator<RowId> iterator = index.getOrDefault(key.byteBuffer(), emptyNavigableMap()).keySet().iterator();
 
@@ -85,14 +88,14 @@ public class TestSortedIndexStorage implements SortedIndexStorage {
 
             @Override
             public boolean hasNext() {
-                checkClosed();
+                checkStorageClosedOrInProcessOfRebalance();
 
                 return iterator.hasNext();
             }
 
             @Override
             public RowId next() {
-                checkClosed();
+                checkStorageClosedOrInProcessOfRebalance();
 
                 return iterator.next();
             }
@@ -101,7 +104,7 @@ public class TestSortedIndexStorage implements SortedIndexStorage {
 
     @Override
     public void put(IndexRow row) {
-        checkClosed();
+        checkStorageClosed();
 
         index.compute(row.indexColumns().byteBuffer(), (k, v) -> {
             NavigableMap<RowId, Object> rowIds = v == null ? new ConcurrentSkipListMap<>() : v;
@@ -114,7 +117,7 @@ public class TestSortedIndexStorage implements SortedIndexStorage {
 
     @Override
     public void remove(IndexRow row) {
-        checkClosed();
+        checkStorageClosedOrInProcessOfRebalance();
 
         index.computeIfPresent(row.indexColumns().byteBuffer(), (k, v) -> {
             v.remove(row.rowId());
@@ -129,7 +132,7 @@ public class TestSortedIndexStorage implements SortedIndexStorage {
             @Nullable BinaryTuplePrefix upperBound,
             int flags
     ) {
-        checkClosed();
+        checkStorageClosedOrInProcessOfRebalance();
 
         boolean includeLower = (flags & GREATER_OR_EQUAL) != 0;
         boolean includeUpper = (flags & LESS_OR_EQUAL) != 0;
@@ -175,7 +178,7 @@ public class TestSortedIndexStorage implements SortedIndexStorage {
     public void destroy() {
         closed = true;
 
-        index.clear();
+        clear();
     }
 
     /**
@@ -183,12 +186,6 @@ public class TestSortedIndexStorage implements SortedIndexStorage {
      */
     public void clear() {
         index.clear();
-    }
-
-    private void checkClosed() {
-        if (closed) {
-            throw new StorageClosedException("Storage is already closed");
-        }
     }
 
     private class ScanCursor implements PeekCursor<IndexRow> {
@@ -214,7 +211,7 @@ public class TestSortedIndexStorage implements SortedIndexStorage {
 
         @Override
         public boolean hasNext() {
-            checkClosed();
+            checkStorageClosedOrInProcessOfRebalance();
 
             advanceIfNeeded();
 
@@ -223,7 +220,7 @@ public class TestSortedIndexStorage implements SortedIndexStorage {
 
         @Override
         public IndexRow next() {
-            checkClosed();
+            checkStorageClosedOrInProcessOfRebalance();
 
             advanceIfNeeded();
 
@@ -240,6 +237,8 @@ public class TestSortedIndexStorage implements SortedIndexStorage {
 
         @Override
         public @Nullable IndexRow peek() {
+            checkStorageClosedOrInProcessOfRebalance();
+
             if (hasNext != null) {
                 if (hasNext) {
                     return new IndexRowImpl(new BinaryTuple(descriptor.binaryTupleSchema(), currentEntry.getKey()), rowId);
@@ -314,5 +313,56 @@ public class TestSortedIndexStorage implements SortedIndexStorage {
         private RowId getRowId(@Nullable Entry<RowId, ?> rowIdEntry) {
             return rowIdEntry == null ? null : rowIdEntry.getKey();
         }
+    }
+
+    private void checkStorageClosed() {
+        if (closed) {
+            throw new StorageClosedException("Storage is already closed");
+        }
+    }
+
+    private void checkStorageClosedOrInProcessOfRebalance() {
+        checkStorageClosed();
+
+        if (rebalance) {
+            throw new StorageRebalanceException("Storage in the process of rebalancing");
+        }
+    }
+
+    /**
+     * Starts rebalancing for the storage.
+     */
+    public void startRebalance() {
+        checkStorageClosed();
+
+        rebalance = true;
+
+        clear();
+    }
+
+    /**
+     * Aborts rebalance of the storage.
+     */
+    public void abortRebalance() {
+        checkStorageClosed();
+
+        if (!rebalance) {
+            return;
+        }
+
+        rebalance = false;
+
+        clear();
+    }
+
+    /**
+     * Completes rebalance of the storage.
+     */
+    public void finishRebalance() {
+        checkStorageClosed();
+
+        assert rebalance;
+
+        rebalance = false;
     }
 }

@@ -600,19 +600,19 @@ public class RocksDbTableStorage implements MvTableStorage {
     }
 
     @Override
-    public CompletableFuture<Void> startRebalanceMvPartition(int partitionId) {
+    public CompletableFuture<Void> startRebalancePartition(int partitionId) {
         // TODO: IGNITE-18027 Implement
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public CompletableFuture<Void> abortRebalanceMvPartition(int partitionId) {
+    public CompletableFuture<Void> abortRebalancePartition(int partitionId) {
         // TODO: IGNITE-18027 Implement
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public CompletableFuture<Void> finishRebalanceMvPartition(int partitionId) {
+    public CompletableFuture<Void> finishRebalancePartition(int partitionId, long lastAppliedIndex, long lastAppliedTerm) {
         // TODO: IGNITE-18027 Implement
         throw new UnsupportedOperationException();
     }
