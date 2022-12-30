@@ -19,11 +19,11 @@ package org.apache.ignite.internal.raft;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 import java.util.Objects;
 import java.util.Set;
-import org.apache.ignite.configuration.ConfigurationValue;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
@@ -44,10 +44,14 @@ import org.mockito.junit.jupiter.MockitoExtension;
  * It is mocking all components except Loza and checks API methods of the component in various conditions.
  */
 @ExtendWith(MockitoExtension.class)
+@ExtendWith(ConfigurationExtension.class)
 public class LozaTest extends IgniteAbstractTest {
     /** Mock for network service. */
     @Mock
     private ClusterService clusterNetSvc;
+
+    @InjectConfiguration
+    private RaftConfiguration raftConfiguration;
 
     /**
      * Checks that the all API methods throw the exception ({@link org.apache.ignite.lang.NodeStoppingException})
@@ -60,12 +64,6 @@ public class LozaTest extends IgniteAbstractTest {
         Mockito.doReturn(new ClusterLocalConfiguration("test_node", null)).when(clusterNetSvc).localConfiguration();
         Mockito.doReturn(mock(MessagingService.class)).when(clusterNetSvc).messagingService();
         Mockito.doReturn(mock(TopologyService.class)).when(clusterNetSvc).topologyService();
-
-        RaftConfiguration raftConfiguration = mock(RaftConfiguration.class);
-        ConfigurationValue<Integer> rpcInstallSnapshotTimeoutValue = mock(ConfigurationValue.class);
-
-        when(raftConfiguration.rpcInstallSnapshotTimeout()).thenReturn(rpcInstallSnapshotTimeoutValue);
-        when(rpcInstallSnapshotTimeoutValue.value()).thenReturn(10);
 
         Loza loza = new Loza(clusterNetSvc, raftConfiguration, workDir, new HybridClockImpl());
 
