@@ -98,15 +98,13 @@ class ItTableRaftSnapshotsTest {
      * allow tests pass thanks to retries.
      */
     private static final String NODE_BOOTSTRAP_CFG = "{\n"
-            + "  \"network\": {\n"
-            + "    \"port\":{},\n"
-            + "    \"nodeFinder\":{\n"
-            + "      \"netClusterNodes\": [ {} ]\n"
+            + "  network: {\n"
+            + "    port:{},\n"
+            + "    nodeFinder:{\n"
+            + "      netClusterNodes: [ {} ]\n"
             + "    }\n"
             + "  },\n"
-            + "  \"raft\": {"
-            + "    \"rpcInstallSnapshotTimeout\": 10000"
-            + "  }"
+            + "  raft.rpcInstallSnapshotTimeout: 10000"
             + "}";
 
     /**
