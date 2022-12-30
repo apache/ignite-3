@@ -340,7 +340,41 @@ public static class IgniteQueryableExtensions
         throw new NotImplementedException();
     }
 
-    /* TODO: Sum, Average, Contains?, ToList, ToArray, ToDictionary */
+    /// <summary>
+    /// Returns the sum of a sequence of values.
+    /// </summary>
+    /// <param name="queryable">Query.</param>
+    /// <returns>A <see cref="Task"/> representing the asynchronous operation.
+    /// The task result contains the sum of a sequence of values.
+    /// </returns>
+    public static Task<int> SumAsync(this IQueryable<int> queryable)
+    {
+        // TODO: With selector
+        // TODO: With long, float, double, decimal
+        // TODO: With nullables
+        IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
+
+        throw new NotImplementedException();
+    }
+
+    /// <summary>
+    /// Returns the average of a sequence of values.
+    /// </summary>
+    /// <param name="queryable">Query.</param>
+    /// <returns>A <see cref="Task"/> representing the asynchronous operation.
+    /// The task result contains the average of a sequence of values.
+    /// </returns>
+    public static Task<double> AverageAsync(this IQueryable<int> queryable)
+    {
+        // TODO: With selector
+        // TODO: With long, float, double, decimal (int, long, double -> double; float -> float; decimal -> decimal)
+        // TODO: With nullables
+        IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
+
+        throw new NotImplementedException();
+    }
+
+    /* TODO: ToList, ToArray, ToDictionary */
 
     /// <summary>
     /// Generates SQL representation of the specified query.
