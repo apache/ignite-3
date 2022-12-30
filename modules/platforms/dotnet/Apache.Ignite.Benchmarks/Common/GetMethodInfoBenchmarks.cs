@@ -25,12 +25,27 @@ using BenchmarkDotNet.Attributes;
 
 /// <summary>
 /// Compares performance of different ways of getting a <see cref="MethodInfo"/>.
+/// |       Method |     Mean |    Error |   StdDev |  Gen 0 | Allocated |
+/// |------------- |---------:|---------:|---------:|-------:|----------:|
+/// |       ByName | 375.4 ns |  5.77 ns |  5.40 ns | 0.0052 |     152 B |
+/// | ByExpression | 928.9 ns | 16.68 ns | 33.70 ns | 0.0210 |     584 B |.
 /// </summary>
+[MemoryDiagnoser]
 public class GetMethodInfoBenchmarks
 {
     [Benchmark]
-    public MethodInfo ByName() =>
-        (MethodInfo)typeof(Queryable).GetMember(nameof(Queryable.Any)).Single(x => ((MethodInfo)x).GetParameters().Length == 2);
+    public MethodInfo ByName()
+    {
+        foreach (var memberInfo in typeof(Queryable).GetMember(nameof(Queryable.Any)))
+        {
+            if (memberInfo is MethodInfo mi && mi.GetParameters().Length == 2)
+            {
+                return mi;
+            }
+        }
+
+        return null!;
+    }
 
     [Benchmark]
     public MethodInfo ByExpression() =>
