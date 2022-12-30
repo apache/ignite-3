@@ -24,7 +24,7 @@ import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Exception is thrown when the distribution zone cannot be dropped because there is a table bounded to the distribution zone.
+ * Exception is thrown when the distribution zone cannot be dropped because there is a table bound to the distribution zone.
  */
 public class DistributionZoneBindTableException extends IgniteInternalException {
     /**

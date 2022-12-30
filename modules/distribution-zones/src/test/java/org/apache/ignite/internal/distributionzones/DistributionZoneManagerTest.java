@@ -479,7 +479,7 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
     @Test
     public void testGetExistingZoneIdByName() throws Exception {
         distributionZoneManager.createZone(
-                        new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).dataNodesAutoAdjust(100).build()
+                        new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).build()
                 )
                 .get(5, TimeUnit.SECONDS);
 
@@ -491,7 +491,7 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
     @Test
     public void testGetNotExistingZoneIdByName() throws Exception {
         distributionZoneManager.createZone(
-                        new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).dataNodesAutoAdjust(100).build()
+                        new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).build()
                 )
                 .get(5, TimeUnit.SECONDS);
 
@@ -501,7 +501,7 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
     @Test
     public void testTryDropZoneBoundedToTable() throws Exception {
         distributionZoneManager.createZone(
-                        new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).dataNodesAutoAdjust(100).build()
+                        new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).build()
                 )
                 .get(5, TimeUnit.SECONDS);
 

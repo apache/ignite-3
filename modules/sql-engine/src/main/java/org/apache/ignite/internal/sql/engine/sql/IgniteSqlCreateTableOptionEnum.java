@@ -22,5 +22,5 @@ package org.apache.ignite.internal.sql.engine.sql;
  */
 public enum IgniteSqlCreateTableOptionEnum {
     /** Distribution zone. */
-    ZONE
+    PRIMARY_ZONE
 }

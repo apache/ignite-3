@@ -289,7 +289,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         String curMethodName = getCurrentMethodName();
 
         String newTblSql = String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) "
-                + "with partitions=1,replicas=1,zone='zone123'", curMethodName);
+                + "with partitions=1,replicas=1,primary_zone='zone123'", curMethodName);
 
         readFirst(queryProc.queryAsync("PUBLIC", newTblSql));
 
@@ -301,19 +301,19 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         assertThrows(TableAlreadyExistsException.class, () -> readFirst(finalQueryProc.queryAsync("PUBLIC", finalNewTblSql1)));
 
         String finalNewTblSql2 = String.format("CREATE TABLE \"PUBLIC\".%s (c1 int PRIMARY KEY, c2 varbinary(255)) "
-                + "with partitions=1,replicas=1,zone='zone123'", curMethodName);
+                + "with partitions=1,replicas=1,primary_zone='zone123'", curMethodName);
 
         assertThrows(TableAlreadyExistsException.class, () -> readFirst(finalQueryProc.queryAsync("PUBLIC", finalNewTblSql2)));
 
         // todo: correct exception need to be thrown https://issues.apache.org/jira/browse/IGNITE-16084
         assertThrows(SqlException.class, () -> readFirst(finalQueryProc.queryAsync("PUBLIC",
-                "CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with partitions__wrong=1,replicas=1,zone='zone123'")));
+                "CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with partitions__wrong=1,replicas=1,primary_zone='zone123'")));
 
         assertThrows(SqlException.class, () -> readFirst(finalQueryProc.queryAsync("PUBLIC",
-                "CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with partitions=1,replicas__wrong=1,zone='zone123'")));
+                "CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with partitions=1,replicas__wrong=1,primary_zone='zone123'")));
 
         assertThrows(SqlException.class, () -> readFirst(finalQueryProc.queryAsync("PUBLIC",
-                "CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with partitions=1,replicas=1,zone__wrong='zone123'")));
+                "CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with partitions=1,replicas=1,primary_zone__wrong='zone123'")));
 
         newTblSql = String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varchar(255))",
                 " IF NOT EXISTS " + curMethodName);
@@ -345,7 +345,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         when(distributionZoneManager.getZoneId(zoneName)).thenReturn(5);
 
         newTblSql = String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) "
-                + "with partitions=1,replicas=1,zone='%s'", tableName, zoneName);
+                + "with partitions=1,replicas=1,primary_zone='%s'", tableName, zoneName);
 
         readFirst(queryProc.queryAsync("PUBLIC", newTblSql));
 
@@ -360,7 +360,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 IgniteException.class,
                 () -> readFirst(queryProc.queryAsync("PUBLIC",
                         String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) "
-                                + "with partitions=1,replicas=1,zone='%s'", tableName, zoneName)))
+                                + "with partitions=1,replicas=1,primary_zone='%s'", tableName, zoneName)))
         );
 
         assertInstanceOf(DistributionZoneNotFoundException.class, exception.getCause().getCause());
@@ -425,7 +425,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         assertDoesNotThrow(() -> readFirst(queryProc.queryAsync(
                 "PUBLIC",
                 String.format(
-                        "CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with replicas=1, partitions=1, zone='zone123'",
+                        "CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with replicas=1, partitions=1, primary_zone='zone123'",
                         method + 4
                 )
         )));

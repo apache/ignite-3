@@ -315,7 +315,7 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
         String query = "create table my_table(id int) with"
                 + " replicas=2,"
                 + " partitions=3,"
-                + " zone='zone123',"
+                + " primary_zone='zone123',"
                 + " dataRegion='default',"
                 + " \"pageSize\"=1024,"
                 + " \"persistent\"=true";
@@ -328,7 +328,7 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
 
         assertThatOptionPresent(createTable.createOptionList().getList(), "REPLICAS", 2);
         assertThatOptionPresent(createTable.createOptionList().getList(), "PARTITIONS", 3);
-        assertThatOptionPresent(createTable.createOptionList().getList(), "ZONE", "zone123");
+        assertThatOptionPresent(createTable.createOptionList().getList(), "PRIMARY_ZONE", "zone123");
         assertThatOptionPresent(createTable.createOptionList().getList(), "DATAREGION", "default");
         assertThatOptionPresent(createTable.createOptionList().getList(), "pageSize", 1024);
         assertThatOptionPresent(createTable.createOptionList().getList(), "persistent", true);
