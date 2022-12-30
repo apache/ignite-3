@@ -36,4 +36,25 @@ public partial class LinqTests
         Assert.IsFalse(await PocoView.AsQueryable().Where(x => x.Key > 1000).AnyAsync());
         Assert.IsFalse(await PocoView.AsQueryable().AnyAsync(x => x.Key > 1000));
     }
+
+    [Test]
+    public async Task TestAllAsync()
+    {
+        Assert.IsTrue(await PocoView.AsQueryable().AllAsync(x => x.Key < 1000));
+        Assert.IsFalse(await PocoView.AsQueryable().AllAsync(x => x.Key > 1000));
+    }
+
+    [Test]
+    public async Task TestCountAsync()
+    {
+        Assert.AreEqual(10, await PocoView.AsQueryable().CountAsync());
+        Assert.AreEqual(4, await PocoView.AsQueryable().CountAsync(x => x.Key > 5));
+    }
+
+    [Test]
+    public async Task TestLongCountAsync()
+    {
+        Assert.AreEqual(10L, await PocoView.AsQueryable().LongCountAsync());
+        Assert.AreEqual(4L, await PocoView.AsQueryable().LongCountAsync(x => x.Key > 5));
+    }
 }

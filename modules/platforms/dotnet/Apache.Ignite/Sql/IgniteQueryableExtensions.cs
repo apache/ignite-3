@@ -182,7 +182,6 @@ public static class IgniteQueryableExtensions
     /// The task result contains the number of elements in the input sequence.</returns>
     public static async Task<long> LongCountAsync<TSource>(this IQueryable<TSource> queryable)
     {
-        // TODO: LongCountAsync with predicate.
         IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
 
         var method = new Func<IQueryable<TSource>, long>(Queryable.LongCount).GetMethodInfo();
