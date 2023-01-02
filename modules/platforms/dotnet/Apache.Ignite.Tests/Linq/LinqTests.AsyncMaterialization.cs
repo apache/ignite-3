@@ -95,4 +95,17 @@ public partial class LinqTests
         var ex2 = Assert.ThrowsAsync<InvalidOperationException>(() => query.SingleAsync(x => x.Key > 1000));
         StringAssert.StartsWith("ResultSet is empty: ", ex2!.Message);
     }
+
+    [Test]
+    public async Task TestSingleOrDefaultAsync()
+    {
+        var query = PocoView.AsQueryable().OrderBy(x => x.Key);
+
+        Assert.AreEqual(3L, (await query.Where(x => x.Key == 3).SingleOrDefaultAsync())!.Key);
+        Assert.AreEqual(6L, (await query.SingleOrDefaultAsync(x => x.Key == 6))!.Key);
+        Assert.IsNull(await query.SingleOrDefaultAsync(x => x.Key > 1000));
+
+        var ex = Assert.ThrowsAsync<InvalidOperationException>(() => query.SingleOrDefaultAsync());
+        StringAssert.StartsWith("ResultSet is expected to have one row, but has more: ", ex!.Message);
+    }
 }
