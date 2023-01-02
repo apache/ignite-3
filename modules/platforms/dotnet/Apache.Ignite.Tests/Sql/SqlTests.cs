@@ -122,6 +122,31 @@ namespace Apache.Ignite.Tests.Sql
         }
 
         [Test]
+        public async Task TestToDictionary()
+        {
+            var statement = new SqlStatement("SELECT ID, VAL FROM TEST ORDER BY VAL", pageSize: 4);
+            await using var resultSet = await Client.Sql.ExecuteAsync(null, statement);
+            Dictionary<int, string> res = await resultSet.ToDictionaryAsync(x => (int)x["ID"]!, x => (string)x["VAL"]!);
+
+            Assert.AreEqual(10, res.Count);
+            Assert.AreEqual(10, res.Count);
+            Assert.AreEqual("s-3", res[3]);
+        }
+
+        [Test]
+        public async Task TestToDictionaryCustomComparer()
+        {
+            // TODO:
+            var statement = new SqlStatement("SELECT ID, VAL FROM TEST ORDER BY VAL", pageSize: 4);
+            await using var resultSet = await Client.Sql.ExecuteAsync(null, statement);
+            Dictionary<int, string> res = await resultSet.ToDictionaryAsync(x => (int)x["ID"]!, x => (string)x["VAL"]!);
+
+            Assert.AreEqual(10, res.Count);
+            Assert.AreEqual(10, res.Count);
+            Assert.AreEqual("s-3", res[3]);
+        }
+
+        [Test]
         public async Task TestExists()
         {
             await using var resultSet = await Client.Sql.ExecuteAsync(null, "SELECT EXISTS (SELECT 1 FROM TEST WHERE ID > 1)");
