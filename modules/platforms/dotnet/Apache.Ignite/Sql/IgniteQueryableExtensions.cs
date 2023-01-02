@@ -503,7 +503,7 @@ public static class IgniteQueryableExtensions
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.
     /// The task result contains the minimum value in the sequence.
     /// </returns>
-    [DynamicDependency("Min`1", typeof(Queryable))]
+    [DynamicDependency("Min`2", typeof(Queryable))]
     public static async Task<TSource> MinAsync<TSource, TResult>(
         this IQueryable<TSource> queryable,
         Expression<Func<TSource, TResult>> selector)
@@ -526,12 +526,37 @@ public static class IgniteQueryableExtensions
     /// The task result contains the maximum value in the sequence.
     /// </returns>
     [DynamicDependency("Max`1", typeof(Queryable))]
-    public static Task<TSource> MaxAsync<TSource>(this IQueryable<TSource> queryable)
+    public static async Task<TSource> MaxAsync<TSource>(this IQueryable<TSource> queryable)
     {
-        // TODO: With selector
         IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
 
-        throw new NotImplementedException();
+        var method = new Func<IQueryable<TSource>, TSource?>(Queryable.Max).GetMethodInfo();
+        var expression = Expression.Call(null, method, queryable.Expression);
+
+        var provider = queryable.ToQueryableInternal().Provider;
+        return await provider.ExecuteSingleAsync<TSource>(expression).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Returns the maximum value of a sequence.
+    /// </summary>
+    /// <typeparam name="TSource">Element type.</typeparam>
+    /// <typeparam name="TResult">The type of the value returned by the function represented by <paramref name="selector" />.</typeparam>
+    /// <param name="queryable">Query.</param>
+    /// <param name="selector">A projection function to apply to each element.</param>
+    /// <returns>A <see cref="Task"/> representing the asynchronous operation.
+    /// The task result contains the maximum value in the sequence.
+    /// </returns>
+    [DynamicDependency("Max`2", typeof(Queryable))]
+    public static async Task<TSource> MaxAsync<TSource, TResult>(this IQueryable<TSource> queryable, Expression<Func<TSource, TResult>> selector)
+    {
+        IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
+
+        var method = new Func<IQueryable<TSource>, Expression<Func<TSource, TResult>>, TResult?>(Queryable.Max).GetMethodInfo();
+        var expression = Expression.Call(null, method, queryable.Expression, Expression.Quote(selector));
+
+        var provider = queryable.ToQueryableInternal().Provider;
+        return await provider.ExecuteSingleAsync<TSource>(expression).ConfigureAwait(false);
     }
 
     /// <summary>
