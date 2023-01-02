@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Tests.Linq;
 
+using System;
 using System.Linq;
 using System.Threading.Tasks;
 using Ignite.Sql;
@@ -56,5 +57,17 @@ public partial class LinqTests
     {
         Assert.AreEqual(10L, await PocoView.AsQueryable().LongCountAsync());
         Assert.AreEqual(4L, await PocoView.AsQueryable().LongCountAsync(x => x.Key > 5));
+    }
+
+    [Test]
+    public async Task TestFirstAsync()
+    {
+        var query = PocoView.AsQueryable().OrderBy(x => x.Key);
+
+        Assert.AreEqual(0L, (await query.FirstAsync()).Key);
+        Assert.AreEqual(6L, (await query.FirstAsync(x => x.Key > 5)).Key);
+
+        var ex = Assert.ThrowsAsync<InvalidOperationException>(() => query.FirstAsync(x => x.Key > 1000));
+        StringAssert.StartsWith("ResultSet is empty: ", ex!.Message);
     }
 }
