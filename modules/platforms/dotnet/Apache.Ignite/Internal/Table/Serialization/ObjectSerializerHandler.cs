@@ -500,11 +500,13 @@ namespace Apache.Ignite.Internal.Table.Serialization
         private static void ValidateFieldType(FieldInfo fieldInfo, Column column)
         {
             var columnType = column.Type.ToType();
+
             var fieldType = Nullable.GetUnderlyingType(fieldInfo.FieldType) ?? fieldInfo.FieldType;
+            fieldType = fieldType.UnwrapEnum();
 
             if (fieldType != columnType)
             {
-                var message = $"Can't map field '{fieldInfo.DeclaringType?.Name}.{fieldInfo.Name}' of type '{fieldType}' " +
+                var message = $"Can't map field '{fieldInfo.DeclaringType?.Name}.{fieldInfo.Name}' of type '{fieldInfo.FieldType}' " +
                               $"to column '{column.Name}' of type '{columnType}' - types do not match.";
 
                 throw new IgniteClientException(ErrorGroups.Client.Configuration, message);

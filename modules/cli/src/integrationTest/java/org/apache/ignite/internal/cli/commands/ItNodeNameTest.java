@@ -21,32 +21,38 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCo
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import jakarta.inject.Inject;
 import java.time.Duration;
+import org.apache.ignite.internal.cli.core.repl.registry.NodeNameRegistry;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /** Tests for ignite node commands with a provided node name. */
-public class NodeNameTest extends CliCommandTestNotInitializedIntegrationBase {
+public class ItNodeNameTest extends CliCommandTestInitializedIntegrationBase {
 
-    private String nodeName;
+    @Inject
+    private NodeNameRegistry nodeNameRegistry;
+
+    @Override
+    protected Class<?> getCommandClass() {
+        return TopLevelCliReplCommand.class;
+    }
 
     @BeforeEach
     void setUp() throws InterruptedException {
-        nodeNameRegistry.startPullingUpdates("http://localhost:10301");
+        execute("connect");
+        resetOutput();
         // wait to pulling node names
-        assertTrue(waitForCondition(() -> !nodeNameRegistry.getAllNames().isEmpty(), Duration.ofSeconds(5).toMillis()));
-        this.nodeName = nodeNameRegistry.getAllNames().stream()
-                .findFirst()
-                .orElseThrow(() -> new RuntimeException("nodeNameRegistry doesn't contain any nodes"));
+        assertTrue(waitForCondition(() -> !nodeNameRegistry.names().isEmpty(), Duration.ofSeconds(5).toMillis()));
     }
 
     @Test
     @DisplayName("Should display node version with provided node name")
     void nodeVersion() {
         // When
-        execute("node", "version", "--node-name", nodeName);
+        execute("node", "version", "--node-name", nodeName());
 
         // Then
         assertAll(
@@ -60,7 +66,7 @@ public class NodeNameTest extends CliCommandTestNotInitializedIntegrationBase {
     @DisplayName("Should display node config with provided node name")
     void nodeConfig() {
         // When
-        execute("node", "config", "show", "--node-name", nodeName);
+        execute("node", "config", "show", "--node-name", nodeName());
 
         // Then
         assertAll(
@@ -74,18 +80,26 @@ public class NodeNameTest extends CliCommandTestNotInitializedIntegrationBase {
     @DisplayName("Should display node status with provided node name")
     void nodeStatus() {
         // When
+        String nodeName = nodeName();
         execute("node", "status", "--node-name", nodeName);
 
         // Then
         assertAll(
                 this::assertExitCodeIsZero,
                 this::assertErrOutputIsEmpty,
-                () -> assertOutputMatches("\\[name: " + nodeName + ", state: starting\\]?\\s+")
+                () -> assertOutputMatches("\\[name: " + nodeName + ", state: started\\]?\\s+")
         );
     }
 
     @AfterEach
     void tearDown() {
-        nodeNameRegistry.stopPullingUpdates();
+        execute("disconnect");
+    }
+
+    private String nodeName() {
+        return nodeNameRegistry.names()
+                .stream()
+                .findAny()
+                .orElseThrow(() -> new IllegalStateException("nodeNameRegistry doesn't have any node names"));
     }
 }

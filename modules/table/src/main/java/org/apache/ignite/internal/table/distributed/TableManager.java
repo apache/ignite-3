@@ -965,6 +965,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      */
     private void cleanUpTablesResources(Map<UUID, TableImpl> tables) {
         for (TableImpl table : tables.values()) {
+            table.beforeClose();
+
             List<Runnable> stopping = new ArrayList<>();
 
             AtomicReference<Exception> exception = new AtomicReference<>();

@@ -60,6 +60,9 @@ public class ErrorGroups {
 
         /** Column not found. */
         public static final int COLUMN_NOT_FOUND_ERR = TABLE_ERR_GROUP.registerErrorCode(4);
+
+        /** Table is stopping. */
+        public static final int TABLE_STOPPING_ERR = TABLE_ERR_GROUP.registerErrorCode(5);
     }
 
     /** Client error group. */
@@ -268,8 +271,8 @@ public class ErrorGroups {
         /** Failed to acquire a lock on a key due to a conflict. */
         public static final int ACQUIRE_LOCK_ERR = TX_ERR_GROUP.registerErrorCode(5);
 
-        /** Failed to downgrade a lock on a key due to a conflict. */
-        public static final int DOWNGRADE_LOCK_ERR = TX_ERR_GROUP.registerErrorCode(6);
+        /** Failed to acquire a lock on a key within a timeout. */
+        public static final int ACQUIRE_LOCK_TIMEOUT_ERR = TX_ERR_GROUP.registerErrorCode(6);
 
         /** Failed to commit a transaction. */
         public static final int TX_COMMIT_ERR = TX_ERR_GROUP.registerErrorCode(7);
@@ -283,8 +286,8 @@ public class ErrorGroups {
         /** The error happens when the replica is not ready to handle a request. */
         public static final int TX_REPLICA_UNAVAILABLE_ERR = TX_ERR_GROUP.registerErrorCode(10);
 
-        /** Tx state storage full rebalancing error. */
-        public static final int TX_STATE_STORAGE_FULL_REBALANCE_ERR = TX_ERR_GROUP.registerErrorCode(11);
+        /** Tx state storage rebalancing error. */
+        public static final int TX_STATE_STORAGE_REBALANCE_ERR = TX_ERR_GROUP.registerErrorCode(11);
     }
 
     /** Replicator error group. */

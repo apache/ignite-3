@@ -22,7 +22,6 @@ import static org.hamcrest.Matchers.containsInAnyOrder;
 
 import java.util.Set;
 import java.util.stream.Stream;
-import org.apache.ignite.internal.cli.core.repl.completer.node.StringDynamicCompleter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;

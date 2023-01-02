@@ -19,12 +19,12 @@ package org.apache.ignite.internal.cli.call.connect;
 
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
-import org.apache.ignite.internal.cli.NodeNameRegistry;
 import org.apache.ignite.internal.cli.core.call.Call;
 import org.apache.ignite.internal.cli.core.call.CallOutput;
 import org.apache.ignite.internal.cli.core.call.DefaultCallOutput;
 import org.apache.ignite.internal.cli.core.call.EmptyCallInput;
 import org.apache.ignite.internal.cli.core.repl.Session;
+import org.apache.ignite.internal.cli.core.repl.SessionInfo;
 import org.apache.ignite.internal.cli.core.style.component.MessageUiComponent;
 import org.apache.ignite.internal.cli.core.style.element.UiElements;
 
@@ -35,22 +35,17 @@ import org.apache.ignite.internal.cli.core.style.element.UiElements;
 public class DisconnectCall implements Call<EmptyCallInput, String> {
     @Inject
     private final Session session;
-    @Inject
-    private final NodeNameRegistry nodeNameRegistry;
 
-    public DisconnectCall(Session session, NodeNameRegistry nodeNameRegistry) {
+    public DisconnectCall(Session session) {
         this.session = session;
-        this.nodeNameRegistry = nodeNameRegistry;
     }
 
     @Override
     public CallOutput<String> execute(EmptyCallInput input) {
-        if (session.isConnectedToNode()) {
-            String nodeUrl = session.nodeUrl();
-            session.setNodeUrl(null);
-            session.setNodeName(null);
-            session.setConnectedToNode(false);
-            nodeNameRegistry.stopPullingUpdates();
+        SessionInfo sessionInfo = session.info();
+        if (sessionInfo != null) {
+            String nodeUrl = sessionInfo.nodeUrl();
+            session.disconnect();
             return DefaultCallOutput.success(
                     MessageUiComponent.fromMessage("Disconnected from %s", UiElements.url(nodeUrl)).render()
             );

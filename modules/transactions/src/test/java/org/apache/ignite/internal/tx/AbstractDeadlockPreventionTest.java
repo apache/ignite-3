@@ -20,36 +20,29 @@ package org.apache.ignite.internal.tx;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.hasCause;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
-import static org.apache.ignite.internal.tx.LockMode.S;
-import static org.apache.ignite.internal.tx.LockMode.X;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
-import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.junit.jupiter.api.Test;
 
 /**
- * Tests for deadlock prevention scenarios.
+ * Abstract class containing some tests for deadlock prevention that check common scenarios for different policies.
  */
-public class DeadlockPreventionTest {
-    private LockManager lockManager = new HeapLockManager();
-    private Map<UUID, List<CompletableFuture<Lock>>> locks = new HashMap<>();
+public abstract class AbstractDeadlockPreventionTest extends AbstractLockingTest {
+    protected abstract DeadlockPreventionPolicy deadlockPreventionPolicy();
+
+    @Override
+    protected LockManager lockManager() {
+        return new HeapLockManager(deadlockPreventionPolicy());
+    }
 
     @Test
-    public void testWaitDie0() {
+    public void testSimpleConflict0() {
         var tx1 = beginTx();
         var tx2 = beginTx();
 
@@ -57,11 +50,11 @@ public class DeadlockPreventionTest {
 
         assertThat(xlock(tx1, key1), willCompleteSuccessfully());
 
-        assertThrowsLockException(() -> xlock(tx2, key1));
+        assertFutureFailsOrWaitsForTimeout(() -> xlock(tx2, key1));
     }
 
     @Test
-    public void testWaitDie1() {
+    public void testSimpleConflict1() {
         var tx1 = beginTx();
         var tx2 = beginTx();
 
@@ -77,7 +70,7 @@ public class DeadlockPreventionTest {
     }
 
     @Test
-    public void testWaitDieSlocks1() {
+    public void testSimpleConflictSlocks1() {
         var tx1 = beginTx();
         var tx2 = beginTx();
 
@@ -86,11 +79,11 @@ public class DeadlockPreventionTest {
         assertThat(slock(tx1, key1), willSucceedFast());
         assertThat(slock(tx2, key1), willSucceedFast());
 
-        assertThrowsLockException(() -> xlock(tx2, key1));
+        assertFutureFailsOrWaitsForTimeout(() -> xlock(tx2, key1));
     }
 
     @Test
-    public void testWaitDieSlocks2() {
+    public void testSimpleConflictSlocks2() {
         var tx1 = beginTx();
         var tx2 = beginTx();
 
@@ -102,11 +95,15 @@ public class DeadlockPreventionTest {
         CompletableFuture<?> xlockTx1 = xlock(tx1, key1);
         assertFalse(xlockTx1.isDone());
 
-        assertThrowsLockException(() -> xlock(tx2, key1));
+        CompletableFuture<?> xlockTx2 = xlock(tx2, key1);
 
-        rollbackTx(tx2);
+        assertFutureFailsOrWaitsForTimeout(() -> xlockTx2);
 
-        assertThat(xlockTx1, willSucceedFast());
+        if (xlockTx2.isDone()) {
+            rollbackTx(tx2);
+
+            assertThat(xlockTx1, willSucceedFast());
+        }
     }
 
     @Test
@@ -127,10 +124,9 @@ public class DeadlockPreventionTest {
 
         commitTx(tx3);
 
-        // TODO correctness
         assertThat(futTx1, willSucceedFast());
 
-        assertThrowsLockException(() -> futTx2);
+        assertFutureFailsOrWaitsForTimeout(() -> futTx2);
     }
 
     @Test
@@ -161,7 +157,7 @@ public class DeadlockPreventionTest {
         assertThat(slock(tx2, k), willSucceedFast());
         assertThat(slock(tx1, k), willSucceedFast());
 
-        assertThrowsLockException(() -> xlock(tx2, k));
+        assertFutureFailsOrWaitsForTimeout(() -> xlock(tx2, k));
     }
 
     @Test
@@ -209,7 +205,7 @@ public class DeadlockPreventionTest {
 
         commitTx(tx3);
 
-        assertThrowsLockException(() -> futTx2);
+        assertFutureFailsOrWaitsForTimeout(() -> futTx2);
     }
 
     @Test
@@ -292,77 +288,26 @@ public class DeadlockPreventionTest {
         assertThat(futTx1, willSucceedFast());
     }
 
-    private UUID beginTx() {
-        return Timestamp.nextVersion().toUuid();
-    }
-
-    private LockKey key(Object key) {
-        ByteBuffer b = ByteBuffer.allocate(Integer.BYTES);
-        b.putInt(key.hashCode());
-
-        return new LockKey(b);
-    }
-
-    private CompletableFuture<?> xlock(UUID tx, LockKey key) {
-        return acquire(tx, key, X);
-    }
-
-    private CompletableFuture<?> slock(UUID tx, LockKey key) {
-        return acquire(tx, key, S);
-    }
-
-    private CompletableFuture<?> acquire(UUID tx, LockKey key, LockMode mode) {
-        CompletableFuture<Lock> fut = lockManager.acquire(tx, key, mode);
-
-        locks.compute(tx, (k, v) -> {
-            if (v == null) {
-                v = new ArrayList<>();
-            }
-
-            v.add(fut);
-
-            return v;
-        });
-
-        return fut;
-    }
-
-    private void commitTx(UUID tx) {
-        finishTx(tx);
-    }
-
-    private void rollbackTx(UUID tx) {
-        finishTx(tx);
-    }
-
-    private void finishTx(UUID tx) {
-        List<CompletableFuture<Lock>> txLocks = locks.remove(tx);
-        assertNotNull(txLocks);
-
-        for (CompletableFuture<Lock> fut : txLocks) {
-            assertTrue(fut.isDone());
-
-            if (!fut.isCompletedExceptionally()) {
-                Lock lock = fut.join();
-
-                lockManager.release(lock);
-            }
-        }
-    }
-
-    private static void assertCompletedExceptionally(CompletableFuture<?> fut) {
-        assertTrue(fut.isDone());
-        assertThrows(CompletionException.class, fut::join);
-    }
-
-    private static void assertThrowsLockException(Supplier<CompletableFuture<?>> s) {
+    /**
+     * This method checks lock future of conflicting transaction provided by supplier, in a way depending on deadlock prevention policy.
+     * If the policy does not allow wait on conflict (wait timeout is equal to {@code 0}) then the future must be failed with
+     * {@link LockException}. Otherwise, it must be not completed. This method is only suitable for checking lock futures of lower priority
+     * transactions, if transaction priority is applicable.
+     *
+     * @param s Supplier of lock future.
+     */
+    protected void assertFutureFailsOrWaitsForTimeout(Supplier<CompletableFuture<?>> s) {
         try {
             CompletableFuture<?> f = s.get();
 
-            assertTrue(f.isDone());
-            f.join();
+            if (deadlockPreventionPolicy().waitTimeout() == 0) {
+                assertTrue(f.isDone());
+                f.join();
 
-            fail();
+                fail();
+            } else {
+                assertFalse(f.isDone());
+            }
         } catch (Exception e) {
             if (!hasCause(e, LockException.class, null)) {
                 fail();
