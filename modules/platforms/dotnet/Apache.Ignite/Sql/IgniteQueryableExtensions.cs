@@ -245,11 +245,15 @@ public static class IgniteQueryableExtensions
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.
     /// The task result contains the first element in the input sequence.</returns>
     [DynamicDependency("First`1", typeof(Queryable))]
-    public static Task<TSource> FirstAsync<TSource>(this IQueryable<TSource> queryable, Expression<Func<TSource, bool>> predicate)
+    public static async Task<TSource> FirstAsync<TSource>(this IQueryable<TSource> queryable, Expression<Func<TSource, bool>> predicate)
     {
         IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
 
-        throw new NotImplementedException();
+        var method = new Func<IQueryable<TSource>, Expression<Func<TSource, bool>>, TSource>(Queryable.First).GetMethodInfo();
+        var expression = Expression.Call(null, method, queryable.Expression, Expression.Quote(predicate));
+
+        var provider = queryable.ToQueryableInternal().Provider;
+        return await provider.ExecuteSingleAsync<TSource>(expression).ConfigureAwait(false);
     }
 
     /// <summary>
