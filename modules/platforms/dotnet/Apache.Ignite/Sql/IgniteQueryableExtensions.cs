@@ -405,8 +405,14 @@ public static class IgniteQueryableExtensions
         var method = new Func<IQueryable<TSource>, TSource?>(Queryable.Min).GetMethodInfo();
         var expression = Expression.Call(null, method, queryable.Expression);
 
+        // TODO: When TSource is non-nullable value type, and result set contains null,
+        // throw InvalidOperationException: Sequence contains no elements.
+        // TODO: Replace bool flags (e.g. defaultIfNull) with a flags enum;
+        // Introduce new mode "ThrowNoElementsOnNull".
         var provider = queryable.ToQueryableInternal().Provider;
-        return await provider.ExecuteSingleAsync<TSource>(expression).ConfigureAwait(false);
+        var res = await provider.ExecuteSingleAsync<TSource?>(expression).ConfigureAwait(false);
+
+        return res!;
     }
 
     /// <summary>
