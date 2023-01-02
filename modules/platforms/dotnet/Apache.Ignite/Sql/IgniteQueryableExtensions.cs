@@ -394,12 +394,36 @@ public static class IgniteQueryableExtensions
     /// The task result contains the single element of the input sequence.
     /// </returns>
     [DynamicDependency("Single`1", typeof(Queryable))]
-    public static Task<TSource> SingleAsync<TSource>(this IQueryable<TSource> queryable)
+    public static async Task<TSource> SingleAsync<TSource>(this IQueryable<TSource> queryable)
     {
-        // TODO: With predicate
         IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
 
-        throw new NotImplementedException();
+        var method = new Func<IQueryable<TSource>, TSource>(Queryable.Single).GetMethodInfo();
+        var expression = Expression.Call(null, method, queryable.Expression);
+
+        var provider = queryable.ToQueryableInternal().Provider;
+        return await provider.ExecuteSingleAsync<TSource>(expression).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Returns the only element of a sequence, and throws an exception if there is not exactly one element in the sequence.
+    /// </summary>
+    /// <param name="queryable">Query.</param>
+    /// <param name="predicate">Predicate.</param>
+    /// <typeparam name="TSource">Element type.</typeparam>
+    /// <returns>A <see cref="Task"/> representing the asynchronous operation.
+    /// The task result contains the single element of the input sequence.
+    /// </returns>
+    [DynamicDependency("Single`1", typeof(Queryable))]
+    public static async Task<TSource> SingleAsync<TSource>(this IQueryable<TSource> queryable, Expression<Func<TSource, bool>> predicate)
+    {
+        IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
+
+        var method = new Func<IQueryable<TSource>, Expression<Func<TSource, bool>>, TSource>(Queryable.Single).GetMethodInfo();
+        var expression = Expression.Call(null, method, queryable.Expression, Expression.Quote(predicate));
+
+        var provider = queryable.ToQueryableInternal().Provider;
+        return await provider.ExecuteSingleAsync<TSource>(expression).ConfigureAwait(false);
     }
 
     /// <summary>
