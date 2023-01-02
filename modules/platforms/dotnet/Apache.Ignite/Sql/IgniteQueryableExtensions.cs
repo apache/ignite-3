@@ -672,7 +672,33 @@ public static class IgniteQueryableExtensions
         return await resultSet.ToListAsync().ConfigureAwait(false);
     }
 
-    /* TODO: ToDictionary */
+    /// <summary>
+    /// Creates a <see cref="Dictionary{TK, TV}" /> from an <see cref="IQueryable{T}" /> by enumerating it asynchronously.
+    /// </summary>
+    /// <typeparam name="TSource">Element type.</typeparam>
+    /// <typeparam name="TK">Dictionary key type.</typeparam>
+    /// <typeparam name="TV">Dictionary value type.</typeparam>
+    /// <param name="queryable">Query.</param>
+    /// <param name="keySelector">Key selector.</param>
+    /// <param name="valSelector">Value selector.</param>
+    /// <param name="comparer">Optional comparer.</param>
+    /// <returns>A <see cref="Task"/> representing the asynchronous operation.
+    /// The task result contains a <see cref="Dictionary{TK, TV}" /> that contains elements from the input sequence.
+    /// </returns>
+    [SuppressMessage("Reliability", "CA2007:Consider calling ConfigureAwait on the awaited task", Justification = "False positive.")]
+    public static async ValueTask<Dictionary<TK, TV>> ToDictionaryAsync<TSource, TK, TV>(
+        this IQueryable<TSource> queryable,
+        Func<TSource, TK> keySelector,
+        Func<TSource, TV> valSelector,
+        IEqualityComparer<TK>? comparer = null)
+        where TK : notnull
+    {
+        IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
+
+        await using var resultSet = await queryable.ToResultSetAsync().ConfigureAwait(false);
+
+        return await resultSet.ToDictionaryAsync(keySelector, valSelector, comparer).ConfigureAwait(false);
+    }
 
     /// <summary>
     /// Generates SQL representation of the specified query.
