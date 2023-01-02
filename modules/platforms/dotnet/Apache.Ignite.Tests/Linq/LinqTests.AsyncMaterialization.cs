@@ -108,4 +108,15 @@ public partial class LinqTests
         var ex = Assert.ThrowsAsync<InvalidOperationException>(() => query.SingleOrDefaultAsync());
         StringAssert.StartsWith("ResultSet is expected to have one row, but has more: ", ex!.Message);
     }
+
+    [Test]
+    public async Task TestMinAsync()
+    {
+        var query = PocoView.AsQueryable().Select(x => x.Key);
+
+        Assert.AreEqual(0L, await query.MinAsync());
+        Assert.AreEqual(-9L, await query.MinAsync(x => -x));
+
+        Assert.IsNull(await query.Where(x => x > 1000).MinAsync());
+    }
 }

@@ -66,6 +66,7 @@ public partial class LinqSqlGenerationTests
     public void TestAvg() =>
         AssertSql("select avg(_T0.KEY) from PUBLIC.tbl1 as _T0", q => q.Average(x => x.Key));
 
+    // TODO: Async tests for everything in IgniteQueryableExtensions.
     [Test]
     public void TestMin() =>
         AssertSql("select min(_T0.KEY) from PUBLIC.tbl1 as _T0", q => q.Min(x => x.Key));
