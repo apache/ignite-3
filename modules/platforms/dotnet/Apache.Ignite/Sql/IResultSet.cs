@@ -74,10 +74,24 @@ namespace Apache.Ignite.Sql
         /// </summary>
         /// <param name="keySelector">Key selector.</param>
         /// <param name="valSelector">Value selector.</param>
+        /// <param name="comparer">Optional comparer.</param>
         /// <typeparam name="TK">Dictionary key type.</typeparam>
         /// <typeparam name="TV">Dictionary value type.</typeparam>
         /// <returns>All result set rows as list.</returns>
-        ValueTask<Dictionary<TK, TV>> ToDictionaryAsync<TK, TV>(Func<T, TK> keySelector, Func<T, TV> valSelector)
+        ValueTask<Dictionary<TK, TV>> ToDictionaryAsync<TK, TV>(
+            Func<T, TK> keySelector,
+            Func<T, TV> valSelector,
+            IEqualityComparer<TK>? comparer = null)
             where TK : notnull;
+
+        /// <summary>
+        /// Collects all result set rows into a container of the specified type.
+        /// </summary>
+        /// <param name="constructor">Container constructor, accepts estimated capacity.
+        /// Actual result set size may exceed specified capacity.</param>
+        /// <param name="accumulator">Accumulator, adds rows to the container.</param>
+        /// <typeparam name="TResult">Resulting container type.</typeparam>
+        /// <returns>resulting container.</returns>
+        ValueTask<TResult> CollectAsync<TResult>(Func<int, TResult> constructor, Action<TResult, T> accumulator);
     }
 }

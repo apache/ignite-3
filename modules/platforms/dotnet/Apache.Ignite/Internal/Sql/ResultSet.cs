@@ -111,60 +111,40 @@ namespace Apache.Ignite.Internal.Sql
         public bool WasApplied { get; }
 
         /// <inheritdoc/>
-        public async ValueTask<List<T>> ToListAsync()
-        {
-            ValidateAndSetIteratorState();
-
-            // First page is included in the initial response.
-            var cols = Metadata!.Columns;
-            var hasMore = _hasMorePages;
-            List<T>? res = null;
-
-            ReadPage(_buffer!.Value, _bufferOffset);
-            ReleaseBuffer();
-
-            while (hasMore)
-            {
-                using var pageBuf = await FetchNextPage().ConfigureAwait(false);
-                ReadPage(pageBuf, 0);
-            }
-
-            _resourceClosed = true;
-
-            return res!;
-
-            void ReadPage(PooledBuffer buf, int offset)
-            {
-                var reader = buf.GetReader(offset);
-                var pageSize = reader.ReadArrayHeader();
-                res ??= new List<T>(capacity: hasMore ? pageSize * 2 : pageSize);
-
-                for (var rowIdx = 0; rowIdx < pageSize; rowIdx++)
-                {
-                    res.Add(ReadRow(cols, ref reader));
-                }
-
-                if (!reader.End)
-                {
-                    hasMore = reader.ReadBoolean();
-                }
-            }
-        }
+        public async ValueTask<List<T>> ToListAsync() =>
+            await CollectAsync(
+                    constructor: static capacity => new List<T>(capacity),
+                    accumulator: static (list, item) => list.Add(item))
+                .ConfigureAwait(false);
 
         /// <inheritdoc/>
-        public async ValueTask<Dictionary<TK, TV>> ToDictionaryAsync<TK, TV>(Func<T, TK> keySelector, Func<T, TV> valSelector)
+        public async ValueTask<Dictionary<TK, TV>> ToDictionaryAsync<TK, TV>(
+            Func<T, TK> keySelector,
+            Func<T, TV> valSelector,
+            IEqualityComparer<TK>? comparer)
             where TK : notnull
         {
-            // TODO: Accept comparer.
             IgniteArgumentCheck.NotNull(keySelector, nameof(keySelector));
             IgniteArgumentCheck.NotNull(valSelector, nameof(valSelector));
 
+            return await CollectAsync(
+                    constructor: capacity => new Dictionary<TK, TV>(capacity, comparer),
+                    accumulator: (dictionary, item) => dictionary.Add(keySelector(item), valSelector(item)))
+                .ConfigureAwait(false);
+        }
+
+        /// <inheritdoc/>
+        public async ValueTask<TResult> CollectAsync<TResult>(Func<int, TResult> constructor, Action<TResult, T> accumulator)
+        {
+            IgniteArgumentCheck.NotNull(constructor, nameof(constructor));
+            IgniteArgumentCheck.NotNull(accumulator, nameof(accumulator));
+
             ValidateAndSetIteratorState();
 
             // First page is included in the initial response.
             var cols = Metadata!.Columns;
             var hasMore = _hasMorePages;
-            Dictionary<TK, TV>? res = null;
+            TResult? res = default;
 
             ReadPage(_buffer!.Value, _bufferOffset);
             ReleaseBuffer();
@@ -183,12 +163,14 @@ namespace Apache.Ignite.Internal.Sql
             {
                 var reader = buf.GetReader(offset);
                 var pageSize = reader.ReadArrayHeader();
-                res ??= new Dictionary<TK, TV>(capacity: hasMore ? pageSize * 2 : pageSize);
+
+                var capacity = hasMore ? pageSize * 2 : pageSize;
+                res ??= constructor(capacity);
 
                 for (var rowIdx = 0; rowIdx < pageSize; rowIdx++)
                 {
                     var row = ReadRow(cols, ref reader);
-                    res.Add(keySelector(row), valSelector(row));
+                    accumulator(res, row);
                 }
 
                 if (!reader.End)
