@@ -117,6 +117,9 @@ public partial class LinqTests
         Assert.AreEqual(0L, await query.MinAsync());
         Assert.AreEqual(-9L, await query.MinAsync(x => -x));
 
+        // TODO:
+        // 1. What does EF Min return in presence of null?
+        // 2. What does EF Min return when there are no results?
         Assert.IsNull(await query.Where(x => x > 1000).MinAsync());
     }
 }
