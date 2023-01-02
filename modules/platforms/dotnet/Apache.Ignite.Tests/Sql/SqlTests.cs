@@ -124,11 +124,10 @@ namespace Apache.Ignite.Tests.Sql
         [Test]
         public async Task TestToDictionary()
         {
-            var statement = new SqlStatement("SELECT ID, VAL FROM TEST ORDER BY VAL", pageSize: 4);
+            var statement = new SqlStatement("SELECT ID, VAL FROM TEST WHERE VAL IS NOT NULL ORDER BY VAL", pageSize: 2);
             await using var resultSet = await Client.Sql.ExecuteAsync(null, statement);
             Dictionary<int, string> res = await resultSet.ToDictionaryAsync(x => (int)x["ID"]!, x => (string)x["VAL"]!);
 
-            Assert.AreEqual(10, res.Count);
             Assert.AreEqual(10, res.Count);
             Assert.AreEqual("s-3", res[3]);
         }
@@ -136,14 +135,15 @@ namespace Apache.Ignite.Tests.Sql
         [Test]
         public async Task TestToDictionaryCustomComparer()
         {
-            // TODO:
-            var statement = new SqlStatement("SELECT ID, VAL FROM TEST ORDER BY VAL", pageSize: 4);
-            await using var resultSet = await Client.Sql.ExecuteAsync(null, statement);
-            Dictionary<int, string> res = await resultSet.ToDictionaryAsync(x => (int)x["ID"]!, x => (string)x["VAL"]!);
+            await using var resultSet = await Client.Sql.ExecuteAsync(null, "SELECT ID, VAL FROM TEST WHERE VAL IS NOT NULL ORDER BY VAL");
+            Dictionary<string, int> res = await resultSet.ToDictionaryAsync(
+                x => (string)x["VAL"]!,
+                x => (int)x["ID"]!,
+                StringComparer.OrdinalIgnoreCase);
 
             Assert.AreEqual(10, res.Count);
-            Assert.AreEqual(10, res.Count);
-            Assert.AreEqual("s-3", res[3]);
+            Assert.AreEqual(3, res["s-3"]);
+            Assert.AreEqual(3, res["S-3"]);
         }
 
         [Test]
