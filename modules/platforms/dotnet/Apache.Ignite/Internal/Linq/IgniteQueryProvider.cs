@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Internal.Linq;
 
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
@@ -94,17 +95,34 @@ internal sealed class IgniteQueryProvider : IQueryProvider
     /// Asynchronously executes the strongly-typed query represented by a specified expression tree.
     /// </summary>
     /// <param name="expression">An expression tree that represents a LINQ query.</param>
-    /// <param name="returnDefaultWhenEmpty">Whether to return <c>default(T)</c> when result set is empty or throw an exception.</param>
     /// <typeparam name="TResult">The type of the value that results from executing the query.</typeparam>
     /// <returns>
     /// A <see cref="Task"/> representing the asynchronous operation.
     /// The task result contains the value that results from executing the specified query.
     /// </returns>
-    public async Task<TResult?> ExecuteSingleAsync<TResult>(Expression expression, bool returnDefaultWhenEmpty)
+    public async Task<TResult> ExecuteSingleAsync<TResult>(Expression expression)
     {
         var model = GenerateQueryModel(expression);
 
-        return await Executor.ExecuteSingleInternalAsync<TResult>(model, returnDefaultWhenEmpty).ConfigureAwait(false);
+        TResult? res = await Executor.ExecuteSingleInternalAsync<TResult>(model, returnDefaultWhenEmpty: false).ConfigureAwait(false);
+
+        return res!;
+    }
+
+    /// <summary>
+    /// Asynchronously executes the strongly-typed query represented by a specified expression tree.
+    /// </summary>
+    /// <param name="expression">An expression tree that represents a LINQ query.</param>
+    /// <typeparam name="TResult">The type of the value that results from executing the query.</typeparam>
+    /// <returns>
+    /// A <see cref="Task"/> representing the asynchronous operation.
+    /// The task result contains the value that results from executing the specified query.
+    /// </returns>
+    public async Task<TResult?> ExecuteSingleOrDefaultAsync<TResult>(Expression expression)
+    {
+        var model = GenerateQueryModel(expression);
+
+        return await Executor.ExecuteSingleInternalAsync<TResult>(model, returnDefaultWhenEmpty: true).ConfigureAwait(false);
     }
 
     /// <summary>

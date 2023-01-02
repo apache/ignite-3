@@ -91,7 +91,7 @@ public static class IgniteQueryableExtensions
         var expression = Expression.Call(null, method, queryable.Expression);
 
         var provider = queryable.ToQueryableInternal().Provider;
-        return await provider.ExecuteSingleAsync<bool>(expression, returnDefaultWhenEmpty: false).ConfigureAwait(false);
+        return await provider.ExecuteSingleAsync<bool>(expression).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -114,7 +114,7 @@ public static class IgniteQueryableExtensions
         var expression = Expression.Call(null, method, queryable.Expression, Expression.Quote(predicate));
 
         var provider = queryable.ToQueryableInternal().Provider;
-        return await provider.ExecuteSingleAsync<bool>(expression, returnDefaultWhenEmpty: false).ConfigureAwait(false);
+        return await provider.ExecuteSingleAsync<bool>(expression).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -136,7 +136,7 @@ public static class IgniteQueryableExtensions
         var expression = Expression.Call(null, method, queryable.Expression, Expression.Quote(predicate));
 
         var provider = queryable.ToQueryableInternal().Provider;
-        return await provider.ExecuteSingleAsync<bool>(expression, returnDefaultWhenEmpty: false).ConfigureAwait(false);
+        return await provider.ExecuteSingleAsync<bool>(expression).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -155,7 +155,7 @@ public static class IgniteQueryableExtensions
         var expression = Expression.Call(null, method, queryable.Expression);
 
         var provider = queryable.ToQueryableInternal().Provider;
-        return await provider.ExecuteSingleAsync<int>(expression, returnDefaultWhenEmpty: false).ConfigureAwait(false);
+        return await provider.ExecuteSingleAsync<int>(expression).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -175,7 +175,7 @@ public static class IgniteQueryableExtensions
         var expression = Expression.Call(null, method, queryable.Expression, Expression.Quote(predicate));
 
         var provider = queryable.ToQueryableInternal().Provider;
-        return await provider.ExecuteSingleAsync<int>(expression, returnDefaultWhenEmpty: false).ConfigureAwait(false);
+        return await provider.ExecuteSingleAsync<int>(expression).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -194,7 +194,7 @@ public static class IgniteQueryableExtensions
         var expression = Expression.Call(null, method, queryable.Expression);
 
         var provider = queryable.ToQueryableInternal().Provider;
-        return await provider.ExecuteSingleAsync<long>(expression, returnDefaultWhenEmpty: false).ConfigureAwait(false);
+        return await provider.ExecuteSingleAsync<long>(expression).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -214,7 +214,7 @@ public static class IgniteQueryableExtensions
         var expression = Expression.Call(null, method, queryable.Expression, Expression.Quote(predicate));
 
         var provider = queryable.ToQueryableInternal().Provider;
-        return await provider.ExecuteSingleAsync<long>(expression, returnDefaultWhenEmpty: false).ConfigureAwait(false);
+        return await provider.ExecuteSingleAsync<long>(expression).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -225,9 +225,28 @@ public static class IgniteQueryableExtensions
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.
     /// The task result contains the first element in the input sequence.</returns>
     [DynamicDependency("First`1", typeof(Queryable))]
-    public static Task<TSource> FirstAsync<TSource>(this IQueryable<TSource> queryable)
+    public static async Task<TSource> FirstAsync<TSource>(this IQueryable<TSource> queryable)
     {
-        // TODO: FirstAsync with predicate.
+        IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
+
+        var method = new Func<IQueryable<TSource>, TSource>(Queryable.First).GetMethodInfo();
+        var expression = Expression.Call(null, method, queryable.Expression);
+
+        var provider = queryable.ToQueryableInternal().Provider;
+        return await provider.ExecuteSingleAsync<TSource>(expression).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Returns the first element of a sequence.
+    /// </summary>
+    /// <param name="queryable">Query.</param>
+    /// <param name="predicate">Predicate.</param>
+    /// <typeparam name="TSource">Element type.</typeparam>
+    /// <returns>A <see cref="Task"/> representing the asynchronous operation.
+    /// The task result contains the first element in the input sequence.</returns>
+    [DynamicDependency("First`1", typeof(Queryable))]
+    public static Task<TSource> FirstAsync<TSource>(this IQueryable<TSource> queryable, Expression<Func<TSource, bool>> predicate)
+    {
         IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
 
         throw new NotImplementedException();
