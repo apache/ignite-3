@@ -288,7 +288,9 @@ public static class IgniteQueryableExtensions
     /// <paramref name="queryable" /> is empty; otherwise, the first element in <paramref name="queryable" />.
     /// </returns>
     [DynamicDependency("FirstOrDefault`1", typeof(Queryable))]
-    public static async Task<TSource?> FirstOrDefaultAsync<TSource>(this IQueryable<TSource> queryable, Expression<Func<TSource, bool>> predicate)
+    public static async Task<TSource?> FirstOrDefaultAsync<TSource>(
+        this IQueryable<TSource> queryable,
+        Expression<Func<TSource, bool>> predicate)
     {
         IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
 
@@ -307,12 +309,35 @@ public static class IgniteQueryableExtensions
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.
     /// The task result contains the last element in the input sequence.</returns>
     [DynamicDependency("Last`1", typeof(Queryable))]
-    public static Task<TSource> LastAsync<TSource>(this IQueryable<TSource> queryable)
+    public static async Task<TSource> LastAsync<TSource>(this IQueryable<TSource> queryable)
     {
-        // TODO: LastAsync with predicate.
         IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
 
-        throw new NotImplementedException();
+        var method = new Func<IQueryable<TSource>, TSource>(Queryable.Last).GetMethodInfo();
+        var expression = Expression.Call(null, method, queryable.Expression);
+
+        var provider = queryable.ToQueryableInternal().Provider;
+        return await provider.ExecuteSingleAsync<TSource>(expression).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Returns the last element of a sequence.
+    /// </summary>
+    /// <param name="queryable">Query.</param>
+    /// <param name="predicate">Predicate.</param>
+    /// <typeparam name="TSource">Element type.</typeparam>
+    /// <returns>A <see cref="Task"/> representing the asynchronous operation.
+    /// The task result contains the last element in the input sequence.</returns>
+    [DynamicDependency("Last`1", typeof(Queryable))]
+    public static async Task<TSource> LastAsync<TSource>(this IQueryable<TSource> queryable, Expression<Func<TSource, bool>> predicate)
+    {
+        IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
+
+        var method = new Func<IQueryable<TSource>, Expression<Func<TSource, bool>>, TSource>(Queryable.Last).GetMethodInfo();
+        var expression = Expression.Call(null, method, queryable.Expression, Expression.Quote(predicate));
+
+        var provider = queryable.ToQueryableInternal().Provider;
+        return await provider.ExecuteSingleAsync<TSource>(expression).ConfigureAwait(false);
     }
 
     /// <summary>
