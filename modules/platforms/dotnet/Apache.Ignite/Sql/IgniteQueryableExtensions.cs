@@ -82,6 +82,7 @@ public static class IgniteQueryableExtensions
     /// A <see cref="Task"/> representing the asynchronous operation.
     /// The task result contains <see langword="true" /> if the source sequence contains any elements; otherwise, <see langword="false" />.
     /// </returns>
+    [DynamicDependency("Any`1", typeof(Queryable))]
     public static async Task<bool> AnyAsync<TSource>(this IQueryable<TSource> queryable)
     {
         IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
@@ -104,6 +105,7 @@ public static class IgniteQueryableExtensions
     /// The task result contains <see langword="true" /> if the source sequence contains any elements matching the specified predicate;
     /// otherwise, <see langword="false" />.
     /// </returns>
+    [DynamicDependency("Any`1", typeof(Queryable))]
     public static async Task<bool> AnyAsync<TSource>(this IQueryable<TSource> queryable, Expression<Func<TSource, bool>> predicate)
     {
         IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
@@ -125,6 +127,7 @@ public static class IgniteQueryableExtensions
     /// A <see cref="Task"/> representing the asynchronous operation.
     /// The task result contains <see langword="true" /> if the source sequence contains any elements; otherwise, <see langword="false" />.
     /// </returns>
+    [DynamicDependency("All`1", typeof(Queryable))]
     public static async Task<bool> AllAsync<TSource>(this IQueryable<TSource> queryable, Expression<Func<TSource, bool>> predicate)
     {
         IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
@@ -143,6 +146,7 @@ public static class IgniteQueryableExtensions
     /// <typeparam name="TSource">Element type.</typeparam>
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.
     /// The task result contains the number of elements in the input sequence.</returns>
+    [DynamicDependency("Count`1", typeof(Queryable))]
     public static async Task<int> CountAsync<TSource>(this IQueryable<TSource> queryable)
     {
         IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
@@ -162,6 +166,7 @@ public static class IgniteQueryableExtensions
     /// <typeparam name="TSource">Element type.</typeparam>
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.
     /// The task result contains the number of elements in the input sequence.</returns>
+    [DynamicDependency("Count`1", typeof(Queryable))]
     public static async Task<int> CountAsync<TSource>(this IQueryable<TSource> queryable, Expression<Func<TSource, bool>> predicate)
     {
         IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
@@ -180,6 +185,7 @@ public static class IgniteQueryableExtensions
     /// <typeparam name="TSource">Element type.</typeparam>
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.
     /// The task result contains the number of elements in the input sequence.</returns>
+    [DynamicDependency("LongCount`1", typeof(Queryable))]
     public static async Task<long> LongCountAsync<TSource>(this IQueryable<TSource> queryable)
     {
         IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
@@ -199,6 +205,7 @@ public static class IgniteQueryableExtensions
     /// <typeparam name="TSource">Element type.</typeparam>
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.
     /// The task result contains the number of elements in the input sequence.</returns>
+    [DynamicDependency("LongCount`1", typeof(Queryable))]
     public static async Task<long> LongCountAsync<TSource>(this IQueryable<TSource> queryable, Expression<Func<TSource, bool>> predicate)
     {
         IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
@@ -217,6 +224,7 @@ public static class IgniteQueryableExtensions
     /// <typeparam name="TSource">Element type.</typeparam>
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.
     /// The task result contains the first element in the input sequence.</returns>
+    [DynamicDependency("First`1", typeof(Queryable))]
     public static Task<TSource> FirstAsync<TSource>(this IQueryable<TSource> queryable)
     {
         // TODO: FirstAsync with predicate.
@@ -234,6 +242,7 @@ public static class IgniteQueryableExtensions
     /// The task result contains <see langword="default" /> ( <typeparamref name="TSource" /> ) if
     /// <paramref name="queryable" /> is empty; otherwise, the first element in <paramref name="queryable" />.
     /// </returns>
+    [DynamicDependency("FirstOrDefault`1", typeof(Queryable))]
     public static Task<TSource?> FirstOrDefaultAsync<TSource>(this IQueryable<TSource> queryable)
     {
         // TODO: FirstOrDefaultAsync with predicate.
@@ -249,6 +258,7 @@ public static class IgniteQueryableExtensions
     /// <typeparam name="TSource">Element type.</typeparam>
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.
     /// The task result contains the last element in the input sequence.</returns>
+    [DynamicDependency("Last`1", typeof(Queryable))]
     public static Task<TSource> LastAsync<TSource>(this IQueryable<TSource> queryable)
     {
         // TODO: LastAsync with predicate.
@@ -266,6 +276,7 @@ public static class IgniteQueryableExtensions
     /// The task result contains <see langword="default" /> ( <typeparamref name="TSource" /> ) if
     /// <paramref name="queryable" /> is empty; otherwise, the last element in <paramref name="queryable" />.
     /// </returns>
+    [DynamicDependency("LastOrDefault`1", typeof(Queryable))]
     public static Task<TSource?> LastOrDefaultAsync<TSource>(this IQueryable<TSource> queryable)
     {
         // TODO: LastOrDefaultAsync with predicate.
@@ -282,6 +293,7 @@ public static class IgniteQueryableExtensions
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.
     /// The task result contains the single element of the input sequence.
     /// </returns>
+    [DynamicDependency("Single`1", typeof(Queryable))]
     public static Task<TSource> SingleAsync<TSource>(this IQueryable<TSource> queryable)
     {
         // TODO: With predicate
@@ -300,6 +312,7 @@ public static class IgniteQueryableExtensions
     /// The task result contains the single element of the input sequence, or <see langword="default" /> (<typeparamref name="TSource" />)
     /// if the sequence contains no elements.
     /// </returns>
+    [DynamicDependency("SingleOrDefault`1", typeof(Queryable))]
     public static Task<TSource?> SingleOrDefaultAsync<TSource>(this IQueryable<TSource> queryable)
     {
         // TODO: With predicate
@@ -316,6 +329,7 @@ public static class IgniteQueryableExtensions
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.
     /// The task result contains the minimum value in the sequence.
     /// </returns>
+    [DynamicDependency("Min`1", typeof(Queryable))]
     public static Task<TSource> MinAsync<TSource>(this IQueryable<TSource> queryable)
     {
         // TODO: With selector
@@ -332,6 +346,7 @@ public static class IgniteQueryableExtensions
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.
     /// The task result contains the maximum value in the sequence.
     /// </returns>
+    [DynamicDependency("Max`1", typeof(Queryable))]
     public static Task<TSource> MaxAsync<TSource>(this IQueryable<TSource> queryable)
     {
         // TODO: With selector
@@ -347,6 +362,7 @@ public static class IgniteQueryableExtensions
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.
     /// The task result contains the sum of a sequence of values.
     /// </returns>
+    [DynamicDependency("Sum`1", typeof(Queryable))]
     public static Task<int> SumAsync(this IQueryable<int> queryable)
     {
         // TODO: With selector
@@ -364,6 +380,7 @@ public static class IgniteQueryableExtensions
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.
     /// The task result contains the average of a sequence of values.
     /// </returns>
+    [DynamicDependency("Average`1", typeof(Queryable))]
     public static Task<double> AverageAsync(this IQueryable<int> queryable)
     {
         // TODO: With selector
