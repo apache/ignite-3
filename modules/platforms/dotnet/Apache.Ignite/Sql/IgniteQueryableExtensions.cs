@@ -266,12 +266,37 @@ public static class IgniteQueryableExtensions
     /// <paramref name="queryable" /> is empty; otherwise, the first element in <paramref name="queryable" />.
     /// </returns>
     [DynamicDependency("FirstOrDefault`1", typeof(Queryable))]
-    public static Task<TSource?> FirstOrDefaultAsync<TSource>(this IQueryable<TSource> queryable)
+    public static async Task<TSource?> FirstOrDefaultAsync<TSource>(this IQueryable<TSource> queryable)
     {
-        // TODO: FirstOrDefaultAsync with predicate.
         IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
 
-        throw new NotImplementedException();
+        var method = new Func<IQueryable<TSource>, TSource?>(Queryable.FirstOrDefault).GetMethodInfo();
+        var expression = Expression.Call(null, method, queryable.Expression);
+
+        var provider = queryable.ToQueryableInternal().Provider;
+        return await provider.ExecuteSingleOrDefaultAsync<TSource>(expression).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Returns the first element of a sequence, or a default value if the sequence contains no elements.
+    /// </summary>
+    /// <param name="queryable">Query.</param>
+    /// <param name="predicate">Predicate.</param>
+    /// <typeparam name="TSource">Element type.</typeparam>
+    /// <returns>A <see cref="Task"/> representing the asynchronous operation.
+    /// The task result contains <see langword="default" /> ( <typeparamref name="TSource" /> ) if
+    /// <paramref name="queryable" /> is empty; otherwise, the first element in <paramref name="queryable" />.
+    /// </returns>
+    [DynamicDependency("FirstOrDefault`1", typeof(Queryable))]
+    public static async Task<TSource?> FirstOrDefaultAsync<TSource>(this IQueryable<TSource> queryable, Expression<Func<TSource, bool>> predicate)
+    {
+        IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
+
+        var method = new Func<IQueryable<TSource>, Expression<Func<TSource, bool>>, TSource?>(Queryable.FirstOrDefault).GetMethodInfo();
+        var expression = Expression.Call(null, method, queryable.Expression, Expression.Quote(predicate));
+
+        var provider = queryable.ToQueryableInternal().Provider;
+        return await provider.ExecuteSingleAsync<TSource>(expression).ConfigureAwait(false);
     }
 
     /// <summary>
