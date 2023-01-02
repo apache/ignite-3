@@ -298,7 +298,7 @@ public static class IgniteQueryableExtensions
         var expression = Expression.Call(null, method, queryable.Expression, Expression.Quote(predicate));
 
         var provider = queryable.ToQueryableInternal().Provider;
-        return await provider.ExecuteSingleAsync<TSource>(expression).ConfigureAwait(false);
+        return await provider.ExecuteSingleOrDefaultAsync<TSource>(expression).ConfigureAwait(false);
     }
 
     /// <summary>
