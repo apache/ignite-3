@@ -203,9 +203,16 @@ public partial class LinqTests
     }
 
     [Test]
-    public void TestSumAsyncNullable()
+    public async Task TestSumAsyncNullable()
     {
-        Assert.Fail("TODO");
+        // TODO: All supported types.
+        var query = PocoAllColumnsSqlNullableView.AsQueryable();
+
+        Assert.AreEqual(75, await query.Select(x => x.Int32).SumAsync());
+        Assert.AreEqual(175, await query.SumAsync(x => x.Int32 + 10));
+
+        Assert.AreEqual(0, await query.Where(x => x.Key < -100).SumAsync(x => x.Int32));
+        Assert.AreEqual(0, await query.Where(x => x.Key < -100).Select(x => x.Int32).SumAsync());
     }
 
     [Test]
