@@ -43,6 +43,18 @@ public partial class LinqTests
     }
 
     [Test]
+    public async Task TestToDictionaryAsync()
+    {
+        var res = await PocoView.AsQueryable()
+            .OrderBy(x => x.Key)
+            .Where(x => x.Key > 7)
+            .ToDictionaryAsync(x => x.Key, x => x);
+
+        Assert.AreEqual(2, res.Count);
+        Assert.AreEqual("v-8", res[8].Val);
+    }
+
+    [Test]
     public async Task TestAnyAsync()
     {
         Assert.IsTrue(await PocoView.AsQueryable().AnyAsync());
