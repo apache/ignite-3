@@ -422,7 +422,7 @@ public static class IgniteQueryableExtensions
     /// The task result contains the minimum value in the sequence.
     /// </returns>
     [DynamicDependency("Min`2", typeof(Queryable))]
-    public static async Task<TSource> MinAsync<TSource, TResult>(
+    public static async Task<TResult> MinAsync<TSource, TResult>(
         this IQueryable<TSource> queryable,
         Expression<Func<TSource, TResult>> selector)
     {
@@ -432,7 +432,7 @@ public static class IgniteQueryableExtensions
         var expression = Expression.Call(null, method, queryable.Expression, Expression.Quote(selector));
 
         var provider = queryable.ToQueryableInternal().Provider;
-        return await provider.ExecuteSingleAsync<TSource>(expression).ConfigureAwait(false);
+        return await provider.ExecuteSingleAsync<TResult>(expression).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -466,7 +466,7 @@ public static class IgniteQueryableExtensions
     /// The task result contains the maximum value in the sequence.
     /// </returns>
     [DynamicDependency("Max`2", typeof(Queryable))]
-    public static async Task<TSource> MaxAsync<TSource, TResult>(
+    public static async Task<TResult> MaxAsync<TSource, TResult>(
         this IQueryable<TSource> queryable,
         Expression<Func<TSource, TResult>> selector)
     {
@@ -476,7 +476,7 @@ public static class IgniteQueryableExtensions
         var expression = Expression.Call(null, method, queryable.Expression, Expression.Quote(selector));
 
         var provider = queryable.ToQueryableInternal().Provider;
-        return await provider.ExecuteSingleAsync<TSource>(expression).ConfigureAwait(false);
+        return await provider.ExecuteSingleAsync<TResult>(expression).ConfigureAwait(false);
     }
 
     /// <summary>
