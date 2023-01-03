@@ -227,7 +227,7 @@ internal static class ResultSelector
     {
         Label endParamLabel = il.DefineLabel();
 
-        if (options is ReturnDefaultIfNull or ThrowNoElementsIfNull)
+        if (options is ReturnDefaultIfNull or ThrowNoElementsIfNull or ReturnZeroIfNull)
         {
             // if (reader.IsNull(index)) return default;
             Label notNullLabel = il.DefineLabel();
@@ -236,14 +236,26 @@ internal static class ResultSelector
             il.Emit(OpCodes.Call, BinaryTupleMethods.IsNull);
             il.Emit(OpCodes.Brfalse_S, notNullLabel);
 
-            if (options == ReturnDefaultIfNull)
+            if (options is ReturnDefaultIfNull or ReturnZeroIfNull)
             {
                 if (targetType.IsValueType)
                 {
-                    var local = il.DeclareLocal(targetType);
-                    il.Emit(OpCodes.Ldloca_S, local);
-                    il.Emit(OpCodes.Initobj, targetType); // Load default value into local.
-                    il.Emit(OpCodes.Ldloc, local); // Load local value onto stack for constructor call.
+                    if (options == ReturnZeroIfNull && Nullable.GetUnderlyingType(targetType) is { } underlyingType)
+                    {
+                        // Create nullable with default non-zero value.
+                        var local = il.DeclareLocal(underlyingType);
+                        il.Emit(OpCodes.Ldloca_S, local);
+                        il.Emit(OpCodes.Initobj, targetType); // Load default value into local.
+                        il.Emit(OpCodes.Ldloc, local); // Load local value onto stack for constructor call.
+                        il.Emit(OpCodes.Newobj, targetType.GetConstructor(new[] { underlyingType })!);
+                    }
+                    else
+                    {
+                        var local = il.DeclareLocal(targetType);
+                        il.Emit(OpCodes.Ldloca_S, local);
+                        il.Emit(OpCodes.Initobj, targetType); // Load default value into local.
+                        il.Emit(OpCodes.Ldloc, local); // Load local value onto stack for constructor call.
+                    }
                 }
                 else
                 {
