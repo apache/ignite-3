@@ -33,13 +33,5 @@ internal enum ExecutionOptions
     /// <summary>
     /// Whether to return a default value when result set is empty.
     /// </summary>
-    ReturnDefaultWhenEmpty = 1,
-
-    /// <summary>
-    /// Whether to throw "Sequence contains no elements" exception when the result is a single null element.
-    /// <para />
-    /// SQL MIN/MAX aggregate functions return null when there are no rows in the table,
-    /// but LINQ Min/Max throw <see cref="InvalidOperationException"/> in this case.
-    /// </summary>
-    ThrowNoElementsOnNull = 2,
+    ReturnDefaultWhenEmpty = 1
 }

@@ -20,10 +20,12 @@ namespace Apache.Ignite.Internal.Linq;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.Linq;
 using System.Threading.Tasks;
 using Ignite.Sql;
 using Ignite.Transactions;
 using Remotion.Linq;
+using Remotion.Linq.Clauses.ResultOperators;
 using Sql;
 
 /// <summary>
@@ -102,32 +104,25 @@ internal sealed class IgniteQueryExecutor : IQueryExecutor
     /// Executes query and returns <see cref="IResultSet{T}"/>.
     /// </summary>
     /// <param name="queryModel">Query model.</param>
-    /// <param name="throwNoElementsOnNull">
-    /// Whether to throw "Sequence contains no elements" exception when the result is a single null element.</param>
     /// <typeparam name="T">Result type.</typeparam>
     /// <returns>Result set.</returns>
-    internal async Task<IResultSet<T>> ExecuteResultSetInternalAsync<T>(QueryModel queryModel, bool throwNoElementsOnNull = false)
+    internal async Task<IResultSet<T>> ExecuteResultSetInternalAsync<T>(QueryModel queryModel)
     {
-        var qryData = GetQueryData(queryModel);
+        var queryData = GetQueryData(queryModel);
 
-        var statement = new SqlStatement(qryData.QueryText)
+        var statement = new SqlStatement(queryData.QueryText)
         {
             Timeout = _options?.Timeout ?? SqlStatement.DefaultTimeout,
             PageSize = _options?.PageSize ?? SqlStatement.DefaultPageSize
         };
 
-        var selectorOptions = qryData.HasOuterJoins ? ResultSelectorOptions.DefaultIfNull : ResultSelectorOptions.None;
-
-        if (throwNoElementsOnNull)
-        {
-            selectorOptions |= ResultSelectorOptions.ThrowNoElementsOnNull;
-        }
+        var selectorOptions = GetResultSelectorOptions(queryModel, queryData.HasOuterJoins);
 
         IResultSet<T> resultSet = await _sql.ExecuteAsyncInternal(
             _transaction,
             statement,
             cols => ResultSelector.Get<T>(cols, queryModel.SelectClause.Selector, selectorOptions),
-            qryData.Parameters)
+            queryData.Parameters)
             .ConfigureAwait(false);
 
         return resultSet;
@@ -143,10 +138,7 @@ internal sealed class IgniteQueryExecutor : IQueryExecutor
     [SuppressMessage("Reliability", "CA2007:Consider calling ConfigureAwait on the awaited task", Justification = "False positive.")]
     internal async Task<T?> ExecuteSingleInternalAsync<T>(QueryModel queryModel, ExecutionOptions options = default)
     {
-        await using IResultSet<T> resultSet = await ExecuteResultSetInternalAsync<T>(
-                queryModel,
-                throwNoElementsOnNull: options.HasFlag(ExecutionOptions.ThrowNoElementsOnNull))
-            .ConfigureAwait(false);
+        await using IResultSet<T> resultSet = await ExecuteResultSetInternalAsync<T>(queryModel).ConfigureAwait(false);
 
         var res = default(T);
         var count = 0;
@@ -169,6 +161,19 @@ internal sealed class IgniteQueryExecutor : IQueryExecutor
         }
 
         return res;
+    }
+
+    private static ResultSelectorOptions GetResultSelectorOptions(QueryModel model, bool hasOuterJoins)
+    {
+        // TODO: Other operators?
+        if (model.ResultOperators.Any(x => x is MinResultOperator or MaxResultOperator))
+        {
+            // SQL MIN/MAX aggregate functions return null when there are no rows in the table,
+            // but LINQ Min/Max throw <see cref="InvalidOperationException"/> in this case.
+            return ResultSelectorOptions.ThrowNoElementsOnNull;
+        }
+
+        return hasOuterJoins ? ResultSelectorOptions.DefaultIfNull : ResultSelectorOptions.None;
     }
 
     [SuppressMessage("Reliability", "CA2000:Dispose objects before losing scope", Justification = "Disposable is returned.")]
