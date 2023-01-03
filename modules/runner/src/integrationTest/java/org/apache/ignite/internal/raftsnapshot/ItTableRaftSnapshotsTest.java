@@ -31,13 +31,16 @@ import static org.junit.jupiter.api.Assertions.fail;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BiPredicate;
 import java.util.function.BooleanSupplier;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.logging.LogRecord;
@@ -50,10 +53,12 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.RaftNodeId;
+import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommand;
 import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryStorageEngine;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
+import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMetaResponse;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -62,12 +67,15 @@ import org.apache.ignite.internal.testframework.jul.NoOpHandler;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.raft.jraft.RaftGroupService;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.core.NodeImpl;
 import org.apache.ignite.raft.jraft.core.Replicator;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.error.RaftError;
+import org.apache.ignite.raft.jraft.rpc.ActionRequest;
+import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotExecutorImpl;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.tx.Transaction;
@@ -86,7 +94,7 @@ import org.junit.jupiter.params.provider.ValueSource;
  */
 @SuppressWarnings("resource")
 @ExtendWith(WorkDirectoryExtension.class)
-@Timeout(60)
+@Timeout(90)
 // TODO: IGNITE-18465- extend AbstractClusterIntegrationTest
 class ItTableRaftSnapshotsTest {
     private static final IgniteLogger LOG = Loggers.forClass(ItTableRaftSnapshotsTest.class);
@@ -129,6 +137,7 @@ class ItTableRaftSnapshotsTest {
     }
 
     @AfterEach
+    @Timeout(10)
     void shutdownCluster() {
         cluster.shutdown();
     }
@@ -256,7 +265,26 @@ class ItTableRaftSnapshotsTest {
      * @see NodeKnockout
      */
     private void prepareClusterForInstallingSnapshotToNode2(NodeKnockout knockout, String storageEngine) throws InterruptedException {
+        prepareClusterForInstallingSnapshotToNode2(knockout, storageEngine, aCluster -> {});
+    }
+
+    /**
+     * Transfer the cluster to a state in which, when node 2 is reanimated from being knocked-out, the only partition
+     * of the only table (called TEST) is transferred to it using RAFT snapshot installation mechanism.
+     *
+     * @param knockout The knock-out strategy that should be used to knock-out node 2.
+     * @param storageEngine Storage engine for the TEST table.
+     * @param doOnClusterAfterInit Action executed just after the cluster is started and initialized.
+     * @see NodeKnockout
+     */
+    private void prepareClusterForInstallingSnapshotToNode2(
+            NodeKnockout knockout,
+            String storageEngine,
+            Consumer<Cluster> doOnClusterAfterInit
+    ) throws InterruptedException {
         cluster.startAndInit(3);
+
+        doOnClusterAfterInit.accept(cluster);
 
         createTestTableWith3Replicas(storageEngine);
 
@@ -611,5 +639,86 @@ class ItTableRaftSnapshotsTest {
                 ItTableRaftSnapshotsTest::readRows);
 
         assertThat(rows, is(List.of(new IgniteBiTuple<>(1, "one"), new IgniteBiTuple<>(2, "two"))));
+    }
+
+    /**
+     * Tests that, if a snapshot installation fails for some reason, a subsequent retry due to a timeout happens successfully.
+     */
+    @Test
+    void snapshotInstallTimeoutDoesNotBreakSubsequentInstalls() throws Exception {
+        prepareClusterForInstallingSnapshotToNode2(DEFAULT_KNOCKOUT, DEFAULT_STORAGE_ENGINE, aCluster -> {
+            aCluster.node(0).dropMessages(dropFirstSnapshotMetaResponse());
+        });
+
+        reanimateNode2AndWaitForSnapshotInstalled(DEFAULT_KNOCKOUT);
+    }
+
+    private BiPredicate<String, NetworkMessage> dropFirstSnapshotMetaResponse() {
+        AtomicBoolean sentSnapshotMetaResponse = new AtomicBoolean(false);
+
+        return dropFirstSnapshotMetaResponse(
+                sentSnapshotMetaResponse);
+    }
+
+    private BiPredicate<String, NetworkMessage> dropFirstSnapshotMetaResponse(AtomicBoolean sentSnapshotMetaResponse) {
+        return (targetConsistentId, message) -> {
+            if (Objects.equals(targetConsistentId, cluster.node(2).name()) && message instanceof SnapshotMetaResponse) {
+                return sentSnapshotMetaResponse.compareAndSet(false, true);
+            } else {
+                return false;
+            }
+        };
+    }
+
+    /**
+     * This is a test for a tricky scenario:
+     *
+     * <ol>
+     *     <li>First InstallSnapshot request is sent, its processing starts hanging forever (it will be cancelled on step 3</li>
+     *     <li>After a timeout, second InstallSnapshot request is sent with same index+term as the first had; in JRaft, it causes
+     *     a special handling (previous request processing is NOT cancelled)</li>
+     *     <li>After a timeout, third InstallSnapshot request is sent with DIFFERENT index, so it cancels the first snapshot processing
+     *     effectively unblocking the first thread</li>
+     * </ol>
+     *
+     * <p>In the original JRaft implementation, after being unblocked, the first thread fails to clean up, so subsequent retries will
+     * always see a phantom of an unfinished snapshot, so the snapshotting process will be jammed. Also, node stop might
+     * stuck because one 'download' task will remain unfinished forever.
+     */
+    @Test
+    @Disabled("Enable when IGNITE-18495 is fixed.")
+    void snapshotInstallTimeoutDoesNotBreakSubsequentInstallsWhenSecondAttemptIsIdenticalToFirst() throws Exception {
+        AtomicBoolean snapshotInstallFailedDueToIdenticalRetry = new AtomicBoolean(false);
+
+        Logger snapshotExecutorLogger = Logger.getLogger(SnapshotExecutorImpl.class.getName());
+
+        var snapshotInstallFailedDueToIdenticalRetryHandler = new NoOpHandler() {
+            @Override
+            public void publish(LogRecord record) {
+                if (record.getMessage().contains("Register DownloadingSnapshot failed: interrupted by retry installling request")) {
+                    snapshotInstallFailedDueToIdenticalRetry.set(true);
+                }
+            }
+        };
+
+        snapshotExecutorLogger.addHandler(snapshotInstallFailedDueToIdenticalRetryHandler);
+
+        try {
+            prepareClusterForInstallingSnapshotToNode2(DEFAULT_KNOCKOUT, DEFAULT_STORAGE_ENGINE, aCluster -> {
+                BiPredicate<String, NetworkMessage> dropSafeTimeUntilSecondInstallSnapshotRequestIsProcessed = (recipientId, message) ->
+                        message instanceof ActionRequest
+                                && ((ActionRequest) message).command() instanceof SafeTimeSyncCommand
+                                && !snapshotInstallFailedDueToIdenticalRetry.get();
+
+                aCluster.node(0).dropMessages(dropFirstSnapshotMetaResponse().or(dropSafeTimeUntilSecondInstallSnapshotRequestIsProcessed));
+
+                aCluster.node(1).dropMessages(dropSafeTimeUntilSecondInstallSnapshotRequestIsProcessed);
+                aCluster.node(2).dropMessages(dropSafeTimeUntilSecondInstallSnapshotRequestIsProcessed);
+            });
+
+            reanimateNode2AndWaitForSnapshotInstalled(DEFAULT_KNOCKOUT);
+        } finally {
+            snapshotExecutorLogger.removeHandler(snapshotInstallFailedDueToIdenticalRetryHandler);
+        }
     }
 }

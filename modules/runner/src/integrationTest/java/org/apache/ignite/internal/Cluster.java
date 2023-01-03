@@ -36,6 +36,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BiPredicate;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.IntStream;
@@ -48,6 +49,7 @@ import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.lang.IgniteStringFormatter;
+import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.raft.jraft.RaftGroupService;
 import org.apache.ignite.raft.jraft.util.concurrent.ConcurrentHashSet;
 import org.apache.ignite.sql.ResultSet;
@@ -365,12 +367,14 @@ public class Cluster {
         PARTITION_NETWORK {
             @Override
             void knockOutNode(int nodeIndex, Cluster cluster) {
-                IgniteImpl receiver = cluster.node(nodeIndex);
+                IgniteImpl recipient = cluster.node(nodeIndex);
 
                 cluster.runningNodes()
-                        .filter(node -> node != receiver)
+                        .filter(node -> node != recipient)
                         .forEach(sourceNode -> {
-                            sourceNode.dropMessages((receiverName, message) -> Objects.equals(receiverName, receiver.name()));
+                            sourceNode.dropMessages(
+                                    new AddCensorshipByRecipientConsistentId(recipient.name(), sourceNode.dropMessagesPredicate())
+                            );
                         });
 
                 LOG.info("Knocked out node " + nodeIndex + " with an artificial network partition");
@@ -382,7 +386,17 @@ public class Cluster {
 
                 cluster.runningNodes()
                         .filter(node -> node != receiver)
-                        .forEach(IgniteImpl::stopDroppingMessages);
+                        .forEach(ignite -> {
+                            AddCensorshipByRecipientConsistentId censor = (AddCensorshipByRecipientConsistentId) ignite.dropMessagesPredicate();
+
+                            assertNotNull(censor);
+
+                            if (censor.prevPredicate == null) {
+                                ignite.stopDroppingMessages();
+                            } else {
+                                ignite.dropMessages(censor.prevPredicate);
+                            }
+                        });
 
                 LOG.info("Reanimated node " + nodeIndex + " by removing an artificial network partition");
             }
@@ -399,5 +413,22 @@ public class Cluster {
          * effect of {@link #knockOutNode(int, Cluster)}.
          */
         abstract void reanimateNode(int nodeIndex, Cluster cluster);
+    }
+
+    private static class AddCensorshipByRecipientConsistentId implements BiPredicate<String, NetworkMessage> {
+        private final String recipientName;
+        @Nullable
+        private final BiPredicate<String, NetworkMessage> prevPredicate;
+
+        private AddCensorshipByRecipientConsistentId(String recipientName, @Nullable BiPredicate<String, NetworkMessage> prevPredicate) {
+            this.recipientName = recipientName;
+            this.prevPredicate = prevPredicate;
+        }
+
+        @Override
+        public boolean test(String recipientConsistentId, NetworkMessage networkMessage) {
+            return Objects.equals(recipientConsistentId, recipientName)
+                    || (prevPredicate != null && prevPredicate.test(recipientConsistentId, networkMessage));
+        }
     }
 }

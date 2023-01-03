@@ -93,7 +93,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
     // TODO: IGNITE-18493 - remove/move this
     @Nullable
-    private volatile BiPredicate<String, NetworkMessage> dropMessagePredicate;
+    private volatile BiPredicate<String, NetworkMessage> dropMessagesPredicate;
 
     /**
      * Constructor.
@@ -168,8 +168,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
         }
 
         // TODO: IGNITE-18493 - remove/move this
-        BiPredicate<String, NetworkMessage> dropMessage = dropMessagePredicate;
-        if (dropMessage != null && dropMessage.test(recipient.name(), msg)) {
+        if (shouldDropMessage(recipient, msg)) {
             return new CompletableFuture<>();
         }
 
@@ -190,6 +189,12 @@ public class DefaultMessagingService extends AbstractMessagingService {
         return sendMessage0(recipient.name(), recipientAddress, message);
     }
 
+    private boolean shouldDropMessage(ClusterNode recipient, NetworkMessage msg) {
+        BiPredicate<String, NetworkMessage> predicate = dropMessagesPredicate;
+
+        return predicate != null && predicate.test(recipient.name(), msg);
+    }
+
     /**
      * Sends an invocation request. If the target is the current node, then message will be delivered immediately.
      *
@@ -204,8 +209,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
         }
 
         // TODO: IGNITE-18493 - remove/move this
-        BiPredicate<String, NetworkMessage> dropMessage = dropMessagePredicate;
-        if (dropMessage != null && dropMessage.test(recipient.name(), msg)) {
+        if (shouldDropMessage(recipient, msg)) {
             return new CompletableFuture<NetworkMessage>().orTimeout(10, TimeUnit.MILLISECONDS);
         }
 
@@ -429,7 +433,16 @@ public class DefaultMessagingService extends AbstractMessagingService {
      */
     @TestOnly
     public void dropMessages(BiPredicate<String, NetworkMessage> predicate) {
-        dropMessagePredicate = predicate;
+        dropMessagesPredicate = predicate;
+    }
+
+    /**
+     * Returns a predicate used to decide whether a message should be dropped, or {@code null} if message dropping is disabled.
+     */
+    @TestOnly
+    @Nullable
+    public BiPredicate<String, NetworkMessage> dropMessagesPredicate() {
+        return dropMessagesPredicate;
     }
 
     // TODO: IGNITE-18493 - remove/move this
@@ -440,6 +453,6 @@ public class DefaultMessagingService extends AbstractMessagingService {
      */
     @TestOnly
     public void stopDroppingMessages() {
-        dropMessagePredicate = null;
+        dropMessagesPredicate = null;
     }
 }
