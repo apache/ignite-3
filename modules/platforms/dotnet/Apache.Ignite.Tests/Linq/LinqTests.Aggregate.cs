@@ -53,7 +53,9 @@ public partial class LinqTests
     [Test]
     public void TestSumNullable()
     {
-        Assert.Fail("TODO");
+        Assert.AreEqual(1, PocoAllColumnsSqlNullableView.AsQueryable().Count(x => x.Int64 == null));
+        Assert.AreEqual(0, PocoAllColumnsSqlNullableView.AsQueryable().Where(x => x.Int64 == null).Sum(x => x.Int64));
+        Assert.AreEqual(0, PocoAllColumnsSqlNullableView.AsQueryable().Where(x => x.Int64 == null).Select(x => x.Int64).Sum());
     }
 
     [Test]
