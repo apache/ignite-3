@@ -65,9 +65,9 @@ internal static class ResultSelector
     public static RowReader<T> Get<T>(IReadOnlyList<IColumnMetadata> columns, Expression selectorExpression, ResultSelectorOptions options)
     {
         IgniteArgumentCheck.Ensure(
-            !(options.HasFlag(DefaultIfNull) && options.HasFlag(ThrowNoElementsOnNull)),
+            !(options.HasFlag(ReturnDefaultIfNull) && options.HasFlag(ThrowNoElementsIfNull)),
             nameof(options),
-            $"{nameof(DefaultIfNull)} and {nameof(ThrowNoElementsOnNull)} are mutually exclusive");
+            $"{nameof(ReturnDefaultIfNull)} and {nameof(ThrowNoElementsIfNull)} are mutually exclusive");
 
         // Anonymous type projections use a constructor call. But user-defined types can also be used with constructor call.
         if (selectorExpression is NewExpression newExpr)
@@ -96,7 +96,7 @@ internal static class ResultSelector
             return (RowReader<T>)KvReaderCache.GetOrAdd(
                 kvCacheKey,
                 static k =>
-                    EmitKvPairReader<T>(k.Columns, k.Target.Key, k.Target.Val, k.Options.HasFlag(DefaultIfNull)));
+                    EmitKvPairReader<T>(k.Columns, k.Target.Key, k.Target.Val, k.Options.HasFlag(ReturnDefaultIfNull)));
         }
 
         if (selectorExpression is QuerySourceReferenceExpression
@@ -112,7 +112,7 @@ internal static class ResultSelector
 
         return (RowReader<T>)ReaderCache.GetOrAdd(
             readerCacheKey,
-            static k => EmitUninitializedObjectReader<T>(k.Columns, k.Options.HasFlag(DefaultIfNull)));
+            static k => EmitUninitializedObjectReader<T>(k.Columns, k.Options.HasFlag(ReturnDefaultIfNull)));
     }
 
     private static RowReader<T> EmitSingleColumnReader<T>(IColumnMetadata column, ResultSelectorOptions options)
@@ -233,7 +233,7 @@ internal static class ResultSelector
     {
         Label endParamLabel = il.DefineLabel();
 
-        if (options.HasFlag(DefaultIfNull) || options.HasFlag(ThrowNoElementsOnNull))
+        if (options.HasFlag(ReturnDefaultIfNull) || options.HasFlag(ThrowNoElementsIfNull))
         {
             // if (reader.IsNull(index)) return default;
             Label notNullLabel = il.DefineLabel();
@@ -242,7 +242,7 @@ internal static class ResultSelector
             il.Emit(OpCodes.Call, BinaryTupleMethods.IsNull);
             il.Emit(OpCodes.Brfalse_S, notNullLabel);
 
-            if (options.HasFlag(DefaultIfNull))
+            if (options.HasFlag(ReturnDefaultIfNull))
             {
                 if (targetType.IsValueType)
                 {

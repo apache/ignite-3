@@ -20,7 +20,6 @@ namespace Apache.Ignite.Internal.Linq;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
-using System.Linq;
 using System.Threading.Tasks;
 using Ignite.Sql;
 using Ignite.Transactions;
@@ -165,15 +164,24 @@ internal sealed class IgniteQueryExecutor : IQueryExecutor
 
     private static ResultSelectorOptions GetResultSelectorOptions(QueryModel model, bool hasOuterJoins)
     {
-        // TODO: Other operators?
-        if (model.ResultOperators.Any(x => x is MinResultOperator or MaxResultOperator))
+        foreach (var op in model.ResultOperators)
         {
-            // SQL MIN/MAX aggregate functions return null when there are no rows in the table,
-            // but LINQ Min/Max throw <see cref="InvalidOperationException"/> in this case.
-            return ResultSelectorOptions.ThrowNoElementsOnNull;
+            if (op is MinResultOperator or MaxResultOperator or AverageResultOperator)
+            {
+                // SQL MIN/MAX/AVG return null when there are no rows in the table,
+                // but LINQ Min/Max/Average throw <see cref="InvalidOperationException"/> in this case.
+                return ResultSelectorOptions.ThrowNoElementsIfNull;
+            }
+
+            if (op is SumResultOperator)
+            {
+                // SQL SUM returns null when there are no rows in the table,
+                // but LINQ Sum returns 0.
+                return ResultSelectorOptions.ReturnDefaultIfNull;
+            }
         }
 
-        return hasOuterJoins ? ResultSelectorOptions.DefaultIfNull : ResultSelectorOptions.None;
+        return hasOuterJoins ? ResultSelectorOptions.ReturnDefaultIfNull : ResultSelectorOptions.None;
     }
 
     [SuppressMessage("Reliability", "CA2000:Dispose objects before losing scope", Justification = "Disposable is returned.")]

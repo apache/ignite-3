@@ -35,10 +35,10 @@ internal enum ResultSelectorOptions
     /// Whether to read null values as default for value types
     /// (when <see cref="Queryable.DefaultIfEmpty{TSource}(System.Linq.IQueryable{TSource})"/> is used).
     /// </summary>
-    DefaultIfNull = 1,
+    ReturnDefaultIfNull = 1,
 
     /// <summary>
     /// Whether to throw an exception if the result is null.
     /// </summary>
-    ThrowNoElementsOnNull = 2
+    ThrowNoElementsIfNull = 2
 }
