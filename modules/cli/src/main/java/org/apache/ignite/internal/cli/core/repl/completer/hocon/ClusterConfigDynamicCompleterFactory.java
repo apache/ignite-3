@@ -18,54 +18,29 @@
 package org.apache.ignite.internal.cli.core.repl.completer.hocon;
 
 import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
 import jakarta.inject.Singleton;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.atomic.AtomicReference;
-import org.apache.ignite.internal.cli.call.configuration.ClusterConfigShowCall;
-import org.apache.ignite.internal.cli.call.configuration.ClusterConfigShowCallInput;
 import org.apache.ignite.internal.cli.core.repl.completer.DummyCompleter;
 import org.apache.ignite.internal.cli.core.repl.completer.DynamicCompleter;
 import org.apache.ignite.internal.cli.core.repl.completer.DynamicCompleterFactory;
-import org.apache.ignite.internal.cli.core.repl.completer.NodeUrlProvider;
+import org.apache.ignite.internal.cli.core.repl.registry.ClusterConfigRegistry;
 
 /** Factory for cluster config show/update command. */
 @Singleton
 public class ClusterConfigDynamicCompleterFactory implements DynamicCompleterFactory {
 
-    private final NodeUrlProvider urlProvider;
+    private final ClusterConfigRegistry clusterConfigRegistry;
 
-    private final ClusterConfigShowCall clusterConfigShowCall;
-
-    private final AtomicReference<DynamicCompleter> cachedCompleter = new AtomicReference<>(null);
-
-    public ClusterConfigDynamicCompleterFactory(NodeUrlProvider urlProvider, ClusterConfigShowCall clusterConfigShowCall) {
-        this.urlProvider = urlProvider;
-        this.clusterConfigShowCall = clusterConfigShowCall;
+    public ClusterConfigDynamicCompleterFactory(ClusterConfigRegistry clusterConfigRegistry) {
+        this.clusterConfigRegistry = clusterConfigRegistry;
     }
 
     @Override
     public DynamicCompleter getDynamicCompleter(String[] words) {
-        if (cachedCompleter.getAcquire() != null) {
-            return cachedCompleter.getAcquire();
+        Config config = clusterConfigRegistry.config();
+        if (config != null) {
+            return new HoconDynamicCompleter(config);
         } else {
-            // call REST on the background in order not to freeze UI thread
-            CompletableFuture.runAsync(() -> {
-                try {
-                    Config config = ConfigFactory.parseString(
-                            clusterConfigShowCall.execute(
-                                    // todo https://issues.apache.org/jira/browse/IGNITE-17416
-                                    ClusterConfigShowCallInput.builder().clusterUrl(urlProvider.resolveUrl(new String[]{""})).build()
-                            ).body().getValue()
-                    );
-                    cachedCompleter.compareAndExchangeRelease(null, new HoconDynamicCompleter(config));
-                } catch (Exception ignored) {
-                    // no-op
-                }
-            });
+            return new DummyCompleter();
         }
-
-        // return dummy completer this time, but hope the next call will return cached completer
-        return new DummyCompleter();
     }
 }

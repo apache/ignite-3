@@ -536,7 +536,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     }
 
     @Override
-    public void addWriteCommitted(RowId rowId, BinaryRow row, HybridTimestamp commitTimestamp) throws StorageException {
+    public void addWriteCommitted(RowId rowId, @Nullable BinaryRow row, HybridTimestamp commitTimestamp) throws StorageException {
         @SuppressWarnings("resource") WriteBatchWithIndex writeBatch = requireWriteBatch();
 
         ByteBuffer keyBuf = prepareHeapKeyBuf(rowId);
@@ -596,7 +596,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
         if (invalid(seekIterator)) {
             // No data at all.
-            return ReadResult.EMPTY;
+            return ReadResult.empty(rowId);
         }
 
         ByteBuffer readKeyBuf = MV_KEY_BUFFER.get().position(0).limit(MAX_KEY_SIZE);
@@ -605,7 +605,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
         if (!matches(rowId, readKeyBuf)) {
             // It is already a different row, so no version exists for our rowId.
-            return ReadResult.EMPTY;
+            return ReadResult.empty(rowId);
         }
 
         boolean isWriteIntent = keyLength == ROW_PREFIX_SIZE;
@@ -615,15 +615,17 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         return readResultFromKeyAndValue(isWriteIntent, readKeyBuf, valueBytes);
     }
 
-    private static ReadResult readResultFromKeyAndValue(boolean isWriteIntent, ByteBuffer keyBuf, byte[] valueBytes) {
+    private ReadResult readResultFromKeyAndValue(boolean isWriteIntent, ByteBuffer keyBuf, byte[] valueBytes) {
         assert valueBytes != null;
+
+        RowId rowId = getRowId(keyBuf);
 
         if (!isWriteIntent) {
             // There is no write-intent, return latest committed row.
-            return wrapCommittedValue(valueBytes, readTimestamp(keyBuf));
+            return wrapCommittedValue(rowId, valueBytes, readTimestamp(keyBuf));
         }
 
-        return wrapUncommittedValue(valueBytes, null);
+        return wrapUncommittedValue(rowId, valueBytes, null);
     }
 
     /**
@@ -657,7 +659,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
      * @param keyBuf Buffer with a key in it: partition id + row id + timestamp.
      * @return Read result.
      */
-    private static ReadResult handleReadByTimestampIterator(RocksIterator seekIterator, RowId rowId, HybridTimestamp timestamp,
+    private ReadResult handleReadByTimestampIterator(RocksIterator seekIterator, RowId rowId, HybridTimestamp timestamp,
             ByteBuffer keyBuf) {
         // There's no guarantee that required key even exists. If it doesn't, then "seek" will point to a different key.
         // To avoid returning its value, we have to check that actual key matches what we need.
@@ -678,7 +680,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
             if (invalid(seekIterator)) {
                 // There are no writes with row id.
-                return ReadResult.EMPTY;
+                return ReadResult.empty(rowId);
             }
 
             foundKeyBuf.position(0).limit(MAX_KEY_SIZE);
@@ -686,7 +688,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
             if (!matches(rowId, foundKeyBuf)) {
                 // There are no writes with row id.
-                return ReadResult.EMPTY;
+                return ReadResult.empty(rowId);
             }
 
             byte[] valueBytes = seekIterator.value();
@@ -699,7 +701,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
                 if (invalid(seekIterator)) {
                     // There are no committed writes, we can safely return write-intent.
-                    return wrapUncommittedValue(valueBytes, null);
+                    return wrapUncommittedValue(rowId, valueBytes, null);
                 }
 
                 foundKeyBuf.position(0).limit(MAX_KEY_SIZE);
@@ -707,12 +709,12 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
                 if (!matches(rowId, foundKeyBuf)) {
                     // There are no committed writes, we can safely return write-intent.
-                    return wrapUncommittedValue(valueBytes, null);
+                    return wrapUncommittedValue(rowId, valueBytes, null);
                 }
             }
 
             // There is a committed write, but it's more recent than our timestamp (because we didn't find it with first seek).
-            return ReadResult.EMPTY;
+            return ReadResult.empty(rowId);
         } else {
             // Should not be write-intent, as we were seeking with the timestamp.
             assert keyLength == MAX_KEY_SIZE;
@@ -723,7 +725,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
             if (rowTimestamp.equals(timestamp)) {
                 // This is exactly the row we are looking for.
-                return wrapCommittedValue(valueBytes, rowTimestamp);
+                return wrapCommittedValue(rowId, valueBytes, rowTimestamp);
             }
 
             // Let's check if there is more recent write. If it is a write-intent, then return write-intent.
@@ -732,7 +734,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
             if (invalid(seekIterator)) {
                 // There is no more recent commits or write-intents.
-                return wrapCommittedValue(valueBytes, rowTimestamp);
+                return wrapCommittedValue(rowId, valueBytes, rowTimestamp);
             }
 
             foundKeyBuf.position(0).limit(MAX_KEY_SIZE);
@@ -740,16 +742,16 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
             if (!matches(rowId, foundKeyBuf)) {
                 // There is no more recent commits or write-intents under this row id.
-                return wrapCommittedValue(valueBytes, rowTimestamp);
+                return wrapCommittedValue(rowId, valueBytes, rowTimestamp);
             }
 
             boolean isWriteIntent = keyLength == ROW_PREFIX_SIZE;
 
             if (isWriteIntent) {
-                return wrapUncommittedValue(seekIterator.value(), rowTimestamp);
+                return wrapUncommittedValue(rowId, seekIterator.value(), rowTimestamp);
             }
 
-            return wrapCommittedValue(valueBytes, readTimestamp(foundKeyBuf));
+            return wrapCommittedValue(rowId, valueBytes, readTimestamp(foundKeyBuf));
         }
     }
 
@@ -875,10 +877,10 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         buf.position(0);
     }
 
-    private RowId getRowId(ByteBuffer buffer) {
-        buffer.position(ROW_ID_OFFSET);
+    private RowId getRowId(ByteBuffer keyBuffer) {
+        keyBuffer.position(ROW_ID_OFFSET);
 
-        return new RowId(partitionId, normalize(buffer.getLong()), normalize(buffer.getLong()));
+        return new RowId(partitionId, normalize(keyBuffer.getLong()), normalize(keyBuffer.getLong()));
     }
 
     @Override
@@ -1037,11 +1039,12 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
      * Converts raw byte array representation of the write-intent value into a read result adding newest commit timestamp if
      * it is not {@code null}.
      *
+     * @param rowId ID of the corresponding row.
      * @param valueBytes Value bytes as read from the storage.
      * @param newestCommitTs Commit timestamp of the most recent committed write of this value.
      * @return Read result instance.
      */
-    private static ReadResult wrapUncommittedValue(byte[] valueBytes, @Nullable HybridTimestamp newestCommitTs) {
+    private static ReadResult wrapUncommittedValue(RowId rowId, byte[] valueBytes, @Nullable HybridTimestamp newestCommitTs) {
         UUID txId = bytesToUuid(valueBytes, TX_ID_OFFSET);
         UUID commitTableId = bytesToUuid(valueBytes, TABLE_ID_OFFSET);
         int commitPartitionId = GridUnsafe.getShort(valueBytes, GridUnsafe.BYTE_ARR_OFF + PARTITION_ID_OFFSET) & 0xFFFF;
@@ -1054,22 +1057,23 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
             row = new ByteBufferRow(ByteBuffer.wrap(valueBytes).position(VALUE_OFFSET).slice().order(BINARY_ROW_BYTE_ORDER));
         }
 
-        return ReadResult.createFromWriteIntent(row, txId, commitTableId, commitPartitionId, newestCommitTs);
+        return ReadResult.createFromWriteIntent(rowId, row, txId, commitTableId, commitPartitionId, newestCommitTs);
     }
 
     /**
      * Converts raw byte array representation of the value into a read result.
      *
+     * @param rowId ID of the corresponding row.
      * @param valueBytes Value bytes as read from the storage.
      * @param rowCommitTimestamp Timestamp with which the row was committed.
      * @return Read result instance or {@code null} if value is a tombstone.
      */
-    private static ReadResult wrapCommittedValue(byte[] valueBytes, HybridTimestamp rowCommitTimestamp) {
+    private static ReadResult wrapCommittedValue(RowId rowId, byte[] valueBytes, HybridTimestamp rowCommitTimestamp) {
         if (isTombstone(valueBytes, false)) {
-            return ReadResult.EMPTY;
+            return ReadResult.empty(rowId);
         }
 
-        return ReadResult.createFromCommitted(new ByteBufferRow(valueBytes), rowCommitTimestamp);
+        return ReadResult.createFromCommitted(rowId, new ByteBufferRow(valueBytes), rowCommitTimestamp);
     }
 
     /**
@@ -1251,9 +1255,9 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
                 if (!isWriteIntent) {
                     // There is no write-intent, return latest committed row.
-                    readResult = wrapCommittedValue(valueBytes, readTimestamp(currentKeyBuffer));
+                    readResult = wrapCommittedValue(rowId, valueBytes, readTimestamp(currentKeyBuffer));
                 } else {
-                    readResult = wrapUncommittedValue(valueBytes, nextCommitTimestamp);
+                    readResult = wrapUncommittedValue(rowId, valueBytes, nextCommitTimestamp);
                 }
 
                 if (!readResult.isEmpty() || readResult.isWriteIntent()) {

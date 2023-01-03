@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.distributionzones;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.deleteDataNodesKeyAndUpdateTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.triggerKeyCondition;
@@ -32,22 +33,22 @@ import static org.apache.ignite.internal.metastorage.client.Conditions.value;
 import static org.apache.ignite.internal.metastorage.client.Operations.ops;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
-import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Common.UNEXPECTED_ERR;
 
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
+import org.apache.ignite.configuration.ConfigurationChangeException;
 import org.apache.ignite.configuration.NamedConfigurationTree;
 import org.apache.ignite.configuration.NamedListChange;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
+import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
@@ -129,7 +130,9 @@ public class DistributionZoneManager implements IgniteComponent {
         }
     };
 
-    /** The logical topology on the last watch event. */
+    /** The logical topology on the last watch event.
+     *  It's enough to mark this field by volatile because we don't update the collection after it is assigned to the field.
+     */
     private volatile Set<String> logicalTopology;
 
     /** Watch listener id to unregister the watch listener on {@link DistributionZoneManager#stop()}. */
@@ -164,17 +167,25 @@ public class DistributionZoneManager implements IgniteComponent {
      * Creates a new distribution zone with the given {@code name} asynchronously.
      *
      * @param distributionZoneCfg Distribution zone configuration.
-     * @return Future representing pending completion of the operation.
+     * @return Future representing pending completion of the operation. Future can be completed with:
+     *      {@link DistributionZoneAlreadyExistsException} if a zone with the given name already exists,
+     *      {@link ConfigurationValidationException} if {@code distributionZoneCfg} is broken,
+     *      {@link IllegalArgumentException} if distribution zone configuration is null,
+     *      {@link NodeStoppingException} if the node is stopping.
      */
     public CompletableFuture<Void> createZone(DistributionZoneConfigurationParameters distributionZoneCfg) {
-        Objects.requireNonNull(distributionZoneCfg, "Distribution zone configuration is null.");
+        if (distributionZoneCfg == null) {
+            return failedFuture(new IllegalArgumentException("Distribution zone configuration is null"));
+        }
 
         if (!busyLock.enterBusy()) {
-            throw new IgniteException(NODE_STOPPING_ERR, new NodeStoppingException());
+            return failedFuture(new NodeStoppingException());
         }
 
         try {
-            return zonesConfiguration.change(zonesChange -> zonesChange.changeDistributionZones(zonesListChange -> {
+            CompletableFuture<Void> fut = new CompletableFuture<>();
+
+            zonesConfiguration.change(zonesChange -> zonesChange.changeDistributionZones(zonesListChange -> {
                 try {
                     zonesListChange.create(distributionZoneCfg.name(), zoneChange -> {
                         if (distributionZoneCfg.dataNodesAutoAdjust() == null) {
@@ -203,15 +214,21 @@ public class DistributionZoneManager implements IgniteComponent {
                     });
                 } catch (IllegalArgumentException e) {
                     throw new DistributionZoneAlreadyExistsException(distributionZoneCfg.name(), e);
-                } catch (Exception e) {
-                    throw withCause(
-                            IgniteInternalException::new,
-                            UNEXPECTED_ERR,
-                            "Unexpected exception on distribution zone creating [zoneName=" + distributionZoneCfg.name() + ']',
-                            e
-                    );
                 }
-            }));
+            })).whenComplete((res, e) -> {
+                if (e != null) {
+                    fut.completeExceptionally(
+                            unwrapDistributionZoneException(
+                                    e,
+                                    DistributionZoneAlreadyExistsException.class,
+                                    ConfigurationValidationException.class)
+                    );
+                } else {
+                    fut.complete(null);
+                }
+            });
+
+            return fut;
         } finally {
             busyLock.leaveBusy();
         }
@@ -222,31 +239,37 @@ public class DistributionZoneManager implements IgniteComponent {
      *
      * @param name Distribution zone name.
      * @param distributionZoneCfg Distribution zone configuration.
-     * @return Future representing pending completion of the operation.
+     * @return Future representing pending completion of the operation. Future can be completed with:
+     *      {@link DistributionZoneRenameException} if a zone with the given name already exists
+     *      or zone with name for renaming already exists,
+     *      {@link DistributionZoneNotFoundException} if a zone with the given name doesn't exist,
+     *      {@link ConfigurationValidationException} if {@code distributionZoneCfg} is broken,
+     *      {@link IllegalArgumentException} if {@code name} or {@code distributionZoneCfg} is {@code null},
+     *      {@link NodeStoppingException} if the node is stopping.
      */
     public CompletableFuture<Void> alterZone(String name, DistributionZoneConfigurationParameters distributionZoneCfg) {
-        Objects.requireNonNull(name, "Distribution zone name is null.");
-        Objects.requireNonNull(distributionZoneCfg, "Distribution zone configuration is null.");
+        if (name == null || name.isEmpty()) {
+            return failedFuture(new IllegalArgumentException("Distribution zone name is null or empty [name=" + name + ']'));
+        }
+
+        if (distributionZoneCfg == null) {
+            return failedFuture(new IllegalArgumentException("Distribution zone configuration is null"));
+        }
 
         if (!busyLock.enterBusy()) {
-            throw new IgniteException(NODE_STOPPING_ERR, new NodeStoppingException());
+            return failedFuture(new NodeStoppingException());
         }
 
         try {
-            return zonesConfiguration.change(zonesChange -> zonesChange.changeDistributionZones(zonesListChange -> {
+            CompletableFuture<Void> fut = new CompletableFuture<>();
+
+            zonesConfiguration.change(zonesChange -> zonesChange.changeDistributionZones(zonesListChange -> {
                 NamedListChange<DistributionZoneView, DistributionZoneChange> renameChange;
 
                 try {
                     renameChange = zonesListChange.rename(name, distributionZoneCfg.name());
                 } catch (IllegalArgumentException e) {
                     throw new DistributionZoneRenameException(name, distributionZoneCfg.name(), e);
-                } catch (Exception e) {
-                    throw withCause(
-                            IgniteInternalException::new,
-                            UNEXPECTED_ERR,
-                            "Unexpected exception on distribution zone renaming [zoneName=" + distributionZoneCfg.name() + ']',
-                            e
-                    );
                 }
 
                 try {
@@ -273,15 +296,23 @@ public class DistributionZoneManager implements IgniteComponent {
                                     });
                 } catch (IllegalArgumentException e) {
                     throw new DistributionZoneNotFoundException(distributionZoneCfg.name(), e);
-                } catch (Exception e) {
-                    throw withCause(
-                            IgniteInternalException::new,
-                            UNEXPECTED_ERR,
-                            "Unexpected exception on distribution zone updating [zoneName=" + distributionZoneCfg.name() + ']',
-                            e
-                    );
                 }
-            }));
+            }))
+                    .whenComplete((res, e) -> {
+                        if (e != null) {
+                            fut.completeExceptionally(
+                                    unwrapDistributionZoneException(
+                                            e,
+                                            DistributionZoneRenameException.class,
+                                            DistributionZoneNotFoundException.class,
+                                            ConfigurationValidationException.class)
+                            );
+                        } else {
+                            fut.complete(null);
+                        }
+                    });
+
+            return fut;
         } finally {
             busyLock.leaveBusy();
         }
@@ -291,38 +322,58 @@ public class DistributionZoneManager implements IgniteComponent {
      * Drops a distribution zone with the name specified.
      *
      * @param name Distribution zone name.
-     * @return Future representing pending completion of the operation.
+     * @return Future representing pending completion of the operation. Future can be completed with:
+     *      {@link DistributionZoneNotFoundException} if a zone with the given name doesn't exist,
+     *      {@link IllegalArgumentException} if {@code name} is {@code null},
+     *      {@link NodeStoppingException} if the node is stopping.
      */
     public CompletableFuture<Void> dropZone(String name) {
-        Objects.requireNonNull(name, "Distribution zone name is null.");
+        if (name == null || name.isEmpty()) {
+            return failedFuture(new IllegalArgumentException("Distribution zone name is null or empty [name=" + name + ']'));
+        }
 
         if (!busyLock.enterBusy()) {
-            throw new IgniteException(NODE_STOPPING_ERR, new NodeStoppingException());
+            return failedFuture(new NodeStoppingException());
         }
 
         try {
-            return zonesConfiguration.change(zonesChange -> zonesChange.changeDistributionZones(zonesListChange -> {
-                DistributionZoneView zoneView = zonesListChange.get(name);
+            CompletableFuture<Void> fut = new CompletableFuture<>();
 
-                NamedConfigurationTree<TableConfiguration, TableView, TableChange> tables = tablesConfiguration.tables();
+            zonesConfiguration.change(zonesChange -> zonesChange.changeDistributionZones(zonesListChange -> {
+                        DistributionZoneView zoneView = zonesListChange.get(name);
 
-                boolean bindTable = tables.value().namedListKeys().stream()
-                        .anyMatch(tableName -> {
-                            Integer tableZoneId = tables.get(tableName).zoneId().value();
+                        NamedConfigurationTree<TableConfiguration, TableView, TableChange> tables = tablesConfiguration.tables();
 
-                            return tableZoneId != null && tableZoneId.equals(zoneView.zoneId());
-                        });
+                        boolean bindTable = tables.value().namedListKeys().stream()
+                                .anyMatch(tableName -> {
+                                    Integer tableZoneId = tables.get(tableName).zoneId().value();
 
-                if (bindTable) {
-                    throw new DistributionZoneBindTableException(name);
-                }
+                                    return tableZoneId != null && tableZoneId.equals(zoneView.zoneId());
+                                });
 
-                if (zoneView == null) {
-                    throw new DistributionZoneNotFoundException(name);
-                }
+                        if (bindTable) {
+                            throw new DistributionZoneBindTableException(name);
+                        }
+
+                        if (zoneView == null) {
+                            throw new DistributionZoneNotFoundException(name);
+                        }
 
                 zonesListChange.delete(name);
-            }));
+            }))
+                    .whenComplete((res, e) -> {
+                        if (e != null) {
+                            fut.completeExceptionally(
+                                    unwrapDistributionZoneException(
+                                            e,
+                                            DistributionZoneNotFoundException.class)
+                            );
+                        } else {
+                            fut.complete(null);
+                        }
+                    });
+
+            return fut;
         } finally {
             busyLock.leaveBusy();
         }
@@ -347,13 +398,21 @@ public class DistributionZoneManager implements IgniteComponent {
     /** {@inheritDoc} */
     @Override
     public void start() {
-        zonesConfiguration.distributionZones().listenElements(new ZonesConfigurationListener());
+        if (!busyLock.enterBusy()) {
+            throw new IgniteException(NODE_STOPPING_ERR, new NodeStoppingException());
+        }
 
-        logicalTopologyService.addEventListener(topologyEventListener);
+        try {
+            zonesConfiguration.distributionZones().listenElements(new ZonesConfigurationListener());
 
-        registerMetaStorageWatchListener()
-                .thenAccept(ignore -> initDataNodesFromVaultManager())
-                .thenAccept(ignore -> initMetaStorageKeysOnStart());
+            logicalTopologyService.addEventListener(topologyEventListener);
+
+            registerMetaStorageWatchListener()
+                    .thenAccept(ignore -> initDataNodesFromVaultManager())
+                    .thenAccept(ignore -> initMetaStorageKeysOnStart());
+        } finally {
+            busyLock.leaveBusy();
+        }
     }
 
     /** {@inheritDoc} */
@@ -551,61 +610,69 @@ public class DistributionZoneManager implements IgniteComponent {
      * {@link DistributionZonesUtil#zonesLogicalTopologyVersionKey()} from meta storage on the start of {@link DistributionZoneManager}.
      */
     private void initMetaStorageKeysOnStart() {
-        logicalTopologyService.logicalTopologyOnLeader().thenAccept(snapshot -> {
-            if (!busyLock.enterBusy()) {
-                throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
-            }
+        if (!busyLock.enterBusy()) {
+            throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
+        }
 
-            try {
-                metaStorageManager.get(zonesLogicalTopologyVersionKey()).thenAccept(topVerEntry -> {
-                    if (!busyLock.enterBusy()) {
-                        throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
-                    }
+        try {
+            logicalTopologyService.logicalTopologyOnLeader().thenAccept(snapshot -> {
+                if (!busyLock.enterBusy()) {
+                    throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
+                }
 
-                    try {
-                        long topologyVersionFromCmg = snapshot.version();
-
-                        byte[] topVerFromMetaStorage = topVerEntry.value();
-
-                        if (topVerFromMetaStorage == null || bytesToLong(topVerFromMetaStorage) < topologyVersionFromCmg) {
-                            Set<String> topologyFromCmg = snapshot.nodes().stream().map(ClusterNode::name).collect(Collectors.toSet());
-
-                            Condition topologyVersionCondition = topVerFromMetaStorage == null
-                                    ? notExists(zonesLogicalTopologyVersionKey()) :
-                                    value(zonesLogicalTopologyVersionKey()).eq(topVerFromMetaStorage);
-
-                            If iff = If.iif(topologyVersionCondition,
-                                    updateLogicalTopologyAndVersion(topologyFromCmg, topologyVersionFromCmg),
-                                    ops().yield(false)
-                            );
-
-                            metaStorageManager.invoke(iff).thenAccept(res -> {
-                                if (res.getAsBoolean()) {
-                                    LOG.debug(
-                                            "Distribution zones' logical topology and version keys were initialised "
-                                                    + "[topology = {}, version = {}]",
-                                            Arrays.toString(topologyFromCmg.toArray()),
-                                            topologyVersionFromCmg
-                                    );
-                                } else {
-                                    LOG.debug(
-                                            "Failed to initialize distribution zones' logical topology "
-                                                    + "and version keys [topology = {}, version = {}]",
-                                            Arrays.toString(topologyFromCmg.toArray()),
-                                            topologyVersionFromCmg
-                                    );
-                                }
-                            });
+                try {
+                    metaStorageManager.get(zonesLogicalTopologyVersionKey()).thenAccept(topVerEntry -> {
+                        if (!busyLock.enterBusy()) {
+                            throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
                         }
-                    } finally {
-                        busyLock.leaveBusy();
-                    }
-                });
 
-            } finally {
-                busyLock.leaveBusy();
-            }
-        });
+                        try {
+                            long topologyVersionFromCmg = snapshot.version();
+
+                            byte[] topVerFromMetaStorage = topVerEntry.value();
+
+                            if (topVerFromMetaStorage == null || bytesToLong(topVerFromMetaStorage) < topologyVersionFromCmg) {
+                                Set<String> topologyFromCmg = snapshot.nodes().stream().map(ClusterNode::name).collect(Collectors.toSet());
+
+                                Condition topologyVersionCondition = topVerFromMetaStorage == null
+                                        ? notExists(zonesLogicalTopologyVersionKey()) :
+                                        value(zonesLogicalTopologyVersionKey()).eq(topVerFromMetaStorage);
+
+                                If iff = If.iif(topologyVersionCondition,
+                                        updateLogicalTopologyAndVersion(topologyFromCmg, topologyVersionFromCmg),
+                                        ops().yield(false)
+                                );
+
+                                metaStorageManager.invoke(iff).thenAccept(res -> {
+                                    if (res.getAsBoolean()) {
+                                        LOG.debug(
+                                                "Distribution zones' logical topology and version keys were initialised "
+                                                        + "[topology = {}, version = {}]",
+                                                Arrays.toString(topologyFromCmg.toArray()),
+                                                topologyVersionFromCmg
+                                        );
+                                    } else {
+                                        LOG.debug(
+                                                "Failed to initialize distribution zones' logical topology "
+                                                        + "and version keys [topology = {}, version = {}]",
+                                                Arrays.toString(topologyFromCmg.toArray()),
+                                                topologyVersionFromCmg
+                                        );
+                                    }
+                                });
+                            }
+                        } finally {
+                            busyLock.leaveBusy();
+                        }
+                    });
+
+                } finally {
+                    busyLock.leaveBusy();
+                }
+            });
+        } finally {
+            busyLock.leaveBusy();
+        }
     }
 
     /**
@@ -613,20 +680,48 @@ public class DistributionZoneManager implements IgniteComponent {
      * from {@link DistributionZonesUtil#zonesLogicalTopologyKey()} in vault.
      */
     private void initDataNodesFromVaultManager() {
-        vaultAppliedRevision()
-                .thenAccept(vaultAppliedRevision -> vaultMgr.get(zonesLogicalTopologyKey())
-                        .thenAccept(vaultEntry -> {
-                            if (vaultEntry != null && vaultEntry.value() != null) {
-                                logicalTopology = ByteUtils.fromBytes(vaultEntry.value());
+        if (!busyLock.enterBusy()) {
+            throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
+        }
 
-                                zonesConfiguration.distributionZones().value().namedListKeys()
-                                        .forEach(zoneName -> {
-                                            int zoneId = zonesConfiguration.distributionZones().get(zoneName).zoneId().value();
+        try {
+            vaultMgr.get(APPLIED_REV)
+                    .thenApply(appliedRevision -> appliedRevision == null ? 0L : bytesToLong(appliedRevision.value()))
+                    .thenAccept(vaultAppliedRevision -> {
+                        if (!busyLock.enterBusy()) {
+                            throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
+                        }
 
-                                            saveDataNodesToMetaStorage(zoneId, vaultEntry.value(), vaultAppliedRevision);
-                                        });
-                            }
-                        }));
+                        try {
+                            vaultMgr.get(zonesLogicalTopologyKey())
+                                    .thenAccept(vaultEntry -> {
+                                        if (!busyLock.enterBusy()) {
+                                            throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
+                                        }
+
+                                        try {
+                                            if (vaultEntry != null && vaultEntry.value() != null) {
+                                                logicalTopology = ByteUtils.fromBytes(vaultEntry.value());
+
+                                                zonesConfiguration.distributionZones().value().namedListKeys()
+                                                        .forEach(zoneName -> {
+                                                            int zoneId = zonesConfiguration.distributionZones().get(zoneName).zoneId()
+                                                                    .value();
+
+                                                            saveDataNodesToMetaStorage(zoneId, vaultEntry.value(), vaultAppliedRevision);
+                                                        });
+                                            }
+                                        } finally {
+                                            busyLock.leaveBusy();
+                                        }
+                                    });
+                        } finally {
+                            busyLock.leaveBusy();
+                        }
+                    });
+        } finally {
+            busyLock.leaveBusy();
+        }
     }
 
     /**
@@ -704,16 +799,6 @@ public class DistributionZoneManager implements IgniteComponent {
     }
 
     /**
-     * Returns future with applied vault revision.
-     *
-     * @return Future with applied vault revision.
-     */
-    private CompletableFuture<Long> vaultAppliedRevision() {
-        return vaultMgr.get(APPLIED_REV)
-                .thenApply(appliedRevision -> appliedRevision == null ? 0L : bytesToLong(appliedRevision.value()));
-    }
-
-    /**
      * Method updates data nodes value for the specified zone,
      * also sets {@code revision} to the {@link DistributionZonesUtil#zonesChangeTriggerKey()} if it passes the condition.
      *
@@ -733,5 +818,32 @@ public class DistributionZoneManager implements IgniteComponent {
                 LOG.debug("Failed to delete zones' dataNodes key [zoneId = {}]", zoneId);
             }
         });
+    }
+
+    /**
+     * Unwraps distribution zone exception from {@link ConfigurationChangeException} if it is possible.
+     *
+     * @param e Exception.
+     * @param expectedClz Expected exception classes to unwrap.
+     * @return Unwrapped exception if it is expected or original if it is unexpected exception.
+     */
+    private static Throwable unwrapDistributionZoneException(Throwable e, Class<? extends Throwable>... expectedClz) {
+        Throwable ret = unwrapDistributionZoneExceptionRecursively(e, expectedClz);
+
+        return ret != null ? ret : e;
+    }
+
+    private static Throwable unwrapDistributionZoneExceptionRecursively(Throwable e, Class<? extends Throwable>... expectedClz) {
+        if ((e instanceof CompletionException || e instanceof ConfigurationChangeException) && e.getCause() != null) {
+            return unwrapDistributionZoneExceptionRecursively(e.getCause(), expectedClz);
+        }
+
+        for (Class<?> expected : expectedClz) {
+            if (expected.isAssignableFrom(e.getClass())) {
+                return e;
+            }
+        }
+
+        return null;
     }
 }

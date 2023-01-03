@@ -26,8 +26,11 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
+import java.util.List;
+import java.util.UUID;
 import java.util.stream.Stream;
 import org.apache.calcite.plan.RelOptUtil;
+import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.SingleRel;
 import org.apache.calcite.rel.core.Aggregate;
 import org.apache.calcite.rel.core.AggregateCall;
@@ -53,7 +56,9 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
+import org.apache.ignite.internal.util.Pair;
 import org.hamcrest.core.IsInstanceOf;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -261,7 +266,7 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
                 "Invalid plan\n" + RelOptUtil.toString(phys, SqlExplainLevel.ALL_ATTRIBUTES)
         );
 
-        // Check the first aggrgation step is SELECT DISTINCT (doesn't contains any accumulators)
+        // Check the first aggregation step is SELECT DISTINCT (doesn't contain any accumulators)
         assertTrue(
                 findNodes(phys, byClass(algo.reduce)).stream()
                         .allMatch(n -> ((IgniteReduceAggregateBase) n).getAggregateCalls().isEmpty()),
@@ -342,14 +347,14 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
     public void colocated(AggregateAlgorithm algo) throws Exception {
         IgniteSchema schema = createSchema(
                 createTable(
-                        "EMP", IgniteDistributions.affinity(1, "emp", "hash"),
+                        "EMP", IgniteDistributions.affinity(1, UUID.randomUUID(), DEFAULT_ZONE_ID),
                         "EMPID", Integer.class,
                         "DEPTID", Integer.class,
                         "NAME", String.class,
                         "SALARY", Integer.class
                 ).addIndex("DEPTID", 1),
                 createTable(
-                        "DEPT", IgniteDistributions.affinity(0, "dept", "hash"),
+                        "DEPT", IgniteDistributions.affinity(0, UUID.randomUUID(), DEFAULT_ZONE_ID),
                         "DEPTID", Integer.class,
                         "NAME", String.class
                 ).addIndex("DEPTID", 0)
@@ -358,7 +363,7 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
         String sql = "SELECT SUM(SALARY) FROM emp GROUP BY deptid";
 
         assertPlan(sql, schema, hasChildThat(isInstanceOf(algo.colocated)
-                        .and(hasDistribution(IgniteDistributions.affinity(0, null, "hash")))),
+                        .and(hasDistribution(IgniteDistributions.affinity(0, UUID.randomUUID(), DEFAULT_ZONE_ID)))),
                 algo.rulesToDisable);
 
         sql = "SELECT dept.deptid, agg.cnt "
@@ -366,9 +371,77 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
                 + "JOIN (SELECT deptid, COUNT(*) AS cnt FROM emp GROUP BY deptid) AS agg ON dept.deptid = agg.deptid";
 
         assertPlan(sql, schema, hasChildThat(isInstanceOf(Join.class)
-                        .and(input(0, hasDistribution(IgniteDistributions.affinity(0, null, "hash"))))
-                        .and(input(1, hasDistribution(IgniteDistributions.affinity(0, null, "hash"))))),
+                        .and(input(0, hasDistribution(IgniteDistributions.affinity(0, UUID.randomUUID(), DEFAULT_ZONE_ID))))
+                        .and(input(1, hasDistribution(IgniteDistributions.affinity(0, UUID.randomUUID(), DEFAULT_ZONE_ID))))),
                 algo.rulesToDisable);
+    }
+
+    /**
+     * Check that map aggregate does not contain distinct accumulator.
+     *
+     * @throws Exception If failed.
+     */
+    @Test
+    public void mapAggregateWithoutDistinctAcc() throws Exception {
+        TestTable tbl = createAffinityTable("TEST");
+
+        IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
+
+        publicSchema.addTable(tbl);
+
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-18464 Colocated sort aggregates need to compose a plans with additional sort
+        //checkDistinctInMapAggNode("SELECT COUNT(DISTINCT val0) FROM test", publicSchema);
+        //checkDistinctInMapAggNode("SELECT AVG(DISTINCT val0) FROM test", publicSchema);
+        //checkDistinctInMapAggNode("SELECT SUM(DISTINCT val0) FROM test", publicSchema);
+        //checkDistinctInMapAggNode("SELECT MIN(DISTINCT val0) FROM test", publicSchema);
+        //checkDistinctInMapAggNode("SELECT MAX(DISTINCT val0) FROM test", publicSchema);
+
+        checkDistinctInMapAggNode("SELECT COUNT(DISTINCT val0) FROM test GROUP BY val1", publicSchema);
+
+        checkDistinctInMapAggNode("SELECT val1, COUNT(DISTINCT val0) as v1 FROM test GROUP BY val1", publicSchema);
+
+        checkDistinctInMapAggNode("SELECT AVG(DISTINCT val0) FROM test GROUP BY val1", publicSchema);
+
+        checkDistinctInMapAggNode("SELECT SUM(DISTINCT val0) FROM test GROUP BY val1", publicSchema);
+
+        checkDistinctInMapAggNode("SELECT MIN(DISTINCT val0) FROM test GROUP BY val1", publicSchema);
+
+        checkDistinctInMapAggNode("SELECT MAX(DISTINCT val0) FROM test GROUP BY val1", publicSchema);
+
+        checkDistinctInMapAggNode("SELECT val0 FROM test WHERE VAL1 = ANY(SELECT DISTINCT val1 FROM test)", publicSchema);
+    }
+
+    /**
+     * Check that plan does not contain distinct accumulators on map nodes.
+     *
+     * @param sql Request string.
+     * @param publicSchema Schema.
+     * @throws Exception If failed.
+     */
+    private void checkDistinctInMapAggNode(String sql, IgniteSchema publicSchema) throws Exception {
+        List<Pair<String[], Boolean>> disabledRules = List.of(new Pair<>(new String[]{""}, false),
+                new Pair<>(new String[]{"ColocatedHashAggregateConverterRule", "ColocatedSortAggregateConverterRule"}, true),
+                new Pair<>(new String[]{"ColocatedHashAggregateConverterRule", "ColocatedSortAggregateConverterRule",
+                        "MapReduceSortAggregateConverterRule"}, true),
+                new Pair<>(new String[]{"ColocatedHashAggregateConverterRule", "ColocatedSortAggregateConverterRule",
+                        "MapReduceHashAggregateConverterRule"}, true)
+        );
+
+        for (Pair<String[], Boolean> rules : disabledRules) {
+            IgniteRel phys = physicalPlan(sql, publicSchema, rules.getFirst());
+
+            List<RelNode> nodes = findNodes(phys, byClass(IgniteMapAggregateBase.class));
+
+            if (rules.getSecond()) {
+                assertThat("No mapper found", !nodes.isEmpty());
+            }
+
+            assertFalse(findNodes(phys, byClass(IgniteMapAggregateBase.class)).stream()
+                            .anyMatch(n -> ((Aggregate) n).getAggCallList().stream()
+                                    .anyMatch(AggregateCall::isDistinct)
+                            ),
+                    "Invalid plan\n" + RelOptUtil.toString(phys, SqlExplainLevel.ALL_ATTRIBUTES));
+        }
     }
 
     private static Stream<Arguments> provideAlgoAndDistribution() {

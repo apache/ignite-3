@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.storage;
 
 /**
- *  Exception that will be thrown when the storage is closed.
+ * Exception that will be thrown when the storage is closed.
  */
 public class StorageClosedException extends StorageException {
     /**

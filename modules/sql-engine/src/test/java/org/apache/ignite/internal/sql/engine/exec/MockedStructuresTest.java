@@ -283,7 +283,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
      * Tests create a table through public API.
      */
     @Test
-    public void testCreateTable() throws Exception {
+    public void testCreateTable() {
         SqlQueryProcessor finalQueryProc = queryProc;
 
         String curMethodName = getCurrentMethodName();

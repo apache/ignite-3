@@ -27,9 +27,9 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.HashMap;
 import java.util.Map;
-import org.apache.ignite.internal.cli.NodeNameRegistry;
 import org.apache.ignite.internal.cli.commands.node.NodeNameOrUrl;
 import org.apache.ignite.internal.cli.core.converters.NodeNameOrUrlConverter;
+import org.apache.ignite.internal.cli.core.repl.registry.NodeNameRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import picocli.CommandLine;
 

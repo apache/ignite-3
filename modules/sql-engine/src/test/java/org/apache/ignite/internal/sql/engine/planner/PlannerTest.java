@@ -68,7 +68,6 @@ import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
@@ -121,7 +120,7 @@ public class PlannerTest extends AbstractPlannerTest {
             }
 
             @Override public IgniteDistribution distribution() {
-                return IgniteDistributions.affinity(0, "Developer", "hash");
+                return IgniteDistributions.affinity(0, UUID.randomUUID(), DEFAULT_ZONE_ID);
             }
         };
 
@@ -141,7 +140,7 @@ public class PlannerTest extends AbstractPlannerTest {
             }
 
             @Override public IgniteDistribution distribution() {
-                return IgniteDistributions.affinity(0, "Project", "hash");
+                return IgniteDistributions.affinity(0, UUID.randomUUID(), DEFAULT_ZONE_ID);
             }
         };
 
@@ -188,7 +187,6 @@ public class PlannerTest extends AbstractPlannerTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18211")
     public void testSplitterColocatedReplicatedReplicated() throws Exception {
         IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
 
@@ -267,7 +265,6 @@ public class PlannerTest extends AbstractPlannerTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18211")
     public void testSplitterPartiallyColocatedReplicatedAndPartitioned() throws Exception {
         IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
 
@@ -305,7 +302,7 @@ public class PlannerTest extends AbstractPlannerTest {
             }
 
             @Override public IgniteDistribution distribution() {
-                return IgniteDistributions.affinity(0, "Project", "hash");
+                return IgniteDistributions.affinity(0, UUID.randomUUID(), DEFAULT_ZONE_ID);
             }
         };
 
@@ -386,7 +383,7 @@ public class PlannerTest extends AbstractPlannerTest {
 
             @Override
             public IgniteDistribution distribution() {
-                return IgniteDistributions.affinity(0, "Project", "hash");
+                return IgniteDistributions.affinity(0, UUID.randomUUID(), DEFAULT_ZONE_ID);
             }
         };
 
@@ -432,7 +429,6 @@ public class PlannerTest extends AbstractPlannerTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18211")
     public void testSplitterPartiallyColocated2() throws Exception {
         IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
 
@@ -469,7 +465,7 @@ public class PlannerTest extends AbstractPlannerTest {
 
             @Override
             public IgniteDistribution distribution() {
-                return IgniteDistributions.affinity(0, "Project", "hash");
+                return IgniteDistributions.affinity(0, UUID.randomUUID(), DEFAULT_ZONE_ID);
             }
         };
 
@@ -816,7 +812,7 @@ public class PlannerTest extends AbstractPlannerTest {
 
                     @Override
                     public IgniteDistribution distribution() {
-                        return IgniteDistributions.affinity(0, "TEST", "hash");
+                        return IgniteDistributions.affinity(0, UUID.randomUUID(), DEFAULT_ZONE_ID);
                     }
                 }
         );
@@ -851,7 +847,7 @@ public class PlannerTest extends AbstractPlannerTest {
                         .build(), "TAB0") {
 
             @Override public IgniteDistribution distribution() {
-                return IgniteDistributions.affinity(0, "tab0", "hash");
+                return IgniteDistributions.affinity(0, UUID.randomUUID(), DEFAULT_ZONE_ID);
             }
         };
 
@@ -870,10 +866,10 @@ public class PlannerTest extends AbstractPlannerTest {
     @Test
     public void checkTableHintsHandling() throws Exception {
         IgniteSchema publicSchema = createSchema(
-                createTable("PERSON", IgniteDistributions.affinity(0, "ignored", "ignored"),
+                createTable("PERSON", IgniteDistributions.affinity(0, UUID.randomUUID(), Integer.MIN_VALUE),
                         "PK", Integer.class, "ORG_ID", Integer.class
                 ),
-                createTable("COMPANY", IgniteDistributions.affinity(0, "ignored", "ignored"),
+                createTable("COMPANY", IgniteDistributions.affinity(0, UUID.randomUUID(), Integer.MIN_VALUE),
                         "PK", Integer.class, "ID", Integer.class
                 )
         );

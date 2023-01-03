@@ -24,6 +24,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Ignite.Sql;
 using Ignite.Table;
+using NodaTime;
 using NUnit.Framework;
 using Table;
 
@@ -32,6 +33,9 @@ using Table;
 /// </summary>
 [SuppressMessage("ReSharper", "PossibleLossOfFraction", Justification = "Tests")]
 [SuppressMessage("ReSharper", "NotAccessedPositionalProperty.Local", Justification = "Tests")]
+[SuppressMessage("Naming", "CA1711:Identifiers should not have incorrect suffix", Justification = "Tests")]
+[SuppressMessage("StyleCop.CSharp.OrderingRules", "SA1201:Elements should appear in the correct order", Justification = "Tests")]
+[SuppressMessage("ReSharper", "UnusedMember.Local", Justification = "Tests")]
 public partial class LinqTests : IgniteTestsBase
 {
     private const int Count = 10;
@@ -41,6 +45,8 @@ public partial class LinqTests : IgniteTestsBase
     private IRecordView<PocoShort> PocoShortView { get; set; } = null!;
 
     private IRecordView<PocoInt> PocoIntView { get; set; } = null!;
+
+    private IRecordView<PocoIntEnum> PocoIntEnumView { get; set; } = null!;
 
     private IRecordView<PocoLong> PocoLongView { get; set; } = null!;
 
@@ -58,6 +64,7 @@ public partial class LinqTests : IgniteTestsBase
         PocoByteView = (await Client.Tables.GetTableAsync(TableInt8Name))!.GetRecordView<PocoByte>();
         PocoShortView = (await Client.Tables.GetTableAsync(TableInt16Name))!.GetRecordView<PocoShort>();
         PocoIntView = (await Client.Tables.GetTableAsync(TableInt32Name))!.GetRecordView<PocoInt>();
+        PocoIntEnumView = (await Client.Tables.GetTableAsync(TableInt32Name))!.GetRecordView<PocoIntEnum>();
         PocoLongView = (await Client.Tables.GetTableAsync(TableInt64Name))!.GetRecordView<PocoLong>();
         PocoFloatView = (await Client.Tables.GetTableAsync(TableFloatName))!.GetRecordView<PocoFloat>();
         PocoDoubleView = (await Client.Tables.GetTableAsync(TableDoubleName))!.GetRecordView<PocoDouble>();
@@ -78,7 +85,27 @@ public partial class LinqTests : IgniteTestsBase
             await PocoDecimalView.UpsertAsync(null, new(i, i));
 
             await PocoStringView.UpsertAsync(null, new("k-" + i, "v-" + i * 2));
+
+            var pocoAllColumns = new PocoAllColumnsSqlNullable(
+                i,
+                "v -" + i,
+                (sbyte)(i + 1),
+                (short)(i + 2),
+                i + 3,
+                i + 4,
+                i + 5.5f,
+                i + 6.5,
+                new LocalDate(2022, 12, i + 1),
+                new LocalTime(11, 38, i + 1),
+                new LocalDateTime(2022, 12, 19, 11, i + 1),
+                Instant.FromUnixTimeSeconds(i + 1),
+                new byte[] { 1, 2 },
+                i + 7.7m);
+
+            await PocoAllColumnsSqlNullableView.UpsertAsync(null, pocoAllColumns);
         }
+
+        await PocoAllColumnsSqlNullableView.UpsertAsync(null, new PocoAllColumnsSqlNullable(100));
     }
 
     [OneTimeTearDown]
@@ -501,6 +528,129 @@ public partial class LinqTests : IgniteTestsBase
         Assert.AreEqual(9.0m, res[0].Val);
     }
 
+    [Test]
+    public void TestSelectAllColumnTypes()
+    {
+        var res = PocoAllColumnsSqlView.AsQueryable()
+            .OrderBy(x => x.Key)
+            .Take(3)
+            .ToList();
+
+        Assert.AreEqual(0, res[0].Key);
+        Assert.AreEqual(1, res[0].Int8);
+        Assert.AreEqual(2, res[0].Int16);
+        Assert.AreEqual(3, res[0].Int32);
+        Assert.AreEqual(4, res[0].Int64);
+        Assert.AreEqual(5.5f, res[0].Float);
+        Assert.AreEqual(6.5, res[0].Double);
+        Assert.AreEqual(7.7, res[0].Decimal);
+        Assert.AreEqual(new LocalDate(2022, 12, 1), res[0].Date);
+        Assert.AreEqual(new LocalTime(11, 38, 1), res[0].Time);
+        Assert.AreEqual(new LocalDateTime(2022, 12, 19, 11, 1), res[0].DateTime);
+        Assert.AreEqual(Instant.FromUnixTimeSeconds(1), res[0].Timestamp);
+        Assert.AreEqual(new byte[] { 1, 2 }, res[0].Blob);
+    }
+
+    [Test]
+    public void TestSelectAllColumnTypesNullable()
+    {
+        var res = PocoAllColumnsSqlNullableView.AsQueryable()
+            .OrderBy(x => x.Key)
+            .ToList();
+
+        Assert.AreEqual(0, res[0].Key);
+        Assert.AreEqual(1, res[0].Int8);
+        Assert.AreEqual(2, res[0].Int16);
+        Assert.AreEqual(3, res[0].Int32);
+        Assert.AreEqual(4, res[0].Int64);
+        Assert.AreEqual(5.5f, res[0].Float);
+        Assert.AreEqual(6.5, res[0].Double);
+        Assert.AreEqual(7.7, res[0].Decimal);
+        Assert.AreEqual(new LocalDate(2022, 12, 1), res[0].Date);
+        Assert.AreEqual(new LocalTime(11, 38, 1), res[0].Time);
+        Assert.AreEqual(new LocalDateTime(2022, 12, 19, 11, 1), res[0].DateTime);
+        Assert.AreEqual(Instant.FromUnixTimeSeconds(1), res[0].Timestamp);
+        Assert.AreEqual(new byte[] { 1, 2 }, res[0].Blob);
+    }
+
+    [Test]
+    public void TestSelectAllColumnTypesNullableNull()
+    {
+        var res = PocoAllColumnsSqlNullableView.AsQueryable()
+            .OrderByDescending(x => x.Key)
+            .ToList();
+
+        Assert.AreEqual(100, res[0].Key);
+        Assert.IsNull(res[0].Str);
+        Assert.IsNull(res[0].Int8);
+        Assert.IsNull(res[0].Int16);
+        Assert.IsNull(res[0].Int32);
+        Assert.IsNull(res[0].Int64);
+        Assert.IsNull(res[0].Float);
+        Assert.IsNull(res[0].Double);
+        Assert.IsNull(res[0].Decimal);
+        Assert.IsNull(res[0].Date);
+        Assert.IsNull(res[0].Time);
+        Assert.IsNull(res[0].DateTime);
+        Assert.IsNull(res[0].Timestamp);
+        Assert.IsNull(res[0].Blob);
+    }
+
+    [Test]
+    public void TestWhereNull()
+    {
+        var query = PocoAllColumnsSqlNullableView.AsQueryable()
+            .Where(x => x.Int8 == null);
+
+        StringAssert.Contains("where (_T0.INT8 IS NOT DISTINCT FROM ?)", query.ToString());
+
+        var res = query.ToList();
+
+        Assert.AreEqual(100, res[0].Key);
+        Assert.AreEqual(1, res.Count);
+    }
+
+    [Test]
+    public void TestWhereNotNull()
+    {
+        var query = PocoAllColumnsSqlNullableView.AsQueryable()
+            .Where(x => x.Int8 != null)
+            .OrderBy(x => x.Key);
+
+        StringAssert.Contains("where (_T0.INT8 IS DISTINCT FROM ?)", query.ToString());
+
+        var res = query.ToList();
+
+        Assert.AreEqual(0, res[0].Key);
+        Assert.AreEqual(10, res.Count);
+    }
+
+    [Test]
+    public void TestFilterAndSelectEnumColumn()
+    {
+        var query = PocoIntEnumView.AsQueryable()
+            .Where(x => x.Val == TestEnum.B)
+            .Select(x => new { x.Key, Res = x.Val });
+
+        StringAssert.Contains(
+            "select _T0.KEY, _T0.VAL from PUBLIC.TBL_INT32 as _T0 where (cast(_T0.VAL as int) IS NOT DISTINCT FROM ?), Parameters=3",
+            query.ToString());
+
+        var res = query.ToList();
+        var resEnum = res[0].Res;
+
+        Assert.AreEqual(3, res[0].Key);
+        Assert.AreEqual(TestEnum.B, resEnum);
+        Assert.AreEqual(1, res.Count);
+    }
+
+    private enum TestEnum
+    {
+        None = 0,
+        A = 100,
+        B = 300
+    }
+
     private record PocoByte(sbyte Key, sbyte Val);
 
     private record PocoShort(short Key, short Val);
@@ -516,4 +666,12 @@ public partial class LinqTests : IgniteTestsBase
     private record PocoDecimal(decimal Key, decimal Val);
 
     private record PocoString(string Key, string Val);
+
+    private record PocoDate(LocalDate Key, LocalDate Val);
+
+    private record PocoTime(LocalTime Key, LocalTime Val);
+
+    private record PocoDateTime(LocalDateTime Key, LocalDateTime Val);
+
+    private record PocoIntEnum(int Key, TestEnum Val);
 }

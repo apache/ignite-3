@@ -650,7 +650,51 @@ namespace Apache.Ignite.Tests.Table
         }
 
         [Test]
-        [Ignore("IGNITE-18329 Add support for nullable value type mapping")]
+        public async Task TestAllColumnsPocoNullableNotNull()
+        {
+            var pocoView = PocoAllColumnsNullableView;
+
+            var dt = LocalDateTime.FromDateTime(DateTime.UtcNow);
+            var poco = new PocoAllColumnsNullable(
+                Key: 123,
+                Str: "str",
+                Int8: 8,
+                Int16: 16,
+                Int32: 32,
+                Int64: 64,
+                Float: 32.32f,
+                Double: 64.64,
+                Uuid: Guid.NewGuid(),
+                Date: dt.Date,
+                BitMask: new BitArray(new byte[] { 1 }),
+                Time: dt.TimeOfDay,
+                DateTime: dt,
+                Timestamp: Instant.FromDateTimeUtc(DateTime.UtcNow),
+                Blob: new byte[] { 1, 2, 3 },
+                Decimal: 123.456m);
+
+            await pocoView.UpsertAsync(null, poco);
+
+            var res = (await pocoView.GetAsync(null, poco)).Value;
+
+            Assert.AreEqual(poco.Blob, res.Blob);
+            Assert.AreEqual(poco.Date, res.Date);
+            Assert.AreEqual(poco.Decimal, res.Decimal);
+            Assert.AreEqual(poco.Double, res.Double);
+            Assert.AreEqual(poco.Float, res.Float);
+            Assert.AreEqual(poco.Int8, res.Int8);
+            Assert.AreEqual(poco.Int16, res.Int16);
+            Assert.AreEqual(poco.Int32, res.Int32);
+            Assert.AreEqual(poco.Int64, res.Int64);
+            Assert.AreEqual(poco.Str, res.Str);
+            Assert.AreEqual(poco.Uuid, res.Uuid);
+            Assert.AreEqual(poco.BitMask, res.BitMask);
+            Assert.AreEqual(poco.Timestamp, res.Timestamp);
+            Assert.AreEqual(poco.Time, res.Time);
+            Assert.AreEqual(poco.DateTime, res.DateTime);
+        }
+
+        [Test]
         public async Task TestAllColumnsPocoNullable()
         {
             var pocoView = PocoAllColumnsNullableView;
@@ -678,6 +722,40 @@ namespace Apache.Ignite.Tests.Table
         }
 
         [Test]
+        public async Task TestEnumColumns()
+        {
+            // Normal values.
+            await Test(new PocoEnums.PocoIntEnum(1, PocoEnums.IntEnum.Foo));
+            await Test(new PocoEnums.PocoByteEnum(1, PocoEnums.ByteEnum.Foo));
+            await Test(new PocoEnums.PocoShortEnum(1, PocoEnums.ShortEnum.Foo));
+            await Test(new PocoEnums.PocoLongEnum(1, PocoEnums.LongEnum.Foo));
+
+            // Values that are not represented in the enum (it is just a number underneath).
+            await Test(new PocoEnums.PocoIntEnum(1, (PocoEnums.IntEnum)100));
+            await Test(new PocoEnums.PocoByteEnum(1, (PocoEnums.ByteEnum)101));
+            await Test(new PocoEnums.PocoShortEnum(1, (PocoEnums.ShortEnum)102));
+            await Test(new PocoEnums.PocoLongEnum(1, (PocoEnums.LongEnum)103));
+
+            // Default values.
+            await Test(new PocoEnums.PocoIntEnum(1, default));
+            await Test(new PocoEnums.PocoByteEnum(1, default));
+            await Test(new PocoEnums.PocoShortEnum(1, default));
+            await Test(new PocoEnums.PocoLongEnum(1, default));
+
+            async Task Test<T>(T val)
+                where T : notnull
+            {
+                var table = await Client.Tables.GetTableAsync(TableAllColumnsName);
+                var view = table!.GetRecordView<T>();
+
+                await view.UpsertAsync(null, val);
+
+                var res = await view.GetAsync(null, val);
+                Assert.AreEqual(val, res.Value);
+            }
+        }
+
+        [Test]
         public async Task TestUnsupportedColumnTypeThrowsException()
         {
             var table = await Client.Tables.GetTableAsync(TableAllColumnsName);
@@ -687,6 +765,20 @@ namespace Apache.Ignite.Tests.Table
             Assert.AreEqual(
                 "Can't map field 'UnsupportedByteType.<Int8>k__BackingField' of type 'System.Byte' " +
                 "to column 'INT8' of type 'System.SByte' - types do not match.",
+                ex!.Message);
+        }
+
+        [Test]
+        public async Task TestUnsupportedEnumColumnTypeThrowsException()
+        {
+            var table = await Client.Tables.GetTableAsync(TableAllColumnsName);
+            var pocoView = table!.GetRecordView<PocoEnums.PocoUnsignedByteEnum>();
+            var poco = new PocoEnums.PocoUnsignedByteEnum(1, default);
+
+            var ex = Assert.ThrowsAsync<IgniteClientException>(async () => await pocoView.UpsertAsync(null, poco));
+            Assert.AreEqual(
+                "Can't map field 'PocoUnsignedByteEnum.<Int8>k__BackingField' of type " +
+                "'Apache.Ignite.Tests.Table.PocoEnums+UnsignedByteEnum' to column 'INT8' of type 'System.SByte' - types do not match.",
                 ex!.Message);
         }
 

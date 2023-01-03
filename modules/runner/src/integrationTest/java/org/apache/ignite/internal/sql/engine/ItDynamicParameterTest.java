@@ -105,6 +105,9 @@ public class ItDynamicParameterTest extends AbstractBasicIntegrationTest {
         assertQuery("SELECT COALESCE(?, ?)").withParams("a", 10).returns("a").check();
         assertQuery("SELECT COALESCE(?, ?)").withParams("a", "b").returns("a").check();
         assertQuery("SELECT COALESCE(?, ?)").withParams(22, 33).returns(22).check();
+
+        assertQuery("SELECT UPPER(TYPEOF(?))").withParams(1).returns("INTEGER").check();
+        assertQuery("SELECT UPPER(TYPEOF(?))").withParams(1d).returns("DOUBLE").check();
     }
 
     // After fix the mute reason need to merge the test with above testWithDifferentParametersTypes

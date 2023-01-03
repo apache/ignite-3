@@ -18,7 +18,6 @@
 namespace Apache.Ignite.Benchmarks.Proto
 {
     using System;
-    using System.Diagnostics.CodeAnalysis;
     using BenchmarkDotNet.Attributes;
     using Internal.Buffers;
     using Internal.Proto;
@@ -30,7 +29,6 @@ namespace Apache.Ignite.Benchmarks.Proto
     /// | WriteTwoLongs | 173.9 ns | 1.43 ns | 1.34 ns |
     /// |     WriteGuid | 171.1 ns | 3.38 ns | 3.16 ns |.
     /// </summary>
-    [SuppressMessage("Microsoft.Performance", "CA1822:MarkMembersAsStatic", Justification = "Benchmarks.")]
     public class WriteGuidBenchmarks
     {
         private static readonly Guid Guid = Guid.NewGuid();

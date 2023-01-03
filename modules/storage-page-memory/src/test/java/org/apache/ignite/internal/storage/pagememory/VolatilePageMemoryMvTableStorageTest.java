@@ -71,24 +71,6 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
         );
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18028")
-    @Override
-    public void testStartRebalanceMvPartition() throws Exception {
-        super.testStartRebalanceMvPartition();
-    }
-
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18028")
-    @Override
-    public void testAbortRebalanceMvPartition() throws Exception {
-        super.testAbortRebalanceMvPartition();
-    }
-
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18028")
-    @Override
-    public void testFinishRebalanceMvPartition() throws Exception {
-        super.testFinishRebalanceMvPartition();
-    }
-
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-17833")
     @Override
     public void testDestroyPartition() throws Exception {
@@ -99,5 +81,23 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
     @Override
     public void testReCreatePartition() throws Exception {
         super.testReCreatePartition();
+    }
+
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18028")
+    @Override
+    public void testSuccessRebalance() throws Exception {
+        super.testSuccessRebalance();
+    }
+
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18028")
+    @Override
+    public void testFailRebalance() throws Exception {
+        super.testFailRebalance();
+    }
+
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18028")
+    @Override
+    public void testStartRebalanceForClosedPartition() {
+        super.testStartRebalanceForClosedPartition();
     }
 }

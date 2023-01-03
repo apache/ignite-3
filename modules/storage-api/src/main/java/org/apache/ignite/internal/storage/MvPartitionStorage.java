@@ -40,6 +40,13 @@ import org.jetbrains.annotations.Nullable;
  */
 public interface MvPartitionStorage extends ManuallyCloseable {
     /**
+     * Value of the {@link #lastAppliedIndex()} and {@link #lastAppliedTerm()} during rebalance of transaction state storage.
+     *
+     * <p>Allows to determine on a node restart that rebalance has not been completed and storage should be cleared before using it.
+     */
+    long REBALANCE_IN_PROGRESS = -1;
+
+    /**
      * Closure for executing write operations on the storage.
      *
      * @param <V> Type of the result returned from the closure.
@@ -177,7 +184,7 @@ public interface MvPartitionStorage extends ManuallyCloseable {
      * @param commitTimestamp Timestamp to associate with committed value.
      * @throws StorageException If failed to write data to the storage.
      */
-    void addWriteCommitted(RowId rowId, BinaryRow row, HybridTimestamp commitTimestamp) throws StorageException;
+    void addWriteCommitted(RowId rowId, @Nullable BinaryRow row, HybridTimestamp commitTimestamp) throws StorageException;
 
     /**
      * Scans all versions of a single row.
@@ -210,6 +217,17 @@ public interface MvPartitionStorage extends ManuallyCloseable {
     @Nullable RowId closestRowId(RowId lowerBound) throws StorageException;
 
     /**
+     * Polls the oldest row in the partition, removing it at the same time.
+     *
+     * @param lowWatermark A time threshold for the row. Rows younger then the watermark value will not be removed.
+     * @return A pair of binary row and row id, where a timestamp of the row is less than or equal to {@code lowWatermark}.
+     *      {@code null} if there's no such value.
+     */
+    default @Nullable BinaryRowAndRowId pollForVacuum(HybridTimestamp lowWatermark) {
+        throw new UnsupportedOperationException("pollForVacuum");
+    }
+
+    /**
      * Returns rows count belongs to current storage.
      *
      * @return Rows count.
@@ -222,6 +240,8 @@ public interface MvPartitionStorage extends ManuallyCloseable {
 
     /**
      * Closes the storage.
+     *
+     * <p>REQUIRED: For background tasks for partition, such as rebalancing, to be completed by the time the method is called.
      */
     @Override
     void close();
