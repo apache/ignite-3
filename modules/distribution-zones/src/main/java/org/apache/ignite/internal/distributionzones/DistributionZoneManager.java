@@ -340,24 +340,24 @@ public class DistributionZoneManager implements IgniteComponent {
             CompletableFuture<Void> fut = new CompletableFuture<>();
 
             zonesConfiguration.change(zonesChange -> zonesChange.changeDistributionZones(zonesListChange -> {
-                        DistributionZoneView zoneView = zonesListChange.get(name);
+                DistributionZoneView zoneView = zonesListChange.get(name);
 
-                        NamedConfigurationTree<TableConfiguration, TableView, TableChange> tables = tablesConfiguration.tables();
+                NamedConfigurationTree<TableConfiguration, TableView, TableChange> tables = tablesConfiguration.tables();
 
-                        boolean bindTable = tables.value().namedListKeys().stream()
-                                .anyMatch(tableName -> {
-                                    Integer tableZoneId = tables.get(tableName).zoneId().value();
+                boolean bindTable = tables.value().namedListKeys().stream()
+                        .anyMatch(tableName -> {
+                            Integer tableZoneId = tables.get(tableName).zoneId().value();
 
-                                    return tableZoneId != null && tableZoneId.equals(zoneView.zoneId());
-                                });
+                            return tableZoneId != null && tableZoneId.equals(zoneView.zoneId());
+                        });
 
-                        if (bindTable) {
-                            throw new DistributionZoneBindTableException(name);
-                        }
+                if (bindTable) {
+                    throw new DistributionZoneBindTableException(name);
+                }
 
-                        if (zoneView == null) {
-                            throw new DistributionZoneNotFoundException(name);
-                        }
+                if (zoneView == null) {
+                    throw new DistributionZoneNotFoundException(name);
+                }
 
                 zonesListChange.delete(name);
             }))
