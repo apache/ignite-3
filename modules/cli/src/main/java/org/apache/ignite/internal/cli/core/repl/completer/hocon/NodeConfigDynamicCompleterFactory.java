@@ -18,53 +18,29 @@
 package org.apache.ignite.internal.cli.core.repl.completer.hocon;
 
 import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
 import jakarta.inject.Singleton;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.atomic.AtomicReference;
-import org.apache.ignite.internal.cli.call.configuration.NodeConfigShowCall;
-import org.apache.ignite.internal.cli.call.configuration.NodeConfigShowCallInput;
 import org.apache.ignite.internal.cli.core.repl.completer.DummyCompleter;
 import org.apache.ignite.internal.cli.core.repl.completer.DynamicCompleter;
 import org.apache.ignite.internal.cli.core.repl.completer.DynamicCompleterFactory;
-import org.apache.ignite.internal.cli.core.repl.completer.NodeUrlProvider;
+import org.apache.ignite.internal.cli.core.repl.registry.NodeConfigRegistry;
 
 /** Factory for node config show/update completer. */
 @Singleton
 public class NodeConfigDynamicCompleterFactory implements DynamicCompleterFactory {
-    private final NodeUrlProvider urlProvider;
 
-    private final NodeConfigShowCall nodeConfigShowCall;
+    private final NodeConfigRegistry nodeConfigRegistry;
 
-    private final AtomicReference<DynamicCompleter> cachedCompleter = new AtomicReference<>(null);
-
-    public NodeConfigDynamicCompleterFactory(NodeUrlProvider urlProvider, NodeConfigShowCall nodeConfigShowCall) {
-        this.urlProvider = urlProvider;
-        this.nodeConfigShowCall = nodeConfigShowCall;
+    public NodeConfigDynamicCompleterFactory(NodeConfigRegistry nodeConfigRegistry) {
+        this.nodeConfigRegistry = nodeConfigRegistry;
     }
 
     @Override
     public DynamicCompleter getDynamicCompleter(String[] words) {
-        if (cachedCompleter.getAcquire() != null) {
-            return cachedCompleter.getAcquire();
+        Config config = nodeConfigRegistry.config();
+        if (config != null) {
+            return new HoconDynamicCompleter(config);
         } else {
-            // call REST on the background in order not to freeze UI thread
-            CompletableFuture.runAsync(() -> {
-                try {
-                    Config config = ConfigFactory.parseString(
-                            nodeConfigShowCall.execute(
-                                    // todo https://issues.apache.org/jira/browse/IGNITE-17416
-                                    NodeConfigShowCallInput.builder().nodeUrl(urlProvider.resolveUrl(new String[]{""})).build()
-                            ).body().getValue()
-                    );
-                    cachedCompleter.compareAndExchangeRelease(null, new HoconDynamicCompleter(config));
-                } catch (Exception ignored) {
-                    // no-op
-                }
-            });
+            return new DummyCompleter();
         }
-
-        // return dummy completer this time, but hope the next call will return cached completer
-        return new DummyCompleter();
     }
 }

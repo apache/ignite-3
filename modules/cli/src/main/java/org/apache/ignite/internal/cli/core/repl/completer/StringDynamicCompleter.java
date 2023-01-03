@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.core.repl.completer.node;
+package org.apache.ignite.internal.cli.core.repl.completer;
 
 import static org.apache.ignite.internal.cli.util.ArrayUtils.findLastNotEmptyWord;
 
@@ -30,7 +30,7 @@ import org.apache.ignite.internal.cli.core.repl.completer.DynamicCompleter;
  */
 public class StringDynamicCompleter implements DynamicCompleter {
 
-    /** Values that will ve suggested. */
+    /** Values that will be suggested. */
     private final Set<String> values;
 
     /** Default constructor. */

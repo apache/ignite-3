@@ -86,6 +86,13 @@ namespace Apache.Ignite.Internal.Table.Serialization
             type is { IsGenericType: true } && type.GetGenericTypeDefinition() == typeof(KeyValuePair<,>);
 
         /// <summary>
+        /// Gets the underlying enum type, if applicable. Otherwise, returns the type itself.
+        /// </summary>
+        /// <param name="type">Type to unwrap.</param>
+        /// <returns>Underlying type when enum; type itself otherwise.</returns>
+        public static Type UnwrapEnum(this Type type) => type.IsEnum ? Enum.GetUnderlyingType(type) : type;
+
+        /// <summary>
         /// Gets a map of fields by column name.
         /// </summary>
         /// <param name="type">Type to get the map for.</param>

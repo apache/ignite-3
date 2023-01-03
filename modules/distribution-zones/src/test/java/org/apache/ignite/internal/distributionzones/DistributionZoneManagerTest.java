@@ -38,6 +38,7 @@ import org.apache.ignite.internal.distributionzones.exception.DistributionZoneAl
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNotFoundException;
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneRenameException;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
+import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterEach;

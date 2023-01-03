@@ -20,16 +20,16 @@ package org.apache.ignite.internal.cli.call.connect;
 import com.google.gson.Gson;
 import jakarta.inject.Singleton;
 import java.net.MalformedURLException;
-import java.net.URL;
 import java.util.Objects;
-import org.apache.ignite.internal.cli.NodeNameRegistry;
 import org.apache.ignite.internal.cli.config.ConfigConstants;
 import org.apache.ignite.internal.cli.config.StateConfigProvider;
+import org.apache.ignite.internal.cli.core.JdbcUrl;
 import org.apache.ignite.internal.cli.core.call.Call;
 import org.apache.ignite.internal.cli.core.call.CallOutput;
 import org.apache.ignite.internal.cli.core.call.DefaultCallOutput;
 import org.apache.ignite.internal.cli.core.exception.IgniteCliApiException;
 import org.apache.ignite.internal.cli.core.repl.Session;
+import org.apache.ignite.internal.cli.core.repl.SessionInfo;
 import org.apache.ignite.internal.cli.core.repl.config.RootConfig;
 import org.apache.ignite.internal.cli.core.style.component.MessageUiComponent;
 import org.apache.ignite.internal.cli.core.style.element.UiElements;
@@ -48,36 +48,29 @@ public class ConnectCall implements Call<ConnectCallInput, String> {
 
     private final StateConfigProvider stateConfigProvider;
 
-    private final NodeNameRegistry nodeNameRegistry;
-
     /**
      * Constructor.
      */
-    public ConnectCall(Session session, StateConfigProvider stateConfigProvider, NodeNameRegistry nodeNameRegistry) {
+    public ConnectCall(Session session, StateConfigProvider stateConfigProvider) {
         this.session = session;
         this.stateConfigProvider = stateConfigProvider;
-        this.nodeNameRegistry = nodeNameRegistry;
     }
 
     @Override
     public CallOutput<String> execute(ConnectCallInput input) {
         String nodeUrl = input.getNodeUrl();
-        if (session.isConnectedToNode() && Objects.equals(session.nodeUrl(), nodeUrl)) {
+        SessionInfo sessionInfo = session.info();
+        if (sessionInfo != null && Objects.equals(sessionInfo.nodeUrl(), nodeUrl)) {
             MessageUiComponent message = MessageUiComponent.fromMessage("You are already connected to %s", UiElements.url(nodeUrl));
             return DefaultCallOutput.success(message.render());
         }
         try {
             String configuration = fetchNodeConfiguration(nodeUrl);
-            session.setNodeName(fetchNodeName(nodeUrl));
-            session.setNodeUrl(nodeUrl);
             stateConfigProvider.get().setProperty(ConfigConstants.LAST_CONNECTED_URL, nodeUrl);
-            session.setJdbcUrl(constructJdbcUrl(configuration, nodeUrl));
-            session.setConnectedToNode(true);
-            nodeNameRegistry.startPullingUpdates(nodeUrl);
+            session.connect(new SessionInfo(nodeUrl, fetchNodeName(nodeUrl), constructJdbcUrl(configuration, nodeUrl)));
             return DefaultCallOutput.success(MessageUiComponent.fromMessage("Connected to %s", UiElements.url(nodeUrl)).render());
-
         } catch (ApiException | IllegalArgumentException e) {
-            session.setConnectedToNode(false);
+            session.disconnect();
             return DefaultCallOutput.failure(new IgniteCliApiException(e, nodeUrl));
         }
     }
@@ -92,9 +85,8 @@ public class ConnectCall implements Call<ConnectCallInput, String> {
 
     private String constructJdbcUrl(String configuration, String nodeUrl) {
         try {
-            String host = new URL(nodeUrl).getHost();
-            RootConfig config = new Gson().fromJson(configuration, RootConfig.class);
-            return "jdbc:ignite:thin://" + host + ":" + config.clientConnector.port;
+            int port = new Gson().fromJson(configuration, RootConfig.class).clientConnector.port;
+            return JdbcUrl.of(nodeUrl, port).toString();
         } catch (MalformedURLException ignored) {
             // Shouldn't happen ever since we are now connected to this URL
             return null;
