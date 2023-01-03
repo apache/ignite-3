@@ -117,9 +117,7 @@ public partial class LinqTests
         Assert.AreEqual(0L, await query.MinAsync());
         Assert.AreEqual(-9L, await query.MinAsync(x => -x));
 
-        // TODO:
-        // 1. What does EF Min return for nullable columns? => null when empty table, otherwise nulls are ignored
-        // 2. What does EF Min return when there are no results? => InvalidOperationException: Sequence contains no elements.
-        Assert.IsNull(await query.Where(x => x > 1000).MinAsync());
+        var ex = Assert.ThrowsAsync<InvalidOperationException>(() => query.Where(x => x > 1000).MinAsync());
+        Assert.AreEqual("Sequence contains no elements", ex!.Message);
     }
 }

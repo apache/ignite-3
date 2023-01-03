@@ -23,6 +23,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Threading.Tasks;
 using Ignite.Sql;
 using Ignite.Transactions;
+using Proto.BinaryTuple;
 using Remotion.Linq;
 using Sql;
 
@@ -102,9 +103,11 @@ internal sealed class IgniteQueryExecutor : IQueryExecutor
     /// Executes query and returns <see cref="IResultSet{T}"/>.
     /// </summary>
     /// <param name="queryModel">Query model.</param>
+    /// <param name="throwNoElementsOnNull">
+    /// Whether to throw "Sequence contains no elements" exception when the result is a single null element.</param>
     /// <typeparam name="T">Result type.</typeparam>
     /// <returns>Result set.</returns>
-    internal async Task<IResultSet<T>> ExecuteResultSetInternalAsync<T>(QueryModel queryModel)
+    internal async Task<IResultSet<T>> ExecuteResultSetInternalAsync<T>(QueryModel queryModel, bool throwNoElementsOnNull = false)
     {
         var qryData = GetQueryData(queryModel);
 
@@ -117,7 +120,26 @@ internal sealed class IgniteQueryExecutor : IQueryExecutor
         IResultSet<T> resultSet = await _sql.ExecuteAsyncInternal(
             _transaction,
             statement,
-            cols => ResultSelector.Get<T>(cols, queryModel.SelectClause.Selector, defaultIfNull: qryData.HasOuterJoins),
+            cols =>
+            {
+                var selector = ResultSelector.Get<T>(cols, queryModel.SelectClause.Selector, defaultIfNull: qryData.HasOuterJoins);
+
+                // TODO: Refactor this.
+                if (throwNoElementsOnNull)
+                {
+                    return (IReadOnlyList<IColumnMetadata> list, ref BinaryTupleReader reader) =>
+                    {
+                        if (reader.IsNull(0))
+                        {
+                            throw new InvalidOperationException("Sequence contains no elements");
+                        }
+
+                        return selector(list, ref reader);
+                    };
+                }
+
+                return selector;
+            },
             qryData.Parameters)
             .ConfigureAwait(false);
 
@@ -135,7 +157,10 @@ internal sealed class IgniteQueryExecutor : IQueryExecutor
     internal async Task<T?> ExecuteSingleInternalAsync<T>(QueryModel queryModel, ExecutionOptions options = default)
     {
         // TODO: How to handle ThrowNoElementsOnNull?
-        await using IResultSet<T> resultSet = await ExecuteResultSetInternalAsync<T>(queryModel).ConfigureAwait(false);
+        await using IResultSet<T> resultSet = await ExecuteResultSetInternalAsync<T>(
+                queryModel,
+                throwNoElementsOnNull: options.HasFlag(ExecutionOptions.ThrowNoElementsOnNull))
+            .ConfigureAwait(false);
 
         var res = default(T);
         var count = 0;

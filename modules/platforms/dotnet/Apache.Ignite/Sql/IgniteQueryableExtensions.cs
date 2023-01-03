@@ -410,7 +410,7 @@ public static class IgniteQueryableExtensions
         // TODO: Replace bool flags (e.g. defaultIfNull) with a flags enum;
         // Introduce new mode "ThrowNoElementsOnNull".
         var provider = queryable.ToQueryableInternal().Provider;
-        var res = await provider.ExecuteSingleAsync<TSource?>(expression).ConfigureAwait(false);
+        var res = await provider.ExecuteSingleAsync<TSource?>(expression, ExecutionOptions.ThrowNoElementsOnNull).ConfigureAwait(false);
 
         return res!;
     }
@@ -436,7 +436,7 @@ public static class IgniteQueryableExtensions
         var expression = Expression.Call(null, method, queryable.Expression, Expression.Quote(selector));
 
         var provider = queryable.ToQueryableInternal().Provider;
-        return await provider.ExecuteSingleAsync<TSource>(expression).ConfigureAwait(false);
+        return await provider.ExecuteSingleAsync<TSource>(expression, ExecutionOptions.ThrowNoElementsOnNull).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -456,7 +456,7 @@ public static class IgniteQueryableExtensions
         var expression = Expression.Call(null, method, queryable.Expression);
 
         var provider = queryable.ToQueryableInternal().Provider;
-        return await provider.ExecuteSingleAsync<TSource>(expression).ConfigureAwait(false);
+        return await provider.ExecuteSingleAsync<TSource>(expression, ExecutionOptions.ThrowNoElementsOnNull).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -480,7 +480,7 @@ public static class IgniteQueryableExtensions
         var expression = Expression.Call(null, method, queryable.Expression, Expression.Quote(selector));
 
         var provider = queryable.ToQueryableInternal().Provider;
-        return await provider.ExecuteSingleAsync<TSource>(expression).ConfigureAwait(false);
+        return await provider.ExecuteSingleAsync<TSource>(expression, ExecutionOptions.ThrowNoElementsOnNull).ConfigureAwait(false);
     }
 
     /// <summary>
