@@ -42,10 +42,17 @@ public abstract class BusyRocksIteratorAdapter<T> extends RocksIteratorAdapter<T
     /**
      * Handles busy lock acquiring failure. This means that db has been stopped and cursor can't proceed. Must throw an exception.
      */
-    protected abstract void handleBusy();
+    protected abstract void handleBusyFail();
 
-    private void handleBusy0() {
-        handleBusy();
+    /**
+     * Handles busy lock acquiring success.
+     */
+    protected void handeBusySuccess() {
+        // No-op.
+    }
+
+    private void handleBusyFail0() {
+        handleBusyFail();
 
         assert false : "handleBusy() should have thrown an exception.";
     }
@@ -53,10 +60,12 @@ public abstract class BusyRocksIteratorAdapter<T> extends RocksIteratorAdapter<T
     @Override
     public boolean hasNext() {
         if (!busyLock.enterBusy()) {
-            handleBusy0();
+            handleBusyFail0();
         }
 
         try {
+            handeBusySuccess();
+
             return super.hasNext();
         } finally {
             busyLock.leaveBusy();
@@ -66,10 +75,12 @@ public abstract class BusyRocksIteratorAdapter<T> extends RocksIteratorAdapter<T
     @Override
     public T next() {
         if (!busyLock.enterBusy()) {
-            handleBusy0();
+            handleBusyFail0();
         }
 
         try {
+            handeBusySuccess();
+
             return super.next();
         } finally {
             busyLock.leaveBusy();
@@ -79,10 +90,12 @@ public abstract class BusyRocksIteratorAdapter<T> extends RocksIteratorAdapter<T
     @Override
     public void close() {
         if (!busyLock.enterBusy()) {
-            handleBusy0();
+            handleBusyFail0();
         }
 
         try {
+            handeBusySuccess();
+
             super.close();
         } finally {
             busyLock.leaveBusy();

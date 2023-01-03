@@ -15,12 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli;
+package org.apache.ignite.internal.cli.core.repl.registry.impl;
 
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 
 import jakarta.inject.Singleton;
 import java.net.URL;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -30,63 +31,52 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.cli.call.cluster.topology.PhysicalTopologyCall;
 import org.apache.ignite.internal.cli.core.call.UrlCallInput;
+import org.apache.ignite.internal.cli.core.repl.AsyncSessionEventListener;
+import org.apache.ignite.internal.cli.core.repl.SessionInfo;
+import org.apache.ignite.internal.cli.core.repl.registry.NodeNameRegistry;
+import org.apache.ignite.internal.cli.logger.CliLoggers;
 import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.rest.client.model.ClusterNode;
 import org.apache.ignite.rest.client.model.NodeMetadata;
 import org.jetbrains.annotations.Nullable;
 
-/**
- * Registry to get a node URL by a node name.
- */
+/** Implementation of {@link NodeNameRegistry}. */
 @Singleton
-public class NodeNameRegistry {
+public class NodeNameRegistryImpl implements NodeNameRegistry, AsyncSessionEventListener {
 
-    private final IgniteLogger log = Loggers.forClass(getClass());
+    private static final IgniteLogger log = CliLoggers.forClass(NodeNameRegistryImpl.class);
+
+    private final PhysicalTopologyCall physicalTopologyCall;
+
     private volatile Map<String, URL> nodeNameToNodeUrl = Map.of();
+
     private ScheduledExecutorService executor;
 
-    /**
-     * Start pulling updates from a node.
-     *
-     * @param nodeUrl Node URL.
-     */
-    public synchronized void startPullingUpdates(String nodeUrl) {
-        stopPullingUpdates();
-        if (executor == null) {
-            executor = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("NodeNameRegistry", log));
-            executor.scheduleWithFixedDelay(() -> updateNodeNames(nodeUrl), 0, 5, TimeUnit.SECONDS);
-        }
+    public NodeNameRegistryImpl(PhysicalTopologyCall physicalTopologyCall) {
+        this.physicalTopologyCall = physicalTopologyCall;
     }
 
-    /**
-     * Gets a node url by a provided node name.
-     */
-    public Optional<URL> getNodeUrl(String nodeName) {
+    /** {@inheritDoc} */
+    @Override
+    public Optional<URL> nodeUrlByName(String nodeName) {
         return Optional.ofNullable(nodeNameToNodeUrl.get(nodeName));
     }
 
-    /**
-     * Gets all node names.
-     */
-    public Set<String> getAllNames() {
+    /** {@inheritDoc} */
+    @Override
+    public Set<String> names() {
         return nodeNameToNodeUrl.keySet();
     }
 
-    /**
-     * Stops pulling updates.
-     */
-    public synchronized void stopPullingUpdates() {
-        if (executor != null) {
-            shutdownAndAwaitTermination(executor, 3, TimeUnit.SECONDS);
-            executor = null;
-        }
+    /** {@inheritDoc} */
+    @Override
+    public Set<URL> urls() {
+        return new HashSet<>(nodeNameToNodeUrl.values());
     }
 
     private void updateNodeNames(String nodeUrl) {
-        PhysicalTopologyCall topologyCall = new PhysicalTopologyCall();
-        nodeNameToNodeUrl = topologyCall.execute(new UrlCallInput(nodeUrl))
+        nodeNameToNodeUrl = physicalTopologyCall.execute(new UrlCallInput(nodeUrl))
                 .body()
                 .stream()
                 .map(this::toNodeNameAndUrlPair)
@@ -108,6 +98,32 @@ public class NodeNameRegistry {
         } catch (Exception e) {
             log.warn("Couldn't create URL: {}", e);
             return null;
+        }
+    }
+
+    /**
+     * Start pulling updates from a node.
+     *
+     * @param sessionInfo sessionInfo.
+     */
+
+    @Override
+    public void onConnect(SessionInfo sessionInfo) {
+        if (executor == null) {
+            executor = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("NodeNameRegistry", log));
+            executor.scheduleWithFixedDelay(() ->
+                    updateNodeNames(sessionInfo.nodeUrl()), 0, 5, TimeUnit.SECONDS);
+        }
+    }
+
+    /**
+     * Stops pulling updates.
+     */
+    @Override
+    public void onDisconnect() {
+        if (executor != null) {
+            shutdownAndAwaitTermination(executor, 3, TimeUnit.SECONDS);
+            executor = null;
         }
     }
 

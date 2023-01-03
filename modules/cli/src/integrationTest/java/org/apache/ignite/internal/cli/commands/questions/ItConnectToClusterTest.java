@@ -157,6 +157,10 @@ class ItConnectToClusterTest extends CliCommandTestInitializedIntegrationBase {
         // And answer is "y"
         bindAnswers("y");
 
+        // And disconnect
+        resetOutput();
+        execute("disconnect");
+
         // When connect to different URL
         resetOutput();
         execute("connect", "http://localhost:10301");

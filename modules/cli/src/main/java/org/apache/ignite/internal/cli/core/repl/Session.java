@@ -18,51 +18,59 @@
 package org.apache.ignite.internal.cli.core.repl;
 
 import jakarta.inject.Singleton;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
+import org.apache.ignite.internal.cli.core.exception.ConnectionException;
+import org.apache.ignite.internal.cli.logger.CliLoggers;
+import org.apache.ignite.internal.logger.IgniteLogger;
 
 /**
- * Connection session that in fact is holder for state: connected or disconnected.
- * Also has a nodeUrl if the state is connected.
+ * Connection session that in fact is holder for state: connected or disconnected. Also has session info if the state is connected.
  */
 @Singleton
 public class Session {
 
-    private boolean connectedToNode;
+    private static final IgniteLogger log = CliLoggers.forClass(Session.class);
 
-    private String nodeUrl;
+    private final AtomicReference<SessionInfo> info = new AtomicReference<>();
 
-    private String nodeName;
+    private final List<? extends AsyncSessionEventListener> listeners;
 
-    private String jdbcUrl;
-
-    public boolean isConnectedToNode() {
-        return connectedToNode;
+    public Session(List<? extends AsyncSessionEventListener> listeners) {
+        this.listeners = listeners;
     }
 
-    public void setConnectedToNode(boolean connectedToNode) {
-        this.connectedToNode = connectedToNode;
+    /** Creates session info with provided nodeUrl, nodeName, jdbcUrl. */
+    public void connect(SessionInfo newInfo) {
+        if (info.compareAndSet(null, newInfo)) {
+            listeners.forEach(it -> {
+                try {
+                    it.onConnect(newInfo);
+                } catch (Exception e) {
+                    log.warn("Got an exception: ", e);
+                }
+            });
+        } else {
+            throw new ConnectionException("Already connected to " + info.get().nodeUrl());
+        }
     }
 
-    public String nodeUrl() {
-        return nodeUrl;
+    /** Clears session info and sets false to connectedToNode. */
+    public void disconnect() {
+        SessionInfo wasConnected = info.getAndSet(null);
+        if (wasConnected != null) {
+            listeners.forEach(it -> {
+                try {
+                    it.onDisconnect();
+                } catch (Exception e) {
+                    log.warn("Got an exception: ", e);
+                }
+            });
+        }
     }
 
-    public String nodeName() {
-        return nodeName;
-    }
-
-    public void setNodeName(String nodeName) {
-        this.nodeName = nodeName;
-    }
-
-    public void setNodeUrl(String nodeUrl) {
-        this.nodeUrl = nodeUrl;
-    }
-
-    public String jdbcUrl() {
-        return jdbcUrl;
-    }
-
-    public void setJdbcUrl(String jdbcUrl) {
-        this.jdbcUrl = jdbcUrl;
+    /** Returns {@link SessionInfo}. */
+    public SessionInfo info() {
+        return info.get();
     }
 }
