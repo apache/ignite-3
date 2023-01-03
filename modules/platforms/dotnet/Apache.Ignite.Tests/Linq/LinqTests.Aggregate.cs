@@ -207,7 +207,7 @@ public partial class LinqTests
         double? sumNull = query.Where(x => x.Double == null).Sum(x => x.Double);
 
         Assert.AreEqual(110d, sumNotNull);
-        Assert.IsNull(sumNull);
+        Assert.AreEqual(0, sumNull);
     }
 
     [Test]
@@ -229,7 +229,7 @@ public partial class LinqTests
             var sumNull = sumFunc(query.Where(x => x.Double == null));
 
             Assert.IsNotNull(sumNotNull);
-            Assert.IsNull(sumNull);
+            Assert.AreEqual(0, sumNull);
         }
     }
 }
