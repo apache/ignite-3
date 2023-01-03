@@ -68,18 +68,28 @@ import org.junit.jupiter.api.extension.ExtendWith;
 public class IntegrationTestBase extends BaseIgniteAbstractTest {
     /** Correct ignite cluster url. */
     protected static final String NODE_URL = "http://localhost:10300";
+
     /** Cluster nodes. */
     protected static final List<Ignite> CLUSTER_NODES = new ArrayList<>();
+
     /** Cluster node names. */
     protected static final List<String> CLUSTER_NODE_NAMES = new ArrayList<>();
+
     /** Node name to its configuration map.*/
     protected static final Map<String, String> NODE_CONFIGS = new HashMap<>();
+
     /** Timeout should be big enough to prevent premature session expiration. */
+
     private static final long SESSION_IDLE_TIMEOUT = TimeUnit.SECONDS.toMillis(60);
+
     private static final int DEFAULT_NODES_COUNT = 3;
+
     private static final IgniteLogger LOG = Loggers.forClass(IntegrationTestBase.class);
+
     /** Base port number. */
+
     private static final int BASE_PORT = 3344;
+
     /** Nodes bootstrap configuration pattern. */
     private static final String NODE_BOOTSTRAP_CFG = "{\n"
             + "  \"network\": {\n"
@@ -90,9 +100,11 @@ public class IntegrationTestBase extends BaseIgniteAbstractTest {
             + "    }\n"
             + "  }\n"
             + "}";
+
     /** Futures that are going to be completed when all nodes are started and the cluster is initialized. */
     private static List<CompletableFuture<Ignite>> futures = new ArrayList<>();
     /** Work directory. */
+
     @WorkDirectory
     private static Path WORK_DIR;
 

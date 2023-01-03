@@ -35,9 +35,10 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.cli.commands.CliCommandTestInitializedIntegrationBase;
 import org.apache.ignite.internal.cli.commands.TopLevelCliReplCommand;
+import org.apache.ignite.internal.cli.core.repl.Session;
+import org.apache.ignite.internal.cli.core.repl.SessionInfo;
 import org.apache.ignite.internal.cli.core.repl.completer.DynamicCompleterActivationPoint;
 import org.apache.ignite.internal.cli.core.repl.completer.DynamicCompleterRegistry;
-import org.apache.ignite.internal.cli.core.repl.completer.NodeUrlProvider;
 import org.apache.ignite.internal.cli.core.repl.completer.filter.CompleterFilter;
 import org.apache.ignite.internal.cli.core.repl.completer.filter.DynamicCompleterFilter;
 import org.apache.ignite.internal.cli.core.repl.completer.filter.NonRepeatableOptionsFilter;
@@ -60,15 +61,19 @@ import org.mockito.Mockito;
 /** Integration test for all completions in interactive mode. */
 public class ItIgnitePicocliCommandsTest extends CliCommandTestInitializedIntegrationBase {
 
+    private static final String DEFAULT_REST_URL = "http://localhost:10300";
+
     @Inject
     DynamicCompleterRegistry dynamicCompleterRegistry;
+
     @Inject
     DynamicCompleterActivationPoint dynamicCompleterActivationPoint;
+
     @Inject
     DynamicCompleterFilter dynamicCompleterFilter;
 
     @Inject
-    NodeUrlProvider urlProvider;
+    Session session;
 
     SystemCompleter completer;
 
@@ -197,11 +202,18 @@ public class ItIgnitePicocliCommandsTest extends CliCommandTestInitializedIntegr
     @MethodSource("nodeConfigShowSuggestedSource")
     @DisplayName("node config show selector parameters suggested")
     void nodeConfigShowSuggested(ParsedLine givenParsedLine) {
+        // Given
+        connected();
+
         // wait for lazy init of node config completer
         await("For given parsed words: " + givenParsedLine.words()).until(
                 () -> complete(givenParsedLine),
                 containsInAnyOrder("rest", "compute", "clientConnector", "raft", "network")
         );
+    }
+
+    private void connected() {
+        session.connect(new SessionInfo(DEFAULT_REST_URL, null, null));
     }
 
     private Stream<Arguments> nodeConfigUpdateSuggestedSource() {
@@ -217,6 +229,9 @@ public class ItIgnitePicocliCommandsTest extends CliCommandTestInitializedIntegr
     @MethodSource("nodeConfigUpdateSuggestedSource")
     @DisplayName("node config update selector parameters suggested")
     void nodeConfigUpdateSuggested(ParsedLine givenParsedLine) {
+        // Given
+        connected();
+
         // wait for lazy init of node config completer
         await("For given parsed words: " + givenParsedLine.words()).until(
                 () -> complete(givenParsedLine),
@@ -237,6 +252,9 @@ public class ItIgnitePicocliCommandsTest extends CliCommandTestInitializedIntegr
     @MethodSource("clusterConfigShowSuggestedSource")
     @DisplayName("cluster config selector parameters suggested")
     void clusterConfigShowSuggested(ParsedLine givenParsedLine) {
+        // Given
+        connected();
+
         // wait for lazy init of cluster config completer
         await("For given parsed words: " + givenParsedLine.words()).until(
                 () -> complete(givenParsedLine),
@@ -257,6 +275,9 @@ public class ItIgnitePicocliCommandsTest extends CliCommandTestInitializedIntegr
     @MethodSource("clusterConfigUpdateSuggestedSource")
     @DisplayName("cluster config selector parameters suggested")
     void clusterConfigUpdateSuggested(ParsedLine givenParsedLine) {
+        // Given
+        connected();
+
         // wait for lazy init of cluster config completer
         await("For given parsed words: " + givenParsedLine.words()).until(
                 () -> complete(givenParsedLine),
@@ -286,10 +307,10 @@ public class ItIgnitePicocliCommandsTest extends CliCommandTestInitializedIntegr
     @MethodSource("nodeNamesSource")
     @DisplayName("node names suggested after --node-name option")
     void nodeNameSuggested(ParsedLine givenParsedLine) {
-        // Given node names registry pulling updates
-        nodeNameRegistry.startPullingUpdates(urlProvider.resolveUrl(givenParsedLine.words().toArray(new String[]{})));
+        // Given
+        connected();
         // And the first update is fetched
-        await().until(() -> nodeNameRegistry.getAllNames(), not(empty()));
+        await().until(() -> nodeNameRegistry.names(), not(empty()));
 
         // Then
         assertThat(
@@ -307,15 +328,15 @@ public class ItIgnitePicocliCommandsTest extends CliCommandTestInitializedIntegr
         // And
         var givenParsedLine = words("node", "status", "--node-name", "");
         // And
-        assertThat(nodeNameRegistry.getAllNames(), empty());
+        assertThat(nodeNameRegistry.names(), empty());
 
         // Then
         assertThat(complete(givenParsedLine), not(contains(igniteNodeName)));
 
-        // When node names registry start pulling updates
-        nodeNameRegistry.startPullingUpdates(urlProvider.resolveUrl(givenParsedLine.words().toArray(new String[]{})));
+        // When
+        connected();
         // And the first update is fetched
-        await().until(() -> nodeNameRegistry.getAllNames(), not(empty()));
+        await().until(() -> nodeNameRegistry.names(), not(empty()));
 
         // Then
         assertThat(complete(givenParsedLine), containsInAnyOrder(allNodeNames().toArray()));
