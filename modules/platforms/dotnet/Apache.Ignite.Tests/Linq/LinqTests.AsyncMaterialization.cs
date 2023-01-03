@@ -156,6 +156,7 @@ public partial class LinqTests
     [Test]
     public async Task TestSumAsync()
     {
+        // TODO: All supported types.
         var query = PocoIntView.AsQueryable();
 
         Assert.AreEqual(45, await query.Select(x => x.Key).SumAsync());
@@ -167,5 +168,24 @@ public partial class LinqTests
     {
         Assert.AreEqual(0, await PocoIntView.AsQueryable().Where(x => x.Key < -100).SumAsync(x => x.Val));
         Assert.AreEqual(0, await PocoIntView.AsQueryable().Where(x => x.Key < -100).Select(x => x.Val).SumAsync());
+    }
+
+    [Test]
+    public async Task TestAverageAsync()
+    {
+        // TODO: All supported types.
+        var query = PocoIntView.AsQueryable();
+
+        Assert.AreEqual(4.0d, await query.Select(x => x.Key).AverageAsync());
+        Assert.AreEqual(14.0d, await query.AverageAsync(x => x.Key + 10));
+    }
+
+    [Test]
+    public void TestAverageAsyncWithEmptySubqueryThrowsNoElements()
+    {
+        var ex = Assert.ThrowsAsync<InvalidOperationException>(
+            () => PocoIntView.AsQueryable().Where(x => x.Key > 1000).AverageAsync(x => x.Val));
+
+        Assert.AreEqual("Sequence contains no elements", ex!.Message);
     }
 }
