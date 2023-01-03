@@ -24,12 +24,15 @@ using System.Linq.Expressions;
 using System.Reflection;
 using System.Reflection.Emit;
 using System.Threading;
+using Common;
 using Ignite.Sql;
 using Proto.BinaryTuple;
 using Remotion.Linq.Clauses;
 using Remotion.Linq.Clauses.Expressions;
 using Sql;
 using Table.Serialization;
+
+using static ResultSelectorOptions;
 
 /// <summary>
 /// Result selector cache.
@@ -61,6 +64,11 @@ internal static class ResultSelector
     /// <returns>Row reader.</returns>
     public static RowReader<T> Get<T>(IReadOnlyList<IColumnMetadata> columns, Expression selectorExpression, ResultSelectorOptions options)
     {
+        IgniteArgumentCheck.Ensure(
+            !(options.HasFlag(DefaultIfNull) && options.HasFlag(ThrowNoElementsOnNull)),
+            nameof(options),
+            $"{nameof(DefaultIfNull)} and {nameof(ThrowNoElementsOnNull)} are mutually exclusive");
+
         // Anonymous type projections use a constructor call. But user-defined types can also be used with constructor call.
         if (selectorExpression is NewExpression newExpr)
         {
@@ -69,7 +77,7 @@ internal static class ResultSelector
 
             return (RowReader<T>)CtorCache.GetOrAdd(
                 ctorCacheKey,
-                static k => EmitConstructorReader<T>(k.Target, k.Columns, k.Options.HasFlag(ResultSelectorOptions.DefaultIfNull)));
+                static k => EmitConstructorReader<T>(k.Target, k.Columns, k.Options));
         }
 
         if (columns.Count == 1 && (typeof(T).ToSqlColumnType() is not null || typeof(T).IsEnum))
@@ -88,7 +96,7 @@ internal static class ResultSelector
             return (RowReader<T>)KvReaderCache.GetOrAdd(
                 kvCacheKey,
                 static k =>
-                    EmitKvPairReader<T>(k.Columns, k.Target.Key, k.Target.Val, k.Options.HasFlag(ResultSelectorOptions.DefaultIfNull)));
+                    EmitKvPairReader<T>(k.Columns, k.Target.Key, k.Target.Val, k.Options.HasFlag(DefaultIfNull)));
         }
 
         if (selectorExpression is QuerySourceReferenceExpression
@@ -104,7 +112,7 @@ internal static class ResultSelector
 
         return (RowReader<T>)ReaderCache.GetOrAdd(
             readerCacheKey,
-            static k => EmitUninitializedObjectReader<T>(k.Columns, k.Options.HasFlag(ResultSelectorOptions.DefaultIfNull)));
+            static k => EmitUninitializedObjectReader<T>(k.Columns, k.Options.HasFlag(DefaultIfNull)));
     }
 
     private static RowReader<T> EmitSingleColumnReader<T>(IColumnMetadata column, ResultSelectorOptions options)
@@ -118,16 +126,8 @@ internal static class ResultSelector
 
         var il = method.GetILGenerator();
 
-        if (options.HasFlag(ResultSelectorOptions.ThrowNoElementsOnNull))
-        {
-            // TODO: throw exception if null
-            // if (reader.IsNull(0))
-            // {
-            //     throw new InvalidOperationException("Sequence contains no elements");
-            // }
-        }
+        EmitReadToStack(il, column, typeof(T), index: 0, options);
 
-        EmitReadToStack(il, column, typeof(T), 0, options.HasFlag(ResultSelectorOptions.DefaultIfNull));
         il.Emit(OpCodes.Ret);
 
         return (RowReader<T>)method.CreateDelegate(typeof(RowReader<T>));
@@ -136,7 +136,7 @@ internal static class ResultSelector
     private static RowReader<T> EmitConstructorReader<T>(
         ConstructorInfo ctorInfo,
         IReadOnlyList<IColumnMetadata> columns,
-        bool defaultAsNull)
+        ResultSelectorOptions options)
     {
         var method = new DynamicMethod(
             name: $"ConstructorFromBinaryTupleReader_{typeof(T).FullName}_{GetNextId()}",
@@ -157,7 +157,7 @@ internal static class ResultSelector
         for (var index = 0; index < ctorParams.Length; index++)
         {
             var paramType = ctorParams[index].ParameterType;
-            EmitReadToStack(il, columns[index], paramType, index, defaultAsNull);
+            EmitReadToStack(il, columns[index], paramType, index, options);
         }
 
         il.Emit(OpCodes.Newobj, ctorInfo);
@@ -229,11 +229,11 @@ internal static class ResultSelector
         return (RowReader<T>)method.CreateDelegate(typeof(RowReader<T>));
     }
 
-    private static void EmitReadToStack(ILGenerator il, IColumnMetadata col, Type targetType, int index, bool defaultAsNull)
+    private static void EmitReadToStack(ILGenerator il, IColumnMetadata col, Type targetType, int index, ResultSelectorOptions options)
     {
         Label endParamLabel = il.DefineLabel();
 
-        if (defaultAsNull)
+        if (options.HasFlag(DefaultIfNull) || options.HasFlag(ThrowNoElementsOnNull))
         {
             // if (reader.IsNull(index)) return default;
             Label notNullLabel = il.DefineLabel();
@@ -242,16 +242,25 @@ internal static class ResultSelector
             il.Emit(OpCodes.Call, BinaryTupleMethods.IsNull);
             il.Emit(OpCodes.Brfalse_S, notNullLabel);
 
-            if (targetType.IsValueType)
+            if (options.HasFlag(DefaultIfNull))
             {
-                var local = il.DeclareLocal(targetType);
-                il.Emit(OpCodes.Ldloca_S, local);
-                il.Emit(OpCodes.Initobj, targetType); // Load default value into local.
-                il.Emit(OpCodes.Ldloc, local); // Load local value onto stack for constructor call.
+                if (targetType.IsValueType)
+                {
+                    var local = il.DeclareLocal(targetType);
+                    il.Emit(OpCodes.Ldloca_S, local);
+                    il.Emit(OpCodes.Initobj, targetType); // Load default value into local.
+                    il.Emit(OpCodes.Ldloc, local); // Load local value onto stack for constructor call.
+                }
+                else
+                {
+                    il.Emit(OpCodes.Ldnull);
+                }
             }
             else
             {
-                il.Emit(OpCodes.Ldnull);
+                il.Emit(OpCodes.Ldstr, "Sequence contains no elements");
+                il.Emit(OpCodes.Newobj, typeof(InvalidOperationException).GetConstructor(new[] { typeof(string) })!);
+                il.Emit(OpCodes.Throw);
             }
 
             il.Emit(OpCodes.Br_S, endParamLabel);

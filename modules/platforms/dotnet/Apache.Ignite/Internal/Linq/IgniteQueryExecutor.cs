@@ -143,7 +143,6 @@ internal sealed class IgniteQueryExecutor : IQueryExecutor
     [SuppressMessage("Reliability", "CA2007:Consider calling ConfigureAwait on the awaited task", Justification = "False positive.")]
     internal async Task<T?> ExecuteSingleInternalAsync<T>(QueryModel queryModel, ExecutionOptions options = default)
     {
-        // TODO: How to handle ThrowNoElementsOnNull?
         await using IResultSet<T> resultSet = await ExecuteResultSetInternalAsync<T>(
                 queryModel,
                 throwNoElementsOnNull: options.HasFlag(ExecutionOptions.ThrowNoElementsOnNull))
