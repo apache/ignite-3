@@ -71,7 +71,7 @@ internal sealed class IgniteQueryExecutor : IQueryExecutor
     public IEnumerable<T> ExecuteCollection<T>(QueryModel queryModel)
     {
         // Sync over async lazy enumeration.
-        // Users should prefer async APIs - AsAsyncEnumerable, ToListAsync, etc (TODO IGNITE-18084).
+        // Users should prefer async APIs - AsAsyncEnumerable, ToListAsync, etc.
         using IResultSet<T> resultSet = ExecuteResultSetInternal<T>(queryModel);
         var enumerator = resultSet.GetAsyncEnumerator();
 
@@ -134,6 +134,7 @@ internal sealed class IgniteQueryExecutor : IQueryExecutor
     [SuppressMessage("Reliability", "CA2007:Consider calling ConfigureAwait on the awaited task", Justification = "False positive.")]
     internal async Task<T?> ExecuteSingleInternalAsync<T>(QueryModel queryModel, ExecutionOptions options = default)
     {
+        // TODO: How to handle ThrowNoElementsOnNull?
         await using IResultSet<T> resultSet = await ExecuteResultSetInternalAsync<T>(queryModel).ConfigureAwait(false);
 
         var res = default(T);
