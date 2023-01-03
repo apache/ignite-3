@@ -203,6 +203,12 @@ public partial class LinqTests
     }
 
     [Test]
+    public void TestSumAsyncNullable()
+    {
+        Assert.Fail("TODO");
+    }
+
+    [Test]
     public async Task TestSumAsyncWithEmptySubqueryReturnsZero()
     {
         Assert.AreEqual(0, await PocoIntView.AsQueryable().Where(x => x.Key < -100).SumAsync(x => x.Val));
