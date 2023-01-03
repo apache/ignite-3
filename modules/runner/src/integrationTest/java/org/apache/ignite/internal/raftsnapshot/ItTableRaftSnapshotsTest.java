@@ -265,7 +265,7 @@ class ItTableRaftSnapshotsTest {
      * @see NodeKnockout
      */
     private void prepareClusterForInstallingSnapshotToNode2(NodeKnockout knockout, String storageEngine) throws InterruptedException {
-        prepareClusterForInstallingSnapshotToNode2(knockout, storageEngine, aCluster -> {});
+        prepareClusterForInstallingSnapshotToNode2(knockout, storageEngine, theCluster -> {});
     }
 
     /**
@@ -646,8 +646,8 @@ class ItTableRaftSnapshotsTest {
      */
     @Test
     void snapshotInstallTimeoutDoesNotBreakSubsequentInstalls() throws Exception {
-        prepareClusterForInstallingSnapshotToNode2(DEFAULT_KNOCKOUT, DEFAULT_STORAGE_ENGINE, aCluster -> {
-            aCluster.node(0).dropMessages(dropFirstSnapshotMetaResponse());
+        prepareClusterForInstallingSnapshotToNode2(DEFAULT_KNOCKOUT, DEFAULT_STORAGE_ENGINE, theCluster -> {
+            theCluster.node(0).dropMessages(dropFirstSnapshotMetaResponse());
         });
 
         reanimateNode2AndWaitForSnapshotInstalled(DEFAULT_KNOCKOUT);
@@ -704,16 +704,18 @@ class ItTableRaftSnapshotsTest {
         snapshotExecutorLogger.addHandler(snapshotInstallFailedDueToIdenticalRetryHandler);
 
         try {
-            prepareClusterForInstallingSnapshotToNode2(DEFAULT_KNOCKOUT, DEFAULT_STORAGE_ENGINE, aCluster -> {
+            prepareClusterForInstallingSnapshotToNode2(DEFAULT_KNOCKOUT, DEFAULT_STORAGE_ENGINE, theCluster -> {
                 BiPredicate<String, NetworkMessage> dropSafeTimeUntilSecondInstallSnapshotRequestIsProcessed = (recipientId, message) ->
                         message instanceof ActionRequest
                                 && ((ActionRequest) message).command() instanceof SafeTimeSyncCommand
                                 && !snapshotInstallFailedDueToIdenticalRetry.get();
 
-                aCluster.node(0).dropMessages(dropFirstSnapshotMetaResponse().or(dropSafeTimeUntilSecondInstallSnapshotRequestIsProcessed));
+                theCluster.node(0).dropMessages(
+                        dropFirstSnapshotMetaResponse().or(dropSafeTimeUntilSecondInstallSnapshotRequestIsProcessed)
+                );
 
-                aCluster.node(1).dropMessages(dropSafeTimeUntilSecondInstallSnapshotRequestIsProcessed);
-                aCluster.node(2).dropMessages(dropSafeTimeUntilSecondInstallSnapshotRequestIsProcessed);
+                theCluster.node(1).dropMessages(dropSafeTimeUntilSecondInstallSnapshotRequestIsProcessed);
+                theCluster.node(2).dropMessages(dropSafeTimeUntilSecondInstallSnapshotRequestIsProcessed);
             });
 
             reanimateNode2AndWaitForSnapshotInstalled(DEFAULT_KNOCKOUT);

@@ -387,7 +387,7 @@ public class Cluster {
                 cluster.runningNodes()
                         .filter(node -> node != receiver)
                         .forEach(ignite -> {
-                            AddCensorshipByRecipientConsistentId censor = (AddCensorshipByRecipientConsistentId) ignite.dropMessagesPredicate();
+                            var censor = (AddCensorshipByRecipientConsistentId) ignite.dropMessagesPredicate();
 
                             assertNotNull(censor);
 
