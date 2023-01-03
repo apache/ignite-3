@@ -94,16 +94,17 @@ internal sealed class IgniteQueryProvider : IQueryProvider
     /// Asynchronously executes the strongly-typed query represented by a specified expression tree.
     /// </summary>
     /// <param name="expression">An expression tree that represents a LINQ query.</param>
+    /// <param name="options">Options.</param>
     /// <typeparam name="TResult">The type of the value that results from executing the query.</typeparam>
     /// <returns>
     /// A <see cref="Task"/> representing the asynchronous operation.
     /// The task result contains the value that results from executing the specified query.
     /// </returns>
-    public async Task<TResult> ExecuteSingleAsync<TResult>(Expression expression)
+    public async Task<TResult> ExecuteSingleAsync<TResult>(Expression expression, ExecutionOptions options = default)
     {
         var model = GenerateQueryModel(expression);
 
-        TResult? res = await Executor.ExecuteSingleInternalAsync<TResult>(model, returnDefaultWhenEmpty: false).ConfigureAwait(false);
+        TResult? res = await Executor.ExecuteSingleInternalAsync<TResult>(model, options).ConfigureAwait(false);
 
         return res!;
     }
@@ -121,7 +122,7 @@ internal sealed class IgniteQueryProvider : IQueryProvider
     {
         var model = GenerateQueryModel(expression);
 
-        return await Executor.ExecuteSingleInternalAsync<TResult>(model, returnDefaultWhenEmpty: true).ConfigureAwait(false);
+        return await Executor.ExecuteSingleInternalAsync<TResult?>(model, ExecutionOptions.ReturnDefaultWhenEmpty).ConfigureAwait(false);
     }
 
     /// <summary>

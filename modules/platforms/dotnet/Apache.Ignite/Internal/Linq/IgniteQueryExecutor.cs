@@ -62,7 +62,10 @@ internal sealed class IgniteQueryExecutor : IQueryExecutor
 
     /** <inheritdoc /> */
     public T? ExecuteSingle<T>(QueryModel queryModel, bool returnDefaultWhenEmpty) =>
-        ExecuteSingleInternalAsync<T>(queryModel, returnDefaultWhenEmpty).GetAwaiter().GetResult();
+        ExecuteSingleInternalAsync<T>(
+            queryModel,
+            returnDefaultWhenEmpty ? ExecutionOptions.ReturnDefaultWhenEmpty : ExecutionOptions.None)
+            .GetAwaiter().GetResult();
 
     /** <inheritdoc /> */
     public IEnumerable<T> ExecuteCollection<T>(QueryModel queryModel)
@@ -125,11 +128,11 @@ internal sealed class IgniteQueryExecutor : IQueryExecutor
     /// Executes query and returns single result.
     /// </summary>
     /// <param name="queryModel">Query model.</param>
-    /// <param name="returnDefaultWhenEmpty">Whether to return <c>default(T)</c> when result set is empty or throw an exception.</param>
+    /// <param name="options">Execution options.</param>
     /// <typeparam name="T">Result type.</typeparam>
     /// <returns>Single result from result set.</returns>
     [SuppressMessage("Reliability", "CA2007:Consider calling ConfigureAwait on the awaited task", Justification = "False positive.")]
-    internal async Task<T?> ExecuteSingleInternalAsync<T>(QueryModel queryModel, bool returnDefaultWhenEmpty)
+    internal async Task<T?> ExecuteSingleInternalAsync<T>(QueryModel queryModel, ExecutionOptions options = default)
     {
         await using IResultSet<T> resultSet = await ExecuteResultSetInternalAsync<T>(queryModel).ConfigureAwait(false);
 
@@ -148,7 +151,7 @@ internal sealed class IgniteQueryExecutor : IQueryExecutor
             count++;
         }
 
-        if (count == 0 && !returnDefaultWhenEmpty)
+        if (count == 0 && !options.HasFlag(ExecutionOptions.ReturnDefaultWhenEmpty))
         {
             throw new InvalidOperationException("ResultSet is empty: " + GetQueryData(queryModel).QueryText);
         }
