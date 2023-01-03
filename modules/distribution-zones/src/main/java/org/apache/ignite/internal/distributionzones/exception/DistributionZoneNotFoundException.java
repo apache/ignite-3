@@ -33,7 +33,7 @@ public class DistributionZoneNotFoundException extends IgniteInternalException {
      * @param zoneName Zone name.
      */
     public DistributionZoneNotFoundException(String zoneName) {
-        this("Distribution zone is not found [zoneName=" + zoneName + ']', null);
+        this(zoneName, null);
     }
 
     /**
