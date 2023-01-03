@@ -65,7 +65,7 @@ public class ItTableApiContractTest extends AbstractBasicIntegrationTest {
      * Before all tests.
      */
     @BeforeAll
-    static void beforeAll(TestInfo testInfo) throws Exception {
+    static void beforeAll() {
         ignite = CLUSTER_NODES.get(0);
     }
 
