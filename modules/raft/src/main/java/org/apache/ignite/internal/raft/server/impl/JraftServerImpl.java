@@ -498,6 +498,12 @@ public class JraftServerImpl implements RaftServer {
         return nodes.keySet();
     }
 
+    /** {@inheritDoc} */
+    @Override
+    public NodeOptions options() {
+        return opts;
+    }
+
     /**
      * Blocks messages for raft group node according to provided predicate.
      *

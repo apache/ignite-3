@@ -1037,11 +1037,13 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * @param replicas Replica factor.
      * @param partitions Partitions count.
      */
-    private static void createTableWithoutData(Ignite ignite, String name, int replicas, int partitions) {
+    private static Table createTableWithoutData(Ignite ignite, String name, int replicas, int partitions) {
         try (Session session = ignite.sql().createSession()) {
             session.execute(null, "CREATE TABLE " + name
                     + "(id INT PRIMARY KEY, name VARCHAR) WITH replicas=" + replicas + ", partitions=" + partitions);
         }
+
+        return ignite.tables().table(name);
     }
 
     /**
