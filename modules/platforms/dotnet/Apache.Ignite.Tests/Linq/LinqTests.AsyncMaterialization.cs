@@ -152,4 +152,20 @@ public partial class LinqTests
         Assert.AreEqual("Sequence contains no elements", ex!.Message);
         Assert.AreEqual("Sequence contains no elements", ex2!.Message);
     }
+
+    [Test]
+    public async Task TestSumAsync()
+    {
+        var query = PocoIntView.AsQueryable();
+
+        Assert.AreEqual(45, await query.Select(x => x.Key).SumAsync());
+        Assert.AreEqual(145, await query.SumAsync(x => x.Key + 10));
+    }
+
+    [Test]
+    public async Task TestSumAsyncWithEmptySubqueryReturnsZero()
+    {
+        Assert.AreEqual(0, await PocoIntView.AsQueryable().Where(x => x.Key < -100).SumAsync(x => x.Val));
+        Assert.AreEqual(0, await PocoIntView.AsQueryable().Where(x => x.Key < -100).Select(x => x.Val).SumAsync());
+    }
 }

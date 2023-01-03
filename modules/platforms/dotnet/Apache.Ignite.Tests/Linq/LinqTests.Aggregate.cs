@@ -54,6 +54,7 @@ public partial class LinqTests
     public void TestSumWithEmptySubqueryReturnsZero()
     {
         Assert.AreEqual(0, PocoDoubleView.AsQueryable().Where(x => x.Key < -100).Sum(x => x.Val));
+        Assert.AreEqual(0, PocoDoubleView.AsQueryable().Where(x => x.Key < -100).Select(x => x.Val).Sum());
     }
 
     [Test]
