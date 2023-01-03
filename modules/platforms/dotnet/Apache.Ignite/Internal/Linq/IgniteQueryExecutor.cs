@@ -154,7 +154,7 @@ internal sealed class IgniteQueryExecutor : IQueryExecutor
             count++;
         }
 
-        if (count == 0 && !options.HasFlag(ExecutionOptions.ReturnDefaultWhenEmpty))
+        if (count == 0 && options != ExecutionOptions.ReturnDefaultWhenEmpty)
         {
             throw new InvalidOperationException("ResultSet is empty: " + GetQueryData(queryModel).QueryText);
         }
@@ -177,7 +177,7 @@ internal sealed class IgniteQueryExecutor : IQueryExecutor
             {
                 // SQL SUM returns null when there are no rows in the table,
                 // but LINQ Sum returns 0.
-                return ResultSelectorOptions.ReturnDefaultIfNull;
+                return ResultSelectorOptions.ReturnZeroIfNull;
             }
         }
 

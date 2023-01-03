@@ -17,28 +17,31 @@
 
 namespace Apache.Ignite.Internal.Linq;
 
-using System;
 using System.Linq;
 
 /// <summary>
 /// Options for <see cref="ResultSelector"/>.
 /// </summary>
-[Flags]
 internal enum ResultSelectorOptions
 {
     /// <summary>
     /// None.
     /// </summary>
-    None = 0,
+    None,
 
     /// <summary>
     /// Whether to read null values as default for value types
     /// (when <see cref="Queryable.DefaultIfEmpty{TSource}(System.Linq.IQueryable{TSource})"/> is used).
     /// </summary>
-    ReturnDefaultIfNull = 1,
+    ReturnDefaultIfNull,
+
+    /// <summary>
+    /// Whether to read null values as zero for nullable value types.
+    /// </summary>
+    ReturnZeroIfNull,
 
     /// <summary>
     /// Whether to throw an exception if the result is null.
     /// </summary>
-    ThrowNoElementsIfNull = 2
+    ThrowNoElementsIfNull
 }
