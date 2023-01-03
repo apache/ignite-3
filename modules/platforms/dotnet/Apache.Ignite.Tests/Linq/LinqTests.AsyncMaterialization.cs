@@ -18,16 +18,30 @@
 namespace Apache.Ignite.Tests.Linq;
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Ignite.Sql;
 using NUnit.Framework;
+using Table;
 
 /// <summary>
 /// Linq async materialization tests (retrieving results in async manner, such as CountAsync or ToListAsync).
 /// </summary>
 public partial class LinqTests
 {
+    [Test]
+    public async Task TestToListAsync()
+    {
+        List<Poco> res = await PocoView.AsQueryable()
+            .OrderBy(x => x.Key)
+            .Where(x => x.Key > 7)
+            .ToListAsync();
+
+        Assert.AreEqual(2, res.Count);
+        Assert.AreEqual(8, res[0].Key);
+    }
+
     [Test]
     public async Task TestAnyAsync()
     {
