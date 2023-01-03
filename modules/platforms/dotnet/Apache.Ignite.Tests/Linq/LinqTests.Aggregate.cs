@@ -63,6 +63,15 @@ public partial class LinqTests
     }
 
     [Test]
+    public void TestMinEmptySubqueryThrowsNoElements()
+    {
+        // ReSharper disable ReturnValueOfPureMethodIsNotUsed
+        // TODO: Same tests for other aggregates.
+        var ex = Assert.Throws<InvalidOperationException>(() => PocoIntView.AsQueryable().Where(x => x.Key > 1000).Min(x => x.Val));
+        Assert.AreEqual("Sequence contains no elements", ex!.Message);
+    }
+
+    [Test]
     public void TestMax()
     {
         Assert.AreEqual(3, PocoByteView.AsQueryable().Max(x => x.Val));
