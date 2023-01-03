@@ -20,7 +20,6 @@ namespace Apache.Ignite.Internal.Linq;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Reflection.Emit;
@@ -57,39 +56,39 @@ internal static class ResultSelector
     /// </summary>
     /// <param name="columns">Columns.</param>
     /// <param name="selectorExpression">Selector expression.</param>
-    /// <param name="defaultIfNull">Whether to read null values as default for value types
-    /// (when <see cref="Queryable.DefaultIfEmpty{TSource}(System.Linq.IQueryable{TSource})"/> is used).</param>
+    /// <param name="options">Options.</param>
     /// <typeparam name="T">Result type.</typeparam>
     /// <returns>Row reader.</returns>
-    public static RowReader<T> Get<T>(IReadOnlyList<IColumnMetadata> columns, Expression selectorExpression, bool defaultIfNull)
+    public static RowReader<T> Get<T>(IReadOnlyList<IColumnMetadata> columns, Expression selectorExpression, ResultSelectorOptions options)
     {
         // Anonymous type projections use a constructor call. But user-defined types can also be used with constructor call.
         if (selectorExpression is NewExpression newExpr)
         {
             var ctorInfo = newExpr.Constructor!;
-            var ctorCacheKey = new ResultSelectorCacheKey<ConstructorInfo>(ctorInfo, columns, defaultIfNull);
+            var ctorCacheKey = new ResultSelectorCacheKey<ConstructorInfo>(ctorInfo, columns, options);
 
             return (RowReader<T>)CtorCache.GetOrAdd(
                 ctorCacheKey,
-                static k => EmitConstructorReader<T>(k.Target, k.Columns, k.DefaultIfNull));
+                static k => EmitConstructorReader<T>(k.Target, k.Columns, k.Options.HasFlag(ResultSelectorOptions.DefaultIfNull)));
         }
 
         if (columns.Count == 1 && (typeof(T).ToSqlColumnType() is not null || typeof(T).IsEnum))
         {
-            var singleColumnCacheKey = new ResultSelectorCacheKey<Type>(typeof(T), columns, defaultIfNull);
+            var singleColumnCacheKey = new ResultSelectorCacheKey<Type>(typeof(T), columns, options);
 
             return (RowReader<T>)SingleColumnReaderCache.GetOrAdd(
                 singleColumnCacheKey,
-                static k => EmitSingleColumnReader<T>(k.Columns[0], k.DefaultIfNull));
+                static k => EmitSingleColumnReader<T>(k.Columns[0], k.Options));
         }
 
         if (typeof(T).GetKeyValuePairTypes() is var (keyType, valType))
         {
-            var kvCacheKey = new ResultSelectorCacheKey<(Type Key, Type Val)>((keyType, valType), columns, defaultIfNull);
+            var kvCacheKey = new ResultSelectorCacheKey<(Type Key, Type Val)>((keyType, valType), columns, options);
 
             return (RowReader<T>)KvReaderCache.GetOrAdd(
                 kvCacheKey,
-                static k => EmitKvPairReader<T>(k.Columns, k.Target.Key, k.Target.Val, k.DefaultIfNull));
+                static k =>
+                    EmitKvPairReader<T>(k.Columns, k.Target.Key, k.Target.Val, k.Options.HasFlag(ResultSelectorOptions.DefaultIfNull)));
         }
 
         if (selectorExpression is QuerySourceReferenceExpression
@@ -98,17 +97,17 @@ internal static class ResultSelector
             })
         {
             // Select everything from a sub-query - use nested selector.
-            return Get<T>(columns, subQuery.QueryModel.SelectClause.Selector, defaultIfNull);
+            return Get<T>(columns, subQuery.QueryModel.SelectClause.Selector, options);
         }
 
-        var readerCacheKey = new ResultSelectorCacheKey<Type>(typeof(T), columns, defaultIfNull);
+        var readerCacheKey = new ResultSelectorCacheKey<Type>(typeof(T), columns, options);
 
         return (RowReader<T>)ReaderCache.GetOrAdd(
             readerCacheKey,
-            static k => EmitUninitializedObjectReader<T>(k.Columns, k.DefaultIfNull));
+            static k => EmitUninitializedObjectReader<T>(k.Columns, k.Options.HasFlag(ResultSelectorOptions.DefaultIfNull)));
     }
 
-    private static RowReader<T> EmitSingleColumnReader<T>(IColumnMetadata column, bool defaultIfNull)
+    private static RowReader<T> EmitSingleColumnReader<T>(IColumnMetadata column, ResultSelectorOptions options)
     {
         var method = new DynamicMethod(
             name: $"SingleColumnFromBinaryTupleReader_{typeof(T).FullName}_{GetNextId()}",
@@ -119,7 +118,16 @@ internal static class ResultSelector
 
         var il = method.GetILGenerator();
 
-        EmitReadToStack(il, column, typeof(T), 0, defaultIfNull);
+        if (options.HasFlag(ResultSelectorOptions.ThrowNoElementsOnNull))
+        {
+            // TODO: throw exception if null
+            // if (reader.IsNull(0))
+            // {
+            //     throw new InvalidOperationException("Sequence contains no elements");
+            // }
+        }
+
+        EmitReadToStack(il, column, typeof(T), 0, options.HasFlag(ResultSelectorOptions.DefaultIfNull));
         il.Emit(OpCodes.Ret);
 
         return (RowReader<T>)method.CreateDelegate(typeof(RowReader<T>));

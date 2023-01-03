@@ -23,7 +23,6 @@ using System.Diagnostics.CodeAnalysis;
 using System.Threading.Tasks;
 using Ignite.Sql;
 using Ignite.Transactions;
-using Proto.BinaryTuple;
 using Remotion.Linq;
 using Sql;
 
@@ -117,29 +116,17 @@ internal sealed class IgniteQueryExecutor : IQueryExecutor
             PageSize = _options?.PageSize ?? SqlStatement.DefaultPageSize
         };
 
+        var selectorOptions = qryData.HasOuterJoins ? ResultSelectorOptions.DefaultIfNull : ResultSelectorOptions.None;
+
+        if (throwNoElementsOnNull)
+        {
+            selectorOptions |= ResultSelectorOptions.ThrowNoElementsOnNull;
+        }
+
         IResultSet<T> resultSet = await _sql.ExecuteAsyncInternal(
             _transaction,
             statement,
-            cols =>
-            {
-                var selector = ResultSelector.Get<T>(cols, queryModel.SelectClause.Selector, defaultIfNull: qryData.HasOuterJoins);
-
-                // TODO: Refactor this.
-                if (throwNoElementsOnNull)
-                {
-                    return (IReadOnlyList<IColumnMetadata> list, ref BinaryTupleReader reader) =>
-                    {
-                        if (reader.IsNull(0))
-                        {
-                            throw new InvalidOperationException("Sequence contains no elements");
-                        }
-
-                        return selector(list, ref reader);
-                    };
-                }
-
-                return selector;
-            },
+            cols => ResultSelector.Get<T>(cols, queryModel.SelectClause.Selector, selectorOptions),
             qryData.Parameters)
             .ConfigureAwait(false);
 
