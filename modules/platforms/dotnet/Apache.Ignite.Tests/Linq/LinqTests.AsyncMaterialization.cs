@@ -134,13 +134,22 @@ public partial class LinqTests
     [Test]
     public async Task TestMaxAsync()
     {
-        var query = PocoView.AsQueryable().Select(x => x.Key);
+        var query = PocoView.AsQueryable();
 
-        Assert.AreEqual(9L, await query.MaxAsync());
-        Assert.AreEqual(19L, await query.MaxAsync(x => x + 10));
+        Assert.AreEqual(9L, await query.Select(x => x.Key).MaxAsync());
+        Assert.AreEqual(19L, await query.MaxAsync(x => x.Key + 10));
+    }
 
-        // TODO: Separate test for this and AverageAsync.
-        var ex = Assert.ThrowsAsync<InvalidOperationException>(() => query.Where(x => x > 1000).MaxAsync());
+    [Test]
+    public void TestMaxAsyncWithEmptySubqueryThrowsNoElements()
+    {
+        var ex = Assert.ThrowsAsync<InvalidOperationException>(
+            () => PocoIntView.AsQueryable().Where(x => x.Key > 1000).MaxAsync(x => x.Val));
+
+        var ex2 = Assert.ThrowsAsync<InvalidOperationException>(
+            () => PocoIntView.AsQueryable().Where(x => x.Key > 1000).Select(x => x.Key).MaxAsync());
+
         Assert.AreEqual("Sequence contains no elements", ex!.Message);
+        Assert.AreEqual("Sequence contains no elements", ex2!.Message);
     }
 }
