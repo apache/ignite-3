@@ -260,6 +260,16 @@ public partial class LinqTests
     }
 
     [Test]
+    public async Task TestAverageAsyncNullable()
+    {
+        // TODO: All supported types.
+        var query = PocoAllColumnsSqlNullableView.AsQueryable();
+
+        Assert.AreEqual(7.0d, await query.Select(x => x.Int32).AverageAsync());
+        Assert.AreEqual(17.0d, await query.AverageAsync(x => x.Int32 + 10));
+    }
+
+    [Test]
     public void TestAverageAsyncWithEmptySubqueryThrowsNoElements()
     {
         var ex = Assert.ThrowsAsync<InvalidOperationException>(
