@@ -505,7 +505,7 @@ public static class IgniteQueryableExtensions
     /// <param name="queryable">Query.</param>
     /// <param name="selector">A projection function to apply to each element.</param>
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.
-    /// The task result contains the maximum value in the sequence.
+    /// The task result contains the sum of a sequence of values.
     /// </returns>
     [DynamicDependency("Sum", typeof(Queryable))]
     public static async Task<int> SumAsync<TSource>(
@@ -547,7 +547,7 @@ public static class IgniteQueryableExtensions
     /// <param name="queryable">Query.</param>
     /// <param name="selector">A projection function to apply to each element.</param>
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.
-    /// The task result contains the maximum value in the sequence.
+    /// The task result contains the sum of a sequence of values.
     /// </returns>
     [DynamicDependency("Sum", typeof(Queryable))]
     public static async Task<int?> SumAsync<TSource>(
@@ -589,7 +589,7 @@ public static class IgniteQueryableExtensions
     /// <param name="queryable">Query.</param>
     /// <param name="selector">A projection function to apply to each element.</param>
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.
-    /// The task result contains the maximum value in the sequence.
+    /// The task result contains the sum of a sequence of values.
     /// </returns>
     [DynamicDependency("Sum", typeof(Queryable))]
     public static async Task<long> SumAsync<TSource>(
@@ -631,7 +631,7 @@ public static class IgniteQueryableExtensions
     /// <param name="queryable">Query.</param>
     /// <param name="selector">A projection function to apply to each element.</param>
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.
-    /// The task result contains the maximum value in the sequence.
+    /// The task result contains the sum of a sequence of values.
     /// </returns>
     [DynamicDependency("Sum", typeof(Queryable))]
     public static async Task<long?> SumAsync<TSource>(
@@ -673,7 +673,7 @@ public static class IgniteQueryableExtensions
     /// <param name="queryable">Query.</param>
     /// <param name="selector">A projection function to apply to each element.</param>
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.
-    /// The task result contains the maximum value in the sequence.
+    /// The task result contains the sum of a sequence of values.
     /// </returns>
     [DynamicDependency("Sum", typeof(Queryable))]
     public static async Task<float> SumAsync<TSource>(
@@ -715,7 +715,7 @@ public static class IgniteQueryableExtensions
     /// <param name="queryable">Query.</param>
     /// <param name="selector">A projection function to apply to each element.</param>
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.
-    /// The task result contains the maximum value in the sequence.
+    /// The task result contains the sum of a sequence of values.
     /// </returns>
     [DynamicDependency("Sum", typeof(Queryable))]
     public static async Task<float?> SumAsync<TSource>(
@@ -757,7 +757,7 @@ public static class IgniteQueryableExtensions
     /// <param name="queryable">Query.</param>
     /// <param name="selector">A projection function to apply to each element.</param>
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.
-    /// The task result contains the maximum value in the sequence.
+    /// The task result contains the sum of a sequence of values.
     /// </returns>
     [DynamicDependency("Sum", typeof(Queryable))]
     public static async Task<double> SumAsync<TSource>(
@@ -799,7 +799,7 @@ public static class IgniteQueryableExtensions
     /// <param name="queryable">Query.</param>
     /// <param name="selector">A projection function to apply to each element.</param>
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.
-    /// The task result contains the maximum value in the sequence.
+    /// The task result contains the sum of a sequence of values.
     /// </returns>
     [DynamicDependency("Sum", typeof(Queryable))]
     public static async Task<double?> SumAsync<TSource>(
@@ -841,7 +841,7 @@ public static class IgniteQueryableExtensions
     /// <param name="queryable">Query.</param>
     /// <param name="selector">A projection function to apply to each element.</param>
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.
-    /// The task result contains the maximum value in the sequence.
+    /// The task result contains the sum of a sequence of values.
     /// </returns>
     [DynamicDependency("Sum", typeof(Queryable))]
     public static async Task<decimal> SumAsync<TSource>(
@@ -883,7 +883,7 @@ public static class IgniteQueryableExtensions
     /// <param name="queryable">Query.</param>
     /// <param name="selector">A projection function to apply to each element.</param>
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.
-    /// The task result contains the maximum value in the sequence.
+    /// The task result contains the sum of a sequence of values.
     /// </returns>
     [DynamicDependency("Sum", typeof(Queryable))]
     public static async Task<decimal?> SumAsync<TSource>(
