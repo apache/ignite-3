@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.rule;
 
+import static org.apache.ignite.internal.sql.engine.util.PlanUtils.complexDistinctAgg;
+
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptPlanner;
 import org.apache.calcite.plan.RelOptRule;
@@ -33,8 +35,8 @@ import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.util.HintUtils;
 
 /**
- * HashAggregateConverterRule.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * Planner rule that recognizes a {@link org.apache.calcite.rel.core.Aggregate}
+ * and in relation to distribution and additional conditions produce appropriate node.
  */
 public class HashAggregateConverterRule {
     public static final RelOptRule COLOCATED = new ColocatedHashAggregateConverterRule();
@@ -83,7 +85,7 @@ public class HashAggregateConverterRule {
         @Override
         protected PhysicalNode convert(RelOptPlanner planner, RelMetadataQuery mq,
                 LogicalAggregate agg) {
-            if (HintUtils.isExpandDistinctAggregate(agg)) {
+            if (complexDistinctAgg(agg.getAggCallList()) || HintUtils.isExpandDistinctAggregate(agg)) {
                 return null;
             }
 

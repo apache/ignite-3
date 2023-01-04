@@ -91,8 +91,9 @@ public class DefaultMessagingService extends AbstractMessagingService {
             new NamedThreadFactory("MessagingService-inbound-", LOG)
     );
 
+    // TODO: IGNITE-18493 - remove/move this
     @Nullable
-    private volatile BiPredicate<String, NetworkMessage> dropMessagePredicate;
+    private volatile BiPredicate<String, NetworkMessage> dropMessagesPredicate;
 
     /**
      * Constructor.
@@ -166,8 +167,8 @@ public class DefaultMessagingService extends AbstractMessagingService {
             return failedFuture(new NodeStoppingException());
         }
 
-        BiPredicate<String, NetworkMessage> dropMessage = dropMessagePredicate;
-        if (dropMessage != null && dropMessage.test(recipient.name(), msg)) {
+        // TODO: IGNITE-18493 - remove/move this
+        if (shouldDropMessage(recipient, msg)) {
             return new CompletableFuture<>();
         }
 
@@ -188,6 +189,12 @@ public class DefaultMessagingService extends AbstractMessagingService {
         return sendMessage0(recipient.name(), recipientAddress, message);
     }
 
+    private boolean shouldDropMessage(ClusterNode recipient, NetworkMessage msg) {
+        BiPredicate<String, NetworkMessage> predicate = dropMessagesPredicate;
+
+        return predicate != null && predicate.test(recipient.name(), msg);
+    }
+
     /**
      * Sends an invocation request. If the target is the current node, then message will be delivered immediately.
      *
@@ -199,6 +206,11 @@ public class DefaultMessagingService extends AbstractMessagingService {
     private CompletableFuture<NetworkMessage> invoke0(ClusterNode recipient, NetworkMessage msg, long timeout) {
         if (connectionManager.isStopped()) {
             return failedFuture(new NodeStoppingException());
+        }
+
+        // TODO: IGNITE-18493 - remove/move this
+        if (shouldDropMessage(recipient, msg)) {
+            return new CompletableFuture<NetworkMessage>().orTimeout(10, TimeUnit.MILLISECONDS);
         }
 
         long correlationId = createCorrelationId();
@@ -275,7 +287,17 @@ public class DefaultMessagingService extends AbstractMessagingService {
      */
     private void onMessage(InNetworkObject obj) {
         if (isInNetworkThread()) {
-            inboundExecutor.execute(() -> onMessage(obj));
+            inboundExecutor.execute(() -> {
+                try {
+                    onMessage(obj);
+                } catch (Throwable e) {
+                    LOG.error("onMessage() failed while processing {} from {}", e, obj.message(), obj.consistentId());
+
+                    if (e instanceof Error) {
+                        throw e;
+                    }
+                }
+            });
 
             return;
         }
@@ -400,18 +422,30 @@ public class DefaultMessagingService extends AbstractMessagingService {
         IgniteUtils.shutdownAndAwaitTermination(outboundExecutor, 10, TimeUnit.SECONDS);
     }
 
+    // TODO: IGNITE-18493 - remove/move this
     /**
      * Installs a predicate, it will be consulted with for each message being sent; when it returns {@code true}, the
-     * message will be silently dropped (it will not be sent, the corresponding future will never complete).
+     * message will be dropped (it will not be sent; the corresponding future will time out soon for {@code invoke()} methods
+     * and will never complete for methods different from {@code invoke()}).
      *
      * @param predicate Predicate that will decide whether a message should be dropped. Its first argument is the recipient
      *     node's consistent ID.
      */
     @TestOnly
     public void dropMessages(BiPredicate<String, NetworkMessage> predicate) {
-        dropMessagePredicate = predicate;
+        dropMessagesPredicate = predicate;
     }
 
+    /**
+     * Returns a predicate used to decide whether a message should be dropped, or {@code null} if message dropping is disabled.
+     */
+    @TestOnly
+    @Nullable
+    public BiPredicate<String, NetworkMessage> dropMessagesPredicate() {
+        return dropMessagesPredicate;
+    }
+
+    // TODO: IGNITE-18493 - remove/move this
     /**
      * Stops dropping messages.
      *
@@ -419,6 +453,6 @@ public class DefaultMessagingService extends AbstractMessagingService {
      */
     @TestOnly
     public void stopDroppingMessages() {
-        dropMessagePredicate = null;
+        dropMessagesPredicate = null;
     }
 }

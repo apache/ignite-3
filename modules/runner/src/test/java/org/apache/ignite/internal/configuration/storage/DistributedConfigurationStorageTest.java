@@ -25,11 +25,11 @@ import static org.mockito.Mockito.when;
 
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.metastorage.client.Entry;
-import org.apache.ignite.internal.metastorage.client.Operation;
-import org.apache.ignite.internal.metastorage.client.SimpleCondition;
-import org.apache.ignite.internal.metastorage.common.OperationType;
+import org.apache.ignite.internal.metastorage.dsl.Operation;
+import org.apache.ignite.internal.metastorage.dsl.OperationType;
+import org.apache.ignite.internal.metastorage.dsl.SimpleCondition;
 import org.apache.ignite.internal.metastorage.server.Condition;
 import org.apache.ignite.internal.metastorage.server.ExistenceCondition;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;

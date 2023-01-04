@@ -28,8 +28,10 @@ import org.apache.ignite.internal.cli.config.StateConfigProvider;
 import org.apache.ignite.internal.cli.core.flow.builder.FlowBuilder;
 import org.apache.ignite.internal.cli.core.flow.builder.Flows;
 import org.apache.ignite.internal.cli.core.repl.Session;
+import org.apache.ignite.internal.cli.core.repl.SessionInfo;
 import org.apache.ignite.internal.cli.core.style.component.QuestionUiComponent;
 import org.apache.ignite.internal.cli.core.style.element.UiElements;
+import org.jetbrains.annotations.Nullable;
 
 
 /**
@@ -72,11 +74,17 @@ public class ConnectToClusterQuestion {
         return Flows.<Void, ConnectCallInput>acceptQuestion(questionUiComponent, () -> new ConnectCallInput(defaultUrl))
                 .then(Flows.fromCall(connectCall))
                 .print()
-                .map(ignored -> session.nodeUrl());
+                .map(ignored -> sessionNodeUrl());
     }
 
+    @Nullable
     private String clusterUrlOrSessionNode(String clusterUrl) {
-        return clusterUrl != null ? clusterUrl : session.nodeUrl();
+        return clusterUrl != null ? clusterUrl : sessionNodeUrl();
+    }
+
+    @Nullable
+    private String sessionNodeUrl() {
+        return session.info() != null ? session.info().nodeUrl() : null;
     }
 
     /**
@@ -86,10 +94,11 @@ public class ConnectToClusterQuestion {
      * @return {@link FlowBuilder} instance with question in case when cluster url.
      */
     public FlowBuilder<Void, String> askQuestionIfConnected(String clusterUrl) {
-        if (session.isConnectedToNode() && !Objects.equals(session.nodeUrl(), clusterUrl)) {
+        SessionInfo sessionInfo = session.info();
+        if (sessionInfo != null && !Objects.equals(sessionInfo.nodeUrl(), clusterUrl)) {
             QuestionUiComponent question = QuestionUiComponent.fromQuestion(
                     "You are already connected to the %s, do you want to connect to the %s? %s ",
-                    UiElements.url(session.nodeUrl()), UiElements.url(clusterUrl), UiElements.yesNo()
+                    UiElements.url(sessionInfo.nodeUrl()), UiElements.url(clusterUrl), UiElements.yesNo()
             );
             return Flows.acceptQuestion(question, () -> clusterUrl);
         }
@@ -100,7 +109,7 @@ public class ConnectToClusterQuestion {
      * Ask for connect to the cluster and suggest to save the last connected URL as default.
      */
     public void askQuestionOnReplStart() {
-        if (session.isConnectedToNode()) {
+        if (session.info() != null) {
             return;
         }
         String defaultUrl = configManagerProvider.get().getCurrentProperty(ConfigConstants.CLUSTER_URL);
@@ -126,7 +135,7 @@ public class ConnectToClusterQuestion {
         Flows.acceptQuestion(question, () -> new ConnectCallInput(clusterUrl))
                 .then(Flows.fromCall(connectCall))
                 .print()
-                .ifThen(s -> !Objects.equals(clusterUrl, defaultUrl) && session.isConnectedToNode(),
+                .ifThen(s -> !Objects.equals(clusterUrl, defaultUrl) && session.info() != null,
                         defaultUrlQuestion(clusterUrl).print().build())
                 .start();
     }

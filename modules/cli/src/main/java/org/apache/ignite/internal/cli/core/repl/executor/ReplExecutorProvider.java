@@ -20,7 +20,7 @@ package org.apache.ignite.internal.cli.core.repl.executor;
 import io.micronaut.configuration.picocli.MicronautFactory;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
-import org.apache.ignite.internal.cli.NodeNameRegistry;
+import org.apache.ignite.internal.cli.core.repl.registry.NodeNameRegistry;
 import org.jline.terminal.Terminal;
 import picocli.shell.jline3.PicocliCommands.PicocliCommandsFactory;
 

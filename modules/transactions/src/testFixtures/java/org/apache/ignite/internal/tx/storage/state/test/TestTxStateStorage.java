@@ -19,7 +19,8 @@ package org.apache.ignite.internal.tx.storage.state.test;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_FULL_REBALANCE_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_REBALANCE_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_STOPPED_ERR;
 
 import java.util.Iterator;
 import java.util.Objects;
@@ -46,23 +47,29 @@ public class TestTxStateStorage implements TxStateStorage {
 
     private volatile long lastAppliedTerm;
 
-    private final AtomicReference<CompletableFuture<Void>> fullRebalanceFutureReference = new AtomicReference<>();
+    private final AtomicReference<CompletableFuture<Void>> rebalanceFutureReference = new AtomicReference<>();
+
+    private volatile boolean closed;
 
     @Override
     @Nullable
     public TxMeta get(UUID txId) {
-        checkFullRebalanceInProgress();
+        checkStorageClosedOrInProgressOfRebalance();
 
         return storage.get(txId);
     }
 
     @Override
     public void put(UUID txId, TxMeta txMeta) {
+        checkStorageClosed();
+
         storage.put(txId, txMeta);
     }
 
     @Override
     public boolean compareAndSet(UUID txId, @Nullable TxState txStateExpected, TxMeta txMeta, long commandIndex, long commandTerm) {
+        checkStorageClosed();
+
         TxMeta old = storage.get(txId);
 
         boolean result;
@@ -83,7 +90,7 @@ public class TestTxStateStorage implements TxStateStorage {
             }
         }
 
-        if (fullRebalanceFutureReference.get() == null) {
+        if (rebalanceFutureReference.get() == null) {
             lastAppliedIndex = commandIndex;
             lastAppliedTerm = commandTerm;
         }
@@ -93,12 +100,14 @@ public class TestTxStateStorage implements TxStateStorage {
 
     @Override
     public void remove(UUID txId) {
+        checkStorageClosedOrInProgressOfRebalance();
+
         storage.remove(txId);
     }
 
     @Override
     public Cursor<IgniteBiTuple<UUID, TxMeta>> scan() {
-        checkFullRebalanceInProgress();
+        checkStorageClosedOrInProgressOfRebalance();
 
         Iterator<IgniteBiTuple<UUID, TxMeta>> iterator = storage.entrySet().stream()
                 .map(e -> new IgniteBiTuple<>(e.getKey(), e.getValue()))
@@ -113,14 +122,14 @@ public class TestTxStateStorage implements TxStateStorage {
 
             @Override
             public boolean hasNext() {
-                assert fullRebalanceFutureReference.get() == null;
+                checkStorageClosedOrInProgressOfRebalance();
 
                 return iterator.hasNext();
             }
 
             @Override
             public IgniteBiTuple<UUID, TxMeta> next() {
-                assert fullRebalanceFutureReference.get() == null;
+                checkStorageClosedOrInProgressOfRebalance();
 
                 return iterator.next();
             }
@@ -130,8 +139,6 @@ public class TestTxStateStorage implements TxStateStorage {
     @Override
     public void destroy() {
         close();
-
-        storage.clear();
     }
 
     @Override
@@ -151,7 +158,7 @@ public class TestTxStateStorage implements TxStateStorage {
 
     @Override
     public void lastApplied(long lastAppliedIndex, long lastAppliedTerm) {
-        checkFullRebalanceInProgress();
+        checkStorageClosedOrInProgressOfRebalance();
 
         this.lastAppliedIndex = lastAppliedIndex;
         this.lastAppliedTerm = lastAppliedTerm;
@@ -164,36 +171,44 @@ public class TestTxStateStorage implements TxStateStorage {
 
     @Override
     public void close() {
-        // No-op.
+        assert rebalanceFutureReference.get() == null;
+
+        closed = true;
+
+        storage.clear();
     }
 
     @Override
-    public CompletableFuture<Void> startFullRebalance() {
-        CompletableFuture<Void> fullRebalanceFuture = new CompletableFuture<>();
+    public CompletableFuture<Void> startRebalance() {
+        checkStorageClosed();
 
-        if (!fullRebalanceFutureReference.compareAndSet(null, fullRebalanceFuture)) {
-            throwFullRebalanceInProgressException();
+        CompletableFuture<Void> rebalanceFuture = new CompletableFuture<>();
+
+        if (!rebalanceFutureReference.compareAndSet(null, rebalanceFuture)) {
+            throwRebalanceInProgressException();
         }
 
         storage.clear();
 
-        lastAppliedIndex = FULL_REBALANCE_IN_PROGRESS;
-        lastAppliedTerm = FULL_REBALANCE_IN_PROGRESS;
+        lastAppliedIndex = REBALANCE_IN_PROGRESS;
+        lastAppliedTerm = REBALANCE_IN_PROGRESS;
 
-        fullRebalanceFuture.complete(null);
+        rebalanceFuture.complete(null);
 
-        return fullRebalanceFuture;
+        return rebalanceFuture;
     }
 
     @Override
-    public CompletableFuture<Void> abortFullRebalance() {
-        CompletableFuture<Void> fullRebalanceFuture = fullRebalanceFutureReference.getAndSet(null);
+    public CompletableFuture<Void> abortRebalance() {
+        checkStorageClosed();
 
-        if (fullRebalanceFuture == null) {
+        CompletableFuture<Void> rebalanceFuture = rebalanceFutureReference.getAndSet(null);
+
+        if (rebalanceFuture == null) {
             return completedFuture(null);
         }
 
-        return fullRebalanceFuture
+        return rebalanceFuture
                 .whenComplete((unused, throwable) -> {
                     storage.clear();
 
@@ -203,24 +218,42 @@ public class TestTxStateStorage implements TxStateStorage {
     }
 
     @Override
-    public CompletableFuture<Void> finishFullRebalance(long lastAppliedIndex, long lastAppliedTerm) {
-        CompletableFuture<Void> fullRebalanceFuture = fullRebalanceFutureReference.getAndSet(null);
+    public CompletableFuture<Void> finishRebalance(long lastAppliedIndex, long lastAppliedTerm) {
+        checkStorageClosed();
 
-        if (fullRebalanceFuture == null) {
-            throw new IgniteInternalException(TX_STATE_STORAGE_FULL_REBALANCE_ERR, "Full rebalancing has not started");
+        CompletableFuture<Void> rebalanceFuture = rebalanceFutureReference.getAndSet(null);
+
+        if (rebalanceFuture == null) {
+            throw new IgniteInternalException(TX_STATE_STORAGE_REBALANCE_ERR, "Rebalancing has not started");
         }
 
-        return fullRebalanceFuture
+        return rebalanceFuture
                 .whenComplete((unused, throwable) -> lastApplied(lastAppliedIndex, lastAppliedTerm));
     }
 
-    private void checkFullRebalanceInProgress() {
-        if (fullRebalanceFutureReference.get() != null) {
-            throwFullRebalanceInProgressException();
+    private void checkStorageInProgreesOfRebalance() {
+        if (rebalanceFutureReference.get() != null) {
+            throwRebalanceInProgressException();
         }
     }
 
-    private static void throwFullRebalanceInProgressException() {
-        throw new IgniteInternalException(TX_STATE_STORAGE_FULL_REBALANCE_ERR, "Full rebalance is already in progress");
+    private void checkStorageClosed() {
+        if (closed) {
+            throwStorageClosedException();
+        }
+    }
+
+    private void checkStorageClosedOrInProgressOfRebalance() {
+        checkStorageClosed();
+
+        checkStorageInProgreesOfRebalance();
+    }
+
+    private static void throwStorageClosedException() {
+        throw new IgniteInternalException(TX_STATE_STORAGE_STOPPED_ERR, "Storage is closed");
+    }
+
+    private static void throwRebalanceInProgressException() {
+        throw new IgniteInternalException(TX_STATE_STORAGE_REBALANCE_ERR, "Rebalance is already in progress");
     }
 }

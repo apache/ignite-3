@@ -45,7 +45,7 @@
 
         <dependency>
             <groupId>org.apache.ignite</groupId>
-            <artifactId>ignite-metastorage</artifactId>
+            <artifactId>ignite-metastorage-api</artifactId>
         </dependency>
     </dependencies>
 </project>

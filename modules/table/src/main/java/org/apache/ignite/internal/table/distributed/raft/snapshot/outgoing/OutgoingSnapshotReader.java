@@ -20,6 +20,8 @@ package org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing;
 import java.io.IOException;
 import java.util.Set;
 import java.util.UUID;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionSnapshotStorage;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.SnapshotUri;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
@@ -30,6 +32,8 @@ import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
  * {@link SnapshotReader} implementation for reading local rebalance snapshot.
  */
 public class OutgoingSnapshotReader extends SnapshotReader {
+    private static final IgniteLogger LOG = Loggers.forClass(OutgoingSnapshotReader.class);
+
     /** Snapshot id. */
     private final UUID id = UUID.randomUUID();
 
@@ -48,6 +52,8 @@ public class OutgoingSnapshotReader extends SnapshotReader {
 
         snapshot = new OutgoingSnapshot(id, snapshotStorage.partition());
 
+        LOG.info("Starting snapshot reader for snapshot {}", id);
+
         snapshotStorage.outgoingSnapshotsManager().startOutgoingSnapshot(id, snapshot);
     }
 
@@ -65,6 +71,8 @@ public class OutgoingSnapshotReader extends SnapshotReader {
 
     @Override
     public void close() throws IOException {
+        LOG.info("Closing snapshot reader for snapshot {}", id);
+
         snapshotStorage.outgoingSnapshotsManager().finishOutgoingSnapshot(id);
     }
 

@@ -61,9 +61,7 @@
         <module>modules/jdbc</module>
         <module>modules/marshaller-common</module>
         <module>modules/metastorage</module>
-        <module>modules/metastorage-client</module>
-        <module>modules/metastorage-common</module>
-        <module>modules/metastorage-server</module>
+        <module>modules/metastorage-api</module>
         <module>modules/metrics</module>
         <module>modules/network</module>
         <module>modules/network-annotation-processor</module>

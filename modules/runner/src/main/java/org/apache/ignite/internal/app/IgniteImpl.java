@@ -64,6 +64,7 @@ import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.configuration.MetricConfiguration;
@@ -329,7 +330,7 @@ public class IgniteImpl implements Ignite {
 
         logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgMgr);
 
-        metaStorageMgr = new MetaStorageManager(
+        metaStorageMgr = new MetaStorageManagerImpl(
                 vaultMgr,
                 clusterSvc,
                 cmgMgr,
@@ -352,7 +353,7 @@ public class IgniteImpl implements Ignite {
         DistributionZonesConfiguration zonesConfiguration = clusterCfgMgr.configurationRegistry()
                 .getConfiguration(DistributionZonesConfiguration.KEY);
 
-        distributionZoneManager = new DistributionZoneManager(zonesConfiguration, metaStorageMgr, cmgMgr, logicalTopologyService);
+        distributionZoneManager = new DistributionZoneManager(zonesConfiguration, metaStorageMgr, logicalTopologyService, vaultMgr);
 
         restComponent = createRestComponent(name);
 
@@ -822,11 +823,20 @@ public class IgniteImpl implements Ignite {
         return logicalTopologyService;
     }
 
+    // TODO: IGNITE-18493 - remove/move this
     @TestOnly
     public void dropMessages(BiPredicate<String, NetworkMessage> predicate) {
         ((DefaultMessagingService) clusterSvc.messagingService()).dropMessages(predicate);
     }
 
+    // TODO: IGNITE-18493 - remove/move this
+    @TestOnly
+    @Nullable
+    public BiPredicate<String, NetworkMessage> dropMessagesPredicate() {
+        return ((DefaultMessagingService) clusterSvc.messagingService()).dropMessagesPredicate();
+    }
+
+    // TODO: IGNITE-18493 - remove/move this
     @TestOnly
     public void stopDroppingMessages() {
         ((DefaultMessagingService) clusterSvc.messagingService()).stopDroppingMessages();

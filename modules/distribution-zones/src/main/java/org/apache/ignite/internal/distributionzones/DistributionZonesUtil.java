@@ -17,16 +17,16 @@
 
 package org.apache.ignite.internal.distributionzones;
 
-import static org.apache.ignite.internal.metastorage.client.CompoundCondition.or;
-import static org.apache.ignite.internal.metastorage.client.Conditions.notExists;
-import static org.apache.ignite.internal.metastorage.client.Conditions.value;
-import static org.apache.ignite.internal.metastorage.client.Operations.ops;
-import static org.apache.ignite.internal.metastorage.client.Operations.put;
-import static org.apache.ignite.internal.metastorage.client.Operations.remove;
+import static org.apache.ignite.internal.metastorage.dsl.CompoundCondition.or;
+import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
+import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
+import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
+import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
+import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
 
 import java.util.Set;
-import org.apache.ignite.internal.metastorage.client.CompoundCondition;
-import org.apache.ignite.internal.metastorage.client.Update;
+import org.apache.ignite.internal.metastorage.dsl.CompoundCondition;
+import org.apache.ignite.internal.metastorage.dsl.Update;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.lang.ByteArray;
 
@@ -103,9 +103,9 @@ class DistributionZonesUtil {
      * @param logicalTopology Logical topology.
      * @return Update command for the meta storage.
      */
-    static Update updateDataNodesAndTriggerKey(int zoneId, long revision, Set<String> logicalTopology) {
+    static Update updateDataNodesAndTriggerKey(int zoneId, long revision, byte[] logicalTopology) {
         return ops(
-                put(zoneDataNodesKey(zoneId), ByteUtils.toBytes(logicalTopology)),
+                put(zoneDataNodesKey(zoneId), logicalTopology),
                 put(zonesChangeTriggerKey(), ByteUtils.longToBytes(revision))
         ).yield(true);
     }

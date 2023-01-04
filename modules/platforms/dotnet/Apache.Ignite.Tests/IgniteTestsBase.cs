@@ -42,6 +42,7 @@ namespace Apache.Ignite.Tests
         protected const string TableDoubleName = "TBL_DOUBLE";
         protected const string TableDecimalName = "TBL_DECIMAL";
         protected const string TableStringName = "TBL_STRING";
+        protected const string TableDateName = "TBL_DATE";
         protected const string TableDateTimeName = "TBL_DATETIME";
         protected const string TableTimeName = "TBL_TIME";
         protected const string TableTimestampName = "TBL_TIMESTAMP";

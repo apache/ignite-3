@@ -94,6 +94,8 @@ public class Loza implements RaftManager {
     /** Raft configuration. */
     private final RaftConfiguration raftConfiguration;
 
+    private final NodeOptions opts;
+
     /**
      * The constructor.
      *
@@ -115,6 +117,8 @@ public class Loza implements RaftManager {
 
         options.setClock(clock);
 
+        this.opts = options;
+
         this.raftServer = new JraftServerImpl(clusterNetSvc, dataPath, options);
 
         this.executor = new ScheduledThreadPoolExecutor(CLIENT_POOL_SIZE,
@@ -127,6 +131,8 @@ public class Loza implements RaftManager {
     /** {@inheritDoc} */
     @Override
     public void start() {
+        opts.setRpcInstallSnapshotTimeout(raftConfiguration.rpcInstallSnapshotTimeout().value());
+
         raftServer.start();
     }
 

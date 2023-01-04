@@ -40,7 +40,7 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
 public interface IgniteMapSetOp extends IgniteSetOp {
     /** {@inheritDoc} */
     @Override
-    public default List<Pair<RelTraitSet, List<RelTraitSet>>> deriveRewindability(
+    default List<Pair<RelTraitSet, List<RelTraitSet>>> deriveRewindability(
             RelTraitSet nodeTraits,
             List<RelTraitSet> inputTraits
     ) {
@@ -58,7 +58,7 @@ public interface IgniteMapSetOp extends IgniteSetOp {
 
     /** {@inheritDoc} */
     @Override
-    public default List<Pair<RelTraitSet, List<RelTraitSet>>> deriveDistribution(
+    default List<Pair<RelTraitSet, List<RelTraitSet>>> deriveDistribution(
             RelTraitSet nodeTraits,
             List<RelTraitSet> inputTraits
     ) {
@@ -77,7 +77,7 @@ public interface IgniteMapSetOp extends IgniteSetOp {
 
     /** {@inheritDoc} */
     @Override
-    public default List<Pair<RelTraitSet, List<RelTraitSet>>> deriveCorrelation(
+    default List<Pair<RelTraitSet, List<RelTraitSet>>> deriveCorrelation(
             RelTraitSet nodeTraits,
             List<RelTraitSet> inTraits
     ) {
@@ -91,7 +91,7 @@ public interface IgniteMapSetOp extends IgniteSetOp {
     }
 
     /** Build RowType for MAP node. */
-    public default RelDataType buildRowType() {
+    default RelDataType buildRowType() {
         RelDataTypeFactory typeFactory = Commons.typeFactory(getCluster());
 
         assert typeFactory instanceof IgniteTypeFactory;
@@ -106,7 +106,7 @@ public interface IgniteMapSetOp extends IgniteSetOp {
 
     /** {@inheritDoc} */
     @Override
-    public default AggregateType aggregateType() {
+    default AggregateType aggregateType() {
         return AggregateType.MAP;
     }
 }
