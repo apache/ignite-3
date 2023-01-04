@@ -287,4 +287,88 @@ public static partial class IgniteQueryableExtensions
         var provider = queryable.ToQueryableInternal().Provider;
         return await provider.ExecuteSingleAsync<double?>(expression).ConfigureAwait(false);
     }
+
+    /// <summary>
+    /// Returns the average of a sequence of values.
+    /// </summary>
+    /// <param name="queryable">Query.</param>
+    /// <returns>A <see cref="Task"/> representing the asynchronous operation.
+    /// The task result contains the average of a sequence of values.
+    /// </returns>
+    [DynamicDependency("Average`1", typeof(Queryable))]
+    public static async Task<double> AverageAsync(this IQueryable<float> queryable)
+    {
+        IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
+
+        var method = new Func<IQueryable<float>, float>(Queryable.Average).GetMethodInfo();
+        var expression = Expression.Call(null, method, queryable.Expression);
+
+        var provider = queryable.ToQueryableInternal().Provider;
+        return await provider.ExecuteSingleAsync<float>(expression).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Returns the average of a sequence of values.
+    /// </summary>
+    /// <typeparam name="TSource">Element type.</typeparam>
+    /// <param name="queryable">Query.</param>
+    /// <param name="selector">A projection function to apply to each element.</param>
+    /// <returns>A <see cref="Task"/> representing the asynchronous operation.
+    /// The task result contains the average of a sequence of values.
+    /// </returns>
+    [DynamicDependency("Average`1", typeof(Queryable))]
+    public static async Task<float> AverageAsync<TSource>(
+        this IQueryable<TSource> queryable,
+        Expression<Func<TSource, float>> selector)
+    {
+        IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
+
+        var method = new Func<IQueryable<TSource>, Expression<Func<TSource, float>>, float>(Queryable.Average).GetMethodInfo();
+        var expression = Expression.Call(null, method, queryable.Expression, Expression.Quote(selector));
+
+        var provider = queryable.ToQueryableInternal().Provider;
+        return await provider.ExecuteSingleAsync<float>(expression).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Returns the average of a sequence of values.
+    /// </summary>
+    /// <param name="queryable">Query.</param>
+    /// <returns>A <see cref="Task"/> representing the asynchronous operation.
+    /// The task result contains the average of a sequence of values.
+    /// </returns>
+    [DynamicDependency("Average`1", typeof(Queryable))]
+    public static async Task<float?> AverageAsync(this IQueryable<float?> queryable)
+    {
+        IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
+
+        var method = new Func<IQueryable<float?>, float?>(Queryable.Average).GetMethodInfo();
+        var expression = Expression.Call(null, method, queryable.Expression);
+
+        var provider = queryable.ToQueryableInternal().Provider;
+        return await provider.ExecuteSingleAsync<float?>(expression).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Returns the average of a sequence of values.
+    /// </summary>
+    /// <typeparam name="TSource">Element type.</typeparam>
+    /// <param name="queryable">Query.</param>
+    /// <param name="selector">A projection function to apply to each element.</param>
+    /// <returns>A <see cref="Task"/> representing the asynchronous operation.
+    /// The task result contains the average of a sequence of values.
+    /// </returns>
+    [DynamicDependency("Average`1", typeof(Queryable))]
+    public static async Task<float?> AverageAsync<TSource>(
+        this IQueryable<TSource> queryable,
+        Expression<Func<TSource, float?>> selector)
+    {
+        IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
+
+        var method = new Func<IQueryable<TSource>, Expression<Func<TSource, float?>>, float?>(Queryable.Average).GetMethodInfo();
+        var expression = Expression.Call(null, method, queryable.Expression, Expression.Quote(selector));
+
+        var provider = queryable.ToQueryableInternal().Provider;
+        return await provider.ExecuteSingleAsync<float?>(expression).ConfigureAwait(false);
+    }
 }
