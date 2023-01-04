@@ -159,6 +159,38 @@ public partial class LinqSqlGenerationTests
                 .ToList());
 
     [Test]
+    public void TestFirst() =>
+        AssertSql("select _T0.KEY, _T0.VAL from PUBLIC.tbl1 as _T0 limit 1", q => q.First());
+
+    [Test]
+    public void TestFirstAsync() =>
+        AssertSql("select _T0.KEY, _T0.VAL from PUBLIC.tbl1 as _T0 limit 1", q => q.FirstAsync().Result);
+
+    [Test]
+    public void TestFirstOrDefault() =>
+        AssertSql("select _T0.KEY, _T0.VAL from PUBLIC.tbl1 as _T0 limit 1", q => q.FirstOrDefault());
+
+    [Test]
+    public void TestFirstOrDefaultAsync() =>
+        AssertSql("select _T0.KEY, _T0.VAL from PUBLIC.tbl1 as _T0 limit 1", q => q.FirstOrDefaultAsync().Result);
+
+    [Test]
+    public void TestSingle() =>
+        AssertSql("select _T0.KEY, _T0.VAL from PUBLIC.tbl1 as _T0 limit 2", q => q.Single());
+
+    [Test]
+    public void TestSingleAsync() =>
+        AssertSql("select _T0.KEY, _T0.VAL from PUBLIC.tbl1 as _T0 limit 2", q => q.SingleAsync().Result);
+
+    [Test]
+    public void TestSingleOrDefault() =>
+        AssertSql("select _T0.KEY, _T0.VAL from PUBLIC.tbl1 as _T0 limit 2", q => q.SingleOrDefault());
+
+    [Test]
+    public void TestSingleOrDefaultAsync() =>
+        AssertSql("select _T0.KEY, _T0.VAL from PUBLIC.tbl1 as _T0 limit 2", q => q.SingleOrDefaultAsync());
+
+    [Test]
     public void TestOffsetLimitFirst() =>
         AssertSql(
             "select _T0.KEY, _T0.VAL " +
