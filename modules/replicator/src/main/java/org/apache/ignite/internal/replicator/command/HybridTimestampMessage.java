@@ -15,34 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.raft;
+package org.apache.ignite.internal.replicator.command;
 
+import java.io.Serializable;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.util.PendingComparableValuesTracker;
+import org.apache.ignite.internal.replicator.message.ReplicaMessageGroup;
+import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * Options that are specific for replication group.
+ * Interface to represent {@link HybridTimestamp} as a {@link NetworkMessage}.
  */
-public class ReplicationGroupOptions {
-    /** Safe time. */
-    private PendingComparableValuesTracker<HybridTimestamp> safeTime;
+@Transferable(ReplicaMessageGroup.HYBRID_TIMESTAMP)
+public interface HybridTimestampMessage extends NetworkMessage, Serializable {
+    long physical();
 
-    /**
-     * Safe time.
-     */
-    public PendingComparableValuesTracker<HybridTimestamp> safeTime() {
-        return safeTime;
-    }
+    int logical();
 
-    /**
-     * Set the safe time clock.
-     *
-     * @param safeTime Safe time.
-     * @return This, for chaining.
-     */
-    public ReplicationGroupOptions safeTime(PendingComparableValuesTracker<HybridTimestamp> safeTime) {
-        this.safeTime = safeTime;
-
-        return this;
+    default HybridTimestamp asHybridTimestamp() {
+        return new HybridTimestamp(physical(), logical());
     }
 }

@@ -33,6 +33,7 @@ import javax.naming.OperationNotSupportedException;
 import org.apache.ignite.distributed.TestPartitionDataStorage;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.WriteCommand;
@@ -237,6 +238,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         IndexLocker pkLocker = new HashIndexLocker(indexId, true, this.txManager.lockManager(), row2tuple);
 
         HybridClock clock = new HybridClockImpl();
+        PendingComparableValuesTracker<HybridTimestamp> safeTime = new PendingComparableValuesTracker<>(clock.now());
 
         replicaListener = new PartitionReplicaListener(
                 mvPartStorage,
@@ -250,7 +252,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 pkStorage,
                 () -> Map.of(),
                 clock,
-                new PendingComparableValuesTracker<>(clock.now()),
+                safeTime,
                 txStateStorage().getOrCreateTxStateStorage(0),
                 placementDriver,
                 peer -> true
@@ -261,7 +263,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 txStateStorage().getOrCreateTxStateStorage(0),
                 this.txManager,
                 () -> Map.of(pkStorage.get().id(), pkStorage.get()),
-                0
+                0,
+                safeTime
         );
     }
 

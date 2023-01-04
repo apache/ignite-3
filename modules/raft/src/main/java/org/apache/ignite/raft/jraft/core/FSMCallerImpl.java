@@ -59,7 +59,6 @@ import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotWriter;
 import org.apache.ignite.raft.jraft.util.DisruptorMetricSet;
 import org.apache.ignite.raft.jraft.util.OnlyForTest;
 import org.apache.ignite.raft.jraft.util.Requires;
-import org.apache.ignite.raft.jraft.util.SafeTimeCandidateManager;
 import org.apache.ignite.raft.jraft.util.Utils;
 
 /**
@@ -157,7 +156,6 @@ public class FSMCallerImpl implements FSMCaller {
     private NodeMetrics nodeMetrics;
     private final CopyOnWriteArrayList<LastAppliedLogIndexListener> lastAppliedLogIndexListeners = new CopyOnWriteArrayList<>();
     private RaftMessagesFactory msgFactory;
-    private SafeTimeCandidateManager safeTimeCandidateManager;
 
     public FSMCallerImpl() {
         super();
@@ -190,7 +188,6 @@ public class FSMCallerImpl implements FSMCaller {
         }
         this.error = new RaftException(ErrorType.ERROR_TYPE_NONE);
         this.msgFactory = opts.getRaftMessagesFactory();
-        this.safeTimeCandidateManager = opts.getSafeTimeCandidateManager();
         LOG.info("Starts FSMCaller successfully.");
         return true;
     }
@@ -541,9 +538,6 @@ public class FSMCallerImpl implements FSMCaller {
             this.lastAppliedTerm = lastTerm;
             this.logManager.setAppliedId(lastAppliedId);
             notifyLastAppliedIndexUpdated(lastIndex);
-            if (safeTimeCandidateManager != null) {
-                safeTimeCandidateManager.commitIndex(lastAppliedIndex, lastIndex, lastTerm);
-            }
         }
         finally {
             this.nodeMetrics.recordLatency("fsm-commit", Utils.monotonicMs() - startMs);

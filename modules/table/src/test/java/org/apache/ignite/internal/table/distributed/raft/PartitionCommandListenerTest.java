@@ -58,6 +58,7 @@ import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.CommittedConfiguration;
 import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.replicator.command.HybridTimestampMessage;
 import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommand;
 import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommandBuilder;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
@@ -93,6 +94,7 @@ import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateStorage;
 import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.BeforeEach;
@@ -158,6 +160,12 @@ public class PartitionCommandListenerTest {
     /** Factory for command messages. */
     private TableMessagesFactory msgFactory = new TableMessagesFactory();
 
+    /** Factory for replica messages. */
+    private ReplicaMessagesFactory replicaMessagesFactory = new ReplicaMessagesFactory();
+
+    /** Hybrid clock. */
+    private HybridClock hybridClock;
+
     @Captor
     private ArgumentCaptor<Throwable> commandClosureResultCaptor;
 
@@ -174,12 +182,15 @@ public class PartitionCommandListenerTest {
 
         ReplicaService replicaService = mock(ReplicaService.class, RETURNS_DEEP_STUBS);
 
+        hybridClock = new HybridClockImpl();
+
         commandListener = new PartitionListener(
                 partitionDataStorage,
                 txStateStorage,
-                new TxManagerImpl(replicaService, new HeapLockManager(), new HybridClockImpl()),
+                new TxManagerImpl(replicaService, new HeapLockManager(), hybridClock),
                 () -> Map.of(pkStorage.id(), pkStorage),
-                PARTITION_ID
+                PARTITION_ID,
+                new PendingComparableValuesTracker<>(new HybridTimestamp(1, 0))
         );
     }
 
@@ -268,7 +279,8 @@ public class PartitionCommandListenerTest {
                 txStateStorage,
                 new TxManagerImpl(replicaService, new HeapLockManager(), new HybridClockImpl()),
                 () -> Map.of(pkStorage.id(), pkStorage),
-                PARTITION_ID
+                PARTITION_ID,
+                new PendingComparableValuesTracker<>(new HybridTimestamp(1, 0))
         );
 
         txStateStorage.lastApplied(3L, 1L);
@@ -306,12 +318,26 @@ public class PartitionCommandListenerTest {
     void testSkipWriteCommandByAppliedIndex() {
         mvPartitionStorage.lastApplied(10L, 1L);
 
+        HybridTimestampMessage timestamp = hybridTimestamp(hybridClock.now());
+
+        UpdateCommand updateCommand = mock(UpdateCommand.class);
+        when(updateCommand.safeTime()).thenReturn(timestamp);
+
+        TxCleanupCommand txCleanupCommand = mock(TxCleanupCommand.class);
+        when(txCleanupCommand.safeTime()).thenReturn(timestamp);
+
+        SafeTimeSyncCommand safeTimeSyncCommand = mock(SafeTimeSyncCommand.class);
+        when(safeTimeSyncCommand.safeTime()).thenReturn(timestamp);
+
+        FinishTxCommand finishTxCommand = mock(FinishTxCommand.class);
+        when(finishTxCommand.safeTime()).thenReturn(timestamp);
+
         // Checks for MvPartitionStorage.
         commandListener.onWrite(List.of(
-                writeCommandCommandClosure(3, 1, mock(UpdateCommand.class), commandClosureResultCaptor),
-                writeCommandCommandClosure(10, 1, mock(UpdateCommand.class), commandClosureResultCaptor),
-                writeCommandCommandClosure(4, 1, mock(TxCleanupCommand.class), commandClosureResultCaptor),
-                writeCommandCommandClosure(5, 1, mock(SafeTimeSyncCommand.class), commandClosureResultCaptor)
+                writeCommandCommandClosure(3, 1, updateCommand, commandClosureResultCaptor),
+                writeCommandCommandClosure(10, 1, updateCommand, commandClosureResultCaptor),
+                writeCommandCommandClosure(4, 1, txCleanupCommand, commandClosureResultCaptor),
+                writeCommandCommandClosure(5, 1, safeTimeSyncCommand, commandClosureResultCaptor)
         ).iterator());
 
         verify(mvPartitionStorage, never()).runConsistently(any(WriteClosure.class));
@@ -326,8 +352,8 @@ public class PartitionCommandListenerTest {
         commandClosureResultCaptor = ArgumentCaptor.forClass(Throwable.class);
 
         commandListener.onWrite(List.of(
-                writeCommandCommandClosure(2, 1, mock(FinishTxCommand.class), commandClosureResultCaptor),
-                writeCommandCommandClosure(10, 1, mock(FinishTxCommand.class), commandClosureResultCaptor)
+                writeCommandCommandClosure(2, 1, finishTxCommand, commandClosureResultCaptor),
+                writeCommandCommandClosure(10, 1, finishTxCommand, commandClosureResultCaptor)
         ).iterator());
 
         verify(txStateStorage, never()).compareAndSet(any(UUID.class), any(TxState.class), any(TxMeta.class), anyLong(), anyLong());
@@ -338,7 +364,10 @@ public class PartitionCommandListenerTest {
 
     @Test
     void updatesLastAppliedForSafeTimeSyncCommands() {
-        SafeTimeSyncCommand safeTimeSyncCommand = new ReplicaMessagesFactory().safeTimeSyncCommand().build();
+        SafeTimeSyncCommand safeTimeSyncCommand = new ReplicaMessagesFactory()
+                .safeTimeSyncCommand()
+                .safeTime(hybridTimestamp(hybridClock.now()))
+                .build();
 
         commandListener.onWrite(List.of(
                 writeCommandCommandClosure(3, 2, safeTimeSyncCommand, commandClosureResultCaptor)
@@ -349,7 +378,9 @@ public class PartitionCommandListenerTest {
 
     @Test
     void locksOnCommandApplication() {
-        SafeTimeSyncCommandBuilder safeTimeSyncCommand = new ReplicaMessagesFactory().safeTimeSyncCommand();
+        SafeTimeSyncCommandBuilder safeTimeSyncCommand = new ReplicaMessagesFactory()
+                .safeTimeSyncCommand()
+                .safeTime(hybridTimestamp(hybridClock.now()));
 
         commandListener.onWrite(List.of(
                 writeCommandCommandClosure(3, 2, safeTimeSyncCommand.build(), commandClosureResultCaptor)
@@ -516,14 +547,13 @@ public class PartitionCommandListenerTest {
                                 .build())
                 .rowsToUpdate(rows)
                 .txId(txId)
+                .safeTime(hybridTimestamp(hybridClock.now()))
                 .build());
         invokeBatchedCommand(msgFactory.txCleanupCommand()
                 .txId(txId)
                 .commit(true)
-                .commitTimestamp(msgFactory.hybridTimestampMessage()
-                        .physical(commitTimestamp.getPhysical())
-                        .logical(commitTimestamp.getLogical())
-                        .build())
+                .commitTimestamp(hybridTimestamp(commitTimestamp))
+                .safeTime(hybridTimestamp(hybridClock.now()))
                 .build());
     }
 
@@ -553,14 +583,13 @@ public class PartitionCommandListenerTest {
                                 .build())
                 .rowsToUpdate(rows)
                 .txId(txId)
+                .safeTime(hybridTimestamp(hybridClock.now()))
                 .build());
         invokeBatchedCommand(msgFactory.txCleanupCommand()
                 .txId(txId)
                 .commit(true)
-                .commitTimestamp(msgFactory.hybridTimestampMessage()
-                        .physical(commitTimestamp.getPhysical())
-                        .logical(commitTimestamp.getLogical())
-                        .build())
+                .commitTimestamp(hybridTimestamp(commitTimestamp))
+                .safeTime(hybridTimestamp(hybridClock.now()))
                 .build());
     }
 
@@ -588,14 +617,13 @@ public class PartitionCommandListenerTest {
                                 .build())
                 .rowsToUpdate(keyRows)
                 .txId(txId)
+                .safeTime(hybridTimestamp(hybridClock.now()))
                 .build());
         invokeBatchedCommand(msgFactory.txCleanupCommand()
                 .txId(txId)
                 .commit(true)
-                .commitTimestamp(msgFactory.hybridTimestampMessage()
-                        .physical(commitTimestamp.getPhysical())
-                        .logical(commitTimestamp.getLogical())
-                        .build())
+                .commitTimestamp(hybridTimestamp(commitTimestamp))
+                .safeTime(hybridTimestamp(hybridClock.now()))
                 .build());
     }
 
@@ -626,6 +654,7 @@ public class PartitionCommandListenerTest {
                             .rowUuid(rowId.uuid())
                             .rowBuffer(row.byteBuffer())
                             .txId(txId)
+                            .safeTime(hybridTimestamp(hybridClock.now()))
                             .build());
 
             doAnswer(invocation -> {
@@ -640,10 +669,8 @@ public class PartitionCommandListenerTest {
         txIds.forEach(txId -> invokeBatchedCommand(msgFactory.txCleanupCommand()
                 .txId(txId)
                 .commit(true)
-                .commitTimestamp(msgFactory.hybridTimestampMessage()
-                        .physical(commitTimestamp.getPhysical())
-                        .logical(commitTimestamp.getLogical())
-                        .build())
+                .commitTimestamp(hybridTimestamp(commitTimestamp))
+                .safeTime(hybridTimestamp(hybridClock.now()))
                 .build()));
     }
 
@@ -671,6 +698,7 @@ public class PartitionCommandListenerTest {
                                     .partitionId(PARTITION_ID).build())
                             .rowUuid(rowId.uuid())
                             .txId(txId)
+                            .safeTime(hybridTimestamp(hybridClock.now()))
                             .build());
 
             doAnswer(invocation -> {
@@ -685,10 +713,8 @@ public class PartitionCommandListenerTest {
         txIds.forEach(txId -> invokeBatchedCommand(msgFactory.txCleanupCommand()
                 .txId(txId)
                 .commit(true)
-                .commitTimestamp(msgFactory.hybridTimestampMessage()
-                        .physical(commitTimestamp.getPhysical())
-                        .logical(commitTimestamp.getLogical())
-                        .build())
+                .commitTimestamp(hybridTimestamp(commitTimestamp))
+                .safeTime(hybridTimestamp(hybridClock.now()))
                 .build()));
     }
 
@@ -747,6 +773,7 @@ public class PartitionCommandListenerTest {
                             .rowUuid(Timestamp.nextVersion().toUuid())
                             .rowBuffer(row.byteBuffer())
                             .txId(txId)
+                            .safeTime(hybridTimestamp(hybridClock.now()))
                             .build());
 
             doAnswer(invocation -> {
@@ -758,16 +785,12 @@ public class PartitionCommandListenerTest {
 
         HybridTimestamp now = CLOCK.now();
 
-
-
         txIds.forEach(txId -> invokeBatchedCommand(
                 msgFactory.txCleanupCommand()
                         .txId(txId)
                         .commit(true)
-                        .commitTimestamp(msgFactory.hybridTimestampMessage()
-                                .physical(now.getPhysical())
-                                .logical(now.getLogical())
-                                .build())
+                        .commitTimestamp(hybridTimestamp(now))
+                        .safeTime(hybridTimestamp(hybridClock.now()))
                         .build()));
     }
 
@@ -828,5 +851,19 @@ public class PartitionCommandListenerTest {
         }
 
         return null;
+    }
+
+    /**
+     * Method to convert from {@link HybridTimestamp} object to NetworkMessage-based {@link HybridTimestampMessage} object.
+     *
+     * @param tmstmp {@link HybridTimestamp} object to convert to {@link HybridTimestampMessage}.
+     * @return {@link HybridTimestampMessage} object obtained from {@link HybridTimestamp}.
+     */
+    private HybridTimestampMessage hybridTimestamp(HybridTimestamp tmstmp) {
+        return tmstmp != null ? replicaMessagesFactory.hybridTimestampMessage()
+                .physical(tmstmp.getPhysical())
+                .logical(tmstmp.getLogical())
+                .build()
+                : null;
     }
 }

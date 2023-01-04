@@ -424,10 +424,6 @@ public class JraftServerImpl implements RaftServer {
 
             nodeOptions.setRpcClient(client);
 
-            if (groupOptions.replicationGroupOptions() != null) {
-                nodeOptions.setSafeTimeTracker(groupOptions.replicationGroupOptions().safeTime());
-            }
-
             var server = new RaftGroupService(
                     nodeId.groupId().toString(),
                     PeerId.fromPeer(nodeId.peer()),
