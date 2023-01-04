@@ -195,7 +195,6 @@ public partial class LinqTests
     [Test]
     public async Task TestSumAsync()
     {
-        // TODO: All supported types.
         Assert.AreEqual(45, await PocoIntView.AsQueryable().Select(x => x.Key).SumAsync());
         Assert.AreEqual(145, await PocoIntView.AsQueryable().SumAsync(x => x.Key + 10));
 
@@ -204,12 +203,17 @@ public partial class LinqTests
 
         Assert.AreEqual(45, await PocoFloatView.AsQueryable().Select(x => x.Key).SumAsync());
         Assert.AreEqual(145, await PocoFloatView.AsQueryable().SumAsync(x => x.Key + 10));
+
+        Assert.AreEqual(45, await PocoDoubleView.AsQueryable().Select(x => x.Key).SumAsync());
+        Assert.AreEqual(145, await PocoDoubleView.AsQueryable().SumAsync(x => x.Key + 10));
+
+        Assert.AreEqual(45, await PocoDecimalView.AsQueryable().Select(x => x.Key).SumAsync());
+        Assert.AreEqual(145, await PocoDecimalView.AsQueryable().SumAsync(x => x.Key + 10));
     }
 
     [Test]
     public async Task TestSumAsyncNullable()
     {
-        // TODO: All supported types.
         var query = PocoAllColumnsSqlNullableView.AsQueryable();
 
         Assert.AreEqual(75, await query.Select(x => x.Int32).SumAsync());
@@ -226,6 +230,16 @@ public partial class LinqTests
         Assert.AreEqual(200f, await query.SumAsync(x => x.Float + 10));
         Assert.AreEqual(0, await query.Where(x => x.Key < -100).SumAsync(x => x.Float));
         Assert.AreEqual(0, await query.Where(x => x.Key < -100).Select(x => x.Float).SumAsync());
+
+        Assert.AreEqual(100f, await query.Select(x => x.Double).SumAsync());
+        Assert.AreEqual(200f, await query.SumAsync(x => x.Double + 10));
+        Assert.AreEqual(0, await query.Where(x => x.Key < -100).SumAsync(x => x.Double));
+        Assert.AreEqual(0, await query.Where(x => x.Key < -100).Select(x => x.Double).SumAsync());
+
+        Assert.AreEqual(100f, await query.Select(x => x.Decimal).SumAsync());
+        Assert.AreEqual(200f, await query.SumAsync(x => x.Decimal + 10));
+        Assert.AreEqual(0, await query.Where(x => x.Key < -100).SumAsync(x => x.Decimal));
+        Assert.AreEqual(0, await query.Where(x => x.Key < -100).Select(x => x.Decimal).SumAsync());
     }
 
     [Test]
