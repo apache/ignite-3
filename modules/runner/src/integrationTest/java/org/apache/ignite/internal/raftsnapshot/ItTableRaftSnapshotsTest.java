@@ -137,7 +137,7 @@ class ItTableRaftSnapshotsTest {
     }
 
     @AfterEach
-    @Timeout(10)
+    @Timeout(60)
     void shutdownCluster() {
         cluster.shutdown();
     }
