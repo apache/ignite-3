@@ -22,7 +22,7 @@ apply from: "$rootDir/buildscripts/java-junit5.gradle"
 dependencies {
     implementation project(':ignite-network-api')
     implementation project(':ignite-configuration')
-    implementation project(':ignite-metastorage')
+    implementation project(':ignite-metastorage-api')
     implementation project(':ignite-core')
 }
 

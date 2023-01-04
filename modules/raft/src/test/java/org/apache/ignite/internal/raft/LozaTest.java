@@ -22,6 +22,8 @@ import static org.mockito.Mockito.mock;
 
 import java.util.Objects;
 import java.util.Set;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
@@ -42,10 +44,14 @@ import org.mockito.junit.jupiter.MockitoExtension;
  * It is mocking all components except Loza and checks API methods of the component in various conditions.
  */
 @ExtendWith(MockitoExtension.class)
+@ExtendWith(ConfigurationExtension.class)
 public class LozaTest extends IgniteAbstractTest {
     /** Mock for network service. */
     @Mock
     private ClusterService clusterNetSvc;
+
+    @InjectConfiguration
+    private RaftConfiguration raftConfiguration;
 
     /**
      * Checks that the all API methods throw the exception ({@link org.apache.ignite.lang.NodeStoppingException})
@@ -59,7 +65,7 @@ public class LozaTest extends IgniteAbstractTest {
         Mockito.doReturn(mock(MessagingService.class)).when(clusterNetSvc).messagingService();
         Mockito.doReturn(mock(TopologyService.class)).when(clusterNetSvc).topologyService();
 
-        Loza loza = new Loza(clusterNetSvc, mock(RaftConfiguration.class), workDir, new HybridClockImpl());
+        Loza loza = new Loza(clusterNetSvc, raftConfiguration, workDir, new HybridClockImpl());
 
         loza.start();
 
