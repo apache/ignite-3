@@ -27,6 +27,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.AsyncCloseable;
 import org.apache.ignite.internal.sql.engine.CurrentTimeProvider;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHolder;
@@ -173,6 +174,8 @@ public class Session implements AsyncCloseable {
     public CompletableFuture<Void> closeAsync() {
         if (closeFutRef.compareAndSet(null, new CompletableFuture<>())) {
             lock.writeLock().lock();
+
+            Loggers.forClass(Session.class).error("Closing session " + sessionId, new Exception("Tracking..."));
 
             lastTouched.set(EXPIRED);
 
