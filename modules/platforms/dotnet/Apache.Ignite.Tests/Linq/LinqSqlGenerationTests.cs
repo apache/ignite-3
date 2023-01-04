@@ -188,7 +188,7 @@ public partial class LinqSqlGenerationTests
 
     [Test]
     public void TestSingleOrDefaultAsync() =>
-        AssertSql("select _T0.KEY, _T0.VAL from PUBLIC.tbl1 as _T0 limit 2", q => q.SingleOrDefaultAsync());
+        AssertSql("select _T0.KEY, _T0.VAL from PUBLIC.tbl1 as _T0 limit 2", q => q.SingleOrDefaultAsync().Result);
 
     [Test]
     public void TestOffsetLimitFirst() =>
