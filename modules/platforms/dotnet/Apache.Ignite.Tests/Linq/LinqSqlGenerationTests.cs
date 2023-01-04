@@ -63,29 +63,44 @@ public partial class LinqSqlGenerationTests
         AssertSql("select sum(_T0.KEY) from PUBLIC.tbl1 as _T0", q => q.Sum(x => x.Key));
 
     [Test]
+    public void TestSumAsync() =>
+        AssertSql("select sum(_T0.KEY) from PUBLIC.tbl1 as _T0", q => q.SumAsync(x => x.Key).Result);
+
+    [Test]
     public void TestAvg() =>
         AssertSql("select avg(_T0.KEY) from PUBLIC.tbl1 as _T0", q => q.Average(x => x.Key));
 
-    // TODO: Async tests for everything in IgniteQueryableExtensions.
+    [Test]
+    public void TestAvgAsync() =>
+        AssertSql("select avg(_T0.KEY) from PUBLIC.tbl1 as _T0", q => q.AverageAsync(x => x.Key).Result);
+
     [Test]
     public void TestMin() =>
         AssertSql("select min(_T0.KEY) from PUBLIC.tbl1 as _T0", q => q.Min(x => x.Key));
+
+    [Test]
+    public void TestMinAsync() =>
+        AssertSql("select min(_T0.KEY) from PUBLIC.tbl1 as _T0", q => q.MinAsync(x => x.Key).Result);
 
     [Test]
     public void TestMax() =>
         AssertSql("select max(_T0.KEY) from PUBLIC.tbl1 as _T0", q => q.Max(x => x.Key));
 
     [Test]
+    public void TestMaxAsync() =>
+        AssertSql("select max(_T0.KEY) from PUBLIC.tbl1 as _T0", q => q.MaxAsync(x => x.Key).Result);
+
+    [Test]
     public void TestCount() =>
         AssertSql("select count(*) from PUBLIC.tbl1 as _T0", q => q.Count());
 
     [Test]
-    public void TestLongCount() =>
-        AssertSql("select count(*) from PUBLIC.tbl1 as _T0", q => q.LongCount());
-
-    [Test]
     public void TestCountAsync() =>
         AssertSql("select count(*) from PUBLIC.tbl1 as _T0", q => q.CountAsync().Result);
+
+    [Test]
+    public void TestLongCount() =>
+        AssertSql("select count(*) from PUBLIC.tbl1 as _T0", q => q.LongCount());
 
     [Test]
     public void TestLongCountAsync() =>
