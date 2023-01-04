@@ -489,7 +489,6 @@ public static class IgniteQueryableExtensions
     [DynamicDependency("Sum", typeof(Queryable))]
     public static async Task<int> SumAsync(this IQueryable<int> queryable)
     {
-        // TODO: With double, decimal
         IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
 
         var method = new Func<IQueryable<int>, int>(Queryable.Sum).GetMethodInfo();
@@ -513,7 +512,6 @@ public static class IgniteQueryableExtensions
         this IQueryable<TSource> queryable,
         Expression<Func<TSource, int>> selector)
     {
-        // TODO: With double, decimal
         IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
 
         var method = new Func<IQueryable<TSource>, Expression<Func<TSource, int>>, int>(Queryable.Sum).GetMethodInfo();
@@ -533,7 +531,6 @@ public static class IgniteQueryableExtensions
     [DynamicDependency("Sum", typeof(Queryable))]
     public static async Task<int?> SumAsync(this IQueryable<int?> queryable)
     {
-        // TODO: With double, decimal
         IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
 
         var method = new Func<IQueryable<int?>, int?>(Queryable.Sum).GetMethodInfo();
@@ -557,7 +554,6 @@ public static class IgniteQueryableExtensions
         this IQueryable<TSource> queryable,
         Expression<Func<TSource, int?>> selector)
     {
-        // TODO: With double, decimal
         IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
 
         var method = new Func<IQueryable<TSource>, Expression<Func<TSource, int?>>, int?>(Queryable.Sum).GetMethodInfo();
@@ -577,7 +573,6 @@ public static class IgniteQueryableExtensions
     [DynamicDependency("Sum", typeof(Queryable))]
     public static async Task<long> SumAsync(this IQueryable<long> queryable)
     {
-        // TODO: With double, decimal
         IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
 
         var method = new Func<IQueryable<long>, long>(Queryable.Sum).GetMethodInfo();
@@ -601,7 +596,6 @@ public static class IgniteQueryableExtensions
         this IQueryable<TSource> queryable,
         Expression<Func<TSource, long>> selector)
     {
-        // TODO: With double, decimal
         IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
 
         var method = new Func<IQueryable<TSource>, Expression<Func<TSource, long>>, long>(Queryable.Sum).GetMethodInfo();
@@ -621,7 +615,6 @@ public static class IgniteQueryableExtensions
     [DynamicDependency("Sum", typeof(Queryable))]
     public static async Task<long?> SumAsync(this IQueryable<long?> queryable)
     {
-        // TODO: With double, decimal
         IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
 
         var method = new Func<IQueryable<long?>, long?>(Queryable.Sum).GetMethodInfo();
@@ -645,7 +638,6 @@ public static class IgniteQueryableExtensions
         this IQueryable<TSource> queryable,
         Expression<Func<TSource, long?>> selector)
     {
-        // TODO: With double, decimal
         IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
 
         var method = new Func<IQueryable<TSource>, Expression<Func<TSource, long?>>, long?>(Queryable.Sum).GetMethodInfo();
@@ -665,7 +657,6 @@ public static class IgniteQueryableExtensions
     [DynamicDependency("Sum", typeof(Queryable))]
     public static async Task<float> SumAsync(this IQueryable<float> queryable)
     {
-        // TODO: With double, decimal
         IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
 
         var method = new Func<IQueryable<float>, float>(Queryable.Sum).GetMethodInfo();
@@ -689,7 +680,6 @@ public static class IgniteQueryableExtensions
         this IQueryable<TSource> queryable,
         Expression<Func<TSource, float>> selector)
     {
-        // TODO: With double, decimal
         IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
 
         var method = new Func<IQueryable<TSource>, Expression<Func<TSource, float>>, float>(Queryable.Sum).GetMethodInfo();
@@ -709,7 +699,6 @@ public static class IgniteQueryableExtensions
     [DynamicDependency("Sum", typeof(Queryable))]
     public static async Task<float?> SumAsync(this IQueryable<float?> queryable)
     {
-        // TODO: With double, decimal
         IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
 
         var method = new Func<IQueryable<float?>, float?>(Queryable.Sum).GetMethodInfo();
@@ -733,7 +722,6 @@ public static class IgniteQueryableExtensions
         this IQueryable<TSource> queryable,
         Expression<Func<TSource, float?>> selector)
     {
-        // TODO: With double, decimal
         IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
 
         var method = new Func<IQueryable<TSource>, Expression<Func<TSource, float?>>, float?>(Queryable.Sum).GetMethodInfo();
@@ -753,7 +741,6 @@ public static class IgniteQueryableExtensions
     [DynamicDependency("Sum", typeof(Queryable))]
     public static async Task<double> SumAsync(this IQueryable<double> queryable)
     {
-        // TODO: With double, decimal
         IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
 
         var method = new Func<IQueryable<double>, double>(Queryable.Sum).GetMethodInfo();
@@ -777,7 +764,6 @@ public static class IgniteQueryableExtensions
         this IQueryable<TSource> queryable,
         Expression<Func<TSource, double>> selector)
     {
-        // TODO: With double, decimal
         IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
 
         var method = new Func<IQueryable<TSource>, Expression<Func<TSource, double>>, double>(Queryable.Sum).GetMethodInfo();
@@ -797,7 +783,6 @@ public static class IgniteQueryableExtensions
     [DynamicDependency("Sum", typeof(Queryable))]
     public static async Task<double?> SumAsync(this IQueryable<double?> queryable)
     {
-        // TODO: With double, decimal
         IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
 
         var method = new Func<IQueryable<double?>, double?>(Queryable.Sum).GetMethodInfo();
@@ -821,7 +806,6 @@ public static class IgniteQueryableExtensions
         this IQueryable<TSource> queryable,
         Expression<Func<TSource, double?>> selector)
     {
-        // TODO: With double, decimal
         IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
 
         var method = new Func<IQueryable<TSource>, Expression<Func<TSource, double?>>, double?>(Queryable.Sum).GetMethodInfo();
@@ -829,6 +813,90 @@ public static class IgniteQueryableExtensions
 
         var provider = queryable.ToQueryableInternal().Provider;
         return await provider.ExecuteSingleAsync<double?>(expression).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Returns the sum of a sequence of values.
+    /// </summary>
+    /// <param name="queryable">Query.</param>
+    /// <returns>A <see cref="Task"/> representing the asynchronous operation.
+    /// The task result contains the sum of a sequence of values.
+    /// </returns>
+    [DynamicDependency("Sum", typeof(Queryable))]
+    public static async Task<decimal> SumAsync(this IQueryable<decimal> queryable)
+    {
+        IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
+
+        var method = new Func<IQueryable<decimal>, decimal>(Queryable.Sum).GetMethodInfo();
+        var expression = Expression.Call(null, method, queryable.Expression);
+
+        var provider = queryable.ToQueryableInternal().Provider;
+        return await provider.ExecuteSingleAsync<decimal>(expression).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Returns the sum of a sequence of values.
+    /// </summary>
+    /// <typeparam name="TSource">Element type.</typeparam>
+    /// <param name="queryable">Query.</param>
+    /// <param name="selector">A projection function to apply to each element.</param>
+    /// <returns>A <see cref="Task"/> representing the asynchronous operation.
+    /// The task result contains the maximum value in the sequence.
+    /// </returns>
+    [DynamicDependency("Sum", typeof(Queryable))]
+    public static async Task<decimal> SumAsync<TSource>(
+        this IQueryable<TSource> queryable,
+        Expression<Func<TSource, decimal>> selector)
+    {
+        IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
+
+        var method = new Func<IQueryable<TSource>, Expression<Func<TSource, decimal>>, decimal>(Queryable.Sum).GetMethodInfo();
+        var expression = Expression.Call(null, method, queryable.Expression, Expression.Quote(selector));
+
+        var provider = queryable.ToQueryableInternal().Provider;
+        return await provider.ExecuteSingleAsync<decimal>(expression).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Returns the sum of a sequence of values.
+    /// </summary>
+    /// <param name="queryable">Query.</param>
+    /// <returns>A <see cref="Task"/> representing the asynchronous operation.
+    /// The task result contains the sum of a sequence of values.
+    /// </returns>
+    [DynamicDependency("Sum", typeof(Queryable))]
+    public static async Task<decimal?> SumAsync(this IQueryable<decimal?> queryable)
+    {
+        IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
+
+        var method = new Func<IQueryable<decimal?>, decimal?>(Queryable.Sum).GetMethodInfo();
+        var expression = Expression.Call(null, method, queryable.Expression);
+
+        var provider = queryable.ToQueryableInternal().Provider;
+        return await provider.ExecuteSingleAsync<decimal?>(expression).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Returns the sum of a sequence of values.
+    /// </summary>
+    /// <typeparam name="TSource">Element type.</typeparam>
+    /// <param name="queryable">Query.</param>
+    /// <param name="selector">A projection function to apply to each element.</param>
+    /// <returns>A <see cref="Task"/> representing the asynchronous operation.
+    /// The task result contains the maximum value in the sequence.
+    /// </returns>
+    [DynamicDependency("Sum", typeof(Queryable))]
+    public static async Task<decimal?> SumAsync<TSource>(
+        this IQueryable<TSource> queryable,
+        Expression<Func<TSource, decimal?>> selector)
+    {
+        IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
+
+        var method = new Func<IQueryable<TSource>, Expression<Func<TSource, decimal?>>, decimal?>(Queryable.Sum).GetMethodInfo();
+        var expression = Expression.Call(null, method, queryable.Expression, Expression.Quote(selector));
+
+        var provider = queryable.ToQueryableInternal().Provider;
+        return await provider.ExecuteSingleAsync<decimal?>(expression).ConfigureAwait(false);
     }
 
     /// <summary>
