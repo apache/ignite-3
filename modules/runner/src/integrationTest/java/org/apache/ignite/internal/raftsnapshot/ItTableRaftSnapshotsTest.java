@@ -695,7 +695,7 @@ class ItTableRaftSnapshotsTest {
         var snapshotInstallFailedDueToIdenticalRetryHandler = new NoOpHandler() {
             @Override
             public void publish(LogRecord record) {
-                if (record.getMessage().contains("Register DownloadingSnapshot failed: interrupted by retry installling request")) {
+                if (record.getMessage().contains("Register DownloadingSnapshot failed: interrupted by retry installing request")) {
                     snapshotInstallFailedDueToIdenticalRetry.set(true);
                 }
             }
