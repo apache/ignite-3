@@ -921,7 +921,7 @@ public static class IgniteQueryableExtensions
     }
 
     /// <summary>
-    /// Returns the sum of a sequence of values.
+    /// Returns the average of a sequence of values.
     /// </summary>
     /// <typeparam name="TSource">Element type.</typeparam>
     /// <param name="queryable">Query.</param>
@@ -929,7 +929,7 @@ public static class IgniteQueryableExtensions
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.
     /// The task result contains the maximum value in the sequence.
     /// </returns>
-    [DynamicDependency("Sum", typeof(Queryable))]
+    [DynamicDependency("Average`1", typeof(Queryable))]
     public static async Task<double> AverageAsync<TSource>(
         this IQueryable<TSource> queryable,
         Expression<Func<TSource, int>> selector)
@@ -963,7 +963,7 @@ public static class IgniteQueryableExtensions
     }
 
     /// <summary>
-    /// Returns the sum of a sequence of values.
+    /// Returns the average of a sequence of values.
     /// </summary>
     /// <typeparam name="TSource">Element type.</typeparam>
     /// <param name="queryable">Query.</param>
@@ -971,7 +971,7 @@ public static class IgniteQueryableExtensions
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.
     /// The task result contains the maximum value in the sequence.
     /// </returns>
-    [DynamicDependency("Sum", typeof(Queryable))]
+    [DynamicDependency("Average`1", typeof(Queryable))]
     public static async Task<double?> AverageAsync<TSource>(
         this IQueryable<TSource> queryable,
         Expression<Func<TSource, int?>> selector)
@@ -1005,7 +1005,7 @@ public static class IgniteQueryableExtensions
     }
 
     /// <summary>
-    /// Returns the sum of a sequence of values.
+    /// Returns the average of a sequence of values.
     /// </summary>
     /// <typeparam name="TSource">Element type.</typeparam>
     /// <param name="queryable">Query.</param>
@@ -1013,7 +1013,7 @@ public static class IgniteQueryableExtensions
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.
     /// The task result contains the maximum value in the sequence.
     /// </returns>
-    [DynamicDependency("Sum", typeof(Queryable))]
+    [DynamicDependency("Average`1", typeof(Queryable))]
     public static async Task<double> AverageAsync<TSource>(
         this IQueryable<TSource> queryable,
         Expression<Func<TSource, long>> selector)
@@ -1047,7 +1047,7 @@ public static class IgniteQueryableExtensions
     }
 
     /// <summary>
-    /// Returns the sum of a sequence of values.
+    /// Returns the average of a sequence of values.
     /// </summary>
     /// <typeparam name="TSource">Element type.</typeparam>
     /// <param name="queryable">Query.</param>
@@ -1055,7 +1055,7 @@ public static class IgniteQueryableExtensions
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.
     /// The task result contains the maximum value in the sequence.
     /// </returns>
-    [DynamicDependency("Sum", typeof(Queryable))]
+    [DynamicDependency("Average`1", typeof(Queryable))]
     public static async Task<double?> AverageAsync<TSource>(
         this IQueryable<TSource> queryable,
         Expression<Func<TSource, long?>> selector)

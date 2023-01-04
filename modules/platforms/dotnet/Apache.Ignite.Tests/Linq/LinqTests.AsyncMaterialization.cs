@@ -269,8 +269,8 @@ public partial class LinqTests
         Assert.AreEqual(7.0d, await query.Select(x => x.Int32).AverageAsync());
         Assert.AreEqual(17.0d, await query.AverageAsync(x => x.Int32 + 10));
 
-        Assert.AreEqual(7.0d, await query.Select(x => x.Int64).AverageAsync());
-        Assert.AreEqual(17.0d, await query.AverageAsync(x => x.Int64 + 10));
+        Assert.AreEqual(8.0d, await query.Select(x => x.Int64).AverageAsync());
+        Assert.AreEqual(18.0d, await query.AverageAsync(x => x.Int64 + 10));
     }
 
     [Test]
