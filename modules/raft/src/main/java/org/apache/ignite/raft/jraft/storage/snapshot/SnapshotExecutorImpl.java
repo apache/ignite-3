@@ -642,7 +642,7 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
         }
         if (saved != null) {
             // Respond replaced session
-            LOG.warn("Register DownloadingSnapshot failed: interrupted by retry installling request.");
+            LOG.warn("Register DownloadingSnapshot failed: interrupted by retry installing request.");
             saved.done.sendResponse(RaftRpcFactory.DEFAULT //
                 .newResponse(msgFactory, RaftError.EINTR,
                     "Interrupted by the retry InstallSnapshotRequest"));
