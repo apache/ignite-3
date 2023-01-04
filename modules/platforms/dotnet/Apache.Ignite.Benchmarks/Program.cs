@@ -18,12 +18,12 @@
 namespace Apache.Ignite.Benchmarks;
 
 using BenchmarkDotNet.Running;
-using Common;
+using Proto.BinaryTuple;
 
 internal static class Program
 {
     private static void Main()
     {
-        BenchmarkRunner.Run<GetMethodInfoBenchmarks>();
+        BenchmarkRunner.Run<BinaryTupleReaderBenchmarks>();
     }
 }
