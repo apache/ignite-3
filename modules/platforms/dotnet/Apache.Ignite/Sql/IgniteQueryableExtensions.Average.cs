@@ -296,7 +296,7 @@ public static partial class IgniteQueryableExtensions
     /// The task result contains the average of a sequence of values.
     /// </returns>
     [DynamicDependency("Average`1", typeof(Queryable))]
-    public static async Task<double> AverageAsync(this IQueryable<float> queryable)
+    public static async Task<float> AverageAsync(this IQueryable<float> queryable)
     {
         IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
 
