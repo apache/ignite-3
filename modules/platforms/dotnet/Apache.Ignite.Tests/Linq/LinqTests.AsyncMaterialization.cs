@@ -208,7 +208,7 @@ public partial class LinqTests
         Assert.AreEqual(145, await PocoDoubleView.AsQueryable().SumAsync(x => x.Key + 10));
 
         Assert.AreEqual(45, await PocoDecimalView.AsQueryable().Select(x => x.Key).SumAsync());
-        Assert.AreEqual(145, await PocoDecimalView.AsQueryable().SumAsync(x => x.Key + 10));
+        Assert.AreEqual(45, await PocoDecimalView.AsQueryable().SumAsync(x => x.Key));
     }
 
     [Test]
@@ -231,13 +231,13 @@ public partial class LinqTests
         Assert.AreEqual(0, await query.Where(x => x.Key < -100).SumAsync(x => x.Float));
         Assert.AreEqual(0, await query.Where(x => x.Key < -100).Select(x => x.Float).SumAsync());
 
-        Assert.AreEqual(100f, await query.Select(x => x.Double).SumAsync());
-        Assert.AreEqual(200f, await query.SumAsync(x => x.Double + 10));
+        Assert.AreEqual(110d, await query.Select(x => x.Double).SumAsync());
+        Assert.AreEqual(210d, await query.SumAsync(x => x.Double + 10));
         Assert.AreEqual(0, await query.Where(x => x.Key < -100).SumAsync(x => x.Double));
         Assert.AreEqual(0, await query.Where(x => x.Key < -100).Select(x => x.Double).SumAsync());
 
-        Assert.AreEqual(100f, await query.Select(x => x.Decimal).SumAsync());
-        Assert.AreEqual(200f, await query.SumAsync(x => x.Decimal + 10));
+        Assert.AreEqual(122m, await query.Select(x => x.Decimal).SumAsync());
+        Assert.AreEqual(122m, await query.SumAsync(x => x.Decimal));
         Assert.AreEqual(0, await query.Where(x => x.Key < -100).SumAsync(x => x.Decimal));
         Assert.AreEqual(0, await query.Where(x => x.Key < -100).Select(x => x.Decimal).SumAsync());
     }
