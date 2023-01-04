@@ -252,7 +252,6 @@ public partial class LinqTests
     [Test]
     public async Task TestAverageAsync()
     {
-        // TODO: All supported types.
         Assert.AreEqual(4.0d, await PocoIntView.AsQueryable().Select(x => x.Key).AverageAsync());
         Assert.AreEqual(14.0d, await PocoIntView.AsQueryable().AverageAsync(x => x.Key + 10));
 
