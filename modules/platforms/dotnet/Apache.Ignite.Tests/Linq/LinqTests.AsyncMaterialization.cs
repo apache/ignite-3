@@ -217,13 +217,13 @@ public partial class LinqTests
         Assert.AreEqual(0, await query.Where(x => x.Key < -100).SumAsync(x => x.Int32));
         Assert.AreEqual(0, await query.Where(x => x.Key < -100).Select(x => x.Int32).SumAsync());
 
-        Assert.AreEqual(75, await query.Select(x => x.Int64).SumAsync());
-        Assert.AreEqual(175, await query.SumAsync(x => x.Int64 + 10));
+        Assert.AreEqual(85L, await query.Select(x => x.Int64).SumAsync());
+        Assert.AreEqual(185L, await query.SumAsync(x => x.Int64 + 10));
         Assert.AreEqual(0, await query.Where(x => x.Key < -100).SumAsync(x => x.Int64));
         Assert.AreEqual(0, await query.Where(x => x.Key < -100).Select(x => x.Int64).SumAsync());
 
-        Assert.AreEqual(75, await query.Select(x => x.Float).SumAsync());
-        Assert.AreEqual(175, await query.SumAsync(x => x.Float + 10));
+        Assert.AreEqual(100f, await query.Select(x => x.Float).SumAsync());
+        Assert.AreEqual(200f, await query.SumAsync(x => x.Float + 10));
         Assert.AreEqual(0, await query.Where(x => x.Key < -100).SumAsync(x => x.Float));
         Assert.AreEqual(0, await query.Where(x => x.Key < -100).Select(x => x.Float).SumAsync());
     }
