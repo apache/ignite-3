@@ -30,7 +30,6 @@ dependencies {
     implementation project(':ignite-core')
     implementation project(':ignite-configuration')
     implementation project(':ignite-api')
-    implementation project(':ignite-metastorage-client')
     implementation project(':ignite-cluster-management')
     implementation project(':ignite-metastorage-api')
     // TODO: remove this dependency, see https://issues.apache.org/jira/browse/IGNITE-18397
