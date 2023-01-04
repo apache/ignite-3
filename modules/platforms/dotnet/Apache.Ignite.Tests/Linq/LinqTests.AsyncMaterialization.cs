@@ -258,6 +258,9 @@ public partial class LinqTests
 
         Assert.AreEqual(4.0d, await PocoLongView.AsQueryable().Select(x => x.Key).AverageAsync());
         Assert.AreEqual(14.0d, await PocoLongView.AsQueryable().AverageAsync(x => x.Key + 10));
+
+        Assert.AreEqual(4.5d, await PocoDoubleView.AsQueryable().Select(x => x.Key).AverageAsync());
+        Assert.AreEqual(14.5d, await PocoDoubleView.AsQueryable().AverageAsync(x => x.Key + 10));
     }
 
     [Test]
@@ -271,6 +274,9 @@ public partial class LinqTests
 
         Assert.AreEqual(8.0d, await query.Select(x => x.Int64).AverageAsync());
         Assert.AreEqual(18.0d, await query.AverageAsync(x => x.Int64 + 10));
+
+        Assert.AreEqual(11.0d, await query.Select(x => x.Double).AverageAsync());
+        Assert.AreEqual(21.0d, await query.AverageAsync(x => x.Double + 10));
     }
 
     [Test]
