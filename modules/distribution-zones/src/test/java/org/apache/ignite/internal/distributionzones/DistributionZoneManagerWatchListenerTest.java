@@ -22,8 +22,7 @@ import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTR
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
-import static org.apache.ignite.internal.metastorage.MetaStorageManager.APPLIED_REV;
-import static org.apache.ignite.internal.metastorage.client.MetaStorageServiceImpl.toIfInfo;
+import static org.apache.ignite.internal.metastorage.impl.MetaStorageServiceImpl.toIfInfo;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
@@ -58,16 +57,17 @@ import org.apache.ignite.internal.distributionzones.configuration.DistributionZo
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneView;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
+import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.metastorage.client.EntryEvent;
-import org.apache.ignite.internal.metastorage.client.EntryImpl;
-import org.apache.ignite.internal.metastorage.client.If;
-import org.apache.ignite.internal.metastorage.client.StatementResult;
-import org.apache.ignite.internal.metastorage.client.WatchEvent;
-import org.apache.ignite.internal.metastorage.client.WatchListener;
-import org.apache.ignite.internal.metastorage.common.StatementResultInfo;
-import org.apache.ignite.internal.metastorage.common.command.MetaStorageCommandsFactory;
-import org.apache.ignite.internal.metastorage.common.command.MultiInvokeCommand;
+import org.apache.ignite.internal.metastorage.WatchEvent;
+import org.apache.ignite.internal.metastorage.WatchListener;
+import org.apache.ignite.internal.metastorage.command.MetaStorageCommandsFactory;
+import org.apache.ignite.internal.metastorage.command.MultiInvokeCommand;
+import org.apache.ignite.internal.metastorage.command.info.StatementResultInfo;
+import org.apache.ignite.internal.metastorage.dsl.If;
+import org.apache.ignite.internal.metastorage.dsl.StatementResult;
+import org.apache.ignite.internal.metastorage.impl.EntryImpl;
+import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.Entry;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
@@ -143,7 +143,7 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
 
         when(vaultMgr.get(zonesLogicalTopologyKey())).thenReturn(completedFuture(new VaultEntry(zonesLogicalTopologyKey(), null)));
 
-        when(metaStorageManager.registerWatch(any(ByteArray.class), any())).then(invocation -> {
+        when(metaStorageManager.registerWatchByPrefix(any(ByteArray.class), any())).then(invocation -> {
             watchListener = invocation.getArgument(1);
 
             return completedFuture(null);
@@ -432,8 +432,7 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
     private void watchListenerOnUpdate(Set<String> nodes, long rev) {
         byte[] newLogicalTopology = toBytes(nodes);
 
-        org.apache.ignite.internal.metastorage.client.Entry newEntry =
-                new EntryImpl(zonesLogicalTopologyKey(), newLogicalTopology, rev, 1);
+        org.apache.ignite.internal.metastorage.Entry newEntry = new EntryImpl(zonesLogicalTopologyKey(), newLogicalTopology, rev, 1);
 
         EntryEvent entryEvent = new EntryEvent(null, newEntry);
 
@@ -443,6 +442,8 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
     }
 
     private void mockVaultAppliedRevision(long revision) {
-        when(vaultMgr.get(APPLIED_REV)).thenReturn(completedFuture(new VaultEntry(APPLIED_REV, longToBytes(revision))));
+        // TODO: remove this as part of https://issues.apache.org/jira/browse/IGNITE-18397
+        when(vaultMgr.get(MetaStorageManagerImpl.APPLIED_REV))
+                .thenReturn(completedFuture(new VaultEntry(MetaStorageManagerImpl.APPLIED_REV, longToBytes(revision))));
     }
 }

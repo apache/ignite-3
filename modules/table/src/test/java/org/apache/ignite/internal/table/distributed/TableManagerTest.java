@@ -98,7 +98,6 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NodeStoppingException;
@@ -230,8 +229,6 @@ public class TableManagerTest extends IgniteAbstractTest {
                 return function.apply(newStorageRevision);
             });
         };
-
-        when(msm.registerWatch(any(ByteArray.class), any())).thenReturn(completedFuture(1L));
 
         tblManagerFut = new CompletableFuture<>();
     }
@@ -569,8 +566,6 @@ public class TableManagerTest extends IgniteAbstractTest {
                         SchemaBuilders.column("val", ColumnType.INT64).asNullable(true).build())
                 .withPrimaryKey("key")
                 .build();
-
-        when(msm.put(any(), any())).thenReturn(completedFuture(null));
 
         Table table = mockManagersAndCreateTable(scmTbl, tblManagerFut);
 

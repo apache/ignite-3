@@ -26,10 +26,9 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.updateTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyVersionKey;
-import static org.apache.ignite.internal.metastorage.MetaStorageManager.APPLIED_REV;
-import static org.apache.ignite.internal.metastorage.client.Conditions.notExists;
-import static org.apache.ignite.internal.metastorage.client.Conditions.value;
-import static org.apache.ignite.internal.metastorage.client.Operations.ops;
+import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
+import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
+import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
@@ -59,14 +58,15 @@ import org.apache.ignite.internal.distributionzones.exception.DistributionZoneRe
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.metastorage.client.CompoundCondition;
-import org.apache.ignite.internal.metastorage.client.Condition;
-import org.apache.ignite.internal.metastorage.client.Entry;
-import org.apache.ignite.internal.metastorage.client.If;
-import org.apache.ignite.internal.metastorage.client.Update;
-import org.apache.ignite.internal.metastorage.client.WatchEvent;
-import org.apache.ignite.internal.metastorage.client.WatchListener;
+import org.apache.ignite.internal.metastorage.WatchEvent;
+import org.apache.ignite.internal.metastorage.WatchListener;
+import org.apache.ignite.internal.metastorage.dsl.CompoundCondition;
+import org.apache.ignite.internal.metastorage.dsl.Condition;
+import org.apache.ignite.internal.metastorage.dsl.If;
+import org.apache.ignite.internal.metastorage.dsl.Update;
+import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.vault.VaultManager;
@@ -571,7 +571,8 @@ public class DistributionZoneManager implements IgniteComponent {
      * from {@link DistributionZonesUtil#zonesLogicalTopologyKey()} in vault.
      */
     private void initDataNodesFromVaultManager() {
-        vaultMgr.get(APPLIED_REV)
+        // TODO: Remove this call as part of https://issues.apache.org/jira/browse/IGNITE-18397
+        vaultMgr.get(MetaStorageManagerImpl.APPLIED_REV)
                 .thenApply(appliedRevision -> appliedRevision == null ? 0L : bytesToLong(appliedRevision.value()))
                 .thenAccept(vaultAppliedRevision -> {
                     if (!busyLock.enterBusy()) {
@@ -612,7 +613,8 @@ public class DistributionZoneManager implements IgniteComponent {
      * @return Future representing pending completion of the operation.
      */
     private CompletableFuture<?> registerMetaStorageWatchListener() {
-        return metaStorageManager.registerWatch(zonesLogicalTopologyKey(), new WatchListener() {
+        // TODO: Change to "registerExactWatch", see https://issues.apache.org/jira/browse/IGNITE-18397
+        return metaStorageManager.registerWatchByPrefix(zonesLogicalTopologyKey(), new WatchListener() {
                     @Override
                     public boolean onUpdate(@NotNull WatchEvent evt) {
                         if (!busyLock.enterBusy()) {

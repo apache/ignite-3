@@ -22,7 +22,7 @@ import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTR
 import static org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl.LOGICAL_TOPOLOGY_KEY;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyVersionKey;
-import static org.apache.ignite.internal.metastorage.client.MetaStorageServiceImpl.toIfInfo;
+import static org.apache.ignite.internal.metastorage.impl.MetaStorageServiceImpl.toIfInfo;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -54,14 +54,14 @@ import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.metastorage.client.EntryImpl;
-import org.apache.ignite.internal.metastorage.client.If;
-import org.apache.ignite.internal.metastorage.client.StatementResult;
-import org.apache.ignite.internal.metastorage.common.StatementResultInfo;
-import org.apache.ignite.internal.metastorage.common.command.GetCommand;
-import org.apache.ignite.internal.metastorage.common.command.MetaStorageCommandsFactory;
-import org.apache.ignite.internal.metastorage.common.command.MultiInvokeCommand;
-import org.apache.ignite.internal.metastorage.common.command.SingleEntryResponse;
+import org.apache.ignite.internal.metastorage.command.GetCommand;
+import org.apache.ignite.internal.metastorage.command.MetaStorageCommandsFactory;
+import org.apache.ignite.internal.metastorage.command.MultiInvokeCommand;
+import org.apache.ignite.internal.metastorage.command.SingleEntryResponse;
+import org.apache.ignite.internal.metastorage.command.info.StatementResultInfo;
+import org.apache.ignite.internal.metastorage.dsl.If;
+import org.apache.ignite.internal.metastorage.dsl.StatementResult;
+import org.apache.ignite.internal.metastorage.impl.EntryImpl;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
 import org.apache.ignite.internal.raft.Command;
@@ -123,7 +123,7 @@ public class DistributionZoneManagerLogicalTopologyEventsTest {
 
         when(vaultMgr.get(any())).thenReturn(completedFuture(null));
 
-        when(metaStorageManager.registerWatch(any(ByteArray.class), any())).then(invocation -> completedFuture(null));
+        when(metaStorageManager.registerWatchByPrefix(any(ByteArray.class), any())).then(invocation -> completedFuture(null));
 
         distributionZoneManager = new DistributionZoneManager(
                 zonesConfiguration,
