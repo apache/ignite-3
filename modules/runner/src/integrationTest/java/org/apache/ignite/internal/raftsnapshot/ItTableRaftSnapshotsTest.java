@@ -686,7 +686,6 @@ class ItTableRaftSnapshotsTest {
      * stuck because one 'download' task will remain unfinished forever.
      */
     @Test
-    @Disabled("Enable when IGNITE-18495 is fixed.")
     void snapshotInstallTimeoutDoesNotBreakSubsequentInstallsWhenSecondAttemptIsIdenticalToFirst() throws Exception {
         AtomicBoolean snapshotInstallFailedDueToIdenticalRetry = new AtomicBoolean(false);
 
