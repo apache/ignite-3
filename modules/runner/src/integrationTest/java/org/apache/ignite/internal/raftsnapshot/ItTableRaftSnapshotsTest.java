@@ -645,7 +645,7 @@ class ItTableRaftSnapshotsTest {
      * Tests that, if a snapshot installation fails for some reason, a subsequent retry due to a timeout happens successfully.
      */
     @Test
-    void snapshotInstallTimeoutDoesNotBreakSubsequentInstalls() throws Exception {
+    void snapshotInstallationRepeatsOnTimeout() throws Exception {
         prepareClusterForInstallingSnapshotToNode2(DEFAULT_KNOCKOUT, DEFAULT_STORAGE_ENGINE, theCluster -> {
             theCluster.node(0).dropMessages(dropFirstSnapshotMetaResponse());
         });
