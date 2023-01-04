@@ -32,6 +32,9 @@ dependencies {
     implementation project(':ignite-api')
     implementation project(':ignite-cluster-management')
     implementation project(':ignite-metastorage-api')
+    // TODO: remove this dependency, see https://issues.apache.org/jira/browse/IGNITE-18397
+    implementation project(':ignite-metastorage')
+    implementation project(':ignite-vault')
     implementation project(':ignite-configuration')
 
     implementation libs.jetbrains.annotations

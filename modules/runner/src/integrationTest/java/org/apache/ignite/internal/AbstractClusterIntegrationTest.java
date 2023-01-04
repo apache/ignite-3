@@ -53,6 +53,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @SuppressWarnings("ALL")
 @ExtendWith(WorkDirectoryExtension.class)
+// TODO: IGNITE-18465- use Cluster class
 public abstract class AbstractClusterIntegrationTest extends BaseIgniteAbstractTest {
     private static final IgniteLogger LOG = Loggers.forClass(AbstractClusterIntegrationTest.class);
 

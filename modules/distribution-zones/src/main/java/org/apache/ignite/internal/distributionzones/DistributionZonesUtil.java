@@ -103,9 +103,9 @@ class DistributionZonesUtil {
      * @param logicalTopology Logical topology.
      * @return Update command for the meta storage.
      */
-    static Update updateDataNodesAndTriggerKey(int zoneId, long revision, Set<String> logicalTopology) {
+    static Update updateDataNodesAndTriggerKey(int zoneId, long revision, byte[] logicalTopology) {
         return ops(
-                put(zoneDataNodesKey(zoneId), ByteUtils.toBytes(logicalTopology)),
+                put(zoneDataNodesKey(zoneId), logicalTopology),
                 put(zonesChangeTriggerKey(), ByteUtils.longToBytes(revision))
         ).yield(true);
     }

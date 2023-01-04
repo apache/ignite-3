@@ -645,6 +645,7 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
         nodeOptions.setSharedPools(this.isSharedPools());
         nodeOptions.setRpcDefaultTimeout(this.getRpcDefaultTimeout());
         nodeOptions.setRpcConnectTimeoutMs(this.getRpcConnectTimeoutMs());
+        nodeOptions.setRpcInstallSnapshotTimeout(this.getRpcInstallSnapshotTimeout());
         nodeOptions.setElectionTimeoutStrategy(this.getElectionTimeoutStrategy());
         nodeOptions.setClock(this.getClock());
         nodeOptions.setSafeTimeTracker(this.getSafeTimeTracker());

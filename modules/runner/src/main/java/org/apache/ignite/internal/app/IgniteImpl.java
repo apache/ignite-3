@@ -353,7 +353,7 @@ public class IgniteImpl implements Ignite {
         DistributionZonesConfiguration zonesConfiguration = clusterCfgMgr.configurationRegistry()
                 .getConfiguration(DistributionZonesConfiguration.KEY);
 
-        distributionZoneManager = new DistributionZoneManager(zonesConfiguration, metaStorageMgr, cmgMgr, logicalTopologyService);
+        distributionZoneManager = new DistributionZoneManager(zonesConfiguration, metaStorageMgr, logicalTopologyService, vaultMgr);
 
         restComponent = createRestComponent(name);
 
@@ -823,11 +823,20 @@ public class IgniteImpl implements Ignite {
         return logicalTopologyService;
     }
 
+    // TODO: IGNITE-18493 - remove/move this
     @TestOnly
     public void dropMessages(BiPredicate<String, NetworkMessage> predicate) {
         ((DefaultMessagingService) clusterSvc.messagingService()).dropMessages(predicate);
     }
 
+    // TODO: IGNITE-18493 - remove/move this
+    @TestOnly
+    @Nullable
+    public BiPredicate<String, NetworkMessage> dropMessagesPredicate() {
+        return ((DefaultMessagingService) clusterSvc.messagingService()).dropMessagesPredicate();
+    }
+
+    // TODO: IGNITE-18493 - remove/move this
     @TestOnly
     public void stopDroppingMessages() {
         ((DefaultMessagingService) clusterSvc.messagingService()).stopDroppingMessages();

@@ -70,6 +70,7 @@ import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.util.ByteUtils;
+import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
@@ -118,11 +119,17 @@ public class DistributionZoneManagerLogicalTopologyEventsTest {
 
         LogicalTopologyServiceImpl logicalTopologyService = new LogicalTopologyServiceImpl(topology, cmgManager);
 
+        VaultManager vaultMgr = mock(VaultManager.class);
+
+        when(vaultMgr.get(any())).thenReturn(completedFuture(null));
+
+        when(metaStorageManager.registerWatchByPrefix(any(ByteArray.class), any())).then(invocation -> completedFuture(null));
+
         distributionZoneManager = new DistributionZoneManager(
                 zonesConfiguration,
                 metaStorageManager,
-                cmgManager,
-                logicalTopologyService
+                logicalTopologyService,
+                vaultMgr
         );
 
         clusterCfgMgr.start();
