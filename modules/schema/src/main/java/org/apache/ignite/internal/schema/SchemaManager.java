@@ -34,10 +34,10 @@ import org.apache.ignite.configuration.notifications.ConfigurationNotificationEv
 import org.apache.ignite.internal.causality.VersionedValue;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.manager.Producer;
+import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.metastorage.client.Conditions;
-import org.apache.ignite.internal.metastorage.client.Entry;
-import org.apache.ignite.internal.metastorage.client.Operations;
+import org.apache.ignite.internal.metastorage.dsl.Conditions;
+import org.apache.ignite.internal.metastorage.dsl.Operations;
 import org.apache.ignite.internal.schema.configuration.ColumnView;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableConfiguration;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableView;
@@ -429,9 +429,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
      * @return The latest schema version.
      */
     private int latestSchemaVersion(UUID tblId) {
-        try {
-            Cursor<Entry> cur = metastorageMgr.prefix(schemaHistPrefix(tblId));
-
+        try (Cursor<Entry> cur = metastorageMgr.prefix(schemaHistPrefix(tblId))) {
             int lastVer = INITIAL_SCHEMA_VERSION;
 
             for (Entry ent : cur) {

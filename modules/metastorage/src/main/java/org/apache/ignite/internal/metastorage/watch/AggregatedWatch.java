@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.metastorage.watch;
 
-import org.apache.ignite.internal.metastorage.client.WatchListener;
+import org.apache.ignite.internal.metastorage.WatchListener;
 
 /**
  * Watch implementation with associated revision. Instance of this watch produced by {@link WatchAggregator}.

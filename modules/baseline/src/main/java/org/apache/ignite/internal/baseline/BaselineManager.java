@@ -81,4 +81,3 @@ public class BaselineManager implements IgniteComponent {
         return clusterSvc.topologyService().allMembers();
     }
 }
-

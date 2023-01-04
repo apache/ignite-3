@@ -28,9 +28,9 @@ import java.util.Collection;
 import java.util.Optional;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.metastorage.client.WatchEvent;
-import org.apache.ignite.internal.metastorage.client.WatchListener;
+import org.apache.ignite.internal.metastorage.WatchEvent;
+import org.apache.ignite.internal.metastorage.WatchListener;
+import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.watch.AggregatedWatch;
 import org.apache.ignite.internal.metastorage.watch.WatchAggregator;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
@@ -61,7 +61,7 @@ public class WatchListenerInhibitor implements WatchListener {
     public static WatchListenerInhibitor metastorageEventsInhibitor(Ignite ignite)
             throws Exception {
         //TODO: IGNITE-15723 After a component factory will be implemented, need to got rid of reflection here.
-        MetaStorageManager metaMngr = (MetaStorageManager) ReflectionUtils.tryToReadFieldValue(
+        MetaStorageManagerImpl metaMngr = (MetaStorageManagerImpl) ReflectionUtils.tryToReadFieldValue(
                 IgniteImpl.class,
                 "metaStorageMgr",
                 (IgniteImpl) ignite
@@ -70,7 +70,7 @@ public class WatchListenerInhibitor implements WatchListener {
         assertNotNull(metaMngr);
 
         WatchAggregator aggregator = (WatchAggregator) ReflectionUtils.tryToReadFieldValue(
-                MetaStorageManager.class,
+                MetaStorageManagerImpl.class,
                 "watchAggregator",
                 metaMngr
         ).get();

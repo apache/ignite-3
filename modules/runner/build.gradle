@@ -73,11 +73,10 @@ dependencies {
     testImplementation project(':ignite-network')
     testImplementation project(':ignite-vault')
     testImplementation project(':ignite-client')
-    testImplementation project(':ignite-metastorage-server')
     testImplementation(testFixtures(project(':ignite-core')))
     testImplementation(testFixtures(project(':ignite-configuration')))
     testImplementation(testFixtures(project(':ignite-vault')))
-    testImplementation(testFixtures(project(':ignite-metastorage-server')))
+    testImplementation(testFixtures(project(':ignite-metastorage')))
     testImplementation libs.hamcrest.core
     testImplementation libs.hamcrest.optional
     testImplementation libs.hamcrest.path
@@ -94,7 +93,7 @@ dependencies {
     integrationTestImplementation(testFixtures(project(':ignite-configuration')))
     integrationTestImplementation(testFixtures(project(':ignite-schema')))
     integrationTestImplementation(testFixtures(project(':ignite-cluster-management')))
-    integrationTestImplementation(testFixtures(project(':ignite-metastorage-server')))
+    integrationTestImplementation(testFixtures(project(':ignite-metastorage')))
     integrationTestImplementation(testFixtures(project(':ignite-network')))
     integrationTestImplementation(testFixtures(project(':ignite-vault')))
     integrationTestImplementation libs.rocksdb.jni
