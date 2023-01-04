@@ -62,7 +62,7 @@ public static partial class IgniteQueryableExtensions
     /// <param name="queryable">Query.</param>
     /// <param name="selector">A projection function to apply to each element.</param>
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.
-    /// The task result contains the maximum value in the sequence.
+    /// The task result contains the average of a sequence of values.
     /// </returns>
     [DynamicDependency("Average`1", typeof(Queryable))]
     public static async Task<double> AverageAsync<TSource>(
@@ -104,7 +104,7 @@ public static partial class IgniteQueryableExtensions
     /// <param name="queryable">Query.</param>
     /// <param name="selector">A projection function to apply to each element.</param>
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.
-    /// The task result contains the maximum value in the sequence.
+    /// The task result contains the average of a sequence of values.
     /// </returns>
     [DynamicDependency("Average`1", typeof(Queryable))]
     public static async Task<double?> AverageAsync<TSource>(
@@ -146,7 +146,7 @@ public static partial class IgniteQueryableExtensions
     /// <param name="queryable">Query.</param>
     /// <param name="selector">A projection function to apply to each element.</param>
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.
-    /// The task result contains the maximum value in the sequence.
+    /// The task result contains the average of a sequence of values.
     /// </returns>
     [DynamicDependency("Average`1", typeof(Queryable))]
     public static async Task<double> AverageAsync<TSource>(
@@ -188,7 +188,7 @@ public static partial class IgniteQueryableExtensions
     /// <param name="queryable">Query.</param>
     /// <param name="selector">A projection function to apply to each element.</param>
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.
-    /// The task result contains the maximum value in the sequence.
+    /// The task result contains the average of a sequence of values.
     /// </returns>
     [DynamicDependency("Average`1", typeof(Queryable))]
     public static async Task<double?> AverageAsync<TSource>(
@@ -198,6 +198,90 @@ public static partial class IgniteQueryableExtensions
         IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
 
         var method = new Func<IQueryable<TSource>, Expression<Func<TSource, long?>>, double?>(Queryable.Average).GetMethodInfo();
+        var expression = Expression.Call(null, method, queryable.Expression, Expression.Quote(selector));
+
+        var provider = queryable.ToQueryableInternal().Provider;
+        return await provider.ExecuteSingleAsync<double?>(expression).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Returns the average of a sequence of values.
+    /// </summary>
+    /// <param name="queryable">Query.</param>
+    /// <returns>A <see cref="Task"/> representing the asynchronous operation.
+    /// The task result contains the average of a sequence of values.
+    /// </returns>
+    [DynamicDependency("Average`1", typeof(Queryable))]
+    public static async Task<double> AverageAsync(this IQueryable<double> queryable)
+    {
+        IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
+
+        var method = new Func<IQueryable<double>, double>(Queryable.Average).GetMethodInfo();
+        var expression = Expression.Call(null, method, queryable.Expression);
+
+        var provider = queryable.ToQueryableInternal().Provider;
+        return await provider.ExecuteSingleAsync<double>(expression).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Returns the average of a sequence of values.
+    /// </summary>
+    /// <typeparam name="TSource">Element type.</typeparam>
+    /// <param name="queryable">Query.</param>
+    /// <param name="selector">A projection function to apply to each element.</param>
+    /// <returns>A <see cref="Task"/> representing the asynchronous operation.
+    /// The task result contains the average of a sequence of values.
+    /// </returns>
+    [DynamicDependency("Average`1", typeof(Queryable))]
+    public static async Task<double> AverageAsync<TSource>(
+        this IQueryable<TSource> queryable,
+        Expression<Func<TSource, double>> selector)
+    {
+        IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
+
+        var method = new Func<IQueryable<TSource>, Expression<Func<TSource, double>>, double>(Queryable.Average).GetMethodInfo();
+        var expression = Expression.Call(null, method, queryable.Expression, Expression.Quote(selector));
+
+        var provider = queryable.ToQueryableInternal().Provider;
+        return await provider.ExecuteSingleAsync<double>(expression).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Returns the average of a sequence of values.
+    /// </summary>
+    /// <param name="queryable">Query.</param>
+    /// <returns>A <see cref="Task"/> representing the asynchronous operation.
+    /// The task result contains the average of a sequence of values.
+    /// </returns>
+    [DynamicDependency("Average`1", typeof(Queryable))]
+    public static async Task<double?> AverageAsync(this IQueryable<double?> queryable)
+    {
+        IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
+
+        var method = new Func<IQueryable<double?>, double?>(Queryable.Average).GetMethodInfo();
+        var expression = Expression.Call(null, method, queryable.Expression);
+
+        var provider = queryable.ToQueryableInternal().Provider;
+        return await provider.ExecuteSingleAsync<double?>(expression).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Returns the average of a sequence of values.
+    /// </summary>
+    /// <typeparam name="TSource">Element type.</typeparam>
+    /// <param name="queryable">Query.</param>
+    /// <param name="selector">A projection function to apply to each element.</param>
+    /// <returns>A <see cref="Task"/> representing the asynchronous operation.
+    /// The task result contains the average of a sequence of values.
+    /// </returns>
+    [DynamicDependency("Average`1", typeof(Queryable))]
+    public static async Task<double?> AverageAsync<TSource>(
+        this IQueryable<TSource> queryable,
+        Expression<Func<TSource, double?>> selector)
+    {
+        IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
+
+        var method = new Func<IQueryable<TSource>, Expression<Func<TSource, double?>>, double?>(Queryable.Average).GetMethodInfo();
         var expression = Expression.Call(null, method, queryable.Expression, Expression.Quote(selector));
 
         var provider = queryable.ToQueryableInternal().Provider;
