@@ -744,6 +744,94 @@ public static class IgniteQueryableExtensions
     }
 
     /// <summary>
+    /// Returns the sum of a sequence of values.
+    /// </summary>
+    /// <param name="queryable">Query.</param>
+    /// <returns>A <see cref="Task"/> representing the asynchronous operation.
+    /// The task result contains the sum of a sequence of values.
+    /// </returns>
+    [DynamicDependency("Sum", typeof(Queryable))]
+    public static async Task<double> SumAsync(this IQueryable<double> queryable)
+    {
+        // TODO: With double, decimal
+        IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
+
+        var method = new Func<IQueryable<double>, double>(Queryable.Sum).GetMethodInfo();
+        var expression = Expression.Call(null, method, queryable.Expression);
+
+        var provider = queryable.ToQueryableInternal().Provider;
+        return await provider.ExecuteSingleAsync<double>(expression).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Returns the sum of a sequence of values.
+    /// </summary>
+    /// <typeparam name="TSource">Element type.</typeparam>
+    /// <param name="queryable">Query.</param>
+    /// <param name="selector">A projection function to apply to each element.</param>
+    /// <returns>A <see cref="Task"/> representing the asynchronous operation.
+    /// The task result contains the maximum value in the sequence.
+    /// </returns>
+    [DynamicDependency("Sum", typeof(Queryable))]
+    public static async Task<double> SumAsync<TSource>(
+        this IQueryable<TSource> queryable,
+        Expression<Func<TSource, double>> selector)
+    {
+        // TODO: With double, decimal
+        IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
+
+        var method = new Func<IQueryable<TSource>, Expression<Func<TSource, double>>, double>(Queryable.Sum).GetMethodInfo();
+        var expression = Expression.Call(null, method, queryable.Expression, Expression.Quote(selector));
+
+        var provider = queryable.ToQueryableInternal().Provider;
+        return await provider.ExecuteSingleAsync<double>(expression).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Returns the sum of a sequence of values.
+    /// </summary>
+    /// <param name="queryable">Query.</param>
+    /// <returns>A <see cref="Task"/> representing the asynchronous operation.
+    /// The task result contains the sum of a sequence of values.
+    /// </returns>
+    [DynamicDependency("Sum", typeof(Queryable))]
+    public static async Task<double?> SumAsync(this IQueryable<double?> queryable)
+    {
+        // TODO: With double, decimal
+        IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
+
+        var method = new Func<IQueryable<double?>, double?>(Queryable.Sum).GetMethodInfo();
+        var expression = Expression.Call(null, method, queryable.Expression);
+
+        var provider = queryable.ToQueryableInternal().Provider;
+        return await provider.ExecuteSingleAsync<double?>(expression).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Returns the sum of a sequence of values.
+    /// </summary>
+    /// <typeparam name="TSource">Element type.</typeparam>
+    /// <param name="queryable">Query.</param>
+    /// <param name="selector">A projection function to apply to each element.</param>
+    /// <returns>A <see cref="Task"/> representing the asynchronous operation.
+    /// The task result contains the maximum value in the sequence.
+    /// </returns>
+    [DynamicDependency("Sum", typeof(Queryable))]
+    public static async Task<double?> SumAsync<TSource>(
+        this IQueryable<TSource> queryable,
+        Expression<Func<TSource, double?>> selector)
+    {
+        // TODO: With double, decimal
+        IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
+
+        var method = new Func<IQueryable<TSource>, Expression<Func<TSource, double?>>, double?>(Queryable.Sum).GetMethodInfo();
+        var expression = Expression.Call(null, method, queryable.Expression, Expression.Quote(selector));
+
+        var provider = queryable.ToQueryableInternal().Provider;
+        return await provider.ExecuteSingleAsync<double?>(expression).ConfigureAwait(false);
+    }
+
+    /// <summary>
     /// Returns the average of a sequence of values.
     /// </summary>
     /// <param name="queryable">Query.</param>
