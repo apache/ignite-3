@@ -489,7 +489,7 @@ public static class IgniteQueryableExtensions
     [DynamicDependency("Sum`1", typeof(Queryable))]
     public static async Task<int> SumAsync(this IQueryable<int> queryable)
     {
-        // TODO: With long, float, double, decimal
+        // TODO: With float, double, decimal
         IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
 
         var method = new Func<IQueryable<int>, int>(Queryable.Sum).GetMethodInfo();
@@ -513,7 +513,7 @@ public static class IgniteQueryableExtensions
         this IQueryable<TSource> queryable,
         Expression<Func<TSource, int>> selector)
     {
-        // TODO: With long, float, double, decimal
+        // TODO: With float, double, decimal
         IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
 
         var method = new Func<IQueryable<TSource>, Expression<Func<TSource, int>>, int>(Queryable.Sum).GetMethodInfo();
@@ -533,7 +533,7 @@ public static class IgniteQueryableExtensions
     [DynamicDependency("Sum`1", typeof(Queryable))]
     public static async Task<int?> SumAsync(this IQueryable<int?> queryable)
     {
-        // TODO: With long, float, double, decimal
+        // TODO: With float, double, decimal
         IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
 
         var method = new Func<IQueryable<int?>, int?>(Queryable.Sum).GetMethodInfo();
@@ -557,7 +557,7 @@ public static class IgniteQueryableExtensions
         this IQueryable<TSource> queryable,
         Expression<Func<TSource, int?>> selector)
     {
-        // TODO: With long, float, double, decimal
+        // TODO: With float, double, decimal
         IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
 
         var method = new Func<IQueryable<TSource>, Expression<Func<TSource, int?>>, int?>(Queryable.Sum).GetMethodInfo();
@@ -565,6 +565,94 @@ public static class IgniteQueryableExtensions
 
         var provider = queryable.ToQueryableInternal().Provider;
         return await provider.ExecuteSingleAsync<int?>(expression).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Returns the sum of a sequence of values.
+    /// </summary>
+    /// <param name="queryable">Query.</param>
+    /// <returns>A <see cref="Task"/> representing the asynchronous operation.
+    /// The task result contains the sum of a sequence of values.
+    /// </returns>
+    [DynamicDependency("Sum`1", typeof(Queryable))]
+    public static async Task<long> SumAsync(this IQueryable<long> queryable)
+    {
+        // TODO: With float, double, decimal
+        IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
+
+        var method = new Func<IQueryable<long>, long>(Queryable.Sum).GetMethodInfo();
+        var expression = Expression.Call(null, method, queryable.Expression);
+
+        var provider = queryable.ToQueryableInternal().Provider;
+        return await provider.ExecuteSingleAsync<long>(expression).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Returns the sum of a sequence of values.
+    /// </summary>
+    /// <typeparam name="TSource">Element type.</typeparam>
+    /// <param name="queryable">Query.</param>
+    /// <param name="selector">A projection function to apply to each element.</param>
+    /// <returns>A <see cref="Task"/> representing the asynchronous operation.
+    /// The task result contains the maximum value in the sequence.
+    /// </returns>
+    [DynamicDependency("Sum`1", typeof(Queryable))]
+    public static async Task<long> SumAsync<TSource>(
+        this IQueryable<TSource> queryable,
+        Expression<Func<TSource, long>> selector)
+    {
+        // TODO: With float, double, decimal
+        IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
+
+        var method = new Func<IQueryable<TSource>, Expression<Func<TSource, long>>, long>(Queryable.Sum).GetMethodInfo();
+        var expression = Expression.Call(null, method, queryable.Expression, Expression.Quote(selector));
+
+        var provider = queryable.ToQueryableInternal().Provider;
+        return await provider.ExecuteSingleAsync<long>(expression).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Returns the sum of a sequence of values.
+    /// </summary>
+    /// <param name="queryable">Query.</param>
+    /// <returns>A <see cref="Task"/> representing the asynchronous operation.
+    /// The task result contains the sum of a sequence of values.
+    /// </returns>
+    [DynamicDependency("Sum`1", typeof(Queryable))]
+    public static async Task<long?> SumAsync(this IQueryable<long?> queryable)
+    {
+        // TODO: With float, double, decimal
+        IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
+
+        var method = new Func<IQueryable<long?>, long?>(Queryable.Sum).GetMethodInfo();
+        var expression = Expression.Call(null, method, queryable.Expression);
+
+        var provider = queryable.ToQueryableInternal().Provider;
+        return await provider.ExecuteSingleAsync<long?>(expression).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Returns the sum of a sequence of values.
+    /// </summary>
+    /// <typeparam name="TSource">Element type.</typeparam>
+    /// <param name="queryable">Query.</param>
+    /// <param name="selector">A projection function to apply to each element.</param>
+    /// <returns>A <see cref="Task"/> representing the asynchronous operation.
+    /// The task result contains the maximum value in the sequence.
+    /// </returns>
+    [DynamicDependency("Sum`1", typeof(Queryable))]
+    public static async Task<long?> SumAsync<TSource>(
+        this IQueryable<TSource> queryable,
+        Expression<Func<TSource, long?>> selector)
+    {
+        // TODO: With float, double, decimal
+        IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
+
+        var method = new Func<IQueryable<TSource>, Expression<Func<TSource, long?>>, long?>(Queryable.Sum).GetMethodInfo();
+        var expression = Expression.Call(null, method, queryable.Expression, Expression.Quote(selector));
+
+        var provider = queryable.ToQueryableInternal().Provider;
+        return await provider.ExecuteSingleAsync<long?>(expression).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -577,7 +665,7 @@ public static class IgniteQueryableExtensions
     [DynamicDependency("Average`1", typeof(Queryable))]
     public static async Task<double> AverageAsync(this IQueryable<int> queryable)
     {
-        // TODO: With long, float, double, decimal (int, long, double -> double; float -> float; decimal -> decimal)
+        // TODO: With float, double, decimal (int, long, double -> double; float -> float; decimal -> decimal)
         // TODO: With nullables
         IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
 
@@ -602,7 +690,7 @@ public static class IgniteQueryableExtensions
         this IQueryable<TSource> queryable,
         Expression<Func<TSource, int>> selector)
     {
-        // TODO: With long, float, double, decimal (int, long, double -> double; float -> float; decimal -> decimal)
+        // TODO: With float, double, decimal (int, long, double -> double; float -> float; decimal -> decimal)
         // TODO: With nullables
         IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
 
