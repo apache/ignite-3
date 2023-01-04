@@ -418,9 +418,12 @@ public abstract class QueryChecker {
             }
 
             // Check result.
-            var cursors = queryEngine.querySingleAsync(sessionId, context, qry, params);
+            // ToDo: https://issues.apache.org/jira/browse/IGNITE-18501
+//            var cursors = queryEngine.querySingleAsync(sessionId, context, qry, params);
+//            var cur = cursors.join();
 
-            var cur = cursors.join();
+            var cursors = queryEngine.queryAsync("PUBLIC", qry, params);
+            var cur = cursors.get(0).join();
 
             if (expectedColumnNames != null) {
                 List<String> colNames = cur.metadata().columns().stream()

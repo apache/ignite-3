@@ -135,7 +135,7 @@ public abstract class StorageScanNode<RowT> extends AbstractNode<RowT> {
      *
      *  @return Publisher of datasource.
      */
-    protected abstract @Nullable Publisher<RowT> scan();
+    protected abstract Publisher<RowT> scan();
 
     /**
      * Proxy publisher with singe goal convert rows from {@code BinaryRow} to {@code RowT}.
@@ -243,6 +243,23 @@ public abstract class StorageScanNode<RowT> extends AbstractNode<RowT> {
         }
     }
 
+    /** Convert row from {@code BinaryRow} to internal SQL row format {@code RowT}. */
+    private RowT convert(BinaryRow binaryRow) {
+        return tableRowConverter.apply(binaryRow);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void register(List<Node<RowT>> sources) {
+        throw new UnsupportedOperationException();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    protected Downstream<RowT> requestDownstream(int idx) {
+        throw new UnsupportedOperationException();
+    }
+
     /** Subscriber which handle scan's rows. */
     private class SubscriberImpl implements Flow.Subscriber<RowT> {
 
@@ -286,22 +303,5 @@ public abstract class StorageScanNode<RowT> extends AbstractNode<RowT> {
                 push();
             }, StorageScanNode.this::onError);
         }
-    }
-
-    /** Convert row from {@code BinaryRow} to internal SQL row format {@code RowT}. */
-    private RowT convert(BinaryRow binaryRow) {
-        return tableRowConverter.apply(binaryRow);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void register(List<Node<RowT>> sources) {
-        throw new UnsupportedOperationException();
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    protected Downstream<RowT> requestDownstream(int idx) {
-        throw new UnsupportedOperationException();
     }
 }
