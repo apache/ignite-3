@@ -18,6 +18,9 @@
 package org.apache.ignite.internal.hlc;
 
 import static org.apache.ignite.internal.hlc.HybridTimestamp.max;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import org.junit.jupiter.api.Test;
@@ -28,7 +31,7 @@ import org.junit.jupiter.api.Test;
  */
 class HybridTimestampTest {
     @Test
-    public void testComparison() {
+    void testComparison() {
         assertEquals(new HybridTimestamp(10, 5),
                 max(new HybridTimestamp(10, 5), new HybridTimestamp(5, 7))
         );
@@ -42,5 +45,25 @@ class HybridTimestampTest {
         );
 
         assertEquals(null, max());
+    }
+
+    @Test
+    void equalWhenComponentsAreSame() {
+        assertThat(new HybridTimestamp(1, 2), equalTo(new HybridTimestamp(1, 2)));
+    }
+
+    @Test
+    void notEqualWhenPhysicalIsDifferent() {
+        assertThat(new HybridTimestamp(1, 2), not(equalTo(new HybridTimestamp(2, 2))));
+    }
+
+    @Test
+    void notEqualWhenLogicalIsDifferent() {
+        assertThat(new HybridTimestamp(1, 2), not(equalTo(new HybridTimestamp(1, 3))));
+    }
+
+    @Test
+    void hashCodeSameWhenComponentsAreSame() {
+        assertEquals(new HybridTimestamp(1, 2).hashCode(), new HybridTimestamp(1, 2).hashCode());
     }
 }
