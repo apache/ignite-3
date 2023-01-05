@@ -25,23 +25,23 @@ using System.Diagnostics.CodeAnalysis;
 /// </summary>
 /// <typeparam name="T">Query element type.</typeparam>
 [SuppressMessage("Naming", "CA1716:Identifiers should not match keywords", Justification = "Reviewed.")] // TODO
-public interface IUpdateDescriptor<out T> // TODO: Look at latest EF bulk update; rethink this interface.
+public interface IUpdateDescriptor<out T>
 {
     /// <summary>
-    /// Specifies member update with constant.
+    /// Specifies member update with a constant value.
     /// </summary>
     /// <typeparam name="TProp">Member type.</typeparam>
     /// <param name="selector">Member selector.</param>
     /// <param name="value">New value.</param>
-    /// <returns>Update descriptor.</returns>
+    /// <returns>Update descriptor for chaining.</returns>
     IUpdateDescriptor<T> Set<TProp>(Func<T, TProp> selector, TProp value);
 
     /// <summary>
-    /// Specifies member update with expression.
+    /// Specifies member update with an expression.
     /// </summary>
     /// <typeparam name="TProp">Member type.</typeparam>
     /// <param name="selector">Member selector.</param>
     /// <param name="valueBuilder">New value generator.</param>
-    /// <returns>Update descriptor.</returns>
+    /// <returns>Update descriptor for chaining.</returns>
     IUpdateDescriptor<T> Set<TProp>(Func<T, TProp> selector, Func<T, TProp> valueBuilder);
 }
