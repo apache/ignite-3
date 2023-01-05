@@ -20,7 +20,6 @@ package org.apache.ignite.internal.sql.engine.util;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.concurrent.Flow;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
@@ -133,8 +132,9 @@ public class CompositePublisher<T> implements Publisher<T> {
 
             Subscription res = subscriptions.get(subsIdx);
 
-            if (res == null)
+            if (res == null) {
                 System.err.println(">xxx> visibility error");
+            }
 
             return res;
         }

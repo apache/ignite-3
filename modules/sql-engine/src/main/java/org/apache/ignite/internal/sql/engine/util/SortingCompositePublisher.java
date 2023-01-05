@@ -128,7 +128,7 @@ public class SortingCompositePublisher<T> extends CompositePublisher<T> {
          * @param cnt Count of subscriptions.
          */
         public OrderedMergeCompositeSubscription(Subscriber<? super T> downstream, Comparator<? super T> comp, int prefetch, int cnt) {
-            super(downstream);
+            super(downstream, cnt);
 
             this.comp = comp;
             this.subscribers = new OrderedMergeSubscriber[cnt];
