@@ -63,20 +63,48 @@ public partial class LinqSqlGenerationTests
         AssertSql("select sum(_T0.KEY) from PUBLIC.tbl1 as _T0", q => q.Sum(x => x.Key));
 
     [Test]
+    public void TestSumAsync() =>
+        AssertSql("select sum(_T0.KEY) from PUBLIC.tbl1 as _T0", q => q.SumAsync(x => x.Key).Result);
+
+    [Test]
     public void TestAvg() =>
         AssertSql("select avg(_T0.KEY) from PUBLIC.tbl1 as _T0", q => q.Average(x => x.Key));
+
+    [Test]
+    public void TestAvgAsync() =>
+        AssertSql("select avg(_T0.KEY) from PUBLIC.tbl1 as _T0", q => q.AverageAsync(x => x.Key).Result);
 
     [Test]
     public void TestMin() =>
         AssertSql("select min(_T0.KEY) from PUBLIC.tbl1 as _T0", q => q.Min(x => x.Key));
 
     [Test]
+    public void TestMinAsync() =>
+        AssertSql("select min(_T0.KEY) from PUBLIC.tbl1 as _T0", q => q.MinAsync(x => x.Key).Result);
+
+    [Test]
     public void TestMax() =>
         AssertSql("select max(_T0.KEY) from PUBLIC.tbl1 as _T0", q => q.Max(x => x.Key));
 
     [Test]
+    public void TestMaxAsync() =>
+        AssertSql("select max(_T0.KEY) from PUBLIC.tbl1 as _T0", q => q.MaxAsync(x => x.Key).Result);
+
+    [Test]
     public void TestCount() =>
         AssertSql("select count(*) from PUBLIC.tbl1 as _T0", q => q.Count());
+
+    [Test]
+    public void TestCountAsync() =>
+        AssertSql("select count(*) from PUBLIC.tbl1 as _T0", q => q.CountAsync().Result);
+
+    [Test]
+    public void TestLongCount() =>
+        AssertSql("select count(*) from PUBLIC.tbl1 as _T0", q => q.LongCount());
+
+    [Test]
+    public void TestLongCountAsync() =>
+        AssertSql("select count(*) from PUBLIC.tbl1 as _T0", q => q.LongCountAsync().Result);
 
     [Test]
     public void TestDistinct() =>
@@ -89,6 +117,12 @@ public partial class LinqSqlGenerationTests
             q => q.All(x => x.Key > 10));
 
     [Test]
+    public void TestAllAsync() =>
+        AssertSql(
+            "select not exists (select 1 from PUBLIC.tbl1 as _T0 where not (_T0.KEY > ?))",
+            q => q.AllAsync(x => x.Key > 10).Result);
+
+    [Test]
     public void TestAllWithWhere() =>
         AssertSql(
             "select not exists (select 1 from PUBLIC.tbl1 as _T0 where (_T0.VAL IS DISTINCT FROM ?) and not (_T0.KEY > ?))",
@@ -96,7 +130,19 @@ public partial class LinqSqlGenerationTests
 
     [Test]
     public void TestAny() =>
+        AssertSql("select exists (select 1 from PUBLIC.tbl1 as _T0)", q => q.Any());
+
+    [Test]
+    public void TestAnyAsync() =>
+        AssertSql("select exists (select 1 from PUBLIC.tbl1 as _T0)", q => q.AnyAsync().Result);
+
+    [Test]
+    public void TestAnyWithPredicate() =>
         AssertSql("select exists (select 1 from PUBLIC.tbl1 as _T0 where (_T0.KEY > ?))", q => q.Any(x => x.Key > 10));
+
+    [Test]
+    public void TestAnyAsyncWithPredicate() =>
+        AssertSql("select exists (select 1 from PUBLIC.tbl1 as _T0 where (_T0.KEY > ?))", q => q.AnyAsync(x => x.Key > 10).Result);
 
     [Test]
     public void TestSelectOrderByOffsetLimit() =>
@@ -111,6 +157,38 @@ public partial class LinqSqlGenerationTests
                 .Skip(2)
                 .Take(3)
                 .ToList());
+
+    [Test]
+    public void TestFirst() =>
+        AssertSql("select _T0.KEY, _T0.VAL from PUBLIC.tbl1 as _T0 limit 1", q => q.First());
+
+    [Test]
+    public void TestFirstAsync() =>
+        AssertSql("select _T0.KEY, _T0.VAL from PUBLIC.tbl1 as _T0 limit 1", q => q.FirstAsync().Result);
+
+    [Test]
+    public void TestFirstOrDefault() =>
+        AssertSql("select _T0.KEY, _T0.VAL from PUBLIC.tbl1 as _T0 limit 1", q => q.FirstOrDefault());
+
+    [Test]
+    public void TestFirstOrDefaultAsync() =>
+        AssertSql("select _T0.KEY, _T0.VAL from PUBLIC.tbl1 as _T0 limit 1", q => q.FirstOrDefaultAsync().Result);
+
+    [Test]
+    public void TestSingle() =>
+        AssertSql("select _T0.KEY, _T0.VAL from PUBLIC.tbl1 as _T0 limit 2", q => q.Single());
+
+    [Test]
+    public void TestSingleAsync() =>
+        AssertSql("select _T0.KEY, _T0.VAL from PUBLIC.tbl1 as _T0 limit 2", q => q.SingleAsync().Result);
+
+    [Test]
+    public void TestSingleOrDefault() =>
+        AssertSql("select _T0.KEY, _T0.VAL from PUBLIC.tbl1 as _T0 limit 2", q => q.SingleOrDefault());
+
+    [Test]
+    public void TestSingleOrDefaultAsync() =>
+        AssertSql("select _T0.KEY, _T0.VAL from PUBLIC.tbl1 as _T0 limit 2", q => q.SingleOrDefaultAsync().Result);
 
     [Test]
     public void TestOffsetLimitFirst() =>
@@ -267,6 +345,27 @@ public partial class LinqSqlGenerationTests
             q => q.Select(x => x.Key + 1)
                 .Except(q.Select(x => x.Key + 5))
                 .ToList());
+
+    [Test]
+    public void TestQueryToString()
+    {
+        var query = _table.GetRecordView<Poco>().AsQueryable()
+            .Where(x => x.Key == 3 && x.Val != "v-2")
+            .Select(x => new { x.Val, x.Key });
+
+        const string expectedQueryText =
+            "select _T0.VAL, _T0.KEY " +
+            "from PUBLIC.tbl1 as _T0 " +
+            "where ((_T0.KEY IS NOT DISTINCT FROM ?) and (_T0.VAL IS DISTINCT FROM ?))";
+
+        const string expectedToString =
+            "Apache.Ignite.Internal.Linq.IgniteQueryable`1[<>f__AnonymousType4`2[System.String,System.Int64]] [Query=" +
+            expectedQueryText +
+            ", Parameters=3, v-2]";
+
+        Assert.AreEqual(expectedQueryText, query.ToQueryString());
+        Assert.AreEqual(expectedToString, query.ToString());
+    }
 
     [OneTimeSetUp]
     public async Task OneTimeSetUp()

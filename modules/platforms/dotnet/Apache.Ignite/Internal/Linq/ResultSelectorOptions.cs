@@ -17,32 +17,31 @@
 
 namespace Apache.Ignite.Internal.Linq;
 
-using Remotion.Linq;
+using System.Linq;
 
 /// <summary>
-/// Internal queryable interface.
+/// Options for <see cref="ResultSelector"/>.
 /// </summary>
-internal interface IIgniteQueryableInternal
+internal enum ResultSelectorOptions
 {
     /// <summary>
-    /// Gets the table name.
+    /// None.
     /// </summary>
-    string TableName { get; }
+    None,
 
     /// <summary>
-    /// Gets the provider.
+    /// Whether to read null values as default for value types
+    /// (when <see cref="Queryable.DefaultIfEmpty{TSource}(System.Linq.IQueryable{TSource})"/> is used).
     /// </summary>
-    IgniteQueryProvider Provider { get; }
+    ReturnDefaultIfNull,
 
     /// <summary>
-    /// Gets the query model.
+    /// Whether to read null values as zero for nullable value types.
     /// </summary>
-    /// <returns>Query model.</returns>
-    QueryModel GetQueryModel();
+    ReturnZeroIfNull,
 
     /// <summary>
-    /// Gets the query data.
+    /// Whether to throw an exception if the result is null.
     /// </summary>
-    /// <returns>Query data.</returns>
-    QueryData GetQueryData();
+    ThrowNoElementsIfNull
 }

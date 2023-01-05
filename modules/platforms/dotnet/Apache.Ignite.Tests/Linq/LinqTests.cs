@@ -181,6 +181,24 @@ public partial class LinqTests : IgniteTestsBase
     }
 
     [Test]
+    public async Task TestSelectOneColumnAsAsyncEnumerable()
+    {
+        var query = PocoView.AsQueryable()
+            .Where(x => x.Key == 3)
+            .Select(x => x.Val);
+
+        var count = 0;
+
+        await foreach (var row in query.AsAsyncEnumerable())
+        {
+            Assert.AreEqual("v-3", row);
+            count++;
+        }
+
+        Assert.AreEqual(1, count);
+    }
+
+    [Test]
     public void TestSelectEntireObject()
     {
         Poco[] res = PocoView.AsQueryable()
@@ -484,23 +502,6 @@ public partial class LinqTests : IgniteTestsBase
         }
 
         Assert.AreEqual(10, count);
-    }
-
-    [Test]
-    public void TestQueryToString()
-    {
-        var query = PocoView.AsQueryable()
-            .Where(x => x.Key == 3 && x.Val != "v-2")
-            .Select(x => new { x.Val, x.Key });
-
-        const string expected =
-            "IgniteQueryable`1 [Query=" +
-            "select _T0.VAL, _T0.KEY " +
-            "from PUBLIC.TBL1 as _T0 " +
-            "where ((_T0.KEY IS NOT DISTINCT FROM ?) and (_T0.VAL IS DISTINCT FROM ?))" +
-            ", Parameters=3, v-2]";
-
-        Assert.AreEqual(expected, query.ToString());
     }
 
     [Test]

@@ -34,8 +34,8 @@ public class ResultSelectorCacheKeyTests
         var target = new object();
         var columns = GetColumns();
 
-        var key1 = new ResultSelectorCacheKey<object>(target, columns, defaultIfNull: false);
-        var key2 = new ResultSelectorCacheKey<object>(target, columns, defaultIfNull: false);
+        var key1 = new ResultSelectorCacheKey<object>(target, columns);
+        var key2 = new ResultSelectorCacheKey<object>(target, columns);
 
         Assert.AreEqual(key1, key2);
         Assert.AreEqual(key1.GetHashCode(), key2.GetHashCode());
@@ -52,8 +52,8 @@ public class ResultSelectorCacheKeyTests
         // Change everything except type and scale.
         columns2[0] = columns2[0] with { Name = "foo", Nullable = false, Origin = new ColumnOrigin("a", "b", "c"), Precision = 123 };
 
-        var key1 = new ResultSelectorCacheKey<object>(target, columns, defaultIfNull: false);
-        var key2 = new ResultSelectorCacheKey<object>(target, columns2, defaultIfNull: false);
+        var key1 = new ResultSelectorCacheKey<object>(target, columns);
+        var key2 = new ResultSelectorCacheKey<object>(target, columns2);
 
         Assert.AreEqual(key1, key2);
         Assert.AreEqual(key1.GetHashCode(), key2.GetHashCode());
@@ -69,8 +69,8 @@ public class ResultSelectorCacheKeyTests
 
         columns2[0] = columns2[0] with { Type = SqlColumnType.String };
 
-        var key1 = new ResultSelectorCacheKey<object>(target, columns, defaultIfNull: false);
-        var key2 = new ResultSelectorCacheKey<object>(target, columns2, defaultIfNull: false);
+        var key1 = new ResultSelectorCacheKey<object>(target, columns);
+        var key2 = new ResultSelectorCacheKey<object>(target, columns2);
 
         Assert.AreNotEqual(key1, key2);
         Assert.AreNotEqual(key1.GetHashCode(), key2.GetHashCode());
@@ -86,8 +86,8 @@ public class ResultSelectorCacheKeyTests
 
         columns2[0] = columns2[0] with { Scale = -1 };
 
-        var key1 = new ResultSelectorCacheKey<object>(target, columns, defaultIfNull: false);
-        var key2 = new ResultSelectorCacheKey<object>(target, columns2, defaultIfNull: false);
+        var key1 = new ResultSelectorCacheKey<object>(target, columns);
+        var key2 = new ResultSelectorCacheKey<object>(target, columns2);
 
         Assert.AreNotEqual(key1, key2);
         Assert.AreNotEqual(key1.GetHashCode(), key2.GetHashCode());
@@ -100,8 +100,8 @@ public class ResultSelectorCacheKeyTests
         var target = new object();
         var columns = GetColumns();
 
-        var key1 = new ResultSelectorCacheKey<object>(target, columns, defaultIfNull: false);
-        var key2 = new ResultSelectorCacheKey<object>(target, columns.Reverse().ToList(), defaultIfNull: false);
+        var key1 = new ResultSelectorCacheKey<object>(target, columns);
+        var key2 = new ResultSelectorCacheKey<object>(target, columns.Reverse().ToList());
 
         Assert.AreNotEqual(key1, key2);
         Assert.AreNotEqual(key1.GetHashCode(), key2.GetHashCode());

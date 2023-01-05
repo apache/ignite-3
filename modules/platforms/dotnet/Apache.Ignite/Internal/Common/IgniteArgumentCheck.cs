@@ -32,13 +32,9 @@ namespace Apache.Ignite.Internal.Common
         /// <param name="arg">The argument.</param>
         /// <param name="argName">Name of the argument.</param>
         /// <typeparam name="T">Arg type.</typeparam>
-        public static void NotNull<T>([NoEnumeration] T arg, string argName)
-        {
-            if (arg == null)
-            {
-                throw new ArgumentNullException(argName);
-            }
-        }
+        /// <returns>Argument.</returns>
+        public static T NotNull<T>([NoEnumeration] T arg, string argName) =>
+            arg == null ? throw new ArgumentNullException(argName) : arg;
 
         /// <summary>
         /// Throws an ArgumentException if specified arg is null or empty string.

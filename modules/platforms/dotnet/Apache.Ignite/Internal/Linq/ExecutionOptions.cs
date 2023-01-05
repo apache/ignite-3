@@ -17,32 +17,21 @@
 
 namespace Apache.Ignite.Internal.Linq;
 
-using Remotion.Linq;
+using System;
 
 /// <summary>
-/// Internal queryable interface.
+/// Query execution options.
 /// </summary>
-internal interface IIgniteQueryableInternal
+[Flags]
+internal enum ExecutionOptions
 {
     /// <summary>
-    /// Gets the table name.
+    /// No options.
     /// </summary>
-    string TableName { get; }
+    None = 0,
 
     /// <summary>
-    /// Gets the provider.
+    /// Whether to return a default value when result set is empty.
     /// </summary>
-    IgniteQueryProvider Provider { get; }
-
-    /// <summary>
-    /// Gets the query model.
-    /// </summary>
-    /// <returns>Query model.</returns>
-    QueryModel GetQueryModel();
-
-    /// <summary>
-    /// Gets the query data.
-    /// </summary>
-    /// <returns>Query data.</returns>
-    QueryData GetQueryData();
+    ReturnDefaultWhenEmpty = 1
 }
