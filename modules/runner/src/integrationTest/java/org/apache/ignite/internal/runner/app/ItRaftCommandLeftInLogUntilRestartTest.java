@@ -182,11 +182,13 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends AbstractBasicIntegra
         var tx = node0.transactions().begin();
 
         try {
-            insertDataInTransaction(tx, "person", List.of("ID", "NAME", "SALARY"), dataSet);
+            beforeBlock.accept(tx);
 
             assertTrue(IgniteTestUtils.waitForCondition(() -> appliedIndexNode0.get() == appliedIndexNode1.get(), 10_000));
 
             leaderAndGroupRef.set(new IgniteBiTuple<>(leader, table.tableId() + "_part_0"));
+
+            afterBlock.accept(tx);
 
             tx.commit();
         } finally {
@@ -202,7 +204,7 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends AbstractBasicIntegra
 
         var ignite = isNode0Leader ? node1Started : node0Started;
 
-        checkData(ignite, dataSet);
+        checkAction.accept(ignite);
 
         clearData(ignite.tables().table(DEFAULT_TABLE_NAME));
     }

@@ -111,6 +111,7 @@ public class PartitionListener implements RaftGroupListener {
         this.indexes = indexes;
         this.partitionId = partitionId;
 
+        // TODO: IGNITE-18502 Implement a pending update storage
         try (PartitionTimestampCursor cursor = partitionDataStorage.getStorage().scan(HybridTimestamp.MAX_VALUE)) {
             if (cursor != null) {
                 while (cursor.hasNext()) {
