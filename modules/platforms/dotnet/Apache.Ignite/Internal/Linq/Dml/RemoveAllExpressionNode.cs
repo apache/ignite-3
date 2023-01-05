@@ -38,7 +38,7 @@ internal sealed class RemoveAllExpressionNode : ResultOperatorExpressionNodeBase
     /// </summary>
     public static readonly IReadOnlyList<MethodInfo> RemoveAllMethodInfos = typeof(IgniteQueryableExtensions)
         .GetMethods()
-        .Where(x => x.Name == "RemoveAll")
+        .Where(x => x.Name == nameof(IgniteQueryableExtensions.RemoveAllAsync))
         .ToList();
 
     /// <summary>

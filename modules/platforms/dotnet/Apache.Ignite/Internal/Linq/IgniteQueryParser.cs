@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Internal.Linq;
 
 using System.Threading;
+using Dml;
 using Remotion.Linq.Parsing.ExpressionVisitors.Transformation;
 using Remotion.Linq.Parsing.ExpressionVisitors.TreeEvaluation;
 using Remotion.Linq.Parsing.Structure;
@@ -58,10 +59,8 @@ internal static class IgniteQueryParser
     {
         var methodInfoRegistry = MethodInfoBasedNodeTypeRegistry.CreateFromRelinqAssembly();
 
-        // TODO: IGNITE-18137 DML
-        // methodInfoRegistry.Register(RemoveAllExpressionNode.GetSupportedMethods(),
-        //     typeof(RemoveAllExpressionNode));
-        //
+        methodInfoRegistry.Register(RemoveAllExpressionNode.RemoveAllMethodInfos, typeof(RemoveAllExpressionNode));
+
         // methodInfoRegistry.Register(UpdateAllExpressionNode.GetSupportedMethods(),
         //     typeof(UpdateAllExpressionNode));
         return new CompoundNodeTypeProvider(new INodeTypeProvider[]

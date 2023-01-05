@@ -31,11 +31,11 @@ public partial class LinqTests
     [Test]
     public async Task TestRemoveAll()
     {
-        var view = PocoAllColumnsNullableView;
+        var view = PocoAllColumnsSqlNullableView;
 
         for (int i = 0; i < 10; i++)
         {
-            await view.UpsertAsync(null, new PocoAllColumnsNullable(1000 + i));
+            await view.UpsertAsync(null, new PocoAllColumnsSqlNullable(1000 + i));
         }
 
         var query = view.AsQueryable().Where(x => x.Key >= 1000);

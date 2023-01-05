@@ -26,6 +26,7 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Text;
 using Common;
+using Dml;
 using Remotion.Linq;
 using Remotion.Linq.Clauses;
 using Remotion.Linq.Clauses.Expressions;
@@ -236,17 +237,19 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
         _aliases.Push(copyAliases);
 
         // TODO: IGNITE-18137 DML
-        // var lastResultOp = queryModel.ResultOperators.LastOrDefault();
-        // if (lastResultOp is RemoveAllResultOperator)
-        // {
-        //     VisitRemoveOperator(queryModel);
-        // }
-        // else if (lastResultOp is UpdateAllResultOperator)
-        // {
-        //     VisitUpdateAllOperator(queryModel);
-        // }
-        // else
-        if (queryModel.ResultOperators.Count == 1 && queryModel.ResultOperators[0] is AnyResultOperator or AllResultOperator)
+        var lastResultOp = queryModel.ResultOperators.LastOrDefault();
+        if (lastResultOp is RemoveAllResultOperator)
+        {
+            VisitRemoveOperator(queryModel);
+        }
+
+        /*
+        else if (lastResultOp is UpdateAllResultOperator)
+        {
+            VisitUpdateAllOperator(queryModel);
+        }
+        */
+        else if (queryModel.ResultOperators.Count == 1 && queryModel.ResultOperators[0] is AnyResultOperator or AllResultOperator)
         {
             // All is different from Any: it always has a predicate inside.
             // We use NOT EXISTS with reverted predicate to implement All.
@@ -649,5 +652,72 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
     private void BuildSqlExpression(Expression expression, bool useStar = false, bool includeAllFields = false, bool visitSubqueryModel = false)
     {
         new IgniteQueryExpressionVisitor(this, useStar, includeAllFields, visitSubqueryModel).Visit(expression);
+    }
+
+    /// <summary>
+    /// Visits the remove operator.
+    /// </summary>
+    private void VisitRemoveOperator(QueryModel queryModel)
+    {
+        var resultOps = queryModel.ResultOperators;
+
+        _builder.Append("delete ");
+
+        if (resultOps.Count == 2)
+        {
+            if (resultOps[0] is not TakeResultOperator resOp)
+            {
+                // TODO: better message
+                throw new NotSupportedException(
+                    "RemoveAll can not be combined with result operators (other than Take): " +
+                    resultOps[0].GetType().Name);
+            }
+
+            _builder.Append("top ");
+            BuildSqlExpression(resOp.Count);
+            _builder.Append(' ');
+        }
+        else if (resultOps.Count > 2)
+        {
+            throw new NotSupportedException(
+                "RemoveAll can not be combined with result operators (other than Take): " +
+                string.Join(", ", resultOps.Select(x => x.GetType().Name)));
+        }
+
+        // FROM ... WHERE ... JOIN ...
+        base.VisitQueryModel(queryModel);
+    }
+
+    /// <summary>
+    /// Visits the UpdateAll operator.
+    /// </summary>
+    private void VisitUpdateAllOperator(QueryModel queryModel)
+    {
+        var resultOps = queryModel.ResultOperators;
+
+        _builder.Append("update ");
+
+        // FROM ... WHERE ...
+        base.VisitQueryModel(queryModel);
+
+        if (resultOps.Count == 2)
+        {
+            if (resultOps[0] is not TakeResultOperator resOp)
+            {
+                // TODO: better message
+                throw new NotSupportedException(
+                    "UpdateAll can not be combined with result operators (other than Take): " +
+                    resultOps[0].GetType().Name);
+            }
+
+            _builder.Append("limit ");
+            BuildSqlExpression(resOp.Count);
+        }
+        else if (resultOps.Count > 2)
+        {
+            throw new NotSupportedException(
+                "UpdateAll can not be combined with result operators (other than Take): " +
+                string.Join(", ", resultOps.Select(x => x.GetType().Name)));
+        }
     }
 }
