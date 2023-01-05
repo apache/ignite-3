@@ -337,7 +337,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         readFirst(queryProc.queryAsync("PUBLIC", newTblSql));
 
-        assertEquals(1, tblsCfg.tables().get(tableName).zoneId().value());
+        assertEquals(DistributionZoneManager.DEFAULT_ZONE_ID, tblsCfg.tables().get(tableName).zoneId().value());
 
         readFirst(queryProc.queryAsync("PUBLIC", "DROP TABLE " + tableName));
 

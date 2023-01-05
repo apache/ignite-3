@@ -88,6 +88,12 @@ import org.jetbrains.annotations.NotNull;
  * Distribution zones manager.
  */
 public class DistributionZoneManager implements IgniteComponent {
+    /** Name of the default distribution zone. */
+    public static final String DEFAULT_ZONE_NAME = "DEFAULT_DISTRIBUTION_ZONE_NAME";
+
+    /** Id of the default distribution zone. */
+    public static final int DEFAULT_ZONE_ID = 0;
+
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(DistributionZoneManager.class);
 
@@ -178,6 +184,10 @@ public class DistributionZoneManager implements IgniteComponent {
             return failedFuture(new IllegalArgumentException("Distribution zone configuration is null"));
         }
 
+        if (DEFAULT_ZONE_NAME.equals(distributionZoneCfg.name())) {
+            return failedFuture(new IllegalArgumentException("Default distribution zone cannot be recreated."));
+        }
+
         if (!busyLock.enterBusy()) {
             return failedFuture(new NodeStoppingException());
         }
@@ -256,6 +266,10 @@ public class DistributionZoneManager implements IgniteComponent {
             return failedFuture(new IllegalArgumentException("Distribution zone configuration is null"));
         }
 
+        if (DEFAULT_ZONE_NAME.equals(name) && !DEFAULT_ZONE_NAME.equals(distributionZoneCfg.name())) {
+            return failedFuture(new IllegalArgumentException("Default distribution zone cannot be renamed."));
+        }
+
         if (!busyLock.enterBusy()) {
             return failedFuture(new NodeStoppingException());
         }
@@ -332,6 +346,10 @@ public class DistributionZoneManager implements IgniteComponent {
             return failedFuture(new IllegalArgumentException("Distribution zone name is null or empty [name=" + name + ']'));
         }
 
+        if (DEFAULT_ZONE_NAME.equals(name)) {
+            return failedFuture(new IllegalArgumentException("Default distribution zone cannot be dropped."));
+        }
+
         if (!busyLock.enterBusy()) {
             return failedFuture(new NodeStoppingException());
         }
@@ -386,6 +404,10 @@ public class DistributionZoneManager implements IgniteComponent {
      * @return The zone id.
      */
     public int getZoneId(String name) {
+        if (DEFAULT_ZONE_NAME.equals(name)) {
+            return DEFAULT_ZONE_ID;
+        }
+
         DistributionZoneConfiguration zoneCfg = zonesConfiguration.distributionZones().get(name);
 
         if (zoneCfg != null) {
