@@ -20,9 +20,12 @@ package org.apache.ignite.internal.sql.engine.util;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.concurrent.Flow;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -43,7 +46,7 @@ public class CompositePublisher<T> implements Publisher<T> {
 
     @Override
     public void subscribe(Subscriber<? super T> downstream) {
-        subscribe(new CompositeSubscription<>(downstream), downstream);
+        subscribe(new CompositeSubscription<>(downstream, publishers.size()), downstream);
     }
 
     void subscribe(CompositeSubscription<T> subscription, Subscriber<? super T> downstream) {
@@ -66,16 +69,19 @@ public class CompositePublisher<T> implements Publisher<T> {
         protected final Subscriber<? super T> downstream;
 
         /** Current subscription index. */
-        private int subscriptionIdx = 0;
+        private final AtomicInteger subscriptionIdx = new AtomicInteger();
 
         /** Total number of remaining items. */
-        private long remaining;
+        private final AtomicLong remaining = new AtomicLong();
 
         /** Flag indicating that the subscription has been cancelled. */
-        private boolean cancelled;
+        private volatile boolean cancelled;
 
-        public CompositeSubscription(Subscriber<? super T> downstream) {
+        private final int cnt;
+
+        public CompositeSubscription(Subscriber<? super T> downstream, int cnt) {
             this.downstream = downstream;
+            this.cnt = cnt;
         }
 
         /**
@@ -92,7 +98,7 @@ public class CompositePublisher<T> implements Publisher<T> {
         /** {@inheritDoc} */
         @Override
         public void request(long n) {
-            remaining = n;
+            remaining.set(n);
 
             requestInternal();
         }
@@ -114,16 +120,23 @@ public class CompositePublisher<T> implements Publisher<T> {
             Subscription subscription = activeSubscription();
 
             if (subscription != null) {
-                subscription.request(remaining);
+                subscription.request(remaining.get());
             }
         }
 
         private @Nullable Subscription activeSubscription() {
-            if (subscriptionIdx >= subscriptions.size()) {
+            int subsIdx = subscriptionIdx.get();
+
+            if (subsIdx >= cnt) {
                 return null;
             }
 
-            return subscriptions.get(subscriptionIdx);
+            Subscription res = subscriptions.get(subsIdx);
+
+            if (res == null)
+                System.err.println(">xxx> visibility error");
+
+            return res;
         }
 
         /**
@@ -139,7 +152,7 @@ public class CompositePublisher<T> implements Publisher<T> {
             /** {@inheritDoc} */
             @Override
             public void onNext(T item) {
-                --remaining;
+                remaining.decrementAndGet();
 
                 downstream.onNext(item);
             }
@@ -157,13 +170,13 @@ public class CompositePublisher<T> implements Publisher<T> {
                     return;
                 }
 
-                if (++subscriptionIdx == subscriptions.size()) {
+                if (subscriptionIdx.incrementAndGet() == cnt) {
                     downstream.onComplete();
 
                     return;
                 }
 
-                if (remaining > 0) {
+                if (remaining.get() > 0) {
                     requestInternal();
                 }
             }
