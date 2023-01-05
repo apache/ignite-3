@@ -27,6 +27,7 @@ import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.jetbrains.annotations.TestOnly;
 
 /**
@@ -105,4 +106,11 @@ public interface RaftServer extends IgniteComponent {
      */
     @TestOnly
     Set<RaftNodeId> localNodes();
+
+    /**
+     * Get a raft server options.
+     *
+     * @return Raft server options.
+     */
+    NodeOptions options();
 }
