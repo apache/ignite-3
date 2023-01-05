@@ -31,11 +31,14 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.internal.app.IgniteImpl;
@@ -205,6 +208,45 @@ public class AbstractBasicIntegrationTest extends BaseIgniteAbstractTest {
                 return ((IgniteImpl) CLUSTER_NODES.get(0)).queryEngine();
             }
         };
+    }
+
+    /**
+     * Used for join checks, disables other join rules for executing exact join algo.
+     *
+     * @param qry Query for check.
+     * @param joinType Type of join algo.
+     * @param rules Additional rules need to be disabled.
+     */
+    static QueryChecker assertQuery(String qry, JoinType joinType, String... rules) {
+        return AbstractBasicIntegrationTest.assertQuery(qry.replaceAll("(?i)^select", "select "
+                + Stream.concat(Arrays.stream(joinType.disabledRules), Arrays.stream(rules))
+                .collect(Collectors.joining("','", "/*+ DISABLE_RULE('", "') */"))));
+    }
+
+    enum JoinType {
+        NESTED_LOOP(
+                "CorrelatedNestedLoopJoin",
+                "JoinCommuteRule",
+                "MergeJoinConverter"
+        ),
+
+        MERGE(
+                "CorrelatedNestedLoopJoin",
+                "JoinCommuteRule",
+                "NestedLoopJoinConverter"
+        ),
+
+        CORRELATED(
+                "MergeJoinConverter",
+                "JoinCommuteRule",
+                "NestedLoopJoinConverter"
+        );
+
+        private final String[] disabledRules;
+
+        JoinType(String... disabledRules) {
+            this.disabledRules = disabledRules;
+        }
     }
 
     protected static void createAndPopulateTable() {

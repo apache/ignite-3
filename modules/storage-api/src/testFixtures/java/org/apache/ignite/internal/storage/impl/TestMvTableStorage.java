@@ -92,7 +92,7 @@ public class TestMvTableStorage implements MvTableStorage {
         }
     }
 
-    /** Costructor. */
+    /** Constructor. */
     public TestMvTableStorage(TableConfiguration tableCfg, TablesConfiguration tablesCfg) {
         this.tableCfg = tableCfg;
         this.tablesCfg = tablesCfg;

@@ -30,6 +30,7 @@ import java.util.function.BiPredicate;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
+import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.Intersect;
@@ -37,8 +38,11 @@ import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.calcite.rel.core.Minus;
 import org.apache.calcite.rel.core.Spool;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rex.RexInputRef;
 import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
+import org.apache.calcite.rex.RexShuttle;
+import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactory;
@@ -269,9 +273,36 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
 
         int pairsCnt = rel.analyzeCondition().pairs().size();
 
+        ImmutableBitSet leftKeys = rel.analyzeCondition().leftSet();
+
+        List<RexNode> conjunctions = RelOptUtil.conjunctions(rel.getCondition());
+
+        ImmutableBitSet.Builder nullCompAsEqualBuilder = ImmutableBitSet.builder();
+
+        ImmutableBitSet nullCompAsEqual;
+        RexShuttle shuttle = new RexShuttle() {
+            @Override
+            public RexNode visitInputRef(RexInputRef ref) {
+                int idx = ref.getIndex();
+                if (leftKeys.get(idx)) {
+                    nullCompAsEqualBuilder.set(idx);
+                }
+                return ref;
+            }
+        };
+
+        for (RexNode expr : conjunctions) {
+            if (expr.getKind() == SqlKind.IS_NOT_DISTINCT_FROM) {
+                shuttle.apply(expr);
+            }
+        }
+
+        nullCompAsEqual = nullCompAsEqualBuilder.build();
+
         Comparator<RowT> comp = expressionFactory.comparator(
                 rel.leftCollation().getFieldCollations().subList(0, pairsCnt),
-                rel.rightCollation().getFieldCollations().subList(0, pairsCnt)
+                rel.rightCollation().getFieldCollations().subList(0, pairsCnt),
+                nullCompAsEqual
         );
 
         Node<RowT> node = MergeJoinNode.create(ctx, leftType, rightType, joinType, comp);
@@ -481,7 +512,8 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
                 ctx,
                 ImmutableBitSet.of(rel.keys()),
                 filter,
-                searchRow
+                searchRow,
+                rel.allowNulls()
         );
 
         Node<RowT> input = visit(rel.getInput());

@@ -50,19 +50,24 @@ public class RuntimeHashIndex<RowT> implements RuntimeIndex<RowT> {
     /** Rows. */
     private HashMap<GroupKey, List<RowT>> rows;
 
+    /** Allow NULL values. */
+    private final boolean allowNulls;
+
     /**
      * Constructor.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public RuntimeHashIndex(
             ExecutionContext<RowT> ectx,
-            ImmutableBitSet keys
+            ImmutableBitSet keys,
+            boolean allowNulls
     ) {
         this.ectx = ectx;
 
         assert !nullOrEmpty(keys);
 
         this.keys = keys;
+        this.allowNulls = allowNulls;
         rows = new HashMap<>();
     }
 
@@ -95,7 +100,7 @@ public class RuntimeHashIndex<RowT> implements RuntimeIndex<RowT> {
         for (Integer field : keys) {
             Object fieldVal = ectx.rowHandler().get(field, r);
 
-            if (fieldVal == null) {
+            if (fieldVal == null && !allowNulls) {
                 return NULL_KEY;
             }
 
