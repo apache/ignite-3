@@ -209,6 +209,13 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends AbstractBasicIntegra
         clearData(ignite.tables().table(DEFAULT_TABLE_NAME));
     }
 
+    /**
+     * Inhibits updates on follower node after leader and group name are assigned.
+     *
+     * @param node Node which storage updates will be inhibited.
+     * @param leaderAndGroupRef Pair contains of leader and RAFT group name.
+     * @return Atomic long that represents an applied index.
+     */
     private static AtomicLong partitionUpdateInhibitor(
             IgniteImpl node,
             AtomicReference<IgniteBiTuple<ClusterNode, String>> leaderAndGroupRef
@@ -264,8 +271,6 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends AbstractBasicIntegra
                 assertEquals(row[2], txTuple.value("SALARY"));
 
                 BinaryRowEx testKey = new TupleMarshallerImpl(table.schemaView()).marshal(Tuple.create().set("ID", row[0]));
-
-                Thread.sleep(1_000);
 
                 BinaryRow readOnlyRow = table.internalTable().get(testKey, new HybridClockImpl().now(), ignite.node()).get();
 
