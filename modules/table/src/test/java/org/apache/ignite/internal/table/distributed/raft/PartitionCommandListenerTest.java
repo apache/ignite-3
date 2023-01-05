@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed.raft;
 
+import static org.apache.ignite.internal.util.ArrayUtils.asList;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -50,6 +51,7 @@ import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import org.apache.ignite.distributed.TestPartitionDataStorage;
+import org.apache.ignite.internal.TestHybridClock;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -59,6 +61,7 @@ import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.CommittedConfiguration;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.command.HybridTimestampMessage;
+import org.apache.ignite.internal.replicator.command.SafeTimePropagatingCommand;
 import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommand;
 import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommandBuilder;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
@@ -166,6 +169,9 @@ public class PartitionCommandListenerTest {
     /** Hybrid clock. */
     private HybridClock hybridClock;
 
+    /** Safe time tracker. */
+    private PendingComparableValuesTracker<HybridTimestamp> safeTimeTracker;
+
     @Captor
     private ArgumentCaptor<Throwable> commandClosureResultCaptor;
 
@@ -184,13 +190,15 @@ public class PartitionCommandListenerTest {
 
         hybridClock = new HybridClockImpl();
 
+        safeTimeTracker = new PendingComparableValuesTracker<>(new HybridTimestamp(1, 0));
+
         commandListener = new PartitionListener(
                 partitionDataStorage,
                 txStateStorage,
                 new TxManagerImpl(replicaService, new HeapLockManager(), hybridClock),
                 () -> Map.of(pkStorage.id(), pkStorage),
                 PARTITION_ID,
-                new PendingComparableValuesTracker<>(new HybridTimestamp(1, 0))
+                safeTimeTracker
         );
     }
 
@@ -436,6 +444,25 @@ public class PartitionCommandListenerTest {
         inOrder.verify(partitionDataStorage).acquirePartitionSnapshotsReadLock();
         inOrder.verify(partitionDataStorage).lastApplied(1, 2);
         inOrder.verify(partitionDataStorage).releasePartitionSnapshotsReadLock();
+    }
+
+    @Test
+    public void testSafeTime() {
+        HybridClock testClock = new TestHybridClock(() -> 1);
+
+        applySafeTimeCommand(SafeTimeSyncCommand.class, testClock.now());
+        applySafeTimeCommand(SafeTimeSyncCommand.class, testClock.now());
+    }
+
+    private void applySafeTimeCommand(Class<? extends SafeTimePropagatingCommand> cls, HybridTimestamp timestamp) {
+        HybridTimestampMessage safeTime = hybridTimestamp(timestamp);
+
+        SafeTimePropagatingCommand command = mock(cls);
+        when(command.safeTime()).thenReturn(safeTime);
+
+        CommandClosure<WriteCommand> closure = writeCommandCommandClosure(1, 1, command, commandClosureResultCaptor);
+        commandListener.onWrite(asList(closure).iterator());
+        assertEquals(timestamp, safeTimeTracker.current());
     }
 
     /**
