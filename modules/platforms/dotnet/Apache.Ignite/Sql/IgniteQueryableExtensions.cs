@@ -488,7 +488,7 @@ public static partial class IgniteQueryableExtensions
     /// The task result contains a <see cref="List{T}" /> that contains elements from the input sequence.
     /// </returns>
     [SuppressMessage("Reliability", "CA2007:Consider calling ConfigureAwait on the awaited task", Justification = "False positive.")]
-    public static async ValueTask<List<TSource>> ToListAsync<TSource>(this IQueryable<TSource> queryable)
+    public static async Task<List<TSource>> ToListAsync<TSource>(this IQueryable<TSource> queryable)
     {
         // NOTE: ToArrayAsync counterpart is not implemented here, because it is just ToList().ToArray(), which is less efficient.
         IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
@@ -512,7 +512,7 @@ public static partial class IgniteQueryableExtensions
     /// The task result contains a <see cref="Dictionary{TK, TV}" /> that contains elements from the input sequence.
     /// </returns>
     [SuppressMessage("Reliability", "CA2007:Consider calling ConfigureAwait on the awaited task", Justification = "False positive.")]
-    public static async ValueTask<Dictionary<TK, TV>> ToDictionaryAsync<TSource, TK, TV>(
+    public static async Task<Dictionary<TK, TV>> ToDictionaryAsync<TSource, TK, TV>(
         this IQueryable<TSource> queryable,
         Func<TSource, TK> keySelector,
         Func<TSource, TV> valSelector,
