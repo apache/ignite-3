@@ -67,7 +67,7 @@ namespace Apache.Ignite.Sql
         ValueTask<List<T>> ToListAsync();
 
         /// <summary>
-        /// Gets all result set rows as list.
+        /// Gets all result set rows as dictionary.
         /// <para />
         /// Can not be called multiple times - the underlying server-side result set is closed as soon
         /// as the last page of data is retrieved, and client-side buffer is also released to reduce memory usage.
