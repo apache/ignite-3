@@ -22,6 +22,7 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Threading.Tasks;
 using Internal.Common;
+using Internal.Linq.Dml;
 using Table;
 
 /// <summary>
@@ -45,10 +46,11 @@ public static partial class IgniteQueryableExtensions
     {
         IgniteArgumentCheck.NotNull(query, nameof(query));
 
-        // TODO
-        await Task.Delay(1).ConfigureAwait(false);
+        var method = RemoveAllExpressionNode.RemoveAllMethodInfo.MakeGenericMethod(typeof(T));
+        var provider = query.ToQueryableInternal().Provider;
+        var expression = Expression.Call(null, method, query.Expression);
 
-        return 0;
+        return await provider.ExecuteSingleAsync<int>(expression).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -65,10 +67,11 @@ public static partial class IgniteQueryableExtensions
     {
         IgniteArgumentCheck.NotNull(query, nameof(query));
 
-        // TODO
-        await Task.Delay(1).ConfigureAwait(false);
+        var method = RemoveAllExpressionNode.RemoveAllMethodInfo.MakeGenericMethod(typeof(T));
+        var provider = query.ToQueryableInternal().Provider;
+        var expression = Expression.Call(null, method, query.Expression, Expression.Quote(predicate));
 
-        return 0;
+        return await provider.ExecuteSingleAsync<int>(expression).ConfigureAwait(false);
     }
 
     /// <summary>
