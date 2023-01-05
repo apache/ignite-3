@@ -24,6 +24,8 @@ import static org.apache.ignite.lang.ErrorGroups.Sql.NODE_LEFT_ERR;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
@@ -39,6 +41,8 @@ import org.jetbrains.annotations.Nullable;
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class MessageServiceImpl implements MessageService {
+    private static final IgniteLogger LOG = Loggers.forClass(MessageServiceImpl.class);
+
     private final TopologyService topSrvc;
 
     private final MessagingService messagingSrvc;
@@ -89,6 +93,8 @@ public class MessageServiceImpl implements MessageService {
                 ClusterNode node = topSrvc.getByConsistentId(nodeName);
 
                 if (node == null) {
+                    LOG.error("No node {} to send {}", new Exception("No node tracking"), nodeName, msg);
+
                     throw new IgniteInternalException(
                             NODE_LEFT_ERR, "Failed to send message to node (has node left grid?): " + nodeName
                     );

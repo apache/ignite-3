@@ -646,6 +646,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                             String nodeId = entry.getKey();
 
                             if (!exchangeSrvc.alive(nodeId)) {
+                                LOG.error("Node {} is not alive, so skipping", new Exception("Not alive, skipping tracking"), nodeId);
+
                                 continue;
                             }
 

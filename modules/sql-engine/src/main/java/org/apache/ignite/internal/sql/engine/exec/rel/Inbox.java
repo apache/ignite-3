@@ -30,6 +30,8 @@ import java.util.Map;
 import java.util.PriorityQueue;
 import java.util.stream.Collectors;
 import org.apache.calcite.util.Pair;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeService;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.MailboxRegistry;
@@ -41,6 +43,8 @@ import org.jetbrains.annotations.Nullable;
  * A part of exchange.
  */
 public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, SingleNode<RowT> {
+    private static final IgniteLogger LOG = Loggers.forClass(Inbox.class);
+
     private final ExchangeService exchange;
 
     private final MailboxRegistry registry;
@@ -362,6 +366,8 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
 
     private void checkNode(String nodeName) throws IgniteInternalCheckedException {
         if (!exchange.alive(nodeName)) {
+            LOG.error("Node {} is not alive, so throwing", new Exception("Not alive, throwing tracking"), nodeName);
+
             throw new IgniteInternalCheckedException(NODE_LEFT_ERR, "Failed to execute query, node left [nodeName=" + nodeName + ']');
         }
     }
