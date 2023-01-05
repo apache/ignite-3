@@ -100,6 +100,9 @@ public class RexUtils {
     /** Maximum amount of search bounds tuples per scan. */
     public static final int MAX_SEARCH_BOUNDS_COMPLEXITY = 100;
 
+    /** Hash index permitted search operations. */
+    private static final EnumSet<SqlKind> HASH_SEARCH_OPS = EnumSet.of(EQUALS, IS_NOT_DISTINCT_FROM);
+
     /**
      * MakeCast.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
@@ -395,7 +398,7 @@ public class RexUtils {
             }
 
             for (RexCall pred : collFldPreds) {
-                if (!pred.isA(List.of(EQUALS, IS_NOT_DISTINCT_FROM))) {
+                if (!pred.isA(HASH_SEARCH_OPS)) {
                     return null;
                 }
 
