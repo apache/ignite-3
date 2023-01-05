@@ -70,4 +70,27 @@ public static partial class IgniteQueryableExtensions
 
         return 0;
     }
+
+    /// <summary>
+    /// Updates all rows that are matched by the specified query.
+    /// <para />
+    /// This method results in "UPDATE" distributed SQL query, performing bulk update
+    /// (as opposed to fetching all rows locally).
+    /// </summary>
+    /// <typeparam name="T">Element type.</typeparam>
+    /// <param name="query">Query.</param>
+    /// <param name="updateDescriptor">Update descriptor.</param>
+    /// <returns>Affected row count.</returns>
+    public static async Task<long> UpdateAllAsync<T>(
+        this IQueryable<T> query,
+        Expression<Func<IUpdateDescriptor<T>, IUpdateDescriptor<T>>> updateDescriptor)
+    {
+        IgniteArgumentCheck.NotNull(query, nameof(query));
+        IgniteArgumentCheck.NotNull(updateDescriptor, nameof(updateDescriptor));
+
+        // TODO
+        await Task.Delay(1).ConfigureAwait(false);
+
+        return 0;
+    }
 }
