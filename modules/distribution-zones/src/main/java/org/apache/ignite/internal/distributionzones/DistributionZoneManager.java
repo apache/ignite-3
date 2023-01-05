@@ -176,7 +176,8 @@ public class DistributionZoneManager implements IgniteComponent {
      * @return Future representing pending completion of the operation. Future can be completed with:
      *      {@link DistributionZoneAlreadyExistsException} if a zone with the given name already exists,
      *      {@link ConfigurationValidationException} if {@code distributionZoneCfg} is broken,
-     *      {@link IllegalArgumentException} if distribution zone configuration is null,
+     *      {@link IllegalArgumentException} if distribution zone configuration is null
+     *      or distribution zone name is {@code DEFAULT_ZONE_NAME},
      *      {@link NodeStoppingException} if the node is stopping.
      */
     public CompletableFuture<Void> createZone(DistributionZoneConfigurationParameters distributionZoneCfg) {
@@ -254,7 +255,8 @@ public class DistributionZoneManager implements IgniteComponent {
      *      or zone with name for renaming already exists,
      *      {@link DistributionZoneNotFoundException} if a zone with the given name doesn't exist,
      *      {@link ConfigurationValidationException} if {@code distributionZoneCfg} is broken,
-     *      {@link IllegalArgumentException} if {@code name} or {@code distributionZoneCfg} is {@code null},
+     *      {@link IllegalArgumentException} if {@code name} or {@code distributionZoneCfg} is {@code null}
+     *      or it is an attempt to rename default distribution zone,
      *      {@link NodeStoppingException} if the node is stopping.
      */
     public CompletableFuture<Void> alterZone(String name, DistributionZoneConfigurationParameters distributionZoneCfg) {
@@ -338,7 +340,7 @@ public class DistributionZoneManager implements IgniteComponent {
      * @param name Distribution zone name.
      * @return Future representing pending completion of the operation. Future can be completed with:
      *      {@link DistributionZoneNotFoundException} if a zone with the given name doesn't exist,
-     *      {@link IllegalArgumentException} if {@code name} is {@code null},
+     *      {@link IllegalArgumentException} if {@code name} is {@code null} or distribution zone name is {@code DEFAULT_ZONE_NAME},
      *      {@link NodeStoppingException} if the node is stopping.
      */
     public CompletableFuture<Void> dropZone(String name) {
@@ -760,7 +762,8 @@ public class DistributionZoneManager implements IgniteComponent {
                         }
 
                         try {
-                            assert evt.single();
+                            assert evt.single() : evt.entryEvents().stream()
+                                    .map(entry -> entry.newEntry() == null ? "null" : entry.newEntry().key()).collect(toList());
 
                             Entry newEntry = evt.entryEvent().newEntry();
 
