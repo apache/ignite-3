@@ -113,7 +113,9 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
         if (rangeConditions != null) {
             List<CompositePublisher<RowT>> conditionPublishers = new ArrayList<>(rangeConditions.size());
 
-            rangeConditions.forEach(cond -> conditionPublishers.add(indexPublisher(parts, cond)));
+            for (RangeCondition<RowT> cond0 : rangeConditions) {
+                conditionPublishers.add(indexPublisher(parts, cond0));
+            }
 
             return new CompositePublisher<>(conditionPublishers);
         } else {

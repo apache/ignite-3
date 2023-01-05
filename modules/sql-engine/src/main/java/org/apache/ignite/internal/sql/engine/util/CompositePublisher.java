@@ -40,6 +40,8 @@ public class CompositePublisher<T> implements Publisher<T> {
      * @param publishers List of upstream publishers.
      */
     public CompositePublisher(Collection<? extends Publisher<T>> publishers) {
+        assert !publishers.isEmpty();
+
         this.publishers = publishers;
     }
 
