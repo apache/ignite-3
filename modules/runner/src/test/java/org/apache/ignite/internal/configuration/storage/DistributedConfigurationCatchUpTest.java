@@ -203,7 +203,7 @@ public class DistributedConfigurationCatchUpTest {
                     });
 
             // This captures the listener.
-            when(mock.registerWatchByPrefix(any(), any())).then(invocation -> {
+            when(mock.registerPrefixWatch(any(), any())).then(invocation -> {
                 lsnr = invocation.getArgument(1);
 
                 return CompletableFuture.completedFuture(null);

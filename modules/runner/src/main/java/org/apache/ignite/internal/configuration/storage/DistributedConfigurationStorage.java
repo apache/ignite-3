@@ -295,9 +295,9 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
         if (this.lsnr == null) {
             this.lsnr = lsnr;
 
-            // TODO: registerWatchByPrefix could throw OperationTimeoutException and CompactedException and we should
+            // TODO: registerPrefixWatch could throw OperationTimeoutException and CompactedException and we should
             // TODO: properly handle such cases https://issues.apache.org/jira/browse/IGNITE-14604
-            metaStorageMgr.registerWatchByPrefix(DST_KEYS_START_RANGE, new WatchListener() {
+            metaStorageMgr.registerPrefixWatch(DST_KEYS_START_RANGE, new WatchListener() {
                 @Override
                 public boolean onUpdate(@NotNull WatchEvent events) {
                     Map<String, Serializable> data = new HashMap<>();
