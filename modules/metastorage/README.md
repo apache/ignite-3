@@ -1,4 +1,6 @@
 <h2>Metastorage</h2>
+The module for store and access to metadata.
+The storage is distributed to prevent losing data and based of RAFT. In typical case, the group consists of only several nodes of the cluster (amount of nodes have to be odd 3 or 5). The rest of nodes listens metadata update but does not participant in voting (RAFT listeners).
 
 <h2>Threading model</h2>
 
