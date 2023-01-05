@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import it.unimi.dsi.fastutil.longs.Long2ObjectMaps;
 import java.util.ArrayDeque;
@@ -102,6 +103,10 @@ public class AbstractExecutionTest extends IgniteAbstractTest {
         }
 
         FragmentDescription fragmentDesc = new FragmentDescription(0, null, null, Long2ObjectMaps.emptyMap());
+
+        InternalTransaction tx = mock(InternalTransaction.class);
+        when(tx.rollbackAsync()).thenReturn(CompletableFuture.completedFuture(null));
+
         return new ExecutionContext<>(
                 BaseQueryContext.builder()
                         .logger(log)
@@ -113,7 +118,7 @@ public class AbstractExecutionTest extends IgniteAbstractTest {
                 fragmentDesc,
                 ArrayRowHandler.INSTANCE,
                 Map.of(),
-                mock(InternalTransaction.class)
+                tx
         );
     }
 
