@@ -34,6 +34,14 @@ using Remotion.Linq.Parsing.Structure.IntermediateModel;
 internal sealed class RemoveAllExpressionNode : ResultOperatorExpressionNodeBase
 {
     /// <summary>
+    /// RemoveAll methods.
+    /// </summary>
+    public static readonly IReadOnlyList<MethodInfo> RemoveAllMethodInfos = typeof(IgniteQueryableExtensions)
+        .GetMethods()
+        .Where(x => x.Name == "RemoveAll")
+        .ToList();
+
+    /// <summary>
     /// The RemoveAll() method.
     /// </summary>
     public static readonly MethodInfo RemoveAllMethodInfo = RemoveAllMethodInfos.Single(x => x.GetParameters().Length == 1);
@@ -42,12 +50,6 @@ internal sealed class RemoveAllExpressionNode : ResultOperatorExpressionNodeBase
     /// The RemoveAll(pred) method.
     /// </summary>
     public static readonly MethodInfo RemoveAllPredicateMethodInfo = RemoveAllMethodInfos.Single(x => x.GetParameters().Length == 2);
-
-    /** */
-    private static readonly MethodInfo[] RemoveAllMethodInfos = typeof(IgniteQueryableExtensions)
-        .GetMethods()
-        .Where(x => x.Name == "RemoveAll")
-        .ToArray();
 
     /// <summary>
     /// Initializes a new instance of the <see cref="RemoveAllExpressionNode"/> class.
@@ -69,23 +71,10 @@ internal sealed class RemoveAllExpressionNode : ResultOperatorExpressionNodeBase
     public override Expression Resolve(
         ParameterExpression inputParameter,
         Expression expressionToBeResolved,
-        ClauseGenerationContext clauseGenerationContext)
-    {
+        ClauseGenerationContext clauseGenerationContext) =>
         throw CreateResolveNotSupportedException();
-    }
 
     /** <inheritdoc /> */
-    protected override ResultOperatorBase CreateResultOperator(ClauseGenerationContext clauseGenerationContext)
-    {
-        return new RemoveAllResultOperator();
-    }
-
-    /// <summary>
-    /// Gets the supported methods.
-    /// </summary>
-    public static IEnumerable<MethodInfo> GetSupportedMethods()
-    {
-        yield return RemoveAllMethodInfo;
-        yield return RemoveAllPredicateMethodInfo;
-    }
+    protected override ResultOperatorBase CreateResultOperator(ClauseGenerationContext clauseGenerationContext) =>
+        new RemoveAllResultOperator();
 }
