@@ -54,7 +54,7 @@ public static partial class IgniteQueryableExtensions
     /// <summary>
     /// Removes all rows that are matched by the specified query.
     /// <para />
-    /// This method results in "DELETE FROM" distributed SQL query, performing bulk delete
+    /// This method results in "DELETE FROM .. WHERE .." distributed SQL query, performing bulk delete
     /// (as opposed to fetching all rows locally before deleting them).
     /// </summary>
     /// <typeparam name="T">Element type.</typeparam>
@@ -74,8 +74,8 @@ public static partial class IgniteQueryableExtensions
     /// <summary>
     /// Updates all rows that are matched by the specified query.
     /// <para />
-    /// This method results in "UPDATE" distributed SQL query, performing bulk update
-    /// (as opposed to fetching all rows locally).
+    /// This method results in "UPDATE .. WHERE .." distributed SQL query, performing bulk update
+    /// (as opposed to fetching all rows locally before updating them).
     /// </summary>
     /// <typeparam name="T">Element type.</typeparam>
     /// <param name="query">Query.</param>
@@ -85,6 +85,7 @@ public static partial class IgniteQueryableExtensions
         this IQueryable<T> query,
         Expression<Func<IUpdateDescriptor<T>, IUpdateDescriptor<T>>> updateDescriptor)
     {
+        // TODO: Overload with predicate?
         IgniteArgumentCheck.NotNull(query, nameof(query));
         IgniteArgumentCheck.NotNull(updateDescriptor, nameof(updateDescriptor));
 
