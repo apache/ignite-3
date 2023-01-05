@@ -237,6 +237,19 @@ public class AbstractBasicIntegrationTest extends BaseIgniteAbstractTest {
     }
 
     /**
+     * Used for join checks, disables other join rules for executing exact join algo.
+     *
+     * @param qry Query for check.
+     * @param joinType Type of join algo.
+     * @param rules Additional rules need to be disabled.
+     */
+    static QueryChecker assertQuery(String qry, JoinType joinType, String... rules) {
+        return AbstractBasicIntegrationTest.assertQuery(qry.replaceAll("(?i)^select", "select "
+                + Stream.concat(Arrays.stream(joinType.disabledRules), Arrays.stream(rules))
+                .collect(Collectors.joining("','", "/*+ DISABLE_RULE('", "') */"))));
+    }
+
+    /**
      * Creates a table.
      *
      * @param name Table name.
@@ -248,19 +261,6 @@ public class AbstractBasicIntegrationTest extends BaseIgniteAbstractTest {
                 + "WITH replicas={}, partitions={}", name, replicas, partitions));
 
         return CLUSTER_NODES.get(0).tables().table(name);
-    }
-
-    /**
-     * Used for join checks, disables other join rules for executing exact join algo.
-     *
-     * @param qry Query for check.
-     * @param joinType Type of join algo.
-     * @param rules Additional rules need to be disabled.
-     */
-    static QueryChecker assertQuery(String qry, JoinType joinType, String... rules) {
-        return AbstractBasicIntegrationTest.assertQuery(qry.replaceAll("(?i)^select", "select "
-                + Stream.concat(Arrays.stream(joinType.disabledRules), Arrays.stream(rules))
-                .collect(Collectors.joining("','", "/*+ DISABLE_RULE('", "') */"))));
     }
 
     enum JoinType {
