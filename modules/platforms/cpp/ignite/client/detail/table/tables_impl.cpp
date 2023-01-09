@@ -30,9 +30,9 @@ void tables_impl::get_table_async(std::string_view name, ignite_callback<std::op
             return std::nullopt;
 
         auto id = reader.read_uuid();
-        auto tableImpl = std::make_shared<table_impl>(std::string(name), id, std::move(conn));
+        auto table0 = std::make_shared<table_impl>(std::string(name), id, std::move(conn));
 
-        return std::make_optional(table(tableImpl));
+        return std::make_optional(table(table0));
     };
 
     m_connection->perform_request<std::optional<table>>(
@@ -48,9 +48,8 @@ void tables_impl::get_tables_async(ignite_callback<std::vector<table>> callback)
         tables.reserve(reader.read_map_size());
 
         reader.read_map<uuid, std::string>([conn, &tables](auto &&id, auto &&name) {
-            auto tableImpl =
-                std::make_shared<table_impl>(std::forward<std::string>(name), std::forward<uuid>(id), conn);
-            tables.push_back(table{tableImpl});
+            auto table0 = std::make_shared<table_impl>(std::forward<std::string>(name), std::forward<uuid>(id), conn);
+            tables.push_back(table{table0});
         });
 
         return tables;

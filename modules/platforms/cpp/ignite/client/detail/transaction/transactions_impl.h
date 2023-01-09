@@ -17,13 +17,18 @@
 
 #pragma once
 
+#include "ignite/client/detail/cluster_connection.h"
+#include "ignite/client/detail/transaction/transaction_impl.h"
+
 #include "ignite/common/config.h"
 #include "ignite/common/ignite_result.h"
+
+#include <memory>
 
 namespace ignite::detail {
 
 /**
- * Ignite transactions.
+ * Ignite transactions implementation.
  */
 class transactions_impl {
 public:
@@ -38,14 +43,34 @@ public:
     transactions_impl &operator=(const transactions_impl &) = delete;
 
     /**
+     * Constructor.
+     *
+     * @param connection Connection.
+     */
+    explicit transactions_impl(std::shared_ptr<cluster_connection> connection)
+    : m_connection(std::move(connection)) {}
+
+    /**
      * Starts a new transaction asynchronously.
      *
      * @param callback Callback to be called with a new transaction or error upon completion of asynchronous operation.
      */
     IGNITE_API void begin_async(ignite_callback<transaction> callback) {
-        //
+        auto reader_func = [conn = m_connection](protocol::reader &reader) mutable -> transaction {
+            auto id = reader.read_int64();
+            // TODO: Use node_connection here.
+            auto transaction0 = std::make_shared<transaction_impl>(id, std::move(conn));
+
+            return transaction(transaction0);
+        };
+
+        m_connection->perform_request_rd<transaction>(
+            client_operation::TX_BEGIN, std::move(reader_func), std::move(callback));
     }
+
 private:
+    /** Cluster connection. */
+    std::shared_ptr<cluster_connection> m_connection;
 };
 
 } // namespace ignite

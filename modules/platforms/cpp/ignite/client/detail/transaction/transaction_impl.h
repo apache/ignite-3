@@ -17,44 +17,48 @@
 
 #pragma once
 
+#include "ignite/client/detail/cluster_connection.h"
+
 #include "ignite/common/config.h"
 #include "ignite/common/ignite_result.h"
 
-namespace ignite {
+#include <memory>
 
-namespace detail {
-class transaction_impl;
-class transactions_impl;
-}
+namespace ignite::detail {
 
 /**
- * Ignite transaction.
+ * Ignite transaction implementation.
  */
-class transaction {
-    friend class detail::transactions_impl;
+class transaction_impl {
 public:
     // Default
-    transaction() = default;
+    ~transaction_impl() = default;
+    transaction_impl(transaction_impl &&) noexcept = default;
+    transaction_impl &operator=(transaction_impl &&) noexcept = default;
+
+    // Deleted
+    transaction_impl() = delete;
+    transaction_impl(const transaction_impl &) = delete;
+    transaction_impl &operator=(const transaction_impl &) = delete;
 
     /**
-     * Commits the transaction.
+     * Constructor.
+     *
+     * @param id Transaction ID.
+     * @param connection Connection.
      */
-    IGNITE_API void commit() {
-        return sync<void>([this](auto callback) { commit_async(std::move(callback)); });
-    }
+    explicit transaction_impl(std::int64_t id, std::shared_ptr<cluster_connection> connection)
+        : m_id(id)
+        , m_connection(std::move(connection)) {}
 
     /**
      * Commits the transaction asynchronously.
      *
      * @param callback Callback to be called upon asynchronous operation completion.
      */
-    IGNITE_API void commit_async(ignite_callback<void> callback);
-
-    /**
-     * Rollbacks the transaction.
-     */
-    IGNITE_API void rollback() {
-        return sync<void>([this](auto callback) { rollback_async(std::move(callback)); });
+    IGNITE_API void commit_async(ignite_callback<void> callback) {
+        (void) callback;
+        throw ignite_error("Not implemented");
     }
 
     /**
@@ -62,19 +66,17 @@ public:
      *
      * @param callback Callback to be called upon asynchronous operation completion.
      */
-    IGNITE_API void rollback_async(ignite_callback<void> callback);
+    IGNITE_API void rollback_async(ignite_callback<void> callback) {
+        (void) callback;
+        throw ignite_error("Not implemented");
+    }
 
 private:
-    /**
-     * Constructor
-     *
-     * @param impl Implementation
-     */
-    explicit transaction(std::shared_ptr<detail::transaction_impl> impl)
-        : m_impl(std::move(impl)) {}
+    /** ID. */
+    std::int64_t m_id;
 
-    /** Implementation. */
-    std::shared_ptr<detail::transaction_impl> m_impl;
+    /** Cluster connection. */
+    std::shared_ptr<cluster_connection> m_connection;
 };
 
 } // namespace ignite

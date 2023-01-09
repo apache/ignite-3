@@ -51,7 +51,8 @@ public:
         : m_configuration(std::move(configuration))
         , m_connection(cluster_connection::create(m_configuration))
         , m_tables(std::make_shared<tables_impl>(m_connection))
-        , m_sql(std::make_shared<sql_impl>(m_connection)) {}
+        , m_sql(std::make_shared<sql_impl>(m_connection))
+        , m_transactions(std::make_shared<transactions_impl>(m_connection)) {}
 
     /**
      * Destructor.

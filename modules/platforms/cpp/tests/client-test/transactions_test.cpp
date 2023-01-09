@@ -75,5 +75,7 @@ protected:
 
 TEST_F(transactions_test, transactions_start) {
     auto api = m_client.get_transactions();
+
+    auto tx = api.begin();
 }
 
