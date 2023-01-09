@@ -22,6 +22,7 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Threading.Tasks;
 using Ignite.Sql;
+using Ignite.Table;
 using NUnit.Framework;
 using Table;
 
@@ -99,19 +100,13 @@ public partial class LinqTests
     }
 
     [Test]
-    public void TestRemoveAllWithResultOperatorsIsNotSupported()
-    {
-        var ex = Assert.ThrowsAsync<NotSupportedException>(() => PocoView.AsQueryable().Skip(1).Take(2).RemoveAllAsync());
-        Assert.AreEqual("RemoveAllAsync can not be combined with result operators: Skip(1), Take(2)", ex!.Message);
-    }
-
-    [Test]
     public async Task TestUpdateAllConstantValue()
     {
-        var view = PocoAllColumnsSqlNullableView;
+        var query = PocoAllColumnsSqlNullableView.AsQueryable().Where(x => x.Key >= 1000);
+        await query.UpdateAllAsync(row => row.Set(x => x.Str, "updated"));
 
-        // TODO
-        await view.AsQueryable().Where(x => x.Key >= 1000).UpdateAllAsync(row => row.Set(x => x.Str, "updated"));
+        var res = await query.Select(x => x.Str).Distinct().ToListAsync();
+        CollectionAssert.AreEqual(new[] { "updated" }, res);
     }
 
     [Test]
@@ -124,6 +119,13 @@ public partial class LinqTests
     public async Task TestUpdateAllWithTx()
     {
         await Task.Delay(1);
+    }
+
+    [Test]
+    public void TestRemoveAllWithResultOperatorsIsNotSupported()
+    {
+        var ex = Assert.ThrowsAsync<NotSupportedException>(() => PocoView.AsQueryable().Skip(1).Take(2).RemoveAllAsync());
+        Assert.AreEqual("RemoveAllAsync can not be combined with result operators: Skip(1), Take(2)", ex!.Message);
     }
 
     [Test]
