@@ -110,6 +110,7 @@ import static org.apache.calcite.sql.fun.SqlStdOperatorTable.IS_JSON_ARRAY;
 import static org.apache.calcite.sql.fun.SqlStdOperatorTable.IS_JSON_OBJECT;
 import static org.apache.calcite.sql.fun.SqlStdOperatorTable.IS_JSON_SCALAR;
 import static org.apache.calcite.sql.fun.SqlStdOperatorTable.IS_JSON_VALUE;
+import static org.apache.calcite.sql.fun.SqlStdOperatorTable.IS_NOT_DISTINCT_FROM;
 import static org.apache.calcite.sql.fun.SqlStdOperatorTable.IS_NOT_EMPTY;
 import static org.apache.calcite.sql.fun.SqlStdOperatorTable.IS_NOT_FALSE;
 import static org.apache.calcite.sql.fun.SqlStdOperatorTable.IS_NOT_JSON_ARRAY;
@@ -498,6 +499,10 @@ public class RexImpTable {
         map.put(LOCALTIMESTAMP, systemFunctionImplementor);
 
         map.put(TYPEOF, systemFunctionImplementor);
+
+        // Operator IS_NOT_DISTINCT_FROM is removed by RexSimplify, but still possible in join conditions, so
+        // implementation required.
+        defineMethod(IS_NOT_DISTINCT_FROM, IgniteMethod.IS_NOT_DISTINCT_FROM.method(), NullPolicy.NONE);
     }
 
     private void defineMethod(SqlOperator operator, String functionName, NullPolicy nullPolicy) {

@@ -49,6 +49,10 @@ public class DynamicCompleterFilter implements CompleterFilter {
 
     @Override
     public String[] filter(String[] words, String[] candidates) {
+        if (optionTyped(words)) {
+            return candidates;
+        }
+
         List<String> notOptionsCandidates = Arrays.stream(candidates)
                 .filter(candidate -> !candidate.startsWith("-"))
                 .collect(Collectors.toList());
@@ -59,13 +63,12 @@ public class DynamicCompleterFilter implements CompleterFilter {
 
         return Arrays.stream(candidates)
                 .filter(candidate -> filterClusterUrl(words, candidate))
-                .filter(candidate -> filterCommonOptions(words, candidate))
+                .filter(this::filterCommonOptions)
                 .toArray(String[]::new);
     }
 
-    private boolean filterCommonOptions(String[] words, String candidate) {
-        return optionTyped(words)
-                || !(HELP_OPTION.equals(candidate)
+    private boolean filterCommonOptions(String candidate) {
+        return !(HELP_OPTION.equals(candidate)
                 || HELP_OPTION_SHORT.equals(candidate)
                 || VERBOSE_OPTION_SHORT.equals(candidate)
                 || VERBOSE_OPTION.equals(candidate));

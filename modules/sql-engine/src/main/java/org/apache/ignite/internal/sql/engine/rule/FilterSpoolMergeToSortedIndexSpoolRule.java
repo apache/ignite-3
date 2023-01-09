@@ -76,7 +76,7 @@ public class FilterSpoolMergeToSortedIndexSpoolRule extends RelRule<FilterSpoolM
 
         RelCollation inCollation = TraitUtils.collation(input);
 
-        List<SearchBounds> searchBounds = RexUtils.buildSortedIndexConditions(
+        List<SearchBounds> searchBounds = RexUtils.buildSortedSearchBounds(
                 cluster,
                 inCollation,
                 filter.getCondition(),

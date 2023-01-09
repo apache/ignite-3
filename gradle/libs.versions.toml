@@ -71,6 +71,7 @@ archunit = "0.23.1"
 testkit = "1.8.1"
 openapi = "3.2.0"
 autoService = "1.0.1"
+awaitility = "4.2.0"
 
 #Tools
 pmdTool = "6.28.0"
@@ -225,3 +226,5 @@ checker-qual = { module = "org.checkerframework:checker-qual", version.ref = "ch
 
 auto-service = { module = "com.google.auto.service:auto-service", version.ref = "autoService" }
 auto-service-annotations = { module = "com.google.auto.service:auto-service-annotations", version.ref = "autoService" }
+
+awaitility = { module = "org.awaitility:awaitility", version.ref = "awaitility" }

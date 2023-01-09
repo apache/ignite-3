@@ -107,17 +107,30 @@ public final class HybridTimestamp implements Comparable<HybridTimestamp>, Seria
         return new HybridTimestamp(physical, this.logical + ticks);
     }
 
-    /** {@inheritDoc} */
     @Override
     public boolean equals(Object o) {
-        if (!(o instanceof HybridTimestamp)) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
             return false;
         }
 
-        return compareTo((HybridTimestamp) o) == 0;
+        HybridTimestamp that = (HybridTimestamp) o;
+
+        if (physical != that.physical) {
+            return false;
+        }
+        return logical == that.logical;
     }
 
-    /** {@inheritDoc} */
+    @Override
+    public int hashCode() {
+        int result = (int) (physical ^ (physical >>> 32));
+        result = 31 * result + logical;
+        return result;
+    }
+
     @Override
     public int compareTo(HybridTimestamp other) {
         if (this.physical == other.physical) {
@@ -127,7 +140,6 @@ public final class HybridTimestamp implements Comparable<HybridTimestamp>, Seria
         return Long.compare(this.physical, other.physical);
     }
 
-    /** {@inheritDoc} */
     @Override
     public String toString() {
         return S.toString(HybridTimestamp.class, this);

@@ -24,6 +24,7 @@ namespace Apache.Ignite.Internal.Sql
     using System.Threading;
     using System.Threading.Tasks;
     using Buffers;
+    using Common;
     using Ignite.Sql;
     using MessagePack;
     using Proto;
@@ -110,14 +111,40 @@ namespace Apache.Ignite.Internal.Sql
         public bool WasApplied { get; }
 
         /// <inheritdoc/>
-        public async ValueTask<List<T>> ToListAsync()
+        public async ValueTask<List<T>> ToListAsync() =>
+            await CollectAsync(
+                    constructor: static capacity => new List<T>(capacity),
+                    accumulator: static (list, item) => list.Add(item))
+                .ConfigureAwait(false);
+
+        /// <inheritdoc/>
+        public async ValueTask<Dictionary<TK, TV>> ToDictionaryAsync<TK, TV>(
+            Func<T, TK> keySelector,
+            Func<T, TV> valSelector,
+            IEqualityComparer<TK>? comparer)
+            where TK : notnull
         {
+            IgniteArgumentCheck.NotNull(keySelector, nameof(keySelector));
+            IgniteArgumentCheck.NotNull(valSelector, nameof(valSelector));
+
+            return await CollectAsync(
+                    constructor: capacity => new Dictionary<TK, TV>(capacity, comparer),
+                    accumulator: (dictionary, item) => dictionary.Add(keySelector(item), valSelector(item)))
+                .ConfigureAwait(false);
+        }
+
+        /// <inheritdoc/>
+        public async ValueTask<TResult> CollectAsync<TResult>(Func<int, TResult> constructor, Action<TResult, T> accumulator)
+        {
+            IgniteArgumentCheck.NotNull(constructor, nameof(constructor));
+            IgniteArgumentCheck.NotNull(accumulator, nameof(accumulator));
+
             ValidateAndSetIteratorState();
 
             // First page is included in the initial response.
             var cols = Metadata!.Columns;
             var hasMore = _hasMorePages;
-            List<T>? res = null;
+            TResult? res = default;
 
             ReadPage(_buffer!.Value, _bufferOffset);
             ReleaseBuffer();
@@ -136,11 +163,14 @@ namespace Apache.Ignite.Internal.Sql
             {
                 var reader = buf.GetReader(offset);
                 var pageSize = reader.ReadArrayHeader();
-                res ??= new List<T>(hasMore ? pageSize * 2 : pageSize);
+
+                var capacity = hasMore ? pageSize * 2 : pageSize;
+                res ??= constructor(capacity);
 
                 for (var rowIdx = 0; rowIdx < pageSize; rowIdx++)
                 {
-                    res.Add(ReadRow(cols, ref reader));
+                    var row = ReadRow(cols, ref reader);
+                    accumulator(res, row);
                 }
 
                 if (!reader.End)

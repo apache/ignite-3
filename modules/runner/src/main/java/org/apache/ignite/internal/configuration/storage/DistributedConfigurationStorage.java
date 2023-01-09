@@ -34,15 +34,16 @@ import org.apache.ignite.internal.configuration.util.ConfigurationSerializationU
 import org.apache.ignite.internal.future.InFlightFutures;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.metastorage.Entry;
+import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.metastorage.client.Conditions;
-import org.apache.ignite.internal.metastorage.client.Entry;
-import org.apache.ignite.internal.metastorage.client.EntryEvent;
-import org.apache.ignite.internal.metastorage.client.Operation;
-import org.apache.ignite.internal.metastorage.client.Operations;
-import org.apache.ignite.internal.metastorage.client.SimpleCondition;
-import org.apache.ignite.internal.metastorage.client.WatchEvent;
-import org.apache.ignite.internal.metastorage.client.WatchListener;
+import org.apache.ignite.internal.metastorage.WatchEvent;
+import org.apache.ignite.internal.metastorage.WatchListener;
+import org.apache.ignite.internal.metastorage.dsl.Conditions;
+import org.apache.ignite.internal.metastorage.dsl.Operation;
+import org.apache.ignite.internal.metastorage.dsl.Operations;
+import org.apache.ignite.internal.metastorage.dsl.SimpleCondition;
+import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
@@ -104,12 +105,12 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
      * revision of {@link #MASTER_KEY}.
      *
      * <p>This is true for all cases except for node restart. Key-specific revision values are lost on local vault copy after restart, so
-     * stored {@link MetaStorageManager#APPLIED_REV} value is used instead. This fact has very important side effect: it's no longer
+     * stored {@link MetaStorageManagerImpl#APPLIED_REV} value is used instead. This fact has very important side effect: it's no longer
      * possible to use {@link SimpleCondition.RevisionCondition#eq} on {@link #MASTER_KEY}
      * in {@link DistributedConfigurationStorage#write(Map, long)}. {@link SimpleCondition.RevisionCondition#le(long)} must be used instead.
      *
      * @see #MASTER_KEY
-     * @see MetaStorageManager#APPLIED_REV
+     * @see MetaStorageManagerImpl#APPLIED_REV
      * @see #write(Map, long)
      */
     private final AtomicLong changeId = new AtomicLong(0L);
@@ -192,7 +193,7 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Data> readDataOnRecovery() throws StorageException {
-        CompletableFuture<Data> future = vaultMgr.get(MetaStorageManager.APPLIED_REV)
+        CompletableFuture<Data> future = vaultMgr.get(MetaStorageManagerImpl.APPLIED_REV)
                 .thenCombine(vaultMgr.get(CONFIGURATION_REVISIONS_KEY), this::resolveRevision)
                 .thenApplyAsync(this::readDataOnRecovery0, threadPool);
 
@@ -294,9 +295,9 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
         if (this.lsnr == null) {
             this.lsnr = lsnr;
 
-            // TODO: registerWatchByPrefix could throw OperationTimeoutException and CompactedException and we should
+            // TODO: registerPrefixWatch could throw OperationTimeoutException and CompactedException and we should
             // TODO: properly handle such cases https://issues.apache.org/jira/browse/IGNITE-14604
-            metaStorageMgr.registerWatchByPrefix(DST_KEYS_START_RANGE, new WatchListener() {
+            metaStorageMgr.registerPrefixWatch(DST_KEYS_START_RANGE, new WatchListener() {
                 @Override
                 public boolean onUpdate(@NotNull WatchEvent events) {
                     Map<String, Serializable> data = new HashMap<>();

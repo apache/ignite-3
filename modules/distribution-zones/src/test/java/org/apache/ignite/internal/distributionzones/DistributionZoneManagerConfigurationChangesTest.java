@@ -22,7 +22,7 @@ import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTR
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
-import static org.apache.ignite.internal.metastorage.client.MetaStorageServiceImpl.toIfInfo;
+import static org.apache.ignite.internal.metastorage.impl.MetaStorageServiceImpl.toIfInfo;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
@@ -53,11 +53,11 @@ import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.metastorage.client.If;
-import org.apache.ignite.internal.metastorage.client.StatementResult;
-import org.apache.ignite.internal.metastorage.common.StatementResultInfo;
-import org.apache.ignite.internal.metastorage.common.command.MetaStorageCommandsFactory;
-import org.apache.ignite.internal.metastorage.common.command.MultiInvokeCommand;
+import org.apache.ignite.internal.metastorage.command.MetaStorageCommandsFactory;
+import org.apache.ignite.internal.metastorage.command.MultiInvokeCommand;
+import org.apache.ignite.internal.metastorage.command.info.StatementResultInfo;
+import org.apache.ignite.internal.metastorage.dsl.If;
+import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
 import org.apache.ignite.internal.raft.Command;
@@ -72,7 +72,6 @@ import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultManager;
-import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -116,7 +115,7 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
 
         MetaStorageManager metaStorageManager = mock(MetaStorageManager.class);
 
-        when(metaStorageManager.registerWatch(any(ByteArray.class), any())).thenReturn(completedFuture(null));
+        when(metaStorageManager.registerExactWatch(any(), any())).thenReturn(completedFuture(null));
 
         logicalTopologyService = mock(LogicalTopologyServiceImpl.class);
 

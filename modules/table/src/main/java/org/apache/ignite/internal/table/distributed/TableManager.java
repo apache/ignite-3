@@ -83,10 +83,10 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.EventListener;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.manager.Producer;
+import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.metastorage.client.Entry;
-import org.apache.ignite.internal.metastorage.client.WatchEvent;
-import org.apache.ignite.internal.metastorage.client.WatchListener;
+import org.apache.ignite.internal.metastorage.WatchEvent;
+import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
@@ -1767,7 +1767,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * Register the new meta storage listener for changes in the rebalance-specific keys.
      */
     private void registerRebalanceListeners() {
-        metaStorageMgr.registerWatchByPrefix(ByteArray.fromString(PENDING_ASSIGNMENTS_PREFIX), new WatchListener() {
+        metaStorageMgr.registerPrefixWatch(ByteArray.fromString(PENDING_ASSIGNMENTS_PREFIX), new WatchListener() {
             @Override
             public boolean onUpdate(@NotNull WatchEvent evt) {
                 if (!busyLock.enterBusy()) {
@@ -1933,7 +1933,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             }
         });
 
-        metaStorageMgr.registerWatchByPrefix(ByteArray.fromString(STABLE_ASSIGNMENTS_PREFIX), new WatchListener() {
+        metaStorageMgr.registerPrefixWatch(ByteArray.fromString(STABLE_ASSIGNMENTS_PREFIX), new WatchListener() {
             @Override
             public boolean onUpdate(@NotNull WatchEvent evt) {
                 if (!busyLock.enterBusy()) {
@@ -1990,7 +1990,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             }
         });
 
-        metaStorageMgr.registerWatchByPrefix(ByteArray.fromString(ASSIGNMENTS_SWITCH_REDUCE_PREFIX), new WatchListener() {
+        metaStorageMgr.registerPrefixWatch(ByteArray.fromString(ASSIGNMENTS_SWITCH_REDUCE_PREFIX), new WatchListener() {
             @Override
             public boolean onUpdate(@NotNull WatchEvent evt) {
                 ByteArray key = evt.entryEvent().newEntry().key();

@@ -35,12 +35,13 @@ import org.apache.ignite.internal.configuration.TestConfigurationChanger;
 import org.apache.ignite.internal.configuration.asm.ConfigurationAsmGenerator;
 import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.configuration.tree.ConstructableTreeNode;
+import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.metastorage.client.EntryEvent;
-import org.apache.ignite.internal.metastorage.client.EntryImpl;
-import org.apache.ignite.internal.metastorage.client.Operation;
-import org.apache.ignite.internal.metastorage.client.WatchEvent;
-import org.apache.ignite.internal.metastorage.client.WatchListener;
+import org.apache.ignite.internal.metastorage.WatchEvent;
+import org.apache.ignite.internal.metastorage.WatchListener;
+import org.apache.ignite.internal.metastorage.dsl.Operation;
+import org.apache.ignite.internal.metastorage.impl.EntryImpl;
+import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
@@ -122,7 +123,7 @@ public class DistributedConfigurationCatchUpTest {
         vaultManager.put(MetaStorageMockWrapper.TEST_KEY, new byte[]{4, 1, 2, 3, 4}).get();
 
         // This emulates a change in MetaStorage that is not related to the configuration.
-        vaultManager.put(MetaStorageManager.APPLIED_REV, ByteUtils.longToBytes(2)).get();
+        vaultManager.put(MetaStorageManagerImpl.APPLIED_REV, ByteUtils.longToBytes(2)).get();
 
         storage = storage(wrapper);
 
@@ -202,7 +203,7 @@ public class DistributedConfigurationCatchUpTest {
                     });
 
             // This captures the listener.
-            when(mock.registerWatchByPrefix(any(), any())).then(invocation -> {
+            when(mock.registerPrefixWatch(any(), any())).then(invocation -> {
                 lsnr = invocation.getArgument(1);
 
                 return CompletableFuture.completedFuture(null);

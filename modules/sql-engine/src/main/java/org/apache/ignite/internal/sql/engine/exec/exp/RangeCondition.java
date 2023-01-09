@@ -24,14 +24,14 @@ package org.apache.ignite.internal.sql.engine.exec.exp;
  */
 public interface RangeCondition<RowT> {
     /** Lower search row. */
-    public RowT lower();
+    RowT lower();
 
     /** Upper search row. */
-    public RowT upper();
+    RowT upper();
 
     /** Inlusive search by lower row. */
-    public boolean lowerInclude();
+    boolean lowerInclude();
 
     /** Inlusive search by upper row. */
-    public boolean upperInclude();
+    boolean upperInclude();
 }

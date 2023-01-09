@@ -137,8 +137,11 @@ public class DdlCommandHandlerExceptionHandlingTest extends IgniteAbstractTest {
             e = e0;
         }
 
-        assertTrue(e != null);
-        assertTrue(e.getCause() instanceof DistributionZoneAlreadyExistsException, e.toString());
+        assertTrue(e != null, "Expected exception was not thrown.");
+        assertTrue(
+                e.getCause() instanceof DistributionZoneAlreadyExistsException,
+                "Unexpected type of exception (requires DistributionZoneAlreadyExistsException): " + e
+        );
     }
 
     @Test
@@ -147,8 +150,8 @@ public class DdlCommandHandlerExceptionHandlingTest extends IgniteAbstractTest {
 
         try {
             fut.get(5, TimeUnit.SECONDS);
-        } catch (Throwable e0) {
-            fail();
+        } catch (Throwable e) {
+            fail("Expected no exception but was: " + e);
         }
     }
 
@@ -167,8 +170,11 @@ public class DdlCommandHandlerExceptionHandlingTest extends IgniteAbstractTest {
             e = e0;
         }
 
-        assertTrue(e != null);
-        assertTrue(e.getCause() instanceof DistributionZoneNotFoundException, e.toString());
+        assertTrue(e != null, "Expected exception was not thrown.");
+        assertTrue(
+                e.getCause() instanceof DistributionZoneNotFoundException,
+                "Unexpected type of exception (requires DistributionZoneNotFoundException): " + e
+        );
     }
 
     @Test
@@ -181,8 +187,8 @@ public class DdlCommandHandlerExceptionHandlingTest extends IgniteAbstractTest {
 
         try {
             fut.get(5, TimeUnit.SECONDS);
-        } catch (Throwable e0) {
-            fail();
+        } catch (Throwable e) {
+            fail("Expected no exception but was: " + e);
         }
     }
 

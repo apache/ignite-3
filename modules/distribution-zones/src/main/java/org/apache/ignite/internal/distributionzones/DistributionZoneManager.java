@@ -27,10 +27,9 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.updateTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyVersionKey;
-import static org.apache.ignite.internal.metastorage.MetaStorageManager.APPLIED_REV;
-import static org.apache.ignite.internal.metastorage.client.Conditions.notExists;
-import static org.apache.ignite.internal.metastorage.client.Conditions.value;
-import static org.apache.ignite.internal.metastorage.client.Operations.ops;
+import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
+import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
+import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
@@ -63,14 +62,15 @@ import org.apache.ignite.internal.distributionzones.exception.DistributionZoneRe
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.metastorage.client.CompoundCondition;
-import org.apache.ignite.internal.metastorage.client.Condition;
-import org.apache.ignite.internal.metastorage.client.Entry;
-import org.apache.ignite.internal.metastorage.client.If;
-import org.apache.ignite.internal.metastorage.client.Update;
-import org.apache.ignite.internal.metastorage.client.WatchEvent;
-import org.apache.ignite.internal.metastorage.client.WatchListener;
+import org.apache.ignite.internal.metastorage.WatchEvent;
+import org.apache.ignite.internal.metastorage.WatchListener;
+import org.apache.ignite.internal.metastorage.dsl.CompoundCondition;
+import org.apache.ignite.internal.metastorage.dsl.Condition;
+import org.apache.ignite.internal.metastorage.dsl.If;
+import org.apache.ignite.internal.metastorage.dsl.Update;
+import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.schema.configuration.TableChange;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TableView;
@@ -341,6 +341,7 @@ public class DistributionZoneManager implements IgniteComponent {
      * @return Future representing pending completion of the operation. Future can be completed with:
      *      {@link DistributionZoneNotFoundException} if a zone with the given name doesn't exist,
      *      {@link IllegalArgumentException} if {@code name} is {@code null} or distribution zone name is {@code DEFAULT_ZONE_NAME},
+     *      {@link DistributionZoneBindTableException} if the zone is bound to table,
      *      {@link NodeStoppingException} if the node is stopping.
      */
     public CompletableFuture<Void> dropZone(String name) {
@@ -362,6 +363,10 @@ public class DistributionZoneManager implements IgniteComponent {
             zonesConfiguration.change(zonesChange -> zonesChange.changeDistributionZones(zonesListChange -> {
                 DistributionZoneView zoneView = zonesListChange.get(name);
 
+                if (zoneView == null) {
+                    throw new DistributionZoneNotFoundException(name);
+                }
+
                 NamedConfigurationTree<TableConfiguration, TableView, TableChange> tables = tablesConfiguration.tables();
 
                 boolean bindTable = tables.value().namedListKeys().stream()
@@ -375,10 +380,6 @@ public class DistributionZoneManager implements IgniteComponent {
                     throw new DistributionZoneBindTableException(name);
                 }
 
-                if (zoneView == null) {
-                    throw new DistributionZoneNotFoundException(name);
-                }
-
                 zonesListChange.delete(name);
             }))
                     .whenComplete((res, e) -> {
@@ -386,7 +387,8 @@ public class DistributionZoneManager implements IgniteComponent {
                             fut.completeExceptionally(
                                     unwrapDistributionZoneException(
                                             e,
-                                            DistributionZoneNotFoundException.class)
+                                            DistributionZoneNotFoundException.class,
+                                            DistributionZoneBindTableException.class)
                             );
                         } else {
                             fut.complete(null);
@@ -404,6 +406,7 @@ public class DistributionZoneManager implements IgniteComponent {
      *
      * @param name Distribution zone name.
      * @return The zone id.
+     * @throws DistributionZoneNotFoundException If the zone is not exist..
      */
     public int getZoneId(String name) {
         if (DEFAULT_ZONE_NAME.equals(name)) {
@@ -709,7 +712,8 @@ public class DistributionZoneManager implements IgniteComponent {
         }
 
         try {
-            vaultMgr.get(APPLIED_REV)
+            // TODO: Remove this call as part of https://issues.apache.org/jira/browse/IGNITE-18397
+            vaultMgr.get(MetaStorageManagerImpl.APPLIED_REV)
                     .thenApply(appliedRevision -> appliedRevision == null ? 0L : bytesToLong(appliedRevision.value()))
                     .thenAccept(vaultAppliedRevision -> {
                         if (!busyLock.enterBusy()) {
@@ -754,7 +758,7 @@ public class DistributionZoneManager implements IgniteComponent {
      * @return Future representing pending completion of the operation.
      */
     private CompletableFuture<?> registerMetaStorageWatchListener() {
-        return metaStorageManager.registerWatch(zonesLogicalTopologyKey(), new WatchListener() {
+        return metaStorageManager.registerExactWatch(zonesLogicalTopologyKey(), new WatchListener() {
                     @Override
                     public boolean onUpdate(@NotNull WatchEvent evt) {
                         if (!busyLock.enterBusy()) {

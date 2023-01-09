@@ -27,6 +27,7 @@ import static org.hamcrest.Matchers.not;
 
 import java.util.List;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -770,6 +771,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18468")
     public void testNullCondition1() {
         assertQuery("SELECT * FROM T1 WHERE val is null")
                 .matches(containsIndexScan("PUBLIC", "T1", "T1_IDX"))
@@ -781,6 +783,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18468")
     public void testNullCondition2() {
         assertQuery("SELECT * FROM T1 WHERE (val <= 5) or (val is null)")
                 .matches(containsIndexScan("PUBLIC", "T1", "T1_IDX"))
@@ -795,6 +798,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18468")
     public void testNullCondition3() {
         assertQuery("SELECT * FROM T1 WHERE (val >= 5) or (val is null)")
                 .matches(containsIndexScan("PUBLIC", "T1", "T1_IDX"))

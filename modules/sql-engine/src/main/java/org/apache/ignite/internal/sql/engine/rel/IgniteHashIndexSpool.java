@@ -48,6 +48,9 @@ public class IgniteHashIndexSpool extends AbstractIgniteSpool implements Interna
     /** Condition (used to calculate selectivity). */
     private final RexNode cond;
 
+    /** Allow NULL values. */
+    private final boolean allowNulls;
+
     /**
      * Constructor.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
@@ -57,7 +60,8 @@ public class IgniteHashIndexSpool extends AbstractIgniteSpool implements Interna
             RelTraitSet traits,
             RelNode input,
             List<RexNode> searchRow,
-            RexNode cond
+            RexNode cond,
+            boolean allowNulls
     ) {
         super(cluster, traits, Type.LAZY, input);
 
@@ -65,6 +69,7 @@ public class IgniteHashIndexSpool extends AbstractIgniteSpool implements Interna
 
         this.searchRow = searchRow;
         this.cond = cond;
+        this.allowNulls = allowNulls;
 
         keys = ImmutableBitSet.of(RexUtils.notNullKeys(searchRow));
     }
@@ -79,7 +84,8 @@ public class IgniteHashIndexSpool extends AbstractIgniteSpool implements Interna
                 input.getTraitSet().replace(IgniteConvention.INSTANCE),
                 input.getInputs().get(0),
                 input.getExpressionList("searchRow"),
-                input.getExpression("condition")
+                input.getExpression("condition"),
+                input.getBoolean("allowNulls", false)
         );
     }
 
@@ -91,13 +97,13 @@ public class IgniteHashIndexSpool extends AbstractIgniteSpool implements Interna
 
     @Override
     public IgniteRel clone(RelOptCluster cluster, List<IgniteRel> inputs) {
-        return new IgniteHashIndexSpool(cluster, getTraitSet(), inputs.get(0), searchRow, cond);
+        return new IgniteHashIndexSpool(cluster, getTraitSet(), inputs.get(0), searchRow, cond, allowNulls);
     }
 
     /** {@inheritDoc} */
     @Override
     protected Spool copy(RelTraitSet traitSet, RelNode input, Type readType, Type writeType) {
-        return new IgniteHashIndexSpool(getCluster(), traitSet, input, searchRow, cond);
+        return new IgniteHashIndexSpool(getCluster(), traitSet, input, searchRow, cond, allowNulls);
     }
 
     /** {@inheritDoc} */
@@ -112,7 +118,8 @@ public class IgniteHashIndexSpool extends AbstractIgniteSpool implements Interna
 
         return writer
                 .item("searchRow", searchRow)
-                .item("condition", cond);
+                .item("condition", cond)
+                .item("allowNulls", allowNulls);
     }
 
     /** {@inheritDoc} */
@@ -156,5 +163,10 @@ public class IgniteHashIndexSpool extends AbstractIgniteSpool implements Interna
      */
     public RexNode condition() {
         return cond;
+    }
+
+    /** Allow {@code null} comparison as equal, use in case of NOT DISTINCT FROM syntax. */
+    public boolean allowNulls() {
+        return allowNulls;
     }
 }
