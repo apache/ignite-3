@@ -367,6 +367,16 @@ public partial class LinqSqlGenerationTests
         Assert.AreEqual(expectedToString, query.ToString());
     }
 
+    [Test]
+    public void TestRemoveAll() =>
+        AssertSql("delete from PUBLIC.tbl1 as _T0", q => q.RemoveAllAsync().Result);
+
+    [Test]
+    public void TestRemoveAllWithCondition() =>
+        AssertSql(
+            "delete from PUBLIC.tbl1 as _T0 where ((_T0.KEY IS NOT DISTINCT FROM ?) and (_T0.VAL IS DISTINCT FROM ?))",
+            q => q.Where(x => x.Key == 3 && x.Val != "v-2").RemoveAllAsync().Result);
+
     [OneTimeSetUp]
     public async Task OneTimeSetUp()
     {
