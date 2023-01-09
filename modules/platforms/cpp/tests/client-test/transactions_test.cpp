@@ -32,33 +32,9 @@ using namespace ignite;
  */
 class transactions_test : public ignite_runner_suite {
 protected:
-    static void SetUpTestSuite() {
-        ignite_client_configuration cfg{NODE_ADDRS};
-        cfg.set_logger(get_logger());
-        auto client = ignite_client::start(cfg, std::chrono::seconds(30));
-
-        auto res = client.get_sql().execute(nullptr,
-            {"CREATE TABLE IF NOT EXISTS TEST(ID INT PRIMARY KEY, VAL VARCHAR)"}, {});
-
-        if (!res.was_applied()) {
-            client.get_sql().execute(nullptr, {"DELETE FROM TEST"}, {});
-        }
-
-        for (std::int32_t i = 0; i < 10; ++i) {
-            client.get_sql().execute(nullptr, {"INSERT INTO TEST VALUES (?, ?)"}, {i, "s-" + std::to_string(i)});
-        }
-    }
-
-    static void TearDownTestSuite() {
-        ignite_client_configuration cfg{NODE_ADDRS};
-        cfg.set_logger(get_logger());
-        auto client = ignite_client::start(cfg, std::chrono::seconds(30));
-
-        client.get_sql().execute(nullptr, {"DROP TABLE TEST"}, {});
-        client.get_sql().execute(nullptr, {"DROP TABLE IF EXISTS TestDdlDml"}, {});
-    }
-
     void SetUp() override {
+        clear_table1();
+
         ignite_client_configuration cfg{NODE_ADDRS};
         cfg.set_logger(get_logger());
 
@@ -66,16 +42,42 @@ protected:
     }
 
     void TearDown() override {
-        // remove all
+        clear_table1();
     }
 
     /** Ignite client. */
     ignite_client m_client;
 };
 
-TEST_F(transactions_test, transactions_start) {
+TEST_F(transactions_test, empty_transaction_rollback) {
     auto api = m_client.get_transactions();
 
     auto tx = api.begin();
+    tx.rollback();
+}
+
+TEST_F(transactions_test, empty_transaction_commit) {
+    auto api = m_client.get_transactions();
+
+    auto tx = api.begin();
+    tx.rollback();
+}
+
+TEST_F(transactions_test, commit_updates_data) {
+    auto record_view = m_client.get_tables().get_table("tbl1")->record_binary_view();
+
+    auto tx = m_client.get_transactions().begin();
+
+    auto expected = get_tuple(42, "Lorem ipsum");
+    record_view.upsert(&tx, expected);
+
+    tx.commit();
+
+    auto actual = record_view.get(nullptr, get_tuple(42));
+
+    ASSERT_TRUE(actual.has_value());
+    EXPECT_EQ(2, actual->column_count());
+    EXPECT_EQ(expected.get<int64_t>("key"), actual->get<int64_t>("key"));
+    EXPECT_EQ(expected.get<std::string>("val"), actual->get<std::string>("val"));
 }
 

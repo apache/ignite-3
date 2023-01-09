@@ -17,6 +17,9 @@
 
 #pragma once
 
+#include "ignite/client/ignite_client.h"
+#include "ignite/client/ignite_client_configuration.h"
+
 #include "gtest_logger.h"
 
 #include <gtest/gtest.h>
@@ -36,12 +39,45 @@ protected:
     static constexpr std::initializer_list<std::string_view> NODE_ADDRS = {"127.0.0.1:10942"sv, "127.0.0.1:10943"sv};
     static constexpr std::string_view TABLE_1 = "tbl1"sv;
 
+    static constexpr const char *KEY_COLUMN = "key";
+    static constexpr const char *VAL_COLUMN = "val";
+
     /**
      * Get logger.
      *
      * @return Logger for tests.
      */
     static std::shared_ptr<gtest_logger> get_logger() { return std::make_shared<gtest_logger>(false, true); }
+
+    /**
+     * Get tuple for specified column values.
+     *
+     * @param id ID.
+     * @param val Value.
+     * @return Ignite tuple instance.
+     */
+    static ignite_tuple get_tuple(int64_t id, std::string val) {
+        return {{KEY_COLUMN, id}, {VAL_COLUMN, std::move(val)}};
+    }
+
+    /**
+     * Get tuple for specified column values.
+     *
+     * @param id ID.
+     * @return Ignite tuple instance.
+     */
+    static ignite_tuple get_tuple(int64_t id) { return {{KEY_COLUMN, id}}; }
+
+    /**
+     * Clear table @c TABLE_1.
+     */
+    static void clear_table1() {
+        ignite_client_configuration cfg{NODE_ADDRS};
+        cfg.set_logger(get_logger());
+        auto client = ignite_client::start(cfg, std::chrono::seconds(30));
+
+        client.get_sql().execute(nullptr, {"DELETE FROM " + std::string(TABLE_1)}, {});
+    }
 };
 
 } // namespace ignite
