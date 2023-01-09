@@ -89,6 +89,29 @@ public partial class LinqTests
     }
 
     [Test]
+    public async Task TestUpdateAllConstantValue()
+    {
+        var view = PocoAllColumnsSqlNullableView;
+
+        for (int i = 0; i < 10; i++)
+        {
+            await view.UpsertAsync(null, new PocoAllColumnsSqlNullable(1000 + i, Int8: (sbyte?)i, Int32: i + 5));
+        }
+    }
+
+    [Test]
+    public async Task TestUpdateAllComputedValue()
+    {
+        await Task.Delay(1);
+    }
+
+    [Test]
+    public async Task TestUpdateAllWithTx()
+    {
+        await Task.Delay(1);
+    }
+
+    [Test]
     public void TestUpdateAllWithResultOperatorsIsNotSupported()
     {
         var ex = Assert.ThrowsAsync<NotSupportedException>(
