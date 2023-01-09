@@ -323,8 +323,14 @@ public class ErrorGroups {
         /** Storage error group. */
         public static final ErrorGroup STORAGE_ERR_GROUP = ErrorGroup.newGroup("STORAGE", 9);
 
+        /** Default error code when nothing else is specified. */
+        public static final int GENERIC_ERR = STORAGE_ERR_GROUP.registerErrorCode(1);
+
         /** Failed to create a directory. */
-        public static final int DIRECTORY_CREATION_ERR = STORAGE_ERR_GROUP.registerErrorCode(1);
+        public static final int DIRECTORY_CREATION_ERR = STORAGE_ERR_GROUP.registerErrorCode(2);
+
+        /** Operation on closed storage. */
+        public static final int ALREADY_CLOSED_ERR = STORAGE_ERR_GROUP.registerErrorCode(3);
     }
 
     /** Distribution zones error group. */

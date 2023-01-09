@@ -26,6 +26,7 @@ import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.storage.rocksdb.index.RocksDbSortedIndexStorage;
 import org.rocksdb.RocksDBException;
+import org.rocksdb.WriteBatch;
 
 /**
  * Class that represents a Sorted Index defined for all partitions of a Table.
@@ -35,7 +36,7 @@ class SortedIndex implements ManuallyCloseable {
 
     private final ColumnFamily indexCf;
 
-    private final ConcurrentMap<Integer, SortedIndexStorage> storages = new ConcurrentHashMap<>();
+    private final ConcurrentMap<Integer, RocksDbSortedIndexStorage> storages = new ConcurrentHashMap<>();
 
     SortedIndex(ColumnFamily indexCf, SortedIndexDescriptor descriptor) {
         this.descriptor = descriptor;
@@ -67,6 +68,20 @@ class SortedIndex implements ManuallyCloseable {
             indexCf.destroy();
         } catch (RocksDBException e) {
             throw new StorageException("Unable to destroy index " + descriptor.id(), e);
+        }
+    }
+
+    /**
+     * Deletes the data associated with the partition in the index, using passed write batch for the operation.
+     *
+     * @throws RocksDBException If failed to delete data.
+     */
+    void destroy(int partitionId, WriteBatch writeBatch) throws RocksDBException {
+        RocksDbSortedIndexStorage sortedIndex = storages.remove(partitionId);
+
+        if (sortedIndex != null) {
+            sortedIndex.close();
+            sortedIndex.destroyData(writeBatch);
         }
     }
 
