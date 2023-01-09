@@ -277,14 +277,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
         }
     }
 
-    /**
-     * Register watch listener by key.
-     *
-     * @param key The target key.
-     * @param lsnr Listener which will be notified for each update.
-     * @return Subscription identifier. Could be used in {@link #unregisterWatch} method in order to cancel subscription
-     */
-    public synchronized CompletableFuture<Long> registerWatch(ByteArray key, WatchListener lsnr) {
+    @Override
+    public synchronized CompletableFuture<Long> registerExactWatch(ByteArray key, WatchListener lsnr) {
         if (!busyLock.enterBusy()) {
             return CompletableFuture.failedFuture(new NodeStoppingException());
         }
@@ -319,25 +313,14 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
         }
     }
 
-    /**
-     * Register watch listener by range of keys.
-     *
-     * @param from Start key of range.
-     * @param to End key of range (exclusively).
-     * @param lsnr Listener which will be notified for each update.
-     * @return future with id of registered watch.
-     */
-    public synchronized CompletableFuture<Long> registerWatch(
-            @NotNull ByteArray from,
-            @NotNull ByteArray to,
-            @NotNull WatchListener lsnr
-    ) {
+    @Override
+    public synchronized CompletableFuture<Long> registerRangeWatch(ByteArray keyFrom, ByteArray keyTo, WatchListener lsnr) {
         if (!busyLock.enterBusy()) {
             return CompletableFuture.failedFuture(new NodeStoppingException());
         }
 
         try {
-            long watchId = watchAggregator.add(from, to, lsnr);
+            long watchId = watchAggregator.add(keyFrom, keyTo, lsnr);
 
             return updateWatches().thenApply(uuid -> watchId);
         } finally {
@@ -346,7 +329,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     }
 
     @Override
-    public synchronized CompletableFuture<Long> registerWatchByPrefix(ByteArray key, WatchListener lsnr) {
+    public synchronized CompletableFuture<Long> registerPrefixWatch(ByteArray key, WatchListener lsnr) {
         if (!busyLock.enterBusy()) {
             return CompletableFuture.failedFuture(new NodeStoppingException());
         }
