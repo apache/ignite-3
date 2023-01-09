@@ -200,8 +200,7 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
             return;
         }
 
-        // TODO: IGNITE-18137 DML: queryModel.ResultOperators.LastOrDefault() is UpdateAllResultOperator;
-        var isUpdateQuery = false;
+        var isUpdateQuery = queryModel.ResultOperators.LastOrDefault() is UpdateAllResultOperator;
         if (!isUpdateQuery)
         {
             _builder.Append("from ");
@@ -222,8 +221,7 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
 
         if (isUpdateQuery)
         {
-            // TODO: IGNITE-18137 DML
-            // BuildSetClauseForUpdateAll(queryModel);
+            BuildSetClauseForUpdateAll(queryModel);
         }
     }
 
@@ -237,19 +235,15 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
     {
         _aliases.Push(copyAliases);
 
-        // TODO: IGNITE-18137 DML
         var lastResultOp = queryModel.ResultOperators.LastOrDefault();
         if (lastResultOp is RemoveAllResultOperator)
         {
             VisitDmlOperator(queryModel, "delete ", nameof(IgniteQueryableExtensions.RemoveAllAsync));
         }
-
-        /*
         else if (lastResultOp is UpdateAllResultOperator)
         {
-            VisitUpdateAllOperator(queryModel);
+            VisitDmlOperator(queryModel, "update ", nameof(IgniteQueryableExtensions.UpdateAllAsync));
         }
-        */
         else if (queryModel.ResultOperators.Count == 1 && queryModel.ResultOperators[0] is AnyResultOperator or AllResultOperator)
         {
             // All is different from Any: it always has a predicate inside.
@@ -671,5 +665,34 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
 
         // FROM ... WHERE ... JOIN ...
         base.VisitQueryModel(queryModel);
+    }
+
+    /// <summary>
+    /// Builds SET clause of UPDATE statement.
+    /// </summary>
+    private void BuildSetClauseForUpdateAll(QueryModel queryModel)
+    {
+        if (queryModel.ResultOperators.LastOrDefault() is not UpdateAllResultOperator updateAllResultOperator)
+        {
+            return;
+        }
+
+        _builder.Append("set ");
+        var first = true;
+
+        foreach (var update in updateAllResultOperator.Updates)
+        {
+            if (!first)
+            {
+                _builder.Append(", ");
+            }
+
+            first = false;
+            BuildSqlExpression(update.Selector);
+            _builder.Append(" = ");
+            BuildSqlExpression(update.Value, visitSubqueryModel: true);
+        }
+
+        _builder.Append(' ');
     }
 }

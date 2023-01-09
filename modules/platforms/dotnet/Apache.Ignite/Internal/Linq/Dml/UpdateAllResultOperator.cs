@@ -44,13 +44,10 @@ internal sealed class UpdateAllResultOperator : ValueFromSequenceResultOperatorB
     /// <summary>
     /// Gets the members updates.
     /// </summary>
-    public MemberUpdateContainer[] Updates { get; private set; }
+    public IReadOnlyList<MemberUpdateContainer> Updates { get; }
 
     /** <inheritdoc /> */
-    public override IStreamedDataInfo GetOutputDataInfo(IStreamedDataInfo inputInfo)
-    {
-        return new StreamedScalarValueInfo(typeof(int));
-    }
+    public override IStreamedDataInfo GetOutputDataInfo(IStreamedDataInfo inputInfo) => new StreamedScalarValueInfo(typeof(int));
 
     /** <inheritdoc /> */
     [ExcludeFromCodeCoverage]
