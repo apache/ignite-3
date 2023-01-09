@@ -28,7 +28,7 @@ using Remotion.Linq.Clauses.ResultOperators;
 using Remotion.Linq.Clauses.StreamedData;
 
 /// <summary>
-/// Represents an operator for <see cref="IgniteQueryableExtensions.RemoveAllAsync{T}(System.Linq.IQueryable{T})"/>.
+/// Represents an operator for <see cref="IgniteQueryableExtensions.ExecuteUpdateAsync{T}"/>.
 /// </summary>
 internal sealed class UpdateAllResultOperator : ValueFromSequenceResultOperatorBase
 {

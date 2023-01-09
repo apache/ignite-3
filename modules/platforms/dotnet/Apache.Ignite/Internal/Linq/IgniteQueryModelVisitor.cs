@@ -238,11 +238,11 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
         var lastResultOp = queryModel.ResultOperators.LastOrDefault();
         if (lastResultOp is RemoveAllResultOperator)
         {
-            VisitDmlOperator(queryModel, "delete ", nameof(IgniteQueryableExtensions.RemoveAllAsync));
+            VisitDmlOperator(queryModel, "delete ", nameof(IgniteQueryableExtensions.ExecuteDeleteAsync));
         }
         else if (lastResultOp is UpdateAllResultOperator)
         {
-            VisitDmlOperator(queryModel, "update ", nameof(IgniteQueryableExtensions.UpdateAllAsync));
+            VisitDmlOperator(queryModel, "update ", nameof(IgniteQueryableExtensions.ExecuteUpdateAsync));
         }
         else if (queryModel.ResultOperators.Count == 1 && queryModel.ResultOperators[0] is AnyResultOperator or AllResultOperator)
         {

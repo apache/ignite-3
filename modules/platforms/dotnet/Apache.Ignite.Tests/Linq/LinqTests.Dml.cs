@@ -71,8 +71,8 @@ public partial class LinqTests
         var countBefore = await query.CountAsync(condition);
 
         var deleteRes = inlineCondition
-            ? await query.RemoveAllAsync(condition)
-            : await query.RemoveAllAsync();
+            ? await query.ExecuteDeleteAsync(condition)
+            : await query.ExecuteDeleteAsync();
 
         var countAfter = await query.CountAsync(condition);
         var tableSizeAfter = await view.AsQueryable().CountAsync();
@@ -88,7 +88,7 @@ public partial class LinqTests
     {
         await using (var tx = await Client.Transactions.BeginAsync())
         {
-            var rowCount = await PocoView.AsQueryable(tx).RemoveAllAsync();
+            var rowCount = await PocoView.AsQueryable(tx).ExecuteDeleteAsync();
             Assert.Greater(rowCount, 0);
 
             CollectionAssert.IsEmpty(await PocoView.AsQueryable(tx).ToListAsync());
@@ -102,7 +102,7 @@ public partial class LinqTests
     public async Task TestUpdateAllConstantValue()
     {
         var query = PocoAllColumnsSqlNullableView.AsQueryable().Where(x => x.Key >= 1000);
-        await query.UpdateAllAsync(row => row.SetProperty(x => x.Str, "updated"));
+        await query.ExecuteUpdateAsync(row => row.SetProperty(x => x.Str, "updated"));
 
         var res = await query.Select(x => x.Str).Distinct().ToListAsync();
         CollectionAssert.AreEqual(new[] { "updated" }, res);
@@ -112,7 +112,7 @@ public partial class LinqTests
     public async Task TestUpdateAllComputedValue()
     {
         var query = PocoAllColumnsSqlNullableView.AsQueryable().Where(x => x.Key >= 1000);
-        await query.UpdateAllAsync(row => row.SetProperty(x => x.Str, x => "updated_" + x.Key + "_"));
+        await query.ExecuteUpdateAsync(row => row.SetProperty(x => x.Str, x => "updated_" + x.Key + "_"));
 
         var res = await query.OrderBy(x => x.Key).Select(x => x.Str).ToListAsync();
 
@@ -129,7 +129,7 @@ public partial class LinqTests
         {
             await PocoAllColumnsSqlNullableView.AsQueryable(tx)
                 .Where(x => x.Key >= 1000)
-                .UpdateAllAsync(row => row.SetProperty(x => x.Str, x => "updated_" + x.Key + "_"));
+                .ExecuteUpdateAsync(row => row.SetProperty(x => x.Str, x => "updated_" + x.Key + "_"));
 
             Assert.AreEqual("updated_1001_", PocoAllColumnsSqlNullableView.AsQueryable(tx).Single(x => x.Key == 1001).Str);
         }
@@ -140,7 +140,7 @@ public partial class LinqTests
     [Test]
     public void TestRemoveAllWithResultOperatorsIsNotSupported()
     {
-        var ex = Assert.ThrowsAsync<NotSupportedException>(() => PocoView.AsQueryable().Skip(1).Take(2).RemoveAllAsync());
+        var ex = Assert.ThrowsAsync<NotSupportedException>(() => PocoView.AsQueryable().Skip(1).Take(2).ExecuteDeleteAsync());
         Assert.AreEqual("RemoveAllAsync can not be combined with result operators: Skip(1), Take(2)", ex!.Message);
     }
 
@@ -148,7 +148,7 @@ public partial class LinqTests
     public void TestUpdateAllWithResultOperatorsIsNotSupported()
     {
         var ex = Assert.ThrowsAsync<NotSupportedException>(
-            () => PocoView.AsQueryable().DefaultIfEmpty().UpdateAllAsync(x => x.SetProperty(p => p.Key, 2)));
+            () => PocoView.AsQueryable().DefaultIfEmpty().ExecuteUpdateAsync(x => x.SetProperty(p => p.Key, 2)));
 
         Assert.AreEqual("UpdateAllAsync can not be combined with result operators: DefaultIfEmpty()", ex!.Message);
     }

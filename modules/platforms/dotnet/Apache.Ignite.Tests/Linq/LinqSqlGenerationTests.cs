@@ -369,31 +369,31 @@ public partial class LinqSqlGenerationTests
 
     [Test]
     public void TestRemoveAll() =>
-        AssertSql("delete from PUBLIC.tbl1 as _T0", q => q.RemoveAllAsync().Result);
+        AssertSql("delete from PUBLIC.tbl1 as _T0", q => q.ExecuteDeleteAsync().Result);
 
     [Test]
     public void TestRemoveAllWithCondition() =>
         AssertSql(
             "delete from PUBLIC.tbl1 as _T0 where ((_T0.KEY IS NOT DISTINCT FROM ?) and (_T0.VAL IS DISTINCT FROM ?))",
-            q => q.Where(x => x.Key == 3 && x.Val != "v-2").RemoveAllAsync().Result);
+            q => q.Where(x => x.Key == 3 && x.Val != "v-2").ExecuteDeleteAsync().Result);
 
     [Test]
     public void TestRemoveAllWithInlineCondition() =>
         AssertSql(
             "delete from PUBLIC.tbl1 as _T0 where ((_T0.KEY IS NOT DISTINCT FROM ?) and (_T0.VAL IS DISTINCT FROM ?))",
-            q => q.RemoveAllAsync(x => x.Key == 3 && x.Val != "v-2").Result);
+            q => q.ExecuteDeleteAsync(x => x.Key == 3 && x.Val != "v-2").Result);
 
     [Test]
     public void TestUpdateAllWithConstantValue() =>
         AssertSql(
             "update PUBLIC.tbl1 as _T0 set VAL = ? where (_T0.KEY IS NOT DISTINCT FROM ?)",
-            q => q.Where(x => x.Key == 3).UpdateAllAsync(row => row.SetProperty(x => x.Val, "1")).Result);
+            q => q.Where(x => x.Key == 3).ExecuteUpdateAsync(row => row.SetProperty(x => x.Val, "1")).Result);
 
     [Test]
     public void TestUpdateAllWithComputedValue() =>
         AssertSql(
             "update PUBLIC.tbl1 as _T0 set VAL = concat(concat(_T0.VAL, ?), cast(_T0.KEY as varchar)) where (_T0.KEY > ?)",
-            q => q.Where(x => x.Key > 3).UpdateAllAsync(row => row.SetProperty(x => x.Val, x => x.Val + "_" + x.Key)).Result);
+            q => q.Where(x => x.Key > 3).ExecuteUpdateAsync(row => row.SetProperty(x => x.Val, x => x.Val + "_" + x.Key)).Result);
 
     [OneTimeSetUp]
     public async Task OneTimeSetUp()

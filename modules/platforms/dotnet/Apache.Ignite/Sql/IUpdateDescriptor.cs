@@ -20,7 +20,7 @@ namespace Apache.Ignite.Sql;
 using System;
 
 /// <summary>
-/// Interface to provide update expressions for <see cref="IgniteQueryableExtensions.UpdateAllAsync{T}" />.
+/// Interface to provide update expressions for <see cref="IgniteQueryableExtensions.ExecuteUpdateAsync{T}" />.
 /// </summary>
 /// <typeparam name="T">Query element type.</typeparam>
 public interface IUpdateDescriptor<out T>

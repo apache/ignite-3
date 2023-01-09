@@ -28,7 +28,7 @@ using Remotion.Linq.Parsing.Structure.IntermediateModel;
 
 /// <summary>
 /// Represents a <see cref="MethodCallExpression"/> for
-/// <see cref="IgniteQueryableExtensions.RemoveAllAsync{T}(IQueryable{T})"/>.
+/// <see cref="IgniteQueryableExtensions.ExecuteDeleteAsync{T}(System.Linq.IQueryable{T})"/>.
 /// When user calls RemoveAll, this node is generated.
 /// </summary>
 internal sealed class RemoveAllExpressionNode : ResultOperatorExpressionNodeBase
@@ -38,7 +38,7 @@ internal sealed class RemoveAllExpressionNode : ResultOperatorExpressionNodeBase
     /// </summary>
     public static readonly IReadOnlyList<MethodInfo> RemoveAllMethodInfos = typeof(IgniteQueryableExtensions)
         .GetMethods()
-        .Where(x => x.Name == nameof(IgniteQueryableExtensions.RemoveAllAsync))
+        .Where(x => x.Name == nameof(IgniteQueryableExtensions.ExecuteDeleteAsync))
         .ToList();
 
     /// <summary>

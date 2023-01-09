@@ -42,7 +42,7 @@ public static partial class IgniteQueryableExtensions
     /// <typeparam name="T">Element type.</typeparam>
     /// <param name="query">Query.</param>
     /// <returns>Affected row count.</returns>
-    public static async Task<long> RemoveAllAsync<T>(this IQueryable<T> query)
+    public static async Task<long> ExecuteDeleteAsync<T>(this IQueryable<T> query)
     {
         IgniteArgumentCheck.NotNull(query, nameof(query));
 
@@ -63,7 +63,7 @@ public static partial class IgniteQueryableExtensions
     /// <param name="query">Query.</param>
     /// <param name="predicate">Predicate.</param>
     /// <returns>Affected row count.</returns>
-    public static async Task<long> RemoveAllAsync<T>(this IQueryable<T> query, Expression<Func<T, bool>> predicate)
+    public static async Task<long> ExecuteDeleteAsync<T>(this IQueryable<T> query, Expression<Func<T, bool>> predicate)
     {
         IgniteArgumentCheck.NotNull(query, nameof(query));
 
@@ -84,7 +84,7 @@ public static partial class IgniteQueryableExtensions
     /// <param name="query">Query.</param>
     /// <param name="updateDescriptor">Update descriptor.</param>
     /// <returns>Affected row count.</returns>
-    public static async Task<long> UpdateAllAsync<T>(
+    public static async Task<long> ExecuteUpdateAsync<T>(
         this IQueryable<T> query,
         Expression<Func<IUpdateDescriptor<T>, IUpdateDescriptor<T>>> updateDescriptor)
     {

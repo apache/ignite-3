@@ -31,7 +31,7 @@ using Remotion.Linq.Parsing.Structure.IntermediateModel;
 
 /// <summary>
 /// Represents a <see cref="MethodCallExpression" /> for
-/// <see cref="IgniteQueryableExtensions.UpdateAllAsync{T}" />.
+/// <see cref="IgniteQueryableExtensions.ExecuteUpdateAsync{T}" />.
 /// When user calls UpdateAll, this node is generated.
 /// </summary>
 internal sealed class UpdateAllExpressionNode : ResultOperatorExpressionNodeBase
@@ -41,7 +41,7 @@ internal sealed class UpdateAllExpressionNode : ResultOperatorExpressionNodeBase
     /// </summary>
     public static readonly IReadOnlyList<MethodInfo> UpdateAllMethodInfos = typeof(IgniteQueryableExtensions)
         .GetMethods()
-        .Where(x => x.Name == nameof(IgniteQueryableExtensions.UpdateAllAsync))
+        .Where(x => x.Name == nameof(IgniteQueryableExtensions.ExecuteUpdateAsync))
         .ToList();
 
     /// <summary>
