@@ -50,8 +50,7 @@ public static partial class IgniteQueryableExtensions
         var provider = query.ToQueryableInternal().Provider;
         var expression = Expression.Call(null, method, query.Expression);
 
-        // TODO: ExecuteScalar or something.
-        return await provider.ExecuteSingleAsync<int>(expression).ConfigureAwait(false);
+        return await provider.ExecuteNonQueryAsync(expression).ConfigureAwait(false);
     }
 
     /// <summary>
