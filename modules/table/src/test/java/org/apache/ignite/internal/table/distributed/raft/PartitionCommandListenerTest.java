@@ -333,7 +333,7 @@ public class PartitionCommandListenerTest {
         verify(txStateStorage, never()).compareAndSet(any(UUID.class), any(TxState.class), any(TxMeta.class), anyLong(), anyLong());
         verify(txStateStorage, times(1)).lastApplied(anyLong(), anyLong());
 
-        assertThat(commandClosureResultCaptor.getAllValues(), containsInAnyOrder(new Throwable[]{null, null}));
+        assertThat(commandClosureResultCaptor.getAllValues(), containsInAnyOrder(new Boolean[]{false, false}));
     }
 
     @Test

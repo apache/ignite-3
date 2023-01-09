@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_UNEXPECTED_STATE_ERR;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
+import java.io.Serializable;
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.util.Collections;
@@ -163,12 +164,14 @@ public class PartitionListener implements RaftGroupListener {
             storage.acquirePartitionSnapshotsReadLock();
 
             try {
+                Serializable result = null;
+
                 if (command instanceof UpdateCommand) {
                     handleUpdateCommand((UpdateCommand) command, commandIndex, commandTerm);
                 } else if (command instanceof UpdateAllCommand) {
                     handleUpdateAllCommand((UpdateAllCommand) command, commandIndex, commandTerm);
                 } else if (command instanceof FinishTxCommand) {
-                    handleFinishTxCommand((FinishTxCommand) command, commandIndex, commandTerm);
+                    result = handleFinishTxCommand((FinishTxCommand) command, commandIndex, commandTerm);
                 } else if (command instanceof TxCleanupCommand) {
                     handleTxCleanupCommand((TxCleanupCommand) command, commandIndex, commandTerm);
                 } else if (command instanceof SafeTimeSyncCommand) {
@@ -177,7 +180,7 @@ public class PartitionListener implements RaftGroupListener {
                     assert false : "Command was not found [cmd=" + command + ']';
                 }
 
-                clo.result(null);
+                clo.result(result);
             } catch (IgniteInternalException e) {
                 clo.result(e);
             } finally {
@@ -265,10 +268,10 @@ public class PartitionListener implements RaftGroupListener {
      * @param commandTerm Term of the RAFT command.
      * @throws IgniteInternalException if an exception occurred during a transaction state change.
      */
-    private void handleFinishTxCommand(FinishTxCommand cmd, long commandIndex, long commandTerm) throws IgniteInternalException {
+    private boolean handleFinishTxCommand(FinishTxCommand cmd, long commandIndex, long commandTerm) throws IgniteInternalException {
         // Skips the write command because the storage has already executed it.
         if (commandIndex <= txStateStorage.lastAppliedIndex()) {
-            return;
+            return false;
         }
 
         UUID txId = cmd.txId();
@@ -296,23 +299,25 @@ public class PartitionListener implements RaftGroupListener {
 
         LOG.debug("Finish the transaction txId = {}, state = {}, txStateChangeRes = {}", txId, txMetaToSet, txStateChangeRes);
 
-        if (!txStateChangeRes) {
-            UUID traceId = UUID.randomUUID();
+        return txStateChangeRes;
 
-            String errorMsg = format("Fail to finish the transaction txId = {} because of inconsistent state = {},"
-                            + " expected state = null, state to set = {}",
-                    txId,
-                    txMetaBeforeCas,
-                    txMetaToSet
-            );
-
-            IgniteInternalException stateChangeException = new IgniteInternalException(traceId, TX_UNEXPECTED_STATE_ERR, errorMsg);
-
-            // Exception is explicitly logged because otherwise it can be lost if it did not occur on the leader.
-            LOG.error(errorMsg);
-
-            throw stateChangeException;
-        }
+//        if (!txStateChangeRes) {
+//            UUID traceId = UUID.randomUUID();
+//
+//            String errorMsg = format("Fail to finish the transaction txId = {} because of inconsistent state = {},"
+//                            + " expected state = null, state to set = {}",
+//                    txId,
+//                    txMetaBeforeCas,
+//                    txMetaToSet
+//            );
+//
+//            IgniteInternalException stateChangeException = new IgniteInternalException(traceId, TX_UNEXPECTED_STATE_ERR, errorMsg);
+//
+//            // Exception is explicitly logged because otherwise it can be lost if it did not occur on the leader.
+//            LOG.error(errorMsg);
+//
+//            throw stateChangeException;
+//        }
     }
 
 

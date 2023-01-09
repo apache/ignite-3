@@ -256,8 +256,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
 
                         result = true;
                     } else {
-                        result = txMetaExisting.txState() == txMeta.txState()
-                                && Objects.equals(txMetaExisting.commitTimestamp(), txMeta.commitTimestamp());
+                        result = false;
                     }
                 } else {
                     result = false;

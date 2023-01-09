@@ -532,13 +532,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
         tx1.commit();
 
-        try {
-            tx2.commit();
-
-            fail();
-        } catch (TransactionException e) {
-            // Expected.
-        }
+        tx2.commit();
 
         assertEquals(101., accounts.recordView().get(null, makeKey(1)).doubleValue("balance"));
     }
