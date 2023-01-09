@@ -19,6 +19,7 @@ namespace Apache.Ignite.Tests.Linq;
 
 using System;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Threading.Tasks;
 using Ignite.Sql;
 using NUnit.Framework;
@@ -42,18 +43,21 @@ public partial class LinqTests
 
         var query = view.AsQueryable();
 
+        Expression<Func<PocoAllColumnsSqlNullable, bool>> condition = x => x.Key >= 1000;
+
         if (!inlineCondition)
         {
-            query = query.Where(x => x.Key >= 1000);
+            // Condition can be in a separate "Where" clause, or directly in the "RemoveAllAsync".
+            query = query.Where(condition);
         }
 
-        var countBefore = await query.CountAsync();
+        var countBefore = await query.CountAsync(condition);
 
         var deleteRes = inlineCondition
-            ? await query.RemoveAllAsync(x => x.Key >= 1000)
+            ? await query.RemoveAllAsync(condition)
             : await query.RemoveAllAsync();
 
-        var countAfter = await query.CountAsync();
+        var countAfter = await query.CountAsync(condition);
         var tableSizeAfter = await view.AsQueryable().CountAsync();
 
         Assert.AreEqual(10, countBefore);
