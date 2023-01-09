@@ -127,15 +127,19 @@ public partial class LinqTests
     {
         var query = PocoAllColumnsSqlNullableView.AsQueryable().Where(x => x.Key >= 1000);
         await query.ExecuteUpdateAsync(row => row
-            .SetProperty(x => x.Int32, 1)
-            .SetProperty(x => x.Int16, x => (short?)x.Key + 1)
-            .SetProperty(x => x.Str, x => x.Key + "!"));
+            .SetProperty(x => x.Int16, (short)16)
+            .SetProperty(x => x.Int32, x => 32)
+            .SetProperty(x => x.Str, x => string.Empty + x.Key + "!"));
 
         var res = await query.OrderBy(x => x.Key).ToListAsync();
 
-        Assert.AreEqual(1, res[0].Int32);
-        Assert.AreEqual(1002, res[0].Int16);
+        Assert.AreEqual(16, res[0].Int16);
+        Assert.AreEqual(32, res[0].Int32);
         Assert.AreEqual("1001!", res[0].Str);
+
+        Assert.AreEqual(16, res[1].Int16);
+        Assert.AreEqual(32, res[1].Int32);
+        Assert.AreEqual("1002!", res[1].Str);
 
         Assert.AreEqual(10, res.Count);
     }
