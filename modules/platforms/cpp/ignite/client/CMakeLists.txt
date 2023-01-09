@@ -44,6 +44,7 @@ set(PUBLIC_HEADERS
     table/table.h
     table/tables.h
     transaction/transaction.h
+    transaction/transactions.h
 )
 
 add_library(${TARGET} SHARED ${SOURCES})

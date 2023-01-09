@@ -45,7 +45,7 @@ class tables {
 
 public:
     // Default
-    tables() = default;
+    tables() = delete;
 
     /**
      * Gets a table by name, if it was created before.

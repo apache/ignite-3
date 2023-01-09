@@ -18,8 +18,9 @@
 #pragma once
 
 #include <ignite/client/detail/cluster_connection.h>
-#include <ignite/client/detail/table/tables_impl.h>
 #include <ignite/client/detail/sql/sql_impl.h>
+#include <ignite/client/detail/table/tables_impl.h>
+#include <ignite/client/detail/transaction/transactions_impl.h>
 #include <ignite/client/ignite_client_configuration.h>
 
 #include <ignite/common/ignite_result.h>
@@ -91,6 +92,13 @@ public:
      */
     [[nodiscard]] std::shared_ptr<sql_impl> get_sql_impl() const { return m_sql; }
 
+    /**
+     * Get transactions management API implementation.
+     *
+     * @return Transactions management API implementation.
+     */
+    [[nodiscard]] std::shared_ptr<transactions_impl> get_transactions_impl() const { return m_transactions; }
+
 private:
     /** Configuration. */
     const ignite_client_configuration m_configuration;
@@ -103,6 +111,9 @@ private:
 
     /** SQL. */
     std::shared_ptr<sql_impl> m_sql;
+
+    /** Transactions. */
+    std::shared_ptr<transactions_impl> m_transactions;
 };
 
 } // namespace ignite::detail

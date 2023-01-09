@@ -20,47 +20,36 @@
 #include "ignite/common/config.h"
 #include "ignite/common/ignite_result.h"
 
+#include <memory>
+
 namespace ignite {
 
+namespace detail {
+class transactions_impl;
+}
+
 /**
- * Ignite transaction.
+ * Ignite transactions.
  */
-class transaction {
+class transactions {
+    friend class ignite_client;
 public:
-    // Default
-    transaction() = default;
+    // Delete
+    transactions() = delete;
 
-    /**
-     * Commits the transaction.
-     */
-    IGNITE_API void commit() {
-        return sync<void>([this](auto callback) { commit_async(std::move(callback)); });
-    }
 
-    /**
-     * Commits the transaction asynchronously.
-     */
-    IGNITE_API void commit_async(ignite_callback<void> on_complete) {
-        (void) on_complete;
-        throw ignite_error("Transactions are not yet supported");
-    }
-
-    /**
-     * Rollbacks the transaction.
-     */
-    IGNITE_API void rollback() {
-        return sync<void>([this](auto callback) { rollback_async(std::move(callback)); });
-    }
-
-    /**
-     * Rollbacks the transaction asynchronously.
-     */
-    IGNITE_API void rollback_async(ignite_callback<void> on_complete) {
-        (void) on_complete;
-        throw ignite_error("Transactions are not yet supported");
-    }
 
 private:
+    /**
+     * Constructor
+     *
+     * @param impl Implementation
+     */
+    explicit transactions(std::shared_ptr<detail::transactions_impl> impl)
+        : m_impl(std::move(impl)) {}
+
+    /** Implementation. */
+    std::shared_ptr<detail::transactions_impl> m_impl;
 };
 
 } // namespace ignite

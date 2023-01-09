@@ -23,43 +23,19 @@
 namespace ignite {
 
 /**
- * Ignite transaction.
+ * Ignite transactions.
  */
-class transaction {
+class transactions_impl {
 public:
     // Default
-    transaction() = default;
+    ~transactions_impl() = default;
+    transactions_impl(transactions_impl &&) noexcept = default;
+    transactions_impl &operator=(transactions_impl &&) noexcept = default;
 
-    /**
-     * Commits the transaction.
-     */
-    IGNITE_API void commit() {
-        return sync<void>([this](auto callback) { commit_async(std::move(callback)); });
-    }
-
-    /**
-     * Commits the transaction asynchronously.
-     */
-    IGNITE_API void commit_async(ignite_callback<void> on_complete) {
-        (void) on_complete;
-        throw ignite_error("Transactions are not yet supported");
-    }
-
-    /**
-     * Rollbacks the transaction.
-     */
-    IGNITE_API void rollback() {
-        return sync<void>([this](auto callback) { rollback_async(std::move(callback)); });
-    }
-
-    /**
-     * Rollbacks the transaction asynchronously.
-     */
-    IGNITE_API void rollback_async(ignite_callback<void> on_complete) {
-        (void) on_complete;
-        throw ignite_error("Transactions are not yet supported");
-    }
-
+    // Deleted
+    transactions_impl() = delete;
+    transactions_impl(const transactions_impl &) = delete;
+    transactions_impl &operator=(const transactions_impl &) = delete;
 private:
 };
 

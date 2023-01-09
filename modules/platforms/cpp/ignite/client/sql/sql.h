@@ -39,8 +39,8 @@ class sql_impl;
 class sql {
     friend class ignite_client;
 public:
-    // Default
-    sql() = default;
+    // Delete
+    sql() = delete;
 
     /**
      * Executes single SQL statement asynchronously and returns rows.
