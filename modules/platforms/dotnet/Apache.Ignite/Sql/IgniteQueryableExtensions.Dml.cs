@@ -71,7 +71,7 @@ public static partial class IgniteQueryableExtensions
         var provider = query.ToQueryableInternal().Provider;
         var expression = Expression.Call(null, method, query.Expression, Expression.Quote(predicate));
 
-        return await provider.ExecuteSingleAsync<int>(expression).ConfigureAwait(false);
+        return await provider.ExecuteNonQueryAsync(expression).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -92,9 +92,10 @@ public static partial class IgniteQueryableExtensions
         IgniteArgumentCheck.NotNull(query, nameof(query));
         IgniteArgumentCheck.NotNull(updateDescriptor, nameof(updateDescriptor));
 
-        // TODO
-        await Task.Delay(1).ConfigureAwait(false);
+        var method = UpdateAllExpressionNode.UpdateAllMethodInfo.MakeGenericMethod(typeof(T));
+        var provider = query.ToQueryableInternal().Provider;
+        var expression = Expression.Call(null, method, query.Expression);
 
-        return 0;
+        return await provider.ExecuteNonQueryAsync(expression).ConfigureAwait(false);
     }
 }
