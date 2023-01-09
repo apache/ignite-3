@@ -35,42 +35,45 @@ import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.storage.pagememory.mv.AbstractPageMemoryMvPartitionStorage;
-import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.lang.IgniteStringFormatter;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Abstract table storage implementation based on {@link PageMemory}.
  */
 public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
-    protected final TableConfiguration tableCfg;
+    protected final TableConfiguration tableConfig;
 
-    protected TablesConfiguration tablesConfiguration;
+    protected final TablesConfiguration tablesConfig;
 
     protected volatile boolean started;
 
     protected volatile AtomicReferenceArray<AbstractPageMemoryMvPartitionStorage> mvPartitions;
 
-    protected final ConcurrentMap<Integer, CompletableFuture<Void>> partitionIdDestroyFutureMap = new ConcurrentHashMap<>();
+    protected final ConcurrentMap<Integer, CompletableFuture<Void>> destroyFutureByPartitionId = new ConcurrentHashMap<>();
+
+    protected final ConcurrentMap<Integer, CompletableFuture<Void>> rebalanceFutureByPartitionId = new ConcurrentHashMap<>();
 
     /**
      * Constructor.
      *
-     * @param tableCfg Table configuration.
+     * @param tableConfig Table configuration.
+     * @param tablesConfig Tables configuration.
      */
-    protected AbstractPageMemoryTableStorage(TableConfiguration tableCfg, TablesConfiguration tablesCfg) {
-        this.tableCfg = tableCfg;
-        tablesConfiguration = tablesCfg;
+    protected AbstractPageMemoryTableStorage(TableConfiguration tableConfig, TablesConfiguration tablesConfig) {
+        this.tableConfig = tableConfig;
+        this.tablesConfig = tablesConfig;
     }
 
     @Override
     public TableConfiguration configuration() {
-        return tableCfg;
+        return tableConfig;
     }
 
     @Override
     public TablesConfiguration tablesConfiguration() {
-        return tablesConfiguration;
+        return tablesConfig;
     }
 
     /**
@@ -80,7 +83,7 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
 
     @Override
     public void start() throws StorageException {
-        TableView tableView = tableCfg.value();
+        TableView tableView = tableConfig.value();
 
         mvPartitions = new AtomicReferenceArray<>(tableView.partitions());
 
@@ -158,7 +161,7 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
 
         CompletableFuture<Void> destroyPartitionFuture = new CompletableFuture<>();
 
-        CompletableFuture<Void> previousDestroyPartitionFuture = partitionIdDestroyFutureMap.putIfAbsent(
+        CompletableFuture<Void> previousDestroyPartitionFuture = destroyFutureByPartitionId.putIfAbsent(
                 partitionId,
                 destroyPartitionFuture
         );
@@ -171,7 +174,7 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
 
         if (partition != null) {
             destroyMvPartitionStorage((AbstractPageMemoryMvPartitionStorage) partition).whenComplete((unused, throwable) -> {
-                partitionIdDestroyFutureMap.remove(partitionId);
+                destroyFutureByPartitionId.remove(partitionId);
 
                 if (throwable != null) {
                     destroyPartitionFuture.completeExceptionally(throwable);
@@ -180,7 +183,7 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
                 }
             });
         } else {
-            partitionIdDestroyFutureMap.remove(partitionId).complete(null);
+            destroyFutureByPartitionId.remove(partitionId).complete(null);
         }
 
         return destroyPartitionFuture;
@@ -191,7 +194,7 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
         AbstractPageMemoryMvPartitionStorage partitionStorage = getMvPartition(partitionId);
 
         if (partitionStorage == null) {
-            throw new StorageException(String.format("Partition ID %d does not exist", partitionId));
+            throw new StorageException(createPartitionDoesNotExistsErrorMessage(partitionId));
         }
 
         return partitionStorage.getOrCreateSortedIndex(indexId);
@@ -202,7 +205,7 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
         AbstractPageMemoryMvPartitionStorage partitionStorage = getMvPartition(partitionId);
 
         if (partitionStorage == null) {
-            throw new StorageException(String.format("Partition ID %d does not exist", partitionId));
+            throw new StorageException(createPartitionDoesNotExistsErrorMessage(partitionId));
         }
 
         return partitionStorage.getOrCreateHashIndex(indexId);
@@ -222,17 +225,38 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
      * Checks that the partition ID is within the scope of the configuration.
      *
      * @param partitionId Partition ID.
+     * @throws IllegalArgumentException If the partition ID is out of config range.
      */
-    private void checkPartitionId(int partitionId) {
+    protected void checkPartitionId(int partitionId) {
         int partitions = mvPartitions.length();
 
         if (partitionId < 0 || partitionId >= partitions) {
-            throw new IllegalArgumentException(S.toString(
-                    "Unable to access partition with id outside of configured range",
-                    "table", tableCfg.value().name(), false,
-                    "partitionId", partitionId, false,
-                    "partitions", partitions, false
+            throw new IllegalArgumentException(IgniteStringFormatter.format(
+                    "Unable to access partition with id outside of configured range: [table={}, partitionId={}, partitions={}]",
+                    getTableName(),
+                    partitionId,
+                    partitions
             ));
         }
+    }
+
+    /**
+     * Returns table name.
+     */
+    protected String getTableName() {
+        return tableConfig.name().value();
+    }
+
+    /**
+     * Creates an error message for a table partition that does not exist.
+     *
+     * @param partitionId Partition ID.
+     */
+    protected String createPartitionDoesNotExistsErrorMessage(int partitionId) {
+        return IgniteStringFormatter.format(
+                "Partition does not exist for table: [table={}, partitionId={}]",
+                getTableName(),
+                partitionId
+        );
     }
 }
