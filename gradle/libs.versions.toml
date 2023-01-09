@@ -80,7 +80,7 @@ jacocoTool = "0.8.5"
 
 [plugins]
 openapiGenerator = "org.openapi.generator:5.4.0"
-javacc = "com.intershop.gradle.javacc:4.0.1"
+javacc = "com.intershop.gradle.javacc:4.1.3"
 shadow = "com.github.johnrengelman.shadow:7.1.2"
 cmake = "net.freudasoft.gradle-cmake-plugin:0.0.4"
 modernizer = "com.github.andygoossens.modernizer:1.6.2"

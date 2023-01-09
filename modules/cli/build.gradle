@@ -105,7 +105,7 @@ pmdMain {
 
 task generateApiClient(type: GenerateTask) {
     generatorName="java"
-    inputs.dir file("$buildDir/customOpenapiDefinition/")
+    inputs.dir(file("$buildDir/customOpenapiDefinition/")).withPropertyName("APIDefinition").withPathSensitivity(PathSensitivity.RELATIVE)
     inputSpec="$buildDir/customOpenapiDefinition/openapi.yaml"
     apiPackage="org.apache.ignite.rest.client.api"
     invokerPackage="org.apache.ignite.rest.client.invoker"
@@ -117,7 +117,8 @@ task generateApiClient(type: GenerateTask) {
     configOptions = [
         "openApiNullable": "false",
         "supportStreaming": "false",
-        "library": "okhttp-gson"
+        "library": "okhttp-gson",
+        "hideGenerationTimestamp" : "true"
     ]
 }
 
