@@ -141,7 +141,7 @@ public partial class LinqTests
     public void TestRemoveAllWithResultOperatorsIsNotSupported()
     {
         var ex = Assert.ThrowsAsync<NotSupportedException>(() => PocoView.AsQueryable().Skip(1).Take(2).ExecuteDeleteAsync());
-        Assert.AreEqual("RemoveAllAsync can not be combined with result operators: Skip(1), Take(2)", ex!.Message);
+        Assert.AreEqual("ExecuteDeleteAsync can not be combined with result operators: Skip(1), Take(2)", ex!.Message);
     }
 
     [Test]
@@ -150,7 +150,7 @@ public partial class LinqTests
         var ex = Assert.ThrowsAsync<NotSupportedException>(
             () => PocoView.AsQueryable().DefaultIfEmpty().ExecuteUpdateAsync(x => x.SetProperty(p => p.Key, 2)));
 
-        Assert.AreEqual("UpdateAllAsync can not be combined with result operators: DefaultIfEmpty()", ex!.Message);
+        Assert.AreEqual("ExecuteUpdateAsync can not be combined with result operators: DefaultIfEmpty()", ex!.Message);
     }
 
     private static bool IsDmlTest()
