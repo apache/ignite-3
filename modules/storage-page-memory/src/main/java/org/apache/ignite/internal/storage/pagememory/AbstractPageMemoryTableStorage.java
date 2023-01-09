@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.storage.pagememory;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -31,6 +33,7 @@ import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
@@ -146,8 +149,6 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
 
     @Override
     public @Nullable AbstractPageMemoryMvPartitionStorage getMvPartition(int partitionId) {
-        assert started : "Storage has not started yet";
-
         checkPartitionId(partitionId);
 
         return mvPartitions.get(partitionId);
@@ -155,9 +156,9 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
 
     @Override
     public CompletableFuture<Void> destroyPartition(int partitionId) {
-        assert started : "Storage has not started yet";
-
         checkPartitionId(partitionId);
+
+        assert !rebalanceFutureByPartitionId.containsKey(partitionId) : partitionId;
 
         CompletableFuture<Void> destroyPartitionFuture = new CompletableFuture<>();
 
@@ -191,24 +192,12 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
 
     @Override
     public SortedIndexStorage getOrCreateSortedIndex(int partitionId, UUID indexId) {
-        AbstractPageMemoryMvPartitionStorage partitionStorage = getMvPartition(partitionId);
-
-        if (partitionStorage == null) {
-            throw new StorageException(createPartitionDoesNotExistsErrorMessage(partitionId));
-        }
-
-        return partitionStorage.getOrCreateSortedIndex(indexId);
+        return getMvPartitionStorageWithChecks(partitionId).getOrCreateSortedIndex(indexId);
     }
 
     @Override
     public HashIndexStorage getOrCreateHashIndex(int partitionId, UUID indexId) {
-        AbstractPageMemoryMvPartitionStorage partitionStorage = getMvPartition(partitionId);
-
-        if (partitionStorage == null) {
-            throw new StorageException(createPartitionDoesNotExistsErrorMessage(partitionId));
-        }
-
-        return partitionStorage.getOrCreateHashIndex(indexId);
+        return getMvPartitionStorageWithChecks(partitionId).getOrCreateHashIndex(indexId);
     }
 
     @Override
@@ -228,16 +217,124 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
      * @throws IllegalArgumentException If the partition ID is out of config range.
      */
     protected void checkPartitionId(int partitionId) {
-        int partitions = mvPartitions.length();
+        assert started : "Storage has not started yet: " + getTableName();
 
-        if (partitionId < 0 || partitionId >= partitions) {
+        if (partitionId < 0 || partitionId >= mvPartitions.length()) {
             throw new IllegalArgumentException(IgniteStringFormatter.format(
                     "Unable to access partition with id outside of configured range: [table={}, partitionId={}, partitions={}]",
                     getTableName(),
                     partitionId,
-                    partitions
+                    mvPartitions.length()
             ));
         }
+    }
+
+    @Override
+    public CompletableFuture<Void> startRebalancePartition(int partitionId) {
+        AbstractPageMemoryMvPartitionStorage mvPartition = getMvPartitionStorageForRebalance(partitionId);
+
+        if (destroyFutureByPartitionId.containsKey(partitionId)) {
+            throw new StorageRebalanceException(IgniteStringFormatter.format(
+                    "Partition in the process of destruction: [table={}, partitionId={}]",
+                    getTableName(),
+                    partitionId
+            ));
+        }
+
+        if (mvPartition.closed()) {
+            throw new StorageRebalanceException(IgniteStringFormatter.format(
+                    "Partition closed: [table={}, partitionId={}]",
+                    getTableName(),
+                    partitionId
+            ));
+        }
+
+        CompletableFuture<Void> rebalanceFuture = new CompletableFuture<>();
+
+        if (rebalanceFutureByPartitionId.putIfAbsent(partitionId, rebalanceFuture) != null) {
+            throw new StorageRebalanceException(IgniteStringFormatter.format(
+                    "Rebalance for the partition is already in progress: [table={}, partitionId={}]",
+                    getTableName(),
+                    partitionId
+            ));
+        }
+
+        try {
+            // TODO: IGNITE-18029 реализуй
+
+            rebalanceFuture.complete(null);
+        } catch (Throwable t) {
+            rebalanceFuture.completeExceptionally(t);
+        }
+
+        return rebalanceFuture;
+    }
+
+    @Override
+    public CompletableFuture<Void> abortRebalancePartition(int partitionId) {
+        checkPartitionId(partitionId);
+
+        CompletableFuture<Void> rebalanceFuture = rebalanceFutureByPartitionId.remove(partitionId);
+
+        if (rebalanceFuture == null) {
+            return completedFuture(null);
+        }
+
+        AbstractPageMemoryMvPartitionStorage mvPartition = getMvPartitionStorageForRebalance(partitionId);
+
+        return rebalanceFuture
+                .thenAccept(unused -> {
+                    // TODO: IGNITE-18029 реализуй
+                });
+    }
+
+    @Override
+    public CompletableFuture<Void> finishRebalancePartition(int partitionId, long lastAppliedIndex, long lastAppliedTerm) {
+        checkPartitionId(partitionId);
+
+        CompletableFuture<Void> rebalanceFuture = rebalanceFutureByPartitionId.remove(partitionId);
+
+        if (rebalanceFuture == null) {
+            throw new StorageRebalanceException(IgniteStringFormatter.format(
+                    "Rebalance for the partition did not start: [table={}, partitionId={}]",
+                    getTableName(),
+                    partitionId
+            ));
+        }
+
+        AbstractPageMemoryMvPartitionStorage mvPartition = getMvPartitionStorageForRebalance(partitionId);
+
+        return rebalanceFuture
+                .thenAccept(unused -> {
+                    // TODO: IGNITE-18029 реализуй
+                });
+    }
+
+    private AbstractPageMemoryMvPartitionStorage getMvPartitionStorageForRebalance(int partitionId) {
+        AbstractPageMemoryMvPartitionStorage mvPartition = getMvPartition(partitionId);
+
+        if (mvPartition == null) {
+            throw new StorageRebalanceException(createPartitionDoesNotExistsErrorMessage(partitionId));
+        }
+
+        return mvPartition;
+    }
+
+    /**
+     * Returns the partition of the table, if partition does not exist then throws an {@link StorageException}.
+     *
+     * @param partitionId Partition ID.
+     * @throws IllegalArgumentException If the partition ID is out of config range.
+     * @throws StorageException If the partition is missing.
+     */
+    protected AbstractPageMemoryMvPartitionStorage getMvPartitionStorageWithChecks(int partitionId) {
+        AbstractPageMemoryMvPartitionStorage mvPartition = getMvPartition(partitionId);
+
+        if (mvPartition == null) {
+            throw new StorageException(createPartitionDoesNotExistsErrorMessage(partitionId));
+        }
+
+        return mvPartition;
     }
 
     /**
@@ -252,11 +349,7 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
      *
      * @param partitionId Partition ID.
      */
-    protected String createPartitionDoesNotExistsErrorMessage(int partitionId) {
-        return IgniteStringFormatter.format(
-                "Partition does not exist for table: [table={}, partitionId={}]",
-                getTableName(),
-                partitionId
-        );
+    protected static String createPartitionDoesNotExistsErrorMessage(int partitionId) {
+        return "Partition ID " + partitionId + " does not exist";
     }
 }

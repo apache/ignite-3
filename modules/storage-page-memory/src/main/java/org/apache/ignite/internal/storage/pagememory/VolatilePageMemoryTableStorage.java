@@ -150,18 +150,21 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
     @Override
     public CompletableFuture<Void> startRebalancePartition(int partitionId) {
         // TODO: IGNITE-18028 Implement
+        // TODO: IGNITE-18029 может получиться сделать по общему!
         throw new UnsupportedOperationException();
     }
 
     @Override
     public CompletableFuture<Void> abortRebalancePartition(int partitionId) {
         // TODO: IGNITE-18028 Implement
+        // TODO: IGNITE-18029 может получиться сделать по общему!
         throw new UnsupportedOperationException();
     }
 
     @Override
     public CompletableFuture<Void> finishRebalancePartition(int partitionId, long lastAppliedIndex, long lastAppliedTerm) {
         // TODO: IGNITE-18028 Implement
+        // TODO: IGNITE-18029 может получиться сделать по общему!
         throw new UnsupportedOperationException();
     }
 

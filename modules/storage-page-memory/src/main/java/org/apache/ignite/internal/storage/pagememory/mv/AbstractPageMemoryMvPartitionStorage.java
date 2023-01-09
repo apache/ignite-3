@@ -1007,4 +1007,9 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     protected void throwStorageClosedException() {
         throw new StorageClosedException("Storage is already closed");
     }
+
+    public boolean closed() {
+        // TODO: IGNITE-18029 не забудь намутить
+        return !started;
+    }
 }
