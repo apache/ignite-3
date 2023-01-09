@@ -562,7 +562,7 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
 
         int zoneId = distributionZoneManager.getZoneId(ZONE_NAME);
 
-        assertTrue(zoneId > 0);
+        assertTrue(zoneId > 0, "Expected zone id must be higher then zero.");
     }
 
     @Test
@@ -572,11 +572,12 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
                 )
                 .get(5, TimeUnit.SECONDS);
 
-        assertThrows(DistributionZoneNotFoundException.class, () -> distributionZoneManager.getZoneId(NEW_ZONE_NAME));
+        assertThrows(DistributionZoneNotFoundException.class, () -> distributionZoneManager.getZoneId(NEW_ZONE_NAME),
+                "Expected exception was not thrown.");
     }
 
     @Test
-    public void testTryDropZoneBoundedToTable() throws Exception {
+    public void testTryDropZoneBoundToTable() throws Exception {
         distributionZoneManager.createZone(
                         new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).build()
                 )
@@ -584,17 +585,21 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
 
         bindZoneToTable(ZONE_NAME);
 
+        CompletableFuture<Void> fut = distributionZoneManager.dropZone(ZONE_NAME);
+
         Exception e = null;
 
         try {
-            distributionZoneManager.dropZone(ZONE_NAME)
-                    .get(5, TimeUnit.SECONDS);
+            fut.get(5, TimeUnit.SECONDS);
         } catch (Exception e0) {
             e = e0;
         }
 
-        assertTrue(e != null);
-        assertTrue(e.getCause().getCause() instanceof DistributionZoneBindTableException, e.toString());
+        assertTrue(e != null, "Expected exception was not thrown.");
+        assertTrue(
+                e.getCause() instanceof DistributionZoneBindTableException,
+                "Unexpected type of exception (requires DistributionZoneBindTableException): " + e
+        );
     }
 
     private void bindZoneToTable(String zoneName) {

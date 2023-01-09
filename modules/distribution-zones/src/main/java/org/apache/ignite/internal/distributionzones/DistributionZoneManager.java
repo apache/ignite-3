@@ -325,6 +325,7 @@ public class DistributionZoneManager implements IgniteComponent {
      * @return Future representing pending completion of the operation. Future can be completed with:
      *      {@link DistributionZoneNotFoundException} if a zone with the given name doesn't exist,
      *      {@link IllegalArgumentException} if {@code name} is {@code null},
+     *      {@link DistributionZoneBindTableException} if the zone is bound to table,
      *      {@link NodeStoppingException} if the node is stopping.
      */
     public CompletableFuture<Void> dropZone(String name) {
@@ -342,6 +343,10 @@ public class DistributionZoneManager implements IgniteComponent {
             zonesConfiguration.change(zonesChange -> zonesChange.changeDistributionZones(zonesListChange -> {
                 DistributionZoneView zoneView = zonesListChange.get(name);
 
+                if (zoneView == null) {
+                    throw new DistributionZoneNotFoundException(name);
+                }
+
                 NamedConfigurationTree<TableConfiguration, TableView, TableChange> tables = tablesConfiguration.tables();
 
                 boolean bindTable = tables.value().namedListKeys().stream()
@@ -355,10 +360,6 @@ public class DistributionZoneManager implements IgniteComponent {
                     throw new DistributionZoneBindTableException(name);
                 }
 
-                if (zoneView == null) {
-                    throw new DistributionZoneNotFoundException(name);
-                }
-
                 zonesListChange.delete(name);
             }))
                     .whenComplete((res, e) -> {
@@ -366,7 +367,8 @@ public class DistributionZoneManager implements IgniteComponent {
                             fut.completeExceptionally(
                                     unwrapDistributionZoneException(
                                             e,
-                                            DistributionZoneNotFoundException.class)
+                                            DistributionZoneNotFoundException.class,
+                                            DistributionZoneBindTableException.class)
                             );
                         } else {
                             fut.complete(null);
@@ -384,6 +386,7 @@ public class DistributionZoneManager implements IgniteComponent {
      *
      * @param name Distribution zone name.
      * @return The zone id.
+     * @throws DistributionZoneNotFoundException If the zone is not exist..
      */
     public int getZoneId(String name) {
         DistributionZoneConfiguration zoneCfg = zonesConfiguration.distributionZones().get(name);
