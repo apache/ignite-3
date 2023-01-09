@@ -665,7 +665,9 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
     {
         if (queryModel.ResultOperators.Count > 1)
         {
-            var ops = string.Join(", ", queryModel.ResultOperators.Where(x => x is not RemoveAllResultOperator));
+            var ops = string.Join(
+                ", ",
+                queryModel.ResultOperators.Where(x => x is not RemoveAllResultOperator && x is not UpdateAllResultOperator));
 
             throw new NotSupportedException($"{methodName} can not be combined with result operators: {ops}");
         }
