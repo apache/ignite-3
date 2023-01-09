@@ -30,7 +30,7 @@ using Table;
 public partial class LinqTests
 {
     [Test]
-    public async Task TestRemoveAll()
+    public async Task TestRemoveAll([Values(true, false)] bool inlineCondition)
     {
         var view = PocoAllColumnsSqlNullableView;
         var tableSizeBefore = await view.AsQueryable().CountAsync();
@@ -40,10 +40,19 @@ public partial class LinqTests
             await view.UpsertAsync(null, new PocoAllColumnsSqlNullable(1000 + i));
         }
 
-        var query = view.AsQueryable().Where(x => x.Key >= 1000);
+        var query = view.AsQueryable();
+
+        if (!inlineCondition)
+        {
+            query = query.Where(x => x.Key >= 1000);
+        }
 
         var countBefore = await query.CountAsync();
-        var deleteRes = await query.RemoveAllAsync();
+
+        var deleteRes = inlineCondition
+            ? await query.RemoveAllAsync(x => x.Key >= 1000)
+            : await query.RemoveAllAsync();
+
         var countAfter = await query.CountAsync();
         var tableSizeAfter = await view.AsQueryable().CountAsync();
 
