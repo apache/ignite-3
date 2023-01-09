@@ -105,7 +105,7 @@ public class ItSetOpTest extends AbstractBasicIntegrationTest {
     }
 
     @Test
-    @Disabled
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18469")
     public void testSetOpBigBatch() {
         sql("CREATE TABLE big_table1(key INT PRIMARY KEY, val INT)");
         sql("CREATE TABLE big_table2(key INT PRIMARY KEY, val INT)");

@@ -191,8 +191,6 @@ public final class Commons {
             .traitDefs(DISTRIBUTED_TRAITS_SET)
             .build();
 
-    private static Boolean implicitPkEnabled;
-
     private Commons() {
     }
 
@@ -893,10 +891,6 @@ public final class Commons {
      * @return A {@code true} if implicit pk mode is enabled, {@code false} otherwise.
      */
     public static boolean implicitPkEnabled() {
-        if (implicitPkEnabled == null) {
-            implicitPkEnabled = IgniteSystemProperties.getBoolean("IMPLICIT_PK_ENABLED", false);
-        }
-
-        return implicitPkEnabled;
+        return IgniteSystemProperties.getBoolean("IMPLICIT_PK_ENABLED", false);
     }
 }

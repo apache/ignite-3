@@ -65,7 +65,6 @@ import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultManager;
-import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -109,7 +108,7 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
 
         MetaStorageManager metaStorageManager = mock(MetaStorageManager.class);
 
-        when(metaStorageManager.registerWatchByPrefix(any(ByteArray.class), any())).thenReturn(completedFuture(null));
+        when(metaStorageManager.registerExactWatch(any(), any())).thenReturn(completedFuture(null));
 
         logicalTopologyService = mock(LogicalTopologyServiceImpl.class);
 

@@ -29,15 +29,13 @@ import java.util.List;
 import java.util.stream.Collectors;
 import org.apache.calcite.runtime.CalciteContextException;
 import org.apache.ignite.internal.sql.engine.exec.rel.AbstractNode;
-import org.apache.ignite.internal.sql.engine.util.Commons;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.tx.Transaction;
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
@@ -64,9 +62,10 @@ public class ItDmlTest extends AbstractBasicIntegrationTest {
         super.tearDownBase(testInfo);
     }
 
-    @AfterAll
-    public static void resetStaticState() {
-        IgniteTestUtils.setFieldValue(Commons.class, "implicitPkEnabled", null);
+    @BeforeAll
+    public static void beforeTestsStarted() {
+        // IMPLICIT_PK_ENABLED hashed sys property needs
+        sql("CREATE TABLE fake_tbl (id INT PRIMARY KEY, c1 INT NOT NULL)");
     }
 
     @Test
@@ -408,8 +407,6 @@ public class ItDmlTest extends AbstractBasicIntegrationTest {
     @Test
     @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
     public void implicitPk() {
-        IgniteTestUtils.setFieldValue(Commons.class, "implicitPkEnabled", null);
-
         sql("CREATE TABLE T(VAL INT)");
 
         sql("INSERT INTO t VALUES (1), (2), (3)");

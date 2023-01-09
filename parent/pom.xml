@@ -53,6 +53,7 @@
         <!-- Dependencies versions -->
         <assertj-core.version>3.22.0</assertj-core.version>
         <asm.framework.version>9.0</asm.framework.version>
+        <awaitility.version>4.2.0</awaitility.version>
         <compile.testing.library.version>0.19</compile.testing.library.version>
         <fliptables.version>1.1.0</fliptables.version>
         <jackson.version>2.13.1</jackson.version>
@@ -797,6 +798,13 @@
                 <groupId>com.tngtech.archunit</groupId>
                 <artifactId>archunit-junit5</artifactId>
                 <version>${archunit.version}</version>
+                <scope>test</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>org.awaitility</groupId>
+                <artifactId>awaitility</artifactId>
+                <version>${awaitility.version}</version>
                 <scope>test</scope>
             </dependency>
 

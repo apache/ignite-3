@@ -61,6 +61,14 @@ internal sealed class IgniteQueryable<T>
     /// </summary>
     private IgniteQueryProvider IgniteQueryProvider => (IgniteQueryProvider)Provider;
 
+    /// <inheritdoc/>
+    public QueryData GetQueryData()
+    {
+        var model = GetQueryModel();
+
+        return IgniteQueryExecutor.GetQueryData(model);
+    }
+
     /// <summary>
     /// Gets the query model.
     /// </summary>
@@ -78,7 +86,7 @@ internal sealed class IgniteQueryable<T>
         var queryData = GetQueryData();
         var sb = new StringBuilder();
 
-        sb.Append(GetType().Name);
+        sb.Append(GetType());
         sb.Append(" [Query=").Append(queryData.QueryText);
 
         sb.Append(", Parameters=");
@@ -99,16 +107,5 @@ internal sealed class IgniteQueryable<T>
         sb.Append(']');
 
         return sb.ToString();
-    }
-
-    /// <summary>
-    /// Gets the query data.
-    /// </summary>
-    /// <returns>Query data.</returns>
-    private QueryData GetQueryData()
-    {
-        var model = GetQueryModel();
-
-        return IgniteQueryExecutor.GetQueryData(model);
     }
 }

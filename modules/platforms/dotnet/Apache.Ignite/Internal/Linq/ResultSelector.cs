@@ -20,7 +20,6 @@ namespace Apache.Ignite.Internal.Linq;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Reflection.Emit;
@@ -31,6 +30,8 @@ using Remotion.Linq.Clauses;
 using Remotion.Linq.Clauses.Expressions;
 using Sql;
 using Table.Serialization;
+
+using static ResultSelectorOptions;
 
 /// <summary>
 /// Result selector cache.
@@ -57,40 +58,39 @@ internal static class ResultSelector
     /// </summary>
     /// <param name="columns">Columns.</param>
     /// <param name="selectorExpression">Selector expression.</param>
-    /// <param name="defaultIfNull">Whether to read null values as default for value types
-    /// (when <see cref="Queryable.DefaultIfEmpty{TSource}(System.Linq.IQueryable{TSource})"/> is used).</param>
+    /// <param name="options">Options.</param>
     /// <typeparam name="T">Result type.</typeparam>
     /// <returns>Row reader.</returns>
-    public static RowReader<T> Get<T>(IReadOnlyList<IColumnMetadata> columns, Expression selectorExpression, bool defaultIfNull)
+    public static RowReader<T> Get<T>(IReadOnlyList<IColumnMetadata> columns, Expression selectorExpression, ResultSelectorOptions options)
     {
         // Anonymous type projections use a constructor call. But user-defined types can also be used with constructor call.
         if (selectorExpression is NewExpression newExpr)
         {
             var ctorInfo = newExpr.Constructor!;
-            var ctorCacheKey = new ResultSelectorCacheKey<ConstructorInfo>(ctorInfo, columns, defaultIfNull);
+            var ctorCacheKey = new ResultSelectorCacheKey<ConstructorInfo>(ctorInfo, columns, options);
 
             return (RowReader<T>)CtorCache.GetOrAdd(
                 ctorCacheKey,
-                static k => EmitConstructorReader<T>(k.Target, k.Columns, k.DefaultIfNull));
+                static k => EmitConstructorReader<T>(k.Target, k.Columns, k.Options));
         }
 
-        // TODO IGNITE-18435 Full enum support.
         if (columns.Count == 1 && (typeof(T).ToSqlColumnType() is not null || typeof(T).IsEnum))
         {
-            var singleColumnCacheKey = new ResultSelectorCacheKey<Type>(typeof(T), columns, defaultIfNull);
+            var singleColumnCacheKey = new ResultSelectorCacheKey<Type>(typeof(T), columns, options);
 
             return (RowReader<T>)SingleColumnReaderCache.GetOrAdd(
                 singleColumnCacheKey,
-                static k => EmitSingleColumnReader<T>(k.Columns[0], k.DefaultIfNull));
+                static k => EmitSingleColumnReader<T>(k.Columns[0], k.Options));
         }
 
         if (typeof(T).GetKeyValuePairTypes() is var (keyType, valType))
         {
-            var kvCacheKey = new ResultSelectorCacheKey<(Type Key, Type Val)>((keyType, valType), columns, defaultIfNull);
+            var kvCacheKey = new ResultSelectorCacheKey<(Type Key, Type Val)>((keyType, valType), columns, options);
 
             return (RowReader<T>)KvReaderCache.GetOrAdd(
                 kvCacheKey,
-                static k => EmitKvPairReader<T>(k.Columns, k.Target.Key, k.Target.Val, k.DefaultIfNull));
+                static k =>
+                    EmitKvPairReader<T>(k.Columns, k.Target.Key, k.Target.Val, k.Options == ReturnDefaultIfNull));
         }
 
         if (selectorExpression is QuerySourceReferenceExpression
@@ -99,17 +99,17 @@ internal static class ResultSelector
             })
         {
             // Select everything from a sub-query - use nested selector.
-            return Get<T>(columns, subQuery.QueryModel.SelectClause.Selector, defaultIfNull);
+            return Get<T>(columns, subQuery.QueryModel.SelectClause.Selector, options);
         }
 
-        var readerCacheKey = new ResultSelectorCacheKey<Type>(typeof(T), columns, defaultIfNull);
+        var readerCacheKey = new ResultSelectorCacheKey<Type>(typeof(T), columns, options);
 
         return (RowReader<T>)ReaderCache.GetOrAdd(
             readerCacheKey,
-            static k => EmitUninitializedObjectReader<T>(k.Columns, k.DefaultIfNull));
+            static k => EmitUninitializedObjectReader<T>(k.Columns, k.Options == ReturnDefaultIfNull));
     }
 
-    private static RowReader<T> EmitSingleColumnReader<T>(IColumnMetadata column, bool defaultIfNull)
+    private static RowReader<T> EmitSingleColumnReader<T>(IColumnMetadata column, ResultSelectorOptions options)
     {
         var method = new DynamicMethod(
             name: $"SingleColumnFromBinaryTupleReader_{typeof(T).FullName}_{GetNextId()}",
@@ -120,7 +120,8 @@ internal static class ResultSelector
 
         var il = method.GetILGenerator();
 
-        EmitReadToStack(il, column, typeof(T), 0, defaultIfNull);
+        EmitReadToStack(il, column, typeof(T), index: 0, options);
+
         il.Emit(OpCodes.Ret);
 
         return (RowReader<T>)method.CreateDelegate(typeof(RowReader<T>));
@@ -129,7 +130,7 @@ internal static class ResultSelector
     private static RowReader<T> EmitConstructorReader<T>(
         ConstructorInfo ctorInfo,
         IReadOnlyList<IColumnMetadata> columns,
-        bool defaultAsNull)
+        ResultSelectorOptions options)
     {
         var method = new DynamicMethod(
             name: $"ConstructorFromBinaryTupleReader_{typeof(T).FullName}_{GetNextId()}",
@@ -150,7 +151,7 @@ internal static class ResultSelector
         for (var index = 0; index < ctorParams.Length; index++)
         {
             var paramType = ctorParams[index].ParameterType;
-            EmitReadToStack(il, columns[index], paramType, index, defaultAsNull);
+            EmitReadToStack(il, columns[index], paramType, index, options);
         }
 
         il.Emit(OpCodes.Newobj, ctorInfo);
@@ -222,11 +223,11 @@ internal static class ResultSelector
         return (RowReader<T>)method.CreateDelegate(typeof(RowReader<T>));
     }
 
-    private static void EmitReadToStack(ILGenerator il, IColumnMetadata col, Type targetType, int index, bool defaultAsNull)
+    private static void EmitReadToStack(ILGenerator il, IColumnMetadata col, Type targetType, int index, ResultSelectorOptions options)
     {
         Label endParamLabel = il.DefineLabel();
 
-        if (defaultAsNull)
+        if (options is ReturnDefaultIfNull or ThrowNoElementsIfNull or ReturnZeroIfNull)
         {
             // if (reader.IsNull(index)) return default;
             Label notNullLabel = il.DefineLabel();
@@ -235,16 +236,37 @@ internal static class ResultSelector
             il.Emit(OpCodes.Call, BinaryTupleMethods.IsNull);
             il.Emit(OpCodes.Brfalse_S, notNullLabel);
 
-            if (targetType.IsValueType)
+            if (options is ReturnDefaultIfNull or ReturnZeroIfNull)
             {
-                var local = il.DeclareLocal(targetType);
-                il.Emit(OpCodes.Ldloca_S, local);
-                il.Emit(OpCodes.Initobj, targetType); // Load default value into local.
-                il.Emit(OpCodes.Ldloc, local); // Load local value onto stack for constructor call.
+                if (targetType.IsValueType)
+                {
+                    if (options == ReturnZeroIfNull && Nullable.GetUnderlyingType(targetType) is { } underlyingType)
+                    {
+                        // Create nullable with default non-zero value.
+                        var local = il.DeclareLocal(underlyingType);
+                        il.Emit(OpCodes.Ldloca_S, local);
+                        il.Emit(OpCodes.Initobj, targetType); // Load default value into local.
+                        il.Emit(OpCodes.Ldloc, local); // Load local value onto stack for constructor call.
+                        il.Emit(OpCodes.Newobj, targetType.GetConstructor(new[] { underlyingType })!);
+                    }
+                    else
+                    {
+                        var local = il.DeclareLocal(targetType);
+                        il.Emit(OpCodes.Ldloca_S, local);
+                        il.Emit(OpCodes.Initobj, targetType); // Load default value into local.
+                        il.Emit(OpCodes.Ldloc, local); // Load local value onto stack for constructor call.
+                    }
+                }
+                else
+                {
+                    il.Emit(OpCodes.Ldnull);
+                }
             }
             else
             {
-                il.Emit(OpCodes.Ldnull);
+                il.Emit(OpCodes.Ldstr, "Sequence contains no elements");
+                il.Emit(OpCodes.Newobj, typeof(InvalidOperationException).GetConstructor(new[] { typeof(string) })!);
+                il.Emit(OpCodes.Throw);
             }
 
             il.Emit(OpCodes.Br_S, endParamLabel);

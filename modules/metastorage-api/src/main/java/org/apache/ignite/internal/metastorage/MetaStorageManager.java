@@ -102,24 +102,42 @@ public interface MetaStorageManager extends IgniteComponent {
     CompletableFuture<StatementResult> invoke(If iif);
 
     /**
-     * Register watch listener by key prefix.
+     * Registers a watch listener by a key prefix.
      *
-     * @param key Prefix to listen.
+     * @param key Prefix to listen to.
      * @param lsnr Listener which will be notified for each update.
-     * @return Subscription identifier. Could be used in {@link #unregisterWatch} method in order to cancel subscription
+     * @return Subscription identifier. Could be used in {@link #unregisterWatch} method in order to cancel subscription.
      */
-    CompletableFuture<Long> registerWatchByPrefix(ByteArray key, WatchListener lsnr);
+    CompletableFuture<Long> registerPrefixWatch(ByteArray key, WatchListener lsnr);
 
     /**
-     * Unregister watch listener by id.
+     * Registers a watch listener for the provided key.
      *
-     * @param id of watch to unregister.
-     * @return future, which will be completed when unregister finished.
+     * @param key Meta Storage key.
+     * @param listener Listener which will be notified for each update.
+     * @return Subscription identifier. Could be used in {@link #unregisterWatch} method in order to cancel subscription.
+     */
+    CompletableFuture<Long> registerExactWatch(ByteArray key, WatchListener listener);
+
+    /**
+     * Registers a watch listener by a key range.
+     *
+     * @param keyFrom Start of the range (inclusive).
+     * @param keyTo End of the range (exclusive) or {@code null} if the range doesn't have an upper bound.
+     * @param listener Listener which will be notified for each update.
+     * @return Subscription identifier. Could be used in {@link #unregisterWatch} method in order to cancel subscription.
+     */
+    CompletableFuture<Long> registerRangeWatch(ByteArray keyFrom, ByteArray keyTo, WatchListener listener);
+
+    /**
+     * Unregisters a watch listener.
      */
     CompletableFuture<Void> unregisterWatch(long id);
 
     /**
-     * Deploy all registered watches.
+     * Starts all registered watches.
+     *
+     * <p>Should be called after all Ignite components have registered required watches and they are ready to process Meta Storage events.
      */
     void deployWatches() throws NodeStoppingException;
 }

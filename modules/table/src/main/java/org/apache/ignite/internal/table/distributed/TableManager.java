@@ -1763,7 +1763,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * Register the new meta storage listener for changes in the rebalance-specific keys.
      */
     private void registerRebalanceListeners() {
-        metaStorageMgr.registerWatchByPrefix(ByteArray.fromString(PENDING_ASSIGNMENTS_PREFIX), new WatchListener() {
+        metaStorageMgr.registerPrefixWatch(ByteArray.fromString(PENDING_ASSIGNMENTS_PREFIX), new WatchListener() {
             @Override
             public boolean onUpdate(@NotNull WatchEvent evt) {
                 if (!busyLock.enterBusy()) {
@@ -1929,7 +1929,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             }
         });
 
-        metaStorageMgr.registerWatchByPrefix(ByteArray.fromString(STABLE_ASSIGNMENTS_PREFIX), new WatchListener() {
+        metaStorageMgr.registerPrefixWatch(ByteArray.fromString(STABLE_ASSIGNMENTS_PREFIX), new WatchListener() {
             @Override
             public boolean onUpdate(@NotNull WatchEvent evt) {
                 if (!busyLock.enterBusy()) {
@@ -1986,7 +1986,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             }
         });
 
-        metaStorageMgr.registerWatchByPrefix(ByteArray.fromString(ASSIGNMENTS_SWITCH_REDUCE_PREFIX), new WatchListener() {
+        metaStorageMgr.registerPrefixWatch(ByteArray.fromString(ASSIGNMENTS_SWITCH_REDUCE_PREFIX), new WatchListener() {
             @Override
             public boolean onUpdate(@NotNull WatchEvent evt) {
                 ByteArray key = evt.entryEvent().newEntry().key();

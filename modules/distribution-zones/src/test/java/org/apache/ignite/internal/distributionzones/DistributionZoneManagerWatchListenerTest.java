@@ -78,7 +78,6 @@ import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultManager;
-import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -143,7 +142,7 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
 
         when(vaultMgr.get(zonesLogicalTopologyKey())).thenReturn(completedFuture(new VaultEntry(zonesLogicalTopologyKey(), null)));
 
-        when(metaStorageManager.registerWatchByPrefix(any(ByteArray.class), any())).then(invocation -> {
+        when(metaStorageManager.registerExactWatch(any(), any())).then(invocation -> {
             watchListener = invocation.getArgument(1);
 
             return completedFuture(null);

@@ -51,6 +51,21 @@ public partial class LinqTests
     }
 
     [Test]
+    public void TestSumNullable()
+    {
+        Assert.AreEqual(0, PocoAllColumnsSqlNullableView.AsQueryable().Where(x => x.Int64 == null).Sum(x => x.Int64));
+        Assert.AreEqual(0, PocoAllColumnsSqlNullableView.AsQueryable().Where(x => x.Int64 == null).Select(x => x.Int64).Sum());
+        Assert.AreEqual(1, PocoAllColumnsSqlNullableView.AsQueryable().Count(x => x.Int64 == null));
+    }
+
+    [Test]
+    public void TestSumWithEmptySubqueryReturnsZero()
+    {
+        Assert.AreEqual(0, PocoDoubleView.AsQueryable().Where(x => x.Key < -100).Sum(x => x.Val));
+        Assert.AreEqual(0, PocoDoubleView.AsQueryable().Where(x => x.Key < -100).Select(x => x.Val).Sum());
+    }
+
+    [Test]
     public void TestMin()
     {
         Assert.AreEqual(0, PocoByteView.AsQueryable().Min(x => x.Val));
@@ -60,6 +75,14 @@ public partial class LinqTests
         Assert.AreEqual(0, PocoFloatView.AsQueryable().Min(x => x.Val));
         Assert.AreEqual(0, PocoDecimalView.AsQueryable().Min(x => x.Val));
         Assert.AreEqual(0, PocoDoubleView.AsQueryable().Min(x => x.Val));
+    }
+
+    [Test]
+    public void TestMinWithEmptySubqueryThrowsNoElements()
+    {
+        // ReSharper disable once ReturnValueOfPureMethodIsNotUsed
+        var ex = Assert.Throws<InvalidOperationException>(() => PocoIntView.AsQueryable().Where(x => x.Key > 1000).Min(x => x.Val));
+        Assert.AreEqual("Sequence contains no elements", ex!.Message);
     }
 
     [Test]
@@ -75,6 +98,14 @@ public partial class LinqTests
     }
 
     [Test]
+    public void TestMaxWithEmptySubqueryThrowsNoElements()
+    {
+        // ReSharper disable once ReturnValueOfPureMethodIsNotUsed
+        var ex = Assert.Throws<InvalidOperationException>(() => PocoIntView.AsQueryable().Where(x => x.Key > 1000).Max(x => x.Val));
+        Assert.AreEqual("Sequence contains no elements", ex!.Message);
+    }
+
+    [Test]
     public void TestAverage()
     {
         Assert.AreEqual(1.0d, PocoByteView.AsQueryable().Average(x => x.Val));
@@ -84,6 +115,14 @@ public partial class LinqTests
         Assert.AreEqual(4.5f, PocoFloatView.AsQueryable().Average(x => x.Val));
         Assert.AreEqual(4.5m, PocoDecimalView.AsQueryable().Average(x => x.Val));
         Assert.AreEqual(4.5d, PocoDoubleView.AsQueryable().Average(x => x.Val));
+    }
+
+    [Test]
+    public void TestAverageWithEmptySubqueryThrowsNoElements()
+    {
+        // ReSharper disable once ReturnValueOfPureMethodIsNotUsed
+        var ex = Assert.Throws<InvalidOperationException>(() => PocoIntView.AsQueryable().Where(x => x.Key > 1000).Average(x => x.Val));
+        Assert.AreEqual("Sequence contains no elements", ex!.Message);
     }
 
     [Test]
@@ -168,7 +207,7 @@ public partial class LinqTests
         double? sumNull = query.Where(x => x.Double == null).Sum(x => x.Double);
 
         Assert.AreEqual(110d, sumNotNull);
-        Assert.IsNull(sumNull);
+        Assert.AreEqual(0, sumNull);
     }
 
     [Test]
@@ -190,7 +229,7 @@ public partial class LinqTests
             var sumNull = sumFunc(query.Where(x => x.Double == null));
 
             Assert.IsNotNull(sumNotNull);
-            Assert.IsNull(sumNull);
+            Assert.AreEqual(0, sumNull);
         }
     }
 }

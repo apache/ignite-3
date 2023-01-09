@@ -15,23 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.exec.exp;
+namespace Apache.Ignite.Internal.Linq;
 
-/**
- * A range condition is a search condition which represents a comparison predicate or a BETWEEN predicate.
- *
- * <p>Used to define bounds of a range scan.
- */
-public interface RangeCondition<RowT> {
-    /** Lower search row. */
-    RowT lower();
+using System;
 
-    /** Upper search row. */
-    RowT upper();
+/// <summary>
+/// Query execution options.
+/// </summary>
+[Flags]
+internal enum ExecutionOptions
+{
+    /// <summary>
+    /// No options.
+    /// </summary>
+    None = 0,
 
-    /** Inlusive search by lower row. */
-    boolean lowerInclude();
-
-    /** Inlusive search by upper row. */
-    boolean upperInclude();
+    /// <summary>
+    /// Whether to return a default value when result set is empty.
+    /// </summary>
+    ReturnDefaultWhenEmpty = 1
 }

@@ -50,7 +50,9 @@ import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommand;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.RaftGroupConfiguration;
+import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
 import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
@@ -116,6 +118,19 @@ public class PartitionListener implements RaftGroupListener {
         this.indexes = indexes;
         this.partitionId = partitionId;
         this.safeTime = safeTime;
+
+        // TODO: IGNITE-18502 Implement a pending update storage
+        try (PartitionTimestampCursor cursor = partitionDataStorage.getStorage().scan(HybridTimestamp.MAX_VALUE)) {
+            if (cursor != null) {
+                while (cursor.hasNext()) {
+                    ReadResult readResult = cursor.next();
+
+                    if (readResult.isWriteIntent()) {
+                        txsPendingRowIds.computeIfAbsent(readResult.transactionId(), key -> new HashSet()).add(readResult.rowId());
+                    }
+                }
+            }
+        }
     }
 
     @Override

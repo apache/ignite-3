@@ -1,7 +1,7 @@
 # name: test/sql/join/test_not_distinct_from.test
 # description: Test join on is not distinct from query
 # group: [join]
-# Ignore https://issues.apache.org/jira/browse/IGNITE-15574
+# Ignore https://issues.apache.org/jira/browse/IGNITE-18444
 
 
 statement ok
