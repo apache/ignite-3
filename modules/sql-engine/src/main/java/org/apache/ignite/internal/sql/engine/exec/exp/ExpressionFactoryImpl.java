@@ -63,6 +63,7 @@ import org.apache.calcite.rex.RexShuttle;
 import org.apache.calcite.rex.RexUtil;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.validate.SqlConformance;
+import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
@@ -139,42 +140,39 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
             return null;
         }
 
-        return new Comparator<RowT>() {
-            @Override
-            public int compare(RowT o1, RowT o2) {
-                RowHandler<RowT> hnd = ctx.rowHandler();
-                Object unspecifiedVal = RexImpTable.UNSPECIFIED_VALUE_PLACEHOLDER;
+        return (o1, o2) -> {
+            RowHandler<RowT> hnd = ctx.rowHandler();
+            Object unspecifiedVal = RexImpTable.UNSPECIFIED_VALUE_PLACEHOLDER;
 
-                for (RelFieldCollation field : collation.getFieldCollations()) {
-                    int fieldIdx = field.getFieldIndex();
-                    int nullComparison = field.nullDirection.nullComparison;
+            for (RelFieldCollation field : collation.getFieldCollations()) {
+                int fieldIdx = field.getFieldIndex();
+                int nullComparison = field.nullDirection.nullComparison;
 
-                    Object c1 = hnd.get(fieldIdx, o1);
-                    Object c2 = hnd.get(fieldIdx, o2);
+                Object c1 = hnd.get(fieldIdx, o1);
+                Object c2 = hnd.get(fieldIdx, o2);
 
-                    // If filter for some field is unspecified, assume equality for this field and all subsequent fields.
-                    if (c1 == unspecifiedVal || c2 == unspecifiedVal) {
-                        return 0;
-                    }
-
-                    int res = (field.direction == RelFieldCollation.Direction.ASCENDING)
-                            ?
-                            ExpressionFactoryImpl.compare(c1, c2, nullComparison) :
-                            ExpressionFactoryImpl.compare(c2, c1, -nullComparison);
-
-                    if (res != 0) {
-                        return res;
-                    }
+                // If filter for some field is unspecified, assume equality for this field and all subsequent fields.
+                if (c1 == unspecifiedVal || c2 == unspecifiedVal) {
+                    return 0;
                 }
 
-                return 0;
+                int res = (field.direction == RelFieldCollation.Direction.ASCENDING)
+                        ?
+                        compare(c1, c2, nullComparison) :
+                        compare(c2, c1, -nullComparison);
+
+                if (res != 0) {
+                    return res;
+                }
             }
+
+            return 0;
         };
     }
 
     /** {@inheritDoc} */
     @Override
-    public Comparator<RowT> comparator(List<RelFieldCollation> left, List<RelFieldCollation> right) {
+    public Comparator<RowT> comparator(List<RelFieldCollation> left, List<RelFieldCollation> right, ImmutableBitSet equalNulls) {
         if (nullOrEmpty(left) || nullOrEmpty(right) || left.size() != right.size()) {
             throw new IllegalArgumentException("Both inputs should be non-empty and have the same size: left="
                     + (left != null ? left.size() : "null") + ", right=" + (right != null ? right.size() : "null"));
@@ -191,42 +189,39 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
             }
         }
 
-        return new Comparator<RowT>() {
-            @Override
-            public int compare(RowT o1, RowT o2) {
-                boolean hasNulls = false;
-                RowHandler<RowT> hnd = ctx.rowHandler();
+        return (o1, o2) -> {
+            boolean hasNulls = false;
+            RowHandler<RowT> hnd = ctx.rowHandler();
 
-                for (int i = 0; i < left.size(); i++) {
-                    RelFieldCollation leftField = left.get(i);
-                    RelFieldCollation rightField = right.get(i);
+            for (int i = 0; i < left.size(); i++) {
+                RelFieldCollation leftField = left.get(i);
+                RelFieldCollation rightField = right.get(i);
 
-                    int leftIdx = leftField.getFieldIndex();
-                    int rightIdx = rightField.getFieldIndex();
+                int leftIdx = leftField.getFieldIndex();
+                int rightIdx = rightField.getFieldIndex();
 
-                    Object c1 = hnd.get(leftIdx, o1);
-                    Object c2 = hnd.get(rightIdx, o2);
+                Object c1 = hnd.get(leftIdx, o1);
+                Object c2 = hnd.get(rightIdx, o2);
 
-                    if (c1 == null && c2 == null) {
-                        hasNulls = true;
-                        continue;
-                    }
-
-                    int nullComparison = leftField.nullDirection.nullComparison;
-
-                    int res = leftField.direction == RelFieldCollation.Direction.ASCENDING
-                            ?
-                            ExpressionFactoryImpl.compare(c1, c2, nullComparison) :
-                            ExpressionFactoryImpl.compare(c2, c1, -nullComparison);
-
-                    if (res != 0) {
-                        return res;
-                    }
+                if (!equalNulls.get(leftIdx) && c1 == null && c2 == null) {
+                    hasNulls = true;
+                    continue;
                 }
 
-                // If compared rows contain NULLs, they shouldn't be treated as equals, since NULL <> NULL in SQL.
-                return hasNulls ? 1 : 0;
+                int nullComparison = leftField.nullDirection.nullComparison;
+
+                int res = leftField.direction == RelFieldCollation.Direction.ASCENDING
+                        ? compare(c1, c2, nullComparison)
+                        : compare(c2, c1, -nullComparison);
+
+                if (res != 0) {
+                    return res;
+                }
             }
+
+            // If compared rows contain NULLs, they shouldn't be treated as equals, since NULL <> NULL in SQL.
+            // Expect for cases with IS NOT DISTINCT
+            return hasNulls ? 1 : 0;
         };
     }
 

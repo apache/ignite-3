@@ -192,7 +192,7 @@ public class IgnitePicocliCommands implements CommandRegistry {
 
             // let picocli generate completion candidates for the token where the cursor is at
             String[] words = commandLine.words().toArray(new String[0]);
-            List<CharSequence> cs = new ArrayList<CharSequence>();
+            List<CharSequence> cs = new ArrayList<>();
             AutoComplete.complete(cmd.getCommandSpec(),
                     words,
                     commandLine.wordIndex(),

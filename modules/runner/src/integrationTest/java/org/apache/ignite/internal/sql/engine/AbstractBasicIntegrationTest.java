@@ -31,11 +31,14 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.internal.app.IgniteImpl;
@@ -75,6 +78,9 @@ public class AbstractBasicIntegrationTest extends BaseIgniteAbstractTest {
     /** Timeout should be big enough to prevent premature session expiration. */
     private static final long SESSION_IDLE_TIMEOUT = TimeUnit.SECONDS.toMillis(60);
 
+    /** Test default table name. */
+    protected static final String DEFAULT_TABLE_NAME = "person";
+
     /** Base port number. */
     private static final int BASE_PORT = 3344;
 
@@ -95,13 +101,29 @@ public class AbstractBasicIntegrationTest extends BaseIgniteAbstractTest {
     @WorkDirectory
     private static Path WORK_DIR;
 
+    /** Information object that is initialised on the test startup. */
+    private TestInfo testInfo;
+
     /**
      * Before all.
      *
      * @param testInfo Test information object.
      */
     @BeforeAll
-    void startNodes(TestInfo testInfo) {
+    void beforeAll(TestInfo testInfo) {
+        LOG.info("Start beforeAll()");
+
+        this.testInfo = testInfo;
+
+        startCluster();
+
+        LOG.info("End beforeAll()");
+    }
+
+    /**
+     * Starts and initializes a test cluster.
+     */
+    protected void startCluster() {
         String connectNodeAddr = "\"localhost:" + BASE_PORT + '\"';
 
         List<CompletableFuture<Ignite>> futures = new ArrayList<>();
@@ -138,9 +160,18 @@ public class AbstractBasicIntegrationTest extends BaseIgniteAbstractTest {
      * After all.
      */
     @AfterAll
-    void stopNodes(TestInfo testInfo) throws Exception {
-        LOG.info("Start tearDown()");
+    void afterAll() throws Exception {
+        LOG.info("Start afterAll()");
 
+        stopNodes();
+
+        LOG.info("End afterAll()");
+    }
+
+    /**
+     * Stops all started nodes.
+     */
+    protected void stopNodes() throws Exception {
         List<AutoCloseable> closeables = IntStream.range(0, nodes())
                 .mapToObj(i -> testNodeName(testInfo, i))
                 .map(nodeName -> (AutoCloseable) () -> IgnitionManager.stop(nodeName))
@@ -149,8 +180,6 @@ public class AbstractBasicIntegrationTest extends BaseIgniteAbstractTest {
         IgniteUtils.closeAll(closeables);
 
         CLUSTER_NODES.clear();
-
-        LOG.info("End tearDown()");
     }
 
     /** Drops all visible tables. */
@@ -207,8 +236,61 @@ public class AbstractBasicIntegrationTest extends BaseIgniteAbstractTest {
         };
     }
 
+    /**
+     * Used for join checks, disables other join rules for executing exact join algo.
+     *
+     * @param qry Query for check.
+     * @param joinType Type of join algo.
+     * @param rules Additional rules need to be disabled.
+     */
+    static QueryChecker assertQuery(String qry, JoinType joinType, String... rules) {
+        return AbstractBasicIntegrationTest.assertQuery(qry.replaceAll("(?i)^select", "select "
+                + Stream.concat(Arrays.stream(joinType.disabledRules), Arrays.stream(rules))
+                .collect(Collectors.joining("','", "/*+ DISABLE_RULE('", "') */"))));
+    }
+
+    /**
+     * Creates a table.
+     *
+     * @param name Table name.
+     * @param replicas Replica factor.
+     * @param partitions Partitions count.
+     */
+    protected static Table createTable(String name, int replicas, int partitions) {
+        sql(IgniteStringFormatter.format("CREATE TABLE IF NOT EXISTS {} (id INT PRIMARY KEY, name VARCHAR, salary DOUBLE) "
+                + "WITH replicas={}, partitions={}", name, replicas, partitions));
+
+        return CLUSTER_NODES.get(0).tables().table(name);
+    }
+
+    enum JoinType {
+        NESTED_LOOP(
+                "CorrelatedNestedLoopJoin",
+                "JoinCommuteRule",
+                "MergeJoinConverter"
+        ),
+
+        MERGE(
+                "CorrelatedNestedLoopJoin",
+                "JoinCommuteRule",
+                "NestedLoopJoinConverter"
+        ),
+
+        CORRELATED(
+                "MergeJoinConverter",
+                "JoinCommuteRule",
+                "NestedLoopJoinConverter"
+        );
+
+        private final String[] disabledRules;
+
+        JoinType(String... disabledRules) {
+            this.disabledRules = disabledRules;
+        }
+    }
+
     protected static void createAndPopulateTable() {
-        sql("CREATE TABLE person (id INT PRIMARY KEY, name VARCHAR, salary DOUBLE)");
+        createTable(DEFAULT_TABLE_NAME, 1, 8);
 
         int idx = 0;
 
@@ -228,14 +310,18 @@ public class AbstractBasicIntegrationTest extends BaseIgniteAbstractTest {
     protected static void insertData(String tblName, List<String> columnNames, Object[]... tuples) {
         Transaction tx = CLUSTER_NODES.get(0).transactions().begin();
 
+        insertDataInTransaction(tx, tblName, columnNames, tuples);
+
+        tx.commit();
+    }
+
+    protected static void insertDataInTransaction(Transaction tx, String tblName, List<String> columnNames, Object[][] tuples) {
         String insertStmt = "INSERT INTO " + tblName + "(" + String.join(", ", columnNames) + ")"
                 + " VALUES (" + ", ?".repeat(columnNames.size()).substring(2) + ")";
 
         for (Object[] args : tuples) {
             sql(tx, insertStmt, args);
         }
-
-        tx.commit();
     }
 
     protected static void checkData(Table table, String[] columnNames, Object[]... tuples) {

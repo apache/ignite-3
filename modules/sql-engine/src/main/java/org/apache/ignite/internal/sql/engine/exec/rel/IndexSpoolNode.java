@@ -197,9 +197,10 @@ public class IndexSpoolNode<RowT> extends AbstractNode<RowT> implements SingleNo
             ExecutionContext<RowT> ctx,
             ImmutableBitSet keys,
             @Nullable Predicate<RowT> filter,
-            Supplier<RowT> searchRow
+            Supplier<RowT> searchRow,
+            boolean allowNulls
     ) {
-        RuntimeHashIndex<RowT> idx = new RuntimeHashIndex<>(ctx, keys);
+        RuntimeHashIndex<RowT> idx = new RuntimeHashIndex<>(ctx, keys, allowNulls);
 
         ScanNode<RowT> scan = new ScanNode<>(
                 ctx,

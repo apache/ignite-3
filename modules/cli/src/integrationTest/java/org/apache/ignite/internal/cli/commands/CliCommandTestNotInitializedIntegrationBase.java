@@ -110,6 +110,10 @@ public class CliCommandTestNotInitializedIntegrationBase extends IntegrationTest
         exitCode = cmd.execute(args);
     }
 
+    protected CommandLine commandLine() {
+        return cmd;
+    }
+
     protected void assertExitCodeIs(int expectedExitCode) {
         assertThat(exitCode)
                 .as("Expected exit code to be: " + expectedExitCode + " but was " + exitCode)

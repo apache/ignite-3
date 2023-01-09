@@ -52,7 +52,7 @@ public class NonRepeatableOptionsFilter implements CompleterFilter {
     private CommandSpec findCommandSpec(String[] words) {
         int cursor = 0;
         CommandSpec commandSpec = topCommandSpec;
-        while (commandSpec.subcommands().containsKey(words[cursor])) {
+        while (cursor < words.length && commandSpec.subcommands().containsKey(words[cursor])) {
             commandSpec = commandSpec.subcommands().get(words[cursor]).getCommandSpec();
             cursor++;
         }

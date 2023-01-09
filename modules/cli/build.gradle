@@ -89,6 +89,7 @@ dependencies {
     integrationTestImplementation libs.micronaut.junit5
     integrationTestImplementation libs.micronaut.test
     integrationTestImplementation libs.assertj.core
+    integrationTestImplementation libs.awaitility
 }
 
 ext.generatedClientDir = layout.buildDirectory.dir("swagger/client")

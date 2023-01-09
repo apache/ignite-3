@@ -268,7 +268,6 @@ class DynamicCompleterRegistryTest {
         // And exclusiveEnableOption is registered last
         registry.register(
                 CompleterConf.builder()
-                        .command("node", "config", "show")
                         .enableOptions("-n")
                         .exclusiveEnableOptions().build(),
                 words -> completer1
@@ -277,6 +276,10 @@ class DynamicCompleterRegistryTest {
         // Then exclusive option is on the priority and no other completer is used for -n
         assertThat(
                 registry.findCompleters(words("node", "config", "show", "-n", "nod")),
+                both(hasSize(1)).and(containsInAnyOrder(completer1))
+        );
+        assertThat(
+                registry.findCompleters(words("node", "config", "show", "-n", "")),
                 both(hasSize(1)).and(containsInAnyOrder(completer1))
         );
         assertThat(

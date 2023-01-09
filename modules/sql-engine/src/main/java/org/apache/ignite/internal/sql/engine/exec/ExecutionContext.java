@@ -190,13 +190,6 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
     }
 
     /**
-     * Get keep binary flag.
-     */
-    public boolean keepBinary() {
-        return true; // TODO
-    }
-
-    /**
      * Get handler to access row fields.
      */
     public RowHandler<RowT> rowHandler() {
