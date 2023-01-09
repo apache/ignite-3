@@ -123,6 +123,24 @@ public partial class LinqTests
     }
 
     [Test]
+    public async Task TestUpdateAllMultipleSetters()
+    {
+        var query = PocoAllColumnsSqlNullableView.AsQueryable().Where(x => x.Key >= 1000);
+        await query.ExecuteUpdateAsync(row => row
+            .SetProperty(x => x.Int32, 1)
+            .SetProperty(x => x.Int16, x => (short?)x.Key + 1)
+            .SetProperty(x => x.Str, x => x.Key + "!"));
+
+        var res = await query.OrderBy(x => x.Key).ToListAsync();
+
+        Assert.AreEqual(1, res[0].Int32);
+        Assert.AreEqual(1002, res[0].Int16);
+        Assert.AreEqual("1001!", res[0].Str);
+
+        Assert.AreEqual(10, res.Count);
+    }
+
+    [Test]
     public async Task TestUpdateAllWithTx()
     {
         await using (var tx = await Client.Transactions.BeginAsync())
