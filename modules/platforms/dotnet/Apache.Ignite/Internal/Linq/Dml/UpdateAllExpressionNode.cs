@@ -38,16 +38,17 @@ using Remotion.Linq.Parsing.Structure.IntermediateModel;
 internal sealed class UpdateAllExpressionNode : ResultOperatorExpressionNodeBase
 {
     /// <summary>
-    /// The UpdateAll method.
+    /// UpdateAll methods.
     /// </summary>
-    public static readonly MethodInfo UpdateAllMethodInfo = typeof(IgniteQueryableExtensions)
+    public static readonly IReadOnlyList<MethodInfo> UpdateAllMethodInfos = typeof(IgniteQueryableExtensions)
         .GetMethods()
-        .Single(x => x.Name == nameof(IgniteQueryableExtensions.UpdateAllAsync));
+        .Where(x => x.Name == nameof(IgniteQueryableExtensions.UpdateAllAsync))
+        .ToList();
 
     /// <summary>
-    /// Gets supported methods.
+    /// The UpdateAll method.
     /// </summary>
-    public static readonly IReadOnlyList<MethodInfo> SupportedMethods = new[] { UpdateAllMethodInfo };
+    public static readonly MethodInfo UpdateAllMethodInfo = UpdateAllMethodInfos.Single();
 
     private readonly LambdaExpression _updateDescription;
 
@@ -87,10 +88,6 @@ internal sealed class UpdateAllExpressionNode : ResultOperatorExpressionNodeBase
             _updateDescription.Parameters[0],
             clauseGenerationContext);
 
-        var cacheEntryType = querySourceRefExpression.Type;
-        var querySourceAccessValue =
-            Expression.MakeMemberAccess(querySourceRefExpression, cacheEntryType.GetMember("Value").First());
-
         var methodCall = _updateDescription.Body as MethodCallExpression;
 
         if (methodCall == null)
@@ -108,7 +105,7 @@ internal sealed class UpdateAllExpressionNode : ResultOperatorExpressionNodeBase
             }
 
             var selectorLambda = (LambdaExpression)methodCall.Arguments[0];
-            var selector = ReplacingExpressionVisitor.Replace(selectorLambda.Parameters[0], querySourceAccessValue, selectorLambda.Body);
+            var selector = ReplacingExpressionVisitor.Replace(selectorLambda.Parameters[0], querySourceRefExpression, selectorLambda.Body);
 
             var newValue = methodCall.Arguments[1];
             switch (newValue.NodeType)
