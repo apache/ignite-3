@@ -199,7 +199,6 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     @Override
     public void start() {
         this.metaStorageSvcFut = cmgMgr.metaStorageNodes()
-                // use default executor to avoid blocking CMG manager threads
                 .thenCompose(metaStorageNodes -> {
                     if (!busyLock.enterBusy()) {
                         return CompletableFuture.failedFuture(new NodeStoppingException());
