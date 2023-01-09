@@ -115,8 +115,12 @@ public partial class LinqTests
         var query = PocoAllColumnsSqlNullableView.AsQueryable().Where(x => x.Key >= 1000);
         await query.UpdateAllAsync(row => row.Set(x => x.Str, x => "updated_" + x.Key + "_"));
 
-        var res = await query.Select(x => x.Str).Distinct().ToListAsync();
-        CollectionAssert.AreEqual(new[] { "updated" }, res);
+        var res = await query.OrderBy(x => x.Key).Select(x => x.Str).ToListAsync();
+
+        Assert.AreEqual("updated_1001_", res[0]);
+        Assert.AreEqual("updated_1002_", res[1]);
+
+        Assert.AreEqual(10, res.Count);
     }
 
     [Test]

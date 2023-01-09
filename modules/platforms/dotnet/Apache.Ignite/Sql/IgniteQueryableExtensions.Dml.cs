@@ -88,7 +88,6 @@ public static partial class IgniteQueryableExtensions
         this IQueryable<T> query,
         Expression<Func<IUpdateDescriptor<T>, IUpdateDescriptor<T>>> updateDescriptor)
     {
-        // TODO: Overload with predicate?
         IgniteArgumentCheck.NotNull(query, nameof(query));
         IgniteArgumentCheck.NotNull(updateDescriptor, nameof(updateDescriptor));
 
