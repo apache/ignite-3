@@ -18,13 +18,11 @@
 namespace Apache.Ignite.Sql;
 
 using System;
-using System.Diagnostics.CodeAnalysis;
 
 /// <summary>
 /// Interface to provide update expressions for <see cref="IgniteQueryableExtensions.UpdateAllAsync{T}" />.
 /// </summary>
 /// <typeparam name="T">Query element type.</typeparam>
-[SuppressMessage("Naming", "CA1716:Identifiers should not match keywords", Justification = "Reviewed.")] // TODO
 public interface IUpdateDescriptor<out T>
 {
     /// <summary>
@@ -34,7 +32,7 @@ public interface IUpdateDescriptor<out T>
     /// <param name="selector">Member selector.</param>
     /// <param name="value">New value.</param>
     /// <returns>Update descriptor for chaining.</returns>
-    IUpdateDescriptor<T> Set<TProp>(Func<T, TProp> selector, TProp value);
+    IUpdateDescriptor<T> SetProperty<TProp>(Func<T, TProp> selector, TProp value);
 
     /// <summary>
     /// Specifies member update with an expression.
@@ -43,5 +41,5 @@ public interface IUpdateDescriptor<out T>
     /// <param name="selector">Member selector.</param>
     /// <param name="valueBuilder">New value generator.</param>
     /// <returns>Update descriptor for chaining.</returns>
-    IUpdateDescriptor<T> Set<TProp>(Func<T, TProp> selector, Func<T, TProp> valueBuilder);
+    IUpdateDescriptor<T> SetProperty<TProp>(Func<T, TProp> selector, Func<T, TProp> valueBuilder);
 }

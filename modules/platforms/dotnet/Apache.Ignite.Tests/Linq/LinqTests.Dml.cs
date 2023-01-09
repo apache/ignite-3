@@ -103,7 +103,7 @@ public partial class LinqTests
     public async Task TestUpdateAllConstantValue()
     {
         var query = PocoAllColumnsSqlNullableView.AsQueryable().Where(x => x.Key >= 1000);
-        await query.UpdateAllAsync(row => row.Set(x => x.Str, "updated"));
+        await query.UpdateAllAsync(row => row.SetProperty(x => x.Str, "updated"));
 
         var res = await query.Select(x => x.Str).Distinct().ToListAsync();
         CollectionAssert.AreEqual(new[] { "updated" }, res);
@@ -113,7 +113,7 @@ public partial class LinqTests
     public async Task TestUpdateAllComputedValue()
     {
         var query = PocoAllColumnsSqlNullableView.AsQueryable().Where(x => x.Key >= 1000);
-        await query.UpdateAllAsync(row => row.Set(x => x.Str, x => "updated_" + x.Key + "_"));
+        await query.UpdateAllAsync(row => row.SetProperty(x => x.Str, x => "updated_" + x.Key + "_"));
 
         var res = await query.OrderBy(x => x.Key).Select(x => x.Str).ToListAsync();
 
@@ -140,7 +140,7 @@ public partial class LinqTests
     public void TestUpdateAllWithResultOperatorsIsNotSupported()
     {
         var ex = Assert.ThrowsAsync<NotSupportedException>(
-            () => PocoView.AsQueryable().DefaultIfEmpty().UpdateAllAsync(x => x.Set(p => p.Key, 2)));
+            () => PocoView.AsQueryable().DefaultIfEmpty().UpdateAllAsync(x => x.SetProperty(p => p.Key, 2)));
 
         Assert.AreEqual("UpdateAllAsync can not be combined with result operators: DefaultIfEmpty()", ex!.Message);
     }
