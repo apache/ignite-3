@@ -377,6 +377,12 @@ public partial class LinqSqlGenerationTests
             "delete from PUBLIC.tbl1 as _T0 where ((_T0.KEY IS NOT DISTINCT FROM ?) and (_T0.VAL IS DISTINCT FROM ?))",
             q => q.Where(x => x.Key == 3 && x.Val != "v-2").RemoveAllAsync().Result);
 
+    [Test]
+    public void TestRemoveAllWithInlineCondition() =>
+        AssertSql(
+            "delete from PUBLIC.tbl1 as _T0 where ((_T0.KEY IS NOT DISTINCT FROM ?) and (_T0.VAL IS DISTINCT FROM ?))",
+            q => q.RemoveAllAsync(x => x.Key == 3 && x.Val != "v-2").Result);
+
     [OneTimeSetUp]
     public async Task OneTimeSetUp()
     {
