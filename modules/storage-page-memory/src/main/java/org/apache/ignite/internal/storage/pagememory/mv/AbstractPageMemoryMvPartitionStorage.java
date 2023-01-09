@@ -176,7 +176,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
                 } else {
                     assert indexCfgView == null;
 
-                    //TODO IGNITE-17626 Drop the index synchronously.
+                    //TODO: IGNITE-17626 Drop the index synchronously.
                 }
             }
         } catch (Exception e) {
@@ -368,11 +368,11 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         }
     }
 
-    private RowVersion readRowVersion(long nextLink, Predicate<HybridTimestamp> loadValue) {
+    RowVersion readRowVersion(long rowVersionLink, Predicate<HybridTimestamp> loadValue) {
         ReadRowVersion read = new ReadRowVersion(partitionId);
 
         try {
-            rowVersionDataPageReader.traverse(nextLink, read, loadValue);
+            rowVersionDataPageReader.traverse(rowVersionLink, read, loadValue);
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException("Row version lookup failed", e);
         }
@@ -708,7 +708,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         }
     }
 
-    private RowVersion insertCommittedRowVersion(BinaryRow row, HybridTimestamp commitTimestamp, long nextPartitionlessLink) {
+    private RowVersion insertCommittedRowVersion(@Nullable BinaryRow row, HybridTimestamp commitTimestamp, long nextPartitionlessLink) {
         byte[] rowBytes = rowBytes(row);
 
         RowVersion rowVersion = new RowVersion(partitionId, commitTimestamp, nextPartitionlessLink, ByteBuffer.wrap(rowBytes));
@@ -742,7 +742,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
                                 }
 
                                 try {
-                                    if (rowVersion.nextLink() == 0) {
+                                    if (!rowVersion.hasNextLink()) {
                                         return null;
                                     }
 

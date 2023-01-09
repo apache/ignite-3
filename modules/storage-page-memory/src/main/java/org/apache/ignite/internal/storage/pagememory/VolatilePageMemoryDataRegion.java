@@ -18,12 +18,12 @@
 package org.apache.ignite.internal.storage.pagememory;
 
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
-import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
+import static org.apache.ignite.internal.util.IgniteUtils.closeAllManually;
 
 import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryDataRegionConfiguration;
-import org.apache.ignite.internal.pagememory.evict.PageEvictionTrackerNoOp;
+import org.apache.ignite.internal.pagememory.evict.PageEvictionTracker;
 import org.apache.ignite.internal.pagememory.inmemory.VolatilePageMemory;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
@@ -48,6 +48,8 @@ public class VolatilePageMemoryDataRegion implements DataRegion<VolatilePageMemo
 
     private final int pageSize;
 
+    private final PageEvictionTracker pageEvictionTracker;
+
     private volatile VolatilePageMemory pageMemory;
 
     private volatile RowVersionFreeList rowVersionFreeList;
@@ -60,16 +62,18 @@ public class VolatilePageMemoryDataRegion implements DataRegion<VolatilePageMemo
      * @param cfg Data region configuration.
      * @param ioRegistry IO registry.
      * @param pageSize Page size in bytes.
+     * @param pageEvictionTracker Eviction tracker to use.
      */
     public VolatilePageMemoryDataRegion(
             VolatilePageMemoryDataRegionConfiguration cfg,
             PageIoRegistry ioRegistry,
             // TODO: IGNITE-17017 Move to common config
-            int pageSize
-    ) {
+            int pageSize,
+            PageEvictionTracker pageEvictionTracker) {
         this.cfg = cfg;
         this.ioRegistry = ioRegistry;
         this.pageSize = pageSize;
+        this.pageEvictionTracker = pageEvictionTracker;
     }
 
     /**
@@ -91,7 +95,7 @@ public class VolatilePageMemoryDataRegion implements DataRegion<VolatilePageMemo
         this.pageMemory = pageMemory;
     }
 
-    private static RowVersionFreeList createRowVersionFreeList(
+    private RowVersionFreeList createRowVersionFreeList(
             PageMemory pageMemory
     ) throws IgniteInternalCheckedException {
         long metaPageId = pageMemory.allocatePage(FREE_LIST_GROUP_ID, FREE_LIST_PARTITION_ID, FLAG_AUX);
@@ -106,7 +110,7 @@ public class VolatilePageMemoryDataRegion implements DataRegion<VolatilePageMemo
                 true,
                 // Because in memory.
                 null,
-                PageEvictionTrackerNoOp.INSTANCE,
+                pageEvictionTracker,
                 IoStatisticsHolderNoOp.INSTANCE
         );
     }
@@ -125,7 +129,7 @@ public class VolatilePageMemoryDataRegion implements DataRegion<VolatilePageMemo
                 true,
                 // Because in memory.
                 null,
-                PageEvictionTrackerNoOp.INSTANCE,
+                pageEvictionTracker,
                 IoStatisticsHolderNoOp.INSTANCE
         );
     }
@@ -134,9 +138,10 @@ public class VolatilePageMemoryDataRegion implements DataRegion<VolatilePageMemo
      * Starts the in-memory data region.
      */
     public void stop() throws Exception {
-        closeAll(
-                pageMemory != null ? () -> pageMemory.stop(true) : null,
-                rowVersionFreeList != null ? rowVersionFreeList::close : null
+        closeAllManually(
+                rowVersionFreeList,
+                indexColumnsFreeList,
+                pageMemory != null ? () -> pageMemory.stop(true) : null
         );
     }
 
