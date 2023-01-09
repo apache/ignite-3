@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Tests.Linq;
 
+using System;
 using System.Linq;
 using System.Threading.Tasks;
 using Ignite.Sql;
@@ -70,6 +71,16 @@ public partial class LinqTests
     [Test]
     public void TestRemoveAllWithResultOperatorsIsNotSupported()
     {
-        Assert.Fail("TODO");
+        var ex = Assert.ThrowsAsync<NotSupportedException>(() => PocoView.AsQueryable().Skip(1).Take(2).RemoveAllAsync());
+        Assert.AreEqual("RemoveAllAsync can not be combined with result operators: Skip(1), Take(2)", ex!.Message);
+    }
+
+    [Test]
+    public void TestUpdateAllWithResultOperatorsIsNotSupported()
+    {
+        var ex = Assert.ThrowsAsync<NotSupportedException>(
+            () => PocoView.AsQueryable().DefaultIfEmpty().UpdateAllAsync(x => x.Set(p => p.Key, 2)));
+
+        Assert.AreEqual("UpdateAllAsync can not be combined with result operators: DefaultIfEmpty()", ex!.Message);
     }
 }
