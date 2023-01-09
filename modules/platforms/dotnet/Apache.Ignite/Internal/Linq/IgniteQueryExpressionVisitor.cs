@@ -437,10 +437,18 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
         }
         else if (expression.NodeType is ExpressionType.Convert)
         {
-            ResultBuilder
-                .Append(" as ")
-                .Append(expression.Type.ToSqlTypeName())
-                .Append(')');
+            if (expression.Type == typeof(object))
+            {
+                // Special case for string concatenation.
+                ResultBuilder.Append(" as varchar)");
+            }
+            else
+            {
+                ResultBuilder
+                    .Append(" as ")
+                    .Append(expression.Type.ToSqlTypeName())
+                    .Append(')');
+            }
         }
 
         return expression;
