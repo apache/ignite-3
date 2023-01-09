@@ -17,35 +17,13 @@
 
 #pragma once
 
-#include "ignite/common/config.h"
-#include "ignite/common/ignite_result.h"
+#include "ignite/client/transaction/transactions.h"
+#include "ignite/client/detail/transaction/transactions_impl.h"
 
-namespace ignite::detail {
+namespace ignite {
 
-/**
- * Ignite transactions.
- */
-class transactions_impl {
-public:
-    // Default
-    ~transactions_impl() = default;
-    transactions_impl(transactions_impl &&) noexcept = default;
-    transactions_impl &operator=(transactions_impl &&) noexcept = default;
-
-    // Deleted
-    transactions_impl() = delete;
-    transactions_impl(const transactions_impl &) = delete;
-    transactions_impl &operator=(const transactions_impl &) = delete;
-
-    /**
-     * Starts a new transaction asynchronously.
-     *
-     * @param callback Callback to be called with a new transaction or error upon completion of asynchronous operation.
-     */
-    IGNITE_API void begin_async(ignite_callback<transaction> callback) {
-        //
-    }
-private:
-};
+void transactions::begin_async(ignite_callback<transaction> callback) {
+    m_impl->begin_async(std::move(callback));
+}
 
 } // namespace ignite

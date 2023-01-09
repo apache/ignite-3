@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include "ignite/client/transaction/transaction.h"
+
 #include "ignite/common/config.h"
 #include "ignite/common/ignite_result.h"
 
@@ -37,7 +39,21 @@ public:
     // Delete
     transactions() = delete;
 
+    /**
+     * Starts a new transaction.
+     *
+     * @return A new transaction.
+     */
+    IGNITE_API transaction begin() {
+        return sync<transaction>([this](auto callback) { begin_async(std::move(callback)); });
+    }
 
+    /**
+     * Starts a new transaction asynchronously.
+     *
+     * @param callback Callback to be called with a new transaction or error upon completion of asynchronous operation.
+     */
+    IGNITE_API void begin_async(ignite_callback<transaction> callback);
 
 private:
     /**

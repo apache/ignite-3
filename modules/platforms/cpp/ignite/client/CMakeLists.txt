@@ -26,6 +26,7 @@ set(SOURCES
     table/record_view.cpp
     table/table.cpp
     table/tables.cpp
+    transaction/transactions.cpp
     detail/cluster_connection.cpp
     detail/utils.cpp
     detail/node_connection.cpp
