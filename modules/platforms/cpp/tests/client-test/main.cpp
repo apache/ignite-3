@@ -74,21 +74,21 @@ void before_all() {
 
 int main(int argc, char **argv) {
     int res = 0;
-    before_all();
+//    before_all();
 
-    ignite::IgniteRunner runner;
+//    ignite::IgniteRunner runner;
 
     set_process_abort_handler([&](int signal) {
         std::cout << "Caught signal " << signal << " during tests" << std::endl;
 
-        runner.stop();
+//        runner.stop();
     });
 
     try {
-        runner.start(false);
+//        runner.start(false);
 
         // TODO: Implement node startup await
-        std::this_thread::sleep_for(std::chrono::seconds(20));
+//        std::this_thread::sleep_for(std::chrono::seconds(20));
 
         ::testing::InitGoogleTest(&argc, argv);
         res = RUN_ALL_TESTS();
@@ -97,7 +97,7 @@ int main(int argc, char **argv) {
     } catch (...) {
         std::cout << "Unknown uncaught error" << std::endl;
     }
-    runner.stop();
+//    runner.stop();
 
     return res;
 }

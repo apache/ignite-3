@@ -73,12 +73,12 @@ public class PlatformTestNodeRunner {
     private static final String TABLE_NAME_ALL_COLUMNS_SQL = "tbl_all_columns_sql"; // All column types supported by SQL.
 
     /** Time to keep the node alive. */
-    private static final int RUN_TIME_MINUTES = 30;
+    private static final int RUN_TIME_MINUTES = 300;
 
     /** Nodes bootstrap configuration. */
     private static final Map<String, String> nodesBootstrapCfg = Map.of(
             NODE_NAME, "{\n"
-                    + "  \"clientConnector\":{\"port\": 10942,\"portRange\":10,\"idleTimeout\":3000,\""
+                    + "  \"clientConnector\":{\"port\": 10942,\"portRange\":10,\"idleTimeout\":0,\""
                     + "sendServerExceptionStackTraceToClient\":true},"
                     + "  \"network\": {\n"
                     + "    \"port\":3344,\n"
@@ -89,7 +89,7 @@ public class PlatformTestNodeRunner {
                     + "}",
 
             NODE_NAME2, "{\n"
-                    + "  \"clientConnector\":{\"port\": 10942,\"portRange\":10,\"idleTimeout\":3000,"
+                    + "  \"clientConnector\":{\"port\": 10942,\"portRange\":10,\"idleTimeout\":0,"
                     + "\"sendServerExceptionStackTraceToClient\":true},"
                     + "  \"network\": {\n"
                     + "    \"port\":3345,\n"
