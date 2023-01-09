@@ -31,23 +31,11 @@ import org.apache.ignite.tx.TransactionException;
  * Client transaction.
  */
 public class ClientTransaction implements Transaction {
-    /** Open state. */
-    private static final int STATE_OPEN = 0;
-
-    /** Committed state. */
-    private static final int STATE_COMMITTED = 1;
-
-    /** Rolled back state. */
-    private static final int STATE_ROLLED_BACK = 2;
-
     /** Channel that the transaction belongs to. */
     private final ClientChannel ch;
 
     /** Transaction id. */
     private final long id;
-
-    /** State. */
-    private final AtomicInteger state = new AtomicInteger(STATE_OPEN);
 
     /**
      * Constructor.
@@ -87,8 +75,6 @@ public class ClientTransaction implements Transaction {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> commitAsync() {
-        setState(STATE_COMMITTED);
-
         return ch.serviceAsync(ClientOp.TX_COMMIT, w -> w.out().packLong(id), r -> null);
     }
 
@@ -101,23 +87,7 @@ public class ClientTransaction implements Transaction {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> rollbackAsync() {
-        setState(STATE_ROLLED_BACK);
-
         return ch.serviceAsync(ClientOp.TX_ROLLBACK, w -> w.out().packLong(id), r -> null);
-    }
-
-    private void setState(int state) {
-        int oldState = this.state.compareAndExchange(STATE_OPEN, state);
-
-        if (oldState == STATE_OPEN) {
-            return;
-        }
-
-        String message = oldState == STATE_COMMITTED
-                ? "Transaction is already committed."
-                : "Transaction is already rolled back.";
-
-        throw new TransactionException(message);
     }
 
     /** {@inheritDoc} */

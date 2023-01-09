@@ -19,6 +19,7 @@ package org.apache.ignite.internal.runner.app.client;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -199,21 +200,23 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
     }
 
     @Test
-    void testCommitRollbackSameTxThrows() {
+    void testCommitRollbackSameTxNotThrows() {
         Transaction tx = client().transactions().begin();
         tx.commit();
 
-        TransactionException ex = assertThrows(TransactionException.class, tx::rollback);
-        assertThat(ex.getMessage(), containsString("Transaction is already committed"));
+        assertDoesNotThrow(tx::rollback, "Unexpected exception was thrown.");
+        assertDoesNotThrow(tx::commit, "Unexpected exception was thrown.");
+        assertDoesNotThrow(tx::rollback, "Unexpected exception was thrown.");
     }
 
     @Test
-    void testRollbackCommitSameTxThrows() {
+    void testRollbackCommitSameTxNotThrows() {
         Transaction tx = client().transactions().begin();
         tx.rollback();
 
-        TransactionException ex = assertThrows(TransactionException.class, tx::commit);
-        assertThat(ex.getMessage(), containsString("Transaction is already rolled back"));
+        assertDoesNotThrow(tx::commit, "Unexpected exception was thrown.");
+        assertDoesNotThrow(tx::rollback, "Unexpected exception was thrown.");
+        assertDoesNotThrow(tx::commit, "Unexpected exception was thrown.");
     }
 
     @Test
