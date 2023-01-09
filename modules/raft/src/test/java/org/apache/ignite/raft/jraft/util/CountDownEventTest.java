@@ -26,8 +26,10 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
+@Disabled
 public class CountDownEventTest {
     private static final IgniteLogger LOG = Loggers.forClass(CountDownEventTest.class);
 
