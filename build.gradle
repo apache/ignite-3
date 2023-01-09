@@ -45,6 +45,28 @@ ext {
     ]
 }
 
+class TestArgumentProvider implements CommandLineArgumentProvider {
+    @Internal
+    String javaLoggingFile
+    TestArgumentProvider(String javaLoggingFile){
+        this.javaLoggingFile = javaLoggingFile
+    }
+
+    @Override
+    Iterable<String> asArguments() {
+        ["--add-opens=java.base/java.lang=ALL-UNNAMED",
+         "--add-opens=java.base/java.lang.invoke=ALL-UNNAMED",
+         "--add-opens=java.base/java.lang.reflect=ALL-UNNAMED",
+         "--add-opens=java.base/java.io=ALL-UNNAMED",
+         "--add-opens=java.base/java.nio=ALL-UNNAMED",
+         "--add-opens=java.base/java.math=ALL-UNNAMED",
+         "--add-opens=java.base/java.util=ALL-UNNAMED",
+         "--add-opens=java.base/jdk.internal.misc=ALL-UNNAMED",
+         "-Djava.util.logging.config.file=${javaLoggingFile}",
+         "-Dio.netty.tryReflectionSetAccessible=true"]
+    }
+}
+
 allprojects {
     group 'org.apache.ignite'
     version = "3.0.0-SNAPSHOT"
@@ -52,20 +74,12 @@ allprojects {
     tasks.withType(Test) {
         defaultCharacterEncoding = 'UTF-8'
 
-        jvmArgs += ["--add-opens=java.base/java.lang=ALL-UNNAMED",
-                "--add-opens=java.base/java.lang.invoke=ALL-UNNAMED",
-                "--add-opens=java.base/java.lang.reflect=ALL-UNNAMED",
-                "--add-opens=java.base/java.io=ALL-UNNAMED",
-                "--add-opens=java.base/java.nio=ALL-UNNAMED",
-                "--add-opens=java.base/java.math=ALL-UNNAMED",
-                "--add-opens=java.base/java.util=ALL-UNNAMED",
-                "--add-opens=java.base/jdk.internal.misc=ALL-UNNAMED",
-                "-Dio.netty.tryReflectionSetAccessible=true",
-                "-Djava.util.logging.config.file=${project.rootDir}/config/java.util.logging.properties"]
-
         if (project.hasProperty('excludeTest')) {
             exclude project.property('excludeTest')
         }
+
+        jvmArgumentProviders.add(
+            new TestArgumentProvider("${project.rootDir}/config/java.util.logging.properties"))
     }
 
     tasks.withType(Sign) {
@@ -85,9 +99,9 @@ allprojects {
 
     //Temporary hack to disable caching of Test tasks.
     //https://github.com/gradle/gradle/issues/9210
-    tasks.withType(Test).configureEach {
+    /*tasks.withType(Test).configureEach {
         outputs.upToDateWhen { false }
-    }
+    }*/
 }
 
 subprojects {
