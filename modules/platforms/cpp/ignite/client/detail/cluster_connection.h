@@ -149,6 +149,27 @@ public:
     }
 
     /**
+     * Perform request.
+     *
+     * @tparam T Result type.
+     * @param op Operation code.
+     * @param wr Request writer function.
+     * @param rd Response reader function.
+     * @param callback Callback to call on result.
+     * @return Channel used for the request.
+     */
+    template<typename T>
+    void perform_request(
+        client_operation op,
+        const std::function<void(protocol::writer &)> &wr,
+        std::function<T(protocol::reader &, std::shared_ptr<node_connection>)> rd,
+        ignite_callback<T> callback)
+    {
+        auto handler = std::make_shared<response_handler_reader_connection<T>>(std::move(rd), std::move(callback));
+        perform_request_handler<T>(op, wr, std::move(handler));
+    }
+
+    /**
      * Perform request without input data.
      *
      * @tparam T Result type.
@@ -160,6 +181,24 @@ public:
     template<typename T>
     void perform_request_rd(
         client_operation op, std::function<T(protocol::reader &)> rd, ignite_callback<T> callback) {
+        perform_request<T>(op, [](protocol::writer &) {}, std::move(rd), std::move(callback));
+    }
+
+    /**
+     * Perform request without input data.
+     *
+     * @tparam T Result type.
+     * @param op Operation code.
+     * @param rd Response reader function.
+     * @param callback Callback to call on result.
+     * @return Channel used for the request.
+     */
+    template<typename T>
+    void perform_request_rd(
+        client_operation op,
+        std::function<T(protocol::reader &, std::shared_ptr<node_connection>)> rd,
+        ignite_callback<T> callback)
+    {
         perform_request<T>(op, [](protocol::writer &) {}, std::move(rd), std::move(callback));
     }
 

@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include "ignite/client/detail/cluster_connection.h"
+#include "ignite/client/detail/node_connection.h"
 
 #include "ignite/common/config.h"
 #include "ignite/common/ignite_result.h"
@@ -47,7 +47,7 @@ public:
      * @param id Transaction ID.
      * @param connection Connection.
      */
-    explicit transaction_impl(std::int64_t id, std::shared_ptr<cluster_connection> connection)
+    explicit transaction_impl(std::int64_t id, std::shared_ptr<node_connection> connection)
         : m_id(id)
         , m_connection(std::move(connection)) {}
 
@@ -76,7 +76,7 @@ private:
     std::int64_t m_id;
 
     /** Cluster connection. */
-    std::shared_ptr<cluster_connection> m_connection;
+    std::shared_ptr<node_connection> m_connection;
 };
 
 } // namespace ignite

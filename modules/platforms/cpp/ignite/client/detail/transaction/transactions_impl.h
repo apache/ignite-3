@@ -56,12 +56,10 @@ public:
      * @param callback Callback to be called with a new transaction or error upon completion of asynchronous operation.
      */
     IGNITE_API void begin_async(ignite_callback<transaction> callback) {
-        auto reader_func = [conn = m_connection](protocol::reader &reader) mutable -> transaction {
+        auto reader_func = [](protocol::reader &reader, std::shared_ptr<node_connection> conn) mutable -> transaction {
             auto id = reader.read_int64();
-            // TODO: Use node_connection here.
-            auto transaction0 = std::make_shared<transaction_impl>(id, std::move(conn));
 
-            return transaction(transaction0);
+            return transaction(std::make_shared<transaction_impl>(id, std::move(conn)));
         };
 
         m_connection->perform_request_rd<transaction>(
