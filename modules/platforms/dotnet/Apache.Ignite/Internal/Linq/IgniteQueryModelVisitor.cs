@@ -644,10 +644,19 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
     /// <summary>
     /// Builds the SQL expression.
     /// </summary>
-    private void BuildSqlExpression(Expression expression, bool useStar = false, bool includeAllFields = false, bool visitSubqueryModel = false)
-    {
-        new IgniteQueryExpressionVisitor(this, useStar, includeAllFields, visitSubqueryModel).Visit(expression);
-    }
+    private void BuildSqlExpression(
+        Expression expression,
+        bool useStar = false,
+        bool includeAllFields = false,
+        bool visitSubqueryModel = false,
+        bool columnNameWithoutTable = false) =>
+        new IgniteQueryExpressionVisitor(
+                modelVisitor: this,
+                useStar: useStar,
+                includeAllFields: includeAllFields,
+                visitEntireSubQueryModel: visitSubqueryModel,
+                columnNameWithoutTable: columnNameWithoutTable)
+            .Visit(expression);
 
     /// <summary>
     /// Visits a DML operator (update, delete).
@@ -688,7 +697,8 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
             }
 
             first = false;
-            BuildSqlExpression(update.Selector);
+
+            BuildSqlExpression(update.Selector, columnNameWithoutTable: true);
             _builder.Append(" = ");
             BuildSqlExpression(update.Value, visitSubqueryModel: true);
         }
