@@ -83,7 +83,7 @@ public class TestTxStateStorage implements TxStateStorage {
                 if (old.txState() == txStateExpected) {
                     result = storage.replace(txId, old, txMeta);
                 } else {
-                    return old.txState() == txMeta.txState() && Objects.equals(old.commitTimestamp(), txMeta.commitTimestamp());
+                    return false;
                 }
             } else {
                 result = false;
