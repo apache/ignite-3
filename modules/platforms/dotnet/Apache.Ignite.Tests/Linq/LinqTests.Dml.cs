@@ -112,7 +112,11 @@ public partial class LinqTests
     [Test]
     public async Task TestUpdateAllComputedValue()
     {
-        await Task.Delay(1);
+        var query = PocoAllColumnsSqlNullableView.AsQueryable().Where(x => x.Key >= 1000);
+        await query.UpdateAllAsync(row => row.Set(x => x.Str, x => "updated_" + x.Key + "_"));
+
+        var res = await query.Select(x => x.Str).Distinct().ToListAsync();
+        CollectionAssert.AreEqual(new[] { "updated" }, res);
     }
 
     [Test]
