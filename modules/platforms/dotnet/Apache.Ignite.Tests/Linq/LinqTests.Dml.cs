@@ -22,7 +22,6 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Threading.Tasks;
 using Ignite.Sql;
-using Ignite.Table;
 using NUnit.Framework;
 using Table;
 
@@ -126,7 +125,16 @@ public partial class LinqTests
     [Test]
     public async Task TestUpdateAllWithTx()
     {
-        await Task.Delay(1);
+        await using (var tx = await Client.Transactions.BeginAsync())
+        {
+            await PocoAllColumnsSqlNullableView.AsQueryable(tx)
+                .Where(x => x.Key >= 1000)
+                .UpdateAllAsync(row => row.SetProperty(x => x.Str, x => "updated_" + x.Key + "_"));
+
+            Assert.AreEqual("updated_1001_", PocoAllColumnsSqlNullableView.AsQueryable(tx).Single(x => x.Key == 1001).Str);
+        }
+
+        Assert.IsNull(PocoAllColumnsSqlNullableView.AsQueryable().Single(x => x.Key == 1001).Str);
     }
 
     [Test]
