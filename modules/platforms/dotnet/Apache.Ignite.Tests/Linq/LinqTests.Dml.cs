@@ -55,8 +55,15 @@ public partial class LinqTests
     [Test]
     public async Task TestRemoveAllWithTx()
     {
-        await Task.Yield();
+        await using (var tx = await Client.Transactions.BeginAsync())
+        {
+            var rowCount = await PocoView.AsQueryable(tx).RemoveAllAsync();
+            Assert.Greater(rowCount, 0);
 
-        Assert.Fail("TODO");
+            CollectionAssert.IsEmpty(await PocoView.AsQueryable(tx).ToListAsync());
+            CollectionAssert.IsNotEmpty(await PocoView.AsQueryable().ToListAsync());
+        }
+
+        CollectionAssert.IsNotEmpty(await PocoView.AsQueryable().ToListAsync());
     }
 }
