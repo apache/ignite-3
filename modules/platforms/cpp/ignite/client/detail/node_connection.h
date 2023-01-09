@@ -142,6 +142,21 @@ public:
     }
 
     /**
+     * Perform request without output data.
+     *
+     * @tparam T Result type.
+     * @param op Operation code.
+     * @param wr Request writer function.
+     * @param callback Callback to call on result.
+     * @return Channel used for the request.
+     */
+    template<typename T>
+    void perform_request_wr(
+        client_operation op, const std::function<void(protocol::writer &)> &wr, ignite_callback<T> callback) {
+        perform_request<T>(op, wr, [](protocol::reader &) {}, std::move(callback));
+    }
+
+    /**
      * Perform handshake.
      *
      * @return @c true on success and @c false otherwise.

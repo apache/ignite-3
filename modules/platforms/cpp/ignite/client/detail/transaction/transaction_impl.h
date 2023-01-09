@@ -22,6 +22,7 @@
 #include "ignite/common/config.h"
 #include "ignite/common/ignite_result.h"
 
+#include <atomic>
 #include <memory>
 
 namespace ignite::detail {
@@ -31,14 +32,20 @@ namespace ignite::detail {
  */
 class transaction_impl {
 public:
-    // Default
-    ~transaction_impl() = default;
-    transaction_impl(transaction_impl &&) noexcept = default;
-    transaction_impl &operator=(transaction_impl &&) noexcept = default;
+    /** Transaction state. */
+    enum class state {
+        OPEN,
+
+        COMMITTED,
+
+        ROLLED_BACK
+    };
 
     // Deleted
     transaction_impl() = delete;
+    transaction_impl(transaction_impl &&) noexcept = delete;
     transaction_impl(const transaction_impl &) = delete;
+    transaction_impl &operator=(transaction_impl &&) noexcept = delete;
     transaction_impl &operator=(const transaction_impl &) = delete;
 
     /**
@@ -49,16 +56,26 @@ public:
      */
     explicit transaction_impl(std::int64_t id, std::shared_ptr<node_connection> connection)
         : m_id(id)
+        , m_state(state::OPEN)
         , m_connection(std::move(connection)) {}
+
+    ~transaction_impl() {
+        state old = state::OPEN;
+        if (m_state.compare_exchange_strong(old, state::ROLLED_BACK, std::memory_order_relaxed))
+        {
+            finish(false, [](auto){});
+        }
+    }
 
     /**
      * Commits the transaction asynchronously.
      *
      * @param callback Callback to be called upon asynchronous operation completion.
      */
-    IGNITE_API void commit_async(ignite_callback<void> callback) {
-        (void) callback;
-        throw ignite_error("Not implemented");
+    void commit_async(ignite_callback<void> callback) {
+        set_state(state::COMMITTED);
+
+        finish(true, std::move(callback));
     }
 
     /**
@@ -66,14 +83,49 @@ public:
      *
      * @param callback Callback to be called upon asynchronous operation completion.
      */
-    IGNITE_API void rollback_async(ignite_callback<void> callback) {
-        (void) callback;
-        throw ignite_error("Not implemented");
+    void rollback_async(ignite_callback<void> callback) {
+        set_state(state::ROLLED_BACK);
+
+        finish(false, std::move(callback));
     }
 
 private:
+    /**
+     * Perform operation.
+     *
+     * @param commit Flag indicating should transaction be committed or rolled back.
+     * @param callback Callback to be called upon asynchronous operation completion.
+     */
+    void finish(bool commit, ignite_callback<void> callback) {
+        auto writer_func = [id = m_id](protocol::writer &writer) { writer.write(id); };
+
+        m_connection->perform_request_wr<void>(
+            commit ? client_operation::TX_COMMIT : client_operation::TX_ROLLBACK, writer_func, std::move(callback));
+    }
+
+    /**
+     * Set state.
+     *
+     * @param st State.
+     */
+    void set_state(state st) {
+        state old = state::OPEN;
+        auto opened = m_state.compare_exchange_strong(old, st, std::memory_order_relaxed);
+        if (opened)
+            return;
+
+        auto message = old == state::COMMITTED
+            ? "Transaction is already committed."
+            : "Transaction is already rolled back.";
+
+        throw ignite_error(message);
+    }
+
     /** ID. */
     std::int64_t m_id;
+
+    /** State. */
+    std::atomic<state> m_state{state::OPEN};
 
     /** Cluster connection. */
     std::shared_ptr<node_connection> m_connection;
