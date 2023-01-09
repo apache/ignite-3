@@ -395,6 +395,16 @@ public partial class LinqSqlGenerationTests
             "update PUBLIC.tbl1 as _T0 set VAL = concat(concat(_T0.VAL, ?), cast(_T0.KEY as varchar)) where (_T0.KEY > ?)",
             q => q.Where(x => x.Key > 3).ExecuteUpdateAsync(row => row.SetProperty(x => x.Val, x => x.Val + "_" + x.Key)).Result);
 
+    [Test]
+    public void TestUpdateAllMultipleSetters() =>
+        AssertSql(
+            "update PUBLIC.tbl1 as _T0 set VAL = ?, KEY = (_T0.KEY + ?) where (_T0.KEY > ?)",
+            q => q.Where(x => x.Key > 3).ExecuteUpdateAsync(
+                row => row
+                    .SetProperty(x => x.Key, x => x.Key + 1)
+                    .SetProperty(x => x.Val, "!"))
+                .Result);
+
     [OneTimeSetUp]
     public async Task OneTimeSetUp()
     {
