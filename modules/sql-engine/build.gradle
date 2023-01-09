@@ -54,6 +54,7 @@ dependencies {
     annotationProcessor libs.value.annotation.processor
 
     testAnnotationProcessor project(':ignite-network-annotation-processor')
+    testAnnotationProcessor libs.jmh.annotation.processor
     testAnnotationProcessor libs.value.annotation.processor
     testImplementation project(':ignite-core')
     testImplementation project(':ignite-baseline')
@@ -65,6 +66,7 @@ dependencies {
     testImplementation project(':ignite-storage-rocksdb')
     testImplementation project(':ignite-cluster-management')
     testImplementation project(':ignite-vault')
+    testImplementation libs.jmh.core
     testImplementation(testFixtures(project(':ignite-core')))
     testImplementation(testFixtures(project(':ignite-configuration')))
     testImplementation(testFixtures(project(':ignite-storage-api')))
