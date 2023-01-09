@@ -383,6 +383,18 @@ public partial class LinqSqlGenerationTests
             "delete from PUBLIC.tbl1 as _T0 where ((_T0.KEY IS NOT DISTINCT FROM ?) and (_T0.VAL IS DISTINCT FROM ?))",
             q => q.RemoveAllAsync(x => x.Key == 3 && x.Val != "v-2").Result);
 
+    [Test]
+    public void TestUpdateAllWithConstantValue() =>
+        AssertSql(
+            "update PUBLIC.tbl1 as _T0 set VAL = ? where (_T0.KEY IS NOT DISTINCT FROM ?)",
+            q => q.Where(x => x.Key == 3).UpdateAllAsync(row => row.SetProperty(x => x.Val, "1")).Result);
+
+    [Test]
+    public void TestUpdateAllWithComputedValue() =>
+        AssertSql(
+            "update PUBLIC.tbl1 as _T0 set VAL = concat(concat(_T0.VAL, ?), cast(_T0.KEY as varchar)) where (_T0.KEY > ?)",
+            q => q.Where(x => x.Key > 3).UpdateAllAsync(row => row.SetProperty(x => x.Val, x => x.Val + "_" + x.Key)).Result);
+
     [OneTimeSetUp]
     public async Task OneTimeSetUp()
     {
@@ -421,7 +433,7 @@ public partial class LinqSqlGenerationTests
             ex = e;
         }
 
-        Assert.AreEqual(expectedSql, _server.LastSql, string.IsNullOrEmpty(_server.LastSql) ? ex?.ToString() : null);
+        Assert.AreEqual(expectedSql, _server.LastSql, string.IsNullOrEmpty(_server.LastSql) ? ex?.ToString() : _server.LastSql);
     }
 
     // ReSharper disable NotAccessedPositionalProperty.Local, ClassNeverInstantiated.Local
