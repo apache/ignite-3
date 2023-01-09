@@ -24,7 +24,7 @@ using NUnit.Framework;
 using Table;
 
 /// <summary>
-/// Linq type cast tests.
+/// Linq DML tests.
 /// </summary>
 public partial class LinqTests
 {
@@ -65,5 +65,11 @@ public partial class LinqTests
         }
 
         CollectionAssert.IsNotEmpty(await PocoView.AsQueryable().ToListAsync());
+    }
+
+    [Test]
+    public void TestRemoveAllWithResultOperatorsIsNotSupported()
+    {
+        Assert.Fail("TODO");
     }
 }
