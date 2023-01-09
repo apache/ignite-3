@@ -32,6 +32,7 @@ public partial class LinqTests
     public async Task TestRemoveAll()
     {
         var view = PocoAllColumnsSqlNullableView;
+        var tableSizeBefore = await view.AsQueryable().CountAsync();
 
         for (int i = 0; i < 10; i++)
         {
@@ -43,10 +44,12 @@ public partial class LinqTests
         var countBefore = await query.CountAsync();
         var deleteRes = await query.RemoveAllAsync();
         var countAfter = await query.CountAsync();
+        var tableSizeAfter = await view.AsQueryable().CountAsync();
 
         Assert.AreEqual(10, countBefore);
         Assert.AreEqual(10, deleteRes);
         Assert.AreEqual(0, countAfter);
+        Assert.AreEqual(tableSizeBefore, tableSizeAfter);
     }
 
     [Test]
