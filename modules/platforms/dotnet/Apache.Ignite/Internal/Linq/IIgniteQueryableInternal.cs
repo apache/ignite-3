@@ -39,4 +39,10 @@ internal interface IIgniteQueryableInternal
     /// </summary>
     /// <returns>Query model.</returns>
     QueryModel GetQueryModel();
+
+    /// <summary>
+    /// Gets the query data.
+    /// </summary>
+    /// <returns>Query data.</returns>
+    QueryData GetQueryData();
 }

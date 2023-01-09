@@ -188,10 +188,12 @@ public class IncomingSnapshotCopierTest {
         assertEqualsMvRows(outgoingMvPartitionStorage, incomingMvPartitionStorage, rowIds);
         assertEqualsTxStates(outgoingTxStatePartitionStorage, incomingTxStatePartitionStorage, txIds);
 
-        verify(incomingMvTableStorage, times(1)).destroyPartition(eq(TEST_PARTITION));
+        // TODO: IGNITE-18030 - uncomment the following line or remove it if not needed after the rework
+        //verify(incomingMvTableStorage, times(1)).destroyPartition(eq(TEST_PARTITION));
         verify(incomingMvTableStorage, times(2)).getOrCreateMvPartition(eq(TEST_PARTITION));
 
-        verify(incomingTxStateTableStorage, times(1)).destroyTxStateStorage(eq(TEST_PARTITION));
+        // TODO: IGNITE-18030 - uncomment the following line or remove it if not needed after the rework
+        //verify(incomingTxStateTableStorage, times(1)).destroyTxStateStorage(eq(TEST_PARTITION));
         verify(incomingTxStateTableStorage, times(2)).getOrCreateTxStateStorage(eq(TEST_PARTITION));
     }
 

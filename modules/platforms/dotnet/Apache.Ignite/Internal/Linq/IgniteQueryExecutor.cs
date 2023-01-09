@@ -24,6 +24,7 @@ using System.Threading.Tasks;
 using Ignite.Sql;
 using Ignite.Transactions;
 using Remotion.Linq;
+using Remotion.Linq.Clauses.ResultOperators;
 using Sql;
 
 /// <summary>
@@ -62,13 +63,16 @@ internal sealed class IgniteQueryExecutor : IQueryExecutor
 
     /** <inheritdoc /> */
     public T? ExecuteSingle<T>(QueryModel queryModel, bool returnDefaultWhenEmpty) =>
-        ExecuteSingleInternalAsync<T>(queryModel, returnDefaultWhenEmpty).GetAwaiter().GetResult();
+        ExecuteSingleInternalAsync<T>(
+            queryModel,
+            returnDefaultWhenEmpty ? ExecutionOptions.ReturnDefaultWhenEmpty : ExecutionOptions.None)
+            .GetAwaiter().GetResult();
 
     /** <inheritdoc /> */
     public IEnumerable<T> ExecuteCollection<T>(QueryModel queryModel)
     {
         // Sync over async lazy enumeration.
-        // Users should prefer async APIs - AsAsyncEnumerable, ToListAsync, etc (TODO IGNITE-18084).
+        // Users should prefer async APIs - AsAsyncEnumerable, ToListAsync, etc.
         using IResultSet<T> resultSet = ExecuteResultSetInternal<T>(queryModel);
         var enumerator = resultSet.GetAsyncEnumerator();
 
@@ -103,26 +107,35 @@ internal sealed class IgniteQueryExecutor : IQueryExecutor
     /// <returns>Result set.</returns>
     internal async Task<IResultSet<T>> ExecuteResultSetInternalAsync<T>(QueryModel queryModel)
     {
-        var qryData = GetQueryData(queryModel);
+        var queryData = GetQueryData(queryModel);
 
-        var statement = new SqlStatement(qryData.QueryText)
+        var statement = new SqlStatement(queryData.QueryText)
         {
             Timeout = _options?.Timeout ?? SqlStatement.DefaultTimeout,
             PageSize = _options?.PageSize ?? SqlStatement.DefaultPageSize
         };
 
+        var selectorOptions = GetResultSelectorOptions(queryModel, queryData.HasOuterJoins);
+
         IResultSet<T> resultSet = await _sql.ExecuteAsyncInternal(
             _transaction,
             statement,
-            cols => ResultSelector.Get<T>(cols, queryModel.SelectClause.Selector, defaultIfNull: qryData.HasOuterJoins),
-            qryData.Parameters)
+            cols => ResultSelector.Get<T>(cols, queryModel.SelectClause.Selector, selectorOptions),
+            queryData.Parameters)
             .ConfigureAwait(false);
 
         return resultSet;
     }
 
+    /// <summary>
+    /// Executes query and returns single result.
+    /// </summary>
+    /// <param name="queryModel">Query model.</param>
+    /// <param name="options">Execution options.</param>
+    /// <typeparam name="T">Result type.</typeparam>
+    /// <returns>Single result from result set.</returns>
     [SuppressMessage("Reliability", "CA2007:Consider calling ConfigureAwait on the awaited task", Justification = "False positive.")]
-    private async Task<T?> ExecuteSingleInternalAsync<T>(QueryModel queryModel, bool returnDefaultWhenEmpty)
+    internal async Task<T?> ExecuteSingleInternalAsync<T>(QueryModel queryModel, ExecutionOptions options = default)
     {
         await using IResultSet<T> resultSet = await ExecuteResultSetInternalAsync<T>(queryModel).ConfigureAwait(false);
 
@@ -141,12 +154,34 @@ internal sealed class IgniteQueryExecutor : IQueryExecutor
             count++;
         }
 
-        if (count == 0 && !returnDefaultWhenEmpty)
+        if (count == 0 && options != ExecutionOptions.ReturnDefaultWhenEmpty)
         {
             throw new InvalidOperationException("ResultSet is empty: " + GetQueryData(queryModel).QueryText);
         }
 
         return res;
+    }
+
+    private static ResultSelectorOptions GetResultSelectorOptions(QueryModel model, bool hasOuterJoins)
+    {
+        foreach (var op in model.ResultOperators)
+        {
+            if (op is MinResultOperator or MaxResultOperator or AverageResultOperator)
+            {
+                // SQL MIN/MAX/AVG return null when there are no rows in the table,
+                // but LINQ Min/Max/Average throw <see cref="InvalidOperationException"/> in this case.
+                return ResultSelectorOptions.ThrowNoElementsIfNull;
+            }
+
+            if (op is SumResultOperator)
+            {
+                // SQL SUM returns null when there are no rows in the table,
+                // but LINQ Sum returns 0.
+                return ResultSelectorOptions.ReturnZeroIfNull;
+            }
+        }
+
+        return hasOuterJoins ? ResultSelectorOptions.ReturnDefaultIfNull : ResultSelectorOptions.None;
     }
 
     [SuppressMessage("Reliability", "CA2000:Dispose objects before losing scope", Justification = "Disposable is returned.")]

@@ -122,6 +122,44 @@ namespace Apache.Ignite.Tests.Sql
         }
 
         [Test]
+        public async Task TestToDictionary()
+        {
+            var statement = new SqlStatement("SELECT ID, VAL FROM TEST WHERE VAL IS NOT NULL ORDER BY VAL", pageSize: 2);
+            await using var resultSet = await Client.Sql.ExecuteAsync(null, statement);
+            Dictionary<int, string> res = await resultSet.ToDictionaryAsync(x => (int)x["ID"]!, x => (string)x["VAL"]!);
+
+            Assert.AreEqual(10, res.Count);
+            Assert.AreEqual("s-3", res[3]);
+        }
+
+        [Test]
+        public async Task TestToDictionaryCustomComparer()
+        {
+            await using var resultSet = await Client.Sql.ExecuteAsync(null, "SELECT ID, VAL FROM TEST WHERE VAL IS NOT NULL ORDER BY VAL");
+            Dictionary<string, int> res = await resultSet.ToDictionaryAsync(
+                x => (string)x["VAL"]!,
+                x => (int)x["ID"]!,
+                StringComparer.OrdinalIgnoreCase);
+
+            Assert.AreEqual(10, res.Count);
+            Assert.AreEqual(3, res["s-3"]);
+            Assert.AreEqual(3, res["S-3"]);
+            Assert.IsFalse(res.ContainsKey("x-3"));
+        }
+
+        [Test]
+        public async Task TestCollect()
+        {
+            var statement = new SqlStatement("SELECT ID, VAL FROM TEST WHERE VAL IS NOT NULL ORDER BY VAL", pageSize: 2);
+            await using var resultSet = await Client.Sql.ExecuteAsync(null, statement);
+            HashSet<int> res = await resultSet.CollectAsync(capacity => new HashSet<int>(capacity), (set, row) => set.Add((int)row["ID"]!));
+
+            Assert.AreEqual(10, res.Count);
+            Assert.IsTrue(res.Contains(1));
+            Assert.IsFalse(res.Contains(111));
+        }
+
+        [Test]
         public async Task TestExists()
         {
             await using var resultSet = await Client.Sql.ExecuteAsync(null, "SELECT EXISTS (SELECT 1 FROM TEST WHERE ID > 1)");

@@ -39,24 +39,17 @@ import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DefaultValueDefinition.FunctionCall;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DefaultValueDefinition.Type;
 import org.apache.ignite.internal.sql.engine.util.Commons;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.lang.IgniteException;
 import org.hamcrest.CustomMatcher;
 import org.hamcrest.Matcher;
 import org.hamcrest.Matchers;
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 
 /**
  * For {@link DdlSqlToCommandConverter} testing.
  */
 public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConverterTest {
-    @AfterAll
-    public static void resetStaticState() {
-        IgniteTestUtils.setFieldValue(Commons.class, "implicitPkEnabled", null);
-    }
-
     @Test
     void testCollectDataStorageNames() {
         assertThat(collectDataStorageNames(Set.of()), equalTo(Map.of()));
@@ -105,8 +98,6 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
 
     @Test
     public void tableWithoutPkShouldThrowErrorWhenSysPropDefault() throws SqlParseException {
-        IgniteTestUtils.setFieldValue(Commons.class, "implicitPkEnabled", null);
-
         var node = parse("CREATE TABLE t (val int)");
 
         assertThat(node, instanceOf(SqlDdl.class));
@@ -122,8 +113,6 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
     @Test
     @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "false")
     public void tableWithoutPkShouldThrowErrorWhenSysPropDisabled() throws SqlParseException {
-        IgniteTestUtils.setFieldValue(Commons.class, "implicitPkEnabled", null);
-
         var node = parse("CREATE TABLE t (val int)");
 
         assertThat(node, instanceOf(SqlDdl.class));
@@ -139,8 +128,6 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
     @Test
     @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
     public void tableWithoutPkShouldInjectImplicitPkWhenSysPropEnabled() throws SqlParseException {
-        IgniteTestUtils.setFieldValue(Commons.class, "implicitPkEnabled", null);
-
         var node = parse("CREATE TABLE t (val int)");
 
         assertThat(node, instanceOf(SqlDdl.class));

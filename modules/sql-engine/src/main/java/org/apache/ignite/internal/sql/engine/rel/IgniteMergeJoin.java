@@ -82,8 +82,9 @@ public class IgniteMergeJoin extends AbstractIgniteJoin {
     }
 
     /**
-     * Constructor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Constructor used for deserialization.
+     *
+     * @param input Serialized representation.
      */
     public IgniteMergeJoin(RelInput input) {
         this(

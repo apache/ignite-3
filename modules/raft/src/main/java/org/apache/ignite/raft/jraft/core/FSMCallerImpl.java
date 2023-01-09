@@ -72,7 +72,7 @@ public class FSMCallerImpl implements FSMCaller {
     /**
      * Task type
      */
-    private enum TaskType {
+    public enum TaskType {
         IDLE, //
         COMMITTED, //
         SNAPSHOT_SAVE, //
@@ -102,14 +102,14 @@ public class FSMCallerImpl implements FSMCaller {
         /** Raft node id. */
         NodeId nodeId;
 
-        TaskType type;
+        public TaskType type;
         // union fields
-        long committedIndex;
+        public long committedIndex;
         long term;
         Status status;
         LeaderChangeContext leaderChangeCtx;
         Closure done;
-        CountDownLatch shutdownLatch;
+        public CountDownLatch shutdownLatch;
 
         @Override
         public NodeId nodeId() {

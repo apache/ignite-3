@@ -106,7 +106,8 @@ public class HashIndexSpoolExecutionTest extends AbstractExecutionTest {
                         ctx,
                         ImmutableBitSet.of(0),
                         testFilter,
-                        () -> searchRow
+                        () -> searchRow,
+                        false
                 );
 
                 spool.register(singletonList(scan));
@@ -147,7 +148,8 @@ public class HashIndexSpoolExecutionTest extends AbstractExecutionTest {
                 ctx,
                 ImmutableBitSet.of(0, 1),
                 null,
-                () -> searchRow
+                () -> searchRow,
+                false
         );
 
         spool.register(scan);

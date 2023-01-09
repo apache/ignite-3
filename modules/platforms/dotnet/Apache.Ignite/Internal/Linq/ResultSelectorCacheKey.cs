@@ -33,12 +33,12 @@ internal readonly struct ResultSelectorCacheKey<T> : IEquatable<ResultSelectorCa
     /// </summary>
     /// <param name="target">Target object (can be type, constructor, etc).</param>
     /// <param name="columns">Columns.</param>
-    /// <param name="defaultIfNull">Whether to read null values as default for value types.</param>
-    public ResultSelectorCacheKey(T target, IReadOnlyList<IColumnMetadata> columns, bool defaultIfNull)
+    /// <param name="options">Options.</param>
+    public ResultSelectorCacheKey(T target, IReadOnlyList<IColumnMetadata> columns, ResultSelectorOptions options = default)
     {
         Target = target;
         Columns = columns;
-        DefaultIfNull = defaultIfNull;
+        Options = options;
     }
 
     /// <summary>
@@ -47,9 +47,9 @@ internal readonly struct ResultSelectorCacheKey<T> : IEquatable<ResultSelectorCa
     public IReadOnlyList<IColumnMetadata> Columns { get; }
 
     /// <summary>
-    /// Gets a value indicating whether null values should be interpreted as default for value types.
+    /// Gets options.
     /// </summary>
-    public bool DefaultIfNull { get; }
+    public ResultSelectorOptions Options { get; }
 
     /// <summary>
     /// Gets target object (can be type, constructor, etc).
@@ -74,7 +74,7 @@ internal readonly struct ResultSelectorCacheKey<T> : IEquatable<ResultSelectorCa
             return false;
         }
 
-        if (DefaultIfNull != other.DefaultIfNull)
+        if (Options != other.Options)
         {
             return false;
         }
@@ -110,7 +110,7 @@ internal readonly struct ResultSelectorCacheKey<T> : IEquatable<ResultSelectorCa
         HashCode hash = default;
 
         hash.Add(Target);
-        hash.Add(DefaultIfNull);
+        hash.Add(Options);
 
         foreach (var column in Columns)
         {

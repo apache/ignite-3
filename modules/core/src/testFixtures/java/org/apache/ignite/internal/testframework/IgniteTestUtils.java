@@ -303,27 +303,27 @@ public final class IgniteTestUtils {
      *
      * @param t   Throwable to check.
      * @param cls Cause classes to check.
-     * @param msg Message text that should be in cause (if {@code null}, message won't be checked).
+     * @param messageFragment Fragment that must be a substring of a cause message (if {@code null}, message won't be checked).
      * @return {@code True} if one of the causing exception is an instance of passed in classes, {@code false} otherwise.
      */
     public static boolean hasCause(
             @NotNull Throwable t,
             @NotNull Class<?> cls,
-            @Nullable String msg
+            @Nullable String messageFragment
     ) {
         for (Throwable th = t; th != null; th = th.getCause()) {
             if (cls.isAssignableFrom(th.getClass())) {
-                if (msg == null) {
+                if (messageFragment == null) {
                     return true;
                 }
 
-                if (th.getMessage() != null && th.getMessage().contains(msg)) {
+                if (th.getMessage() != null && th.getMessage().contains(messageFragment)) {
                     return true;
                 }
             }
 
             for (Throwable n : th.getSuppressed()) {
-                if (hasCause(n, cls, msg)) {
+                if (hasCause(n, cls, messageFragment)) {
                     return true;
                 }
             }

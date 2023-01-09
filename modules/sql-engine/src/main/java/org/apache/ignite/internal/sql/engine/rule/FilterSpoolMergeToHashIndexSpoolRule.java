@@ -30,11 +30,15 @@ import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.Filter;
 import org.apache.calcite.rel.core.Spool;
 import org.apache.calcite.rex.RexNode;
+import org.apache.calcite.sql.SqlKind;
+import org.apache.ignite.internal.sql.engine.prepare.bounds.ExactBounds;
+import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
 import org.apache.ignite.internal.sql.engine.rel.IgniteFilter;
 import org.apache.ignite.internal.sql.engine.rel.IgniteHashIndexSpool;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableSpool;
 import org.apache.ignite.internal.sql.engine.trait.CorrelationTrait;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.RexUtils;
 import org.immutables.value.Value;
 
@@ -67,22 +71,30 @@ public class FilterSpoolMergeToHashIndexSpoolRule extends RelRule<FilterSpoolMer
 
         final RelNode input = spool.getInput();
 
-        List<RexNode> searchRow = RexUtils.buildHashSearchRow(
+        List<SearchBounds> searchBounds = RexUtils.buildHashSearchBounds(
                 cluster,
                 filter.getCondition(),
-                spool.getRowType()
+                spool.getRowType(),
+                null
         );
 
-        if (nullOrEmpty(searchRow)) {
+        if (nullOrEmpty(searchBounds)) {
             return;
         }
+
+        List<RexNode> searchRow = Commons.transform(searchBounds, b -> {
+            assert b == null || b instanceof ExactBounds : b;
+
+            return b == null ? null : ((ExactBounds) b).bound();
+        });
 
         RelNode res = new IgniteHashIndexSpool(
                 cluster,
                 trait.replace(RelCollations.EMPTY),
                 input,
                 searchRow,
-                filter.getCondition()
+                filter.getCondition(),
+                searchBounds.stream().anyMatch(b -> b != null && b.condition().getKind() == SqlKind.IS_NOT_DISTINCT_FROM)
         );
 
         call.transformTo(res);

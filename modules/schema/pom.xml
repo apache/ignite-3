@@ -60,7 +60,7 @@
 
         <dependency>
             <groupId>org.apache.ignite</groupId>
-            <artifactId>ignite-metastorage</artifactId>
+            <artifactId>ignite-metastorage-api</artifactId>
         </dependency>
 
         <!-- 3rd party dependencies -->

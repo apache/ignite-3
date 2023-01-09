@@ -36,7 +36,6 @@ import org.apache.ignite.table.Table;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInfo;
 
 /**
  * There are tests which check a table managment contract.
@@ -65,7 +64,7 @@ public class ItTableApiContractTest extends AbstractBasicIntegrationTest {
      * Before all tests.
      */
     @BeforeAll
-    static void beforeAll(TestInfo testInfo) throws Exception {
+    static void beforeAll() {
         ignite = CLUSTER_NODES.get(0);
     }
 

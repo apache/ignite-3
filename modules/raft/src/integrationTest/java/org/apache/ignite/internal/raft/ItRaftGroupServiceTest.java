@@ -40,6 +40,8 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
@@ -65,6 +67,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
  * Integration test methods of raft group service.
  */
 @ExtendWith(MockitoExtension.class)
+@ExtendWith(ConfigurationExtension.class)
 public class ItRaftGroupServiceTest extends IgniteAbstractTest {
     private static final int NODES_CNT = 2;
 
@@ -79,7 +82,7 @@ public class ItRaftGroupServiceTest extends IgniteAbstractTest {
     @Mock
     private RaftGroupEventsListener eventsListener;
 
-    @Mock
+    @InjectConfiguration
     private RaftConfiguration raftConfiguration;
 
     @BeforeEach

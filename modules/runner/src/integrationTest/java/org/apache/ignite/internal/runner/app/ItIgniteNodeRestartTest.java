@@ -69,7 +69,7 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.manager.IgniteComponent;
-import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.raft.Loza;
@@ -258,7 +258,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 logicalTopologyService
         );
 
-        var metaStorageMgr = new MetaStorageManager(
+        var metaStorageMgr = new MetaStorageManagerImpl(
                 vault,
                 clusterSvc,
                 cmgManager,
@@ -704,7 +704,6 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * Starts two nodes and checks that the data are storing through restarts. Nodes restart in the same order when they started at first.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18044")
     public void testTwoNodesRestartDirect() {
         twoNodesRestart(true);
     }
@@ -713,7 +712,6 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * Starts two nodes and checks that the data are storing through restarts. Nodes restart in reverse order when they started at first.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18044")
     public void testTwoNodesRestartReverse() {
         twoNodesRestart(false);
     }
@@ -1039,11 +1037,13 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * @param replicas Replica factor.
      * @param partitions Partitions count.
      */
-    private static void createTableWithoutData(Ignite ignite, String name, int replicas, int partitions) {
+    private static Table createTableWithoutData(Ignite ignite, String name, int replicas, int partitions) {
         try (Session session = ignite.sql().createSession()) {
             session.execute(null, "CREATE TABLE " + name
                     + "(id INT PRIMARY KEY, name VARCHAR) WITH replicas=" + replicas + ", partitions=" + partitions);
         }
+
+        return ignite.tables().table(name);
     }
 
     /**

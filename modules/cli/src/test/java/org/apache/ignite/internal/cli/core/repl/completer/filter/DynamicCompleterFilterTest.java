@@ -33,9 +33,9 @@ class DynamicCompleterFilterTest {
     @Test
     void filtersHelp() {
         // Given
-        String[] words = new String[]{"cluster", "config", "show", ""};
+        String[] words = {"cluster", "config", "show", ""};
         // And completion candidates
-        String[] candidates = new String[]{"--cluster-endpoint-url", "--help", "-h"};
+        String[] candidates = {"--cluster-endpoint-url", "--help", "-h"};
         // And user is not connected to the cluster
         Session session = notConnected();
 
@@ -61,9 +61,9 @@ class DynamicCompleterFilterTest {
     @Test
     void doesNotFilterHelpIfOptionIsTyped() {
         // Given typed words that end with "-"
-        String[] words = new String[]{"cluster", "config", "show", "-"};
+        String[] words = {"cluster", "config", "show", "-"};
         // And completion candidates
-        String[] candidates = new String[]{"--cluster-endpoint-url", "--help", "-h"};
+        String[] candidates = {"--cluster-endpoint-url", "--help", "-h"};
         // And user is not connected to the cluster
         Session session = notConnected();
 
@@ -77,9 +77,9 @@ class DynamicCompleterFilterTest {
     @Test
     void filtersClusterUrlWhenConnected() {
         // Given typed words that end with "-"
-        String[] words = new String[]{"cluster", "config", "show", ""};
+        String[] words = {"cluster", "config", "show", ""};
         // And completion candidates
-        String[] candidates = new String[]{"--cluster-endpoint-url", "--help", "-h"};
+        String[] candidates = {"--cluster-endpoint-url", "--help", "-h"};
         // And
         Session session = connected();
 
@@ -93,9 +93,9 @@ class DynamicCompleterFilterTest {
     @Test
     void doesNotFilterHelpIfOptionIsTypedAndConnected() {
         // Given typed words that end with "-"
-        String[] words = new String[]{"cluster", "config", "show", "-"};
+        String[] words = {"cluster", "config", "show", "-"};
         // And completion candidates
-        String[] candidates = new String[]{"--cluster-endpoint-url", "--help", "-h"};
+        String[] candidates = {"--cluster-endpoint-url", "--help", "-h"};
         // And
         Session session = connected();
 
@@ -104,5 +104,21 @@ class DynamicCompleterFilterTest {
 
         // Then help is NOT filtered out
         assertThat(asList(filtered), containsInAnyOrder("--cluster-endpoint-url", "--help", "-h"));
+    }
+
+    @Test
+    void doesNotFilterHelpForPartialCommands() {
+        // Given
+        String[] words = {"cluster", "-"};
+        // And completion candidates that contains not only option candidates but subcommands too
+        String[] candidates = {"--help", "-h", "--verbose", "-v", "config", "init"};
+        // And
+        Session session = connected();
+
+        // When
+        String[] filtered = new DynamicCompleterFilter(session).filter(words, candidates);
+
+        // Then help is NOT filtered out
+        assertThat(asList(filtered), containsInAnyOrder("--help", "-h", "--verbose", "-v",  "config", "init"));
     }
 }
