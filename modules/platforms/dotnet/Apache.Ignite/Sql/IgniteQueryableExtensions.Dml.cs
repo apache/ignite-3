@@ -94,7 +94,7 @@ public static partial class IgniteQueryableExtensions
 
         var method = UpdateAllExpressionNode.UpdateAllMethodInfo.MakeGenericMethod(typeof(T));
         var provider = query.ToQueryableInternal().Provider;
-        var expression = Expression.Call(null, method, query.Expression);
+        var expression = Expression.Call(null, method, query.Expression, Expression.Quote(updateDescriptor));
 
         return await provider.ExecuteNonQueryAsync(expression).ConfigureAwait(false);
     }

@@ -30,18 +30,35 @@ using Table;
 /// </summary>
 public partial class LinqTests
 {
+    [SetUp]
+    public async Task DmlSetUp()
+    {
+        if (IsDmlTest())
+        {
+            await PocoAllColumnsSqlNullableView.UpsertAllAsync(
+                null,
+                Enumerable.Range(1, 10).Select(x => new PocoAllColumnsSqlNullable(1000 + x)));
+        }
+    }
+
+    [TearDown]
+    public async Task DmlTearDown()
+    {
+        if (IsDmlTest())
+        {
+            await PocoAllColumnsSqlNullableView.DeleteAllAsync(
+                null,
+                Enumerable.Range(1, 10).Select(x => new PocoAllColumnsSqlNullable(1000 + x)));
+        }
+    }
+
     [Test]
     public async Task TestRemoveAll([Values(true, false)] bool inlineCondition)
     {
         var view = PocoAllColumnsSqlNullableView;
-        var tableSizeBefore = await view.AsQueryable().CountAsync();
-
-        for (int i = 0; i < 10; i++)
-        {
-            await view.UpsertAsync(null, new PocoAllColumnsSqlNullable(1000 + i));
-        }
-
         var query = view.AsQueryable();
+
+        var tableSizeBefore = await view.AsQueryable().CountAsync();
 
         Expression<Func<PocoAllColumnsSqlNullable, bool>> condition = x => x.Key >= 1000;
 
@@ -63,7 +80,7 @@ public partial class LinqTests
         Assert.AreEqual(10, countBefore);
         Assert.AreEqual(10, deleteRes);
         Assert.AreEqual(0, countAfter);
-        Assert.AreEqual(tableSizeBefore, tableSizeAfter);
+        Assert.AreEqual(tableSizeBefore, tableSizeAfter + 10);
     }
 
     [Test]
@@ -93,10 +110,8 @@ public partial class LinqTests
     {
         var view = PocoAllColumnsSqlNullableView;
 
-        for (int i = 0; i < 10; i++)
-        {
-            await view.UpsertAsync(null, new PocoAllColumnsSqlNullable(1000 + i, Int8: (sbyte?)i, Int32: i + 5));
-        }
+        // TODO
+        await view.AsQueryable().Where(x => x.Key >= 1000).UpdateAllAsync(row => row.Set(x => x.Str, "updated"));
     }
 
     [Test]
@@ -118,5 +133,12 @@ public partial class LinqTests
             () => PocoView.AsQueryable().DefaultIfEmpty().UpdateAllAsync(x => x.Set(p => p.Key, 2)));
 
         Assert.AreEqual("UpdateAllAsync can not be combined with result operators: DefaultIfEmpty()", ex!.Message);
+    }
+
+    private static bool IsDmlTest()
+    {
+        var testName = TestContext.CurrentContext.Test.Name;
+
+        return testName.Contains("UpdateAll", StringComparison.Ordinal) || testName.Contains("RemoveAll", StringComparison.Ordinal);
     }
 }

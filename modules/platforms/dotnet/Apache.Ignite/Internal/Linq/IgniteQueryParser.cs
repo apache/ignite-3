@@ -60,9 +60,8 @@ internal static class IgniteQueryParser
         var methodInfoRegistry = MethodInfoBasedNodeTypeRegistry.CreateFromRelinqAssembly();
 
         methodInfoRegistry.Register(RemoveAllExpressionNode.RemoveAllMethodInfos, typeof(RemoveAllExpressionNode));
+        methodInfoRegistry.Register(UpdateAllExpressionNode.SupportedMethods, typeof(UpdateAllExpressionNode));
 
-        // methodInfoRegistry.Register(UpdateAllExpressionNode.GetSupportedMethods(),
-        //     typeof(UpdateAllExpressionNode));
         return new CompoundNodeTypeProvider(new INodeTypeProvider[]
         {
             methodInfoRegistry,
