@@ -33,6 +33,8 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.raft.Command;
+import org.apache.ignite.internal.replicator.command.HybridTimestampMessage;
+import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -56,6 +58,9 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
 
     /** Message factory to create messages - RAFT commands. */
     private TableMessagesFactory msgFactory = new TableMessagesFactory();
+
+    /** Factory for replica messages. */
+    private ReplicaMessagesFactory replicaMessagesFactory = new ReplicaMessagesFactory();
 
     @BeforeAll
     static void beforeAll() {
@@ -216,7 +221,7 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
     }
 
     private HybridTimestampMessage hybridTimestampMessage(HybridTimestamp tmstmp) {
-        return msgFactory.hybridTimestampMessage()
+        return replicaMessagesFactory.hybridTimestampMessage()
                 .logical(tmstmp.getLogical())
                 .physical(tmstmp.getPhysical())
                 .build();

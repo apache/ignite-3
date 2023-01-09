@@ -15,24 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.command;
+package org.apache.ignite.internal.replicator.command;
 
-import java.io.Serializable;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.table.distributed.TableMessageGroup;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.internal.raft.WriteCommand;
 
 /**
- * Interface to represent {@link HybridTimestamp} as a {@link NetworkMessage}.
+ * Common interface for commands carrying safe time.
  */
-@Transferable(TableMessageGroup.Commands.HYBRID_TIMESTAMP)
-public interface HybridTimestampMessage extends NetworkMessage, Serializable {
-    long physical();
-
-    int logical();
-
-    default HybridTimestamp asHybridTimestamp() {
-        return new HybridTimestamp(physical(), logical());
-    }
+public interface SafeTimePropagatingCommand extends WriteCommand {
+    /**
+     * Returns safe time.
+     */
+    HybridTimestampMessage safeTime();
 }

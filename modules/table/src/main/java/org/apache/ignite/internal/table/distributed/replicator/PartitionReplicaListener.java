@@ -53,6 +53,7 @@ import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.command.HybridTimestampMessage;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
 import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
@@ -77,7 +78,6 @@ import org.apache.ignite.internal.table.distributed.SortedIndexLocker;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
 import org.apache.ignite.internal.table.distributed.command.FinishTxCommandBuilder;
-import org.apache.ignite.internal.table.distributed.command.HybridTimestampMessage;
 import org.apache.ignite.internal.table.distributed.command.TablePartitionIdMessage;
 import org.apache.ignite.internal.table.distributed.command.TxCleanupCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateAllCommand;
@@ -509,7 +509,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return Future.
      */
     private CompletionStage<Void> processReplicaSafeTimeSyncRequest(ReplicaSafeTimeSyncRequest request) {
-        return raftClient.run(replicaMessagesFactory.safeTimeSyncCommand().build());
+        return raftClient.run(replicaMessagesFactory.safeTimeSyncCommand().safeTime(hybridTimestamp(hybridClock.now())).build());
     }
 
     /**
@@ -987,11 +987,13 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         txTimestampUpdateMap.put(txId, fut);
 
-        HybridTimestamp commitTimestamp = commit ? hybridClock.now() : null;
+        HybridTimestamp currentTimestamp = hybridClock.now();
+        HybridTimestamp commitTimestamp = commit ? currentTimestamp : null;
 
         FinishTxCommandBuilder finishTxCmdBldr = msgFactory.finishTxCommand()
                 .txId(txId)
                 .commit(commit)
+                .safeTime(hybridTimestamp(currentTimestamp))
                 .tablePartitionIds(aggregatedGroupIds.stream()
                         .map(rgId -> tablePartitionId((TablePartitionId) rgId)).collect(Collectors.toList()));
 
@@ -1035,6 +1037,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 .txId(request.txId())
                 .commit(request.commit())
                 .commitTimestamp(timestampMsg)
+                .safeTime(hybridTimestamp(hybridClock.now()))
                 .build();
 
         return raftClient
@@ -1916,7 +1919,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return {@link HybridTimestampMessage} object obtained from {@link HybridTimestamp}.
      */
     private HybridTimestampMessage hybridTimestamp(HybridTimestamp tmstmp) {
-        return tmstmp != null ? msgFactory.hybridTimestampMessage()
+        return tmstmp != null ? replicaMessagesFactory.hybridTimestampMessage()
                 .physical(tmstmp.getPhysical())
                 .logical(tmstmp.getLogical())
                 .build()
@@ -1936,7 +1939,8 @@ public class PartitionReplicaListener implements ReplicaListener {
         UpdateCommandBuilder bldr = msgFactory.updateCommand()
                 .tablePartitionId(tablePartitionId(tablePartId))
                 .rowUuid(rowUuid)
-                .txId(txId);
+                .txId(txId)
+                .safeTime(hybridTimestamp(hybridClock.now()));
 
         if (rowBuf != null) {
             bldr.rowBuffer(rowBuf);
@@ -1958,6 +1962,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 .tablePartitionId(tablePartitionId(tablePartId))
                 .rowsToUpdate(rowsToUpdate)
                 .txId(txId)
+                .safeTime(hybridTimestamp(hybridClock.now()))
                 .build();
     }
 

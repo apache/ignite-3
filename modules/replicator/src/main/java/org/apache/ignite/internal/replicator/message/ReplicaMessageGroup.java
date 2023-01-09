@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.replicator.message;
 
+import org.apache.ignite.internal.replicator.command.HybridTimestampMessage;
 import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommand;
 import org.apache.ignite.network.annotations.MessageGroup;
 
@@ -51,4 +52,7 @@ public interface ReplicaMessageGroup {
 
     /** Message type for {@link SafeTimeSyncCommand}. */
     short SAFE_TIME_SYNC_COMMAND = 40;
+
+    /** Message type for {@link HybridTimestampMessage}. */
+    short HYBRID_TIMESTAMP = 60;
 }
