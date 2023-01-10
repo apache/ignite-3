@@ -30,6 +30,8 @@ using Table;
 /// </summary>
 public partial class LinqTests
 {
+    private const int DmlMinKey = 1000;
+
     [SetUp]
     public async Task DmlSetUp()
     {
@@ -37,7 +39,7 @@ public partial class LinqTests
         {
             await PocoAllColumnsSqlNullableView.UpsertAllAsync(
                 null,
-                Enumerable.Range(1, 10).Select(x => new PocoAllColumnsSqlNullable(1000 + x)));
+                Enumerable.Range(1, 10).Select(x => new PocoAllColumnsSqlNullable(DmlMinKey + x)));
         }
     }
 
@@ -48,7 +50,7 @@ public partial class LinqTests
         {
             await PocoAllColumnsSqlNullableView.DeleteAllAsync(
                 null,
-                Enumerable.Range(1, 10).Select(x => new PocoAllColumnsSqlNullable(1000 + x)));
+                Enumerable.Range(1, 10).Select(x => new PocoAllColumnsSqlNullable(DmlMinKey + x)));
         }
     }
 
@@ -60,7 +62,7 @@ public partial class LinqTests
 
         var tableSizeBefore = await view.AsQueryable().CountAsync();
 
-        Expression<Func<PocoAllColumnsSqlNullable, bool>> condition = x => x.Key >= 1000;
+        Expression<Func<PocoAllColumnsSqlNullable, bool>> condition = x => x.Key >= DmlMinKey;
 
         if (!inlineCondition)
         {
@@ -101,7 +103,7 @@ public partial class LinqTests
     [Test]
     public async Task TestExecuteUpdateConstantValue()
     {
-        var query = PocoAllColumnsSqlNullableView.AsQueryable().Where(x => x.Key >= 1000);
+        var query = PocoAllColumnsSqlNullableView.AsQueryable().Where(x => x.Key >= DmlMinKey);
         await query.ExecuteUpdateAsync(row => row.SetProperty(x => x.Str, "updated"));
 
         var res = await query.Select(x => x.Str).Distinct().ToListAsync();
@@ -111,7 +113,7 @@ public partial class LinqTests
     [Test]
     public async Task TestExecuteUpdateComputedValue()
     {
-        var query = PocoAllColumnsSqlNullableView.AsQueryable().Where(x => x.Key >= 1000);
+        var query = PocoAllColumnsSqlNullableView.AsQueryable().Where(x => x.Key >= DmlMinKey);
         await query.ExecuteUpdateAsync(row => row.SetProperty(x => x.Str, x => "updated_" + x.Key + "_"));
 
         var res = await query.OrderBy(x => x.Key).Select(x => x.Str).ToListAsync();
@@ -125,7 +127,7 @@ public partial class LinqTests
     [Test]
     public async Task TestExecuteUpdateMultipleSetters()
     {
-        var query = PocoAllColumnsSqlNullableView.AsQueryable().Where(x => x.Key >= 1000);
+        var query = PocoAllColumnsSqlNullableView.AsQueryable().Where(x => x.Key >= DmlMinKey);
         await query.ExecuteUpdateAsync(row => row
             .SetProperty(x => x.Int16, (short)16)
             .SetProperty(x => x.Int32, x => 32)
@@ -150,7 +152,7 @@ public partial class LinqTests
         await using (var tx = await Client.Transactions.BeginAsync())
         {
             await PocoAllColumnsSqlNullableView.AsQueryable(tx)
-                .Where(x => x.Key >= 1000)
+                .Where(x => x.Key >= DmlMinKey)
                 .ExecuteUpdateAsync(row => row.SetProperty(x => x.Str, x => "updated_" + x.Key + "_"));
 
             Assert.AreEqual("updated_1001_", PocoAllColumnsSqlNullableView.AsQueryable(tx).Single(x => x.Key == 1001).Str);
