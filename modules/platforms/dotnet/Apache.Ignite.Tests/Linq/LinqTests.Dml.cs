@@ -155,7 +155,9 @@ public partial class LinqTests
                 .Where(x => x.Key >= DmlMinKey)
                 .ExecuteUpdateAsync(row => row.SetProperty(x => x.Str, x => "updated_" + x.Key + "_"));
 
+            // Check updated result with SQL and Record APIs.
             Assert.AreEqual("updated_1001_", PocoAllColumnsSqlNullableView.AsQueryable(tx).Single(x => x.Key == 1001).Str);
+            Assert.AreEqual("updated_1001_", (await PocoAllColumnsSqlNullableView.GetAsync(tx, new(1001))).Value.Str);
         }
 
         Assert.IsNull(PocoAllColumnsSqlNullableView.AsQueryable().Single(x => x.Key == 1001).Str);
