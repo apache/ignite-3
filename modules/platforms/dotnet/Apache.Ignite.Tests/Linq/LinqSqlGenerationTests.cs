@@ -396,7 +396,7 @@ public partial class LinqSqlGenerationTests
             q => q.Where(x => x.Key > 3).ExecuteUpdateAsync(row => row.SetProperty(x => x.Val, x => x.Val + "_" + x.Key)).Result);
 
     [Test]
-    public void TestExecuteUpdateMultipleSetters() =>
+    public void TestExecuteUpdateWithMultipleSetters() =>
         AssertSql(
             "update PUBLIC.tbl1 as _T0 set VAL = ?, KEY = (_T0.KEY + ?) where (_T0.KEY > ?)",
             q => q.Where(x => x.Key > 3).ExecuteUpdateAsync(
