@@ -118,7 +118,7 @@ TEST_F(sql_test, sql_table_select) {
 
     EXPECT_EQ(10, page.size());
 
-    for (std::int32_t i = 0; i < page.size(); ++i) {
+    for (std::int32_t i = 0; i < std::int32_t(page.size()); ++i) {
         EXPECT_EQ(i, page[i].get(0).get<std::int32_t>());
         EXPECT_EQ("s-" + std::to_string(i), page[i].get(1).get<std::string>());
     }
@@ -187,14 +187,14 @@ TEST_F(sql_test, sql_ddl_dml) {
     EXPECT_EQ(-1, result_set.affected_rows());
     EXPECT_TRUE(result_set.metadata().columns().empty());
 
-    result_set = m_client.get_sql().execute(nullptr, {"INSERT INTO SQL_DDL_DML_TEST VALUES (?, ?)"}, {13LL, "Hello"});
+    result_set = m_client.get_sql().execute(nullptr, {"INSERT INTO SQL_DDL_DML_TEST VALUES (?, ?)"}, {std::int64_t(13), std::string("Hello")});
 
     EXPECT_FALSE(result_set.was_applied());
     EXPECT_FALSE(result_set.has_rowset());
     EXPECT_EQ(1, result_set.affected_rows());
     EXPECT_TRUE(result_set.metadata().columns().empty());
 
-    result_set = m_client.get_sql().execute(nullptr, {"INSERT INTO SQL_DDL_DML_TEST VALUES (?, ?)"}, {14LL, "World"});
+    result_set = m_client.get_sql().execute(nullptr, {"INSERT INTO SQL_DDL_DML_TEST VALUES (?, ?)"}, {std::int64_t(14), std::string("World")});
 
     EXPECT_FALSE(result_set.was_applied());
     EXPECT_FALSE(result_set.has_rowset());
@@ -202,7 +202,7 @@ TEST_F(sql_test, sql_ddl_dml) {
     EXPECT_TRUE(result_set.metadata().columns().empty());
 
 
-    result_set = m_client.get_sql().execute(nullptr, {"UPDATE SQL_DDL_DML_TEST SET VAL = ?"}, {"Test"});
+    result_set = m_client.get_sql().execute(nullptr, {"UPDATE SQL_DDL_DML_TEST SET VAL = ?"}, {std::string("Test")});
 
     EXPECT_FALSE(result_set.was_applied());
     EXPECT_FALSE(result_set.has_rowset());

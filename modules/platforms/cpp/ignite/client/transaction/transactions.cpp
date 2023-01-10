@@ -15,8 +15,6 @@
  * limitations under the License.
  */
 
-#pragma once
-
 #include "ignite/client/transaction/transactions.h"
 #include "ignite/client/detail/transaction/transactions_impl.h"
 

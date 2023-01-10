@@ -53,7 +53,7 @@ public:
 
         if (m_has_rowset) {
             auto columns = read_meta(reader);
-            m_meta = std::move(result_set_metadata(columns));
+            m_meta = result_set_metadata(columns);
             m_page = read_page(reader, m_meta);
         }
     }
@@ -117,7 +117,7 @@ public:
             writer.write(id);
         };
 
-        auto reader_func = [weak_self = weak_from_this()](protocol::reader &reader) {
+        auto reader_func = [weak_self = weak_from_this()](protocol::reader &) {
             auto self = weak_self.lock();
             if (!self)
                 return;
@@ -215,7 +215,7 @@ private:
      * Reads result set metadata.
      *
      * @param reader Reader.
-     * @return Result set meta coumns.
+     * @return Result set meta columns.
      */
     static std::vector<column_metadata> read_meta(protocol::reader& reader) {
         auto size = reader.read_array_size();
@@ -253,7 +253,7 @@ private:
             auto origin_schema_id = protocol::try_unpack_object<std::int32_t>(arr.ptr[7]);
             std::string origin_schema;
             if (origin_schema_id) {
-                if (*origin_schema_id >= columns.size()) {
+                if (*origin_schema_id >= std::int32_t(columns.size())) {
                     throw ignite_error("Origin schema ID is too large: " + std::to_string(*origin_schema_id) +
                                        ", id=" + std::to_string(idx));
                 }
@@ -265,7 +265,7 @@ private:
             auto origin_table_id = protocol::try_unpack_object<std::int32_t>(arr.ptr[8]);
             std::string origin_table;
             if (origin_table_id) {
-                if (*origin_table_id >= columns.size()) {
+                if (*origin_table_id >= std::int32_t(columns.size())) {
                     throw ignite_error("Origin table ID is too large: " + std::to_string(*origin_table_id) +
                                        ", id=" + std::to_string(idx));
                 }
@@ -293,7 +293,7 @@ private:
         std::vector<ignite_tuple> page;
         page.reserve(size);
 
-        reader.read_array_raw([&columns = meta.columns(), &page] (std::uint32_t idx, const msgpack_object &obj) {
+        reader.read_array_raw([&columns = meta.columns(), &page] (std::uint32_t, const msgpack_object &obj) {
             auto tuple_data = protocol::unpack_binary(obj);
 
             auto columns_cnt = columns.size();
