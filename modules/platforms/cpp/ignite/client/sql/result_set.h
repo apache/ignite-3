@@ -19,11 +19,11 @@
 
 #include "ignite/client/sql/result_set_metadata.h"
 #include "ignite/client/table/ignite_tuple.h"
-#include "ignite/common/ignite_result.h"
 #include "ignite/common/config.h"
+#include "ignite/common/ignite_result.h"
 
-#include <memory>
 #include <functional>
+#include <memory>
 
 namespace ignite {
 
@@ -45,14 +45,14 @@ public:
      * @param impl Implementation
      */
     explicit result_set(std::shared_ptr<detail::result_set_impl> impl)
-            : m_impl(std::move(impl)) {}
+        : m_impl(std::move(impl)) {}
 
     /**
      * Gets metadata.
      *
      * @return Metadata.
      */
-    [[nodiscard]] IGNITE_API const result_set_metadata& metadata() const;
+    [[nodiscard]] IGNITE_API const result_set_metadata &metadata() const;
 
     /**
      * Gets a value indicating whether this result set contains a collection of rows.
@@ -121,9 +121,7 @@ public:
      * The current page is changed after the operation is complete.
      */
     IGNITE_API void fetch_next_page() {
-        return sync<void>([this](auto callback) mutable {
-            fetch_next_page_async(std::move(callback));
-        });
+        return sync<void>([this](auto callback) mutable { fetch_next_page_async(std::move(callback)); });
     }
 
 private:

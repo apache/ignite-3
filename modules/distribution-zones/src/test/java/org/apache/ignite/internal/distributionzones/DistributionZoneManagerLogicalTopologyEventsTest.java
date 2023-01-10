@@ -123,7 +123,7 @@ public class DistributionZoneManagerLogicalTopologyEventsTest {
 
         when(vaultMgr.get(any())).thenReturn(completedFuture(null));
 
-        when(metaStorageManager.registerWatchByPrefix(any(ByteArray.class), any())).then(invocation -> completedFuture(null));
+        when(metaStorageManager.registerExactWatch(any(), any())).then(invocation -> completedFuture(null));
 
         distributionZoneManager = new DistributionZoneManager(
                 zonesConfiguration,

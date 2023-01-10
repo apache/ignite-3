@@ -15,27 +15,30 @@
  * limitations under the License.
  */
 
-#include "ignite/client/detail/sql/result_set_impl.h"
 #include "ignite/client/detail/sql/sql_impl.h"
+#include "ignite/client/detail/sql/result_set_impl.h"
 #include "ignite/client/detail/utils.h"
 
 #include "ignite/schema/binary_tuple_builder.h"
 
 namespace ignite::detail {
 
-void sql_impl::execute_async(
-    transaction *tx, const sql_statement &statement, std::vector<primitive>&& args, ignite_callback<result_set>&& callback)
-{
-    transactions_not_implemented(tx);
+void sql_impl::execute_async(transaction *tx, const sql_statement &statement, std::vector<primitive> &&args,
+    ignite_callback<result_set> &&callback) {
+    auto tx0 = tx ? tx->m_impl : nullptr;
 
-    auto writer_func = [&statement, &args](protocol::writer &writer) {
-        writer.write_nil(); // TODO: IGNITE-17604 Implement transactions
+    auto writer_func = [&statement, &args, &tx0](protocol::writer &writer) {
+        if (tx0)
+            writer.write(tx0->get_id());
+        else
+            writer.write_nil();
+
         writer.write(statement.schema());
         writer.write(statement.page_size());
         writer.write(std::int64_t(statement.timeout().count()));
         writer.write_nil(); // Session timeout (unused, session is closed by the server immediately).
 
-        const auto& properties = statement.properties();
+        const auto &properties = statement.properties();
         auto props_num = std::int32_t(properties.size());
 
         writer.write(props_num);
@@ -89,7 +92,7 @@ void sql_impl::execute_async(
     };
 
     m_connection->perform_request_raw<result_set>(
-        client_operation::SQL_EXEC, writer_func, std::move(reader_func), std::move(callback));
+        client_operation::SQL_EXEC, tx0.get(), writer_func, std::move(reader_func), std::move(callback));
 }
 
 } // namespace ignite::detail

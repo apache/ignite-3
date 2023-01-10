@@ -690,8 +690,7 @@ public class DistributionZoneManager implements IgniteComponent {
      * @return Future representing pending completion of the operation.
      */
     private CompletableFuture<?> registerMetaStorageWatchListener() {
-        // TODO: Change to "registerExactWatch", see https://issues.apache.org/jira/browse/IGNITE-18397
-        return metaStorageManager.registerWatchByPrefix(zonesLogicalTopologyKey(), new WatchListener() {
+        return metaStorageManager.registerExactWatch(zonesLogicalTopologyKey(), new WatchListener() {
                     @Override
                     public boolean onUpdate(@NotNull WatchEvent evt) {
                         if (!busyLock.enterBusy()) {

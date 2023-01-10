@@ -46,7 +46,7 @@ inline void check_int_fits(std::int64_t value) {
 template<typename T>
 std::optional<T> try_unpack_int(const msgpack_object &object) {
     static_assert(
-            std::numeric_limits<T>::is_integer && std::numeric_limits<T>::is_signed, "Type T is not a signed integer type");
+        std::numeric_limits<T>::is_integer && std::numeric_limits<T>::is_signed, "Type T is not a signed integer type");
 
     auto i64_val = try_unpack_object<std::int64_t>(object);
     if (!i64_val)
@@ -87,7 +87,6 @@ T unpack_int(const msgpack_object &object) {
     check_int_fits<T>(i64_val);
     return T(i64_val);
 }
-
 
 template<>
 std::optional<std::string> unpack_nullable(const msgpack_object &object) {

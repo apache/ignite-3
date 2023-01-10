@@ -26,6 +26,8 @@ set(SOURCES
     table/record_view.cpp
     table/table.cpp
     table/tables.cpp
+    transaction/transaction.cpp
+    transaction/transactions.cpp
     detail/cluster_connection.cpp
     detail/utils.cpp
     detail/node_connection.cpp
@@ -44,6 +46,7 @@ set(PUBLIC_HEADERS
     table/table.h
     table/tables.h
     transaction/transaction.h
+    transaction/transactions.h
 )
 
 add_library(${TARGET} SHARED ${SOURCES})

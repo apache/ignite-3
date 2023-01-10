@@ -131,7 +131,7 @@ void cluster_connection::on_message_received(uint64_t id, bytes_view msg) {
         return;
     }
 
-    auto& context = connection->get_protocol_context();
+    auto &context = connection->get_protocol_context();
     initial_connect_result(context);
 
     if (context.get_cluster_id() != m_cluster_id) {
@@ -174,7 +174,7 @@ void cluster_connection::initial_connect_result(ignite_result<void> &&res) {
     m_on_initial_connect = {};
 }
 
-void cluster_connection::initial_connect_result(const protocol_context& context) {
+void cluster_connection::initial_connect_result(const protocol_context &context) {
     [[maybe_unused]] std::lock_guard<std::mutex> lock(m_on_initial_connect_mutex);
 
     if (!m_on_initial_connect)

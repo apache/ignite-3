@@ -15,36 +15,16 @@
  * limitations under the License.
  */
 
-#include "ignite/protocol/reader.h"
+package org.apache.ignite.internal.replicator.command;
 
-#include <ignite/protocol/utils.h>
+import org.apache.ignite.internal.raft.WriteCommand;
 
-namespace ignite::protocol {
-
-reader::reader(bytes_view buffer)
-    : m_buffer(buffer)
-    , m_current_val()
-    , m_move_res(MSGPACK_UNPACK_SUCCESS) {
-
-    msgpack_unpacked_init(&m_current_val);
-
-    next();
+/**
+ * Common interface for commands carrying safe time.
+ */
+public interface SafeTimePropagatingCommand extends WriteCommand {
+    /**
+     * Returns safe time.
+     */
+    HybridTimestampMessage safeTime();
 }
-
-bool reader::try_read_nil() {
-    if (m_current_val.data.type != MSGPACK_OBJECT_NIL)
-        return false;
-
-    next();
-    return true;
-}
-
-void reader::next() {
-    check_data_in_stream();
-
-    m_offset = m_offset_next;
-    m_move_res = msgpack_unpack_next(
-        &m_current_val, reinterpret_cast<const char *>(m_buffer.data()), m_buffer.size(), &m_offset_next);
-}
-
-} // namespace ignite::protocol

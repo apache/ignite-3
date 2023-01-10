@@ -17,11 +17,11 @@
 
 #pragma once
 
-#include "ignite/client/sql/sql_column_type.h"
 #include "ignite/client/sql/column_origin.h"
+#include "ignite/client/sql/sql_column_type.h"
 
-#include <string>
 #include <cstdint>
+#include <string>
 
 namespace ignite {
 
@@ -43,14 +43,14 @@ public:
      * @param nullable Column nullability.
      * @param origin Column origin.
      */
-    column_metadata(std::string name, column_type type, std::int32_t precision, std::int32_t scale,
-        bool nullable, column_origin origin)
+    column_metadata(std::string name, column_type type, std::int32_t precision, std::int32_t scale, bool nullable,
+        column_origin origin)
         : m_name(std::move(name))
         , m_type(type)
         , m_precision(precision)
         , m_scale(scale)
         , m_nullable(nullable)
-        , m_origin(std::move(origin)) { }
+        , m_origin(std::move(origin)) {}
 
     /**
      * Gets the column name.

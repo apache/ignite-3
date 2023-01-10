@@ -46,7 +46,6 @@ import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotWriter;
 import org.apache.ignite.raft.jraft.test.TestUtils;
 import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
-import org.apache.ignite.raft.jraft.util.SafeTimeCandidateManager;
 import org.apache.ignite.raft.jraft.util.Utils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -80,8 +79,6 @@ public class FSMCallerTest {
 
     private PendingComparableValuesTracker<HybridTimestamp> safeTimeTracker = new PendingComparableValuesTracker<>(new HybridTimestamp(1, 0));
 
-    private SafeTimeCandidateManager safeTimeCandidateManager = new SafeTimeCandidateManager(safeTimeTracker);
-
     @BeforeEach
     public void setup() {
         this.fsmCaller = new FSMCallerImpl();
@@ -103,7 +100,6 @@ public class FSMCallerTest {
             1024,
             () -> new FSMCallerImpl.ApplyTask(),
             1));
-        opts.setSafeTimeCandidateManager(safeTimeCandidateManager);
         assertTrue(this.fsmCaller.init(opts));
     }
 
@@ -141,7 +137,6 @@ public class FSMCallerTest {
 
     @Test
     public void testOnCommitted() throws Exception {
-        safeTimeCandidateManager.addSafeTimeCandidate(11, 1, new HybridTimestamp(1, 1));
         final LogEntry log = new LogEntry(EntryType.ENTRY_TYPE_DATA);
         log.getId().setIndex(11);
         log.getId().setTerm(1);

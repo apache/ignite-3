@@ -17,57 +17,44 @@
 
 #pragma once
 
+#include "ignite/client/transaction/transaction.h"
+
 #include "ignite/common/config.h"
 #include "ignite/common/ignite_result.h"
+
+#include <memory>
 
 namespace ignite {
 
 namespace detail {
-class sql_impl;
-class table_impl;
-class transaction_impl;
 class transactions_impl;
 }
 
 /**
- * Ignite transaction.
+ * Ignite transactions.
  */
-class transaction {
-    friend class detail::sql_impl;
-    friend class detail::table_impl;
-    friend class detail::transactions_impl;
+class transactions {
+    friend class ignite_client;
 
 public:
-    // Default
-    transaction() = default;
+    // Delete
+    transactions() = delete;
 
     /**
-     * Commits the transaction.
+     * Starts a new transaction.
+     *
+     * @return A new transaction.
      */
-    IGNITE_API void commit() {
-        return sync<void>([this](auto callback) { commit_async(std::move(callback)); });
+    IGNITE_API transaction begin() {
+        return sync<transaction>([this](auto callback) { begin_async(std::move(callback)); });
     }
 
     /**
-     * Commits the transaction asynchronously.
+     * Starts a new transaction asynchronously.
      *
-     * @param callback Callback to be called upon asynchronous operation completion.
+     * @param callback Callback to be called with a new transaction or error upon completion of asynchronous operation.
      */
-    IGNITE_API void commit_async(ignite_callback<void> callback);
-
-    /**
-     * Rollbacks the transaction.
-     */
-    IGNITE_API void rollback() {
-        return sync<void>([this](auto callback) { rollback_async(std::move(callback)); });
-    }
-
-    /**
-     * Rollbacks the transaction asynchronously.
-     *
-     * @param callback Callback to be called upon asynchronous operation completion.
-     */
-    IGNITE_API void rollback_async(ignite_callback<void> callback);
+    IGNITE_API void begin_async(ignite_callback<transaction> callback);
 
 private:
     /**
@@ -75,11 +62,11 @@ private:
      *
      * @param impl Implementation
      */
-    explicit transaction(std::shared_ptr<detail::transaction_impl> impl)
+    explicit transactions(std::shared_ptr<detail::transactions_impl> impl)
         : m_impl(std::move(impl)) {}
 
     /** Implementation. */
-    std::shared_ptr<detail::transaction_impl> m_impl;
+    std::shared_ptr<detail::transactions_impl> m_impl;
 };
 
 } // namespace ignite

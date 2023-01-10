@@ -17,10 +17,10 @@
 
 #pragma once
 
-#include "ignite/client/sql/result_set_metadata.h"
-#include "ignite/client/table/ignite_tuple.h"
 #include "ignite/client/detail/node_connection.h"
 #include "ignite/client/detail/utils.h"
+#include "ignite/client/sql/result_set_metadata.h"
+#include "ignite/client/table/ignite_tuple.h"
 #include "ignite/schema/binary_tuple_parser.h"
 
 #include <cstdint>
@@ -53,7 +53,7 @@ public:
 
         if (m_has_rowset) {
             auto columns = read_meta(reader);
-            m_meta = std::move(result_set_metadata(columns));
+            m_meta = result_set_metadata(columns);
             m_page = read_page(reader, m_meta);
         }
     }
@@ -62,7 +62,7 @@ public:
      * Destructor.
      */
     ~result_set_impl() {
-        close_async([](auto){});
+        close_async([](auto) {});
     }
 
     /**
@@ -70,18 +70,14 @@ public:
      *
      * @return Metadata.
      */
-    [[nodiscard]] const result_set_metadata& metadata() const {
-        return m_meta;
-    }
+    [[nodiscard]] const result_set_metadata &metadata() const { return m_meta; }
 
     /**
      * Gets a value indicating whether this result set contains a collection of rows.
      *
      * @return A value indicating whether this result set contains a collection of rows.
      */
-    [[nodiscard]] bool has_rowset() const {
-        return m_has_rowset;
-    }
+    [[nodiscard]] bool has_rowset() const { return m_has_rowset; }
 
     /**
      * Gets the number of rows affected by the DML statement execution (such as "INSERT", "UPDATE", etc.), or 0 if
@@ -89,9 +85,7 @@ public:
      *
      * @return The number of rows affected by the DML statement execution.
      */
-    [[nodiscard]] std::int64_t affected_rows() const {
-        return m_affected_rows;
-    }
+    [[nodiscard]] std::int64_t affected_rows() const { return m_affected_rows; }
 
     /**
      * Gets a value indicating whether a conditional query (such as "CREATE TABLE IF NOT EXISTS") was applied
@@ -99,9 +93,7 @@ public:
      *
      * @return A value indicating whether a conditional query was applied successfully.
      */
-    [[nodiscard]] bool was_applied() const {
-        return m_was_applied;
-    }
+    [[nodiscard]] bool was_applied() const { return m_was_applied; }
 
     /**
      * Close result set asynchronously.
@@ -113,11 +105,9 @@ public:
         if (!m_resource_id)
             return false;
 
-        auto writer_func = [id = m_resource_id.value()](protocol::writer &writer) {
-            writer.write(id);
-        };
+        auto writer_func = [id = m_resource_id.value()](protocol::writer &writer) { writer.write(id); };
 
-        auto reader_func = [weak_self = weak_from_this()](protocol::reader &reader) {
+        auto reader_func = [weak_self = weak_from_this()](protocol::reader &) {
             auto self = weak_self.lock();
             if (!self)
                 return;
@@ -136,9 +126,7 @@ public:
      */
     bool close() {
         auto pr = std::make_shared<std::promise<void>>();
-        bool res = close_async([pr](auto) mutable {
-            pr->set_value();
-        });
+        bool res = close_async([pr](auto) mutable { pr->set_value(); });
 
         if (!res)
             return res;
@@ -166,9 +154,7 @@ public:
      *
      * @return @c true if there are more pages with results and @c false otherwise.
      */
-    [[nodiscard]] IGNITE_API bool has_more_pages() {
-        return m_resource_id.has_value() && m_has_more_pages;
-    }
+    [[nodiscard]] IGNITE_API bool has_more_pages() { return m_resource_id.has_value() && m_has_more_pages; }
 
     /**
      * Fetch the next page of results asynchronously.
@@ -185,9 +171,7 @@ public:
         if (!m_has_more_pages)
             throw ignite_error("There are no more pages");
 
-        auto writer_func = [id = m_resource_id.value()](protocol::writer &writer) {
-            writer.write(id);
-        };
+        auto writer_func = [id = m_resource_id.value()](protocol::writer &writer) { writer.write(id); };
 
         auto reader_func = [weak_self = weak_from_this()](protocol::reader &reader) {
             auto self = weak_self.lock();
@@ -215,15 +199,15 @@ private:
      * Reads result set metadata.
      *
      * @param reader Reader.
-     * @return Result set meta coumns.
+     * @return Result set meta columns.
      */
-    static std::vector<column_metadata> read_meta(protocol::reader& reader) {
+    static std::vector<column_metadata> read_meta(protocol::reader &reader) {
         auto size = reader.read_array_size();
 
         std::vector<column_metadata> columns;
         columns.reserve(size);
 
-        reader.read_array_raw([&columns] (std::uint32_t idx, const msgpack_object &obj) {
+        reader.read_array_raw([&columns](std::uint32_t idx, const msgpack_object &obj) {
             if (obj.type != MSGPACK_OBJECT_ARRAY)
                 throw ignite_error("Meta column expected to be serialized as array");
 
@@ -246,16 +230,15 @@ private:
             }
 
             assert(arr.size >= minCount + 3);
-            auto origin_name = arr.ptr[6].type == MSGPACK_OBJECT_NIL
-                    ? name
-                    : protocol::unpack_object<std::string>(arr.ptr[6]);
+            auto origin_name =
+                arr.ptr[6].type == MSGPACK_OBJECT_NIL ? name : protocol::unpack_object<std::string>(arr.ptr[6]);
 
             auto origin_schema_id = protocol::try_unpack_object<std::int32_t>(arr.ptr[7]);
             std::string origin_schema;
             if (origin_schema_id) {
-                if (*origin_schema_id >= columns.size()) {
-                    throw ignite_error("Origin schema ID is too large: " + std::to_string(*origin_schema_id) +
-                                       ", id=" + std::to_string(idx));
+                if (*origin_schema_id >= std::int32_t(columns.size())) {
+                    throw ignite_error("Origin schema ID is too large: " + std::to_string(*origin_schema_id)
+                        + ", id=" + std::to_string(idx));
                 }
                 origin_schema = columns[*origin_schema_id].origin().schema_name();
             } else {
@@ -265,9 +248,9 @@ private:
             auto origin_table_id = protocol::try_unpack_object<std::int32_t>(arr.ptr[8]);
             std::string origin_table;
             if (origin_table_id) {
-                if (*origin_table_id >= columns.size()) {
-                    throw ignite_error("Origin table ID is too large: " + std::to_string(*origin_table_id) +
-                                       ", id=" + std::to_string(idx));
+                if (*origin_table_id >= std::int32_t(columns.size())) {
+                    throw ignite_error("Origin table ID is too large: " + std::to_string(*origin_table_id)
+                        + ", id=" + std::to_string(idx));
                 }
                 origin_table = columns[*origin_table_id].origin().table_name();
             } else {
@@ -293,7 +276,7 @@ private:
         std::vector<ignite_tuple> page;
         page.reserve(size);
 
-        reader.read_array_raw([&columns = meta.columns(), &page] (std::uint32_t idx, const msgpack_object &obj) {
+        reader.read_array_raw([&columns = meta.columns(), &page](std::uint32_t, const msgpack_object &obj) {
             auto tuple_data = protocol::unpack_binary(obj);
 
             auto columns_cnt = columns.size();

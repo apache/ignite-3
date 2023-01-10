@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed.command;
 
+import org.apache.ignite.internal.replicator.command.HybridTimestampMessage;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.network.annotations.Transferable;
 
