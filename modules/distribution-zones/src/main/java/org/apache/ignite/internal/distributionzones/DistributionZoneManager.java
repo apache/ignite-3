@@ -89,7 +89,7 @@ import org.jetbrains.annotations.NotNull;
  */
 public class DistributionZoneManager implements IgniteComponent {
     /** Name of the default distribution zone. */
-    public static final String DEFAULT_ZONE_NAME = "DEFAULT_DISTRIBUTION_ZONE_NAME";
+    public static final String DEFAULT_ZONE_NAME = "Default";
 
     /** Id of the default distribution zone. */
     public static final int DEFAULT_ZONE_ID = 0;
@@ -186,7 +186,9 @@ public class DistributionZoneManager implements IgniteComponent {
         }
 
         if (DEFAULT_ZONE_NAME.equals(distributionZoneCfg.name())) {
-            return failedFuture(new IllegalArgumentException("Default distribution zone cannot be recreated."));
+            return failedFuture(
+                    new IllegalArgumentException("It's not possible to create distribution zone with [name= " + DEFAULT_ZONE_NAME + ']')
+            );
         }
 
         if (!busyLock.enterBusy()) {
@@ -269,7 +271,15 @@ public class DistributionZoneManager implements IgniteComponent {
         }
 
         if (DEFAULT_ZONE_NAME.equals(name) && !DEFAULT_ZONE_NAME.equals(distributionZoneCfg.name())) {
-            return failedFuture(new IllegalArgumentException("Default distribution zone cannot be renamed."));
+            return failedFuture(
+                    new IllegalArgumentException("It's not possible to rename default distribution zone")
+            );
+        }
+
+        if (!DEFAULT_ZONE_NAME.equals(name) && DEFAULT_ZONE_NAME.equals(distributionZoneCfg.name())) {
+            return failedFuture(
+                    new IllegalArgumentException("It's not possible to rename distribution zone to [name= " + DEFAULT_ZONE_NAME + ']')
+            );
         }
 
         if (!busyLock.enterBusy()) {

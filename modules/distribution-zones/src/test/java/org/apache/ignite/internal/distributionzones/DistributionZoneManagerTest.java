@@ -36,7 +36,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
-import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.configuration.NamedConfigurationTree;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
@@ -645,7 +644,7 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
                 "Unexpected type of exception (requires IllegalArgumentException): " + e
         );
         assertEquals(
-                "Default distribution zone cannot be recreated.",
+                "It's not possible to create distribution zone with [name= " + DEFAULT_ZONE_NAME + ']',
                 e.getCause().getMessage(),
                 "Unexpected exception message: " + e.getCause().getMessage()
         );
@@ -671,7 +670,33 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
                 "Unexpected type of exception (requires IllegalArgumentException): " + e
         );
         assertEquals(
-                "Default distribution zone cannot be renamed.",
+                "It's not possible to rename default distribution zone",
+                e.getCause().getMessage(),
+                "Unexpected exception message: " + e.getCause().getMessage()
+        );
+    }
+
+    @Test
+    public void testTryRenameToDefaultZoneName() {
+        Exception e = null;
+
+        CompletableFuture<Void> fut = distributionZoneManager.alterZone(NEW_ZONE_NAME,
+                new DistributionZoneConfigurationParameters.Builder(DEFAULT_ZONE_NAME).build()
+        );
+
+        try {
+            fut.get(5, TimeUnit.SECONDS);
+        } catch (Exception e0) {
+            e = e0;
+        }
+
+        assertTrue(e != null, "Expected exception was not thrown.");
+        assertTrue(
+                e.getCause() instanceof IllegalArgumentException,
+                "Unexpected type of exception (requires IllegalArgumentException): " + e
+        );
+        assertEquals(
+                "It's not possible to rename distribution zone to [name= " + DEFAULT_ZONE_NAME + ']',
                 e.getCause().getMessage(),
                 "Unexpected exception message: " + e.getCause().getMessage()
         );
