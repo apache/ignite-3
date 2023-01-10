@@ -15,29 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage;
-
-import org.apache.ignite.lang.ErrorGroups.Storage;
+package org.apache.ignite.internal.storage.pagememory;
 
 /**
- * Exception that will be thrown when the storage is in the process of rebalance.
+ * Storage states.
  */
-public class StorageRebalanceException extends StorageException {
-    private static final long serialVersionUID = 221806263716864139L;
+public enum StorageState {
+    /** Storage is running. */
+    RUNNABLE,
 
-    /**
-     * Default constructor.
-     */
-    public StorageRebalanceException() {
-        this("Storage in the process of rebalancing");
-    }
+    /** Storage is preparing to start rebalancing. */
+    PREPARE_TO_START_REBALANCE,
 
-    /**
-     * Constructor.
-     *
-     * @param message Error message.
-     */
-    public StorageRebalanceException(String message) {
-        super(Storage.STORAGE_REBALANCE_ERR, message);
-    }
+    /** Storage is preparing to abort rebalancing. */
+    PREPARE_TO_ABORT_REBAALNCE,
+
+    /** Storage in the process of rebalancing. */
+    REBALANCE,
+
+    /** Storage is in the process of being closed or has already been closed. */
+    CLOSED
 }
