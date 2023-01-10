@@ -42,18 +42,6 @@ void claim_primitive_with_type(binary_tuple_builder &builder, const primitive &v
 void append_primitive_with_type(binary_tuple_builder &builder, const primitive &value);
 
 /**
- * Check transaction and throw an exception if it is not nullptr.
- *
- * @param tx Transaction.
- */
-inline void transactions_not_implemented(transaction *tx) {
-    // TODO: IGNITE-17604 Implement transactions
-    if (tx)
-        throw ignite_error("Transactions are not implemented");
-}
-
-
-/**
  * Read column value from binary tuple.
  *
  * @param parser Binary tuple parser.

@@ -127,6 +127,38 @@ TEST_F(transactions_test, non_committed_data_visible_for_tx) {
     EXPECT_EQ(value0.get<std::string>("val"), value_in->get<std::string>("val"));
 }
 
+TEST_F(transactions_test, sql_commit) {
+    auto record_view = m_client.get_tables().get_table("tbl1")->record_binary_view();
+
+    auto tx = m_client.get_transactions().begin();
+
+    m_client.get_sql().execute(&tx,
+        {"INSERT INTO " + std::string(TABLE_1) + " VALUES (?, ?)"}, {42LL, std::string("Lorem ipsum")});
+
+    tx.commit();
+
+    auto value = record_view.get(nullptr, get_tuple(42));
+
+    ASSERT_TRUE(value.has_value());
+    EXPECT_EQ(2, value->column_count());
+    EXPECT_EQ(42, value->get<int64_t>("key"));
+    EXPECT_EQ("Lorem ipsum", value->get<std::string>("val"));
+}
+
+TEST_F(transactions_test, sql_rollback) {
+    auto record_view = m_client.get_tables().get_table("tbl1")->record_binary_view();
+
+    auto tx = m_client.get_transactions().begin();
+
+    m_client.get_sql().execute(&tx, {"INSERT INTO " + std::string(TABLE_1) + " VALUES (?, ?)"}, {42LL, "Lorem ipsum"});
+
+    tx.rollback();
+
+    auto value = record_view.get(nullptr, get_tuple(42));
+
+    ASSERT_FALSE(value.has_value());
+}
+
 TEST_F(transactions_test, rollback_after_commit_throws) {
     auto tx = m_client.get_transactions().begin();
 

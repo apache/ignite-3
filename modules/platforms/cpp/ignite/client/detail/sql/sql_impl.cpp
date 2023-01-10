@@ -26,10 +26,14 @@ namespace ignite::detail {
 void sql_impl::execute_async(
     transaction *tx, const sql_statement &statement, std::vector<primitive>&& args, ignite_callback<result_set>&& callback)
 {
-    transactions_not_implemented(tx);
+    auto tx0 = tx ? tx->m_impl : nullptr;
 
-    auto writer_func = [&statement, &args](protocol::writer &writer) {
-        writer.write_nil(); // TODO: IGNITE-17604 Implement transactions
+    auto writer_func = [&statement, &args, &tx0](protocol::writer &writer) {
+        if (tx0)
+            writer.write(tx0->get_id());
+        else
+            writer.write_nil();
+
         writer.write(statement.schema());
         writer.write(statement.page_size());
         writer.write(std::int64_t(statement.timeout().count()));
@@ -89,7 +93,7 @@ void sql_impl::execute_async(
     };
 
     m_connection->perform_request_raw<result_set>(
-        client_operation::SQL_EXEC, writer_func, std::move(reader_func), std::move(callback));
+        client_operation::SQL_EXEC, tx0.get(), writer_func, std::move(reader_func), std::move(callback));
 }
 
 } // namespace ignite::detail

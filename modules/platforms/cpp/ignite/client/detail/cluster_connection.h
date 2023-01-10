@@ -131,17 +131,22 @@ public:
      *
      * @tparam T Result type.
      * @param op Operation code.
+     * @param tx Transaction.
      * @param wr Request writer function.
      * @param rd Response reader function.
      * @param callback Callback to call on result.
      * @return Channel used for the request.
      */
     template<typename T>
-    void perform_request_raw(client_operation op, const std::function<void(protocol::writer &)> &wr,
-        std::function<T(std::shared_ptr<node_connection>, bytes_view)> rd, ignite_callback<T> callback)
+    void perform_request_raw(
+        client_operation op,
+        transaction_impl* tx,
+        const std::function<void(protocol::writer &)> &wr,
+        std::function<T(std::shared_ptr<node_connection>, bytes_view)> rd,
+        ignite_callback<T> callback)
     {
         auto handler = std::make_shared<response_handler_bytes<T>>(std::move(rd), std::move(callback));
-        perform_request_handler<T>(op, nullptr, wr, std::move(handler));
+        perform_request_handler<T>(op, tx, wr, std::move(handler));
     }
 
     /**
