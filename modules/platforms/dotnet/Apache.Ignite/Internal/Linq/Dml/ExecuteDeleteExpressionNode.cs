@@ -53,9 +53,9 @@ internal sealed class ExecuteDeleteExpressionNode : ResultOperatorExpressionNode
     /// <summary>
     /// Initializes a new instance of the <see cref="ExecuteDeleteExpressionNode"/> class.
     /// </summary>
-    /// <param name="parseInfo">The parse information.</param>
-    /// <param name="optionalPredicate">The optional predicate.</param>
-    /// <param name="optionalSelector">The optional selector.</param>
+    /// <param name="parseInfo">Parse information.</param>
+    /// <param name="optionalPredicate">Optional predicate.</param>
+    /// <param name="optionalSelector">Optional selector.</param>
     public ExecuteDeleteExpressionNode(
         MethodCallExpressionParseInfo parseInfo,
         LambdaExpression optionalPredicate,

@@ -35,7 +35,7 @@ internal sealed class ExecuteUpdateResultOperator : ValueFromSequenceResultOpera
     /// <summary>
     /// Initializes a new instance of the <see cref="ExecuteUpdateResultOperator"/> class.
     /// </summary>
-    /// <param name="updates">members updates.</param>
+    /// <param name="updates">Members updates.</param>
     public ExecuteUpdateResultOperator(IEnumerable<MemberUpdateContainer> updates)
     {
         Updates = updates.ToArray();

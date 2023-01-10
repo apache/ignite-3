@@ -49,7 +49,7 @@ internal sealed class ExecuteUpdateExpressionNode : ResultOperatorExpressionNode
     /// <summary>
     /// Initializes a new instance of the <see cref="ExecuteUpdateExpressionNode" /> class.
     /// </summary>
-    /// <param name="parseInfo">The parse information.</param>
+    /// <param name="parseInfo">Parse information.</param>
     /// <param name="updateDescription">Expression with update description info.</param>
     public ExecuteUpdateExpressionNode(
         MethodCallExpressionParseInfo parseInfo,
