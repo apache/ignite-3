@@ -57,7 +57,7 @@ public class StorageException extends IgniteInternalException {
     /**
      * Constructor.
      *
-     * @param code Error code.
+     * @param code Full error code.
      * @param message Error message.
      */
     protected StorageException(int code, String message) {
