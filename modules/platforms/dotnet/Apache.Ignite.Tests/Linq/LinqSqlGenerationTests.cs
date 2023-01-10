@@ -396,6 +396,21 @@ public partial class LinqSqlGenerationTests
             q => q.Where(x => x.Key > 3).ExecuteUpdateAsync(row => row.SetProperty(x => x.Val, x => x.Val + "_" + x.Key)).Result);
 
     [Test]
+    public void TestExecuteUpdateWithComputedValueFromSubquery()
+    {
+        IQueryable<Poco> q2 = _table.GetRecordView<Poco>().AsQueryable();
+
+        AssertSql(
+            "update PUBLIC.tbl1 as _T0 " +
+            "set VAL = (select concat(?, cast(_T1.KEY as varchar)) from PUBLIC.tbl1 as _T1 where (_T1.KEY IS NOT DISTINCT FROM (_T0.KEY + ?)) limit 1) " +
+            "where (_T0.KEY > ?)",
+            q => q.Where(x => x.Key > 3).ExecuteUpdateAsync(
+                row => row.SetProperty(
+                    x => x.Val,
+                    x => q2.Where(y => y.Key == x.Key + 1).Select(y => "_" + y.Key).First())).Result);
+    }
+
+    [Test]
     public void TestExecuteUpdateWithMultipleSetters() =>
         AssertSql(
             "update PUBLIC.tbl1 as _T0 set VAL = ?, KEY = (_T0.KEY + ?) where (_T0.KEY > ?)",

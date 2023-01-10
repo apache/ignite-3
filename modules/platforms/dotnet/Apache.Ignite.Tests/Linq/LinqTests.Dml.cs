@@ -101,7 +101,7 @@ public partial class LinqTests
     }
 
     [Test]
-    public async Task TestExecuteUpdateConstantValue()
+    public async Task TestExecuteUpdateWithConstantValue()
     {
         var query = PocoAllColumnsSqlNullableView.AsQueryable().Where(x => x.Key >= DmlMinKey);
         await query.ExecuteUpdateAsync(row => row.SetProperty(x => x.Str, "updated"));
@@ -111,7 +111,7 @@ public partial class LinqTests
     }
 
     [Test]
-    public async Task TestExecuteUpdateComputedValue()
+    public async Task TestExecuteUpdateWithComputedValue()
     {
         var query = PocoAllColumnsSqlNullableView.AsQueryable().Where(x => x.Key >= DmlMinKey);
         await query.ExecuteUpdateAsync(row => row.SetProperty(x => x.Str, x => "updated_" + x.Key + "_"));
@@ -125,7 +125,7 @@ public partial class LinqTests
     }
 
     [Test]
-    public async Task TestExecuteUpdateComputedValueFromSubquery()
+    public async Task TestExecuteUpdateWithComputedValueFromSubquery()
     {
         var query = PocoAllColumnsSqlNullableView.AsQueryable().Where(x => x.Key >= DmlMinKey);
         var query2 = PocoView.AsQueryable();
@@ -148,7 +148,7 @@ public partial class LinqTests
     }
 
     [Test]
-    public async Task TestExecuteUpdateMultipleSetters()
+    public async Task TestExecuteUpdateWithMultipleSetters()
     {
         var query = PocoAllColumnsSqlNullableView.AsQueryable().Where(x => x.Key >= DmlMinKey);
         await query.ExecuteUpdateAsync(row => row
