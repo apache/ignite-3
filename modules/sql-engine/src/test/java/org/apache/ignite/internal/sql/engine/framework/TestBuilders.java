@@ -17,10 +17,15 @@
 
 package org.apache.ignite.internal.sql.engine.framework;
 
+import static org.apache.ignite.lang.IgniteStringFormatter.format;
+
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.calcite.schema.Table;
@@ -47,7 +52,7 @@ public class TestBuilders {
     }
 
     /**
-     * A builder to created a test cluster object.
+     * A builder to create a test cluster object.
      *
      * @see TestCluster
      */
@@ -55,10 +60,12 @@ public class TestBuilders {
         /**
          * Sets desired names for the cluster nodes.
          *
-         * @param nodeNames An array of node names to create cluster from.
+         * @param firstNodeName A name of the first node. There is no difference in what node should be first. This parameter was introduced
+         *     to force user to provide at least one node name.
+         * @param otherNodeNames An array of rest of the names to create cluster from.
          * @return {@code this} for chaining.
          */
-        ClusterBuilder nodes(String... nodeNames);
+        ClusterBuilder nodes(String firstNodeName, String... otherNodeNames);
 
         /**
          * Creates a table builder to add to the cluster.
@@ -76,7 +83,7 @@ public class TestBuilders {
     }
 
     /**
-     * A builder to created a test table object.
+     * A builder to create a test table object.
      *
      * @see TestTable
      */
@@ -90,7 +97,7 @@ public class TestBuilders {
     }
 
     /**
-     * A builder to created a test table as nested object of the cluster.
+     * A builder to create a test table as nested object of the cluster.
      *
      * @see TestTable
      * @see TestCluster
@@ -99,26 +106,44 @@ public class TestBuilders {
     }
 
     private static class ClusterBuilderImpl implements ClusterBuilder {
-        private final List<TestTable> tables = new ArrayList<>();
+        private final List<ClusterTableBuilderImpl> tableBuilders = new ArrayList<>();
         private List<String> nodeNames;
 
+        /** {@inheritDoc} */
         @Override
-        public ClusterBuilder nodes(String... nodeNames) {
-            this.nodeNames = List.of(nodeNames);
+        public ClusterBuilder nodes(String firstNodeName, String... otherNodeNames) {
+            this.nodeNames = new ArrayList<>();
+
+            nodeNames.add(firstNodeName);
+            nodeNames.addAll(Arrays.asList(otherNodeNames));
 
             return this;
         }
 
+        /** {@inheritDoc} */
         @Override
         public ClusterTableBuilder addTable() {
             return new ClusterTableBuilderImpl(this);
         }
 
+        /** {@inheritDoc} */
         @Override
         public TestCluster build() {
             var clusterService = new TestClusterService(nodeNames);
 
-            Map<String, Table> tableMap = tables.stream()
+            for (ClusterTableBuilderImpl tableBuilder : tableBuilders) {
+                Set<String> tableOwners = new HashSet<>(tableBuilder.dataProviders.keySet());
+
+                tableOwners.removeAll(nodeNames);
+
+                if (!tableOwners.isEmpty()) {
+                    throw new AssertionError(format("The table has a dataProvider that is outside the cluster "
+                                    + "[tableName={}, outsiders={}]", tableBuilder.name, tableOwners));
+                }
+            }
+
+            Map<String, Table> tableMap = tableBuilders.stream()
+                    .map(ClusterTableBuilderImpl::build)
                     .collect(Collectors.toMap(TestTable::name, Function.identity()));
 
             var schemaManager = new PredefinedSchemaManager(new IgniteSchema("PUBLIC", tableMap, null));
@@ -129,7 +154,6 @@ public class TestBuilders {
 
             return new TestCluster(nodes);
         }
-
     }
 
     private static class TableBuilderImpl extends AbstractTableBuilderImpl<TableBuilder> implements TableBuilder {
@@ -164,11 +188,15 @@ public class TestBuilders {
         /** {@inheritDoc} */
         @Override
         public ClusterBuilder end() {
-            parent.tables.add(new TestTable(
-                    new TableDescriptorImpl(columns, distribution), name, dataProviders, size
-            ));
+            parent.tableBuilders.add(this);
 
             return parent;
+        }
+
+        private TestTable build() {
+            return new TestTable(
+                    new TableDescriptorImpl(columns, distribution), name, dataProviders, size
+            );
         }
     }
 
@@ -246,7 +274,6 @@ public class TestBuilders {
 
         /**
          * Adds a data provider for the given node to the table.
-         * TODO
          */
         ChildT addDataProvider(String targetNode, DataProvider<?> dataProvider);
 

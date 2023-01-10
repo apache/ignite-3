@@ -40,9 +40,8 @@ import org.apache.ignite.network.TopologyService;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Dummy cluster service object which helps to created connect
- * instances of {@link TopologyService} and {@link MessagingService} for
- * connecting group of {@link TestNode} within single cluster with each other.
+ * Auxiliary object to create the associated {@link MessagingService}
+ * and {@link TopologyService} for each node in the cluster.
  */
 class TestClusterService {
     private final List<String> allNodes;

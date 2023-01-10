@@ -17,7 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.framework;
 
-import java.lang.reflect.Proxy;
+import static org.apache.ignite.lang.IgniteStringFormatter.format;
+
 import java.util.BitSet;
 import java.util.Collections;
 import java.util.HashMap;
@@ -57,19 +58,13 @@ import org.apache.ignite.internal.table.InternalTable;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * A test table which implements all necessary methods for optimizer in order to being use
- * for query preparation, as well as provide access to the data for use this table
- * in execution-related scenarios.
+ * A test table that implements all the necessary for the optimizer methods to be used
+ * to prepare a query, as well as provides access to the data to use this table in
+ * execution-related scenarios.
  */
 public class TestTable implements InternalIgniteTable {
-    private static final AssertionError DATA_PROVIDER_NOT_CONFIGURED_EXCEPTION =
-            new AssertionError("DataProvider not configured");
-
-    private static final Map<String, DataProvider<?>> THROWING_MAP = (Map<String, DataProvider<?>>) Proxy.newProxyInstance(
-            TestTable.class.getClassLoader(), new Class<?>[] {Map.class}, (o, m, a) -> {
-                throw DATA_PROVIDER_NOT_CONFIGURED_EXCEPTION;
-            }
-    );
+    private static final String DATA_PROVIDER_NOT_CONFIGURED_MESSAGE_TEMPLATE =
+            "DataProvider is not configured [table={}, node={}]";
 
     private final UUID id = UUID.randomUUID();
     private final Map<String, IgniteIndex> indexes = new HashMap<>();
@@ -93,7 +88,7 @@ public class TestTable implements InternalIgniteTable {
         this.rowCnt = rowCnt;
         this.colocationGroup = colocationGroup;
 
-        dataProviders = THROWING_MAP;
+        dataProviders = Collections.emptyMap();
     }
 
     /** Constructor. */
@@ -121,7 +116,7 @@ public class TestTable implements InternalIgniteTable {
      */
     <RowT> DataProvider<RowT> dataProvider(String nodeName) {
         if (!dataProviders.containsKey(nodeName)) {
-            throw DATA_PROVIDER_NOT_CONFIGURED_EXCEPTION;
+            throw new AssertionError(format(DATA_PROVIDER_NOT_CONFIGURED_MESSAGE_TEMPLATE, name, nodeName));
         }
 
         return (DataProvider<RowT>) dataProviders.get(nodeName);
