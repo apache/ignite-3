@@ -60,7 +60,7 @@ public partial class LinqTests
         var view = PocoAllColumnsSqlNullableView;
         var query = view.AsQueryable();
 
-        var tableSizeBefore = await view.AsQueryable().CountAsync();
+        var tableSizeBefore = await query.CountAsync();
 
         Expression<Func<PocoAllColumnsSqlNullable, bool>> condition = x => x.Key >= DmlMinKey;
 
