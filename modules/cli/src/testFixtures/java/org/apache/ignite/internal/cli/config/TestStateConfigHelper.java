@@ -15,22 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.network;
+package org.apache.ignite.internal.cli.config;
 
-import java.util.UUID;
-import org.apache.ignite.lang.ErrorGroups.Network;
-import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerHelper;
+import org.apache.ignite.internal.cli.config.Config;
+import org.apache.ignite.internal.cli.config.StateConfig;
 
 /**
- * Thrown when consistent ID cannot be resolved to a {@link ClusterNode} instance (i.e. when
- * there is no node with such consistent ID in the physical topology).
+ * Test factory for application state config.
  */
-public class UnresolvableConsistentIdException extends IgniteException {
-    public UnresolvableConsistentIdException(String msg) {
-        super(Network.UNRESOLVABLE_CONSISTENT_ID_ERR, msg);
+public class TestStateConfigHelper {
+    public static final String EMPTY = "empty.ini";
+    public static final String LAST_CONNECTED_DEFAULT = "last_connected_default.ini";
+
+    public static Config createEmptyConfig() {
+        return createConfig(EMPTY);
     }
 
-    public UnresolvableConsistentIdException(UUID traceId, int code, String message, Throwable cause) {
-        super(traceId, code, message, cause);
+    public static Config createLastConnectedDefault() {
+        return createConfig(LAST_CONNECTED_DEFAULT);
+    }
+
+    private static Config createConfig(String resource) {
+        return StateConfig.getStateConfig(TestConfigManagerHelper.copyResourceToTempFile(resource));
     }
 }

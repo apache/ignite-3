@@ -15,22 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network.messages;
+namespace Apache.Ignite.Internal.Linq.Dml;
 
-import org.apache.ignite.internal.network.processor.SerializationOrderTest;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Transferable;
+using System.Linq.Expressions;
 
-/**
- * Test message used in {@link SerializationOrderTest}.
- */
-@Transferable(TestMessageTypes.SERIALIZATION_ORDER_MESSAGE)
-public interface SerializationOrderMessage extends NetworkMessage {
-    String strB();
-
-    String strD();
-
-    int intC();
-
-    int intA();
-}
+/// <summary>
+/// Contains information about member update.
+/// </summary>
+internal record struct MemberUpdateContainer(Expression Selector, Expression Value);

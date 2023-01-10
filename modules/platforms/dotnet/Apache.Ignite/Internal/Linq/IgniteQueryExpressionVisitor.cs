@@ -55,6 +55,9 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
     /** */
     private readonly bool _visitEntireSubQueryModel;
 
+    /** */
+    private readonly bool _columnNameWithoutTable;
+
     /// <summary>
     /// Initializes a new instance of the <see cref="IgniteQueryExpressionVisitor" /> class.
     /// </summary>
@@ -70,12 +73,19 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
     /// <param name="visitEntireSubQueryModel">
     /// Flag indicating that subquery should be visited as full query.
     /// </param>
-    public IgniteQueryExpressionVisitor(IgniteQueryModelVisitor modelVisitor, bool useStar, bool includeAllFields, bool visitEntireSubQueryModel)
+    /// <param name="columnNameWithoutTable">Whether to append column names without table name.</param>
+    public IgniteQueryExpressionVisitor(
+        IgniteQueryModelVisitor modelVisitor,
+        bool useStar,
+        bool includeAllFields,
+        bool visitEntireSubQueryModel,
+        bool columnNameWithoutTable)
     {
         _modelVisitor = modelVisitor;
         _useStar = useStar;
         _includeAllFields = includeAllFields;
         _visitEntireSubQueryModel = visitEntireSubQueryModel;
+        _columnNameWithoutTable = columnNameWithoutTable;
     }
 
     /// <summary>
@@ -427,10 +437,18 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
         }
         else if (expression.NodeType is ExpressionType.Convert)
         {
-            ResultBuilder
-                .Append(" as ")
-                .Append(expression.Type.ToSqlTypeName())
-                .Append(')');
+            if (expression.Type == typeof(object))
+            {
+                // Special case for string concatenation.
+                ResultBuilder.Append(" as varchar)");
+            }
+            else
+            {
+                ResultBuilder
+                    .Append(" as ")
+                    .Append(expression.Type.ToSqlTypeName())
+                    .Append(')');
+            }
         }
 
         return expression;
@@ -443,7 +461,8 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
     {
         if (ColumnNameMap.TryGetValue(expression.Member, out var columnName))
         {
-            ResultBuilder.Append(tableName).Append('.').Append(columnName);
+            AppendColumnName(tableName, columnName);
+
             return;
         }
 
@@ -462,7 +481,17 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
 
         ColumnNameMap.GetOrAdd(expression.Member, columnName);
 
-        ResultBuilder.Append(tableName).Append('.').Append(columnName);
+        AppendColumnName(tableName, columnName);
+    }
+
+    private void AppendColumnName(string tableName, string columnName)
+    {
+        if (!_columnNameWithoutTable)
+        {
+            ResultBuilder.Append(tableName).Append('.');
+        }
+
+        ResultBuilder.Append(columnName);
     }
 
     /// <summary>
@@ -521,7 +550,10 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
 
             first = false;
 
-            ResultBuilder.Append(tableName).Append('.');
+            if (!_columnNameWithoutTable)
+            {
+                ResultBuilder.Append(tableName).Append('.');
+            }
 
             if (col.HasColumnNameAttribute)
             {
