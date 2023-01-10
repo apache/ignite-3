@@ -53,7 +53,7 @@ public partial class LinqTests
     }
 
     [Test]
-    public async Task TestRemoveAll([Values(true, false)] bool inlineCondition)
+    public async Task TestExecuteDelete([Values(true, false)] bool inlineCondition)
     {
         var view = PocoAllColumnsSqlNullableView;
         var query = view.AsQueryable();
@@ -64,7 +64,7 @@ public partial class LinqTests
 
         if (!inlineCondition)
         {
-            // Condition can be in a separate "Where" clause, or directly in the "RemoveAllAsync".
+            // Condition can be in a separate "Where" clause, or directly in the "ExecuteDeleteAsync".
             query = query.Where(condition);
         }
 
@@ -84,7 +84,7 @@ public partial class LinqTests
     }
 
     [Test]
-    public async Task TestRemoveAllWithTx()
+    public async Task TestExecuteDeleteWithTx()
     {
         await using (var tx = await Client.Transactions.BeginAsync())
         {
@@ -99,7 +99,7 @@ public partial class LinqTests
     }
 
     [Test]
-    public async Task TestUpdateAllConstantValue()
+    public async Task TestExecuteUpdateConstantValue()
     {
         var query = PocoAllColumnsSqlNullableView.AsQueryable().Where(x => x.Key >= 1000);
         await query.ExecuteUpdateAsync(row => row.SetProperty(x => x.Str, "updated"));
@@ -109,7 +109,7 @@ public partial class LinqTests
     }
 
     [Test]
-    public async Task TestUpdateAllComputedValue()
+    public async Task TestExecuteUpdateComputedValue()
     {
         var query = PocoAllColumnsSqlNullableView.AsQueryable().Where(x => x.Key >= 1000);
         await query.ExecuteUpdateAsync(row => row.SetProperty(x => x.Str, x => "updated_" + x.Key + "_"));
@@ -123,7 +123,7 @@ public partial class LinqTests
     }
 
     [Test]
-    public async Task TestUpdateAllMultipleSetters()
+    public async Task TestExecuteUpdateMultipleSetters()
     {
         var query = PocoAllColumnsSqlNullableView.AsQueryable().Where(x => x.Key >= 1000);
         await query.ExecuteUpdateAsync(row => row
@@ -145,7 +145,7 @@ public partial class LinqTests
     }
 
     [Test]
-    public async Task TestUpdateAllWithTx()
+    public async Task TestExecuteUpdateWithTx()
     {
         await using (var tx = await Client.Transactions.BeginAsync())
         {
@@ -160,14 +160,14 @@ public partial class LinqTests
     }
 
     [Test]
-    public void TestRemoveAllWithResultOperatorsIsNotSupported()
+    public void TestExecuteDeleteWithResultOperatorsIsNotSupported()
     {
         var ex = Assert.ThrowsAsync<NotSupportedException>(() => PocoView.AsQueryable().Skip(1).Take(2).ExecuteDeleteAsync());
         Assert.AreEqual("ExecuteDeleteAsync can not be combined with result operators: Skip(1), Take(2)", ex!.Message);
     }
 
     [Test]
-    public void TestUpdateAllWithResultOperatorsIsNotSupported()
+    public void TestExecuteUpdateWithResultOperatorsIsNotSupported()
     {
         var ex = Assert.ThrowsAsync<NotSupportedException>(
             () => PocoView.AsQueryable().DefaultIfEmpty().ExecuteUpdateAsync(x => x.SetProperty(p => p.Key, 2)));
@@ -175,10 +175,6 @@ public partial class LinqTests
         Assert.AreEqual("ExecuteUpdateAsync can not be combined with result operators: DefaultIfEmpty()", ex!.Message);
     }
 
-    private static bool IsDmlTest()
-    {
-        var testName = TestContext.CurrentContext.Test.Name;
-
-        return testName.Contains("UpdateAll", StringComparison.Ordinal) || testName.Contains("RemoveAll", StringComparison.Ordinal);
-    }
+    private static bool IsDmlTest() => new[] { "ExecuteDelete", "ExecuteUpdate" }
+        .Any(x => TestContext.CurrentContext.Test.Name.Contains(x, StringComparison.OrdinalIgnoreCase));
 }
