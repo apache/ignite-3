@@ -20,8 +20,8 @@
 #include "ignite/client/ignite_client.h"
 #include "ignite/client/ignite_client_configuration.h"
 
-#include <gtest/gtest.h>
 #include <gmock/gmock-matchers.h>
+#include <gtest/gtest.h>
 
 #include <chrono>
 
@@ -37,8 +37,8 @@ protected:
         cfg.set_logger(get_logger());
         auto client = ignite_client::start(cfg, std::chrono::seconds(30));
 
-        auto res = client.get_sql().execute(nullptr,
-            {"CREATE TABLE IF NOT EXISTS TEST(ID INT PRIMARY KEY, VAL VARCHAR)"}, {});
+        auto res =
+            client.get_sql().execute(nullptr, {"CREATE TABLE IF NOT EXISTS TEST(ID INT PRIMARY KEY, VAL VARCHAR)"}, {});
 
         if (!res.was_applied()) {
             client.get_sql().execute(nullptr, {"DELETE FROM TEST"}, {});
@@ -73,8 +73,8 @@ protected:
     ignite_client m_client;
 };
 
-void check_columns(const result_set_metadata& meta,
-    std::initializer_list<std::tuple<std::string, column_type>> columns) {
+void check_columns(
+    const result_set_metadata &meta, std::initializer_list<std::tuple<std::string, column_type>> columns) {
 
     ASSERT_EQ(columns.size(), meta.columns().size());
     size_t i = 0;
@@ -179,28 +179,29 @@ TEST_F(sql_test, sql_ddl_dml) {
     EXPECT_EQ(-1, result_set.affected_rows());
     EXPECT_TRUE(result_set.metadata().columns().empty());
 
-    result_set = m_client.get_sql().execute(nullptr,
-        {"CREATE TABLE SQL_DDL_DML_TEST(ID BIGINT PRIMARY KEY, VAL VARCHAR)"}, {});
+    result_set =
+        m_client.get_sql().execute(nullptr, {"CREATE TABLE SQL_DDL_DML_TEST(ID BIGINT PRIMARY KEY, VAL VARCHAR)"}, {});
 
     EXPECT_TRUE(result_set.was_applied());
     EXPECT_FALSE(result_set.has_rowset());
     EXPECT_EQ(-1, result_set.affected_rows());
     EXPECT_TRUE(result_set.metadata().columns().empty());
 
-    result_set = m_client.get_sql().execute(nullptr, {"INSERT INTO SQL_DDL_DML_TEST VALUES (?, ?)"}, {std::int64_t(13), std::string("Hello")});
+    result_set = m_client.get_sql().execute(
+        nullptr, {"INSERT INTO SQL_DDL_DML_TEST VALUES (?, ?)"}, {std::int64_t(13), std::string("Hello")});
 
     EXPECT_FALSE(result_set.was_applied());
     EXPECT_FALSE(result_set.has_rowset());
     EXPECT_EQ(1, result_set.affected_rows());
     EXPECT_TRUE(result_set.metadata().columns().empty());
 
-    result_set = m_client.get_sql().execute(nullptr, {"INSERT INTO SQL_DDL_DML_TEST VALUES (?, ?)"}, {std::int64_t(14), std::string("World")});
+    result_set = m_client.get_sql().execute(
+        nullptr, {"INSERT INTO SQL_DDL_DML_TEST VALUES (?, ?)"}, {std::int64_t(14), std::string("World")});
 
     EXPECT_FALSE(result_set.was_applied());
     EXPECT_FALSE(result_set.has_rowset());
     EXPECT_EQ(1, result_set.affected_rows());
     EXPECT_TRUE(result_set.metadata().columns().empty());
-
 
     result_set = m_client.get_sql().execute(nullptr, {"UPDATE SQL_DDL_DML_TEST SET VAL = ?"}, {std::string("Test")});
 
@@ -219,8 +220,8 @@ TEST_F(sql_test, sql_ddl_dml) {
 
 TEST_F(sql_test, sql_insert_null) {
     auto result_set = m_client.get_sql().execute(nullptr, {"DROP TABLE IF EXISTS SQL_INSERT_NULL_TEST"}, {});
-    result_set = m_client.get_sql().execute(nullptr,
-        {"CREATE TABLE SQL_INSERT_NULL_TEST(ID INT PRIMARY KEY, VAL VARCHAR)"}, {});
+    result_set =
+        m_client.get_sql().execute(nullptr, {"CREATE TABLE SQL_INSERT_NULL_TEST(ID INT PRIMARY KEY, VAL VARCHAR)"}, {});
 
     ASSERT_TRUE(result_set.was_applied());
 
@@ -320,4 +321,3 @@ TEST_F(sql_test, sql_statement_defaults) {
     EXPECT_EQ(statement.schema(), sql_statement::DEFAULT_SCHEMA);
     EXPECT_EQ(statement.timeout(), sql_statement::DEFAULT_TIMEOUT);
 }
-

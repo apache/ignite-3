@@ -20,8 +20,8 @@
 
 namespace ignite {
 
-void sql::execute_async(
-    transaction *tx, const sql_statement &statement, std::vector<primitive> args, ignite_callback<result_set> callback) {
+void sql::execute_async(transaction *tx, const sql_statement &statement, std::vector<primitive> args,
+    ignite_callback<result_set> callback) {
     m_impl->execute_async(tx, statement, std::move(args), std::move(callback));
 }
 

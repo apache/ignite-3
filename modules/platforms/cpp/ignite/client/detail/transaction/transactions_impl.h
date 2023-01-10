@@ -48,7 +48,7 @@ public:
      * @param connection Connection.
      */
     explicit transactions_impl(std::shared_ptr<cluster_connection> connection)
-    : m_connection(std::move(connection)) {}
+        : m_connection(std::move(connection)) {}
 
     /**
      * Starts a new transaction asynchronously.
@@ -71,4 +71,4 @@ private:
     std::shared_ptr<cluster_connection> m_connection;
 };
 
-} // namespace ignite
+} // namespace ignite::detail

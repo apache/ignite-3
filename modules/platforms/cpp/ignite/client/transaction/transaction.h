@@ -36,6 +36,7 @@ class transaction {
     friend class detail::sql_impl;
     friend class detail::table_impl;
     friend class detail::transactions_impl;
+
 public:
     // Default
     transaction() = default;

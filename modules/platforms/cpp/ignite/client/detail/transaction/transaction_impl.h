@@ -60,7 +60,7 @@ public:
         , m_connection(std::move(connection)) {}
 
     ~transaction_impl() {
-        rollback_async([](auto){});
+        rollback_async([](auto) {});
     }
 
     /**
@@ -92,18 +92,14 @@ public:
      *
      * @return Transaction ID.
      */
-    [[nodiscard]] std::int64_t get_id() const {
-        return m_id;
-    }
+    [[nodiscard]] std::int64_t get_id() const { return m_id; }
 
     /**
      * Get connection.
      *
      * @return Connection.
      */
-    [[nodiscard]] std::shared_ptr<node_connection> get_connection() const {
-        return m_connection;
-    }
+    [[nodiscard]] std::shared_ptr<node_connection> get_connection() const { return m_connection; }
 
 private:
     /**
@@ -140,4 +136,4 @@ private:
     std::shared_ptr<node_connection> m_connection;
 };
 
-} // namespace ignite
+} // namespace ignite::detail

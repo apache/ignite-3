@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 
-#include "ignite/client/detail/transaction/transaction_impl.h"
 #include "ignite/client/transaction/transaction.h"
+#include "ignite/client/detail/transaction/transaction_impl.h"
 
 namespace ignite {
 

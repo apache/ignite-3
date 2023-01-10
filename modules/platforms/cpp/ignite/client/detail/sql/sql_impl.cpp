@@ -15,17 +15,16 @@
  * limitations under the License.
  */
 
-#include "ignite/client/detail/sql/result_set_impl.h"
 #include "ignite/client/detail/sql/sql_impl.h"
+#include "ignite/client/detail/sql/result_set_impl.h"
 #include "ignite/client/detail/utils.h"
 
 #include "ignite/schema/binary_tuple_builder.h"
 
 namespace ignite::detail {
 
-void sql_impl::execute_async(
-    transaction *tx, const sql_statement &statement, std::vector<primitive>&& args, ignite_callback<result_set>&& callback)
-{
+void sql_impl::execute_async(transaction *tx, const sql_statement &statement, std::vector<primitive> &&args,
+    ignite_callback<result_set> &&callback) {
     auto tx0 = tx ? tx->m_impl : nullptr;
 
     auto writer_func = [&statement, &args, &tx0](protocol::writer &writer) {
@@ -39,7 +38,7 @@ void sql_impl::execute_async(
         writer.write(std::int64_t(statement.timeout().count()));
         writer.write_nil(); // Session timeout (unused, session is closed by the server immediately).
 
-        const auto& properties = statement.properties();
+        const auto &properties = statement.properties();
         auto props_num = std::int32_t(properties.size());
 
         writer.write(props_num);

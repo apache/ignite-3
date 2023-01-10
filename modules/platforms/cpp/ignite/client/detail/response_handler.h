@@ -191,7 +191,7 @@ private:
     }
 
     /** Read function. */
-    std::function<T(protocol::reader&)> m_read_func;
+    std::function<T(protocol::reader &)> m_read_func;
 
     /** Promise. */
     ignite_callback<T> m_callback;
@@ -216,11 +216,10 @@ public:
      * @param callback Callback.
      */
     explicit response_handler_reader_connection(
-            std::function<T(protocol::reader &, std::shared_ptr<node_connection>)> read_func,
-            ignite_callback<T> callback)
-            : m_read_func(std::move(read_func))
-            , m_callback(std::move(callback))
-            , m_mutex() {}
+        std::function<T(protocol::reader &, std::shared_ptr<node_connection>)> read_func, ignite_callback<T> callback)
+        : m_read_func(std::move(read_func))
+        , m_callback(std::move(callback))
+        , m_mutex() {}
 
     /**
      * Handle response.
@@ -264,7 +263,7 @@ private:
     }
 
     /** Read function. */
-    std::function<T(protocol::reader&, std::shared_ptr<node_connection>)> m_read_func;
+    std::function<T(protocol::reader &, std::shared_ptr<node_connection>)> m_read_func;
 
     /** Promise. */
     ignite_callback<T> m_callback;

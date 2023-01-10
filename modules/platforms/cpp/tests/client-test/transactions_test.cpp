@@ -20,8 +20,8 @@
 #include "ignite/client/ignite_client.h"
 #include "ignite/client/ignite_client_configuration.h"
 
-#include <gtest/gtest.h>
 #include <gmock/gmock-matchers.h>
+#include <gtest/gtest.h>
 
 #include <chrono>
 
@@ -47,9 +47,7 @@ protected:
     /**
      * Tear down for every test.
      */
-    void TearDown() override {
-        clear_table1();
-    }
+    void TearDown() override { clear_table1(); }
 
     /** Ignite client. */
     ignite_client m_client;
@@ -138,8 +136,8 @@ TEST_F(transactions_test, sql_commit) {
 
     auto tx = m_client.get_transactions().begin();
 
-    m_client.get_sql().execute(&tx,
-        {"INSERT INTO " + std::string(TABLE_1) + " VALUES (?, ?)"}, {std::int64_t(42), std::string("Lorem ipsum")});
+    m_client.get_sql().execute(&tx, {"INSERT INTO " + std::string(TABLE_1) + " VALUES (?, ?)"},
+        {std::int64_t(42), std::string("Lorem ipsum")});
 
     tx.commit();
 
@@ -156,7 +154,8 @@ TEST_F(transactions_test, sql_rollback) {
 
     auto tx = m_client.get_transactions().begin();
 
-    m_client.get_sql().execute(&tx, {"INSERT INTO " + std::string(TABLE_1) + " VALUES (?, ?)"}, {std::int64_t(42), std::string("Lorem ipsum")});
+    m_client.get_sql().execute(&tx, {"INSERT INTO " + std::string(TABLE_1) + " VALUES (?, ?)"},
+        {std::int64_t(42), std::string("Lorem ipsum")});
 
     tx.rollback();
 

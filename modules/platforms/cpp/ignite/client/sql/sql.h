@@ -17,10 +17,10 @@
 
 #pragma once
 
-#include "ignite/client/transaction/transaction.h"
-#include "ignite/client/sql/sql_statement.h"
-#include "ignite/client/sql/result_set.h"
 #include "ignite/client/primitive.h"
+#include "ignite/client/sql/result_set.h"
+#include "ignite/client/sql/sql_statement.h"
+#include "ignite/client/transaction/transaction.h"
 #include "ignite/common/config.h"
 #include "ignite/common/ignite_result.h"
 
@@ -38,6 +38,7 @@ class sql_impl;
  */
 class sql {
     friend class ignite_client;
+
 public:
     // Delete
     sql() = delete;
@@ -50,8 +51,8 @@ public:
      * @param args Arguments for the statement.
      * @param callback A callback called on operation completion with SQL result set.
      */
-    IGNITE_API void execute_async(
-        transaction *tx, const sql_statement &statement, std::vector<primitive> args, ignite_callback<result_set> callback);
+    IGNITE_API void execute_async(transaction *tx, const sql_statement &statement, std::vector<primitive> args,
+        ignite_callback<result_set> callback);
 
     /**
      * Executes single SQL statement and returns rows.
@@ -61,7 +62,7 @@ public:
      * @param args Arguments for the statement.
      * @return SQL result set.
      */
-    IGNITE_API result_set execute(transaction *tx, const sql_statement &statement, std::vector<primitive> args)  {
+    IGNITE_API result_set execute(transaction *tx, const sql_statement &statement, std::vector<primitive> args) {
         return sync<result_set>([this, tx, &statement, args = std::move(args)](auto callback) mutable {
             execute_async(tx, statement, std::move(args), std::move(callback));
         });

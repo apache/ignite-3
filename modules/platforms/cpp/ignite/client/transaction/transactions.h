@@ -35,6 +35,7 @@ class transactions_impl;
  */
 class transactions {
     friend class ignite_client;
+
 public:
     // Delete
     transactions() = delete;
