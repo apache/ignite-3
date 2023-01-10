@@ -60,11 +60,7 @@ public:
         , m_connection(std::move(connection)) {}
 
     ~transaction_impl() {
-        state old = state::OPEN;
-        if (m_state.compare_exchange_strong(old, state::ROLLED_BACK, std::memory_order_relaxed))
-        {
-            finish(false, [](auto){});
-        }
+        rollback_async([](auto){});
     }
 
     /**
@@ -73,9 +69,10 @@ public:
      * @param callback Callback to be called upon asynchronous operation completion.
      */
     void commit_async(ignite_callback<void> callback) {
-        set_state(state::COMMITTED);
-
-        finish(true, std::move(callback));
+        if (set_state(state::COMMITTED))
+            finish(true, std::move(callback));
+        else
+            callback({});
     }
 
     /**
@@ -84,9 +81,10 @@ public:
      * @param callback Callback to be called upon asynchronous operation completion.
      */
     void rollback_async(ignite_callback<void> callback) {
-        set_state(state::ROLLED_BACK);
-
-        finish(false, std::move(callback));
+        if (set_state(state::ROLLED_BACK))
+            finish(false, std::move(callback));
+        else
+            callback({});
     }
 
     /**
@@ -125,18 +123,11 @@ private:
      * Set state.
      *
      * @param st State.
+     * @return @c true if state changed successfully.
      */
-    void set_state(state st) {
+    bool set_state(state st) {
         state old = state::OPEN;
-        auto opened = m_state.compare_exchange_strong(old, st, std::memory_order_relaxed);
-        if (opened)
-            return;
-
-        auto message = old == state::COMMITTED
-            ? "Transaction is already committed."
-            : "Transaction is already rolled back.";
-
-        throw ignite_error(message);
+        return m_state.compare_exchange_strong(old, st, std::memory_order_relaxed);
     }
 
     /** ID. */
