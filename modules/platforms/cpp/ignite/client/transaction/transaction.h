@@ -23,6 +23,7 @@
 namespace ignite {
 
 namespace detail {
+class table_impl;
 class transaction_impl;
 class transactions_impl;
 }
@@ -31,6 +32,7 @@ class transactions_impl;
  * Ignite transaction.
  */
 class transaction {
+    friend class detail::table_impl;
     friend class detail::transactions_impl;
 public:
     // Default

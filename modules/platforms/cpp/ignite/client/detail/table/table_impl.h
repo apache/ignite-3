@@ -323,6 +323,15 @@ private:
         return sch;
     }
 
+    /**
+     * Get impl of transaction.
+     * @param tx Transaction.
+     * @return Implementation pointer.
+     */
+    static std::shared_ptr<transaction_impl> to_impl(transaction* tx) {
+        return tx ? tx->m_impl : nullptr;
+    }
+
     /** Table name. */
     const std::string m_name;
 

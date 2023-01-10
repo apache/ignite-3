@@ -89,6 +89,24 @@ public:
         finish(false, std::move(callback));
     }
 
+    /**
+     * Get transaction ID.
+     *
+     * @return Transaction ID.
+     */
+    [[nodiscard]] std::int64_t get_id() const {
+        return m_id;
+    }
+
+    /**
+     * Get connection.
+     *
+     * @return Connection.
+     */
+    [[nodiscard]] std::shared_ptr<node_connection> get_connection() const {
+        return m_connection;
+    }
+
 private:
     /**
      * Perform operation.
