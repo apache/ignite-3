@@ -69,9 +69,7 @@ public class SqlBenchmark {
                     .distribution(IgniteDistributions.hash(List.of(0)))
                     .addColumn("ID", NativeTypes.INT32)
                     .addColumn("VAL", NativeTypes.stringOf(64))
-                    .addDataProvider("N1", dataProvider)
-                    .addDataProvider("N2", dataProvider)
-                    .addDataProvider("N3", dataProvider)
+                    .defaultDataProvider(dataProvider)
                     .end()
             .build();
     // @formatter:on

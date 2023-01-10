@@ -103,6 +103,12 @@ public class TestBuilders {
      * @see TestCluster
      */
     public interface ClusterTableBuilder extends TableBuilderBase<ClusterTableBuilder>, NestedBuilder<ClusterBuilder> {
+        /**
+         * Adds a default data provider, which will be used for those nodes for which no specific provider is specified.
+         *
+         * <p>Note: this method will force all nodes in the cluster to have a data provider for the given table.
+         */
+        ClusterTableBuilder defaultDataProvider(DataProvider<?> dataProvider);
     }
 
     private static class ClusterBuilderImpl implements ClusterBuilder {
@@ -132,14 +138,8 @@ public class TestBuilders {
             var clusterService = new TestClusterService(nodeNames);
 
             for (ClusterTableBuilderImpl tableBuilder : tableBuilders) {
-                Set<String> tableOwners = new HashSet<>(tableBuilder.dataProviders.keySet());
-
-                tableOwners.removeAll(nodeNames);
-
-                if (!tableOwners.isEmpty()) {
-                    throw new AssertionError(format("The table has a dataProvider that is outside the cluster "
-                                    + "[tableName={}, outsiders={}]", tableBuilder.name, tableOwners));
-                }
+                validateTableBuilder(tableBuilder);
+                injectDataProvidersIfNeeded(tableBuilder);
             }
 
             Map<String, Table> tableMap = tableBuilders.stream()
@@ -153,6 +153,31 @@ public class TestBuilders {
                     .collect(Collectors.toMap(TestNode::name, Function.identity()));
 
             return new TestCluster(nodes);
+        }
+
+        private void validateTableBuilder(ClusterTableBuilderImpl tableBuilder) {
+            Set<String> tableOwners = new HashSet<>(tableBuilder.dataProviders.keySet());
+
+            tableOwners.removeAll(nodeNames);
+
+            if (!tableOwners.isEmpty()) {
+                throw new AssertionError(format("The table has a dataProvider that is outside the cluster "
+                        + "[tableName={}, outsiders={}]", tableBuilder.name, tableOwners));
+            }
+        }
+
+        private void injectDataProvidersIfNeeded(ClusterTableBuilderImpl tableBuilder) {
+            if (tableBuilder.defaultDataProvider == null) {
+                return;
+            }
+
+            Set<String> nodesWithoutDataProvider = new HashSet<>(nodeNames);
+
+            nodesWithoutDataProvider.removeAll(tableBuilder.dataProviders.keySet());
+
+            for (String name : nodesWithoutDataProvider) {
+                tableBuilder.addDataProvider(name, tableBuilder.defaultDataProvider);
+            }
         }
     }
 
@@ -175,6 +200,8 @@ public class TestBuilders {
     private static class ClusterTableBuilderImpl extends AbstractTableBuilderImpl<ClusterTableBuilder> implements ClusterTableBuilder {
         private final ClusterBuilderImpl parent;
 
+        private DataProvider<?> defaultDataProvider = null;
+
         private ClusterTableBuilderImpl(ClusterBuilderImpl parent) {
             this.parent = parent;
         }
@@ -182,6 +209,14 @@ public class TestBuilders {
         /** {@inheritDoc} */
         @Override
         protected ClusterTableBuilder self() {
+            return this;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public ClusterTableBuilder defaultDataProvider(DataProvider<?> dataProvider) {
+            this.defaultDataProvider = dataProvider;
+
             return this;
         }
 
@@ -272,9 +307,7 @@ public class TestBuilders {
         /** Adds a column to the table. */
         ChildT addColumn(String name, NativeType type);
 
-        /**
-         * Adds a data provider for the given node to the table.
-         */
+        /** Adds a data provider for the given node to the table. */
         ChildT addDataProvider(String targetNode, DataProvider<?> dataProvider);
 
         /** Sets the size of the table. */
