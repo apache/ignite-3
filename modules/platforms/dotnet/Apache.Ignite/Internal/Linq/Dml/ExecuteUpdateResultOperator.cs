@@ -30,13 +30,13 @@ using Remotion.Linq.Clauses.StreamedData;
 /// <summary>
 /// Represents an operator for <see cref="IgniteQueryableExtensions.ExecuteUpdateAsync{T}"/>.
 /// </summary>
-internal sealed class UpdateAllResultOperator : ValueFromSequenceResultOperatorBase
+internal sealed class ExecuteUpdateResultOperator : ValueFromSequenceResultOperatorBase
 {
     /// <summary>
-    /// Initializes a new instance of the <see cref="UpdateAllResultOperator"/> class.
+    /// Initializes a new instance of the <see cref="ExecuteUpdateResultOperator"/> class.
     /// </summary>
     /// <param name="updates">members updates.</param>
-    public UpdateAllResultOperator(IEnumerable<MemberUpdateContainer> updates)
+    public ExecuteUpdateResultOperator(IEnumerable<MemberUpdateContainer> updates)
     {
         Updates = updates.ToArray();
     }
@@ -51,7 +51,7 @@ internal sealed class UpdateAllResultOperator : ValueFromSequenceResultOperatorB
 
     /** <inheritdoc /> */
     [ExcludeFromCodeCoverage]
-    public override ResultOperatorBase Clone(CloneContext cloneContext) => new UpdateAllResultOperator(Updates);
+    public override ResultOperatorBase Clone(CloneContext cloneContext) => new ExecuteUpdateResultOperator(Updates);
 
     /** <inheritdoc /> */
     [ExcludeFromCodeCoverage]
@@ -63,5 +63,5 @@ internal sealed class UpdateAllResultOperator : ValueFromSequenceResultOperatorB
     /** <inheritdoc /> */
     [ExcludeFromCodeCoverage]
     public override StreamedValue ExecuteInMemory<T>(StreamedSequence sequence) =>
-        throw new NotSupportedException("UpdateAll is not supported for in-memory sequences.");
+        throw new NotSupportedException("ExecuteUpdate is not supported for in-memory sequences.");
 }

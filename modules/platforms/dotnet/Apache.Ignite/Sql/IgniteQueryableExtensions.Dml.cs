@@ -46,7 +46,7 @@ public static partial class IgniteQueryableExtensions
     {
         IgniteArgumentCheck.NotNull(query, nameof(query));
 
-        var method = ExecuteDeleteExpressionNode.ExecuteDeleteMethodInfo.MakeGenericMethod(typeof(T));
+        var method = ExecuteDeleteExpressionNode.MethodInfo.MakeGenericMethod(typeof(T));
         var provider = query.ToQueryableInternal().Provider;
         var expression = Expression.Call(null, method, query.Expression);
 
@@ -67,7 +67,7 @@ public static partial class IgniteQueryableExtensions
     {
         IgniteArgumentCheck.NotNull(query, nameof(query));
 
-        var method = ExecuteDeleteExpressionNode.ExecuteDeletePredicateMethodInfo.MakeGenericMethod(typeof(T));
+        var method = ExecuteDeleteExpressionNode.PredicateMethodInfo.MakeGenericMethod(typeof(T));
         var provider = query.ToQueryableInternal().Provider;
         var expression = Expression.Call(null, method, query.Expression, Expression.Quote(predicate));
 
@@ -91,7 +91,7 @@ public static partial class IgniteQueryableExtensions
         IgniteArgumentCheck.NotNull(query, nameof(query));
         IgniteArgumentCheck.NotNull(updateDescriptor, nameof(updateDescriptor));
 
-        var method = UpdateAllExpressionNode.UpdateAllMethodInfo.MakeGenericMethod(typeof(T));
+        var method = ExecuteUpdateExpressionNode.MethodInfo.MakeGenericMethod(typeof(T));
         var provider = query.ToQueryableInternal().Provider;
         var expression = Expression.Call(null, method, query.Expression, Expression.Quote(updateDescriptor));
 

@@ -35,7 +35,7 @@ internal sealed class ExecuteDeleteExpressionNode : ResultOperatorExpressionNode
     /// <summary>
     /// ExecuteDelete methods.
     /// </summary>
-    public static readonly IReadOnlyList<MethodInfo> ExecuteDeleteMethodInfos = typeof(IgniteQueryableExtensions)
+    public static readonly IReadOnlyList<MethodInfo> MethodInfos = typeof(IgniteQueryableExtensions)
         .GetMethods()
         .Where(x => x.Name == nameof(IgniteQueryableExtensions.ExecuteDeleteAsync))
         .ToList();
@@ -43,12 +43,12 @@ internal sealed class ExecuteDeleteExpressionNode : ResultOperatorExpressionNode
     /// <summary>
     /// Method without predicate.
     /// </summary>
-    public static readonly MethodInfo ExecuteDeleteMethodInfo = ExecuteDeleteMethodInfos.Single(x => x.GetParameters().Length == 1);
+    public static readonly MethodInfo MethodInfo = MethodInfos.Single(x => x.GetParameters().Length == 1);
 
     /// <summary>
     /// Method with predicate.
     /// </summary>
-    public static readonly MethodInfo ExecuteDeletePredicateMethodInfo = ExecuteDeleteMethodInfos.Single(x => x.GetParameters().Length == 2);
+    public static readonly MethodInfo PredicateMethodInfo = MethodInfos.Single(x => x.GetParameters().Length == 2);
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ExecuteDeleteExpressionNode"/> class.

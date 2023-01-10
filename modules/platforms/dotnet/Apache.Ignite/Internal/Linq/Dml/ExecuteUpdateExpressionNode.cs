@@ -20,7 +20,6 @@ namespace Apache.Ignite.Internal.Linq.Dml;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
-using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using Ignite.Sql;
@@ -30,33 +29,29 @@ using Remotion.Linq.Parsing.ExpressionVisitors;
 using Remotion.Linq.Parsing.Structure.IntermediateModel;
 
 /// <summary>
-/// Represents a <see cref="MethodCallExpression" /> for
-/// <see cref="IgniteQueryableExtensions.ExecuteUpdateAsync{T}" />.
-/// When user calls UpdateAll, this node is generated.
+/// Represents a <see cref="MethodCallExpression" /> for <see cref="IgniteQueryableExtensions.ExecuteUpdateAsync{T}" />.
 /// </summary>
-internal sealed class UpdateAllExpressionNode : ResultOperatorExpressionNodeBase
+internal sealed class ExecuteUpdateExpressionNode : ResultOperatorExpressionNodeBase
 {
     /// <summary>
-    /// UpdateAll methods.
+    /// ExecuteUpdate method.
     /// </summary>
-    public static readonly IReadOnlyList<MethodInfo> UpdateAllMethodInfos = typeof(IgniteQueryableExtensions)
-        .GetMethods()
-        .Where(x => x.Name == nameof(IgniteQueryableExtensions.ExecuteUpdateAsync))
-        .ToList();
+    public static readonly MethodInfo MethodInfo = typeof(IgniteQueryableExtensions)
+        .GetMethod(nameof(IgniteQueryableExtensions.ExecuteUpdateAsync))!;
 
     /// <summary>
-    /// The UpdateAll method.
+    /// All supported methods.
     /// </summary>
-    public static readonly MethodInfo UpdateAllMethodInfo = UpdateAllMethodInfos.Single();
+    public static readonly IReadOnlyList<MethodInfo> MethodInfos = new[] { MethodInfo };
 
     private readonly LambdaExpression _updateDescription;
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="UpdateAllExpressionNode" /> class.
+    /// Initializes a new instance of the <see cref="ExecuteUpdateExpressionNode" /> class.
     /// </summary>
     /// <param name="parseInfo">The parse information.</param>
     /// <param name="updateDescription">Expression with update description info.</param>
-    public UpdateAllExpressionNode(
+    public ExecuteUpdateExpressionNode(
         MethodCallExpressionParseInfo parseInfo,
         LambdaExpression updateDescription)
         : base(parseInfo, null, null)
@@ -79,7 +74,8 @@ internal sealed class UpdateAllExpressionNode : ResultOperatorExpressionNodeBase
     {
         if (_updateDescription.Parameters.Count != 1)
         {
-            throw new NotSupportedException("Expression is not supported for UpdateAll: " + _updateDescription);
+            throw new NotSupportedException(
+                $"Expression is not supported for {nameof(IgniteQueryableExtensions.ExecuteUpdateAsync)}: " + _updateDescription);
         }
 
         var querySourceRefExpression = (QuerySourceReferenceExpression)Source.Resolve(
@@ -91,7 +87,8 @@ internal sealed class UpdateAllExpressionNode : ResultOperatorExpressionNodeBase
 
         if (methodCall == null)
         {
-            throw new NotSupportedException("Expression is not supported for UpdateAll: " + _updateDescription.Body);
+            throw new NotSupportedException(
+                $"Expression is not supported for {nameof(IgniteQueryableExtensions.ExecuteUpdateAsync)}: " + _updateDescription.Body);
         }
 
         var updates = new List<MemberUpdateContainer>();
@@ -100,7 +97,8 @@ internal sealed class UpdateAllExpressionNode : ResultOperatorExpressionNodeBase
         {
             if (methodCall.Arguments.Count != 2)
             {
-                throw new NotSupportedException("Method is not supported for UpdateAll: " + methodCall);
+                throw new NotSupportedException(
+                    $"Method is not supported for {nameof(IgniteQueryableExtensions.ExecuteUpdateAsync)}: " + methodCall);
             }
 
             var selectorLambda = (LambdaExpression)methodCall.Arguments[0];
@@ -123,7 +121,8 @@ internal sealed class UpdateAllExpressionNode : ResultOperatorExpressionNodeBase
                     break;
 
                 default:
-                    throw new NotSupportedException("Value expression is not supported for UpdateAll: " + newValue);
+                    throw new NotSupportedException(
+                        $"Value expression is not supported for {nameof(IgniteQueryableExtensions.ExecuteUpdateAsync)}: " + newValue);
             }
 
             updates.Add(new MemberUpdateContainer(selector, newValue));
@@ -131,6 +130,6 @@ internal sealed class UpdateAllExpressionNode : ResultOperatorExpressionNodeBase
             methodCall = methodCall.Object as MethodCallExpression;
         }
 
-        return new UpdateAllResultOperator(updates);
+        return new ExecuteUpdateResultOperator(updates);
     }
 }

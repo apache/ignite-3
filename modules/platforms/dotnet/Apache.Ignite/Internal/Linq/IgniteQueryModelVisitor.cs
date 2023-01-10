@@ -200,7 +200,7 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
             return;
         }
 
-        var isUpdateQuery = queryModel.ResultOperators.LastOrDefault() is UpdateAllResultOperator;
+        var isUpdateQuery = queryModel.ResultOperators.LastOrDefault() is ExecuteUpdateResultOperator;
         if (!isUpdateQuery)
         {
             _builder.Append("from ");
@@ -221,7 +221,7 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
 
         if (isUpdateQuery)
         {
-            BuildSetClauseForUpdateAll(queryModel);
+            BuildSetClauseForExecuteUpdate(queryModel);
         }
     }
 
@@ -240,7 +240,7 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
         {
             VisitDmlOperator(queryModel, "delete ", nameof(IgniteQueryableExtensions.ExecuteDeleteAsync));
         }
-        else if (lastResultOp is UpdateAllResultOperator)
+        else if (lastResultOp is ExecuteUpdateResultOperator)
         {
             VisitDmlOperator(queryModel, "update ", nameof(IgniteQueryableExtensions.ExecuteUpdateAsync));
         }
@@ -667,7 +667,7 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
         {
             var ops = string.Join(
                 ", ",
-                queryModel.ResultOperators.Where(x => x is not ExecuteDeleteResultOperator && x is not UpdateAllResultOperator));
+                queryModel.ResultOperators.Where(x => x is not ExecuteDeleteResultOperator && x is not ExecuteUpdateResultOperator));
 
             throw new NotSupportedException($"{methodName} can not be combined with result operators: {ops}");
         }
@@ -681,9 +681,9 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
     /// <summary>
     /// Builds SET clause of UPDATE statement.
     /// </summary>
-    private void BuildSetClauseForUpdateAll(QueryModel queryModel)
+    private void BuildSetClauseForExecuteUpdate(QueryModel queryModel)
     {
-        if (queryModel.ResultOperators.LastOrDefault() is not UpdateAllResultOperator updateAllResultOperator)
+        if (queryModel.ResultOperators.LastOrDefault() is not ExecuteUpdateResultOperator updateResultOperator)
         {
             return;
         }
@@ -691,7 +691,7 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
         _builder.Append("set ");
         var first = true;
 
-        foreach (var update in updateAllResultOperator.Updates)
+        foreach (var update in updateResultOperator.Updates)
         {
             if (!first)
             {
