@@ -60,11 +60,8 @@ task extractParserTemplate(type: Copy) {
 }
 
 task generateFmppSources() {
-    inputs.files(layout.buildDirectory.dir('codegen/templates'))
-        .withPropertyName('sourceFiles')
-        .withPathSensitivity(PathSensitivity.RELATIVE)
-    outputs.dir(layout.buildDirectory.dir('generated-sources/fmpp'))
-        .withPropertyName('outputDir')
+    inputs.files(layout.buildDirectory.dir('codegen/templates')).withPropertyName('sourceFiles').withPathSensitivity(PathSensitivity.RELATIVE)
+    outputs.dir(layout.buildDirectory.dir('generated-sources/fmpp')).withPropertyName('outputDir')
     doLast {
         Settings settings = new Settings(temporaryDir)
         settings.set("sourceRoot", file("${buildDir}/codegen/templates").absolutePath)

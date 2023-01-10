@@ -52,7 +52,7 @@ public class IgniteExceptionArchTest {
     }
 
     @SuppressWarnings("unused")
-    //@ArchTest
+    @ArchTest
     public static final ArchRule IGNITE_EXCEPTIONS_HAVE_REQUIRED_CONSTRUCTORS = ArchRuleDefinition.classes()
             .that().areAssignableTo(IgniteException.class)
             .or().areAssignableTo(IgniteCheckedException.class)

@@ -15,12 +15,7 @@
  * limitations under the License.
  */
 
-plugins {
-    id "com.gradle.enterprise" version "3.12.1"
-    id 'com.gradle.common-custom-user-data-gradle-plugin' version '1.8.2'
-}
-
-rootProject.name = 'trial-ap-ignite-3'
+rootProject.name = 'ignite-parent'
 include(':ignite-page-memory')
 include(':ignite-storage-api')
 include(':ignite-network-annotation-processor')
@@ -123,11 +118,11 @@ ext.isCiServer = System.getenv().containsKey("IGNITE_CI")
 
 buildCache {
     local {
-        enabled = true
-        //push = !isCiServer
+        enabled = !isCiServere
+        push = !isCiServer
     }
     remote(HttpBuildCache) {
-        enabled = false
+        enabled = !isCiServer
         push = isCiServer
         url = System.getenv()["GRADLE_BUILD_CACHE_URI"] + "/cache/"
         allowInsecureProtocol = true
@@ -138,12 +133,3 @@ buildCache {
     }
 }
 
-gradleEnterprise {
-    server = "http://ec2-44-200-212-44.compute-1.amazonaws.com"
-    allowUntrustedServer = true
-    buildScan {
-        publishAlways()
-        uploadInBackground = System.getenv("CI") == null
-        captureTaskInputFiles = true
-    }
-}

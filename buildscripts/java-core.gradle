@@ -74,7 +74,7 @@ tasks.withType(Checkstyle) {
         xml.required = false
         html {
             required = true
-            //outputLocation = file("$rootDir/build/reports/checkstyle/${project.name}.html")
+            outputLocation = file("$rootDir/build/reports/checkstyle/${project.name}.html")
         }
 
     }

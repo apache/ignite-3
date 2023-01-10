@@ -39,13 +39,11 @@ import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
  * Tests thin client retry behavior.
  */
-@Disabled
 public class RetryPolicyTest {
     private static final int ITER = 100;
 

@@ -19,13 +19,11 @@ package org.apache.ignite.internal.metrics;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
  * Hit rate metric test.
  */
-@Disabled
 public class HitRateMetricTest {
     @Test
     public void testHitRateMetric() {
