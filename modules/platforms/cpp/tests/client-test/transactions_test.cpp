@@ -111,6 +111,22 @@ TEST_F(transactions_test, destruction_does_not_update_data) {
     ASSERT_FALSE(actual.has_value());
 }
 
+TEST_F(transactions_test, non_committed_data_visible_for_tx) {
+    auto record_view = m_client.get_tables().get_table("tbl1")->record_binary_view();
+
+    auto tx = m_client.get_transactions().begin();
+
+    auto value0 = get_tuple(42, "Lorem ipsum");
+    record_view.upsert(&tx, value0);
+
+    auto value_in = record_view.get(&tx, get_tuple(42));
+
+    ASSERT_TRUE(value_in.has_value());
+    EXPECT_EQ(2, value_in->column_count());
+    EXPECT_EQ(value0.get<int64_t>("key"), value_in->get<int64_t>("key"));
+    EXPECT_EQ(value0.get<std::string>("val"), value_in->get<std::string>("val"));
+}
+
 TEST_F(transactions_test, rollback_after_commit_throws) {
     auto tx = m_client.get_transactions().begin();
 
