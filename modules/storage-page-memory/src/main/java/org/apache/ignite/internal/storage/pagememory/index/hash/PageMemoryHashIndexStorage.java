@@ -216,6 +216,6 @@ public class PageMemoryHashIndexStorage implements HashIndexStorage {
      * Throws an exception that the storage is already closed.
      */
     private void throwStorageClosedException() {
-        throw new StorageClosedException("Storage is already closed");
+        throw new StorageClosedException();
     }
 }

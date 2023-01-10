@@ -17,35 +17,18 @@
 
 package org.apache.ignite.internal.storage;
 
+import org.apache.ignite.lang.ErrorGroups.Storage;
+
 /**
  * Exception that will be thrown when the storage is closed.
  */
 public class StorageClosedException extends StorageException {
-    /**
-     * Constructor.
-     *
-     * @param message Error message.
-     */
-    public StorageClosedException(String message) {
-        super(message);
-    }
+    private static final long serialVersionUID = -7988332521347221109L;
 
     /**
      * Constructor.
-     *
-     * @param message Error message.
-     * @param cause The cause.
      */
-    public StorageClosedException(String message, Throwable cause) {
-        super(message, cause);
-    }
-
-    /**
-     * Constructor.
-     *
-     * @param cause The cause.
-     */
-    public StorageClosedException(Throwable cause) {
-        super(cause);
+    public StorageClosedException() {
+        super(Storage.ALREADY_CLOSED_ERR, "Storage is already closed");
     }
 }

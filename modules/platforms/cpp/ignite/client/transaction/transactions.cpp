@@ -15,26 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.config;
+#include "ignite/client/transaction/transactions.h"
+#include "ignite/client/detail/transaction/transactions_impl.h"
 
-import org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerHelper;
+namespace ignite {
 
-/**
- * Test factory for application state config.
- */
-public class TestStateConfigHelper {
-    public static final String EMPTY = "empty.ini";
-    public static final String LAST_CONNECTED_DEFAULT = "last_connected_default.ini";
-
-    public static Config createEmptyConfig() {
-        return createConfig(EMPTY);
-    }
-
-    public static Config createLastConnectedDefault() {
-        return createConfig(LAST_CONNECTED_DEFAULT);
-    }
-
-    private static Config createConfig(String resource) {
-        return StateConfig.getStateConfig(TestConfigManagerHelper.copyResourceToTempFile(resource));
-    }
+void transactions::begin_async(ignite_callback<transaction> callback) {
+    m_impl->begin_async(std::move(callback));
 }
+
+} // namespace ignite

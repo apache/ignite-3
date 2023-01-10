@@ -1005,7 +1005,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
      * Throws an exception that the storage is already closed.
      */
     protected void throwStorageClosedException() {
-        throw new StorageClosedException("Storage is already closed");
+        throw new StorageClosedException();
     }
 
     public boolean closed() {

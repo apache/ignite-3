@@ -72,7 +72,6 @@ template<>
 template<>
 [[nodiscard]] std::optional<std::string> try_unpack_object(const msgpack_object &object);
 
-
 template<typename T>
 [[nodiscard]] std::optional<T> unpack_nullable(const msgpack_object &) {
     static_assert(sizeof(T) == 0, "Unpacking is not implemented for the type");

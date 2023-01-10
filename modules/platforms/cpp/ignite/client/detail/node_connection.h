@@ -135,10 +135,25 @@ public:
      */
     template<typename T>
     bool perform_request(client_operation op, const std::function<void(protocol::writer &)> &wr,
-        std::function<T(protocol::reader &)> rd, ignite_callback<T> callback)
-    {
+        std::function<T(protocol::reader &)> rd, ignite_callback<T> callback) {
         auto handler = std::make_shared<response_handler_reader<T>>(std::move(rd), std::move(callback));
         return perform_request(op, wr, std::move(handler));
+    }
+
+    /**
+     * Perform request without output data.
+     *
+     * @tparam T Result type.
+     * @param op Operation code.
+     * @param wr Request writer function.
+     * @param callback Callback to call on result.
+     * @return Channel used for the request.
+     */
+    template<typename T>
+    void perform_request_wr(
+        client_operation op, const std::function<void(protocol::writer &)> &wr, ignite_callback<T> callback) {
+        perform_request<T>(
+            op, wr, [](protocol::reader &) {}, std::move(callback));
     }
 
     /**
@@ -167,7 +182,7 @@ public:
      *
      * @return Protocol context.
      */
-    const protocol_context& get_protocol_context() const { return m_protocol_context; }
+    const protocol_context &get_protocol_context() const { return m_protocol_context; }
 
 private:
     /**

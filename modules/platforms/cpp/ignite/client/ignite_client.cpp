@@ -74,6 +74,10 @@ sql ignite_client::get_sql() const noexcept {
     return sql(impl().get_sql_impl());
 }
 
+transactions ignite_client::get_transactions() const noexcept {
+    return transactions(impl().get_transactions_impl());
+}
+
 detail::ignite_client_impl &ignite_client::impl() noexcept {
     return *((detail::ignite_client_impl *) (m_impl.get()));
 }

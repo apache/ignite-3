@@ -302,9 +302,7 @@ public:
      *
      * @return Current position in memory.
      */
-    [[nodiscard]] size_t position() const {
-        return m_offset;
-    }
+    [[nodiscard]] size_t position() const { return m_offset; }
 
 private:
     /**

@@ -367,6 +367,59 @@ public partial class LinqSqlGenerationTests
         Assert.AreEqual(expectedToString, query.ToString());
     }
 
+    [Test]
+    public void TestExecuteDelete() =>
+        AssertSql("delete from PUBLIC.tbl1 as _T0", q => q.ExecuteDeleteAsync().Result);
+
+    [Test]
+    public void TestExecuteDeleteWithCondition() =>
+        AssertSql(
+            "delete from PUBLIC.tbl1 as _T0 where ((_T0.KEY IS NOT DISTINCT FROM ?) and (_T0.VAL IS DISTINCT FROM ?))",
+            q => q.Where(x => x.Key == 3 && x.Val != "v-2").ExecuteDeleteAsync().Result);
+
+    [Test]
+    public void TestExecuteDeleteWithInlineCondition() =>
+        AssertSql(
+            "delete from PUBLIC.tbl1 as _T0 where ((_T0.KEY IS NOT DISTINCT FROM ?) and (_T0.VAL IS DISTINCT FROM ?))",
+            q => q.ExecuteDeleteAsync(x => x.Key == 3 && x.Val != "v-2").Result);
+
+    [Test]
+    public void TestExecuteUpdateWithConstantValue() =>
+        AssertSql(
+            "update PUBLIC.tbl1 as _T0 set VAL = ? where (_T0.KEY IS NOT DISTINCT FROM ?)",
+            q => q.Where(x => x.Key == 3).ExecuteUpdateAsync(row => row.SetProperty(x => x.Val, "1")).Result);
+
+    [Test]
+    public void TestExecuteUpdateWithComputedValue() =>
+        AssertSql(
+            "update PUBLIC.tbl1 as _T0 set VAL = concat(concat(_T0.VAL, ?), cast(_T0.KEY as varchar)) where (_T0.KEY > ?)",
+            q => q.Where(x => x.Key > 3).ExecuteUpdateAsync(row => row.SetProperty(x => x.Val, x => x.Val + "_" + x.Key)).Result);
+
+    [Test]
+    public void TestExecuteUpdateWithComputedValueFromSubquery()
+    {
+        IQueryable<Poco> q2 = _table.GetRecordView<Poco>().AsQueryable();
+
+        AssertSql(
+            "update PUBLIC.tbl1 as _T0 " +
+            "set VAL = (select concat(?, cast(_T1.KEY as varchar)) from PUBLIC.tbl1 as _T1 where (_T1.KEY IS NOT DISTINCT FROM (_T0.KEY + ?)) limit 1) " +
+            "where (_T0.KEY > ?)",
+            q => q.Where(x => x.Key > 3).ExecuteUpdateAsync(
+                row => row.SetProperty(
+                    x => x.Val,
+                    x => q2.Where(y => y.Key == x.Key + 1).Select(y => "_" + y.Key).First())).Result);
+    }
+
+    [Test]
+    public void TestExecuteUpdateWithMultipleSetters() =>
+        AssertSql(
+            "update PUBLIC.tbl1 as _T0 set VAL = ?, KEY = (_T0.KEY + ?) where (_T0.KEY > ?)",
+            q => q.Where(x => x.Key > 3).ExecuteUpdateAsync(
+                row => row
+                    .SetProperty(x => x.Key, x => x.Key + 1)
+                    .SetProperty(x => x.Val, "!"))
+                .Result);
+
     [OneTimeSetUp]
     public async Task OneTimeSetUp()
     {
@@ -405,7 +458,7 @@ public partial class LinqSqlGenerationTests
             ex = e;
         }
 
-        Assert.AreEqual(expectedSql, _server.LastSql, string.IsNullOrEmpty(_server.LastSql) ? ex?.ToString() : null);
+        Assert.AreEqual(expectedSql, _server.LastSql, string.IsNullOrEmpty(_server.LastSql) ? ex?.ToString() : _server.LastSql);
     }
 
     // ReSharper disable NotAccessedPositionalProperty.Local, ClassNeverInstantiated.Local

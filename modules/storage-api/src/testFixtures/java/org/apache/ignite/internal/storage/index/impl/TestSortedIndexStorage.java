@@ -317,7 +317,7 @@ public class TestSortedIndexStorage implements SortedIndexStorage {
 
     private void checkStorageClosed() {
         if (closed) {
-            throw new StorageClosedException("Storage is already closed");
+            throw new StorageClosedException();
         }
     }
 

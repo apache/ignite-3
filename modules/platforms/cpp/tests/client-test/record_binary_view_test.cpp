@@ -31,9 +31,6 @@ using namespace ignite;
  * Test suite.
  */
 class record_binary_view_test : public ignite_runner_suite {
-    static constexpr const char *KEY_COLUMN = "key";
-    static constexpr const char *VAL_COLUMN = "val";
-
 protected:
     void SetUp() override {
         ignite_client_configuration cfg{NODE_ADDRS};
@@ -53,25 +50,6 @@ protected:
 
         tuple_view.remove_all(nullptr, work_range);
     }
-
-    /**
-     * Get tuple for specified column values.
-     *
-     * @param id ID.
-     * @param val Value.
-     * @return Ignite tuple instance.
-     */
-    static ignite_tuple get_tuple(int64_t id, std::string val) {
-        return {{KEY_COLUMN, id}, {VAL_COLUMN, std::move(val)}};
-    }
-
-    /**
-     * Get tuple for specified column values.
-     *
-     * @param id ID.
-     * @return Ignite tuple instance.
-     */
-    static ignite_tuple get_tuple(int64_t id) { return {{KEY_COLUMN, id}}; }
 
     /** Ignite client. */
     ignite_client m_client;

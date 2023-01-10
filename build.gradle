@@ -49,6 +49,10 @@ allprojects {
     group 'org.apache.ignite'
     version = "3.0.0-SNAPSHOT"
 
+    tasks.withType(Jar) {
+        duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    }
+
     tasks.withType(Test) {
         defaultCharacterEncoding = 'UTF-8'
 
