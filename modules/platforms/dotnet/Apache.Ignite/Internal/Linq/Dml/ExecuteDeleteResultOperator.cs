@@ -28,7 +28,7 @@ using Remotion.Linq.Clauses.StreamedData;
 /// <summary>
 /// Represents an operator for <see cref="IgniteQueryableExtensions.ExecuteDeleteAsync{T}(System.Linq.IQueryable{T})"/>.
 /// </summary>
-internal sealed class RemoveAllResultOperator : ValueFromSequenceResultOperatorBase
+internal sealed class ExecuteDeleteResultOperator : ValueFromSequenceResultOperatorBase
 {
     /** <inheritdoc /> */
     public override IStreamedDataInfo GetOutputDataInfo(IStreamedDataInfo inputInfo) =>
@@ -37,7 +37,7 @@ internal sealed class RemoveAllResultOperator : ValueFromSequenceResultOperatorB
     /** <inheritdoc /> */
     [ExcludeFromCodeCoverage]
     public override ResultOperatorBase Clone(CloneContext cloneContext) =>
-        new RemoveAllResultOperator();
+        new ExecuteDeleteResultOperator();
 
     /** <inheritdoc /> */
     [ExcludeFromCodeCoverage]
@@ -49,5 +49,5 @@ internal sealed class RemoveAllResultOperator : ValueFromSequenceResultOperatorB
     /** <inheritdoc /> */
     [ExcludeFromCodeCoverage]
     public override StreamedValue ExecuteInMemory<T>(StreamedSequence sequence) =>
-        throw new NotSupportedException("RemoveAll is not supported for in-memory sequences.");
+        throw new NotSupportedException("ExecuteDelete is not supported for in-memory sequences.");
 }

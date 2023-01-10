@@ -29,35 +29,34 @@ using Remotion.Linq.Parsing.Structure.IntermediateModel;
 /// <summary>
 /// Represents a <see cref="MethodCallExpression"/> for
 /// <see cref="IgniteQueryableExtensions.ExecuteDeleteAsync{T}(System.Linq.IQueryable{T})"/>.
-/// When user calls RemoveAll, this node is generated.
 /// </summary>
-internal sealed class RemoveAllExpressionNode : ResultOperatorExpressionNodeBase
+internal sealed class ExecuteDeleteExpressionNode : ResultOperatorExpressionNodeBase
 {
     /// <summary>
-    /// RemoveAll methods.
+    /// ExecuteDelete methods.
     /// </summary>
-    public static readonly IReadOnlyList<MethodInfo> RemoveAllMethodInfos = typeof(IgniteQueryableExtensions)
+    public static readonly IReadOnlyList<MethodInfo> ExecuteDeleteMethodInfos = typeof(IgniteQueryableExtensions)
         .GetMethods()
         .Where(x => x.Name == nameof(IgniteQueryableExtensions.ExecuteDeleteAsync))
         .ToList();
 
     /// <summary>
-    /// The RemoveAll() method.
+    /// Method without predicate.
     /// </summary>
-    public static readonly MethodInfo RemoveAllMethodInfo = RemoveAllMethodInfos.Single(x => x.GetParameters().Length == 1);
+    public static readonly MethodInfo ExecuteDeleteMethodInfo = ExecuteDeleteMethodInfos.Single(x => x.GetParameters().Length == 1);
 
     /// <summary>
-    /// The RemoveAll(pred) method.
+    /// Method with predicate.
     /// </summary>
-    public static readonly MethodInfo RemoveAllPredicateMethodInfo = RemoveAllMethodInfos.Single(x => x.GetParameters().Length == 2);
+    public static readonly MethodInfo ExecuteDeletePredicateMethodInfo = ExecuteDeleteMethodInfos.Single(x => x.GetParameters().Length == 2);
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="RemoveAllExpressionNode"/> class.
+    /// Initializes a new instance of the <see cref="ExecuteDeleteExpressionNode"/> class.
     /// </summary>
     /// <param name="parseInfo">The parse information.</param>
     /// <param name="optionalPredicate">The optional predicate.</param>
     /// <param name="optionalSelector">The optional selector.</param>
-    public RemoveAllExpressionNode(
+    public ExecuteDeleteExpressionNode(
         MethodCallExpressionParseInfo parseInfo,
         LambdaExpression optionalPredicate,
         LambdaExpression optionalSelector)
@@ -76,5 +75,5 @@ internal sealed class RemoveAllExpressionNode : ResultOperatorExpressionNodeBase
 
     /** <inheritdoc /> */
     protected override ResultOperatorBase CreateResultOperator(ClauseGenerationContext clauseGenerationContext) =>
-        new RemoveAllResultOperator();
+        new ExecuteDeleteResultOperator();
 }

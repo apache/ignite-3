@@ -236,7 +236,7 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
         _aliases.Push(copyAliases);
 
         var lastResultOp = queryModel.ResultOperators.LastOrDefault();
-        if (lastResultOp is RemoveAllResultOperator)
+        if (lastResultOp is ExecuteDeleteResultOperator)
         {
             VisitDmlOperator(queryModel, "delete ", nameof(IgniteQueryableExtensions.ExecuteDeleteAsync));
         }
@@ -667,7 +667,7 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
         {
             var ops = string.Join(
                 ", ",
-                queryModel.ResultOperators.Where(x => x is not RemoveAllResultOperator && x is not UpdateAllResultOperator));
+                queryModel.ResultOperators.Where(x => x is not ExecuteDeleteResultOperator && x is not UpdateAllResultOperator));
 
             throw new NotSupportedException($"{methodName} can not be combined with result operators: {ops}");
         }
