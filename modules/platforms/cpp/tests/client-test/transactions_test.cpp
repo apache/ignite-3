@@ -96,3 +96,18 @@ TEST_F(transactions_test, rollback_does_not_update_data) {
     ASSERT_FALSE(actual.has_value());
 }
 
+TEST_F(transactions_test, destruction_does_not_update_data) {
+    auto record_view = m_client.get_tables().get_table("tbl1")->record_binary_view();
+
+    {
+        auto tx = m_client.get_transactions().begin();
+
+        auto value0 = get_tuple(42, "Lorem ipsum");
+        record_view.upsert(&tx, value0);
+    }
+
+    auto actual = record_view.get(nullptr, get_tuple(42));
+
+    ASSERT_FALSE(actual.has_value());
+}
+
