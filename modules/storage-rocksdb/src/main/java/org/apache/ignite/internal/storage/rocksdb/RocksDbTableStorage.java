@@ -428,7 +428,15 @@ public class RocksDbTableStorage implements MvTableStorage {
 
                 db.write(writeOptions, writeBatch);
 
-                partitionIdDestroyFutureMap.remove(partitionId).complete(null);
+                CompletableFuture<?> flushFuture = awaitFlush(true);
+
+                flushFuture.whenComplete((unused, throwable) -> {
+                    if (throwable == null) {
+                        partitionIdDestroyFutureMap.remove(partitionId).complete(null);
+                    } else {
+                        partitionIdDestroyFutureMap.remove(partitionId).completeExceptionally(throwable);
+                    }
+                });
             } catch (Throwable throwable) {
                 partitionIdDestroyFutureMap.remove(partitionId).completeExceptionally(throwable);
             }
