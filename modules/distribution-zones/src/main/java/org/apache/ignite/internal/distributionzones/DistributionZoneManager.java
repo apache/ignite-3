@@ -35,6 +35,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
+import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
@@ -465,15 +466,15 @@ public class DistributionZoneManager implements IgniteComponent {
             throw new IgniteException(NODE_STOPPING_ERR, new NodeStoppingException());
         }
 
-        // Init timers after restart.
-        zonesConfiguration.distributionZones().value().namedListKeys()
-                .forEach(zoneName -> {
-                    int zoneId = zonesConfiguration.distributionZones().get(zoneName).zoneId().value();
-
-                    zonesTimers.put(zoneId, new ZoneState());
-                });
-
         try {
+            // Init timers after restart.
+            zonesConfiguration.distributionZones().value().namedListKeys()
+                    .forEach(zoneName -> {
+                        int zoneId = zonesConfiguration.distributionZones().get(zoneName).zoneId().value();
+
+                        zonesTimers.put(zoneId, new ZoneState());
+                    });
+
             zonesConfiguration.distributionZones().listenElements(new ZonesConfigurationListener());
 
             logicalTopologyService.addEventListener(topologyEventListener);
@@ -511,10 +512,15 @@ public class DistributionZoneManager implements IgniteComponent {
 
             zonesTimers.put(zoneId, timers);
 
+            initTriggerKeysAndDataNodes(zoneId);
+
             int scaleUp = ctx.newValue().dataNodesAutoAdjustScaleUp();
 
             if (scaleUp != Integer.MAX_VALUE) {
-                timers.rescheduleScaleUp(scaleUp, () ->  updateMetaStorageOnZoneCreate(zoneId, ctx.storageRevision()));
+                timers.rescheduleScaleUp(scaleUp, () ->  {
+                        saveDataNodesToMetaStorageOnScaleUp(zoneId, ctx.storageRevision());
+
+                });
             } else {
                 // TODO remove when common auto adjust will be implemented https://issues.apache.org/jira/browse/IGNITE-18134
                 updateMetaStorageOnZoneCreate(zoneId, ctx.storageRevision());
@@ -983,9 +989,9 @@ public class DistributionZoneManager implements IgniteComponent {
 
             Set<String> dataNodesFromMetaStorage = fromBytes(values.get(zoneDataNodesKey(zoneId)).value());
 
-            int scaleUpTriggerRevision = fromBytes(values.get(zoneScaleUpChangeTriggerKey(zoneId)).value());
+            long scaleUpTriggerRevision = bytesToLong(values.get(zoneScaleUpChangeTriggerKey(zoneId)).value());
 
-            int scaleDownTriggerRevision = fromBytes(values.get(zoneScaleDownChangeTriggerKey(zoneId)).value());
+            long scaleDownTriggerRevision = bytesToLong(values.get(zoneScaleDownChangeTriggerKey(zoneId)).value());
 
             if (revision <= scaleUpTriggerRevision) {
                 return completedFuture(false);
@@ -1002,8 +1008,6 @@ public class DistributionZoneManager implements IgniteComponent {
             } finally {
                 lockForZone.unlock();
             }
-
-            deltaToAdd.removeAll(zoneState.nodesToRemove());
 
             Set<String> newDataNodes = new HashSet<>(dataNodesFromMetaStorage);
 
@@ -1150,5 +1154,31 @@ public class DistributionZoneManager implements IgniteComponent {
                 }
             }
         }
+    }
+
+    private void initTriggerKeysAndDataNodes(int zoneId) {
+        If iifScaleUp = If.iif(
+                notExists(zoneScaleUpChangeTriggerKey(zoneId)),
+                ops(put(zoneScaleUpChangeTriggerKey(zoneId), ByteUtils.longToBytes(0L))).yield(true),
+                ops().yield(false)
+        );
+
+        metaStorageManager.invoke(iifScaleUp);
+
+        If iifScaleDown = If.iif(
+                notExists(zoneScaleDownChangeTriggerKey(zoneId)),
+                ops(put(zoneScaleDownChangeTriggerKey(zoneId), ByteUtils.longToBytes(0L))).yield(true),
+                ops().yield(false)
+        );
+
+        metaStorageManager.invoke(iifScaleDown);
+
+        If iifDataNodes = If.iif(
+                notExists(zoneDataNodesKey(zoneId)),
+                ops(put(zoneDataNodesKey(zoneId), toBytes(Set.of()))).yield(true),
+                ops().yield(false)
+        );
+
+        metaStorageManager.invoke(iifDataNodes);
     }
 }
