@@ -32,6 +32,9 @@ using namespace ignite;
  */
 class transactions_test : public ignite_runner_suite {
 protected:
+    /**
+     * Set up for every test.
+     */
     void SetUp() override {
         clear_table1();
 
@@ -41,6 +44,9 @@ protected:
         m_client = ignite_client::start(cfg, std::chrono::seconds(30));
     }
 
+    /**
+     * Tear down for every test.
+     */
     void TearDown() override {
         clear_table1();
     }
@@ -227,3 +233,240 @@ TEST_F(transactions_test, rollback_after_rollback_throws) {
     ignite_error);
 }
 
+TEST_F(transactions_test, record_view_upsert_all) {
+    auto record_view = m_client.get_tables().get_table("tbl1")->record_binary_view();
+
+    auto tx = m_client.get_transactions().begin();
+
+    auto value0 = get_tuple(42, "Lorem ipsum");
+    record_view.upsert_all(&tx, {value0});
+
+    auto values1 = record_view.get_all(&tx, {get_tuple(42)});
+
+    ASSERT_EQ(1, values1.size());
+    EXPECT_EQ(2, values1.front()->column_count());
+    EXPECT_EQ(value0.get<int64_t>("key"), values1.front()->get<int64_t>("key"));
+    EXPECT_EQ(value0.get<std::string>("val"), values1.front()->get<std::string>("val"));
+
+    tx.rollback();
+
+    auto values2 = record_view.get_all(nullptr, {get_tuple(42)});
+
+    ASSERT_TRUE(values2.empty());
+}
+
+TEST_F(transactions_test, record_view_get_and_upsert) {
+    auto record_view = m_client.get_tables().get_table("tbl1")->record_binary_view();
+
+    auto tx = m_client.get_transactions().begin();
+
+    auto value0 = get_tuple(42, "Lorem ipsum");
+    auto value1 = record_view.get_and_upsert(&tx, value0);
+
+    ASSERT_FALSE(value1.has_value());
+
+    auto value2 = record_view.get_and_upsert(&tx, get_tuple(42, "12"));
+
+    ASSERT_TRUE(value2.has_value());
+    EXPECT_EQ(2, value2->column_count());
+    EXPECT_EQ(value0.get<int64_t>("key"), value2->get<int64_t>("key"));
+    EXPECT_EQ(value0.get<std::string>("val"), value2->get<std::string>("val"));
+
+    tx.rollback();
+
+    auto value3 = record_view.get_and_upsert(nullptr, value0);
+
+    ASSERT_FALSE(value3.has_value());
+}
+
+TEST_F(transactions_test, record_view_insert) {
+    auto record_view = m_client.get_tables().get_table("tbl1")->record_binary_view();
+
+    auto tx = m_client.get_transactions().begin();
+
+    auto value0 = get_tuple(42, "Lorem ipsum");
+    record_view.insert(&tx, value0);
+
+    auto value1 = record_view.get(&tx, get_tuple(42));
+
+    ASSERT_TRUE(value1.has_value());
+    EXPECT_EQ(2, value1->column_count());
+    EXPECT_EQ(value0.get<int64_t>("key"), value1->get<int64_t>("key"));
+    EXPECT_EQ(value0.get<std::string>("val"), value1->get<std::string>("val"));
+
+    tx.rollback();
+
+    auto value2 = record_view.get(nullptr, get_tuple(42));
+
+    ASSERT_FALSE(value2.has_value());
+}
+
+TEST_F(transactions_test, record_view_insert_all) {
+    auto record_view = m_client.get_tables().get_table("tbl1")->record_binary_view();
+
+    auto tx = m_client.get_transactions().begin();
+
+    auto value0 = get_tuple(42, "Lorem ipsum");
+    record_view.insert_all(&tx, {value0});
+
+    auto values1 = record_view.get_all(&tx, {get_tuple(42)});
+
+    ASSERT_EQ(1, values1.size());
+    EXPECT_EQ(2, values1.front()->column_count());
+    EXPECT_EQ(value0.get<int64_t>("key"), values1.front()->get<int64_t>("key"));
+    EXPECT_EQ(value0.get<std::string>("val"), values1.front()->get<std::string>("val"));
+
+    tx.rollback();
+
+    auto values2 = record_view.get_all(nullptr, {get_tuple(42)});
+
+    ASSERT_TRUE(values2.empty());
+}
+
+TEST_F(transactions_test, record_view_replace) {
+    auto record_view = m_client.get_tables().get_table("tbl1")->record_binary_view();
+
+    auto tx = m_client.get_transactions().begin();
+
+    auto value0 = get_tuple(42, "Lorem ipsum");
+    record_view.insert(&tx, value0);
+
+    auto success1 = record_view.replace(&tx, get_tuple(42, "13"));
+
+    ASSERT_TRUE(success1);
+
+    tx.rollback();
+
+    auto success2 = record_view.replace(nullptr, get_tuple(42, "13"));
+
+    ASSERT_FALSE(success2);
+}
+
+TEST_F(transactions_test, record_view_replace_exact) {
+    auto record_view = m_client.get_tables().get_table("tbl1")->record_binary_view();
+
+    auto tx = m_client.get_transactions().begin();
+
+    auto value0 = get_tuple(42, "Lorem ipsum");
+    record_view.insert(&tx, value0);
+
+    auto success1 = record_view.replace(&tx, value0, get_tuple(42, "13"));
+
+    ASSERT_TRUE(success1);
+
+    tx.rollback();
+
+    auto success2 = record_view.replace(nullptr, value0, get_tuple(42, "13"));
+
+    ASSERT_FALSE(success2);
+}
+
+TEST_F(transactions_test, record_view_get_and_replace) {
+    auto record_view = m_client.get_tables().get_table("tbl1")->record_binary_view();
+
+    auto tx = m_client.get_transactions().begin();
+
+    auto value0 = get_tuple(42, "Lorem ipsum");
+    record_view.insert(&tx, value0);
+
+    auto value1 = record_view.get_and_replace(&tx, get_tuple(42, "12"));
+
+    ASSERT_TRUE(value1.has_value());
+    EXPECT_EQ(2, value1->column_count());
+    EXPECT_EQ(value0.get<int64_t>("key"), value1->get<int64_t>("key"));
+    EXPECT_EQ(value0.get<std::string>("val"), value1->get<std::string>("val"));
+
+    tx.rollback();
+
+    auto value2 = record_view.get_and_replace(nullptr, value0);
+
+    ASSERT_FALSE(value2.has_value());
+}
+
+TEST_F(transactions_test, record_view_remove) {
+    auto record_view = m_client.get_tables().get_table("tbl1")->record_binary_view();
+
+    auto value0 = get_tuple(42, "Lorem ipsum");
+    record_view.insert(nullptr, value0);
+
+    auto tx = m_client.get_transactions().begin();
+    auto success1 = record_view.remove(&tx, get_tuple(42));
+
+    ASSERT_TRUE(success1);
+    tx.rollback();
+
+    auto success2 = record_view.remove(nullptr, get_tuple(42));
+    ASSERT_TRUE(success2);
+}
+
+TEST_F(transactions_test, record_view_remove_exact) {
+    auto record_view = m_client.get_tables().get_table("tbl1")->record_binary_view();
+
+    auto value0 = get_tuple(42, "Lorem ipsum");
+    record_view.insert(nullptr, value0);
+
+    auto tx = m_client.get_transactions().begin();
+    auto success1 = record_view.remove(&tx, value0);
+
+    ASSERT_TRUE(success1);
+    tx.rollback();
+
+    auto success2 = record_view.remove(nullptr, value0);
+    ASSERT_TRUE(success2);
+}
+
+TEST_F(transactions_test, record_view_get_and_remove) {
+    auto record_view = m_client.get_tables().get_table("tbl1")->record_binary_view();
+
+    auto value0 = get_tuple(42, "Lorem ipsum");
+    record_view.insert(nullptr, value0);
+
+    auto tx = m_client.get_transactions().begin();
+    auto value1 = record_view.get_and_remove(&tx, get_tuple(42));
+
+    ASSERT_TRUE(value1.has_value());
+    EXPECT_EQ(2, value1->column_count());
+    EXPECT_EQ(value0.get<int64_t>("key"), value1->get<int64_t>("key"));
+    EXPECT_EQ(value0.get<std::string>("val"), value1->get<std::string>("val"));
+
+    tx.rollback();
+
+    auto value2 = record_view.get_and_remove(nullptr, get_tuple(42));
+
+    ASSERT_TRUE(value2.has_value());
+    EXPECT_EQ(2, value2->column_count());
+    EXPECT_EQ(value0.get<int64_t>("key"), value2->get<int64_t>("key"));
+    EXPECT_EQ(value0.get<std::string>("val"), value2->get<std::string>("val"));
+}
+
+TEST_F(transactions_test, record_view_remove_all) {
+    auto record_view = m_client.get_tables().get_table("tbl1")->record_binary_view();
+
+    auto value0 = get_tuple(42, "Lorem ipsum");
+    record_view.insert(nullptr, value0);
+
+    auto tx = m_client.get_transactions().begin();
+    auto values1 = record_view.remove_all(&tx, {get_tuple(42)});
+
+    ASSERT_TRUE(values1.empty());
+    tx.rollback();
+
+    auto values2 = record_view.remove_all(nullptr, {get_tuple(42)});
+    ASSERT_TRUE(values2.empty());
+}
+
+TEST_F(transactions_test, record_view_remove_all_exact) {
+    auto record_view = m_client.get_tables().get_table("tbl1")->record_binary_view();
+
+    auto value0 = get_tuple(42, "Lorem ipsum");
+    record_view.insert(nullptr, value0);
+
+    auto tx = m_client.get_transactions().begin();
+    auto values1 = record_view.remove_all(&tx, {value0});
+
+    ASSERT_TRUE(values1.empty());
+    tx.rollback();
+
+    auto values2 = record_view.remove_all(nullptr, {value0});
+    ASSERT_TRUE(values2.empty());
+}
