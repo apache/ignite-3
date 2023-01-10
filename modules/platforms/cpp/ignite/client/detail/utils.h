@@ -17,11 +17,11 @@
 
 #pragma once
 
-#include "ignite/client/transaction/transaction.h"
 #include "ignite/client/primitive.h"
+#include "ignite/client/transaction/transaction.h"
 #include "ignite/schema/binary_tuple_builder.h"
-#include "ignite/schema/ignite_type.h"
 #include "ignite/schema/binary_tuple_parser.h"
+#include "ignite/schema/ignite_type.h"
 
 namespace ignite::detail {
 
@@ -40,18 +40,6 @@ void claim_primitive_with_type(binary_tuple_builder &builder, const primitive &v
  * @param value Value.
  */
 void append_primitive_with_type(binary_tuple_builder &builder, const primitive &value);
-
-/**
- * Check transaction and throw an exception if it is not nullptr.
- *
- * @param tx Transaction.
- */
-inline void transactions_not_implemented(transaction *tx) {
-    // TODO: IGNITE-17604 Implement transactions
-    if (tx)
-        throw ignite_error("Transactions are not implemented");
-}
-
 
 /**
  * Read column value from binary tuple.

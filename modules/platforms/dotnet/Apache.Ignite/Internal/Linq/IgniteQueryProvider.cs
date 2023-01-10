@@ -126,6 +126,18 @@ internal sealed class IgniteQueryProvider : IQueryProvider
     }
 
     /// <summary>
+    /// Executes a non-query statement (DML).
+    /// </summary>
+    /// <param name="expression">An expression tree that represents a LINQ query.</param>
+    /// <returns>The number of rows affected.</returns>
+    public async Task<long> ExecuteNonQueryAsync(Expression expression)
+    {
+        var model = GenerateQueryModel(expression);
+
+        return await Executor.ExecuteNonQueryAsync(model).ConfigureAwait(false);
+    }
+
+    /// <summary>
     /// Gets the item type of closed generic i enumerable.
     /// </summary>
     private static Type GetItemTypeOfClosedGenericIEnumerable(Type enumerableType, string argumentName)

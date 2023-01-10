@@ -15,26 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.config;
+package org.apache.ignite.internal.network.messages;
 
-import org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerHelper;
+import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * Test factory for application state config.
+ * Test message used in {@link SerializationOrderTest}.
  */
-public class TestStateConfigHelper {
-    public static final String EMPTY = "empty.ini";
-    public static final String LAST_CONNECTED_DEFAULT = "last_connected_default.ini";
+@Transferable(TestMessageTypes.SERIALIZATION_ORDER_MESSAGE)
+public interface SerializationOrderMessage extends NetworkMessage {
+    String strB();
 
-    public static Config createEmptyConfig() {
-        return createConfig(EMPTY);
-    }
+    String strD();
 
-    public static Config createLastConnectedDefault() {
-        return createConfig(LAST_CONNECTED_DEFAULT);
-    }
+    int intC();
 
-    private static Config createConfig(String resource) {
-        return StateConfig.getStateConfig(TestConfigManagerHelper.copyResourceToTempFile(resource));
-    }
+    int intA();
 }

@@ -210,6 +210,7 @@ public class DdlCommandHandler {
             }
 
             if (cmd.zone() != null) {
+                //TODO: IGNITE-18516 Access to other configuration must be thread safe.
                 tableChange.changeZoneId(distributionZoneManager.getZoneId(cmd.zone()));
             } else {
                 tableChange.changeZoneId(DEFAULT_ZONE_ID);

@@ -20,8 +20,8 @@
 #include "ignite/client/sql/column_metadata.h"
 
 #include <string>
-#include <vector>
 #include <unordered_map>
+#include <vector>
 
 namespace ignite {
 
@@ -38,14 +38,15 @@ public:
      *
      * @param columns Columns.
      */
-    result_set_metadata(std::vector<column_metadata> columns) : m_columns(std::move(columns)) {}
+    result_set_metadata(std::vector<column_metadata> columns)
+        : m_columns(std::move(columns)) {}
 
     /**
      * Gets the columns in the same order as they appear in the result set data.
      *
      * @return The columns metadata.
      */
-    [[nodiscard]] const std::vector<column_metadata>& columns() const { return m_columns; }
+    [[nodiscard]] const std::vector<column_metadata> &columns() const { return m_columns; }
 
     /**
      * Gets the index of the specified column, or -1 when there is no column
@@ -54,7 +55,7 @@ public:
      * @param name The column name.
      * @return Column index.
      */
-    [[nodiscard]] std::int32_t index_of(const std::string& name) const {
+    [[nodiscard]] std::int32_t index_of(const std::string &name) const {
         if (m_indices.empty()) {
             for (size_t i = 0; i < m_columns.size(); ++i) {
                 m_indices[m_columns[i].name()] = i;

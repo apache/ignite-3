@@ -142,6 +142,7 @@ public:
      * Constructor.
      *
      * @param read_func Read function.
+     * @param callback Callback.
      */
     explicit response_handler_reader(std::function<T(protocol::reader &)> read_func, ignite_callback<T> callback)
         : m_read_func(std::move(read_func))
@@ -190,7 +191,79 @@ private:
     }
 
     /** Read function. */
-    std::function<T(protocol::reader&)> m_read_func;
+    std::function<T(protocol::reader &)> m_read_func;
+
+    /** Promise. */
+    ignite_callback<T> m_callback;
+
+    /** Callback mutex. */
+    std::mutex m_mutex;
+};
+
+/**
+ * Response handler implementation for reader.
+ */
+template<typename T>
+class response_handler_reader_connection final : public response_handler {
+public:
+    // Default
+    response_handler_reader_connection() = default;
+
+    /**
+     * Constructor.
+     *
+     * @param read_func Read function.
+     * @param callback Callback.
+     */
+    explicit response_handler_reader_connection(
+        std::function<T(protocol::reader &, std::shared_ptr<node_connection>)> read_func, ignite_callback<T> callback)
+        : m_read_func(std::move(read_func))
+        , m_callback(std::move(callback))
+        , m_mutex() {}
+
+    /**
+     * Handle response.
+     *
+     * @param msg Message.
+     */
+    [[nodiscard]] ignite_result<void> handle(std::shared_ptr<node_connection> conn, bytes_view msg) final {
+        ignite_callback<T> callback = remove_callback();
+        if (!callback)
+            return {};
+
+        protocol::reader reader(msg);
+        auto res = result_of_operation<T>([&]() { return m_read_func(reader, conn); });
+        return result_of_operation<void>([&]() { callback(std::move(res)); });
+    }
+
+    /**
+     * Set error.
+     *
+     * @param err Error to set.
+     */
+    [[nodiscard]] ignite_result<void> set_error(ignite_error err) final {
+        ignite_callback<T> callback = remove_callback();
+        if (!callback)
+            return {};
+
+        return result_of_operation<void>([&]() { callback({std::move(err)}); });
+    }
+
+private:
+    /**
+     * Remove callback and return it.
+     *
+     * @return Callback.
+     */
+    ignite_callback<T> remove_callback() {
+        std::lock_guard<std::mutex> guard(m_mutex);
+        ignite_callback<T> callback = {};
+        std::swap(callback, m_callback);
+        return callback;
+    }
+
+    /** Read function. */
+    std::function<T(protocol::reader &, std::shared_ptr<node_connection>)> m_read_func;
 
     /** Promise. */
     ignite_callback<T> m_callback;

@@ -15,34 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.raft;
+namespace Apache.Ignite.Internal.Linq.Dml;
 
-import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.util.PendingComparableValuesTracker;
+using System.Linq.Expressions;
 
-/**
- * Options that are specific for replication group.
- */
-public class ReplicationGroupOptions {
-    /** Safe time. */
-    private PendingComparableValuesTracker<HybridTimestamp> safeTime;
-
-    /**
-     * Safe time.
-     */
-    public PendingComparableValuesTracker<HybridTimestamp> safeTime() {
-        return safeTime;
-    }
-
-    /**
-     * Set the safe time clock.
-     *
-     * @param safeTime Safe time.
-     * @return This, for chaining.
-     */
-    public ReplicationGroupOptions safeTime(PendingComparableValuesTracker<HybridTimestamp> safeTime) {
-        this.safeTime = safeTime;
-
-        return this;
-    }
-}
+/// <summary>
+/// Contains information about member update.
+/// </summary>
+internal record struct MemberUpdateContainer(Expression Selector, Expression Value);

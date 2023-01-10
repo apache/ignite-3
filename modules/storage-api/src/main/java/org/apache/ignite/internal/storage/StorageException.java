@@ -17,17 +17,22 @@
 
 package org.apache.ignite.internal.storage;
 
+import org.apache.ignite.lang.ErrorGroups.Storage;
+import org.apache.ignite.lang.IgniteInternalException;
+
 /**
  * Exception thrown by the storage.
  */
-public class StorageException extends RuntimeException {
+public class StorageException extends IgniteInternalException {
+    private static final long serialVersionUID = 8705275268121031742L;
+
     /**
      * Constructor.
      *
      * @param message Error message.
      */
     public StorageException(String message) {
-        super(message);
+        super(Storage.GENERIC_ERR, message);
     }
 
     /**
@@ -37,7 +42,7 @@ public class StorageException extends RuntimeException {
      * @param cause   The cause.
      */
     public StorageException(String message, Throwable cause) {
-        super(message, cause);
+        super(Storage.GENERIC_ERR, message, cause);
     }
 
     /**
@@ -46,6 +51,16 @@ public class StorageException extends RuntimeException {
      * @param cause The cause.
      */
     public StorageException(Throwable cause) {
-        super(cause);
+        super(Storage.GENERIC_ERR, cause);
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param code Full error code.
+     * @param message Error message.
+     */
+    protected StorageException(int code, String message) {
+        super(code, message);
     }
 }

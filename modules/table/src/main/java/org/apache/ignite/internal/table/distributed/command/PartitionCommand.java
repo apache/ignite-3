@@ -18,12 +18,12 @@
 package org.apache.ignite.internal.table.distributed.command;
 
 import java.util.UUID;
-import org.apache.ignite.internal.raft.WriteCommand;
+import org.apache.ignite.internal.replicator.command.SafeTimePropagatingCommand;
 
 /**
  * Partition transactional command.
  */
-public interface PartitionCommand extends WriteCommand {
+public interface PartitionCommand extends SafeTimePropagatingCommand {
     /**
      * Returns a transaction id.
      */

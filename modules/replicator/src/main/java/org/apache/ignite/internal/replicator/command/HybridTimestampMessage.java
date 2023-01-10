@@ -15,22 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network.messages;
+package org.apache.ignite.internal.replicator.command;
 
-import org.apache.ignite.internal.network.processor.SerializationOrderTest;
+import java.io.Serializable;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.replicator.message.ReplicaMessageGroup;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * Test message used in {@link SerializationOrderTest}.
+ * Interface to represent {@link HybridTimestamp} as a {@link NetworkMessage}.
  */
-@Transferable(TestMessageTypes.SERIALIZATION_ORDER_MESSAGE)
-public interface SerializationOrderMessage extends NetworkMessage {
-    String strB();
+@Transferable(ReplicaMessageGroup.HYBRID_TIMESTAMP)
+public interface HybridTimestampMessage extends NetworkMessage, Serializable {
+    long physical();
 
-    String strD();
+    int logical();
 
-    int intC();
-
-    int intA();
+    default HybridTimestamp asHybridTimestamp() {
+        return new HybridTimestamp(physical(), logical());
+    }
 }

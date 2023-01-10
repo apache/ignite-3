@@ -17,12 +17,14 @@
 
 package org.apache.ignite.internal.storage.rocksdb.index;
 
+import static org.apache.ignite.internal.rocksdb.RocksUtils.incrementArray;
 import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.NoSuchElementException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
@@ -30,6 +32,7 @@ import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.StorageClosedException;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexRowImpl;
@@ -38,11 +41,13 @@ import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbMvPartitionStorage;
 import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.jetbrains.annotations.Nullable;
 import org.rocksdb.ReadOptions;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
 import org.rocksdb.Slice;
+import org.rocksdb.WriteBatch;
 import org.rocksdb.WriteBatchWithIndex;
 
 /**
@@ -68,6 +73,12 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
 
     private final RocksDbMvPartitionStorage partitionStorage;
 
+    /** Busy lock to stop synchronously. */
+    private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
+
+    /** Prevents double stopping the component. */
+    private final AtomicBoolean stopGuard = new AtomicBoolean();
+
     /**
      * Creates a storage.
      *
@@ -92,39 +103,67 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
 
     @Override
     public Cursor<RowId> get(BinaryTuple key) throws StorageException {
+        if (!busyLock.enterBusy()) {
+            throw new StorageClosedException();
+        }
+
         BinaryTuplePrefix keyPrefix = BinaryTuplePrefix.fromBinaryTuple(key);
 
-        return scan(keyPrefix, keyPrefix, true, true, this::decodeRowId);
+        try {
+            return scan(keyPrefix, keyPrefix, true, true, this::decodeRowId);
+        } finally {
+            busyLock.leaveBusy();
+        }
     }
 
     @Override
     public void put(IndexRow row) {
-        WriteBatchWithIndex writeBatch = partitionStorage.currentWriteBatch();
+        if (!busyLock.enterBusy()) {
+            throw new StorageClosedException();
+        }
 
         try {
+            WriteBatchWithIndex writeBatch = partitionStorage.currentWriteBatch();
+
             writeBatch.put(indexCf.handle(), rocksKey(row), BYTE_EMPTY_ARRAY);
         } catch (RocksDBException e) {
             throw new StorageException("Unable to insert data into sorted index. Index ID: " + descriptor.id(), e);
+        } finally {
+            busyLock.leaveBusy();
         }
     }
 
     @Override
     public void remove(IndexRow row) {
-        WriteBatchWithIndex writeBatch = partitionStorage.currentWriteBatch();
+        if (!busyLock.enterBusy()) {
+            throw new StorageClosedException();
+        }
 
         try {
+            WriteBatchWithIndex writeBatch = partitionStorage.currentWriteBatch();
+
             writeBatch.delete(indexCf.handle(), rocksKey(row));
         } catch (RocksDBException e) {
             throw new StorageException("Unable to remove data from sorted index. Index ID: " + descriptor.id(), e);
+        } finally {
+            busyLock.leaveBusy();
         }
     }
 
     @Override
     public PeekCursor<IndexRow> scan(@Nullable BinaryTuplePrefix lowerBound, @Nullable BinaryTuplePrefix upperBound, int flags) {
+        if (!busyLock.enterBusy()) {
+            throw new StorageClosedException();
+        }
+
         boolean includeLower = (flags & GREATER_OR_EQUAL) != 0;
         boolean includeUpper = (flags & LESS_OR_EQUAL) != 0;
 
-        return scan(lowerBound, upperBound, includeLower, includeUpper, this::decodeRow);
+        try {
+            return scan(lowerBound, upperBound, includeLower, includeUpper, this::decodeRow);
+        } finally {
+            busyLock.leaveBusy();
+        }
     }
 
     private <T> PeekCursor<T> scan(
@@ -191,44 +230,68 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
 
             @Override
             public boolean hasNext() {
-                advanceIfNeeded();
+                if (!busyLock.enterBusy()) {
+                    throw new StorageClosedException();
+                }
 
-                return hasNext;
+                try {
+                    advanceIfNeeded();
+
+                    return hasNext;
+                } finally {
+                    busyLock.leaveBusy();
+                }
             }
 
             @Override
             public T next() {
-                advanceIfNeeded();
-
-                boolean hasNext = this.hasNext;
-
-                if (!hasNext) {
-                    throw new NoSuchElementException();
+                if (!busyLock.enterBusy()) {
+                    throw new StorageClosedException();
                 }
 
-                this.hasNext = null;
+                try {
+                    advanceIfNeeded();
 
-                return mapper.apply(ByteBuffer.wrap(key).order(ORDER));
+                    boolean hasNext = this.hasNext;
+
+                    if (!hasNext) {
+                        throw new NoSuchElementException();
+                    }
+
+                    this.hasNext = null;
+
+                    return mapper.apply(ByteBuffer.wrap(key).order(ORDER));
+                } finally {
+                    busyLock.leaveBusy();
+                }
             }
 
             @Override
             public @Nullable T peek() {
-                if (hasNext != null) {
-                    if (hasNext) {
-                        return mapper.apply(ByteBuffer.wrap(key).order(ORDER));
-                    }
-
-                    return null;
+                if (!busyLock.enterBusy()) {
+                    throw new StorageClosedException();
                 }
 
-                refreshAndPrepareRocksIterator();
+                try {
+                    if (hasNext != null) {
+                        if (hasNext) {
+                            return mapper.apply(ByteBuffer.wrap(key).order(ORDER));
+                        }
 
-                if (!it.isValid()) {
-                    RocksUtils.checkIterator(it);
+                        return null;
+                    }
 
-                    return null;
-                } else {
-                    return mapper.apply(ByteBuffer.wrap(it.key()).order(ORDER));
+                    refreshAndPrepareRocksIterator();
+
+                    if (!it.isValid()) {
+                        RocksUtils.checkIterator(it);
+
+                        return null;
+                    } else {
+                        return mapper.apply(ByteBuffer.wrap(it.key()).order(ORDER));
+                    }
+                } finally {
+                    busyLock.leaveBusy();
                 }
             }
 
@@ -327,5 +390,31 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
                 .limit(key.limit() - ROW_ID_SIZE)
                 .slice()
                 .order(ByteOrder.LITTLE_ENDIAN);
+    }
+
+    /**
+     * Closes the sorted index storage.
+     */
+    public void close() {
+        if (!stopGuard.compareAndSet(false, true)) {
+            return;
+        }
+
+        busyLock.block();
+    }
+
+    /**
+     * Deletes the data associated with the index, using passed write batch for the operation.
+     *
+     * @throws RocksDBException If failed to delete data.
+     */
+    public void destroyData(WriteBatch writeBatch) throws RocksDBException {
+        byte[] constantPrefix = ByteBuffer.allocate(2).order(ByteOrder.BIG_ENDIAN).putShort((short) partitionStorage.partitionId()).array();
+
+        byte[] rangeEnd = incrementArray(constantPrefix);
+
+        assert rangeEnd != null;
+
+        writeBatch.deleteRange(indexCf.handle(), constantPrefix, rangeEnd);
     }
 }

@@ -46,7 +46,6 @@ public class CreateTableCommand extends AbstractTableDdlCommand {
     @Nullable
     private Map<String, Object> dataStorageOptions;
 
-    @Nullable
     private String zone;
 
     /**
@@ -179,7 +178,6 @@ public class CreateTableCommand extends AbstractTableDdlCommand {
     /**
      * Set zone name.
      */
-    @Nullable
     public void zone(String zoneName) {
         this.zone = zoneName;
     }

@@ -34,7 +34,7 @@ public class DistributionZoneRenameException extends IgniteInternalException {
      */
     public DistributionZoneRenameException(String oldName, String newName, Throwable cause) {
         super(ZONE_RENAME_ERR, "Distribution zone with old name doesn't exist or "
-                + "distribution zone with new name already exists [oldName=" + oldName + "newName=" + newName + ']', cause);
+                + "distribution zone with new name already exists [oldName=" + oldName + ", newName=" + newName + ']', cause);
     }
 
     /**

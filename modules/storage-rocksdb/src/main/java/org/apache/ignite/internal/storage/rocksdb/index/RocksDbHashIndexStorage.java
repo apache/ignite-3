@@ -24,11 +24,13 @@ import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
+import org.apache.ignite.internal.rocksdb.BusyRocksIteratorAdapter;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
-import org.apache.ignite.internal.rocksdb.RocksIteratorAdapter;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.StorageClosedException;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.index.HashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
@@ -36,10 +38,12 @@ import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbMvPartitionStorage;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.HashUtils;
+import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.rocksdb.ReadOptions;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
 import org.rocksdb.Slice;
+import org.rocksdb.WriteBatch;
 import org.rocksdb.WriteBatchWithIndex;
 import org.rocksdb.WriteOptions;
 
@@ -74,6 +78,12 @@ public class RocksDbHashIndexStorage implements HashIndexStorage {
      */
     private final byte[] constantPrefix;
 
+    /** Busy lock to stop synchronously. */
+    private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
+
+    /** Prevents double stopping the component. */
+    private final AtomicBoolean stopGuard = new AtomicBoolean();
+
     /**
      * Creates a new Hash Index storage.
      *
@@ -107,6 +117,10 @@ public class RocksDbHashIndexStorage implements HashIndexStorage {
 
     @Override
     public Cursor<RowId> get(BinaryTuple key) {
+        if (!busyLock.enterBusy()) {
+            throw new StorageClosedException();
+        }
+
         byte[] rangeStart = rocksPrefix(key);
 
         byte[] rangeEnd = incrementArray(rangeStart);
@@ -119,7 +133,14 @@ public class RocksDbHashIndexStorage implements HashIndexStorage {
 
         it.seek(rangeStart);
 
-        return new RocksIteratorAdapter<>(it) {
+        busyLock.leaveBusy();
+
+        return new BusyRocksIteratorAdapter<>(busyLock, it) {
+            @Override
+            protected void handleBusyFail() {
+                throw new StorageClosedException();
+            }
+
             @Override
             protected RowId decodeEntry(byte[] key, byte[] value) {
                 // RowId UUID is located at the last 16 bytes of the key
@@ -140,23 +161,35 @@ public class RocksDbHashIndexStorage implements HashIndexStorage {
 
     @Override
     public void put(IndexRow row) {
-        WriteBatchWithIndex writeBatch = partitionStorage.currentWriteBatch();
+        if (!busyLock.enterBusy()) {
+            throw new StorageClosedException();
+        }
 
         try {
+            WriteBatchWithIndex writeBatch = partitionStorage.currentWriteBatch();
+
             writeBatch.put(indexCf.handle(), rocksKey(row), BYTE_EMPTY_ARRAY);
         } catch (RocksDBException e) {
             throw new StorageException("Unable to insert data into hash index. Index ID: " + descriptor.id(), e);
+        } finally {
+            busyLock.leaveBusy();
         }
     }
 
     @Override
     public void remove(IndexRow row) {
-        WriteBatchWithIndex writeBatch = partitionStorage.currentWriteBatch();
+        if (!busyLock.enterBusy()) {
+            throw new StorageClosedException();
+        }
 
         try {
+            WriteBatchWithIndex writeBatch = partitionStorage.currentWriteBatch();
+
             writeBatch.delete(indexCf.handle(), rocksKey(row));
         } catch (RocksDBException e) {
             throw new StorageException("Unable to remove data from hash index. Index ID: " + descriptor.id(), e);
+        } finally {
+            busyLock.leaveBusy();
         }
     }
 
@@ -195,5 +228,29 @@ public class RocksDbHashIndexStorage implements HashIndexStorage {
                 .putLong(rowId.mostSignificantBits())
                 .putLong(rowId.leastSignificantBits())
                 .array();
+    }
+
+    /**
+     * Closes the hash index storage.
+     */
+    public void close() {
+        if (!stopGuard.compareAndSet(false, true)) {
+            return;
+        }
+
+        busyLock.block();
+    }
+
+    /**
+     * Deletes the data associated with the index, using passed write batch for the operation.
+     *
+     * @throws RocksDBException If failed to delete data.
+     */
+    public void destroyData(WriteBatch writeBatch) throws RocksDBException {
+        byte[] rangeEnd = incrementArray(constantPrefix);
+
+        assert rangeEnd != null;
+
+        writeBatch.deleteRange(indexCf.handle(), constantPrefix, rangeEnd);
     }
 }

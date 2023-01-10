@@ -44,7 +44,6 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.schema.configuration.TableChange;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TableView;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateZoneCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DropZoneCommand;
 import org.apache.ignite.internal.storage.DataStorageManager;
@@ -97,11 +96,7 @@ public class DdlCommandHandlerExceptionHandlingTest extends IgniteAbstractTest {
 
         DistributionZonesConfiguration zonesConfiguration = registry.getConfiguration(DistributionZonesConfiguration.KEY);
 
-        TablesConfiguration tablesConfiguration = mock(TablesConfiguration.class);
-
         NamedConfigurationTree<TableConfiguration, TableView, TableChange> tables = mock(NamedConfigurationTree.class);
-
-        when(tablesConfiguration.tables()).thenReturn(tables);
 
         NamedListView<TableView> value = mock(NamedListView.class);
 
@@ -111,8 +106,8 @@ public class DdlCommandHandlerExceptionHandlingTest extends IgniteAbstractTest {
 
         distributionZoneManager = new DistributionZoneManager(
                 zonesConfiguration,
-                tablesConfiguration,
-                mock(MetaStorageManager.class),
+                null,
+                null,
                 null,
                 null
         );

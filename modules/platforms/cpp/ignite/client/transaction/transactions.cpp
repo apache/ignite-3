@@ -15,24 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.command;
+#include "ignite/client/transaction/transactions.h"
+#include "ignite/client/detail/transaction/transactions_impl.h"
 
-import java.io.Serializable;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.table.distributed.TableMessageGroup;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Transferable;
+namespace ignite {
 
-/**
- * Interface to represent {@link HybridTimestamp} as a {@link NetworkMessage}.
- */
-@Transferable(TableMessageGroup.Commands.HYBRID_TIMESTAMP)
-public interface HybridTimestampMessage extends NetworkMessage, Serializable {
-    long physical();
-
-    int logical();
-
-    default HybridTimestamp asHybridTimestamp() {
-        return new HybridTimestamp(physical(), logical());
-    }
+void transactions::begin_async(ignite_callback<transaction> callback) {
+    m_impl->begin_async(std::move(callback));
 }
+
+} // namespace ignite

@@ -132,7 +132,7 @@ public class RocksUtils {
      *
      * @param references References to close.
      */
-    public static void closeAll(Collection<AbstractNativeReference> references) {
+    public static void closeAll(Collection<? extends AbstractNativeReference> references) {
         RuntimeException exception = null;
 
         for (AbstractNativeReference reference : references) {

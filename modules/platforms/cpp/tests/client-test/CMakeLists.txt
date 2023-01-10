@@ -27,6 +27,7 @@ set(SOURCES
     record_binary_view_test.cpp
     sql_test.cpp
     tables_test.cpp
+    transactions_test.cpp
 )
 
 add_executable(${TARGET} ${SOURCES})

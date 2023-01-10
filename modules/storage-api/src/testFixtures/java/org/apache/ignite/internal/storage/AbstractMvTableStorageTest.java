@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
@@ -276,14 +277,14 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
                 () -> tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIdx.id())
         );
 
-        assertThat(e.getMessage(), is("Partition ID " + PARTITION_ID + " does not exist"));
+        assertThat(e.getMessage(), containsString("Partition ID " + PARTITION_ID + " does not exist"));
 
         e = assertThrows(
                 StorageException.class,
                 () -> tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx.id())
         );
 
-        assertThat(e.getMessage(), is("Partition ID " + PARTITION_ID + " does not exist"));
+        assertThat(e.getMessage(), containsString("Partition ID " + PARTITION_ID + " does not exist"));
 
         tableStorage.getOrCreateMvPartition(PARTITION_ID);
 
@@ -294,7 +295,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
                 () -> tableStorage.getOrCreateHashIndex(PARTITION_ID, invalidUuid)
         );
 
-        assertThat(e.getMessage(), is(String.format("Index configuration for \"%s\" could not be found", invalidUuid)));
+        assertThat(e.getMessage(), containsString(String.format("Index configuration for \"%s\" could not be found", invalidUuid)));
 
         e = assertThrows(
                 StorageException.class,
@@ -303,7 +304,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
         assertThat(
                 e.getMessage(),
-                is(String.format("Index \"%s\" is not configured as a Hash Index. Actual type: SORTED", sortedIdx.id()))
+                containsString(String.format("Index \"%s\" is not configured as a Hash Index. Actual type: SORTED", sortedIdx.id()))
         );
 
         e = assertThrows(
@@ -313,7 +314,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
         assertThat(
                 e.getMessage(),
-                is(String.format("Index \"%s\" is not configured as a Sorted Index. Actual type: HASH", hashIdx.id()))
+                containsString(String.format("Index \"%s\" is not configured as a Sorted Index. Actual type: HASH", hashIdx.id()))
         );
     }
 

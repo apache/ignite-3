@@ -367,17 +367,16 @@ public class DistributionZoneManager implements IgniteComponent {
                     throw new DistributionZoneNotFoundException(name);
                 }
 
+                //TODO: IGNITE-18516 Access to other configuration must be thread safe.
                 NamedConfigurationTree<TableConfiguration, TableView, TableChange> tables = tablesConfiguration.tables();
 
-                boolean bindTable = tables.value().namedListKeys().stream()
-                        .anyMatch(tableName -> {
-                            Integer tableZoneId = tables.get(tableName).zoneId().value();
+                for (int i = 0; i < tables.value().size(); i++) {
+                    TableView tableView = tables.value().get(i);
+                    int tableZoneId = tableView.zoneId();
 
-                            return tableZoneId != null && tableZoneId.equals(zoneView.zoneId());
-                        });
-
-                if (bindTable) {
-                    throw new DistributionZoneBindTableException(name);
+                    if (zoneView.zoneId() == tableZoneId) {
+                        throw new DistributionZoneBindTableException(name, tableView.name());
+                    }
                 }
 
                 zonesListChange.delete(name);
@@ -766,8 +765,9 @@ public class DistributionZoneManager implements IgniteComponent {
                         }
 
                         try {
-                            assert evt.single() : evt.entryEvents().stream()
-                                    .map(entry -> entry.newEntry() == null ? "null" : entry.newEntry().key()).collect(toList());
+                            assert evt.single() : "Expected an event with one entry but was an event with several entries with keys: "
+                                    + evt.entryEvents().stream().map(entry -> entry.newEntry() == null ? "null" : entry.newEntry().key())
+                                    .collect(toList());
 
                             Entry newEntry = evt.entryEvent().newEntry();
 

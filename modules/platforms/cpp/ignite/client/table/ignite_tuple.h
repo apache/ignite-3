@@ -186,7 +186,8 @@ private:
      * @param pairs Pairs.
      * @param indices Indices.
      */
-    ignite_tuple(std::vector<std::pair<std::string, primitive>> &&pairs, std::unordered_map<std::string, size_t> indices)
+    ignite_tuple(
+        std::vector<std::pair<std::string, primitive>> &&pairs, std::unordered_map<std::string, size_t> indices)
         : m_pairs(std::move(pairs))
         , m_indices(std::move(indices)) {}
 
