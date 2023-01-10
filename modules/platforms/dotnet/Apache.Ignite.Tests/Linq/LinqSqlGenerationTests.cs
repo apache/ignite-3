@@ -368,35 +368,35 @@ public partial class LinqSqlGenerationTests
     }
 
     [Test]
-    public void TestRemoveAll() =>
+    public void TestExecuteDelete() =>
         AssertSql("delete from PUBLIC.tbl1 as _T0", q => q.ExecuteDeleteAsync().Result);
 
     [Test]
-    public void TestRemoveAllWithCondition() =>
+    public void TestExecuteDeleteWithCondition() =>
         AssertSql(
             "delete from PUBLIC.tbl1 as _T0 where ((_T0.KEY IS NOT DISTINCT FROM ?) and (_T0.VAL IS DISTINCT FROM ?))",
             q => q.Where(x => x.Key == 3 && x.Val != "v-2").ExecuteDeleteAsync().Result);
 
     [Test]
-    public void TestRemoveAllWithInlineCondition() =>
+    public void TestExecuteDeleteWithInlineCondition() =>
         AssertSql(
             "delete from PUBLIC.tbl1 as _T0 where ((_T0.KEY IS NOT DISTINCT FROM ?) and (_T0.VAL IS DISTINCT FROM ?))",
             q => q.ExecuteDeleteAsync(x => x.Key == 3 && x.Val != "v-2").Result);
 
     [Test]
-    public void TestUpdateAllWithConstantValue() =>
+    public void TestExecuteUpdateWithConstantValue() =>
         AssertSql(
             "update PUBLIC.tbl1 as _T0 set VAL = ? where (_T0.KEY IS NOT DISTINCT FROM ?)",
             q => q.Where(x => x.Key == 3).ExecuteUpdateAsync(row => row.SetProperty(x => x.Val, "1")).Result);
 
     [Test]
-    public void TestUpdateAllWithComputedValue() =>
+    public void TestExecuteUpdateWithComputedValue() =>
         AssertSql(
             "update PUBLIC.tbl1 as _T0 set VAL = concat(concat(_T0.VAL, ?), cast(_T0.KEY as varchar)) where (_T0.KEY > ?)",
             q => q.Where(x => x.Key > 3).ExecuteUpdateAsync(row => row.SetProperty(x => x.Val, x => x.Val + "_" + x.Key)).Result);
 
     [Test]
-    public void TestUpdateAllMultipleSetters() =>
+    public void TestExecuteUpdateMultipleSetters() =>
         AssertSql(
             "update PUBLIC.tbl1 as _T0 set VAL = ?, KEY = (_T0.KEY + ?) where (_T0.KEY > ?)",
             q => q.Where(x => x.Key > 3).ExecuteUpdateAsync(
