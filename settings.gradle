@@ -118,11 +118,11 @@ ext.isCiServer = System.getenv().containsKey("IGNITE_CI")
 
 buildCache {
     local {
-        enabled = !isCiServere
+        enabled = !isCiServer
         push = !isCiServer
     }
     remote(HttpBuildCache) {
-        enabled = !isCiServer
+        enabled = isCiServer
         push = isCiServer
         url = System.getenv()["GRADLE_BUILD_CACHE_URI"] + "/cache/"
         allowInsecureProtocol = true
