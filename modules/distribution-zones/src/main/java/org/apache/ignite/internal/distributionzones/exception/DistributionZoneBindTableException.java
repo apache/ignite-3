@@ -31,19 +31,22 @@ public class DistributionZoneBindTableException extends IgniteInternalException 
      * The constructor.
      *
      * @param zoneName Zone name.
+     * @param tableName Table name.
      */
-    public DistributionZoneBindTableException(String zoneName) {
-        this(zoneName, null);
+    public DistributionZoneBindTableException(String zoneName, String tableName) {
+        this(zoneName, tableName, null);
     }
 
     /**
      * The constructor.
      *
      * @param zoneName Zone name.
+     * @param tableName Table name.
      * @param cause Optional nested exception (can be {@code null}).
      */
-    public DistributionZoneBindTableException(String zoneName, @Nullable Throwable cause) {
-        super(ZONE_BIND_TABLE_ERR, "Distribution zone is assigned to the table [zoneName=" + zoneName + ']', cause);
+    public DistributionZoneBindTableException(String zoneName, String tableName, @Nullable Throwable cause) {
+        super(ZONE_BIND_TABLE_ERR, "Distribution zone is assigned to the table [zoneName=" + zoneName + ", tableName=" + tableName + ']',
+                cause);
     }
 
     /**

@@ -24,6 +24,8 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -32,7 +34,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
-import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.configuration.NamedConfigurationTree;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
@@ -605,24 +606,14 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
     private void bindZoneToTable(String zoneName) {
         int zoneId = distributionZoneManager.getZoneId(zoneName);
 
-        NamedConfigurationTree<TableConfiguration, TableView, TableChange> tables = mock(NamedConfigurationTree.class);
+        NamedConfigurationTree<TableConfiguration, TableView, TableChange> tables = mock(NamedConfigurationTree.class, RETURNS_DEEP_STUBS);
 
         when(tablesConfiguration.tables()).thenReturn(tables);
 
-        NamedListView<TableView> value = mock(NamedListView.class);
+        TableView tableView = mock(TableView.class);
 
-        when(tables.value()).thenReturn(value);
-
-        when(value.namedListKeys()).thenReturn(List.of("table1"));
-
-        TableConfiguration table1 = mock(TableConfiguration.class);
-
-        when(tables.get("table1")).thenReturn(table1);
-
-        ConfigurationValue<Integer> tableZoneId1 = mock(ConfigurationValue.class);
-
-        when(table1.zoneId()).thenReturn(tableZoneId1);
-
-        when(tableZoneId1.value()).thenReturn(zoneId);
+        when(tables.value().size()).thenReturn(1);
+        when(tables.value().get(anyInt())).thenReturn(tableView);
+        when(tableView.zoneId()).thenReturn(zoneId);
     }
 }

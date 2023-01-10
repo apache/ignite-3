@@ -20,7 +20,6 @@ package org.apache.ignite.internal.sql.engine.prepare.ddl;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toUnmodifiableMap;
 import static org.apache.ignite.internal.schema.configuration.storage.UnknownDataStorageConfigurationSchema.UNKNOWN_DATA_STORAGE;
-import static org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateTableOptionEnum.PRIMARY_ZONE;
 import static org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateZoneOptionEnum.AFFINITY_FUNCTION;
 import static org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateZoneOptionEnum.DATA_NODES_AUTO_ADJUST;
 import static org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_DOWN;
@@ -132,8 +131,8 @@ public class DdlSqlToCommandConverter {
         this.dataStorageNames = collectDataStorageNames(dataStorageFields.keySet());
 
         this.tableOptionInfos = Map.of(
+                "PRIMARY_ZONE", new DdlOptionInfo<>(String.class, null, CreateTableCommand::zone),
                 REPLICAS.name(), new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, CreateTableCommand::replicas),
-                PRIMARY_ZONE.name(), new DdlOptionInfo<>(String.class, null, CreateTableCommand::zone),
                 PARTITIONS.name(), new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, CreateTableCommand::partitions)
         );
 

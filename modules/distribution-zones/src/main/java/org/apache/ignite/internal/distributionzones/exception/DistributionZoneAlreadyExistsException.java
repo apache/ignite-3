@@ -31,15 +31,6 @@ public class DistributionZoneAlreadyExistsException extends IgniteInternalExcept
      * The constructor.
      *
      * @param zoneName Zone name.
-     */
-    public DistributionZoneAlreadyExistsException(String zoneName) {
-        this(zoneName, null);
-    }
-
-    /**
-     * The constructor.
-     *
-     * @param zoneName Zone name.
      * @param cause Optional nested exception (can be {@code null}).
      */
     public DistributionZoneAlreadyExistsException(String zoneName, Throwable cause) {
