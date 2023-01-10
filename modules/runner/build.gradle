@@ -129,43 +129,6 @@ dependencies {
 
 }
 
-//def sqlIntegrationTest = tasks.register("sqlIntegrationTest", Test) {
-//    description = 'Runs sql integration tests.'
-//    group = 'verification'
-//    useJUnitPlatform {
-//        includeTags "sqllogic"
-//    }
-//    maxHeapSize = "16g"
-//
-//    testClassesDirs = sourceSets.integrationTest.output.classesDirs
-//    classpath = sourceSets.integrationTest.runtimeClasspath
-//}
-
-//testing {
-//    suites {
-//        sqlIntergrationTest(JvmTestSuite) {
-//            useJUnitPlatform {
-//                includeTags "sqllogic"
-//            }
-//
-//            sources {
-//                java {
-//                    srcDirs = ['src/integrationTest/java']
-//                }
-//            }
-//
-//            targets {
-//                all {
-//                    testTask.configure {
-//                        shouldRunAfter(test)
-//                        maxHeapSize = '16g'
-//                    }
-//                }
-//            }
-//        }
-//    }
-//}
-
 tasks.register("runnerPlatformTest", JavaExec) {
     mainClass = "org.apache.ignite.internal.runner.app.PlatformTestNodeRunner"
 
@@ -176,7 +139,11 @@ tasks.register("runnerPlatformTest", JavaExec) {
 
 integrationTest {
     useJUnitPlatform {
-        excludeTags "sqllogic"
+        if (System.getProperty("sqlTest") != null) {
+            it.includeTags "sqllogic"
+        } else {
+            it.excludeTags "sqllogic"
+        }
     }
 }
 

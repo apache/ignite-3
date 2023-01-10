@@ -43,7 +43,7 @@ testing {
             }
 
             targets {
-                all {
+                configureEach {
                     testTask.configure {
                         shouldRunAfter(test)
                         maxHeapSize = '16g'
