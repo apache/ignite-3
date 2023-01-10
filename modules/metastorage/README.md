@@ -15,17 +15,18 @@ There is only one dedicate thread to notify watches. This is a thread with prefi
 The thread is created from executor in KeyValueStorage:
 
 ```java
-private final ExecutorService watchExecutor = Executors.newSingleThreadExecutor(new NamedThreadFactory("metastorage-watch-executor",LOG));
+private ExecutorService watchExecutor = Executors.newSingleThreadExecutor(new NamedThreadFactory(NamedThreadFactory
+        .threadPrefix(nodeName, "metastorage-watch-executor"),LOG));
 ```
 
 Also, the storage internally contains a two threads executor to create a snapshot:
 
 ```java
-private final ExecutorService snapshotExecutor = Executors.newFixedThreadPool(2,new NamedThreadFactory("metastorage-snapshot-executor",LOG));
+private ExecutorService snapshotExecutor = Executors.newFixedThreadPool(2,new NamedThreadFactory(NamedThreadFactory
+        .threadPrefix(nodeName, "metastorage-snapshot-executor"),LOG));
 ```
 
-Both of the executors have no a node name in their names. The names are required to identify threads belonged to different Ignite nodes on
-the shared java machine (TODO: IGNITE-18504 Add nodes name in prefix to Metastorage executors).
+Both of the executors have a node name in their prefixes to distinguish to which node the particular thread belongs.
 
 ### Interface methods
 
