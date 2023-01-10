@@ -19,6 +19,7 @@ namespace Apache.Ignite.Internal.Linq;
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Threading.Tasks;
 using Ignite.Sql;
@@ -160,6 +161,22 @@ internal sealed class IgniteQueryExecutor : IQueryExecutor
         }
 
         return res;
+    }
+
+    /// <summary>
+    /// Executes a non-query statement (DML).
+    /// </summary>
+    /// <param name="queryModel">Query model.</param>
+    /// <returns>The number of rows affected.</returns>
+    [SuppressMessage("Reliability", "CA2007:Consider calling ConfigureAwait on the awaited task", Justification = "False positive.")]
+    internal async Task<long> ExecuteNonQueryAsync(QueryModel queryModel)
+    {
+        await using IResultSet<object> resultSet = await ExecuteResultSetInternalAsync<object>(queryModel).ConfigureAwait(false);
+
+        Debug.Assert(!resultSet.HasRowSet, "!resultSet.HasRowSet");
+        Debug.Assert(resultSet.AffectedRows >= 0, "resultSet.AffectedRows >= 0");
+
+        return resultSet.AffectedRows;
     }
 
     private static ResultSelectorOptions GetResultSelectorOptions(QueryModel model, bool hasOuterJoins)
