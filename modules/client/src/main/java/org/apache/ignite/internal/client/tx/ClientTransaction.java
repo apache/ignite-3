@@ -31,11 +31,20 @@ import org.apache.ignite.tx.TransactionException;
  * Client transaction.
  */
 public class ClientTransaction implements Transaction {
+    /** Open state. */
+    private static final int STATE_OPEN = 0;
+
+    /** Close state. */
+    private static final int STATE_CLOSE = 1;
+
     /** Channel that the transaction belongs to. */
     private final ClientChannel ch;
 
     /** Transaction id. */
     private final long id;
+
+    /** State. */
+    private final AtomicInteger state = new AtomicInteger(STATE_OPEN);
 
     /**
      * Constructor.
@@ -75,6 +84,10 @@ public class ClientTransaction implements Transaction {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> commitAsync() {
+        if (!state.compareAndSet(STATE_OPEN, STATE_CLOSE)) {
+            return CompletableFuture.completedFuture(null);
+        }
+
         return ch.serviceAsync(ClientOp.TX_COMMIT, w -> w.out().packLong(id), r -> null);
     }
 
@@ -87,6 +100,10 @@ public class ClientTransaction implements Transaction {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> rollbackAsync() {
+        if (!state.compareAndSet(STATE_OPEN, STATE_CLOSE)) {
+            return CompletableFuture.completedFuture(null);
+        }
+
         return ch.serviceAsync(ClientOp.TX_ROLLBACK, w -> w.out().packLong(id), r -> null);
     }
 
