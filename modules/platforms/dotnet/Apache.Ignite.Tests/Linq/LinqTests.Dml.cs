@@ -125,6 +125,29 @@ public partial class LinqTests
     }
 
     [Test]
+    public async Task TestExecuteUpdateComputedValueFromSubquery()
+    {
+        var query = PocoAllColumnsSqlNullableView.AsQueryable().Where(x => x.Key >= DmlMinKey);
+        var query2 = PocoView.AsQueryable();
+
+        await query.ExecuteUpdateAsync(
+            row => row.SetProperty(
+                tbl1 => tbl1.Str,
+                tbl1 => query2
+                    .Where(tbl2 => tbl2.Key < tbl1.Key)
+                    .OrderBy(tbl2 => tbl2.Key)
+                    .Select(tbl2 => tbl2.Val)
+                    .First()));
+
+        var res = await query.OrderBy(x => x.Key).Select(x => x.Str).ToListAsync();
+
+        Assert.AreEqual("v-0", res[0]);
+        Assert.AreEqual("v-0", res[1]);
+
+        Assert.AreEqual(10, res.Count);
+    }
+
+    [Test]
     public async Task TestExecuteUpdateMultipleSetters()
     {
         var query = PocoAllColumnsSqlNullableView.AsQueryable().Where(x => x.Key >= DmlMinKey);
