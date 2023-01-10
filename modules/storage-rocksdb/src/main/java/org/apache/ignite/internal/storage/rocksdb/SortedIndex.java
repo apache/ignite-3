@@ -73,6 +73,7 @@ class SortedIndex implements ManuallyCloseable {
 
     /**
      * Deletes the data associated with the partition in the index, using passed write batch for the operation.
+     * Index storage instance is closed after this method, if it ever existed.
      *
      * @throws RocksDBException If failed to delete data.
      */
@@ -81,6 +82,7 @@ class SortedIndex implements ManuallyCloseable {
 
         if (sortedIndex != null) {
             sortedIndex.close();
+
             sortedIndex.destroyData(writeBatch);
         }
     }

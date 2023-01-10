@@ -24,7 +24,6 @@ import org.apache.ignite.lang.IgniteInternalException;
  * Exception thrown by the storage.
  */
 public class StorageException extends IgniteInternalException {
-    /** Serial version uid. */
     private static final long serialVersionUID = 8705275268121031742L;
 
     /**
@@ -55,6 +54,12 @@ public class StorageException extends IgniteInternalException {
         super(Storage.GENERIC_ERR, cause);
     }
 
+    /**
+     * Constructor.
+     *
+     * @param code Error code.
+     * @param message Error message.
+     */
     protected StorageException(int code, String message) {
         super(code, message);
     }
