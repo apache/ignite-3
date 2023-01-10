@@ -78,8 +78,7 @@ allprojects {
             exclude project.property('excludeTest')
         }
 
-        jvmArgumentProviders.add(
-            new TestArgumentProvider("${project.rootDir}/config/java.util.logging.properties"))
+        jvmArgumentProviders.add(new TestArgumentProvider("${project.rootDir}/config/java.util.logging.properties"))
     }
 
     tasks.withType(Sign) {
