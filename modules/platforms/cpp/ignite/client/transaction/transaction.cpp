@@ -15,36 +15,17 @@
  * limitations under the License.
  */
 
-#include "ignite/protocol/reader.h"
+#include "ignite/client/transaction/transaction.h"
+#include "ignite/client/detail/transaction/transaction_impl.h"
 
-#include <ignite/protocol/utils.h>
+namespace ignite {
 
-namespace ignite::protocol {
-
-reader::reader(bytes_view buffer)
-    : m_buffer(buffer)
-    , m_current_val()
-    , m_move_res(MSGPACK_UNPACK_SUCCESS) {
-
-    msgpack_unpacked_init(&m_current_val);
-
-    next();
+void transaction::commit_async(ignite_callback<void> callback) {
+    m_impl->commit_async(std::move(callback));
 }
 
-bool reader::try_read_nil() {
-    if (m_current_val.data.type != MSGPACK_OBJECT_NIL)
-        return false;
-
-    next();
-    return true;
+void transaction::rollback_async(ignite_callback<void> callback) {
+    m_impl->rollback_async(std::move(callback));
 }
 
-void reader::next() {
-    check_data_in_stream();
-
-    m_offset = m_offset_next;
-    m_move_res = msgpack_unpack_next(
-        &m_current_val, reinterpret_cast<const char *>(m_buffer.data()), m_buffer.size(), &m_offset_next);
-}
-
-} // namespace ignite::protocol
+} // namespace ignite

@@ -77,6 +77,15 @@ enum class client_operation {
     /** Get and delete tuple. */
     TUPLE_GET_AND_DELETE = 32,
 
+    /** Begin transaction. */
+    TX_BEGIN = 43,
+
+    /** Commit transaction. */
+    TX_COMMIT = 44,
+
+    /** Rollback transaction. */
+    TX_ROLLBACK = 45,
+
     /** Execute SQL query. */
     SQL_EXEC = 50,
 

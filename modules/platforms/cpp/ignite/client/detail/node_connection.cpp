@@ -30,14 +30,14 @@ node_connection::node_connection(
 
 node_connection::~node_connection() {
     for (auto &handler : m_request_handlers) {
-        auto handlingRes = result_of_operation<void>([&]() {
+        auto handling_res = result_of_operation<void>([&]() {
             auto res = handler.second->set_error(ignite_error("Connection closed before response was received"));
             if (res.has_error())
                 m_logger->log_error(
                     "Uncaught user callback exception while handling operation error: " + res.error().what_str());
         });
-        if (handlingRes.has_error())
-            m_logger->log_error("Uncaught user callback exception: " + handlingRes.error().what_str());
+        if (handling_res.has_error())
+            m_logger->log_error("Uncaught user callback exception: " + handling_res.error().what_str());
     }
 }
 

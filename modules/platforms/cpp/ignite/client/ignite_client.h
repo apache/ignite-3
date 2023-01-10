@@ -18,8 +18,9 @@
 #pragma once
 
 #include "ignite/client/ignite_client_configuration.h"
-#include "ignite/client/table/tables.h"
 #include "ignite/client/sql/sql.h"
+#include "ignite/client/table/tables.h"
+#include "ignite/client/transaction/transactions.h"
 
 #include "ignite/common/config.h"
 #include "ignite/common/ignite_result.h"
@@ -106,6 +107,13 @@ public:
      * @return SQL API.
      */
     [[nodiscard]] IGNITE_API sql get_sql() const noexcept;
+
+    /**
+     * Gets the Transactions API.
+     *
+     * @return Transactions API.
+     */
+    [[nodiscard]] IGNITE_API transactions get_transactions() const noexcept;
 
 private:
     /**
