@@ -21,7 +21,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.TableRow;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 
@@ -151,7 +151,7 @@ public interface MvPartitionStorage extends ManuallyCloseable {
      * @throws TxIdMismatchException If there's another pending update associated with different transaction id.
      * @throws StorageException If failed to write data to the storage.
      */
-    @Nullable BinaryRow addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, UUID commitTableId, int commitPartitionId)
+    @Nullable TableRow addWrite(RowId rowId, @Nullable TableRow row, UUID txId, UUID commitTableId, int commitPartitionId)
             throws TxIdMismatchException, StorageException;
 
     /**
@@ -161,7 +161,7 @@ public interface MvPartitionStorage extends ManuallyCloseable {
      * @return Previous uncommitted row version associated with the row id.
      * @throws StorageException If failed to write data to the storage.
      */
-    @Nullable BinaryRow abortWrite(RowId rowId) throws StorageException;
+    @Nullable TableRow abortWrite(RowId rowId) throws StorageException;
 
     /**
      * Commits a pending update of the ongoing transaction. Invoked during commit. Committed value will be versioned by the given timestamp.
@@ -184,7 +184,7 @@ public interface MvPartitionStorage extends ManuallyCloseable {
      * @param commitTimestamp Timestamp to associate with committed value.
      * @throws StorageException If failed to write data to the storage.
      */
-    void addWriteCommitted(RowId rowId, @Nullable BinaryRow row, HybridTimestamp commitTimestamp) throws StorageException;
+    void addWriteCommitted(RowId rowId, @Nullable TableRow row, HybridTimestamp commitTimestamp) throws StorageException;
 
     /**
      * Scans all versions of a single row.
@@ -223,7 +223,7 @@ public interface MvPartitionStorage extends ManuallyCloseable {
      * @return A pair of binary row and row id, where a timestamp of the row is less than or equal to {@code lowWatermark}.
      *      {@code null} if there's no such value.
      */
-    default @Nullable BinaryRowAndRowId pollForVacuum(HybridTimestamp lowWatermark) {
+    default @Nullable TableRowAndRowId pollForVacuum(HybridTimestamp lowWatermark) {
         throw new UnsupportedOperationException("pollForVacuum");
     }
 

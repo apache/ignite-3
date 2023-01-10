@@ -47,8 +47,7 @@ import org.apache.ignite.internal.raft.service.CommittedConfiguration;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.replicator.command.SafeTimePropagatingCommand;
 import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommand;
-import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.schema.ByteBufferRow;
+import org.apache.ignite.internal.schema.TableRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.RaftGroupConfiguration;
@@ -88,7 +87,7 @@ public class PartitionListener implements RaftGroupListener {
     private final Supplier<Map<UUID, TableSchemaAwareIndexStorage>> indexes;
 
     /** Partition ID. */
-    private int partitionId;
+    private final int partitionId;
 
     /** Rows that were inserted, updated or removed. */
     private final HashMap<UUID, Set<RowId>> txsPendingRowIds = new HashMap<>();
@@ -99,7 +98,7 @@ public class PartitionListener implements RaftGroupListener {
     /**
      * The constructor.
      *
-     * @param partitionDataStorage  The storage.
+     * @param partitionDataStorage The storage.
      * @param txManager Transaction manager.
      * @param partitionId Partition ID this listener serves.
      * @param safeTime Safe time tracker.
@@ -216,7 +215,7 @@ public class PartitionListener implements RaftGroupListener {
         }
 
         storage.runConsistently(() -> {
-            BinaryRow row = cmd.rowBuffer() != null ? new ByteBufferRow(cmd.rowBuffer()) : null;
+            TableRow row = cmd.rowBuffer() != null ? new TableRow(cmd.rowBuffer()) : null;
             UUID rowUuid = cmd.rowUuid();
             RowId rowId = new RowId(partitionId, rowUuid);
             UUID txId = cmd.txId();
@@ -257,7 +256,7 @@ public class PartitionListener implements RaftGroupListener {
             if (!nullOrEmpty(rowsToUpdate)) {
                 for (Map.Entry<UUID, ByteBuffer> entry : rowsToUpdate.entrySet()) {
                     RowId rowId = new RowId(partitionId, entry.getKey());
-                    BinaryRow row = entry.getValue() != null ? new ByteBufferRow(entry.getValue()) : null;
+                    TableRow row = entry.getValue() != null ? new TableRow(entry.getValue()) : null;
 
                     storage.addWrite(rowId, row, txId, commitTblId, commitPartId);
 
@@ -459,8 +458,8 @@ public class PartitionListener implements RaftGroupListener {
         }
     }
 
-    private void addToIndexes(@Nullable BinaryRow tableRow, RowId rowId) {
-        if (tableRow == null || !tableRow.hasValue()) { // skip removes
+    private void addToIndexes(@Nullable TableRow tableRow, RowId rowId) {
+        if (tableRow == null) { // skip removes
             return;
         }
 

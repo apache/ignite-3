@@ -47,11 +47,11 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
 import org.apache.ignite.internal.schema.NativeTypes;
+import org.apache.ignite.internal.schema.TableRow;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
@@ -134,7 +134,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         // Using a shifted ID value to test a multibyte scenario.
         MvPartitionStorage partitionStorage1 = tableStorage.getOrCreateMvPartition(PARTITION_ID_1);
 
-        var testData0 = binaryRow(new TestKey(1, "0"), new TestValue(10, "10"));
+        var testData0 = tableRow(new TestKey(1, "0"), new TestValue(10, "10"));
 
         UUID txId = UUID.randomUUID();
 
@@ -145,7 +145,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         assertThat(unwrap(partitionStorage0.read(rowId0, HybridTimestamp.MAX_VALUE)), is(equalTo(unwrap(testData0))));
         assertThrows(IllegalArgumentException.class, () -> partitionStorage1.read(rowId0, HybridTimestamp.MAX_VALUE));
 
-        var testData1 = binaryRow(new TestKey(2, "2"), new TestValue(20, "20"));
+        var testData1 = tableRow(new TestKey(2, "2"), new TestValue(20, "20"));
 
         RowId rowId1 = new RowId(PARTITION_ID_1);
 
@@ -328,13 +328,13 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
         RowId rowId = new RowId(PARTITION_ID);
 
-        BinaryRow binaryRow = binaryRow(new TestKey(0, "0"), new TestValue(1, "1"));
+        TableRow tableRow = tableRow(new TestKey(0, "0"), new TestValue(1, "1"));
 
-        IndexRow hashIndexRow = indexRow(hashIndexStorage.indexDescriptor(), binaryRow, rowId);
-        IndexRow sortedIndexRow = indexRow(sortedIndexStorage.indexDescriptor(), binaryRow, rowId);
+        IndexRow hashIndexRow = indexRow(hashIndexStorage.indexDescriptor(), tableRow, rowId);
+        IndexRow sortedIndexRow = indexRow(sortedIndexStorage.indexDescriptor(), tableRow, rowId);
 
         mvPartitionStorage.runConsistently(() -> {
-            mvPartitionStorage.addWriteCommitted(rowId, binaryRow, clock.now());
+            mvPartitionStorage.addWriteCommitted(rowId, tableRow, clock.now());
 
             hashIndexStorage.put(hashIndexRow);
 
@@ -380,10 +380,10 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
         RowId rowId = new RowId(PARTITION_ID);
 
-        BinaryRow binaryRow = binaryRow(new TestKey(0, "0"), new TestValue(1, "1"));
+        TableRow tableRow = tableRow(new TestKey(0, "0"), new TestValue(1, "1"));
 
         mvPartitionStorage.runConsistently(() -> {
-            mvPartitionStorage.addWriteCommitted(rowId, binaryRow, clock.now());
+            mvPartitionStorage.addWriteCommitted(rowId, tableRow, clock.now());
 
             return null;
         });
@@ -404,9 +404,9 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         // Error because reblance has not yet started for the partition.
         assertThrows(StorageRebalanceException.class, () -> tableStorage.finishRebalancePartition(PARTITION_ID, 100, 500));
 
-        List<IgniteTuple3<RowId, BinaryRow, HybridTimestamp>> rowsBeforeRebalanceStart = List.of(
-                new IgniteTuple3<>(new RowId(PARTITION_ID), binaryRow(new TestKey(0, "0"), new TestValue(0, "0")), clock.now()),
-                new IgniteTuple3<>(new RowId(PARTITION_ID), binaryRow(new TestKey(1, "1"), new TestValue(1, "1")), clock.now())
+        List<IgniteTuple3<RowId, TableRow, HybridTimestamp>> rowsBeforeRebalanceStart = List.of(
+                new IgniteTuple3<>(new RowId(PARTITION_ID), tableRow(new TestKey(0, "0"), new TestValue(0, "0")), clock.now()),
+                new IgniteTuple3<>(new RowId(PARTITION_ID), tableRow(new TestKey(1, "1"), new TestValue(1, "1")), clock.now())
         );
 
         startRebalanceWithChecks(
@@ -418,9 +418,9 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         );
 
         // Let's fill the storages with fresh data on rebalance.
-        List<IgniteTuple3<RowId, BinaryRow, HybridTimestamp>> rowsOnRebalance = List.of(
-                new IgniteTuple3<>(new RowId(PARTITION_ID), binaryRow(new TestKey(2, "2"), new TestValue(2, "2")), clock.now()),
-                new IgniteTuple3<>(new RowId(PARTITION_ID), binaryRow(new TestKey(3, "3"), new TestValue(3, "3")), clock.now())
+        List<IgniteTuple3<RowId, TableRow, HybridTimestamp>> rowsOnRebalance = List.of(
+                new IgniteTuple3<>(new RowId(PARTITION_ID), tableRow(new TestKey(2, "2"), new TestValue(2, "2")), clock.now()),
+                new IgniteTuple3<>(new RowId(PARTITION_ID), tableRow(new TestKey(3, "3"), new TestValue(3, "3")), clock.now())
         );
 
         fillStorages(mvPartitionStorage, hashIndexStorage, sortedIndexStorage, rowsOnRebalance);
@@ -453,9 +453,9 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         // Nothing will happen because rebalancing has not started.
         tableStorage.abortRebalancePartition(PARTITION_ID).get(1, SECONDS);
 
-        List<IgniteTuple3<RowId, BinaryRow, HybridTimestamp>> rowsBeforeRebalanceStart = List.of(
-                new IgniteTuple3<>(new RowId(PARTITION_ID), binaryRow(new TestKey(0, "0"), new TestValue(0, "0")), clock.now()),
-                new IgniteTuple3<>(new RowId(PARTITION_ID), binaryRow(new TestKey(1, "1"), new TestValue(1, "1")), clock.now())
+        List<IgniteTuple3<RowId, TableRow, HybridTimestamp>> rowsBeforeRebalanceStart = List.of(
+                new IgniteTuple3<>(new RowId(PARTITION_ID), tableRow(new TestKey(0, "0"), new TestValue(0, "0")), clock.now()),
+                new IgniteTuple3<>(new RowId(PARTITION_ID), tableRow(new TestKey(1, "1"), new TestValue(1, "1")), clock.now())
         );
 
         startRebalanceWithChecks(
@@ -467,9 +467,9 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         );
 
         // Let's fill the storages with fresh data on rebalance.
-        List<IgniteTuple3<RowId, BinaryRow, HybridTimestamp>> rowsOnRebalance = List.of(
-                new IgniteTuple3<>(new RowId(PARTITION_ID), binaryRow(new TestKey(2, "2"), new TestValue(2, "2")), clock.now()),
-                new IgniteTuple3<>(new RowId(PARTITION_ID), binaryRow(new TestKey(3, "3"), new TestValue(3, "3")), clock.now())
+        List<IgniteTuple3<RowId, TableRow, HybridTimestamp>> rowsOnRebalance = List.of(
+                new IgniteTuple3<>(new RowId(PARTITION_ID), tableRow(new TestKey(2, "2"), new TestValue(2, "2")), clock.now()),
+                new IgniteTuple3<>(new RowId(PARTITION_ID), tableRow(new TestKey(3, "3"), new TestValue(3, "3")), clock.now())
         );
 
         fillStorages(mvPartitionStorage, hashIndexStorage, sortedIndexStorage, rowsOnRebalance);
@@ -562,12 +562,12 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
         assertThrows(StorageClosedException.class, () -> storage.read(new RowId(PARTITION_ID), timestamp));
 
-        BinaryRow binaryRow = binaryRow(new TestKey(0, "0"), new TestValue(1, "1"));
+        TableRow tableRow = tableRow(new TestKey(0, "0"), new TestValue(1, "1"));
 
-        assertThrows(StorageClosedException.class, () -> storage.addWrite(rowId, binaryRow, UUID.randomUUID(), UUID.randomUUID(), partId));
+        assertThrows(StorageClosedException.class, () -> storage.addWrite(rowId, tableRow, UUID.randomUUID(), UUID.randomUUID(), partId));
         assertThrows(StorageClosedException.class, () -> storage.commitWrite(rowId, timestamp));
         assertThrows(StorageClosedException.class, () -> storage.abortWrite(rowId));
-        assertThrows(StorageClosedException.class, () -> storage.addWriteCommitted(rowId, binaryRow, timestamp));
+        assertThrows(StorageClosedException.class, () -> storage.addWriteCommitted(rowId, tableRow, timestamp));
 
         assertThrows(StorageClosedException.class, () -> storage.scan(timestamp));
         assertThrows(StorageClosedException.class, () -> storage.scanVersions(rowId));
@@ -601,14 +601,14 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
             MvPartitionStorage mvPartitionStorage,
             HashIndexStorage hashIndexStorage,
             SortedIndexStorage sortedIndexStorage,
-            List<IgniteTuple3<RowId, BinaryRow, HybridTimestamp>> rowsBeforeRebalanceStart
+            List<IgniteTuple3<RowId, TableRow, HybridTimestamp>> rowsBeforeRebalanceStart
     ) {
         assertThat(rowsBeforeRebalanceStart, hasSize(greaterThanOrEqualTo(2)));
 
         fillStorages(mvPartitionStorage, hashIndexStorage, sortedIndexStorage, rowsBeforeRebalanceStart);
 
         // Let's open the cursors before start rebalance.
-        IgniteTuple3<RowId, BinaryRow, HybridTimestamp> rowForCursors = rowsBeforeRebalanceStart.get(0);
+        IgniteTuple3<RowId, TableRow, HybridTimestamp> rowForCursors = rowsBeforeRebalanceStart.get(0);
 
         Cursor<?> mvPartitionStorageScanVersionsCursor = mvPartitionStorage.scanVersions(rowForCursors.get1());
         Cursor<?> mvPartitionStorageScanCursor = mvPartitionStorage.scan(rowForCursors.get3());
@@ -704,28 +704,28 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
             MvPartitionStorage mvPartitionStorage,
             HashIndexStorage hashIndexStorage,
             SortedIndexStorage sortedIndexStorage,
-            List<IgniteTuple3<RowId, BinaryRow, HybridTimestamp>> rows
+            List<IgniteTuple3<RowId, TableRow, HybridTimestamp>> rows
     ) {
         for (int i = 0; i < rows.size(); i++) {
             int finalI = i;
 
-            IgniteTuple3<RowId, BinaryRow, HybridTimestamp> row = rows.get(i);
+            IgniteTuple3<RowId, TableRow, HybridTimestamp> row = rows.get(i);
 
             RowId rowId = row.get1();
-            BinaryRow binaryRow = row.get2();
+            TableRow tableRow = row.get2();
             HybridTimestamp timestamp = row.get3();
 
-            IndexRow hashIndexRow = indexRow(hashIndexStorage.indexDescriptor(), binaryRow, rowId);
-            IndexRow sortedIndexRow = indexRow(sortedIndexStorage.indexDescriptor(), binaryRow, rowId);
+            IndexRow hashIndexRow = indexRow(hashIndexStorage.indexDescriptor(), tableRow, rowId);
+            IndexRow sortedIndexRow = indexRow(sortedIndexStorage.indexDescriptor(), tableRow, rowId);
 
             mvPartitionStorage.runConsistently(() -> {
                 // If even.
                 if ((finalI & 1) == 0) {
-                    mvPartitionStorage.addWrite(rowId, binaryRow, UUID.randomUUID(), UUID.randomUUID(), rowId.partitionId());
+                    mvPartitionStorage.addWrite(rowId, tableRow, UUID.randomUUID(), UUID.randomUUID(), rowId.partitionId());
 
                     mvPartitionStorage.commitWrite(rowId, timestamp);
                 } else {
-                    mvPartitionStorage.addWriteCommitted(rowId, binaryRow, timestamp);
+                    mvPartitionStorage.addWriteCommitted(rowId, tableRow, timestamp);
                 }
 
                 hashIndexStorage.put(hashIndexRow);
@@ -741,9 +741,9 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
             MvPartitionStorage mvPartitionStorage,
             HashIndexStorage hashIndexStorage,
             SortedIndexStorage sortedIndexStorage,
-            List<IgniteTuple3<RowId, BinaryRow, HybridTimestamp>> rows
+            List<IgniteTuple3<RowId, TableRow, HybridTimestamp>> rows
     ) {
-        for (IgniteTuple3<RowId, BinaryRow, HybridTimestamp> row : rows) {
+        for (IgniteTuple3<RowId, TableRow, HybridTimestamp> row : rows) {
             assertThat(getAll(mvPartitionStorage.scanVersions(row.get1())), is(empty()));
 
             IndexRow hashIndexRow = indexRow(hashIndexStorage.indexDescriptor(), row.get2(), row.get1());
@@ -758,11 +758,11 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
             MvPartitionStorage mvPartitionStorage,
             HashIndexStorage hashIndexStorage,
             SortedIndexStorage sortedIndexStorage,
-            List<IgniteTuple3<RowId, BinaryRow, HybridTimestamp>> rows
+            List<IgniteTuple3<RowId, TableRow, HybridTimestamp>> rows
     ) {
-        for (IgniteTuple3<RowId, BinaryRow, HybridTimestamp> row : rows) {
+        for (IgniteTuple3<RowId, TableRow, HybridTimestamp> row : rows) {
             assertThat(
-                    getAll(mvPartitionStorage.scanVersions(row.get1())).stream().map(ReadResult::binaryRow).collect(toList()),
+                    getAll(mvPartitionStorage.scanVersions(row.get1())).stream().map(ReadResult::tableRow).collect(toList()),
                     containsInAnyOrder(row.get2())
             );
 

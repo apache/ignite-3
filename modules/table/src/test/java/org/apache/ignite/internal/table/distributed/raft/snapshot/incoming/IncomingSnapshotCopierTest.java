@@ -47,17 +47,20 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.schema.BinaryConverter;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.TableRow;
+import org.apache.ignite.internal.schema.TableRowConverter;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
-import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RaftGroupConfiguration;
@@ -287,18 +290,18 @@ public class IncomingSnapshotCopierTest {
 
         storage.runConsistently(() -> {
             // Writes committed version.
-            storage.addWriteCommitted(rowIds.get(0), createBinaryRow("k0", "v0"), HYBRID_CLOCK.now());
-            storage.addWriteCommitted(rowIds.get(1), createBinaryRow("k1", "v1"), HYBRID_CLOCK.now());
+            storage.addWriteCommitted(rowIds.get(0), createRow("k0", "v0"), HYBRID_CLOCK.now());
+            storage.addWriteCommitted(rowIds.get(1), createRow("k1", "v1"), HYBRID_CLOCK.now());
 
-            storage.addWriteCommitted(rowIds.get(2), createBinaryRow("k20", "v20"), HYBRID_CLOCK.now());
-            storage.addWriteCommitted(rowIds.get(2), createBinaryRow("k21", "v21"), HYBRID_CLOCK.now());
+            storage.addWriteCommitted(rowIds.get(2), createRow("k20", "v20"), HYBRID_CLOCK.now());
+            storage.addWriteCommitted(rowIds.get(2), createRow("k21", "v21"), HYBRID_CLOCK.now());
 
             // Writes an intent to write (uncommitted version).
-            storage.addWrite(rowIds.get(2), createBinaryRow("k22", "v22"), UUID.randomUUID(), UUID.randomUUID(), TEST_PARTITION);
+            storage.addWrite(rowIds.get(2), createRow("k22", "v22"), UUID.randomUUID(), UUID.randomUUID(), TEST_PARTITION);
 
             storage.addWrite(
                     rowIds.get(3),
-                    createBinaryRow("k3", "v3"),
+                    createRow("k3", "v3"),
                     UUID.randomUUID(),
                     UUID.randomUUID(),
                     TEST_PARTITION
@@ -344,7 +347,7 @@ public class IncomingSnapshotCopierTest {
             int commitPartitionId = ReadResult.UNDEFINED_COMMIT_PARTITION_ID;
 
             for (ReadResult readResult : readResults) {
-                rowVersions.add(readResult.binaryRow().byteBuffer());
+                rowVersions.add(readResult.tableRow().byteBuffer());
 
                 if (readResult.isWriteIntent()) {
                     txId = readResult.transactionId();
@@ -370,8 +373,9 @@ public class IncomingSnapshotCopierTest {
         return responseEntries;
     }
 
-    private static BinaryRow createBinaryRow(String key, String value) {
-        return new RowAssembler(SCHEMA_DESCRIPTOR, 1, 1).appendString(key).appendString(value).build();
+    private static TableRow createRow(String key, String value) {
+        BinaryRow binaryRow = new RowAssembler(SCHEMA_DESCRIPTOR, 1, 1).appendString(key).appendString(value).build();
+        return TableRowConverter.fromBinaryRow(binaryRow, BinaryConverter.forRow(SCHEMA_DESCRIPTOR));
     }
 
     private static void assertEqualsMvRows(MvPartitionStorage expected, MvPartitionStorage actual, List<RowId> rowIds) {
@@ -387,11 +391,11 @@ public class IncomingSnapshotCopierTest {
 
                 String msg = "RowId=" + rowId + ", i=" + i;
 
-                Row expRow = new Row(SCHEMA_DESCRIPTOR, expReadResult.binaryRow());
-                Row actRow = new Row(SCHEMA_DESCRIPTOR, actReadResult.binaryRow());
+                BinaryTupleReader expTuple = new BinaryTupleReader(SCHEMA_DESCRIPTOR.length(), expReadResult.tableRow().tupleSlice());
+                BinaryTupleReader actTuple = new BinaryTupleReader(SCHEMA_DESCRIPTOR.length(), actReadResult.tableRow().tupleSlice());
 
-                assertEquals(expRow.stringValue(0), actRow.stringValue(0), msg);
-                assertEquals(expRow.stringValue(1), actRow.stringValue(1), msg);
+                assertEquals(expTuple.stringValue(0), actTuple.stringValue(0), msg);
+                assertEquals(expTuple.stringValue(1), actTuple.stringValue(1), msg);
 
                 assertEquals(expReadResult.commitTimestamp(), actReadResult.commitTimestamp(), msg);
                 assertEquals(expReadResult.transactionId(), actReadResult.transactionId(), msg);
