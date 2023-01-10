@@ -143,7 +143,7 @@ public class TestHashIndexStorage implements HashIndexStorage {
 
     private void checkStorageClosed() {
         if (closed) {
-            throw new StorageClosedException("Storage is already closed");
+            throw new StorageClosedException();
         }
     }
 
