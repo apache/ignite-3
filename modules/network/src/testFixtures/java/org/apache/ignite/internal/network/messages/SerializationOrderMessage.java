@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.network.messages;
 
-import org.apache.ignite.internal.network.processor.SerializationOrderTest;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
 

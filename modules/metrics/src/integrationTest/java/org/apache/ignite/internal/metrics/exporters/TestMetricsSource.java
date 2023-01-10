@@ -20,7 +20,6 @@ package org.apache.ignite.internal.metrics.exporters;
 import org.apache.ignite.internal.metrics.AbstractMetricSource;
 import org.apache.ignite.internal.metrics.AtomicIntMetric;
 import org.apache.ignite.internal.metrics.MetricSetBuilder;
-import org.apache.ignite.internal.metrics.ThreadPoolMetricTest;
 import org.apache.ignite.internal.metrics.exporters.TestMetricsSource.Holder;
 
 /**
