@@ -111,3 +111,71 @@ TEST_F(transactions_test, destruction_does_not_update_data) {
     ASSERT_FALSE(actual.has_value());
 }
 
+TEST_F(transactions_test, rollback_after_commit_throws) {
+    auto tx = m_client.get_transactions().begin();
+
+    tx.commit();
+
+    EXPECT_THROW(
+    {
+        try {
+            tx.rollback();
+        } catch (const ignite_error &e) {
+            EXPECT_THAT(e.what_str(), ::testing::HasSubstr("Transaction is already committed"));
+            throw;
+        }
+    },
+    ignite_error);
+}
+
+TEST_F(transactions_test, commit_after_commit_throws) {
+    auto tx = m_client.get_transactions().begin();
+
+    tx.commit();
+
+    EXPECT_THROW(
+    {
+        try {
+            tx.commit();
+        } catch (const ignite_error &e) {
+            EXPECT_THAT(e.what_str(), ::testing::HasSubstr("Transaction is already committed"));
+            throw;
+        }
+    },
+    ignite_error);
+}
+
+TEST_F(transactions_test, commit_after_rollback_throws) {
+    auto tx = m_client.get_transactions().begin();
+
+    tx.rollback();
+
+    EXPECT_THROW(
+    {
+        try {
+            tx.commit();
+        } catch (const ignite_error &e) {
+            EXPECT_THAT(e.what_str(), ::testing::HasSubstr("Transaction is already rolled back"));
+            throw;
+        }
+    },
+    ignite_error);
+}
+
+TEST_F(transactions_test, rollback_after_rollback_throws) {
+    auto tx = m_client.get_transactions().begin();
+
+    tx.rollback();
+
+    EXPECT_THROW(
+    {
+        try {
+            tx.rollback();
+        } catch (const ignite_error &e) {
+            EXPECT_THAT(e.what_str(), ::testing::HasSubstr("Transaction is already rolled back"));
+            throw;
+        }
+    },
+    ignite_error);
+}
+
