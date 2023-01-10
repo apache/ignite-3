@@ -52,6 +52,10 @@ public class TableConfigurationSchema {
     @Value(hasDefault = true)
     public int replicas = 1;
 
+    /** Distribution zone id. */
+    @Value(hasDefault = true)
+    public int zoneId = 1;
+
     /** Data storage configuration. */
     @KnownDataStorage
     @ConfigValue

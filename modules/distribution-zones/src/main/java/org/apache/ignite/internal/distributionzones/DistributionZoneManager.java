@@ -43,6 +43,7 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.ConfigurationChangeException;
+import org.apache.ignite.configuration.NamedConfigurationTree;
 import org.apache.ignite.configuration.NamedListChange;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
@@ -55,6 +56,7 @@ import org.apache.ignite.internal.distributionzones.configuration.DistributionZo
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneView;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneAlreadyExistsException;
+import org.apache.ignite.internal.distributionzones.exception.DistributionZoneBindTableException;
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNotFoundException;
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneRenameException;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -69,6 +71,10 @@ import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.If;
 import org.apache.ignite.internal.metastorage.dsl.Update;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
+import org.apache.ignite.internal.schema.configuration.TableChange;
+import org.apache.ignite.internal.schema.configuration.TableConfiguration;
+import org.apache.ignite.internal.schema.configuration.TableView;
+import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.vault.VaultManager;
@@ -87,6 +93,9 @@ public class DistributionZoneManager implements IgniteComponent {
 
     /** Distribution zone configuration. */
     private final DistributionZonesConfiguration zonesConfiguration;
+
+    /** Tables configuration. */
+    private final TablesConfiguration tablesConfiguration;
 
     /** Meta Storage manager. */
     private final MetaStorageManager metaStorageManager;
@@ -133,17 +142,20 @@ public class DistributionZoneManager implements IgniteComponent {
      * Creates a new distribution zone manager.
      *
      * @param zonesConfiguration Distribution zones configuration.
+     * @param tablesConfiguration Tables configuration.
      * @param metaStorageManager Meta Storage manager.
      * @param logicalTopologyService Logical topology service.
      * @param vaultMgr Vault manager.
      */
     public DistributionZoneManager(
             DistributionZonesConfiguration zonesConfiguration,
+            TablesConfiguration tablesConfiguration,
             MetaStorageManager metaStorageManager,
             LogicalTopologyService logicalTopologyService,
             VaultManager vaultMgr
     ) {
         this.zonesConfiguration = zonesConfiguration;
+        this.tablesConfiguration = tablesConfiguration;
         this.metaStorageManager = metaStorageManager;
         this.logicalTopologyService = logicalTopologyService;
         this.vaultMgr = vaultMgr;
@@ -313,6 +325,7 @@ public class DistributionZoneManager implements IgniteComponent {
      * @return Future representing pending completion of the operation. Future can be completed with:
      *      {@link DistributionZoneNotFoundException} if a zone with the given name doesn't exist,
      *      {@link IllegalArgumentException} if {@code name} is {@code null},
+     *      {@link DistributionZoneBindTableException} if the zone is bound to table,
      *      {@link NodeStoppingException} if the node is stopping.
      */
     public CompletableFuture<Void> dropZone(String name) {
@@ -328,10 +341,22 @@ public class DistributionZoneManager implements IgniteComponent {
             CompletableFuture<Void> fut = new CompletableFuture<>();
 
             zonesConfiguration.change(zonesChange -> zonesChange.changeDistributionZones(zonesListChange -> {
-                DistributionZoneView view = zonesListChange.get(name);
+                DistributionZoneView zoneView = zonesListChange.get(name);
 
-                if (view == null) {
+                if (zoneView == null) {
                     throw new DistributionZoneNotFoundException(name);
+                }
+
+                //TODO: IGNITE-18516 Access to other configuration must be thread safe.
+                NamedConfigurationTree<TableConfiguration, TableView, TableChange> tables = tablesConfiguration.tables();
+
+                for (int i = 0; i < tables.value().size(); i++) {
+                    TableView tableView = tables.value().get(i);
+                    int tableZoneId = tableView.zoneId();
+
+                    if (zoneView.zoneId() == tableZoneId) {
+                        throw new DistributionZoneBindTableException(name, tableView.name());
+                    }
                 }
 
                 zonesListChange.delete(name);
@@ -341,7 +366,8 @@ public class DistributionZoneManager implements IgniteComponent {
                             fut.completeExceptionally(
                                     unwrapDistributionZoneException(
                                             e,
-                                            DistributionZoneNotFoundException.class)
+                                            DistributionZoneNotFoundException.class,
+                                            DistributionZoneBindTableException.class)
                             );
                         } else {
                             fut.complete(null);
@@ -351,6 +377,23 @@ public class DistributionZoneManager implements IgniteComponent {
             return fut;
         } finally {
             busyLock.leaveBusy();
+        }
+    }
+
+    /**
+     * Gets zone id by zone name.
+     *
+     * @param name Distribution zone name.
+     * @return The zone id.
+     * @throws DistributionZoneNotFoundException If the zone is not exist..
+     */
+    public int getZoneId(String name) {
+        DistributionZoneConfiguration zoneCfg = zonesConfiguration.distributionZones().get(name);
+
+        if (zoneCfg != null) {
+            return zoneCfg.zoneId().value();
+        } else {
+            throw new DistributionZoneNotFoundException(name);
         }
     }
 

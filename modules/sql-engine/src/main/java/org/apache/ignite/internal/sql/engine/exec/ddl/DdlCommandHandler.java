@@ -207,6 +207,11 @@ public class DdlCommandHandler {
             if (cmd.replicas() != null) {
                 tableChange.changeReplicas(cmd.replicas());
             }
+
+            if (cmd.zone() != null) {
+                //TODO: IGNITE-18516 Access to other configuration must be thread safe.
+                tableChange.changeZoneId(distributionZoneManager.getZoneId(cmd.zone()));
+            }
         };
 
         return tableManager.createTableAsync(cmd.tableName(), tblChanger)

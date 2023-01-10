@@ -36,6 +36,7 @@ dependencies {
     implementation project(':ignite-metastorage')
     implementation project(':ignite-vault')
     implementation project(':ignite-configuration')
+    implementation project(':ignite-schema')
 
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core

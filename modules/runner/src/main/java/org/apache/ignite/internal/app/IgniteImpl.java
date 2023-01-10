@@ -353,8 +353,6 @@ public class IgniteImpl implements Ignite {
         DistributionZonesConfiguration zonesConfiguration = clusterCfgMgr.configurationRegistry()
                 .getConfiguration(DistributionZonesConfiguration.KEY);
 
-        distributionZoneManager = new DistributionZoneManager(zonesConfiguration, metaStorageMgr, logicalTopologyService, vaultMgr);
-
         restComponent = createRestComponent(name);
 
         restAddressReporter = new RestAddressReporter(workDir);
@@ -387,6 +385,14 @@ public class IgniteImpl implements Ignite {
         );
 
         schemaManager = new SchemaManager(registry, tablesConfiguration, metaStorageMgr);
+
+        distributionZoneManager = new DistributionZoneManager(
+                zonesConfiguration,
+                tablesConfiguration,
+                metaStorageMgr,
+                logicalTopologyService,
+                vaultMgr
+        );
 
         volatileLogStorageFactoryCreator = new VolatileLogStorageFactoryCreator(workDir.resolve("volatile-log-spillout"));
 
