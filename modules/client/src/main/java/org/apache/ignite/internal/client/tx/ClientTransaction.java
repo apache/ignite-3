@@ -20,7 +20,7 @@ package org.apache.ignite.internal.client.tx;
 import static org.apache.ignite.internal.client.ClientUtils.sync;
 
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.client.ClientChannel;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -31,12 +31,6 @@ import org.apache.ignite.tx.TransactionException;
  * Client transaction.
  */
 public class ClientTransaction implements Transaction {
-    /** Open state. */
-    private static final int STATE_OPEN = 0;
-
-    /** Close state. */
-    private static final int STATE_CLOSE = 1;
-
     /** Channel that the transaction belongs to. */
     private final ClientChannel ch;
 
@@ -44,7 +38,7 @@ public class ClientTransaction implements Transaction {
     private final long id;
 
     /** State. */
-    private final AtomicInteger state = new AtomicInteger(STATE_OPEN);
+    private final AtomicBoolean openState = new AtomicBoolean(true);
 
     /**
      * Constructor.
@@ -84,7 +78,7 @@ public class ClientTransaction implements Transaction {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> commitAsync() {
-        if (!state.compareAndSet(STATE_OPEN, STATE_CLOSE)) {
+        if (!openState.compareAndSet(true, false)) {
             return CompletableFuture.completedFuture(null);
         }
 
@@ -100,7 +94,7 @@ public class ClientTransaction implements Transaction {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> rollbackAsync() {
-        if (!state.compareAndSet(STATE_OPEN, STATE_CLOSE)) {
+        if (!openState.compareAndSet(true, false)) {
             return CompletableFuture.completedFuture(null);
         }
 

@@ -959,11 +959,9 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         request.groups().forEach(
                 (recipientNode, replicationGroupIds) ->
-                        cleanupFutures[cleanupFuturesCnt.getAndIncrement()] = changeStateFuture.thenCompose(isStateChanged ->
-                                {
-                                    Boolean stateChanged = (Boolean) isStateChanged;
-
-                                    if (stateChanged) {
+                        cleanupFutures[cleanupFuturesCnt.getAndIncrement()] =
+                                changeStateFuture.thenCompose(isStateChanged -> {
+                                    if ((Boolean) isStateChanged) {
                                         return txManager.cleanup(
                                                 recipientNode,
                                                 replicationGroupIds,
@@ -989,7 +987,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param commit True is the transaction is committed, false otherwise.
      * @return Future to wait of the finish.
      */
-    private CompletableFuture<Object> finishTransaction(List<ReplicationGroupId> aggregatedGroupIds, UUID txId, boolean commit) {//
+    private CompletableFuture<Object> finishTransaction(List<ReplicationGroupId> aggregatedGroupIds, UUID txId, boolean commit) {
         // TODO: IGNITE-17261 Timestamp from request is not using until the issue has not been fixed (request.commitTimestamp())
         var fut = new CompletableFuture<TxMeta>();
 

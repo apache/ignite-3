@@ -122,7 +122,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     public abstract void before() throws Exception;
 
     @Test
-    public void testCommitRollbackSameTxNotThrows() throws TransactionException {
+    public void testCommitRollbackSameTxDoesNotThrow() throws TransactionException {
         InternalTransaction tx = (InternalTransaction) igniteTransactions.begin();
 
         accounts.recordView().upsert(tx, makeValue(1, 100.));
@@ -135,7 +135,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     @Test
-    public void testRollbackCommitSameTxNotThrows() throws TransactionException {
+    public void testRollbackCommitSameTxDoesNotThrow() throws TransactionException {
         InternalTransaction tx = (InternalTransaction) igniteTransactions.begin();
 
         accounts.recordView().upsert(tx, makeValue(1, 100.));
@@ -145,6 +145,13 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         assertDoesNotThrow(tx::commit, "Unexpected exception was thrown.");
         assertDoesNotThrow(tx::rollback, "Unexpected exception was thrown.");
         assertDoesNotThrow(tx::commit, "Unexpected exception was thrown.");
+    }
+
+    @Test
+    public void testDeleteUpsertCommit() throws TransactionException {
+        deleteUpsert().commit();
+
+        assertEquals(200., accounts.recordView().get(null, makeKey(1)).doubleValue("balance"));
     }
 
     @Test

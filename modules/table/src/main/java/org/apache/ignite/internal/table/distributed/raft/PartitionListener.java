@@ -20,8 +20,6 @@ package org.apache.ignite.internal.table.distributed.raft;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITED;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
-import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_UNEXPECTED_STATE_ERR;
-import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import java.io.Serializable;
 import java.nio.ByteBuffer;
@@ -266,6 +264,7 @@ public class PartitionListener implements RaftGroupListener {
      * @param cmd Command.
      * @param commandIndex Index of the RAFT command.
      * @param commandTerm Term of the RAFT command.
+     * @return {@code true} if transaction state was changed.
      * @throws IgniteInternalException if an exception occurred during a transaction state change.
      */
     private boolean handleFinishTxCommand(FinishTxCommand cmd, long commandIndex, long commandTerm) throws IgniteInternalException {

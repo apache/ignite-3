@@ -23,7 +23,6 @@ import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_R
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_STOPPED_ERR;
 
 import java.util.Iterator;
-import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListMap;

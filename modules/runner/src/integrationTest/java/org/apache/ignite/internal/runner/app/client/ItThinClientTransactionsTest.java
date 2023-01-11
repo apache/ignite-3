@@ -200,7 +200,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
     }
 
     @Test
-    void testCommitRollbackSameTxNotThrows() {
+    void testCommitRollbackSameTxDoesNotThrow() {
         Transaction tx = client().transactions().begin();
         tx.commit();
 
@@ -210,7 +210,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
     }
 
     @Test
-    void testRollbackCommitSameTxNotThrows() {
+    void testRollbackCommitSameTxDoesNotThrow() {
         Transaction tx = client().transactions().begin();
         tx.rollback();
 

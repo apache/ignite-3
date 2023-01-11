@@ -143,9 +143,8 @@ public abstract class AbstractTxStateStorageTest {
         TxMeta txMeta2 = new TxMeta(TxState.COMMITED, new ArrayList<>(), generateTimestamp(UUID.randomUUID()));
 
         assertTrue(storage.compareAndSet(txId, null, txMeta1, 1, 1));
-        // Checking idempotency.
-        assertTrue(storage.compareAndSet(txId, null, txMeta1, 1, 1));
-        assertTrue(storage.compareAndSet(txId, TxState.ABORTED, txMeta1, 1, 1));
+        assertFalse(storage.compareAndSet(txId, null, txMeta1, 1, 1));
+        assertFalse(storage.compareAndSet(txId, TxState.ABORTED, txMeta1, 1, 1));
 
         TxMeta txMetaWrongTimestamp0 =
                 new TxMeta(txMeta1.txState(), txMeta1.enlistedPartitions(), generateTimestamp(UUID.randomUUID()));
@@ -159,7 +158,7 @@ public abstract class AbstractTxStateStorageTest {
         assertTrue(storage.compareAndSet(txId, txMeta1.txState(), txMeta2, 3, 2));
         // Checking idempotency.
         assertTrue(storage.compareAndSet(txId, txMeta1.txState(), txMeta2, 3, 2));
-        assertTrue(storage.compareAndSet(txId, TxState.ABORTED, txMeta2, 3, 2));
+        assertFalse(storage.compareAndSet(txId, TxState.ABORTED, txMeta2, 3, 2));
 
         TxMeta txMetaNullTimestamp2 = new TxMeta(txMeta2.txState(), txMeta2.enlistedPartitions(), null);
         assertFalse(storage.compareAndSet(txId, TxState.ABORTED, txMetaNullTimestamp2, 3, 2));
