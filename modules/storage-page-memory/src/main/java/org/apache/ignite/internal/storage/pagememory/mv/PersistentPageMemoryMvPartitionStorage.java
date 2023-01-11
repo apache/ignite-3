@@ -177,6 +177,8 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     public void lastApplied(long lastAppliedIndex, long lastAppliedTerm) throws StorageException {
         assert checkpointTimeoutLock.checkpointLockIsHeldByThread();
 
+        checkIsStorageInProcessOfRebalance();
+
         CheckpointProgress lastCheckpoint = checkpointManager.lastCheckpointProgress();
 
         UUID lastCheckpointId = lastCheckpoint == null ? null : lastCheckpoint.id();
@@ -193,6 +195,8 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     @Nullable
     public RaftGroupConfiguration committedGroupConfiguration() {
         return busy(() -> {
+            checkIsStorageInProcessOfRebalance();
+
             try {
                 replicationProtocolGroupConfigReadWriteLock.readLock().lock();
 
@@ -218,6 +222,8 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     @Override
     public void committedGroupConfiguration(RaftGroupConfiguration config) {
         assert checkpointTimeoutLock.checkpointLockIsHeldByThread();
+
+        checkIsStorageInProcessOfRebalance();
 
         CheckpointProgress lastCheckpoint = checkpointManager.lastCheckpointProgress();
         UUID lastCheckpointId = lastCheckpoint == null ? null : lastCheckpoint.id();

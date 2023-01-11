@@ -89,6 +89,8 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
     @Override
     public void lastApplied(long lastAppliedIndex, long lastAppliedTerm) throws StorageException {
         busy(() -> {
+            checkIsStorageInProcessOfRebalance();
+
             this.lastAppliedIndex = lastAppliedIndex;
             this.lastAppliedTerm = lastAppliedTerm;
 
@@ -103,12 +105,18 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
 
     @Override
     public @Nullable RaftGroupConfiguration committedGroupConfiguration() {
-        return busy(() -> groupConfig);
+        return busy(() -> {
+            checkIsStorageInProcessOfRebalance();
+
+            return groupConfig;
+        });
     }
 
     @Override
     public void committedGroupConfiguration(RaftGroupConfiguration config) {
         busy(() -> {
+            checkIsStorageInProcessOfRebalance();
+
             groupConfig = config;
 
             return null;
