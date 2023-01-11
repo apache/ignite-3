@@ -49,7 +49,7 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
     /// |       ReadObject | 382.9 ns | 2.49 ns | 2.21 ns |  1.28 |    0.02 | 0.0024 |      80 B |
     /// |        ReadTuple | 769.0 ns | 6.06 ns | 5.37 ns |  2.57 |    0.04 | 0.0181 |     536 B |.
     ///
-    /// Comparison of MessagePack library and our own implementation, i9-12900H, 6.0.405, Ubuntu 22.04:
+    /// Comparison of MessagePack library and our own implementation, i9-12900H, .NET SDK 6.0.405, Ubuntu 22.04:
     ///
     /// MessagePack 2.1.90 (old)
     /// |           Method |     Mean |   Error |  StdDev | Ratio | RatioSD |  Gen 0 | Allocated |
