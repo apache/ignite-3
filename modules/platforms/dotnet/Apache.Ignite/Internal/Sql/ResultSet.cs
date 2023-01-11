@@ -81,7 +81,7 @@ namespace Apache.Ignite.Internal.Sql
             if (HasRowSet)
             {
                 _buffer = buf;
-                _bufferOffset = (int)reader.Consumed;
+                _bufferOffset = reader.Consumed;
             }
             else
             {
@@ -295,7 +295,7 @@ namespace Apache.Ignite.Internal.Sql
                 // ReSharper disable AccessToModifiedClosure
                 var reader = buf.GetReader(offset);
                 var pageSize = reader.ReadArrayHeader();
-                offset += (int)reader.Consumed;
+                offset += reader.Consumed;
 
                 for (var rowIdx = 0; rowIdx < pageSize; rowIdx++)
                 {
@@ -304,7 +304,7 @@ namespace Apache.Ignite.Internal.Sql
                     var rowReader = buf.GetReader(offset);
                     var row = ReadRow(cols, ref rowReader);
 
-                    offset += (int)rowReader.Consumed;
+                    offset += rowReader.Consumed;
                     yield return row;
                 }
 

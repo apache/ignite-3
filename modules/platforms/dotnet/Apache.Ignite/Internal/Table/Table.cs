@@ -25,7 +25,6 @@ namespace Apache.Ignite.Internal.Table
     using Buffers;
     using Ignite.Table;
     using Ignite.Transactions;
-    using MessagePack;
     using Proto;
     using Proto.MsgPack;
     using Serialization;

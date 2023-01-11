@@ -21,6 +21,7 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
     using BenchmarkDotNet.Attributes;
     using Internal.Proto;
     using Internal.Proto.BinaryTuple;
+    using Internal.Proto.MsgPack;
     using Internal.Table.Serialization;
     using MessagePack;
 
@@ -73,7 +74,7 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
         [Benchmark]
         public void ReadObject()
         {
-            var reader = new MessagePackReader(SerializedData);
+            var reader = new MsgPackReader(SerializedData);
             var res = ObjectSerializerHandler.Read(ref reader, Schema);
 
             Consumer.Consume(res);
@@ -82,7 +83,7 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
         [Benchmark]
         public void ReadTuple()
         {
-            var reader = new MessagePackReader(SerializedData);
+            var reader = new MsgPackReader(SerializedData);
             var res = TupleSerializerHandler.Instance.Read(ref reader, Schema);
 
             Consumer.Consume(res);

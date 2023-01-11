@@ -20,6 +20,7 @@ namespace Apache.Ignite.Internal.Proto.MsgPack;
 using System;
 using System.Buffers.Binary;
 using System.IO;
+using BinaryTuple;
 
 /// <summary>
 /// MsgPack reader.
@@ -139,6 +140,16 @@ internal ref struct MsgPackReader
         };
 
     /// <summary>
+    /// Reads an int value if it is the next token.
+    /// </summary>
+    /// <param name="res">result.</param>
+    /// <returns><c>true</c> if could read an integer value; <c>false</c> otherwise.</returns>
+    public bool TryReadInt(out int res)
+    {
+        throw new NotImplementedException();
+    }
+
+    /// <summary>
     /// Reads array header.
     /// </summary>
     /// <returns>Array size.</returns>
@@ -198,6 +209,15 @@ internal ref struct MsgPackReader
     public ReadOnlySpan<byte> ReadBinary() => GetSpan(ReadBinaryHeader());
 
     /// <summary>
+    /// Reads map header.
+    /// </summary>
+    /// <returns>Map length.</returns>
+    public int ReadMapHeader()
+    {
+        throw new NotImplementedException();
+    }
+
+    /// <summary>
     /// Reads GUID value.
     /// </summary>
     /// <returns>Guid.</returns>
@@ -212,11 +232,28 @@ internal ref struct MsgPackReader
     /// <summary>
     /// Skips a value.
     /// </summary>
-    public void Skip()
+    /// <param name="count">Count of elements to skip.</param>
+    public void Skip(int count = 1)
     {
         // TODO: Proper skip based on type
         // Support only relevant types?
-        _pos++;
+        _pos += count;
+    }
+
+    /// <summary>
+    /// Reads <see cref="ClientDataType"/> and value.
+    /// </summary>
+    /// <returns>Value.</returns>
+    public object? ReadObjectFromBinaryTuple()
+    {
+        if (TryReadNil())
+        {
+            return null;
+        }
+
+        var tuple = new BinaryTupleReader(ReadBinary(), 3);
+
+        return tuple.GetObject(0);
     }
 
     private static InvalidDataException GetInvalidCodeException(string expected, byte code) =>

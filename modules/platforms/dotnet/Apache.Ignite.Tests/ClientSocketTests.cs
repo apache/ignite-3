@@ -42,7 +42,7 @@ namespace Apache.Ignite.Tests
             WriteString(requestWriter.GetMessageWriter(), "non-existent-table");
 
             using var response = await socket.DoOutInOpAsync(ClientOp.TableGet, requestWriter);
-            Assert.IsTrue(response.GetReader().IsNil);
+            Assert.IsTrue(response.GetReader().TryReadNil());
 
             void WriteString(MessagePackWriter writer, string str)
             {

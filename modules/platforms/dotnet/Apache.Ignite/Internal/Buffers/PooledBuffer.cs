@@ -20,7 +20,6 @@ namespace Apache.Ignite.Internal.Buffers
     using System;
     using System.Diagnostics;
     using System.Diagnostics.CodeAnalysis;
-    using MessagePack;
     using Proto.MsgPack;
 
     /// <summary>

@@ -25,6 +25,7 @@ namespace Apache.Ignite.Internal.Table
     using Ignite.Table;
     using MessagePack;
     using Proto;
+    using Proto.MsgPack;
     using Sql;
 
     /// <summary>
@@ -64,7 +65,7 @@ namespace Apache.Ignite.Internal.Table
             using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TablesGet).ConfigureAwait(false);
             return Read(resBuf.GetReader());
 
-            IList<ITable> Read(MessagePackReader r)
+            IList<ITable> Read(MsgPackReader r)
             {
                 var len = r.ReadMapHeader();
 
@@ -110,8 +111,8 @@ namespace Apache.Ignite.Internal.Table
             }
 
             // ReSharper disable once LambdaExpressionMustBeStatic (requires .NET 5+)
-            Table? Read(MessagePackReader r) =>
-                r.NextMessagePackType == MessagePackType.Nil
+            Table? Read(MsgPackReader r) =>
+                r.TryReadNil()
                     ? null
                     : _tables.GetOrAdd(
                         r.ReadGuid(),
