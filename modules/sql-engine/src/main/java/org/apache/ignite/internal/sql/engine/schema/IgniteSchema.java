@@ -23,6 +23,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.calcite.schema.Table;
 import org.apache.calcite.schema.impl.AbstractSchema;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Ignite schema.
@@ -35,20 +36,26 @@ public class IgniteSchema extends AbstractSchema {
     private final Map<UUID, IgniteIndex> idxMap;
 
     /**
-     * Creates a Schema.
+     * Creates a Schema with given tables and indexes.
      *
-     * @param schemaName Schema name.
+     * @param schemaName A name of the schema to create.
+     * @param tableMap A collection of a tables belonging to the schema.
+     * @param indexMap A collection of an indexes belonging to the schema.
      */
-    public IgniteSchema(String schemaName, Map<String, Table> tblMap, Map<UUID, IgniteIndex> idxMap) {
+    public IgniteSchema(
+            String schemaName,
+            @Nullable Map<String, Table> tableMap,
+            @Nullable Map<UUID, IgniteIndex> indexMap
+    ) {
         this.schemaName = schemaName;
-        this.tblMap = tblMap == null ? new ConcurrentHashMap<>() : new ConcurrentHashMap<>(tblMap);
-        this.idxMap = idxMap == null ? new ConcurrentHashMap<>() : new ConcurrentHashMap<>(idxMap);
+        this.tblMap = tableMap == null ? new ConcurrentHashMap<>() : new ConcurrentHashMap<>(tableMap);
+        this.idxMap = indexMap == null ? new ConcurrentHashMap<>() : new ConcurrentHashMap<>(indexMap);
     }
 
     /**
-     * Creates a Schema.
+     * Creates an empty Schema.
      *
-     * @param schemaName Schema name.
+     * @param schemaName A name of the schema to create.
      */
     public IgniteSchema(String schemaName) {
         this(schemaName, null, null);

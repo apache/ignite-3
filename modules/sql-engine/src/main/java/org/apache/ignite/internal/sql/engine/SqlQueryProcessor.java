@@ -62,6 +62,7 @@ import org.apache.ignite.internal.sql.engine.exec.LifecycleAware;
 import org.apache.ignite.internal.sql.engine.exec.MailboxRegistryImpl;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutorImpl;
+import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
 import org.apache.ignite.internal.sql.engine.message.MessageServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl;
@@ -210,18 +211,17 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         this.prepareSvc = prepareSvc;
 
+        var ddlCommandHandler = new DdlCommandHandler(distributionZoneManager, tableManager, indexManager, dataStorageManager);
+
         var executionSrvc = registerService(ExecutionServiceImpl.create(
                 clusterSrvc.topologyService(),
                 msgSrvc,
                 sqlSchemaManager,
-                distributionZoneManager,
-                tableManager,
-                indexManager,
+                ddlCommandHandler,
                 taskExecutor,
                 ArrayRowHandler.INSTANCE,
                 mailboxRegistry,
-                exchangeService,
-                dataStorageManager
+                exchangeService
         ));
 
         clusterSrvc.topologyService().addEventHandler(executionSrvc);
