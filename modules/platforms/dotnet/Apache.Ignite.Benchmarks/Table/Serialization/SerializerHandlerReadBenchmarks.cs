@@ -48,6 +48,22 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
     /// | ReadObjectManual | 299.3 ns | 3.42 ns | 3.20 ns |  1.00 |    0.00 | 0.0024 |      80 B |
     /// |       ReadObject | 382.9 ns | 2.49 ns | 2.21 ns |  1.28 |    0.02 | 0.0024 |      80 B |
     /// |        ReadTuple | 769.0 ns | 6.06 ns | 5.37 ns |  2.57 |    0.04 | 0.0181 |     536 B |.
+    ///
+    /// Comparison of MessagePack library and our own implementation, i9-12900H, 6.0.405, Ubuntu 22.04:
+    ///
+    /// MessagePack 2.1.90 (old)
+    /// |           Method |     Mean |   Error |  StdDev | Ratio | RatioSD |  Gen 0 | Allocated |
+    /// |----------------- |---------:|--------:|--------:|------:|--------:|-------:|----------:|
+    /// | ReadObjectManual | 100.3 ns | 0.46 ns | 0.41 ns |  1.00 |    0.00 | 0.0002 |      80 B |
+    /// |       ReadObject | 142.3 ns | 0.35 ns | 0.31 ns |  1.42 |    0.01 | 0.0002 |      80 B |
+    /// |        ReadTuple | 266.8 ns | 2.52 ns | 2.35 ns |  2.66 |    0.03 | 0.0019 |     544 B |.
+    ///
+    /// Custom MsgPackReader (new)
+    /// |           Method |      Mean |    Error |   StdDev | Ratio | RatioSD |  Gen 0 | Allocated |
+    /// |----------------- |----------:|---------:|---------:|------:|--------:|-------:|----------:|
+    /// | ReadObjectManual |  38.30 ns | 0.265 ns | 0.247 ns |  1.00 |    0.00 | 0.0003 |      80 B |
+    /// |       ReadObject |  80.51 ns | 0.158 ns | 0.124 ns |  2.10 |    0.01 | 0.0002 |      80 B |
+    /// |        ReadTuple | 208.63 ns | 0.654 ns | 0.611 ns |  5.45 |    0.04 | 0.0019 |     544 B |.
     /// </summary>
     [SuppressMessage("Microsoft.Performance", "CA1822:MarkMembersAsStatic", Justification = "Benchmarks.")]
     [MemoryDiagnoser]
