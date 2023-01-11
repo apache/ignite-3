@@ -109,7 +109,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
         List<CompletableFuture<Void>> destroyFutures = new ArrayList<>();
 
         for (int i = 0; i < mvPartitions.length(); i++) {
-            CompletableFuture<Void> destroyPartitionFuture = partitionIdDestroyFutureMap.get(i);
+            CompletableFuture<Void> destroyPartitionFuture = destroyFutureByPartitionId.get(i);
 
             if (destroyPartitionFuture != null) {
                 destroyFutures.add(destroyPartitionFuture);
@@ -140,7 +140,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
 
     @Override
     public PersistentPageMemoryMvPartitionStorage createMvPartitionStorage(int partitionId) {
-        CompletableFuture<Void> partitionDestroyFuture = partitionIdDestroyFutureMap.get(partitionId);
+        CompletableFuture<Void> partitionDestroyFuture = destroyFutureByPartitionId.get(partitionId);
 
         if (partitionDestroyFuture != null) {
             try {
@@ -441,24 +441,6 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
                     e
             );
         }
-    }
-
-    @Override
-    public CompletableFuture<Void> startRebalancePartition(int partitionId) {
-        // TODO: IGNITE-18029 Implement
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public CompletableFuture<Void> abortRebalancePartition(int partitionId) {
-        // TODO: IGNITE-18029 Implement
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public CompletableFuture<Void> finishRebalancePartition(int partitionId, long lastAppliedIndex, long lastAppliedTerm) {
-        // TODO: IGNITE-18029 Implement
-        throw new UnsupportedOperationException();
     }
 
     @Override

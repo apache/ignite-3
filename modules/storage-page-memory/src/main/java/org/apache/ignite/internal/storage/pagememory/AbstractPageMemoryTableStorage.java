@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.storage.pagememory;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
 import java.lang.invoke.MethodHandles;
@@ -36,6 +37,7 @@ import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
@@ -65,7 +67,9 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
 
     protected volatile AtomicReferenceArray<AbstractPageMemoryMvPartitionStorage> mvPartitions;
 
-    protected final ConcurrentMap<Integer, CompletableFuture<Void>> partitionIdDestroyFutureMap = new ConcurrentHashMap<>();
+    protected final ConcurrentMap<Integer, CompletableFuture<Void>> destroyFutureByPartitionId = new ConcurrentHashMap<>();
+
+    protected final ConcurrentMap<Integer, CompletableFuture<Void>> rebalanceFutureByPartitionId = new ConcurrentHashMap<>();
 
     /** Busy lock to stop synchronously. */
     protected final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
@@ -179,9 +183,12 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
         return inBusyLock(busyLock, () -> {
             checkPartitionId(partitionId);
 
+            assert !rebalanceFutureByPartitionId.containsKey(partitionId)
+                    : IgniteStringFormatter.format("table={}, partitionId={}", getTableName(), partitionId);
+
             CompletableFuture<Void> destroyPartitionFuture = new CompletableFuture<>();
 
-            CompletableFuture<Void> previousDestroyPartitionFuture = partitionIdDestroyFutureMap.putIfAbsent(
+            CompletableFuture<Void> previousDestroyPartitionFuture = destroyFutureByPartitionId.putIfAbsent(
                     partitionId,
                     destroyPartitionFuture
             );
@@ -194,7 +201,7 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
 
             if (partition != null) {
                 destroyMvPartitionStorage((AbstractPageMemoryMvPartitionStorage) partition).whenComplete((unused, throwable) -> {
-                    partitionIdDestroyFutureMap.remove(partitionId);
+                    destroyFutureByPartitionId.remove(partitionId);
 
                     if (throwable != null) {
                         destroyPartitionFuture.completeExceptionally(throwable);
@@ -203,7 +210,7 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
                     }
                 });
             } else {
-                partitionIdDestroyFutureMap.remove(partitionId).complete(null);
+                destroyFutureByPartitionId.remove(partitionId).complete(null);
             }
 
             return destroyPartitionFuture;
@@ -232,6 +239,81 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
     @Override
     public void close() throws StorageException {
         stop();
+    }
+
+    @Override
+    public CompletableFuture<Void> startRebalancePartition(int partitionId) {
+        return inBusyLock(busyLock, () -> {
+            AbstractPageMemoryMvPartitionStorage mvPartitionStorage = getMvPartitionStorageWithoutBusyLock(
+                    partitionId,
+                    StorageRebalanceException::new
+            );
+
+            assert !destroyFutureByPartitionId.containsKey(partitionId)
+                    : IgniteStringFormatter.format("table={}, paritionId={}", getTableName(), partitionId);
+
+            CompletableFuture<Void> rebalanceFuture = new CompletableFuture<>();
+
+            if (rebalanceFutureByPartitionId.putIfAbsent(partitionId, rebalanceFuture) != null) {
+                throw new StorageRebalanceException(IgniteStringFormatter.format(
+                        "Partition in the process of rebalancing: [table={}, partitionId={}]",
+                        getTableName(),
+                        partitionId)
+                );
+            }
+
+            try {
+                // TODO: IGNITE-18029 реализовать
+            } catch (Throwable t) {
+                rebalanceFuture.completeExceptionally(t);
+            }
+
+            return rebalanceFuture;
+        });
+    }
+
+    @Override
+    public CompletableFuture<Void> abortRebalancePartition(int partitionId) {
+        return inBusyLock(busyLock, () -> {
+            CompletableFuture<Void> rebalanceFuture = rebalanceFutureByPartitionId.remove(partitionId);
+
+            if (rebalanceFuture == null) {
+                return completedFuture(null);
+            }
+
+            AbstractPageMemoryMvPartitionStorage mvPartitionStorage = getMvPartitionStorageWithoutBusyLock(
+                    partitionId,
+                    StorageRebalanceException::new
+            );
+
+            return rebalanceFuture.thenAccept(unused -> {
+                // TODO: IGNITE-18029 реализовать
+            });
+        });
+    }
+
+    @Override
+    public CompletableFuture<Void> finishRebalancePartition(int partitionId, long lastAppliedIndex, long lastAppliedTerm) {
+        return inBusyLock(busyLock, () -> {
+            CompletableFuture<Void> rebalanceFuture = rebalanceFutureByPartitionId.remove(partitionId);
+
+            if (rebalanceFuture == null) {
+                throw new StorageRebalanceException(IgniteStringFormatter.format(
+                        "Rebalance for the partition did not start: [table={}, partitionId={}]",
+                        getTableName(),
+                        partitionId
+                ));
+            }
+
+            AbstractPageMemoryMvPartitionStorage mvPartitionStorage = getMvPartitionStorageWithoutBusyLock(
+                    partitionId,
+                    StorageRebalanceException::new
+            );
+
+            return rebalanceFuture.thenAccept(unused -> {
+                // TODO: IGNITE-18029 реализовать
+            });
+        });
     }
 
     /**
