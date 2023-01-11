@@ -194,8 +194,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
                     rowVersionFreeList,
                     indexColumnsFreeList,
                     versionChainTree,
-                    indexMetaTree,
-                    tablesConfig
+                    indexMetaTree
             );
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException(

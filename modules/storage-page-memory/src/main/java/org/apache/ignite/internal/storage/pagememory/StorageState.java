@@ -15,29 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage;
-
-import org.apache.ignite.lang.ErrorGroups.Storage;
+package org.apache.ignite.internal.storage.pagememory;
 
 /**
- * Exception that will be thrown when the storage is closed.
+ * Storage states.
  */
-public class StorageClosedException extends StorageException {
-    private static final long serialVersionUID = -7988332521347221109L;
+public enum StorageState {
+    /** Storage is running. */
+    RUNNABLE,
 
-    /**
-     * Default constructor.
-     */
-    public StorageClosedException() {
-        this("Storage is already closed");
-    }
+    /** Storage is in the process of being closed or has already closed. */
+    CLOSED,
 
-    /**
-     * Constructor.
-     *
-     * @param message Error message.
-     */
-    public StorageClosedException(String message) {
-        super(Storage.ALREADY_CLOSED_ERR, message);
-    }
+    /** Storage is in the process of being rebalanced. */
+    REBALANCE
 }

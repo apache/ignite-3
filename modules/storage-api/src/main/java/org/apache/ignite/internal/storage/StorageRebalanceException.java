@@ -24,6 +24,8 @@ import org.jetbrains.annotations.Nullable;
  * Exception that will be thrown when the storage is in the process of rebalance.
  */
 public class StorageRebalanceException extends StorageException {
+    private static final long serialVersionUID = -4840074471464728969L;
+
     /**
      * Default constructor.
      */

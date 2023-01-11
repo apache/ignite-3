@@ -17,16 +17,15 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryTableStorage;
-import org.apache.ignite.internal.storage.pagememory.index.hash.PageMemoryHashIndexStorage;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
-import org.apache.ignite.internal.storage.pagememory.index.sorted.PageMemorySortedIndexStorage;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -53,7 +52,6 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
      */
     public VolatilePageMemoryMvPartitionStorage(
             VolatilePageMemoryTableStorage tableStorage,
-            TablesConfiguration tablesCfg,
             int partitionId,
             VersionChainTree versionChainTree,
             IndexMetaTree indexMetaTree
@@ -64,72 +62,61 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
                 tableStorage.dataRegion().rowVersionFreeList(),
                 tableStorage.dataRegion().indexColumnsFreeList(),
                 versionChainTree,
-                indexMetaTree,
-                tablesCfg
+                indexMetaTree
         );
     }
 
     @Override
     public <V> V runConsistently(WriteClosure<V> closure) throws StorageException {
-        return closure.execute();
+        return busy(closure::execute);
     }
 
     @Override
     public CompletableFuture<Void> flush() {
-        return CompletableFuture.completedFuture(null);
+        return busy(() -> completedFuture(null));
     }
 
     @Override
     public long lastAppliedIndex() {
-        return lastAppliedIndex;
+        return busy(() -> lastAppliedIndex);
     }
 
     @Override
     public long lastAppliedTerm() {
-        return lastAppliedTerm;
+        return busy(() -> lastAppliedTerm);
     }
 
     @Override
     public void lastApplied(long lastAppliedIndex, long lastAppliedTerm) throws StorageException {
-        this.lastAppliedIndex = lastAppliedIndex;
-        this.lastAppliedTerm = lastAppliedTerm;
+        busy(() -> {
+            this.lastAppliedIndex = lastAppliedIndex;
+            this.lastAppliedTerm = lastAppliedTerm;
+
+            return null;
+        });
     }
 
     @Override
     public long persistedIndex() {
-        return lastAppliedIndex;
+        return busy(() -> lastAppliedIndex);
     }
 
     @Override
     public @Nullable RaftGroupConfiguration committedGroupConfiguration() {
-        return groupConfig;
+        return busy(() -> groupConfig);
     }
 
     @Override
     public void committedGroupConfiguration(RaftGroupConfiguration config) {
-        this.groupConfig = config;
+        busy(() -> {
+            groupConfig = config;
+
+            return null;
+        });
     }
 
     @Override
-    public void close() {
-        if (!STARTED.compareAndSet(this, true, false)) {
-            return;
-        }
-
-        closeBusyLock.block();
-
-        versionChainTree.close();
-        indexMetaTree.close();
-
-        for (PageMemoryHashIndexStorage hashIndexStorage : hashIndexes.values()) {
-            hashIndexStorage.close();
-        }
-
-        for (PageMemorySortedIndexStorage sortedIndexStorage : sortedIndexes.values()) {
-            sortedIndexStorage.close();
-        }
-
-        hashIndexes.clear();
-        sortedIndexes.clear();
+    void closeAdditionalResources() {
+        // No-op.
     }
 }

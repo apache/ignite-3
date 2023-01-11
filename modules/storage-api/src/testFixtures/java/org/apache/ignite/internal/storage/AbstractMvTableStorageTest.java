@@ -544,7 +544,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         }
     }
 
-    private void checkStorageDestroyed(MvPartitionStorage storage) throws Exception {
+    private void checkStorageDestroyed(MvPartitionStorage storage) {
         int partId = PARTITION_ID;
 
         assertThrows(StorageClosedException.class, () -> storage.runConsistently(() -> null));

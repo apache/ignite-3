@@ -263,7 +263,15 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
             }
 
             try {
-                // TODO: IGNITE-18029 реализовать
+                mvPartitionStorage
+                        .startRebalance()
+                        .whenComplete((unused, throwable) -> {
+                            if (throwable == null) {
+                                rebalanceFuture.complete(null);
+                            } else {
+                                rebalanceFuture.completeExceptionally(throwable);
+                            }
+                        });
             } catch (StorageRebalanceException t) {
                 rebalanceFuture.completeExceptionally(t);
 
@@ -299,9 +307,7 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
                     StorageRebalanceException::new
             );
 
-            return rebalanceFuture.thenAccept(unused -> {
-                // TODO: IGNITE-18029 реализовать
-            });
+            return rebalanceFuture.thenCompose(unused -> mvPartitionStorage.abortRebalance());
         });
     }
 
@@ -381,7 +387,7 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
     /**
      * Returns table name.
      */
-    protected String getTableName() {
+    public String getTableName() {
         return tableConfig.name().value();
     }
 }

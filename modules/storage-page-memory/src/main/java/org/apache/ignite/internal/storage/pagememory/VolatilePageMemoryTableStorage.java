@@ -68,13 +68,7 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
 
         IndexMetaTree indexMetaTree = createIndexMetaTree(partitionId, tableConfig.value());
 
-        return new VolatilePageMemoryMvPartitionStorage(
-                this,
-                tablesConfig,
-                partitionId,
-                versionChainTree,
-                indexMetaTree
-        );
+        return new VolatilePageMemoryMvPartitionStorage(this, partitionId, versionChainTree, indexMetaTree);
     }
 
     private IndexMetaTree createIndexMetaTree(int partitionId, TableView tableCfgView) {
