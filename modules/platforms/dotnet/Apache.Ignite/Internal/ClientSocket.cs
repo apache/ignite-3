@@ -287,7 +287,7 @@ namespace Apache.Ignite.Internal
             }
         }
 
-        private static ConnectionContext ReadHandshakeResponse(MessagePackReader reader, IPEndPoint endPoint)
+        private static ConnectionContext ReadHandshakeResponse(MsgPackReader reader, IPEndPoint endPoint)
         {
             var serverVer = new ClientProtocolVersion(reader.ReadInt16(), reader.ReadInt16(), reader.ReadInt16());
 
@@ -318,7 +318,7 @@ namespace Apache.Ignite.Internal
                 clusterId);
         }
 
-        private static IgniteException? ReadError(ref MessagePackReader reader)
+        private static IgniteException? ReadError(ref MsgPackReader reader)
         {
             if (reader.TryReadNil())
             {
@@ -328,8 +328,8 @@ namespace Apache.Ignite.Internal
             Guid traceId = reader.TryReadNil() ? Guid.NewGuid() : reader.ReadGuid();
             int code = reader.TryReadNil() ? 65537 : reader.ReadInt32();
             string className = reader.ReadString();
-            string? message = reader.ReadString();
-            string? javaStackTrace = reader.ReadString();
+            string? message = reader.ReadStringNullable();
+            string? javaStackTrace = reader.ReadStringNullable();
 
             return ExceptionMapper.GetException(traceId, code, className, message, javaStackTrace);
         }
@@ -584,7 +584,7 @@ namespace Apache.Ignite.Internal
             }
             else
             {
-                var resultBuffer = response.Slice((int)reader.Consumed);
+                var resultBuffer = response.Slice(reader.Consumed);
 
                 taskCompletionSource.SetResult(resultBuffer);
             }

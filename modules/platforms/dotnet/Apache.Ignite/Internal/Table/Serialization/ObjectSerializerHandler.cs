@@ -25,9 +25,9 @@ namespace Apache.Ignite.Internal.Table.Serialization
     using System.Linq;
     using System.Reflection;
     using System.Reflection.Emit;
-    using MessagePack;
     using Proto;
     using Proto.BinaryTuple;
+    using Proto.MsgPack;
 
     /// <summary>
     /// Object serializer handler.
@@ -51,7 +51,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
         private delegate TV ReadValuePartDelegate<TV>(ref BinaryTupleReader reader, TV key);
 
         /// <inheritdoc/>
-        public T Read(ref MessagePackReader reader, Schema schema, bool keyOnly = false)
+        public T Read(ref MsgPackReader reader, Schema schema, bool keyOnly = false)
         {
             var cacheKey = (schema.Version, keyOnly);
 
@@ -61,19 +61,19 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
             var columnCount = keyOnly ? schema.KeyColumnCount : schema.Columns.Count;
 
-            var binaryTupleReader = new BinaryTupleReader(reader.ReadBytesAsSpan(), columnCount);
+            var binaryTupleReader = new BinaryTupleReader(reader.ReadBinary(), columnCount);
 
             return readDelegate(ref binaryTupleReader);
         }
 
         /// <inheritdoc/>
-        public T ReadValuePart(ref MessagePackReader reader, Schema schema, T key)
+        public T ReadValuePart(ref MsgPackReader reader, Schema schema, T key)
         {
             var readDelegate = _valuePartReaders.TryGetValue(schema.Version, out var w)
                 ? w
                 : _valuePartReaders.GetOrAdd(schema.Version, EmitValuePartReader(schema));
 
-            var binaryTupleReader = new BinaryTupleReader(reader.ReadBytesAsSpan(), schema.ValueColumnCount);
+            var binaryTupleReader = new BinaryTupleReader(reader.ReadBinary(), schema.ValueColumnCount);
 
             return readDelegate(ref binaryTupleReader, key);
         }

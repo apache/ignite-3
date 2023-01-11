@@ -29,6 +29,7 @@ namespace Apache.Ignite.Internal.Sql
     using MessagePack;
     using Proto;
     using Proto.BinaryTuple;
+    using Proto.MsgPack;
 
     /// <summary>
     /// SQL result set.
@@ -222,7 +223,7 @@ namespace Apache.Ignite.Internal.Sql
             return EnumerateRows().GetAsyncEnumerator(cancellationToken);
         }
 
-        private static ResultSetMetadata ReadMeta(ref MessagePackReader reader)
+        private static ResultSetMetadata ReadMeta(ref MsgPackReader reader)
         {
             var size = reader.ReadArrayHeader();
 
@@ -254,9 +255,9 @@ namespace Apache.Ignite.Internal.Sql
             return new ResultSetMetadata(columns);
         }
 
-        private T ReadRow(IReadOnlyList<IColumnMetadata> cols, ref MessagePackReader reader)
+        private T ReadRow(IReadOnlyList<IColumnMetadata> cols, ref MsgPackReader reader)
         {
-            var tupleReader = new BinaryTupleReader(reader.ReadBytesAsSpan(), cols.Count);
+            var tupleReader = new BinaryTupleReader(reader.ReadBinary(), cols.Count);
 
             return _rowReader!(cols, ref tupleReader);
         }

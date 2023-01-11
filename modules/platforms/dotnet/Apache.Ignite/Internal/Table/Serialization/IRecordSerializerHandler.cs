@@ -21,6 +21,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
     using MessagePack;
     using Proto;
     using Proto.BinaryTuple;
+    using Proto.MsgPack;
 
     /// <summary>
     /// Serializer handler.
@@ -35,7 +36,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// <param name="schema">Schema.</param>
         /// <param name="keyOnly">Key only mode.</param>
         /// <returns>Record.</returns>
-        T Read(ref MessagePackReader reader, Schema schema, bool keyOnly = false);
+        T Read(ref MsgPackReader reader, Schema schema, bool keyOnly = false);
 
         /// <summary>
         /// Reads the value part and combines with the specified key part into a new object.
@@ -44,7 +45,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// <param name="schema">Schema.</param>
         /// <param name="key">Key part.</param>
         /// <returns>Resulting record with key and value parts.</returns>
-        T ReadValuePart(ref MessagePackReader reader, Schema schema, T key);
+        T ReadValuePart(ref MsgPackReader reader, Schema schema, T key);
 
         /// <summary>
         /// Writes a record.

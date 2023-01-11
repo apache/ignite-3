@@ -19,9 +19,8 @@ namespace Apache.Ignite.Internal.Table.Serialization;
 
 using System;
 using Ignite.Table;
-using MessagePack;
-using Proto;
 using Proto.BinaryTuple;
+using Proto.MsgPack;
 
 /// <summary>
 /// Serializer handler for <see cref="IIgniteTuple"/>.
@@ -42,13 +41,13 @@ internal class TuplePairSerializerHandler : IRecordSerializerHandler<KvPair<IIgn
     }
 
     /// <inheritdoc/>
-    public KvPair<IIgniteTuple, IIgniteTuple> Read(ref MessagePackReader reader, Schema schema, bool keyOnly = false)
+    public KvPair<IIgniteTuple, IIgniteTuple> Read(ref MsgPackReader reader, Schema schema, bool keyOnly = false)
     {
         var columns = schema.Columns;
         var count = keyOnly ? schema.KeyColumnCount : columns.Count;
         var keyTuple = new IgniteTuple(count);
         var valTuple = keyOnly ? null! : new IgniteTuple(schema.ValueColumnCount);
-        var tupleReader = new BinaryTupleReader(reader.ReadBytesAsSpan(), count);
+        var tupleReader = new BinaryTupleReader(reader.ReadBinary(), count);
 
         for (var index = 0; index < count; index++)
         {
@@ -62,11 +61,11 @@ internal class TuplePairSerializerHandler : IRecordSerializerHandler<KvPair<IIgn
     }
 
     /// <inheritdoc/>
-    public KvPair<IIgniteTuple, IIgniteTuple> ReadValuePart(ref MessagePackReader reader, Schema schema, KvPair<IIgniteTuple, IIgniteTuple> key)
+    public KvPair<IIgniteTuple, IIgniteTuple> ReadValuePart(ref MsgPackReader reader, Schema schema, KvPair<IIgniteTuple, IIgniteTuple> key)
     {
         var columns = schema.Columns;
         var tuple = new IgniteTuple(columns.Count);
-        var tupleReader = new BinaryTupleReader(reader.ReadBytesAsSpan(), schema.ValueColumnCount);
+        var tupleReader = new BinaryTupleReader(reader.ReadBinary(), schema.ValueColumnCount);
 
         for (var i = schema.KeyColumnCount; i < columns.Count; i++)
         {

@@ -27,6 +27,7 @@ namespace Apache.Ignite.Internal.Table
     using Ignite.Transactions;
     using MessagePack;
     using Proto;
+    using Proto.MsgPack;
     using Serialization;
     using Sql;
 
@@ -294,7 +295,7 @@ namespace Apache.Ignite.Internal.Table
         /// </summary>
         /// <param name="r">Reader.</param>
         /// <returns>Schema.</returns>
-        private Schema ReadSchema(ref MessagePackReader r)
+        private Schema ReadSchema(ref MsgPackReader r)
         {
             var schemaVersion = r.ReadInt32();
             var columnCount = r.ReadArrayHeader();

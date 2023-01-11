@@ -61,18 +61,11 @@ namespace Apache.Ignite.Internal.Buffers
         }
 
         /// <summary>
-        /// Gets a <see cref="MessagePackReader"/> for this buffer.
-        /// </summary>
-        /// <param name="offset">Offset.</param>
-        /// <returns><see cref="MessagePackReader"/> for this buffer.</returns>
-        public MessagePackReader GetReader(int offset = 0) => new(AsMemory(offset));
-
-        /// <summary>
         /// Gets a <see cref="MsgPackReader"/> for this buffer.
         /// </summary>
         /// <param name="offset">Offset.</param>
         /// <returns><see cref="MsgPackReader"/> for this buffer.</returns>
-        public MsgPackReader GetReader2(int offset = 0) => new(_bytes.AsSpan(_position + offset, _length - offset));
+        public MsgPackReader GetReader(int offset = 0) => new(_bytes.AsSpan(_position + offset, _length - offset));
 
         /// <summary>
         /// Gets this buffer contents as memory.

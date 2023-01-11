@@ -20,7 +20,6 @@ namespace Apache.Ignite.Internal.Proto.MsgPack;
 using System;
 using System.Buffers.Binary;
 using System.IO;
-using System.Text;
 
 /// <summary>
 /// MsgPack reader.
@@ -41,6 +40,16 @@ internal ref struct MsgPackReader
         _span = span;
         _pos = 0;
     }
+
+    /// <summary>
+    /// Gets the number of consumed bytes.
+    /// </summary>
+    public int Consumed => _pos;
+
+    /// <summary>
+    /// Gets a value indicating whether the end of the underlying buffer is reached.
+    /// </summary>
+    public bool End => _pos >= _span.Length;
 
     /// <summary>
     /// Reads nil if it is the next token.
@@ -70,6 +79,22 @@ internal ref struct MsgPackReader
         };
 
     /// <summary>
+    /// Reads a short value.
+    /// </summary>
+    /// <returns>The value.</returns>
+    public short ReadInt16() =>
+        _span[_pos++] switch
+        {
+            var code and >= MsgPackCode.MinNegativeFixInt and <= MsgPackCode.MaxNegativeFixInt => unchecked((sbyte)code),
+            var code and >= MsgPackCode.MinFixInt and <= MsgPackCode.MaxFixInt => code,
+            MsgPackCode.UInt8 => _span[_pos++],
+            MsgPackCode.Int8 => unchecked((sbyte)_span[_pos++]),
+            MsgPackCode.UInt16 => checked((short)BinaryPrimitives.ReadUInt16BigEndian(GetSpan(2))),
+            MsgPackCode.Int16 => BinaryPrimitives.ReadInt16BigEndian(GetSpan(2)),
+            var invalid => throw GetInvalidCodeException("int32", invalid)
+        };
+
+    /// <summary>
     /// Reads an int value.
     /// </summary>
     /// <returns>The value.</returns>
@@ -86,6 +111,12 @@ internal ref struct MsgPackReader
             MsgPackCode.Int32 => BinaryPrimitives.ReadInt32BigEndian(GetSpan(4)),
             var invalid => throw GetInvalidCodeException("int32", invalid)
         };
+
+    /// <summary>
+    /// Reads int or null.
+    /// </summary>
+    /// <returns>Nullable int.</returns>
+    public int? ReadInt32Nullable() => TryReadNil() ? null : ReadInt32();
 
     /// <summary>
     /// Reads a long value.
@@ -141,6 +172,12 @@ internal ref struct MsgPackReader
     public string ReadString() => ProtoCommon.StringEncoding.GetString(GetSpan(ReadStringHeader()));
 
     /// <summary>
+    /// Reads string value.
+    /// </summary>
+    /// <returns>String.</returns>
+    public string? ReadStringNullable() => TryReadNil() ? null : ReadString();
+
+    /// <summary>
     /// Reads binary header.
     /// </summary>
     /// <returns>Binary size.</returns>
@@ -170,6 +207,16 @@ internal ref struct MsgPackReader
         CheckCode(nameof(ClientMessagePackType.Uuid), (byte)ClientMessagePackType.Uuid);
 
         return UuidSerializer.Read(GetSpan(16));
+    }
+
+    /// <summary>
+    /// Skips a value.
+    /// </summary>
+    public void Skip()
+    {
+        // TODO: Proper skip based on type
+        // Support only relevant types?
+        _pos++;
     }
 
     private static InvalidDataException GetInvalidCodeException(string expected, byte code) =>
