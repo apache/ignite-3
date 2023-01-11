@@ -32,6 +32,7 @@ import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -90,5 +91,21 @@ public class PersistentPageMemoryMvTableStorageTest extends AbstractMvTableStora
                 .get(1, TimeUnit.SECONDS);
     }
 
-    // TODO: IGNITE-18029 не забыть написать тест на персистентность все что связанно с ребалансом, думаю даже скорее универсально
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18029")
+    @Override
+    public void testSuccessRebalance() throws Exception {
+        super.testSuccessRebalance();
+    }
+
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18029")
+    @Override
+    public void testFailRebalance() throws Exception {
+        super.testFailRebalance();
+    }
+
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18029")
+    @Override
+    public void testStartRebalanceForClosedPartition() {
+        super.testStartRebalanceForClosedPartition();
+    }
 }

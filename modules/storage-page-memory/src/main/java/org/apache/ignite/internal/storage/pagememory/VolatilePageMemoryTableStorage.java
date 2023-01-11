@@ -43,16 +43,15 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
     /**
      * Constructor.
      *
-     * @param tableConfig Table configuration.
-     * @param tablesConfig Tables configuration.
-     * @param dataRegion Data region for the table.
+     * @param tableCfg – Table configuration.
+     * @param dataRegion – Data region for the table.
      */
     public VolatilePageMemoryTableStorage(
-            TableConfiguration tableConfig,
-            TablesConfiguration tablesConfig,
+            TableConfiguration tableCfg,
+            TablesConfiguration tablesCfg,
             VolatilePageMemoryDataRegion dataRegion
     ) {
-        super(tableConfig, tablesConfig);
+        super(tableCfg, tablesCfg);
 
         this.dataRegion = dataRegion;
     }
@@ -64,13 +63,13 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
 
     @Override
     public VolatilePageMemoryMvPartitionStorage createMvPartitionStorage(int partitionId) throws StorageException {
-        VersionChainTree versionChainTree = createVersionChainTree(partitionId, tableConfig.value());
+        VersionChainTree versionChainTree = createVersionChainTree(partitionId, tableCfg.value());
 
-        IndexMetaTree indexMetaTree = createIndexMetaTree(partitionId, tableConfig.value());
+        IndexMetaTree indexMetaTree = createIndexMetaTree(partitionId, tableCfg.value());
 
         return new VolatilePageMemoryMvPartitionStorage(
                 this,
-                tablesConfig,
+                tablesConfiguration,
                 partitionId,
                 versionChainTree,
                 indexMetaTree
@@ -150,21 +149,18 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
     @Override
     public CompletableFuture<Void> startRebalancePartition(int partitionId) {
         // TODO: IGNITE-18028 Implement
-        // TODO: IGNITE-18029 может получиться сделать по общему!
         throw new UnsupportedOperationException();
     }
 
     @Override
     public CompletableFuture<Void> abortRebalancePartition(int partitionId) {
         // TODO: IGNITE-18028 Implement
-        // TODO: IGNITE-18029 может получиться сделать по общему!
         throw new UnsupportedOperationException();
     }
 
     @Override
     public CompletableFuture<Void> finishRebalancePartition(int partitionId, long lastAppliedIndex, long lastAppliedTerm) {
         // TODO: IGNITE-18028 Implement
-        // TODO: IGNITE-18029 может получиться сделать по общему!
         throw new UnsupportedOperationException();
     }
 

@@ -17,27 +17,35 @@
 
 package org.apache.ignite.internal.storage;
 
-import org.apache.ignite.lang.ErrorGroups.Storage;
-
 /**
  * Exception that will be thrown when the storage is in the process of rebalance.
  */
 public class StorageRebalanceException extends StorageException {
-    private static final long serialVersionUID = 221806263716864139L;
-
-    /**
-     * Default constructor.
-     */
-    public StorageRebalanceException() {
-        this("Storage in the process of rebalancing");
-    }
-
     /**
      * Constructor.
      *
      * @param message Error message.
      */
     public StorageRebalanceException(String message) {
-        super(Storage.STORAGE_REBALANCE_ERR, message);
+        super(message);
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param message Error message.
+     * @param cause The cause.
+     */
+    public StorageRebalanceException(String message, Throwable cause) {
+        super(message, cause);
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param cause The cause.
+     */
+    public StorageRebalanceException(Throwable cause) {
+        super(cause);
     }
 }

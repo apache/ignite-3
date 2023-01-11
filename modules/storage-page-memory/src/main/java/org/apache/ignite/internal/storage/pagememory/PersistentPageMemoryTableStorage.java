@@ -65,17 +65,16 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
      * Constructor.
      *
      * @param engine Storage engine instance.
-     * @param tableConfig Table configuration.
-     * @param tablesConfig Tables configuration.
+     * @param tableCfg Table configuration.
      * @param dataRegion Data region for the table.
      */
     public PersistentPageMemoryTableStorage(
             PersistentPageMemoryStorageEngine engine,
-            TableConfiguration tableConfig,
-            TablesConfiguration tablesConfig,
-            PersistentPageMemoryDataRegion dataRegion
+            TableConfiguration tableCfg,
+            PersistentPageMemoryDataRegion dataRegion,
+            TablesConfiguration tablesCfg
     ) {
-        super(tableConfig, tablesConfig);
+        super(tableCfg, tablesCfg);
 
         this.engine = engine;
         this.dataRegion = dataRegion;
@@ -105,7 +104,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
         List<CompletableFuture<Void>> destroyFutures = new ArrayList<>();
 
         for (int i = 0; i < mvPartitions.length(); i++) {
-            CompletableFuture<Void> destroyPartitionFuture = destroyFutureByPartitionId.get(i);
+            CompletableFuture<Void> destroyPartitionFuture = partitionIdDestroyFutureMap.get(i);
 
             if (destroyPartitionFuture != null) {
                 destroyFutures.add(destroyPartitionFuture);
@@ -118,7 +117,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
             }
         }
 
-        int tableId = tableConfig.tableId().value();
+        int tableId = tableCfg.tableId().value();
 
         if (destroyFutures.isEmpty()) {
             dataRegion.pageMemory().onGroupDestroyed(tableId);
@@ -136,7 +135,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
 
     @Override
     public PersistentPageMemoryMvPartitionStorage createMvPartitionStorage(int partitionId) {
-        CompletableFuture<Void> partitionDestroyFuture = destroyFutureByPartitionId.get(partitionId);
+        CompletableFuture<Void> partitionDestroyFuture = partitionIdDestroyFutureMap.get(partitionId);
 
         if (partitionDestroyFuture != null) {
             try {
@@ -147,7 +146,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
             }
         }
 
-        TableView tableView = tableConfig.value();
+        TableView tableView = tableCfg.value();
 
         GroupPartitionId groupPartitionId = new GroupPartitionId(tableView.tableId(), partitionId);
 
@@ -191,7 +190,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
                     indexColumnsFreeList,
                     versionChainTree,
                     indexMetaTree,
-                    tablesConfig
+                    tablesConfiguration
             );
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException(
@@ -440,6 +439,24 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
     }
 
     @Override
+    public CompletableFuture<Void> startRebalancePartition(int partitionId) {
+        // TODO: IGNITE-18029 Implement
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public CompletableFuture<Void> abortRebalancePartition(int partitionId) {
+        // TODO: IGNITE-18029 Implement
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public CompletableFuture<Void> finishRebalancePartition(int partitionId, long lastAppliedIndex, long lastAppliedTerm) {
+        // TODO: IGNITE-18029 Implement
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     CompletableFuture<Void> destroyMvPartitionStorage(AbstractPageMemoryMvPartitionStorage mvPartitionStorage) {
         int partitionId = mvPartitionStorage.partitionId();
 
@@ -448,7 +465,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
 
         mvPartitionStorage.close();
 
-        int tableId = tableConfig.tableId().value();
+        int tableId = tableCfg.tableId().value();
 
         GroupPartitionId groupPartitionId = new GroupPartitionId(tableId, partitionId);
 

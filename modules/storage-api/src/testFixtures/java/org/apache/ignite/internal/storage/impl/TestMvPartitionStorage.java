@@ -563,7 +563,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
     private void checkStorageInProcessOfRebalance() {
         if (rebalance) {
-            throw new StorageRebalanceException();
+            throw new StorageRebalanceException("Storage in the process of rebalancing");
         }
     }
 
