@@ -122,6 +122,24 @@ public class MsgPackReaderTests
     }
 
     [Test]
+    public void TestReadInt64()
+    {
+        foreach (var val in GetNumbers())
+        {
+            var res = WriteRead(
+                buf =>
+                {
+                    var w = buf.GetMessageWriter();
+                    w.Write(val);
+                    w.Flush();
+                },
+                m => new MsgPackReader(m.Span).ReadInt64());
+
+            Assert.AreEqual(val, res);
+        }
+    }
+
+    [Test]
     public void TestReadInt32()
     {
         foreach (var val in GetNumbers(int.MaxValue - 1))
@@ -134,6 +152,24 @@ public class MsgPackReaderTests
                     w.Flush();
                 },
                 m => new MsgPackReader(m.Span).ReadInt32());
+
+            Assert.AreEqual(val, res);
+        }
+    }
+
+    [Test]
+    public void TestReadInt16()
+    {
+        foreach (var val in GetNumbers(short.MaxValue - 1))
+        {
+            var res = WriteRead(
+                buf =>
+                {
+                    var w = buf.GetMessageWriter();
+                    w.Write(val);
+                    w.Flush();
+                },
+                m => new MsgPackReader(m.Span).ReadInt16());
 
             Assert.AreEqual(val, res);
         }
@@ -241,7 +277,7 @@ public class MsgPackReaderTests
     {
         yield return 0;
 
-        for (int i = 1; i < 60; i++)
+        for (int i = 1; i < 63; i++)
         {
             var num = 1 << i;
 
