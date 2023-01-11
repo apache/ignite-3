@@ -19,6 +19,7 @@ namespace Apache.Ignite.Tests.Proto.MsgPack;
 
 using System;
 using System.Buffers;
+using System.Collections.Generic;
 using System.Linq;
 using Internal.Buffers;
 using Internal.Proto;
@@ -103,7 +104,7 @@ public class MsgPackReaderTests
     }
 
     [Test]
-    public void TestString()
+    public void TestReadStringNullable()
     {
         foreach (var val in TestStrings)
         {
@@ -111,11 +112,28 @@ public class MsgPackReaderTests
                 buf =>
                 {
                     var w = buf.GetMessageWriter();
-
                     w.Write(val);
                     w.Flush();
                 },
                 m => new MsgPackReader(m.Span).ReadStringNullable());
+
+            Assert.AreEqual(val, res);
+        }
+    }
+
+    [Test]
+    public void TestReadInt32()
+    {
+        foreach (var val in GetNumbers(int.MaxValue - 1))
+        {
+            var res = WriteRead(
+                buf =>
+                {
+                    var w = buf.GetMessageWriter();
+                    w.Write(val);
+                    w.Flush();
+                },
+                m => new MsgPackReader(m.Span).ReadInt32());
 
             Assert.AreEqual(val, res);
         }
@@ -217,5 +235,28 @@ public class MsgPackReaderTests
 
         var mem = bufferWriter.GetWrittenMemory();
         return read(mem);
+    }
+
+    private static IEnumerable<long> GetNumbers(long max = long.MaxValue, bool unsignedOnly = false)
+    {
+        yield return 0;
+
+        for (int i = 1; i < 60; i++)
+        {
+            var num = 1 << i;
+
+            if (num > max)
+            {
+                yield break;
+            }
+
+            yield return num - 1;
+            yield return num;
+
+            if (!unsignedOnly)
+            {
+                yield return -num;
+            }
+        }
     }
 }
