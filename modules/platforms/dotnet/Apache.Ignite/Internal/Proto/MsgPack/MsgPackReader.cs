@@ -180,7 +180,7 @@ internal ref struct MsgPackReader
             MsgPackCode.Str8 => _span[_pos++],
             MsgPackCode.Str16 => BinaryPrimitives.ReadUInt16BigEndian(GetSpan(2)),
             MsgPackCode.Str32 => checked((int)BinaryPrimitives.ReadUInt32BigEndian(GetSpan(4))),
-            var invalid => throw GetInvalidCodeException("binary", invalid)
+            var invalid => throw GetInvalidCodeException("string", invalid)
         };
 
     /// <summary>

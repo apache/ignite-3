@@ -30,6 +30,7 @@ namespace Apache.Ignite.Tests
     using Internal.Network;
     using Internal.Proto;
     using Internal.Proto.BinaryTuple;
+    using Internal.Proto.MsgPack;
     using MessagePack;
     using Network;
 
@@ -222,7 +223,7 @@ namespace Apache.Ignite.Tests
             Send(handler, requestId, arrayBufferWriter);
         }
 
-        private void SqlExec(Socket handler, long requestId, MessagePackReader reader)
+        private void SqlExec(Socket handler, long requestId, MsgPackReader reader)
         {
             var props = new Dictionary<string, object?>();
 
@@ -241,7 +242,7 @@ namespace Apache.Ignite.Tests
 
             // ReSharper restore RedundantCast
             var propCount = reader.ReadInt32();
-            var propTuple = new BinaryTupleReader(reader.ReadBytesAsSpan(), propCount * 4);
+            var propTuple = new BinaryTupleReader(reader.ReadBinary(), propCount * 4);
 
             for (int i = 0; i < propCount; i++)
             {
@@ -331,7 +332,7 @@ namespace Apache.Ignite.Tests
             Send(handler, requestId, arrayBufferWriter);
         }
 
-        private void GetSchemas(MessagePackReader reader, Socket handler, long requestId)
+        private void GetSchemas(MsgPackReader reader, Socket handler, long requestId)
         {
             var tableId = reader.ReadGuid();
 
@@ -464,7 +465,7 @@ namespace Apache.Ignite.Tests
                         break;
                     }
 
-                    var reader = new MessagePackReader(msg.AsMemory());
+                    var reader = new MsgPackReader(msg.AsMemory().Span);
                     var opCode = (ClientOp)reader.ReadInt32();
                     var requestId = reader.ReadInt64();
 

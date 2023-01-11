@@ -19,11 +19,9 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
 {
     using System.Diagnostics.CodeAnalysis;
     using BenchmarkDotNet.Attributes;
-    using Internal.Proto;
     using Internal.Proto.BinaryTuple;
     using Internal.Proto.MsgPack;
     using Internal.Table.Serialization;
-    using MessagePack;
 
     /// <summary>
     /// Benchmarks for <see cref="IRecordSerializerHandler{T}.Read"/> implementations.
@@ -58,8 +56,8 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
         [Benchmark(Baseline = true)]
         public void ReadObjectManual()
         {
-            var reader = new MessagePackReader(SerializedData);
-            var tupleReader = new BinaryTupleReader(reader.ReadBytesAsSpan(), 3);
+            var reader = new MsgPackReader(SerializedData);
+            var tupleReader = new BinaryTupleReader(reader.ReadBinary(), 3);
 
             var res = new Car
             {
