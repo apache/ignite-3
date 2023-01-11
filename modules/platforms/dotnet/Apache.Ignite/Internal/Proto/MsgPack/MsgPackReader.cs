@@ -57,10 +57,27 @@ internal ref struct MsgPackReader
     }
 
     /// <summary>
+    /// Reads an int value.
+    /// </summary>
+    /// <returns>The value.</returns>
+    public int ReadInt32() =>
+        _span[_pos++] switch
+        {
+            var code and >= MsgPackCode.MinNegativeFixInt and <= MsgPackCode.MaxNegativeFixInt => unchecked((sbyte)code),
+            var code and >= MsgPackCode.MinFixInt and <= MsgPackCode.MaxFixInt => code,
+            MsgPackCode.UInt8 => _span[_pos++],
+            MsgPackCode.Int8 => unchecked((sbyte)_span[_pos++]),
+            MsgPackCode.UInt16 => BinaryPrimitives.ReadUInt16BigEndian(GetSpan(2)),
+            MsgPackCode.Int16 => BinaryPrimitives.ReadInt16BigEndian(GetSpan(2)),
+            MsgPackCode.UInt32 => checked((int)BinaryPrimitives.ReadUInt32BigEndian(GetSpan(4))),
+            MsgPackCode.Int32 => BinaryPrimitives.ReadInt32BigEndian(GetSpan(4)),
+            var invalid => throw GetInvalidCodeException(invalid)
+        };
+
+    /// <summary>
     /// Reads a long value.
     /// </summary>
     /// <returns>The value.</returns>
-    /// <exception cref="OverflowException">Thrown when the value exceeds what can be stored in the returned type.</exception>
     public long ReadInt64() =>
         _span[_pos++] switch
         {
