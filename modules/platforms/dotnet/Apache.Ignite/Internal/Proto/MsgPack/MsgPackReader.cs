@@ -63,7 +63,7 @@ internal ref struct MsgPackReader
     {
         var code = _span[_pos++];
 
-        if (MsgPackCode.IsFixArray(code))
+        if (MsgPackCode.IsFixArr(code))
         {
             return code & 0x0F;
         }
