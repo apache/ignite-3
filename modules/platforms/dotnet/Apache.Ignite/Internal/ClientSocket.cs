@@ -32,6 +32,7 @@ namespace Apache.Ignite.Internal
     using MessagePack;
     using Network;
     using Proto;
+    using Proto.MsgPack;
 
     /// <summary>
     /// Wrapper over framework socket for Ignite thin client operations.
@@ -483,8 +484,8 @@ namespace Apache.Ignite.Internal
             try
             {
                 var prefixMem = _prefixBuffer.AsMemory()[4..];
-                var prefixSize = MessagePackUtil.WriteUnsigned(prefixMem, (int)op);
-                prefixSize += MessagePackUtil.WriteUnsigned(prefixMem[prefixSize..], requestId);
+                var prefixSize = MsgPackWriter.WriteUnsigned(prefixMem, (int)op);
+                prefixSize += MsgPackWriter.WriteUnsigned(prefixMem[prefixSize..], requestId);
 
                 if (request != null)
                 {
