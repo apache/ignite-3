@@ -59,13 +59,23 @@ public class GradualTaskExecutor implements ManuallyCloseable {
             public void run() {
                 try {
                     if (cancelled) {
-                        throw new CancellationException("The executor has been closed");
+                        future.completeExceptionally(new CancellationException("The executor has been closed"));
+
+                        return;
+                    }
+
+                    if (task.isCompleted()) {
+                        future.complete(null);
+
+                        return;
                     }
 
                     task.runStep();
 
                     if (task.isCompleted()) {
                         future.complete(null);
+                    } else if (cancelled) {
+                        future.completeExceptionally(new CancellationException("The executor has been closed"));
                     } else {
                         executor.execute(this);
                     }
