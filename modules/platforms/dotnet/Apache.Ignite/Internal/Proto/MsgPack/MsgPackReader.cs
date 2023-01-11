@@ -41,6 +41,21 @@ internal ref struct MsgPackReader
     }
 
     /// <summary>
+    /// Reads nil if it is the next token.
+    /// </summary>
+    /// <returns><c>true</c> if the next token was nil; <c>false</c> otherwise.</returns>
+    public bool TryReadNil()
+    {
+        if (_span[_pos] == MsgPackCode.Nil)
+        {
+            _pos++;
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
     /// Reads array header.
     /// </summary>
     /// <returns>Array size.</returns>
