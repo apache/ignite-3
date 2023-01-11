@@ -86,14 +86,5 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
 
             Consumer.Consume(res);
         }
-
-        // [Benchmark]
-        // public void ReadObjectOld()
-        // {
-        //     var reader = new MessagePackReader(SerializedData);
-        //     var res = ObjectSerializerHandlerOld.Read(ref reader, Schema);
-        //
-        //     Consumer.Consume(res);
-        // }
     }
 }
