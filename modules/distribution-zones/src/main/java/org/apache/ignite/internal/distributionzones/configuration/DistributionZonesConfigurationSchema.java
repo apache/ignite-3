@@ -17,10 +17,16 @@
 
 package org.apache.ignite.internal.distributionzones.configuration;
 
+import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_ID;
+import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_NAME;
+
+import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.apache.ignite.configuration.annotation.Name;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.configuration.validation.ExceptKeys;
 
 /**
  * Distribution zones configuration schema.
@@ -29,9 +35,15 @@ import org.apache.ignite.configuration.annotation.Value;
 public class DistributionZonesConfigurationSchema {
     /** Global integer id counter. Used as an auto-increment counter to generate integer identifiers for distribution zone. */
     @Value(hasDefault = true)
-    public int globalIdCounter = 0;
+    public int globalIdCounter = DEFAULT_ZONE_ID;
 
-    /** List of configured distribution zones. */
+    /** Default distribution zone. */
+    @Name(DEFAULT_ZONE_NAME)
+    @ConfigValue
+    public DistributionZoneConfigurationSchema defaultDistributionZone;
+
+    /** Other distribution zones. */
+    @ExceptKeys(DEFAULT_ZONE_NAME)
     @NamedConfigValue
     public DistributionZoneConfigurationSchema distributionZones;
 }
